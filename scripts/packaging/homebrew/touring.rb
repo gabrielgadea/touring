@@ -17,19 +17,12 @@ class Touring < Formula
   license "Apache-2.0 OR MIT"
   version "30.3.0"   # bumped by release-plz on each tag
 
-  # Targets mirror the release.yml build matrix (F5, 2026-07-24). macOS Intel
-  # and Linux ARM are W14 matrix-expansion territory — do not list artifacts
-  # the pipeline does not produce.
-  on_macos do
-    on_arm do
-      url "https://releases.touring.dev/30.3.0/touring-aarch64-apple-darwin.tar.gz"
-      sha256 "PLACEHOLDER_REPLACED_BY_RELEASE_PIPELINE"
-    end
-  end
-
+  # Targets mirror the release.yml build matrix (F5, 2026-07-24): linux-gnu
+  # x86_64 only. macOS (eBPF target-gating) + musl (C++ cross toolchain) are
+  # W14 matrix expansion — do not list artifacts the pipeline does not produce.
   on_linux do
     on_intel do
-      url "https://releases.touring.dev/30.3.0/touring-x86_64-unknown-linux-musl.tar.gz"
+      url "https://releases.touring.dev/30.3.0/touring-x86_64-unknown-linux-gnu.tar.gz"
       sha256 "PLACEHOLDER_REPLACED_BY_RELEASE_PIPELINE"
     end
   end

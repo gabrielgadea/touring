@@ -99,12 +99,11 @@ case "$ARCH" in
         exit 1
         ;;
 esac
-# Must mirror the release.yml build matrix exactly.
+# Must mirror the release.yml build matrix exactly (W14 expands to musl/darwin).
 case "${OS_NAME}-${ARCH}" in
-    linux-x86_64)   TARGET_TRIPLE="x86_64-unknown-linux-musl" ;;
-    darwin-aarch64) TARGET_TRIPLE="aarch64-apple-darwin" ;;
+    linux-x86_64)   TARGET_TRIPLE="x86_64-unknown-linux-gnu" ;;
     *)
-        printf 'install.touring.dev: no release artifact for "%s-%s" (build matrix: linux-x86_64, darwin-aarch64)\n' "$OS_NAME" "$ARCH" >&2
+        printf 'install.touring.dev: no release artifact for "%s-%s" yet (current matrix: linux-x86_64; macOS/musl land with W14)\n' "$OS_NAME" "$ARCH" >&2
         exit 1
         ;;
 esac
