@@ -1,0 +1,446 @@
+{
+ "meta": {
+  "root": "touring-hooks-core",
+  "slug": "--json",
+  "bin": "/home/gabrielgadea/.claude/rust/target/release/touring-quality",
+  "schema": "complete-raw",
+  "file_scopes": 0,
+  "path_scopes": 0,
+  "scope_artifact_dims": [
+   "F3_10",
+   "F3_11",
+   "F3_13",
+   "F4_7"
+  ]
+ },
+ "aggregate": {
+  "scope_kind": "crate",
+  "root": "touring-hooks-core",
+  "file_count": 1,
+  "total_loc": 0,
+  "dimensions": {
+   "F1_1": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_2": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_3": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "scope-native verifier error: failed to read touring-hooks-core: No such file or directory (os error 2)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_4": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_5": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_6": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_7": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_8": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "scope-native verifier error: failed to read touring-hooks-core: No such file or directory (os error 2)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_9": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_10": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_11": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_12": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_1": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_2": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "worst-of 1 files: touring-hooks-core = 0.000",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_3": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "worst-of 1 files: touring-hooks-core = 0.000",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_4": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_5": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F2.5: not a Cargo project \u2014 RustSec advisory scan does not apply (excluded from composite)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+    ],
+    "latency_ms": 0
+   },
+   "F2_6": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "scope-native verifier error: failed to read touring-hooks-core: No such file or directory (os error 2)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_7": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_8": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_9": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_10": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_11": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_12": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_13": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_1": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_2": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_3": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "scope-native verifier error: failed to read touring-hooks-core: No such file or directory (os error 2)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_4": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_5": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_6": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "scope-native verifier error: failed to read touring-hooks-core: No such file or directory (os error 2)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_7": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "scope-native verifier error: failed to read touring-hooks-core: No such file or directory (os error 2)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_8": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_9": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_10": {
+    "value": 0.3,
+    "status": "Fail",
+    "evidence": "F3.10: no matching artifact found in scope \u2014 repository lacks it (absent-artifact cap, not diluted density)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F3_11": {
+    "value": 0.3,
+    "status": "Fail",
+    "evidence": "F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F3_12": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_13": {
+    "value": 0.3,
+    "status": "Fail",
+    "evidence": "F3.13: no matching artifact found in scope \u2014 repository lacks it (absent-artifact cap, not diluted density)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_1": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_2": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_3": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "worst-of 1 files: touring-hooks-core = 0.000",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_4": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_5": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_6": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_7": {
+    "value": 0.3,
+    "status": "Fail",
+    "evidence": "F4.7: no matching artifact found in scope \u2014 repository lacks it (absent-artifact cap, not diluted density)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_8": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_9": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_10": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "LOC-weighted over 1 files: 0.000 (worst touring-hooks-core=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_11": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+    "suggestions": [
+     "Edit tool --path touring-hooks-core --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_12": {
+    "value": 0.0,
+    "status": "Fail",
+    "evidence": "scope-native verifier error: failed to read touring-hooks-core: No such file or directory (os error 2)",
+    "suggestions": [],
+    "latency_ms": 0
+   }
+  },
+  "composite": 0.0016160258,
+  "tier": "Unranked",
+  "blockers": [
+   "F1_1",
+   "F1_2",
+   "F1_3",
+   "F1_4",
+   "F1_5",
+   "F1_6",
+   "F1_7",
+   "F1_8",
+   "F1_9",
+   "F1_10",
+   "F1_11",
+   "F1_12",
+   "F2_1",
+   "F2_2",
+   "F2_3",
+   "F2_4",
+   "F2_6",
+   "F2_7",
+   "F2_8",
+   "F2_9",
+   "F2_10",
+   "F2_11",
+   "F2_12",
+   "F2_13",
+   "F3_1",
+   "F3_2",
+   "F3_3",
+   "F3_4",
+   "F3_5",
+   "F3_6",
+   "F3_7",
+   "F3_8",
+   "F3_9",
+   "F3_10",
+   "F3_11",
+   "F3_12",
+   "F3_13",
+   "F4_1",
+   "F4_2",
+   "F4_3",
+   "F4_4",
+   "F4_7",
+   "F4_10",
+   "F4_12"
+  ],
+  "warnings": [],
+  "schema_version": 1
+ },
+ "files": [],
+ "paths": []
+}

@@ -1,0 +1,10 @@
+---
+source: crates/touring-ast/tests/snapshot_complexity.rs
+expression: result
+---
+- - branching
+  - 9
+- - loops
+  - 4
+- - simple
+  - 1

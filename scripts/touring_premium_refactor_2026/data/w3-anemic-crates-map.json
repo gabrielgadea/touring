@@ -1,0 +1,598 @@
+{
+  "script": "w3_absorve_anemic_crates",
+  "wave": "W3",
+  "subtask_refs": [
+    "W3.2"
+  ],
+  "timestamp": "2026-05-11T23:50:23.247605+00:00",
+  "thresholds": {
+    "max_loc": 500,
+    "max_pub": 10,
+    "max_fan_in": 2
+  },
+  "totals": {
+    "audited": 45,
+    "anemic": 6,
+    "allow_listed": 0
+  },
+  "anemic_crates": [
+    {
+      "crate": "touring-integration-tests",
+      "src_loc": 6,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-loom-proofs",
+      "src_loc": 11,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-semantic-spike",
+      "src_loc": 67,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-wasm-client",
+      "src_loc": 0,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-wasm-common",
+      "src_loc": 0,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-wasm-server",
+      "src_loc": 0,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    }
+  ],
+  "all_audits": [
+    {
+      "crate": "touring-activity",
+      "src_loc": 785,
+      "pub_count": 34,
+      "fan_in": 2,
+      "consumers": [
+        "touring-hooks",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-analysis",
+      "src_loc": 14723,
+      "pub_count": 335,
+      "fan_in": 6,
+      "consumers": [
+        "touring-cognitive",
+        "touring-cortex",
+        "touring-generator",
+        "touring-hooks",
+        "touring-integration-tests",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-antt",
+      "src_loc": 5203,
+      "pub_count": 129,
+      "fan_in": 6,
+      "consumers": [
+        "touring-cognitive",
+        "touring-cortex",
+        "touring-generator",
+        "touring-hooks",
+        "touring-python",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-assists",
+      "src_loc": 1964,
+      "pub_count": 57,
+      "fan_in": 1,
+      "consumers": [
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-ast",
+      "src_loc": 23158,
+      "pub_count": 435,
+      "fan_in": 12,
+      "consumers": [
+        "touring-analysis",
+        "touring-assists",
+        "touring-cognitive",
+        "touring-cortex",
+        "touring-generator",
+        "touring-hooks",
+        "touring-index",
+        "touring-integration-tests",
+        "touring-learning",
+        "touring-python",
+        "touring-semantics",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-ast-polyglot",
+      "src_loc": 769,
+      "pub_count": 18,
+      "fan_in": 4,
+      "consumers": [
+        "touring-ast",
+        "touring-generator",
+        "touring-hooks",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-capnp-server",
+      "src_loc": 1513,
+      "pub_count": 18,
+      "fan_in": 1,
+      "consumers": [
+        "touring-hooks"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-cognitive",
+      "src_loc": 14981,
+      "pub_count": 359,
+      "fan_in": 5,
+      "consumers": [
+        "touring-cortex",
+        "touring-generator",
+        "touring-hooks",
+        "touring-python",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-core",
+      "src_loc": 13686,
+      "pub_count": 426,
+      "fan_in": 17,
+      "consumers": [
+        "touring-analysis",
+        "touring-antt",
+        "touring-assists",
+        "touring-ast",
+        "touring-capnp-server",
+        "touring-cognitive",
+        "touring-cortex",
+        "touring-embeddings",
+        "touring-generator",
+        "touring-hooks",
+        "touring-learning",
+        "touring-offensive",
+        "touring-python",
+        "touring-rule-engine",
+        "touring-search-fusion",
+        "touring-server",
+        "touring-simd"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-cortex",
+      "src_loc": 31823,
+      "pub_count": 439,
+      "fan_in": 1,
+      "consumers": [
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-definitions",
+      "src_loc": 1116,
+      "pub_count": 40,
+      "fan_in": 1,
+      "consumers": [
+        "touring-hooks"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-desktop-ui",
+      "src_loc": 1162,
+      "pub_count": 28,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-devrc-adapter",
+      "src_loc": 591,
+      "pub_count": 15,
+      "fan_in": 1,
+      "consumers": [
+        "touring-hooks"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-embeddings",
+      "src_loc": 1386,
+      "pub_count": 46,
+      "fan_in": 2,
+      "consumers": [
+        "touring-search-fusion",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-flow",
+      "src_loc": 809,
+      "pub_count": 45,
+      "fan_in": 2,
+      "consumers": [
+        "touring-hooks",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-generator",
+      "src_loc": 12554,
+      "pub_count": 423,
+      "fan_in": 3,
+      "consumers": [
+        "touring-assists",
+        "touring-integration-tests",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-geopostgis",
+      "src_loc": 436,
+      "pub_count": 10,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-hooks",
+      "src_loc": 152371,
+      "pub_count": 2097,
+      "fan_in": 4,
+      "consumers": [
+        "touring-cortex",
+        "touring-generator",
+        "touring-integration-tests",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-identity",
+      "src_loc": 1599,
+      "pub_count": 54,
+      "fan_in": 2,
+      "consumers": [
+        "touring-generator",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-incremental-salsa",
+      "src_loc": 393,
+      "pub_count": 20,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-index",
+      "src_loc": 2735,
+      "pub_count": 76,
+      "fan_in": 2,
+      "consumers": [
+        "touring-generator",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-integration-tests",
+      "src_loc": 6,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-language",
+      "src_loc": 558,
+      "pub_count": 21,
+      "fan_in": 1,
+      "consumers": [
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-learning",
+      "src_loc": 40950,
+      "pub_count": 1265,
+      "fan_in": 9,
+      "consumers": [
+        "touring-antt",
+        "touring-cognitive",
+        "touring-cortex",
+        "touring-generator",
+        "touring-hooks",
+        "touring-index",
+        "touring-integration-tests",
+        "touring-python",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-loom-proofs",
+      "src_loc": 11,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-offensive",
+      "src_loc": 7320,
+      "pub_count": 150,
+      "fan_in": 5,
+      "consumers": [
+        "touring-analysis",
+        "touring-generator",
+        "touring-hooks",
+        "touring-integration-tests",
+        "touring-learning"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-python",
+      "src_loc": 3456,
+      "pub_count": 67,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-resource-monitor",
+      "src_loc": 2425,
+      "pub_count": 58,
+      "fan_in": 1,
+      "consumers": [
+        "touring-hooks"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-rkyv",
+      "src_loc": 809,
+      "pub_count": 27,
+      "fan_in": 6,
+      "consumers": [
+        "touring-cognitive",
+        "touring-generator",
+        "touring-hooks",
+        "touring-integration-tests",
+        "touring-learning",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-rule-engine",
+      "src_loc": 447,
+      "pub_count": 19,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-search-fusion",
+      "src_loc": 1501,
+      "pub_count": 46,
+      "fan_in": 1,
+      "consumers": [
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-semantic-spike",
+      "src_loc": 67,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-semantics",
+      "src_loc": 1077,
+      "pub_count": 31,
+      "fan_in": 3,
+      "consumers": [
+        "touring-hooks",
+        "touring-index",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-server",
+      "src_loc": 61147,
+      "pub_count": 696,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-simd",
+      "src_loc": 9119,
+      "pub_count": 186,
+      "fan_in": 12,
+      "consumers": [
+        "touring-analysis",
+        "touring-antt",
+        "touring-ast",
+        "touring-cognitive",
+        "touring-cortex",
+        "touring-generator",
+        "touring-hooks",
+        "touring-index",
+        "touring-learning",
+        "touring-python",
+        "touring-server",
+        "touring-wasm"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-tasksfile",
+      "src_loc": 1236,
+      "pub_count": 37,
+      "fan_in": 2,
+      "consumers": [
+        "touring-devrc-adapter",
+        "touring-hooks"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-telemetry",
+      "src_loc": 990,
+      "pub_count": 29,
+      "fan_in": 1,
+      "consumers": [
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-vector-store",
+      "src_loc": 1169,
+      "pub_count": 16,
+      "fan_in": 2,
+      "consumers": [
+        "touring-search-fusion",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-vfs",
+      "src_loc": 1597,
+      "pub_count": 77,
+      "fan_in": 4,
+      "consumers": [
+        "touring-ast",
+        "touring-search-fusion",
+        "touring-semantics",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-wasm",
+      "src_loc": 2667,
+      "pub_count": 77,
+      "fan_in": 4,
+      "consumers": [
+        "touring-cortex",
+        "touring-generator",
+        "touring-hooks",
+        "touring-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-wasm-client",
+      "src_loc": 0,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-wasm-common",
+      "src_loc": 0,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-wasm-server",
+      "src_loc": 0,
+      "pub_count": 0,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false,
+      "proposed_absorption_target": null
+    },
+    {
+      "crate": "touring-web",
+      "src_loc": 3554,
+      "pub_count": 73,
+      "fan_in": 1,
+      "consumers": [
+        "touring-web-server"
+      ],
+      "in_allow_list": false
+    },
+    {
+      "crate": "touring-web-server",
+      "src_loc": 1705,
+      "pub_count": 14,
+      "fan_in": 0,
+      "consumers": [],
+      "in_allow_list": false
+    }
+  ]
+}

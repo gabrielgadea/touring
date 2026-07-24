@@ -1,0 +1,14 @@
+# AUTO-GENERATED skeleton (v4) — touring-hooks-rl
+# Generated: 2026-05-12T00:15:11.402641+00:00
+
+[package]
+name = "touring-hooks-rl"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# leaf bucket
+
+[lints]
+workspace = true

@@ -1,0 +1,17 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: mcp-curated-w2-new-tools
+slug: mcp-curated-w2-new-tools
+intent: ""
+role: engineer
+task_id: task_1780763041476850005
+timestamp: "2026-06-06T14:49:26-03:00"
+session_id: 6504ecee-5fea-4879-ab46-2c34fc0a7882
+content:
+  lines: 0
+  bytes: 0
+  sections: []
+  source_md: ""
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02

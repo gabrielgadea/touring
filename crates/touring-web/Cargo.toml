@@ -1,0 +1,37 @@
+[package]
+name = "touring-web"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Web UI shim — implementation in touring-bindings/bind-web"
+
+[lib]
+name = "touring_web"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+touring-bindings = { path = "../touring-bindings", features = ["bind-web"] }
+
+# getrandom 0.3 needs the wasm_js backend feature on wasm32 (feature
+# unification turns it on for the whole wasm graph); pairs with the
+# `--cfg getrandom_backend="wasm_js"` rustflag in .cargo/config.toml.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# leptos needs an explicit rendering mode. Without `csr` the client runtime
+# is inert: static views render once but <Routes> resolves to NOTHING (empty
+# content-area, no fallback, no console error) — found 2026-06-11 via
+# chrome-devtools when every route showed a blank main pane. Target-gated so
+# the host server keeps `ssr` (via leptos_axum) under resolver v2.
+leptos = { workspace = true, features = ["csr"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+# The dep graph also carries getrandom 0.2 (different major = separate crate
+# instance); its wasm backend is the "js" feature.
+getrandom02 = { package = "getrandom", version = "0.2", features = ["js"] }
+
+[features]
+default = []
+
+[lints]
+workspace = true

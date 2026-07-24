@@ -1,0 +1,36 @@
+---
+source: crates/touring-generator/tests/snapshot_public_api.rs
+expression: debug_sorted(kinds)
+---
+- Adr
+- AsyncApiSpec
+- AttributeMacro
+- BenchmarkSuite
+- ChangelogEntry
+- CiWorkflow
+- CliHandler
+- ConsumerGenerator
+- DeriveMacro
+- DiaryEntry
+- DockerImage
+- ErrorCatalog
+- FfiBinding
+- FunctionMacro
+- FuzzTarget
+- HookHandler
+- IncrementalPatch
+- KubernetesManifest
+- ManPage
+- McpTool
+- MigrationScript
+- OpenApiSpec
+- PlanMarkdown
+- ProtoBufSchema
+- PythonScript
+- RustModule
+- Schema
+- ShellCompletion
+- SkillDocument
+- TaskScaffold
+- TerraformModule
+- Test

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-pre-edit-gate.schema.json",
+  "title": "Capability: pre-edit-gate",
+  "description": "Pre-edit scored signals composition",
+  "type": "object",
+  "additionalProperties": true
+}

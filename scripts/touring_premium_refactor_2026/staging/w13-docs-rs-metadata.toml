@@ -1,0 +1,7 @@
+# AUTO-GENERATED — append to each public crate's Cargo.toml
+# This ensures docs.rs builds with --all-features + sane defaults.
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+targets = ["x86_64-unknown-linux-gnu"]

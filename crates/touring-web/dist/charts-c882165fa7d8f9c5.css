@@ -1,0 +1,102 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOURING WEB — CHART PRIMITIVE CLASSES (SPEC 2026-06-12 §9.1)
+   Styling for the shared SVG diagram components (§4.3):
+   Sparkline · AreaChart · RadarChart · EventRibbon · PipelineStages
+   · MiniBars · DepthRings · IsoPalace · ProgressTrack.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── AreaChart ───────────────────────────────────────────────── */
+
+.el-areachart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── EventRibbon ─────────────────────────────────────────────── */
+
+.el-ribbon {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── PipelineStages ──────────────────────────────────────────── */
+
+.el-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 4px;
+  flex-wrap: wrap;
+}
+
+.el-pipeline-stage {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.el-pipeline-label {
+  font-size: var(--el-size-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--el-fg-3);
+}
+
+.el-pipeline-count {
+  font-size: 10.5px;
+  color: var(--el-fg-5);
+}
+
+.el-pipeline-connector {
+  flex: 1;
+  min-width: 18px;
+  height: 1px;
+  background: var(--el-line-strong);
+}
+
+/* ── MiniBars ────────────────────────────────────────────────── */
+
+.el-minibars {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── DepthRings (W4 /wiring/impact) ──────────────────────────── */
+
+.el-depthrings {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── IsoPalace (W3 /memory) ──────────────────────────────────── */
+
+.el-isopalace {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── Legend chips shared by charts ───────────────────────────── */
+
+.el-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 2px 0;
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+.el-chart-legend .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}

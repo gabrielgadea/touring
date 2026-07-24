@@ -1,0 +1,20 @@
+---
+source: crates/touring-ast/tests/snapshot_imports.rs
+expression: project(&resolver.imports)
+---
+- - collections.OrderedDict
+  - ~
+  - false
+  - 5
+- - os
+  - ~
+  - false
+  - 2
+- - typing.List
+  - ~
+  - false
+  - 4
+- - typing.Optional
+  - ~
+  - false
+  - 4

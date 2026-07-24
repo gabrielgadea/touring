@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-gpu-compute.schema.json",
+  "title": "Capability: gpu-compute",
+  "description": "WGSL GPU shader dispatch",
+  "type": "object",
+  "additionalProperties": true
+}

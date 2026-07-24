@@ -1,0 +1,17 @@
+[package]
+name = "holon-generator-health"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "THSF Phase 5 Wave H — `generator-health` capability: pure-function formatter that turns health_delta counter/streak snapshots into summaries + alerts."
+
+[lib]
+name = "holon_generator_health"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wit-bindgen = { workspace = true }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }

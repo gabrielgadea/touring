@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-vgp-verification.schema.json",
+  "title": "Capability: vgp-verification",
+  "description": "Verified Generation Protocol symbol check",
+  "type": "object",
+  "additionalProperties": true
+}

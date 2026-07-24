@@ -1,0 +1,56 @@
+# release-plz — version bump + CHANGELOG + git tag + GitHub release.
+# W13 repo-premium (2026-05-31). Consumes `release-plz.toml` at repo root.
+# Promote to `.github/workflows/release-plz.yml`.
+#
+# NO CARGO_REGISTRY_TOKEN needed: the workspace is `publish = false` (binary
+# product), so release-plz never touches a registry — it manages versions,
+# CHANGELOG.md, the `vX.Y.Z` tag, and the GitHub release. The published-release
+# event then triggers sigstore-release.yml (signing + SBOM).
+name: release-plz
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # Opens/updates the "release PR" (version bump + CHANGELOG) on every push.
+  release-pr:
+    runs-on: ubuntu-latest
+    if: github.repository_owner != ''   # skip on forks without write perms
+    concurrency:
+      group: release-plz-pr-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: release-plz (release-pr)
+        uses: release-plz/action@v0
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # When the release PR is merged, create the tag + GitHub release.
+  release:
+    runs-on: ubuntu-latest
+    if: github.repository_owner != ''
+    concurrency:
+      group: release-plz-release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: release-plz (release)
+        uses: release-plz/action@v0
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

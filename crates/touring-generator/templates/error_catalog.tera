@@ -1,0 +1,14 @@
+//! Error catalog: {{ catalog_name | default(value="Errors") }}
+
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum {{ enum_name | default(value="AppError") }} {
+{% if variants is defined %}
+{% for variant in variants %}
+    /// {{ variant.doc | default(value=variant.name) }}
+    #[error("{{ variant.message | default(value=variant.name) }}")]
+    {{ variant.name }},
+{% endfor %}
+{% endif %}
+}

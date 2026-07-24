@@ -1,0 +1,34 @@
+{
+  "script": "w8_hooks_facade_emitter",
+  "wave": "W8",
+  "subtask_refs": [
+    "W8.6"
+  ],
+  "timestamp": "2026-05-12T00:49:27.702266+00:00",
+  "status": "OK",
+  "buckets_in_plan": [
+    "touring-hooks-infra",
+    "touring-hooks-lifecycle",
+    "touring-hooks-rl",
+    "touring-hooks-prediction",
+    "touring-hooks-core",
+    "touring-hooks-tools",
+    "touring-hooks-cli",
+    "touring-hooks-misc",
+    "touring-hooks-shared",
+    "touring-hooks-facade"
+  ],
+  "sub_crates_reexported": [
+    "touring-hooks-infra",
+    "touring-hooks-lifecycle",
+    "touring-hooks-rl",
+    "touring-hooks-prediction",
+    "touring-hooks-core",
+    "touring-hooks-tools",
+    "touring-hooks-cli",
+    "touring-hooks-misc",
+    "touring-hooks-shared"
+  ],
+  "lib_rs_path": "scripts/touring_premium_refactor_2026/staging/w8-touring-hooks-facade-lib.rs",
+  "cargo_toml_path": "scripts/touring_premium_refactor_2026/staging/w8-touring-hooks-Cargo.toml"
+}

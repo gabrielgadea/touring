@@ -1,0 +1,270 @@
+{
+  "script": "w11_proptest_seeder",
+  "wave": "W11",
+  "subtask_refs": [
+    "W11.4"
+  ],
+  "timestamp": "2026-05-12T00:53:39.410323+00:00",
+  "status": "OK",
+  "totals": {
+    "raw_candidates": 1574,
+    "unique_types": 1442,
+    "high_impact_candidates": 709,
+    "min_callsites_threshold": 3
+  },
+  "top_20_candidates": [
+    {
+      "file": "crates/touring-server/src/cli/dsl.rs",
+      "kind": "enum",
+      "name": "Value",
+      "derives": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 264
+    },
+    {
+      "file": "crates/touring-identity/src/error.rs",
+      "kind": "enum",
+      "name": "Error",
+      "derives": [
+        "Debug",
+        "Error"
+      ],
+      "callsite_count": 228
+    },
+    {
+      "file": "crates/touring-server/src/visual/flow.rs",
+      "kind": "struct",
+      "name": "Path",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 206
+    },
+    {
+      "file": "crates/touring-server/src/cli/dsl.rs",
+      "kind": "struct",
+      "name": "Query",
+      "derives": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 99
+    },
+    {
+      "file": "crates/touring-semantics/src/definition.rs",
+      "kind": "struct",
+      "name": "Usage",
+      "derives": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Eq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 87
+    },
+    {
+      "file": "crates/touring-ast/src/symbols.rs",
+      "kind": "struct",
+      "name": "Symbol",
+      "derives": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Eq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 81
+    },
+    {
+      "file": "crates/touring-server/src/session/manager.rs",
+      "kind": "struct",
+      "name": "Session",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 70
+    },
+    {
+      "file": "crates/touring-ast/src/languages.rs",
+      "kind": "enum",
+      "name": "Lang",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Copy",
+        "PartialEq",
+        "Eq",
+        "Hash",
+        "serde::Serialize",
+        "serde::Deserialize",
+        "strum::EnumIter",
+        ""
+      ],
+      "callsite_count": 68
+    },
+    {
+      "file": "crates/touring-server/src/reasoning/decomposer.rs",
+      "kind": "struct",
+      "name": "Task",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 56
+    },
+    {
+      "file": "crates/touring-offensive/src/bug_bounty.rs",
+      "kind": "enum",
+      "name": "Severity",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Copy",
+        "PartialEq",
+        "Eq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 52
+    },
+    {
+      "file": "crates/touring-hooks/src/knowledge.rs",
+      "kind": "struct",
+      "name": "FileKnowledgeDB",
+      "derives": [
+        "Debug"
+      ],
+      "callsite_count": 52
+    },
+    {
+      "file": "crates/touring-generator/src/plan/schema.rs",
+      "kind": "struct",
+      "name": "Target",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Serialize",
+        "Deserialize",
+        "JsonSchema"
+      ],
+      "callsite_count": 51
+    },
+    {
+      "file": "crates/touring-learning/src/rl/qtable.rs",
+      "kind": "struct",
+      "name": "QTable",
+      "derives": [
+        "Debug"
+      ],
+      "callsite_count": 50
+    },
+    {
+      "file": "crates/touring-learning/src/clustering/leiden.rs",
+      "kind": "struct",
+      "name": "Graph",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Default"
+      ],
+      "callsite_count": 46
+    },
+    {
+      "file": "crates/touring-hooks/src/hook_memory.rs",
+      "kind": "struct",
+      "name": "HookEvent",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 43
+    },
+    {
+      "file": "crates/touring-flow/src/types.rs",
+      "kind": "struct",
+      "name": "Item",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Serialize",
+        "Deserialize",
+        "PartialEq",
+        "Eq"
+      ],
+      "callsite_count": 41
+    },
+    {
+      "file": "crates/touring-cortex/src/fascicles/evidence.rs",
+      "kind": "struct",
+      "name": "Confidence",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Copy",
+        "PartialEq",
+        "PartialOrd"
+      ],
+      "callsite_count": 41
+    },
+    {
+      "file": "crates/touring-language/src/tiers.rs",
+      "kind": "enum",
+      "name": "Tier",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Copy",
+        "PartialEq",
+        "Eq",
+        "PartialOrd",
+        "Ord"
+      ],
+      "callsite_count": 39
+    },
+    {
+      "file": "crates/touring-server/src/visual/bundling.rs",
+      "kind": "struct",
+      "name": "Node",
+      "derives": [
+        "Debug",
+        "Clone",
+        "Copy",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "callsite_count": 37
+    },
+    {
+      "file": "crates/touring-cortex/src/context.rs",
+      "kind": "struct",
+      "name": "CortexContext",
+      "derives": [
+        "Debug"
+      ],
+      "callsite_count": 37
+    }
+  ],
+  "stubs_emitted": []
+}

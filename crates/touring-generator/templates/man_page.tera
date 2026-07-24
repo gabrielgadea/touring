@@ -1,0 +1,12 @@
+.TH {{ command | default(value="cmd") | upper }} 1 "{{ date | default(value="") }}" "{{ version | default(value="0.1.0") }}"
+.SH NAME
+{{ command | default(value="cmd") }} \- {{ short_description | default(value="") }}
+.SH SYNOPSIS
+.B {{ command | default(value="cmd") }}
+[\fIOPTIONS\fR] \fICOMMAND\fR
+.SH DESCRIPTION
+{{ long_description | default(value="") }}
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help information.

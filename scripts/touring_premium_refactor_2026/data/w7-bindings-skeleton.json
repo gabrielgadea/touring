@@ -1,0 +1,27 @@
+{
+  "script": "w7_bindings_skeleton",
+  "wave": "W7",
+  "subtask_refs": [
+    "W7.1"
+  ],
+  "timestamp": "2026-05-11T23:57:06.126691+00:00",
+  "status": "OK",
+  "features_planned": [
+    "bind-py",
+    "bind-ts-napi",
+    "bind-wasm",
+    "bind-async",
+    "bind-stream",
+    "bind-stable-api"
+  ],
+  "files_emitted": [
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/Cargo.toml",
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/src/lib.rs",
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/src/common.rs",
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/src/py.rs",
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/src/ts.rs",
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/src/wasm.rs",
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/pyproject.toml",
+    "scripts/touring_premium_refactor_2026/staging/w7-touring-bindings/package.json"
+  ]
+}

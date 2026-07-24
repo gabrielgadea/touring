@@ -1,0 +1,4 @@
+# Clippy config (BP3, 2026-06-21). Declares the workspace MSRV so version-gated
+# lints (manual_let_else, incompatible_msrv, etc.) reason correctly. Mirrors
+# `rust-version = "1.85"` in Cargo.toml. Keep in sync with the MSRV.
+msrv = "1.85"

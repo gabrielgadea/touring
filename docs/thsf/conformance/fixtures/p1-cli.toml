@@ -1,0 +1,12 @@
+# RFC-001 fixture: P1 offerer with a single `cli` adapter. MUST parse OK.
+
+[holon.identity]
+name = "p1-cli-holon"
+version = "2.1.0"
+autonomy_guarantee = true
+
+[holon.offers.traffic-graph]
+schema = "schemas/traffic-graph.json"
+adapter = "cli"
+adapter_cmd = "bin/traffic-graph"
+version = "2.1.0"

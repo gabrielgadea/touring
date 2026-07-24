@@ -1,0 +1,3243 @@
+{
+ "meta": {
+  "root": "crates/touring-capnp-server",
+  "slug": "touring_capnp_server",
+  "bin": "/home/gabrielgadea/.claude/rust/target/release/touring-quality",
+  "schema": "complete-raw",
+  "file_scopes": 5,
+  "path_scopes": 2,
+  "scope_artifact_dims": [
+   "F3_10",
+   "F3_11",
+   "F3_13",
+   "F4_7"
+  ]
+ },
+ "aggregate": {
+  "scope_kind": "crate",
+  "root": "crates/touring-capnp-server",
+  "file_count": 5,
+  "total_loc": 724,
+  "dimensions": {
+   "F1_1": {
+    "value": 0.70198894,
+    "status": "Warn",
+    "evidence": "LOC-weighted over 5 files: 0.702 (worst bench_d34.rs=0.550, p10=0.550)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_2": {
+    "value": 0.9303235,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.930 (worst bench_d34.rs=0.858, p10=0.858)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_3": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "F1.3: duplication ratio=0.0% (0 dup / 425 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F1_4": {
+    "value": 0.9860498,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.986 (worst bench_d34.rs=0.978, p10=0.978)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_5": {
+    "value": 0.9792818,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.979 (worst util.rs=0.779, p10=0.779)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_6": {
+    "value": 0.8156997,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.816 (worst bench_generator_health.rs=0.688, p10=0.688)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_7": {
+    "value": 0.9812155,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.981 (worst util.rs=0.800, p10=0.800)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_8": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F1_9": {
+    "value": 0.9751381,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.975 (worst client_demo.rs=0.895, p10=0.895)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_10": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_11": {
+    "value": 0.9917127,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.992 (worst bench_generator_health.rs=0.970, p10=0.970)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F1_12": {
+    "value": 0.99502766,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.995 (worst bench_d34.rs=0.989, p10=0.989)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_1": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_2": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "worst-of 5 files: bench_d34.rs = 1.000",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_3": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "worst-of 5 files: bench_d34.rs = 1.000",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_4": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_5": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "F2.5: 0 dependency CVEs in the resolved tree | 9 non-blocking informational (unmaintained/unsound \u2014 see F4.5): dirs@6.0.0 (RUSTSEC-2020-0053, unmaintained), humantime@2.3.0 (RUSTSEC-2025-0014, unmaintained), i_tree@0.8.3 (RUSTSEC-2025-0165, unsound) (+6 more)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F2_6": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F2_7": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_8": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_9": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_10": {
+    "value": 0.9917127,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.992 (worst bench_generator_health.rs=0.970, p10=0.970)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_11": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_12": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F2_13": {
+    "value": 0.9917127,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.992 (worst bench_generator_health.rs=0.985, p10=0.985)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_1": {
+    "value": 0.9060773,
+    "status": "Pass",
+    "evidence": "coverage-ratio\u2248LOC-weighted over 5 files: 0.906 (worst util.rs=0.000, p10=0.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_2": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_3": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "F3.3: 0 pyramid-shape gap(s) over 729 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F3_4": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_5": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_6": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "F3.6: 0 security-test gap(s) over 729 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F3_7": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "F3.7: 0 perf-test gap(s) over 729 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F3_8": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "coverage-ratio\u2248LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_9": {
+    "value": 0.98342544,
+    "status": "Pass",
+    "evidence": "coverage-ratio\u2248LOC-weighted over 5 files: 0.983 (worst util.rs=0.956, p10=0.956)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_10": {
+    "value": 0.99962485,
+    "status": "Pass",
+    "evidence": "F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F3_11": {
+    "value": 0.3,
+    "status": "Fail",
+    "evidence": "F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F3_12": {
+    "value": 0.97779006,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.978 (worst lib.rs=0.820, p10=0.820)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F3_13": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F4_1": {
+    "value": 0.98895025,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.989 (worst bench_d34.rs=0.976, p10=0.976)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_2": {
+    "value": 0.98756903,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 0.988 (worst bench_generator_health.rs=0.955, p10=0.955)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_3": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "worst-of 5 files: bench_d34.rs = 1.000",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_4": {
+    "value": 1.0,
+    "status": "Pass",
+    "evidence": "LOC-weighted over 5 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_5": {
+    "value": 0.7,
+    "status": "Warn",
+    "evidence": "F4.5: 90 duplicate-version crate(s): accesskit_consumer (3 versions: 0.35.0, 0.36.0, 0.37.0), addr2line (2 versions: 0.25.1, 0.26.1), bit-set (2 versions: 0.10.0, 0.9.1), block-buffer (2 versions: 0.10.4, 0.12.1) (+86 more) \u2014 score=0.700 | 9 transitive informational advisories filtered by deny.toml unmaintained=workspace/unsound=workspace policy",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_6": {
+    "value": 0.91764706,
+    "status": "Pass",
+    "evidence": "FF4_6: 1 Build Configuration smell(s) over 51 lines (rust) -- score=0.918          (touring-analysis analyze_build_config: see header for detector catalog); top: no [profile.release] override (uses Cargo defaults -- large binary, no LTO/strip/panic=abort) (1x)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   },
+   "F4_7": {
+    "value": 0.5568,
+    "status": "Warn",
+    "evidence": "FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_8": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_9": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_10": {
+    "value": 0.7016575,
+    "status": "Warn",
+    "evidence": "LOC-weighted over 5 files: 0.702 (worst bench_generator_health.rs=0.542, p10=0.542)",
+    "suggestions": [],
+    "latency_ms": 0
+   },
+   "F4_11": {
+    "value": 1.0,
+    "status": "NotApplicable",
+    "evidence": "[N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+    ],
+    "latency_ms": 0
+   },
+   "F4_12": {
+    "value": 0.99506176,
+    "status": "Pass",
+    "evidence": "FF4_12: 1 Environment Management smell(s) over 729 lines (rust) -- score=0.995          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+    "suggestions": [
+     "Edit tool --path crates/touring-capnp-server --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+    ],
+    "latency_ms": 0
+   }
+  },
+  "composite": 0.9388478,
+  "tier": "Platinum",
+  "blockers": [
+   "F3_11"
+  ],
+  "warnings": [
+   "F1_1",
+   "F4_5",
+   "F4_7",
+   "F4_10"
+  ],
+  "schema_version": 1
+ },
+ "files": [
+  {
+   "scope_kind": "file",
+   "root": "crates/touring-capnp-server/examples/bench_d34.rs",
+   "file_count": 1,
+   "total_loc": 328,
+   "dimensions": {
+    "F1_1": {
+     "value": 0.55,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.550 (worst bench_d34.rs=0.550, p10=0.550)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_2": {
+     "value": 0.8578433,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.858 (worst bench_d34.rs=0.858, p10=0.858)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.3: duplication ratio=0.0% (0 dup / 205 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_4": {
+     "value": 0.97749996,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.977 (worst bench_d34.rs=0.978, p10=0.978)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_6": {
+     "value": 0.8544715,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.854 (worst bench_d34.rs=0.854, p10=0.854)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_9": {
+     "value": 0.98170733,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.982 (worst bench_d34.rs=0.982, p10=0.982)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_12": {
+     "value": 0.9890244,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.989 (worst bench_d34.rs=0.989, p10=0.989)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: bench_d34.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: bench_d34.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F2.5: not a Cargo project \u2014 RustSec advisory scan does not apply (excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F2_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_13": {
+     "value": 0.99085367,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.991 (worst bench_d34.rs=0.991, p10=0.991)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.3: 0 pyramid-shape gap(s) over 328 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.6: 0 security-test gap(s) over 328 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.7: 0 perf-test gap(s) over 328 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_9": {
+     "value": 0.99085367,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.991 (worst bench_d34.rs=0.991, p10=0.991)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_10": {
+     "value": 0.99962485,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_11": {
+     "value": 0.3,
+     "status": "Fail",
+     "evidence": "[scope-native @ file root] F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F3_12": {
+     "value": 0.99268293,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.993 (worst bench_d34.rs=0.993, p10=0.993)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F4_1": {
+     "value": 0.9756098,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.976 (worst bench_d34.rs=0.976, p10=0.976)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: bench_d34.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_6": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_7": {
+     "value": 0.5568,
+     "status": "Warn",
+     "evidence": "[scope-native @ file root] FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_8": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_9": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_10": {
+     "value": 0.80060977,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.801 (worst bench_d34.rs=0.801, p10=0.801)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_11": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_12": {
+     "value": 0.9890244,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] FF4_12: 1 Environment Management smell(s) over 328 lines (rust) -- score=0.989          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_d34.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    }
+   },
+   "composite": 0.94622946,
+   "tier": "Platinum",
+   "blockers": [
+    "F3_11"
+   ],
+   "warnings": [
+    "F1_1",
+    "F4_7"
+   ],
+   "schema_version": 1
+  },
+  {
+   "scope_kind": "file",
+   "root": "crates/touring-capnp-server/examples/bench_generator_health.rs",
+   "file_count": 1,
+   "total_loc": 198,
+   "dimensions": {
+    "F1_1": {
+     "value": 0.84,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.840 (worst bench_generator_health.rs=0.840, p10=0.840)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_2": {
+     "value": 0.98161185,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.982 (worst bench_generator_health.rs=0.982, p10=0.982)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.3: duplication ratio=0.0% (0 dup / 123 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_4": {
+     "value": 0.99,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.990 (worst bench_generator_health.rs=0.990, p10=0.990)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_6": {
+     "value": 0.6883839,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.688 (worst bench_generator_health.rs=0.688, p10=0.688)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_11": {
+     "value": 0.969697,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.970 (worst bench_generator_health.rs=0.970, p10=0.970)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: bench_generator_health.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: bench_generator_health.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F2.5: not a Cargo project \u2014 RustSec advisory scan does not apply (excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F2_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_10": {
+     "value": 0.969697,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.970 (worst bench_generator_health.rs=0.970, p10=0.970)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_13": {
+     "value": 0.9848485,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.985 (worst bench_generator_health.rs=0.985, p10=0.985)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.3: 0 pyramid-shape gap(s) over 198 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.6: 0 security-test gap(s) over 198 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.7: 0 perf-test gap(s) over 198 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_9": {
+     "value": 0.9848485,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.985 (worst bench_generator_health.rs=0.985, p10=0.985)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_10": {
+     "value": 0.99962485,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_11": {
+     "value": 0.3,
+     "status": "Fail",
+     "evidence": "[scope-native @ file root] F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F3_12": {
+     "value": 0.9878788,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.988 (worst bench_generator_health.rs=0.988, p10=0.988)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F4_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_2": {
+     "value": 0.95454544,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.955 (worst bench_generator_health.rs=0.955, p10=0.955)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: bench_generator_health.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst bench_generator_health.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_6": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_7": {
+     "value": 0.5568,
+     "status": "Warn",
+     "evidence": "[scope-native @ file root] FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_8": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_9": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_10": {
+     "value": 0.54242426,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.542 (worst bench_generator_health.rs=0.542, p10=0.542)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_11": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_12": {
+     "value": 0.9818182,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] FF4_12: 1 Environment Management smell(s) over 198 lines (rust) -- score=0.982          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/bench_generator_health.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    }
+   },
+   "composite": 0.94728976,
+   "tier": "Platinum",
+   "blockers": [
+    "F3_11"
+   ],
+   "warnings": [
+    "F1_6",
+    "F4_7",
+    "F4_10"
+   ],
+   "schema_version": 1
+  },
+  {
+   "scope_kind": "file",
+   "root": "crates/touring-capnp-server/examples/client_demo.rs",
+   "file_count": 1,
+   "total_loc": 114,
+   "dimensions": {
+    "F1_1": {
+     "value": 0.68000007,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.680 (worst client_demo.rs=0.680, p10=0.680)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_2": {
+     "value": 0.99880004,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.999 (worst client_demo.rs=0.999, p10=0.999)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.3: duplication ratio=0.0% (0 dup / 54 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_4": {
+     "value": 0.995,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.995 (worst client_demo.rs=0.995, p10=0.995)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_6": {
+     "value": 0.90000004,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.900 (worst client_demo.rs=0.900, p10=0.900)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_9": {
+     "value": 0.8947368,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.895 (worst client_demo.rs=0.895, p10=0.895)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: client_demo.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: client_demo.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F2.5: not a Cargo project \u2014 RustSec advisory scan does not apply (excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F2_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.3: 0 pyramid-shape gap(s) over 114 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.6: 0 security-test gap(s) over 114 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.7: 0 perf-test gap(s) over 114 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_9": {
+     "value": 0.9736842,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.974 (worst client_demo.rs=0.974, p10=0.974)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_10": {
+     "value": 0.99962485,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_11": {
+     "value": 0.3,
+     "status": "Fail",
+     "evidence": "[scope-native @ file root] F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F3_12": {
+     "value": 0.97894734,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.979 (worst client_demo.rs=0.979, p10=0.979)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F4_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: client_demo.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst client_demo.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_6": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_7": {
+     "value": 0.5568,
+     "status": "Warn",
+     "evidence": "[scope-native @ file root] FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_8": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_9": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_10": {
+     "value": 0.64736843,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.647 (worst client_demo.rs=0.647, p10=0.647)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_11": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_12": {
+     "value": 0.96842104,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] FF4_12: 1 Environment Management smell(s) over 114 lines (rust) -- score=0.968          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/client_demo.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    }
+   },
+   "composite": 0.95142245,
+   "tier": "Diamond",
+   "blockers": [
+    "F3_11"
+   ],
+   "warnings": [
+    "F1_1",
+    "F4_7",
+    "F4_10"
+   ],
+   "schema_version": 1
+  },
+  {
+   "scope_kind": "file",
+   "root": "crates/touring-capnp-server/examples/util.rs",
+   "file_count": 1,
+   "total_loc": 68,
+   "dimensions": {
+    "F1_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_2": {
+     "value": 0.99939996,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.999 (worst util.rs=0.999, p10=0.999)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.3: duplication ratio=0.0% (0 dup / 38 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_4": {
+     "value": 0.9975,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.998 (worst util.rs=0.998, p10=0.998)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_5": {
+     "value": 0.77941173,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.779 (worst util.rs=0.779, p10=0.779)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_6": {
+     "value": 0.85,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.850 (worst util.rs=0.850, p10=0.850)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_7": {
+     "value": 0.8,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.800 (worst util.rs=0.800, p10=0.800)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: util.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: util.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F2.5: not a Cargo project \u2014 RustSec advisory scan does not apply (excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F2_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_1": {
+     "value": 0.0,
+     "status": "Fail",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.000 (worst util.rs=0.000, p10=0.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.3: 0 pyramid-shape gap(s) over 68 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.6: 0 security-test gap(s) over 68 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.7: 0 perf-test gap(s) over 68 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_9": {
+     "value": 0.9558824,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 0.956 (worst util.rs=0.956, p10=0.956)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_10": {
+     "value": 0.99962485,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_11": {
+     "value": 0.3,
+     "status": "Fail",
+     "evidence": "[scope-native @ file root] F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F3_12": {
+     "value": 0.9117647,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.912 (worst util.rs=0.912, p10=0.912)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F4_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: util.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst util.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_6": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_7": {
+     "value": 0.5568,
+     "status": "Warn",
+     "evidence": "[scope-native @ file root] FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_8": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_9": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_10": {
+     "value": 0.7794118,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.779 (worst util.rs=0.779, p10=0.779)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_11": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_12": {
+     "value": 0.9470588,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] FF4_12: 1 Environment Management smell(s) over 68 lines (rust) -- score=0.947          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples/util.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    }
+   },
+   "composite": 0.89924645,
+   "tier": "Silver",
+   "blockers": [
+    "F3_1",
+    "F3_11"
+   ],
+   "warnings": [
+    "F1_5",
+    "F4_7",
+    "F4_10"
+   ],
+   "schema_version": 1
+  },
+  {
+   "scope_kind": "file",
+   "root": "crates/touring-capnp-server/src/lib.rs",
+   "file_count": 1,
+   "total_loc": 16,
+   "dimensions": {
+    "F1_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.3: duplication ratio=0.0% (0 dup / 5 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_6": {
+     "value": 0.85,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.850 (worst lib.rs=0.850, p10=0.850)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: lib.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: lib.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F2.5: not a Cargo project \u2014 RustSec advisory scan does not apply (excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F2_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.3: 0 pyramid-shape gap(s) over 16 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.6: 0 security-test gap(s) over 16 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.7: 0 perf-test gap(s) over 16 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_10": {
+     "value": 0.99962485,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_11": {
+     "value": 0.3,
+     "status": "Fail",
+     "evidence": "[scope-native @ file root] F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F3_12": {
+     "value": 0.82,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.820 (worst lib.rs=0.820, p10=0.820)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F4_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: lib.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_6": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_7": {
+     "value": 0.5568,
+     "status": "Warn",
+     "evidence": "[scope-native @ file root] FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_8": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_9": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_10": {
+     "value": 0.7,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.700 (worst lib.rs=0.700, p10=0.700)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_11": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ file root] [N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_12": {
+     "value": 0.82,
+     "status": "Pass",
+     "evidence": "[scope-native @ file root] FF4_12: 1 Environment Management smell(s) over 16 lines (rust) -- score=0.820          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src/lib.rs --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    }
+   },
+   "composite": 0.95732355,
+   "tier": "Diamond",
+   "blockers": [
+    "F3_11"
+   ],
+   "warnings": [
+    "F4_7",
+    "F4_10"
+   ],
+   "schema_version": 1
+  }
+ ],
+ "paths": [
+  {
+   "scope_kind": "path",
+   "root": "crates/touring-capnp-server/examples",
+   "file_count": 4,
+   "total_loc": 708,
+   "dimensions": {
+    "F1_1": {
+     "value": 0.6952542,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 4 files: 0.695 (worst bench_d34.rs=0.550, p10=0.550)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_2": {
+     "value": 0.92874885,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.929 (worst bench_d34.rs=0.858, p10=0.858)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F1.3: duplication ratio=0.0% (0 dup / 420 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_4": {
+     "value": 0.9857345,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.986 (worst bench_d34.rs=0.978, p10=0.978)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_5": {
+     "value": 0.9788136,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.979 (worst util.rs=0.779, p10=0.779)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_6": {
+     "value": 0.8149246,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.815 (worst bench_generator_health.rs=0.688, p10=0.688)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_7": {
+     "value": 0.980791,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.981 (worst util.rs=0.800, p10=0.800)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_9": {
+     "value": 0.9745763,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.975 (worst client_demo.rs=0.895, p10=0.895)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_11": {
+     "value": 0.9915254,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.992 (worst bench_generator_health.rs=0.970, p10=0.970)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_12": {
+     "value": 0.9949153,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.995 (worst bench_d34.rs=0.989, p10=0.989)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 4 files: bench_d34.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 4 files: bench_d34.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F2.5: 0 dependency CVEs in the resolved tree | 9 non-blocking informational (unmaintained/unsound \u2014 see F4.5): dirs@6.0.0 (RUSTSEC-2020-0053, unmaintained), humantime@2.3.0 (RUSTSEC-2025-0014, unmaintained), i_tree@0.8.3 (RUSTSEC-2025-0165, unsound) (+6 more)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_10": {
+     "value": 0.9915254,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.992 (worst bench_generator_health.rs=0.970, p10=0.970)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_13": {
+     "value": 0.9915254,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.992 (worst bench_generator_health.rs=0.985, p10=0.985)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_1": {
+     "value": 0.9039548,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 4 files: 0.904 (worst util.rs=0.000, p10=0.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.3: 0 pyramid-shape gap(s) over 712 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.6: 0 security-test gap(s) over 712 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.7: 0 perf-test gap(s) over 712 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_9": {
+     "value": 0.9830508,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 4 files: 0.983 (worst util.rs=0.956, p10=0.956)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_10": {
+     "value": 0.99962485,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_11": {
+     "value": 0.3,
+     "status": "Fail",
+     "evidence": "[scope-native @ path root] F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F3_12": {
+     "value": 0.9813559,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.981 (worst util.rs=0.912, p10=0.912)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F4_1": {
+     "value": 0.98870057,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.989 (worst bench_d34.rs=0.976, p10=0.976)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_2": {
+     "value": 0.9872881,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 0.987 (worst bench_generator_health.rs=0.955, p10=0.955)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 4 files: bench_d34.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 4 files: 1.000 (worst bench_d34.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_6": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_7": {
+     "value": 0.5568,
+     "status": "Warn",
+     "evidence": "[scope-native @ path root] FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_8": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_9": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_10": {
+     "value": 0.7016949,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 4 files: 0.702 (worst bench_generator_health.rs=0.542, p10=0.542)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_11": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_12": {
+     "value": 0.9949438,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] FF4_12: 1 Environment Management smell(s) over 712 lines (rust) -- score=0.995          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/examples --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    }
+   },
+   "composite": 0.94798845,
+   "tier": "Platinum",
+   "blockers": [
+    "F3_11"
+   ],
+   "warnings": [
+    "F1_1",
+    "F4_7",
+    "F4_10"
+   ],
+   "schema_version": 1
+  },
+  {
+   "scope_kind": "path",
+   "root": "crates/touring-capnp-server/src",
+   "file_count": 1,
+   "total_loc": 16,
+   "dimensions": {
+    "F1_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F1.3: duplication ratio=0.0% (0 dup / 5 meaningful lines, 0 clone block(s)) (rust) \u2014 score=1.000 (touring-analysis analyze_duplication, Type-1 block clones)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_6": {
+     "value": 0.85,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.850 (worst lib.rs=0.850, p10=0.850)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F1.8: 0 module-import cycles across 0 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F1_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F1_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: lib.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: lib.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F2.5: 0 dependency CVEs in the resolved tree | 9 non-blocking informational (unmaintained/unsound \u2014 see F4.5): dirs@6.0.0 (RUSTSEC-2020-0053, unmaintained), humantime@2.3.0 (RUSTSEC-2025-0014, unmaintained), i_tree@0.8.3 (RUSTSEC-2025-0165, unsound) (+6 more)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F2_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_10": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F2_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.3: 0 pyramid-shape gap(s) over 17 lines (rust) \u2014 score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_5": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_6": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.6: 0 security-test gap(s) over 17 lines (rust) \u2014 score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_7": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.7: 0 perf-test gap(s) over 17 lines (rust) \u2014 score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_9": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "coverage-ratio\u2248LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_10": {
+     "value": 0.99962485,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.10: 1 arch-doc gap(s) over 4798 lines (rust) \u2014 score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F3_11": {
+     "value": 0.3,
+     "status": "Fail",
+     "evidence": "[scope-native @ path root] F3.11: no README* found in scope \u2014 repository has no README (absent-artifact cap, not diluted density)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F3_12": {
+     "value": 0.82,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 0.820 (worst lib.rs=0.820, p10=0.820)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F3_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] F3.13: 0 changelog gap(s) over 2401 lines \u2014 score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    },
+    "F4_1": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_2": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_3": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "worst-of 1 files: lib.rs = 1.000",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_4": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 1 files: 1.000 (worst lib.rs=1.000, p10=1.000)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_5": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.5: not a Cargo project \u2014 dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_6": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.6: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_7": {
+     "value": 0.5568,
+     "status": "Warn",
+     "evidence": "[scope-native @ path root] FF4_7: 35 CI/CD Pipeline smell(s) over 375 lines (rust) -- score=0.557          (touring-analysis analyze_cicd: see header for detector catalog); top: action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`) (34x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_8": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.8: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_9": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.9: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_10": {
+     "value": 0.7,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 1 files: 0.700 (worst lib.rs=0.700, p10=0.700)",
+     "suggestions": [],
+     "latency_ms": 0
+    },
+    "F4_11": {
+     "value": 1.0,
+     "status": "NotApplicable",
+     "evidence": "[scope-native @ path root] [N/A] F4.11: no matching artifact in scope (conditional artifact \u2014 does not apply to this project type; excluded from composite)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+     ],
+     "latency_ms": 0
+    },
+    "F4_12": {
+     "value": 0.82,
+     "status": "Pass",
+     "evidence": "[scope-native @ path root] FF4_12: 1 Environment Management smell(s) over 17 lines (rust) -- score=0.820          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+     "suggestions": [
+      "Edit tool --path crates/touring-capnp-server/src --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7) [preventive \u2014 score is Pass; tighten pattern to harden against regression]"
+     ],
+     "latency_ms": 0
+    }
+   },
+   "composite": 0.9588183,
+   "tier": "Diamond",
+   "blockers": [
+    "F3_11"
+   ],
+   "warnings": [
+    "F4_7",
+    "F4_10"
+   ],
+   "schema_version": 1
+  }
+ ]
+}

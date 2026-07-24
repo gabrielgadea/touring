@@ -1,0 +1,11 @@
+{
+  "phase": "S-00b",
+  "entities": [
+    {
+      "entity_id": "phase:S-00b",
+      "type": "phase",
+      "description": "S-00.5 instrumentation shipped: record_enrichment_metrics helper wires record_enrichment_emitted (R4 STR proxy) + budget-pressure 75/90 (R3); extracted to keep run_returning_impl CC at pre-existing 40"
+    }
+  ],
+  "relations": []
+}

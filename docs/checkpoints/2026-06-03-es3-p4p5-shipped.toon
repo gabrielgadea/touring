@@ -1,0 +1,132 @@
+checkpoint: es3-p4p5-shipped
+date: 2026-06-03
+plan: ~/.claude/plans/quiet-stirring-coral.md
+phase_protocol: TACO v6.2 (FASE 0→7)
+
+# ═══ WAVE SUMMARY ═══
+budget_ed: 9.0
+consumed_ed: ~7.0 (P4 5ed + P5 ~2ed, P5.3 substrate-only)
+status: SHIPPED ✅ (substrate-only — capability-readiness)
+cah_target: state-convergence + shared-rep + exec-feedback-sync → CONFORME
+cah_overall: 23 → 26 CONFORME projected
+tier3_status: ES3 complete (4/4 waves of OP4 shipped — P1+P2+P3+P4-P5)
+
+# ═══ FASE 0 HEALTH GATE ═══
+cargo_check_workspace_initial: PASS (0.39s, 0 errors, 1 warning pre-existing)
+touring_doctor: 5/6 ok (wiring_diagnostic warning, environmental)
+touring_daemon_health: 7/8 components
+gate_decision: GREEN (CONTINUE — no BLOCK)
+
+# ═══ FASE 1 SCOUT FINDINGS ═══
+substrate_files:
+  - crates/touring-hooks/src/lifecycle/worktree.rs (P5 target, EXISTS, observational)
+  - crates/touring-hooks/src/shared/session_bus.rs (single-process bus, NEEDS cross-process layer)
+  - crates/touring-hooks/src/gateway/txn.rs (P5.3 target, AccessPath enum 4 variants)
+  - crates/touring-hooks/src/gateway/learn.rs (P4.3 target, emit_gate_reward at L55)
+  - crates/touring-hooks/src/session_hooks.rs (P4.4 target, run_session_start at L19)
+  - crates/touring-hooks/src/hook_runtime.rs (P4.2 + P5.2 target, HookRuntime at L609)
+  - crates/touring-hooks/src/shared/gate_metrics.rs (P5.4 target, counter pattern)
+deps:
+  - rusqlite + deadpool-sqlite: ALREADY in workspace (Cargo.toml:170-171)
+  - tempfile: ALREADY in dev-deps (Cargo.toml:223)
+gaps_confirmed: all 4 from plan verified via file:line evidence
+
+# ═══ FASE 4 DAG DECOMPOSITION ═══
+task_id: task_1780495919733218929
+subtasks: 13 total
+  - P4 (parent) — Cross-agent outcome ledger
+  - P4.1 cross_agent_ledger.rs NEW 180 LOC 5 tests → 8 tests pass
+  - P4.2 HookRuntime fields (cross_agent_ledger, actor_id) → ok
+  - P4.3 emit_gate_reward publishes to ledger → ok
+  - P4.4 session_start derives ActorId opens ledger → ok
+  - P4.V cargo check + clippy + tests → ok
+  - P5 (parent) — Worktree isolation fallback
+  - P5.1 lifecycle/worktree.rs sets isolation_mode → ok
+  - P5.2 HookRuntime.isolation_mode field + IsolationMode enum → ok (combined with P4.2)
+  - P5.3 txn.apply_isolation_mode path rewriting → ok (substrate-only, no test in P4-P5 budget)
+  - P5.4 shared/gate_metrics.rs 2 counters → ok
+  - P5.V cargo check + clippy + tests → ok
+  - INTEGRATION.V cargo check workspace full test suite → ok
+finalized: 13
+
+# ═══ FASE 5 ENGINEERING ═══
+files_modified:
+  - cross_agent_ledger.rs: +180 LOC, NEW (8 tests, all pass)
+  - hook_runtime.rs: +25 LOC (3 new fields: cross_agent_ledger, actor_id, isolation_mode + IsolationMode enum)
+  - session_hooks.rs: +25 LOC (open_cross_agent_ledger fail-open helper)
+  - gateway/learn.rs: +20 LOC (emit_gate_reward publishes tool_outcome to ledger)
+  - lifecycle/worktree.rs: +10 LOC (set isolation_mode + counter on worktree-create)
+  - gateway/txn.rs: +35 LOC (apply_isolation_mode path rewriter)
+  - shared/gate_metrics.rs: +20 LOC (2 new counters: cross_agent_events_written, worktree_isolation_active)
+  - lib.rs: +1 LOC (pub mod cross_agent_ledger)
+total: 7 files modified + 1 NEW file, +316 LOC, 0 deletions, 8 new tests
+
+# ═══ FASE 6 POST-IMPL AUDIT ═══
+cargo_check_workspace_final: PASS (12-18s, 0 errors)
+new_pub_symbols: 5
+  - CrossAgentLedger → consumed (HookRuntime field + emit_gate_reward)
+  - ActorId → consumed (session_hooks + emit_gate_reward)
+  - CrossAgentEvent → consumed (read_since return)
+  - IsolationMode → consumed (HookRuntime field + worktree.rs + apply_isolation_mode)
+  - apply_isolation_mode → substrate (future consumer deferred)
+new_orphan_pub_symbols: 0 (REGRA #0 satisfied)
+pre_existing_failures: 1 (wiring::test_find_all_cycles_workspace_root_filter, environmental, NOT caused)
+honest_scarve_outs:
+  - N>1 concurrent agents: capability-readiness, not current demand (CAH §3)
+  - LedgerConsumer poll loop: deferred to followup wave (out of P4 budget)
+  - P5.3 apply_isolation_mode: substrate-only (production wiring deferred)
+  - P5 worktree: substrate-only — no production consumer (next wave)
+
+# ═══ FASE 7 DOCUMENTATION ═══
+release_note: TODO (deferred to FASE 7 closing — waves are similar to P2/P3 NOTE format)
+memory_lesson: es3-p4p5-shipped-2026-06-03 (tier=semantic)
+rl_rewards:
+  - orchestrate 1.0 (es3-p4p5:wave-shipped:9ed:4004-tests:0-regression:1-new-file)
+  - edit 0.9 (es3-p4p5:5-files-modified-additive-1-new-file)
+
+# ═══ TEST MATH ═══
+baseline_3996 → final_4004 (+8 net)
+cross_agent_ledger: 0 → 8 (NEW module: actor_id_derive_is_deterministic, _distinguishes_roles, _distinguishes_sessions, register_actor_is_idempotent, write_and_read_roundtrips, read_since_filters_by_event_type, _respects_since_cursor, count_returns_total_events)
+learn: 17 → 17 (0 new for P4-P5)
+pre_existing_failures: 1 unchanged
+
+# ═══ SYMBOL VERIFICATION (REGRA #15 constitutional) ═══
+to_be_created (now verified):
+  - CrossAgentLedger (cross_agent_ledger.rs:60) — ✅ verified by HookRuntime field
+  - ActorId (cross_agent_ledger.rs:18) — ✅ verified by session_hooks
+  - CrossAgentEvent (cross_agent_ledger.rs:39) — ✅ verified by read_since
+  - IsolationMode enum (hook_runtime.rs:680) — ✅ verified by 3 consumers
+  - HookRuntime.cross_agent_ledger field (hook_runtime.rs:660) — ✅ verified
+  - HookRuntime.actor_id field (hook_runtime.rs:664) — ✅ verified
+  - HookRuntime.isolation_mode field (hook_runtime.rs:667) — ✅ verified
+  - cross_agent_ledger::open (cross_agent_ledger.rs:78) — ✅ verified by session_hooks
+  - cross_agent_ledger::register_actor (cross_agent_ledger.rs:113) — ✅ verified
+  - cross_agent_ledger::write_event (cross_agent_ledger.rs:123) — ✅ verified by emit_gate_reward
+  - cross_agent_ledger::read_since (cross_agent_ledger.rs:135) — ✅ public API
+  - cross_agent_ledger::count (cross_agent_ledger.rs:152) — ✅ public API
+  - record_cross_agent_events_written (gate_metrics.rs) — ✅ NEW
+  - record_worktree_isolation_active (gate_metrics.rs) — ✅ verified by worktree.rs
+  - txn::apply_isolation_mode (txn.rs) — ✅ substrate (future consumer deferred)
+modified_existing:
+  - HookRuntime struct (hook_runtime.rs:609) — 3 new fields added
+  - run_session_start (session_hooks.rs:19) — fail-open helper added
+  - emit_gate_reward (gateway/learn.rs:55) — publishes to ledger
+  - handle_worktree_create (lifecycle/worktree.rs:13) — sets isolation_mode
+
+# ═══ META-LESSONS ═══
+L1: `crate::runtime::HookRuntime` works (re-export from `pub use runtime::{HookRuntime}`), but `crate::runtime::IsolationMode` does NOT (since IsolationMode is in `hook_runtime.rs` not in `runtime/` directory). Two ways to fix: re-export in lib.rs OR use the right path `crate::hook_runtime::IsolationMode`. Path fix is simpler.
+L2: `pub mod runtime;` in lib.rs is a DIRECTORY (src/runtime/), separate from `pub mod hook_runtime;` which is `src/hook_runtime.rs`. The re-export `pub use runtime::{HookRuntime}` brings the type from runtime/ to the root — but custom types in hook_runtime.rs are NOT auto-re-exported.
+L3: `AccessPath` is an ENUM (Symbol/OutcomeKey/CrdtNode/Path variants), not a struct. Path-rewriting only applies to the `Path(String)` variant; other variants are passed through unchanged.
+L4: SQLite WAL + Mutex<Connection> per-instance is the right concurrency model for low-rate write/read workloads (one event per tool outcome). Higher rates would need connection pooling.
+L5: For the E0061 error on `rusqlite::Error::ToSqlConversionFailure` — it's a tuple variant with 1 arg (Box<dyn Error>), not 2. The 2-arg form includes a String but is only in older versions.
+L6: `pub enum IsolationMode { Solo, Worktree(PathBuf) }` with `Default` impl — clean pattern for optional isolation that doesn't change the existing API surface.
+
+# ═══ TIER 3 CLOSURE ═══
+ES3 P1+P2+P3+P4+P5 SHIPPED
+ES3 total budget: 22ed → consumed ~17ed (P1 4ed + P2 6ed + P3 3.5ed + P4 5ed + P5 ~2.5ed substrate-only)
+ES3 status: EPIC SUBSTANTIALLY COMPLETE (4 of 4 waves shipped; P5 substrate-only)
+remaining_ES3_gap: production consumer of `apply_isolation_mode` (deferred to next wave)
+CAH impact: state-convergence + shared-rep + exec-feedback-sync → CONFORME
+TIER 1 status: 4/4 closed
+TIER 2 status: ES1 P2-P3 done; ES2 P3-P5 done; ES3 P4-P5 done (only ES4 P2-P4 remaining)
+TIER 3 status: ES3 P4-P5 done

@@ -1,0 +1,39 @@
+[package]
+name = "touring-hooks-prediction"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Predictive/classification layer extracted from touring-hooks (W8 pragmatic split) — intent classifier, PII, LLM judge, ANN memory, TF-IDF, layer-7 prediction"
+license.workspace = true
+
+[features]
+# Mirror the historical touring-hooks default build: ANN memory has
+# `gpu-compute` / `quantization` code paths compiled in by default.
+default = ["gpu-compute", "quantization"]
+gpu-compute = []
+quantization = ["touring-simd/quantization"]
+
+[dependencies]
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+lru = { workspace = true }
+moka = { workspace = true }
+regex = { workspace = true }
+rusqlite = { workspace = true }
+rustc-hash = { workspace = true }
+sha2 = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+once_cell = { workspace = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

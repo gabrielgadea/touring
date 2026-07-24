@@ -1,0 +1,51 @@
+# release-plz — release automation for the Touring binary product.
+# Docs: https://release-plz.dev | Authored: W13 repo-premium 2026-05-31.
+#
+# MODEL: Touring is a *binary product* (the `touring` CLI), NOT a crates.io
+# library ecosystem. `[workspace.package] publish = false` is set workspace-wide,
+# so release-plz NEVER publishes to a registry. Its role here is:
+#   version bump + CHANGELOG generation + git tag + GitHub release,
+# which then trigger the build-and-sign workflows (sigstore-release.yml).
+#
+# Release flow:
+#   push to main  →  release-plz opens a "release PR" (version bump + changelog)
+#   merge PR      →  release-plz creates tag `vX.Y.Z` + GitHub release
+#   release event →  build matrix produces signed binaries (sigstore-release.yml)
+
+[workspace]
+# Opt-in per package: a binary product releases ONE artifact, not 42 crates.
+release = false
+# Never publish to crates.io (mirrors [workspace.package] publish = false).
+publish = false
+# No public library API contract to guard (binary). semver-checks runs in CI
+# only against the few crates with a stabilised pub surface (see CI job).
+semver_check = false
+# Do not let release-plz run `cargo update` — dependency bumps are deliberate
+# (see deny.toml / cargo-deny gate), never drive-by.
+dependencies_update = false
+# Release only when the dedicated release PR is merged (not on every push).
+release_always = false
+allow_dirty = false
+pr_branch_prefix = "release-plz-"
+pr_labels = ["release"]
+pr_draft = false
+
+[changelog]
+# Breaking-change commits are always surfaced in the changelog.
+protect_breaking_commits = true
+
+# ── The shipped product: the `touring` binary (package `touring-server`) ──
+# Only this package is released. Its CHANGELOG is the product changelog; its
+# git tag `vX.Y.Z` is the release trigger consumed by sigstore-release.yml.
+[[package]]
+name = "touring-server"
+release = true
+publish = false              # binary product — distributed via GitHub releases
+                             # + install.touring.dev + Homebrew/Scoop, not crates.io.
+changelog_update = true
+changelog_path = "CHANGELOG.md"
+git_release_enable = true
+git_release_type = "auto"    # pre-release if version has -rc/-alpha, else prod.
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+git_release_name = "touring v{{ version }}"

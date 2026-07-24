@@ -1,0 +1,15 @@
+id: python:mutable-default-arg
+language: python
+pattern: "def "
+description: "Mutable default arguments (list, dict) are shared across calls — leads to silent state leaks."
+severity: high
+resolution: |
+  Replace mutable defaults with `None` and assign inside the function:
+    def foo(items=None):
+        if items is None:
+            items = []
+        ...
+metadata:
+  introduced: 2026-04-25
+  references:
+    - https://docs.python-guide.org/writing/gotchas/

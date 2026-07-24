@@ -1,0 +1,49 @@
+[package]
+name = "touring-offensive"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Cap II Offensive Engine: BugBounty tracking, Concolic execution, Erickson NLP"
+license.workspace = true
+
+[features]
+# Wave 24 (2026-04-18): cvc5 feature re-wired after `cvc5 = "0.4.0"`
+# appeared on crates.io. `cvc5-sys` is a binding to the system `libcvc5-dev`
+# (header `cvc5/c/cvc5.h` + dylib `libcvc5.so`); it does NOT bundle the
+# solver. Kept out of default to preserve zero-sysdep builds. Activate with:
+#   apt install libcvc5-dev  (system libcvc5, 1.1.2+)
+#   cargo build --features cvc5 -p touring-offensive
+# ES1 P2.5 (2026-06-02) — added `cvc5?/static` to also enable the cvc5-sys
+# `static` feature, which auto-builds cvc5 1.3.1 from source (matches
+# cvc5-sys 0.4.0's expected C API per its README). This is the recommended
+# path; system libcvc5 1.1.2 has the wrong C API and is incompatible.
+# The implementation at `src/solver/cvc5_backend.rs` is gated behind
+# `#[cfg(feature = "cvc5")]` and flips from a no-op stub to the real SMT
+# backend when the feature is enabled.
+default = ["stub", "cve-fetch", "z3"]
+stub = []
+z3 = ["dep:z3"]
+cvc5 = ["dep:cvc5", "cvc5?/static"]
+# rl-feedback: REMOVED from [features] to prevent `--all-features` compilation failure.
+# The cyclic dep (touring-learning → touring-offensive → touring-learning) makes this feature
+# structurally impossible. Code gated behind #[cfg(feature = "rl-feedback")] is preserved but
+# inactivatable until the cycle is broken (e.g., by moving RL feedback code into touring-learning).
+cve-fetch = ["reqwest/blocking"]
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+regex = { workspace = true }
+unicode-segmentation = { workspace = true }
+anyhow = { workspace = true }
+reqwest = { workspace = true, optional = true }
+serde_json = { workspace = true }
+z3 = { workspace = true, optional = true }
+cvc5 = { workspace = true, optional = true }
+touring-foundation = { path = "../touring-foundation" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

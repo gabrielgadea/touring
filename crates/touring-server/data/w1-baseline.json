@@ -1,0 +1,693 @@
+{
+  "captured_at": "2026-06-06T16:44:30.621231+00:00",
+  "wave": "W1",
+  "task_id": "task_1780763041476850005",
+  "tooling": {
+    "total_tools": 102,
+    "wave_labeled_t1_t2_t3": 32,
+    "status_family_count": 9,
+    "category_distribution": {
+      "other": 26,
+      "ctx_*": 33,
+      "ast": 7,
+      "memory": 2,
+      "entity": 5,
+      "generator": 21,
+      "wiring": 3,
+      "tantivy": 5
+    },
+    "tools": [
+      {
+        "name": "touring_activity_replay",
+        "description": "Replay all events in the activity log and produce the deterministic projection. Returns total event count and projection hash.",
+        "module": "activity",
+        "file": "tools_activity.rs"
+      },
+      {
+        "name": "touring_activity_verify",
+        "description": "Verify the integrity of the activity log by recomputing the projection hash and comparing against the stored hash. Returns failure count and failed seq numbers.",
+        "module": "activity",
+        "file": "tools_activity.rs"
+      },
+      {
+        "name": "touring_session",
+        "description": "Session lifecycle: start, checkpoint, assess, end, list, get",
+        "module": "analysis",
+        "file": "tools_analysis.rs"
+      },
+      {
+        "name": "touring_refactor",
+        "description": "Safe refactoring: analyze symbol impact, rename with AST, validate syntax, preview changes",
+        "module": "analysis",
+        "file": "tools_analysis.rs"
+      },
+      {
+        "name": "touring_evolution_status",
+        "description": "Get status of the self-evolution engine: learning state, drift detection, watcher stats",
+        "module": "analysis",
+        "file": "tools_analysis.rs"
+      },
+      {
+        "name": "touring_evolution_drift",
+        "description": "Query drift detection results from Touring's learning engine. Optionally filter by metric name. Returns drift status for all tracked metrics: drift_detected, magnitude, direction, confidence, and trend label. Use to identify which metrics in the system are degrading or improving over time.",
+        "module": "analysis",
+        "file": "tools_analysis.rs"
+      },
+      {
+        "name": "touring_ctx_gain",
+        "description": "Token-savings dashboard. Aggregates per-session GateMetrics \\\n                       counters into bytes_saved + tokens_saved + human-readable \\\n                       summary. Read-only, <5ms. Use to surface 'value Touring delivered \\\n                       this session'.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_replay",
+        "description": "T1-01: Replay last N session steps as compressed summaries. Useful after /clear to reload the LLM mental model without rehydrating raw outputs.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_gain_graph",
+        "description": "T1-05: ASCII sparkline of bytes_saved over last N days using \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588. Renderable in any terminal, zero deps.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_session_adoption",
+        "description": "T1-06: Adoption ratio for the current session \u2014 routed_bash + compressed / total_bash. Surfaces 'how much value Touring is delivering this session'.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_explain",
+        "description": "T1-10: Explain a GateMetrics counter \u2014 returns its current value, plain-English description, and related counters. Use to interpret gate-metrics output.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_batch_execute",
+        "description": "T1-12: Bundle multiple ctx_* invocations into a single MCP call. Pass `items` as JSON array of {kind, ...args}. kinds: replay, smart, doctor, gain_history. Reduces roundtrip latency.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_upgrade",
+        "description": "T1-14: Plan / report a Touring rebuild + symlink + restart. Pass `dry_run: true` for a plan only; live invocation requires CLI for safety.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_discover_session",
+        "description": "T1-15: Scan hook_events for the current session, identify Bash invocations whose result was >5KB AND classify_tool_routing was Passthrough. Surface missed savings ranked by est_bytes.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_linucb_compression",
+        "description": "T2-01: LinUCB-driven compression decisions envelope.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_burn_detect",
+        "description": "T2-02: Detect tool-call-burn patterns in current session.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_precompact_recompress",
+        "description": "T2-03: PreCompact aggressive recompression envelope.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_session_inheritance",
+        "description": "T2-04: Cross-session inheritance \u2014 replay top lessons.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_search_regex",
+        "description": "T2-05: Tantivy RegexQuery wrapper.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_search_phrase_prefix",
+        "description": "T2-06: Tantivy PhrasePrefixQuery wrapper.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_aggregate_daily",
+        "description": "T2-07: DateHistogramAggregation by day.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_top_compressors",
+        "description": "T2-08: Custom Collector top-by-savings.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_think_in_code",
+        "description": "T2-09: Think-in-Code directive injector.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_roi",
+        "description": "T2-10: USD savings via pricing model.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_read_summary",
+        "description": "T2-11: Read >10KB \u2192 summary.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_webfetch_chunk",
+        "description": "T2-12: WebFetch markdown chunker.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_grep_rerank",
+        "description": "T2-13: BM25 rerank Grep hits.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_err_filter",
+        "description": "T2-14: Generic error-only filter.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_tier_lift",
+        "description": "T2-15: session_tier_lift Think-in-Code at Tier3.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_lsp_status",
+        "description": "T3-01: LSP integration status.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_shared_cache_status",
+        "description": "T3-02: Multi-agent shared cache status.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_cloud_sync_status",
+        "description": "T3-03: Cloud sync session status.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_synthesize_profile",
+        "description": "T3-04: AI-powered profile synthesizer.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_web_status",
+        "description": "T3-05: Web UI dashboard status.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_federated_search",
+        "description": "T3-06: Federated multi-project search.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_otlp_status",
+        "description": "T3-07: OpenTelemetry exporter status.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_graphql_status",
+        "description": "T3-08: GraphQL endpoint status.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_polyglot_summary",
+        "description": "T3-09: Cross-language polyglot summary.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ctx_pr_risk_score",
+        "description": "T3-10: CI/CD risk gates \u2014 PR risk score.",
+        "module": "context_router",
+        "file": "tools_context_router.rs"
+      },
+      {
+        "name": "touring_ast_overview",
+        "description": "Extract symbols from source code with TOON format output",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_ast_find",
+        "description": "Find symbols by name across project files",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_classify_intent",
+        "description": "CILA L0-L6 intent classification using 48-pattern RegexSet",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_memory_store",
+        "description": "Store a memory entry in RLM + SemanticRecall",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_memory_clusters",
+        "description": "Pattern clustering via HNSW-based lazy clustering",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_cluster_skills",
+        "description": "Skill clustering: record usage, compute clusters, find similar",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_ast_edit",
+        "description": "AST surgery: replace symbol body or validate syntax",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_index_status",
+        "description": "Get project index status and configuration",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_checkpoint",
+        "description": "Create a checkpoint file",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_file_ops",
+        "description": "File operations: read, write, append, delete, find/search, stat, exists, mkdir, copy, move/rename, glob, tree",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_project",
+        "description": "Get project configuration and status",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_resolve_project",
+        "description": "Resolves a file path to its corresponding project root using longest-prefix match across indexed projects. Returns the project directory that owns the file.",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_find_references",
+        "description": "Finds all references to the symbol at a given position. Supports workspace and project scope.",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_rename",
+        "description": "Renames a symbol across all references. Use apply=true to commit changes, or false for a dry run preview.",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_entity_define",
+        "description": "Define a new entity in the identity registry",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_entity_resolve",
+        "description": "Resolve an entity name with exact or fuzzy matching",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_entity_relate",
+        "description": "Create a relation between two entities",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_entity_list",
+        "description": "List entities with optional crate and kind filters",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_entity_delete",
+        "description": "Delete an entity from the registry",
+        "module": "core",
+        "file": "tools_core.rs"
+      },
+      {
+        "name": "touring_generator_validate_plan",
+        "description": "Validate a GeneratorPlan JSON for schema correctness without executing the pipeline. Returns valid=true/false and a list of errors.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_verify_plan",
+        "description": "Run VGP symbol verification only on a GeneratorPlan. Checks that all must_exist symbols are present in the touring index.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_render_plan",
+        "description": "Run VGP verify + template render on a GeneratorPlan. Stops before speculate and commit. Returns ok=true if rendering succeeds.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_speculate_plan",
+        "description": "Run VGP verify + render + speculate on a GeneratorPlan. Stops before commit. Use to validate the generated artifact without writing to disk.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_commit_plan",
+        "description": "Alias for touring_generator_submit_plan with dry_run=false. Runs the full pipeline and commits the artifact to disk.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_rollback_plan",
+        "description": "Check rollback availability for a plan's target file. Reports whether a .bak backup exists. Does not execute the restore \u2014 reports what would happen.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_schema_dump",
+        "description": "Emit the JSON Schema for the GeneratorPlan struct. Use to validate plan files programmatically or generate editor integrations.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_schema_check",
+        "description": "Check whether a GeneratorPlan version is compatible with the current engine. Returns compatibility status and available migration paths.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_bundle",
+        "description": "Execute multiple GeneratorPlans sequentially as a bundle. Pass plans_json as a Vec of plan JSON strings. Set dry_run=true to skip commits. Returns a manifest with per-plan stage results and aggregate counts.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_recall_similar",
+        "description": "Search touring memory for past generation patterns matching the query. Returns top-N matching memory entries ordered by relevance.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_plan_history",
+        "description": "Show the execution_trace lineage of a GeneratorPlan. Returns all trace entries populated by previous pipeline runs.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_critique_plan",
+        "description": "Analyze a GeneratorPlan structure and report issues: empty intent, missing contracts, invalid target paths. Returns error_count, warning_count, and issue list.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_suggest_plan",
+        "description": "Generate a skeleton GeneratorPlan JSON for the given intent and optional kind. Returns a ready-to-edit plan with sensible defaults. Replace plan_id and target.file_path before submitting.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_template_list",
+        "description": "List all 30 built-in Tera templates with their GeneratorKind, label, and template filename. Use template names with touring_generator_template_test.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_template_validate",
+        "description": "Validate a Tera template file for syntax errors. Pass the absolute path to a .tera file. Returns valid=true/false and any syntax errors.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_template_test",
+        "description": "Render a built-in template by name with given vars. Use touring_generator_template_list to get valid template names. Pass vars as a JSON object string.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_kinds_list",
+        "description": "List all 30 GeneratorKind variants with their label and template name. Alias for touring_generator_template_list with kind-focused output.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_capacity",
+        "description": "Show CapacityLimits defaults: max plan size, max contracts, token budget per CILA level. Use to understand pipeline constraints before submitting large plans.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_consumer_wiring",
+        "description": "Query orphan pub symbols from the wiring system and generate ConsumerGenerator plans for each wiring opportunity. Returns ok=true, count, and plans[]. Submit each plan via touring_generator_submit_plan to create wiring implementations.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_schema_registry_info",
+        "description": "Query the SchemaRegistry: engine version, number of migration paths, and migration keys. Use before schema_check to understand what versions are available.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_generator_registry_status",
+        "description": "List all in-flight generator plans from the PlanRegistry. Returns plan_id, intent_preview, and execution status for each registered plan. Use filter to restrict to a specific plan_id prefix.",
+        "module": "generator",
+        "file": "tools_generator.rs"
+      },
+      {
+        "name": "touring_streaming_mcts",
+        "description": "Streaming Monte Carlo Tree Search for multi-step planning decisions. Takes a search_state string and runs progressive MCTS search with intermediate results available via tokio watch channel. Unlike touring_mcts_search which blocks until complete, this tool returns immediately with the best result found so far. Use for background planning without blocking the UI. Typical use: pass a state string, get best_action with confidence score.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_online_learn",
+        "description": "Snapshot of the online RL engine: recent_reward EMA, update_count, per-tool bandit stats, convergence_status. Verify RL is receiving reward signals and identify underperforming tools.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_wiring_audit",
+        "description": "Deep wiring audit using H83 IntegrationCompletenessHandler. Returns orphan_count, per-module integration scores, and recommendations. Optional module_filter restricts audit to a specific module path.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_wiring_suggest",
+        "description": "Query pending wiring suggestions for orphan pub symbols from FileKnowledgeDB analysis. Pass orphanSymbol to filter to one symbol or omit to get all pending suggestions.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_wasm_plugin",
+        "description": "Executes a WebAssembly plugin with fuel metering and sandbox isolation. The plugin must be a valid .wasm or .wat file. Feature: wasm-plugins.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_blast_radius_analysis",
+        "description": "Focused blast radius analysis for a specific file. Returns name, score, issues from the blast_radius dimension. Faster than touring_analysis_report for single-file blast radius queries.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_list_jobs",
+        "description": "L7-B: List all jobs in the registry with their current status. \\\n                       Returns an array of {job_id, status, started_at_secs, is_terminal}.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_drop_job",
+        "description": "L7-B: Drop a job from the registry by id. If the job is still \\\n                       running, its JoinHandle is aborted. Returns {dropped: bool} \u2014 true \\\n                       if the job was found and removed, false if the id was unknown. \\\n                       Use after polling a terminal state to explicitly reclaim memory, \\\n                       or to cancel a long-running worker.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_health_delta_reset",
+        "description": "Wave 16: Reset per-path streak counters and discard any pending pre-record \\\n                       entry for the given file. Useful after a deliberate refactor checkpoint \\\n                       where the operator wants to start tracking from a known-good baseline. \\\n                       Returns {reset: true, file_path: <path>}.",
+        "module": "infra",
+        "file": "tools_infra.rs"
+      },
+      {
+        "name": "touring_ast_todos",
+        "description": "List TODO/FIXME annotations stored in the knowledge index. \\\n                       Pass an absolute file_path to filter to one file, or leave empty \\\n                       to return all todos across the project.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_ast_features",
+        "description": "List feature flags per file from the knowledge index. \\\n                       Pass an absolute file_path to filter to one file, or leave empty \\\n                       to return all feature flags across the project.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_ast_meta",
+        "description": "Consolidated file metadata at skeleton/summary/full depth. \\\n                       skeleton: file_path, language, line_count, pub symbol names. \\\n                       summary: skeleton + cognitive_score, fan_in, fan_out, integration_score. \\\n                       full: summary + imports, todos, feature_flags.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_search_symbols",
+        "description": "Search for symbols by name using LIKE pattern matching against wiring_map. \\\n                       Returns ranked results with file paths and symbol kinds. \\\n                       Use % as wildcard, e.g. '%Handler' matches all handler symbols.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_search_docs",
+        "description": "Full-text search in file documentation and knowledge context. \\\n                       Searches file_knowledge.notes and symbols_json for the query string. \\\n                       Returns file paths, language, and matching context snippets.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_query_dsl",
+        "description": "Query file metadata with a simple DSL. \\\n                       Syntax: 'field op value [AND field op value ...]'. \\\n                       Supported fields: lang, language, loc, line_count, symbol_count, read_count. \\\n                       Supported operators: =, !=, >, <, >=, <=, LIKE. \\\n                       Example: 'lang = rust AND loc > 100'. Returns up to 50 matching files.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_session_summary",
+        "description": "Get session file summaries for a specific file path. \\\n                       Returns skeleton JSON, purpose, top gotchas, and blast severity \\\n                       from previous sessions that touched this file.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_wiring_purpose",
+        "description": "Get the purpose of a module \u2014 its role, exports, imports, \\\n                       and integration score from the dependency graph. \\\n                       Returns module_role, integration_score, pub symbol count, \\\n                       import list, and notes from the knowledge index.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_assist_list_kinds",
+        "description": "List all available refactor assist kinds. Returns each assist's \\\n                       id and group. Use this before `touring_assist_applicable` to \\\n                       discover what assists are available in this codebase.",
+        "module": "metadata",
+        "file": "tools_metadata.rs"
+      },
+      {
+        "name": "touring_tantivy_search",
+        "description": "BM25 full-text search over the symbol index. \\\n                       Returns ranked hits with symbol_name, file_path, kind, score. \\\n                       Faster than SQL FTS5 for large corpora.",
+        "module": "tantivy",
+        "file": "tools_tantivy.rs"
+      },
+      {
+        "name": "touring_tantivy_fuzzy",
+        "description": "Fuzzy search over symbols with Levenshtein edit-distance tolerance. \\\n                       Use when exact BM25 search misses due to typos or partial names.",
+        "module": "tantivy",
+        "file": "tools_tantivy.rs"
+      },
+      {
+        "name": "touring_tantivy_stats",
+        "description": "Snapshot of Tantivy FTS index health: total_docs, index_size_bytes, \\\n                       pending_ops, total_commits, total_upserts.",
+        "module": "tantivy",
+        "file": "tools_tantivy.rs"
+      },
+      {
+        "name": "touring_tantivy_suggest",
+        "description": "Autocomplete prefix suggestions from the symbol index. \\\n                       Returns symbol names whose lowercased form starts with `prefix`.",
+        "module": "tantivy",
+        "file": "tools_tantivy.rs"
+      },
+      {
+        "name": "touring_tantivy_reindex",
+        "description": "Clear and reset the Tantivy FTS index. Removes all documents and commits. \\\n                       The daemon repopulates incrementally via hooks. \\\n                       Use after schema migration or index corruption.",
+        "module": "tantivy",
+        "file": "tools_tantivy.rs"
+      }
+    ]
+  },
+  "param_structs": {
+    "total": 11
+  },
+  "feature_flags": {
+    "mcp-legacy-defined": true,
+    "mcp-curated-defined": true,
+    "default-features": [
+      "wasm-plugins",
+      "l7b-alpha",
+      "async-memory",
+      "scip-emit",
+      "simd-fuzzy",
+      "rl-integration",
+      "mcts-synthesis",
+      "syn-quote",
+      "cognitive-nexus",
+      "analysis-gate",
+      "nlp-reranking",
+      "observability",
+      "memory-integration",
+      "generator-wasm-sandbox",
+      "generator-zero-copy",
+      "ebpf-telemetry",
+      "console",
+      "otlp",
+      "file-logs",
+      "rkyv-ipc",
+      "build-info",
+      "heap-profile",
+      "tantivy-fts"
+    ]
+  },
+  "file_metrics": {
+    "line_counts": {
+      "mod.rs": 1420,
+      "params.rs": 1954,
+      "tools_activity.rs": 281,
+      "tools_analysis.rs": 2132,
+      "tools_context_router.rs": 467,
+      "tools_core.rs": 1940,
+      "tools_ctx_execute.rs": 58,
+      "tools_generator.rs": 402,
+      "tools_infra.rs": 2230,
+      "tools_metadata.rs": 1210,
+      "tools_quality_signal.rs": 382,
+      "tools_status.rs": 139,
+      "tools_tantivy.rs": 187
+    },
+    "hashes": {
+      "mod.rs": "5c1c13ecb97dee78f115071005c599c43ba31567e436313075bae9a44011ecab",
+      "params.rs": "078345eefcc21d4b4be0d3f6547ea58cd15a6a28cd66255a356461e0909fef08",
+      "Cargo.toml": "83affe22d263d71883f9a5272d09bcd6e001eaf11ed967fb660d137a8922cda9"
+    }
+  },
+  "invariants": {
+    "INV-W1-01_total_tools": true,
+    "INV-W1-02_legacy_feature_absent": false,
+    "INV-W1-03_curated_feature_absent": false
+  }
+}

@@ -1,0 +1,64 @@
+[package]
+name = "touring-hooks-shared"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Leaf utilities extracted from touring-hooks (W8 pragmatic split) — errors, metrics, plugin, query DSL, RFC-100 emission, idempotency"
+license.workspace = true
+
+[features]
+# `nlp-enrichment` gates the NLP-enrichment code path inside `reranked_context`.
+# Enabled by default to mirror the historical touring-hooks default build.
+default = ["nlp-enrichment"]
+nlp-enrichment = []
+# `mpatch-fuzzy` enables the REAL `mpatch_preview::preview_patch` (fuzzy diff
+# preview via libmpatch); without it the function is a `None` stub. Off by
+# default so default consumers stay dependency-light; opted into by callers that
+# want the preview (e.g. touring-generator's `simd-fuzzy`).
+mpatch-fuzzy = ["dep:mpatch"]
+
+[dependencies]
+touring-foundation = { path = "../touring-foundation" }
+touring-intelligence = { path = "../touring-intelligence" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+rusqlite = { workspace = true }
+rustc-hash = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+once_cell = { workspace = true }
+regex = { workspace = true }
+touring-code = { path = "../touring-code" }
+serde_yaml = { workspace = true }
+toml = { workspace = true }
+# mpatch: libmpatch fuzzy diff engine backing `preview_patch` — opt-in via the
+# `mpatch-fuzzy` feature (the real impl; otherwise `preview_patch` is a stub).
+mpatch = { workspace = true, optional = true }
+# Session B F4-pre (2026-06-10): deps for the 6 shared submodules relocated from
+# touring-hooks (gate_metrics, memory_stats_probe, bash_ast_validator,
+# hook_events, risk_patterns, ast_grep_signal) — closes the last gateway→parent
+# production edges before the touring-ceg physical move.
+hdrhistogram = { workspace = true }
+memory-stats = { workspace = true }
+moka = { workspace = true }
+blake3 = { workspace = true }
+# Fronteira 2 batch (2026-06-10): 27 leaf-safe shared submodules relocated from
+# touring-hooks src/shared/ (antipatterns→memchr, shadow_rollout→petgraph,
+# job_registry→dashmap).
+memchr = { workspace = true }
+petgraph = { workspace = true }
+dashmap = { workspace = true }
+rayon = { workspace = true } # thread_pool + async_runtime (inline uses)
+num_cpus = { workspace = true } # thread_pool
+touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] } # antipatterns inline uses (same features as touring-hooks)
+
+[dev-dependencies]
+serial_test = { workspace = true }
+tempfile = { workspace = true }
+static_assertions = { workspace = true } # job_registry test: assert_impl_all!(JobState: Send)
+pretty_assertions = { workspace = true } # result_ext test prelude (was crate::test_util)
+
+[lints]
+workspace = true

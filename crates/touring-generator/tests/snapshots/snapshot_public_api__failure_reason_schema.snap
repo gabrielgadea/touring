@@ -1,0 +1,218 @@
+---
+source: crates/touring-generator/tests/snapshot_public_api.rs
+assertion_line: 87
+expression: json
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FailureReason",
+  "description": "The primary reason a plan failed.",
+  "oneOf": [
+    {
+      "description": "Verified Generation Protocol rejected the plan's symbols.",
+      "type": "string",
+      "const": "VgpFailed"
+    },
+    {
+      "description": "Speculative validation scored below the acceptance threshold.",
+      "type": "object",
+      "properties": {
+        "SpeculateFailed": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "description": "Speculative validation score that was achieved.",
+              "type": "number",
+              "format": "double"
+            },
+            "threshold": {
+              "description": "Minimum score required to pass.",
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "score",
+            "threshold"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "SpeculateFailed"
+      ]
+    },
+    {
+      "description": "A Tera template failed to render.",
+      "type": "string",
+      "const": "TemplateError"
+    },
+    {
+      "description": "A filesystem I/O operation failed.",
+      "type": "string",
+      "const": "IoError"
+    },
+    {
+      "description": "The circuit breaker tripped and aborted execution.",
+      "type": "string",
+      "const": "CircuitBreaker"
+    },
+    {
+      "description": "The plan's schema version did not match the engine's.",
+      "type": "object",
+      "properties": {
+        "SchemaVersionMismatch": {
+          "type": "object",
+          "properties": {
+            "engine_version": {
+              "description": "Schema version supported by the engine.",
+              "type": "string"
+            },
+            "plan_version": {
+              "description": "Schema version declared by the plan.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plan_version",
+            "engine_version"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "SchemaVersionMismatch"
+      ]
+    },
+    {
+      "description": "A configured capacity or quota limit was exceeded.",
+      "type": "object",
+      "properties": {
+        "CapacityExceeded": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "description": "Name of the limit that was breached.",
+              "type": "string"
+            },
+            "requested": {
+              "description": "Amount that was requested, exceeding the limit.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "limit",
+            "requested"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "CapacityExceeded"
+      ]
+    },
+    {
+      "description": "One or more plan invariants failed validation.",
+      "type": "object",
+      "properties": {
+        "ValidationFailed": {
+          "type": "object",
+          "properties": {
+            "failed_invariants": {
+              "description": "Names of the invariants that did not hold.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "failed_invariants"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ValidationFailed"
+      ]
+    },
+    {
+      "description": "A target path escaped the allowed root (path traversal).",
+      "type": "object",
+      "properties": {
+        "PathTraversalDenied": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "description": "The offending path that was denied.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "PathTraversalDenied"
+      ]
+    },
+    {
+      "description": "A secret was detected in generated content.",
+      "type": "object",
+      "properties": {
+        "SecretLeakDetected": {
+          "type": "object",
+          "properties": {
+            "field": {
+              "description": "Name of the field where the secret was found.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "field"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "SecretLeakDetected"
+      ]
+    },
+    {
+      "description": "Creating a pre-commit backup failed.",
+      "type": "string",
+      "const": "BackupFailure"
+    },
+    {
+      "description": "A concurrent commit race was detected.",
+      "type": "string",
+      "const": "CommitRaceCondition"
+    },
+    {
+      "description": "A human reviewer rejected the plan.",
+      "type": "object",
+      "properties": {
+        "HumanRejected": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "description": "Reason given by the human for the rejection.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "HumanRejected"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+/* FFI binding: {{ lib_name | default(value="lib") }} */
+
+#ifndef {{ lib_name | default(value="lib") | upper }}_H
+#define {{ lib_name | default(value="lib") | upper }}_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+{% if functions is defined %}
+{% for fn in functions %}
+{{ fn.return_type | default(value="void") }} {{ fn.name | default(value="fn_name") }}({{ fn.params | default(value="") }});
+{% endfor %}
+{% endif %}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* {{ lib_name | default(value="lib") | upper }}_H */

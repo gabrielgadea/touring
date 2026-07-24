@@ -1,0 +1,24 @@
+---
+source: crates/touring-ast/tests/snapshot_imports.rs
+expression: project(&resolver.imports)
+---
+- - "crate::error::*"
+  - ~
+  - true
+  - 6
+- - "serde::{Deserialize, Serialize}"
+  - ~
+  - false
+  - 4
+- - "std::collections::HashMap"
+  - ~
+  - false
+  - 2
+- - "std::sync::{Arc, Mutex}"
+  - ~
+  - false
+  - 3
+- - "tokio::net::UnixStream as Stream"
+  - ~
+  - false
+  - 5

@@ -1,0 +1,26 @@
+[package]
+name = "touring-web-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Axum server shim — implementation in touring-bindings/bind-web"
+
+[lib]
+name = "touring_web_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "touring-web-server"
+path = "src/main.rs"
+
+[dependencies]
+touring-bindings = { path = "../touring-bindings", features = ["bind-web"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[features]
+default = []
+
+[lints]
+workspace = true

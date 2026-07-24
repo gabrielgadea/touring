@@ -1,0 +1,26 @@
+[package]
+name = "touring-hooks-saga"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Leaf crate extracted from touring-hooks (A01 refactor): distributed saga 2PC coordinator (DistributedSagaCoordinator, SagaAgent, AgentSession, StepResult, TransactionPhase). Zero crate:: deps; depends only on dashmap, tokio, touring-rkyv (SagaError)."
+
+[lib]
+name = "touring_hooks_saga"
+path = "src/lib.rs"
+
+[features]
+# Mirrors the original touring-hooks `saga` feature: gates the TestAgent helper
+# + its feature-gated tests (run via `cargo test -p touring-hooks-saga --features saga`).
+saga = []
+
+[dependencies]
+dashmap = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros", "time"] }
+touring-rkyv = { path = "../touring-rkyv" }
+uuid = { workspace = true, features = ["v4"] }
+
+[lints]
+workspace = true

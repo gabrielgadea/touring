@@ -1,0 +1,11 @@
+{
+  "script": "w2_setup_deny_machete",
+  "wave": "W2",
+  "subtask_refs": [
+    "W2.4"
+  ],
+  "timestamp": "2026-05-12T01:42:54.788360+00:00",
+  "status": "OK",
+  "deny_path": "scripts/touring_premium_refactor_2026/staging/w2-deny.toml",
+  "machete_path": "scripts/touring_premium_refactor_2026/staging/w2-machete.toml"
+}

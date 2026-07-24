@@ -1,0 +1,27 @@
+# AUTO-GENERATED — W10.1 touring-orchestration skeleton
+# Generated: 2026-05-12T00:42:22.451845+00:00
+
+[package]
+name = "touring-orchestration"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+orch-decompose = []
+orch-session = []
+orch-rl-bridge = []
+orch-async = ["tokio/rt-multi-thread"]
+
+[dependencies]
+touring-foundation = { workspace = true }
+touring-storage = { workspace = true }
+touring-intelligence = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+
+[lints]
+workspace = true

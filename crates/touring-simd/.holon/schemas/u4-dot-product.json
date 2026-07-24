@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-u4-dot-product.schema.json",
+  "title": "Capability: u4-dot-product",
+  "description": "U4 quantized dot product",
+  "type": "object",
+  "additionalProperties": true
+}

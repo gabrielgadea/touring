@@ -1,0 +1,99 @@
+# Touring architectural-layer policy — the DECLARED source of truth for the
+# F1.7 (Component Boundaries) layer-inversion check (`touring-quality`).
+#
+# Lower rank = more foundational. A crate importing a STRICTLY-higher-layer
+# crate is a layer inversion — cargo permits it whenever there is no back-edge,
+# but it erodes the intended architecture (dependency-cruiser `forbidden`
+# philosophy). F1.7 flags it as an ADVISORY penalty + note; it never blocks.
+#
+# This file gives the check "teeth": with it present, the note reads
+# "layer-inversion (declared, ...)" and each rank is authoritative — a declared
+# rank OVERRIDES the built-in default table in
+# `crates/touring-quality/src/verifications/f1_7_boundaries.rs::crate_layer_rank`
+# and additionally covers crates that table does not know.
+#
+# The ACTIVE entries below mirror the built-in default exactly (zero score
+# change vs the pre-file behavior) — edit them to change the intended
+# architecture. The COMMENTED entries are crates the default never ranked;
+# uncomment + assign a layer to bring them under the check (an over-strict or
+# wrong rank only ever emits an advisory hint, but assign deliberately).
+
+[layers]
+
+# ── L0 — foundational (no dependence on any touring crate) ──────────────────
+touring-foundation = 0
+touring-contracts  = 0
+touring-identity   = 0
+touring-rkyv       = 0
+touring-license    = 0
+
+# ── L1 — core infrastructure ────────────────────────────────────────────────
+touring-code     = 1
+touring-storage  = 1
+touring-simd     = 1
+touring-analysis = 1
+
+# ── L2 — intelligence / analysis products ──────────────────────────────────
+touring-intelligence = 2
+touring-generator    = 2
+touring-assists      = 2
+touring-quality      = 2
+
+# ── L3 — application / delivery surface ────────────────────────────────────
+touring-cortex       = 3   # hook-execution engine (81 handlers, extracted from
+                           # touring-server S4); the default heuristic mis-ranked
+                           # it L2 — declared override (only server L3 consumes it)
+touring-server       = 3
+touring-web          = 3
+touring-web-server   = 3
+touring-cli          = 3
+touring-hooks        = 3
+touring-orchestration = 3
+touring-ceg          = 3
+touring-dispatch     = 3
+touring-lsp          = 3
+
+# ── Previously uncovered — now ranked from the REAL `use touring_X` graph ───
+# Each rank was DERIVED (scratchpad/layer_{solve2,range}.py, 2026-07-04) from the
+# actual import graph — every `use touring_X` across all crate src, which is
+# exactly what F1.7 reads — NOT from Cargo.toml (whose [dependencies] proved
+# unreliable: it hid touring-bindings' real imports of code/intelligence/simd,
+# which would have mis-ranked it L0). A valid rank r for crate X satisfies
+#   max(rank of what X imports) <= r <= min(rank of what imports X)
+# so X never reaches up AND nothing reaches up into X. Every rank below is inside
+# its valid range → declaring them introduces ZERO new inversions on the current
+# codebase (verified: full workspace `use`-scan → 0 inversions involving these
+# crates). Within the range, the semantic layer was chosen to minimise FUTURE
+# false hints (e.g. python/server-* → L3 so they may use lower layers freely).
+
+# L1 — infrastructure libraries
+touring-offensive  = 1   # security primitives (analysis L1 imports it → cap L1)
+touring-resilience = 1   # resilience patterns; imports nothing (infra)
+
+# L2 — hooks subsystem products + bindings/RPC substrate
+touring-hooks-shared     = 2   # forced [2,2]: base of the hooks family
+touring-hooks-prediction = 2
+touring-hooks-rl         = 2
+touring-hooks-saga       = 2
+touring-bindings         = 2   # imports code/intelligence/simd (real use-graph)
+touring-capnp-server     = 2   # capnp RPC substrate (imports bindings)
+
+# L3 — hooks runtime/handlers (graph-forced) + application/server surface
+touring-hooks-core       = 3   # forced [3,3]: imports ceg/orchestration (L3)
+touring-hook-runtime     = 3   # forced [3,3]
+touring-hook-handlers    = 3   # forced [3,3]
+touring-python           = 3   # PyO3 binding surface (binds any layer)
+touring-server-reasoning = 3
+touring-server-session   = 3
+touring-server-visual    = 3
+
+# Intentionally UNRANKED (skipped): test/proof crates that import freely by
+# design — ranking them would be architecturally meaningless.
+#   touring-integration-tests   # cross-crate E2E aggregator
+#   touring-loom-proofs         # concurrency-proof crate
+
+# ── Known PRE-EXISTING inversions (surfaced by the default table, NOT new) ──
+# These L2→L3 imports were already flagged before this file existed; recorded
+# here as genuine architectural findings for review (advisory — never blocks):
+#   cortex(L2)    -> hooks(L3)   (touring-cortex/src/{context,pipeline,handlers/*}.rs)
+#   generator(L2) -> hooks(L3)   (touring-generator/src/executor/typestate.rs)

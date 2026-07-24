@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "F1.8 parent-child exclusion: is_hierarchical() drops containment edges (conflict<->conflict::sla FP) from the SCC; sibling coupling (gate_metrics<->gate_metrics_snapshot) preserved. touring-foundation F1.8 0.5->0.65 (2->1 cycle), composite 0.9308 Platinum. Sibling cycle = benign F-9-split facade, DOCUMENTED not forced (REGRA #0 \u2014 breaking fragments cohesive metrics module for a Warn). 16 module_cycles tests, clippy 0, monotone (edge-exclusion never hides a real cycle)."
+    }
+  ],
+  "relations": []
+}

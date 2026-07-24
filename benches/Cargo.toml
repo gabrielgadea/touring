@@ -1,0 +1,18 @@
+# Benchmark crate for touring-search-fusion keyword search benchmarks.
+# D38-S1: Criterion benchmark at workspace root.
+
+[package]
+name = "touring-search-fusion-bench"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+# W5 shim-elimination 2026-05-30: touring-search-fusion + touring-embeddings fused
+# into touring-storage::{hybrid_search,embeddings}. Default features cover both.
+touring-storage = { path = "../crates/touring-storage" }
+criterion = "0.5"
+pollster = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+async-trait = "0.1"

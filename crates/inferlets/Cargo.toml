@@ -1,0 +1,30 @@
+[package]
+name = "inferlets"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "WASM inferlets — sandboxed evaluation plugins for touring-wasm"
+license.workspace = true
+
+[lib]
+name = "inferlets"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# L7-B Delta: sha2 with default-features disabled to avoid std::io dependencies
+# that pull in wasi_snapshot_preview1::fd_write imports in wasm32 targets.
+# Inferlets are compiled for wasm32-unknown-unknown (no WASI) so the WasmRunner
+# allowlist (env::log + env::get_config) is satisfied.
+sha2 = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+serde_json.workspace = true
+
+# Wave 24 (2026-04-18): removed `[profile.release]` — Cargo ignored it anyway
+# (profiles must live at workspace root), emitting a warning on every build.
+# The workspace profile.release at ../Cargo.toml already matches: opt-level="s",
+# lto="fat" (superset of true), codegen-units=1, strip=true, panic="abort".
+# wasm32-unknown-unknown supports panic=abort, so no functional drift.
+
+[lints]
+workspace = true

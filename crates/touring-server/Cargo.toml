@@ -1,0 +1,356 @@
+[package]
+name = "touring-server"
+version.workspace = true
+edition = "2024"
+rust-version = "1.85"
+description = "MCP server (26 tools) + Cortex CLI (97 handlers H1-H97) + Hooks (68 hooks) + Modular Architecture"
+license.workspace = true
+
+[[bin]]
+name = "touring"
+path = "src/main.rs"
+
+[features]
+default = [
+    "wasm-plugins",
+    "l7b-alpha",
+    "async-memory",
+    "scip-emit",
+    "simd-fuzzy",
+    "rl-integration",
+    "mcts-synthesis",
+    "syn-quote",
+    "cognitive-nexus",
+    "analysis-gate",
+    "nlp-reranking",
+    "observability",
+    "memory-integration",
+    "generator-wasm-sandbox",
+    "generator-zero-copy",
+    "ebpf-telemetry",
+    # Wave 5 (2026-04-18) — `prod-allocator` (mimalloc) REMOVED from default
+    # per Gabriel directive: jemalloc + jemalloc_pprof is now the production
+    # allocator via the `heap-profile` feature below. mimalloc remains
+    # available as an opt-in for benchmarks via `--features prod-allocator`
+    # with explicit `--no-default-features` to exclude jemalloc.
+    # Observability stack — all-on by user request 2026-04-14. Each layer
+    # initializes lazily and degrades gracefully when its backend is missing
+    # (see telemetry_init.rs design invariant #2).
+    "console",       # tokio-console task instrumentation (port 6669)
+    "otlp",          # OpenTelemetry OTLP span export
+    "file-logs",     # daily-rotated tracing-appender logs
+    # rkyv zero-copy IPC — default ON 2026-04-14 (Wave 3). Daemon peek-byte
+    # dispatch + dual-path response. Hot-disable via env var
+    # `TOURING_RKYV_IPC=0` without rebuild.
+    "rkyv-ipc",
+    # Wave 5 (2026-04-18) — git SHA + rustc + build timestamp injected
+    # into the binary, exposed via `touring --version`. build.rs degrades
+    # gracefully on non-git builds so this is safe to keep always-on.
+    "build-info",
+    # Wave 5 (2026-04-18) — jemalloc + pprof heap profiling default ON per
+    # Gabriel directive "ative absolutamente todas as features". Replaces
+    # `prod-allocator` (mimalloc) because only ONE global allocator can
+    # link at a time. jemalloc + jemalloc_pprof both always active.
+    # `heap-profile` transitively depends on `jemalloc`.
+    "heap-profile",
+    # 2026-05-01 — Tantivy FTS (BM25 search, fuzzy, suggest). Re-exported
+    # from touring-hooks so `cargo build -p touring-server` activates the
+    # `#[cfg(feature = "tantivy-fts")]` gates inside touring-hooks
+    # (cli_handlers tantivy handlers + lib.rs `pub mod tantivy_index`).
+    "tantivy-fts",
+    # NOTE: `dhat-heap` is INTENTIONALLY not in default — it installs a
+    # third competing global allocator (compile_error! fires if combined
+    # with jemalloc or prod-allocator). Opt in for heap-profiling runs:
+    #   cargo build --release --no-default-features \
+    #     --features dhat-heap,rkyv-ipc,build-info,... -p touring-server
+]
+
+# Tantivy FTS feature — redirects to touring-hooks. Enables BM25 search,
+# fuzzy matching, autocomplete suggest, and per-project Tantivy index.
+# Source-of-truth for the feature flag is touring-hooks/Cargo.toml.
+tantivy-fts = ["touring-hooks/tantivy-fts"]
+
+# Production allocator flag — decouples mimalloc selection from the `default`
+# set so `dhat-heap` can be activated with
+# `--no-default-features --features dhat-heap,<others>`.
+prod-allocator = ["touring-foundation/mimalloc-allocator"]
+
+# ─── MCP tool surface (W1, 2026-06-06) — migration gateway ──────────────
+# Two features control which MCP tool set is exposed via `touring serve`:
+#   * `mcp-legacy` (default ON) — all 102 historical tools (incl. 32
+#     wave-labeled aspirational T1/T2/T3 envelopes that are flaky).
+#   * `mcp-curated` (default OFF) — the new 19+3 curated set (~22 tools)
+#     that is the strategic target post-W4.
+#
+# Migration timeline (task_1780763041476850005):
+#   2026-06-06  W1: both features added; legacy default
+#   2026-06-13  W2: curated set becomes DEFAULT; legacy opt-in
+#   2026-07-13  W4: legacy feature removed (after 30d deprecation)
+#
+# To opt in to the curated set immediately (W1/W2 transition):
+#   cargo build -p touring-server --features mcp-curated
+#   cargo build -p touring-server --features "mcp-curated,mcp-legacy"  # both
+mcp-legacy = []
+mcp-curated = []
+
+# ─── Optional observability / diagnostics features (off by default) ────
+#
+# `console`    — tokio-console task instrumentation. Requires --cfg tokio_unstable
+#                (set globally in .cargo/config.toml). Use:
+#                `cargo run --features console -p touring-server`
+# `otlp`       — OpenTelemetry OTLP span export (Jaeger/Tempo/etc). Pulls ~30
+#                transitive crates; keep off in default builds. Env vars:
+#                OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME.
+# `dhat-heap`  — swaps the global allocator for dhat's instrumented one.
+#                Produces dhat-heap.json. Mutually exclusive with `prod-allocator`.
+# `build-info` — emits VERGEN_* env vars (git sha, rustc, features) into the binary.
+console = ["dep:console-subscriber"]
+otlp = [
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+    "dep:tracing-opentelemetry",
+]
+# Daily-rotated, non-blocking log files (P2 ranking #25). Tee's stderr
+# output to `$TOURING_LOG_DIR/touring.log.YYYY-MM-DD`. Off by default —
+# opt in for production daemon deployments where stderr is not captured
+# by an external supervisor.
+file-logs = ["dep:tracing-appender"]
+# Tracy profiler integration — visual frame-by-frame timeline of span
+# durations via the Tracy protocol. Requires a running Tracy server
+# (https://github.com/wolfpld/tracy) to receive traces. Local dev-only:
+# off by default to avoid linking the Tracy client in prod builds.
+tracy = ["dep:tracing-tracy"]
+dhat-heap = ["dep:dhat"]
+
+# Wave 5 (2026-04-18): `jemalloc` + `heap-profile` features.
+#
+# `jemalloc`     — swap the global allocator to `tikv-jemallocator` (the
+#                  maintained fork of jemalloc-sys used by TiKV). Production
+#                  choice for long-running daemons: higher throughput under
+#                  multi-thread contention, better fragmentation control.
+#                  MUTUALLY EXCLUSIVE with `prod-allocator` (mimalloc) and
+#                  `dhat-heap` (both install a global allocator).
+#
+# `heap-profile` — add `jemalloc_pprof` on top of `jemalloc` for live heap
+#                  snapshots in pprof format. Flamegraph export supported.
+#                  Use via the new `touring profile heap-dump` subcommand.
+#
+# Build examples:
+#   cargo build --release --no-default-features \
+#       --features "jemalloc,rkyv-ipc,build-info,..." -p touring-server
+#   cargo build --release --no-default-features \
+#       --features "heap-profile,rkyv-ipc,build-info,..." -p touring-server
+jemalloc = ["dep:tikv-jemallocator"]
+heap-profile = ["jemalloc", "dep:jemalloc_pprof"]
+
+# Wave 5 (2026-04-18): `build-info` re-activated. vergen-gix 1.0 API
+# stabilized around `*Builder::all_*()` + `Emitter::add_instructions` —
+# implemented in build.rs with per-provider error handling so shallow
+# clones / non-git builds degrade to env-var absence (main.rs prints
+# "unknown" in those cases) rather than failing the workspace build.
+build-info = ["dep:vergen-gix"]
+
+wasm-plugins = ["dep:touring-bindings"]
+# W3.6 (2026-05-12): touring-telemetry absorbed into touring-foundation.
+# This feature now propagates to foundation's own `ebpf-telemetry` feature,
+# which pulls in `aya` / `aya-log` and activates the eBPF code path in
+# `touring_foundation::telemetry`.
+ebpf-telemetry = ["touring-foundation/ebpf-telemetry"]
+async-memory = ["touring-intelligence/async-memory"]
+simd-fuzzy = ["touring-generator/simd-fuzzy"]
+rl-integration = ["touring-generator/rl-integration"]
+mcts-synthesis = ["touring-generator/mcts-synthesis"]
+syn-quote = ["touring-generator/syn-quote"]
+cognitive-nexus = ["touring-generator/cognitive-nexus"]
+analysis-gate = ["touring-generator/analysis-gate"]
+nlp-reranking = ["touring-generator/nlp-reranking"]
+observability = ["touring-generator/observability"]
+memory-integration = ["touring-generator/memory-integration"]
+generator-wasm-sandbox = ["touring-generator/wasm-sandbox"]
+generator-zero-copy = ["touring-generator/zero-copy"]
+
+# L7-B Alpha: Aggregator feature that activates all ROI feature flags for the
+# Second Evolution Cycle. Ativa:
+# - touring-hooks/persistence            → hook state persist across restarts
+# - touring-learning/ftrl                → Follow The Regularized Leader online learning
+# - touring-learning/leiden-clustering   → Advanced graph clustering (linfa-clustering)
+# - touring-learning/async-memory        → Async memory patterns (tokio sync)
+# - touring-simd/quantization            → f16 quantization (half crate)
+# - touring-simd/ann                     → Approximate Nearest Neighbors
+#
+# Does NOT activate (requires external build step or kernel capabilities):
+# - touring-hooks/inferlets-wasm         → needs `cargo build --target wasm32-wasip1 -p inferlets` first
+# - touring-server/ebpf-telemetry        → needs CAP_BPF kernel capability
+#
+# Usage: cargo build --release --features l7b-alpha -p touring-server
+l7b-alpha = [
+    "touring-hooks/persistence",
+    "touring-intelligence/ftrl",
+    "touring-intelligence/leiden-clustering",
+    "touring-intelligence/async-memory",
+    "touring-simd/quantization",
+    "touring-simd/ann",
+]
+scip-emit = ["dep:prost", "dep:prost-types"]
+# Zero-copy rkyv IPC protocol. Activates both the CLI emitter and the
+# daemon peek-byte dispatch (touring-hooks/rkyv-ipc). OFF by default —
+# build with `cargo build --features rkyv-ipc -p touring-server` to
+# opt in once benchmarked under real hook storm.
+rkyv-ipc = ["touring-hooks/rkyv-ipc", "dep:touring-rkyv"]
+
+[dependencies]
+touring-bindings = { path = "../touring-bindings", optional = true, features = ["bind-wasm"] }
+# W3.6 (2026-05-12): `aya`, `aya-log`, `touring-telemetry` moved into
+# `touring-foundation` under the `ebpf-telemetry` feature.
+touring-foundation = { path = "../touring-foundation", default-features = false }
+# W4 shim-elimination 2026-05-31: touring-{semantics,language} → touring_code::{semantics,languages}.
+touring-code = { path = "../touring-code" }
+# W9 pragmatic split — internal sub-crates re-exported verbatim by this façade
+# (see lib.rs `pub use touring_server_{reasoning,visual,session}::*`).
+touring-server-reasoning = { path = "../touring-server-reasoning" }
+touring-server-visual = { path = "../touring-server-visual" }
+touring-server-session = { path = "../touring-server-session" }
+touring-hooks = { path = "../touring-hooks", features = ["shadow-workspace", "u4-quantization", "quantization", "persistence", "gpu-compute", "tantivy-fts"] }
+# touring-language dep folded into touring-code above (W6 shim-elimination 2026-05-31).
+touring-rkyv = { path = "../touring-rkyv", optional = true }
+touring-simd = { path = "../touring-simd", features = ["learning-integration", "cortex-integration", "quantization", "ann"] }
+touring-cortex = { path = "../touring-cortex", features = ["fascicles"] }
+# W6 shim-elimination 2026-05-31: touring-index → touring_intelligence::index (direct).
+touring-intelligence = { path = "../touring-intelligence", features = ["simd-similarity", "smart-cache"] }
+touring-analysis = { path = "../touring-analysis", features = ["deep", "simd-wiring", "simd-temporal-ac"] }
+touring-quality = { path = "../touring-quality" }
+# F5/G3 (2026-07-24): tier model activated — the official binary carries the
+# full cap (tier gating of individual features is future commercial policy;
+# `touring license status` exposes the state read-only).
+touring-license = { path = "../touring-license", features = ["tier-enterprise"] }
+# 2026-06-26 (W5 close): `builtin_default_gates` migrated from touring-harness
+# into touring-quality as the canonical home (master-plan-v3 §1).
+# 2026-06-26 (coupling backlog — master tool `touring_audit`): offensive CWE/OWASP
+# pattern engine (vuln::PatternRegistry, 10 detectors). Already in the build graph
+# transitively via touring-analysis; declared direct so `touring_offensive::vuln`
+# is visible to the failure/gap-detection workflow tool. Deps only on foundation
+# (no cycle: server → offensive → foundation).
+touring-offensive = { path = "../touring-offensive" }
+touring-ceg = { path = "../touring-ceg" } # R1 — touring run: C5 summarize_output for --brief (code-mode CLI)
+touring-generator = { path = "../touring-generator", features = ["full"] }
+# W3.8 (2026-05-12): touring-activity absorbed into touring_foundation::activity
+touring-assists = { path = "../touring-assists" }
+# W5 shim-elimination 2026-05-30: touring-{search-fusion,embeddings,vector-store,vfs}
+# fused into touring-storage. Default features cover storage-{hybrid,emb-fastembed,
+# vec-sqlite,vfs} — the exact union the 4 shims forwarded.
+touring-storage = { path = "../touring-storage", features = ["gpu-embeddings"] }
+touring-orchestration = { path = "../touring-orchestration" }
+inferlets = { path = "../inferlets" }
+touring-identity = { path = "../touring-identity" }
+rmcp = { workspace = true }
+tokio = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+schemars = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+clap_complete = { workspace = true }
+clap_mangen = { workspace = true }
+thiserror = { workspace = true }
+notify = { workspace = true }
+ignore = { workspace = true }
+tempfile = { workspace = true }
+dashmap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+toml = { workspace = true }
+rusqlite = { workspace = true }
+regex = { workspace = true }
+once_cell = { workspace = true }
+chrono = { workspace = true }
+# home: home directory for expanding ~ in project paths (replaced unmaintained `dirs`, RUSTSEC-2020-0053)
+home = { workspace = true }
+lru = { workspace = true }
+moka = { workspace = true }
+streaming-iterator = { workspace = true }
+rayon = { workspace = true }
+termtree = { workspace = true }
+# syntect: Sublime Text-style syntax highlighting for `touring ast highlight`
+# CLI command (Wave 5, 2026-04-26). regex-onig backend reuses the workspace's
+# existing onig 6.5.1 (transitively from candle-transformers); regex-fancy
+# is intentionally excluded because upstream pins fancy-regex to a git branch
+# that conflicts with the workspace's crates.io fancy-regex 0.13.0.
+syntect = { workspace = true }
+num_cpus = { workspace = true }
+reqwest = { workspace = true }
+petgraph = { workspace = true }
+rkyv = { workspace = true }
+rustc-hash = { workspace = true }
+prost = { workspace = true, optional = true }
+prost-types = { workspace = true, optional = true }
+
+# Production allocator is owned by `touring-foundation` (gated behind its
+# `mimalloc-allocator` feature, which is re-exported here as `prod-allocator`).
+# Keeping the global allocator in one place avoids the "duplicate
+# #[global_allocator]" class of errors when enabling `dhat-heap`.
+
+# ─── Optional diagnostic / observability deps ──────────────────────────
+console-subscriber = { workspace = true, optional = true }
+
+# OpenTelemetry OTLP pipeline (span export).
+opentelemetry = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, features = ["rt-tokio"], optional = true }
+opentelemetry-otlp = { workspace = true, features = ["grpc-tonic"], optional = true }
+tracing-opentelemetry = { workspace = true, optional = true }
+
+# Non-blocking file appender with daily rotation (file-logs feature).
+tracing-appender = { workspace = true, optional = true }
+
+# Tracy protocol client for frame-by-frame profiling (tracy feature).
+# Off by default — requires Tracy server GUI to receive traces. When on,
+# TracyLayer is additively stacked onto the daemon tracing subscriber.
+tracing-tracy = { workspace = true, optional = true }
+
+# dhat-rs heap profiler (off by default).
+dhat = { workspace = true, optional = true }
+
+# Wave 5 (2026-04-18) — jemalloc allocator + pprof heap profiling.
+# Both are feature-gated and opt-in (default uses mimalloc via prod-allocator).
+tikv-jemallocator = { workspace = true, optional = true }
+jemalloc_pprof = { workspace = true, optional = true }
+
+# Build metadata (git sha, rustc version, features) baked into the binary.
+# The `rustc`, `cargo`, `build` providers emit VERGEN_RUSTC_SEMVER,
+# VERGEN_CARGO_FEATURES, VERGEN_BUILD_TIMESTAMP respectively. `gix` emits
+# VERGEN_GIT_SHA with graceful fallback on non-git builds.
+# NOTE: we keep vergen-gix only as a [build-dependency] — it isn't needed
+# at runtime, and listing it here as a runtime dep pulls ~40 extra crates
+# (gix, smol-str, ...) into the link for no gain.
+# vergen-gix = { version = "1.0", features = ["rustc", "cargo", "build"], optional = true }
+
+[build-dependencies]
+# Mirror the optional deps so build.rs can reference them under the same
+# feature gate. Same feature list as the runtime dep to avoid drift.
+vergen-gix = { workspace = true, features = ["rustc", "cargo", "build"], optional = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+tempfile = { workspace = true }
+criterion = { workspace = true }
+# Compile-time trait / layout invariants.
+static_assertions = { workspace = true }
+# Snapshot testing for MCP tool result shapes — locks the JSON/YAML
+# contract of `WiringAuditFull` + recommendations so downstream callers
+# (Claude Code MCP tool clients) see stable output across refactors.
+insta = { workspace = true, features = ["yaml", "json"] }
+# CLI E2E testing — exercises the compiled `touring` binary end-to-end,
+# closing the coverage gap between unit tests and real-user invocation
+# across the 54 CLI subcommands (doctor / status / wiring / index / etc.).
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+
+[[bench]]
+name = "context_compiler"
+harness = false
+
+[lints]
+workspace = true

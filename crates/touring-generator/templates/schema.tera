@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "{{ schema_title | default(value="Schema") }}",
+  "description": "{{ description | default(value="") }}",
+  "type": "object",
+  "properties": {
+{% if properties is defined %}
+{% for prop in properties %}
+    "{{ prop.name | default(value="field") }}": { "type": "{{ prop.type | default(value="string") }}" }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+{% endif %}
+  }
+}

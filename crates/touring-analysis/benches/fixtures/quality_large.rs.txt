@@ -1,0 +1,167 @@
+//! Synthetic fixture for iai-callgrind quality metric benches.
+//! Intentionally NOT a real module — extension is `.rs.txt` to keep it
+//! out of `cargo build`. Mimics a moderately complex crate surface:
+//! structs + enums + impls + match + nested loops + error handling.
+
+use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct RequestContext {
+    pub id: u64,
+    pub method: Method,
+    pub headers: HashMap<String, String>,
+    pub body: Option<Vec<u8>>,
+    pub retries: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Method {
+    Get,
+    Post,
+    Put,
+    Delete,
+    Patch,
+}
+
+#[derive(Debug)]
+pub enum DispatchError {
+    Timeout,
+    NotFound,
+    Forbidden,
+    Internal(String),
+}
+
+impl RequestContext {
+    pub fn new(id: u64, method: Method) -> Self {
+        Self {
+            id,
+            method,
+            headers: HashMap::new(),
+            body: None,
+            retries: 0,
+        }
+    }
+
+    pub fn with_header(mut self, name: &str, value: &str) -> Self {
+        self.headers.insert(name.to_string(), value.to_string());
+        self
+    }
+
+    pub fn with_body(mut self, body: Vec<u8>) -> Self {
+        self.body = Some(body);
+        self
+    }
+
+    pub fn dispatch(&self) -> Result<Vec<u8>, DispatchError> {
+        if self.id == 0 {
+            return Err(DispatchError::NotFound);
+        }
+        for attempt in 0..=self.retries {
+            match self.method {
+                Method::Get => {
+                    if attempt > 3 {
+                        return Err(DispatchError::Timeout);
+                    }
+                    let mut buf = Vec::with_capacity(64);
+                    for byte in self.headers.keys().flat_map(|k| k.bytes()) {
+                        if byte == 0 {
+                            continue;
+                        }
+                        buf.push(byte);
+                    }
+                    return Ok(buf);
+                }
+                Method::Post | Method::Put => {
+                    let body = self.body.as_ref().ok_or_else(|| {
+                        DispatchError::Internal("missing body".to_string())
+                    })?;
+                    if body.is_empty() {
+                        return Err(DispatchError::Forbidden);
+                    }
+                    let mut out = Vec::with_capacity(body.len());
+                    for (i, b) in body.iter().enumerate() {
+                        if i % 2 == 0 {
+                            out.push(*b ^ 0xAA);
+                        } else {
+                            out.push(*b);
+                        }
+                    }
+                    return Ok(out);
+                }
+                Method::Delete => {
+                    if self.headers.contains_key("authorization") {
+                        return Ok(Vec::new());
+                    } else {
+                        return Err(DispatchError::Forbidden);
+                    }
+                }
+                Method::Patch => {
+                    let mut acc: u64 = 0;
+                    for (k, v) in &self.headers {
+                        for c in k.chars().chain(v.chars()) {
+                            acc = acc.wrapping_add(c as u64);
+                        }
+                    }
+                    return Ok(acc.to_le_bytes().to_vec());
+                }
+            }
+        }
+        Err(DispatchError::Timeout)
+    }
+
+    pub fn summary(&self) -> String {
+        let header_count = self.headers.len();
+        let body_size = self.body.as_ref().map(|b| b.len()).unwrap_or(0);
+        format!(
+            "req#{} {:?} headers={} body={}B retries={}",
+            self.id, self.method, header_count, body_size, self.retries
+        )
+    }
+}
+
+pub fn batch_dispatch(requests: &[RequestContext]) -> Vec<Result<Vec<u8>, DispatchError>> {
+    let mut out = Vec::with_capacity(requests.len());
+    for req in requests {
+        out.push(req.dispatch());
+    }
+    out
+}
+
+pub fn count_success(results: &[Result<Vec<u8>, DispatchError>]) -> usize {
+    let mut total = 0;
+    for r in results {
+        match r {
+            Ok(v) if !v.is_empty() => total += 1,
+            Ok(_) => {}
+            Err(DispatchError::Timeout) => {}
+            Err(_) => {}
+        }
+    }
+    total
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_roundtrip() {
+        let ctx = RequestContext::new(1, Method::Get).with_header("x", "y");
+        assert!(ctx.dispatch().is_ok());
+    }
+
+    #[test]
+    fn missing_body_errors() {
+        let ctx = RequestContext::new(2, Method::Post);
+        assert!(matches!(ctx.dispatch(), Err(DispatchError::Internal(_))));
+    }
+
+    #[test]
+    fn patch_hashes_headers() {
+        let ctx = RequestContext::new(3, Method::Patch)
+            .with_header("a", "1")
+            .with_header("b", "2");
+        let out = ctx.dispatch().expect("patch ok");
+        assert_eq!(out.len(), 8);
+    }
+}

@@ -1,0 +1,126 @@
+[package]
+name = "touring-generator"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+description = "LLM-as-Planner / Touring-as-Generator: multi-kind artifact generator with VGP, typestate, and full Touring integration"
+authors = ["Gabriel Gadea", "Claude Sonnet 4.6"]
+license = "MIT"
+publish = false
+
+[features]
+default          = ["tera-engine", "native-async", "full"]
+tera-engine      = []
+syn-quote        = []  # retained as no-op alias for backward-compat; syn/quote/proc-macro2 are now always-on
+native-async     = []
+mcts-synthesis   = ["rustc-hash"]
+zero-copy        = ["rkyv", "touring-rkyv"]
+observability    = []
+memory-integration = []
+wasm-sandbox     = ["dep:touring-bindings"]
+simd-fuzzy       = ["touring-simd", "touring-hooks-shared/mpatch-fuzzy"]
+rl-integration   = []  # marker; impl uses touring_intelligence::rl (always-present dep)
+nlp-reranking    = []  # marker feature; impl uses touring_intelligence::ann (always-present dep)
+cognitive-nexus  = []  # marker; impl uses touring_intelligence::reasoning (always-present dep)
+analysis-gate    = ["touring-analysis", "rusqlite"]
+quality-gate    = ["touring-analysis/quality"]
+health-gate      = []
+blast-check      = []
+enrichment-gate  = []
+security-gate    = ["touring-offensive"]
+llm-http         = ["dep:reqwest"]  # real OpenAI + Ollama LlmProvider impls (B-W2/A8)
+full             = ["zero-copy", "observability", "memory-integration", "wasm-sandbox", "simd-fuzzy", "rl-integration", "nlp-reranking", "cognitive-nexus", "analysis-gate", "mcts-synthesis", "quality-gate", "health-gate", "blast-check", "enrichment-gate", "security-gate", "llm-http"]
+
+[dependencies]
+# Workspace deps
+serde                = { workspace = true }
+serde_json           = { workspace = true }
+thiserror            = { workspace = true }
+anyhow               = { workspace = true }
+tokio                = { workspace = true }
+rayon                = { workspace = true }
+dashmap              = { workspace = true }
+tracing              = { workspace = true }
+regex                = { workspace = true }
+# chrono needs no extra feature — JsonSchema via schemars/chrono04 feature
+chrono               = { workspace = true }
+async-trait          = { workspace = true }
+sha2                 = { workspace = true }
+rkyv                 = { workspace = true, optional = true }
+reqwest              = { workspace = true, optional = true }  # feature `llm-http` (OpenAI/Ollama)
+
+# Workspace — new additions (with extra features needed by touring-generator)
+moka                 = { workspace = true }
+globset = { workspace = true }
+uuid                 = { workspace = true }
+semver               = { workspace = true }
+# camino needs serde1 feature for Serialize/Deserialize on Utf8PathBuf
+camino = { workspace = true, features = ["serde1"] }
+tera                 = { workspace = true }
+either               = { workspace = true }
+num_cpus             = { workspace = true }
+# schemars: use workspace def (uuid1 + chrono04 features already set)
+schemars             = { workspace = true }
+
+# Touring workspace crates
+touring-foundation         = { path = "../touring-foundation" }
+touring-code         = { path = "../touring-code" }
+# W6 shim-elimination 2026-05-31: touring-index → touring_intelligence::index (direct).
+touring-intelligence = { path = "../touring-intelligence", features = ["simd-similarity", "smart-cache"] }
+touring-simd         = { path = "../touring-simd", optional = true }
+
+# Code generation — always on (SynWiringGateAdapter + quote!-based stub emission)
+syn = { workspace = true, features = ["full"] }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+
+# Optional touring-crate integrations (POTENCIALIZAR — Wave 4/6/8)
+touring-analysis     = { path = "../touring-analysis", optional = true }
+touring-bindings     = { path = "../touring-bindings", optional = true, features = ["bind-wasm"] }
+touring-offensive    = { path = "../touring-offensive", optional = true }
+touring-hooks-shared = { path = "../touring-hooks-shared", optional = true }
+touring-rkyv         = { path = "../touring-rkyv", optional = true }
+touring-identity     = { path = "../touring-identity" }
+# rusqlite: only pulled in with analysis-gate for DB-backed wiring audit (AnalysisGateAdapter).
+rusqlite             = { workspace = true, optional = true }
+# mpatch (fuzzy preview) now lives with its code in touring-hooks-shared, pulled
+# transitively via `simd-fuzzy = [... "touring-hooks-shared/mpatch-fuzzy"]`.
+# rustc-hash: deterministic FxHasher for plan_id → u64 root_state mapping in McctsEvalAdapter.
+rustc-hash           = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true, features = ["html_reports"] }
+proptest = { workspace = true }
+insta                = { workspace = true, features = ["yaml"] }
+rstest = { workspace = true }
+tokio-test = { workspace = true }
+# mockall removed (RBP/REGRA #0 dep-hygiene, 2026-06-15): declared but never used
+# in this crate's src or tests (0 `mockall::`/`#[automock]`/`mock!` references).
+# The only real mockall user is touring-code/tests/mockall_observer.rs (T-11: the
+# single sanctioned mock-test exception to the otherwise no-mocks policy).
+# cargo-mutants removed (dep-hygiene, 2026-06-21): it is a CLI tool (binary, no
+# lib target) configured via root `[workspace.metadata.mutants]` — declaring it
+# as a dependency only produced cargo's "ignoring invalid dependency" warning on
+# every build and was never referenced in src/tests.
+tempfile.workspace = true
+# serial_test: serialize env-var-mutating tests (analysis_gate_open_with_env_*)
+# so std::env::set_var in one test cannot leak into another running in parallel.
+serial_test = { workspace = true }
+
+[[bench]]
+name = "vgp_engine"
+harness = false
+
+[[bench]]
+name = "template_engine"
+harness = false
+
+[[bench]]
+name = "speculate_bridge"
+harness = false
+
+[lints.clippy]
+pedantic             = { level = "warn", priority = -1 }
+unwrap_used          = "deny"
+expect_used          = "warn"
+panic                = "warn"

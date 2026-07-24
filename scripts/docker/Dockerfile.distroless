@@ -1,0 +1,49 @@
+# W14.9 partial (2026-05-23) — Distroless multi-stage Dockerfile for touring.
+#
+# Image: gcr.io/distroless/cc-debian12 (minimal C runtime, no shell, no apt).
+# Final image carries ONLY the touring binary + ld-linux-x86-64.so.
+# Approx size: ~80-100 MiB (vs ~700 MiB Debian-slim base).
+#
+# Build:
+#   docker build -f scripts/docker/Dockerfile.distroless -t touring:distroless .
+#
+# Run:
+#   docker run --rm -it touring:distroless --version
+#
+# Status: SKELETON — not yet wired into CI. Will be activated by W14.7
+# (install.touring.dev CI/CD pipeline) once W13.5 sigstore signing is in
+# place to sign the image manifest.
+
+# ── Stage 1: builder (heavy, throwaway) ──────────────────────────────────
+FROM rust:1.80-bookworm AS builder
+
+WORKDIR /build
+
+# Cache the dep tree first (fastest re-builds when only Rust source changes)
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+COPY scripts/ ./scripts/
+
+# Build release binary with workspace-wide optimisations
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/build/target \
+    cargo build --release --bin touring && \
+    cp target/release/touring /usr/local/bin/touring
+
+# ── Stage 2: distroless runtime (minimal) ────────────────────────────────
+FROM gcr.io/distroless/cc-debian12
+
+# Copy ONLY the binary — no shell, no apt, no debug tools
+COPY --from=builder /usr/local/bin/touring /usr/local/bin/touring
+
+# Distroless has no shell, so ENTRYPOINT must be the binary directly
+ENTRYPOINT ["/usr/local/bin/touring"]
+
+# Default subcommand prints version (safe no-op)
+CMD ["--version"]
+
+# OCI labels for image registry metadata (W13.5 sigstore + W14.11 GA target)
+LABEL org.opencontainers.image.title="touring"
+LABEL org.opencontainers.image.description="Touring code-intelligence binary (distroless)"
+LABEL org.opencontainers.image.source="https://github.com/anthropics/touring"
+LABEL org.opencontainers.image.licenses="Apache-2.0 OR MIT"

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-concurrency-invariant.schema.json",
+  "title": "Capability: concurrency-invariant",
+  "description": "Loom-verified invariants",
+  "type": "object",
+  "additionalProperties": true
+}

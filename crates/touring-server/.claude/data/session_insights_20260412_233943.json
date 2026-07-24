@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-04-12T23:39:43.012635319+00:00",
+  "session_id": "test-e2e-binary",
+  "top_gotchas": [],
+  "top_error_patterns": [],
+  "top_edited_files": [],
+  "total_edits": 0,
+  "total_bash_commands": 1391,
+  "success_rate": 0.9849029475197699,
+  "rl_convergence": {
+    "td_error_ema": 0.0,
+    "avg_reward": 0.0,
+    "total_updates": 0,
+    "is_converging": false
+  }
+}

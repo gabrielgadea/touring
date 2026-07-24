@@ -1,0 +1,72 @@
+[
+  {
+    "name": "valid_premium",
+    "expected_outcome": "ACCEPT",
+    "claims": {
+      "iss": "touring.dev",
+      "sub": "user-uuid-premium-001",
+      "tier": "premium",
+      "iat": 1778546542,
+      "exp": 1810082542,
+      "nbf": 1778546542
+    }
+  },
+  {
+    "name": "expired_premium",
+    "expected_outcome": "REJECT_EXPIRED",
+    "claims": {
+      "iss": "touring.dev",
+      "sub": "user-uuid-premium-002",
+      "tier": "premium",
+      "iat": 1743986542,
+      "exp": 1775522542,
+      "nbf": 1743986542
+    }
+  },
+  {
+    "name": "expired_within_grace",
+    "expected_outcome": "ACCEPT_GRACE",
+    "claims": {
+      "iss": "touring.dev",
+      "sub": "user-uuid-premium-003",
+      "tier": "premium",
+      "iat": 1743986542,
+      "exp": 1777682542,
+      "nbf": 1743986542
+    }
+  },
+  {
+    "name": "tier_mismatch",
+    "expected_outcome": "REJECT_TIER_MISMATCH",
+    "claims": {
+      "iss": "touring.dev",
+      "sub": "user-uuid-tier-mismatch",
+      "tier": "free",
+      "iat": 1778546542,
+      "exp": 1810082542
+    }
+  },
+  {
+    "name": "not_yet_valid",
+    "expected_outcome": "REJECT_NOT_YET_VALID",
+    "claims": {
+      "iss": "touring.dev",
+      "sub": "future-user",
+      "tier": "premium",
+      "iat": 1781138542,
+      "nbf": 1781138542,
+      "exp": 1812674542
+    }
+  },
+  {
+    "name": "wrong_issuer",
+    "expected_outcome": "REJECT_ISSUER",
+    "claims": {
+      "iss": "attacker.example",
+      "sub": "spoofed",
+      "tier": "enterprise",
+      "iat": 1778546542,
+      "exp": 1810082542
+    }
+  }
+]

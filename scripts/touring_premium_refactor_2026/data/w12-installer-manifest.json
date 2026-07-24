@@ -1,0 +1,27 @@
+{
+  "script": "w12_per_project_installer_scaffold",
+  "wave": "W12",
+  "subtask_refs": [
+    "W12.1"
+  ],
+  "timestamp": "2026-05-12T00:42:22.479665+00:00",
+  "status": "OK",
+  "supported_triples": [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin"
+  ],
+  "subcommands": [
+    "init",
+    "set-channel",
+    "status",
+    "update"
+  ],
+  "files_emitted": [
+    "scripts/touring_premium_refactor_2026/staging/w12-touring-init/Cargo.toml",
+    "scripts/touring_premium_refactor_2026/staging/w12-touring-init/src/main.rs",
+    "scripts/touring_premium_refactor_2026/staging/w12-touring-init/install.sh",
+    "scripts/touring_premium_refactor_2026/staging/w12-templates/touring.toml.j2"
+  ]
+}

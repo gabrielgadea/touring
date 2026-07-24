@@ -1,0 +1,114 @@
+// Realistic TypeScript source fixture for throughput benchmarks (~2 KB)
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'viewer' | 'editor';
+  createdAt: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export type ApiResponse<T> =
+  | { ok: true; data: T; timestamp: number }
+  | { ok: false; error: string; code: number };
+
+export const API_VERSION = '2.1.0';
+export const MAX_PAGE_SIZE = 100;
+
+export class ValidationError extends Error {
+  constructor(
+    public readonly field: string,
+    message: string
+  ) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+export function validateEmail(email: string): boolean {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email.trim());
+}
+
+export function validateUser(profile: Partial<UserProfile>): string[] {
+  const errors: string[] = [];
+
+  if (!profile.id || profile.id.length < 8) {
+    errors.push('id must be at least 8 characters');
+  }
+  if (!profile.name || profile.name.trim().length < 2) {
+    errors.push('name must be at least 2 characters');
+  }
+  if (profile.email && !validateEmail(profile.email)) {
+    errors.push('invalid email format');
+  }
+
+  return errors;
+}
+
+export async function fetchUser(
+  id: string,
+  signal?: AbortSignal
+): Promise<ApiResponse<UserProfile>> {
+  const controller = new AbortController();
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort());
+  }
+
+  try {
+    const response = await fetch(`/api/users/${id}`, {
+      method: 'GET',
+      headers: { 'X-API-Version': API_VERSION },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: response.statusText,
+        code: response.status,
+      };
+    }
+
+    const data = await response.json();
+    return { ok: true, data, timestamp: Date.now() };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'unknown error',
+      code: -1,
+    };
+  }
+}
+
+export function sanitizeInput(input: string): string {
+  return input
+    .replace(/[<>]/g, '')
+    .trim()
+    .slice(0, MAX_PAGE_SIZE);
+}
+
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+export function merge<T extends object>(base: T, patch: DeepPartial<T>): T {
+  const result = { ...base };
+  for (const key in patch) {
+    const pValue = patch[key as keyof T];
+    if (pValue !== undefined) {
+      (result as any)[key] =
+        typeof pValue === 'object' && pValue !== null
+          ? merge(result[key as keyof T] as any, pValue as any)
+          : pValue;
+    }
+  }
+  return result;
+}
+
+export const userCache = new Map<string, UserProfile>();
+
+export function cacheUser(profile: UserProfile): void {
+  userCache.set(profile.id, profile);
+}

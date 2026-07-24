@@ -1,0 +1,184 @@
+{
+ "touring-hooks-core": {
+  "struct": {
+   "files": 64,
+   "total_loc": 32694,
+   "median_loc": 450.5,
+   "max_loc": 1852,
+   "god_objects": [
+    {
+     "file": "tantivy_index.rs",
+     "loc": 1852
+    },
+    {
+     "file": "shadow_v2.rs",
+     "loc": 1657
+    },
+    {
+     "file": "health_delta.rs",
+     "loc": 1522
+    }
+   ],
+   "top_module_fanin": [
+    [
+     "shared",
+     13
+    ],
+    [
+     "knowledge",
+     6
+    ],
+    [
+     "current_uid",
+     3
+    ],
+    [
+     "ann_memory",
+     2
+    ],
+    [
+     "BashOutcome",
+     2
+    ],
+    [
+     "FileKnowledgeDB",
+     2
+    ],
+    [
+     "TouringError",
+     2
+    ],
+    [
+     "foo",
+     2
+    ]
+   ]
+  },
+  "dims": {
+   "composite": 0.91665465,
+   "tier": "Platinum",
+   "arch": {
+    "F1_7": {
+     "value": 0.749,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 64 files: 0.749 (worst audit.rs=0.400, p10=0.424)"
+    },
+    "F1_8": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "F1.8: 0 module-import cycles across 63 top-level modules (Kosaraju SCC, hermetic) \u2014 acyclic"
+    },
+    "F1_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 64 files: 1.000 (worst knowledge.rs=0.993, p10=1.000)"
+    },
+    "F1_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 64 files: 1.000 (worst knowledge.rs=0.991, p10=1.000)"
+    },
+    "F2_13": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 64 files: 1.000 (worst aco_processor.rs=1.000, p10=1.000)"
+    }
+   }
+  }
+ },
+ "touring-foundation": {
+  "struct": {
+   "files": 100,
+   "total_loc": 25937,
+   "median_loc": 184.5,
+   "max_loc": 1795,
+   "god_objects": [
+    {
+     "file": "gate_metrics.rs",
+     "loc": 1795
+    },
+    {
+     "file": "telemetry/mod.rs",
+     "loc": 1310
+    },
+    {
+     "file": "gate_metrics_snapshot.rs",
+     "loc": 1253
+    },
+    {
+     "file": "migration/consolidation.rs",
+     "loc": 1029
+    },
+    {
+     "file": "diagnostic.rs",
+     "loc": 892
+    }
+   ],
+   "top_module_fanin": [
+    [
+     "sentinel",
+     9
+    ],
+    [
+     "conflict",
+     5
+    ],
+    [
+     "failover",
+     4
+    ],
+    [
+     "plugin",
+     4
+    ],
+    [
+     "Result",
+     3
+    ],
+    [
+     "TouringError",
+     3
+    ],
+    [
+     "MemoryTier",
+     2
+    ],
+    [
+     "activity",
+     2
+    ]
+   ]
+  },
+  "dims": {
+   "composite": 0.93958914,
+   "tier": "Platinum",
+   "arch": {
+    "F1_7": {
+     "value": 0.669,
+     "status": "Warn",
+     "evidence": "LOC-weighted over 106 files: 0.669 (worst event.rs=0.400, p10=0.400)"
+    },
+    "F1_8": {
+     "value": 0.65,
+     "status": "Warn",
+     "evidence": "F1.8: 1 module-import cycle(s) across 99 modules [gate_metrics\u2194gate_metrics_snapshot] \u2014 score=0.650"
+    },
+    "F1_11": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 106 files: 1.000 (worst event.rs=1.000, p10=1.000)"
+    },
+    "F1_12": {
+     "value": 1.0,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 106 files: 1.000 (worst verify.rs=0.981, p10=1.000)"
+    },
+    "F2_13": {
+     "value": 0.999,
+     "status": "Pass",
+     "evidence": "LOC-weighted over 106 files: 0.999 (worst coordinator.rs=0.965, p10=1.000)"
+    }
+   }
+  }
+ }
+}

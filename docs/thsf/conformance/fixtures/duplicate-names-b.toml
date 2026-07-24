@@ -1,0 +1,7 @@
+# RFC-001 fixture pair (b): duplicate-names-a + duplicate-names-b share a name.
+# Discovery emits warning thsf-manifest-007; each file parses individually OK.
+
+[holon.identity]
+name = "same-name"
+version = "0.1.1"
+description = "Duplicate set — sibling B"

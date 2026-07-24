@@ -1,0 +1,79 @@
+{
+  "script": "w14_tier_features_validator",
+  "wave": "W14",
+  "subtask_refs": [
+    "W14.tier-validation"
+  ],
+  "timestamp": "2026-05-12T00:42:22.816354+00:00",
+  "totals": {
+    "tiers_audited": 4,
+    "build_ok": 0,
+    "build_fail": 0,
+    "size_within_budget": 0,
+    "dry_run": 4
+  },
+  "results": [
+    {
+      "build": {
+        "tier": "tier-free",
+        "status": "DRY_RUN",
+        "command": "cargo build --release -p touring-server --no-default-features --features tier-free"
+      },
+      "size": {
+        "tier": "tier-free",
+        "skipped": true
+      }
+    },
+    {
+      "build": {
+        "tier": "tier-standard",
+        "status": "DRY_RUN",
+        "command": "cargo build --release -p touring-server --no-default-features --features tier-standard"
+      },
+      "size": {
+        "tier": "tier-standard",
+        "skipped": true
+      }
+    },
+    {
+      "build": {
+        "tier": "tier-premium",
+        "status": "DRY_RUN",
+        "command": "cargo build --release -p touring-server --no-default-features --features tier-premium"
+      },
+      "size": {
+        "tier": "tier-premium",
+        "skipped": true
+      }
+    },
+    {
+      "build": {
+        "tier": "tier-enterprise",
+        "status": "DRY_RUN",
+        "command": "cargo build --release -p touring-server --no-default-features --features tier-enterprise"
+      },
+      "size": {
+        "tier": "tier-enterprise",
+        "skipped": true
+      }
+    }
+  ],
+  "tier_definitions": [
+    {
+      "tier": "tier-free",
+      "budget_mb": 50
+    },
+    {
+      "tier": "tier-standard",
+      "budget_mb": 90
+    },
+    {
+      "tier": "tier-premium",
+      "budget_mb": 180
+    },
+    {
+      "tier": "tier-enterprise",
+      "budget_mb": 320
+    }
+  ]
+}

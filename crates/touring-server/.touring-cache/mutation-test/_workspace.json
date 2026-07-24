@@ -1,0 +1,13 @@
+{
+  "mutants_total": 18,
+  "mutants_killed": 6,
+  "mutants_survived": 2,
+  "mutants_timeout": 10,
+  "mutants_unviable": 0,
+  "kill_rate": 88.888885,
+  "elapsed_secs": 3520,
+  "passed_threshold": true,
+  "threshold": 80.0,
+  "package": null,
+  "cargo_mutants_version": "26.1.2"
+}

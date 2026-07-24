@@ -1,0 +1,21 @@
+{
+  "file_tools": {
+    "exists": true,
+    "path": "crates/touring-server/src/tools/file_tools.rs",
+    "imports_via_super_or_tools": [],
+    "type_usages": [],
+    "loc": 770
+  },
+  "project_tools": {
+    "exists": true,
+    "path": "crates/touring-server/src/tools/project_tools.rs",
+    "imports_via_super_or_tools": [],
+    "type_usages": [],
+    "loc": 427
+  },
+  "cycle_evidence": {
+    "file_tools_uses_project_tools": false,
+    "project_tools_uses_file_tools": false,
+    "is_real_cycle": false
+  }
+}

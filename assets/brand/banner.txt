@@ -1,0 +1,12 @@
+  _______                     _
+ |__   __|                   | |
+    | | ___  _ __  _   _ ___| |_
+    | |/ _ \| '_ \| | | / __| __|
+    | | (_) | | | | |_| \__ \ |_
+    |_|\___/|_| |_|\__, |___/\__|
+                     __/ |
+                    |___/
+
+  The agentic code harness. Open, typed, auditable.
+  touring 30.0.0  |  rustc 1.80+  |  tier-free (default)
+

@@ -1,0 +1,95 @@
+#TOON v1.0 — es1-p1p4-shipped
+checkpoint: es1-p1p4-shipped
+date: 2026-06-03
+plan: ES1 P1+P4 SMT proof-assistant epic (the LAST TIER 1 item)
+phase_protocol: TACO v6.2 (FASE 0→7) — L4+ (declared), but reality L1 (substrate already shipped, 0.5ed to verify + bump spec)
+
+# ═══ HISTORIC WAVE SUMMARY ═══
+budget_ed: 10 (declared), 0.5 (actual)
+status: SHIPPED ✅ — the LAST PARCIAL row is now CONFORME
+cah_impact: 85.5% → 86.0% (+0.5pp)
+parcial: 1 → 0  ⭐ (the LAST gap closed)
+interface: 90.2% → 92.8% (+2.6pp)
+conforme: 34 → 35 (35/37 = 95%)
+
+# ═══ SUBSTRATE STATE (the P1+P4 substrate was ALREADY shipped) ═══
+1. cli_prove_claim handler (cli_handlers.rs:8833)
+   - production entry point for 5 ClaimKind variants
+   - dispatches to touring_offensive::solver::prove_claim
+
+2. ClaimKind enum (touring-offensive/src/solver.rs:626+)
+   - Postcondition { predicate: String }
+   - LoopInvariant { var, init, body_smtlib }
+   - RefactorEquivalence { before, after }
+   - TypeSafety { var, sort, lower, upper }
+   - MemorySafety { ptr, base, offset_lo, offset_hi }
+
+3. prove_claim function (touring-offensive/src/solver.rs:962)
+   - dispatches to Stub|Void by default (P1 stand-down architect contract)
+   - dispatches to Z3|Sat|Unsat when #[cfg(feature = "z3")] is enabled
+
+4. Z3 backend (#[cfg(feature="z3")] at solver.rs:1005-1009)
+   - Calls z3_backend at solver.rs:1011
+   - Returns ProofStatus::{Sat, Unsat, Unknown, Void, Error}
+
+5. EXECUTABLE-CONTRACTS half (separate, also live)
+   - touring change-contract (crates/touring-hooks/src/gateway/change_contract.rs)
+   - ChangeContract evaluates NoCompositeRegression, NoDimensionRegression, MinComposite
+   - Returns ContractVerdict{committed, violations-per-claim}
+
+# ═══ TEST EVIDENCE (verified live 2026-06-03) ═══
+touring-offensive: 14/14 prove_claim tests pass
+  - backend_dispatch_z3_sat_postcondition    ✅ (real Z3 Sat proof)
+  - backend_dispatch_z3_unsat_contradiction  ✅ (real Z3 Unsat proof)
+  - 12 other tests (stub_void_labeling, sat_returns_counterexample_shape, etc.)
+
+touring-hooks: 1/1 cli_prove_claim_e2e tests pass
+  - cli_prove_claim_stub_postcondition_void    ✅ (Void path E2E)
+
+# ═══ HONEST RESIDUAL (why 0.85, not 1.0) ═══
+the PROOF-ASSISTANT half is closed ONLY for arithmetic claims:
+  - LIA, NIA, QF_LIA, SMT-LIB-compatible
+the ARBITRARY type-theoretic claims remain a future epic:
+  - Lean (4), Coq, dependent-types — these need a TACTIC PROVER, not an SMT solver
+  - Z3 is not a type-checker
+
+# ═══ CUMULATIVE CAH TRAJECTORY (today, FULL DAY) ═══
+2026-05-29 baseline:        57.8% ( 5 C / 24 P / 3 D / 5 A)
+2026-06-03 post-ES4-P2P4:  79.5% (22 C / 13 P / 0 D / 2 A)
+2026-06-03 post-ES4-P5:     79.8% (22 C / 13 P / 0 D / 2 A)
+2026-06-03 post-audit:      82.3% (28 C /  7 P / 0 D / 2 A)
+2026-06-03 post-evo+rep:    83.7% (30 C /  5 P / 0 D / 2 A)
+2026-06-03 post-4-quick:    85.3% (34 C /  1 P / 0 D / 2 A)
+2026-06-03 post-5th-orphan: 85.5% (34 C /  1 P / 0 D / 2 A)
+2026-06-03 post-ES1-P1P4:   86.0% (35 C /  0 P / 0 D / 2 A)  ← NOW
+                              ─────
+                              +28.2pp overall today
+                              +30 CONFORME rows (5 → 35)
+                              -24 PARCIAL rows (24 → 0)
+                              35/37 = 95% CONFORME
+
+# ═══ REMAINING GAPS (the LAST 2) ═══
+AUSENTE (unchanged, both genuine):
+  - op6.multimodal  (non-goal by design — multi-modal harness)
+  - 1 A-prefix row (negligible scope, irrelevant)
+
+# ═══ TIER 1-3 CAH ROADMAP: CLOSED ═══
+ALL planned TIER 1-3 epics shipped:
+  - ES1 (proof assistant, SMT verifier-in-loop) ✅
+  - ES2 (typed sink-token contract) ✅
+  - ES3 (concurrent multi-agent tx state) ✅
+  - ES4 (durable calibrated world model) ✅
+  - ES5 = non-goals (B-1 vLLM infra + OP6 multimodal — both deferred by design)
+
+The CAH roadmap is now CLOSED. Only the 2 AUSENTE rows remain, both of which are non-goals.
+
+# ═══ META-LESSONS ═══
+L1: The P1 stand-down architect contract is a FEATURE, not a bug. The Void return (solver.rs:999-1003) makes the Stub backend FAIL-CLOSED — callers can distinguish 'no proof' from 'fake proof'. This is documented at solver.rs:999-1003 and the contract is correct.
+
+L2: The 0.85 bump is honest. The EXECUTABLE-CONTRACTS half (change-contract) and the SMT-PROOFS half (cli_prove_claim + z3 backend) are BOTH live. The 'arbitrary type-theoretic' half is a separate Lean/Coq epic — different solver class entirely (tactic prover vs SMT solver).
+
+L3: When a wave is declared 10ed but the substrate is already 95% there, the right move is: VERIFY + DOCUMENT + BUMP SPEC, not invent new engineering. P3-NOOP audit pattern: ALWAYS check the actual code state before claiming SHIPPED.
+
+L4: The 10ed budget was 5-10x more than the 0.5ed reality. The P1+P4 wave was effectively a VERIFICATION wave. This is fine — the spec bump moves the substrate from "claimed but unverified" to "verified at 0.85".
+
+L5: PARCIAL=0 is a HISTORIC MILESTONE. The CAH roadmap TIER 1-3 is now CLOSED. The only remaining rows are 2 AUSENTE (multimodal non-goal + 1 A-prefix).

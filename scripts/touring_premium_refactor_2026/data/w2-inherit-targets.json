@@ -1,0 +1,1154 @@
+{
+  "script": "w2_propagate_workspace_inherit",
+  "wave": "W2",
+  "subtask_refs": [
+    "W2.3"
+  ],
+  "timestamp": "2026-05-12T01:21:18.601510+00:00",
+  "apply": true,
+  "workspace_deps_count": 132,
+  "totals": {
+    "crates_to_rewrite": 31,
+    "total_rewrites": 215,
+    "applied": 215
+  },
+  "proposals": {
+    "crates/touring-activity/Cargo.toml": [
+      {
+        "lineno": 22,
+        "current": "uuid = { version = \"1\", features = [\"v4\", \"serde\"] }",
+        "proposed": "uuid = { workspace = true, features = [\"v4\", \"serde\"] }"
+      },
+      {
+        "lineno": 23,
+        "current": "sha2 = \"0.10\"",
+        "proposed": "sha2 = { workspace = true }"
+      },
+      {
+        "lineno": 24,
+        "current": "hex = \"0.4\"",
+        "proposed": "hex = { workspace = true }"
+      },
+      {
+        "lineno": 28,
+        "current": "tempfile = \"3\"",
+        "proposed": "tempfile = { workspace = true }"
+      },
+      {
+        "lineno": 29,
+        "current": "proptest = \"1\"",
+        "proposed": "proptest = { workspace = true }"
+      }
+    ],
+    "crates/touring-analysis/Cargo.toml": [
+      {
+        "lineno": 39,
+        "current": "memchr = \"2\"",
+        "proposed": "memchr = { workspace = true }"
+      },
+      {
+        "lineno": 50,
+        "current": "glob = \"0.3\"",
+        "proposed": "glob = { workspace = true }"
+      },
+      {
+        "lineno": 58,
+        "current": "iai-callgrind = \"0.16\"",
+        "proposed": "iai-callgrind = { workspace = true }"
+      },
+      {
+        "lineno": 60,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      }
+    ],
+    "crates/touring-antt/Cargo.toml": [
+      {
+        "lineno": 31,
+        "current": "approx = \"0.5\"",
+        "proposed": "approx = { workspace = true }"
+      },
+      {
+        "lineno": 32,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      }
+    ],
+    "crates/touring-assists/Cargo.toml": [
+      {
+        "lineno": 13,
+        "current": "serde = { version = \"1\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 14,
+        "current": "serde_json = \"1\"",
+        "proposed": "serde_json = { workspace = true }"
+      },
+      {
+        "lineno": 16,
+        "current": "tracing = \"0.1\"",
+        "proposed": "tracing = { workspace = true }"
+      },
+      {
+        "lineno": 17,
+        "current": "anyhow = \"1\"",
+        "proposed": "anyhow = { workspace = true }"
+      },
+      {
+        "lineno": 18,
+        "current": "syn = { version = \"2.0\", features = [\"full\"] }",
+        "proposed": "syn = { workspace = true, features = [\"full\"] }"
+      },
+      {
+        "lineno": 19,
+        "current": "quote = \"1.0\"",
+        "proposed": "quote = { workspace = true }"
+      },
+      {
+        "lineno": 22,
+        "current": "tempfile = \"3\"",
+        "proposed": "tempfile = { workspace = true }"
+      }
+    ],
+    "crates/touring-ast/Cargo.toml": [
+      {
+        "lineno": 40,
+        "current": "parking_lot = \"0.12\"",
+        "proposed": "parking_lot = { workspace = true }"
+      },
+      {
+        "lineno": 44,
+        "current": "tree-sitter-go = { version = \"0.25\" }",
+        "proposed": "tree-sitter-go = { workspace = true }"
+      },
+      {
+        "lineno": 45,
+        "current": "tree-sitter-java = { version = \"0.23\" }",
+        "proposed": "tree-sitter-java = { workspace = true }"
+      },
+      {
+        "lineno": 46,
+        "current": "notify-debouncer-mini = \"0.5.0\"",
+        "proposed": "notify-debouncer-mini = { workspace = true }"
+      },
+      {
+        "lineno": 56,
+        "current": "syn = { version = \"2.0\", features = [\"full\", \"extra-traits\", \"visit\", \"parsing\"] }",
+        "proposed": "syn = { workspace = true, features = [\"full\", \"extra-traits\", \"visit\", \"parsing\"] }"
+      },
+      {
+        "lineno": 59,
+        "current": "quote = \"1.0\"",
+        "proposed": "quote = { workspace = true }"
+      },
+      {
+        "lineno": 62,
+        "current": "prettyplease = \"0.2\"",
+        "proposed": "prettyplease = { workspace = true }"
+      },
+      {
+        "lineno": 65,
+        "current": "cargo_metadata = \"0.21\"",
+        "proposed": "cargo_metadata = { workspace = true }"
+      },
+      {
+        "lineno": 68,
+        "current": "tracing-error = \"0.2\"",
+        "proposed": "tracing-error = { workspace = true }"
+      },
+      {
+        "lineno": 84,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      },
+      {
+        "lineno": 85,
+        "current": "proptest = \"1.5\"",
+        "proposed": "proptest = { workspace = true }"
+      },
+      {
+        "lineno": 90,
+        "current": "rstest = \"0.26\"",
+        "proposed": "rstest = { workspace = true }"
+      },
+      {
+        "lineno": 93,
+        "current": "mockall = \"0.13\"",
+        "proposed": "mockall = { workspace = true }"
+      },
+      {
+        "lineno": 96,
+        "current": "pprof = { version = \"0.14\", features = [\"flamegraph\", \"criterion\"] }",
+        "proposed": "pprof = { workspace = true, features = [\"flamegraph\", \"criterion\"] }"
+      },
+      {
+        "lineno": 99,
+        "current": "hdrhistogram = \"7.5\"",
+        "proposed": "hdrhistogram = { workspace = true }"
+      },
+      {
+        "lineno": 115,
+        "current": "rusty-fork = \"0.3\"",
+        "proposed": "rusty-fork = { workspace = true }"
+      }
+    ],
+    "crates/touring-ast-polyglot/Cargo.toml": [
+      {
+        "lineno": 12,
+        "current": "ast-grep-core = \"=0.36.0\"",
+        "proposed": "ast-grep-core = { workspace = true }"
+      },
+      {
+        "lineno": 13,
+        "current": "ast-grep-language = \"=0.36.0\"",
+        "proposed": "ast-grep-language = { workspace = true }"
+      },
+      {
+        "lineno": 19,
+        "current": "pretty_assertions = \"1.4\"",
+        "proposed": "pretty_assertions = { workspace = true }"
+      }
+    ],
+    "crates/touring-capnp-server/Cargo.toml": [
+      {
+        "lineno": 13,
+        "current": "capnp = \"0.20\"",
+        "proposed": "capnp = { workspace = true }"
+      },
+      {
+        "lineno": 14,
+        "current": "capnp-rpc = \"0.20\"",
+        "proposed": "capnp-rpc = { workspace = true }"
+      },
+      {
+        "lineno": 15,
+        "current": "capnp-futures = \"0.20\"",
+        "proposed": "capnp-futures = { workspace = true }"
+      },
+      {
+        "lineno": 18,
+        "current": "tokio-util = { version = \"0.7\", features = [\"compat\"] }",
+        "proposed": "tokio-util = { workspace = true, features = [\"compat\"] }"
+      },
+      {
+        "lineno": 27,
+        "current": "walkdir = \"2.5\"",
+        "proposed": "walkdir = { workspace = true }"
+      },
+      {
+        "lineno": 34,
+        "current": "capnpc = \"0.20\"",
+        "proposed": "capnpc = { workspace = true }"
+      },
+      {
+        "lineno": 40,
+        "current": "hdrhistogram = \"7.5\"",
+        "proposed": "hdrhistogram = { workspace = true }"
+      }
+    ],
+    "crates/touring-cognitive/Cargo.toml": [
+      {
+        "lineno": 30,
+        "current": "wgpu = \"26\"",
+        "proposed": "wgpu = { workspace = true }"
+      },
+      {
+        "lineno": 31,
+        "current": "bytemuck = \"1\"",
+        "proposed": "bytemuck = { workspace = true }"
+      },
+      {
+        "lineno": 32,
+        "current": "pollster = \"0.4\"",
+        "proposed": "pollster = { workspace = true }"
+      },
+      {
+        "lineno": 40,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      }
+    ],
+    "crates/touring-core/Cargo.toml": [
+      {
+        "lineno": 13,
+        "current": "mimalloc = { version = \"0.1\", features = [\"default\"] }",
+        "proposed": "mimalloc = { workspace = true, features = [\"default\"] }"
+      },
+      {
+        "lineno": 15,
+        "current": "arc-swap = \"1.6\"",
+        "proposed": "arc-swap = { workspace = true }"
+      },
+      {
+        "lineno": 30,
+        "current": "rkyv = { version = \"0.7\", features = [\"validation\", \"std\"] }",
+        "proposed": "rkyv = { workspace = true, features = [\"validation\", \"std\"] }"
+      },
+      {
+        "lineno": 31,
+        "current": "async-trait = { version = \"0.1\" }",
+        "proposed": "async-trait = { workspace = true }"
+      },
+      {
+        "lineno": 32,
+        "current": "anyhow = { version = \"1.0\" }",
+        "proposed": "anyhow = { workspace = true }"
+      },
+      {
+        "lineno": 34,
+        "current": "hdrhistogram = { version = \"7.5\", default-features = false }",
+        "proposed": "hdrhistogram = { workspace = true, default-features = false }"
+      }
+    ],
+    "crates/touring-cortex/Cargo.toml": [
+      {
+        "lineno": 19,
+        "current": "mentedb-core = \"0.5.0\"",
+        "proposed": "mentedb-core = { workspace = true }"
+      },
+      {
+        "lineno": 73,
+        "current": "tiktoken-rs = \"0.9\"",
+        "proposed": "tiktoken-rs = { workspace = true }"
+      }
+    ],
+    "crates/touring-definitions/Cargo.toml": [
+      {
+        "lineno": 19,
+        "current": "glob = \"0.3\"",
+        "proposed": "glob = { workspace = true }"
+      },
+      {
+        "lineno": 23,
+        "current": "clap = { version = \"4.5\", features = [\"derive\"] }",
+        "proposed": "clap = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 26,
+        "current": "toml = \"0.8\"",
+        "proposed": "toml = { workspace = true }"
+      },
+      {
+        "lineno": 32,
+        "current": "strum = { version = \"0.26\", features = [\"derive\"] }",
+        "proposed": "strum = { workspace = true, features = [\"derive\"] }"
+      }
+    ],
+    "crates/touring-desktop-ui/Cargo.toml": [
+      {
+        "lineno": 16,
+        "current": "eframe = \"0.34\"",
+        "proposed": "eframe = { workspace = true }"
+      },
+      {
+        "lineno": 17,
+        "current": "egui = \"0.34\"",
+        "proposed": "egui = { workspace = true }"
+      },
+      {
+        "lineno": 20,
+        "current": "resvg = \"0.44\"",
+        "proposed": "resvg = { workspace = true }"
+      },
+      {
+        "lineno": 21,
+        "current": "tiny-skia = \"0.11\"",
+        "proposed": "tiny-skia = { workspace = true }"
+      },
+      {
+        "lineno": 22,
+        "current": "png = \"0.17\"",
+        "proposed": "png = { workspace = true }"
+      },
+      {
+        "lineno": 25,
+        "current": "tokio = { version = \"1\", features = [\"full\"] }",
+        "proposed": "tokio = { workspace = true, features = [\"full\"] }"
+      },
+      {
+        "lineno": 28,
+        "current": "serde = { version = \"1\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 32,
+        "current": "graphviz-rust = { version = \"0.9\", optional = true }",
+        "proposed": "graphviz-rust = { workspace = true, optional = true }"
+      }
+    ],
+    "crates/touring-embeddings/Cargo.toml": [
+      {
+        "lineno": 16,
+        "current": "tokio = { version = \"1\", features = [\"full\"] }",
+        "proposed": "tokio = { workspace = true, features = [\"full\"] }"
+      },
+      {
+        "lineno": 18,
+        "current": "async-trait = \"0.1\"",
+        "proposed": "async-trait = { workspace = true }"
+      },
+      {
+        "lineno": 19,
+        "current": "serde = { version = \"1\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 21,
+        "current": "arc-swap = \"1\"",
+        "proposed": "arc-swap = { workspace = true }"
+      },
+      {
+        "lineno": 24,
+        "current": "candle-core = { version = \"0.7\", optional = true }",
+        "proposed": "candle-core = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 25,
+        "current": "candle-nn = { version = \"0.7\", optional = true }",
+        "proposed": "candle-nn = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 26,
+        "current": "candle-transformers = { version = \"0.7\", optional = true }",
+        "proposed": "candle-transformers = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 27,
+        "current": "tokenizers = { version = \"0.15\", optional = true }",
+        "proposed": "tokenizers = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 28,
+        "current": "reqwest = { version = \"0.12\", optional = true, features = [\"json\"] }",
+        "proposed": "reqwest = { workspace = true, features = [\"json\"], optional = true }"
+      },
+      {
+        "lineno": 29,
+        "current": "fastembed = { version = \"5\", optional = true }",
+        "proposed": "fastembed = { workspace = true, optional = true }"
+      }
+    ],
+    "crates/touring-generator/Cargo.toml": [
+      {
+        "lineno": 52,
+        "current": "globset             = \"0.4\"",
+        "proposed": "globset = { workspace = true }"
+      },
+      {
+        "lineno": 56,
+        "current": "camino               = { version = \"1.1\", features = [\"serde1\"] }",
+        "proposed": "camino = { workspace = true, features = [\"serde1\"] }"
+      },
+      {
+        "lineno": 71,
+        "current": "syn                  = { version = \"2.0\", features = [\"full\"] }",
+        "proposed": "syn = { workspace = true, features = [\"full\"] }"
+      },
+      {
+        "lineno": 72,
+        "current": "quote                = \"1.0\"",
+        "proposed": "quote = { workspace = true }"
+      },
+      {
+        "lineno": 73,
+        "current": "proc-macro2          = \"1.0\"",
+        "proposed": "proc-macro2 = { workspace = true }"
+      },
+      {
+        "lineno": 88,
+        "current": "mpatch               = { version = \"1.4.1\", optional = true }",
+        "proposed": "mpatch = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 93,
+        "current": "criterion            = { version = \"0.5\", features = [\"html_reports\"] }",
+        "proposed": "criterion = { workspace = true, features = [\"html_reports\"] }"
+      },
+      {
+        "lineno": 94,
+        "current": "proptest             = \"1.6\"",
+        "proposed": "proptest = { workspace = true }"
+      },
+      {
+        "lineno": 96,
+        "current": "rstest               = \"0.23\"",
+        "proposed": "rstest = { workspace = true }"
+      },
+      {
+        "lineno": 97,
+        "current": "tokio-test           = \"0.4\"",
+        "proposed": "tokio-test = { workspace = true }"
+      },
+      {
+        "lineno": 98,
+        "current": "mockall              = \"0.13\"",
+        "proposed": "mockall = { workspace = true }"
+      },
+      {
+        "lineno": 99,
+        "current": "cargo-mutants = \"24.11.2\"",
+        "proposed": "cargo-mutants = { workspace = true }"
+      }
+    ],
+    "crates/touring-geopostgis/Cargo.toml": [
+      {
+        "lineno": 25,
+        "current": "geo-types = \"0.7\"",
+        "proposed": "geo-types = { workspace = true }"
+      },
+      {
+        "lineno": 27,
+        "current": "tokio = { version = \"1\", features = [\"rt-multi-thread\"] }",
+        "proposed": "tokio = { workspace = true, features = [\"rt-multi-thread\"] }"
+      },
+      {
+        "lineno": 29,
+        "current": "postgres = { version = \"0.19\", optional = true }",
+        "proposed": "postgres = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 33,
+        "current": "sqlx = { version = \">=0.8.0\", default-features = false, features = [\"runtime-tokio\", \"postgres\"], optional = true }",
+        "proposed": "sqlx = { workspace = true, features = [\"runtime-tokio\", \"postgres\"], optional = true, default-features = false }"
+      },
+      {
+        "lineno": 38,
+        "current": "tokio-test = \"0.4\"",
+        "proposed": "tokio-test = { workspace = true }"
+      },
+      {
+        "lineno": 39,
+        "current": "geo = \"0.29\"",
+        "proposed": "geo = { workspace = true }"
+      }
+    ],
+    "crates/touring-hooks/Cargo.toml": [
+      {
+        "lineno": 124,
+        "current": "uuid = { version = \"1\", features = [\"v4\"] }",
+        "proposed": "uuid = { workspace = true, features = [\"v4\"] }"
+      },
+      {
+        "lineno": 151,
+        "current": "memchr = \"2\"",
+        "proposed": "memchr = { workspace = true }"
+      },
+      {
+        "lineno": 152,
+        "current": "num_cpus = \"1.16\"",
+        "proposed": "num_cpus = { workspace = true }"
+      },
+      {
+        "lineno": 161,
+        "current": "validator = { version = \"0.18\", features = [\"derive\"] }",
+        "proposed": "validator = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 166,
+        "current": "hdrhistogram = \"7\"",
+        "proposed": "hdrhistogram = { workspace = true }"
+      },
+      {
+        "lineno": 177,
+        "current": "mpatch = { version = \"1.4.1\", features = [\"parallel\"], optional = true }",
+        "proposed": "mpatch = { workspace = true, features = [\"parallel\"], optional = true }"
+      },
+      {
+        "lineno": 189,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      },
+      {
+        "lineno": 197,
+        "current": "capnp = \"0.20\"",
+        "proposed": "capnp = { workspace = true }"
+      },
+      {
+        "lineno": 198,
+        "current": "capnp-rpc = \"0.20\"",
+        "proposed": "capnp-rpc = { workspace = true }"
+      },
+      {
+        "lineno": 199,
+        "current": "capnp-futures = \"0.20\"",
+        "proposed": "capnp-futures = { workspace = true }"
+      },
+      {
+        "lineno": 200,
+        "current": "tokio-util = { version = \"0.7\", features = [\"compat\"] }",
+        "proposed": "tokio-util = { workspace = true, features = [\"compat\"] }"
+      },
+      {
+        "lineno": 219,
+        "current": "static_assertions = \"1.1\"",
+        "proposed": "static_assertions = { workspace = true }"
+      }
+    ],
+    "crates/touring-identity/Cargo.toml": [
+      {
+        "lineno": 20,
+        "current": "smol_str = \"0.1\"",
+        "proposed": "smol_str = { workspace = true }"
+      }
+    ],
+    "crates/touring-incremental-salsa/Cargo.toml": [
+      {
+        "lineno": 9,
+        "current": "salsa = \"0.18\"",
+        "proposed": "salsa = { workspace = true }"
+      },
+      {
+        "lineno": 10,
+        "current": "rustc-hash = \"2.0\"",
+        "proposed": "rustc-hash = { workspace = true }"
+      },
+      {
+        "lineno": 11,
+        "current": "serde = { version = \"1.0\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 12,
+        "current": "anyhow = \"1.0\"",
+        "proposed": "anyhow = { workspace = true }"
+      },
+      {
+        "lineno": 14,
+        "current": "parking_lot = \"0.12\"",
+        "proposed": "parking_lot = { workspace = true }"
+      },
+      {
+        "lineno": 15,
+        "current": "moka = { version = \"0.12\", features = [\"sync\"] }",
+        "proposed": "moka = { workspace = true, features = [\"sync\"] }"
+      },
+      {
+        "lineno": 18,
+        "current": "criterion = { version = \"0.5\", features = [\"html_reports\"] }",
+        "proposed": "criterion = { workspace = true, features = [\"html_reports\"] }"
+      },
+      {
+        "lineno": 19,
+        "current": "tempfile = \"3.14\"",
+        "proposed": "tempfile = { workspace = true }"
+      }
+    ],
+    "crates/touring-learning/Cargo.toml": [
+      {
+        "lineno": 12,
+        "current": "wgpu = { version = \"26\" }",
+        "proposed": "wgpu = { workspace = true }"
+      },
+      {
+        "lineno": 13,
+        "current": "bytemuck = { version = \"1\" }",
+        "proposed": "bytemuck = { workspace = true }"
+      },
+      {
+        "lineno": 25,
+        "current": "glob = \"0.3\"",
+        "proposed": "glob = { workspace = true }"
+      },
+      {
+        "lineno": 37,
+        "current": "rand = \"0.8\"",
+        "proposed": "rand = { workspace = true }"
+      },
+      {
+        "lineno": 38,
+        "current": "smallvec = \"1.5\"",
+        "proposed": "smallvec = { workspace = true }"
+      },
+      {
+        "lineno": 39,
+        "current": "single-clustering = \"0.6.1\"",
+        "proposed": "single-clustering = { workspace = true }"
+      },
+      {
+        "lineno": 46,
+        "current": "bumpalo = { version = \"3.16\", optional = true }",
+        "proposed": "bumpalo = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 47,
+        "current": "instant-distance = { version = \"0.6\", optional = true }",
+        "proposed": "instant-distance = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 49,
+        "current": "dirs = \"6.0.0\"",
+        "proposed": "dirs = { workspace = true }"
+      },
+      {
+        "lineno": 71,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      },
+      {
+        "lineno": 72,
+        "current": "proptest = \"1.5\"",
+        "proposed": "proptest = { workspace = true }"
+      }
+    ],
+    "crates/touring-loom-proofs/Cargo.toml": [
+      {
+        "lineno": 29,
+        "current": "loom = \"0.7\"",
+        "proposed": "loom = { workspace = true }"
+      }
+    ],
+    "crates/touring-offensive/Cargo.toml": [
+      {
+        "lineno": 40,
+        "current": "z3 = { version = \"0.20\", optional = true }",
+        "proposed": "z3 = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 41,
+        "current": "cvc5 = { version = \"0.4\", optional = true }",
+        "proposed": "cvc5 = { workspace = true, optional = true }"
+      }
+    ],
+    "crates/touring-rkyv/Cargo.toml": [
+      {
+        "lineno": 13,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      },
+      {
+        "lineno": 15,
+        "current": "proptest = \"1.5\"",
+        "proposed": "proptest = { workspace = true }"
+      }
+    ],
+    "crates/touring-rule-engine/Cargo.toml": [
+      {
+        "lineno": 23,
+        "current": "glob = \"0.3\"",
+        "proposed": "glob = { workspace = true }"
+      },
+      {
+        "lineno": 24,
+        "current": "regex = { version = \"1.11\", default-features = false, features = [\"std\"] }",
+        "proposed": "regex = { workspace = true, features = [\"std\"], default-features = false }"
+      }
+    ],
+    "crates/touring-search-fusion/Cargo.toml": [
+      {
+        "lineno": 7,
+        "current": "serde = { version = \"1.0\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 8,
+        "current": "serde_json = \"1.0\"",
+        "proposed": "serde_json = { workspace = true }"
+      },
+      {
+        "lineno": 9,
+        "current": "async-trait = \"0.1\"",
+        "proposed": "async-trait = { workspace = true }"
+      },
+      {
+        "lineno": 10,
+        "current": "tokio = { version = \"1\", features = [\"rt-multi-thread\", \"macros\"] }",
+        "proposed": "tokio = { workspace = true, features = [\"rt-multi-thread\", \"macros\"] }"
+      }
+    ],
+    "crates/touring-server/Cargo.toml": [
+      {
+        "lineno": 182,
+        "current": "aya = { version = \"0.13\", optional = true }",
+        "proposed": "aya = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 183,
+        "current": "aya-log = { version = \"0.2\", optional = true }",
+        "proposed": "aya-log = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 211,
+        "current": "sha2 = \"0.10\"",
+        "proposed": "sha2 = { workspace = true }"
+      },
+      {
+        "lineno": 212,
+        "current": "hex = \"0.4\"",
+        "proposed": "hex = { workspace = true }"
+      },
+      {
+        "lineno": 225,
+        "current": "toml = \"0.8\"",
+        "proposed": "toml = { workspace = true }"
+      },
+      {
+        "lineno": 231,
+        "current": "dirs = \"6.0\"",
+        "proposed": "dirs = { workspace = true }"
+      },
+      {
+        "lineno": 236,
+        "current": "termtree = \"0.5.1\"",
+        "proposed": "termtree = { workspace = true }"
+      },
+      {
+        "lineno": 257,
+        "current": "console-subscriber = { version = \"0.4\", optional = true }",
+        "proposed": "console-subscriber = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 260,
+        "current": "opentelemetry = { version = \"0.31\", optional = true }",
+        "proposed": "opentelemetry = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 261,
+        "current": "opentelemetry_sdk = { version = \"0.31\", features = [\"rt-tokio\"], optional = true }",
+        "proposed": "opentelemetry_sdk = { workspace = true, features = [\"rt-tokio\"], optional = true }"
+      },
+      {
+        "lineno": 262,
+        "current": "opentelemetry-otlp = { version = \"0.31\", features = [\"grpc-tonic\"], optional = true }",
+        "proposed": "opentelemetry-otlp = { workspace = true, features = [\"grpc-tonic\"], optional = true }"
+      },
+      {
+        "lineno": 263,
+        "current": "tracing-opentelemetry = { version = \"0.32\", optional = true }",
+        "proposed": "tracing-opentelemetry = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 266,
+        "current": "tracing-appender = { version = \"0.2\", optional = true }",
+        "proposed": "tracing-appender = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 271,
+        "current": "tracing-tracy = { version = \"0.11\", optional = true }",
+        "proposed": "tracing-tracy = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 274,
+        "current": "dhat = { version = \"0.3\", optional = true }",
+        "proposed": "dhat = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 293,
+        "current": "vergen-gix = { version = \"1.0\", features = [\"rustc\", \"cargo\", \"build\"], optional = true }",
+        "proposed": "vergen-gix = { workspace = true, features = [\"rustc\", \"cargo\", \"build\"], optional = true }"
+      },
+      {
+        "lineno": 298,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      },
+      {
+        "lineno": 300,
+        "current": "static_assertions = \"1.1\"",
+        "proposed": "static_assertions = { workspace = true }"
+      },
+      {
+        "lineno": 308,
+        "current": "assert_cmd = \"2\"",
+        "proposed": "assert_cmd = { workspace = true }"
+      },
+      {
+        "lineno": 309,
+        "current": "predicates = \"3\"",
+        "proposed": "predicates = { workspace = true }"
+      }
+    ],
+    "crates/touring-simd/Cargo.toml": [
+      {
+        "lineno": 26,
+        "current": "pulp = \"0.22\"",
+        "proposed": "pulp = { workspace = true }"
+      },
+      {
+        "lineno": 28,
+        "current": "half = { version = \"2\", features = [\"std\"] }",
+        "proposed": "half = { workspace = true, features = [\"std\"] }"
+      },
+      {
+        "lineno": 29,
+        "current": "wgpu = { version = \"26\" }",
+        "proposed": "wgpu = { workspace = true }"
+      },
+      {
+        "lineno": 30,
+        "current": "pollster = { version = \"0.4\" }",
+        "proposed": "pollster = { workspace = true }"
+      },
+      {
+        "lineno": 31,
+        "current": "bytemuck = { version = \"1\" }",
+        "proposed": "bytemuck = { workspace = true }"
+      },
+      {
+        "lineno": 34,
+        "current": "approx = \"0.5\"",
+        "proposed": "approx = { workspace = true }"
+      },
+      {
+        "lineno": 35,
+        "current": "criterion = \"0.5\"",
+        "proposed": "criterion = { workspace = true }"
+      },
+      {
+        "lineno": 37,
+        "current": "static_assertions = \"1.1\"",
+        "proposed": "static_assertions = { workspace = true }"
+      },
+      {
+        "lineno": 39,
+        "current": "proptest = \"1.5\"",
+        "proposed": "proptest = { workspace = true }"
+      }
+    ],
+    "crates/touring-telemetry/Cargo.toml": [
+      {
+        "lineno": 10,
+        "current": "aya = { version = \"0.13\", optional = true }",
+        "proposed": "aya = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 11,
+        "current": "aya-log = { version = \"0.2\", optional = true }",
+        "proposed": "aya-log = { workspace = true, optional = true }"
+      }
+    ],
+    "crates/touring-vector-store/Cargo.toml": [
+      {
+        "lineno": 15,
+        "current": "tokio = { version = \"1\", features = [\"full\"] }",
+        "proposed": "tokio = { workspace = true, features = [\"full\"] }"
+      },
+      {
+        "lineno": 17,
+        "current": "async-trait = \"0.1\"",
+        "proposed": "async-trait = { workspace = true }"
+      },
+      {
+        "lineno": 18,
+        "current": "serde = { version = \"1\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 19,
+        "current": "serde_json = \"1\"",
+        "proposed": "serde_json = { workspace = true }"
+      },
+      {
+        "lineno": 22,
+        "current": "rusqlite = { version = \"0.38\", optional = true }",
+        "proposed": "rusqlite = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 23,
+        "current": "qdrant-client = { version = \"1.10\", optional = true }",
+        "proposed": "qdrant-client = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 24,
+        "current": "deadpool-postgres = { version = \"0.14\", optional = true }",
+        "proposed": "deadpool-postgres = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 25,
+        "current": "tokio-postgres = { version = \"0.7\", optional = true, features = [\"with-serde_json-1\"] }",
+        "proposed": "tokio-postgres = { workspace = true, features = [\"with-serde_json-1\"], optional = true }"
+      },
+      {
+        "lineno": 26,
+        "current": "reqwest = { version = \"0.12\", optional = true, features = [\"json\"] }",
+        "proposed": "reqwest = { workspace = true, features = [\"json\"], optional = true }"
+      },
+      {
+        "lineno": 29,
+        "current": "tempfile = \"3\"",
+        "proposed": "tempfile = { workspace = true }"
+      },
+      {
+        "lineno": 30,
+        "current": "rand = \"0.8\"",
+        "proposed": "rand = { workspace = true }"
+      }
+    ],
+    "crates/touring-vfs/Cargo.toml": [
+      {
+        "lineno": 10,
+        "current": "parking_lot = \"0.12\"",
+        "proposed": "parking_lot = { workspace = true }"
+      },
+      {
+        "lineno": 11,
+        "current": "bytes = { version = \"1\", features = [\"serde\"] }",
+        "proposed": "bytes = { workspace = true, features = [\"serde\"] }"
+      },
+      {
+        "lineno": 12,
+        "current": "serde = { version = \"1\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 14,
+        "current": "filetime = \"0.2\"",
+        "proposed": "filetime = { workspace = true }"
+      },
+      {
+        "lineno": 15,
+        "current": "walkdir = \"2\"",
+        "proposed": "walkdir = { workspace = true }"
+      },
+      {
+        "lineno": 16,
+        "current": "hashbrown = \"0.15\"",
+        "proposed": "hashbrown = { workspace = true }"
+      },
+      {
+        "lineno": 17,
+        "current": "blake3 = \"1.5.5\"",
+        "proposed": "blake3 = { workspace = true }"
+      },
+      {
+        "lineno": 18,
+        "current": "notify = { version = \"7\", optional = true }",
+        "proposed": "notify = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 19,
+        "current": "notify-debouncer-mini = { version = \"0.5\", optional = true }",
+        "proposed": "notify-debouncer-mini = { workspace = true, optional = true }"
+      },
+      {
+        "lineno": 22,
+        "current": "tempfile = \"3\"",
+        "proposed": "tempfile = { workspace = true }"
+      },
+      {
+        "lineno": 23,
+        "current": "pretty_assertions = \"1\"",
+        "proposed": "pretty_assertions = { workspace = true }"
+      }
+    ],
+    "crates/touring-web/Cargo.toml": [
+      {
+        "lineno": 16,
+        "current": "leptos = { version = \"0.8\", features = [\"csr\"] }",
+        "proposed": "leptos = { workspace = true, features = [\"csr\"] }"
+      },
+      {
+        "lineno": 17,
+        "current": "leptos_meta = \"0.8\"",
+        "proposed": "leptos_meta = { workspace = true }"
+      },
+      {
+        "lineno": 18,
+        "current": "leptos_router = \"0.8\"",
+        "proposed": "leptos_router = { workspace = true }"
+      },
+      {
+        "lineno": 19,
+        "current": "web-sys = { version = \"0.3\", features = [\"HtmlHtmlElement\", \"Window\", \"Document\", \"Storage\", \"Response\", \"Request\", \"WebSocket\", \"MessageEvent\", \"ErrorEvent\", \"CloseEvent\", \"BinaryType\"] }",
+        "proposed": "web-sys = { workspace = true, features = [\"HtmlHtmlElement\", \"Window\", \"Document\", \"Storage\", \"Response\", \"Request\", \"WebSocket\", \"MessageEvent\", \"ErrorEvent\", \"CloseEvent\", \"BinaryType\"] }"
+      },
+      {
+        "lineno": 20,
+        "current": "js-sys = \"0.3\"",
+        "proposed": "js-sys = { workspace = true }"
+      },
+      {
+        "lineno": 21,
+        "current": "serde = { version = \"1\", features = [\"derive\"] }",
+        "proposed": "serde = { workspace = true, features = [\"derive\"] }"
+      },
+      {
+        "lineno": 24,
+        "current": "wasm-bindgen-futures = \"0.4\"",
+        "proposed": "wasm-bindgen-futures = { workspace = true }"
+      },
+      {
+        "lineno": 25,
+        "current": "serde-wasm-bindgen = \"0.4\"",
+        "proposed": "serde-wasm-bindgen = { workspace = true }"
+      },
+      {
+        "lineno": 35,
+        "current": "leptos_macro = \"0.8\"",
+        "proposed": "leptos_macro = { workspace = true }"
+      }
+    ],
+    "crates/touring-web-server/Cargo.toml": [
+      {
+        "lineno": 20,
+        "current": "leptos = \"0.8\"",
+        "proposed": "leptos = { workspace = true }"
+      },
+      {
+        "lineno": 21,
+        "current": "leptos_axum = \"0.8\"",
+        "proposed": "leptos_axum = { workspace = true }"
+      },
+      {
+        "lineno": 22,
+        "current": "axum = { version = \"0.8\", features = [\"ws\"] }",
+        "proposed": "axum = { workspace = true, features = [\"ws\"] }"
+      },
+      {
+        "lineno": 23,
+        "current": "tokio = { version = \"1\", features = [\"full\"] }",
+        "proposed": "tokio = { workspace = true, features = [\"full\"] }"
+      },
+      {
+        "lineno": 24,
+        "current": "tokio-stream = \"0.1\"",
+        "proposed": "tokio-stream = { workspace = true }"
+      },
+      {
+        "lineno": 25,
+        "current": "futures = \"0.3\"",
+        "proposed": "futures = { workspace = true }"
+      },
+      {
+        "lineno": 26,
+        "current": "tower = \"0.5\"",
+        "proposed": "tower = { workspace = true }"
+      },
+      {
+        "lineno": 27,
+        "current": "tower-http = { version = \"0.6\", features = [\"fs\", \"trace\", \"cors\"] }",
+        "proposed": "tower-http = { workspace = true, features = [\"fs\", \"trace\", \"cors\"] }"
+      },
+      {
+        "lineno": 31,
+        "current": "tracing = \"0.1\"",
+        "proposed": "tracing = { workspace = true }"
+      },
+      {
+        "lineno": 32,
+        "current": "tracing-subscriber = { version = \"0.3\", features = [\"env-filter\"] }",
+        "proposed": "tracing-subscriber = { workspace = true, features = [\"env-filter\"] }"
+      },
+      {
+        "lineno": 33,
+        "current": "libc = \"0.2\"",
+        "proposed": "libc = { workspace = true }"
+      },
+      {
+        "lineno": 37,
+        "current": "tower = { version = \"0.5\", features = [\"util\"] }",
+        "proposed": "tower = { workspace = true, features = [\"util\"] }"
+      },
+      {
+        "lineno": 38,
+        "current": "http-body-util = \"0.1\"",
+        "proposed": "http-body-util = { workspace = true }"
+      },
+      {
+        "lineno": 39,
+        "current": "tokio = { version = \"1\", features = [\"full\", \"test-util\"] }",
+        "proposed": "tokio = { workspace = true, features = [\"full\", \"test-util\"] }"
+      }
+    ]
+  }
+}

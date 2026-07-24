@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: cli-anything-touring
+Version: 0.4.0
+Summary: CLI harness for Touring intelligence system — direct SQLite + subprocess access
+Author: Gabriel Gadea
+Requires-Python: >=3.10
+Requires-Dist: typer>=0.9.0
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

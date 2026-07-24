@@ -1,0 +1,14 @@
+# AUTO-GENERATED skeleton (v4) — touring-hooks-prediction
+# Generated: 2026-05-12T00:15:11.402808+00:00
+
+[package]
+name = "touring-hooks-prediction"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+touring-hooks-shared = { workspace = true }
+
+[lints]
+workspace = true

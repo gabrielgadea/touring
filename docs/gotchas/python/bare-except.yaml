@@ -1,0 +1,13 @@
+id: python:bare-except
+language: python
+pattern: "except:"
+description: "Bare `except:` catches everything including KeyboardInterrupt and SystemExit."
+severity: medium
+resolution: |
+  Catch specific exceptions, or at minimum `except Exception:`:
+    try:
+        risky()
+    except (ValueError, KeyError) as e:
+        handle(e)
+metadata:
+  introduced: 2026-04-25

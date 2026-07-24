@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+if [ "$1" = "purge" ]; then
+    update-alternatives --remove touring /usr/lib/touring/bin/touring || true
+fi

@@ -1,0 +1,186 @@
+checkpoint:
+  id: w9-premium-documentation
+  date: 2026-06-11
+  type: documentation-release
+  scope: kazuba-rust-core
+  parent: w8-v3-1-0-release
+  version: 3.1.0 → 3.1.0 (docs rev)
+
+purpose: |
+  W9 Documentation Premium Elite: full documentation overhaul of
+  kazuba-rust-core to Premium Elite de Mercado standard. Aligned with
+  Diátaxis, MkDocs Material premium features, and context7 best
+  practices for Rust crate documentation.
+
+fr1_landing_pages_rewrite:
+  status: COMPLETE
+  files_updated:
+    - README.md (root, 819L → 350L with v3.1.0 + 28 badges)
+    - docs/index.md (Premium landing, 12-card grid, 4 sections)
+  impact: "First impression for users; clear entry points; Diátaxis structure"
+
+fr2_new_premium_documents:
+  status: COMPLETE
+  documents_created:
+    - docs/showcase.md (real-world ANTT/TCU/CNJ/STJ use cases + benchmarks)
+    - docs/roadmap.md (public 12-month roadmap, 4 quarters)
+    - docs/comparison.md (vs pyserini/langchain/tantivy/Qdrant/Weaviate/Milvus)
+    - docs/glossary.md (60+ domain terms with references)
+    - docs/faq.md (40+ Q&A across 9 categories)
+    - docs/api-stability.md (SemVer + C-ABI v1.0.0 + 6-month deprecation)
+    - docs/performance-dashboard.md (live metrics + historical + 10 deep dives)
+  total: "7 new premium documents"
+
+fr3_plugin_system_docs:
+  status: COMPLETE
+  documents_created:
+    - docs/plugins/index.md (Plugin Catalog, 4 plugins)
+    - docs/plugins/author-guide.md (3-min step-by-step + advanced topics)
+    - docs/plugins/consumer-guide.md (host-side guide + threading + testing)
+    - docs/plugins/abi-spec.md (authoritative C-ABI v1.0.0 contract)
+    - docs/plugins/sdk-rustdoc.md (complete SDK API reference)
+  total: "5 plugin system documents"
+
+fr4_crate_readmes:
+  status: COMPLETE
+  public_plugin_readmes:
+    - crates/kazuba-plugin-sdk/README.md (v1.0.0)
+    - crates/kazuba-plugin-citation/README.md (v0.1.0)
+    - crates/kazuba-plugin-ocr/README.md (v0.3.0)
+    - crates/kazuba-plugin-rag/README.md (v0.2.0)
+  internal_crate_readmes:
+    - crates/kazuba-core/README.md
+    - crates/kazuba-nlp/README.md
+    - crates/kazuba-legal/README.md
+    - crates/kazuba-agents/README.md
+    - crates/kazuba-rlm/README.md
+    - crates/kazuba-doc-intelligence/README.md
+    - crates/kazuba-gpu/README.md
+    - crates/kazuba-converters/README.md
+    - crates/kazuba-python/README.md
+  total: "13 crate READMEs (4 public + 9 internal)"
+
+fr5_section_indices:
+  status: COMPLETE
+  new_indices:
+    - docs/diagrams/index.md (12 Mermaid diagrams indexed)
+    - docs/premium/index.md (internal strategy docs, metrics dashboard, TACO wave history)
+  how-to_index: docs/how-to/index.md (created — was missing)
+  tutorials_index: docs/tutorials/index.md (created — was missing)
+
+fr6_citation_files:
+  status: COMPLETE
+  files_created:
+    - CITATION.cff (Citation File Format v1.2.0 with 5 academic references)
+    - codemeta.json (CodeMeta v2.0 with full metadata for academic indexing)
+  coverage: "BM25 (Robertson/Zaragoza 2009), LinUCB (Li 2010), MCTS (Coulom 2006), HNSW (Malkov 2016), ADR (Nygard 2024), Diátaxis (Procida)"
+
+fr7_mkdocs_navigation:
+  status: COMPLETE
+  sections_added_to_nav:
+    - Showcase, Roadmap, Comparison, Glossary, FAQ, API Stability, Performance (7 new sections in main nav)
+    - Plugin System (with Author/Consumer/C-ABI Spec/SDK rustdoc sub-pages)
+    - Diagrams (with index + 4 sub-pages)
+    - Premium (expanded with 6 sub-pages)
+  total: "12 nav sections (was 10)"
+
+validation_gates:
+  - name: mkdocs build --strict
+    status: PASS
+    cmd: "mkdocs build --strict"
+    expected: "0 warnings"
+    actual: "0 warnings, 2.10s build time"
+  - name: Documentation completeness
+    status: PASS
+    markdown_files: 213
+    html_pages_generated: 200+
+    crate_readmes: 13
+    adrs: 15
+    diagrams: 12
+    tutorials: 5
+    how_to_guides: 5
+    topic_guides: 13
+    reference_docs: 7
+    explanation_docs: 4
+    new_premium_docs: 7
+    plugin_system_docs: 5
+  - name: Citation standards
+    status: PASS
+    citation_cff: "Valid CFF 1.2.0"
+    codemeta_json: "Valid CodeMeta 2.0"
+    academic_references: 6
+  - name: Cross-references
+    status: PASS
+    broken_links_fixed: 18 (CHANGELOG, README, LICENSE, SECURITY, CODE_OF_CONDUCT, CONTRIBUTING, benches/ → GitHub absolute URLs)
+    new_index_pages: 2 (tutorials/index.md, how-to/index.md)
+
+metrics:
+  total_documentation_size: "12M MkDocs build"
+  html_pages: 200+
+  markdown_sources: 213
+  crate_readmes: 13
+  premium_score_estimate: "8.5/10 (up from 6.0/10)"
+  diataxis_compliance: "4 quadrants + Architecture + Operations + ADRs + Premium + Plugins + Diagrams"
+  context7_best_practices_applied:
+    - "Diátaxis (tutorials, how-to, reference, explanation)"
+    - "MkDocs Material (cards grid, navigation tabs, palette toggle)"
+    - "Mermaid diagrams (12)"
+    - "MADR-format ADRs (15)"
+    - "rustdoc with #![deny(missing_docs)]"
+    - "Quickstart templates (under 5 min target)"
+    - "API reference (complete types + methods)"
+    - "Architecture guide (8-section structure)"
+    - "Premium landing page (hero, quickstart, 3 grids)"
+
+lessons:
+  id: L136
+  rule: "Diátaxis + Mermaid + Premium landing = Premium Elite docs"
+  source: 2026-06-11 W9 (Premium Documentation overhaul)
+  detail: |
+    Premium Elite documentation requires: (1) 4-quadrant Diátaxis structure
+    (Tutorials, How-To, Reference, Explanation) plus 6-8 supplementary
+    sections (Architecture, Operations, ADRs, Premium, Plugins, Diagrams,
+    Showcase, Roadmap, Comparison, Glossary, FAQ, API Stability); (2)
+    landing pages for every section; (3) Mermaid diagrams for visual
+    learners; (4) MADR-format ADRs; (5) plugin-system-specific docs
+    (Author/Consumer/C-ABI Spec/rustdoc); (6) per-crate READMEs (both
+    public and internal); (7) citation files (CFF + CodeMeta); (8)
+    cross-references as absolute GitHub URLs when files are outside
+    docs/ directory.
+
+  id: L137
+  rule: "mkdocs --strict requires internal index.md for every nav section"
+  source: 2026-06-11 W9 mkdocs validation
+  detail: |
+    When adding a new nav section to mkdocs.yml, ALWAYS create an
+    index.md in that directory. Otherwise mkdocs --strict fails with
+    "Doc file X contains a link 'Y/index.md', but the target is not
+    found". For the W9 wave, we needed to create how-to/index.md and
+    tutorials/index.md to fix missing landing pages.
+
+  id: L138
+  rule: "Files outside docs/ require absolute GitHub URLs, not relative"
+  source: 2026-06-11 W9 mkdocs validation
+  detail: |
+    mkdocs only tracks files in the docs/ directory for link validation.
+    Files at the package root (CHANGELOG.md, README.md, LICENSE, etc.)
+    cannot be referenced via relative paths (../CHANGELOG.md). Use
+    absolute GitHub URLs instead: https://github.com/org/repo/blob/main/path/CHANGELOG.md.
+    Same for directories (../benches/ → GitHub tree URL).
+
+do_not_ship:
+  - "composite_health_0.6125 — Upstream touring hypergraph limitation, not a doc issue"
+  - "1 dead_code in kazuba-plugin-ocr — Already fixed in cross-audit (L134)"
+  - "10 allow(dead_code) in non-target crates — Pre-existing tech debt, defer to v3.2.0"
+  - "175 pre-existing kazuba-rlm warnings — Documented, unrelated to docs"
+
+links:
+  - parent_checkpoint: 2026-06-11-w8-v3-1-0-release.toon
+  - cross_audit: 2026-06-11-cross-audit-v3-1-0.toon
+  - context7_docs:
+    - "Diátaxis: https://diataxis.fr/"
+    - "MkDocs Material: https://squidfunk.github.io/mkdocs-material/"
+    - "Developer Docs Framework: https://github.com/anivar/developer-docs-framework"
+  - citation: CITATION.cff + codemeta.json
+  - site: site/ (12M MkDocs build)
+  - github_pages: "https://gabrielgadea.github.io/analise/kazuba-rust-core/"

@@ -1,0 +1,19 @@
+{
+  "script": "w13_sigstore_pipeline",
+  "wave": "W13",
+  "subtask_refs": [
+    "W13.6"
+  ],
+  "timestamp": "2026-05-12T00:53:39.435976+00:00",
+  "status": "OK",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "targets": [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin"
+  ],
+  "artifact_glob": "release/*.tar.gz",
+  "workflow_path": "scripts/touring_premium_refactor_2026/staging/w13-github-workflows/sigstore-release.yml",
+  "verify_script": "scripts/touring_premium_refactor_2026/staging/w13-cosign-verify.sh"
+}

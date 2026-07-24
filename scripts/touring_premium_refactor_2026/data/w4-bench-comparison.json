@@ -1,0 +1,19 @@
+{
+  "script": "w4_bench_compare",
+  "wave": "W4",
+  "subtask_refs": [
+    "W4.10"
+  ],
+  "timestamp": "2026-05-12T00:49:27.368581+00:00",
+  "baseline": "pre-refactor",
+  "current": "post-refactor",
+  "threshold": 0.05,
+  "totals": {
+    "benchmarks_compared": 0,
+    "regressions": 0,
+    "missing": 0
+  },
+  "regressions": [],
+  "comparisons": [],
+  "missing": []
+}

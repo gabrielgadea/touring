@@ -1,0 +1,190 @@
+[package]
+name = "touring-intelligence"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Unified intelligence layer fusing touring-cognitive (reasoning engine: MCTS/GoT/ACO/pensieve/bm25), touring-learning (RL: bandit/clustering/online-rl/ranking/semantic), touring-antt (ANN index + reranker), touring-index (incremental symbol indexing). Heavy backends opt-in via intel-* features. W6 of touring-premium-refactor-2026."
+
+[lib]
+name = "touring_intelligence"
+path = "src/lib.rs"
+
+[dependencies]
+# ── Internal touring path deps ────────────────────────────────────────────────
+touring-foundation = { path = "../touring-foundation" }
+touring-simd       = { path = "../touring-simd", features = ["gpu-compute"] }
+touring-offensive  = { path = "../touring-offensive" }
+touring-rkyv       = { path = "../touring-rkyv" }
+# W4 shim-elimination 2026-05-31: touring-semantics → touring_code::semantics (direct).
+touring-code       = { path = "../touring-code" }
+touring-analysis   = { path = "../touring-analysis", optional = true }
+
+# ── Async ─────────────────────────────────────────────────────────────────────
+tokio = { workspace = true, optional = true }
+
+# ── Concurrency ───────────────────────────────────────────────────────────────
+rayon             = { workspace = true }
+dashmap           = { workspace = true }
+moka              = { workspace = true }
+# Leiden cluster dep (single-clustering) is opt-in. When enabled, it
+# transitively pulls in unmaintained `bincode 1.x` via `hnsw_rs`. We override
+# bincode to bincode 2.x (which has active maintainers and no RUSTSEC
+# advisory) via [patch.crates-io] in the workspace root, so enabling this
+# feature does not regress F4.5.
+single-clustering = { workspace = true, optional = true }
+lru               = { workspace = true }
+indexmap          = { workspace = true }
+petgraph          = { workspace = true }
+smallvec          = { workspace = true }
+rustc-hash        = { workspace = true }
+
+# ── Serialization ─────────────────────────────────────────────────────────────
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+rkyv       = { workspace = true }
+
+# ── Errors ────────────────────────────────────────────────────────────────────
+thiserror = { workspace = true }
+anyhow    = { workspace = true }
+
+# ── Hashing ───────────────────────────────────────────────────────────────────
+sha2 = { workspace = true }
+
+# ── Database ──────────────────────────────────────────────────────────────────
+rusqlite        = { workspace = true }
+deadpool-sqlite = { workspace = true }
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+tracing = { workspace = true }
+
+# ── GPU ───────────────────────────────────────────────────────────────────────
+wgpu     = { workspace = true }
+bytemuck = { workspace = true }
+pollster = { workspace = true }
+
+# ── Numerics ──────────────────────────────────────────────────────────────────
+ndarray           = { workspace = true }
+rand              = { workspace = true }
+once_cell         = { workspace = true }
+chrono            = { workspace = true }
+regex             = { workspace = true }
+glob              = { workspace = true }
+memmap2           = { workspace = true }
+crdts             = { workspace = true }
+static_assertions = { workspace = true }
+
+# ── NLP / text (ann module) ───────────────────────────────────────────────────
+aho-corasick         = { workspace = true }
+unicode-segmentation = { workspace = true }
+
+# ── File watching (index module) ──────────────────────────────────────────────
+notify = { workspace = true }
+ignore = { workspace = true }
+
+# ── Optional: HNSW ────────────────────────────────────────────────────────────
+bumpalo          = { workspace = true, optional = true }
+instant-distance = { workspace = true, optional = true }
+
+# ── Optional: Candle ML ───────────────────────────────────────────────────────
+candle-core         = { workspace = true, optional = true }
+candle-nn           = { workspace = true, optional = true }
+candle-transformers = { workspace = true, optional = true }
+tokenizers          = { workspace = true, optional = true }
+
+# ── Optional: Linfa (subsection form — must appear after all inline entries) ──
+[dependencies.linfa]
+workspace = true
+optional  = true
+
+[dependencies.linfa-clustering]
+workspace = true
+optional  = true
+
+[dependencies.linfa-ftrl]
+workspace = true
+optional  = true
+
+[dependencies.ndarray015]
+package  = "ndarray"
+version  = "0.15"
+optional = true
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile          = { workspace = true }
+criterion         = { workspace = true }
+proptest          = { workspace = true }
+tracing-test      = { workspace = true }
+approx            = { workspace = true }
+tokio             = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+
+[[bench]]
+name    = "coedit_predictor"
+harness = false
+
+[[bench]]
+name    = "semantic_graph"
+harness = false
+
+[[bench]]
+name    = "qtable"
+harness = false
+
+[[bench]]
+name    = "linucb"
+harness = false
+
+[[bench]]
+name    = "embedding_u4"
+harness = false
+
+[[bench]]
+name    = "keyword_matcher"
+harness = false
+
+[features]
+default = [
+    "analysis-bridge",
+    "simple-clustering",
+    "ast-features",
+    "hnsw-working-memory",
+    "ftrl",
+    "u4-quantization",
+    "async-memory",
+    "ebpf",
+    "semantic-embeddings",
+    "simd-similarity",
+    "smart-cache",
+]
+
+# Leiden clustering is opt-in: it pulls in `single-clustering` which transitively
+# depends on the unmaintained `bincode` crate (RUSTSEC-2025-0141). Enable with
+# `--features leiden-clustering` when actually needed. The bincode 1.x is
+# overridden to bincode 2.x via [patch.crates-io] in the workspace root so
+# enabling this feature does not regress F4.5.
+leiden-clustering = ["dep:single-clustering", "dep:linfa", "dep:linfa-clustering"]
+
+# reasoning (ex touring-cognitive)
+analysis-bridge = ["dep:touring-analysis"]
+esaa            = []
+
+# rl (ex touring-learning)
+simple-clustering   = []
+# leiden-clustering is defined above in the opt-in section (pulls unmaintained bincode transitively)
+hnsw-working-memory = ["dep:bumpalo", "dep:instant-distance", "dep:tokio"]
+ast-features        = []
+ftrl                = ["dep:linfa-ftrl", "dep:linfa", "dep:ndarray015"]
+u4-quantization     = ["touring-simd/quantization"]
+gpu-compute         = ["touring-simd/gpu-compute"]
+async-memory        = ["dep:tokio"]
+semantic-embeddings = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers"]
+ebpf                = []
+
+# index (ex touring-index)
+simd-similarity = []
+smart-cache     = []
+
+[lints]
+workspace = true

@@ -1,0 +1,17 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: w8-touring-hooks-pragmatic-3crate-split
+slug: w8-touring-hooks-pragmatic-3crate-split
+intent: "W8 pragmatic 3-crate split of touring-hooks: extracted touring-hooks-shared (15 modules, leaf) + touring-hooks-prediction (8 files, depends only on shared); 8-crate plan infeasible (4 Cargo cycles, 7-bucket SCC); facade preserves API; cargo check --workspace --tests exit 0; 294 tests + 1 doctest PASS; clippy -D warnings clean"
+role: engineer
+task_id: ""
+timestamp: "2026-05-15T17:58:36-03:00"
+session_id: a9198211-d445-4694-9846-6888cd6b9a6f
+content:
+  lines: 0
+  bytes: 0
+  sections: []
+  source_md: ""
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02

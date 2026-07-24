@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-rkyv-ipc.schema.json",
+  "title": "Capability: rkyv-ipc",
+  "description": "rkyv IPC dispatch counters",
+  "type": "object",
+  "additionalProperties": true
+}

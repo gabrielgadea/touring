@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ name | default(value="app") }}
+  namespace: {{ namespace | default(value="default") }}
+spec:
+  replicas: {{ replicas | default(value=1) }}
+  selector:
+    matchLabels:
+      app: {{ name | default(value="app") }}
+  template:
+    metadata:
+      labels:
+        app: {{ name | default(value="app") }}
+    spec:
+      containers:
+      - name: {{ name | default(value="app") }}
+        image: {{ image | default(value="app:latest") }}
+        ports:
+        - containerPort: {{ port | default(value=8080) }}

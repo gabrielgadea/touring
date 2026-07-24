@@ -1,0 +1,23 @@
+//! Tests for {{ module_name | default(value="module") }}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+{% if tests is defined %}
+{% for test in tests %}
+    #[test]
+    fn {{ test.name | default(value="test_fn") }}() {
+        // {{ test.description | default(value="TODO") }}
+        {% if test.is_async | default(value=false) %}
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        rt.block_on(async {
+            todo!()
+        });
+        {% else %}
+        todo!()
+        {% endif %}
+    }
+{% endfor %}
+{% endif %}
+}
