@@ -943,6 +943,12 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 ## [Unreleased] - 2026-04-11
 
+## [30.3.0](https://github.com/gabrielgadea/touring/releases/tag/v30.3.0) - 2026-07-24
+
+### Other
+
+- Pln2 productization: per-project toolchains, touring update/component, installer, release pipeline (F0-F5 + PILOT)
+
 ### Iteration 4 — FILE METADATA Pln2 x GENERATOR Pln2 Integration (2026-04-11)
 
 > **Summary**: Closed the KnowledgeUpsertFn integration loop between touring-generator and
