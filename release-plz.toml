@@ -43,7 +43,10 @@ release = true
 publish = false              # binary product — distributed via GitHub releases
                              # + install.touring.dev + Homebrew/Scoop, not crates.io.
 changelog_update = true
-changelog_path = "CHANGELOG.md"
+# Dedicated product-release changelog (F5, 2026-07-24): the root CHANGELOG.md
+# mixes toon-synth auto-entries + wave history and is NOT keep-a-changelog
+# parseable — release-plz choked on "multiple release notes for 'Unreleased'".
+changelog_path = "docs/CHANGELOG-releases.md"
 git_release_enable = true
 git_release_type = "auto"    # pre-release if version has -rc/-alpha, else prod.
 git_tag_enable = true
