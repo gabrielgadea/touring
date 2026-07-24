@@ -123,7 +123,13 @@ pub(crate) fn resolve_binary_target(
 ) -> Option<PathBuf> {
     channel
         .filter(|c| *c != DEV_CHANNEL)
-        .map(|c| touring_home.join("toolchains").join(c).join("bin").join(name))
+        .map(|c| {
+            touring_home
+                .join("toolchains")
+                .join(c)
+                .join("bin")
+                .join(name)
+        })
         .filter(|p| p.exists())
         .or_else(|| Some(dev_bin_dir.join(name)).filter(|p| p.exists()))
 }

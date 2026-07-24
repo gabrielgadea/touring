@@ -258,7 +258,9 @@ fn update_project(
             .as_ref()
             .and_then(|l| l.previous.clone())
             .ok_or_else(|| {
-                anyhow!("nothing to roll back to — no `previous` recorded in .touring/toolchain.lock")
+                anyhow!(
+                    "nothing to roll back to — no `previous` recorded in .touring/toolchain.lock"
+                )
             })?
     } else {
         args.channel
@@ -473,8 +475,8 @@ mod tests {
         make_project(&proj, "vA");
         let mut args = no_restart_args();
         args.channel = Some("v-missing".into());
-        let err = update_project(&proj, &args, &th, &tmp.path().join("dev"))
-            .expect_err("must fail");
+        let err =
+            update_project(&proj, &args, &th, &tmp.path().join("dev")).expect_err("must fail");
         assert!(format!("{err}").contains("not installed"), "{err}");
     }
 
@@ -514,7 +516,10 @@ mod tests {
         args.dry_run = true;
         let r = update_project(&proj, &args, &th, &tmp.path().join("dev")).expect("dry");
         assert_eq!(r.to, "vB");
-        assert!(!dot.join("toolchain.lock").exists(), "dry-run must not write");
+        assert!(
+            !dot.join("toolchain.lock").exists(),
+            "dry-run must not write"
+        );
         assert_eq!(
             std::fs::read_dir(dot.join("bin")).expect("dir").count(),
             0,

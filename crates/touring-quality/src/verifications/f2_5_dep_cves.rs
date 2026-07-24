@@ -419,7 +419,11 @@ mod tests {
                 "OSV offline summary must enrich the evidence: {}",
                 s.evidence
             );
-            assert!(s.evidence.contains("npm"), "ecosystem named: {}", s.evidence);
+            assert!(
+                s.evidence.contains("npm"),
+                "ecosystem named: {}",
+                s.evidence
+            );
         }
 
         #[test]
@@ -519,7 +523,6 @@ mod tests {
             assert!(s.evidence.contains("serde@1.0.130"));
             assert!(!s.suggestions.is_empty());
         }
-
     }
 
     // ── W5 (2026-06-26): `load_advisories_ignore` walks up the lockfile's dir

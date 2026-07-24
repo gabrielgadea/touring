@@ -11,7 +11,6 @@ use crate::runtime::HookRuntime;
 use crate::schemas::validate_payload;
 use rusqlite::params;
 
-
 // ── F1-ROUTING (2026-07-24) — task-home store resolution ─────────────────────
 //
 // Root cause of the "lost DAG" incidents (2x on 2026-07-24): decompose stores

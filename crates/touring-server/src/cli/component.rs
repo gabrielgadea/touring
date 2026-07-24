@@ -59,21 +59,13 @@ impl ComponentCmd {
     /// Parse `touring component <sub> ...` argv (manual style — crate CLI
     /// convention).
     pub fn parse(args: &[String]) -> Self {
-        if args
-            .iter()
-            .skip(2)
-            .any(|a| a == "--help" || a == "-h")
-        {
+        if args.iter().skip(2).any(|a| a == "--help" || a == "-h") {
             return Self::Help { requested: true };
         }
         let sub = args.get(2).map(|s| s.as_str()).unwrap_or("");
         let project = parse_project_flag(args);
         let json = args.iter().skip(3).any(|a| a == "--json" || a == "-j");
-        let name = args
-            .iter()
-            .skip(3)
-            .find(|a| !a.starts_with('-'))
-            .cloned();
+        let name = args.iter().skip(3).find(|a| !a.starts_with('-')).cloned();
         match (sub, name) {
             ("list", _) => Self::List { project, json },
             ("add", Some(name)) => Self::Add { name, project },
@@ -267,13 +259,9 @@ pub(crate) fn list_components(
                 Ok(target) => format!("linked -> {}", target.display()),
                 Err(_) if link.exists() => "present (not a symlink)".to_string(),
                 Err(_) => {
-                    let available = resolve_binary_target(
-                        &name,
-                        channel.as_deref(),
-                        touring_home,
-                        dev_bin_dir,
-                    )
-                    .is_some();
+                    let available =
+                        resolve_binary_target(&name, channel.as_deref(), touring_home, dev_bin_dir)
+                            .is_some();
                     if available {
                         "available (not linked)".to_string()
                     } else {
@@ -372,7 +360,12 @@ mod tests {
             ComponentCmd::parse(&args_for(&["list", "--json"])),
             ComponentCmd::List { json: true, .. }
         ));
-        match ComponentCmd::parse(&args_for(&["add", "touring-quality", "--project", "/tmp/x"])) {
+        match ComponentCmd::parse(&args_for(&[
+            "add",
+            "touring-quality",
+            "--project",
+            "/tmp/x",
+        ])) {
             ComponentCmd::Add { name, project } => {
                 assert_eq!(name, "touring-quality");
                 assert_eq!(project, Some(PathBuf::from("/tmp/x")));
@@ -412,7 +405,10 @@ mod tests {
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert!(names.contains(&"touring"), "{names:?}");
         assert!(names.contains(&"touring-quality"), "{names:?}");
-        let quality = rows.iter().find(|r| r.name == "touring-quality").expect("row");
+        let quality = rows
+            .iter()
+            .find(|r| r.name == "touring-quality")
+            .expect("row");
         assert!(!quality.core);
         assert_eq!(quality.status, "available (not linked)");
     }
@@ -424,8 +420,7 @@ mod tests {
         let target = fake_bin(&th.join("toolchains/vA/bin"), "touring-quality");
         let dot = make_project(&tmp.path().join("proj"), "vA");
 
-        add_component(&dot, "touring-quality", &th, &tmp.path().join("no-dev"))
-            .expect("add");
+        add_component(&dot, "touring-quality", &th, &tmp.path().join("no-dev")).expect("add");
         assert_eq!(
             std::fs::read_link(dot.join("bin/touring-quality")).expect("link"),
             target

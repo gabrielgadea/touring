@@ -47,7 +47,11 @@ impl TouringConfig {
         let env_override = std::env::var("TOURING_DAEMON_SOCKET")
             .ok()
             .filter(|p| !p.is_empty())
-            .or_else(|| std::env::var("TOURING_DAEMON_SOCK").ok().filter(|p| !p.is_empty()));
+            .or_else(|| {
+                std::env::var("TOURING_DAEMON_SOCK")
+                    .ok()
+                    .filter(|p| !p.is_empty())
+            });
         Self::resolve_daemon_socket_path_inner(start_dir, env_override.as_deref())
     }
 
@@ -228,8 +232,10 @@ impl TouringConfig {
         cwd: &std::path::Path,
         home: Option<&std::path::Path>,
     ) -> PathBuf {
-        let fallback =
-            || home.map(std::path::Path::to_path_buf).unwrap_or_else(|| cwd.to_path_buf());
+        let fallback = || {
+            home.map(std::path::Path::to_path_buf)
+                .unwrap_or_else(|| cwd.to_path_buf())
+        };
         // An empty or relative cwd carries no project information — resolving
         // markers against it would silently anchor on the DAEMON's own cwd
         // (live incident 2026-07-20: touring-hook sent project_root="" and the
@@ -396,17 +402,29 @@ mod w12_5_daemon_paths_tests {
         // same lock file, or an upgrade would let two daemons bind the socket.
         let lock = TouringConfig::daemon_lock_path_for(&global_socket());
         let uid = unsafe { libc::getuid() };
-        assert_eq!(lock, PathBuf::from(format!("/tmp/touring-daemon-{uid}.lock")));
+        assert_eq!(
+            lock,
+            PathBuf::from(format!("/tmp/touring-daemon-{uid}.lock"))
+        );
     }
 
     #[test]
     fn lock_for_custom_socket_is_derived_stable_and_distinct() {
-        let a = TouringConfig::daemon_lock_path_for(std::path::Path::new("/proj/a/.touring/daemon.sock"));
-        let b = TouringConfig::daemon_lock_path_for(std::path::Path::new("/proj/b/.touring/daemon.sock"));
+        let a = TouringConfig::daemon_lock_path_for(std::path::Path::new(
+            "/proj/a/.touring/daemon.sock",
+        ));
+        let b = TouringConfig::daemon_lock_path_for(std::path::Path::new(
+            "/proj/b/.touring/daemon.sock",
+        ));
         assert_ne!(a, b, "distinct sockets must derive distinct locks");
         assert_ne!(a, TouringConfig::daemon_lock_path_for(&global_socket()));
         // Deterministic across calls (FNV-1a is build/version-stable).
-        assert_eq!(a, TouringConfig::daemon_lock_path_for(std::path::Path::new("/proj/a/.touring/daemon.sock")));
+        assert_eq!(
+            a,
+            TouringConfig::daemon_lock_path_for(std::path::Path::new(
+                "/proj/a/.touring/daemon.sock"
+            ))
+        );
         assert!(a.to_string_lossy().ends_with(".lock"));
     }
 
@@ -434,10 +452,17 @@ mod w12_5_daemon_paths_tests {
         let proj = tmp.path().join("proj");
         std::fs::create_dir_all(proj.join(".touring")).expect("mkdir");
         // touring.toml present but NOT opting in (default OFF — 1.5).
-        std::fs::write(proj.join(".touring/touring.toml"), "[toolchain]\nchannel = \"30.3.0\"\n")
-            .expect("write");
+        std::fs::write(
+            proj.join(".touring/touring.toml"),
+            "[toolchain]\nchannel = \"30.3.0\"\n",
+        )
+        .expect("write");
         let got = TouringConfig::resolve_daemon_socket_path_inner(Some(proj.clone()), None);
-        assert_eq!(got, global_socket(), "no opt-in must keep the global daemon");
+        assert_eq!(
+            got,
+            global_socket(),
+            "no opt-in must keep the global daemon"
+        );
         // Malformed toml is fail-open (never a panic, never an opt-in).
         std::fs::write(proj.join(".touring/touring.toml"), "[[[not toml").expect("write");
         assert!(!TouringConfig::daemon_per_project_opt_in(&proj));
@@ -471,7 +496,10 @@ mod normalize_project_root_tests {
         let inside = mkdirs(home, ".claude/rust-no-marker/sub");
         mkdirs(home, ".claude/rust-no-marker/.claude");
         let got = TouringConfig::normalize_project_root_inner(&inside, Some(home));
-        assert_eq!(got, home, ".claude/ presence must not promote a dir to project");
+        assert_eq!(
+            got, home,
+            ".claude/ presence must not promote a dir to project"
+        );
     }
 
     #[test]
@@ -485,7 +513,10 @@ mod normalize_project_root_tests {
         mkdirs(home, ".claude/.git");
         let scripts = mkdirs(home, ".claude/skills/Touring/scripts");
         let got = TouringConfig::normalize_project_root_inner(&scripts, Some(home));
-        assert_eq!(got, home, "~/.claude with .git must not become a project root");
+        assert_eq!(
+            got, home,
+            "~/.claude with .git must not become a project root"
+        );
     }
 
     #[test]
@@ -497,7 +528,10 @@ mod normalize_project_root_tests {
         mkdirs(home, ".claude/rust/.touring");
         let member = mkdirs(home, ".claude/rust/crates/foo");
         let got = TouringConfig::normalize_project_root_inner(&member, Some(home));
-        assert_eq!(got, rust, "a real project inside ~/.claude keeps its own root");
+        assert_eq!(
+            got, rust,
+            "a real project inside ~/.claude keeps its own root"
+        );
     }
 
     #[test]
@@ -568,6 +602,9 @@ mod normalize_project_root_tests {
         assert_eq!(empty, home, "empty cwd must resolve to the global (home)");
         let relative =
             TouringConfig::normalize_project_root_inner(Path::new("some/rel/dir"), Some(home));
-        assert_eq!(relative, home, "relative cwd must resolve to the global (home)");
+        assert_eq!(
+            relative, home,
+            "relative cwd must resolve to the global (home)"
+        );
     }
 }

@@ -334,7 +334,11 @@ function identity<T>(x: T): T { return x; }
 "#;
         let r = PolyglotSemanticReport::from_source(Lang::TypeScript, src).unwrap();
         assert_eq!(r.language, "typescript");
-        assert!(r.type_params >= 3, "K, V, T => at least 3, got {}", r.type_params);
+        assert!(
+            r.type_params >= 3,
+            "K, V, T => at least 3, got {}",
+            r.type_params
+        );
         assert_eq!(r.async_fns, 1, "one async method");
         assert_eq!(r.classes, 1);
         assert!(r.dynamic_escapes >= 1, "the `any` type is an escape");
@@ -346,7 +350,8 @@ function identity<T>(x: T): T { return x; }
 
     #[test]
     fn javascript_async_function_no_types() {
-        let src = "async function fetchAll(urls) { return await Promise.all(urls.map(u => fetch(u))); }";
+        let src =
+            "async function fetchAll(urls) { return await Promise.all(urls.map(u => fetch(u))); }";
         let r = PolyglotSemanticReport::from_source(Lang::JavaScript, src).unwrap();
         assert_eq!(r.language, "javascript");
         assert_eq!(r.async_fns, 1);

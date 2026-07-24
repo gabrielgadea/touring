@@ -150,9 +150,21 @@ pub fn bridge_task_created(
     // event path had no subtasks. Reached only on first creation (the dedup
     // early-return above skips repeats), so the scaffold is naturally idempotent.
     let scaffold = [
-        ("scout", "scout: research context, blast radius, and wiring before changes", None),
-        ("implement", "implement: apply changes with VGP verification and speculative validation", Some("scout")),
-        ("validate", "validate: cargo test + wiring orphans + memory store lesson", Some("implement")),
+        (
+            "scout",
+            "scout: research context, blast radius, and wiring before changes",
+            None,
+        ),
+        (
+            "implement",
+            "implement: apply changes with VGP verification and speculative validation",
+            Some("scout"),
+        ),
+        (
+            "validate",
+            "validate: cargo test + wiring orphans + memory store lesson",
+            Some("implement"),
+        ),
     ];
     for (stage, description, dep) in scaffold {
         let deps: Vec<String> = dep

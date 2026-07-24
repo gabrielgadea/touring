@@ -385,7 +385,11 @@ pub fn install_toolchain_from_source(
         std::fs::copy(&from, &to)
             .map_err(|e| anyhow!("copy {} -> {}: {e}", from.display(), to.display()))?;
     }
-    write_toolchain_meta(&dest, version, &format!("local-source:{}", source_dir.display()))
+    write_toolchain_meta(
+        &dest,
+        version,
+        &format!("local-source:{}", source_dir.display()),
+    )
 }
 
 /// F3 (3.3) — install a toolchain from a URL: download to a temp tarball via
@@ -415,13 +419,8 @@ pub fn install_toolchain_from_url(
         let _ = std::fs::remove_file(&tmp);
         return Err(anyhow!("curl -fsSL {url} failed with status {status}"));
     }
-    let result = install_toolchain_from_tarball_labeled(
-        home,
-        version,
-        &tmp,
-        force,
-        &format!("url:{url}"),
-    );
+    let result =
+        install_toolchain_from_tarball_labeled(home, version, &tmp, force, &format!("url:{url}"));
     let _ = std::fs::remove_file(&tmp);
     result
 }
@@ -837,7 +836,9 @@ mod tests {
     #[test]
     fn parse_install_from_source_and_url() {
         match ToolchainCmd::parse(&args(&["install", "--from-source", "/src/ws", "vdev"])) {
-            ToolchainCmd::Install { version, source, .. } => {
+            ToolchainCmd::Install {
+                version, source, ..
+            } => {
                 assert_eq!(version, "vdev");
                 assert_eq!(source, InstallSource::SourceDir(PathBuf::from("/src/ws")));
             }
@@ -848,7 +849,9 @@ mod tests {
             "--from-url=https://example.com/t.tar.gz",
             "v1",
         ])) {
-            ToolchainCmd::Install { version, source, .. } => {
+            ToolchainCmd::Install {
+                version, source, ..
+            } => {
                 assert_eq!(version, "v1");
                 assert_eq!(
                     source,
@@ -1046,14 +1049,21 @@ mod tests {
         install_toolchain_from_source(&home, "vdev", src.path(), false).expect("install");
 
         let bin = home.join("toolchains/vdev/bin");
-        for name in ["touring", "touring-hook", "touring-daemon", "touring-quality"] {
+        for name in [
+            "touring",
+            "touring-hook",
+            "touring-daemon",
+            "touring-quality",
+        ] {
             assert!(bin.join(name).is_file(), "missing {name}");
         }
         // Copies, not symlinks — an installed toolchain is an immutable snapshot.
         assert!(!bin.join("touring").is_symlink());
         // Executable bit preserved by fs::copy.
         let mode = std::os::unix::fs::PermissionsExt::mode(
-            &std::fs::metadata(bin.join("touring")).unwrap().permissions(),
+            &std::fs::metadata(bin.join("touring"))
+                .unwrap()
+                .permissions(),
         );
         assert_ne!(mode & 0o111, 0, "executable bit must survive the copy");
         let meta = std::fs::read_to_string(home.join("toolchains/vdev/meta.toml")).unwrap();
@@ -1070,9 +1080,13 @@ mod tests {
         let err = install_toolchain_from_source(&home, "vdev", src.path(), false)
             .expect_err("partial toolchain must be refused");
         let msg = format!("{err}");
-        assert!(msg.contains("touring-daemon"), "must name the missing bin: {msg}");
         assert!(
-            !home.join("toolchains/vdev").exists() || !home.join("toolchains/vdev/bin/touring").exists(),
+            msg.contains("touring-daemon"),
+            "must name the missing bin: {msg}"
+        );
+        assert!(
+            !home.join("toolchains/vdev").exists()
+                || !home.join("toolchains/vdev/bin/touring").exists(),
             "no partial install may be left behind as complete"
         );
     }

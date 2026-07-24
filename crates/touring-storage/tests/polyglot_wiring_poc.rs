@@ -122,8 +122,13 @@ fn typescript_populates_wiring_graph_under_flag() {
         .expect("wire User");
 
     // node_modules + `*.test.ts` are blocked at the write gate.
-    db.register_pub_symbol("web/node_modules/react/index.js", "React", "function", "public")
-        .expect("gate node_modules");
+    db.register_pub_symbol(
+        "web/node_modules/react/index.js",
+        "React",
+        "function",
+        "public",
+    )
+    .expect("gate node_modules");
     db.register_pub_symbol("web/src/models.test.ts", "TestOnly", "function", "public")
         .expect("gate test file");
 
@@ -171,8 +176,13 @@ fn java_wires_and_go_is_deferred_under_flag() {
         .expect("wire User");
 
     // `*Test.java` blocked at the gate; a Go file is deferred (not admitted).
-    db.register_pub_symbol("src/test/java/com/FooTest.java", "FooTest", "class", "public")
-        .expect("gate test file");
+    db.register_pub_symbol(
+        "src/test/java/com/FooTest.java",
+        "FooTest",
+        "class",
+        "public",
+    )
+    .expect("gate test file");
     db.register_pub_symbol("pkg/service.go", "GoSym", "function", "public")
         .expect("gate .go (deferred)");
 
@@ -259,7 +269,9 @@ fn go_package_key_wires_and_file_keyed_go_stays_rejected() {
     );
 
     // 4. integration_score for the package = 1 wired / 2 total = 0.5.
-    let score = db.integration_score("go:mymod/pkg").expect("integration score");
+    let score = db
+        .integration_score("go:mymod/pkg")
+        .expect("integration score");
     assert!(
         (score - 0.5).abs() < 1e-9,
         "expected 0.5 integration score for go:mymod/pkg; got {score}"

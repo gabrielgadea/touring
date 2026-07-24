@@ -663,8 +663,8 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
                 .map(|d| d.as_secs())
                 .unwrap_or(0),
         });
-        if let Err(e) = std::fs::create_dir_all(&dir)
-            .and_then(|()| std::fs::write(&entry, record.to_string()))
+        if let Err(e) =
+            std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&entry, record.to_string()))
         {
             tracing::warn!("daemon registry write failed (list-all will miss this daemon): {e}");
         }
@@ -1460,9 +1460,9 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     // binaries and hook processes may still send a raw cwd). Keying the
     // RuntimeMap on raw cwds spawned one stray `.claude/touring/` shard per
     // working directory ("29 stray DBs" class).
-    let client_root = touring_foundation::TouringConfig::normalize_project_root(
-        &PathBuf::from(&req.project_root),
-    );
+    let client_root = touring_foundation::TouringConfig::normalize_project_root(&PathBuf::from(
+        &req.project_root,
+    ));
     let hook_name = req.hook.clone();
     let priority = req.priority;
 

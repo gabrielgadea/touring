@@ -482,11 +482,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     })?;
             let source = std::fs::read_to_string(&file_path)
                 .map_err(|e| anyhow::anyhow!("failed to read {file_path}: {e}"))?;
-            let report =
-                touring_code::ast::polyglot_semantic::PolyglotSemanticReport::from_source(
-                    lang, &source,
-                )
-                .map_err(|e| anyhow::anyhow!("parse failed: {e}"))?;
+            let report = touring_code::ast::polyglot_semantic::PolyglotSemanticReport::from_source(
+                lang, &source,
+            )
+            .map_err(|e| anyhow::anyhow!("parse failed: {e}"))?;
             let json = serde_json::json!({
                 "file_path": file_path,
                 "language": report.language,

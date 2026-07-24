@@ -234,7 +234,9 @@ fn cmd_status(json: bool, target: &Path) -> anyhow::Result<()> {
 fn cmd_stop(json: bool, target: &Path) -> anyhow::Result<()> {
     // W12.5: stop ONLY the daemon holding the target socket; the comm-scan
     // fallback covers a pre-upgrade global daemon without a lock PID.
-    let pids = pid_for_socket(target).map(|p| vec![p]).unwrap_or_else(all_daemon_pids);
+    let pids = pid_for_socket(target)
+        .map(|p| vec![p])
+        .unwrap_or_else(all_daemon_pids);
     if pids.is_empty() {
         if json {
             json_to_stdout(r#"{"stopped":false,"reason":"daemon_not_running"}"#);
@@ -292,7 +294,9 @@ pub(crate) fn restart_socket_with_bin(
     target: &Path,
     daemon_bin: Option<&Path>,
 ) -> anyhow::Result<()> {
-    let pids = pid_for_socket(target).map(|p| vec![p]).unwrap_or_else(all_daemon_pids);
+    let pids = pid_for_socket(target)
+        .map(|p| vec![p])
+        .unwrap_or_else(all_daemon_pids);
     // Loud no-op guard (cross-audit 2026-07-24): a live socket whose owner the
     // scan cannot identify means the SIGTERM below would be skipped, the fresh
     // spawn would lose the flock race to the invisible owner, and this command
@@ -425,7 +429,12 @@ fn cmd_list_all(json: bool) -> anyhow::Result<()> {
                 continue;
             }
             seen.insert(socket.clone());
-            entries.push(DaemonListEntry { socket, pid, alive, registered: true });
+            entries.push(DaemonListEntry {
+                socket,
+                pid,
+                alive,
+                registered: true,
+            });
         }
     }
 
@@ -459,7 +468,11 @@ fn cmd_list_all(json: bool) -> anyhow::Result<()> {
                 d.socket,
                 d.pid.map_or_else(|| "?".to_string(), |p| p.to_string()),
                 d.alive,
-                if d.registered { "" } else { " (unregistered probe)" },
+                if d.registered {
+                    ""
+                } else {
+                    " (unregistered probe)"
+                },
             ));
         }
     }
@@ -899,7 +912,11 @@ mod tests {
                     !yes_i_know_cascading_kill,
                     "flag must default to false when not supplied"
                 );
-                let result = cmd_reset(false, yes_i_know_cascading_kill, Path::new("/tmp/never-touched.sock"));
+                let result = cmd_reset(
+                    false,
+                    yes_i_know_cascading_kill,
+                    Path::new("/tmp/never-touched.sock"),
+                );
                 let err = result.expect_err("cmd_reset must refuse when flag is false");
                 assert!(
                     err.to_string().contains("--yes-i-know-cascading-kill"),

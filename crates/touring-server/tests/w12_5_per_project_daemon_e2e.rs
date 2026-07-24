@@ -115,7 +115,10 @@ fn test_decompose_routes_to_task_home_store_across_cwds() {
         .stderr(Stdio::null())
         .spawn()
         .expect("daemon spawn failed");
-    assert!(wait_socket(&sock, Duration::from_secs(10)), "daemon must bind");
+    assert!(
+        wait_socket(&sock, Duration::from_secs(10)),
+        "daemon must bind"
+    );
 
     let cli = |args: &[&str], cwd: &Path| -> serde_json::Value {
         let out = Command::new(&touring)
@@ -140,7 +143,10 @@ fn test_decompose_routes_to_task_home_store_across_cwds() {
         home.path(),
     );
     let task_id = created["task_id"].as_str().expect("task_id").to_string();
-    cli(&["decompose", "add", &task_id, "S1", "step one"], home.path());
+    cli(
+        &["decompose", "add", &task_id, "S1", "step one"],
+        home.path(),
+    );
 
     // Read from the OTHER project's cwd — pre-fix: "not found".
     let got = cli(&["decompose", "get", &task_id], proj.path());
@@ -151,7 +157,14 @@ fn test_decompose_routes_to_task_home_store_across_cwds() {
 
     // Write from the OTHER project's cwd — pre-fix: orphan 0-row success.
     let upd = cli(
-        &["decompose", "update", &task_id, "S1", "--status", "completed"],
+        &[
+            "decompose",
+            "update",
+            &task_id,
+            "S1",
+            "--status",
+            "completed",
+        ],
         proj.path(),
     );
     assert!(
@@ -166,7 +179,14 @@ fn test_decompose_routes_to_task_home_store_across_cwds() {
 
     // A task in NO store must fail LOUD, never orphan-write.
     let ghost = cli(
-        &["decompose", "update", "task_DOES_NOT_EXIST", "X", "--status", "completed"],
+        &[
+            "decompose",
+            "update",
+            "task_DOES_NOT_EXIST",
+            "X",
+            "--status",
+            "completed",
+        ],
         proj.path(),
     );
     assert!(
@@ -189,7 +209,10 @@ fn test_same_socket_second_daemon_exits_idempotently() {
 
     let mut reaper = Reaper(vec![]);
     reaper.0.push(spawn_daemon_on(&sock));
-    assert!(wait_socket(&sock, Duration::from_secs(10)), "first daemon must bind");
+    assert!(
+        wait_socket(&sock, Duration::from_secs(10)),
+        "first daemon must bind"
+    );
 
     let mut second = spawn_daemon_on(&sock);
     let status = {

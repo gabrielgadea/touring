@@ -473,7 +473,10 @@ fn plan_scope_signal(
 /// converged variants `active-<hex>.archived.json` / `.converged.json`)? The
 /// canonical name has no extra `.` between the `active-` prefix and `.json`.
 fn is_canonical_active_marker(name: &str) -> bool {
-    match name.strip_prefix("active-").and_then(|s| s.strip_suffix(".json")) {
+    match name
+        .strip_prefix("active-")
+        .and_then(|s| s.strip_suffix(".json"))
+    {
         Some(mid) => !mid.is_empty() && !mid.contains('.'),
         None => false,
     }
