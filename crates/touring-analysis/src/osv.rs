@@ -161,9 +161,17 @@ mod tests {
         assert_eq!(batch.len(), 2);
         assert!(batch.queries.iter().all(|q| q.package.ecosystem == "npm"));
         // exact pin → concrete version; caret range → None.
-        let react = batch.queries.iter().find(|q| q.package.name == "react").unwrap();
+        let react = batch
+            .queries
+            .iter()
+            .find(|q| q.package.name == "react")
+            .unwrap();
         assert_eq!(react.version.as_deref(), Some("18.2.0"));
-        let lodash = batch.queries.iter().find(|q| q.package.name == "lodash").unwrap();
+        let lodash = batch
+            .queries
+            .iter()
+            .find(|q| q.package.name == "lodash")
+            .unwrap();
         assert_eq!(lodash.version, None, "caret range is not a concrete pin");
     }
 
@@ -172,11 +180,17 @@ mod tests {
         let batch = OsvBatchQuery {
             queries: vec![
                 OsvQuery {
-                    package: OsvPackage { name: "flask".into(), ecosystem: "PyPI".into() },
+                    package: OsvPackage {
+                        name: "flask".into(),
+                        ecosystem: "PyPI".into(),
+                    },
                     version: Some("2.3.0".into()),
                 },
                 OsvQuery {
-                    package: OsvPackage { name: "click".into(), ecosystem: "PyPI".into() },
+                    package: OsvPackage {
+                        name: "click".into(),
+                        ecosystem: "PyPI".into(),
+                    },
                     version: None,
                 },
             ],
@@ -202,7 +216,11 @@ mod tests {
     #[test]
     fn offline_summary_reports_ecosystems_and_query_count() {
         let tmp = tempfile::tempdir().unwrap();
-        write(tmp.path(), "package.json", r#"{"name":"a","dependencies":{"x":"1"}}"#);
+        write(
+            tmp.path(),
+            "package.json",
+            r#"{"name":"a","dependencies":{"x":"1"}}"#,
+        );
         write(tmp.path(), "go.mod", "module c\nrequire z v1.0.0\n");
         let summary = offline_summary(tmp.path()).expect("has manifests");
         assert!(summary.contains("Go"));

@@ -27,11 +27,17 @@ use super::{persist_task_creation, plan_scaffold_for_subject, suggest_generator_
 /// only the input yielded task_id="unknown" and a shared junk mirror. Extract
 /// the "#<digits>" from the response (string or {content: …} shapes).
 fn task_id_from_response(input: &Value) -> Option<String> {
-    let resp = input.get("tool_response").or_else(|| input.get("tool_result"))?;
+    let resp = input
+        .get("tool_response")
+        .or_else(|| input.get("tool_result"))?;
     let text = resp
         .as_str()
         .map(String::from)
-        .or_else(|| resp.get("content").and_then(|c| c.as_str()).map(String::from))
+        .or_else(|| {
+            resp.get("content")
+                .and_then(|c| c.as_str())
+                .map(String::from)
+        })
         .unwrap_or_else(|| resp.to_string());
     let hash = text.find('#')?;
     let digits: String = text[hash + 1..]

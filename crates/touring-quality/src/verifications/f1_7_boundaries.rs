@@ -334,7 +334,11 @@ mod tests {
         )
         .expect("write");
         let s = F1_7_Boundaries.check(f.path()).expect("check");
-        assert!((0.0..1.0).contains(&s.value), "high TS exposure < 1.0, got {}", s.value);
+        assert!(
+            (0.0..1.0).contains(&s.value),
+            "high TS exposure < 1.0, got {}",
+            s.value
+        );
         assert!(
             s.evidence.contains("(typescript)"),
             "evidence must report the TS language dispatch: {}",

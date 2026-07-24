@@ -177,7 +177,11 @@ fn parse_pyproject(path: &Path) -> Option<EcosystemManifest> {
         .get("project")
         .map(parse_pep621)
         .filter(|(n, _, _)| !n.is_empty())
-        .or_else(|| doc.get("tool").and_then(|t| t.get("poetry")).map(parse_poetry))
+        .or_else(|| {
+            doc.get("tool")
+                .and_then(|t| t.get("poetry"))
+                .map(parse_poetry)
+        })
         .unwrap_or_default();
 
     if name.is_empty() && dependencies.is_empty() {
@@ -208,7 +212,12 @@ fn parse_pep621(project: &toml::Value) -> (String, Option<String>, Vec<Dependenc
     let dependencies = project
         .get("dependencies")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|e| e.as_str()).map(parse_pep508).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|e| e.as_str())
+                .map(parse_pep508)
+                .collect()
+        })
         .unwrap_or_default();
     (name, version, dependencies)
 }
@@ -367,7 +376,12 @@ mod tests {
         assert_eq!(m.package.name, "web-app");
         assert_eq!(m.package.version.as_deref(), Some("1.4.0"));
         assert_eq!(m.package.dependencies.len(), 3, "prod + dev deps");
-        let react = m.package.dependencies.iter().find(|d| d.name == "react").unwrap();
+        let react = m
+            .package
+            .dependencies
+            .iter()
+            .find(|d| d.name == "react")
+            .unwrap();
         assert_eq!(react.version_req.as_deref(), Some("^18.2.0"));
     }
 
@@ -391,11 +405,24 @@ dependencies = ["requests>=2.28", "flask[async]>=2", "typing-extensions"]
         assert_eq!(m.package.name, "svc");
         assert_eq!(m.package.dependencies.len(), 3);
         // PEP 508 name extraction: strip version + extras + markers.
-        let names: Vec<&str> = m.package.dependencies.iter().map(|d| d.name.as_str()).collect();
+        let names: Vec<&str> = m
+            .package
+            .dependencies
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
         assert!(names.contains(&"requests"));
-        assert!(names.contains(&"flask"), "extras `[async]` stripped from name");
+        assert!(
+            names.contains(&"flask"),
+            "extras `[async]` stripped from name"
+        );
         assert!(names.contains(&"typing-extensions"));
-        let req = m.package.dependencies.iter().find(|d| d.name == "requests").unwrap();
+        let req = m
+            .package
+            .dependencies
+            .iter()
+            .find(|d| d.name == "requests")
+            .unwrap();
         assert_eq!(req.version_req.as_deref(), Some(">=2.28"));
     }
 
@@ -419,10 +446,18 @@ pydantic = "2.5.0"
         let inv = ManifestInventory::scan(tmp.path());
         let m = &inv.manifests[0];
         assert_eq!(m.package.name, "poetry-svc");
-        let names: Vec<&str> = m.package.dependencies.iter().map(|d| d.name.as_str()).collect();
+        let names: Vec<&str> = m
+            .package
+            .dependencies
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
         assert!(names.contains(&"httpx"));
         assert!(names.contains(&"pydantic"));
-        assert!(!names.contains(&"python"), "python interpreter constraint is not a package");
+        assert!(
+            !names.contains(&"python"),
+            "python interpreter constraint is not a package"
+        );
     }
 
     #[test]
@@ -438,11 +473,27 @@ pydantic = "2.5.0"
         assert_eq!(m.ecosystem, Ecosystem::Go);
         assert_eq!(m.ecosystem.as_osv(), "Go");
         assert_eq!(m.package.name, "example.com/myapp");
-        let names: Vec<&str> = m.package.dependencies.iter().map(|d| d.name.as_str()).collect();
+        let names: Vec<&str> = m
+            .package
+            .dependencies
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
         assert!(names.contains(&"github.com/gin-gonic/gin"), "block require");
-        assert!(names.contains(&"golang.org/x/text"), "// indirect stripped, dep kept");
-        assert!(names.contains(&"github.com/stretchr/testify"), "single-line require");
-        let gin = m.package.dependencies.iter().find(|d| d.name.contains("gin")).unwrap();
+        assert!(
+            names.contains(&"golang.org/x/text"),
+            "// indirect stripped, dep kept"
+        );
+        assert!(
+            names.contains(&"github.com/stretchr/testify"),
+            "single-line require"
+        );
+        let gin = m
+            .package
+            .dependencies
+            .iter()
+            .find(|d| d.name.contains("gin"))
+            .unwrap();
         assert_eq!(gin.version_req.as_deref(), Some("v1.9.1"));
     }
 
@@ -457,8 +508,16 @@ pydantic = "2.5.0"
     #[test]
     fn polyglot_dir_reports_all_three_ecosystems() {
         let tmp = tempfile::tempdir().unwrap();
-        write(tmp.path(), "package.json", r#"{"name":"a","dependencies":{"x":"1"}}"#);
-        write(tmp.path(), "pyproject.toml", "[project]\nname=\"b\"\ndependencies=[\"y\"]\n");
+        write(
+            tmp.path(),
+            "package.json",
+            r#"{"name":"a","dependencies":{"x":"1"}}"#,
+        );
+        write(
+            tmp.path(),
+            "pyproject.toml",
+            "[project]\nname=\"b\"\ndependencies=[\"y\"]\n",
+        );
         write(tmp.path(), "go.mod", "module c\nrequire z v1.0.0\n");
         let inv = ManifestInventory::scan(tmp.path());
         assert_eq!(inv.manifests.len(), 3);

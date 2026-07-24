@@ -1564,12 +1564,16 @@ pub fn record_diagnostic_b302_emitted() {
 
 /// Call when `bridge_task_created` mints a new CC-mirror container (F0-pre).
 pub fn record_task_sync_create() {
-    global().task_sync_create_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .task_sync_create_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// Call when `bridge_task_created` dedupes a repeat sync arrival (F0-pre).
 pub fn record_task_sync_deduped() {
-    global().task_sync_deduped_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .task_sync_deduped_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// Call when a TaskUpdate status change propagates onto the mirror (F0-pre).

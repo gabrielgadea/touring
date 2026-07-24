@@ -1702,8 +1702,12 @@ fn test_skip_region_preread_marker_present_returns_silent() {
 fn plan_scope_marker_name_recognizes_only_canonical() {
     assert!(is_canonical_active_marker("active-df4a8bd525f8.json"));
     // Archived / converged variants carry an extra `.` and must be skipped.
-    assert!(!is_canonical_active_marker("active-df4a8bd525f8.archived.json"));
-    assert!(!is_canonical_active_marker("active-df4a8bd525f8.converged.json"));
+    assert!(!is_canonical_active_marker(
+        "active-df4a8bd525f8.archived.json"
+    ));
+    assert!(!is_canonical_active_marker(
+        "active-df4a8bd525f8.converged.json"
+    ));
     // Legacy singleton / unrelated names.
     assert!(!is_canonical_active_marker("active.json"));
     assert!(!is_canonical_active_marker("converged-missao.json"));
