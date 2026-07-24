@@ -284,9 +284,7 @@ pub struct PackageInfo {
 /// Canonicalizing + walking up makes resolution independent of the process CWD
 /// and honors the documented "directly or via ancestors" contract of
 /// [`WorkspaceInfo::load`] (previously unimplemented).
-fn resolve_workspace_manifest(
-    dir: &std::path::Path,
-) -> crate::ast::AstResult<std::path::PathBuf> {
+fn resolve_workspace_manifest(dir: &std::path::Path) -> crate::ast::AstResult<std::path::PathBuf> {
     let abs = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
     let mut cur: &std::path::Path = &abs;
     loop {
@@ -300,7 +298,7 @@ fn resolve_workspace_manifest(
                 return Err(crate::ast::AstError::Io(std::io::Error::other(format!(
                     "no Cargo.toml at or above {}",
                     abs.display()
-                ))))
+                ))));
             }
         }
     }

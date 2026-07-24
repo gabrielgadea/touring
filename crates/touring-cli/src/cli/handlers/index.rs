@@ -294,10 +294,10 @@ fn feed_go_package_wiring(
     }
     let mut registered = 0u32;
     for export in touring_code::ast::go_wiring::extract_go_exports(content) {
-        let _ =
-            rt.ctx
-                .knowledge
-                .register_pub_symbol(&pkg_key, &export.name, export.kind, "public");
+        let _ = rt
+            .ctx
+            .knowledge
+            .register_pub_symbol(&pkg_key, &export.name, export.kind, "public");
         registered += 1;
     }
     for edge in touring_code::ast::go_wiring::extract_go_consumer_edges(content) {

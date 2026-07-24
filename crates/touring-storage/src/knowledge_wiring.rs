@@ -83,7 +83,9 @@ fn wireable_extensions(polyglot: bool) -> &'static [&'static str] {
         // with no resolvable consumers → false orphans. Go participates instead
         // via the package-aware `"go:<import-path>"` key namespace (P-G, admitted
         // by `is_go_package_wireable` + the `go:%` read-SQL clause), plan §11.
-        &[".rs", ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".java"]
+        &[
+            ".rs", ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".java",
+        ]
     } else {
         &[".rs"]
     }
@@ -146,8 +148,7 @@ fn is_non_rust_non_wireable(module_file: &str) -> bool {
         || module_file.contains("/scripts/");
     let base = module_file.rsplit('/').next().unwrap_or(module_file);
     // pytest/unittest conventions.
-    let py_test =
-        base == "conftest.py" || base.starts_with("test_") || base.ends_with("_test.py");
+    let py_test = base == "conftest.py" || base.starts_with("test_") || base.ends_with("_test.py");
     // JS/TS conventions: `foo.test.ts`, `foo.spec.tsx`, `__tests__/`, `__mocks__/`.
     let js_test = base.contains(".test.")
         || base.contains(".spec.")
@@ -949,7 +950,10 @@ mod polyglot_gate_tests {
             "crates/a/src/foo.rs",
             false
         ));
-        assert!(!is_indexable_module_file_polyglot("benches/src/b.rs", false));
+        assert!(!is_indexable_module_file_polyglot(
+            "benches/src/b.rs",
+            false
+        ));
         assert!(!is_indexable_module_file_polyglot(
             "crates/a/tests/it.rs",
             false
@@ -973,16 +977,28 @@ mod polyglot_gate_tests {
     #[test]
     fn on_policy_admits_first_party_source() {
         assert!(is_indexable_module_file_polyglot("pkg/models.py", true));
-        assert!(is_indexable_module_file_polyglot("src/app/service.py", true));
-        assert!(is_indexable_module_file_polyglot("apps/web/src/models.ts", true));
-        assert!(is_indexable_module_file_polyglot("apps/web/src/App.tsx", true));
+        assert!(is_indexable_module_file_polyglot(
+            "src/app/service.py",
+            true
+        ));
+        assert!(is_indexable_module_file_polyglot(
+            "apps/web/src/models.ts",
+            true
+        ));
+        assert!(is_indexable_module_file_polyglot(
+            "apps/web/src/App.tsx",
+            true
+        ));
         assert!(is_indexable_module_file_polyglot("lib/util.js", true));
         assert!(is_indexable_module_file_polyglot("lib/util.jsx", true));
         assert!(is_indexable_module_file_polyglot(
             "src/main/java/com/foo/Bar.java",
             true
         ));
-        assert!(is_indexable_module_file_polyglot("crates/a/src/foo.rs", true));
+        assert!(is_indexable_module_file_polyglot(
+            "crates/a/src/foo.rs",
+            true
+        ));
     }
 
     #[test]
@@ -1015,20 +1031,47 @@ mod polyglot_gate_tests {
             "app/node_modules/x/index.js",
             true
         ));
-        assert!(!is_indexable_module_file_polyglot("pkg/__pycache__/m.py", true));
+        assert!(!is_indexable_module_file_polyglot(
+            "pkg/__pycache__/m.py",
+            true
+        ));
         assert!(!is_indexable_module_file_polyglot(".venv/lib/x.py", true));
         // pytest/unittest conventions.
-        assert!(!is_indexable_module_file_polyglot("pkg/test_models.py", true));
-        assert!(!is_indexable_module_file_polyglot("pkg/models_test.py", true));
+        assert!(!is_indexable_module_file_polyglot(
+            "pkg/test_models.py",
+            true
+        ));
+        assert!(!is_indexable_module_file_polyglot(
+            "pkg/models_test.py",
+            true
+        ));
         assert!(!is_indexable_module_file_polyglot("pkg/conftest.py", true));
         // tests/ subtree (shared with the Rust rule).
-        assert!(!is_indexable_module_file_polyglot("pkg/tests/test_x.py", true));
+        assert!(!is_indexable_module_file_polyglot(
+            "pkg/tests/test_x.py",
+            true
+        ));
         // JS/TS vendored / build output + test conventions.
-        assert!(!is_indexable_module_file_polyglot("web/dist/bundle.js", true));
-        assert!(!is_indexable_module_file_polyglot("web/.next/page.js", true));
-        assert!(!is_indexable_module_file_polyglot("web/src/foo.test.ts", true));
-        assert!(!is_indexable_module_file_polyglot("web/src/foo.spec.tsx", true));
-        assert!(!is_indexable_module_file_polyglot("web/src/__tests__/foo.ts", true));
+        assert!(!is_indexable_module_file_polyglot(
+            "web/dist/bundle.js",
+            true
+        ));
+        assert!(!is_indexable_module_file_polyglot(
+            "web/.next/page.js",
+            true
+        ));
+        assert!(!is_indexable_module_file_polyglot(
+            "web/src/foo.test.ts",
+            true
+        ));
+        assert!(!is_indexable_module_file_polyglot(
+            "web/src/foo.spec.tsx",
+            true
+        ));
+        assert!(!is_indexable_module_file_polyglot(
+            "web/src/__tests__/foo.ts",
+            true
+        ));
     }
 
     #[test]
@@ -1039,7 +1082,9 @@ mod polyglot_gate_tests {
         );
         assert_eq!(
             wireable_extensions(true),
-            &[".rs", ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".java"]
+            &[
+                ".rs", ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".java"
+            ]
         );
     }
 
@@ -1057,7 +1102,9 @@ mod polyglot_gate_tests {
         assert!(is_non_rust_non_wireable("web/foo.spec.js"));
         assert!(is_non_rust_non_wireable("web/__tests__/x.ts"));
         // Java.
-        assert!(is_non_rust_non_wireable("app/src/test/java/com/FooTest.java"));
+        assert!(is_non_rust_non_wireable(
+            "app/src/test/java/com/FooTest.java"
+        ));
         assert!(is_non_rust_non_wireable("app/com/FooTests.java"));
         // First-party source is wireable.
         assert!(!is_non_rust_non_wireable("pkg/models.py"));
@@ -1072,7 +1119,10 @@ mod polyglot_gate_tests {
         // `go:<import-path>` is a synthetic package key (no file extension) —
         // admitted only when polyglot is ON, rejected when OFF.
         assert!(is_indexable_module_file_polyglot("go:mymod/pkg", true));
-        assert!(is_indexable_module_file_polyglot("go:mymod/internal/svc", true));
+        assert!(is_indexable_module_file_polyglot(
+            "go:mymod/internal/svc",
+            true
+        ));
         assert!(!is_indexable_module_file_polyglot("go:mymod/pkg", false));
     }
 
@@ -1080,15 +1130,30 @@ mod polyglot_gate_tests {
     fn go_file_keyed_stays_rejected_even_under_flag() {
         // File-keyed `.go` is NEVER wireable (the false-orphan class): a Go
         // import denotes a package, not a file. Only `go:` keys wire.
-        assert!(!is_indexable_module_file_polyglot("mymod/pkg/service.go", true));
-        assert!(!is_indexable_module_file_polyglot("mymod/pkg/service.go", false));
+        assert!(!is_indexable_module_file_polyglot(
+            "mymod/pkg/service.go",
+            true
+        ));
+        assert!(!is_indexable_module_file_polyglot(
+            "mymod/pkg/service.go",
+            false
+        ));
     }
 
     #[test]
     fn go_vendored_and_empty_packages_rejected() {
-        assert!(!is_indexable_module_file_polyglot("go:vendor/dep/pkg", true));
-        assert!(!is_indexable_module_file_polyglot("go:mymod/vendor/dep", true));
-        assert!(!is_indexable_module_file_polyglot("go:", true), "empty import path");
+        assert!(!is_indexable_module_file_polyglot(
+            "go:vendor/dep/pkg",
+            true
+        ));
+        assert!(!is_indexable_module_file_polyglot(
+            "go:mymod/vendor/dep",
+            true
+        ));
+        assert!(
+            !is_indexable_module_file_polyglot("go:", true),
+            "empty import path"
+        );
     }
 
     #[test]
@@ -1105,9 +1170,15 @@ mod polyglot_gate_tests {
         // Read side must admit `go:%` under the flag so orphan detection sees
         // Go package producers; OFF stays byte-identical (`LIKE '%.rs'`).
         let on = wireable_ext_sql("module_file", true);
-        assert!(on.contains("module_file LIKE 'go:%'"), "polyglot SQL must admit go: keys: {on}");
+        assert!(
+            on.contains("module_file LIKE 'go:%'"),
+            "polyglot SQL must admit go: keys: {on}"
+        );
         let off = wireable_ext_sql("module_file", false);
-        assert_eq!(off, "module_file LIKE '%.rs'", "OFF byte-identical, no go: clause");
+        assert_eq!(
+            off, "module_file LIKE '%.rs'",
+            "OFF byte-identical, no go: clause"
+        );
     }
 }
 

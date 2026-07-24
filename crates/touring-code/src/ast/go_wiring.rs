@@ -58,9 +58,7 @@ fn is_exported(name: &str) -> bool {
 /// Strip the surrounding quotes from a Go string literal node's text
 /// (`"path/pkg"` → `path/pkg`; also tolerates raw backtick strings).
 fn unquote(literal: &str) -> &str {
-    literal
-        .trim_matches('"')
-        .trim_matches('`')
+    literal.trim_matches('"').trim_matches('`')
 }
 
 /// Parse `source` with the Go grammar, returning the tree (or `None` on a
@@ -103,7 +101,13 @@ fn push_export(out: &mut Vec<GoExport>, name_node: Node, kind: &'static str, byt
 /// Collect the exported names declared by every `spec_kind` spec under a
 /// `type`/`const`/`var` declaration. Handles both grouped
 /// (`const ( A = 1; B = 2 )`) and multi-name (`var A, B = 1, 2`) forms.
-fn collect_specs(out: &mut Vec<GoExport>, decl: Node, spec_kind: &str, kind: &'static str, bytes: &[u8]) {
+fn collect_specs(
+    out: &mut Vec<GoExport>,
+    decl: Node,
+    spec_kind: &str,
+    kind: &'static str,
+    bytes: &[u8],
+) {
     let mut cursor = decl.walk();
     for spec in decl.children(&mut cursor) {
         if spec.kind() == spec_kind {
@@ -233,8 +237,7 @@ pub fn extract_go_consumer_edges(source: &str) -> Vec<GoConsumerEdge> {
                         (operand.utf8_text(bytes), field.utf8_text(bytes))
                     {
                         if is_exported(symbol) {
-                            if let Some((_, import_path)) =
-                                aliases.iter().find(|(a, _)| a == alias)
+                            if let Some((_, import_path)) = aliases.iter().find(|(a, _)| a == alias)
                             {
                                 let edge = GoConsumerEdge {
                                     package_key: format!("go:{import_path}"),
@@ -338,7 +341,10 @@ func Outer() {
         let names: Vec<&str> = exports.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"Handler"), "exported func; got {names:?}");
         assert!(names.contains(&"Config"), "exported type; got {names:?}");
-        assert!(names.contains(&"MaxRetries"), "exported const; got {names:?}");
+        assert!(
+            names.contains(&"MaxRetries"),
+            "exported const; got {names:?}"
+        );
         assert!(names.contains(&"Registry"), "exported var; got {names:?}");
         // Negatives.
         assert!(!names.contains(&"helper"), "unexported func excluded");
@@ -369,11 +375,20 @@ type (
 )
 var A, B = 1, 2
 "#;
-        let names: Vec<String> = extract_go_exports(src).into_iter().map(|e| e.name).collect();
+        let names: Vec<String> = extract_go_exports(src)
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
         assert!(names.contains(&"Alpha".to_string()));
         assert!(names.contains(&"Beta".to_string()));
-        assert!(names.contains(&"A".to_string()), "multi-name var A; got {names:?}");
-        assert!(names.contains(&"B".to_string()), "multi-name var B; got {names:?}");
+        assert!(
+            names.contains(&"A".to_string()),
+            "multi-name var A; got {names:?}"
+        );
+        assert!(
+            names.contains(&"B".to_string()),
+            "multi-name var B; got {names:?}"
+        );
     }
 
     // ── Consumer extraction ────────────────────────────────────────────────
@@ -402,8 +417,14 @@ func run() {
                 .iter()
                 .any(|e| e.package_key == key && e.symbol == sym)
         };
-        assert!(has("go:mymod/pkg/svc", "Handler"), "default-alias edge; got {edges:?}");
-        assert!(has("go:mymod/pkg/http", "Serve"), "explicit-alias edge; got {edges:?}");
+        assert!(
+            has("go:mymod/pkg/svc", "Handler"),
+            "default-alias edge; got {edges:?}"
+        );
+        assert!(
+            has("go:mymod/pkg/http", "Serve"),
+            "explicit-alias edge; got {edges:?}"
+        );
         assert!(
             !edges.iter().any(|e| e.symbol == "lowercase"),
             "unexported selector excluded"
@@ -428,7 +449,10 @@ func a() { p.Foo(); p.Foo(); p.Foo() }
 "#;
         let edges = extract_go_consumer_edges(src);
         let foo_count = edges.iter().filter(|e| e.symbol == "Foo").count();
-        assert_eq!(foo_count, 1, "repeated selector yields one edge; got {edges:?}");
+        assert_eq!(
+            foo_count, 1,
+            "repeated selector yields one edge; got {edges:?}"
+        );
     }
 
     #[test]
@@ -446,12 +470,12 @@ func a() { p.Foo(); p.Foo(); p.Foo() }
             "go:github.com/foo/bar/pkg/svc"
         );
         // File in module root → key is the bare module path.
-        assert_eq!(go_package_key("github.com/foo/bar", ""), "go:github.com/foo/bar");
-        // Leading/trailing slashes and backslashes normalize.
         assert_eq!(
-            go_package_key("m", "\\pkg\\svc\\"),
-            "go:m/pkg/svc"
+            go_package_key("github.com/foo/bar", ""),
+            "go:github.com/foo/bar"
         );
+        // Leading/trailing slashes and backslashes normalize.
+        assert_eq!(go_package_key("m", "\\pkg\\svc\\"), "go:m/pkg/svc");
     }
 
     #[test]
@@ -498,14 +522,20 @@ func a() { p.Foo(); p.Foo(); p.Foo() }
     fn producer_key_and_consumer_key_rendezvous() {
         let tmp = tempfile::TempDir::new().expect("tempdir");
         let root = tmp.path();
-        std::fs::write(root.join("go.mod"), "module github.com/acme/app\n\ngo 1.21\n")
-            .expect("write go.mod");
+        std::fs::write(
+            root.join("go.mod"),
+            "module github.com/acme/app\n\ngo 1.21\n",
+        )
+        .expect("write go.mod");
         // Producer file lives in pkg/svc → import-path github.com/acme/app/pkg/svc.
         let svc_dir = root.join("pkg/svc");
         std::fs::create_dir_all(&svc_dir).expect("mkdir");
         let producer = svc_dir.join("handler.go");
-        std::fs::write(&producer, "package svc\nfunc Handler() {}\ntype Config struct{}\n")
-            .expect("write producer");
+        std::fs::write(
+            &producer,
+            "package svc\nfunc Handler() {}\ntype Config struct{}\n",
+        )
+        .expect("write producer");
 
         // Producer key derived from the file's go.mod location.
         let producer_key =

@@ -410,7 +410,10 @@ interface Shape {}
         assert_eq!(r.public_items, 2, "exported class + function");
         assert_eq!(r.private_items, 2, "non-exported class + interface");
         assert_eq!(r.restricted_items, 0);
-        assert!(r.total_items() > 0, "must not read as empty (no silent 1.0)");
+        assert!(
+            r.total_items() > 0,
+            "must not read as empty (no silent 1.0)"
+        );
     }
 
     #[test]
@@ -439,7 +442,10 @@ type PublicType struct {}
 func (r *T) Method() {}
 ";
         let r = analyze_boundaries(src, "go");
-        assert_eq!(r.public_items, 3, "Exported + PublicType + Method (capitalized)");
+        assert_eq!(
+            r.public_items, 3,
+            "Exported + PublicType + Method (capitalized)"
+        );
         assert_eq!(r.private_items, 1, "internal");
     }
 

@@ -66,9 +66,10 @@ fn status(json: bool) -> Result<()> {
     // Absent = unlicensed (Free); malformed = loud (a real file that cannot
     // be read is an operator error, not a silent downgrade).
     let license = match std::fs::read_to_string(&path) {
-        Ok(text) => Some(License::parse_unverified(&text).map_err(|e| {
-            anyhow!("license file {} is malformed: {e}", path.display())
-        })?),
+        Ok(text) => Some(
+            License::parse_unverified(&text)
+                .map_err(|e| anyhow!("license file {} is malformed: {e}", path.display()))?,
+        ),
         Err(_) => None,
     };
     let effective = license
@@ -92,11 +93,22 @@ fn status(json: bool) -> Result<()> {
     } else {
         println!("touring license status");
         println!("  binary tier cap : {}", cap.as_str());
-        println!("  license file    : {} ({})", path.display(),
-            if license.is_some() { "present" } else { "absent" });
+        println!(
+            "  license file    : {} ({})",
+            path.display(),
+            if license.is_some() {
+                "present"
+            } else {
+                "absent"
+            }
+        );
         if let Some(l) = &license {
-            println!("  licensed tier   : {} (sub={}, valid_now={})",
-                l.tier.as_str(), l.sub, l.is_valid_at(now, DEFAULT_GRACE_SECONDS));
+            println!(
+                "  licensed tier   : {} (sub={}, valid_now={})",
+                l.tier.as_str(),
+                l.sub,
+                l.is_valid_at(now, DEFAULT_GRACE_SECONDS)
+            );
         }
         println!("  effective tier  : {}", effective.as_str());
         println!("  enforcement     : none (tier gating is future commercial policy)");
@@ -129,6 +141,9 @@ mod tests {
     fn valid_license_json_yields_its_tier() {
         let json = r#"{"sub":"gabriel","tier":"premium","iat":0,"exp":32503680000}"#;
         let lic = License::parse_unverified(json).expect("parse");
-        assert_eq!(lic.effective_tier(1_000, DEFAULT_GRACE_SECONDS), Tier::Premium);
+        assert_eq!(
+            lic.effective_tier(1_000, DEFAULT_GRACE_SECONDS),
+            Tier::Premium
+        );
     }
 }

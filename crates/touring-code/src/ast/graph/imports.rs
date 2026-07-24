@@ -409,7 +409,9 @@ import type { User } from './types';
             "Should extract Java imports, got: {imports:?}"
         );
         assert!(
-            imports.iter().any(|i| i.module_path.contains("com.foo.Bar")),
+            imports
+                .iter()
+                .any(|i| i.module_path.contains("com.foo.Bar")),
             "Should find com.foo.Bar, got: {imports:?}"
         );
         assert!(

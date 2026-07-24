@@ -480,7 +480,10 @@ mod ts_js_resolver_tests {
             Some(comp.to_str().expect("utf8")),
         );
         let expected = shared.join("types.ts");
-        assert_eq!(resolved.as_deref(), Some(expected.to_string_lossy().as_ref()));
+        assert_eq!(
+            resolved.as_deref(),
+            Some(expected.to_string_lossy().as_ref())
+        );
         // Homonimia guard: the resolved path must carry no `.`/`..` segments,
         // else the consumer row would never JOIN the producer row.
         let s = resolved.expect("resolved");

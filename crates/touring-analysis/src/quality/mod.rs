@@ -205,13 +205,13 @@ pub mod monitoring;
 /// `/websites/pytest-benchmark_readthedocs_io_en_stable` (High reputation,
 /// bench 62); backs the F3.7 dimension.
 pub mod perf_tests;
-pub mod quality_finding;
 /// README completeness (D37): heuristic detection of the canonical
 /// "missing essential section" smell in a project `README` — title +
 /// description + install + usage + contributing + tests + license. Source:
 /// `/othneildrew/best-readme-template` (High reputation, bench 85); backs
 /// the F3.11 dimension.
 pub mod polyglot_semantic;
+pub mod quality_finding;
 pub mod readme;
 pub mod rust_semantic;
 /// Polyglot scalability (D26): unbounded state in-process
@@ -334,8 +334,8 @@ pub use io::{IoReport, analyze_io, score_io};
 pub use memory::{MemoryMgmtReport, analyze_memory_mgmt, score_memory_mgmt};
 pub use modernization::{ModernizationReport, analyze_modernization, score_modernization};
 pub use perf_tests::{PerfTestsReport, analyze_perf_tests, score_perf_tests};
-pub use readme::{ReadmeReport, analyze_readme, score_readme};
 pub use polyglot_semantic::PolyglotQualitySignals;
+pub use readme::{ReadmeReport, analyze_readme, score_readme};
 pub use rust_semantic::RustQualitySignals;
 pub use scalability::{ScalabilityReport, analyze_scalability, score_scalability};
 pub use score_utils::density_score;

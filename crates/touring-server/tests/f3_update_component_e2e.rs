@@ -112,7 +112,14 @@ fn test_update_switches_channel_writes_lock_and_rolls_back() {
     let out = run_touring(
         home.path(),
         th.path(),
-        &["update", "--channel", "vB", "--project", &proj_arg, "--no-restart"],
+        &[
+            "update",
+            "--channel",
+            "vB",
+            "--project",
+            &proj_arg,
+            "--no-restart",
+        ],
     );
     assert!(
         out.status.success(),
@@ -136,7 +143,13 @@ fn test_update_switches_channel_writes_lock_and_rolls_back() {
     let out = run_touring(
         home.path(),
         th.path(),
-        &["update", "--rollback", "--project", &proj_arg, "--no-restart"],
+        &[
+            "update",
+            "--rollback",
+            "--project",
+            &proj_arg,
+            "--no-restart",
+        ],
     );
     assert!(
         out.status.success(),
@@ -166,7 +179,14 @@ fn test_update_refuses_unknown_toolchain_loud() {
     let out = run_touring(
         home.path(),
         th.path(),
-        &["update", "--channel", "v-missing", "--project", &proj_arg, "--no-restart"],
+        &[
+            "update",
+            "--channel",
+            "v-missing",
+            "--project",
+            &proj_arg,
+            "--no-restart",
+        ],
     );
     assert!(
         !out.status.success(),
@@ -212,7 +232,13 @@ fn test_component_list_add_remove_lifecycle() {
     let out = run_touring(
         home.path(),
         th.path(),
-        &["component", "add", "touring-quality", "--project", &proj_arg],
+        &[
+            "component",
+            "add",
+            "touring-quality",
+            "--project",
+            &proj_arg,
+        ],
     );
     assert!(out.status.success(), "add failed: {}", stderr_str(&out));
     assert!(
@@ -225,7 +251,13 @@ fn test_component_list_add_remove_lifecycle() {
     let out = run_touring(
         home.path(),
         th.path(),
-        &["component", "remove", "touring-quality", "--project", &proj_arg],
+        &[
+            "component",
+            "remove",
+            "touring-quality",
+            "--project",
+            &proj_arg,
+        ],
     );
     assert!(out.status.success(), "remove failed: {}", stderr_str(&out));
     assert!(
@@ -237,7 +269,13 @@ fn test_component_list_add_remove_lifecycle() {
     let out = run_touring(
         home.path(),
         th.path(),
-        &["component", "remove", "touring-hook", "--project", &proj_arg],
+        &[
+            "component",
+            "remove",
+            "touring-hook",
+            "--project",
+            &proj_arg,
+        ],
     );
     assert!(
         !out.status.success(),
@@ -249,10 +287,7 @@ fn test_component_list_add_remove_lifecycle() {
 fn test_update_and_component_help_exit_zero() {
     let home = TempDir::new().expect("home");
     let th = TempDir::new().expect("touring_home");
-    for args in [
-        &["update", "--help"][..],
-        &["component", "--help"][..],
-    ] {
+    for args in [&["update", "--help"][..], &["component", "--help"][..]] {
         let out = run_touring(home.path(), th.path(), args);
         assert!(
             out.status.success(),
@@ -302,9 +337,12 @@ fn test_toolchain_install_from_source() {
     );
     let installed = th.path().join("toolchains/vdev/bin");
     for name in ["touring", "touring-hook", "touring-daemon"] {
-        assert!(installed.join(name).is_file(), "missing installed bin {name}");
+        assert!(
+            installed.join(name).is_file(),
+            "missing installed bin {name}"
+        );
     }
-    let meta = std::fs::read_to_string(th.path().join("toolchains/vdev/meta.toml"))
-        .expect("meta.toml");
+    let meta =
+        std::fs::read_to_string(th.path().join("toolchains/vdev/meta.toml")).expect("meta.toml");
     assert!(meta.contains("local-source"), "meta: {meta}");
 }

@@ -382,7 +382,10 @@ fn adw_explore_rounds_to_dry(root: &std::path::Path) -> Option<f64> {
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
         if converged {
-            if let Some(rounds) = ledger.pointer("/rounds").and_then(serde_json::Value::as_array) {
+            if let Some(rounds) = ledger
+                .pointer("/rounds")
+                .and_then(serde_json::Value::as_array)
+            {
                 totals.push(rounds.len() as f64);
             }
         }
@@ -407,9 +410,10 @@ fn adw_plan_refine_iters(root: &std::path::Path) -> Option<f64> {
             let path = entry.path();
             if path.is_dir() {
                 scan(&path, depth - 1, best);
-            } else if path.file_name().is_some_and(|n| {
-                n.to_string_lossy().ends_with(".refine.json")
-            }) {
+            } else if path
+                .file_name()
+                .is_some_and(|n| n.to_string_lossy().ends_with(".refine.json"))
+            {
                 if let Ok(text) = std::fs::read_to_string(&path) {
                     if let Ok(serde_json::Value::Array(iters)) = serde_json::from_str(&text) {
                         let n = iters.len() as f64;
@@ -443,7 +447,8 @@ fn adw_runs_count(root: &std::path::Path) -> Option<f64> {
 /// `router_accuracy` until human relabeling exists). `None` before any outcome.
 fn adw_router_accuracy(root: &std::path::Path) -> Option<f64> {
     let path = root.join(".touring").join("factory").join("stats.json");
-    let stats: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    let stats: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
     let outcomes = stats.pointer("/outcomes")?.as_array()?;
     if outcomes.is_empty() {
         return None;

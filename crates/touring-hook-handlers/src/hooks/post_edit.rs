@@ -591,12 +591,12 @@ fn phase1_tracking(
         // Only runs when the file actually changed (inside the not-skip-reindex
         // branch). Fail-open: a warm miss never blocks the edit.
         if let Some((cognitive, complexity)) = compute_cognitive_warm(file_path) {
-            if let Err(e) = runtime.ctx.knowledge.upsert_cognitive_enrichment(
-                rel_path, cognitive, complexity, 0.0, 0.0, 0.0,
-            ) {
-                tracing::debug!(
-                    "post_edit: warm cognitive enrichment failed for {rel_path}: {e}"
-                );
+            if let Err(e) = runtime
+                .ctx
+                .knowledge
+                .upsert_cognitive_enrichment(rel_path, cognitive, complexity, 0.0, 0.0, 0.0)
+            {
+                tracing::debug!("post_edit: warm cognitive enrichment failed for {rel_path}: {e}");
             }
         }
         if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned() {
@@ -1844,4 +1844,3 @@ fn find_edit_byte_span(
         end: (start + old_len) as u64,
     })
 }
-

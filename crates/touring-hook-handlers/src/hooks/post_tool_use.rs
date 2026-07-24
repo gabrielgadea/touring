@@ -9,8 +9,8 @@
 
 use crate::runtime::{HookResponse, HookRuntime};
 use crate::shared::hook_helpers;
-use touring_intelligence::rl::aco::pheromone_bus::PheroKey;
 use touring_intelligence::rl::ImmediateReward;
+use touring_intelligence::rl::aco::pheromone_bus::PheroKey;
 
 /// Run the post-tool-use hook (diverging version — for CLI entry point).
 #[tracing::instrument(skip(runtime, input), fields(hook = "post_tool_use"))]

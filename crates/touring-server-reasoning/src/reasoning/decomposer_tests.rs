@@ -182,8 +182,14 @@ fn test_subtask_status_from_str() {
     // "done"/"complete" are accepted aliases for Completed (loop_phase_close writes
     // "done"; without this alias it fell through to unwrap_or(Pending) and every
     // dependent stayed permanently blocked — the DAG done-vs-ready quirk).
-    assert_eq!("done".parse::<SubTaskStatus>(), Ok(SubTaskStatus::Completed));
-    assert_eq!("DONE".parse::<SubTaskStatus>(), Ok(SubTaskStatus::Completed));
+    assert_eq!(
+        "done".parse::<SubTaskStatus>(),
+        Ok(SubTaskStatus::Completed)
+    );
+    assert_eq!(
+        "DONE".parse::<SubTaskStatus>(),
+        Ok(SubTaskStatus::Completed)
+    );
     assert_eq!(
         "complete".parse::<SubTaskStatus>(),
         Ok(SubTaskStatus::Completed)
