@@ -1,0 +1,8 @@
+---
+source: crates/touring-ast/tests/snapshot_call_graph_scc.rs
+expression: edges(&graph)
+---
+- - ping
+  - pong
+- - pong
+  - ping

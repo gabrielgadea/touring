@@ -1,0 +1,10 @@
+{
+  "schema": "coupling-ab-v1",
+  "arm": "treatment",
+  "control_composite": 0.8763,
+  "treatment_composite": 1.0,
+  "delta": 0.1237,
+  "epsilon": 0.01,
+  "attributable": true,
+  "verdict": "coupling_helps"
+}

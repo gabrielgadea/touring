@@ -1,0 +1,23 @@
+[package]
+name = "touring-server-reasoning"
+version = "30.0.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Reasoning layer extracted from touring-server (W9 pragmatic split) — decomposer, granularity adapter, inference handlers"
+license.workspace = true
+
+[dependencies]
+touring-foundation = { path = "../touring-foundation", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+serial_test = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+---
+source: crates/touring-ast/tests/snapshot_module_tree.rs
+expression: flat
+---
+- - 0
+  - lib.rs
+  - true
+  - - "crate::foo::Bar"
+    - "crate::foo::Baz as Renamed"
+    - "outer::inner::Bar"
+- - 1
+  - inner
+  - true
+  - []
+- - 1
+  - outer
+  - true
+  - []
+- - 2
+  - inner
+  - true
+  - []
+- - 2
+  - private
+  - false
+  - []
+- - 1
+  - private
+  - false
+  - []

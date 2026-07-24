@@ -1,0 +1,171 @@
+{
+  "checkpoint": {
+    "id": "es3-p2-supervised-x8-writes-2026-06-02",
+    "wave": "ES3 P2",
+    "parent_task": "task_1780440816630657847",
+    "roadmap_ref": "~/.claude/rust/docs/2026-05-30-cah-epic-subsystems-roadmap.md",
+    "plan_ref": "/home/gabrielgadea/.claude/plans/robust-riding-rose.md",
+    "shipped_at": "2026-06-02T22:53:50Z",
+    "budget_ed": 6.0,
+    "actual_ed": 6.0,
+    "scope_decision": "substrate-only delivery (CLI X8 wiring deferred to ES3 P3)"
+  },
+  "predecessor": {
+    "wave": "ES3 P1",
+    "shipped_at": "2026-06-01",
+    "delivered": [
+      "AccessDeclaration { reads, writes: HashSet<AccessPath> }",
+      "TxnLockManager (advisory, in-process) with try_acquire/release",
+      "from_tool_payload (READS-only, observe-mode invariant)",
+      "ExecPool::global().acquire_txn(RAII TxnPermit) in X0 hook (defense-in-depth only)"
+    ],
+    "honest_gap_documented_at": "crates/touring-hooks/src/gateway/pre_exec.rs:225-230"
+  },
+  "deliverables": {
+    "S-2-1_write_inference": {
+      "file": "crates/touring-hooks/src/gateway/txn.rs",
+      "loc_delta": 210,
+      "new_pub": [
+        "AccessDeclaration::from_tool_payload_full",
+        "extract_path_token (private helper)",
+        "find_unquoted (private helper)"
+      ],
+      "tests_added": 8,
+      "test_names": [
+        "infers_write_from_redirect_to_absolute_path",
+        "infers_write_from_redirect_to_tilde_path",
+        "infers_write_from_rm_command",
+        "infers_write_from_mv_command",
+        "infers_write_from_sed_in_place",
+        "false_positive_echo_quoted_rm_rf",
+        "false_positive_git_status_is_pure_read",
+        "non_bash_tools_never_declare_writes"
+      ],
+      "conservative_policy": "under-declare writes (false negatives > false positives)"
+    },
+    "S-2-2_orchestrator": {
+      "files": [
+        "crates/touring-hooks/src/gateway/supervised.rs",
+        "crates/touring-hooks/src/sandbox_executor.rs"
+      ],
+      "loc_delta_supervised": 280,
+      "loc_delta_sandbox_executor": 15,
+      "new_pub": [
+        "run_supervised_with_locks",
+        "SupervisedOutcome::with_lock (builder)",
+        "SupervisedOutcome.lock_id (Option<ExecutionId>)",
+        "SupervisedOutcome.audit (Option<WriteAudit>)",
+        "SandboxError::Conflict { conflicting_execution_id, resource }"
+      ],
+      "tests_added": 4,
+      "test_names": [
+        "granted_path_runs_and_releases_lock_on_drop",
+        "conflict_path_returns_sandbox_error_conflict",
+        "permit_released_before_next_call_can_acquire",
+        "e2e_concurrent_writers_to_same_path_blocked (Linux-gated)"
+      ],
+      "deadlock_invariant_I-03": "permit dropped BEFORE return; acquire_txn is synchronous + non-reentrant; no nested acquire_txn across await points"
+    },
+    "S-2-3_write_audit": {
+      "file": "crates/touring-hooks/src/gateway/supervised.rs",
+      "loc_delta": "included in S-2-2 (same file)",
+      "new_pub": [
+        "WriteAudit { modified, captured_at, kernel_enforced, confidence }",
+        "ModifiedFile { path, change }",
+        "ChangeKind { Created, Modified, Removed }",
+        "AuditConfidence { High, Low }",
+        "WriteAudit::from_roots (baseline)",
+        "WriteAudit::capture_modified (diff)"
+      ],
+      "tests_added": 3,
+      "test_names": [
+        "empty_roots_yields_empty_audit",
+        "detects_created_file",
+        "detects_modified_file"
+      ],
+      "toctou_caveat_R-03": "mtime+size+path diff is heuristic; kernel-enforced W is the real safety net; confidence::Low for atomic-rename"
+    },
+    "S-2-4_observe_hook_upgrade": {
+      "files": [
+        "crates/touring-hooks/src/gateway/pre_exec.rs",
+        "crates/touring-hooks/src/shared/gate_metrics.rs"
+      ],
+      "loc_delta_pre_exec": 80,
+      "loc_delta_gate_metrics": 25,
+      "new_pub": [
+        "record_ceg_write_paths_observed (in shared/gate_metrics.rs)",
+        "ceg_write_paths_observed_count (AtomicU64 field)"
+      ],
+      "tests_added": 2,
+      "test_names": [
+        "run_observe_only_increments_write_paths_counter_when_writes_detected",
+        "run_observe_only_no_increment_for_pure_reads"
+      ],
+      "lossless_contract": "from_tool_payload_full falls back to reads-only if extraction fails; backward-compatible with X0 hook path"
+    }
+  },
+  "test_metrics": {
+    "test_count_before": 3966,
+    "test_count_after": 3983,
+    "tests_added_net": 17,
+    "tests_pass": 3983,
+    "tests_fail": 0,
+    "tests_ignored": 1,
+    "elapsed_seconds": 53.15
+  },
+  "compilation_evidence": {
+    "cargo_check": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.00s — EXIT 0",
+    "cargo_clippy": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.29s — EXIT 0; pre-existing warnings in touring-offensive/touring-foundation (NOT touring-hooks)",
+    "cargo_test_lib": "test result: ok. 3983 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 53.15s"
+  },
+  "p3_leftover_audit": {
+    "verdict": "ZERO risk (zero struct change)",
+    "evidence": {
+      "GatewayDeps_struct_definitions": 1,
+      "GatewayDeps_struct_literal_sites": 9,
+      "GatewayDeps_struct_literal_sites_pre_ES3_P2": 9,
+      "delta": 0
+    },
+    "rationale": "Lock manager accessed via ExecPool::global() singleton (exec_pool.rs:249-252) — no GatewayDeps field added; all 5 touring-server sites + 4 pre_exec sites untouched."
+  },
+  "regra_zero_audit": {
+    "verdict": "ZERO orphan pub symbols",
+    "consumer_chains": {
+      "from_tool_payload_full": ["pre_exec.rs:537 (S-04 production)", "8 unit tests in txn.rs"],
+      "run_supervised_with_locks": ["4 unit/e2e tests in supervised.rs", "1 doc reference in sandbox_executor.rs:72"],
+      "WriteAudit::from_roots": ["run_supervised_with_locks (production)", "3 unit tests in supervised.rs"],
+      "WriteAudit::capture_modified": ["3 unit tests in supervised.rs (advisory API for future callers)"],
+      "record_ceg_write_paths_observed": ["run_observe_only (S-04 production)", "2 unit tests in pre_exec.rs"],
+      "ceg_write_paths_observed_count": ["incremented by record_ceg_write_paths_observed", "observed in touring gate-metrics -j"],
+      "SandboxError::Conflict": ["constructed at supervised.rs:446 in run_supervised_with_locks error path"],
+      "SupervisedOutcome::with_lock": ["called at supervised.rs:457 in run_supervised_with_locks"],
+      "SupervisedOutcome.lock_id/audit": ["set by with_lock builder; None for backward compat"]
+    }
+  },
+  "honest_scope": {
+    "verdict": "substrate-only delivery; CLI X8 wiring NOT in P2 scope",
+    "evidence": {
+      "touring_exec_sandbox_runner_toggle": "exec.rs:147,349,480 — STILL toggles between &deferred_dry_run and &guarded_dry_run; NEVER &run_supervised_with_locks",
+      "production_callers_of_run_supervised_with_locks": 0,
+      "consumed_only_by_tests": true
+    },
+    "deferred_to": "ES3 P3 (~3-4ed: route 5 touring-server X8 sites through run_supervised_with_locks + E2E tests in exec.rs)"
+  },
+  "risk_register": {
+    "R-01_substrate_only_P0_meta": "MITIGATED via 3-doc-placement (commit msg + mod doc + memory note)",
+    "R-02_deadlock_P1": "MITIGATED via I-03 inline invariant comment + drop-before-return pattern",
+    "R-03_audit_TOCTOU_P2": "MITIGATED via I-02 mod doc + AuditConfidence::Low enum (P3 enhancement)",
+    "R-04_shell_parser_fragility_P1": "MITIGATED via find_unquoted helper + 2 false-positive tests + conservative under-declaration policy",
+    "R-05_livelock_P3": "DEFERRED to ES3 P3+ (caller-side concern; document in txn.rs mod doc)",
+    "R-06_CRDT_P3": "DEFERRED to ES3 P3-P5 (18ed Tier 3)",
+    "R-07_docs_P1": "MITIGATED via 2 memory notes + 4 doc placements + this .toon"
+  },
+  "todos": [],
+  "rl_rewards_planned": ["orchestrate:1.0 es3-p2:substrate_only_no_caller_closed:6ed-closed:op4-lost-update-guard-substrate", "edit:1.0 es3-p2:17-tests-zero-orphans", "generate:0.9 es3-p2:substrate_with_zero_p3_leftover"],
+  "outstanding_for_next_wave": [
+    "ES3 P3: wire run_supervised_with_locks into 5 touring-server X8 sites (~3-4ed)",
+    "ES3 P3: add acquire_txn_with_backoff helper (R-05)",
+    "ES3 P3: extend from_tool_payload_full to non-Bash tools (Edit, Write, MultiEdit)",
+    "ES3 P3-P5: CRDT convergence on lock release (R-06, 18ed Tier 3)"
+  ]
+}

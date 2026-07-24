@@ -1,0 +1,10 @@
+# RFC-001 fixture: unknown top-level key outside [holon]. MUST error thsf-manifest-008.
+
+[holon.identity]
+name = "unknown-key"
+version = "0.1.0"
+
+[other_root]
+# This top-level table is not allowed by the schema — only [holon] may
+# live at the root of a manifest.
+foo = "bar"

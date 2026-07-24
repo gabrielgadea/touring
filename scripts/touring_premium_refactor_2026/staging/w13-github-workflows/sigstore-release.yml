@@ -1,0 +1,120 @@
+# Sigstore keyless signing + SBOM + checksums for Touring release artifacts.
+# W13 repo-premium (2026-05-31). Keyless OIDC — NO secrets/account needed
+# (the GitHub Actions OIDC identity is the signing identity; GITHUB_TOKEN is
+# auto-provided). Promote to `.github/workflows/sigstore-release.yml`.
+#
+# Trigger: a published GitHub release whose build job already uploaded the
+# `*-<target>.tar.gz` binary artifacts (see build-release / distro-matrix).
+name: Sigstore Release Signing
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # OIDC token for keyless cosign signing
+  contents: write   # upload signatures/SBOM back to the release
+
+jobs:
+  sign-artifacts:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Download release artifact
+        run: |
+          mkdir -p release
+          gh release download "${{ github.event.release.tag_name }}" \
+            --pattern "*-${{ matrix.target }}.tar.gz" \
+            --dir release/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SHA-256 checksums
+        working-directory: release
+        run: |
+          for f in *-${{ matrix.target }}.tar.gz; do
+            sha256sum "$f" > "${f}.sha256"
+          done
+
+      - name: Sign artifacts + checksums (keyless OIDC)
+        working-directory: release
+        run: |
+          shopt -s nullglob
+          for artifact in *-${{ matrix.target }}.tar.gz *-${{ matrix.target }}.tar.gz.sha256; do
+            cosign sign-blob \
+              --yes \
+              --output-signature "${artifact}.sig" \
+              --output-certificate "${artifact}.crt" \
+              "${artifact}"
+          done
+
+      - name: Verify signatures (fail the release if any cannot be verified)
+        working-directory: release
+        run: |
+          shopt -s nullglob
+          for artifact in *-${{ matrix.target }}.tar.gz; do
+            cosign verify-blob \
+              --signature "${artifact}.sig" \
+              --certificate "${artifact}.crt" \
+              --certificate-identity-regexp '^https://github.com/.+/\.github/workflows/.+@.+' \
+              --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+              "${artifact}"
+          done
+
+      - name: Upload signatures + checksums to release
+        working-directory: release
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            *-${{ matrix.target }}.tar.gz.sha256 \
+            *-${{ matrix.target }}.tar.gz.sig \
+            *-${{ matrix.target }}.tar.gz.crt \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── SBOM (CycloneDX) — one per release, attested via cosign ──────────────
+  sbom:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-cyclonedx + cosign
+        run: cargo install cargo-cyclonedx --locked
+      - uses: sigstore/cosign-installer@v3
+      - name: Generate CycloneDX SBOM (all features)
+        run: cargo cyclonedx --all --format json --all-features
+      - name: Collect SBOM
+        run: |
+          mkdir -p sbom
+          find . -name '*.cdx.json' -not -path './sbom/*' -exec cp {} sbom/ \;
+          (cd sbom && sha256sum *.cdx.json > SBOM.sha256 || true)
+      - name: Sign SBOM (keyless)
+        working-directory: sbom
+        run: |
+          shopt -s nullglob
+          for f in *.cdx.json SBOM.sha256; do
+            cosign sign-blob --yes \
+              --output-signature "${f}.sig" \
+              --output-certificate "${f}.crt" "${f}"
+          done
+      - name: Upload SBOM to release
+        working-directory: sbom
+        run: gh release upload "${{ github.event.release.tag_name }}" * --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

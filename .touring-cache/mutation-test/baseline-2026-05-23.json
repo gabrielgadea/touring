@@ -1,0 +1,27 @@
+{
+  "wave": "W11.4 advisory baseline",
+  "date": "2026-05-23",
+  "method": "cargo mutants --list (mutation surface count per crate)",
+  "rationale": "Workspace-wide full kill-rate execution = hours/days. Advisory mode = snapshot of mutation surface, NOT a kill-rate gate. Full kill-rate audit deferred until per-crate CI capacity is available. W11 closure does NOT block on this baseline.",
+  "crates": {
+    "touring-foundation": {
+      "mutation_count": 1583,
+      "sample_top_3_files": [
+        "src/bin/touring_resource_monitor.rs",
+        "src/char_classes/mod.rs"
+      ]
+    },
+    "touring-intelligence": {
+      "mutation_count": 7947,
+      "note": "Largest crate by mutation surface (cortex pipeline + scoring + fusion). 83.14% line cov (W11 Discovery 2026-05-15)."
+    },
+    "touring-code": {
+      "mutation_count": 3053,
+      "note": "polyglot (12/12 regression tests post Wave 5) + ast + semantics."
+    }
+  },
+  "total_mutations_top_3_crates": 12583,
+  "advisory_kill_rate_target": 0.70,
+  "next_step_per_crate_incremental": "cargo mutants -F <file> --in-place --jobs N — run when CI capacity allows. Cache hits 7d in .touring-cache/mutation-test/<crate>/<file>.json.",
+  "wave_5_anchor": "wave-5-mossy-crunching-owl-S9-S13-S14-closure:2026-05-23"
+}

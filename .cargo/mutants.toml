@@ -1,0 +1,47 @@
+# cargo-mutants configuration — Touring workspace
+# Docs: https://mutants.rs/config.html
+#
+# Strategy: incremental (--in-diff) in CI, sharded full scans weekly.
+# Exclusions: generated templates, examples, benches, build scripts.
+
+# Exclude globs — mutants are NOT generated for these files.
+exclude_globs = [
+    "crates/touring-generator/templates/**",
+    "crates/touring-loom-proofs/**",
+    "**/benches/**",
+    "**/examples/**",
+    "**/build.rs",
+    "**/tests/**",
+]
+
+# Exclude functions matching these regex patterns.
+exclude_re = [
+    # Generated code from rkyv/serde derives — mutation is noise.
+    "impl .* for Archived.*",
+    # Test helpers (already excluded by path, defensive).
+    "^(test_|tests?::).*",
+    # Debug/Display impls — mutants produce identical output.
+    "fn fmt\\(",
+]
+
+# Timeout multiplier relative to baseline test run.
+timeout_multiplier = 2.0
+
+# Minimum baseline timeout (seconds) — override for fast tests.
+minimum_test_timeout = 30
+
+# Use nextest for parallel test execution.
+test_tool = "nextest"
+additional_cargo_test_args = ["--profile", "ci"]
+
+# Skip bench/doctest targets — nextest profile handles the rest.
+additional_cargo_args = ["--all-targets"]
+
+# NOTE: For targeted mutation runs (e.g. `--file <path>`), pass an
+# `-E` filter expression via the CLI to narrow the test corpus,
+# e.g. `cargo mutants --file precomputed_signals.rs -p touring-hooks \
+#   --cargo-test-arg='-E' \
+#   --cargo-test-arg='binary(snapshot_file_digest_signal) or \
+#     (binary(touring-hooks) and test(/precomputed_signals::/))'`
+# Without the filter the full touring-hooks suite (3297 tests) runs
+# per mutant and hits the 120s baseline timeout.

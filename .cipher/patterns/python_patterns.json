@@ -1,0 +1,336 @@
+{
+  "patterns": [
+    {
+      "id": "738ef7fb9508585a",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_touring_arch_e2e.py",
+      "operation": "modify",
+      "content_preview": "OLD:     # D7.1: Never-block invariant — hooks always exit 0\n    # Check that hook handlers don't use std::process::exit or panic! in hot path\n    _, hook_panics_out, _ = run_cmd(\n        'grep -rn \"panic!\\\\|std::process::exit\\\\|unwrap()\" crates/touring-server/src/hooks/ --include=\"*.rs\" '\n        '",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T15:34:49.298505",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "0e9b73b4a864d754",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_touring_arch_e2e.py",
+      "operation": "modify",
+      "content_preview": "OLD: import json\nimport os\nimport re\nimport subprocess\nimport sys\nimport time\nNEW: import json\nimport re\nimport subprocess\nimport sys\nimport time",
+      "tags": [
+        "python",
+        "imports",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T15:34:55.058636",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "393a30043bd29158",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_bridge_pln2/tests/test_bridge_integration.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Integration tests for the touring_bridge package.\n\nVerifies module imports, probe status, circuit breaker behaviour,\nand that fallback mode works end-to-end without Rust.\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom scripts.process_analysis.touring_bridge import (\n    TOURING_NLP_AVAILABLE,\n    ",
+      "tags": [
+        "python",
+        "function",
+        "create",
+        "class",
+        "imports",
+        "test"
+      ],
+      "timestamp": "2026-03-15T16:32:18.332877",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "40376e99edc2e862",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-agents/src/kazuba_agents/agents/morpheus/__init__.py",
+      "operation": "create",
+      "content_preview": "\"\"\"MORPHEUS — Autonomous NLP Extractor Evolution Agent (15th Kazuba Agent).\n\nImplements CILA L5 self-modifying loop:\n1. Observe RAG metrics (recall@k, precision) from ESAA event store\n2. Detect weak patterns (recall@k < threshold)\n3. Generate Rust NLP extractor via Claude API\n4. Compile to WASM (car",
+      "tags": [
+        "python",
+        "imports",
+        "create"
+      ],
+      "timestamp": "2026-03-17T00:06:03.913518",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8160eb3ed6002227",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/plan-5a-geracao/functional_cross_audit.py",
+      "operation": "modify",
+      "content_preview": "OLD: def _cargo_test_specific(crate: str, test_name: str) -> Check:\n    \"\"\"Run a specific test and verify it PASSES.\"\"\"\n    t0 = time.monotonic()\n    ok, out = _cargo_test([\"-p\", crate, \"--\", test_name, \"--exact\"])\n    elapsed = (time.monotonic() - t0) * 1000\n    passed = ok and \"1 passed\" in out\n  ",
+      "tags": [
+        "python",
+        "modify",
+        "function",
+        "documentation"
+      ],
+      "timestamp": "2026-03-17T00:30:26.396991",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "2578695222c5454c",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/plan-5a-geracao/functional_cross_audit.py",
+      "operation": "modify",
+      "content_preview": "OLD:     # Check 2: touring-hooks tests pass\n    ok, out = _cargo_test([\"-p\", \"touring-hooks\"])\n    test_count = 0\n    for line in out.splitlines():\n        if \"test result:\" in line and \"passed\" in line:\n            test_count = int(line.split(\"passed\")[0].split()[-1])\n    d.checks.append(\n        ",
+      "tags": [
+        "python",
+        "documentation",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T00:31:06.867966",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "1456861d3ed812ff",
+      "file_path": "/home/gabrielgadea/cli-anything/touring/cli_anything/touring/core/db.py",
+      "operation": "modify",
+      "content_preview": "OLD:     candidates: list[Path] = []\n\n    env_dir = os.environ.get(\"TOURING_DATA_DIR\")\n    if env_dir:\n        candidates.append(Path(env_dir) / db_name)\n\n    candidates.append(Path.cwd() / \".claude\" / \"data\" / db_name)\n    candidates.append(Path.home() / \".claude\" / \"data\" / db_name)\n\n    for p in ",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T00:52:03.593494",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f5b827c93ae96174",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/touring_bridge/financial.py",
+      "operation": "modify",
+      "content_preview": "OLD:         if not (new_rate == new_rate):  # NaN check without math import\nNEW:         if new_rate != new_rate:  # NaN check without math import  # noqa: PLR0124",
+      "tags": [
+        "python",
+        "modify",
+        "imports"
+      ],
+      "timestamp": "2026-03-17T08:12:36.908463",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c6df0f832dd22ab5",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_pipeline_accel_pln2/tests/test_s5_validators_reranker.py",
+      "operation": "modify",
+      "content_preview": "OLD: from __future__ import annotations\n\nimport math\n\nimport pytest\n\nfrom scripts.process_analysis.touring_bridge.reranker import (\n    AuthorityWeights,\n    ContextualReranker,\n    RankedResult,\n    RankingFactors,\n    RerankContext,\n    RerankWeights,\n    RerankerStats,\n    SearchResult,\n    compu",
+      "tags": [
+        "python",
+        "imports",
+        "modify",
+        "test"
+      ],
+      "timestamp": "2026-03-17T08:13:02.074989",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f88d712219c85265",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/mef_impact/models.py",
+      "operation": "modify",
+      "content_preview": "OLD:     drift_ks: float = 0.0\n    drift_js: float = 0.0\n    drift_significant: bool = False\nNEW:     drift_ks: float = 0.0\n    drift_js: float = 0.0\n    drift_significant: bool = False\n\n    # S1: Stress scenarios (Optional, None when CLK unavailable)\n    cenarios_stress: list[dict[str, Any]] | None",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T20:29:22.089590",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "867340091dc7bd48",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/seed_gotchas.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"Seed the Gotcha Database with known project gotchas.\n\nStrategy E5.3 of the Rust Workspace Exponential plan.\nPopulates the gotchas table in touring_knowledge.db with 20+ entries\nextracted from MEMORY.md/gotchas.md — verified patterns that prevent\nrecurring errors.\n\nUsage:\n  ",
+      "tags": [
+        "python",
+        "class",
+        "create",
+        "imports",
+        "function"
+      ],
+      "timestamp": "2026-03-18T23:58:15.503402",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "11a535ad4967700a",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/analyze_edit_errors.py",
+      "operation": "modify",
+      "content_preview": "OLD:             print(f\"  Severity: warning\")\nNEW:             print(\"  Severity: warning\")",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T00:21:15.318810",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "1b7105860e89779e",
+      "file_path": "/home/gabrielgadea/cli-anything/touring/cli_anything/touring/__init__.py",
+      "operation": "modify",
+      "content_preview": "OLD: __version__ = \"0.2.0\"\nNEW: __version__ = \"0.3.0\"",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T01:55:32.037075",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ed0de2c3f3898414",
+      "file_path": "/home/gabrielgadea/cli-anything/touring/cli_anything/touring/core/flywheel.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Flywheel status operations — Tier 1 (SQLite direct, <10ms).\"\"\"\nfrom __future__ import annotations\n\nfrom pathlib import Path\n\nfrom .db import KNOWLEDGE_DB, MEMORY_DB, SYMBOLS_DB, connect\n\n\ndef status() -> dict:\n    \"\"\"Get comprehensive flywheel status.\"\"\"\n    result: dict = {\"version\": \"6.0.0\"}\n\n ",
+      "tags": [
+        "python",
+        "imports",
+        "create",
+        "function"
+      ],
+      "timestamp": "2026-03-19T01:56:02.438179",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "db743d0e99bc0819",
+      "file_path": "/home/gabrielgadea/cli-anything/touring/cli_anything/touring/touring_cli.py",
+      "operation": "modify",
+      "content_preview": "OLD: \"\"\"cli-anything-touring: CLI harness for Touring intelligence system.\n\nTier 1 (SQLite, <10ms): index, ast, memory, evolution\nTier 2 (subprocess, <50ms): cortex (pii, classify)\nTier 3 (MCP bridge, ~200ms): suggest, session, decompose\n\"\"\"\nNEW: \"\"\"cli-anything-touring: CLI harness for Touring inte",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T01:56:25.390029",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "67d8ea9707a79cb3",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/cross_audit_touring_v7.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"Cross-Audit: Touring v7.0.0 Exponential Precision.\n\nValidates that ALL Sprint implementations fulfill their documented purpose.\nThis is NOT just \"do tests pass?\" — it verifies:\n- Contracts: symbol exists with correct signature\n- Invariants: behaviors work as documented\n- In",
+      "tags": [
+        "python",
+        "function",
+        "class",
+        "create",
+        "imports"
+      ],
+      "timestamp": "2026-03-19T21:12:08.403604",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e3e39a51352acab0",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_v8_final.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"\nTouring v8.0 Final Cross-Audit — 12 Dimensions, 42 Checks.\n\nValidates every subtask (S0.0–S5.2) fulfills its documented purpose.\nEach check uses subprocess grep/cargo test with 120s timeout.\n\nExit 0 if composite >= 0.95, else exit 1.\n\"\"\"\n\nimport json\nimport os\nimport re\nim",
+      "tags": [
+        "python",
+        "imports",
+        "function",
+        "create"
+      ],
+      "timestamp": "2026-03-20T03:34:49.305196",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "884c40d138609f52",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/hooks/quality/code_standards_enforcer.py",
+      "operation": "modify",
+      "content_preview": "OLD:         # Task 4: Ruff compliance (slow, ~200ms) - only for Python\n        if file_path.suffix.lower() == \".py\":\n            tasks.append(loop.run_in_executor(self.executor, self._check_ruff_compliance, file_path))\n            tasks.append(loop.run_in_executor(self.executor, self._check_pylance",
+      "tags": [
+        "python",
+        "claude-config",
+        "hook",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T08:24:19.183115",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "657ddd73271a27fd",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_v9_hooks_plan.py",
+      "operation": "modify",
+      "content_preview": "OLD:                 # TOKEN BUDGET AUDIT: verify the handler enforces limits\n                check(\n                    \"Budget constant MAX_CHARS defined\",\n                    bool(re.search(r\"MAX_CHARS.*=.*{MAX_CHARS}\", content))\n                    or bool(re.search(r\"max_chars.*=.*{MAX_CHARS}\",",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T11:44:36.070075",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9658e01784a04832",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_v9_hooks_plan.py",
+      "operation": "modify",
+      "content_preview": "OLD:                     f\"Lifecycle handlers >= 8 (was 5, +3)\",\n                    handler_count >= 8,\n                    f\"found {handler_count}\",\nNEW:                     \"Lifecycle handlers >= 8 (was 5, +3)\",\n                    handler_count >= 8,\n                    f\"found {{handler_count}}",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T11:45:21.932875",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a3e2ec12897eea28",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_v9_hooks_plan.py",
+      "operation": "modify",
+      "content_preview": "OLD:                     check(f\"BUILTIN_HANDLER_COUNT >= 28\", count >= 28, f\"found {count}\")\nNEW:                     check(\"BUILTIN_HANDLER_COUNT >= 28\", count >= 28, f\"found {{count}}\")",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T11:45:27.072919",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "157b60b04af60240",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_v9_hooks_plan.py",
+      "operation": "modify",
+      "content_preview": "OLD:             print(f\"CROSS-AUDIT: Touring v9.0 Hooks Potentialization\")\n            print(f\"Plan ID: {_PLAN_ID}\")\nNEW:             print(\"CROSS-AUDIT: Touring v9.0 Hooks Potentialization\")\n            print(\"Plan ID: {_PLAN_ID}\")",
+      "tags": [
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T11:45:37.911645",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "09ceb53923d23188",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-geo-engine/tests/test_smoke.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Smoke tests for kazuba-geo-engine Python bindings.\"\"\"\n\nfrom __future__ import annotations\n\n\ndef test_import():\n    \"\"\"Verify that the native module loads.\"\"\"\n    from kazuba_geo_engine import GeoPoint, GeoRTree, HDM4Config, RoadNetwork\n\n    assert GeoPoint is not None\n    assert GeoRTree is not N",
+      "tags": [
+        "python",
+        "test",
+        "create",
+        "imports",
+        "function"
+      ],
+      "timestamp": "2026-03-21T12:44:47.250481",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T12:44:49.534579",
+    "total_patterns": 23,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "python"
+  }
+}

@@ -1,0 +1,50 @@
+# W14.9 partial (2026-05-23) — Alpine multi-stage Dockerfile for touring.
+#
+# Image: alpine:3.20 — small (~7 MiB base) + musl libc + apk for ad-hoc
+# debug tools. Good middle ground between distroless minimalism and
+# debian-slim's apt-based diagnostic capabilities.
+#
+# Build:
+#   docker build -f scripts/docker/Dockerfile.alpine -t touring:alpine .
+#
+# Run:
+#   docker run --rm -it touring:alpine --version
+#   docker run --rm -it --entrypoint sh touring:alpine   # exec into shell
+
+# ── Stage 1: musl builder (rust-musl-builder image, cross-target) ────────
+FROM rust:1.80-alpine AS builder
+
+# Install musl build deps
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static
+
+WORKDIR /build
+
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+COPY scripts/ ./scripts/
+
+# Static musl build — produces a self-contained binary
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/build/target \
+    cargo build --release --bin touring --target x86_64-unknown-linux-musl && \
+    cp target/x86_64-unknown-linux-musl/release/touring /usr/local/bin/touring
+
+# ── Stage 2: alpine runtime ──────────────────────────────────────────────
+FROM alpine:3.20
+
+# Minimal runtime — ca-certificates for HTTPS + libgcc for occasional cdylib
+RUN apk add --no-cache ca-certificates libgcc
+
+COPY --from=builder /usr/local/bin/touring /usr/local/bin/touring
+
+# Non-root user (safer Docker practice)
+RUN addgroup -S touring && adduser -S touring -G touring
+USER touring
+
+ENTRYPOINT ["/usr/local/bin/touring"]
+CMD ["--version"]
+
+LABEL org.opencontainers.image.title="touring"
+LABEL org.opencontainers.image.description="Touring code-intelligence binary (alpine musl)"
+LABEL org.opencontainers.image.source="https://github.com/anthropics/touring"
+LABEL org.opencontainers.image.licenses="Apache-2.0 OR MIT"

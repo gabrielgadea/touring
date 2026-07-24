@@ -1,0 +1,36 @@
+{
+  "patterns": [
+    {
+      "id": "f5246681845d33d2",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/rust_quality_flywheel.sh",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env bash\n# Rust Quality Flywheel — 8-gate validation for .claude/rust/ workspace\n# Exit 0 = all pass, non-zero = gate failed\nset -euo pipefail\n\nRUST_DIR=\"/home/gabrielgadea/projects/analise/.claude/rust\"\ncd \"$RUST_DIR\"\n\nPASS=0\nFAIL=0\n\ngate() {\n    local name=\"$1\"\n    shift\n    echo -n \"Ga",
+      "tags": [
+        "shell",
+        "create"
+      ],
+      "timestamp": "2026-03-19T00:42:53.784002",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fa85aeb518d3e1dd",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/rust_quality_flywheel.sh",
+      "operation": "modify",
+      "content_preview": "OLD: # Gate 4: No TODO/FIXME\nTODO_COUNT=$(grep -rn 'TODO\\|FIXME\\|HACK\\|XXX' crates/*/src/ --include='*.rs' | grep -v target/ | wc -l)\ngate \"todo-free\" test \"$TODO_COUNT\" -eq 0\nNEW: # Gate 4: No TODO/FIXME (exclude XXX in regex pattern documentation)\nTODO_COUNT=$(grep -rn 'TODO\\|FIXME\\|HACK' crates/*",
+      "tags": [
+        "shell",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T00:47:27.105970",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-19T00:47:33.090149",
+    "total_patterns": 2,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "shell"
+  }
+}

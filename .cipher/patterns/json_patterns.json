@@ -1,0 +1,25 @@
+{
+  "patterns": [
+    {
+      "id": "a9dc8d61b7944b7d",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/rules/gotcha_severity.json",
+      "operation": "create",
+      "content_preview": "{\n    \"nodes\": [\n        {\n            \"id\": \"input\",\n            \"name\": \"Request\",\n            \"type\": \"inputNode\",\n            \"position\": {\"x\": 0, \"y\": 0}\n        },\n        {\n            \"id\": \"dt1\",\n            \"name\": \"SeverityDecision\",\n            \"type\": \"decisionTableNode\",\n            \"p",
+      "tags": [
+        "json",
+        "configuration",
+        "claude-config",
+        "create"
+      ],
+      "timestamp": "2026-03-19T00:28:47.946494",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-19T00:28:54.029576",
+    "total_patterns": 1,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "json"
+  }
+}

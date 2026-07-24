@@ -1,0 +1,383 @@
+{
+  "patterns": [
+    {
+      "id": "e05bb30020f2d3a5",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/main.rs",
+      "operation": "create",
+      "content_preview": "//! Touring — Unified Rust MCP Mega-Server + Neural Hook Accelerator\n//!\n//! Modes:\n//!   - `touring serve` (or no args): MCP server over stdio\n//!   - `touring classify-intent`: UserPromptSubmit — CILA classification\n//!   - `touring scan-pii`: PreToolUse Write — PII detection\n//!   - `touring pre-",
+      "tags": [
+        "create",
+        "claude-config",
+        "async",
+        "rust"
+      ],
+      "timestamp": "2026-03-15T13:39:37.926000",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "12c8d862c023a04b",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-python/src/lib.rs",
+      "operation": "create",
+      "content_preview": "//! touring-python — PyO3 bindings for the Touring workspace.\n//!\n//! Exposes all workspace crates to Python as `claude_learning_kernel`.\n//! Preserves backward compatibility with existing `scripts/aco/rust_bridge.py` imports.\n//!\n//! # Backward Compatibility Contract (CRITICAL)\n//!\n//! `rust_bridge",
+      "tags": [
+        "create",
+        "rust",
+        "imports",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-15T13:54:43.165673",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b15137a9a3f4f4c6",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/touring_bridge/simd.py",
+      "operation": "create",
+      "content_preview": "\"\"\"SIMD bridge -- circuit breaker + Rust acceleration with Python fallback.\n\nProvides cosine similarity, Wilson ranking, and drift detection\nwith transparent fallback to pure Python when Rust is unavailable or\nthe circuit breaker is open.\n\nCircuit breaker pattern follows ``.claude/hooks/utils/rust_b",
+      "tags": [
+        "create",
+        "python",
+        "imports",
+        "function"
+      ],
+      "timestamp": "2026-03-15T16:30:55.192972",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d25131c59083eac4",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_bridge_pln2/tests/test_parity_nlp.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Parity tests for NLP bridge functions.\n\nVerifies that fallback output format matches expected structure and\nthat the bridge layer correctly delegates to fallback implementations.\nAll tests run in fallback mode (no Rust dependency).\n\"\"\"\n\nfrom __future__ import annotations\n\nimport pytest\n\nfrom scri",
+      "tags": [
+        "create",
+        "imports",
+        "python",
+        "class",
+        "test",
+        "function"
+      ],
+      "timestamp": "2026-03-15T16:31:35.806917",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8a1c61ae82ad1434",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_ml/__init__.py",
+      "operation": "create",
+      "content_preview": "# touring_ml — Feature engineering and ML pipeline for Touring intelligence.\n",
+      "tags": [
+        "create",
+        "python"
+      ],
+      "timestamp": "2026-03-16T23:54:21.740964",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "0f95a449d552eba7",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-cognitive/src/got.rs",
+      "operation": "create",
+      "content_preview": "//! Graph of Thoughts (GoT) — parallel heuristic evaluation via tokio channels.\n//!\n//! GoT extends the touring-cognitive crate with parallel thought exploration:\n//! each node evaluates a heuristic independently, results are collected\n//! via tokio mpsc channels, and the best path is selected.\n//!\n",
+      "tags": [
+        "create",
+        "async",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-17T00:03:42.566199",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "46fdee9238b1786c",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-agents/src/kazuba_agents/morpheus/compiler.py",
+      "operation": "create",
+      "content_preview": "\"\"\"WasmCompiler — Rust → wasm32-unknown-unknown compilation for MORPHEUS plugins.\"\"\"\nfrom __future__ import annotations\n\nimport subprocess\nfrom pathlib import Path\n\n\nclass WasmCompiler:\n    \"\"\"Compile Rust source to WASM via cargo build --target wasm32-unknown-unknown.\"\"\"\n\n    def __init__(self, wor",
+      "tags": [
+        "create",
+        "function",
+        "class",
+        "python",
+        "imports"
+      ],
+      "timestamp": "2026-03-17T00:14:14.005304",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fbf2fa07a62e5f69",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/Cargo.toml",
+      "operation": "create",
+      "content_preview": "[package]\nname = \"touring-rules\"\nversion = \"0.1.0\"\nedition = \"2021\"\ndescription = \"Business rules engine integration via gorules/zen for regulatory decision tables\"\n\n[dependencies]\nzen-engine = \"0.55\"\nserde = { workspace = true }\nserde_json = { workspace = true }\ntokio = { workspace = true }\nthiserr",
+      "tags": [
+        "create",
+        "configuration",
+        "toml",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-17T00:47:15.737065",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b63e3be541cdf0a9",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/src/lib.rs",
+      "operation": "create",
+      "content_preview": "//! touring-rules: Business rules engine for regulatory decision tables.\n//!\n//! Wraps gorules/zen-engine to provide:\n//! - Load JDM (JSON Decision Model) files from directory\n//! - Evaluate rules against input data\n//! - Return structured JSON results\n//!\n//! Use case: ANTT regulatory rules (Fator ",
+      "tags": [
+        "create",
+        "claude-config",
+        "async",
+        "rust"
+      ],
+      "timestamp": "2026-03-17T00:49:39.991399",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b8d2ee90fd8f1c8c",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/analyze_edit_errors.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"Analyze edit error patterns from touring_knowledge.db.\n\nConnects to the Touring knowledge database and reports recurring edit\nerrors grouped by file and error pattern. For patterns with count >= 3,\nsuggests gotcha entries that could prevent future occurrences.\n\nUsage:\n    p",
+      "tags": [
+        "create",
+        "python",
+        "function",
+        "imports"
+      ],
+      "timestamp": "2026-03-19T00:21:00.639975",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8a36b0d1d8c27327",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/session_insights.rs",
+      "operation": "create",
+      "content_preview": "//! Cross-session knowledge transfer via session insights.\n//!\n//! Extracts valuable learnings at session end (Stop event) and\n//! persists them as JSON for warm-starting the next session (SessionStart).\n//!\n//! Flow: Stop → extract_session_insights() → save() → [file]\n//!       SessionStart → load_",
+      "tags": [
+        "create",
+        "rust",
+        "imports",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:21:40.881435",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "49409ef917e0447f",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/rules/prefetch_threshold.json",
+      "operation": "create",
+      "content_preview": "{\n    \"nodes\": [\n        {\n            \"id\": \"input\",\n            \"name\": \"Request\",\n            \"type\": \"inputNode\",\n            \"position\": {\"x\": 0, \"y\": 0}\n        },\n        {\n            \"id\": \"dt1\",\n            \"name\": \"ThresholdDecision\",\n            \"type\": \"decisionTableNode\",\n            \"",
+      "tags": [
+        "create",
+        "json",
+        "claude-config",
+        "configuration"
+      ],
+      "timestamp": "2026-03-19T00:31:24.807219",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8f9cec357349f149",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/benches/classifier.rs",
+      "operation": "create",
+      "content_preview": "//! Criterion benchmarks for CILA intent classification.\n//!\n//! Benchmarks the IntentClassifier (48-pattern RegexSet) and CachedIntentClassifier\n//! across different CILA levels with realistic prompt texts.\n\nuse criterion::{black_box, criterion_group, criterion_main, Criterion};\nuse touring_hooks::",
+      "tags": [
+        "create",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:42:38.582888",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "829e5c12aff896bd",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/templates/mod.rs",
+      "operation": "create",
+      "content_preview": "//! Self-improving context injection templates.\n//!\n//! Templates are versioned text patterns for context injection.\n//! They evolve via UCB1 selection and mutation based on reward feedback.\n//!\n//! Unlike the `bandit` module (LinUCB for *what type* of context to inject),\n//! this module manages the",
+      "tags": [
+        "create",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:42:43.286788",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "4068e46a51c2ef59",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-nlp/benches/keyword_matcher.rs",
+      "operation": "create",
+      "content_preview": "//! Criterion benchmarks for Aho-Corasick keyword matching.\n//!\n//! Benchmarks KeywordMatcher with ANTT regulatory patterns on documents\n//! of varying sizes, plus Levenshtein distance computation.\n\nuse criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};\nuse touring_nlp:",
+      "tags": [
+        "create",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:42:58.299510",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "6620b19f12b600a3",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/rust_quality_flywheel.sh",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env bash\n# Rust Quality Flywheel — 8-gate validation for .claude/rust/ workspace\n# Exit 0 = all pass, non-zero = number of failed gates\nset -uo pipefail\n\nRUST_DIR=\"/home/gabrielgadea/projects/analise/.claude/rust\"\ncd \"$RUST_DIR\"\n\nPASS=0\nFAIL=0\n\ngate() {\n    local name=\"$1\"\n    shift\n    e",
+      "tags": [
+        "create",
+        "shell"
+      ],
+      "timestamp": "2026-03-19T00:48:21.506330",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e2d137e352e556d9",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/rust_quality_flywheel.sh",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env bash\n# Rust Quality Flywheel — 8-gate validation for .claude/rust/ workspace\n# Exit 0 = all pass, non-zero = number of failed gates\n\nRUST_DIR=\"/home/gabrielgadea/projects/analise/.claude/rust\"\ncd \"$RUST_DIR\" || exit 1\n\nPASS=0\nFAIL=0\n\ngate() {\n    local name=\"$1\"\n    shift\n    echo -n ",
+      "tags": [
+        "create",
+        "shell"
+      ],
+      "timestamp": "2026-03-19T00:49:15.726046",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "058a45e3906df4be",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_flywheel_e2e.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"Auditoria Cruzada E2E — Flywheel Funcional.\n\nVerifica que CADA componente implementado no plano rust-workspace-exponential\ncumpre seu propósito funcional, não apenas que compila/não crasha.\n\nDimensões auditadas:\n  A1. FocusCache LRU-16 — multi-file hit rate real\n  A2. Gotch",
+      "tags": [
+        "create",
+        "class",
+        "function",
+        "imports",
+        "python"
+      ],
+      "timestamp": "2026-03-19T01:34:55.054188",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "50af143867d9dc4c",
+      "file_path": "/home/gabrielgadea/cli-anything/touring/cli_anything/touring/core/gotcha.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Gotcha database operations — Tier 1 (SQLite direct, <10ms).\"\"\"\nfrom __future__ import annotations\n\nfrom .db import KNOWLEDGE_DB, connect\n\n\ndef add(pattern: str, gotcha_text: str, severity: str = \"warning\", symbol_name: str | None = None) -> dict:\n    \"\"\"Add a gotcha entry.\"\"\"\n    with connect(KNO",
+      "tags": [
+        "create",
+        "imports",
+        "function",
+        "python"
+      ],
+      "timestamp": "2026-03-19T01:55:46.880668",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ad6b730be96fea19",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_s00_wiring_fix.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"\nS0.0 Wiring Fix Cross-Audit — 15 checks across 5 dimensions.\n\nProves that the 3 S0.0 fixes (P5.2 RL loop, ParserPool reuse, LinUCB persistence)\nwork in the REAL system — integrated, end-to-end.\n\nAuthor: TACO Cross-Audit Engine\nDate: 2026-03-19\n\"\"\"\n\nimport json\nimport os\nim",
+      "tags": [
+        "create",
+        "imports",
+        "class",
+        "function",
+        "python"
+      ],
+      "timestamp": "2026-03-19T22:32:21.253935",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3aee82c53d67e82f",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/shadow.rs",
+      "operation": "create",
+      "content_preview": "//! Shadow Workspace — in-memory file overlay for speculative validation.\n//!\n//! Applies edits without touching the real filesystem, enabling lint-before-edit.\n//!\n//! ## Architecture\n//!\n//! `ShadowWorkspace` holds a `HashMap<PathBuf, String>` overlay. Reads check the\n//! overlay first, then fall ",
+      "tags": [
+        "create",
+        "imports",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T23:02:06.311900",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "dc330dedcb07f191",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/hooks/touring/_rl_reward_emitter.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"RL Reward Emitter v2 — Multi-dimensional PostToolUse hook.\n\nEvent: PostToolUse\nPurpose: Computes rich, discriminative reward signals from every tool\nexecution and feeds them into the RL system (QTable, Wilson, Drift).\n\nChanges from v1 (uniform rewards):\n  - Rework detection",
+      "tags": [
+        "create",
+        "function",
+        "python",
+        "imports",
+        "claude-config",
+        "hook"
+      ],
+      "timestamp": "2026-03-21T09:22:19.060304",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9c98ef68ee2bed7e",
+      "file_path": "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/memory/rl-quality-enhancement-s1s2.md",
+      "operation": "create",
+      "content_preview": "---\nname: RL Quality Enhancement S1+S2 Implemented\ndescription: G-RLQ-001 S1 (rich reward signal) and S2 (file risk memory) implemented and verified. S3-S5 planned in .claude/plans/rl-quality-enhancement.md.\ntype: project\n---\n\n## G-RLQ-001 — RL Quality Enhancement (2026-03-21)\n\n### S1: Rich Reward S",
+      "tags": [
+        "create",
+        "claude-config",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-21T12:03:39.723132",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "10aaa30c41add812",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-geo-engine/src/kazuba_geo_engine/__init__.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Kazuba Geo Engine — High-performance geospatial modeling for road infrastructure.\n\nProvides R-Tree spatial indexing, Dijkstra routing with BPR cost functions,\nand HDM-4 IRI pavement deterioration modeling with geo-correction.\n\nAll computation happens in Rust via PyO3 for maximum performance.\n\"\"\"\n",
+      "tags": [
+        "create",
+        "imports",
+        "python"
+      ],
+      "timestamp": "2026-03-21T12:44:32.475122",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f8cb452f58710941",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-geo-engine/README.md",
+      "operation": "create",
+      "content_preview": "# kazuba-geo-engine\n\nHigh-performance geospatial engine for road infrastructure modeling, built in Rust with Python bindings via PyO3.\n\n## Features\n\n- **R-Tree Spatial Index** — O(log n) nearest-neighbor queries on highway km markers\n- **Road Network Routing** — Dijkstra shortest path with BPR volum",
+      "tags": [
+        "create",
+        "readme",
+        "documentation",
+        "markdown",
+        "imports"
+      ],
+      "timestamp": "2026-03-21T13:01:04.544834",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T13:01:06.939240",
+    "total_patterns": 25,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "create"
+  }
+}

@@ -1,0 +1,22 @@
+{
+ "captured": "2026-07-02",
+ "n": 32,
+ "mean": 0.9521,
+ "median": 0.9565,
+ "min": 0.8929,
+ "max": 0.9857,
+ "bands": {
+  "0.95+ Diamond": 19,
+  "0.90-0.95 Plat": 12,
+  "0.80-0.90 Gold": 1,
+  "0.70-0.80 Silver": 0,
+  "0.60-0.70 Bronze": 0,
+  "<0.60 Unranked": 0
+ },
+ "tiers": {
+  "Platinum": 5,
+  "Diamond": 16,
+  "Silver": 11
+ },
+ "note": "broad multi-language corpus post-reform; validates the composite now DISCRIMINATES (pre-reform was compressed at 0.85-1.0)"
+}

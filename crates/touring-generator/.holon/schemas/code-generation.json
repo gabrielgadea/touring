@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-code-generation.schema.json",
+  "title": "Capability: code-generation",
+  "description": "Full Draft→Committed generator pipeline",
+  "type": "object",
+  "additionalProperties": true
+}

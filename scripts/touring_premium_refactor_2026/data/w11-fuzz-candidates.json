@@ -1,0 +1,96 @@
+{
+  "script": "w11_fuzz_target_seeder",
+  "wave": "W11",
+  "subtask_refs": [
+    "W11.5"
+  ],
+  "timestamp": "2026-05-12T00:53:39.620752+00:00",
+  "status": "OK",
+  "totals": {
+    "candidates": 59,
+    "stubs_emitted": 0
+  },
+  "top_20_candidates": [
+    {
+      "file": "crates/touring-server/src/agent_diary.rs",
+      "function": "parse"
+    },
+    {
+      "file": "crates/touring-server/src/tools/diff_parser.rs",
+      "function": "parse_unified_diff"
+    },
+    {
+      "file": "crates/touring-server/src/tools/generator_tools.rs",
+      "function": "parse_plan"
+    },
+    {
+      "file": "crates/touring-server/src/output/toon.rs",
+      "function": "deserialize_symbols"
+    },
+    {
+      "file": "crates/touring-server/src/cli/discover.rs",
+      "function": "parse_response"
+    },
+    {
+      "file": "crates/touring-server/src/cli/common.rs",
+      "function": "parse_global_flags"
+    },
+    {
+      "file": "crates/touring-server/src/cli/dsl.rs",
+      "function": "parse"
+    },
+    {
+      "file": "crates/touring-server/src/cli/resolve_def.rs",
+      "function": "parse_position"
+    },
+    {
+      "file": "crates/touring-cognitive/src/snapshot.rs",
+      "function": "from_bytes"
+    },
+    {
+      "file": "crates/touring-resource-monitor/src/memory/swap.rs",
+      "function": "parse_vmstat"
+    },
+    {
+      "file": "crates/touring-resource-monitor/src/memory/meminfo.rs",
+      "function": "parse_meminfo"
+    },
+    {
+      "file": "crates/touring-resource-monitor/src/memory/psi.rs",
+      "function": "parse_psi"
+    },
+    {
+      "file": "crates/touring-tasksfile/src/env_file.rs",
+      "function": "parse_env_file"
+    },
+    {
+      "file": "crates/touring-tasksfile/src/env_file.rs",
+      "function": "parse_env_content"
+    },
+    {
+      "file": "crates/touring-tasksfile/src/include.rs",
+      "function": "parse_netrc"
+    },
+    {
+      "file": "crates/touring-tasksfile/src/parser.rs",
+      "function": "parse_yaml"
+    },
+    {
+      "file": "crates/touring-antt/src/monetary_parser.rs",
+      "function": "parse_monetary"
+    },
+    {
+      "file": "crates/touring-antt/src/monetary_parser.rs",
+      "function": "parse_monetary_batch"
+    },
+    {
+      "file": "crates/touring-definitions/src/data.rs",
+      "function": "parse_universal_rules"
+    },
+    {
+      "file": "crates/touring-definitions/src/data.rs",
+      "function": "parse_categories"
+    }
+  ],
+  "stubs_emitted": []
+}

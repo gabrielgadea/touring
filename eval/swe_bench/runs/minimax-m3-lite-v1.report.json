@@ -1,0 +1,372 @@
+{
+  "solver": "file",
+  "total": 20,
+  "resolved": 20,
+  "resolved_pct": 1.0,
+  "claimed_resolved": 20,
+  "vgp_false_positives": 0,
+  "vgp_false_positive_rate": 0.0,
+  "mean_tokens": 580.2,
+  "results": [
+    {
+      "instance_id": "lite__rust-overflow",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 490,
+      "fail_to_pass": {
+        "t_overflow": true
+      },
+      "pass_to_pass": {
+        "t_basic": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-range-off-by-one",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 632,
+      "fail_to_pass": {
+        "t_five": true
+      },
+      "pass_to_pass": {
+        "t_zero": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-max-of",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 604,
+      "fail_to_pass": {
+        "t_multi": true
+      },
+      "pass_to_pass": {
+        "t_single": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-div-guard",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 496,
+      "fail_to_pass": {
+        "t_zero": true
+      },
+      "pass_to_pass": {
+        "t_basic": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-clamp-upper",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 662,
+      "fail_to_pass": {
+        "t_high": true
+      },
+      "pass_to_pass": {
+        "t_mid": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-count-vowels",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 608,
+      "fail_to_pass": {
+        "t_u": true
+      },
+      "pass_to_pass": {
+        "t_no_u": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-abs-diff",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 481,
+      "fail_to_pass": {
+        "t_neg": true
+      },
+      "pass_to_pass": {
+        "t_pos": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-parse-or-zero",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 458,
+      "fail_to_pass": {
+        "t_bad": true
+      },
+      "pass_to_pass": {
+        "t_num": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-palindrome",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 607,
+      "fail_to_pass": {
+        "t_no": true
+      },
+      "pass_to_pass": {
+        "t_yes": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-last-of",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 462,
+      "fail_to_pass": {
+        "t_multi": true
+      },
+      "pass_to_pass": {
+        "t_single": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-first-word",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 800,
+      "fail_to_pass": {
+        "t_two": true
+      },
+      "pass_to_pass": {
+        "t_one": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-gcd",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 761,
+      "fail_to_pass": {
+        "t_pair": true
+      },
+      "pass_to_pass": {
+        "t_zero": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-capitalize",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 745,
+      "fail_to_pass": {
+        "t_word": true
+      },
+      "pass_to_pass": {
+        "t_empty": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__rust-is-sorted",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 864,
+      "fail_to_pass": {
+        "t_unsorted": true
+      },
+      "pass_to_pass": {
+        "t_sorted": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__py-div-guard",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 427,
+      "fail_to_pass": {
+        "t_zero": true
+      },
+      "pass_to_pass": {
+        "t_basic": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__py-mutable-default",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 420,
+      "fail_to_pass": {
+        "t_isolation": true
+      },
+      "pass_to_pass": {
+        "t_single": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__py-slice-off-by-one",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 426,
+      "fail_to_pass": {
+        "t_part": true
+      },
+      "pass_to_pass": {
+        "t_full": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__py-dict-get",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 387,
+      "fail_to_pass": {
+        "t_miss": true
+      },
+      "pass_to_pass": {
+        "t_hit": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__py-average-intdiv",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 509,
+      "fail_to_pass": {
+        "t_frac": true
+      },
+      "pass_to_pass": {
+        "t_whole": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "lite__py-capitalize",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 765,
+      "fail_to_pass": {
+        "t_word": true
+      },
+      "pass_to_pass": {
+        "t_empty": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    }
+  ]
+}

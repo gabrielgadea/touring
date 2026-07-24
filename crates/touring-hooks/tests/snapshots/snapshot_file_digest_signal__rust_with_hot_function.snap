@@ -1,0 +1,6 @@
+---
+source: crates/touring-hooks/tests/snapshot_file_digest_signal.rs
+expression: normalize(out)
+---
+- "1.00"
+- "digest(30L, 2 symbols, CC avg=12 max=23, hot: classify)"

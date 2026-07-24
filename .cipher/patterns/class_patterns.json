@@ -1,0 +1,74 @@
+{
+  "patterns": [
+    {
+      "id": "3684225c3bcce44b",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-agents/src/kazuba_agents/agents/morpheus/observer.py",
+      "operation": "create",
+      "content_preview": "\"\"\"RAG Metrics Observer — monitors precision/recall from ESAA event store.\"\"\"\nfrom __future__ import annotations\n\nimport json\nimport logging\nfrom dataclasses import dataclass\nfrom pathlib import Path\n\nlogger = logging.getLogger(__name__)\n\n\n@dataclass(frozen=True)\nclass RagMetrics:\n    \"\"\"Observed RA",
+      "tags": [
+        "class",
+        "imports",
+        "function",
+        "python",
+        "create"
+      ],
+      "timestamp": "2026-03-17T00:06:16.913816",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "221d0aa590805602",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-agents/src/kazuba_agents/agents/morpheus/agent.py",
+      "operation": "create",
+      "content_preview": "\"\"\"MorpheusAgent — 15th Kazuba agent for autonomous NLP extractor evolution.\n\nOrchestrates the CILA L5 self-modifying loop:\n    observe → detect → generate → compile → load → measure → learn\n\"\"\"\nfrom __future__ import annotations\n\nimport logging\nimport subprocess\nfrom dataclasses import dataclass\nfr",
+      "tags": [
+        "class",
+        "imports",
+        "python",
+        "async",
+        "create",
+        "function"
+      ],
+      "timestamp": "2026-03-17T00:06:41.990355",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b363aae6b806290d",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/mef_impact/models.py",
+      "operation": "modify",
+      "content_preview": "OLD:     impacto: ImpactLevel = ImpactLevel.NENHUM\n    detalhes: str = \"\"\n\n\nclass TrafficImpact(BaseModel, frozen=True):\nNEW:     impacto: ImpactLevel = ImpactLevel.NENHUM\n    detalhes: str = \"\"\n\n    # S1: Financial Enrichment — sensitivity analysis (Optional, None when CLK unavailable)\n    sensibil",
+      "tags": [
+        "class",
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-17T20:29:12.179789",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "cacf86743a760b92",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_v9_hooks_plan.py",
+      "operation": "create",
+      "content_preview": "\"\"\"G-TV9-HOOKS-001 -- Touring v9.0 Hooks Potentialization Plan Generator.\n\nN1 meta-generator that produces the complete implementation plan for\nadding 9 new hooks across 4 phases to the Touring Rust workspace,\ncompleting RL signal coverage, speculative validation, context\noptimization with strict bu",
+      "tags": [
+        "class",
+        "async",
+        "imports",
+        "function",
+        "create",
+        "python"
+      ],
+      "timestamp": "2026-03-20T11:43:40.268763",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-20T11:43:42.494472",
+    "total_patterns": 4,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "class"
+  }
+}

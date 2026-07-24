@@ -1,0 +1,32 @@
+[package]
+name = "touring-loom-proofs"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Isolated crate for loom concurrency-model proofs of the touring-daemon actor pattern. Has zero touring dependencies so `--cfg loom` does not propagate into hyper-util / tokio transitive graphs."
+
+# This crate is DELIBERATELY deps-less save for loom. The sole reason it
+# exists is the following ecosystem quirk:
+#
+#   RUSTFLAGS="--cfg loom" recompiles every crate in scope with loom's
+#   shadow primitives. hyper-util (pulled in transitively via reqwest by
+#   touring-foundation's `gpu-embeddings` feature) uses `tokio::net::UnixStream`
+#   which has no loom shim, so the workspace build fails.
+#
+# Usage:
+#   RUSTFLAGS="--cfg loom" cargo test -p touring-loom-proofs --release
+#
+# Without the cfg, the tests in `tests/actor_invariants.rs` are gated with
+# `#![cfg(loom)]` and compile as an empty binary — zero impact on regular
+# `cargo test --workspace`.
+
+[dev-dependencies]
+# The ONLY dep. Adding anything here risks re-introducing the transitive
+# dep conflict we moved this crate out of touring-hooks to escape.
+loom = { workspace = true }
+
+[lints]
+workspace = true

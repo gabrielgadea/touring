@@ -1,0 +1,161 @@
+{
+  "patterns": [
+    {
+      "id": "75dcece73d4e5a4b",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD:     \"crates/touring-learning\",\n    \"crates/touring-ast\",\nNEW:     \"crates/touring-learning\",\n    \"crates/touring-hooks\",\n    \"crates/touring-ast\",",
+      "tags": [
+        "configuration",
+        "toml",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-16T23:40:51.992871",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "536cd4e6da5cae71",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: # Semantic graph persistence\nrkyv = { version = \"0.7\", features = [\"validation\", \"std\"] }\n\n# Misc\nNEW: # Semantic graph persistence\nrkyv = { version = \"0.7\", features = [\"validation\", \"std\"] }\n\n# Memory-mapped I/O\nmemmap2 = \"0.9\"\n\n# Misc",
+      "tags": [
+        "configuration",
+        "claude-config",
+        "toml",
+        "modify"
+      ],
+      "timestamp": "2026-03-16T23:52:15.971541",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "29de62fbd45e06da",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [features]\ndefault = []\nwasm-plugins = [\"dep:wasmtime\", \"dep:wat\"]\n\n[dependencies]\nwasmtime = { version = \"42\", default-features = false, features = [\"cranelift\", \"runtime\"], optional = true }\nwat = { version = \"1.245\", optional = true }\nNEW: [features]\ndefault = []\nwasm-plugins = [\"dep:wasmtim",
+      "tags": [
+        "configuration",
+        "modify",
+        "toml",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-17T00:01:55.912633",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "860f273a0bc1bec3",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: # Memory-mapped I/O\nmemmap2 = \"0.9\"\n\n# Misc\nNEW: # Memory-mapped I/O\nmemmap2 = \"0.9\"\n\n# WASM runtime (optional — for plugin system)\nwasmtime = { version = \"42\", default-features = false, features = [\"cranelift\", \"runtime\"] }\nwat = \"1.245\"\n\n# Misc",
+      "tags": [
+        "configuration",
+        "claude-config",
+        "toml",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T00:12:24.913694",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c6626e13c09b4325",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: hnsw-working-memory = [\"dep:bumpalo\", \"dep:instant-distance\"]\nNEW: hnsw-working-memory = [\"dep:bumpalo\", \"dep:instant-distance\", \"dep:tokio\"]",
+      "tags": [
+        "configuration",
+        "modify",
+        "claude-config",
+        "toml"
+      ],
+      "timestamp": "2026-03-17T00:28:10.799423",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "83f579f501da56f5",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-core/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [features]\ndefault = []\ngpu-embeddings = [\"dep:reqwest\"]\nNEW: [features]\ndefault = []\ngpu-embeddings = [\"dep:reqwest\"]\n\n[lints]\nworkspace = true",
+      "tags": [
+        "configuration",
+        "toml",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-18T23:57:35.535588",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f3c3df7a33b3857a",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-python/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: chrono = { workspace = true }\nNEW: chrono = { workspace = true }\n\n[lints]\nworkspace = true",
+      "tags": [
+        "configuration",
+        "modify",
+        "toml",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-18T23:57:46.179450",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f0e50139aaa34185",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-ast/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: streaming-iterator = { workspace = true }\nNEW: streaming-iterator = { workspace = true }\nropey = { workspace = true }",
+      "tags": [
+        "configuration",
+        "modify",
+        "toml",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T22:46:32.957826",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fc6aa99722151fcf",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/settings.local.json",
+      "operation": "modify",
+      "content_preview": "OLD:     \"PostToolUseFailure\": [\n      {\n        \"matcher\": \"Write|Edit|MultiEdit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"$CLAUDE_PROJECT_DIR/.venv/bin/python $CLAUDE_PROJECT_DIR/.claude/hooks/touring/failure_auto_fix.py\",\n            \"timeout\": 5,\n   ",
+      "tags": [
+        "configuration",
+        "settings",
+        "claude-config",
+        "async",
+        "modify",
+        "json"
+      ],
+      "timestamp": "2026-03-20T13:06:58.904004",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "47d502c06aa28042",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-geo-engine/pyproject.toml",
+      "operation": "create",
+      "content_preview": "[build-system]\nrequires = [\"maturin>=1.5,<2.0\"]\nbuild-backend = \"maturin\"\n\n[project]\nname = \"kazuba-geo-engine\"\nversion = \"0.1.0\"\ndescription = \"High-performance geospatial engine for road infrastructure modeling\"\nrequires-python = \">=3.10\"\ndependencies = [\n    \"pydantic>=2.0\",\n    \"numpy>=1.24\",\n]\n",
+      "tags": [
+        "configuration",
+        "toml",
+        "create"
+      ],
+      "timestamp": "2026-03-21T12:44:28.021525",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T12:44:30.372524",
+    "total_patterns": 10,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "configuration"
+  }
+}

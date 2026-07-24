@@ -1,0 +1,291 @@
+[
+  {
+    "name_exact": "main",
+    "class": "FunctionDef",
+    "priority": 100,
+    "confidence": 1.0,
+    "file_pattern": null
+  },
+  {
+    "name_prefix": "test_",
+    "class": "FunctionDef",
+    "priority": 80,
+    "confidence": 0.9
+  },
+  {
+    "name_suffix": "_test",
+    "class": "FunctionDef",
+    "priority": 80,
+    "confidence": 0.9
+  },
+  {
+    "name_prefix": "bench_",
+    "class": "FunctionDef",
+    "priority": 70,
+    "confidence": 0.85
+  },
+  {
+    "name_prefix": "setup_",
+    "class": "FunctionDef",
+    "priority": 60,
+    "confidence": 0.75
+  },
+  {
+    "name_prefix": "teardown_",
+    "class": "FunctionDef",
+    "priority": 60,
+    "confidence": 0.75
+  },
+  {
+    "name_exact": "new",
+    "class": "FunctionDef",
+    "priority": 50,
+    "confidence": 0.7
+  },
+  {
+    "name_exact": "default",
+    "class": "FunctionDef",
+    "priority": 50,
+    "confidence": 0.7
+  },
+  {
+    "name_exact": "clone",
+    "class": "FunctionDef",
+    "priority": 50,
+    "confidence": 0.7
+  },
+  {
+    "name_exact": "drop",
+    "class": "FunctionDef",
+    "priority": 50,
+    "confidence": 0.7
+  },
+  {
+    "name_pattern": "^is_[a-z_]+$",
+    "class": "FunctionDef",
+    "priority": 45,
+    "confidence": 0.8
+  },
+  {
+    "name_pattern": "^has_[a-z_]+$",
+    "class": "FunctionDef",
+    "priority": 45,
+    "confidence": 0.8
+  },
+  {
+    "name_pattern": "^are_[a-z_]+$",
+    "class": "FunctionDef",
+    "priority": 45,
+    "confidence": 0.8
+  },
+  {
+    "name_pattern": "^can_[a-z_]+$",
+    "class": "FunctionDef",
+    "priority": 45,
+    "confidence": 0.8
+  },
+  {
+    "name_prefix": "get_",
+    "class": "FunctionDef",
+    "priority": 40,
+    "confidence": 0.65
+  },
+  {
+    "name_prefix": "set_",
+    "class": "FunctionDef",
+    "priority": 40,
+    "confidence": 0.65
+  },
+  {
+    "name_prefix": "to_",
+    "class": "FunctionDef",
+    "priority": 35,
+    "confidence": 0.6
+  },
+  {
+    "name_prefix": "from_",
+    "class": "FunctionDef",
+    "priority": 35,
+    "confidence": 0.6
+  },
+  {
+    "name_prefix": "as_",
+    "class": "FunctionDef",
+    "priority": 30,
+    "confidence": 0.55
+  },
+  {
+    "name_prefix": "on_",
+    "class": "FunctionDef",
+    "priority": 25,
+    "confidence": 0.5
+  },
+  {
+    "name_prefix": "handle_",
+    "class": "FunctionDef",
+    "priority": 30,
+    "confidence": 0.6
+  },
+  {
+    "name_prefix": "process_",
+    "class": "FunctionDef",
+    "priority": 25,
+    "confidence": 0.5
+  },
+  {
+    "name_prefix": "parse_",
+    "class": "FunctionDef",
+    "priority": 30,
+    "confidence": 0.6
+  },
+  {
+    "name_prefix": "build_",
+    "class": "FunctionDef",
+    "priority": 30,
+    "confidence": 0.6
+  },
+  {
+    "name_prefix": "create_",
+    "class": "FunctionDef",
+    "priority": 30,
+    "confidence": 0.6
+  },
+  {
+    "name_prefix": "update_",
+    "class": "FunctionDef",
+    "priority": 25,
+    "confidence": 0.5
+  },
+  {
+    "name_prefix": "delete_",
+    "class": "FunctionDef",
+    "priority": 25,
+    "confidence": 0.5
+  },
+  {
+    "name_prefix": "validate_",
+    "class": "FunctionDef",
+    "priority": 30,
+    "confidence": 0.6
+  },
+  {
+    "name_prefix": "check_",
+    "class": "FunctionDef",
+    "priority": 25,
+    "confidence": 0.5
+  },
+  {
+    "name_pattern": ".*Error$",
+    "class": "TypeDef",
+    "priority": 70,
+    "confidence": 0.9
+  },
+  {
+    "name_pattern": ".*Result$",
+    "class": "TypeDef",
+    "priority": 70,
+    "confidence": 0.9
+  },
+  {
+    "name_pattern": ".*Config$",
+    "class": "StructDef",
+    "priority": 70,
+    "confidence": 0.9
+  },
+  {
+    "name_pattern": ".*Options$",
+    "class": "StructDef",
+    "priority": 65,
+    "confidence": 0.85
+  },
+  {
+    "name_pattern": ".*Settings$",
+    "class": "StructDef",
+    "priority": 65,
+    "confidence": 0.85
+  },
+  {
+    "name_pattern": ".*State$",
+    "class": "StructDef",
+    "priority": 60,
+    "confidence": 0.8
+  },
+  {
+    "name_pattern": ".*Event$",
+    "class": "StructDef",
+    "priority": 55,
+    "confidence": 0.75
+  },
+  {
+    "name_pattern": ".*Request$",
+    "class": "StructDef",
+    "priority": 55,
+    "confidence": 0.75
+  },
+  {
+    "name_pattern": ".*Response$",
+    "class": "StructDef",
+    "priority": 55,
+    "confidence": 0.75
+  },
+  {
+    "name_pattern": ".*Response$",
+    "class": "StructDef",
+    "priority": 55,
+    "confidence": 0.75
+  },
+  {
+    "name_pattern": ".*Handler$",
+    "class": "StructDef",
+    "priority": 50,
+    "confidence": 0.7
+  },
+  {
+    "name_pattern": ".*Provider$",
+    "class": "StructDef",
+    "priority": 50,
+    "confidence": 0.7
+  },
+  {
+    "name_pattern": ".*Builder$",
+    "class": "StructDef",
+    "priority": 50,
+    "confidence": 0.7
+  },
+  {
+    "name_pattern": ".*Writer$",
+    "class": "StructDef",
+    "priority": 45,
+    "confidence": 0.65
+  },
+  {
+    "name_pattern": ".*Reader$",
+    "class": "StructDef",
+    "priority": 45,
+    "confidence": 0.65
+  },
+  {
+    "name_pattern": ".*Manager$",
+    "class": "StructDef",
+    "priority": 45,
+    "confidence": 0.65
+  },
+  {
+    "name_pattern": ".*Service$",
+    "class": "StructDef",
+    "priority": 45,
+    "confidence": 0.65
+  },
+  {
+    "name_pattern": ".*Engine$",
+    "class": "StructDef",
+    "priority": 45,
+    "confidence": 0.65
+  },
+  {
+    "name_pattern": "^[A-Z][a-zA-Z0-9]+$",
+    "class": "TypeDef",
+    "priority": 35,
+    "confidence": 0.6
+  }
+]

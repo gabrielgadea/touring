@@ -1,0 +1,138 @@
+metadata:
+  intent: "Implement PLN11 B6 lexcore-compliance-rs domain types: ComplianceDomain, ComplianceLevel, ComplianceRequirement, ComplianceViolation, ComplianceResult, LGPDComplianceChecker, AccessibilityComplianceChecker, ComplianceManager, VerificationManager in lexcore-compliance-rs/src/types.rs and lexcore-compliance-rs/src/lib.rs"
+  task_id: task_1777862823338860227
+  cila_level: 3
+  title: Implement PLN11 B6 lexcore-compliance-rs domain types
+  plan_id: implement-pln11-b6-lexcore-compliance-rs-domain-types
+  intent_sha12: cc013ac0bf33
+  generated_at: "2026-05-04T02:47:06.490568Z"
+  generator: taco-forge plan --quality high
+  generator_version: 1.15.0
+  quality_dimensions:
+    a_precision: VGP-verified symbols + Touring CLI evidence
+    b_scalability: DAG decomposition; per-phase isolation
+    c_performance: discover ~3s; VGP cached via memory store
+    d_applicability: 31 generator kinds; 10 assist handlers
+    e_code_quality: TDD enforced; clippy 0; tdg >= B
+    f_detail: validation script per phase; cross-audit final
+    g_systemic_integration: wiring orphans delta == 0; cycles 0
+    h_dependencies: cargo update + workspace-info checked
+    i_potentialization: "REGRA #0 — orphans wired; deliverables max scope"
+discover:
+  timestamp: "2026-05-04T02:47:03.377172Z"
+  daemon_healthy: true
+  composite_health_score: 0.5733
+  symbol_count: 26779
+  orphan_count: 6287
+  cycle_count: 0
+  ema_reward: 0.6552180869059542
+  drift_alert_level: degraded
+  workspace_packages: []
+  e2e_score: 0.0
+  gotcha_matches: []
+  memory_hits: []
+  tantivy_hits: []
+  synergy_wired_pairs: 50
+  synergy_metrics: {}
+vgp_results[8]:
+  -
+    symbol: ComplianceDomain
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceDomain at packages/lexcore-core/src/lexcore_core/legal/compliance.py:18"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.247560005169362
+    cached: false
+  -
+    symbol: ComplianceLevel
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceLevel at packages/lexcore-core/src/lexcore_core/legal/compliance.py:28"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.447287002345547
+    cached: false
+  -
+    symbol: ComplianceRequirement
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceRequirement at packages/lexcore-core/src/lexcore_core/legal/compliance.py:38"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.73826900939457
+    cached: false
+  -
+    symbol: ComplianceViolation
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceViolation at packages/lexcore-sdk-py/src/lexcore_sdk/models.py:90"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.80578199052252
+    cached: false
+  -
+    symbol: ComplianceResult
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceResult at packages/lexcore-mcp/src/lib.rs:35"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.91542400699109
+    cached: false
+  -
+    symbol: AccessibilityComplianceChecker
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: AccessibilityComplianceChecker at packages/lexcore-core/src/lexcore_core/legal/compliance.py:255"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.104367005638778
+    cached: false
+  -
+    symbol: ComplianceManager
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceManager at packages/lexcore-core/src/lexcore_core/legal/compliance.py:301"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.50913601811044
+    cached: false
+  -
+    symbol: VerificationManager
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: VerificationManager at packages/lexcore-core/src/lexcore_core/compliance/verification.py:251"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.229948997031897
+    cached: false
+phases[1]:
+  -
+    id: P1
+    title: Bootstrap (placeholder)
+    contribution: Establish the working baseline. Replace this phase with concrete decomposition via `touring decompose add` + re-run `taco-forge plan --quality high`.
+    impacts[2]: scope discovery,baseline metrics captured
+    deliverables[3]: plan/ — generated artifacts,validators/ — per-phase validators,checkpoints/ — TOON state snapshots
+    vgp_symbols: []
+    tdd_artifacts: []
+    validation:
+      cargo_check: false
+      cargo_test: false
+      cargo_test_filter: null
+      rust_package: null
+      tdg_files: []
+      tdg_min_grade: B
+      wiring_orphans_delta_max: 0
+      gate_metrics_required: true
+      e2e_depth: quick
+      e2e_min_score: 0.5
+      custom_steps: []
+      tdd_red_gate: false
+      tdd_green_gate: false
+      tdd_refactor_gate: false
+    dependencies: []
+    cross_refs: []
+    status: pending
+    cila_level: 3
+    estimated_effort_hours: 4.0
+    references: []
+    risks: []
+    rollback: ""
+    family: ""
+    definition_of_done: []
+final_goal: "Implement PLN11 B6 lexcore-compliance-rs domain types: ComplianceDomain, ComplianceLevel, ComplianceRequirement, ComplianceViolation, ComplianceResult, LGPDComplianceChecker, AccessibilityComplianceChecker, ComplianceManager, VerificationManager in lexcore-compliance-rs/src/types.rs and lexcore-compliance-rs/src/lib.rs"
+consequences[5]: "Codebase consequences: deliverables added/modified per phase; orphan delta == 0.","Testing consequences: test files generated BEFORE impl (TDD); validation scripts run per phase.","Memory consequences: outcome persisted via `touring memory store --tier semantic`.","RL consequences: reward injected per phase + final audit (closes feedback loop).","Documentation consequences: plan + validators + audit script tracked under plan/."
+success_criteria: []

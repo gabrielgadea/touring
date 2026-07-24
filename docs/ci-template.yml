@@ -1,0 +1,295 @@
+# CI template — MOVE TO `.github/workflows/ci.yml` AFTER MANUAL REVIEW.
+#
+# Reason this lives under `docs/`: the local security hook blocks direct
+# writes under `.github/workflows/` to force a human review pass against
+# workflow-injection patterns (https://github.blog/security/...).
+#
+# This template is injection-safe by construction:
+#   - No interpolation of `${{ github.event.* }}` into `run:` steps.
+#   - Untrusted input is never shelled out.
+# Promote by running: `mv docs/ci-template.yml .github/workflows/ci.yml`.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: "--cfg tokio_unstable -D warnings"
+
+jobs:
+  check:
+    name: check (fmt + clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo check
+        run: cargo check --workspace --all-targets
+
+  msrv:
+    # W2.8 (Wave 2026-05-12) — verify the MSRV declared in [workspace.package]
+    # (`rust-version = "1.80"`) actually compiles the workspace. Uses
+    # `cargo-msrv` to compile against the EXACT MSRV (not a "≥ MSRV" stable),
+    # so a typo or accidental use of a newer-than-MSRV feature fails the job.
+    # Runs in parallel with `check` (no `needs:`) — independent of clippy.
+    name: msrv (verify rust-version = 1.80)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.80
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv-1.80
+      - name: cargo check (MSRV toolchain)
+        # `--workspace --all-targets` covers libs, bins, tests, examples,
+        # benches. If any of these requires a newer Rust feature, the job
+        # fails with a clear "feature X requires Rust Y" error.
+        run: cargo check --workspace --all-targets
+
+  test:
+    name: test (nextest)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9
+      - name: nextest run
+        run: cargo nextest run --profile ci --workspace
+      - name: upload junit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: target/nextest/ci/junit.xml
+
+  coverage:
+    name: coverage (llvm-cov, >= 75%)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+      - name: generate lcov
+        run: |
+          cargo llvm-cov --workspace --lcov --output-path lcov.info \
+            --ignore-filename-regex 'tests/|benches/'
+      - name: enforce 75% line coverage threshold
+        run: cargo llvm-cov report --summary-only --fail-under-lines 75
+      - name: upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-report
+          path: lcov.info
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  audit:
+    name: cargo-audit (RustSec CVE feed)
+    # Tier A (2026-04-19) — complements cargo-deny. `deny` enforces license
+    # + banned-crate policy from deny.toml; `audit` pulls the live RustSec
+    # Advisory DB (https://rustsec.org) and fails on any known CVE.
+    # Both run because deny.toml currently ignores 3 advisories and we
+    # want a separate signal when a newly-published CVE lands upstream.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  machete:
+    name: cargo-machete (unused deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bnjbvr/cargo-machete@main
+
+  udeps:
+    name: cargo-udeps (deep unused-deps scan)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-udeps@0.1
+      - name: cargo udeps
+        # udeps requires nightly; machete runs on stable and catches obvious
+        # cases. udeps is the deeper check for dependencies only used through
+        # feature gates or conditional cfgs.
+        run: cargo +nightly udeps --workspace --all-targets
+
+  snapshot-check:
+    name: insta (snapshot drift)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-insta,cargo-nextest
+      - name: check pending snapshots
+        # `cargo insta pending-snapshots` exits non-zero if any *.new
+        # snapshot file is present — catches reviewers who forgot to
+        # `cargo insta review` before pushing.
+        run: |
+          cargo test --workspace --all-targets --no-fail-fast || true
+          pending=$(find . -name '*.snap.new' | wc -l)
+          if [ "$pending" -gt 0 ]; then
+            echo "::error::$pending pending snapshot(s) — run 'cargo insta review' locally"
+            find . -name '*.snap.new'
+            exit 1
+          fi
+
+  mutants-incremental:
+    name: cargo-mutants (--in-diff, PR only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants,cargo-nextest
+      - name: Compute PR diff
+        run: git diff origin/${{ github.base_ref }}.. > mutants.diff
+      - name: cargo mutants --in-diff
+        # Only test mutants in code changed by this PR — keeps the run under
+        # ~15min even for large workspaces. Weekly full scan runs separately.
+        run: cargo mutants --no-shuffle -vV --in-diff mutants.diff --timeout 300
+      - name: upload mutants output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-incremental-out
+          path: mutants.out
+
+  iai-callgrind:
+    # Wave B (2026-04-20) — deterministic instruction-count benchmarks
+    # via Valgrind Callgrind. Complements criterion/divan (wall-clock)
+    # and hdrhistogram P99 latency guards. Linux-only: Valgrind is
+    # unavailable on macOS/Windows runners in GitHub Actions.
+    name: iai-callgrind (instruction count)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: iai-callgrind-runner@0.16
+      - name: Run quality-metrics instruction-count benches
+        # Fails the job on regressions against stored baselines. First
+        # run on a branch populates the baseline; subsequent runs compare
+        # against it. `--quiet` keeps stdout tight; the per-bench
+        # callgrind output lands in `target/iai/`.
+        run: cargo bench -p touring-analysis --bench quality_metrics_iai -- --quiet
+      - name: Upload Callgrind artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iai-callgrind-output
+          path: target/iai/
+
+  mutation-baseline:
+    # Wave T2 (2026-04-25) — full-package mutation baseline via the
+    # `touring mutation-test` wrapper (T1). Complements `mutants-incremental`
+    # (PR-only diff): this job runs on a weekly cron + manual dispatch, scans
+    # an entire crate, and writes the report into the touring cache so that
+    # `touring repo-score` (R1, Testing category) and `touring kpi --check`
+    # (R2) can read it. Advisory only until baseline stabilises.
+    name: mutation-baseline (advisory, weekly)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants,cargo-nextest
+      - name: Build touring CLI (release)
+        # The wrapper invokes `cargo mutants` itself; we only need the
+        # `touring` binary to write the cache + emit the JSON envelope.
+        run: cargo build --release --bin touring --bin touring-hook
+      - name: Start touring daemon
+        run: |
+          nohup ./target/release/touring-hook --start-daemon \
+            > /tmp/touring-daemon-ci.log 2>&1 &
+          # Give the daemon a moment to bind the socket before the first call.
+          for _ in 1 2 3 4 5; do
+            [ -S /tmp/touring-daemon-1000.sock ] && break
+            sleep 1
+          done
+          ./target/release/touring doctor -j
+      - name: Run mutation-test baseline (touring-ast, threshold 50% week 1-2)
+        # Threshold ramps up per docs/mutation-testing.md (50→65→75→80).
+        # `--force` bypasses any cached entry from the cache step below;
+        # the daemon-side handler always re-stores after a successful run.
+        run: |
+          ./target/release/touring mutation-test \
+            --package touring-ast \
+            --threshold 50 \
+            --timeout 120 \
+            --force \
+            > mutation-report.json
+          cat mutation-report.json
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-baseline-report
+          path: |
+            mutation-report.json
+            target/mutants/**/mutants.out/**

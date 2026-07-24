@@ -1,0 +1,67 @@
+# AUTO-GENERATED — W7.1 touring-bindings skeleton
+# Generated: 2026-05-11T23:57:06.126272+00:00
+# Layer 5 (Product) bindings crate. Default features EMPTY by design.
+
+[package]
+name = "touring-bindings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+# cdylib for Python wheels + napi node modules
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# DEFAULT EMPTY — caller picks language binding
+default = []
+
+# Language-specific feature groups
+bind-py = ["dep:pyo3", "dep:pyo3-asyncio", "common"]
+bind-ts-napi = ["dep:napi", "dep:napi-derive", "common"]
+bind-wasm = ["dep:wasm-bindgen", "dep:js-sys", "common"]
+
+# Feature modifiers
+bind-async = ["tokio/rt-multi-thread"]
+bind-stream = ["dep:tokio-stream"]
+bind-stable-api = []  # opt-in to lock semver
+
+# Internal helper feature (re-exported common types)
+common = []
+
+[dependencies]
+# Touring core deps (workspace-inherited)
+touring-foundation = { workspace = true }
+touring-storage = { workspace = true }
+touring-intelligence = { workspace = true }
+
+# Runtime
+tokio = { workspace = true }
+tokio-stream = { workspace = true, optional = true }
+
+# Python (PyO3)
+pyo3 = { workspace = true, optional = true, features = ["extension-module"] }
+pyo3-asyncio = { workspace = true, optional = true }
+
+# Node (napi-rs)
+napi = { workspace = true, optional = true, features = ["napi9", "async"] }
+napi-derive = { workspace = true, optional = true }
+
+# Wasm
+wasm-bindgen = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[build-dependencies]
+napi-build = { workspace = true, optional = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tracing-test = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,54 @@
+# cargo-nextest configuration
+# Docs: https://nexte.st/docs/configuration/
+
+[store]
+dir = "target/nextest"
+
+# Default profile — used locally by `cargo nextest run`
+[profile.default]
+# Retry flaky tests up to 2 times locally.
+retries = 2
+# Fail fast on first real failure after retries exhausted.
+fail-fast = false
+# Show output of failing tests immediately.
+failure-output = "immediate-final"
+# Hide successful test output (reduce noise on 5100+ tests).
+success-output = "never"
+# Flag tests taking >60s so we can hunt down slow tests.
+slow-timeout = { period = "60s", terminate-after = 4 }
+# Minimum verbosity for test status.
+status-level = "retry"
+
+# CI profile — used with `cargo nextest run --profile ci`
+[profile.ci]
+retries = { backoff = "exponential", count = 3, delay = "1s", jitter = true, max-delay = "10s" }
+fail-fast = false
+failure-output = "immediate-final"
+success-output = "never"
+# JUnit XML for GitHub Actions / GitLab consumption.
+junit = { path = "junit.xml" }
+# Stricter slow detection in CI.
+slow-timeout = { period = "90s", terminate-after = 3 }
+status-level = "pass"
+
+# Groups enable resource-aware scheduling. Tests touching
+# the shared touring-daemon SQLite DB serialize via `daemon-db`.
+[[profile.default.overrides]]
+filter = "test(daemon) | test(hook_runtime)"
+test-group = "daemon-db"
+
+[[profile.ci.overrides]]
+filter = "test(daemon) | test(hook_runtime)"
+test-group = "daemon-db"
+
+[test-groups]
+daemon-db = { max-threads = 1 }
+
+# Per-test timeouts — heavy E2E tests need room.
+[[profile.default.overrides]]
+filter = "test(e2e) | test(integration)"
+slow-timeout = { period = "120s", terminate-after = 2 }
+
+[[profile.ci.overrides]]
+filter = "test(e2e) | test(integration)"
+slow-timeout = { period = "180s", terminate-after = 2 }

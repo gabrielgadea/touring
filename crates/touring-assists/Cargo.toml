@@ -1,0 +1,28 @@
+[package]
+name = "touring-assists"
+version = "0.1.0"
+edition = "2024"
+description = "Refactor-as-CLI framework with assist handlers for Touring"
+authors = ["Gabriel Gadea"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+touring-code = { path = "../touring-code" }
+touring-foundation = { path = "../touring-foundation" }
+touring-generator = { path = "../touring-generator" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+syn = { workspace = true, features = ["full"] }
+quote = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+default = []
+
+[lints]
+workspace = true

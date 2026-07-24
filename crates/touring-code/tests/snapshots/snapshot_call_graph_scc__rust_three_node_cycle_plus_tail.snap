@@ -1,0 +1,12 @@
+---
+source: crates/touring-ast/tests/snapshot_call_graph_scc.rs
+expression: edges(&graph)
+---
+- - a
+  - b
+- - b
+  - c
+- - c
+  - a
+- - c
+  - tail

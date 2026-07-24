@@ -1,0 +1,156 @@
+---
+source: crates/touring-generator/tests/snapshot_public_api.rs
+assertion_line: 94
+expression: json
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NextAction",
+  "description": "The recommended action after a failure.",
+  "oneOf": [
+    {
+      "description": "Re-plan the generation, concentrating on the listed areas.",
+      "type": "object",
+      "properties": {
+        "Replan": {
+          "type": "object",
+          "properties": {
+            "focus": {
+              "description": "Aspects the new plan should focus on.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "focus"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Replan"
+      ]
+    },
+    {
+      "description": "Retry with an adjusted template and variable bindings.",
+      "type": "object",
+      "properties": {
+        "AdjustTemplate": {
+          "type": "object",
+          "properties": {
+            "suggested_vars": {
+              "description": "Suggested variable values for the adjusted template.",
+              "type": "object",
+              "additionalProperties": true
+            },
+            "template_id": {
+              "description": "Identifier of the template to adjust.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "template_id",
+            "suggested_vars"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "AdjustTemplate"
+      ]
+    },
+    {
+      "description": "Retry after relaxing the named invariants.",
+      "type": "object",
+      "properties": {
+        "RelaxInvariants": {
+          "type": "object",
+          "properties": {
+            "which": {
+              "description": "Invariants that should be relaxed.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "which"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "RelaxInvariants"
+      ]
+    },
+    {
+      "description": "Hand the failure off to a human operator.",
+      "type": "object",
+      "properties": {
+        "EscalateToHuman": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "description": "Reason for the escalation.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "EscalateToHuman"
+      ]
+    },
+    {
+      "description": "Submit a previously generated variant instead.",
+      "type": "object",
+      "properties": {
+        "SubmitVariant": {
+          "type": "object",
+          "properties": {
+            "variant_id": {
+              "description": "Identifier of the variant to submit.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "variant_id"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "SubmitVariant"
+      ]
+    },
+    {
+      "description": "Abandon the plan entirely.",
+      "type": "object",
+      "properties": {
+        "GiveUp": {
+          "type": "object",
+          "properties": {
+            "rationale": {
+              "description": "Explanation for giving up.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "rationale"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "GiveUp"
+      ]
+    }
+  ]
+}

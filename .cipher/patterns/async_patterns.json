@@ -1,0 +1,114 @@
+{
+  "patterns": [
+    {
+      "id": "37529f0b3ddd7cb1",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         let memory = self.memory.as_ref()\n            .ok_or_else(|| McpError::internal_error(\"Memory store not available\", None))?;\n\n        let analyzer = EvolutionAnalyzer::new(\n            Arc::clone(memory),\n            Arc::clone(&self.ranker),\n            Arc::clone(&self.drift_detector)",
+      "tags": [
+        "async",
+        "rust",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-15T13:45:33.758483",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "0d2209de693a43c6",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD:                         // Auto-learn: feed recent hook events into QTable (Bellman updates)\n                        // TODO(P5.2): wire load_hook_events_since when LearningPersistence gains it\n                        let events: Vec<(i64, String, String, f64)> = Vec::new();\n                   ",
+      "tags": [
+        "async",
+        "rust",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-15T13:49:13.352088",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "14c7d49bbba748c9",
+      "file_path": "/home/gabrielgadea/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rmcp-1.2.0/src/service/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD:             ClientJsonRpcMessage::Request(req)\n                if matches!(\n                    req.request,\n                    ClientRequest::SetLevelRequest(_) | ClientRequest::PingRequest(_)\n                ) =>\n            {\n                transport\n                    .send(ServerJsonRpc",
+      "tags": [
+        "async",
+        "modify",
+        "rust"
+      ],
+      "timestamp": "2026-03-16T14:09:03.683840",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3aceb5fb620794ed",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/memory/hnsw_working.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Rebuild the HNSW index from current embeddings.\nNEW:     /// Async-safe query wrapper using spawn_blocking for tokio compatibility.\n    ///\n    /// HNSW queries can take >1ms on large indices, blocking the async runtime.\n    /// This wrapper offloads to a blocking thread pool.\n    pub a",
+      "tags": [
+        "async",
+        "rust",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-17T00:12:07.088347",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "33de24f7181bd668",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/src/lib.rs",
+      "operation": "create",
+      "content_preview": "//! touring-rules: Business rules engine for regulatory decision tables.\n//!\n//! Wraps gorules/zen-engine to provide:\n//! - Load JDM (JSON Decision Model) files from directory\n//! - Evaluate rules against input data\n//! - Return structured JSON results with metadata\n//!\n//! Decision tables included:",
+      "tags": [
+        "async",
+        "claude-config",
+        "create",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:29:49.146602",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e03ddf932c25250c",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         eprintln!(\"DEBUG prefetch result: {result}\");\nNEW:         eprintln!(\"DEBUG prefetch default result: {result}\");\n        // Also test high hit rate to debug all rules\n        let r2 = evaluate_inline(\n            content,\n            serde_json::json!({\"cache_hit_rate\": 0.9, \"session_tu",
+      "tags": [
+        "async",
+        "claude-config",
+        "modify",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:30:47.992881",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3c15d5cfa1619feb",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/handlers/neural.rs",
+      "operation": "modify",
+      "content_preview": "OLD: /// Wraps existing post_edit::run as a Cortex Handler (async/learning).\npub(crate) struct PostEditHandler;\n\nimpl Handler for PostEditHandler {\n    fn name(&self) -> &str {\n        \"post_edit\"\n    }\n\n    fn events(&self) -> &[HookEvent] {\n        &[HookEvent::PostToolUse]\n    }\n\n    fn tool_matc",
+      "tags": [
+        "async",
+        "rust",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T10:41:05.136916",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-20T10:41:07.382995",
+    "total_patterns": 7,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "async"
+  }
+}

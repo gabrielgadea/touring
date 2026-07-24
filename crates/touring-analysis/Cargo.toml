@@ -1,0 +1,75 @@
+[package]
+name = "touring-analysis"
+version = "0.3.3"
+edition = "2024"
+rust-version = "1.85"
+description = "Unified Deep Code Analysis Engine — blast radius, wiring, quality, knowledge, learning, health score"
+license.workspace = true
+
+[features]
+default = ["blast-radius", "quality", "wiring", "temporal", "simd-temporal", "ann-blast", "deep", "simd-wiring", "simd-temporal-ac", "erickson-bridge"]
+blast-radius = []
+quality = []
+wiring = []
+deep = ["blast-radius", "quality", "wiring", "temporal"]
+temporal = []
+ann-blast = ["touring-simd/ann"]
+simd-temporal = ["temporal", "touring-simd/learning-integration"]
+# SIMD-accelerated wiring analysis (uses aho-corasick for multi-pattern matching)
+simd-wiring = []
+# SIMD-accelerated temporal analysis (uses aho-corasick for pattern detection)
+simd-temporal-ac = []
+# Bridge to touring-offensive EricksonExtractor for NLP argument mining
+erickson-bridge = []
+
+[dependencies]
+touring-foundation = { path = "../touring-foundation" }
+touring-code = { path = "../touring-code" }
+touring-simd = { path = "../touring-simd" }
+touring-offensive = { path = "../touring-offensive" }
+
+petgraph = { workspace = true }
+rusqlite = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+memchr = { workspace = true }
+aho-corasick = { workspace = true }
+# SIMD-accelerated string search/split/hash — TIER 1 integration (2026-04-25).
+stringzilla = { workspace = true }
+static_assertions = { workspace = true }
+moka = { workspace = true }
+# Wave 5 — RustSec advisory DB lookup (see src/security.rs).
+rustsec = { workspace = true }
+# Wave 2 P3 (Sentrux master plan, 2026-05-09) — TOML metric rules DSL
+# parser (`crate::rules`) + glob matcher for `applies_to`.
+toml = { workspace = true }
+glob = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+insta = { workspace = true, features = ["yaml"] }
+# Wave B (2026-04-20) — deterministic instruction-count benchmarks via
+# Valgrind Callgrind. Linux-only; CI-only run path (developer machines
+# without Valgrind still compile the bench cleanly).
+iai-callgrind = { workspace = true }
+# D38 — throughput + incremental benchmarks.
+criterion = { workspace = true }
+
+[[bench]]
+name = "quality_metrics_iai"
+harness = false
+
+[[bench]]
+name = "throughput"
+harness = false
+
+[[bench]]
+name = "incremental"
+harness = false
+
+[lints]
+workspace = true

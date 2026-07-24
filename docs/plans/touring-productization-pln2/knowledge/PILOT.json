@@ -1,0 +1,11 @@
+{
+  "phase": "PILOT",
+  "entities": [
+    {
+      "entity_id": "phase:PILOT",
+      "type": "phase",
+      "description": "PILOT (D3) konverter per-project COMPLETO \u2014 1\u00aa instala\u00e7\u00e3o real end-to-end: touring toolchain init (~/.touring criado do zero) + install --from-source ~/projects/touring 30.3.0 (1\u00aa toolchain versionada imut\u00e1vel, 4 bins) + default + init-project konverter (pin 30.3.0, bins linkados) + shim resolve project_bin em sess\u00e3o real (TRACE, exit 0) + [daemon] per_project=true + daemon pr\u00f3prio auto-spawnado pelo hook DA TOOLCHAIN (exe pinado) + touring update com restart per-project + validate_pilot.sh 9/9 ALL PASS + daemon global intacto. 2 FINDINGS REAIS: (1) BUG CORRIGIDO \u2014 restart per-project herdava env do invocador (TOURING_PROJECT_ROOT/cwd do workspace de quem chamou \u2192 DBs no projeto errado, contamina\u00e7\u00e3o cruzada); fix: project_root_for_socket deriva root do pr\u00f3prio socket (<root>/.touring/daemon.sock) e spawn pina CLAUDE_PROJECT_DIR+TOURING_PROJECT_ROOT+cwd \u2014 correto por constru\u00e7\u00e3o p/ todo caller (update/daemon-ctl); provado via /proc/<pid>/environ antes(root errado)/depois(root=konverter); unit 17/17 + redeploy + toolchain reinstalada --force. (2) doctor project_db \u00e9 resolu\u00e7\u00e3o CLIENT-side, n\u00e3o do daemon consultado \u2014 false-negative em diagn\u00f3stico multi-daemon; candidato a melhoria (daemon expor root pr\u00f3prio no health). Gotchas: sess\u00e3o CC exporta TOURING_DAEMON_SOCKET (preced\u00eancia sobre walk-up \u2014 testar com env -u); component list mostra *.old do dev dir (cosm\u00e9tico). CO-EVOLU\u00c7\u00c3O CLAUDE.md 3 camadas: criado ~/projects/touring/CLAUDE.md (fonte can\u00f4nica: update-touring, ponte from-source, gates, d\u00e9bitos); reescrita se\u00e7\u00e3o Touring do konverter/.claude/CLAUDE.md (drift 2-gera\u00e7\u00f5es 'symlink to analise' \u2192 tabela per-project pin/lock/bins/daemon/dados + opera\u00e7\u00e3o); delta da constitui\u00e7\u00e3o root ~/.claude/CLAUDE.md PROPOSTO aguardando aprova\u00e7\u00e3o de Gabriel (modelo 4 camadas + regra de resolu\u00e7\u00e3o + rule nova touring-per-project)."
+    }
+  ],
+  "relations": []
+}

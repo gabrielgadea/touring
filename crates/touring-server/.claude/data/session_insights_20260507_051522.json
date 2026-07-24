@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-05-07T05:15:22.559502198+00:00",
+  "session_id": "test-e2e-binary",
+  "top_gotchas": [
+    {
+      "pattern": "async fn",
+      "gotcha": "Async functions cannot directly recurse — Future size becomes infinite.",
+      "hit_count": 1
+    },
+    {
+      "pattern": ".unwrap()",
+      "gotcha": ".unwrap() panics on Err/None. In production, prefer ? or .expect(\"reason\").",
+      "hit_count": 1
+    },
+    {
+      "pattern": ": any",
+      "gotcha": "`any` opts out of type-checking. Prefer `unknown` and narrow at use sites.",
+      "hit_count": 1
+    },
+    {
+      "pattern": "API_KEY",
+      "gotcha": "Hardcoded secret-like identifier in source. Rotate immediately if leaked.",
+      "hit_count": 1
+    },
+    {
+      "pattern": "def ",
+      "gotcha": "Mutable default arguments (list, dict) are shared across calls — leads to silent state leaks.",
+      "hit_count": 1
+    },
+    {
+      "pattern": "except:",
+      "gotcha": "Bare `except:` catches everything including KeyboardInterrupt and SystemExit.",
+      "hit_count": 1
+    }
+  ],
+  "top_error_patterns": [],
+  "top_edited_files": [],
+  "total_edits": 0,
+  "total_bash_commands": 685,
+  "success_rate": 0.19854014598540146,
+  "rl_convergence": {
+    "td_error_ema": 0.0,
+    "avg_reward": 0.0,
+    "total_updates": 0,
+    "is_converging": false
+  }
+}

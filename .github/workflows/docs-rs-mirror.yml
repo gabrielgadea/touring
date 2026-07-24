@@ -1,0 +1,25 @@
+# AUTO-GENERATED — Mirror docs.rs build locally before release
+name: docs.rs Build Mirror
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'crates/**/Cargo.toml'
+      - 'crates/**/src/lib.rs'
+
+jobs:
+  docs-rs-build:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "--cfg docsrs -D warnings"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Mirror docs.rs build
+        run: |
+          cargo +nightly doc \
+            --workspace \
+            --no-deps \
+            --all-features

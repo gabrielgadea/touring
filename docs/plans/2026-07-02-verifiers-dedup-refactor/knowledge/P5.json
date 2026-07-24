@@ -1,0 +1,74 @@
+{
+  "phase": "P5",
+  "entities": [
+    {
+      "entity_id": "phase:P5",
+      "type": "phase",
+      "description": "P5 CLOSE (accept-c). Loop run #1 FECHADO como entregue + F1.3 corretamente-Silver. Entrega: P2 strip(2->1)+P3 finish(50->1)+P4 is_detector_own_source(35->1) = ~1000 linhas dedup real behavior-preserving; +fix drift docstring F1.3 (era WeightedLoc/intra-file stale -> ScopeNative/cross-file, o design deliberado). Gate final: cargo check default+no-default EXIT 0/0 0 warnings; cargo test 344 passed 0 failed. Convergencia dir-F1.3->Gold NAO perseguida: F1.3=ScopeNative reporta CORRETAMENTE a similaridade estrutural inerente dos 50 impl Verification (per-file F1.3=1.0 Diamond); (b) 'per-file' seria regressao (re-esconde cross-file); (a) redesign data-driven salvo p/ futuro (memory future-work:verifiers-data-driven-redesign + future-work.md). Loop demonstrou valor: convergence-gate mediu, refutou 2 premissas, e o circuit-breaker impediu regressao + grind. Marker inerte, DAG finalizado."
+    },
+    {
+      "entity_id": "decision:run1_outcome",
+      "type": "decision",
+      "description": "closed as (c): delivered dedup P2-P4, F1.3 correctly-Silver by inherent 50-verifier structural similarity; per-file Diamond"
+    },
+    {
+      "entity_id": "decision:f1_3_docstring_drift_fix",
+      "type": "decision",
+      "description": "corrected stale docstring (said WeightedLoc/intra-file) to match deliberate ScopeNative/cross-file design"
+    },
+    {
+      "entity_id": "future_work:option_a_deferred",
+      "type": "future_work",
+      "description": "data-driven verifier redesign (macro/table) \u2014 only path to dir-F1.3 Gold; saved to memory + future-work.md"
+    },
+    {
+      "entity_id": "decision:final_gate",
+      "type": "decision",
+      "description": "cargo check default+no-default EXIT 0/0 0 warnings; cargo test 344 passed 0 failed"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P5|produces|decision:run1_outcome",
+      "source": "phase:P5",
+      "type": "produces",
+      "target": "decision:run1_outcome"
+    },
+    {
+      "relation_id": "phase:P5|produces|decision:f1_3_docstring_drift_fix",
+      "source": "phase:P5",
+      "type": "produces",
+      "target": "decision:f1_3_docstring_drift_fix"
+    },
+    {
+      "relation_id": "phase:P5|produces|future_work:option_a_deferred",
+      "source": "phase:P5",
+      "type": "produces",
+      "target": "future_work:option_a_deferred"
+    },
+    {
+      "relation_id": "phase:P5|produces|decision:final_gate",
+      "source": "phase:P5",
+      "type": "produces",
+      "target": "decision:final_gate"
+    },
+    {
+      "relation_id": "phase:P5|closes|decision:run1_outcome",
+      "source": "phase:P5",
+      "type": "closes",
+      "target": "decision:run1_outcome"
+    },
+    {
+      "relation_id": "phase:P5|defers|future_work:option_a_deferred",
+      "source": "phase:P5",
+      "type": "defers",
+      "target": "future_work:option_a_deferred"
+    },
+    {
+      "relation_id": "decision:final_gate|verifies|decision:run1_outcome",
+      "source": "decision:final_gate",
+      "type": "verifies",
+      "target": "decision:run1_outcome"
+    }
+  ]
+}

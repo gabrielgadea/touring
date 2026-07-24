@@ -1,0 +1,15 @@
+timestamp: "2026-07-02T12:54:38.297868Z"
+daemon_healthy: true
+composite_health_score: 0.6402
+symbol_count: 250549
+orphan_count: 5044
+cycle_count: 0
+ema_reward: 0.179606
+drift_alert_level: unknown
+workspace_packages[42]: touring-foundation,touring-license,touring-simd,touring-hooks,touring-dispatch,touring-analysis,touring-code,touring-storage,touring-offensive,touring-bindings,inferlets,touring-intelligence,touring-rkyv,touring-capnp-server,touring-ceg,touring-contracts,touring-hooks-shared,touring-quality,touring-cli,touring-hook-runtime,touring-hooks-core,touring-hooks-prediction,touring-orchestration,touring-hooks-rl,touring-hooks-saga,touring-hook-handlers,touring-resilience,touring-server,touring-assists,touring-generator,touring-identity,touring-cortex,touring-server-reasoning,touring-server-session,touring-server-visual,touring-python,touring-integration-tests,touring-loom-proofs,touring-search-fusion-bench,touring-web,touring-web-server,touring-lsp
+e2e_score: 0.0
+gotcha_matches: []
+memory_hits: []
+tantivy_hits: []
+synergy_wired_pairs: 52
+synergy_metrics: {}

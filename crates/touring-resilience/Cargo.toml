@@ -1,0 +1,49 @@
+[package]
+name = "touring-resilience"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Resilience subsystems peeled out of the touring-foundation god-kernel (A4): conflict detection, failover coordination, and the PSI memory-pressure sentinel + CPU P/E core scheduler (with the standalone touring-resource-monitor binary)."
+
+[lib]
+name = "touring_resilience"
+path = "src/lib.rs"
+
+[dependencies]
+# Workspace-inherited (standard touring stack).
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tracing.workspace = true
+tokio = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+libc = "0.2"
+# Optional — sentinel resource-monitor surfaces (moved from touring-foundation, A4 P3).
+sysinfo = { version = "0.36", default-features = false, features = ["system"], optional = true }
+tracing-subscriber = { workspace = true, optional = true }
+
+[features]
+# PSI memory-pressure sentinel + CPU P/E core scheduler at `touring_resilience::sentinel`.
+# Always compilable as a lib — these features gate the *binary* and optional surfaces.
+# - `resource-monitor` — lib-only consumers (pre_bash gate, status query)
+# - `resource-monitor-bin` — standalone `touring-resource-monitor` daemon
+# - `resource-monitor-sysinfo` — pull `sysinfo` for full process enumeration
+resource-monitor = []
+resource-monitor-bin = ["resource-monitor", "dep:tracing-subscriber"]
+resource-monitor-sysinfo = ["resource-monitor", "dep:sysinfo"]
+
+# Standalone resource-monitor daemon binary (moved from touring-foundation, A4 P3).
+# Activated by the `resource-monitor-bin` feature (default off).
+[[bin]]
+name = "touring-resource-monitor"
+path = "src/bin/touring_resource_monitor.rs"
+required-features = ["resource-monitor-bin"]
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[lints]
+workspace = true

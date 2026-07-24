@@ -1,0 +1,25 @@
+{
+  "name": "@touring/native",
+  "version": "0.1.0",
+  "description": "TypeScript bindings for Touring code intelligence",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "napi": {
+    "name": "touring",
+    "triples": {
+      "defaults": true,
+      "additional": []
+    }
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "test": "node test/index.test.js"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0"
+  }
+}

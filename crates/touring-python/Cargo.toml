@@ -1,0 +1,20 @@
+[package]
+name = "touring-python"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "PyO3 bindings shim — implementation in touring-bindings/bind-python"
+license.workspace = true
+
+[lib]
+name = "claude_learning_kernel"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+touring-bindings = { path = "../touring-bindings", features = ["bind-python"] }
+
+[features]
+default = []
+
+[lints]
+workspace = true

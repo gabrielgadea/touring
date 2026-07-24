@@ -1,0 +1,9 @@
+# Shell completion for {{ command_name | default(value="cmd") }} ({{ shell | default(value="bash") }})
+
+_{{ command_name | default(value="cmd") }}_completions() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local commands="{{ subcommands | default(value="") }}"
+    COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
+}
+
+complete -F _{{ command_name | default(value="cmd") }}_completions {{ command_name | default(value="cmd") }}

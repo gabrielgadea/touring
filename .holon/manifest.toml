@@ -1,0 +1,118 @@
+# schema: /home/gabrielgadea/.claude/tools/holon/holon-manifest.schema.json
+# THSF Fase 2 D2.1 — Touring-master aggregator manifest.
+#
+# This manifest does NOT replace the 21 crate-level manifests. It adds a
+# convenience "umbrella" holon that surfaces high-value Touring capabilities
+# behind a single discoverable name (`touring-master`). Crate-level providers
+# remain the canonical source; this aggregator is resolved only when a
+# consumer explicitly targets `touring-master` via `holon invoke`.
+#
+# Handshake semantics: first-provider-wins by os.walk path order. Because
+# crate paths (`crates/touring-<name>`) sort alphabetically before this
+# workspace-root `.holon/`, crate-level providers take precedence in
+# automatic symbiosis. `touring-master` is therefore a discoverable
+# endpoint rather than a default route.
+
+[holon.identity]
+name = "touring-master"
+version = "30.3.0"
+description = "Unified Touring capabilities aggregator (aggregator holon)"
+autonomy_guarantee = true
+
+# ---------------------------------------------------------------------------
+# Core intelligence
+# ---------------------------------------------------------------------------
+
+[holon.offers.symbol-index]
+schema = "schemas/symbol-index.json"
+adapter = "cli"
+adapter_cmd = "touring index find"
+version = "30.3.0"
+# Exact symbol lookup (VGP). Aggregated from touring-index.
+
+[holon.offers.blast-radius]
+schema = "schemas/blast-radius.json"
+adapter = "cli"
+adapter_cmd = "touring ast blast"
+version = "30.3.0"
+# File dependency tree analysis. Aggregated from touring-ast.
+
+[holon.offers.ast-semantic]
+schema = "schemas/ast-semantic.json"
+adapter = "cli"
+adapter_cmd = "touring ast rust-semantic"
+version = "30.3.0"
+# Deep syn 2.0 semantic report (generics/trait bounds/lifetimes).
+
+# ---------------------------------------------------------------------------
+# Compute / RL
+# ---------------------------------------------------------------------------
+
+[holon.offers.simd-backend]
+schema = "schemas/simd-backend.json"
+adapter = "cli"
+adapter_cmd = "touring inferlets run classifier"
+version = "30.3.0"
+# SIMD-accelerated batch compute via inferlets.
+
+[holon.offers.mcts-planner]
+schema = "schemas/mcts-planner.json"
+adapter = "cli"
+adapter_cmd = "touring mcts search"
+version = "30.3.0"
+# Monte Carlo Tree Search planner (cognitive subsystem).
+
+[holon.offers.linucb-tuner]
+schema = "schemas/linucb-tuner.json"
+adapter = "cli"
+adapter_cmd = "touring learning reward"
+version = "30.3.0"
+# LinUCB contextual bandit reward injection.
+
+# ---------------------------------------------------------------------------
+# Quality / Generation
+# ---------------------------------------------------------------------------
+
+[holon.offers.quality-gate]
+schema = "schemas/quality-gate.json"
+adapter = "cli"
+adapter_cmd = "touring pre-edit"
+version = "30.3.0"
+# Composite pre-edit scored signals (CILA budget + rayon parallel).
+
+[holon.offers.generator-pipeline]
+schema = "schemas/generator-pipeline.json"
+adapter = "cli"
+adapter_cmd = "touring generate plan-submit"
+version = "30.3.0"
+# Full Draft→Verified→Rendered→Speculated→Committed pipeline.
+
+[holon.offers.health-delta]
+schema = "schemas/health-delta.json"
+adapter = "cli"
+adapter_cmd = "touring health-delta status"
+version = "30.3.0"
+# Per-path regression/improvement streak tracker.
+
+# ---------------------------------------------------------------------------
+# Memory / Observability
+# ---------------------------------------------------------------------------
+
+[holon.offers.memory-recall]
+schema = "schemas/memory-recall.json"
+adapter = "cli"
+adapter_cmd = "touring memory recall"
+version = "30.3.0"
+# FTS5 + cosine similarity search over Touring memory store.
+
+[holon.offers.wiring-audit]
+schema = "schemas/wiring-audit.json"
+adapter = "cli"
+adapter_cmd = "touring wiring audit"
+version = "30.3.0"
+# Orphan detection + module integration scoring.
+
+# ---------------------------------------------------------------------------
+# touring-master is a pure provider — it requires nothing from others
+# (the crate-level holons handle inter-component dependencies already).
+# ---------------------------------------------------------------------------

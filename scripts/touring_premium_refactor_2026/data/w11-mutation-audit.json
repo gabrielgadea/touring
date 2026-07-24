@@ -1,0 +1,219 @@
+{
+  "script": "w11_mutation_kill_rate_audit",
+  "wave": "W11",
+  "subtask_refs": [
+    "W11.3"
+  ],
+  "timestamp": "2026-05-12T00:17:06.880451+00:00",
+  "threshold": 0.7,
+  "totals": {
+    "crates_audited": 40,
+    "crates_with_data": 0,
+    "crates_below_threshold": 0,
+    "missing_tool": 0,
+    "no_cache": 40
+  },
+  "results": [
+    {
+      "crate": "touring-activity",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-analysis",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-antt",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-assists",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-ast",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-ast-polyglot",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-capnp-server",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-cognitive",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-core",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-cortex",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-definitions",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-desktop-ui",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-devrc-adapter",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-embeddings",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-flow",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-generator",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-geopostgis",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-hooks",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-identity",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-incremental-salsa",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-index",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-language",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-learning",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-offensive",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-python",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-resource-monitor",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-rkyv",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-rule-engine",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-search-fusion",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-semantic-spike",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-semantics",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-server",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-simd",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-tasksfile",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-telemetry",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-vector-store",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-vfs",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-wasm",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-web",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    },
+    {
+      "crate": "touring-web-server",
+      "status": "NO_CACHE",
+      "source": "cache_only_mode"
+    }
+  ],
+  "low_kill_rate_crates": []
+}

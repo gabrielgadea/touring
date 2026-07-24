@@ -1,0 +1,160 @@
+{
+  "patterns": [
+    {
+      "id": "6a77fb0533c94159",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: anyhow = { workspace = true }\nnotify = { workspace = true }\nNEW: anyhow = { workspace = true }\nthiserror = { workspace = true }\nnotify = { workspace = true }",
+      "tags": [
+        "toml",
+        "configuration",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-15T13:40:53.574777",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "bcdd7f598780a3f5",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [workspace.dev-dependencies]\ncriterion = { version = \"0.5\", features = [\"html_reports\"] }\napprox = \"0.5\"\nproptest = \"1.5\"\nrand = \"0.8\"\nrstest = \"0.23\"\ntempfile = \"3.14\"\ntokio-test = \"0.4\"\n\n[profile.release]\nNEW: # Dev deps declared per-crate, not workspace-level\n# criterion, approx, proptest, r",
+      "tags": [
+        "toml",
+        "modify",
+        "claude-config",
+        "configuration"
+      ],
+      "timestamp": "2026-03-15T13:58:18.830146",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ba16744c07cca7ec",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [features]\ndefault = [\"simple-clustering\"]\nsimple-clustering = []\nleiden-clustering = [\"dep:linfa\", \"dep:linfa-clustering\"]\nNEW: [features]\ndefault = [\"simple-clustering\"]\nsimple-clustering = []\nleiden-clustering = [\"dep:linfa\", \"dep:linfa-clustering\"]\nhnsw-working-memory = [\"dep:bumpalo\", \"dep",
+      "tags": [
+        "toml",
+        "configuration",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-16T23:54:31.330500",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a69c02ce9c51b124",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: rkyv = { workspace = true }\nmemmap2 = { workspace = true }\nNEW: rkyv = { workspace = true }\nmemmap2 = { workspace = true }\ncrdts = { workspace = true }",
+      "tags": [
+        "toml",
+        "modify",
+        "configuration",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-17T00:04:57.814208",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "37ac0fe29e7d156e",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [profile.bench]\nlto = \"thin\"\nopt-level = 3\nNEW: [profile.bench]\nlto = \"thin\"\nopt-level = 3\n\n[workspace.lints.clippy]\nall = \"deny\"",
+      "tags": [
+        "toml",
+        "configuration",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-18T23:57:34.366045",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c5b3e060ac45032a",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-ast/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [dev-dependencies]\ntempfile = { workspace = true }\nNEW: [dev-dependencies]\ntempfile = { workspace = true }\n\n[lints]\nworkspace = true",
+      "tags": [
+        "toml",
+        "configuration",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-18T23:57:41.159714",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ace624cf56ef6698",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [dev-dependencies]\ntempfile = { workspace = true }\n\n[lints]\nworkspace = true\nNEW: [dev-dependencies]\ntempfile = { workspace = true }\ncriterion = \"0.5\"\n\n[[bench]]\nname = \"classifier\"\nharness = false\n\n[lints]\nworkspace = true",
+      "tags": [
+        "toml",
+        "configuration",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:43:08.492618",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "7c5807f09efdbfba",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-cognitive/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: criterion = { workspace = true }\nNEW: criterion = \"0.5\"",
+      "tags": [
+        "toml",
+        "modify",
+        "claude-config",
+        "configuration"
+      ],
+      "timestamp": "2026-03-20T18:26:53.515577",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "4657cf6aa9df521d",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: members = [\n    \"crates/touring-core\",\n    \"crates/touring-simd\",\n    \"crates/touring-learning\",\n    \"crates/touring-hooks\",\n    \"crates/touring-ast\",\n    \"crates/touring-nlp\",\n    \"crates/touring-cognitive\",\n    \"crates/touring-server\",\n    \"crates/touring-python\",\n    \"crates/touring-rules\",\n",
+      "tags": [
+        "toml",
+        "claude-config",
+        "configuration",
+        "modify"
+      ],
+      "timestamp": "2026-03-21T12:51:11.986475",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "00402f3112a42314",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: # Geospatial\ngeo = { version = \"0.29\", features = [\"use-serde\"] }\nrstar = \"0.9\"\n\n\nNEW: \n",
+      "tags": [
+        "toml",
+        "claude-config",
+        "configuration",
+        "modify"
+      ],
+      "timestamp": "2026-03-21T12:51:12.298723",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T12:51:14.565476",
+    "total_patterns": 10,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "toml"
+  }
+}

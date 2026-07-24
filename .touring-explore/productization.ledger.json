@@ -1,0 +1,409 @@
+{
+ "version": 2,
+ "topic": "productization",
+ "scope": "/home/gabrielgadea/.claude/rust",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 12,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 12,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:35:47-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 2,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 1,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:35:48-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:35:48-0300"
+  },
+  {
+   "round": 4,
+   "new_findings": 1,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 1,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:36:18-0300"
+  },
+  {
+   "round": 5,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:36:19-0300"
+  },
+  {
+   "round": 6,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:36:19-0300"
+  }
+ ],
+ "findings": {
+  "f_5d49f5af1648": {
+   "id": "f_5d49f5af1648",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:9",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "> + consumer-wiring fail-soft. **O ponto de retomada do arco avançou de ⑥ → ⑦ → ⑨: com F6/F7 SHIPPED (2026-06-29) o ⑦ es",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_17aeef558b80": {
+   "id": "f_17aeef558b80",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:24",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "> **🚀 Avanço 2026-07-01** (`harness-premium:onda-a+fase0-productization:2026-07-01`): **⑨ Fase 0 ENTREGUE**",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_38ec961b66c1": {
+   "id": "f_38ec961b66c1",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:33",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "> `docs/plans/touring-productization-pln2/00-INDEX.md`.",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_9f3ccbcf58f7": {
+   "id": "f_9f3ccbcf58f7",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:44",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "> A productization é a forma máxima disso: defaults per-project que tornam o caminho acoplado o de **menor",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_61571b55cd4a": {
+   "id": "f_61571b55cd4a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:81",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "| 10 | ⑨ productization (`touring update` W12.3) | Pln2 aprovado; Fases 0-5 pendentes → **agora é o marco de retomada** ",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_f882498121e5": {
+   "id": "f_f882498121e5",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:90",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "**⑧** (consolidação premium), **⑨** (productization — objetivo nuclear).",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_dfaed282a3c2": {
+   "id": "f_dfaed282a3c2",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:188",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "| 🟠 P3 | **~4994 wiring orphans + 9 cycles** (re-medido 2026-07-01, lição L6 aplicada) | ⑧ | Medidor corrigido: `count_o",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_f5b1eeb7c071": {
+   "id": "f_f5b1eeb7c071",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:216",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "   `docs/plans/touring-productization-pln2/00-INDEX.md`): fonte desacoplada + version-pin + versão única 30.3.0.",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_9443472ec945": {
+   "id": "f_9443472ec945",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:222",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "A productization ⑨ e a consolidação ⑧ **agora seguem** o arco R1→R6 já concluído — não o precedem.",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_c8fa88e753f4": {
+   "id": "f_c8fa88e753f4",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-roadmap-master-crossref.md:248",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "_A tese: afordância estrutural muda `U(a)`; a productization é a afordância levada ao default per-project._",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_edb1ca142618": {
+   "id": "f_edb1ca142618",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-28-coupling-arc-cross-audit.md:14",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "C12 won't-do), nó **⑤** (A1 `--brief` em prod). Os nós **⑧** (consolidação) e **⑨** (productization)",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_5705f880bfed": {
+   "id": "f_5705f880bfed",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-codemode-cli-and-master-commands.md:175",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "| **R3** ✅ | Master commands `scout/read/health/guard/map/blast` (CLI wrappers sobre os scripts Layer-3 R2) | **M** | R2",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_cec28e37be2b": {
+   "id": "f_cec28e37be2b",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-cli/src/cli_suggester.rs:2368",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "// (productization) — the experiment, not just the nudge. Gabriel arms it post-A/B.",
+   "depth": "D2",
+   "round": 2
+  },
+  "f_4c1f55aa085f": {
+   "id": "f_4c1f55aa085f",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-cli/src/cli_suggester.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-cli/src/cli_suggester.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 2
+  },
+  "f_21100c608c0c": {
+   "id": "f_21100c608c0c",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/kpi/2026-06/2026-06-29.json:195",
+   "evidence": "rg '\\bproductization\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "      \"rationale\": \"Task #6 compounding structure (the active hook layer): after the armed pillar-induction layer nudges",
+   "depth": "D0",
+   "round": 4
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 144
+  },
+  "quality": {
+   "visits": 6,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 0,
+   "max_depth": null,
+   "truncated_total": 0
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": false,
+  "statement": "exploration incomplete",
+  "clauses": {
+   "rounds_run": 6,
+   "dry_tail": true,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [
+    "external"
+   ],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [
+   "lens 'external' pending — mark visited/waived (--mark-lens)"
+  ],
+  "next_action": "lens 'external' pending — mark visited/waived (--mark-lens)",
+  "at": "2026-07-23T12:36:19-0300"
+ }
+}

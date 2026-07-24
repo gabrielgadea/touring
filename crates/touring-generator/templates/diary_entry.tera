@@ -1,0 +1,16 @@
+# Diary Entry — {{ agent | default(value="agent") }}
+
+**Date**: {{ date | default(value="") }} | **Topic**: {{ topic | default(value="general") }}
+
+#[P:{{ phase | default(value="5") }}] #[R:{{ reward | default(value="0.85") }}]
+
+## Entry
+
+{{ entry | default(value="") }}
+
+{% if lesson is defined %}
+#[L:{{ lesson }}]
+{% endif %}
+{% if warning is defined %}
+#[W:{{ warning }}]
+{% endif %}

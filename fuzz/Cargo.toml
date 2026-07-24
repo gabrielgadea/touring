@@ -1,0 +1,74 @@
+[package]
+name = "touring-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+# Detach from the parent workspace so the fuzz crate builds standalone
+# under `cargo +nightly fuzz build` without being a workspace member.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+touring-code = { path = "../crates/touring-code" }
+touring-ast-polyglot = { path = "../crates/touring-ast-polyglot" }
+touring-rkyv = { path = "../crates/touring-rkyv" }
+
+[[bin]]
+name = "fuzz_rust_syn"
+path = "fuzz_targets/fuzz_rust_syn.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_rust_public_api"
+path = "fuzz_targets/fuzz_rust_public_api.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_polyglot_search_rust"
+path = "fuzz_targets/fuzz_polyglot_search_rust.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_polyglot_search_python"
+path = "fuzz_targets/fuzz_polyglot_search_python.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_polyglot_search_typescript"
+path = "fuzz_targets/fuzz_polyglot_search_typescript.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_polyglot_search_go"
+path = "fuzz_targets/fuzz_polyglot_search_go.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_polyglot_rewrite"
+path = "fuzz_targets/fuzz_polyglot_rewrite.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_rkyv_deserialize"
+path = "fuzz_targets/fuzz_rkyv_deserialize.rs"
+test = false
+doc = false
+bench = false

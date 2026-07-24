@@ -1,0 +1,1991 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Touring — Code Intelligence Atelier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Elite fonts (SPEC 2026-06-12 §3): Inter Tight only + JetBrains Mono.
+         Fraunces/Syne removed from preload — Elite series is Inter Tight only. -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+    <!-- Trunk-managed CSS, cascade order matters (SPEC §9.2):
+         main.css (legacy, shrinking per-wave) → tokens.css → elite.css (canonical wins). -->
+    <link data-trunk rel="css" href="public/assets/styles/main.css"/>
+    <link data-trunk rel="css" href="public/assets/styles/tokens.css"/>
+    <link data-trunk rel="css" href="public/assets/styles/elite.css"/>
+    <link data-trunk rel="css" href="public/assets/styles/charts.css"/>
+    <link data-trunk rel="css" href="public/assets/styles/pages.css"/>
+    <!-- Vendored UMD scripts (three.js v0.149.0 UMD + 3d-force-graph + svg-pan-zoom).
+         Hosted locally to avoid Chrome ORB blocking cross-origin CDN scripts. -->
+    <link data-trunk rel="copy-dir" href="vendor"/>
+</head>
+<body>
+    <div class="cosmos-backdrop" aria-hidden="true">
+        <div class="cosmos-nebula"></div>
+        <canvas id="cosmos-starfield" class="cosmos-starfield"></canvas>
+        <div class="cosmos-grain"></div>
+    </div>
+
+    <div id="app"></div>
+
+    <!-- Vendored UMD scripts — copied locally because both unpkg.com AND
+         cdn.jsdelivr.net serve three.min.js with a Content-Type that Chrome's
+         ORB (Opaque Response Blocking) refuses (observed as net::ERR_BLOCKED_BY_ORB
+         on Chrome 120+). Self-hosting via Trunk's copy-dir bypasses ORB entirely.
+
+         Versions:
+           - three v0.149.0 — last release with classic UMD `build/three.min.js`
+             (v0.150+ ships ES modules only).
+           - 3d-force-graph v1.73.4 — compatible with three v0.149.
+           - svg-pan-zoom v3.6.1 — used by /wiring SVG view.
+
+         Order is critical: three MUST load BEFORE 3d-force-graph so that
+         `window.THREE` is defined when `nodeThreeObject` runs. -->
+    <script src="/vendor/three.min.js"></script>
+    <script src="/vendor/3d-force-graph.min.js"></script>
+    <script src="/vendor/svg-pan-zoom.min.js"></script>
+    <script>
+    /* ════════════════════════════════════════════════════════════════════════
+       TOURING WEB — Workspace Atelier
+       Architecture: Pauling shells • Aspect Lens • Workflow Chain • Radar
+       Pure ES5+ vanilla; no framework runtime; talks to Leptos via window.*
+
+       SECURITY: zero `innerHTML` writes. All DOM is built with
+       document.createElement + textContent via the `el()` helper. Tooltips
+       returned to 3d-force-graph are strings the library renders (no
+       direct DOM injection by us); their dynamic parts are escaped.
+       ════════════════════════════════════════════════════════════════════════ */
+
+    /* ═══ S0 — Globals & State ═════════════════════════════════════════════ */
+
+    window.workspaceGraphState = {
+        instance: null,
+        rawData: null,
+        showOrphans: true,
+        showTests: true,
+        showParticles: true,
+        targetCrate: 'all',
+        selectedNode: null,
+        hoverNode: null,
+        aspectLens: 'pauling',
+        viewMode: '3d',
+        currentChainId: null,
+        chains: [],
+        /* Per-shell visibility flags. Keys = shell_level integers (0..4 = K..N,
+           99 = external pearl). All true by default. Toggling causes:
+             1. The corresponding 3D shell mesh becomes invisible
+             2. Nodes assigned to that shell are filtered out of graphData
+             3. Links touching hidden nodes are filtered out
+             4. Surviving border nodes get a `boundary_count` > 0 → drawn
+                with a dashed pearl-white outer arc to signal "has links to a
+                hidden outer/inner camada" */
+        shellsEnabled: { 0: true, 1: true, 2: true, 3: true, 4: true, 99: true },
+        shellMeshes: {} // shell_level → [solidMesh, wireframeMesh]
+    };
+
+    const WORKSPACE_PREFIXES = [
+        '/home/gabrielgadea/.claude/rust/',
+        '/home/gabrielgadea/.claude/rust'
+    ];
+    function normalizePath(p) {
+        if (!p) return p;
+        // Preserve synthetic external-crate IDs (`ext:tokio`, `ext:serde`, …).
+        if (p.startsWith('ext:')) return p;
+        for (let i = 0; i < WORKSPACE_PREFIXES.length; i++) {
+            if (p.startsWith(WORKSPACE_PREFIXES[i])) return p.slice(WORKSPACE_PREFIXES[i].length);
+        }
+        return p;
+    }
+    /* Extract the crate name from a node path.
+       Workspace nodes match `/crates/<name>/...` (e.g. `crates/touring-web/src/lib.rs`).
+       External nodes typically come as `<crate>/sub/path.rs` (e.g. `axum/routing.rs`)
+       OR as a single `<crate>.rs` (e.g. `anyhow.rs`).
+       Returns 'unknown' only when no recognizable pattern matches. */
+    function getCrateFromPath(path) {
+        if (!path) return 'unknown';
+        // Synthetic external nodes carry their crate name in the id itself.
+        if (path.startsWith('ext:')) return path.slice(4);
+        const ws = path.match(/(?:^|\/)crates\/([^\/]+)/);
+        if (ws) return ws[1];
+        /* Strip leading dots/slashes; clean Rust `axum::{routing}` brace leftovers. */
+        const cleaned = path.replace(/^[\.\/]+/, '').replace(/[{}]/g, '');
+        /* Multi-segment path → first segment is the crate name. */
+        const segments = cleaned.split('/');
+        if (segments.length > 1) {
+            const first = segments[0];
+            if (first && /^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(first)) return first;
+        }
+        /* Single `<name>.rs` → name is the (single-file) external crate. */
+        const single = cleaned.match(/^([a-zA-Z_][a-zA-Z0-9_-]*)\.rs$/);
+        if (single) return single[1];
+        return 'unknown';
+    }
+
+    /* True iff the path is NOT inside the workspace `/crates/` tree.
+       Externals follow this rule regardless of the (now-resolved) crate name —
+       this is what drives the Pauling outer-shell pearl placement. */
+    function isPathExternal(path) {
+        if (!path) return true;
+        if (path.startsWith('ext:')) return true;
+        return !/(?:^|\/)crates\//.test(path);
+    }
+    function isNodeExternal(node) {
+        return !!(node && node.is_external);
+    }
+    /* Back-compat shim — some call sites still pass a string crate name.
+       Now that externals carry real names, only fall back to the legacy
+       `=== 'unknown'` rule when no node context is available. */
+    function isExternalCrate(crate) {
+        return !crate || crate === 'unknown';
+    }
+    function shortName(idOrPath) {
+        if (!idOrPath) return '';
+        const parts = String(idOrPath).split(/[\/\\:]/);
+        return parts[parts.length - 1] || idOrPath;
+    }
+    function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+            .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+    }
+
+    /* Add or replace Pauling shell overlay (transparent concentric spheres).
+       Stores mesh references in `state.shellMeshes` keyed by shell_level so
+       `setShellEnabled` can toggle visibility without reconstructing meshes. */
+    function installPaulingShells(scene) {
+        if (!scene || !window.THREE) return;
+        const state = window.workspaceGraphState;
+        /* Remove any previously-added shells (re-call on graph re-init). */
+        const stale = scene.children.filter(o => o.userData && o.userData.isPaulingShell);
+        stale.forEach(o => {
+            scene.remove(o);
+            if (o.geometry) o.geometry.dispose();
+            if (o.material) o.material.dispose();
+        });
+        state.shellMeshes = {};
+        const radiusFor = idx => idx === 99
+            ? PAULING.EXTERNAL_RADIUS
+            : (PAULING.SHELL_RADII[idx] || (PAULING.SHELL_RADII[PAULING.SHELL_RADII.length-1] + idx * 60));
+        PAULING_SHELL_VISUAL.forEach(s => {
+            const r = radiusFor(s.idx);
+            const fillMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(r, 64, 32),
+                new THREE.MeshBasicMaterial({
+                    color: s.color, transparent: true, opacity: s.fillOpacity,
+                    side: THREE.DoubleSide, depthWrite: false
+                })
+            );
+            fillMesh.userData.isPaulingShell = true;
+            fillMesh.userData.shellLevel = s.idx;
+            fillMesh.renderOrder = -10;
+            scene.add(fillMesh);
+            const wireMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(r, 32, 16),
+                new THREE.MeshBasicMaterial({
+                    color: s.color, transparent: true, opacity: s.wireOpacity,
+                    wireframe: true, depthWrite: false
+                })
+            );
+            wireMesh.userData.isPaulingShell = true;
+            wireMesh.userData.shellLevel = s.idx;
+            wireMesh.renderOrder = -9;
+            scene.add(wireMesh);
+            state.shellMeshes[s.idx] = [fillMesh, wireMesh];
+            /* Apply current visibility flag immediately. */
+            const enabled = state.shellsEnabled[s.idx] !== false;
+            fillMesh.visible = enabled;
+            wireMesh.visible = enabled;
+        });
+    }
+
+    /* DOM helper — safe element factory (no innerHTML).
+       Usage:
+         el('div', { class: 'foo', dataset: { k: 'v' }, on: { click: fn } }, [
+             el('span', { text: someUserData }),
+             el('strong', { text: numAsString }),
+         ])
+    */
+    function el(tag, attrs, children) {
+        const node = document.createElement(tag);
+        if (attrs) {
+            for (const k in attrs) {
+                if (k === 'class')        node.className = attrs[k];
+                else if (k === 'text')    node.textContent = attrs[k];
+                else if (k === 'title')   node.title = attrs[k];
+                else if (k === 'style' && typeof attrs[k] === 'object') {
+                    for (const sk in attrs[k]) node.style.setProperty(sk, attrs[k][sk]);
+                }
+                else if (k === 'cssVars') {
+                    for (const sk in attrs[k]) node.style.setProperty(sk, attrs[k][sk]);
+                }
+                else if (k === 'dataset') {
+                    for (const dk in attrs[k]) node.dataset[dk] = attrs[k][dk];
+                }
+                else if (k === 'on') {
+                    for (const ev in attrs[k]) node.addEventListener(ev, attrs[k][ev]);
+                }
+                else if (attrs[k] != null) {
+                    node.setAttribute(k, attrs[k]);
+                }
+            }
+        }
+        if (children) {
+            for (let i = 0; i < children.length; i++) {
+                const c = children[i];
+                if (c == null || c === false) continue;
+                if (typeof c === 'string' || typeof c === 'number') {
+                    node.appendChild(document.createTextNode(String(c)));
+                } else {
+                    node.appendChild(c);
+                }
+            }
+        }
+        return node;
+    }
+
+    function clearChildren(parent) {
+        while (parent && parent.firstChild) parent.removeChild(parent.firstChild);
+    }
+
+    /* ═══ S1 — PAULING SHELL LAYOUT ════════════════════════════════════════
+       Linus Pauling electron-shell model:
+         • Nucleus (shell 0)  — target crate symbols
+         • Shell K (1)        — direct deps
+         • Shell L (2)        — second-order deps
+         • Shell M (3)        — third-order
+         • Shell N (4)        — fourth-order
+         • Outermost (∞)      — external crates: ALWAYS WHITE, ALWAYS FARTHEST
+       Each shell is uniformly distributed via Fibonacci-sphere sampling.
+       ──────────────────────────────────────────────────────────────────── */
+
+    const PAULING = {
+        SHELL_RADII: [42, 110, 195, 285, 370],
+        EXTERNAL_RADIUS: 470,
+        MAX_INTERNAL_SHELL: 4,
+        EXTERNAL_LEVEL: 99
+    };
+
+    function fibonacciSphere(idx, total, radius, jitter) {
+        if (total <= 1) return { x: 0, y: 0, z: 0 };
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+        const y = 1 - (idx / (total - 1)) * 2;
+        const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+        const theta = goldenAngle * idx;
+        const x = Math.cos(theta) * radiusAtY;
+        const z = Math.sin(theta) * radiusAtY;
+        const j = jitter || 0;
+        return {
+            x: x * radius + (j ? (Math.random() - 0.5) * j : 0),
+            y: y * radius + (j ? (Math.random() - 0.5) * j : 0),
+            z: z * radius + (j ? (Math.random() - 0.5) * j : 0)
+        };
+    }
+
+    function placeBySubcluster(groupNodes, macroRadius, jitter, byKey) {
+        const subgroups = new Map();
+        groupNodes.forEach(n => {
+            const key = n[byKey] || 'unknown';
+            if (!subgroups.has(key)) subgroups.set(key, []);
+            subgroups.get(key).push(n);
+        });
+        const keys = Array.from(subgroups.keys());
+        keys.forEach((k, kidx) => {
+            const subNodes = subgroups.get(k);
+            const center = fibonacciSphere(kidx, keys.length, macroRadius, 0);
+            const localR = Math.max(14, Math.sqrt(subNodes.length) * 7);
+            subNodes.forEach((n, idx) => {
+                const local = fibonacciSphere(idx, subNodes.length, localR, jitter);
+                n.shell_x = center.x + local.x;
+                n.shell_y = center.y + local.y;
+                n.shell_z = center.z + local.z;
+            });
+        });
+    }
+
+    function computePaulingLayout(nodes, links, targetCrate) {
+        const shellLevel = new Map();
+        const adj = new Map();
+        nodes.forEach(n => adj.set(n.id, new Set()));
+        links.forEach(l => {
+            const s = l.source.id || l.source;
+            const t = l.target.id || l.target;
+            if (adj.has(s)) adj.get(s).add(t);
+            if (adj.has(t)) adj.get(t).add(s);
+        });
+
+        const hasTarget = targetCrate && targetCrate !== 'all';
+
+        /* Unified shell assignment — TARGET-RELATIVE GRAVITY.
+           When a `targetCrate` is selected, the graph represents the UNIVERSE
+           of that crate: nucleus + K..N shells are reserved for files of the
+           target crate, ranked by `core_score`. Every other node — both
+           non-target workspace crates AND actual externals — is pinned to the
+           outermost pearl (shell 99). This matches Gabriel's mental model:
+           "tudo o que não é o target é externo a esta lente".
+           When no target is selected (`all`), only actual externals (paths
+           outside `/crates/`) sit on the outer pearl; all workspace files are
+           distributed K..N by core_score gravity. */
+        {
+            const isTargetRelativeExternal = n =>
+                isNodeExternal(n) || (hasTarget && n.crate !== targetCrate);
+            const internals = nodes.filter(n => !isTargetRelativeExternal(n));
+            const scored = internals
+                .map(n => ({
+                    id: n.id,
+                    score: typeof n.core_score === 'number' ? n.core_score : 0,
+                }))
+                .sort((a, b) => b.score - a.score);
+            const N = scored.length;
+            scored.forEach((entry, idx) => {
+                const pct = N > 1 ? idx / (N - 1) : 0;
+                let lvl;
+                if      (pct < 0.05) lvl = 0;   // top 5%  → nucleus
+                else if (pct < 0.20) lvl = 1;   // 5..20%  → K shell
+                else if (pct < 0.45) lvl = 2;   // 20..45% → L shell
+                else if (pct < 0.75) lvl = 3;   // 45..75% → M shell
+                else                 lvl = 4;   // 75..100% → N shell (innermost outer)
+                shellLevel.set(entry.id, lvl);
+            });
+            // Hard-lock every target-relative external to the outermost pearl.
+            // The pearl groups: (a) actual externals (axum, serde, ...) AND
+            // (b) non-target workspace crates (touring-core, touring-hooks,
+            // ...) whenever a target is selected. `placeBySubcluster` below
+            // further groups them by `crate` so each crate forms its own
+            // cluster on the pearl — preserving readability.
+            nodes.forEach(n => {
+                if (isTargetRelativeExternal(n)) {
+                    shellLevel.set(n.id, PAULING.EXTERNAL_LEVEL);
+                } else if (!shellLevel.has(n.id)) {
+                    shellLevel.set(n.id, 4);
+                }
+            });
+        }
+
+        const groups = new Map();
+        nodes.forEach(n => {
+            const lvl = shellLevel.get(n.id) || 0;
+            if (!groups.has(lvl)) groups.set(lvl, []);
+            groups.get(lvl).push(n);
+            n.shell_level = lvl;
+        });
+
+        groups.forEach((groupNodes, level) => {
+            if (level === PAULING.EXTERNAL_LEVEL) {
+                placeBySubcluster(groupNodes, PAULING.EXTERNAL_RADIUS, 12, 'crate');
+            } else if (!hasTarget && level === 0) {
+                placeBySubcluster(groupNodes, 240, 18, 'crate');
+            } else {
+                const radius = PAULING.SHELL_RADII[level] !== undefined
+                    ? PAULING.SHELL_RADII[level]
+                    : (PAULING.SHELL_RADII[PAULING.SHELL_RADII.length - 1] + level * 60);
+                groupNodes.forEach((n, idx) => {
+                    const pos = fibonacciSphere(idx, groupNodes.length, radius, 8);
+                    n.shell_x = pos.x; n.shell_y = pos.y; n.shell_z = pos.z;
+                });
+            }
+        });
+
+        /* Pauling shell hierarchy enforcement.
+           Externals (shell 99) get fx/fy/fz LOCKED at the outer pearl radius
+           so d3-force charge/link forces can NOT pull them inward — this is
+           what makes the Linus Pauling concentric-shell metaphor visually
+           clear (externos ficam estritamente na camada outermost).
+           Workspace internals stay free so they can settle into a natural
+           force-directed layout near their assigned shell + still be draggable. */
+        nodes.forEach(n => {
+            if (n.shell_x !== undefined) {
+                n.x = n.shell_x;  n.y = n.shell_y;  n.z = n.shell_z;
+                n.vx = 0; n.vy = 0; n.vz = 0;
+                if (n.shell_level === PAULING.EXTERNAL_LEVEL) {
+                    n.fx = n.shell_x; n.fy = n.shell_y; n.fz = n.shell_z;
+                } else {
+                    delete n.fx; delete n.fy; delete n.fz;
+                }
+            }
+        });
+    }
+
+    /* ═══ S2 — ASPECT LENS SYSTEM ══════════════════════════════════════════ */
+
+    const PALETTE = {
+        teal:    '#00e5c0',
+        cyan:    '#26c6da',
+        electric:'#00e5ff',
+        violet:  '#7c4dff',
+        deepViolet:'#5e35b1',
+        amber:   '#ffb74d',
+        warn:    '#f5a623',
+        rose:    '#ff5c7a',
+        red:     '#ef5350',
+        crimson: '#ff1744',
+        success: '#00e676',
+        white:   '#ffffff'
+    };
+
+    const SHELL_PAULING_PALETTE = [
+        PALETTE.teal, PALETTE.cyan, PALETTE.electric, PALETTE.violet, PALETTE.deepViolet
+    ];
+
+    /* Translucent Pauling shells rendered as concentric THREE.SphereGeometry
+       overlays in the same scene as the force graph. Inspired by classical
+       chemistry diagrams of electron orbitals — each shell glows softly,
+       making the radial hierarchy (nucleus → K → L → M → N → external pearl)
+       visually unmistakable.
+       Material is BasicMaterial with transparent + DoubleSide so the user
+       sees both the inside surface (looking out from the nucleus) and the
+       outside surface (looking in from far camera angles). Wireframe overlay
+       adds latitudinal "fishing-net" texture for depth perception. */
+    const PAULING_SHELL_VISUAL = [
+        { idx: 1, color: 0x26c6da, fillOpacity: 0.045, wireOpacity: 0.10 },
+        { idx: 2, color: 0x00e5ff, fillOpacity: 0.038, wireOpacity: 0.09 },
+        { idx: 3, color: 0x7c4dff, fillOpacity: 0.032, wireOpacity: 0.08 },
+        { idx: 4, color: 0x5e35b1, fillOpacity: 0.026, wireOpacity: 0.07 },
+        { idx: 99, color: 0xffffff, fillOpacity: 0.020, wireOpacity: 0.06 }
+    ];
+
+    const AspectLens = {
+        nodeColor(node) {
+            const lens = window.workspaceGraphState.aspectLens;
+            switch(lens) {
+                case 'quality':    return AspectLens.qualityColor(node);
+                case 'cognitive':  return AspectLens.cognitiveColor(node);
+                case 'safety':     return AspectLens.safetyColor(node);
+                case 'centrality': return AspectLens.centralityColor(node);
+                default:           return AspectLens.paulingColor(node);
+            }
+        },
+        paulingColor(node) {
+            if (node.shell_level === PAULING.EXTERNAL_LEVEL) return PALETTE.white;
+            if (node.is_orphan) return PALETTE.red;
+            if (node.is_test)   return PALETTE.violet;
+            const lvl = Math.max(0, Math.min(node.shell_level || 0, SHELL_PAULING_PALETTE.length - 1));
+            return SHELL_PAULING_PALETTE[lvl];
+        },
+        qualityColor(node) {
+            if (node.shell_level === PAULING.EXTERNAL_LEVEL) return 'rgba(255,255,255,0.55)';
+            const s = node.score || 0;
+            if (s >= 0.85) return PALETTE.success;
+            if (s >= 0.70) return PALETTE.teal;
+            if (s >= 0.55) return PALETTE.cyan;
+            if (s >= 0.40) return PALETTE.amber;
+            return PALETTE.rose;
+        },
+        cognitiveColor(node) {
+            if (node.shell_level === PAULING.EXTERNAL_LEVEL) return 'rgba(255,255,255,0.45)';
+            const c = node.cognitive_score || 0;
+            if (c >= 0.80) return PALETTE.success;
+            if (c >= 0.60) return PALETTE.electric;
+            if (c >= 0.40) return PALETTE.violet;
+            if (c >= 0.20) return PALETTE.amber;
+            return PALETTE.red;
+        },
+        safetyColor(node) {
+            if (node.has_unsafe) return PALETTE.crimson;
+            if (node.is_orphan)  return PALETTE.red;
+            if (node.shell_level === PAULING.EXTERNAL_LEVEL) return 'rgba(255,255,255,0.30)';
+            return 'rgba(255,255,255,0.32)';
+        },
+        centralityColor(node) {
+            const fi = node.fan_in || 0;
+            const fo = node.fan_out || 0;
+            const total = fi + fo;
+            if (fi >= 8) return PALETTE.warn;
+            if (fo >= 8) return PALETTE.teal;
+            if (total >= 6) return PALETTE.violet;
+            if (node.shell_level === PAULING.EXTERNAL_LEVEL) return 'rgba(255,255,255,0.25)';
+            return 'rgba(255,255,255,0.20)';
+        },
+        glowColor(node) {
+            const c = node.cognitive_score || 0;
+            if (c >= 0.80) return PALETTE.success;
+            if (c >= 0.60) return PALETTE.electric;
+            if (c >= 0.40) return PALETTE.violet;
+            if (c >= 0.20) return PALETTE.amber;
+            return PALETTE.red;
+        },
+        linkColor(link) {
+            const lens = window.workspaceGraphState.aspectLens;
+            const isCross = link.isCrossCrate;
+            if (lens === 'safety')     return 'rgba(255,255,255,0.10)';
+            if (lens === 'centrality') return isCross ? 'rgba(245,166,35,0.55)' : 'rgba(124,77,255,0.45)';
+            return isCross ? '#ff9800' : '#00bcd4';
+        },
+        nodeOpacity(node) {
+            const lens = window.workspaceGraphState.aspectLens;
+            if (lens === 'safety') {
+                if (node.has_unsafe || node.is_orphan) return 1.0;
+                return 0.35;
+            }
+            if (node.shell_level === PAULING.EXTERNAL_LEVEL) return 0.78;
+            return 1.0;
+        }
+    };
+
+    /* ═══ S3 — MULTI-ASPECT NODE CANVAS TEXTURE ════════════════════════════ */
+
+    function getNodeShape(fanIn, fanOut) {
+        const ratio = fanOut > 0 ? fanIn / fanOut : (fanIn > 0 ? 4 : 1);
+        if (ratio > 2)  return 'diamond';
+        if (ratio < 0.5) return 'square';
+        return 'circle';
+    }
+
+    const nodeCanvasCache = new Map();
+    function nodeTextureKey(node) {
+        return [
+            node.id,
+            window.workspaceGraphState.aspectLens,
+            node.shell_level,
+            node.has_unsafe ? 1 : 0,
+            node.is_orphan ? 1 : 0,
+            node.is_test ? 1 : 0,
+            /* Include boundary state so cached texture invalidates when a
+               shell toggle hides connected nodes (turns indicator on/off). */
+            (node.boundary_count || 0) > 0 ? 1 : 0
+        ].join(':');
+    }
+
+    function getNodeCanvasTexture(node) {
+        const key = nodeTextureKey(node);
+        if (nodeCanvasCache.has(key)) return nodeCanvasCache.get(key);
+
+        const size = 80;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const center = size / 2;
+        const shape = getNodeShape(node.fan_in, node.fan_out);
+        const baseColor = AspectLens.nodeColor(node);
+        const glowColor = AspectLens.glowColor(node);
+
+        const outerGrad = ctx.createRadialGradient(center, center, 6, center, center, 36);
+        outerGrad.addColorStop(0,    glowColor + 'aa');
+        outerGrad.addColorStop(0.35, glowColor + '55');
+        outerGrad.addColorStop(0.65, glowColor + '20');
+        outerGrad.addColorStop(1,    glowColor + '00');
+        ctx.fillStyle = outerGrad;
+        ctx.beginPath();
+        ctx.arc(center, center, 36, 0, Math.PI * 2);
+        ctx.fill();
+
+        const isExternal = node.shell_level === PAULING.EXTERNAL_LEVEL;
+        if (isExternal) {
+            const pearl = ctx.createRadialGradient(center - 2, center - 3, 0, center, center, 16);
+            pearl.addColorStop(0,    'rgba(255,255,255,1)');
+            pearl.addColorStop(0.45, 'rgba(245,250,255,0.95)');
+            pearl.addColorStop(0.85, 'rgba(200,215,230,0.55)');
+            pearl.addColorStop(1,    'rgba(180,200,220,0)');
+            ctx.fillStyle = pearl;
+            ctx.beginPath();
+            ctx.arc(center, center, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.arc(center, center, 14, 0, Math.PI * 2);
+            ctx.stroke();
+            nodeCanvasCache.set(key, canvas);
+            return canvas;
+        }
+
+        if (node.has_unsafe) {
+            const core = ctx.createRadialGradient(center, center, 0, center, center, 14);
+            core.addColorStop(0,   '#ff1744');
+            core.addColorStop(0.6, '#ef5350aa');
+            core.addColorStop(1,   '#ef535000');
+            ctx.fillStyle = core;
+            ctx.beginPath();
+            ctx.arc(center, center, 14, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.fillStyle = baseColor;
+        ctx.globalAlpha = 0.92;
+        ctx.beginPath();
+        if (shape === 'diamond') {
+            ctx.moveTo(center, center - 19);
+            ctx.lineTo(center + 19, center);
+            ctx.lineTo(center, center + 19);
+            ctx.lineTo(center - 19, center);
+            ctx.closePath();
+        } else if (shape === 'square') {
+            ctx.rect(center - 14, center - 14, 28, 28);
+        } else {
+            ctx.arc(center, center, 17, 0, Math.PI * 2);
+        }
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        const hl = ctx.createRadialGradient(center - 5, center - 5, 0, center, center, 13);
+        hl.addColorStop(0, 'rgba(255,255,255,0.55)');
+        hl.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = hl;
+        ctx.beginPath();
+        if (shape === 'diamond') {
+            ctx.moveTo(center, center - 19);
+            ctx.lineTo(center + 19, center);
+            ctx.lineTo(center, center + 19);
+            ctx.lineTo(center - 19, center);
+            ctx.closePath();
+        } else if (shape === 'square') {
+            ctx.rect(center - 14, center - 14, 28, 28);
+        } else {
+            ctx.arc(center, center, 14, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        if (node.is_orphan) {
+            ctx.strokeStyle = '#ef5350';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.arc(center, center, 22, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        if (node.is_test) {
+            ctx.strokeStyle = 'rgba(171,71,188,0.7)';
+            ctx.lineWidth = 0.8;
+            ctx.setLineDash([1.5, 2.5]);
+            ctx.beginPath();
+            ctx.arc(center, center, 25, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        /* Boundary indicator: this node has links to a hidden shell.
+           Pearl-white dashed double-arc echoes the (now-hidden) outer shell. */
+        if ((node.boundary_count || 0) > 0) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([2, 3]);
+            ctx.beginPath();
+            ctx.arc(center, center, 28, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.strokeStyle = 'rgba(255,213,79,0.55)';
+            ctx.lineWidth = 0.7;
+            ctx.setLineDash([1.5, 4]);
+            ctx.beginPath();
+            ctx.arc(center, center, 31, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        if (shape === 'diamond') {
+            ctx.moveTo(center, center - 19);
+            ctx.lineTo(center + 19, center);
+            ctx.lineTo(center, center + 19);
+            ctx.lineTo(center - 19, center);
+            ctx.closePath();
+        } else if (shape === 'square') {
+            ctx.rect(center - 14, center - 14, 28, 28);
+        } else {
+            ctx.arc(center, center, 17, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+
+        nodeCanvasCache.set(key, canvas);
+        return canvas;
+    }
+
+    function invalidateAllNodeTextures() { nodeCanvasCache.clear(); }
+
+    /* ═══ S4 — WORKFLOW CHAIN DETECTOR & RENDERER ══════════════════════════ */
+
+    const WorkflowChain = {
+        detect(nodes, links) {
+            const incoming = new Map();
+            nodes.forEach(n => incoming.set(n.id, 0));
+            links.forEach(l => {
+                const t = l.target.id || l.target;
+                incoming.set(t, (incoming.get(t) || 0) + 1);
+            });
+            const sources = nodes.filter(n =>
+                (incoming.get(n.id) || 0) === 0
+                && (n.fan_out || 0) > 0
+                && !n.is_orphan
+                && !n.is_test
+                && !isNodeExternal(n)
+            );
+            const out = new Map();
+            nodes.forEach(n => out.set(n.id, []));
+            links.forEach(l => {
+                const s = l.source.id || l.source;
+                const t = l.target.id || l.target;
+                if (out.has(s)) out.get(s).push(t);
+            });
+
+            function dfsLongest(start) {
+                const stack = [{ node: start, path: [start], visited: new Set([start]) }];
+                let best = [start];
+                let iters = 0;
+                while (stack.length > 0 && iters < 4000) {
+                    iters++;
+                    const cur = stack.pop();
+                    if (cur.path.length > best.length) best = cur.path;
+                    if (cur.path.length >= 14) continue;
+                    const nexts = out.get(cur.node) || [];
+                    for (let i = 0; i < nexts.length; i++) {
+                        const n = nexts[i];
+                        if (cur.visited.has(n)) continue;
+                        const nv = new Set(cur.visited); nv.add(n);
+                        stack.push({ node: n, path: cur.path.concat([n]), visited: nv });
+                    }
+                }
+                return best;
+            }
+
+            const chains = sources.slice(0, 80).map(src => {
+                const path = dfsLongest(src.id);
+                if (path.length < 3) return null;
+                const head = nodes.find(n => n.id === path[0]);
+                const tail = nodes.find(n => n.id === path[path.length - 1]);
+                return {
+                    id: path[0] + '→' + path[path.length - 1],
+                    label: shortName(head ? head.name : path[0]) + '  ⇢  ' + shortName(tail ? tail.name : path[path.length - 1]),
+                    length: path.length,
+                    nodeIds: path
+                };
+            }).filter(Boolean);
+
+            chains.sort((a, b) => b.length - a.length);
+            const seen = new Set();
+            const unique = [];
+            for (let i = 0; i < chains.length; i++) {
+                const c = chains[i];
+                if (seen.has(c.id)) continue;
+                seen.add(c.id);
+                unique.push(c);
+                if (unique.length >= 60) break;
+            }
+            return unique;
+        },
+
+        renderInto(chainId, mountEl, allNodes) {
+            clearChildren(mountEl);
+            const state = window.workspaceGraphState;
+            const chain = state.chains.find(c => c.id === chainId);
+            if (!chain) {
+                mountEl.appendChild(el('div', { class: 'workflow-empty', text: 'No chain selected. Pick one from the HUD.' }));
+                return;
+            }
+            const stages = chain.nodeIds
+                .map(id => allNodes.find(n => n.id === id))
+                .filter(Boolean);
+            if (stages.length === 0) {
+                mountEl.appendChild(el('div', { class: 'workflow-empty', text: 'Chain endpoints are not present in the current view.' }));
+                return;
+            }
+
+            const sumQ = stages.reduce((a, n) => a + (n.score || 0), 0);
+            const sumC = stages.reduce((a, n) => a + (n.cognitive_score || 0), 0);
+            const unsafeCount = stages.filter(n => n.has_unsafe).length;
+            const orphanCount = stages.filter(n => n.is_orphan).length;
+            const cratesUnique = new Set(stages.map(n => n.crate)).size;
+
+            const root = el('div', { class: 'workflow-chain-canvas' });
+            root.appendChild(WorkflowChain._renderHeader(stages, cratesUnique, sumQ, sumC, unsafeCount, orphanCount));
+            root.appendChild(WorkflowChain._renderPipeline(stages, allNodes));
+            root.appendChild(WorkflowChain._renderLegend());
+            mountEl.appendChild(root);
+        },
+
+        _renderHeader(stages, cratesUnique, sumQ, sumC, unsafeCount, orphanCount) {
+            const head = el('div', { class: 'workflow-header' }, [
+                el('div', { class: 'workflow-header-title' }, [
+                    el('span', { class: 'workflow-eyebrow', text: 'workflow chain' }),
+                    el('h2', { class: 'workflow-title' }, [
+                        document.createTextNode(shortName(stages[0].name)),
+                        el('span', { class: 'workflow-rarrow', text: '  ⟶  ' }),
+                        document.createTextNode(shortName(stages[stages.length - 1].name))
+                    ])
+                ]),
+                el('div', { class: 'workflow-stats' }, [
+                    WorkflowChain._stat(String(stages.length), 'stages'),
+                    WorkflowChain._stat(String(cratesUnique), 'crates'),
+                    WorkflowChain._stat((sumQ / stages.length).toFixed(2), 'avg quality', PALETTE.success),
+                    WorkflowChain._stat((sumC / stages.length).toFixed(2), 'avg cognitive', PALETTE.electric),
+                    unsafeCount > 0 ? WorkflowChain._stat(String(unsafeCount), 'unsafe', PALETTE.crimson, 'warn') : null,
+                    orphanCount > 0 ? WorkflowChain._stat(String(orphanCount), 'orphans', PALETTE.red, 'warn') : null
+                ].filter(Boolean))
+            ]);
+            return head;
+        },
+
+        _stat(num, label, color, mod) {
+            const cls = 'wfstat' + (mod ? ' ' + mod : '');
+            const numStyle = color ? { color: color } : null;
+            return el('div', { class: cls }, [
+                el('span', { class: 'wfstat-num', text: num, style: numStyle }),
+                el('span', { class: 'wfstat-label', text: label })
+            ]);
+        },
+
+        _renderPipeline(stages, allNodes) {
+            const pipe = el('div', { class: 'workflow-pipeline' });
+            stages.forEach((node, idx) => {
+                pipe.appendChild(WorkflowChain._renderStage(node, idx, stages.length, allNodes));
+            });
+            return pipe;
+        },
+
+        _renderStage(node, idx, total, allNodes) {
+            const isLast = idx === total - 1;
+            const baseColor = AspectLens.nodeColor(node);
+            const glow = AspectLens.glowColor(node);
+            const shape = getNodeShape(node.fan_in, node.fan_out);
+            const num = String(idx + 1).padStart(2, '0');
+
+            const card = el('div', { class: 'stage-card' }, [
+                el('div', { class: 'stage-glyph stage-' + shape }),
+                el('div', { class: 'stage-name', title: node.id, text: node.name || shortName(node.id) }),
+                el('div', { class: 'stage-crate', text: node.crate }),
+                el('div', { class: 'stage-meta' }, [
+                    el('span', { class: 'stage-q', text: 'Q ' + (node.score || 0).toFixed(2) }),
+                    el('span', { class: 'stage-fan', text: '⇄ ' + (node.fan_in || 0) + '/' + (node.fan_out || 0) })
+                ])
+            ]);
+
+            const flagsEl = el('div', { class: 'stage-flags' });
+            if (node.has_unsafe) flagsEl.appendChild(el('span', { class: 'stage-flag flag-unsafe', text: 'unsafe' }));
+            if (node.is_orphan)  flagsEl.appendChild(el('span', { class: 'stage-flag flag-orphan', text: 'orphan' }));
+            if (node.is_test)    flagsEl.appendChild(el('span', { class: 'stage-flag flag-test',   text: 'test' }));
+            if (isNodeExternal(node)) flagsEl.appendChild(el('span', { class: 'stage-flag flag-extern', text: 'extern' }));
+            if (flagsEl.firstChild) card.appendChild(flagsEl);
+
+            const stage = el('div', {
+                class: 'workflow-stage',
+                dataset: { nodeId: node.id, idx: String(idx) },
+                cssVars: { '--stage-color': baseColor, '--stage-glow': glow },
+                on: {
+                    click: () => {
+                        const allLinks = window.workspaceGraphState.rawData ? window.workspaceGraphState.rawData.links : [];
+                        populateDetailPanel(node, allNodes, allLinks);
+                        showDetailPanel();
+                    }
+                }
+            }, [
+                el('div', { class: 'stage-num', text: num }),
+                card
+            ]);
+
+            if (!isLast) {
+                stage.appendChild(
+                    el('div', { class: 'stage-link' }, [
+                        el('div', { class: 'stage-link-track' }),
+                        el('div', { class: 'stage-link-particle', style: { 'animation-delay': (idx * 250) + 'ms' } }),
+                        el('div', { class: 'stage-link-particle alt', style: { 'animation-delay': (idx * 250 + 700) + 'ms' } })
+                    ])
+                );
+            }
+            return stage;
+        },
+
+        _renderLegend() {
+            return el('div', { class: 'workflow-legend' }, [
+                WorkflowChain._legItem('balanced',     { background: PALETTE.teal }),
+                WorkflowChain._legItem('fan-in heavy', { background: PALETTE.amber }, 'diamond'),
+                WorkflowChain._legItem('fan-out heavy',{ background: PALETTE.violet }, 'square'),
+                WorkflowChain._legItem('unsafe',       { background: PALETTE.crimson, 'box-shadow': '0 0 8px ' + PALETTE.crimson }),
+                WorkflowChain._legItem('orphan',       { background: 'transparent', border: '1.5px dashed ' + PALETTE.red })
+            ]);
+        },
+
+        _legItem(label, dotStyle, shape) {
+            const dotCls = shape ? ('wf-leg-shape ' + shape) : 'wf-leg-dot';
+            return el('span', { class: 'wf-leg' }, [
+                el('span', { class: dotCls, style: dotStyle }),
+                document.createTextNode(label)
+            ]);
+        }
+    };
+
+    /* ═══ S5 — RADAR CHART ════════════════════════════════════════════════ */
+
+    function drawRadarChart(canvas, node) {
+        if (!canvas || !node) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = canvas.clientWidth || 220;
+        const cssH = canvas.clientHeight || 220;
+        canvas.width = cssW * dpr;
+        canvas.height = cssH * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const w = cssW, h = cssH;
+        const cx = w / 2, cy = h / 2;
+        const radius = Math.min(w, h) / 2 - 38;
+
+        ctx.clearRect(0, 0, w, h);
+
+        const aspects = [
+            { label: 'QUALITY',    value: clamp01(node.score || 0) },
+            { label: 'COGNITIVE',  value: clamp01(node.cognitive_score || 0) },
+            { label: 'CENTRALITY', value: clamp01((node.fan_in || 0) / 15) },
+            { label: 'REACH',      value: clamp01((node.fan_out || 0) / 15) },
+            { label: 'SAFETY',     value: node.has_unsafe ? 0.10 : 0.95 },
+            { label: 'WIRED',      value: node.is_orphan ? 0.05 : 1.0 }
+        ];
+        const N = aspects.length;
+        const angleAt = i => -Math.PI/2 + (i / N) * Math.PI * 2;
+
+        for (let r = 1; r <= 4; r++) {
+            const rad = (radius * r) / 4;
+            ctx.beginPath();
+            for (let i = 0; i <= N; i++) {
+                const a = angleAt(i % N);
+                const x = cx + Math.cos(a) * rad;
+                const y = cy + Math.sin(a) * rad;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = 'rgba(255,255,255,' + (0.04 + r * 0.018).toFixed(3) + ')';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 0.7;
+        for (let i = 0; i < N; i++) {
+            const a = angleAt(i);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius);
+            ctx.stroke();
+        }
+
+        const gradient = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius);
+        gradient.addColorStop(0,   'rgba(0, 229, 192, 0.45)');
+        gradient.addColorStop(0.5, 'rgba(0, 229, 192, 0.22)');
+        gradient.addColorStop(1,   'rgba(124, 77, 255, 0.10)');
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = '#00e5c0';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        aspects.forEach((aspect, i) => {
+            const a = angleAt(i);
+            const r = radius * Math.max(0.04, aspect.value);
+            const x = cx + Math.cos(a) * r;
+            const y = cy + Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        aspects.forEach((aspect, i) => {
+            const a = angleAt(i);
+            const r = radius * Math.max(0.04, aspect.value);
+            const x = cx + Math.cos(a) * r;
+            const y = cy + Math.sin(a) * r;
+            ctx.shadowColor = '#00e5c0';
+            ctx.shadowBlur = 14;
+            ctx.fillStyle = '#00e5c0';
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        aspects.forEach((aspect, i) => {
+            const a = angleAt(i);
+            const lr = radius + 18;
+            const x = cx + Math.cos(a) * lr;
+            const y = cy + Math.sin(a) * lr;
+            ctx.fillStyle = 'rgba(232, 237, 245, 0.55)';
+            ctx.fillText(aspect.label, x, y);
+            ctx.fillStyle = '#00e5c0';
+            ctx.font = 'bold 10px "JetBrains Mono", monospace';
+            ctx.fillText(aspect.value.toFixed(2), x, y + 12);
+            ctx.font = '10px "JetBrains Mono", monospace';
+        });
+    }
+
+    /* ═══ S6 — DETAIL PANEL POPULATION ═════════════════════════════════════ */
+
+    function setText(id, value) {
+        const e = document.getElementById(id);
+        if (e) e.textContent = String(value == null ? '' : value);
+    }
+
+    function populateDetailPanel(node, allNodes, allLinks) {
+        if (!node) return;
+        const state = window.workspaceGraphState;
+        state.selectedNode = node;
+
+        setText('nd-title', node.name || shortName(node.id));
+        setText('nd-id', node.id);
+        setText('nd-crate', node.crate);
+        setText('nd-shell', node.shell_level === PAULING.EXTERNAL_LEVEL ? 'external' : 'K' + (node.shell_level || 0));
+        setText('nd-shape', getNodeShape(node.fan_in, node.fan_out));
+
+        /* Score + Cognitive (colored values) */
+        const scoreEl = document.getElementById('nd-score');
+        if (scoreEl) {
+            clearChildren(scoreEl);
+            scoreEl.appendChild(el('span', {
+                style: { color: AspectLens.qualityColor(node) },
+                text: (node.score || 0).toFixed(2)
+            }));
+        }
+        const cogEl = document.getElementById('nd-cog');
+        if (cogEl) {
+            clearChildren(cogEl);
+            cogEl.appendChild(el('span', {
+                style: { color: AspectLens.cognitiveColor(node) },
+                text: (node.cognitive_score || 0).toFixed(2)
+            }));
+        }
+
+        /* Visible counts within the active filter */
+        const inst = state.instance;
+        const visibleLinks = inst ? (inst.graphData().links || []) : (allLinks || []);
+        let visibleFanIn = 0, visibleFanOut = 0;
+        const related = [];
+        visibleLinks.forEach(l => {
+            const sId = l.source.id || l.source;
+            const tId = l.target.id || l.target;
+            if (sId === node.id) { visibleFanOut++; related.push({ link: l, dir: 'out' }); }
+            if (tId === node.id) { visibleFanIn++;  related.push({ link: l, dir: 'in'  }); }
+        });
+        setText('nd-fanin',  visibleFanIn  + ' visible · ' + (node.fan_in  || 0) + ' total');
+        setText('nd-fanout', visibleFanOut + ' visible · ' + (node.fan_out || 0) + ' total');
+
+        /* Flags row */
+        const flagsEl = document.getElementById('nd-flags');
+        if (flagsEl) {
+            clearChildren(flagsEl);
+            const flags = [];
+            if (node.has_unsafe) flags.push(['unsafe', '⚠ unsafe']);
+            if (node.is_orphan)  flags.push(['orphan', '⛓ orphan']);
+            if (node.is_test)    flags.push(['test',   '◇ test']);
+            if (isNodeExternal(node)) flags.push(['extern', '○ extern']);
+            if (!flags.length) flags.push(['ok', '✓ healthy']);
+            flags.forEach(([cls, label]) => {
+                flagsEl.appendChild(el('span', { class: 'ndflag ' + cls, text: label }));
+            });
+        }
+
+        /* Radar chart */
+        const canvas = document.getElementById('nd-radar');
+        if (canvas) drawRadarChart(canvas, node);
+
+        /* Connecting symbols */
+        const edgesEl = document.getElementById('nd-edges');
+        if (edgesEl) {
+            clearChildren(edgesEl);
+            if (related.length === 0) {
+                edgesEl.appendChild(el('i', { class: 'nd-empty', text: 'no connections in current view' }));
+            } else {
+                related.forEach(r => {
+                    const l = r.link;
+                    const otherId = r.dir === 'out' ? (l.target.id || l.target) : (l.source.id || l.source);
+                    const other = allNodes.find(n => n.id === otherId);
+                    const otherName = other ? other.name : shortName(otherId);
+                    const arrow = r.dir === 'out' ? '→ imports →' : '← consumed by ←';
+                    const color = l.isCrossCrate ? '#ff9800' : '#00bcd4';
+                    const pillCls = 'edge-pill ' + (l.isCrossCrate ? 'cross' : 'intra');
+                    const pillTxt = l.isCrossCrate ? 'cross-crate' : 'intra';
+
+                    edgesEl.appendChild(
+                        el('div', {
+                            class: 'nd-edge',
+                            dataset: { otherId },
+                            on: {
+                                click: () => {
+                                    const onode = allNodes.find(n => n.id === otherId);
+                                    if (onode && state.instance) {
+                                        flyToNode(state.instance, onode);
+                                        populateDetailPanel(onode, allNodes, allLinks);
+                                    }
+                                }
+                            }
+                        }, [
+                            el('div', { class: 'nd-edge-head', style: { color } }, [
+                                document.createTextNode(arrow + ' '),
+                                el('span', { class: pillCls, text: pillTxt })
+                            ]),
+                            el('div', { class: 'nd-edge-other', title: otherId, text: otherName })
+                        ])
+                    );
+                });
+            }
+        }
+    }
+
+    function showDetailPanel() {
+        const p = document.getElementById('node-details-panel');
+        if (p) p.classList.add('open');
+    }
+    function hideDetailPanel() {
+        const p = document.getElementById('node-details-panel');
+        if (p) p.classList.remove('open');
+    }
+    function flyToNode(graph, node) {
+        const dist = Math.hypot(node.x || 1, node.y || 1, node.z || 1);
+        const ratio = 1 + 50 / dist;
+        graph.cameraPosition({ x: node.x * ratio, y: node.y * ratio, z: node.z * ratio }, node, 1800);
+    }
+
+    /* ═══ S7 — SVG PAN-ZOOM (legacy /wiring view) ═════════════════════════ */
+
+    window.initPanZoom = function() {
+        setTimeout(() => {
+            const svgs = document.querySelectorAll('.svg-wrapper svg');
+            svgs.forEach(svg => {
+                if (!svg.hasAttribute('data-panzoom-initialized')) {
+                    svg.setAttribute('data-panzoom-initialized', 'true');
+                    svg.style.width = '100%';
+                    svg.style.height = '600px';
+                    svgPanZoom(svg, {
+                        zoomEnabled: true,
+                        controlIconsEnabled: true,
+                        fit: true,
+                        center: true,
+                        minZoom: 0.1,
+                        maxZoom: 10
+                    });
+                }
+            });
+        }, 100);
+    };
+
+    /* ═══ S8 — STARFIELD BACKDROP ═════════════════════════════════════════ */
+
+    function startStarfield() {
+        const canvas = document.getElementById('cosmos-starfield');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let w = 0, h = 0, stars = [];
+
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            w = window.innerWidth;
+            h = window.innerHeight;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const N = Math.min(280, Math.floor((w * h) / 9000));
+            stars = [];
+            for (let i = 0; i < N; i++) {
+                stars.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    r: Math.random() * 1.4 + 0.2,
+                    a: Math.random() * 0.6 + 0.15,
+                    twinkleSeed: Math.random() * Math.PI * 2,
+                    twinkleSpeed: 0.0008 + Math.random() * 0.0014,
+                    drift: (Math.random() - 0.5) * 0.04
+                });
+            }
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        let last = performance.now();
+        function frame(t) {
+            const dt = t - last; last = t;
+            ctx.clearRect(0, 0, w, h);
+            for (let i = 0; i < stars.length; i++) {
+                const s = stars[i];
+                s.twinkleSeed += s.twinkleSpeed * dt;
+                const twinkle = (Math.sin(s.twinkleSeed) + 1) / 2;
+                const alpha = s.a * (0.45 + twinkle * 0.55);
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(232, 237, 245, ' + alpha.toFixed(3) + ')';
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+                s.x += s.drift;
+                if (s.x < -2) s.x = w + 2;
+                if (s.x > w + 2) s.x = -2;
+            }
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+    }
+    document.addEventListener('DOMContentLoaded', startStarfield);
+
+    /* ═══ S9 — FILTERS, LENS, VIEW MODE, SEARCH HOOKS ══════════════════════ */
+
+    window.updateWorkspaceGraphFilters = function(showOrphans, showTests, showParticles, targetCrate) {
+        try {
+            const state = window.workspaceGraphState;
+            if (!state.instance || !state.rawData) return;
+
+            state.showOrphans = !!showOrphans;
+            state.showTests = !!showTests;
+            state.showParticles = !!showParticles;
+            const newTarget = targetCrate || 'all';
+            const targetChanged = newTarget !== state.targetCrate;
+            state.targetCrate = newTarget;
+
+            if (targetChanged) {
+                computePaulingLayout(state.rawData.nodes, state.rawData.links, state.targetCrate);
+                invalidateAllNodeTextures();
+            }
+
+            /* Scope hierarchy:
+               1. Workflow Chain selected → only chain nodes (string-of-pearls)
+               2. Target Crate selected   → target symbols + 1-hop neighbors
+               3. 'all' workspace         → everything (modulo toggles)
+               Chain takes priority because it's the more specific selection. */
+            let scopedIds = null;
+            let scopeKind = 'all';
+            if (state.currentChainId) {
+                const chain = state.chains.find(c => c.id === state.currentChainId);
+                if (chain && chain.nodeIds && chain.nodeIds.length > 0) {
+                    scopedIds = new Set(chain.nodeIds);
+                    scopeKind = 'chain';
+                }
+            }
+            if (!scopedIds && state.targetCrate !== 'all') {
+                const targetIds = new Set();
+                state.rawData.nodes.forEach(n => {
+                    if (n.crate === state.targetCrate) targetIds.add(n.id);
+                });
+                scopedIds = new Set(targetIds);
+                state.rawData.links.forEach(l => {
+                    const s = l.source.id || l.source;
+                    const t = l.target.id || l.target;
+                    if (targetIds.has(s)) scopedIds.add(t);
+                    if (targetIds.has(t)) scopedIds.add(s);
+                });
+                scopeKind = 'target';
+            }
+            state.currentScopeKind = scopeKind;
+
+            /* Per-shell visibility flag (default true). Toggling a shell off
+               hides its sphere mesh AND filters its nodes/links from the graph. */
+            const shellOk = lvl => state.shellsEnabled[lvl] !== false;
+
+            const visibleNodes = state.rawData.nodes.filter(n => {
+                if (scopedIds && !scopedIds.has(n.id)) return false;
+                if (!state.showOrphans && n.is_orphan) return false;
+                if (!state.showTests && n.is_test) return false;
+                if (!shellOk(n.shell_level)) return false;
+                return true;
+            });
+
+            /* Compute boundary_count: for each visible node, how many of its
+               links go to nodes that are hidden BECAUSE OF a shell toggle.
+               This drives the pearl-white dashed arc indicator on the texture. */
+            const visIds = new Set(visibleNodes.map(n => n.id));
+            const idIndex = new Map(state.rawData.nodes.map(n => [n.id, n]));
+            visibleNodes.forEach(n => { n.boundary_count = 0; });
+            state.rawData.links.forEach(l => {
+                const sId = l.source.id || l.source;
+                const tId = l.target.id || l.target;
+                const sVis = visIds.has(sId);
+                const tVis = visIds.has(tId);
+                if (sVis === tVis) return; // both visible OR both hidden — no boundary
+                const visibleOne = idIndex.get(sVis ? sId : tId);
+                const hiddenOne = idIndex.get(sVis ? tId : sId);
+                if (!visibleOne || !hiddenOne) return;
+                /* Only count when the OTHER node is hidden specifically due to
+                   shell filter (not orphan/test toggles or scope filter). */
+                if (!shellOk(hiddenOne.shell_level)) {
+                    visibleOne.boundary_count = (visibleOne.boundary_count || 0) + 1;
+                }
+            });
+            /* Invalidate texture cache so boundary indicator re-renders. */
+            invalidateAllNodeTextures();
+
+            visibleNodes.forEach(n => {
+                n.displayColor = AspectLens.nodeColor(n);
+                n.displayOpacity = AspectLens.nodeOpacity(n);
+            });
+
+            /* Reuse `visIds` already computed for the boundary pass above. */
+            const visibleLinks = state.rawData.links.filter(l => {
+                const sId = l.source.id || l.source;
+                const tId = l.target.id || l.target;
+                return visIds.has(sId) && visIds.has(tId);
+            });
+            visibleLinks.forEach(l => { l.displayColor = AspectLens.linkColor(l); });
+
+            state.instance.graphData({ nodes: visibleNodes, links: visibleLinks });
+            state.instance.linkDirectionalParticles(state.showParticles ? 2 : 0);
+            state.instance.refresh();
+
+            if (targetChanged) centerCameraToShells(state.instance);
+        } catch (e) {
+            console.error('[updateWorkspaceGraphFilters]', e);
+        }
+    };
+
+    function centerCameraToShells(graph) {
+        graph.cameraPosition({ x: 0, y: 0, z: 720 }, { x: 0, y: 0, z: 0 }, 1600);
+    }
+
+    window.searchWorkspaceGraph = function(query) {
+        const state = window.workspaceGraphState;
+        if (!state.instance || !query) return;
+        const q = query.toLowerCase();
+        const data = state.instance.graphData();
+        const found = data.nodes.find(n =>
+            (n.name || '').toLowerCase().includes(q) || (n.id || '').toLowerCase().includes(q)
+        );
+        if (found) {
+            flyToNode(state.instance, found);
+            populateDetailPanel(found, data.nodes, data.links);
+            showDetailPanel();
+        }
+    };
+
+    window.setAspectLens = function(lens) {
+        const state = window.workspaceGraphState;
+        const valid = ['pauling', 'quality', 'cognitive', 'safety', 'centrality'];
+        if (valid.indexOf(lens) === -1) return;
+        state.aspectLens = lens;
+        invalidateAllNodeTextures();
+        if (state.instance && state.rawData) {
+            window.updateWorkspaceGraphFilters(state.showOrphans, state.showTests, state.showParticles, state.targetCrate);
+        }
+        if (state.viewMode === 'chain' && state.currentChainId) {
+            const mount = document.getElementById('ws-chain-mount');
+            if (mount) WorkflowChain.renderInto(state.currentChainId, mount, state.rawData.nodes);
+        }
+    };
+
+    window.setViewMode = function(mode) {
+        const state = window.workspaceGraphState;
+        if (mode !== '3d' && mode !== 'chain') return;
+        state.viewMode = mode;
+        const mount3d = document.getElementById('ws-3d-mount');
+        const mountChain = document.getElementById('ws-chain-mount');
+        if (!mount3d || !mountChain) return;
+        if (mode === '3d') {
+            mount3d.style.display = 'block';
+            mountChain.style.display = 'none';
+            if (state.instance) state.instance.refresh();
+        } else {
+            mount3d.style.display = 'none';
+            mountChain.style.display = 'block';
+            if (!state.currentChainId && state.chains.length > 0) {
+                state.currentChainId = state.chains[0].id;
+            }
+            WorkflowChain.renderInto(state.currentChainId, mountChain, state.rawData ? state.rawData.nodes : []);
+        }
+    };
+
+    window.setWorkflowChain = function(chainId) {
+        const state = window.workspaceGraphState;
+        /* Empty string means "deselect chain" — fall back to target/all scope */
+        state.currentChainId = chainId || null;
+        /* Re-apply filters in 3D mode so the workspace graph itself reduces to
+           the chain's node sequence (string-of-pearls) — that's where the
+           user wants to see the workflow's nodes + connection lines live. */
+        if (state.instance && state.rawData) {
+            window.updateWorkspaceGraphFilters(
+                state.showOrphans, state.showTests, state.showParticles, state.targetCrate
+            );
+        }
+        /* If the linear chain pipeline view is active, refresh it too */
+        if (state.viewMode === 'chain' && state.rawData) {
+            const mount = document.getElementById('ws-chain-mount');
+            if (mount) WorkflowChain.renderInto(state.currentChainId, mount, state.rawData.nodes);
+        }
+    };
+
+    window.recenterWorkspace = function() {
+        const state = window.workspaceGraphState;
+        if (state.instance) centerCameraToShells(state.instance);
+    };
+
+    window.closeNodeDetailsPanel = function() {
+        hideDetailPanel();
+    };
+
+    /* Toggle a Pauling shell layer's visibility (mesh + nodes + links).
+       Recomputes boundary indicators on the surviving nodes so the user
+       can still see "this node has hidden external connections". */
+    window.setShellEnabled = function(shellLevel, enabled) {
+        const state = window.workspaceGraphState;
+        const lvl = parseInt(shellLevel, 10);
+        if (Number.isNaN(lvl)) return;
+        state.shellsEnabled[lvl] = !!enabled;
+        /* Toggle the 3D sphere meshes (solid + wireframe) for this shell. */
+        const meshes = state.shellMeshes && state.shellMeshes[lvl];
+        if (meshes) {
+            meshes.forEach(m => { m.visible = !!enabled; });
+        }
+        /* Re-apply filters — recomputes visible nodes/links + boundary_count. */
+        if (state.instance && state.rawData) {
+            window.updateWorkspaceGraphFilters(
+                state.showOrphans, state.showTests, state.showParticles, state.targetCrate
+            );
+        }
+    };
+
+    /* ═══ S10 — INIT FORCE GRAPH ═══════════════════════════════════════════ */
+
+    window.initForceGraph = function(dataStr) {
+        setTimeout(() => {
+            const container = document.getElementById('workspace-graph-container');
+            if (!container) { console.warn('[initForceGraph] container missing'); return; }
+            clearChildren(container);
+
+            const mount3d = el('div', { id: 'ws-3d-mount', class: 'ws-mount ws-mount-3d' });
+            const mountChain = el('div', { id: 'ws-chain-mount', class: 'ws-mount ws-mount-chain', style: { display: 'none' } });
+            container.appendChild(mount3d);
+            container.appendChild(mountChain);
+
+            try {
+                const gData = JSON.parse(dataStr);
+                const cratesSet = new Set();
+
+                const seenIds = new Map();
+                gData.nodes.forEach(n => {
+                    const nid = normalizePath(n.id);
+                    if (!seenIds.has(nid)) seenIds.set(nid, n);
+                    else {
+                        const existing = seenIds.get(nid);
+                        if ((n.fan_out || 0) > (existing.fan_out || 0)) seenIds.set(nid, n);
+                    }
+                });
+
+                const nodes = Array.from(seenIds.entries()).map(([nid, n]) => {
+                    const crate = getCrateFromPath(nid);
+                    const is_external = isPathExternal(nid);
+                    /* Only workspace crates populate the Target Crate dropdown.
+                       Externals (axum, serde, …) keep their crate label for
+                       display but aren't selectable as nucleus targets. */
+                    if (!is_external && crate !== 'unknown') cratesSet.add(crate);
+
+                    const fanIn = n.fan_in || 0;
+                    const fanOut = n.fan_out || 0;
+                    const isOrphan = !!n.is_orphan;
+                    const totalConn = fanIn + fanOut;
+                    const hubScore = totalConn > 0 ? Math.min(1.0, (2 * Math.sqrt(totalConn)) / 20) : 0;
+                    const orphanPenalty = isOrphan ? 0.20 : 0;
+                    const centralBoost = fanIn > 5 ? 0.15 : 0;
+                    const cognitive_score = Math.max(0, Math.min(1.0,
+                        hubScore * 0.5 + centralBoost + 0.30 - orphanPenalty
+                    ));
+
+                    return {
+                        id: nid,
+                        name: n.label || shortName(nid),
+                        crate,
+                        is_external,
+                        val: n.quality_score ? n.quality_score * 10 : 2,
+                        score: typeof n.quality_score === 'number' ? n.quality_score : cognitive_score,
+                        fan_in: fanIn,
+                        fan_out: fanOut,
+                        has_unsafe: !!n.has_unsafe,
+                        is_orphan: isOrphan,
+                        is_test: !!n.is_test,
+                        cognitive_score,
+                        shell_level: 0,
+                        baseColor: is_external ? '#ff5c7a'
+                                                : (n.is_orphan ? '#ef5350'
+                                                : (n.is_test ? '#ab47bc' : '#29b6f6')),
+                        displayColor: is_external ? '#ff5c7a' : '#29b6f6',
+                        displayOpacity: 1.0,
+                        // Backend-computed dependency gravity (∈ [-1, +1]).
+                        // Drives Pauling shell assignment in computePaulingLayout.
+                        core_score: typeof n.core_score === 'number' ? n.core_score : 0,
+                        computed_fan_in:  n.computed_fan_in  || 0,
+                        computed_fan_out: n.computed_fan_out || 0
+                    };
+                });
+
+                window.dispatchEvent(new CustomEvent('workspace-crates-loaded', { detail: Array.from(cratesSet) }));
+
+                const nodeIdToCrate = {};
+                const validIds = new Set();
+                nodes.forEach(n => { nodeIdToCrate[n.id] = n.crate; validIds.add(n.id); });
+
+                const linkSet = new Set();
+                const links = [];
+                gData.edges.forEach(e => {
+                    const from = normalizePath(e.from);
+                    const to = normalizePath(e.to);
+                    if (from === to) return;
+                    const key = from + '|' + to;
+                    if (linkSet.has(key)) return;
+                    linkSet.add(key);
+                    if (!validIds.has(from) || !validIds.has(to)) return;
+                    const sCrate = nodeIdToCrate[from] || 'unknown';
+                    const tCrate = nodeIdToCrate[to] || 'unknown';
+                    const isCross = sCrate !== tCrate;
+                    const kind = e.kind || 'imports';
+                    /* Color taxonomy by relationship kind:
+                       crate-dep    → violet  (workspace architectural skeleton)
+                       module-decl  → teal    (parent-to-child mod hierarchy)
+                       symbol-ref   → cyan-deep (symbol-level data flow with count)
+                       external-dep → rose    (cargo external deps)
+                       imports      → cyan / amber (file-level use stmts) */
+                    let displayColor;
+                    if      (kind === 'crate-dep')    displayColor = '#7c4dff';
+                    else if (kind === 'external-dep') displayColor = '#ff5c7a';
+                    else if (kind === 'module-decl')  displayColor = '#00e5c0';
+                    else if (kind === 'symbol-ref')   displayColor = '#26c6da';
+                    else if (isCross)                  displayColor = '#ff9800';
+                    else                               displayColor = '#00bcd4';
+                    const symCount = e.symbol_count || 0;
+                    const valByKind = {
+                        'crate-dep': 3,
+                        'external-dep': 1.5,
+                        'module-decl': 1.2,
+                        'symbol-ref': 1.0 + Math.min(symCount, 6) * 0.25,
+                    };
+                    links.push({
+                        source: from,
+                        target: to,
+                        name: kind,
+                        kind: kind,
+                        val: valByKind[kind] || 1,
+                        isCrossCrate: isCross,
+                        srcCrate: sCrate,
+                        tgtCrate: tCrate,
+                        symbolCount: symCount,
+                        topKind: e.top_kind || null,
+                        displayColor: displayColor,
+                    });
+                });
+
+                computePaulingLayout(nodes, links, window.workspaceGraphState.targetCrate);
+
+                const chains = WorkflowChain.detect(nodes, links);
+                window.workspaceGraphState.chains = chains;
+                window.dispatchEvent(new CustomEvent('workspace-chains-loaded', { detail: chains }));
+
+                nodes.forEach(n => {
+                    n.displayColor = AspectLens.nodeColor(n);
+                    n.displayOpacity = AspectLens.nodeOpacity(n);
+                });
+
+                window.workspaceGraphState.rawData = { nodes, links };
+                nodes.slice(0, 220).forEach(n => getNodeCanvasTexture(n));
+
+                const Graph = ForceGraph3D({ alpha: true })(mount3d)
+                    .graphData({ nodes, links })
+                    .backgroundColor('rgba(0,0,0,0)')
+                    .nodeId('id')
+                    .nodeLabel(node => buildNodeTooltipHtml(node))
+                    .nodeColor(n => n.displayColor || n.baseColor)
+                    .nodeVal(n => {
+                        const baseSize = n.val || 2;
+                        const qm = 0.5 + (n.score || 0.5) * 1.4;
+                        return baseSize * qm;
+                    })
+                    .nodeRelSize(5)
+                    .nodeThreeObject(node => {
+                        /* Bigger sprites — was 0.85 * 2.4 = ~2 units; now 1.1 * 3.4 = ~3.7
+                           gives visible mass without overpowering the curved links. */
+                        const size = (node.val || 2) * 1.1;
+                        const tex = getNodeCanvasTexture(node);
+                        const map = new THREE.Texture(tex);
+                        map.needsUpdate = true;
+                        const mat = new THREE.SpriteMaterial({
+                            map,
+                            transparent: true,
+                            opacity: node.displayOpacity || 1.0,
+                            depthWrite: false,
+                            depthTest: true
+                        });
+                        const sprite = new THREE.Sprite(mat);
+                        sprite.scale.set(size * 3.4, size * 3.4, 1);
+                        sprite.userData.nodeId = node.id;
+                        return sprite;
+                    })
+                    .enableNodeDrag(true)
+                    .enableNavigationControls(true)
+                    .d3VelocityDecay(0.32)
+                    .d3AlphaDecay(0.025)
+                    .warmupTicks(80)
+                    .cooldownTicks(120)
+                    /* ── Warm-to-cool directional gradient on every link ──
+                       Per Gabriel: outgoing flow (leaving a node) reads as warm,
+                       incoming flow (entering a node) reads as cool. Since the
+                       same line is "outgoing for source" + "incoming for target",
+                       we render each edge as a `THREE.Line` with vertex colors —
+                       warm at the source vertex, cool at the target vertex,
+                       interpolated linearly along the segment.
+
+                       This replaces linkColor/linkWidth/linkOpacity/linkCurvature
+                       (the native single-color path). linkDirectionalParticles +
+                       arrows are independent APIs and still fire below. */
+                    .linkThreeObject(l => buildGradientLink(l))
+                    .linkPositionUpdate((line, { start, end }) => {
+                        if (!line || !line.geometry) return false;
+                        // Sample 12-segment quadratic bezier with stable rotation
+                        // around the source-target axis (so parallel edges fan out).
+                        updateGradientLinkPositions(
+                            line,
+                            start.x, start.y, start.z,
+                            end.x,   end.y,   end.z,
+                        );
+                        return true;       // skip native straight/curved path
+                    })
+                    /* Native particle path MUST track the visible gradient line.
+                       3d-force-graph computes particle positions along its own
+                       QuadraticBezierCurve3 using linkCurvature + linkCurveRotation;
+                       buildGradientLink draws its own quadratic bezier in
+                       updateGradientLinkPositions. Both must agree on:
+                         (1) curvature magnitude  → .linkCurvature
+                         (2) perpendicular rotation around source-target axis
+                       Without (1) particles fly straight while the line arches
+                       (the "particles drift off flow" bug). Without `kind` in (2)
+                       the rotation hash diverges from buildGradientLink:1842,
+                       so even when curved the offsets point opposite ways. */
+                    .linkCurvature(l => LINK_CURVATURE[l.kind] || 0.26)
+                    .linkCurveRotation(l => {
+                        const sId = String((l.source && l.source.id) || l.source || '');
+                        const tId = String((l.target && l.target.id) || l.target || '');
+                        const kind = l.kind || 'imports';
+                        let h = 0;
+                        const s = sId + '|' + tId + '|' + kind;
+                        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff;
+                        return (h / 0xffff) * Math.PI * 2;
+                    })
+                    /* crate-dep edges always animate (architectural lifelines).
+                       imports animate only when user enables 'particles' filter. */
+                    .linkDirectionalParticles(l => {
+                        if (l.kind === 'crate-dep')    return 3;
+                        if (l.kind === 'external-dep') return 1;
+                        // symbol-ref edges with 3+ symbols are thick enough to deserve a particle
+                        if (l.kind === 'symbol-ref' && (l.symbolCount || 0) >= 3) return 1;
+                        return window.workspaceGraphState.showParticles ? 2 : 0;
+                    })
+                    .linkDirectionalParticleSpeed(l => {
+                        if (l.kind === 'crate-dep')    return 0.006;
+                        if (l.kind === 'external-dep') return 0.0035;
+                        if (l.kind === 'symbol-ref')   return 0.005;
+                        return 0.004;
+                    })
+                    .linkDirectionalParticleWidth(l => {
+                        if (l.kind === 'crate-dep') return 1.6;
+                        return 1.0;
+                    })
+                    /* Particles travel along the link toward the target,
+                       glowing in molten gold — stays distinct from the warm→cool
+                       line gradient so the eye reads "data flow" separately from
+                       "direction polarity". Per Gabriel's request (2026-05-10),
+                       gold reads as premium / valuable and avoids the off-black
+                       Three.js default. */
+                    .linkDirectionalParticleColor(l => GOLD_PARTICLE_COLOR)
+                    /* Arrowheads land on the target — same gold so the
+                       destination reads as "arrival point" with editorial polish. */
+                    .linkDirectionalArrowLength(l => {
+                        if (l.kind === 'crate-dep')    return 4.5;
+                        if (l.kind === 'external-dep') return 3.5;
+                        if (l.kind === 'module-decl')  return 2.4;
+                        return 3.0;
+                    })
+                    .linkDirectionalArrowRelPos(1)
+                    .linkDirectionalArrowColor(l => GOLD_ARROW_COLOR)
+                    .linkLabel(l => buildLinkTooltipHtml(l))
+                    .onNodeHover(n => { document.body.style.cursor = n ? 'pointer' : 'default'; })
+                    .onNodeClick(node => {
+                        const inst = window.workspaceGraphState.instance;
+                        flyToNode(inst, node);
+                        populateDetailPanel(node, window.workspaceGraphState.rawData.nodes, window.workspaceGraphState.rawData.links);
+                        showDetailPanel();
+                    })
+                    .onBackgroundClick(() => hideDetailPanel())
+                    .width(mount3d.clientWidth || 800)
+                    .height(mount3d.clientHeight || 600);
+
+                window.workspaceGraphState.instance = Graph;
+
+                /* Install translucent Pauling shells in the THREE.Scene right
+                   after the graph mounts so they appear from the very first
+                   frame. installPaulingShells() is idempotent (clears prior). */
+                try {
+                    installPaulingShells(Graph.scene());
+                } catch (e) { console.warn('[pauling shells skipped]', e); }
+
+                /* Tune the built-in d3 forces via the library's getter API
+                   (avoids needing `d3` as a global). */
+                try {
+                    const charge = Graph.d3Force('charge');
+                    if (charge && typeof charge.strength === 'function') {
+                        charge.strength(-22).distanceMax(260);
+                    }
+                    const linkF = Graph.d3Force('link');
+                    if (linkF && typeof linkF.distance === 'function') {
+                        linkF.distance(55).strength(0.45);
+                    }
+                } catch (e) { console.warn('[force tuning skipped]', e); }
+
+                const ro = new ResizeObserver(() => {
+                    if (mount3d.clientWidth && mount3d.clientHeight) {
+                        Graph.width(mount3d.clientWidth).height(mount3d.clientHeight);
+                    }
+                });
+                ro.observe(mount3d);
+
+                window.updateWorkspaceGraphFilters(
+                    window.workspaceGraphState.showOrphans,
+                    window.workspaceGraphState.showTests,
+                    window.workspaceGraphState.showParticles,
+                    window.workspaceGraphState.targetCrate
+                );
+
+                centerCameraToShells(Graph);
+            } catch (e) {
+                console.error('[initForceGraph] failed:', e);
+                clearChildren(container);
+                container.appendChild(el('div', { class: 'graph-error', text: 'Workspace graph failed to load. Check console.' }));
+            }
+        }, 80);
+    };
+
+    /* Tooltip builders — strings handed to 3d-force-graph (not innerHTML by us).
+       All dynamic data goes through escapeHtml. */
+    /* Editorial gold tones for the moving signals (particles + arrowheads).
+       3d-force-graph's `linkDirectionalParticleColor` and `linkDirectionalArrowColor`
+       call THREE.Color.set(value) under the hood, which expects a CSS color
+       string OR an unsigned 24-bit integer. Passing a pre-built `new THREE.Color()`
+       instance results in setRGB((1,1,0)|0) ≈ rgb(1,1,0) ≈ black — exactly the
+       bug Gabriel observed. Solution: hex strings. */
+    const GOLD_PARTICLE_COLOR = '#ffc84d';   // honey gold (1.00, 0.78, 0.30)
+    const GOLD_ARROW_COLOR    = '#ffe27a';   // champagne   (1.00, 0.88, 0.48)
+
+    /* Warm / mid / cool RGB triplets per edge kind. The mid stop is critical:
+       a direct RGB lerp from orange (1, 0.6, 0) to cyan (0, 0.74, 0.83)
+       produces a green-teal midpoint (0.5, 0.67, 0.42) which reads as "cold"
+       across the entire edge. Routing through a magenta/violet midpoint keeps
+       the warm→cool transition visually warm-then-cool rather than going
+       through green territory. Pre-converted to [r,g,b] floats ∈ [0, 1]. */
+    const LINK_GRADIENT = {
+        // crate→crate skeleton ▸ blazing red → magenta → royal blue
+        'crate-dep':    { warm: [1.00, 0.30, 0.18], mid: [0.93, 0.30, 0.78], cool: [0.42, 0.30, 1.00] },
+        // workspace → ext::serde, ext::tokio ▸ rose → magenta → indigo
+        'external-dep': { warm: [1.00, 0.34, 0.45], mid: [0.95, 0.30, 0.75], cool: [0.30, 0.18, 0.95] },
+        // mod foo;  ▸ amber → orange-magenta → teal-cyan (warm hierarchy)
+        'module-decl':  { warm: [1.00, 0.78, 0.20], mid: [1.00, 0.45, 0.55], cool: [0.10, 0.78, 0.78] },
+        // symbol use ▸ orange-red → magenta → cyan-deep (width by symbol_count)
+        'symbol-ref':   { warm: [1.00, 0.45, 0.20], mid: [0.95, 0.40, 0.70], cool: [0.20, 0.78, 0.92] },
+        // file imports ▸ saturated orange → bright magenta → electric cyan
+        'imports':      { warm: [1.00, 0.50, 0.05], mid: [1.00, 0.30, 0.65], cool: [0.05, 0.78, 1.00] },
+    };
+
+    /* Per-kind opacity. Architectural edges (crate-dep) sit on top, file imports
+       fade into the mesh, module-decl sits in between since it captures hierarchy. */
+    const LINK_OPACITY = {
+        'crate-dep':    0.85,
+        'external-dep': 0.62,
+        'module-decl':  0.68,
+        'symbol-ref':   0.58,
+        'imports':      0.52,
+    };
+
+    /* Per-kind curvature (∈ [0, 0.6]). Larger values produce wider arcs.
+       crate-dep gets the widest curve so the architectural skeleton arches
+       above the file-import mesh; module-decl gets the tightest because
+       parent→child hierarchy reads cleanest as a near-straight tether. */
+    const LINK_CURVATURE = {
+        'crate-dep':    0.45,
+        'external-dep': 0.35,
+        'module-decl':  0.16,
+        'symbol-ref':   0.22,
+        'imports':      0.26,
+    };
+
+    /* Number of bezier samples per link. 12 segments = 13 vertices. With
+       3 500 edges this is ~45 500 vertices total, well within GPU budget
+       and indistinguishable from continuous curves at typical viewport sizes. */
+    const LINK_SEGMENTS = 12;
+
+    /* Smoothstep pushes warm dominance into the first 60% of the line so
+       output reads as warm, then transitions through mid (magenta), then
+       arrives cool at the destination. Returns t ∈ [0,1] along the curve. */
+    function gradientStop(t) {
+        // Three-stop linear interpolation: warm@0 → mid@0.5 → cool@1.
+        // Use cubic ease-in for warm phase to make warm linger.
+        if (t <= 0.5) {
+            const u = t / 0.5;
+            const eased = u * u;             // ease-in: warm dominates
+            return { stage: 0, k: eased };   // 0 → mid
+        }
+        const u = (t - 0.5) / 0.5;
+        const eased = 1 - (1 - u) * (1 - u); // ease-out: cool arrives
+        return { stage: 1, k: eased };       // mid → cool
+    }
+
+    function buildGradientLink(link) {
+        const palette = LINK_GRADIENT[link.kind] || LINK_GRADIENT['imports'];
+        const SEG = LINK_SEGMENTS;
+        const N = SEG + 1;
+        const positions = new Float32Array(N * 3);
+        const colors    = new Float32Array(N * 3);
+
+        // Per-vertex color: 3-stop interpolation through magenta/violet midpoint.
+        for (let i = 0; i < N; i++) {
+            const t = i / SEG;
+            const { stage, k } = gradientStop(t);
+            const a = stage === 0 ? palette.warm : palette.mid;
+            const b = stage === 0 ? palette.mid  : palette.cool;
+            colors[i*3+0] = a[0] * (1 - k) + b[0] * k;
+            colors[i*3+1] = a[1] * (1 - k) + b[1] * k;
+            colors[i*3+2] = a[2] * (1 - k) + b[2] * k;
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute('color',    new THREE.BufferAttribute(colors,    3));
+        const mat = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent:  true,
+            opacity:      LINK_OPACITY[link.kind] || 0.5,
+            depthWrite:   false,
+            blending:     THREE.AdditiveBlending,
+        });
+        const line = new THREE.Line(geo, mat);
+        line.frustumCulled = false;
+        line.userData.linkRef = link;
+        line.userData.SEG = SEG;
+        line.userData.curvature = LINK_CURVATURE[link.kind] || 0.26;
+        // Stable curve rotation hash so multiple parallel edges fan out
+        // around the source-target axis instead of overlapping.
+        const sId = String((link.source && link.source.id) || link.source || '');
+        const tId = String((link.target && link.target.id) || link.target || '');
+        let h = 0;
+        const s = sId + '|' + tId + '|' + (link.kind || 'imports');
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff;
+        line.userData.curveRotation = (h / 0xffff) * Math.PI * 2;
+        return line;
+    }
+
+    /* Control point for the QuadraticBezierCurve3 — MUST replicate 3d-force-graph's
+       internal formula exactly, otherwise the line we draw and the path along
+       which native particles travel diverge in both direction (cross-product
+       handedness) and magnitude (offset shrinks with Z-axis projection).
+
+       3d-force-graph source (minified) computes:
+         _ = g.clone()                  // g = (u - h)
+              .multiplyScalar(l)        // g_scaled = g × curvature (NOT normalized)
+              .cross(Z or Y)            // perp = g_scaled × world axis
+              .applyAxisAngle(g.normalize(), p)
+              .add(midpoint(h, u))
+         curve = QuadraticBezierCurve3(h, _, u)
+
+       Translating to inline math (Three.js cross product convention):
+         If (dx ≠ 0 OR dy ≠ 0):  perp = (gsy, -gsx, 0)   // cross with Z
+         Else:                    perp = (-gsz, 0, gsx)   // cross with Y
+       where (gsx, gsy, gsz) = (dx, dy, dz) × curvature.
+
+       Magnitude of perp = curvature × √(dx² + dy²)   (NOT curvature × length).
+       This is the load-bearing detail: edges with a Z component get a flatter
+       arc than a naive "perp × length × curvature" approach would produce,
+       so the visible line MUST follow this same shrinkage to stay glued to
+       the particles. */
+    function _curveControlPoint(out, sx, sy, sz, tx, ty, tz, curvature, rotation) {
+        const dx = tx - sx, dy = ty - sy, dz = tz - sz;
+        const len = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
+
+        // g_scaled = g × curvature
+        const gsx = dx * curvature;
+        const gsy = dy * curvature;
+        const gsz = dz * curvature;
+
+        // perp = g_scaled × world-axis (Z preferred; Y when g is along Z)
+        let bx, by, bz;
+        if (dx !== 0 || dy !== 0) {
+            // cross(g_scaled, (0,0,1)) = (gsy, -gsx, 0)
+            bx = gsy; by = -gsx; bz = 0;
+        } else {
+            // cross(g_scaled, (0,1,0)) = (-gsz, 0, gsx)
+            bx = -gsz; by = 0; bz = gsx;
+        }
+
+        // Rodriguez: rotate perp around (dx, dy, dz)/len by `rotation`.
+        const ux = dx / len, uy = dy / len, uz = dz / len;
+        const ca = Math.cos(rotation), sa = Math.sin(rotation);
+        const dot = ux*bx + uy*by + uz*bz;
+        const rbx = bx*ca + (uy*bz - uz*by)*sa + ux*dot*(1 - ca);
+        const rby = by*ca + (uz*bx - ux*bz)*sa + uy*dot*(1 - ca);
+        const rbz = bz*ca + (ux*by - uy*bx)*sa + uz*dot*(1 - ca);
+
+        // control = midpoint + rotated_perp (magnitude already baked in via g_scaled).
+        out.x = (sx + tx) / 2 + rbx;
+        out.y = (sy + ty) / 2 + rby;
+        out.z = (sz + tz) / 2 + rbz;
+    }
+
+    /* Sample a quadratic bezier curve into the line's position buffer.
+       Called from linkPositionUpdate every frame. The control point sits
+       perpendicular to the source-target axis at `length × curvature`,
+       rotated by a stable hash so parallel edges fan out. */
+    const _ctrlPoint = { x: 0, y: 0, z: 0 };
+    function updateGradientLinkPositions(line, sx, sy, sz, tx, ty, tz) {
+        const SEG = line.userData.SEG || LINK_SEGMENTS;
+        const positions = line.geometry.attributes.position.array;
+        const curvature = line.userData.curvature || 0.26;
+        const rotation  = line.userData.curveRotation || 0;
+        _curveControlPoint(_ctrlPoint, sx, sy, sz, tx, ty, tz, curvature, rotation);
+        const cx = _ctrlPoint.x, cy = _ctrlPoint.y, cz = _ctrlPoint.z;
+        for (let i = 0; i <= SEG; i++) {
+            const t = i / SEG;
+            const omt = 1 - t;
+            const a = omt * omt;     // (1-t)²
+            const b = 2 * omt * t;   // 2(1-t)t
+            const c = t * t;         // t²
+            positions[i*3+0] = a * sx + b * cx + c * tx;
+            positions[i*3+1] = a * sy + b * cy + c * ty;
+            positions[i*3+2] = a * sz + b * cz + c * tz;
+        }
+        line.geometry.attributes.position.needsUpdate = true;
+    }
+
+    function buildNodeTooltipHtml(node) {
+        const shellTxt = node.shell_level === PAULING.EXTERNAL_LEVEL ? 'extern' : ('K' + (node.shell_level || 0));
+        const flagU = node.has_unsafe ? '<div class="gt-flag warn">⚠ unsafe</div>' : '';
+        const flagO = node.is_orphan  ? '<div class="gt-flag danger">⛓ orphan</div>' : '';
+        return ''
+            + '<div class="graph-tooltip" style="border-color:' + (node.displayColor || node.baseColor) + ';">'
+            +   '<div class="gt-name">' + escapeHtml(node.name) + '</div>'
+            +   '<div class="gt-row"><span>crate</span><b>' + escapeHtml(node.crate) + '</b></div>'
+            +   '<div class="gt-row"><span>shell</span><b style="color:' + PALETTE.electric + ';">' + shellTxt + '</b></div>'
+            +   '<div class="gt-row"><span>quality</span><b style="color:' + AspectLens.qualityColor(node) + ';">' + (node.score || 0).toFixed(2) + '</b></div>'
+            +   '<div class="gt-row"><span>cognitive</span><b style="color:' + AspectLens.cognitiveColor(node) + ';">' + (node.cognitive_score || 0).toFixed(2) + '</b></div>'
+            +   '<div class="gt-row"><span>fan in/out</span><b>' + node.fan_in + '/' + node.fan_out + '</b></div>'
+            +   flagU + flagO
+            + '</div>';
+    }
+    function buildLinkTooltipHtml(l) {
+        const sN = (l.source && l.source.name) || l.source;
+        const tN = (l.target && l.target.name) || l.target;
+        let c, kindBadge;
+        if      (l.kind === 'crate-dep')    { c = '#7c4dff'; kindBadge = 'CRATE DEP'; }
+        else if (l.kind === 'external-dep') { c = '#ff5c7a'; kindBadge = 'EXTERNAL'; }
+        else if (l.kind === 'module-decl')  { c = '#00e5c0'; kindBadge = 'MOD ' + (l.tgtCrate ? '↓' : ''); }
+        else if (l.kind === 'symbol-ref')   { c = '#26c6da'; kindBadge = 'SYMBOL ' + (l.symbolCount || 1) + 'x'; }
+        else if (l.isCrossCrate)             { c = '#ff9800'; kindBadge = 'CROSS-CRATE'; }
+        else                                  { c = '#00bcd4'; kindBadge = 'IMPORT'; }
+        const subline = (l.srcCrate && l.tgtCrate)
+            ? '<div class="gt-row" style="opacity:.7;font-size:10px;letter-spacing:1px;">'
+                + escapeHtml(l.srcCrate) + ' → ' + escapeHtml(l.tgtCrate) + '</div>'
+            : '';
+        // For symbol-ref edges, expose the dominant symbol kind (function, struct, …).
+        const detail = (l.kind === 'symbol-ref' && l.topKind)
+            ? '<div style="opacity:.65;font-size:10px;margin-top:2px;">'
+                + 'top kind: <strong>' + escapeHtml(String(l.topKind)) + '</strong>'
+                + '</div>'
+            : '';
+        return ''
+            + '<div class="link-tooltip" style="border-left:3px solid ' + c + ';">'
+            +   '<div style="color:' + c + ';font-weight:700;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;">'
+            +     escapeHtml(kindBadge) + '</div>'
+            +   subline
+            +   detail
+            +   '<div style="margin-top:4px;">' + escapeHtml(String(sN)) + '</div>'
+            +   '<div style="color:' + c + ';font-weight:700;">↓</div>'
+            +   '<div>' + escapeHtml(String(tN)) + '</div>'
+            + '</div>';
+    }
+    </script>
+</body>
+</html>

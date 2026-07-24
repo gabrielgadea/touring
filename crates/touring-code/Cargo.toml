@@ -1,0 +1,174 @@
+[package]
+name = "touring-code"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Unified code intelligence crate fusing touring-ast (tree-sitter parsing + symbol store + surgery + call graph), touring-ast-polyglot (ast-grep structural search), touring-language (Lang enum + tier matrix), touring-semantics (Definition resolver + source-to-def). Features lang-* (rust/typescript/python/go/ruby/java/cpp) and parser-* (tree-sitter, ast-grep, syn). W4 of touring-premium-refactor-2026."
+
+[lib]
+name = "touring_code"
+path = "src/lib.rs"
+
+[dependencies]
+# ── Internal touring crates (path deps) ──────────────────────────────────────
+touring-foundation = { path = "../touring-foundation" }
+touring-simd = { path = "../touring-simd" }
+# W5 shim-elimination 2026-05-30: touring-vfs fused into touring-storage::vfs.
+touring-storage = { path = "../touring-storage" }
+
+# ── tree-sitter parsing stack (W4.2 — ast module) ────────────────────────────
+tree-sitter = { workspace = true, features = ["wasm"] }
+tree-sitter-python = { workspace = true }
+tree-sitter-rust = { workspace = true }
+tree-sitter-typescript = { workspace = true }
+tree-sitter-javascript = { workspace = true }
+tree-sitter-html = { workspace = true }
+tree-sitter-css = { workspace = true }
+tree-sitter-json = { workspace = true }
+tree-sitter-bash = { workspace = true }
+tree-sitter-toml-ng = { workspace = true }
+tree-sitter-yaml = { workspace = true }
+tree-sitter-md = { workspace = true }
+tree-sitter-go = { workspace = true }
+tree-sitter-java = { workspace = true }
+
+# ── ast-grep stack (W4.3 — polyglot module) ──────────────────────────────────
+ast-grep-core = { workspace = true }
+ast-grep-language = { workspace = true }
+
+# ── Rust deep semantics (W4.2 — ast/rust_semantic.rs) ────────────────────────
+syn = { workspace = true, features = ["full", "extra-traits", "visit", "parsing"] }
+quote = { workspace = true }
+prettyplease = { workspace = true }
+# span-locations: real byte ranges for syn item spans — the gotcha #49 fix in
+# ast/format/preserve/formatter.rs replaces textual keyword search with spans.
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+cargo_metadata = { workspace = true }
+public-api = { workspace = true }
+
+# ── W4.5 — touring-semantics fusion (semantics module) ───────────────────────
+anyhow = { workspace = true }
+once_cell = { workspace = true }
+
+# ── Standard touring stack ───────────────────────────────────────────────────
+rusqlite = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+toml = { workspace = true }
+regex = { workspace = true }
+streaming-iterator = { workspace = true }
+ropey = { workspace = true }
+indexmap = { workspace = true }
+thiserror = { workspace = true }
+miette = { workspace = true }
+lru = { workspace = true }
+moka = { workspace = true }
+rayon = { workspace = true }
+petgraph = { workspace = true }
+tracing = { workspace = true }
+tracing-error = { workspace = true }
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
+parking_lot = { workspace = true }
+static_assertions = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+strum = { workspace = true }
+derive_more = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true }
+criterion = { workspace = true }
+proptest = { workspace = true }
+insta = { workspace = true, features = ["yaml"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+rstest = { workspace = true }
+mockall = { workspace = true }
+pprof = { workspace = true, features = ["flamegraph", "criterion"] }
+hdrhistogram = { workspace = true }
+arbitrary = { workspace = true }
+derive_arbitrary = { workspace = true }
+serial_test = { workspace = true }
+rusty-fork = { workspace = true }
+tracing-test = { workspace = true }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# W4.6 — Feature flags.
+#   lang-*   : per-language tree-sitter grammar gates (placeholders for now;
+#              all grammars currently always-on, mirroring touring-ast).
+#   parser-* : parser engine selection.
+#   simd-search / ann / more-languages / async-pipeline : inherited from
+#              touring-ast (W4.2 fusion) — keep in `default` so the `ast`
+#              module compiles with full capability.
+# ─────────────────────────────────────────────────────────────────────────────
+[features]
+default = [
+    "lang-rust",
+    "parser-tree-sitter",
+    "simd-search",
+    "ann",
+    "more-languages",
+    "async-pipeline",
+]
+
+# Per-language gates
+lang-rust = []
+lang-typescript = []
+lang-python = []
+lang-go = []
+lang-ruby = []
+lang-java = []
+lang-cpp = []
+
+# Parser engine gates
+parser-tree-sitter = []
+parser-ast-grep = []
+parser-syn = []
+
+# Higher-level analysis toggles
+semantic-search = []
+# Wires the salsa incremental blast-radius engine (touring-storage::salsa) as an
+# additive, demand-driven ALTERNATIVE to the default exact BFS blast path. The
+# exact `SymbolIndex::blast_radius` remains the authoritative default; enabling
+# this feature makes `blast_radius_via_salsa` available alongside it.
+incremental-salsa = ["touring-storage/storage-salsa"]
+
+# Inherited from touring-ast (W4.2)
+simd-search = ["touring-simd/learning-integration"]
+ann = ["touring-simd/ann"]
+more-languages = []
+async-pipeline = []
+
+# W4.2 — benches inherited from touring-ast (parsing perf regression guard).
+[[bench]]
+name = "incremental_parser"
+harness = false
+
+[[bench]]
+name = "symbol_store"
+harness = false
+
+[[bench]]
+name = "rope_document"
+harness = false
+
+[[bench]]
+name = "prioritized_pipeline"
+harness = false
+
+[[bench]]
+name = "lazy_loading"
+harness = false
+
+[[bench]]
+name = "flamegraph_profile"
+harness = false
+
+[[bench]]
+name = "polyglot_baseline"
+harness = false
+
+[lints]
+workspace = true

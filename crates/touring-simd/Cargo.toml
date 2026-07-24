@@ -1,0 +1,60 @@
+[package]
+name = "touring-simd"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.85"
+description = "SIMD-accelerated vector ops via pulp (AVX-512/AVX2+FMA/NEON), similarity, statistics, quantization, ANN"
+license.workspace = true
+
+[features]
+# ALL features always enabled — zero optional dependencies
+default = ["core-integration", "learning-integration", "gpu-compute", "cortex-integration", "quantization", "ann"]
+core-integration = []
+learning-integration = []
+cortex-integration = []
+# quantization: half is always available (no longer optional)
+quantization = []
+ann = []
+# gpu-compute: wgpu, pollster, bytemuck are always available (no longer optional)
+gpu-compute = []
+
+[dependencies]
+rayon = { workspace = true }
+statrs = { workspace = true }
+serde = { workspace = true }
+touring-foundation = { path = "../touring-foundation" }
+pulp = { workspace = true }
+# All dependencies always available — no optional
+half = { workspace = true, features = ["std"] }
+wgpu = { workspace = true }
+pollster = { workspace = true }
+bytemuck = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+criterion = { workspace = true }
+# Compile-time layout / trait invariants for quantization types.
+static_assertions = { workspace = true }
+# Property-based fuzzing of EmbeddingU4 quantization (NaN/Inf/extremes).
+proptest = { workspace = true }
+# Lightweight bench harness — drop-in alternative to criterion for faster
+# iteration cycles on simple microbench targets (P2 ranking #15).
+divan = { workspace = true }
+
+[[bench]]
+name = "similarity"
+harness = false
+
+[[bench]]
+name = "quantization"
+harness = false
+
+# divan-based microbench — proves the harness wires up and gives a
+# faster local-feedback bench loop than criterion (~10x quicker per run).
+[[bench]]
+name = "embedding_u4_divan"
+harness = false
+required-features = ["quantization"]
+
+[lints]
+workspace = true

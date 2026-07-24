@@ -1,0 +1,17 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: w9-touring-server-pragmatic-3crate-split
+slug: w9-touring-server-pragmatic-3crate-split
+intent: "W9 pragmatic 3-crate split of touring-server: extracted touring-server-reasoning (5 files) + touring-server-visual (9 files) + touring-server-session (2 files) as pure leaf crates; SCC analysis found only {cli,server,tools} strongly-connected (116 files); 22 pub(crate)->pub visibility promotions for cross-crate access; telemetry deferred (6-feature entanglement); facade preserves touring binary + API; cargo check --workspace --tests exit 0; 227 tests PASS; clippy -D warnings clean"
+role: engineer
+task_id: ""
+timestamp: "2026-05-15T18:28:16-03:00"
+session_id: a9198211-d445-4694-9846-6888cd6b9a6f
+content:
+  lines: 0
+  bytes: 0
+  sections: []
+  source_md: ""
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02

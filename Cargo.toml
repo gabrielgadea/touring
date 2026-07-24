@@ -1,0 +1,683 @@
+[workspace]
+members = [
+    "crates/touring-foundation",
+    "crates/touring-license",
+    # touring-core shim REMOVED 2026-05-23 (S-11 PE-A) — was 0-consumer re-export of touring-foundation
+    # touring-harness REMOVED 2026-06-26 (W5 close): builtins/ migrated to touring-quality as canonical home.
+    "crates/touring-simd",
+    "crates/touring-hooks",
+    # W8 pragmatic split (touring-premium-refactor-2026) — 2 cycle-free crates
+    # extracted from touring-hooks; the remaining SCC stays in touring-hooks.
+    "crates/touring-hooks-shared",
+    "crates/touring-hooks-prediction",
+    "crates/touring-server",
+    # W9 pragmatic split (touring-premium-refactor-2026) — 3 cycle-free leaf
+    # crates extracted from touring-server; SCC {cli,server,tools} stays.
+    "crates/touring-server-reasoning",
+    "crates/touring-server-visual",
+    "crates/touring-server-session",
+    "crates/touring-python",
+    # W6 shim-elimination 2026-05-31: touring-index removed — consumers migrated to
+    # touring_intelligence::index (incremental indexing + file watch + LRU cache).
+    "crates/touring-cortex",
+    "crates/inferlets",
+    "crates/touring-analysis",
+    "crates/touring-integration-tests",
+    # touring-telemetry absorbed into touring-foundation::telemetry in W3.6 (2026-05-12)
+    "crates/touring-offensive",
+    "crates/touring-rkyv",
+    "crates/touring-generator",
+    "crates/touring-assists",
+    # W4 shim-elimination 2026-05-31: touring-semantics removed — consumers migrated to
+    # touring_code::semantics (Definition resolver + source-to-def + multi_lang).
+    # touring-incremental-salsa shim REMOVED 2026-05-23 (S-11 PE-A) — was 0-consumer
+    # WD.1 shim-elimination 2026-07-02: touring-ast-polyglot removed — consumers
+    # migrated to touring_code::polyglot (last genuinely-active shim of 47→13).
+    # W10 shim-elimination 2026-05-31: touring-{tasksfile,devrc-adapter,flow} removed —
+    # consumers migrated to touring_orchestration::{tasks,devrc,flow} (incl. the
+    # path-qualified devrc refs in cli_handlers_decompose.rs that blocked PE-A).
+    "crates/touring-orchestration",
+    # Isolated crate for loom concurrency proofs. Has zero touring deps so
+    # `RUSTFLAGS="--cfg loom" cargo test -p touring-loom-proofs` compiles
+    # only loom itself, bypassing the hyper-util / tokio::net::UnixStream
+    # conflict that blocks loom tests under the main touring-hooks crate.
+    "crates/touring-loom-proofs",
+    "crates/touring-capnp-server",
+    # touring-geopostgis shim removed 2026-05-30 (shim-elimination WA): 0 consumers;
+    # PostGIS EWKB impl lives in touring_bindings::postgis (feature bind-postgis).
+    # touring-resource-monitor absorbed into touring-foundation::sentinel in W3.7 (2026-05-12)
+    # W5 shim-elimination 2026-05-30: touring-{search-fusion,vector-store,embeddings,vfs}
+    # fused into touring-storage::{hybrid_search,vec,embeddings,vfs}. Consumers migrated.
+    # touring-resource-monitor: PSI memory pressure + CPU P/E topology sentinel
+    # Replaces smart-cores-v2 bash daemon (broken WatchdogSec + missing sd_notify).
+    # touring-resource-monitor absorbed into touring-foundation::sentinel in W3.7
+    # (2026-05-12). PSI memory pressure + P/E core scheduler now live as
+    # `touring_foundation::sentinel::{MemoryGuard, CoreScheduler, ...}` with the
+    # standalone systemd binary preserved as `[[bin]] touring-resource-monitor`
+    # under `resource-monitor-bin` feature.
+    # W4 shim-elimination 2026-05-31: touring-language removed — consumers migrated to
+    # touring_code::languages (Lang enum + tier matrix + LanguageSupport).
+    "benches",
+    # touring-desktop-ui shim removed 2026-05-30 (shim-elimination WA): 0 consumers;
+    # egui desktop impl lives in touring_bindings::desktop (feature bind-desktop).
+    "crates/touring-web",
+    "crates/touring-web-server",
+    # touring-activity absorbed into touring-foundation::activity in W3.8 (2026-05-12)
+    "crates/touring-identity",
+    # touring-quality-signal: REMOVED 2026-05-09 — consolidated into
+    # `touring-analysis::quality::signal` per Gabriel's anti-fragmentation
+    # directive. Code lives at crates/touring-analysis/src/quality/signal/.
+    "crates/touring-code",
+    "crates/touring-storage",
+    "crates/touring-intelligence",
+    "crates/touring-bindings",
+    "crates/touring-lsp",
+    "crates/touring-hooks-saga",
+    "crates/touring-hooks-rl",
+    "crates/touring-contracts",
+    "crates/touring-ceg",
+    "crates/touring-hooks-core",
+    "crates/touring-cli",
+    "crates/touring-dispatch",
+    "crates/touring-hook-handlers",
+    "crates/touring-hook-runtime",
+    # W9 Elite Harness cutover (2026-06-14) — 50-dim quality scoring engine
+    # graduated from standalone crate to workspace member. Composite Diamond
+    # 0.9703 (was Gold 0.8856 pre-W1); 50 dims wired, 6 BLOCK hooks, 50 D-rules.
+    "crates/touring-quality",
+    "crates/touring-resilience",
+]
+# `fuzz/` is a standalone cargo-fuzz crate with its own [workspace] table.
+# Excluded so `cargo check --workspace` and member builds ignore it; build
+# fuzz targets via `cargo +nightly fuzz build` from the repo root.
+exclude = ["fuzz"]
+resolver = "2"
+
+[[workspace.metadata.leptos]]
+name = "touring-web"
+packages = [
+  { name = "touring-web", path = "crates/touring-web" }
+]
+default-website-url = "http://0.0.0.0:3000"
+
+# ── W2.6 cargo-machete (workspace-wide ignore list) ──────────────────────
+# Wave 2026-05-12 — added by w2_setup_deny_machete.py.
+# Lists build-deps that machete cannot statically detect (false-positive
+# "unused"). Add additional entries as needed when machete flags legitimate
+# proc-macro / build-script deps. cargo-deny config lives at `deny.toml`.
+[workspace.metadata.cargo-machete]
+ignored = [
+    "napi-build",
+]
+
+# ── W2.7 cargo-mutants — baseline configuration (advisory) ──────────────
+# Wave 2026-05-12 — opt-in mutation coverage baseline for the workspace.
+# `cargo-mutants` injects small AST mutations and verifies the test suite
+# catches them. A higher catch-rate ⇒ stronger tests.
+#
+# Strategy: 50% baseline now (informational); ramp to 65% → 75% → 80%
+# in W11 (Test Debt Repayment). The CI workflow runs `cargo mutants --in-diff`
+# on every PR (fast) and a weekly full scan via the `mutation-baseline` job
+# (see `docs/ci-template.yml`). Per-crate overrides go in each crate's
+# `Cargo.toml [package.metadata.mutants]` section when needed.
+[workspace.metadata.mutants]
+# Minimum acceptable kill rate (% of mutants caught). Advisory — does not
+# block CI until W11 lands the enforcement gate.
+minimum_test_threshold = 50
+# Test runs that exceed this multiplier of the baseline time are flagged
+# as "timeout suspect" (mutation likely created an infinite loop).
+timeout_multiplier = 2.0
+# Run mutants in a copy of the workspace so the source remains pristine
+# during incremental testing.
+copy_target = true
+# Skip mutants on identifiers matching this regex. Conservatives that are
+# universally test-irrelevant (logging, telemetry).
+exclude_re = "(?i)(log|trace|debug|tracing|metric)"
+
+# ── Shared Package Metadata (inherited via `license.workspace = true` etc) ─
+# Adding these here fixes the cargo-deny `unlicensed` violation across all
+# member crates without duplicating the same line in 17 Cargo.toml files.
+# ── Shared Package Metadata (inherited via `license.workspace = true` etc) ─
+# Adding these here fixes the cargo-deny `unlicensed` violation across all
+# member crates without duplicating the same line in 17 Cargo.toml files.
+[workspace.package]
+# Single source of truth for the product version (Productization Fase 0):
+# member crates inherit via `version.workspace = true`; the binary derives it
+# through `env!("CARGO_PKG_VERSION")`. 30.3.0 matches the daemon's public
+# version (constitution/docs); the GA SemVer rebrand is a Fase 5 decision.
+version = "30.3.0"
+license = "MIT OR Apache-2.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Gabriel Gadea"]
+# CICD-05 (repo identity, 2026-06-16): canonical project identity for crates.io /
+# docs.rs / SBOM provenance. The repository URL matches the one `scripts/install.sh`
+# already resolves (`TOURING_REPO=gabrielgadea/touring`). Member crates inherit any
+# of these via `<field>.workspace = true`.
+repository = "https://github.com/gabrielgadea/touring"
+homepage = "https://github.com/gabrielgadea/touring"
+documentation = "https://docs.rs/touring"
+description = "Touring — an agentic code-intelligence daemon: AST/wiring/index analysis, RL-guided suggestions, and a sandboxed code-execution gateway."
+keywords = ["code-intelligence", "ast", "agentic", "daemon", "rust"]
+categories = ["development-tools", "command-line-utilities"]
+publish = false
+
+# ── Workspace Dependencies (shared across all crates) ──────────────────
+# Version conflicts resolved: dashmap 6.1 (touring wins), notify 7.0 (touring wins)
+[workspace.dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+bincode = "1.3"
+
+# Persistence
+rusqlite = { version = "0.38", features = ["bundled"] }
+deadpool-sqlite = "0.13"
+sha2 = "0.10"
+
+# Concurrency
+rayon = "1.10"
+dashmap = "6.1"
+pollster = "0.3"
+tokio = { version = "1.40", features = ["full"] }
+
+# Collections
+lru = "0.16" # >=0.16.3 fixes RUSTSEC-2026-0002 (IterMut Stacked-Borrows unsoundness); API (LruCache::new(NonZeroUsize)/get/put) unchanged from 0.12
+indexmap = "2.6"
+moka = { version = "0.12", features = ["sync", "future"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+semver = { version = "1", features = ["serde"] }
+camino = { version = "1.1", features = ["serde1"] }
+tera = "1.20"
+either = "1.13"
+num_cpus = "1.16"
+
+# Graph
+petgraph = { version = "0.6", features = ["serde-1"] }
+
+
+# touring-foundation is the foundational crate (renamed from touring-core in W3.1 2026-05-12).
+# touring-core shim REMOVED 2026-05-23 (S-11 PE-A) — was 0-consumer; foundation absorbed it.
+touring-foundation = { path = "crates/touring-foundation" }
+
+# touring-ast, touring-analysis, touring-cognitive are referenced via path-based
+# workspace members only (no version needed since they inherit from [workspace])
+touring-analysis = { path = "crates/touring-analysis" }
+
+# Patterns
+regex = { version = "1.11", default-features = false, features = ["std", "perf", "unicode"] }
+once_cell = "1.20"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+async-trait = "0.1"
+# miette: diagnostic-rich error reporting for CILA-budget-friendly LLM feedback.
+# Derives `Diagnostic` on top of thiserror; output includes code/help/url/snippet.
+miette = { version = "7", features = ["fancy"] }
+
+# syntect: Sublime Text-style syntax highlighting for terminal/HTML output.
+# Wave 5 (2026-04-26) — used by `touring ast highlight` CLI and future
+# miette SourceCode integrations. We pick `regex-onig` because the workspace
+# already pulls onig 6.5.1 transitively via candle-transformers (zero new C
+# compilation). `regex-fancy` is a git dep in upstream syntect that conflicts
+# with the workspace pin of fancy-regex 0.13.0 — DO NOT enable.
+syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "default-themes", "dump-load", "parsing", "regex-onig"] }
+
+# HTTP
+# Use rustls-tls exclusively — avoids pulling native-tls/openssl/openssl-sys
+# (all banned in deny.toml due to supply-chain surface area + licensing).
+# `default-features = false` disables the default `default-tls` (native-tls).
+reqwest = { version = "0.12", default-features = false, features = ["json", "http2", "charset", "rustls-tls"] }
+
+# File watching
+notify = { version = "7.0", features = ["serde"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-attributes = "0.1"
+
+# NLP-specific
+aho-corasick = "1.1"
+unicode-segmentation = "1.12"
+# SIMD-accelerated string search/split/hash — 10+ GB/s via AVX-512/NEON/SVE.
+# "std" (default) enables sz_find, sz_splits, Byteset, sz_hash.
+# "cpus" (TIER 2) enables LevenshteinDistances + Fingerprints — add allocator-api2 polyfill.
+stringzilla = "4.6"
+
+# Statistics
+ndarray = { version = "0.16", features = ["rayon"] }
+statrs = "0.17"
+
+# Hashing
+rustc-hash = "2.1"
+blake3 = "1.5.5"
+
+# Schema
+schemars = { version = "1.2", features = ["uuid1", "chrono04"] }
+
+# Text buffers
+ropey = "1.6"
+
+# AST parsing.
+#
+# ABI PIN: the `tree-sitter` runtime is 0.24, which loads grammars whose
+# generated `parser.c` targets ABI <= 14. Grammar crates on the 0.25.x line
+# are ABI 15 — the 0.24 runtime rejects them at `Parser::set_language`,
+# surfacing as `AstError::GrammarUnavailable` ("Unsupported tree-sitter ABI").
+# Every grammar below resolves to an ABI-14 parser EXCEPT `tree-sitter-md`
+# (0.5.x is ABI 15); markdown therefore degrades gracefully rather than
+# parsing. Before bumping any grammar, verify the ABI:
+#   grep LANGUAGE_VERSION ~/.cargo/registry/src/*/tree-sitter-<x>-<ver>/**/parser.c
+# Moving the whole set to ABI 15 means bumping `tree-sitter` to 0.25 and
+# `ast-grep-core`/`ast-grep-language` to 0.42 in lockstep — a separate wave.
+# Wave 5 (2026-05-23) closure: tree-sitter 0.24 -> 0.26 (ABI 15 runtime) +
+# ast-grep 0.42 in lockstep. Mixed-ABI matrix preserved because grammars
+# (html, typescript, java, ruby) have NO ABI-15 releases on crates.io; the
+# 0.26 runtime accepts ABI-14 grammars gracefully. Per-grammar matrix
+# verified via scripts/grammar-abi-resolver.sh on 2026-05-23.
+#
+# 2026-06-26 Opção B note: the `wasm` feature is OPTIONAL in tree-sitter
+# 0.26, BUT tree-sitter 0.26 unconditionally depends on `wasmtime-c-api`
+# (a wasmtime C-FFI binding) which transitively pulls `wasmtime v36`,
+# creating a 19-crate duplicate cascade with touring-bindings's direct
+# `wasmtime v44`. Downgrading to 0.25 would lose ABI 15 runtime support.
+# Accepting as upstream-locked and tracked via deny.toml `[bans] skip`.
+tree-sitter = { version = "0.26", features = ["wasm"] }
+tree-sitter-python = "0.25"      # ABI 15
+tree-sitter-rust = "0.24"        # ABI 14 (transitional)
+tree-sitter-typescript = "0.23"  # ABI 14 — no ABI 15 release exists
+tree-sitter-javascript = "0.25"  # ABI 15
+tree-sitter-html = "0.23"        # ABI 14 — no ABI 15 release exists
+tree-sitter-css = "0.25"         # ABI 15
+tree-sitter-json = "0.24"        # ABI 14/15 transition
+tree-sitter-bash = "0.25"        # ABI 15 — Wave 5: removes bash_ast_validator tokenizer fallback
+tree-sitter-toml-ng = "0.7"
+tree-sitter-yaml = "0.7"
+tree-sitter-md = { version = "0.5", features = ["parser"] }  # ABI 15 — now natively parses
+
+# MCP
+rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }
+
+# PyO3
+pyo3 = { version = "0.29", features = ["extension-module"] } # >=0.29 fixes RUSTSEC-2026-0176 (PyList/PyTuple iterator OOB read) + RUSTSEC-2026-0177 (PyCFunction::new_closure Sync bound)
+numpy = "0.29" # rust-numpy tracks pyo3 minor-for-minor; must move in lockstep with pyo3
+
+# CRDTs for multi-agent convergence
+crdts = "7.3"
+
+# Semantic graph persistence
+rkyv = { version = "0.7", features = ["validation", "std"] }
+
+# Memory-mapped I/O
+memmap2 = "0.9"
+
+# Compression
+zstd = "0.13"
+
+# Tokenization
+tiktoken-rs = "0.9"
+
+# WASM runtime (optional — for plugin system)
+wasmtime = { version = "44", default-features = false, features = ["cranelift", "runtime", "pooling-allocator"] }
+wat = "1.245"
+
+# Full-text search
+tantivy = "0.22"
+
+# Protobuf (optional — for SCIP binary emit)
+prost = "0.13"
+prost-types = "0.13"
+
+# Misc
+ignore = "0.4"
+base64 = "0.22"
+tempfile = "3.14"
+streaming-iterator = "0.1.9"
+futures = "0.3"
+
+# Clustering (optional)
+linfa = "0.7"
+linfa-clustering = "0.7"
+linfa-ftrl = "0.7"
+
+# Snapshot testing (dev-dep in per-crate [dev-dependencies])
+insta = "1.41"
+
+# ── Wave 5 (2026-04-18) ecosystem integrations ─────────────────────────
+# Enum ergonomics: iter/display/from_str derives. Used by touring-ast::Lang.
+strum = { version = "0.27", features = ["derive"] }
+strum_macros = "0.27"
+# Reduce derive boilerplate for newtype/wrapper errors.
+derive_more = { version = "2.0", features = ["from", "display", "deref", "constructor"] }
+# Collapse long feature-cfg chains into named aliases.
+cfg_aliases = "0.2"
+# Structure-aware fuzz input generation (dev-only).
+arbitrary = { version = "1.4", features = ["derive"] }
+derive_arbitrary = "1.4"
+# Serialize tests touching SQLite / UnixSocket / daemon state.
+serial_test = "3.1"
+# CLI integration test harness (stdout/stderr/exit code matching).
+predicates = "3"
+# Unified property + fuzz + exhaustive test engine (dev-only).
+# bolero = "0.13"          # TODO: add when cargo-bolero available; defer harness to fuzz_parsers.rs
+# RustSec advisory database (CVE lookup). 0.33 supports CVSS v4.0 advisories
+# (0.30 failed `Database::open` on the current advisory-db's CVSS-4.0 entries).
+rustsec = { version = "0.33", default-features = false }
+# Compile-time plugin/hook registration collected at link time.
+inventory = "0.3"
+# Production-grade jemalloc allocator + pprof heap profiling (feature-gated).
+tikv-jemallocator = "0.6"
+jemalloc_pprof = { version = "0.8", default-features = false, features = ["flamegraph"] }
+# Breaking-API-change detection for Rust library crates.
+public-api = { version = "0.47", default-features = false }
+# ────────────────────────────────────────────────────────────────────────
+
+# Static compile-time invariants (structs layout + trait impls)
+static_assertions = "1.1"
+
+# Property-based fuzzing (dev-dep) — alternative microbench (dev-dep).
+# Both ranking-driven additions; per-crate dev-deps opt in as needed.
+proptest = "1.5"
+divan = "0.1"
+
+# Cross-platform RSS + virtual memory sensor (~500 LOC, zero deps beyond libc
+# on Unix / winapi on Windows). Feeds the touring-daemon telemetry map
+# (`touring gate-metrics -j`) with live RSS / VM size for the current process
+# — a prerequisite for detecting long-running leak drift without a heavy
+# jemalloc-profile run. Exposed via `crate::shared::memory_stats_probe`.
+memory-stats = "1.2"
+
+# Drop-in replacement for std assert_eq!/assert_ne! with colored unified
+# diffs — cuts token burn when Claude reads test failures in CI logs.
+# Tier A (2026-04-19) — documented in Crates-para-Melhorar-Codigo-Touring.md.
+pretty_assertions = "1.4"
+# #[traced_test] attribute: captures and asserts against `tracing` events
+# inside a test without scaffolding a custom subscriber. Pairs naturally
+# with the 138-hook instrumentation that already emits spans.
+tracing-test = "0.2"
+
+# ── ML Inference (optional, W1 cognitive) ──────────────────────────────
+# candle-core/nn/transformers: Rust-native ML framework for edge inference.
+# GGUF quantized models (Q4_K_M / Q8_0) loaded into daemon memory for
+# zero-latency embedding generation. Gated behind `semantic-embeddings`
+# feature in consumer crates to avoid pulling ML deps when unused.
+candle-core = { version = "0.8", default-features = false }
+candle-nn = { version = "0.8", default-features = false }
+candle-transformers = { version = "0.8", default-features = false }
+
+# HuggingFace tokenizers — pure Rust WordPiece/BPE/SentencePiece. Required
+# by CandleEmbedder Phase-2a to load `tokenizer.json` sidecar files shipped
+# with every BGE/Nomic GGUF model. `http` default is disabled to avoid
+# pulling reqwest (offline-first: caller stages tokenizer.json on disk).
+tokenizers = { version = "0.20", default-features = false, features = ["onig", "esaxx_fast"] }
+
+# ── Cognitive Memory (optional, W1 ADR Phase 3) ────────────────────────
+# mentedb-cognitive: Curva-U attention + Delta-Aware Serving + Belief
+# Propagation. Reported -90.7% token reduction in 20-turn loops, 0% stale
+# returns. Gated behind `cognitive-memory` feature in touring-cortex —
+# OFF by default per ADR D4 until v1.0 review completes.
+# NOTE: version "0.3" was invalid (crates.io latest is "0.5.0"). Fixed 2026-04-16.
+mentedb-cognitive = { version = "0.5", default-features = false }
+
+# ── W2 forward-fix (2026-05-12): 99 deps missing after w2_centralize bug ──
+# Bug: w2_centralize_workspace_deps.py --apply reported OK but did NOT merge
+# staging proposal into [workspace.dependencies] root section. Detected after
+# w2_propagate_workspace_inherit.py converted these deps to .workspace=true in
+# 31 crate Cargo.toml files, causing cargo check to fail with
+# "dependency.X was not found in workspace.dependencies".
+# Resolution: deps appended in their original staging form (no features).
+# Per-crate overrides for features (e.g., serde = { workspace = true,
+# features = ["derive"] }) work normally since cargo inherits workspace
+# version and the crate adds features.
+# TODO(post-W2): consolidate this block with the structured deps above + add
+# proper feature blocks for deps that need them. Bug fix to be filed in
+# w2_centralize_workspace_deps.py to make --apply actually merge.
+approx = "0.5"
+arc-swap = "1.6"
+assert_cmd = "2"
+ast-grep-core = "=0.42.3"           # Wave 5 (2026-05-23) closure — lockstep with tree-sitter 0.26
+ast-grep-language = "=0.42.3"       # Wave 5 (2026-05-23) closure
+axum = "0.8"
+aya = "0.13"
+aya-log = "0.2"
+bumpalo = "3.16"
+bytemuck = "1"
+bytes = "1"
+capnp = "0.24"
+capnp-futures = "0.24"
+capnp-rpc = "0.24"
+capnpc = "0.24"
+cargo-mutants = "24.11.2"
+cargo_metadata = "0.21"
+clap = "4.5"
+clap_complete = "4.5"
+clap_mangen = "0.2"
+console-subscriber = "0.4"
+criterion = "0.5"
+cvc5 = "0.4"
+deadpool-postgres = "0.14"
+dhat = "0.3"
+home = "0.5" # replaces unmaintained `dirs` (RUSTSEC-2020-0053) for our direct home_dir() use; rust-lang-maintained (cargo uses it). dirs still enters the tree transitively via fastembed → ignored in deny.toml with that rationale
+eframe = "0.34"
+egui = "0.34"
+# W13 repo-premium 2026-05-31: rustls TLS for BOTH the ort-sys ONNX downloader and
+# the hf-hub model downloader (default pulls native-tls→openssl, banned by deny.toml).
+# default = [ort-download-binaries-native-tls, hf-hub-native-tls, image-models].
+fastembed = { version = "5", default-features = false, features = ["ort-download-binaries-rustls-tls", "hf-hub-rustls-tls", "image-models"] }
+filetime = "0.2"
+geo = "0.29"
+geo-types = "0.7"
+geozero = "0.15"
+glob = "0.3"
+globset = "0.4"
+graphviz-rust = "0.9"
+half = "2"
+hashbrown = "0.15"
+hdrhistogram = { version = "7.5", default-features = false }
+hex = "0.4"
+http-body-util = "0.1"
+iai-callgrind = "0.16"
+instant-distance = "0.6"
+js-sys = "0.3"
+leptos = "0.8"
+leptos_axum = "0.8"
+leptos_macro = "0.8"
+leptos_meta = "0.8"
+leptos_router = "0.8"
+libc = "0.2"
+loom = "0.7"
+memchr = "2"
+mentedb-core = "0.5.0"
+mimalloc = "0.1"
+mockall = "0.13"
+mpatch = "1.4.1"
+notify-debouncer-mini = "0.5.0"
+opentelemetry = "0.31"
+opentelemetry-otlp = "0.31"
+opentelemetry_sdk = "0.31"
+parking_lot = "0.12"
+png = "0.17"
+postgres = "0.19"
+pprof = "0.14"
+prettyplease = "0.2"
+proc-macro2 = "1.0"
+pulp = "0.22"
+qdrant-client = "1.10"
+quote = "1.0"
+rand = "0.8"
+resvg = "0.44"
+rstest = "0.26"
+rusty-fork = "0.3"
+salsa = "0.18"
+serde-wasm-bindgen = "0.4"
+single-clustering = "0.6.1"
+smallvec = "1.5"
+smol_str = "0.1"
+sqlx = { version = ">=0.8.0", default-features = false }
+syn = "2.0"
+termtree = "0.5.1"
+tiny-skia = "0.11"
+tokio-postgres = "0.7"
+tokio-stream = "0.1"
+tokio-test = "0.4"
+tokio-util = "0.7"
+tower = "0.5"
+tower-http = "0.6"
+tracing-appender = "0.2"
+tracing-error = "0.2"
+tracing-opentelemetry = "0.32"
+tracing-tracy = "0.11"
+tree-sitter-go = "0.25"   # ABI 15 — Wave 5: closes B-FUZZ-002 production panic
+tree-sitter-java = "0.23" # ABI 14 — no ABI 15 release exists
+validator = "0.20"
+vergen-gix = "10.0" # 10.x pulls gix 0.84 → gix-date >=0.12 (fixes RUSTSEC-2025-0140); modern Emitter/GixBuilder API
+walkdir = "2.5"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = "0.3"
+wgpu = "26"
+z3 = "0.20"
+
+# Dev deps declared per-crate, not workspace-level
+# criterion, approx, proptest, rand, rstest, tempfile, tokio-test
+
+# ── Dev profile: fast compilation + minimal disk footprint ────────────
+# Disk-optimization wave (2026-04-26): aligned with Cargo Book recommendation
+# (build-performance.html). Saves ~25 GB recurrent in target/debug:
+#   • debug = "line-tables-only": keeps file/line for panics, drops types/locals
+#   • incremental = true: the local incremental cache is the RIGHT cache for
+#     iterative Rust dev. The prior "incremental = false: sccache assumes the
+#     role (37-75%)" assumption was empirically FALSE (measured 2.29% Rust
+#     hit-rate) and sccache is now disabled workspace-wide
+#     (.cargo/config.toml `rustc-wrapper = ""`) — see that file for the
+#     correctness rationale (stale-object hazard, binary ≠ source).
+#     Trade-off: regenerates ~21 GB target/debug/incremental — acceptable
+#     (disk-hygiene cron + safe-clean.sh manage it; REGRA #12).
+#   • split-debuginfo = "unpacked": separates .dwo files (~30% rlib size cut)
+# Use [profile.debugging] when you need full debug info for gdb/lldb.
+[profile.dev]
+opt-level = 0
+debug = "line-tables-only"
+incremental = true
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+opt-level = 2     # optimize dependencies but not our code — best of both worlds
+debug = false     # zero debug info on external deps — saves ~30% in target/debug/deps
+
+# ── Opt-in profile: fast iteration with local incremental cache ───────
+# Use when you're rapidly iterating on the same crate and sccache hit rate
+# matters less than incremental rustc state. Trade-off: regenerates the
+# 21 GB target/debug/incremental directory.
+[profile.fast-iter]
+inherits = "dev"
+incremental = true
+split-debuginfo = "off"
+
+# ── Opt-in profile: full debug info for stepping in gdb/lldb ──────────
+# `cargo build --profile debugging` brings back type/local debug symbols
+# at the cost of larger rlibs.
+[profile.debugging]
+inherits = "dev"
+debug = true
+
+# ── Release profile: binary size optimization ─────────────────────────
+[profile.release]
+lto = "fat"         # full LTO — better dead code elimination (was "thin")
+opt-level = "s"     # optimize for size instead of speed (was 3)
+codegen-units = 1   # single codegen unit for best optimization
+strip = true        # strip debug symbols
+panic = "abort"     # no unwind tables — smaller binary (tests use dev profile)
+
+# ── Bench profile ─────────────────────────────────────────────────────
+[profile.bench]
+lto = "thin"
+opt-level = 3
+
+# ── CI / mutation-testing profile ─────────────────────────────────────
+# `cargo-mutants` auto-injects `--profile ci` (detected from
+# `.config/nextest.toml`'s `[profile.ci]` section). Without a matching
+# cargo profile, `cargo test --profile ci` errors with "profile `ci` is
+# not defined". Mirror dev settings so `cargo test --profile ci` works
+# identically to the default dev test path.
+[profile.ci]
+inherits = "dev"
+
+[profile.ci.package."*"]
+opt-level = 2
+
+[workspace.lints.clippy]
+# Core: deny all standard clippy warnings — prevents compilation with issues.
+# Priority -1 allows individual overrides at priority 0 (default).
+all = { level = "deny", priority = -1 }
+# Safety: `indexing_slicing` relaxed 2026-04-20 (Wave B aftermath). Rationale:
+# noisy against idiomatic `serde_json::Value["key"] = …` assignments in CLI
+# handlers and test-harness `vec[0]` patterns. Rustc's runtime bounds check
+# still catches real panics; `clippy::all = deny` remains the primary floor.
+indexing_slicing = "allow"
+# Performance: catch inefficient patterns
+needless_collect = "deny"
+# Hygiene: forbid committed `dbg!` — zero current uses workspace-wide, so this
+# locks the invariant at no cost (RBP-01 elite-lint ratchet, 2026-06-15).
+dbg_macro = "deny"
+# Supply-chain: forbid wildcard (`= "*"`) dependency versions — zero current uses
+# in any workspace Cargo.toml; locks reproducible-build hygiene (RBP-01, 2026-06-15).
+wildcard_dependencies = "deny"
+# RBP-11 zero-violation elite-lint ratchets (2026-06-16): each enumerated to 0
+# workspace violations via a `[workspace.lints]`-level `warn` pass over `--all-targets
+# --keep-going` (the authoritative method — a `clippy -- -W` flag only reaches the
+# top-level crate, NOT path-dep crates, which masked real violations on the first try).
+# Denying these is a no-cost lock against future regression. (Five more candidates —
+# empty_structs_with_brackets ×12, zero_sized_map_values ×4, unnecessary_self_imports
+# ×2, verbose_file_reads ×1, empty_drop ×1 — had existing violations and were NOT
+# added: each is style-level and several are intentional, not worth churning now.)
+if_let_mutex                    = "deny" # MutexGuard held across the if-let arm = deadlock risk
+rc_mutex                        = "deny" # Rc<Mutex<_>> antipattern (RefCell, or Arc across threads)
+lossy_float_literal             = "deny" # f32 literal that silently loses precision
+fn_to_numeric_cast_any          = "deny" # casting a fn item/ptr to a number is almost always a bug
+mut_mut                         = "deny" # `&mut &mut T` is almost always a mistake
+rest_pat_in_fully_bound_structs = "deny" # `S { a, b, .. }` when all fields are already bound
+
+# ── Test-harness & pedantic allows ────────────────────────────────────
+# Rationale: these lints fire heavily inside `#[cfg(test)]` modules and
+# integration tests where the idiom under scrutiny is actually the
+# clearest choice (regression guards on consts, manual numeric range
+# checks, vec! with take-ownership semantics, dummy constants near `PI`,
+# `len() == 0` preceding an empty check on a value that might later
+# become a newtype, etc.). Keeping them at `warn`/`allow` preserves
+# readability without weakening the core `clippy::all` floor.
+assertions_on_constants       = "allow"
+manual_range_contains         = "allow"
+useless_vec                   = "allow"
+let_unit_value                = "allow"
+approx_constant               = "allow"
+absurd_extreme_comparisons    = "allow"
+field_reassign_with_default   = "allow"
+useless_conversion            = "allow"
+redundant_closure             = "allow"
+len_zero                      = "allow"
+manual_div_ceil               = "allow"
+needless_update               = "allow"
+unnecessary_map_or            = "allow"
+int_plus_one                  = "allow"
+# Common `expect(&format!(...))` → recognised defensive pattern in tests.
+expect_fun_call               = "allow"
+# `assert_eq!(x, true)` — minor readability, not worth rewriting test suites.
+bool_assert_comparison        = "allow"
+
+[workspace.lints.rust]
+# Allow unexpected cfg values (e.g., rl-feedback feature removed due to cyclic dep)
+unexpected_cfgs = "allow"
+# Safety (RBP-01, 2026-06-15): require an explicit `unsafe {}` block for each unsafe
+# op inside an `unsafe fn` body — the modern idiom that makes every unsafe call
+# auditable. ENABLED workspace-wide: a `--keep-going` scan found only 4 violating
+# sites, ALL in touchable crates (touring-intelligence ×2 `rkyv::archived_root`,
+# touring-hooks `libc_kill`, touring-server `libc_getuid`) — none in the no-touch
+# crates (they use the safe `check_archived_root`). All 4 were wrapped with SAFETY
+# comments, so the deny holds clean.
+unsafe_op_in_unsafe_fn = "deny"

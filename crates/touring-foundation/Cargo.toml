@@ -1,0 +1,108 @@
+[package]
+name = "touring-foundation"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Foundation: error types, config, shared types, embedding client (renamed from touring-core in W3.1 2026-05-12)"
+license.workspace = true
+
+[dependencies]
+# Global allocator — active by default via `mimalloc-allocator` feature.
+# Disable with `--no-default-features` + opt-out of `mimalloc-allocator`
+# at the workspace root when profiling with dhat-heap.
+mimalloc = { workspace = true, features = ["default"] }
+thiserror = { workspace = true }
+arc-swap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+rusqlite = { workspace = true }
+chrono = { workspace = true }
+once_cell = { workspace = true }
+sha2 = { workspace = true }
+blake3 = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-attributes = { workspace = true }
+miette = { workspace = true }
+moka = { workspace = true } # moka_policies: generic cache builders (relocated from hooks-shared, A5 step-2)
+reqwest = { workspace = true }
+rkyv = { workspace = true, features = ["validation", "std"] }
+async-trait = { workspace = true }
+anyhow = { workspace = true }
+futures = { workspace = true }
+hdrhistogram = { workspace = true, default-features = false }
+memory-stats.workspace = true
+
+# W3.4 (2026-05-12): rules engine absorbed from touring-rule-engine
+serde_yaml = { workspace = true }
+glob = { workspace = true }
+regex = { workspace = true }
+
+# W3.5 (2026-05-12): semantic classifier absorbed from touring-definitions
+strum = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive"] }
+
+# W3.6 (2026-05-12): eBPF telemetry absorbed from touring-telemetry
+# Optional — activated by the `ebpf-telemetry` feature on this crate.
+aya = { workspace = true, optional = true }
+aya-log = { workspace = true, optional = true }
+
+# sentinel + touring-resource-monitor (with its sysinfo + tracing-subscriber deps)
+# peeled to the touring-resilience crate (A4 P3, 2026-06-15).
+
+# W3.8 (2026-05-12): activity store absorbed from touring-activity
+# (928 LOC, event-sourced agent state with SHA-256 projection gate, ESAA
+# pattern). Always-on lib — no feature gate needed because the cost is
+# minimal (uuid v4 + hex are tiny).
+uuid = { workspace = true, features = ["v4", "serde"] }
+hex = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+# [[bin]] touring-resource-monitor peeled to the touring-resilience crate (A4 P3, 2026-06-15).
+
+# W13.2 (2026-05-23) — docs.rs build configuration. Builds with all features
+# active so the generated docs surface the full public API (incl. ebpf,
+# ebpf-telemetry, gpu-embeddings, resource-monitor-bin). Validate locally
+# with `cargo +nightly doc -p touring-foundation --no-deps --all-features`.
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+# Some features are Linux-only (ebpf, sentinel/PSI). docs.rs builds on Linux
+# x86_64 by default, which matches our tier-1 platform so no targets= override.
+
+[features]
+# Wave 5 (2026-04-18): `mimalloc-allocator` REMOVED from default. The
+# workspace standardizes on jemalloc (installed by `touring-server`
+# under the `jemalloc` feature, default-on via `heap-profile`). Having
+# mimalloc-allocator in `default` caused feature unification to link
+# two competing `#[global_allocator]` registrations when any consumer
+# without `default-features = false` was pulled in.
+#
+# mimalloc remains available for A/B benchmarking by opting in explicitly
+# via `--features mimalloc-allocator` on touring-core consumers.
+default = []
+# gpu-embeddings (the GPU embedding client gate) peeled to touring-storage (A4 P4, 2026-06-15).
+# mimalloc-allocator: install mimalloc as global allocator.
+# Toggle off when using dhat-heap or benchmark harness owning global allocator.
+mimalloc-allocator = []
+# W3.6 (2026-05-12): activates the eBPF telemetry path in
+# `touring_foundation::telemetry`. Without this feature, the module compiles
+# in fallback (polling) mode — `TelemetryCollector::new` then returns
+# `TelemetryError::FeatureNotEnabled` unless `allow_fallback = true`.
+ebpf-telemetry = ["dep:aya", "dep:aya-log"]
+
+# resource-monitor / -bin / -sysinfo features peeled to the touring-resilience
+# crate along with the sentinel subsystem (A4 P3, 2026-06-15).
+
+[dev-dependencies]
+tempfile = { workspace = true }
+# W3.8 (2026-05-12): dev-deps inherited from absorbed touring-activity tests
+# (tests/activity_proptests.rs, tests/activity_integration_test.rs).
+proptest = { workspace = true }
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

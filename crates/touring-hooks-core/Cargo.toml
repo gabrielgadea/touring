@@ -1,0 +1,70 @@
+[package]
+name = "touring-hooks-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "touring-hooks core engines (knowledge DB, tantivy index, health delta, AST/ACO/cognitive bridges, circuit breaker, session bus) — daemon-lib-rearch Phase C"
+
+[lib]
+name = "touring_hooks_core"
+path = "src/lib.rs"
+
+[features]
+# Feature names mirror touring-hooks (the façade forwards each one) so the
+# cfg-gated modules keep identical semantics after the Phase C carve.
+tantivy-fts = ["dep:tantivy"]
+shadow-workspace = []
+capnp-server = ["dep:touring-capnp-server"]
+session-hooks = []
+nlp-enrichment = []
+utilities = []
+inventory-registry = ["dep:inventory"]
+# Pure cfg-gate: the gated code in health_delta.rs consumes the leaf's
+# mpatch_preview API, not mpatch directly (dep:mpatch stays in touring-hooks
+# for cli/handlers/dispatch.rs).
+mpatch-fuzzy = []
+quantization = ["touring-simd/quantization"]
+
+[dependencies]
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-storage = { path = "../touring-storage", features = ["knowledge", "session-hooks"] }
+touring-hooks-prediction = { path = "../touring-hooks-prediction" }
+touring-ceg = { path = "../touring-ceg" }
+touring-foundation = { path = "../touring-foundation" }
+touring-orchestration = { path = "../touring-orchestration" }
+touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] }
+touring-code = { path = "../touring-code" }
+touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-rkyv = { path = "../touring-rkyv" }
+touring-capnp-server = { path = "../touring-capnp-server", optional = true }
+blake3 = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+deadpool-sqlite = { workspace = true }
+inventory = { workspace = true, optional = true }
+libc = { workspace = true }
+memchr = { workspace = true }
+moka = { workspace = true }
+num_cpus = { workspace = true }
+once_cell = { workspace = true }
+petgraph = { workspace = true }
+regex = { workspace = true }
+rkyv = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tantivy = { workspace = true, optional = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,223 @@
+{
+  "patterns": [
+    {
+      "id": "44b3244d96152027",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_bridge_pln2/tests/__init__.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Parity tests for touring_bridge package.\"\"\"\n\nfrom __future__ import annotations\n",
+      "tags": [
+        "imports",
+        "create",
+        "python",
+        "test"
+      ],
+      "timestamp": "2026-03-15T16:31:07.202291",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "26807e6b8c0f9b1a",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_bridge_pln2/tests/test_parity_simd.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Parity tests for SIMD bridge functions.\n\nVerifies that fallback output format matches expected structure and\nthat mathematical operations produce correct results.\nAll tests run in fallback mode (no Rust dependency).\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\n\nimport pytest\n\nfrom scripts",
+      "tags": [
+        "imports",
+        "create",
+        "test",
+        "python",
+        "function",
+        "class"
+      ],
+      "timestamp": "2026-03-15T16:31:57.886834",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "069e57cff738c92e",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/memory/crdt_graph.rs",
+      "operation": "create",
+      "content_preview": "//! CRDT-based Semantic Graph — convergent replicated graph for multi-agent scenarios.\n//!\n//! Uses OR-Set (Orswot) for nodes/edges and LWW Register for node weights.\n//! Designed for CILA L6 multi-agent concurrent access to shared semantic memory.\n//!\n//! Currently a forward-looking implementation ",
+      "tags": [
+        "imports",
+        "claude-config",
+        "rust",
+        "create"
+      ],
+      "timestamp": "2026-03-17T00:05:56.227842",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "6719da5bb5686703",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_ml/dataset_validator.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Validate ML dataset quality for Tiny Transformer training.\n\nChecks:\n    - Schema completeness (9 required columns)\n    - Minimum row count (configurable)\n    - No null/empty critical fields\n    - Tool vocabulary coverage\n    - Session diversity\n\nUsage:\n    python scripts/touring_ml/dataset_valida",
+      "tags": [
+        "imports",
+        "create",
+        "python",
+        "function"
+      ],
+      "timestamp": "2026-03-17T00:13:20.940297",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b50370066de97945",
+      "file_path": "/home/gabrielgadea/cli-anything/touring/cli_anything/touring/core/index.py",
+      "operation": "modify",
+      "content_preview": "OLD: \"\"\"Symbol index operations against touring_symbols.db.\n\n60k+ symbols indexed from the codebase with name, kind, file, line, language.\nSupports substring search, kind filtering, and index status reporting.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom typing import Any\n\nfrom .db impo",
+      "tags": [
+        "imports",
+        "python",
+        "function",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T03:32:01.103722",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a9257f1f7c7c4fb6",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_pipeline_accel_pln2/tests/test_s3_financial_simd.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Tests for S3: Financial SIMD Engine.\n\nValidates NPV, IRR, and stress scenario computation via the touring bridge\n(Rust-accelerated with Python fallback).\n\nRun: pytest scripts/touring_pipeline_accel_pln2/tests/test_s3_financial_simd.py -v\n\"\"\"\n\nfrom __future__ import annotations\n\nimport pytest\n\nfro",
+      "tags": [
+        "imports",
+        "create",
+        "python",
+        "test",
+        "function",
+        "class"
+      ],
+      "timestamp": "2026-03-17T08:12:12.988289",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "53c448b3c974073c",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/touring_bridge/reranker.py",
+      "operation": "modify",
+      "content_preview": "OLD: from datetime import date, timedelta\nNEW: from datetime import date",
+      "tags": [
+        "imports",
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-17T08:12:57.354525",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a43af4a2dcb7b561",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/mef_impact/simulator.py",
+      "operation": "modify",
+      "content_preview": "OLD: from scripts.process_analysis.mef_impact.rust_bridge import (\n    try_drift_detect,\n    try_wilson_aggregate,\n)\nNEW: from scripts.process_analysis.mef_impact.rust_bridge import (\n    try_bayesian_aggregate,\n    try_cv,\n    try_drift_detect,\n    try_npv_sensitivity,\n    try_reconcile,\n    try_st",
+      "tags": [
+        "imports",
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-17T20:30:52.208347",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9ee7bb88809f090d",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/mef_impact/simulator.py",
+      "operation": "modify",
+      "content_preview": "OLD:     drift_sig = drift[\"drift_significant\"] if drift else False\n\n    return ScenarioComparison(\n        baseline_tqm=params.tqm_simples,\nNEW:     drift_sig = drift[\"drift_significant\"] if drift else False\n\n    # S1: Stress scenarios (revenue-only factor, investment fixed)\n    cenarios_stress: li",
+      "tags": [
+        "imports",
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T20:32:47.769108",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "39caa9e358c3a722",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/enrichment.rs",
+      "operation": "create",
+      "content_preview": "//! Context Enrichment Pipeline — composes enriched context for hook injection.\n//!\n//! Priority order (higher = included first if budget allows):\n//! 1. Gotchas (most valuable for error prevention) — ~50 tokens\n//! 2. Relations (import/caller paths) — ~50 tokens\n//! 3. Recent errors for this file —",
+      "tags": [
+        "imports",
+        "rust",
+        "claude-config",
+        "create"
+      ],
+      "timestamp": "2026-03-19T00:17:13.360026",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "6ed1c7f2ebfc2dcc",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/context_compiler.rs",
+      "operation": "create",
+      "content_preview": "//! Context Compiler -- produces coalesced context blocks for subagent prompts.\n//!\n//! Usage: `touring context compile --intent \"fix bug\" --files \"a.py,b.rs\"`\n//! Output: Single context block < max_tokens with file overviews, gotchas,\n//! blast radius, and learned patterns.\n//!\n//! This extends the",
+      "tags": [
+        "imports",
+        "claude-config",
+        "rust",
+        "create"
+      ],
+      "timestamp": "2026-03-19T00:34:47.975913",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "853610371218c188",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/bandit/linucb.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Export arm data for persistence: `(pulls, cumulative_reward, a_inv_flat, b)` per arm.\n    pub fn export(&self) -> Vec<(u64, f64, Vec<f64>, Vec<f64>)> {\nNEW:     /// Export total pulls for persistence (companion to `export`/`import`).\n    pub fn export_total_pulls(&self) -> u64 {\n       ",
+      "tags": [
+        "imports",
+        "rust",
+        "modify",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T21:01:04.357996",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d8765c311f64efba",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/bandit/linucb.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         // Import into fresh bandit\n        let mut bandit2 = LinUCBBandit::new();\n        bandit2.import(&exported);\nNEW:         // Import into fresh bandit\n        let mut bandit2 = LinUCBBandit::new();\n        bandit2.import(&exported);\n        bandit2.import_total_pulls(bandit.export_total",
+      "tags": [
+        "imports",
+        "claude-config",
+        "rust",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T21:01:09.745918",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fd68a07ed3bb7151",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     │   ├── src/graph.rs          SymbolIndex, BlastRadius, imports\n    │   └── src/store.rs          SQLite SymbolStore persistence\nNEW:     │   ├── src/graph.rs          SymbolIndex, BlastRadius, imports\n    │   ├── src/incremental_pipeline.rs [v9] Edit-aware pipeline (IncrementalParser + Rop",
+      "tags": [
+        "imports",
+        "documentation",
+        "claude-config",
+        "modify",
+        "markdown",
+        "adr"
+      ],
+      "timestamp": "2026-03-20T10:42:11.811871",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-20T10:42:14.067019",
+    "total_patterns": 14,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "imports"
+  }
+}

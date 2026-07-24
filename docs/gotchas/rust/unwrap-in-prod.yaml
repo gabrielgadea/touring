@@ -1,0 +1,14 @@
+id: rust:unwrap-in-prod
+language: rust
+pattern: .unwrap()
+description: ".unwrap() panics on Err/None. In production, prefer ? or .expect(\"reason\")."
+severity: medium
+resolution: |
+  Replace `.unwrap()` with one of:
+  - `?` operator (in functions returning Result/Option)
+  - `.expect("descriptive reason")` when failure indicates a bug
+  - `.unwrap_or_default()` / `.unwrap_or_else(|_| ...)` for graceful fallback
+metadata:
+  introduced: 2026-04-25
+  references:
+    - https://doc.rust-lang.org/std/result/enum.Result.html#method.unwrap

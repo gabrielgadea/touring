@@ -1,0 +1,6 @@
+# Formatting config (BP3, 2026-06-21). Pins the 2024 style edition — the style
+# the workspace already overwhelmingly uses (explicit 2015/2021 would churn 741
+# files; 2024 leaves only ~75 residual-drift files, which this run reformats).
+# Locking it makes `cargo fmt --all --check` deterministic across toolchains and
+# keeps the CI fmt gate green on current stable (rustfmt 1.95+).
+style_edition = "2024"

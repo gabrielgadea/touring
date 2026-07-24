@@ -1,0 +1,5 @@
+# RFC-001 fixture: identity table without `name`. MUST error thsf-manifest-001.
+
+[holon.identity]
+version = "0.1.0"
+description = "Missing required name field."

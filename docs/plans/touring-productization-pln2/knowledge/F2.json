@@ -1,0 +1,11 @@
+{
+  "phase": "F2",
+  "entities": [
+    {
+      "entity_id": "phase:F2",
+      "type": "phase",
+      "description": "F2 install lifecycle COMPLETA: (2.1) populate_bin no init-project \u2014 .touring/bin/ symlinka a toolchain pinada ([toolchain] channel -> TOURING_HOME/toolchains/<ch>/bin) com fallback dev ~/.local/bin, fail-open com notas (11/11 unit tests, core _inner puro sem env races); (2.2) walk-up shim W12.6 ATIVADO como ~/.claude/hooks/touring-hook via update-touring (cp+chmod, n\u00e3o symlink; touring/touring-daemon seguem symlinks); shim Layer 4 corrigido: root congelado -> ~/.local/bin + canonical source; (2.3) settings project-aware ok (TOURING_PROJECT_ROOT novo root da F4'). Provas vivas: init-project popula 3 bins (canal dev), shim TRACE resolve layer 2 (project_bin) dentro do projeto e layer 4 (dev) fora, hook real CC-style exit 0, validate_phase2 7/7 ALL PASS, clippy 0, e2e ok. Fix colateral: teste env do daemon_ctl fr\u00e1gil (sess\u00e3o exporta TOURING_DAEMON_SOCKET) -> testa preced\u00eancia can\u00f4nico>legacy salvando ambos."
+    }
+  ],
+  "relations": []
+}

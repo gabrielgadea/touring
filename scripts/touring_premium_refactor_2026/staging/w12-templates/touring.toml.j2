@@ -1,0 +1,27 @@
+# AUTO-GENERATED — per-project touring.toml template
+# Place at <project>/.touring/touring.toml
+
+[project]
+name = "{{ project_name }}"
+created = "{{ timestamp }}"
+
+[toolchain]
+channel = "{{ channel }}"           # stable | nightly | <version>
+auto_update = false                 # opt-in CI cache refresh
+
+[features]
+# Per-project feature toggles (commercial tier-* mapping)
+tier = "{{ tier }}"                  # free | standard | premium | enterprise
+
+[storage]
+backend = "sqlite"
+cache_size_mb = 256
+
+[telemetry]
+# OFF by default for premium/enterprise; ON for free/standard with opt-out
+enabled = {{ telemetry_default }}
+
+[paths]
+data_dir = ".touring/data"
+cache_dir = ".touring/cache"
+log_dir = ".touring/logs"

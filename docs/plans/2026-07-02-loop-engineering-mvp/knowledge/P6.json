@@ -1,0 +1,11 @@
+{
+  "phase": "P6",
+  "entities": [
+    {
+      "entity_id": "phase:P6",
+      "type": "phase",
+      "description": "P6 DONE: 2 hooks criados+registrados. Stop loop-stop-guard (converge-ou-continua, block-JSON validado 1/30) + PreCompact loop-snapshot (memory store validado), ambos fail-open + loop-scoped via ~/.claude/loop-engineering/active.json (inertes sem marcador). settings.json append via jq (backup .loop-bak, Stop 1->2, PreCompact 1->2, JSON validado). Onda C completa."
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-linucb-tuner.schema.json",
+  "title": "Capability: linucb-tuner",
+  "description": "LinUCB bandit reward injection",
+  "type": "object",
+  "additionalProperties": true
+}

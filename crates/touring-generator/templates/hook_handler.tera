@@ -1,0 +1,10 @@
+//! Hook handler: {{ hook_name | default(value="hook") }}
+
+use crate::error::GenerateError;
+
+/// Handle the `{{ hook_name | default(value="hook") }}` hook event.
+/// Exit 0 always — never block daemon operations.
+pub fn handle_{{ hook_fn | default(value="hook") }}(payload: &serde_json::Value) -> Result<serde_json::Value, GenerateError> {
+    let _ = payload;
+    Ok(serde_json::json!({"status": "ok"}))
+}

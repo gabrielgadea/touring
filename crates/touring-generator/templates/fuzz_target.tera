@@ -1,0 +1,9 @@
+//! Fuzz target: {{ fuzz_name | default(value="fuzz") }}
+
+#![no_main]
+use libfuzzer_sys::fuzz_target;
+
+fuzz_target!(|data: &[u8]| {
+    let _ = data;
+    // TODO: call {{ target_fn | default(value="target") }} with fuzz data
+});

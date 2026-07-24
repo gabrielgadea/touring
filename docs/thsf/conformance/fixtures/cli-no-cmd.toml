@@ -1,0 +1,10 @@
+# RFC-001 fixture: adapter=cli without adapter_cmd. MUST error thsf-manifest-004.
+
+[holon.identity]
+name = "cli-missing-cmd"
+version = "0.1.0"
+
+[holon.offers.broken]
+adapter = "cli"
+# adapter_cmd intentionally missing to trigger oneOf violation
+schema = "schemas/broken.json"

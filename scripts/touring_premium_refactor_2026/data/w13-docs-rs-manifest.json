@@ -1,0 +1,11 @@
+{
+  "script": "w13_docs_rs_validator",
+  "wave": "W13",
+  "subtask_refs": [
+    "W13.7"
+  ],
+  "timestamp": "2026-05-12T00:53:39.694214+00:00",
+  "status": "OK",
+  "metadata_snippet": "scripts/touring_premium_refactor_2026/staging/w13-docs-rs-metadata.toml",
+  "ci_workflow": "scripts/touring_premium_refactor_2026/staging/w13-github-workflows/docs-rs-mirror.yml"
+}

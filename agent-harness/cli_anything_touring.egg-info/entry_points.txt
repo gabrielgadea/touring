@@ -1,0 +1,2 @@
+[console_scripts]
+cli-anything-touring = cli_anything.touring.touring_cli:main

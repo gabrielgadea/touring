@@ -1,0 +1,159 @@
+{
+ "version": 2,
+ "topic": "touring-productization-relocation",
+ "scope": "/home/gabrielgadea/.claude/rust",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:35:18-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:35:19-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-23T12:35:19-0300"
+  }
+ ],
+ "findings": {},
+ "coverage": {
+  "lexical": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "quality": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 0,
+   "max_depth": null,
+   "truncated_total": 0
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": false,
+  "statement": "exploration incomplete",
+  "clauses": {
+   "rounds_run": 3,
+   "dry_tail": true,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [
+    "external"
+   ],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [
+   "lens 'external' pending — mark visited/waived (--mark-lens)"
+  ],
+  "next_action": "lens 'external' pending — mark visited/waived (--mark-lens)",
+  "at": "2026-07-23T12:35:19-0300"
+ }
+}

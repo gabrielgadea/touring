@@ -1,0 +1,219 @@
+[package]
+name = "touring-bindings"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Unified language-bindings layer fusing touring-python (PyO3), touring-wasm (wasmtime inferlet runtime), touring-capnp-server (Cap'n Proto RPC), touring-web + touring-web-server (Leptos + Axum), touring-desktop-ui (egui), touring-geopostgis (geozero EWKB). All bindings opt-in via bind-* features; default = empty. W7 of touring-premium-refactor-2026."
+
+[lib]
+name = "touring_bindings"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+# Dashboard backend (axum) — serves touring-web/dist + /api/* + /ws.
+#
+# BIN-COLLISION FIX (2026-06-27): the `[[bin]] touring-web-server`
+# (path = "src/web/server/main.rs", required-features = ["bind-web"]) that lived
+# here was REMOVED. It was "documented but never registered" (cross-audit
+# 2026-06-11) and produced `target/release/touring-web-server` — the SAME output
+# name as the standalone `crates/touring-web-server` crate's bin. That crate is a
+# thin re-export shim (`pub use touring_bindings::web::server::*`) and enables
+# `bind-web` on this crate, so BOTH bins built to the identical path and
+# `cargo build --workspace` raced non-deterministically on the output ("failed to
+# remove file ... No such file or directory" abort; update-touring #1 passed, #2
+# failed). `touring-bindings` remains the implementation home (lib + `bind-web`);
+# the standalone crate owns the `touring-web-server` binary entrypoint, which
+# re-exports the same `web::server::run` from here — zero capability lost. To
+# reinstate a bindings-local entrypoint, declare it under a DISTINCT bin name.
+
+# ── Always-on internal touring deps ─────────────────────────────────────────
+[dependencies]
+# touring-* internal crates: native-only (sqlite/tokio/rayon cannot target
+# wasm32) — see the cfg(not(target_arch = "wasm32")) section below.
+inferlets            = { path = "../inferlets" }
+
+# ── Always-on common deps ────────────────────────────────────────────────────
+thiserror  = { workspace = true }
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tracing    = { workspace = true }
+anyhow     = { workspace = true }
+
+# ── bind-python (PyO3) ───────────────────────────────────────────────────────
+pyo3     = { workspace = true, optional = true }
+numpy    = { workspace = true, optional = true }
+rayon    = { workspace = true, optional = true }
+sha2     = { workspace = true, optional = true }
+petgraph = { workspace = true, optional = true }
+lru      = { workspace = true, optional = true }
+chrono   = { workspace = true, optional = true }
+ndarray  = { workspace = true, optional = true }
+
+# ── bind-wasm (wasmtime inferlet runtime) ───────────────────────────────────
+wasmtime    = { workspace = true, optional = true }
+wat         = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+
+# ── bind-capnp (Cap'n Proto RPC) ────────────────────────────────────────────
+capnp         = { workspace = true, optional = true }
+capnp-rpc     = { workspace = true, optional = true }
+capnp-futures = { workspace = true, optional = true }
+tokio-util    = { workspace = true, features = ["compat"], optional = true }
+futures       = { workspace = true, optional = true }
+toml          = { workspace = true, optional = true }
+walkdir       = { workspace = true, optional = true }
+
+# ── bind-web (Leptos + Axum web UI + server) ────────────────────────────────
+leptos               = { workspace = true, optional = true }
+leptos_meta          = { workspace = true, optional = true }
+leptos_router        = { workspace = true, optional = true }
+tracing-subscriber   = { workspace = true, features = ["env-filter"], optional = true }
+libc                 = { workspace = true, optional = true }
+regex                = { workspace = true, optional = true }
+wasm-bindgen         = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+serde-wasm-bindgen   = { workspace = true, optional = true }
+js-sys               = { workspace = true, optional = true }
+
+# ── bind-desktop (egui desktop UI) ──────────────────────────────────────────
+eframe        = { workspace = true, optional = true }
+egui          = { workspace = true, optional = true }
+resvg         = { workspace = true, optional = true }
+tiny-skia     = { workspace = true, optional = true }
+png           = { workspace = true, optional = true }
+graphviz-rust = { workspace = true, optional = true }
+
+# ── bind-postgis (geozero EWKB) ─────────────────────────────────────────────
+geo-types = { workspace = true, optional = true }
+postgres  = { workspace = true, optional = true }
+
+# ── build deps (Cap'n Proto codegen) ────────────────────────────────────────
+[build-dependencies]
+capnpc = { workspace = true, optional = true }
+
+# ── dev-dependencies ─────────────────────────────────────────────────────────
+# ── native-only (wasm32 cannot build tokio/mio; the bind-web WASM client
+# uses wasm-bindgen futures instead — server halves live behind
+# #[cfg(not(target_arch = "wasm32"))]) ─────────────────────────────────────
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+touring-foundation   = { path = "../touring-foundation" }
+touring-simd         = { path = "../touring-simd" }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-code         = { path = "../touring-code" }
+tokio                = { workspace = true }
+leptos_axum          = { workspace = true, optional = true }
+axum                 = { workspace = true, features = ["ws"], optional = true }
+tower                = { workspace = true, optional = true }
+tower-http           = { workspace = true, features = ["fs", "trace", "cors", "set-header"], optional = true }
+tokio-stream         = { workspace = true, optional = true }
+
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile          = { workspace = true }
+tokio             = { workspace = true, features = ["full", "test-util", "macros"] }
+reqwest           = { workspace = true }
+http-body-util    = { workspace = true }
+hdrhistogram      = { workspace = true }
+tokio-test        = { workspace = true }
+geo               = { workspace = true }
+
+# ── integration tests (capnp — require bind-capnp feature) ──────────────────
+[[test]]
+name = "smoke"
+required-features = ["bind-capnp"]
+
+[[test]]
+name = "e2e_roundtrip"
+required-features = ["bind-capnp"]
+
+[[test]]
+name = "e2e_generator_health"
+required-features = ["bind-capnp"]
+
+# ── examples (capnp — require bind-capnp feature) ───────────────────────────
+[[example]]
+name = "client_demo"
+required-features = ["bind-capnp"]
+
+[[example]]
+name = "bench_d34"
+required-features = ["bind-capnp"]
+
+[[example]]
+name = "bench_generator_health"
+required-features = ["bind-capnp"]
+
+# ── Block-syntax deps (multi-line features) ──────────────────────────────────
+
+[dependencies.web-sys]
+workspace = true
+optional = true
+features = [
+    "HtmlHtmlElement", "Window", "Document", "Storage",
+    "Response", "Request", "WebSocket", "MessageEvent",
+    "ErrorEvent", "CloseEvent", "BinaryType",
+    # WebGL availability probe — /workspace 2D fallback (SPEC W5 §8.2)
+    "HtmlCanvasElement",
+]
+
+[dependencies.geozero]
+version = "0.15"
+default-features = false
+optional = true
+features = ["with-geo", "with-wkb", "with-wkt", "with-postgis-postgres"]
+
+[dependencies.sqlx]
+workspace = true
+default-features = false
+optional = true
+features = ["runtime-tokio", "postgres"]
+
+# ── features ────────────────────────────────────────────────────────────────
+[features]
+default = []
+
+# PyO3 bindings (touring-python)
+bind-python = [
+    "dep:pyo3", "dep:numpy", "dep:rayon", "dep:sha2",
+    "dep:petgraph", "dep:lru", "dep:chrono", "dep:ndarray",
+]
+
+# wasmtime inferlet runtime (touring-wasm)
+bind-wasm = [
+    "dep:wasmtime", "dep:wat", "dep:async-trait",
+    "pooling-allocator",
+]
+pooling-allocator = []
+
+# Cap'n Proto RPC server (touring-capnp-server)
+bind-capnp = [
+    "dep:capnp", "dep:capnp-rpc", "dep:capnp-futures",
+    "dep:tokio-util", "dep:futures", "dep:toml", "dep:walkdir",
+    "dep:capnpc",
+]
+
+# Leptos web UI + Axum server (touring-web + touring-web-server)
+bind-web = [
+    "dep:leptos", "dep:leptos_meta", "dep:leptos_router", "dep:leptos_axum",
+    "dep:axum", "dep:tower", "dep:tower-http", "dep:tokio-stream",
+    "dep:tracing-subscriber", "dep:libc", "dep:regex",
+    "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde-wasm-bindgen",
+    "dep:web-sys", "dep:js-sys",
+    "dep:futures", "dep:toml",
+]
+
+# egui desktop UI (touring-desktop-ui)
+bind-desktop = [
+    "dep:eframe", "dep:egui", "dep:resvg", "dep:tiny-skia", "dep:png",
+    "dep:graphviz-rust",
+]
+
+# geozero PostGIS EWKB (touring-geopostgis)
+bind-postgis = ["dep:geozero", "dep:geo-types", "dep:postgres"]
+bind-postgis-async = ["bind-postgis", "dep:sqlx", "geozero/with-postgis-sqlx"]
+
+[lints]
+workspace = true

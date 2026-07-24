@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-health-delta.schema.json",
+  "title": "Capability: health-delta",
+  "description": "Regression/improvement streak tracker",
+  "type": "object",
+  "additionalProperties": true
+}

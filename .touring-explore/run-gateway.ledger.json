@@ -1,0 +1,866 @@
+{
+ "version": 2,
+ "topic": "run_gateway",
+ "scope": "/home/gabrielgadea/.claude/rust",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 16,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 12,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 2,
+     "new": 2,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:32:54-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 13,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 12,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 3,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:32:54-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 8,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 5,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 5,
+     "new": 2,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:33:19-0300"
+  },
+  {
+   "round": 4,
+   "new_findings": 6,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 5,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 6,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:33:19-0300"
+  },
+  {
+   "round": 5,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 6,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:33:20-0300"
+  },
+  {
+   "round": 6,
+   "new_findings": 10,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 6,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 10,
+     "new": 4,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:33:20-0300"
+  },
+  {
+   "round": 7,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 10,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:33:21-0300"
+  },
+  {
+   "round": 8,
+   "new_findings": 1,
+   "lens_stats": {
+    "lexical": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 1,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 10,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-19T23:33:21-0300"
+  }
+ ],
+ "findings": {
+  "f_b8983d6d28ac": {
+   "id": "f_b8983d6d28ac",
+   "lens": "lexical",
+   "kind": "definition",
+   "key": "crates/touring-ceg/src/gateway/pre_exec.rs:208",
+   "evidence": "touring index find run_gateway",
+   "detail": "run_gateway",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_d9d063796912": {
+   "id": "f_d9d063796912",
+   "lens": "structural",
+   "kind": "signature",
+   "key": "crates/touring-ceg/src/gateway/pre_exec.rs::run_gateway",
+   "evidence": "touring ast find run_gateway",
+   "detail": "",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_96d4afb4b6fb": {
+   "id": "f_96d4afb4b6fb",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/ES3-P2-NOTE.md:17",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "1. **X0 hook só observa**: a `TxnPermit` é dropped quando `run_gateway` retorna — **antes** do X8 real (`run_supervised`",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_8f0f7e42ebb7": {
+   "id": "f_8f0f7e42ebb7",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:7",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "//! gate) adds a `ceg_regression_gate` group that measures the `run_gateway`",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_a1cf1593bc0d": {
+   "id": "f_a1cf1593bc0d",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:18",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "//!   4. `ceg_regression_gate` — P7.5 hard gate: `run_gateway` + X1/X2 ops",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_a882388bb409": {
+   "id": "f_a882388bb409",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:27",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "//! | `run_gateway` (clean echo) | 5 000 µs |",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_8e7cf5a3bfde": {
+   "id": "f_8e7cf5a3bfde",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:54",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    GatewayDeps, deferred_dry_run, neutral_outcome_history, run_gateway, soft_pass_symbol,",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_65d56b65501c": {
+   "id": "f_65d56b65501c",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:68",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// P99 budget for the `run_gateway` end-to-end hot path (µs).",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_4edd95ad8a31": {
+   "id": "f_4edd95ad8a31",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:75",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// Clean Bash snippet used for the `run_gateway` hot-path regression gate.",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_d99f15b02bb0": {
+   "id": "f_d99f15b02bb0",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:168",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// P7.5 criterion regression gate for the `run_gateway` hot path and the",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_73b6a488bac3": {
+   "id": "f_73b6a488bac3",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:191",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    // ── Gate 1: run_gateway end-to-end (X0..X7, no subprocess) ─────────────",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_8360e78a30f9": {
+   "id": "f_8360e78a30f9",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:197",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    group.bench_function(BenchmarkId::new(\"run_gateway\", \"clean_echo\"), |b| {",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_73a9b920308a": {
+   "id": "f_73a9b920308a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:217",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "                let result = run_gateway(black_box(\"Bash\"), black_box(CLEAN_BASH), None, &deps);",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_8c8b0b9a6c9f": {
+   "id": "f_8c8b0b9a6c9f",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs:230",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "                    \"CEG P7.5 REGRESSION: run_gateway P99 = {p99:?} \\",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_54bf4f3feec8": {
+   "id": "f_54bf4f3feec8",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "crates/touring-ceg/src/gateway/pre_exec.rs",
+   "evidence": "touring ast meta crates/touring-ceg/src/gateway/pre_exec.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_7222f453f57f": {
+   "id": "f_7222f453f57f",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-hooks/benches/ceg_baseline.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_758b814c1f27": {
+   "id": "f_758b814c1f27",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-bindings/src/web/routes/wiring_impact.rs:152",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "                        placeholder=\"symbol — e.g. run_gateway\"",
+   "depth": "D2",
+   "round": 2
+  },
+  "f_98d2ee72b768": {
+   "id": "f_98d2ee72b768",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-bindings/src/web/routes/wiring_impact.rs:180",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "                                        {[\"EliteShell\", \"QualityDetail\", \"run_gateway\"].into_iter().map(|s| view! {",
+   "depth": "D2",
+   "round": 2
+  },
+  "f_730bccc54792": {
+   "id": "f_730bccc54792",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-25-harness-consolidation-diagnostic.md:163",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "  - `pre_exec.rs` (985 LOC) — `run_gateway(deps) -> GatewayOutcome` driver",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_f377c2d07906": {
+   "id": "f_f377c2d07906",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/checkpoints/2026-06-02-es1-p3-5-s12-speculative-driver.toon:22",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "body: \"# ES1 P3.5 — S-12 Speculative Driver Now Consumes X3.5 PROVE Verdicts\\n\\n**Date**: 2026-06-02\\n**Status**: SHIPPE",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_68efde01c891": {
+   "id": "f_68efde01c891",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/checkpoints/2026-06-01-es1-p3-x3-5-gateway-wiring.toon:22",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "body: \"# ES1 P3 — X3.5 PROVE Stage Wired Into CEG Pipeline (`Execution<Proven>` typestate)\\n\\n**Date**: 2026-06-01\\n**St",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_8526d8ca5898": {
+   "id": "f_8526d8ca5898",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/checkpoints/2026-06-01-es3-p1-txn-lock-enforcement-live.toon:18",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "body: \"# ES3 P1 — Transactional Lock Enforcement LIVE (default-ON)\\n\\n**Date**: 2026-06-01\\n**Status**: SHIPPED\\n**Compo",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_2ec4df6c3aa2": {
+   "id": "f_2ec4df6c3aa2",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-27-coupling-codemode-cli-and-master-commands.md:223",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "   `run_gateway` X0..X9, mas `ctx_execute_impl` (que `touring run` usa) aplica **só** a forbidden-detection estática;",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_d42ccdccdb7d": {
+   "id": "f_d42ccdccdb7d",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/2026-06-04-cycle-2-fix-recipe-w3.md:23",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "`pre_exec.rs` is the CEG driver (`run_gateway(deps: GatewayDeps) -> GatewayOutcome`).",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_f1dc893b218b": {
+   "id": "f_f1dc893b218b",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/internal/sessions/2026-05-30-cah-epic-subsystems-roadmap.md:11",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "> **Progress** (2026-06-01): **ES3 P1 SHIPPED** — `txn_lock_enforcement` flipped default-OFF → default-ON (Cargo.toml:29",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_8d07934e572e": {
+   "id": "f_8d07934e572e",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/internal/sessions/2026-05-30-cah-epic-subsystems-roadmap.md:19",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "> **Progress** (2026-06-01): **ES1 P3 SHIPPED** — X3.5 PROVE stage wired into CEG pipeline. **9-state sealed typestate**",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_dd9ce91defce": {
+   "id": "f_dd9ce91defce",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/internal/sessions/2026-05-30-cah-epic-subsystems-roadmap.md:80",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "**Diagnosis (FACT 1.0).** All parts exist, **not composed**. `TxnLockManager::conflicts_with` (`txn.rs:77-153`) correctl",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_8c68fb564f23": {
+   "id": "f_8c68fb564f23",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/internal/sessions/2026-05-29-cah-conformance-diagnostic-report.md:64",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "| 3.3.3 | tool-use-verification (CEG run_gateway) | 🟢 | 0.85 | AutoHarness fiel; counter ceg_captured live |",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_99e69e70cfd2": {
+   "id": "f_99e69e70cfd2",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-bindings/src/web/routes/wiring_impact.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-bindings/src/web/routes/wiring_impact.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 2
+  },
+  "f_3d08a7a3b2ea": {
+   "id": "f_3d08a7a3b2ea",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "outcome:bash:transcript-8df69244:failure",
+   "evidence": "touring memory recall run_gateway",
+   "detail": "outcome:bash:transcript-8df69244:failure {\"error\":\"Exit code 1\\nTraceback (most recent call last):\\n  File \\\"<string>\\\", line 9, in <module>\\nNameError: name 'i' is not defined. Did you mean: 'id'?\\n=",
+   "depth": "D1",
+   "round": 3
+  },
+  "f_e11f7ad39b30": {
+   "id": "f_e11f7ad39b30",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-cli/src/cli/gate.rs:23",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// bridge: after `run_gateway` returns in the CLI, the CLI fires a",
+   "depth": "D2",
+   "round": 3
+  },
+  "f_d1987c453269": {
+   "id": "f_d1987c453269",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hook-runtime/src/ceg_adapter.rs:9",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "//! ([`run_gateway`], [`GatewayDeps`], [`observe`], `learn::emit_gate_reward`,",
+   "depth": "D2",
+   "round": 3
+  },
+  "f_4358e1cc811a": {
+   "id": "f_4358e1cc811a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hook-runtime/src/ceg_adapter.rs:34",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    GatewayDeps, GatewayOutcome, deferred_dry_run, observe, run_gateway, soft_pass_symbol,",
+   "depth": "D2",
+   "round": 3
+  },
+  "f_0f339f7482c7": {
+   "id": "f_0f339f7482c7",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hook-runtime/src/ceg_adapter.rs:158",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    match run_gateway(&tool, &body, None, &deps) {",
+   "depth": "D2",
+   "round": 3
+  },
+  "f_811c5a95f9b4": {
+   "id": "f_811c5a95f9b4",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/internal/sessions/2026-06-06-pln2-a01-ew2-session.md:207",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "gateway's `run_gateway`. Genericizing the driver would contort the boundary without removing",
+   "depth": "D0",
+   "round": 3
+  },
+  "f_fb7096be73d8": {
+   "id": "f_fb7096be73d8",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-cli/src/cli/gate.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-cli/src/cli/gate.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 3
+  },
+  "f_7c7d8940b798": {
+   "id": "f_7c7d8940b798",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hook-runtime/src/ceg_adapter.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-hook-runtime/src/ceg_adapter.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 3
+  },
+  "f_aa03c25bc7b9": {
+   "id": "f_aa03c25bc7b9",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/exec.rs:53",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    run_gateway, run_gateway_speculative, soft_pass_symbol,",
+   "depth": "D2",
+   "round": 4
+  },
+  "f_4f174ef65497": {
+   "id": "f_4f174ef65497",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/exec.rs:192",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    run_gateway(\"Bash\", command, intent, &deps).map_err(anyhow::Error::from)",
+   "depth": "D2",
+   "round": 4
+  },
+  "f_6f4926767b71": {
+   "id": "f_6f4926767b71",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/exec.rs:345",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    // (1) Mirror the verdict into THIS process's static counters — `run_gateway`",
+   "depth": "D2",
+   "round": 4
+  },
+  "f_84076dbd7410": {
+   "id": "f_84076dbd7410",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/exec.rs:601",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "            run_gateway(\"Bash\", cmd, None, deps)",
+   "depth": "D2",
+   "round": 4
+  },
+  "f_84636641b532": {
+   "id": "f_84636641b532",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/exec.rs:848",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// computes each action's CEG credibility (`run_gateway` verdict), and runs a",
+   "depth": "D2",
+   "round": 4
+  },
+  "f_fb2575b383a6": {
+   "id": "f_fb2575b383a6",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/exec.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/exec.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 4
+  },
+  "f_1e7a761d4061": {
+   "id": "f_1e7a761d4061",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/lib.rs:10",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "//! - [`gateway`] — [`gateway::pre_exec::run_gateway`] drives X0 CAPTURE → X7",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_bbe705742903": {
+   "id": "f_bbe705742903",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/mod.rs:114",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    guarded_dry_run, neutral_outcome_history, observe, run_gateway, run_gateway_speculative,",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_aeecef2daf3a": {
+   "id": "f_aeecef2daf3a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/txn.rs:90",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    /// **ES3 P1 / S-10 (2026-06-01)** — wired by `pre_exec::run_gateway` as",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_454f4c9e65f0": {
+   "id": "f_454f4c9e65f0",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/pre_exec.rs:8",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "//! [`run_gateway`] runs the typestate pipeline `X0..X7` (`Execution`) with",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_97f5f733459a": {
+   "id": "f_97f5f733459a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/pre_exec.rs:67",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// The dependency-injected closures and values the [`run_gateway`] driver needs",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_64faad461c8f": {
+   "id": "f_64faad461c8f",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/pre_exec.rs:102",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// The result of a full [`run_gateway`] drive — the **X9 LEARN** record.",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_f4d371bf683a": {
+   "id": "f_f4d371bf683a",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/lib.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-ceg/src/lib.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_7f0a88167f36": {
+   "id": "f_7f0a88167f36",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/mod.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/mod.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_600e519482a3": {
+   "id": "f_600e519482a3",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/txn.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/txn.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_ac275f27925d": {
+   "id": "f_ac275f27925d",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/pre_exec.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/pre_exec.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 6
+  },
+  "f_4cab305db4e1": {
+   "id": "f_4cab305db4e1",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/README.md:30",
+   "evidence": "rg '\\brun_gateway\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "- `run_gateway(deps)` — the CEG pipeline entry (`gateway/pre_exec.rs`).",
+   "depth": "D0",
+   "round": 8
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 8,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 8,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 8,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 8,
+   "max_depth": "D0",
+   "truncated_total": 192
+  },
+  "quality": {
+   "visits": 8,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 0,
+   "max_depth": null,
+   "truncated_total": 0
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": false,
+  "statement": "exploration incomplete",
+  "clauses": {
+   "rounds_run": 8,
+   "dry_tail": false,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [
+    "external"
+   ],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [
+   "need 2 consecutive dry rounds (last round new=1)",
+   "lens 'external' pending — mark visited/waived (--mark-lens)"
+  ],
+  "next_action": "need 2 consecutive dry rounds (last round new=1)",
+  "at": "2026-07-19T23:33:21-0300"
+ }
+}

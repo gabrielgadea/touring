@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-e2e-test-harness.schema.json",
+  "title": "Capability: e2e-test-harness",
+  "description": "Composite E2E health check",
+  "type": "object",
+  "additionalProperties": true
+}

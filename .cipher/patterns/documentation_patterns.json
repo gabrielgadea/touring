@@ -1,0 +1,678 @@
+{
+  "patterns": [
+    {
+      "id": "1f144d7c5db1ec0c",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rules/aco/aco-architecture.md",
+      "operation": "modify",
+      "content_preview": "OLD: **Build**: `maturin build --features python --release` then `pip install --user --force-reinstall --break-system-packages`\nNEW: **Build**: `cd .claude/rust && maturin build -m crates/touring-python/Cargo.toml --features python --release` then `pip install --user --force-reinstall --break-system",
+      "tags": [
+        "documentation",
+        "adr",
+        "modify",
+        "claude-config",
+        "markdown"
+      ],
+      "timestamp": "2026-03-15T14:36:10.875384",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fb9c3d53b412b2e0",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Resource | Path |\n|----------|------|\n| Governance | `.claude/GOVERNANCE.md` |\n| Rules | `.claude/rules/` |\n| Skills (58) | `.claude/skills/` (52 ANTT/dev + 6 GitNexus) |\n| Code Orchestrator | `.claude/rules/development/code-orchestrator.md` |\n| Subsystems | `.claude/docs/subsystems/` |\n| Age",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T14:36:32.279447",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "def87f6a5e3b4b37",
+      "file_path": "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/memory/MEMORY.md",
+      "operation": "modify",
+      "content_preview": "OLD:   - `.claude/rust-core/src/aco/README.md` (712L — Rust API reference)\nNEW:   - `.claude/rust/crates/touring-learning/src/aco/README.md` (712L — Rust API reference) [migrated in v8.0.0]",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T14:36:33.061423",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "720529d00f5f3211",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/docs/subsystems/touring-v2.md",
+      "operation": "modify",
+      "content_preview": "OLD: > **Binaries**: touring (13.4MB MCP+Cortex), touring-daemon (4.5MB), touring-hooks (625KB)\nNEW: > **Binaries**: touring (13.4MB MCP+Cortex) — built from `.claude/rust/` unified workspace",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T14:36:47.101903",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b15683b7b8644cd1",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/docs/subsystems/touring-v2.md",
+      "operation": "modify",
+      "content_preview": "OLD: ```json\n{\n  \"touring\": {\n    \"command\": \".claude/touring/target/release/touring\",\n    \"args\": [\"serve\"],\n    \"cwd\": \".\"\n  }\n}\n```\nNEW: ```json\n{\n  \"touring\": {\n    \"command\": \".claude/rust/target/release/touring\",\n    \"args\": [\"serve\"],\n    \"cwd\": \".\"\n  }\n}\n```",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T14:36:55.321143",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "226dd4090b22108f",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/INDEX.md",
+      "operation": "modify",
+      "content_preview": "OLD: > **Last Updated**: 2026-03-13\n> **Version**: 7.11.0 (Touring Rust Intelligence Daemon | dual-binary: touring-daemon 4.2MB + touring-hooks 586KB | 6 HookHandlers | JSON/Unix-socket IPC | DashMap+LRU+Wilson+Drift+QTable | 27/27 tests PASS | <5ms hook startup vs ~150ms Python | PreCompact crystal",
+      "tags": [
+        "documentation",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-15T14:37:06.871926",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3c4d8040c0c20c06",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/CHANGELOG.md",
+      "operation": "modify",
+      "content_preview": "OLD: ---\n\n## [v7.12.0] - 2026-03-13 — Touring Intelligence Engine v2.0: Full 15-Handler Coverage + ACO/ESAA Integration\nNEW: ---\n\n## [v8.0.0] - 2026-03-15 — Touring Unification\n\n### Architecture\n- **UNIFIED WORKSPACE**: `.claude/rust-core/` (31K LOC) + `.claude/touring/` (28K LOC) → `.claude/rust/` ",
+      "tags": [
+        "documentation",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-15T14:37:13.078457",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "4523f94eba9e713b",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/INDEX.md",
+      "operation": "modify",
+      "content_preview": "OLD: **Touring Rust Intelligence Daemon v7.11.0 — Active Subconscious Engine** (2026-03-13)\nNEW: **Touring Unification v8.0.0** (2026-03-15) — Unified Rust workspace: `.claude/rust-core/` + `.claude/touring/` → `.claude/rust/` (34K LOC, -42%). 8 crates (touring-core, touring-simd, touring-learning, ",
+      "tags": [
+        "documentation",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T14:37:21.673458",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9f1364e4e3bba739",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/skills/touring-cli/references/cli-cheatsheet.md",
+      "operation": "modify",
+      "content_preview": "OLD: | `TOURING_DB_PATH` | Override symbols.db path | `$CLAUDE_PROJECT_DIR/.claude/touring/symbols.db` |\nNEW: | `TOURING_DB_PATH` | Override symbols.db path | `$CLAUDE_PROJECT_DIR/.claude/rust/symbols.db` |",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T14:46:06.316867",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "6c24f80977e86558",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/skills/touring-cli/references/cli-cheatsheet.md",
+      "operation": "modify",
+      "content_preview": "OLD: | touring binary | `.claude/touring/target/release/touring` | ast.*, cortex.* |\nNEW: | touring binary | `.claude/rust/target/release/touring` | ast.*, cortex.* |",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T14:46:09.494346",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f8be12667f011675",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Tests | ~610 + ~890 separate | 590 unified |\nNEW: | Tests | ~610 + ~890 separate | 634 unified |",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "adr",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T15:26:42.810305",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "40edc485d2abf874",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | **touring-cognitive** | lib | 510 | 0 | core, learning, ast | SemanticGraph, CognitiveNexus, SessionPredictor |\nNEW: | **touring-cognitive** | lib | 510 | 36 | core, learning, ast | SemanticGraph, CognitiveNexus, SessionPredictor |",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "modify",
+        "markdown",
+        "adr"
+      ],
+      "timestamp": "2026-03-15T15:26:58.581483",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "01d5287b63c852e5",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | touring-core | 23 | MemoryTier, CILALevel, TouringConfig |\n| touring-simd | 44 | SIMD parity (AVX2 vs scalar), Wilson, Drift |\n| touring-learning | 48 | QTable TD(λ), RLM tiers, ACO graph/tracker |\n| touring-ast | 35 | Symbol extraction per language, surgery, store |\n| touring-nlp | 59 | Mone",
+      "tags": [
+        "documentation",
+        "adr",
+        "async",
+        "modify",
+        "claude-config",
+        "markdown"
+      ],
+      "timestamp": "2026-03-15T15:27:24.613046",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e139c0d5c3fa9c89",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     │       875 LOC · 23 tests · 0 internal deps\nNEW:     │       875 LOC · 28 tests · 0 internal deps",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "adr",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T15:27:57.612266",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c755df648d493316",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: cargo test --workspace               # 590 tests (< 60s)\nNEW: cargo test --workspace               # 634 tests (< 60s)",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "adr",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-15T15:28:06.755040",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f2b808e58cba0551",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ```\n\n---\n\n## 16. Concurrency Model\nNEW: ```\n\n### Schema Migration Engine (touring-core::migration)\n\nAll databases use `PRAGMA user_version` for version tracking. The migration engine\nin `touring-core::migration` provides:\n\n- **`run_migrations(conn, &[Migration])`**: Applies pending migrations i",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "adr",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T15:28:26.807597",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fb8d765f00d2cb3d",
+      "file_path": "/home/gabrielgadea/projects/analise/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Rust workspace | `.claude/rust/` (8 crates, 34162 LOC, 590 tests — touring binary + libclaude_learning_kernel.so) |\nNEW: | Rust workspace | `.claude/rust/` (8 crates, 34162 LOC, 634 tests — touring binary + libclaude_learning_kernel.so) |",
+      "tags": [
+        "documentation",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T15:29:20.014189",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b0a8f4a579e663d4",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Rust Workspace | `.claude/rust/` (9 crates, 34309 LOC, 635 tests) |\n| CLI Harness | `~/cli-anything/touring/` (22 cmds, 3-tier, 35/35 audit) |\nNEW: | Rust Workspace | `.claude/rust/` (10 crates, 38780 LOC, 721 tests) |\n| CLI Harness | `~/cli-anything/touring/` v0.2.0 (11 cmds, 3-tier: SQLite/",
+      "tags": [
+        "documentation",
+        "modify",
+        "claude-config",
+        "markdown"
+      ],
+      "timestamp": "2026-03-17T03:21:10.258746",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "30ac814af7264602",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: 3. Crate Catalog (9 crates)\nNEW: 3. Crate Catalog (10 crates)",
+      "tags": [
+        "documentation",
+        "modify",
+        "markdown",
+        "adr",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-17T03:29:54.290019",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "761acdd0b555d89a",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ### Per-crate test coverage\n| Crate | Tests | Coverage focus |\n|-------|-------|----------------|\n| touring-core | 28 | MemoryTier, CILALevel, TouringConfig, migration engine |\n| touring-simd | 44 | SIMD parity (AVX2 vs scalar), Wilson, Drift |\n| touring-learning | 48 | QTable TD(λ), RLM tiers,",
+      "tags": [
+        "documentation",
+        "adr",
+        "claude-config",
+        "async",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-17T03:31:09.072165",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "59ea1bdfdc6bc521",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: Previous: v4.1.0 (9 crates) → v5.0.0 (10 crates, touring-hooks extracted from megacrate)\nNEW: Previous: v5.0.0 (10 crates, touring-hooks extracted) → v6.0.0 (exponential flywheel)",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "markdown",
+        "modify",
+        "adr"
+      ],
+      "timestamp": "2026-03-19T01:49:27.034770",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9447cd0452c91820",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: Touring v5.0.0 is a **Cargo workspace** containing 10 crates that replace two\nNEW: Touring v6.0.0 is a **Cargo workspace** containing 10 crates that replace two",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "adr",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T01:49:32.826548",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e3a1a5f850cec4c9",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | monetary_parser | Brazilian currency extraction (R$/USD/EUR) |\n| keyword_matcher | Aho-Corasick multi-pattern (10.7x baseline) |\n| semantic_chunker | Boundary-aware text splitting |\n| reranker | BM25 contextual reranking |\n| cross_validator | Contradiction detection + confidence propagation |",
+      "tags": [
+        "documentation",
+        "adr",
+        "claude-config",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T08:14:50.239498",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8d2d995557ebe787",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     ├── touring-hooks/             [NEURAL HOOKS — extracted from touring-server v5.0]\n    │   ├── src/classifier.rs     IntentClassifier (48 RegexSet, CILA L0-L6) + CachedIntentClassifier (LRU 256)\n    │   ├── src/pii.rs            PIIScanner (regex-based PII detection)\n    │   ├── src/knowled",
+      "tags": [
+        "documentation",
+        "modify",
+        "imports",
+        "markdown",
+        "adr",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T08:15:36.268477",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a0e6c1c216a92652",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     ├── touring-ast/              [CODE INTELLIGENCE — tree-sitter]\n    │   ├── src/languages.rs      Lang enum (Python, Rust, TS, JS)\n    │   ├── src/parser.rs         ParserPool (thread-safe)\n    │   ├── src/symbols.rs        Symbol extraction\n    │   ├── src/surgery.rs        Body replacemen",
+      "tags": [
+        "documentation",
+        "adr",
+        "imports",
+        "modify",
+        "claude-config",
+        "markdown"
+      ],
+      "timestamp": "2026-03-20T08:16:02.091433",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "5f2944aedc6521af",
+      "file_path": "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/memory/touring-v8-strategy.md",
+      "operation": "create",
+      "content_preview": "---\nname: Touring v8.0 IMPLEMENTED\ndescription: Touring v8.0 Exponential Precision² COMPLETE — 15/16 subtasks implemented, 1106 tests (+123), 38/38 cross-audit PASS. Reactive→Proactive transformation. IncrementalParser, RopeDocument, CoEditPredictor, ShadowWorkspace, CompactSummary, RewardBreakdown,",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "create"
+      ],
+      "timestamp": "2026-03-20T08:19:08.737160",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "091bcbdcb7352718",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: Version: 8.0.0 (Exponential Precision² — Proactive-Predictive Architecture)\nLocation: `.claude/rust/`\nPrevious: v6.0.0 (flywheel) → v7.0.0 (precision) → v8.0.0 (proactive-predictive)\nArtifacts: `touring` binary (11MB) + `libclaude_learning_kernel.so` (904KB)\nTest suite: 1106 tests (cargo test -",
+      "tags": [
+        "documentation",
+        "modify",
+        "markdown",
+        "adr",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T10:40:55.141853",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9684761fa2e54281",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Crate | Type | LOC | Tests | Internal Deps | Purpose |\n|-------|------|-----|-------|---------------|---------|\n| **touring-core** | lib | 1,135 | 40 | — | Error types (12), config, shared types, embedding client |\n| **touring-simd** | lib | 2,030 | 80 | core | SIMD ops, cosine similarity, st",
+      "tags": [
+        "documentation",
+        "adr",
+        "claude-config",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-20T10:41:41.351648",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a88ce48462e2c0b8",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     │   ├── src/shadow.rs         [v8 S3] ShadowWorkspace (in-memory overlay + speculative lint + fix suggestions)\n    │   ├── src/session_hooks.rs  Session start/stop handlers\n    │   └── src/session_insights.rs Cross-session transfer + SessionTrend analysis\nNEW:     │   ├── src/shadow.rs     ",
+      "tags": [
+        "documentation",
+        "adr",
+        "markdown",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T10:41:49.415485",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "234e6114d1a26c5e",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: 11. **Context-aware normalization** (v7.0.0): `syntax_error:python` ≠ `syntax_error:rust` — language enriches error patterns\nNEW: 11. **Context-aware normalization** (v7.0.0): `syntax_error:python` ≠ `syntax_error:rust` — language enriches error patterns\n12. **Dead code elimination** (v9.0.0): ",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "modify",
+        "markdown",
+        "adr"
+      ],
+      "timestamp": "2026-03-20T10:42:21.792099",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "7ea9d543c1d7f316",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Metric | v3.0.0 (monolith) | v4.0.0 (workspace) |\n|--------|-------------------|---------------------|\n| Total LOC | 58,798 (2 crates) | 34,162 (1 workspace) |\n| Crates | 2 independent | 8 workspace |\n| Tests | ~610 + ~890 separate | 634 unified |\n| Binaries | 11 (9 dead) | 2 |\n| Clippy | unk",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "adr",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T10:45:46.413520",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c89a9a4f4a6aa084",
+      "file_path": "/home/gabrielgadea/projects/analise/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: `.claude/rust/` (8 crates, 34162 LOC, 634 tests\nNEW: `.claude/rust/` (10 crates, ~56.5K LOC, 1209 tests, v9.0.0",
+      "tags": [
+        "documentation",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-20T10:49:09.102865",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e10967d9653e92ab",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Crate | Purpose |\n|-------|---------|\n| `touring-core` | Shared types, config, DB layer |\n| `touring-simd` | SIMD-accelerated embeddings + similarity |\n| `touring-learning` | QTable + Memory + Evolution + ACO (unified) |\n| `touring-ast` | AST parsing, symbol extraction |\n| `touring-nlp` | NLP",
+      "tags": [
+        "documentation",
+        "markdown",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T10:50:13.443593",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "24a7747774448fbb",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: 1151\nNEW: 1169",
+      "tags": [
+        "documentation",
+        "modify",
+        "adr",
+        "markdown",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T11:13:47.264540",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "33ef78031ba440a5",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: 1209 tests\nNEW: 1169 tests",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T11:14:04.751588",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "69bbbe4f413098b5",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ~56.5K LOC\nNEW: ~57.5K LOC",
+      "tags": [
+        "documentation",
+        "modify",
+        "markdown",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T15:19:07.482314",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8c78b6ea7462f027",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | **TOTAL** | | **~57,500** | **1169** | | |\nNEW: | **TOTAL** | | **~57,500** | **1179** | | |",
+      "tags": [
+        "documentation",
+        "claude-config",
+        "adr",
+        "markdown",
+        "modify"
+      ],
+      "timestamp": "2026-03-20T15:19:59.643224",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c5b2e73a5bb00134",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Tests | 634 | 1106 | **1169** |\nNEW: | Tests | 634 | 1106 | **1179+** |",
+      "tags": [
+        "documentation",
+        "adr",
+        "modify",
+        "markdown",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T18:26:41.610231",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "2837fa5e123fabd0",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/Plano_Implementacao_Kazuba_Geo_Engine.md",
+      "operation": "modify",
+      "content_preview": "OLD: **Rust workspace** (`.claude/rust/Cargo.toml`):\n```toml\n[workspace]\nmembers = [\n    # ... existing 10 touring-* crates ...\n    \"crates/kazuba-geo-engine\",   # NOVO (11º crate)\n]\n```\n\n**Novas workspace.dependencies** (`.claude/rust/Cargo.toml`):\n```toml\n# Adicionar em [workspace.dependencies]\nge",
+      "tags": [
+        "documentation",
+        "plan",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-21T12:55:42.020602",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "593640159506ed30",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/Plano_Implementacao_Kazuba_Geo_Engine.md",
+      "operation": "modify",
+      "content_preview": "OLD: ```\npackages/kazuba-geo-engine/\n├── pyproject.toml               # maturin build config\n├── src/\n│   └── kazuba_geo_engine/\n│       ├── __init__.py          # re-exports públicos\n│       ├── geo_rtree.py         # Python facade para GeoRTree\n│       ├── routing.py           # Python facade para",
+      "tags": [
+        "documentation",
+        "markdown",
+        "modify",
+        "plan"
+      ],
+      "timestamp": "2026-03-21T12:56:38.148983",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "6a50eec31407ff5f",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-geo-engine/ARCHITECTURE.md",
+      "operation": "create",
+      "content_preview": "# Kazuba Geo Engine — Architecture Document\n\n**Version**: 0.1.0\n**Date**: 21/03/2026\n**Language**: Rust 2021 + Python 3.10+ (via PyO3 0.24 / maturin)\n**Lines of Code**: 1069 Rust + 26 Python = 1095 total\n**Tests**: 13 Rust + 8 Python = 21 total\n\n---\n\n## 1. Purpose\n\nHigh-performance geospatial engine",
+      "tags": [
+        "documentation",
+        "function",
+        "adr",
+        "imports",
+        "markdown",
+        "create"
+      ],
+      "timestamp": "2026-03-21T13:00:37.956361",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "cb9b1cc1516b266a",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/README.md",
+      "operation": "modify",
+      "content_preview": "OLD: > **UV Workspace Monorepo** para análise regulatória ANTT com 7 pacotes Python + 1 extensão TypeScript\nNEW: > **UV Workspace Monorepo** para análise regulatória ANTT com 7 pacotes Python + 2 extensões Rust + 1 extensão TypeScript",
+      "tags": [
+        "documentation",
+        "markdown",
+        "modify",
+        "readme"
+      ],
+      "timestamp": "2026-03-21T13:01:21.262244",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "da224e1baa8376c2",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/README.md",
+      "operation": "modify",
+      "content_preview": "OLD: packages/\n├── kazuba-shared/      # Utilitários compartilhados (0 deps internas)\n├── kazuba-core/        # Domain models, ABCs, LLM, plugins\n├── kazuba-enrichment/  # Processamento de texto, referências\n├── kazuba-converters/  # PDF/Office/Image → Markdown\n├── kazuba-agents/      # 7 agentes es",
+      "tags": [
+        "documentation",
+        "readme",
+        "modify",
+        "markdown"
+      ],
+      "timestamp": "2026-03-21T13:01:28.883757",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T13:01:31.121385",
+    "total_patterns": 43,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "documentation"
+  }
+}

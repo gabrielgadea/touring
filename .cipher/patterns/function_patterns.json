@@ -1,0 +1,196 @@
+{
+  "patterns": [
+    {
+      "id": "fa14e502996e9825",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/touring_bridge/nlp.py",
+      "operation": "create",
+      "content_preview": "\"\"\"NLP bridge -- circuit breaker + Rust acceleration with Python fallback.\n\nProvides monetary extraction, keyword matching, and document chunking\nwith transparent fallback to pure Python when Rust is unavailable or\nthe circuit breaker is open.\n\nCircuit breaker pattern follows ``.claude/hooks/utils/r",
+      "tags": [
+        "function",
+        "create",
+        "python",
+        "imports"
+      ],
+      "timestamp": "2026-03-15T16:30:38.033838",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "41dcb96e022b8c4e",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_ml/feature_extractor.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Extract features from ESAA session data for Tiny Transformer training.\n\nInput:  .claude/data/rlm_skill_learning.jsonl (or any JSONL with hook events)\nOutput: data/touring_ml/features_YYYYMMDD.parquet\n\nSchema:\n    session_id, tool_name, outcome, latency_ms, cila_level,\n    prev_tool_1, prev_tool_2",
+      "tags": [
+        "function",
+        "create",
+        "imports",
+        "python"
+      ],
+      "timestamp": "2026-03-16T23:54:42.553844",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e865285b7f6d4b62",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/plan-5a-geracao/functional_cross_audit.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Functional Cross-Audit: 5th Generation Architecture.\n\nVerifica que cada componente CUMPRE SEU PROPÓSITO — não apenas que existe.\nTesta contratos de interface, invariantes, edge cases e integração.\n\nDimensões:\n    D1: touring-hooks independence (compile + re-export contract)\n    D2: rkyv zero-copy",
+      "tags": [
+        "function",
+        "documentation",
+        "imports",
+        "python",
+        "create",
+        "class"
+      ],
+      "timestamp": "2026-03-17T00:23:35.249842",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "567a465c74f9e967",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/plan-5a-geracao/functional_cross_audit.py",
+      "operation": "modify",
+      "content_preview": "OLD: def _run_python(script: str, args: list[str] | None = None, timeout: int = 30) -> tuple[int, str]:\n    \"\"\"Run a Python script, return (returncode, stdout).\"\"\"\n    cmd = [sys.executable, str(_PROJECT_ROOT / script)] + (args or [])\n    try:\n        r = subprocess.run(\n            cmd, capture_out",
+      "tags": [
+        "function",
+        "python",
+        "imports",
+        "documentation",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T00:29:15.903330",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "5bb29a1c23c02fd5",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_pipeline_accel_pln2/tests/test_s5_validators_reranker.py",
+      "operation": "create",
+      "content_preview": "\"\"\"S5 Tests -- CrossValidator bridge + Reranker bridge.\n\nTests both modules in pure Python mode (no Rust dependency required).\nCovers:\n- Contradiction detection between conflicting assertions\n- Confidence propagation via PageRank-like algorithm\n- Reranker ordering improvement when authority signal i",
+      "tags": [
+        "function",
+        "python",
+        "imports",
+        "test",
+        "class",
+        "create"
+      ],
+      "timestamp": "2026-03-17T08:12:37.892921",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "1fcebecdc84ccf4c",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/process_analysis/touring_bridge/reranker.py",
+      "operation": "modify",
+      "content_preview": "OLD: _ACCENT_MAP: dict[str, str] = {}\nfor _chars, _repl in [\n    (\"aaaaae\", \"a\"),\n    (\"eeeee\", \"e\"),\n    (\"iiiii\", \"i\"),\n    (\"oooooe\", \"o\"),\n    (\"uuuue\", \"u\"),\n]:\n    pass  # Built via explicit mapping below\n\n_ACCENT_TABLE = str.maketrans(\n    \"aaaaaaeeeeeiiiiiooooouuuucn\",\n    \"aaaaaaeeeeeiiiiio",
+      "tags": [
+        "function",
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T08:13:39.540085",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "867a4168fc928037",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/rust_cross_audit.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"Cross-audit for Rust Workspace Exponential plan (12 dimensions).\n\nValidates key quality dimensions of the .claude/rust/ workspace:\nD1 (Precision), D2 (Safety), D6 (FocusCache), D7 (GotchaDB),\nD9 (Learning), D10 (MetaLearning), D11 (Integration).\n\nUsage:\n    python3 scripts/",
+      "tags": [
+        "function",
+        "python",
+        "imports",
+        "create"
+      ],
+      "timestamp": "2026-03-19T00:43:12.031288",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "0bdc16ee99c4bdbe",
+      "file_path": "/home/gabrielgadea/cli-anything/touring/cli_anything/touring/core/context.py",
+      "operation": "create",
+      "content_preview": "\"\"\"Context compiler operations — Tier 2 (subprocess, <200ms).\"\"\"\nfrom __future__ import annotations\n\nimport json\nimport subprocess\n\nfrom .cortex import _find_touring_binary\n\n\ndef compile_context(intent: str, files: str, max_tokens: int = 2000) -> dict:\n    \"\"\"Compile context for given files and inte",
+      "tags": [
+        "function",
+        "create",
+        "python",
+        "imports"
+      ],
+      "timestamp": "2026-03-19T01:55:51.685602",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f6c6b092819353a1",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-ast/src/parser.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         // Verify the trees are different (not stale cached trees)\n        assert_ne!(\n            root1.child(0).unwrap().kind(),\n            root2.child(0).unwrap().kind(),\n            \"Different sources should produce different ASTs\"\n        );\n    }\n}\nNEW:         // Verify the trees are di",
+      "tags": [
+        "function",
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T22:46:41.689114",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "62144aeffa346ee2",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-ast/src/document.rs",
+      "operation": "create",
+      "content_preview": "//! RopeDocument — maintains a Rope text buffer with O(log N) edits.\n//! Provides byte-char conversion for tree-sitter integration.\n//!\n//! Tree-sitter operates on byte offsets; Ropey internally uses char indices.\n//! This module bridges the two, enabling incremental reparsing after edits\n//! withou",
+      "tags": [
+        "function",
+        "rust",
+        "create",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T22:47:38.733165",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b3b63ded70130231",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_s0_s1_complete.py",
+      "operation": "create",
+      "content_preview": "#!/usr/bin/env python3\n\"\"\"\nCross-Audit S0+S1 — Functional verification of 7 implementations across 9 dimensions.\n\nImplementations audited:\n  S0.0 — Wiring Fix (load_hook_events_since, ParserPool reuse, LinUCB persistence)\n  S0.1 — Granular Reward (RewardBreakdown, update_from_granular_reward, reward",
+      "tags": [
+        "function",
+        "create",
+        "python",
+        "imports",
+        "class"
+      ],
+      "timestamp": "2026-03-19T22:56:23.466187",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "aca8fc6e7a57c1fd",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/CHANGELOG.md",
+      "operation": "modify",
+      "content_preview": "OLD: ---\n\n## [v7.12.0]\nNEW: ---\n\n## [v7.13.0] - 2026-03-21 — Kazuba Geo Engine v0.1.0: Geospatial Modeling for Road Infrastructure\n\n### Added — New Package: `kazuba-geo-engine` (Tier 8)\n\n**Background:** New standalone Rust/PyO3 package for high-performance geospatial modeling of road infrastructure.",
+      "tags": [
+        "function",
+        "documentation",
+        "modify",
+        "markdown",
+        "imports"
+      ],
+      "timestamp": "2026-03-21T13:02:46.241879",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T13:02:48.618095",
+    "total_patterns": 12,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "function"
+  }
+}

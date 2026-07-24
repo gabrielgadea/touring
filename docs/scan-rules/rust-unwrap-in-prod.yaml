@@ -1,0 +1,6 @@
+id: rust:unwrap-in-prod
+language: rust
+pattern: $X.unwrap()
+message: "unwrap() can panic in production. Use ? or .expect(\"reason\")."
+severity: warning
+suggested_fix: "$X.expect(\"reason\")"

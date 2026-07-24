@@ -1,0 +1,115 @@
+# Realistic Python source fixture for throughput benchmarks (~2 KB)
+
+from __future__ import annotations
+import re
+import hashlib
+import json
+from typing import Optional, Any
+from dataclasses import dataclass, field
+from datetime import datetime
+
+
+@dataclass
+class UserProfile:
+    id: str
+    name: str
+    email: str
+    role: str = "viewer"
+    created_at: Optional[datetime] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> list[str]:
+        errors = []
+        if len(self.id) < 8:
+            errors.append("id must be at least 8 characters")
+        if len(self.name.strip()) < 2:
+            errors.append("name must be at least 2 characters")
+        if not _is_valid_email(self.email):
+            errors.append("invalid email format")
+        return errors
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email,
+            "role": self.role,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "metadata": self.metadata,
+        }
+
+
+API_VERSION = "2.1.0"
+MAX_PAGE_SIZE = 100
+
+
+def _is_valid_email(email: str) -> bool:
+    pattern = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
+    return bool(re.match(pattern, email.strip()))
+
+
+def sanitize_input(text: str) -> str:
+    cleaned = re.sub(r"[<>]", "", text)
+    return cleaned.strip()[:MAX_PAGE_SIZE]
+
+
+class Cache:
+    def __init__(self, max_size: int = 1000) -> None:
+        self._store: dict[str, UserProfile] = {}
+        self._max_size = max_size
+        self._hits = 0
+        self._misses = 0
+
+    def get(self, key: str) -> Optional[UserProfile]:
+        if key in self._store:
+            self._hits += 1
+            return self._store[key]
+        self._misses += 1
+        return None
+
+    def put(self, key: str, profile: UserProfile) -> None:
+        if len(self._store) >= self._max_size:
+            oldest = next(iter(self._store))
+            del self._store[oldest]
+        self._store[key] = profile
+
+    def size(self) -> int:
+        return len(self._store)
+
+    def hit_rate(self) -> float:
+        total = self._hits + self._misses
+        return self._hits / total if total > 0 else 0.0
+
+
+def compute_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def merge_dicts(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    result = base.copy()
+    for key, value in patch.items():
+        if isinstance(value, dict) and key in result and isinstance(result[key], dict):
+            result[key] = merge_dicts(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def format_timestamp(ts: Optional[datetime] = None) -> str:
+    if ts is None:
+        ts = datetime.utcnow()
+    return ts.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class ValidationError(Exception):
+    def __init__(self, field: str, message: str) -> None:
+        self.field = field
+        super().__init__(message)
+
+
+# Global cache instance
+_user_cache = Cache()
+
+
+def get_user_cache() -> Cache:
+    return _user_cache

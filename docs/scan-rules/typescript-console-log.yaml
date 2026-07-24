@@ -1,0 +1,5 @@
+id: typescript:console-log
+language: typescript
+pattern: console.log($$$X)
+message: "console.log in production. Use a structured logger (winston, pino)."
+severity: info

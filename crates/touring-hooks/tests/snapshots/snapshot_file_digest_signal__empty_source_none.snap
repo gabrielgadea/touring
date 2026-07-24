@@ -1,0 +1,5 @@
+---
+source: crates/touring-hooks/tests/snapshot_file_digest_signal.rs
+expression: normalize(out)
+---
+~

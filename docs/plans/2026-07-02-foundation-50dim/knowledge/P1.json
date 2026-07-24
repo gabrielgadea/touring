@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "F3.10/F3.13/F4.7 walk-up: absent workspace-level artifacts (CHANGELOG/ArchDoc/CI) inherit repo-root via bounded shallow scan. touring-foundation 0.892 Gold->0.9276 Platinum, 0 blockers. 355 tests +4 walk-up, clippy 0, monotone non-decreasing (regression-proof)."
+    }
+  ],
+  "relations": []
+}

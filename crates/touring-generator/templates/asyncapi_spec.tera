@@ -1,0 +1,15 @@
+asyncapi: "3.0.0"
+info:
+  title: "{{ title | default(value="AsyncAPI") }}"
+  version: "{{ version | default(value="0.1.0") }}"
+channels:
+{% if channels is defined %}
+{% for channel in channels %}
+  {{ channel.name | default(value="channel") }}:
+    address: "{{ channel.address | default(value="/") }}"
+    messages:
+      {{ channel.message_name | default(value="Message") }}:
+        payload:
+          type: object
+{% endfor %}
+{% endif %}

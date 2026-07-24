@@ -1,0 +1,484 @@
+{
+ "version": 2,
+ "topic": "touring adw software factory",
+ "scope": "/home/gabrielgadea/.claude/rust",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 19,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 2,
+     "new": 2,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 12,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 5,
+     "new": 5,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-20T06:59:27-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 5,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 2,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 5,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 5,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-20T06:59:28-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 3,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 2,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 3,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 5,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-20T06:59:29-0300"
+  },
+  {
+   "round": 4,
+   "new_findings": 2,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 2,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 2,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 5,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-07-20T06:59:29-0300"
+  }
+ ],
+ "findings": {
+  "f_39486aada576": {
+   "id": "f_39486aada576",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "decomp:task_1784514488954145764",
+   "evidence": "touring memory recall touring adw software factory",
+   "detail": "ADW Software Factory — execução do plano v2.3 (bundle 2026-07-19-touring-adw-software-factory)",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_d15d2def14b2": {
+   "id": "f_d15d2def14b2",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "subtask:task_1784514488954145764::F0",
+   "evidence": "touring memory recall touring adw software factory",
+   "detail": "Substrato ADW: spec TOML + runner duravel (activity replay + results store summary-first + adw lint/test + driver claude-headless + budget-verify + Class-D)",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_98d2e1211d39": {
+   "id": "f_98d2e1211d39",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-simd/ANALYSIS_AND_STRATEGY.md:129",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "| P2-4 | No software prefetch hints for large vectors | vector_ops.rs | Cache misses on vectors >1536d |",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_5372e7327893": {
+   "id": "f_5372e7327893",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/mod.rs:424",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// Halstead software science metrics — derived from distinct operator /",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_c137aee5d1a8": {
+   "id": "f_c137aee5d1a8",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/fast_hash.rs:6",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "//! making it 3-10× faster than a software CRC-32 on typical x86-64 hardware.",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_09972d636596": {
+   "id": "f_09972d636596",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/complexity.rs:560",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "/// Estimate Halstead software science metrics via byte-level scanning.",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_2d167715694b": {
+   "id": "f_2d167715694b",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/LICENSE-MIT:6",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "of this software and associated documentation files (the \"Software\"), to deal",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_48d2f1f400d3": {
+   "id": "f_48d2f1f400d3",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/eval/swe_bench/solvers/minimax_solver.py:44",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "    \"You are an expert software engineer resolving a bug report. Fix ONLY the described \"",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_3291b7c54078": {
+   "id": "f_3291b7c54078",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/eval/swe_bench/harness.py:7",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "software-engineering issues - tests go from red to green without regressions.",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_986c3428c1be": {
+   "id": "f_986c3428c1be",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/thsf/THSF-SPEC-v1.0.md:16",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "software projects — *holons* — that need to discover, negotiate, and exchange",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_066e1ba18161": {
+   "id": "f_066e1ba18161",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/thsf/THSF-SPEC-v1.0.md:34",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "Modern software ecosystems need three properties that rarely coexist:",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_3f13649e401d": {
+   "id": "f_3f13649e401d",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/thsf/THSF-SPEC-v1.0.md:61",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "A **holon** is any software project (Rust crate, Python package, JS app, Go",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_90da7ea2b233": {
+   "id": "f_90da7ea2b233",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/01-suggestions.md:289",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "Para atingir o ápice do design de sistemas (Sinergia de Nível 9) no ecossistema Touring, devemos eliminar qualquer isola",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_56282160b2b5": {
+   "id": "f_56282160b2b5",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/eval/swe_bench/README.md:4",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "> whether a *solver* actually resolves real software-engineering issues — tests go",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_917df280abfa": {
+   "id": "f_917df280abfa",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/mod.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/mod.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_fd6cefd7543c": {
+   "id": "f_fd6cefd7543c",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/fast_hash.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/fast_hash.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_90af48e6c611": {
+   "id": "f_90af48e6c611",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/complexity.rs",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/complexity.rs",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_d5277ef5b92d": {
+   "id": "f_d5277ef5b92d",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/eval/swe_bench/solvers/minimax_solver.py",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/eval/swe_bench/solvers/minimax_solver.py",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_bb27dbd8dcff": {
+   "id": "f_bb27dbd8dcff",
+   "lens": "quality",
+   "kind": "file-meta",
+   "key": "/home/gabrielgadea/.claude/rust/eval/swe_bench/harness.py",
+   "evidence": "touring ast meta /home/gabrielgadea/.claude/rust/eval/swe_bench/harness.py",
+   "detail": "blast=None quality=None",
+   "depth": "D2",
+   "round": 1
+  },
+  "f_fc0b030e059b": {
+   "id": "f_fc0b030e059b",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/LICENSE-APACHE:27",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "      including but not limited to software source code, documentation",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_a39f354fc66a": {
+   "id": "f_a39f354fc66a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/LICENSE-APACHE:196",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "   Unless required by applicable law or agreed to in writing, software",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_f768c24304b3": {
+   "id": "f_f768c24304b3",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/Crates-para-Melhorar-Codigo-Touring.md:3",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "A concepção de sistemas de software robustos baseados na linguagem Rust exige uma fundação arquitetural que transcenda a",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_78aebd991108": {
+   "id": "f_78aebd991108",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/Crates-para-Melhorar-Codigo-Touring.md:5",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "O Touring visa oferecer um caminho de aprendizado progressivo, com 40 exercícios distribuídos em 5 capítulos já implemen",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_9f0f18952cd7": {
+   "id": "f_9f0f18952cd7",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/Crates-para-Melhorar-Codigo-Touring.md:70",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "Em uma camada ainda mais abstrata e dedutiva, a ferramenta **Verus** avança sobre as promessas de verificação formal, op",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_8c81e4bab632": {
+   "id": "f_8c81e4bab632",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/Crates-Para-Melhorar-Geracao-de-Codigo.md:47",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "A crate *Kani Rust Verifier* (acessada através de instrumentação cargo) emprega a execução simbólica para modelar matema",
+   "depth": "D0",
+   "round": 3
+  },
+  "f_b35ade128dc7": {
+   "id": "f_b35ade128dc7",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/Crates-Para-Melhorar-Geracao-de-Codigo.md:111",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "Paralelamente, a qualidade intrínseca do código proposto pela IA precisa ser mensurada muito além das meras formatações ",
+   "depth": "D0",
+   "round": 3
+  },
+  "f_d7e16d36d17e": {
+   "id": "f_d7e16d36d17e",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/Crates-Para-Melhorar-Geracao-de-Codigo.md:137",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "No corolário, o aprendizado por reforço algorítmico nativo (Reinforcement Learning) absorve os sucessos confirmados e co",
+   "depth": "D0",
+   "round": 3
+  },
+  "f_8d873140c317": {
+   "id": "f_8d873140c317",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/touring-pro.md:302",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "A incorporação abandona lógicas transitórias de \"estado compartilhado mutável\" em favor do paradigma definitivo de Siste",
+   "depth": "D0",
+   "round": 4
+  },
+  "f_bbccf2fb7091": {
+   "id": "f_bbccf2fb7091",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/.claude/rust/docs/touring-pro.md:305",
+   "evidence": "rg '\\bsoftware\\b' /home/gabrielgadea/.claude/rust",
+   "detail": "Para dissecar a dicotomia e a potencial simbiose entre o Model Context Protocol (MCP) e as abstrações de Sistema Operaci",
+   "depth": "D0",
+   "round": 4
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 4,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 96
+  },
+  "quality": {
+   "visits": 4,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 0,
+   "max_depth": null,
+   "truncated_total": 0
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": false,
+  "statement": "exploration incomplete",
+  "clauses": {
+   "rounds_run": 4,
+   "dry_tail": false,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [
+    "external"
+   ],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [
+   "need 2 consecutive dry rounds (last round new=2)",
+   "lens 'external' pending — mark visited/waived (--mark-lens)"
+  ],
+  "next_action": "need 2 consecutive dry rounds (last round new=2)",
+  "at": "2026-07-20T06:59:29-0300"
+ }
+}

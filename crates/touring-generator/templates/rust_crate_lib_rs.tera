@@ -1,0 +1,19 @@
+//! # {{ crate_name | default(value="crate") }}
+//!
+//! {{ description | default(value="Generated crate.") }}
+
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
+{% if modules is defined %}{% for m in modules %}
+pub mod {{ m }};
+{% endfor %}{% endif %}
+{% if linux_only_modules is defined %}{% for m in linux_only_modules %}
+#[cfg(target_os = "linux")]
+pub mod {{ m }};
+{% endfor %}{% endif %}
+{% if re_exports is defined %}{% for re in re_exports %}
+{% if linux_only_modules is defined and re.from_module in linux_only_modules %}
+#[cfg(target_os = "linux")]
+{% endif %}
+pub use {{ re.from_module }}::{ {% for t in re.types %}{{ t }}{% if not loop.last %}, {% endif %}{% endfor %} };
+{% endfor %}{% endif %}

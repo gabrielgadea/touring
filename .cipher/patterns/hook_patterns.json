@@ -1,0 +1,25 @@
+{
+  "patterns": [
+    {
+      "id": "2cd30edaf4d3428b",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/hooks/pre_edit.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         match ctx {\n            Some(c) => assert!(\n                !c.contains(\"quality\"),\n                \"Non-lint failures should NOT trigger quality warning\"\n            ),\n            None => {} // Also fine — no signals\n        }\nNEW:         if let Some(c) = ctx {\n            assert!(\n ",
+      "tags": [
+        "hook",
+        "rust",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-15T17:57:06.394428",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-15T17:57:09.089145",
+    "total_patterns": 1,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "hook"
+  }
+}

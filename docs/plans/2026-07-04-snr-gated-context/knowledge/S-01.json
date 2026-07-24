@@ -1,0 +1,11 @@
+{
+  "phase": "S-01",
+  "entities": [
+    {
+      "entity_id": "phase:S-01",
+      "type": "phase",
+      "description": "P1 relevance-cutoff shipped: apply_relevance_cutoff+prune_below_cutoff (LlamaIndex SimilarityPostprocessor); flag TOURING_SNR_GATING default-OFF byte-identical, cutoff 0.15; wired pre_read+signal_pipeline x2; 4 tests; gates check/test/clippy/ws all 0"
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,18 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: phase-c-s11-audit-update
+slug: phase-c-s11-audit-update
+intent: ""
+role: engineer
+task_id: ""
+timestamp: "2026-05-05T03:32:40-03:00"
+session_id: f26a5625-5cd8-4ff6-8c06-d02d22234db5
+content:
+  lines: 84
+  bytes: 2826
+  sections[7]: "S11-1: API v2 Endpoints DONE (2026-05-04)","S11-2: Physical Python Removal — PARTIAL","S11-3: pyproject.toml — lexcore-compliance MISSING","S11-4: Deprecation Documentation — DONE","S11-5: Cross-Audit — DONE",S12 Gates,Phase C Gate Summary
+  source_md: embedded_below
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02
+body: "# Phase C S11 Audit — Python Legacy in P0 Packages\n\n**Date**: 2026-05-05 (updated)\n**Auditor**: touring-engineer (S11-2 + S11-3 research)\n**Phase**: Phase C Cutover (S11)\n**Source**: `plans/pln11/05_phaseC_cutover.md`\n\n---\n\n## S11-1: API v2 Endpoints DONE (2026-05-04)\n\nAll 12 v2 endpoints wired in `backend/app/api/v2/`:\n- `citations.py`: 3 endpoints (extract, resolve, categories)\n- `compliance.py`: 3 endpoints (lgpd/check, accessibility/check, datalog/query) — real PiiRedactor integration\n- `convert.py`: 1 endpoint (cascade) — tier-aware routing\n- `search.py`: 2 endpoints (hybrid, index_stats)\n- `pipeline.py`: 3 endpoints (stages, run, run/partial)\n- `__init__.py`: `router = citations.router` exported\n\nTests: 164 passed, 1 unrelated Stripe failure.\n\n---\n\n## S11-2: Physical Python Removal — PARTIAL\n\n| Package | LOC | Status | Notes |\n|---------|-----|--------|-------|\n| lexcore-search | 60 | DONE | engine.py removed; __init__.py re-exports from lexcore_search_rs |\n| lexcore-compliance | 38 | DONE | bin/cli.py already imports PyComplianceService directly |\n| lexcore-citation | 2,768 | BLOCKED | CitationEngine/Pipeline still Python-only; PyO3 only has low-level types |\n| lexcore-convert | 2,519 | BLOCKED | Tiers/cascade/redaction still Python; PyO3 only has basic conversion |\n\n**lexcore-search detail**: engine.py confirmed absent; CLI uses `lexcore_search.search()` from PyO3 module.\n**lexcore-compliance detail**: subprocess pattern GONE; direct `from lexcore_compliance_rs import PyComplianceService`.\n\n---\n\n## S11-3: pyproject.toml — lexcore-compliance MISSING\n\nOnly lexcore-compliance lacks pyproject.toml. Needs creation with maturin build declaring `lexcore-compliance-rs>=0.1.0` dependency.\n\n---\n\n## S11-4: Deprecation Documentation — DONE\n\n`packages/lexcore-rust/README.md` lines 287-329 document 8-crate decomposition and Phase D archive plan.\n\n---\n\n## S11-5: Cross-Audit — DONE\n\n`taco-forge audit --target packages/` (2026-05-05):\n\n| Package | gotchas | drift |\n|---------|---------|-------|\n| lexcore-citation | 39 | none |\n| lexcore-convert | 120 | none |\n| lexcore-br | 84 | none |\n| lexcore-compliance | 3 | none |\n| lexcore-search | 6 | none |\n| lexcore-api | 60 | none |\n| lexcore-sdk-py | 27 | none |\n\nZero workspace_drift across all 7 packages.\n\n---\n\n## S12 Gates\n\n**S12-1 Criterion CI**: `run_criterion_ci.py` syntax OK + `criterion.yaml` valid YAML + `cargo check --workspace` exit 0 PASS.\n\n**S12-2 LOC**: 14,312 LOC in FastAPI. Gate is future target — physical removal (S12-2) is post-cutover, per migration playbook.\n\n---\n\n## Phase C Gate Summary\n\n| Gate | Status |\n|------|--------|\n| LOC Python <= 4,500 | DEFERRED (post-cutover) |\n| cargo check PASS | PASS |\n| CI Criterion gate | ACTIVE |\n| API regression suite | 164/165 GREEN |\n| Zero orphan symbols | VERIFIED |\n"

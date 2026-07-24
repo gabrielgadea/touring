@@ -1,0 +1,9 @@
+//! CLI handler: {{ handler_name | default(value="handler") }}
+
+use crate::error::GenerateError;
+
+/// Handler for `touring {{ command_name | default(value="command") }}`.
+pub fn {{ handler_fn | default(value="handle") }}(args: &[String]) -> Result<String, GenerateError> {
+    let _ = args;
+    Ok(format!("{{ command_name | default(value="command") }}: not yet implemented"))
+}

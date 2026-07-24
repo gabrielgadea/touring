@@ -1,0 +1,219 @@
+{
+  "patterns": [
+    {
+      "id": "f1b559ec18f0efe2",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     │       19,875 LOC · 361 tests · deps: ALL crates\nNEW:     │       19,875 LOC · 371 tests · deps: ALL crates",
+      "tags": [
+        "adr",
+        "claude-config",
+        "modify",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-15T15:28:02.048888",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "90ef2d23ed77be33",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     ├── touring-cognitive/        [PREDICTIVE ENGINE — semantic graph]\n    │   ├── src/semantic_graph    DiGraph with focus tracking + decay\n    │   ├── src/nexus             CognitiveNexus (coordinator)\n    │   ├── src/session_predictor Markov-chain next-tool prediction\n    │   └── src/predict",
+      "tags": [
+        "adr",
+        "modify",
+        "claude-config",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-17T03:20:10.075752",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b321f9f1fc59587c",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: cargo test --workspace               # 634 tests (< 60s)\nNEW: cargo test --workspace               # 721 tests (< 60s)",
+      "tags": [
+        "adr",
+        "markdown",
+        "modify",
+        "documentation",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-17T03:21:40.921714",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f68b2948376f44cc",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: cargo test --workspace               # 721 tests (< 60s)\nNEW: cargo test --workspace               # 722 tests (< 60s)",
+      "tags": [
+        "adr",
+        "markdown",
+        "claude-config",
+        "documentation",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T03:30:45.792720",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f378a8d9da68b369",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: 5. **Never-block invariant**: all hooks exit 0, even on internal error\nNEW: 5. **Never-block invariant**: all hooks exit 0, even on internal error\n6. **Clippy deny all**: `[workspace.lints.clippy] all = \"deny\"` — every new warning is a compile error\n7. **Zero production unwrap**: all `.unwrap()",
+      "tags": [
+        "adr",
+        "documentation",
+        "markdown",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T01:46:00.475854",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "7e4af548265c7023",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     ├── touring-hooks/             [NEURAL HOOKS — extracted from touring-server v5.0]\n    │   ├── src/classifier.rs     IntentClassifier (48 RegexSet, CILA L0-L6) + CachedIntentClassifier (LRU 256)\n    │   ├── src/pii.rs            PIIScanner (regex-based PII detection)\n    │   ├── src/knowled",
+      "tags": [
+        "adr",
+        "modify",
+        "claude-config",
+        "documentation",
+        "imports",
+        "markdown"
+      ],
+      "timestamp": "2026-03-19T01:46:16.308758",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "53c0297e4afd636a",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     ├── touring-rules/             [BUSINESS RULES — gorules/zen-engine]\n    │   └── src/lib.rs            RulesEngine, evaluate_inline (JDM/DMN)\n    │       147 LOC · 1 test · deps: zen-engine 0.55, touring-core (planned)\nNEW:     ├── touring-rules/             [BUSINESS RULES — gorules/zen-en",
+      "tags": [
+        "adr",
+        "modify",
+        "claude-config",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-19T01:47:18.438715",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "87979f0f93244dea",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ---\n\n## 4. Dependency Graph\nNEW: ## 4a. Flywheel Architecture (v6.0.0)\n\nThe Exponential Flywheel is a closed-loop system where each component feeds the next:\n\n```\nError in edit → extract_error_pattern() [post_edit.rs]\n    ↓\nPattern recurs ≥2x → auto-create gotcha [knowledge.rs]\n    ↓\nPre-read →",
+      "tags": [
+        "adr",
+        "documentation",
+        "markdown",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T01:48:08.271936",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d48c2f51703b99b4",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | **TOTAL** | | **~44,000** | **899** | | |\n\n## 4a. Flywheel Architecture (v6.0.0)\nNEW: | **TOTAL** | | **~44,000** | **899** | | |\n\n---\n\n## 4a. Flywheel Architecture (v6.0.0)",
+      "tags": [
+        "adr",
+        "markdown",
+        "documentation",
+        "claude-config",
+        "modify"
+      ],
+      "timestamp": "2026-03-19T01:50:02.145010",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "5876c7c5cce34a2a",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ### 8.1 QTable (rl/)\n- TD(λ) Q-learning with eligibility traces\n- State: u64, Action: u64, Q-values: f64\n- γ=0.99, α=0.1, λ=0.9\n- Persistence: SQLite save/load\n- **S2.1**: `update_from_hook_event(cila, file_type, tool, quality)` — online RL within session\nNEW: ### 8.1 QTable (rl/)\n- TD(λ) Q-lea",
+      "tags": [
+        "adr",
+        "modify",
+        "claude-config",
+        "documentation",
+        "markdown"
+      ],
+      "timestamp": "2026-03-20T08:14:09.713150",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "80de33f2f4c5ea2d",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Crate | Type | LOC | Tests | Internal Deps | Purpose |\n|-------|------|-----|-------|---------------|---------|\n| **touring-core** | lib | 875 | 28 | — | Error types, config, shared types, embedding client, migration engine |\n| **touring-simd** | lib | 1,335 | 44 | core | SIMD ops, cosine sim",
+      "tags": [
+        "adr",
+        "markdown",
+        "claude-config",
+        "modify",
+        "documentation"
+      ],
+      "timestamp": "2026-03-20T10:45:27.939969",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ffee1e91c9c90092",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | **TOTAL** | | **~56,500** | **1209** | | |\nNEW: | **TOTAL** | | **~56,500** | **1151** | | |",
+      "tags": [
+        "adr",
+        "modify",
+        "claude-config",
+        "documentation",
+        "markdown"
+      ],
+      "timestamp": "2026-03-20T10:46:39.313211",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a67382eb1cb92b36",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | **TOTAL** | | **~56,500** | **1209** | | |\nNEW: | **TOTAL** | | **~56,500** | **1169** | | |",
+      "tags": [
+        "adr",
+        "modify",
+        "claude-config",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-20T11:13:26.114780",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-20T11:13:28.349255",
+    "total_patterns": 13,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "adr"
+  }
+}

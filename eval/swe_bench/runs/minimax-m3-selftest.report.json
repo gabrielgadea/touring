@@ -1,0 +1,54 @@
+{
+  "solver": "file",
+  "total": 2,
+  "resolved": 2,
+  "resolved_pct": 1.0,
+  "claimed_resolved": 2,
+  "vgp_false_positives": 0,
+  "vgp_false_positive_rate": 0.0,
+  "mean_tokens": 523.0,
+  "results": [
+    {
+      "instance_id": "touring-selftest__rust-checked-add",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 547,
+      "fail_to_pass": {
+        "test_no_overflow": true
+      },
+      "pass_to_pass": {
+        "test_basic_add": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": true,
+      "error": null
+    },
+    {
+      "instance_id": "touring-selftest__py-zero-guard",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 499,
+      "fail_to_pass": {
+        "test_zero_guard": true
+      },
+      "pass_to_pass": {
+        "test_basic_div": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": false,
+      "error": null
+    }
+  ],
+  "comparison": {
+    "aider_resolved": 1,
+    "aider_known": 2,
+    "aider_resolved_pct": 0.5,
+    "delta_vs_aider": 0.5
+  }
+}

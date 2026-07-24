@@ -1,0 +1,1440 @@
+{
+  "patterns": [
+    {
+      "id": "6ec5a84daabe44d0",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/Plano_Implementacao_Kazuba_Geo_Engine.md",
+      "operation": "modify",
+      "content_preview": "OLD: # packages/kazuba-geo-engine/src/kazuba_geo_engine/\nNEW: # packages/kazuba-geo-engine/python/kazuba_geo_engine/",
+      "tags": [
+        "modify",
+        "plan",
+        "documentation",
+        "markdown"
+      ],
+      "timestamp": "2026-03-21T12:55:56.399506",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "0469617b09a7e1ca",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/kazuba-geo-engine/src/geo/rtree.rs",
+      "operation": "modify",
+      "content_preview": "OLD: #[pyclass(name = \"GeoRTree\")]\npub struct GeoRTreePy {\n    inner: GeoRTree,\n}\n\nimpl Default for GeoRTreePy {\n    fn default() -> Self {\n        Self {\n            inner: GeoRTree::default(),\n        }\n    }\n}\nNEW: #[pyclass(name = \"GeoRTree\")]\n#[derive(Default)]\npub struct GeoRTreePy {\n    inner",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-21T12:44:08.859419",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fd1e06f633d4f8df",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/kazuba-geo-engine/src/routing/graph.rs",
+      "operation": "modify",
+      "content_preview": "OLD: #[pymethods]\nimpl RoadNetworkPy {\n    #[new]\n    pub fn new() -> Self {\n        Self::default()\n    }\n}\n\nimpl Default for RoadNetworkPy {\n    fn default() -> Self {\n        Self {\n            inner: RoadNetwork::new(),\n        }\n    }\n}\n\n#[pymethods]\nimpl RoadNetworkPy {\nNEW: impl Default for R",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-21T12:43:43.192038",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "809e5341ba3d4055",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/kazuba-geo-engine/src/hdm4/config.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         let cf = ClimateFactor::from_str(&climate).ok_or_else(|| {\nNEW:         let cf = ClimateFactor::parse(&climate).ok_or_else(|| {",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-21T12:43:15.358033",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9c7d9d30419c71bb",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/kazuba-geo-engine/src/geo/rtree.rs",
+      "operation": "modify",
+      "content_preview": "OLD: #[pymethods]\nimpl GeoRTreePy {\n    #[new]\n    pub fn new() -> Self {\n        Self {\n            inner: GeoRTree::new(),\n        }\n    }\nNEW: #[pymethods]\nimpl GeoRTreePy {\n    #[new]\n    pub fn new() -> Self {\n        Self::default()\n    }\n}\n\nimpl Default for GeoRTreePy {\n    fn default() -> Se",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-21T12:43:12.195966",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ad9cae7ab30f9348",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/rl/qtable.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     #[test]\n    fn test_file_type_encoding() {\nNEW:     #[test]\n    #[allow(clippy::identity_op)]\n    fn test_file_type_encoding() {",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T18:30:56.881847",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f1bfc0ba9be0bc15",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Memory tier: ephemeral, working, reference, core\nNEW:     /// Memory tier: ephemeral, working, reference, core (aliases: reflexive→ephemeral, session→working, project→reference)",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-20T18:26:40.571637",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "7d7862ec4b83a0c3",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-cognitive/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [dev-dependencies]\ntempfile = { workspace = true }\ntokio = { workspace = true, features = [\"test-util\", \"macros\", \"rt-multi-thread\"] }\nNEW: [dev-dependencies]\ncriterion = { workspace = true }\ntempfile = { workspace = true }\ntokio = { workspace = true, features = [\"test-util\", \"macros\", \"rt-mult",
+      "tags": [
+        "modify",
+        "claude-config",
+        "configuration",
+        "toml"
+      ],
+      "timestamp": "2026-03-20T18:26:15.416379",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "93fcd8227b714e38",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_v9_hooks_plan.py",
+      "operation": "modify",
+      "content_preview": "OLD:             dims = sorted(set(d for d, _, _ in CHECKS))\nNEW:             dims = sorted({d for d, _, _ in CHECKS})",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-20T11:45:50.640701",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3ff6db70bce3811c",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_v9_hooks_plan.py",
+      "operation": "modify",
+      "content_preview": "OLD:                     check(\"D3\", f\"Handler count >= 30\", count >= 30, f\"found {{count}}\")\nNEW:                     check(\"D3\", \"Handler count >= 30\", count >= 30, f\"found {{count}}\")",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-20T11:45:43.126202",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e0ac09e713cb8671",
+      "file_path": "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/memory/touring-v9-exponential-strategy.md",
+      "operation": "modify",
+      "content_preview": "OLD: 1209 tests\nNEW: 1169 tests",
+      "tags": [
+        "modify",
+        "claude-config",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-20T11:14:11.950303",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "7e53d1625db66cd2",
+      "file_path": "/home/gabrielgadea/projects/analise/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: 1209 tests\nNEW: 1169 tests",
+      "tags": [
+        "modify",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-20T11:13:53.843716",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9f0364ee98c110d2",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/skills/touring-cli/SKILL.md",
+      "operation": "modify",
+      "content_preview": "OLD: ## CLI vs MCP Decision Matrix\n\n| Need | CLI Command | MCP Tool | Winner |\n|------|-------------|----------|--------|\n| Symbol name lookup | `index search` (<50ms) | `touring_ast_find` | **CLI** (10x faster) |\n| File structure | `ast overview` | `touring_ast_overview` | Tie |\n| Blast radius | `a",
+      "tags": [
+        "modify",
+        "claude-config",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-20T11:06:49.709942",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "792ac7e2242671ce",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ## 21. Glossary\nNEW: ## 21. v9.0.0 Changelog — Exponential Intelligence (2026-03-20)\n\nBased on cross-source research (Cursor Engineering Blog, Context7, 30+ arxiv papers).\nPlan: `.claude/plans/touring-v9-exponential-strategy.md`\nGenerator: `scripts/aco/generators/gen_touring_v9_exponential.py` ",
+      "tags": [
+        "modify",
+        "markdown",
+        "claude-config",
+        "documentation",
+        "adr"
+      ],
+      "timestamp": "2026-03-20T10:48:48.884834",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "832cc9a36d45959e",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/context_compiler.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Compile context with observation masking applied to the result.\n    ///\n    /// Identical to [`compile_or_cached`] but applies `ObservationMasker` to the\n    /// assembled context string, reducing tool-result verbosity before caching.\n    /// The masked version is what gets cached, so s",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-20T10:44:20.937810",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "6f969cbb5c2bbb50",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD: use touring_learning::online_rl::{OnlineRLEngine, OnlineRLConfig, ImmediateReward};\nNEW: use touring_learning::online_rl::{OnlineRLEngine, ImmediateReward};",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-20T10:43:58.248542",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "2d97b05b775d3232",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         let qtable_size = self.qtable.lock().await.len();\n\n        let mut output = serde_json::json!({\n            \"project_root\": project_path.canonicalize().unwrap_or(project_path),\n            \"version\": env!(\"CARGO_PKG_VERSION\"),\n            \"config\": {\nNEW:         let qtable_size = self.",
+      "tags": [
+        "modify",
+        "rust",
+        "async",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T10:43:01.823637",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "eb60054adc59f4f3",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     ranker: Arc<Mutex<WilsonRanker>>,\n    drift_detector: Arc<Mutex<DriftDetector>>,\n    nexus: Arc<touring_cognitive::CognitiveNexus>,\n    tool_router: ToolRouter<Self>,\n}\nNEW:     ranker: Arc<Mutex<WilsonRanker>>,\n    drift_detector: Arc<Mutex<DriftDetector>>,\n    linucb: Arc<Mutex<LinUCBBand",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T10:41:55.521226",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "fcfd01b2b22a5883",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD: use touring_learning::{QTable, QLearning, SkillClusterer, WilsonRanker, DriftDetector};\nNEW: use touring_learning::{QTable, QLearning, SkillClusterer, WilsonRanker, DriftDetector, LinUCBBandit};\nuse touring_learning::online_rl::{OnlineRLEngine, OnlineRLConfig, ImmediateReward};",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T10:41:47.422168",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f5ccbbee86e65358",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-ast/src/incremental_pipeline.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Evict all documents and cached trees.\n    pub fn clear_cache(&mut self) {\n        self.documents.clear();\n        // Manually clear all cached trees by invalidating known paths.\n        let paths: Vec<String> = self.documents.keys().cloned().collect();\n        for p in &paths {\n        ",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-20T10:39:51.469614",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "906b5e1f82a5741c",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/context_compiler.rs",
+      "operation": "modify",
+      "content_preview": "OLD: use std::hash::{Hash, Hasher};\nuse std::path::{Path, PathBuf};\nuse std::sync::Mutex;\nuse std::time::Duration;\n\nuse rusqlite::{params, Connection};\nuse rustc_hash::FxHasher;\nNEW: use std::hash::{Hash, Hasher};\nuse std::path::{Path, PathBuf};\nuse std::sync::Mutex;\nuse std::time::Duration;\n\nuse ru",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T10:39:11.220982",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "cc1b8b2d4beb8cea",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/observation_masker.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Generate a 1-line summary for a tool result block.\n    fn summarize_tool_result(&self, tool_name: &str, result: &str) -> String {\n        let lines: Vec<&str> = result.lines().collect();\n        let line_count = lines.len();\n        let tool_lower = tool_name.to_lowercase();\n\n        ma",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-20T10:39:08.582357",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3a4bcdb4cf14c76f",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ## 4a. Flywheel Architecture (v7.0.0 — Exponential Precision)\n\nThe Exponential Precision Flywheel extends v6.0.0 with proactive prevention,\ndeterministic caching, online RL, and 2nd-order prediction:\n\n```\nError in edit → extract_error_pattern() + detect_language() [post_edit.rs] (S1.2)\n    ↓\nPa",
+      "tags": [
+        "modify",
+        "adr",
+        "documentation",
+        "imports",
+        "claude-config",
+        "markdown"
+      ],
+      "timestamp": "2026-03-20T08:17:32.821918",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3a7ef1a14115e564",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     │   ├── src/context_compiler.rs  Context Compiler (FxHash + LRU-256 + PersistentContextCache SQLite)\nNEW:     │   ├── src/context_compiler.rs  Context Compiler (FxHash + LRU-256 + SQLite) + CompactSummary (v8 P0-P3)",
+      "tags": [
+        "modify",
+        "adr",
+        "markdown",
+        "claude-config",
+        "documentation"
+      ],
+      "timestamp": "2026-03-20T08:16:26.943253",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f2103baa6c884127",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     ├── touring-cognitive/        [PREDICTIVE ENGINE — semantic graph + GoT + LRU cache]\n    │   ├── src/semantic_graph    DiGraph with focus tracking + decay\n    │   ├── src/nexus             CognitiveNexus (coordinator)\n    │   ├── src/session_predictor 1st + 2nd-order Markov (SecondOrderPred",
+      "tags": [
+        "modify",
+        "claude-config",
+        "markdown",
+        "documentation",
+        "adr",
+        "imports"
+      ],
+      "timestamp": "2026-03-20T08:16:18.287751",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "5b5f493160e7534b",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Crate | Type | LOC | Tests | Internal Deps | Purpose |\n|-------|------|-----|-------|---------------|---------|\n| **touring-core** | lib | 1,135 | 31 | — | Error types (12), config, shared types, embedding client |\n| **touring-simd** | lib | 2,030 | 80 | core | SIMD ops, cosine similarity, st",
+      "tags": [
+        "modify",
+        "documentation",
+        "adr",
+        "markdown",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-20T08:13:36.806458",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b37f84bbe1b2ee1f",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_v8_final.py",
+      "operation": "modify",
+      "content_preview": "OLD:     # D11.1: CompactSummary struct with P0-P3 fields\n    has_struct = grep_exists(r\"pub struct CompactSummary\", compiler)\n    # Check for priority fields (p0, p1, p2, p3)\n    p_fields = grep_count(r\"pub p[0-3]:\", compiler)\n    check(\"D11.1\", f\"CompactSummary struct with P0-P3 fields (got {p_fie",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-20T03:37:01.065509",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e9b2acf9e21a21a2",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_v8_final.py",
+      "operation": "modify",
+      "content_preview": "OLD:     # D8.2: edit() returns tree_sitter::InputEdit\n    check(\"D8.2\", \"edit() returns tree_sitter::InputEdit\",\n          grep_exists(r\"fn edit.*InputEdit\", doc_rs) if exists else False)\nNEW:     # D8.2: edit() returns tree_sitter::InputEdit\n    # Signature spans multiple lines: `pub fn edit(...) ",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-20T03:36:50.870724",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9f8482421bfa3670",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_v8_final.py",
+      "operation": "modify",
+      "content_preview": "OLD: def cargo_test_filter(crate: str, test_filter: str, timeout: int = 120) -> tuple[bool, str]:\n    \"\"\"Run cargo test with filter on a specific crate, return (all_passed, output_summary).\"\"\"\n    code, out = run(\n        f\"cargo test -p {crate} -- {test_filter} 2>&1\",\n        timeout=timeout,\n    )",
+      "tags": [
+        "modify",
+        "function",
+        "python"
+      ],
+      "timestamp": "2026-03-20T03:36:40.817202",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "1950588f5dc021d3",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/context_compiler.rs",
+      "operation": "modify",
+      "content_preview": "OLD:             summary.objective = trimmed\n                .splitn(2, ':')\n                .nth(1)\n                .unwrap_or(\"\")\n                .trim()\n                .to_string();\nNEW:             summary.objective = trimmed\n                .split_once(':')\n                .map(|x| x.1)\n      ",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T23:06:56.828962",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "0913a73ac13fdd01",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/enrichment.rs",
+      "operation": "modify",
+      "content_preview": "OLD: #[cfg(test)]\nmod tests {\n    use super::*;\nNEW: /// Compute dynamic context budget (in chars) based on CILA complexity level.\n/// Higher CILA = more context needed = larger budget.\n///\n/// | CILA | Budget (chars) | Rationale |\n/// |------|---------------|-----------|\n/// | L0-L1 | 800 | Simple ",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T23:06:32.225275",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8d87499a58827744",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-cognitive/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: pub use focus_cache::FocusCache;\nNEW: pub use coedit_predictor::CoEditPredictor;\npub use focus_cache::FocusCache;",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T23:03:01.696015",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "2590175971fbbc40",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-cognitive/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: pub mod focus_cache;\npub mod got;\npub mod nexus;\npub mod persistence;\npub mod predictor_task;\npub mod semantic_graph;\npub mod session_predictor;\nNEW: pub mod coedit_predictor;\npub mod focus_cache;\npub mod got;\npub mod nexus;\npub mod persistence;\npub mod predictor_task;\npub mod semantic_graph;\np",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T23:02:55.137114",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "70364a2b8055a1e6",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: [dev-dependencies]\ntempfile = { workspace = true }\nNEW: [dependencies.tempfile]\nworkspace = true\n\n[dev-dependencies]",
+      "tags": [
+        "modify",
+        "configuration",
+        "claude-config",
+        "toml"
+      ],
+      "timestamp": "2026-03-19T23:02:12.804915",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "5db420b07265e1a8",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/post_edit.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     // Only re-index if the edit succeeded (file content actually changed)\n    if error_pattern.is_none() {\n        let _ = reindex_file(runtime, file_path, &rel_path);\n    }\n\n    Ok(())\n}\nNEW:     // Only re-index if the edit succeeded (file content actually changed)\n    if error_pattern.is_no",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T23:02:06.969315",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c854ec43a92143ae",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/knowledge.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         let archived = db.archive_low_quality_gotchas(5, 0.5);\n        assert_eq!(archived, 0, \"high-quality gotchas should not be archived\");\n        assert_eq!(db.list_gotchas().len(), 1);\n    }\n}\nNEW:         let archived = db.archive_low_quality_gotchas(5, 0.5);\n        assert_eq!(archived,",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T23:01:55.030038",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "5f1830983f1b3a2e",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/knowledge.rs",
+      "operation": "modify",
+      "content_preview": "OLD:             CREATE INDEX IF NOT EXISTS idx_gotchas_pattern\n                ON gotchas(pattern);\",\n        )?;\n        Ok(())\n    }\nNEW:             CREATE INDEX IF NOT EXISTS idx_gotchas_pattern\n                ON gotchas(pattern);\n\n            CREATE TABLE IF NOT EXISTS file_coedits (\n        ",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T23:01:03.958682",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "58c46602888856ed",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_s0_s1_complete.py",
+      "operation": "modify",
+      "content_preview": "OLD:     matches = grep_file(path, r\"pub fn load_hook_events_since\\(\\s*&self\")\nNEW:     # Signature spans two lines: `pub fn load_hook_events_since(` then `&self,`\n    matches = grep_file(path, r\"pub fn load_hook_events_since\")",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-19T22:57:20.430393",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "7e3cff12a318f8b9",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-ast/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: pub mod store;\npub mod document;\n\npub use languages::Lang;\nNEW: pub mod store;\n\npub use languages::Lang;",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T22:47:24.519335",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8f91df3934c467ec",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: # AST parsing\ntree-sitter = \"0.24\"\nNEW: # Text buffers\nropey = \"1.6\"\n\n# AST parsing\ntree-sitter = \"0.24\"",
+      "tags": [
+        "modify",
+        "claude-config",
+        "configuration",
+        "toml"
+      ],
+      "timestamp": "2026-03-19T22:46:32.145291",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d6138650fa207909",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/enrichment.rs",
+      "operation": "modify",
+      "content_preview": "OLD: /// Maximum number of gotchas to include in enriched context.\nconst MAX_GOTCHAS: usize = 3;\nNEW: /// Enrichment confidence scores for selective gating.\n/// Scores come from WilsonRanker — higher = more confident = less need for context.\n#[derive(Debug, Clone, Default)]\npub struct EnrichmentScor",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T22:38:10.036303",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d84fc48f0852656d",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/rl/qtable.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         // Negative quality_score should clamp to 0.0\n        let mut q2 = QTable::new();\n        q2.update_from_hook_event(0, \"python\", \"Edit\", -50.0);\n        let q_val2 = q2.get_q(0, action);\n        assert!(\n            q_val2 >= -1e-10,\n            \"Q-value should reflect clamped reward >=",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T22:38:02.413859",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "f8bad342dfe60926",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/enrichment.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     #[test]\n    fn test_enrichment_partial_budget() {\n        // Budget only enough for gotchas, not relations or errors\n        let gotchas = vec![(\"W\".to_string(), \"short\".to_string())];\n        let relations = vec![\"r.rs\".to_string()];\n        let errors = vec![\"e\".to_string()];\n\n        // ",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T22:37:50.848815",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ff90d304e46328c4",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/rl/qtable.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         Self {\n            q_values: HashMap::new(),\n            traces: HashMap::new(),\n            params,\n            state_actions: HashMap::new(),\n        }\nNEW:         Self {\n            q_values: HashMap::new(),\n            traces: HashMap::new(),\n            params,\n            state_a",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T22:37:26.601136",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d1b63fcb2ea9ced5",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_s00_wiring_fix.py",
+      "operation": "modify",
+      "content_preview": "OLD:     passed_tests = grep_count(r\"test .+load_hook_events_since.+ \\.\\.\\. ok\", combined)\n    failed_tests = grep_count(r\"test .+load_hook_events_since.+ \\.\\.\\. FAILED\", combined)\nNEW:     passed_tests = grep_count(r\"test .+load_hook_events_since\\S* \\.\\.\\. ok\", combined)\n    failed_tests = grep_cou",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-19T22:33:18.144735",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "74d983a9280eb8ed",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_s00_wiring_fix.py",
+      "operation": "modify",
+      "content_preview": "OLD:     passed_tests = grep_count(r\"test .+extract_symbols_with_pool.+ \\.\\.\\. ok\", combined)\n    failed_tests = grep_count(r\"test .+\\.\\.\\. FAILED\", combined)\nNEW:     passed_tests = grep_count(r\"test .+extract_symbols_with_pool\\S* \\.\\.\\. ok\", combined)\n    failed_tests = grep_count(r\"test .+ \\.\\.\\.",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-19T22:33:11.445912",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "92b38b3f133aaed4",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/templates/evolving.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Mutation type applied during evolution.\n    #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n    enum MutationType {\n        /// Rotate sections: move first to last.\n        Rotate,\n        /// Drop one section from the template.\n        DropSection,\n        /// Add a section from the avail",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T21:00:40.114729",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8da620bc4150c42f",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/rl/qtable.rs",
+      "operation": "modify",
+      "content_preview": "OLD: #[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn test_new_qtable() {\nNEW: /// DJB2 hash function for tool name -> action ID encoding.\n///\n/// Classic DJB2 by Daniel J. Bernstein. Produces a well-distributed\n/// u64 hash suitable for modular reduction into action space.\npub fn djb2",
+      "tags": [
+        "modify",
+        "rust",
+        "function",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T20:57:48.422614",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "62ee7ba3d6849905",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/rl/qtable.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     /// Get all Q-values for a state.\n    pub fn get_state_q_values(&self, state: u64) -> Vec<(u64, f64)> {\nNEW:     /// Update Q-table from a hook event (online RL wiring).\n    ///\n    /// Encodes the event context into state/action space and performs a\n    /// single Q-learning update. This i",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T20:57:40.480949",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "cfd341ce37b7807f",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/pre_edit_prevention.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     if file_path.is_empty() {\n        HookRuntime::emit_allow();\n        return Ok(());\n    }\n\n    let rel_path = make_relative(file_path, &runtime.project_root);\n    let warning = compose_pre_edit_warning(&runtime.knowledge, &rel_path);\n\n    match warning {\n        Some(ctx) if !ctx.is_empty()",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T20:55:05.558445",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "dc15263738967387",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: | Crate | Tests | Coverage focus |\n|-------|-------|----------------|\n| touring-core | 35 | MemoryTier, CILALevel, TouringConfig, migration engine |\n| touring-simd | 44 | SIMD parity (AVX2 vs scalar), Wilson, Drift |\n| touring-hooks | 157 | Classifier, PII scanner, knowledge DB, neural hooks |\n",
+      "tags": [
+        "modify",
+        "documentation",
+        "markdown",
+        "claude-config",
+        "adr"
+      ],
+      "timestamp": "2026-03-19T01:48:53.878368",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "2be952f34a138074",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: ### Build verification\n```bash\ncargo check --workspace              # type check (< 15s)\ncargo test --workspace               # 722 tests (< 60s)\ncargo clippy --workspace -D warnings # 0 warnings\ncargo build --workspace --release    # ~58s\n```\nNEW: ### Build verification\n```bash\ncargo check --w",
+      "tags": [
+        "modify",
+        "documentation",
+        "adr",
+        "claude-config",
+        "markdown"
+      ],
+      "timestamp": "2026-03-19T01:48:34.175422",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d21049f896adbd74",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: 3. Crate Catalog (10 crates)\n4. Dependency Graph\nNEW: 3. Crate Catalog (10 crates)\n4a. Flywheel Architecture (v6.0.0)\n4. Dependency Graph",
+      "tags": [
+        "modify",
+        "adr",
+        "claude-config",
+        "documentation",
+        "markdown"
+      ],
+      "timestamp": "2026-03-19T01:48:18.425658",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "77d18400f9303ac2",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/CHANGELOG.md",
+      "operation": "modify",
+      "content_preview": "OLD: ## [v8.2.0] - 2026-03-19 — MEF Impact Exponential v2.0\nNEW: ## [v9.0.0] - 2026-03-19 — Exponential Flywheel\n\n### Rust Workspace Exponential Improvement (8 sprints, 24/25 strategies)\n\n**Foundation (S1)**\n- `[workspace.lints.clippy] all = \"deny\"` — workspace-wide clippy gate\n- Production unwrap()",
+      "tags": [
+        "modify",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-19T01:47:54.507338",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "12accde630280b41",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/CLAUDE.md",
+      "operation": "modify",
+      "content_preview": "OLD: **Rust Workspace** (`.claude/rust/`): Unified Cargo workspace — 10 crates, 38780 LOC, 722 tests, clippy 0. v5.0.0 (5th Gen Architecture).\nNEW: **Rust Workspace** (`.claude/rust/`): Unified Cargo workspace — 10 crates, ~44K LOC, 899 tests, clippy deny all. v6.0.0 (Exponential Flywheel). Gotcha D",
+      "tags": [
+        "modify",
+        "documentation",
+        "claude-config",
+        "markdown"
+      ],
+      "timestamp": "2026-03-19T01:47:20.434790",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c92809af95ddb2c7",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD:     ├── touring-learning/         [UNIFIED BRAIN — RL + Memory + Evolution + ACO]\n    │   ├── src/rl/               QTable TD(λ) + TinyTransformerPredictor (stub) + MarkovPredictor\n    │   ├── src/memory/           RLM 5-tier, SemanticRecall, WorkingMemoryHnsw (feature), CrdtSemanticGraph, Reca",
+      "tags": [
+        "modify",
+        "markdown",
+        "claude-config",
+        "adr",
+        "documentation"
+      ],
+      "timestamp": "2026-03-19T01:46:32.813670",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "5cb009155b182393",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: Artifacts: `touring` binary (14MB) + `libclaude_learning_kernel.so` (904KB)\nTest suite: 722 tests (cargo test --workspace), clippy 0 warnings\nNEW: Artifacts: `touring` binary (11MB, -27%) + `libclaude_learning_kernel.so` (904KB)\nTest suite: 899 tests (cargo test --workspace), clippy deny all (0",
+      "tags": [
+        "modify",
+        "claude-config",
+        "adr",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-19T01:45:38.866133",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "826d465765722da9",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/ARCHITECTURE.md",
+      "operation": "modify",
+      "content_preview": "OLD: Version: 5.0.0 (5th Generation Architecture)\nNEW: Version: 6.0.0 (Exponential Flywheel Architecture)",
+      "tags": [
+        "modify",
+        "claude-config",
+        "adr",
+        "documentation",
+        "markdown"
+      ],
+      "timestamp": "2026-03-19T01:45:29.343571",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "8e7bfd161f015bc0",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/audit_flywheel_e2e.py",
+      "operation": "modify",
+      "content_preview": "OLD:     r = subprocess.run(\n        cmd, shell=True, capture_output=True, text=True,\n        cwd=cwd or RUST_DIR, timeout=timeout,\nNEW:     r = subprocess.run(  # noqa: S602\n        cmd, shell=True, capture_output=True, text=True,\n        cwd=cwd or RUST_DIR, timeout=timeout,",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-19T01:35:47.241154",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d537ec8b4f6b67ae",
+      "file_path": "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/memory/MEMORY.md",
+      "operation": "modify",
+      "content_preview": "OLD: > **Rust Workspace Exponential Plan v2.0**: `rust-workspace-deep-analysis.md` — 8 sprints S1-S8, 25 strategies, 93 deliverables, 12D audit. Generator: `.claude/plans/rust-workspace-exponential/generate_plan.py` (2351 LOC). Flywheel: Code Quality(S1-S4) → Cache(S5) → Context(S6) → Learning(S7) →",
+      "tags": [
+        "modify",
+        "claude-config",
+        "markdown",
+        "documentation"
+      ],
+      "timestamp": "2026-03-19T01:02:58.603171",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "901bb97f9a03b003",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/rust_quality_flywheel.sh",
+      "operation": "modify",
+      "content_preview": "OLD: gate() {\n    local name=\"$1\"\n    shift\n    echo -n \"Gate: $name ... \"\n    if \"$@\" > /dev/null 2>&1; then\n        echo \"PASS\"\n        ((PASS++))\n    else\n        echo \"FAIL\"\n        ((FAIL++))\n    fi\n}\nNEW: gate() {\n    local name=\"$1\"\n    shift\n    echo -n \"Gate: $name ... \"\n    if \"$@\" > /dev/",
+      "tags": [
+        "modify",
+        "shell"
+      ],
+      "timestamp": "2026-03-19T00:47:58.378721",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "50cdfcc45edee238",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/rl/mod.rs",
+      "operation": "modify",
+      "content_preview": "OLD: pub use qtable::{LearningParams, QLearning, QTable, StateAction};\npub use tiny_transformer::{MarkovPredictor, ToolPredictor, ToolPrediction, TinyTransformerPredictor};\nNEW: pub use qtable::{LearningParams, QLearning, QTable, StateAction};\npub(crate) use tiny_transformer::{\n    MarkovPredictor, ",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:45:21.726907",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "80d38418c2516b6d",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/rust_cross_audit.py",
+      "operation": "modify",
+      "content_preview": "OLD:     r = subprocess.run(\n        cmd,\n        shell=True,\n        capture_output=True,\n        text=True,\n        cwd=cwd or RUST_DIR,\n    )\nNEW:     r = subprocess.run(  # noqa: S602 — intentional shell for cargo/grep pipelines\n        cmd,\n        shell=True,\n        capture_output=True,\n     ",
+      "tags": [
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-19T00:44:54.375015",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "986bba9f2ed7545d",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/cache_strategy.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         assert!(\n            s.contains(\"0 symbols, 0 files\"),\n            \"Should handle zero counts. Got: {s}\"\n        );\n        // Empty join produces empty string between delimiters\n        assert!(\n            s.contains(\"Crates:  |\"),\n            \"Empty crates should produce empty string",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:44:13.027822",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d1a37d2869f548e9",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: // ACO\npub use aco::{\n    build_report, compute_composite, determine_status, GraphError, MutableGeneratorGraph,\n    TrackerReport, TrackerStatus,\n};\nNEW: // ACO\npub use aco::{\n    build_report, compute_composite, determine_status, GraphError, MutableGeneratorGraph,\n    TrackerReport, TrackerSta",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:44:04.999925",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "bb93ca37f4dedf10",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: //! touring-learning — Unified intelligence crate.\n//!\n//! Merges QTable (TD(λ)), 5-tier RLM Memory, SemanticRecall,\n//! WilsonRanker, DriftDetector, Evolution, Clustering, and ACO.\n//!\n//! # Architecture\n//!\n//! ```text\n//! touring-learning\n//! ├── rl/          QTable TD(λ) with eligibility tr",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:43:59.968932",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "b9637df52401b370",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-simd/benches/similarity.rs",
+      "operation": "modify",
+      "content_preview": "OLD: fn bench_jaccard_similarity(c: &mut Criterion) {\n    let computer = JaccardComputer::new();\n    let mut group = c.benchmark_group(\"jaccard_similarity\");\n\n    for size in [50, 200, 1000] {\n        let a = gen_u32_set(size, 42);\n        let b = gen_u32_set(size, 137);\n\n        group.bench_with_in",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:43:58.866894",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "6d1d36cea23f6168",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/main.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         // Cortex — Consolidated hook execution engine\n        \"cortex\" => {\n            let event_str = args.get(2).map(|s| s.as_str()).unwrap_or(\"pre-tool\");\n            if let Err(e) = touring_server::cortex::CortexRuntime::run(event_str) {\n                error!(\"cortex failed: {}\", e);\n   ",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:35:08.438750",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "19304e54c9eb0606",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: //! - `prefetch_threshold`: determines prefetch confidence threshold from cache hit rate\nNEW: //! - `prefetch_threshold`: determines prefetch confidence threshold (pct) from cache hit rate (pct)",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:31:57.362856",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "25ed34901af1b1e4",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-rules/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     #[tokio::test]\n    async fn test_prefetch_threshold_default() {\n        let content = include_str!(\"../rules/prefetch_threshold.json\");\n        let result = evaluate_inline(\n            content,\n            serde_json::json!({\"cache_hit_rate\": 0.3, \"session_turn\": 5}),\n        )\n        .aw",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust",
+        "async"
+      ],
+      "timestamp": "2026-03-19T00:31:37.576496",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "1e512a135e5d88a1",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: pub mod aco;\npub mod clustering;\npub mod evolution;\npub mod memory;\npub mod ranking;\npub mod rl;\nNEW: pub mod aco;\npub mod bandit;\npub mod clustering;\npub mod evolution;\npub mod memory;\npub mod ranking;\npub mod rl;",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:30:32.428832",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "613378a65839dcc7",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/Cargo.toml",
+      "operation": "modify",
+      "content_preview": "OLD: rkyv = { workspace = true }\nmemmap2 = { workspace = true }\ncrdts = { workspace = true }\nNEW: rkyv = { workspace = true }\nmemmap2 = { workspace = true }\ncrdts = { workspace = true }\nndarray = { workspace = true }",
+      "tags": [
+        "modify",
+        "configuration",
+        "claude-config",
+        "toml"
+      ],
+      "timestamp": "2026-03-19T00:28:22.650889",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c1e6c6a446537e28",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/session_insights.rs",
+      "operation": "modify",
+      "content_preview": "OLD: .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;\nNEW: .map_err(std::io::Error::other)?;",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:24:12.262274",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "35b133c19a9f66f2",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: // Re-exports — Neural Hooks\npub use knowledge::{FileKnowledgeDB, FileKnowledge, FileRelation, BashOutcome, EditEvent, Gotcha, KnowledgeStats};\npub use runtime::HookRuntime;\nNEW: // Re-exports — Neural Hooks\npub use knowledge::{FileKnowledgeDB, FileKnowledge, FileRelation, BashOutcome, EditEven",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:22:46.611776",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e4667753b0c958fd",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/post_edit.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     // Known edit-specific error patterns\n    if normalized.contains(\"string to replace not found\")\n        || normalized.contains(\"not found in file\")\n        || normalized.contains(\"old_string\")\n    {\n        return Some(\"string_not_found\".to_string());\n    }\n\n    if normalized.contains(\"unex",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:19:43.492422",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e0e8e2ed80e72b78",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/knowledge.rs",
+      "operation": "modify",
+      "content_preview": "OLD:             CREATE INDEX IF NOT EXISTS idx_gotchas_pattern\n                ON gotchas(pattern);\",\n        )?;\n        Ok(())\n    }\n\n    // ── File Knowledge CRUD ──────────────────────────────────────────\nNEW:             CREATE INDEX IF NOT EXISTS idx_gotchas_pattern\n                ON gotchas",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:19:20.822437",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c9ccba33bf76a716",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/lib.rs",
+      "operation": "modify",
+      "content_preview": "OLD: pub use knowledge::{FileKnowledgeDB, FileKnowledge, FileRelation, BashOutcome, Gotcha, KnowledgeStats};\nNEW: pub use knowledge::{FileKnowledgeDB, FileKnowledge, FileRelation, BashOutcome, EditEvent, Gotcha, KnowledgeStats};",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:17:08.133117",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "43eb3268ad3d5d18",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/knowledge.rs",
+      "operation": "modify",
+      "content_preview": "OLD: /// An edit event tracked for change awareness.\n#[derive(Debug, Clone)]\npub struct EditEvent {\n    pub file_path: String,\n    pub edit_type: String,\n    pub summary: Option<String>,\n    pub edited_at: String,\n}\nNEW: /// An edit event tracked for change awareness.\n#[derive(Debug, Clone)]\npub str",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:16:24.727306",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e171a7729e965fa9",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-cognitive/src/predictor_task.rs",
+      "operation": "modify",
+      "content_preview": "OLD: #[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[tokio::test]\n    async fn test_predictor_task_runs_without_panic() {\n        let persistence = Arc::new(crate::persistence::GraphPersistence::new(\n            std::path::PathBuf::from(\":memory:\"),\n        ));\n        let graph = Arc::new(crate::",
+      "tags": [
+        "modify",
+        "async",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:16:16.228720",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "9b708fef879fddbb",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-cognitive/src/predictor_task.rs",
+      "operation": "modify",
+      "content_preview": "OLD: //! Background context predictor task -- 500ms warm-cache loop.\n//!\n//! Lock ordering: acquires L1 (SemanticGraph.graph) then L2 (SessionPredictor.history)\n//! in SEPARATE operations (never simultaneously), respecting the documented ordering.\n\nuse crate::semantic_graph::SemanticGraph;\nuse crate",
+      "tags": [
+        "modify",
+        "claude-config",
+        "async",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:15:58.175943",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3a128f246761f4d9",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-simd/src/similarity/mod.rs",
+      "operation": "modify",
+      "content_preview": "OLD: // TODO(P2): PyO3 bindings — requires `pyo3` dependency added to touring-simd\nNEW: // NOTE(P2): PyO3 bindings — requires `pyo3` dependency added to touring-simd",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:12:24.954065",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3256faa0671c3a8f",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/cache_strategy.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         let s = vol.to_context_string();\n        assert!(s.contains(\"[L6 multi_agent]\"));\n        assert!(s.contains(\"tools=Bash,TaskCreate,TeamCreate\"));\n    }\n}\nNEW:         let s = vol.to_context_string();\n        assert!(s.contains(\"[L6 multi_agent]\"));\n        assert!(s.contains(\"tools=Bas",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:12:21.540877",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ac719b1225ef70ea",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/memory/mod.rs",
+      "operation": "modify",
+      "content_preview": "OLD: // TODO(P5): wire MemoryStore to touring-server when async integration is ready.\nNEW: // NOTE(P5): wire MemoryStore to touring-server when async integration is ready.",
+      "tags": [
+        "modify",
+        "claude-config",
+        "async",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:12:19.233673",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "3fbe5ea213b6b57b",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/plugins/runner.rs",
+      "operation": "modify",
+      "content_preview": "OLD:             // TODO(F1.3): Implement extract() call via WASM shared memory.\nNEW:             // NOTE(F1.3): Implement extract() call via WASM shared memory.",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:12:07.788913",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a70bce94487b10a0",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/handlers/enforcement.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         // TODO(S6): Full 4-motor orchestration requires Tier 3 Python bridge.\nNEW:         // NOTE(S6): Full 4-motor orchestration requires Tier 3 Python bridge.",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:12:02.096115",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "040b465981b1d4b5",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/rl/tiny_transformer.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         // TODO: Implement with candle when weights are available\nNEW:         // NOTE: Implement with candle when weights are available",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:11:55.013426",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c63fa198b5867f7d",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/cache_strategy.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         let ctx2 = StableSessionContext {\n            project_summary: \"analise — regulatory analysis workspace\".to_string(),\n            symbol_count: 300390,\n            file_count: 466,\n            // Intentionally different insertion order\n            crate_names: vec![\n                \"tou",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:11:54.712571",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "c64f93521bd4a3cb",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/cache_strategy.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     fn sample_stable() -> StableSessionContext {\n        StableSessionContext {\n            project_summary: \"analise — regulatory analysis workspace\".to_string(),\n            symbol_count: 300390,\n            file_count: 466,\n            crate_names: vec![\n                \"touring-server\".to_s",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:11:46.637623",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "59add828d33dd94a",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/server.rs",
+      "operation": "modify",
+      "content_preview": "OLD:                 // TODO(P5.2): wire load_hook_events_since when LearningPersistence gains it\n                let events: Vec<(i64, String, String, f64)> = Vec::new();\nNEW:                 // NOTE(P5.2): wire load_hook_events_since when LearningPersistence gains it\n                let events: Ve",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:11:45.598271",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "bf2ff4468139be25",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/cortex/cache_strategy.rs",
+      "operation": "modify",
+      "content_preview": "OLD: pub struct StableSessionContext {\n    /// Human-readable project summary line.\n    pub project_summary: String,\n    /// Number of symbols indexed.\n    pub symbol_count: usize,\n    /// Number of files known to the knowledge DB.\n    pub file_count: usize,\n    /// Sorted list of workspace crate na",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust",
+        "imports"
+      ],
+      "timestamp": "2026-03-19T00:11:24.633520",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "00a8444429d6acd6",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/tools/learning_tools.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     // TODO: Fix return type for rmcp 0.1.5\n    // CallToolResult::success(serde_json::to_string(&result).unwrap_or_default())\n    unimplemented!(\"Fix for rmcp 0.1.5 API changes\")\n}\n\n// ============================================================================\n// touring_cluster_skills - Skil",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:11:21.901997",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ef87d33e8b165eb2",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/tools/hook_tools.rs",
+      "operation": "modify",
+      "content_preview": "OLD:     // TODO: Fix return type for rmcp 0.1.5\n    // CallToolResult::success(serde_json::to_string(&output).unwrap_or_default())\n    unimplemented!(\"Fix for rmcp 0.1.5 API changes\")\n}\nNEW:     // CallToolResult::success(serde_json::to_string(&output).unwrap_or_default())\n    unimplemented!(\"Super",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:11:13.084961",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "100a33e59500dabe",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/tools/hook_tools.rs",
+      "operation": "modify",
+      "content_preview": "OLD: // TODO: Fix macro_tool attribute for rmcp 0.1.5\n// #[macro_tool(name = \"touring_classify_intent\", description = \"Classify prompt intent using CILA levels L0-L6\")]\nNEW: // #[macro_tool(name = \"touring_classify_intent\", description = \"Classify prompt intent using CILA levels L0-L6\")]",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:11:06.943928",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a66b93d5f2de9cc6",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-simd/src/statistics/drift.rs",
+      "operation": "modify",
+      "content_preview": "OLD: a.partial_cmp(b).unwrap()\nNEW: a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:07:08.888136",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "29dffa68813b5319",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-nlp/src/rlm_integration.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         self.pattern_tracker\n            .lock()\n            .unwrap()\n            .suggest_patterns(min_freq, top_k)\nNEW:         self.pattern_tracker\n            .lock()\n            .unwrap_or_else(|e| e.into_inner())\n            .suggest_patterns(min_freq, top_k)",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:06:53.490758",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "27c6a5478de52270",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-server/src/session/manager.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         Ok(self.sessions.get(session_id).unwrap())\nNEW:         Ok(self.sessions.get(session_id).expect(\"session exists: just mutated above\"))",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:06:30.235182",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "2f5cfa83a7648a2b",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-learning/src/clustering/cosine.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         for skill_id in skill_ids {\n            let usage = self.usage_patterns.get(&skill_id).unwrap();\nNEW:         for skill_id in skill_ids {\n            let Some(usage) = self.usage_patterns.get(&skill_id) else {\n                continue;\n            };",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:06:30.154219",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "e44adb99857d7c76",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-nlp/src/semantic_chunker.rs",
+      "operation": "modify",
+      "content_preview": "OLD:         let first = segments.first().unwrap();\n        let last = segments.last().unwrap();\nNEW:         let first = segments.first().expect(\"create_chunk called with non-empty segments\");\n        let last = segments.last().expect(\"create_chunk called with non-empty segments\");",
+      "tags": [
+        "modify",
+        "claude-config",
+        "rust"
+      ],
+      "timestamp": "2026-03-19T00:06:26.008222",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "d0abd5e1d1cbb680",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-nlp/src/keyword_matcher.rs",
+      "operation": "modify",
+      "content_preview": "OLD:                     let mut cache = AUTOMATON_CACHE.write().unwrap();\n                    cache.put(cache_key, ac.clone());\n                }\n\n                // Update stats\n                {\n                    let mut stats = CACHE_STATS.write().unwrap();\n                    stats.misses += ",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:05:25.737817",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "ae24c51360228ac3",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/rust/crates/touring-hooks/src/post_read.rs",
+      "operation": "modify",
+      "content_preview": "OLD:             let re = Regex::new(r\"(?m)^use\\s+([\\w:]+)\").unwrap();\nNEW:             let re = Regex::new(r\"(?m)^use\\s+([\\w:]+)\").expect(\"static regex is valid\");",
+      "tags": [
+        "modify",
+        "rust",
+        "claude-config"
+      ],
+      "timestamp": "2026-03-19T00:04:55.655528",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T12:55:58.642120",
+    "total_patterns": 100,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "modify"
+  }
+}

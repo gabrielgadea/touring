@@ -1,0 +1,11 @@
+{
+  "phase": "P8",
+  "entities": [
+    {
+      "entity_id": "phase:P8",
+      "type": "phase",
+      "description": "P8 DONE: validation run no crate Rust touring-quality. loop_converged disparou TODAS clausulas Rust (nao N/A): quality_gold PASS (0.9277>=0.80), no_p0_fail PASS (fix F2.6 segurando), cargo_green PASS (cargo check --workspace verde). REGRA #21: bug orphan_count parsing corrigido (campo orphan_count nao count) -> orphans_base PASS (baseline 5044). Loop engine 8/8 COMPLETO."
+    }
+  ],
+  "relations": []
+}

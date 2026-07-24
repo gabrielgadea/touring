@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-embedding-service.schema.json",
+  "title": "Capability: embedding-service",
+  "description": "Embedding via inferlet memory pool",
+  "type": "object",
+  "additionalProperties": true
+}

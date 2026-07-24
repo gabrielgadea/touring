@@ -1,0 +1,245 @@
+[package]
+name = "touring-dispatch"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "touring-hooks dispatch layer — HookRuntime, hook_registry, daemon actor, pre/post lifecycle hooks, cli/ handlers (daemon-lib-rearch Phase D)"
+license.workspace = true
+
+[lib]
+name = "touring_dispatch"
+path = "src/lib.rs"
+
+[features]
+# B.4.3: hooks-active is the DEFAULT — preserves current behavior for all users.
+# Benchmark mode (B.4.4): cargo build --no-default-features → stubs-only (hooks-active OFF).
+hooks-active = []
+hooks-noop = []
+# hooks-active enables the HOOKS_MODE flag; all-hooks enables the full hook implementations.
+# Users building with default features get: hooks-active + all-hooks = full implementations.
+# Benchmark builds with --no-default-features get: hooks-active OFF → stubs-only.
+default = ["hooks-active", "all-hooks", "templates", "shadow-workspace", "quantization", "u4-quantization", "persistence", "gpu-compute", "tantivy-fts", "inferlets-wasm", "rkyv-ipc", "nlp-enrichment", "inventory-registry", "capnp-server", "semantic-embeddings", "txn_lock_enforcement"]
+# THSF Phase 5 (Opt A) — embed the touring-capnp RPC server inside the daemon
+# so the `touring-foundation::health_events` broadcast channel is in-process across
+# producer (compute_signals_delta) and consumer (GeneratorHealthImpl fan-out).
+# Without this feature, the standalone `touring-capnp` binary can still host
+# `GeneratorHealth`, but events emitted by the daemon will NOT reach it
+# because broadcast singletons are per-process.
+capnp-server = ["dep:touring-capnp-server", "touring-hooks-core/capnp-server"]
+all-hooks = ["pre-hooks", "post-hooks", "session-hooks", "utilities", "nlp-enrichment", "ann-blast"]
+pre-hooks = ["touring-hook-handlers/pre-hooks"]
+post-hooks = ["pre-hooks", "touring-hook-runtime/post-hooks", "touring-hook-handlers/post-hooks"]
+session-hooks = ["touring-hooks-core/session-hooks", "touring-hook-handlers/session-hooks"]
+utilities = ["touring-hooks-core/utilities"]
+shadow-workspace = ["touring-hooks-core/shadow-workspace"]
+nlp-enrichment = ["touring-hooks-core/nlp-enrichment", "touring-hook-handlers/nlp-enrichment"]
+# WASM inferlet assets — enable after building inferlets:
+#   cargo build --target wasm32-wasip1 --release -p inferlets
+#   cargo build --release --features inferlets-wasm -p touring-hooks
+#
+# What it does: Embeds pre-compiled WASM inferlet modules (always_success, memory,
+# pattern, classifier) via include_bytes!() and enables E2E tests that validate the
+# InferletService with real sandboxed WASM execution.
+#
+# When to use: Enable this feature when you want touring-daemon to run WASM-based
+# inferlets for sandboxed hook evaluation. The inferlets crate must be built for
+# wasm32-wasip1 target first (see build instructions above).
+#
+# Graceful degradation: Use `InferletService::try_init(pool_size)` which returns
+# `None` when the feature is disabled or the WASM binary is unavailable, without
+# panicking. This allows callers to attempt initialization opportunistically.
+#
+# Why NOT default: Requires external WASM binary build step (wasm32-wasip1 target);
+# touring-wasm is PoC; adds wasmtime dependency. Keep optional until inferlets
+# are stable.
+inferlets-wasm = ["touring-hook-runtime/inferlets-wasm"]
+ann-blast = ["touring-cli/ann-blast"]
+quantization = ["touring-simd/quantization", "touring-hooks-core/quantization"]
+u4-quantization = ["touring-intelligence/u4-quantization"]
+persistence = []
+# GPU-accelerated ANN embedding index via HTTP backend.
+# Requires an external GPU embedding server (e.g. llama.cpp or ort-server).
+# When disabled, EmbeddingIndexBuilder.build() falls back to SIMD-only index.
+gpu-compute = []
+tantivy-fts = ["dep:tantivy", "touring-hooks-core/tantivy-fts", "touring-hook-runtime/tantivy-fts", "touring-cli/tantivy-fts", "touring-hook-handlers/tantivy-fts"]
+# Enable rkyv zero-copy IPC protocol on the daemon socket.
+# When ON, the daemon peeks the first byte of each connection: `R` → rkyv
+# framed parse (zero-copy, bytecheck-validated), `{` → legacy JSON parse.
+# When OFF (default), the daemon path is unchanged. See touring-rkyv::ipc.
+rkyv-ipc = []
+# Wave 5 (2026-04-18) — side-by-side declarative hook registration.
+# When on, hooks can opt into `inventory::submit!(HookEntry { ... })`
+# at the call site and `collect_inventory_hooks()` returns everything
+# registered at link time. The manual `ALL_DAEMON_HOOK_NAMES` table
+# remains the source of truth; inventory is additive for new hooks
+# that want plugin-style registration without touching the registry.
+inventory-registry = ["dep:inventory", "touring-hooks-core/inventory-registry"]
+# ACP (Agent Client Protocol) — opt-in shim layer over the daemon socket.
+# When ON, the daemon peeks incoming bytes: `{"jsonrpc":` → ACP parse,
+# `{"hook":` → legacy JSON parse. ACP brings structured envelopes,
+# capability negotiation, and correlation IDs.
+acp-protocol = ["touring-hook-runtime/acp-protocol", "touring-cli/acp-protocol"]
+# Phase 3 — Tera template rendering in cli_decompose_create.
+# Propagates to touring-tasksfile so #[cfg(feature = "templates")]
+# in cli_handlers_decompose.rs resolves correctly.
+templates = ["touring-orchestration/templates", "touring-cli/templates"]
+mpatch-fuzzy = ["dep:mpatch", "touring-hooks-core/mpatch-fuzzy", "touring-cli/mpatch-fuzzy", "touring-hook-handlers/mpatch-fuzzy"]
+# PSI memory pressure gate in pre_bash — blocks heavy spawns (cargo test/build,
+# npm install, pip install) when MemoryGuard reports Pressure::Red. Linux-only;
+# on other platforms the gate is compiled in but always returns Green so the
+# deny path is never reached.
+# W3.7 (2026-05-12): touring-resource-monitor absorbed into the sentinel subsystem.
+# A4 P3 (2026-06-15): sentinel peeled to `touring_resilience::sentinel`; this feature
+# now propagates via touring-hook-handlers → touring-resilience/resource-monitor.
+resource-monitor = ["touring-hook-handlers/resource-monitor"]
+# SagaAgent trait — 2PC distributed saga coordinator.
+# Gates SagaAgent trait impl (production stubs) behind this feature.
+# A01 (2026-06-06): saga code moved to the `touring-hooks-saga` leaf crate;
+# this feature now forwards to that crate's `saga` feature.
+saga = ["touring-hooks-saga/saga", "touring-hook-runtime/saga"]
+# S-10 (2026-05-29) — transactional read/write-set conflict detection (OP4).
+# When ON, ExecPool gains `acquire_txn(AccessDeclaration) -> TxnPermit`: a caller
+# coordinating a concurrent harness-state mutation declares its read/write set and
+# the pool refuses to grant two conflicting executions at once (write-write or
+# write-read hazard; disjoint sets parallelize). Default-ON since ES3 P1 (S-10
+# rollout, 2026-06-01): the pool path is now wired by default, and the CEG X0
+# capture in pre_exec.rs routes every sandbox-exec through acquire_txn as
+# defense-in-depth (real OP4 §5.2.4 lost-update guard for writes comes from
+# supervised.rs X8 in ES3 P2). The mechanism is the TxnLockManager (gateway::txn).
+# Opt-out: build with `--no-default-features` (benchmark/stubs-only).
+txn_lock_enforcement = ["touring-ceg/txn_lock_enforcement", "touring-hook-runtime/txn_lock_enforcement"] # forwarded: 28 cfg sites in touring-ceg + 2 ceg_adapter tests in the runtime layer
+# S-04 (2026-05-29) — genuine semantic embeddings for memory recall.
+# Pulls ONLY the fastembed provider from touring-storage (no qdrant/candle/voyage)
+# so `cli_memory_store`/`recall`/`reindex` embed via Snowflake Arctic-Embed-M
+# (768d) instead of the 64-dim FNV lexical hash. Cycle-free: touring-storage does
+# not depend on touring-hooks. When OFF, semantic_text_embedding() returns None
+# and callers fall back to the hash embedder (graceful degradation).
+semantic-embeddings = ["dep:touring-storage", "touring-hook-runtime/semantic-embeddings"]
+
+[dependencies]
+# CEG Pln2 P2.4 — Linux capability enforcement (setrlimit resource caps in capability::enforce_linux)
+rustix = { version = "1", features = ["process"] }
+# W10 shim-elimination 2026-05-31: touring-{flow,tasksfile,devrc-adapter} fused
+# into touring-orchestration::{flow,tasks,devrc}. Default = yaml+templates.
+touring-orchestration = { path = "../touring-orchestration" }
+touring-foundation = { path = "../touring-foundation" }
+# S-04 (2026-05-29) — optional, lean: ONLY the fastembed provider (no qdrant /
+# candle / voyage / hybrid). Gated by the `semantic-embeddings` feature.
+touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed"] }
+# W8 pragmatic split — internal sub-crates re-exported verbatim by this façade
+# (see lib.rs `pub use touring_hooks_{shared,prediction}::*`).
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-hooks-prediction = { path = "../touring-hooks-prediction" }
+# A01 (2026-06-06) — leaf crates, re-exported as `touring_hooks::{saga,agentic_rl}`.
+touring-hooks-saga = { path = "../touring-hooks-saga" }
+# A.W3.P1 (2026-06-09) — leaf crate housing the IoC contract traits (LearnRuntime);
+# re-exported via `crate::gateway::deps::LearnRuntime`.
+touring-contracts = { path = "../touring-contracts" }
+touring-ceg = { path = "../touring-ceg" } # Session B F4 (2026-06-10): the extracted Code Execution Gateway (gateway/ + capability/)
+touring-hooks-core = { path = "../touring-hooks-core" }
+touring-hook-runtime = { path = "../touring-hook-runtime" } # Wave R+C carve (2026-06-10): HookRuntime substrate layer # Phase C carve (2026-06-10): data/intelligence engines (knowledge, tantivy_index, health_delta, bridges, session_bus) — re-exported verbatim by this façade
+touring-cli = { path = "../touring-cli" } # Wave C2 carve (2026-06-10): cli/ handler tree + cli_suggester + cli_e2e + workflow
+touring-hook-handlers = { path = "../touring-hook-handlers" } # Wave H carve (2026-06-10): pre/post hook handlers + bridge + materializer
+touring-hooks-rl = { path = "../touring-hooks-rl" }
+touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] }
+touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
+touring-bindings = { path = "../touring-bindings", features = ["bind-wasm"] }
+touring-intelligence = { path = "../touring-intelligence" }
+# W4 shim-elimination 2026-05-31: touring-semantics → touring_code::semantics (direct).
+touring-code = { path = "../touring-code" }
+touring-offensive = { path = "../touring-offensive" }
+# W3.5 (2026-05-12): touring-definitions absorbed into touring-foundation::semantic
+# Phase 5 Opt A — optional embedded capnp RPC server. Preserves the
+# in-process broadcast channel shared with `touring_core::health_events`.
+touring-capnp-server = { path = "../touring-capnp-server", optional = true }
+uuid = { workspace = true, features = ["v4"] }
+base64 = { workspace = true }
+inventory = { workspace = true, optional = true }
+tantivy = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+rayon = { workspace = true }
+ndarray = { workspace = true }
+petgraph = { workspace = true }
+indexmap = { workspace = true }
+rkyv = { workspace = true }
+touring-rkyv = { path = "../touring-rkyv" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+rusqlite = { workspace = true }
+deadpool-sqlite = { workspace = true }
+regex = { workspace = true }
+sha2 = { workspace = true }
+blake3 = { workspace = true }
+chrono = { workspace = true }
+lru = { workspace = true }
+moka = { workspace = true }
+rustc-hash = { workspace = true }
+dashmap = { workspace = true }
+aho-corasick = { workspace = true }
+stringzilla = { workspace = true }
+memchr = { workspace = true }
+num_cpus = { workspace = true }
+once_cell = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+# NEW-4 — TOML user filter DSL (~/.config/touring/filters.toml)
+toml = { workspace = true }
+# Feature D (2026-04-24) — Derive-based validation for hook payloads and MCP params.
+# Standard Rust ecosystem crate: Validate trait + macros for struct validation.
+validator = { workspace = true, features = ["derive"] }
+# Latency percentile tracking — upgrades gate_metrics from bare counters
+# (sum / count → mean) to proper histograms (P50 / P99 / max) enabling
+# tail-latency alerts in hot paths (rkyv IPC dispatch, hook execution).
+# O(1) record, O(log n) percentile, <1KB per histogram.
+hdrhistogram = { workspace = true }
+
+# Cross-platform process RSS + virtual memory probe. Wired into
+# `GateMetricsSnapshot::capture` so `touring gate-metrics -j` surfaces
+# the daemon's live memory footprint alongside every other counter —
+# enables ops-side leak detection without running a heap profiler.
+memory-stats = { workspace = true }
+# D1.6 activity hook integration — append-only event log (ESAA pattern).
+# W3.8 (2026-05-12): `touring-activity` absorbed into
+# `touring_foundation::activity`. touring-foundation is already a transitive
+# dep via touring-flow; the absorption removes an explicit edge here.
+mpatch = { workspace = true, features = ["parallel"], optional = true }
+
+# W3.7 (2026-05-12): `touring-resource-monitor` absorbed into
+# `touring_foundation::sentinel`. The pre_bash PSI gate now imports from
+# `touring_foundation::sentinel::{MemoryGuard, Pressure}` when the
+# `resource-monitor` feature on touring-hooks is enabled (which in turn
+# activates `touring-foundation/resource-monitor`).
+
+[dependencies.tempfile]
+workspace = true
+
+[dev-dependencies]
+serial_test = { workspace = true }
+tempfile = { workspace = true }
+serde_json = { workspace = true }
+# Snapshot testing for pre-computed signal outputs — locks the string
+# shape of `file_digest_signal` against silent drift from tree-sitter /
+# complexity engine updates. Review new snapshots via `cargo insta review`.
+insta = { workspace = true, features = ["yaml"] }
+# Tier A (2026-04-19) — colored structural diffs on assert_eq failures.
+pretty_assertions = { workspace = true }
+# Tier A (2026-04-19) — #[traced_test] attribute to capture tracing events
+# emitted by the 138-hook pipeline inside unit tests.
+tracing-test = { workspace = true }
+
+# ─── Compile-time invariants ──────────────────────────────────────────
+# `static_assertions` validates trait / layout invariants at build time.
+# Loom proofs live in the SEPARATE `touring-loom-proofs` crate — they were
+# extracted because `RUSTFLAGS="--cfg loom"` recompiles every workspace dep
+# (including reqwest → hyper-util → tokio::net::UnixStream) which has no
+# loom shim. The isolated crate has zero touring deps so `--cfg loom`
+# compiles cleanly.
+static_assertions = { workspace = true }
+
+[lints]
+workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+landlock = "0.4"

@@ -1,0 +1,40 @@
+{
+  "patterns": [
+    {
+      "id": "c4050305e11c463d",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/Plano_Implementacao_Kazuba_Geo_Engine.md",
+      "operation": "modify",
+      "content_preview": "OLD: ### 5.1 Rust Crate (`.claude/rust/crates/kazuba-geo-engine/`)\nNEW: ### 5.1 Rust Crate (`packages/kazuba-geo-engine/`)",
+      "tags": [
+        "plan",
+        "markdown",
+        "modify",
+        "documentation"
+      ],
+      "timestamp": "2026-03-21T12:55:35.669031",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "a3fbc98659d968ac",
+      "file_path": "/home/gabrielgadea/projects/analise/docs/Plano_Implementacao_Kazuba_Geo_Engine.md",
+      "operation": "modify",
+      "content_preview": "OLD: **Próximo Passo**: F1 — Setup crate + workspace integration (`cargo new .claude/rust/crates/kazuba-geo-engine --lib`)\nNEW: **Próximo Passo**: F4 — OpenDRIVE/IFC4.3 scaffolds (quando houver demanda concreta)",
+      "tags": [
+        "plan",
+        "markdown",
+        "modify",
+        "documentation"
+      ],
+      "timestamp": "2026-03-21T12:55:44.159505",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T12:55:46.460310",
+    "total_patterns": 2,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "plan"
+  }
+}

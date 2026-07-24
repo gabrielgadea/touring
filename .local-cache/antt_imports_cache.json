@@ -1,0 +1,1371 @@
+{
+  "1eca925df9bccc7140c621585944845c579883f60583c52238eaaa73167ea67a": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 7 import suggestion(s) for cross_audit.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation"
+      ],
+      "metrics": {
+        "file_name": "cross_audit.py",
+        "suggestions_count": 7,
+        "existing_imports_count": 7,
+        "keywords_matched": 288
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000618
+    },
+    "timestamp": "2026-03-15T16:58:42.547483+00:00",
+    "ttl": 3600,
+    "hit_count": 3
+  },
+  "36eb6bd1a89f90518b26510674c7367eae0f30171c6b471e69182ab47df48b85": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 7 import suggestion(s) for cross_audit.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation"
+      ],
+      "metrics": {
+        "file_name": "cross_audit.py",
+        "suggestions_count": 7,
+        "existing_imports_count": 7,
+        "keywords_matched": 296
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000629
+    },
+    "timestamp": "2026-03-15T17:02:07.227643+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "5801d3d8c878922d464ab00651ec5e72f6335eb4db8aa49a5e690e310220ae55": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 3 import suggestion(s) for touring_backend.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling"
+      ],
+      "metrics": {
+        "file_name": "touring_backend.py",
+        "suggestions_count": 3,
+        "existing_imports_count": 5,
+        "keywords_matched": 89
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000323
+    },
+    "timestamp": "2026-03-15T17:46:13.123445+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "17b0b13a8956855c089ee990e001a49670b18bb435a7f9f3fe96c6ac8bfdc3e7": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 19 import suggestion(s) for audit_touring_arch_e2e.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "import asyncio  # Asynchronous operations",
+        "from typing import Awaitable, Coroutine  # Asynchronous operations",
+        "import httpx  # HTTP requests and APIs",
+        "from urllib.parse import urljoin, urlparse  # HTTP requests and APIs"
+      ],
+      "metrics": {
+        "file_name": "audit_touring_arch_e2e.py",
+        "suggestions_count": 19,
+        "existing_imports_count": 10,
+        "keywords_matched": 663
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.001716
+    },
+    "timestamp": "2026-03-15T18:34:46.655913+00:00",
+    "ttl": 3600,
+    "hit_count": 1
+  },
+  "3d7ea619dff95ca0b9d666e5705a5f85f7f45c05660542edf208447b01513ddd": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for nlp.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.2e-05
+    },
+    "timestamp": "2026-03-15T19:30:35.559550+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "58c674f8a66ed3431cb7149c51c1ca630df8ead63db758838ef1225071605e56": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for simd.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.5e-05
+    },
+    "timestamp": "2026-03-15T19:30:53.018540+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "3edf966366d910cca2749bdbf40245fb1f3cc4e21241279edabe5c857526d6a5": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for __init__.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.5e-05
+    },
+    "timestamp": "2026-03-15T19:31:05.144730+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "53636951727695b3a3c8784f6f4f0a5dd3af18030138198635e68a53fbd5abf6": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for test_parity_nlp.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.7e-05
+    },
+    "timestamp": "2026-03-15T19:31:33.736454+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "1223792972ce824b42ca668cade3054b03935ac6d6f0715490eedc939d45d74e": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for test_parity_simd.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.5e-05
+    },
+    "timestamp": "2026-03-15T19:31:55.848137+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "04215069abfa30829968d9b61647290d0f35139f27b46deb93a435ed0530d329": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for test_bridge_integration.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.8e-05
+    },
+    "timestamp": "2026-03-15T19:32:16.233010+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "5a1dd4820faa82954ce0854d75321dc5ce91736f759fe9bed8967e6c220828ff": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for __init__.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 4.8e-05
+    },
+    "timestamp": "2026-03-17T02:54:19.508201+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "39611af2563315ee48cefee85661e4504f430e47a5b96e0c518cfe744364ab68": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for feature_extractor.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 7.5e-05
+    },
+    "timestamp": "2026-03-17T02:54:40.292340+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "58aba998c64d0b84664fe6da4d54c8ba9f7392669d832a26ddc464f41cffb916": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for __init__.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.4e-05
+    },
+    "timestamp": "2026-03-17T03:06:01.722086+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "e36d5085de90866031e46ee32aa67bff9e0c6afc3dd80c3a905bb812fefb0832": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for observer.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5e-05
+    },
+    "timestamp": "2026-03-17T03:06:14.711990+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "1a8dbb9d062fbb46370230921c81213ab90e841c174145d8d9602788d5315da0": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for agent.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.3e-05
+    },
+    "timestamp": "2026-03-17T03:06:39.441991+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "767cda62fd05619ab1863bfb45025f7da0e0a752f05c8903d17ff218d912b616": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for dataset_validator.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.1e-05
+    },
+    "timestamp": "2026-03-17T03:13:18.905494+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "05caaf7a2b1f54f1cb74c252cd309c70576e4071eb2ce19cbd35248a7dbb7812": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for compiler.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.6e-05
+    },
+    "timestamp": "2026-03-17T03:14:11.923010+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "3685efe13a5b1db79e10d3c41a3cbd0d775ea042737db63f365fc4532a2ee007": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for functional_cross_audit.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.4e-05
+    },
+    "timestamp": "2026-03-17T03:23:33.159747+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "9170101f6dfb6444c58b206d3ca1cddc51c4ac834b73dd68bb344780f09ee135": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 10 import suggestion(s) for functional_cross_audit.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis"
+      ],
+      "metrics": {
+        "file_name": "functional_cross_audit.py",
+        "suggestions_count": 10,
+        "existing_imports_count": 7,
+        "keywords_matched": 730
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.001526
+    },
+    "timestamp": "2026-03-17T03:29:13.174129+00:00",
+    "ttl": 3600,
+    "hit_count": 4
+  },
+  "76d7ba8ab49f3826d5c4f02fa7d70d5d5b945484985111ca1f056f9533a13f66": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 5 import suggestion(s) for cortex.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling"
+      ],
+      "metrics": {
+        "file_name": "cortex.py",
+        "suggestions_count": 5,
+        "existing_imports_count": 6,
+        "keywords_matched": 142
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000368
+    },
+    "timestamp": "2026-03-17T06:16:05.596141+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "c4464df9f442d2f967542a9b559d18472c34b2d50c6041b53e8ca3c4a8bb310e": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 5 import suggestion(s) for db.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import json  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling"
+      ],
+      "metrics": {
+        "file_name": "db.py",
+        "suggestions_count": 5,
+        "existing_imports_count": 6,
+        "keywords_matched": 139
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000611
+    },
+    "timestamp": "2026-03-17T06:31:32.843693+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "a43c0fbf4fbe7569425a87c79068e2b0d5bc5b226abef6f52a2876007bc37c13": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 3 import suggestion(s) for index.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling"
+      ],
+      "metrics": {
+        "file_name": "index.py",
+        "suggestions_count": 3,
+        "existing_imports_count": 4,
+        "keywords_matched": 154
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000429
+    },
+    "timestamp": "2026-03-17T06:31:58.680554+00:00",
+    "ttl": 3600,
+    "hit_count": 1
+  },
+  "b9e0b680886d390d81a2ea141330968113e27e11d71082de508fb871c4d89c79": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for test_s3_financial_simd.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.9e-05
+    },
+    "timestamp": "2026-03-17T11:12:10.883563+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "f43fb17b3967c46e3bd8f613d378fdf7a7465ef4de73dd9d6bcd9d07cce2e2c1": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 11 import suggestion(s) for financial.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics",
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import json  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "import httpx  # HTTP requests and APIs",
+        "from urllib.parse import urljoin, urlparse  # HTTP requests and APIs"
+      ],
+      "metrics": {
+        "file_name": "financial.py",
+        "suggestions_count": 11,
+        "existing_imports_count": 6,
+        "keywords_matched": 225
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000529
+    },
+    "timestamp": "2026-03-17T11:12:34.245389+00:00",
+    "ttl": 3600,
+    "hit_count": 1
+  },
+  "b515f8a33d75745e7d6318216d67d225ceeb88e09380a883f79b2c21838ffe88": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for test_s5_validators_reranker.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.9e-05
+    },
+    "timestamp": "2026-03-17T11:12:35.841992+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "dc14e9e739af71ed168fef4bca18334b85f33d9ca3ea0a18e4f7fa4aaf346870": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 19 import suggestion(s) for reranker.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import json  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics",
+        "import httpx  # HTTP requests and APIs",
+        "from urllib.parse import urljoin, urlparse  # HTTP requests and APIs"
+      ],
+      "metrics": {
+        "file_name": "reranker.py",
+        "suggestions_count": 19,
+        "existing_imports_count": 6,
+        "keywords_matched": 373
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000748
+    },
+    "timestamp": "2026-03-17T11:12:54.829433+00:00",
+    "ttl": 3600,
+    "hit_count": 1
+  },
+  "b766334b6896782e0e2a11a2ceb825f5b97c84cbb7085e3bca21d0fa521ea61f": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 15 import suggestion(s) for test_s5_validators_reranker.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import json  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling"
+      ],
+      "metrics": {
+        "file_name": "test_s5_validators_reranker.py",
+        "suggestions_count": 15,
+        "existing_imports_count": 5,
+        "keywords_matched": 430
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000884
+    },
+    "timestamp": "2026-03-17T11:12:59.316223+00:00",
+    "ttl": 3600,
+    "hit_count": 2
+  },
+  "31e23aca800d2a0f80d2ea7270bdab9eeaf0feadad51b18447ffc159a5ab4e10": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 5 import suggestion(s) for models.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics"
+      ],
+      "metrics": {
+        "file_name": "models.py",
+        "suggestions_count": 5,
+        "existing_imports_count": 4,
+        "keywords_matched": 542
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000851
+    },
+    "timestamp": "2026-03-17T23:29:09.343510+00:00",
+    "ttl": 3600,
+    "hit_count": 2
+  },
+  "da20e14d36c4da40c5d37596c1dc3deb542c3a68ad195485da141139cdcb308d": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 16 import suggestion(s) for rust_bridge.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import json  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics",
+        "import httpx  # HTTP requests and APIs",
+        "from urllib.parse import urljoin, urlparse  # HTTP requests and APIs"
+      ],
+      "metrics": {
+        "file_name": "rust_bridge.py",
+        "suggestions_count": 16,
+        "existing_imports_count": 5,
+        "keywords_matched": 485
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.0009
+    },
+    "timestamp": "2026-03-17T23:30:37.173280+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "1eea44dce2074fd4699d7ea5953fcab88344de4da8b2b03cb3ad1288ab4fd4a9": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 11 import suggestion(s) for simulator.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import json  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis"
+      ],
+      "metrics": {
+        "file_name": "simulator.py",
+        "suggestions_count": 11,
+        "existing_imports_count": 6,
+        "keywords_matched": 922
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.001756
+    },
+    "timestamp": "2026-03-17T23:30:46.926940+00:00",
+    "ttl": 3600,
+    "hit_count": 8
+  },
+  "e60879e4fe18256803d8c852fdb9176f73dc1fe4fa74f1bfbe3d5b7600238796": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for seed_gotchas.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.4e-05
+    },
+    "timestamp": "2026-03-19T02:58:13.481468+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "840488722ca3dc2c9a57c5b2694d6bc4c31a6f3a436ca73dec17760a7fd7dcc3": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for analyze_edit_errors.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 4.9e-05
+    },
+    "timestamp": "2026-03-19T03:20:58.496735+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "7e247109baaeebb219c32403be77db50975789fa6f5bfacd2eb5b00f14f780d4": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 13 import suggestion(s) for analyze_edit_errors.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling"
+      ],
+      "metrics": {
+        "file_name": "analyze_edit_errors.py",
+        "suggestions_count": 13,
+        "existing_imports_count": 6,
+        "keywords_matched": 232
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000567
+    },
+    "timestamp": "2026-03-19T03:21:12.786224+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "8a2ec95bbba5cd512dd3802f3b908ca7c0aef3e979fba960968f72ac7596a4d1": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for rust_cross_audit.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.4e-05
+    },
+    "timestamp": "2026-03-19T03:43:10.013403+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "a50ee252c50358dc6f68e0ac961a1056f12f81b3db0908ce4b3b4b09d4fb3d2e": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 8 import suggestion(s) for rust_cross_audit.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows"
+      ],
+      "metrics": {
+        "file_name": "rust_cross_audit.py",
+        "suggestions_count": 8,
+        "existing_imports_count": 6,
+        "keywords_matched": 187
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000555
+    },
+    "timestamp": "2026-03-19T03:44:33.211572+00:00",
+    "ttl": 3600,
+    "hit_count": 1
+  },
+  "b8a698c5a6a70960b4b0f6315976a733b45a26079e879f5a8c05b13081e43f17": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for audit_flywheel_e2e.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.4e-05
+    },
+    "timestamp": "2026-03-19T04:34:52.950580+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "18ece8352ec254c4f63a3ade38990b6357dd7b06e31b8bee5d4f53bea5917f31": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 10 import suggestion(s) for audit_flywheel_e2e.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows"
+      ],
+      "metrics": {
+        "file_name": "audit_flywheel_e2e.py",
+        "suggestions_count": 10,
+        "existing_imports_count": 7,
+        "keywords_matched": 464
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.001295
+    },
+    "timestamp": "2026-03-19T04:35:40.884517+00:00",
+    "ttl": 3600,
+    "hit_count": 1
+  },
+  "60ce02d5e4ec97c9eb92e5700f99a5c122b36c90f924945380dbde968b081806": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for __init__.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 0.000196
+    },
+    "timestamp": "2026-03-19T04:55:29.625972+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "13c6a6b7c5fd0a4c60a65d47d8ef3539ebb247d4ecc5d5703c3220be3b9419b2": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for gotcha.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 4.8e-05
+    },
+    "timestamp": "2026-03-19T04:55:44.746027+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "4f55048e7cca6e4cb1137bbe2cf3de06e433fb99000b8b577c40245f51a2ce30": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for context.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.2e-05
+    },
+    "timestamp": "2026-03-19T04:55:49.675499+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "849b7acd4757e13200a494469b8771c3ff4d2c1fac0275b7dab301278402cc89": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for flywheel.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.6e-05
+    },
+    "timestamp": "2026-03-19T04:56:00.331555+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "f1b13efeeeec9ca9ac82f6b4aa483b8ef19e50eecb47ad1b8c62cad44c53a2ec": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 14 import suggestion(s) for touring_cli.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from pathlib import Path  # Data processing and file handling",
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation"
+      ],
+      "metrics": {
+        "file_name": "touring_cli.py",
+        "suggestions_count": 14,
+        "existing_imports_count": 4,
+        "keywords_matched": 418
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.001279
+    },
+    "timestamp": "2026-03-19T04:56:11.146799+00:00",
+    "ttl": 3600,
+    "hit_count": 3
+  },
+  "4cb131edc7651a494757ea00f385091563e8dd0a084bc90ee0b585ee6c670b55": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for cross_audit_touring_v7.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.8e-05
+    },
+    "timestamp": "2026-03-20T00:12:05.405350+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "27eea70326b81fa18d71743f76785ca733a716a62eea80af740830a6e19a0320": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for audit_s00_wiring_fix.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.4e-05
+    },
+    "timestamp": "2026-03-20T01:32:19.125393+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "656e7c272326bb210fa3c67d4548d0bcdc67af12f162b94ab8e0f40c987083a3": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 10 import suggestion(s) for audit_s00_wiring_fix.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows"
+      ],
+      "metrics": {
+        "file_name": "audit_s00_wiring_fix.py",
+        "suggestions_count": 10,
+        "existing_imports_count": 7,
+        "keywords_matched": 366
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000921
+    },
+    "timestamp": "2026-03-20T01:32:42.363881+00:00",
+    "ttl": 3600,
+    "hit_count": 2
+  },
+  "3e0a30b929a59f50a1e8c4a33a7e4b5ec05effc65614df90cb140ff39633ec04": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for audit_s0_s1_complete.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.3e-05
+    },
+    "timestamp": "2026-03-20T01:56:21.348102+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "db33a883a745d5d047e8475dc450f2f2eaac5104176702d420276930d82d952a": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 12 import suggestion(s) for audit_s0_s1_complete.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation"
+      ],
+      "metrics": {
+        "file_name": "audit_s0_s1_complete.py",
+        "suggestions_count": 12,
+        "existing_imports_count": 8,
+        "keywords_matched": 453
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.001592
+    },
+    "timestamp": "2026-03-20T01:56:50.148739+00:00",
+    "ttl": 3600,
+    "hit_count": 2
+  },
+  "f0f57a48ec617576c91c663be59253f9110e2513749b68005a3da5cfefa5c3af": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for audit_v8_final.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.3e-05
+    },
+    "timestamp": "2026-03-20T06:34:47.219852+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "35d05bb1726d1fd94f965d68666ced04831392e7d65677d4a7029adad5f31627": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 10 import suggestion(s) for audit_v8_final.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows"
+      ],
+      "metrics": {
+        "file_name": "audit_v8_final.py",
+        "suggestions_count": 10,
+        "existing_imports_count": 7,
+        "keywords_matched": 414
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.001135
+    },
+    "timestamp": "2026-03-20T06:36:12.101726+00:00",
+    "ttl": 3600,
+    "hit_count": 5
+  },
+  "390d1780969d420384dc19f5910a0c9b236a388bf5fb9fcf92b4d9ac780c04ad": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 16 import suggestion(s) for code_standards_enforcer.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from typing import Awaitable, Coroutine  # Asynchronous operations",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "import pandas as pd  # Data analysis and statistics",
+        "import numpy as np  # Data analysis and statistics",
+        "from collections import defaultdict, Counter  # Data analysis and statistics"
+      ],
+      "metrics": {
+        "file_name": "code_standards_enforcer.py",
+        "suggestions_count": 16,
+        "existing_imports_count": 16,
+        "keywords_matched": 980
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.002699
+    },
+    "timestamp": "2026-03-20T11:24:16.185303+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "78d7ae8f58aa08a8d1c872a64c9db902d11069b1c236130acf6fa62a32d79c85": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for gen_touring_v9_hooks_plan.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 5.8e-05
+    },
+    "timestamp": "2026-03-20T14:43:38.109496+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "96c10632ef52f0b52cbbd02c8741ed1c3db926d10550c7cf7df5dc993cdf1ef1": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 15 import suggestion(s) for gen_touring_v9_hooks_plan.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import asyncio  # Asynchronous operations",
+        "from typing import Awaitable, Coroutine  # Asynchronous operations",
+        "import httpx  # HTTP requests and APIs",
+        "from urllib.parse import urljoin, urlparse  # HTTP requests and APIs"
+      ],
+      "metrics": {
+        "file_name": "gen_touring_v9_hooks_plan.py",
+        "suggestions_count": 15,
+        "existing_imports_count": 11,
+        "keywords_matched": 972
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.002822
+    },
+    "timestamp": "2026-03-20T14:44:03.084516+00:00",
+    "ttl": 3600,
+    "hit_count": 9
+  },
+  "7ef43ebc2c1aa61b911ae15742ed0308cfe2935049910570da7b738683788788": {
+    "result": {
+      "status": "allow",
+      "message": "\ud83d\udca1 13 import suggestion(s) for _rl_reward_emitter.py",
+      "suggestions": [
+        "Add imports at the top of your file",
+        "Organize imports: stdlib \u2192 third-party \u2192 local",
+        "Use `isort` or `ruff` to auto-format imports",
+        "Learning system tracks common import patterns"
+      ],
+      "import_suggestions": [
+        "from datetime import datetime, timedelta  # Data processing and file handling",
+        "import re  # Data processing and file handling",
+        "from .claude.skills.antt_skill_orchestrator.scripts.learning_system import LearningSystem  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.models import ANTTTaskType, ExecutionResult  # ANTT skill orchestrator and workflows",
+        "from .claude.skills.antt_skill_orchestrator.scripts.config import CIPHER_CONFIG  # ANTT skill orchestrator and workflows",
+        "import logging  # Logging and error handling",
+        "from typing import TypeVar, Generic  # Logging and error handling",
+        "from contextlib import contextmanager  # Logging and error handling",
+        "from pydantic import BaseModel, Field, field_validator  # Pydantic models and validation",
+        "from typing import Annotated, Literal, Any  # Pydantic models and validation",
+        "import pypdf  # Document processing and analysis",
+        "import markdown  # Document processing and analysis",
+        "from bs4 import BeautifulSoup  # Document processing and analysis"
+      ],
+      "metrics": {
+        "file_name": "_rl_reward_emitter.py",
+        "suggestions_count": 13,
+        "existing_imports_count": 5,
+        "keywords_matched": 196
+      },
+      "confidence": 0.9,
+      "execution_time_seconds": 0.000399
+    },
+    "timestamp": "2026-03-21T12:22:05.349638+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "c5a9d8dea04ded81dab1e052094b277104ef4dbffae8713aee4dc0d6e9e595b0": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for __init__.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 8.2e-05
+    },
+    "timestamp": "2026-03-21T15:44:29.669213+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "00d7af08e5a8826aec5035aacde64ca8e9b463d6e264f6913ab11554420a6364": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for __init__.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.8e-05
+    },
+    "timestamp": "2026-03-21T15:44:30.463656+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  },
+  "a1947639d96df82c80d3fadffbcba6fd73ba7fa2f8be5b0b1539ea9eaca6d30f": {
+    "result": {
+      "status": "allow",
+      "message": "\u2705 No additional imports needed for test_smoke.py",
+      "suggestions": [],
+      "import_suggestions": [],
+      "metrics": {
+        "existing_imports_count": 0
+      },
+      "confidence": 1.0,
+      "execution_time_seconds": 6.5e-05
+    },
+    "timestamp": "2026-03-21T15:44:45.053942+00:00",
+    "ttl": 3600,
+    "hit_count": 0
+  }
+}

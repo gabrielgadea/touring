@@ -1,0 +1,53 @@
+{
+  "patterns": [
+    {
+      "id": "12c9bda439f2e76f",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_pipeline_accel_pln2/tests/test_s5_validators_reranker.py",
+      "operation": "modify",
+      "content_preview": "OLD:         with pytest.raises(ValueError, match=\"sum must be 1.0\"):\nNEW:         with pytest.raises(ValueError, match=r\"sum must be 1\\.0\"):",
+      "tags": [
+        "test",
+        "modify",
+        "python"
+      ],
+      "timestamp": "2026-03-17T08:13:02.605889",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "368e6e830ea56810",
+      "file_path": "/home/gabrielgadea/projects/analise/scripts/touring_pipeline_accel_pln2/tests/test_s5_validators_reranker.py",
+      "operation": "modify",
+      "content_preview": "OLD:     def test_supported_assertion_gains_confidence(self) -> None:\n        \"\"\"An assertion supported by another should gain confidence.\"\"\"\n        a1 = Assertion(\n            id=\"primary\",\n            assertion_type=AssertionType.FACTUAL_CLAIM,\n            content=\"A concessao tem prazo de 30 ano",
+      "tags": [
+        "test",
+        "function",
+        "python",
+        "modify"
+      ],
+      "timestamp": "2026-03-17T08:14:05.616455",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    },
+    {
+      "id": "23fd5ebc0fd4d1f7",
+      "file_path": "/home/gabrielgadea/projects/analise/packages/kazuba-geo-engine/tests/__init__.py",
+      "operation": "create",
+      "content_preview": "",
+      "tags": [
+        "test",
+        "create",
+        "python"
+      ],
+      "timestamp": "2026-03-21T12:44:32.964652",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-21T12:44:35.228693",
+    "total_patterns": 3,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "test"
+  }
+}

@@ -1,0 +1,17 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: int-2-cross-audit
+slug: int-2-cross-audit
+intent: INT-2 cross-audit completion
+role: scriber
+task_id: ""
+timestamp: "2026-05-06T05:33:13-03:00"
+session_id: 765eb8be-ea0d-4e90-9d79-a948b3573f20
+content:
+  lines: 0
+  bytes: 0
+  sections: []
+  source_md: ""
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02

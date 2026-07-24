@@ -1,0 +1,17 @@
+[package]
+name = "holon-quality-gate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "THSF Fase 4 — `quality-gate` capability: counts common anti-patterns (unwrap, panic, todo, unimplemented) in a source string; returns density score."
+
+[lib]
+name = "holon_quality_gate"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wit-bindgen = { workspace = true }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }

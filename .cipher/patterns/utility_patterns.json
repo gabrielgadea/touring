@@ -1,0 +1,25 @@
+{
+  "patterns": [
+    {
+      "id": "b04405b9307db9b6",
+      "file_path": "/home/gabrielgadea/projects/analise/.claude/touring/agent-harness/cli_anything/touring/utils/touring_backend.py",
+      "operation": "modify",
+      "content_preview": "OLD:     project_dir = os.environ.get(\"CLAUDE_PROJECT_DIR\", \"\")\n    if project_dir:\n        release_path = os.path.join(project_dir, \".claude\", \"touring\", \"target\", \"release\", \"touring\")\n        if os.path.isfile(release_path) and os.access(release_path, os.X_OK):\n            return release_path\n\n  ",
+      "tags": [
+        "utility",
+        "modify",
+        "claude-config",
+        "python"
+      ],
+      "timestamp": "2026-03-15T14:46:15.712346",
+      "confidence": 0.95,
+      "quality_score": 0.95
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-03-15T14:46:18.365866",
+    "total_patterns": 1,
+    "storage_type": "local_cipher_compatible",
+    "primary_tag": "utility"
+  }
+}
