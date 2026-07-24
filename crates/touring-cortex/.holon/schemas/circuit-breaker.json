@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-circuit-breaker.schema.json",
+  "title": "Capability: circuit-breaker",
+  "description": "Post-tool-failure circuit breaker",
+  "type": "object",
+  "additionalProperties": true
+}

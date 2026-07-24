@@ -1,0 +1,10 @@
+/home/gabrielgadea/.claude/hooks/touring-quality-block-all.sh
+/home/gabrielgadea/.claude/hooks/touring-quality-f2-5-block.sh
+/home/gabrielgadea/.claude/rust/crates/touring-ceg/Cargo.toml
+/home/gabrielgadea/.claude/rust/crates/touring-cortex/Cargo.toml
+/home/gabrielgadea/.claude/rust/crates/touring-lsp/Cargo.toml
+/home/gabrielgadea/.claude/rust/crates/touring-server/Cargo.toml
+/home/gabrielgadea/.claude/rust/docs/elite_aggregate.py
+/home/gabrielgadea/.claude/settings.json
+/home/gabrielgadea/.claude/skills/Touring/scripts/harness_gate.py
+/home/gabrielgadea/.claude/skills/Touring/scripts/lib_touring.py

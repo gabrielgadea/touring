@@ -1,0 +1,17 @@
+{
+  "script": "w4_consumer_migrate",
+  "wave": "W4",
+  "subtask_refs": [
+    "W4.8"
+  ],
+  "timestamp": "2026-05-12T00:17:06.851937+00:00",
+  "apply": false,
+  "narrow_crate": "",
+  "script_path": "scripts/touring_premium_refactor_2026/staging/w4-migration-script.sh",
+  "totals": {
+    "source_crates": 4,
+    "applied": 0,
+    "errors": 0
+  },
+  "status": "OK"
+}

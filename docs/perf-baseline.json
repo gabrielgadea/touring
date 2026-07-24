@@ -1,0 +1,25 @@
+{
+  "schema": "perf-baseline-v1",
+  "date": "2026-05-03",
+  "unit": "ms per iteration (lower is better)",
+  "benches": {
+    "throughput": {
+      "parse_ast/rust":     1365,
+      "parse_ast/typescript": 944,
+      "parse_ast/python":   1188,
+      "extract_symbols/rust": 1100,
+      "extract_symbols/typescript": 800,
+      "extract_symbols/python": 950,
+      "quality_metrics/rust": 950,
+      "quality_metrics/typescript": 700,
+      "quality_metrics/python": 820
+    },
+    "incremental_update": {
+      "incremental_py_ms": null
+    }
+  },
+  "ci_gate": {
+    "throughput_regression_pct": 10,
+    "incremental_regression_pct": 10
+  }
+}

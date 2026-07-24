@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-quality-gate.schema.json",
+  "title": "Capability: quality-gate",
+  "description": "Composite pre-edit quality gate",
+  "type": "object",
+  "additionalProperties": true
+}

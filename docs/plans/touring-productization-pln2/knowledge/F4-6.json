@@ -1,0 +1,11 @@
+{
+  "phase": "F4-6",
+  "entities": [
+    {
+      "entity_id": "phase:F4-6",
+      "type": "phase",
+      "description": "F4' move-first COMPLETA: fonte can\u00f4nica em ~/projects/touring (rsync 5,9G/42 crates; build frio 9m01s exit 0; cutover symlinks+daemon; co-evolu\u00e7\u00e3o 93 configs com backup; index 252k s\u00edmbolos paths relativos; validate_phase4.sh 8/8 PASS; e2e 0.8749 PASS do novo root; ~/.claude/rust congelado com FROZEN-2026-07-24.md). Gotchas novos: daemon-ctl status imprime em stderr; grep -q+pipefail=SIGPIPE 141 em traces; testes plan_scope feature-gated (pre-hooks). Gap para F1: PID file can\u00f4nico vazio (daemon-ctl como fonte)."
+    }
+  ],
+  "relations": []
+}

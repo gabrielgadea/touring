@@ -1,0 +1,5 @@
+id: rust:panic-in-prod
+language: rust
+pattern: panic!($$$X)
+message: "panic!() in production code halts the program. Prefer Result/Error."
+severity: warning

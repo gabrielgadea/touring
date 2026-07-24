@@ -1,0 +1,11 @@
+{
+  "phase": "F5",
+  "entities": [
+    {
+      "entity_id": "phase:F5",
+      "type": "phase",
+      "description": "F5 (distribui\u00e7\u00e3o & versionamento) COMPLETA na metade n\u00e3o-git: (5.2) install.touring.dev.sh ATIVADO \u2014 de skeleton exit-2 para instalador funcional rustup-like: 3 fontes (release channel/--from-url/--from-tarball offline), sha256 OBRIGAT\u00d3RIO no canal de release + autom\u00e1tico quando .sha256 existe, cosign/sigstore quando bundle publicado (warn pre-GA), extract no layout toolchain bin/, default channel, PATH opt-in, fail-closed em tamper/bogus/latest-sem-vers\u00e3o; (F5-layout fix) release.yml CI empacota bin/ (era flat \u2014 incompat\u00edvel com toolchain install; zero releases publicados = zero compat) + smoke path; package_release.sh local = artefato CI-id\u00eantico do target/release; (5.1) staged release-plz.yml + docs-rs-mirror.yml validados YAML + PROMOTION-README \u2014 prontos p/ promo\u00e7\u00e3o git; sigstore J\u00c1 ATIVO no release.yml (cosign keyless id-token, mais adiantado que o plano registrava); (REGRA #21) cargo deny advisories RED no gate \u2192 remedia\u00e7\u00e3o REAL: crossbeam-epoch 0.9.18\u21920.9.20 (RUSTSEC-2026-0204) + spin 0.9.8\u21920.9.9 e 0.10.0\u21920.10.1 (yanked) \u2192 advisories ok; validate_phase5.sh 10/10 ALL PASS; deploy final exit 0 + toolchain 30.3.0 reinstalada + konverter propagado via touring update (dogfooding da cadeia completa). GIT BOUNDARY (Gabriel): promover staged workflows, tag SemVer + CHANGELOG release-plz, publicar artefatos + DNS install.touring.dev. ASK: ativa\u00e7\u00e3o comercial touring-license (5.3). Homebrew/Scoop aguardam URLs reais do pipeline (declarado)."
+    }
+  ],
+  "relations": []
+}

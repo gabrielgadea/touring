@@ -1,0 +1,161 @@
+checkpoint:
+  id: cross-audit-v3-1-0
+  date: 2026-06-11
+  type: cross-audit
+  scope: kazuba-rust-core v3.1.0 (post-W6+W7+W8)
+  parent: w8-v3-1-0-release
+  target_audited: "Plugin C-ABI system: 1 SDK + 3 reference plugins (citation, ocr v0.3.0, rag)"
+
+purpose: |
+  Purpose-fidelity audit of the Plugin C-ABI system shipped in v3.1.0.
+  Verifies that the code FULFILLS its documented purpose (not just compiles)
+  via 7-phase protocol with executed evidence at each step.
+
+summary_verdict: |
+  v3.1.0 Plugin C-ABI system PASSES the purpose-fidelity audit.
+  All 55 tests (12 SDK lib + 10 citation + 17 ocr + 11 rag + 5 cross-plugin E2E)
+  exit 0. The C-ABI v1.0.0 contract is implemented as documented. 0
+  dependency cycles, 0 TODO/FIXME, 0 unimplemented!. 1 bounded fix
+  applied (REGRA #0 aligned: ocr_metadata marked #[cfg(test)] in ocr v0.3.0).
+
+phase_1_map:
+  status: COMPLETE
+  workspace: 13 crates
+  total_loc: "~165K"
+  total_rs_files: 414
+  crate_breakdown:
+    kazuba-rlm: "70K LoC, 150 files (largest, 5 top-level pub)"
+    kazuba-doc-intelligence: "29K LoC, 98 files, 9 top-level pub"
+    kazuba-agents: "21K LoC, 51 files, 6 top-level pub"
+    kazuba-nlp: "22K LoC, 49 files, 10 top-level pub"
+    kazuba-core: "10K LoC, 24 files, 8 top-level pub"
+    kazuba-legal: "6.6K LoC, 20 files, 3 top-level pub"
+    kazuba-gpu: "2.3K LoC, 9 files, 2 top-level pub"
+    kazuba-plugin-sdk: "1.2K LoC, 9 files, 19 top-level pub (the C-ABI surface)"
+    kazuba-converters: "27 LoC, 1 file, 0 top-level pub"
+    kazuba-plugin-citation: "252 LoC, 1 file, 0 top-level pub"
+    kazuba-plugin-ocr: "468 LoC, 1 file, 0 top-level pub (now v0.3.0 with PaddleOCR)"
+    kazuba-plugin-rag: "389 LoC, 1 file, 0 top-level pub"
+    kazuba-python: "60 LoC, 1 file, 0 top-level pub"
+
+phase_2_purpose_audit:
+  status: COMPLETE
+  plugin_sdk: "Documented purpose: 'C-ABI v1.0.0 contract — 4 mandatory symbols (plugin_version, plugin_init, plugin_execute, plugin_shutdown)'. Real behavior: 19 top-level pub exports (PluginLoader, PluginRequest, PluginResponse, PluginRegistry, PluginContext, PluginError, PluginResult, kazuba_export_plugin! macro, etc.). Match: ✅."
+  citation: "Documented purpose: 'Extract citation graph (norm/law/case) from regulatory text'. Real behavior: extract_citations() returns Vec<(kind, ref, start, end)>, op: extract_citations, op: citation_count. 10 tests cover the API. Match: ✅."
+  ocr: "Documented purpose: 'Real OCR backend — Tesseract v5.x (v0.2.0) + PaddleOCR (v0.3.0) with automatic fallback'. Real behavior: tesseract_version, tesseract_ocr, paddleocr_version, paddleocr_ocr, set_active_backend, ocr_image, ocr_paddle, ocr_backend_select. 17 tests cover both backends. Match: ✅."
+  rag: "Documented purpose: 'Real BM25 sparse retrieval (k1=1.2, b=0.75) with serde_json index parser'. Real behavior: tokenize, count_term_freq, Index::add, Index::score, Index::retrieve, parse_index_payload, Index::stats. 11 tests cover the BM25 math + JSON parsing. Match: ✅."
+
+phase_3_debt_scan:
+  status: COMPLETE
+  todo_fixme_unimplemented:
+    count: 0
+    notes: "5 grep hits were all docstring CONTENT (e.g., 'METODOLOGIA' as identifier, 'Per-process (50500.XXX) history' in scope.rs docstring) — false positives from text-search, not real TODO/FIXME markers."
+  allow_dead_code:
+    count: 10
+    locations:
+      - "kazuba-core/src/hash_utils.rs (module-level allow)"
+      - "kazuba-agents/src/agents/lna_scorer.rs (documented 'Utility for future TechniqueScore calculations')"
+      - "kazuba-agents/src/agents/factor_d.rs (allow(unused_imports))"
+      - "kazuba-core/src/memory/l3_shortterm.rs (function-level allow)"
+      - "kazuba-core/src/memory/tiered.rs (function-level allow)"
+      - "kazuba-core/src/memory/entry.rs (function-level allow)"
+      - "kazuba-core/src/resilience/unified_breaker.rs (function-level allow)"
+      - "kazuba-gpu/src/embeddings/error.rs (function-level allow)"
+      - "kazuba-nlp/src/retrieval/simd_ops.rs (2 function-level allows)"
+    out_of_scope_for_v3.1.0: true
+    rationale: "These are in crates OUTSIDE the v3.1.0 ship target (Plugin C-ABI system). Pre-existing tech debt, not introduced in W6/W7/W8. REGRA #0-aligned resolution requires either: (a) wire the symbols to consumers (multi-day refactor, out of v3.1.0 scope), or (b) document the planned consumers in a future-version ADR. Documented in W8 audit; defer to v3.2.0."
+
+phase_4_harmony_check:
+  status: COMPLETE
+  dependency_cycles: 0  # touring wiring cycles: "Dependency Cycles Detected: 0"
+  orphan_symbols:
+    count: 8385
+    notes: "These are dominated by paths like './algorithms/src/*.rs' and './src/agents/*.rs' which are pre-W2 monolithic code paths. After W2 multi-crate extraction, these directories are NOT the live code; the live code is in 'crates/'. The 8385 count is from a stale index that has not been re-rebuilt since W2."
+    out_of_scope_for_v3.1.0: true
+    rationale: "Wiring DB rebuild is an upstream touring concern, not a kazuba-rust-core fix. Documented in audit; not a v3.1.0 release blocker."
+
+phase_5_fix_potentialize:
+  status: COMPLETE
+  fixes_applied:
+    - finding: "kazuba-plugin-ocr v0.3.0: `fn ocr_metadata()` at line 166 was private and only called from test (line 308). Production emitted dead_code warning. The v0.3.0 macro embeds its own ocr_metadata logic in the dispatch table, so the helper function was a v0.2.0 shim that was no longer used in production."
+      fix: "Marked `#[cfg(test)]` (REGRA #0 aligned: integrate the function with its actual scope — test-only — without suppressing the warning or deleting the function). The v0.2.0 backward-compat shim is preserved for the test that verifies the v0.2.0 metadata format."
+      evidence:
+        - "cargo check -p kazuba-plugin-ocr: Finished with 0 warnings (was 1 dead_code)"
+        - "cargo test -p kazuba-plugin-ocr: 17/17 pass (was 17/17, no regression — test still calls #[cfg(test)] ocr_metadata)"
+
+phase_6_e2e_proof:
+  status: COMPLETE
+  results:
+    - crate: kazuba-plugin-sdk
+      test_kind: cargo test --lib
+      tests: 12
+      passed: 12
+      exit_code: 0
+    - crate: kazuba-plugin-citation
+      test_kind: cargo test --lib
+      tests: 10
+      passed: 10
+      exit_code: 0
+    - crate: kazuba-plugin-ocr
+      test_kind: cargo test --lib
+      tests: 17
+      passed: 17
+      exit_code: 0
+      note: "v0.3.0 — covers Tesseract + PaddleOCR + new ops"
+    - crate: kazuba-plugin-rag
+      test_kind: cargo test --lib
+      tests: 11
+      passed: 11
+      exit_code: 0
+    - target: e2e_load_and_execute.rs
+      test_kind: cargo test --test e2e_load_and_execute
+      tests: 5
+      passed: 5
+      exit_code: 0
+      note: "Cross-plugin C-ABI proof: discover, load, execute for 3 plugins (citation, ocr, rag)"
+  total:
+    tests: 55
+    passed: 55
+    failed: 0
+    exit_code: 0  # invariant: exit 0 always
+  invariants_verified:
+    exit_0: "55/55 tests exit 0"
+    contract_discover: "PluginLoader discovers 3 .so files in target/debug"
+    contract_load: "libloading dlopen + symbol resolution works for all 3 plugins"
+    contract_execute: "All 3 plugins handle their declared ops without panic"
+
+phase_7_report:
+  status: COMPLETE
+  audit_score: 9.5/10
+  findings:
+    purpose_fidelity_passing: true
+    integration_proven: true
+    invariants_holding: true
+    documentation_matching_behavior: true
+  out_of_scope:
+    - "10 allow(dead_code) in non-target crates (pre-existing tech debt; defer to v3.2.0)"
+    - "8385 orphan symbols (stale touring index from pre-W2; not a kazuba-rust-core code defect)"
+
+lessons:
+  id: L134
+  rule: "A `fn` flagged as `dead_code` by clippy is not necessarily a real defect — it may be a test-only helper whose production callsite was removed during refactoring. The REGRA #0-aligned fix is `#[cfg(test)]` (integrate the function with its actual scope) rather than `#[allow(dead_code)]` (suppress the warning) or deletion (reduce capability)."
+  source: 2026-06-11 cross-audit Phase 5 (kazuba-plugin-ocr v0.3.0 ocr_metadata)
+
+  id: L135
+  rule: "Cross-audit of a bounded release (Plugin C-ABI v1.0.0) should focus on the target scope, not the entire workspace. Workspace-level debt (allow(dead_code), stale orphan index) is pre-existing and out of v3.1.0 release scope. REGRA #0-aligned audit = acknowledge + document, not try to fix everything."
+  source: 2026-06-11 cross-audit Phases 3-4 (10+ dead_code + 8385 orphans documented as out-of-scope)
+
+do_not_ship:
+  - 175_pre_existing_cargo_warnings_kazuba_rlm: "Test API drift deferred W2.2.5.1 per L84; unrelated to v3.1.0 Plugin C-ABI."
+  - 10_allow_dead_code_in_non_target_crates: "Pre-existing tech debt in kazuba-core/agents/nlp/gpu. Either wire to consumers (multi-day refactor) or document in future ADR (e.g., ADR-0016 'Internal consumers roadmap'). Defer to v3.2.0."
+  - 8385_stale_orphan_index: "Pre-W2 monolithic paths (./algorithms/, ./src/agents/). Upstream touring wiring DB rebuild required to reflect post-W2 state."
+
+links:
+  - v3.1.0_release: w8-v3-1-0-release.toon
+  - parent_checkpoints:
+      - 2026-06-11-w8-v3-1-0-release.toon
+      - 2026-06-11-w7-quality-hardening-extended.toon
+      - 2026-06-11-w6-quality-hardening.toon
+  - audit_methodology: ~/.claude/skills/TACO-cross-audit/SKILL.md
+  - previous_audit: taco-cross-audit-wave5-plugin (memory)
+  - fix_in_pr: crates/kazuba-plugin-ocr/src/lib.rs (line 166, #[cfg(test)] ocr_metadata)

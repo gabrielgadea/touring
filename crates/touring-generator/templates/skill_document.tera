@@ -1,0 +1,15 @@
+# {{ skill_name | default(value="skill") }} — SKILL.md
+
+> **Version**: {{ version | default(value="1.0.0") }} | **Domain**: {{ domain | default(value="") }}
+
+## Purpose
+
+{{ purpose | default(value="TODO") }}
+
+## Usage
+
+{{ usage | default(value="TODO") }}
+
+## Examples
+
+{{ examples | default(value="TODO") }}

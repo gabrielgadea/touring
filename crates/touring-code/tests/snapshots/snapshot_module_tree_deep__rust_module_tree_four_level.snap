@@ -1,0 +1,44 @@
+---
+source: crates/touring-ast/tests/snapshot_module_tree_deep.rs
+expression: flat
+---
+- - 0
+  - lib.rs
+  - true
+  - - "layer1::Renamed as TopLevel"
+    - "layer1::layer2::layer3::Deep"
+    - "layer2::Renamed"
+    - "layer3::Deep as Renamed"
+    - "super::super::helper::HelperTrait"
+- - 1
+  - helper
+  - false
+  - []
+- - 1
+  - layer1
+  - true
+  - []
+- - 2
+  - layer2
+  - true
+  - []
+- - 3
+  - layer3
+  - true
+  - []
+- - 2
+  - layer3
+  - true
+  - []
+- - 1
+  - layer2
+  - true
+  - []
+- - 2
+  - layer3
+  - true
+  - []
+- - 1
+  - layer3
+  - true
+  - []

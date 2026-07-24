@@ -1,0 +1,18 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: taco-integration-session-2026-05-03-final
+slug: taco-integration-session-2026-05-03-final
+intent: Final consolidation of complete TACO integration wave sequence
+role: orchestrator
+task_id: session-2026-05-03
+timestamp: "2026-05-03T18:33:58-03:00"
+session_id: 1bd74187-499f-4d6d-8fb3-e52981254160
+content:
+  lines: 43
+  bytes: 2184
+  sections[6]: 1. Context,2. Deliverables (10 components),3. Empirical Validation,4. Persistência,"5. REGRA #14 Enforcement Triplé",6. Outcome
+  source_md: embedded_below
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02
+body: "# TACO Integration Wave Sequence — Sessão 2026-05-03 Consolidation\n\n## 1. Context\nSingle-session deployment of complete TACO (Touring Agentic Code Orchestration) integration with Claude Code, including E1/E3/E6 enforcement triplé, Wave A (zero-code wiring), Wave B.1 (async migration), Wave C (3 new Rust handlers), checkpoint.sh workflow, /plan + /checkpoint slash commands, dual-pathway plan-detector, and full cross-audit Phase 6.\n\n## 2. Deliverables (10 components)\n1. plan-detector.sh (E1, dual-pathway)\n2. /plan slash command (E3)\n3. /checkpoint slash command (E3')\n4. checkpoint.sh workflow (TOON v1.0)\n5. settings.json (25 hook events + permission-request + plan-detector)\n6. post_tool_batch.rs (Wave C/1, 259 LOC, 9 tests)\n7. permission_request.rs (Wave C/2, ~200 LOC, 17 tests)\n8. lifecycle.rs WorktreeEnterHandler::execute (Wave C/3, +117 LOC, 5 tests)\n9. CLAUDE.md refactor (713→378 lines, REGRA #16 added)\n10. 12 cross-audit scripts + lib helpers\n\n## 3. Empirical Validation\n- composite_health_score: 0.5505 → 0.7136 (+29%)\n- 31 new Rust tests pass (9+17+5)\n- 243/243 audit assertions PASS\n- 7/7 E2E test cases PASS\n- Wiring orphan delta: 0 (Wave C/1 -133 surplus)\n- ZERO allow(unused/dead_code) in deliverables\n- ZERO TODO/FIXME in deliverables\n- Pyright: 0 errors, 0 warnings\n- PostToolBatch hook FIRING confirmed in runtime (\"batch of 2 tools (Edit, Edit)\")\n\n## 4. Persistência\n- 13 Touring memory lessons stored (--tier semantic)\n- 16+ RL rewards injected (orchestrate +1.0)\n- 1 Touring gotcha registered (id 324)\n- 4 plans gerados via taco-forge (waves A/B/C/D)\n- 1 .toon checkpoint report (cross-audit master)\n\n## 5. REGRA #14 Enforcement Triplé\n- E1 plan-detector: blocks Write of plan/audit content (dual-pathway routing)\n- E3 /plan: prospective plans → taco-forge plan\n- E3' /checkpoint: retrospective reports → taco-forge checkpoint.sh → .toon\n- E6 gotcha: pattern preventive warnings\n\n## 6. Outcome\nTACO condition genuine — Claude Code now operates with Touring as nervous system. Hook coverage 47% expanded, async hooks 200% increased, plan generation 100% routed via canonical agentic pipeline, audit cross-cutting infrastructure complete.\n"

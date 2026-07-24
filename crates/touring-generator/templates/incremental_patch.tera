@@ -1,0 +1,8 @@
+--- a/{{ file_path | default(value="src/lib.rs") }}
++++ b/{{ file_path | default(value="src/lib.rs") }}
+@@ -{{ hunk_start | default(value=1) }},{{ hunk_lines | default(value=0) }} +{{ hunk_start | default(value=1) }},{{ new_lines | default(value=0) }} @@
+{% if patch_lines is defined %}
+{% for line in patch_lines %}
+{{ line | default(value="") }}
+{% endfor %}
+{% endif %}

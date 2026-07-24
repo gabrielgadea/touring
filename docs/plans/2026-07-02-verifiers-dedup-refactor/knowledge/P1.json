@@ -1,0 +1,97 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "P1 census+design DONE. Baseline: quality 0.9512 Silver, blocker F1_3, 51 files. Census cross-file: write_temp em ~48 files, DimScore tail em 50, from_score(value) em 50, strip_rust_comments_and_strings copia-propria em 2 (f4_3=f1_8 byte-identico). Design PROVADO seguro (VGP): (1) source_scan.rs novo <- move strip_rust_comments_and_strings; (2) fn finish(id,value,evidence,target)->DimScore unificado em mod.rs, com check-sentinel evidence_marks_not_applicable => comportamento-identico aos 50 (so 6 files produzem [N/A]: f4_5/f2_5 literal + 4 conditional via absent_artifact_score; os 44 nunca disparam sentinel; f3_10/f3_13/f4_7 usam classes universais sem [N/A]); (3) testkit.rs #[cfg(test)] novo <- move write_temp/write_temp_ext. Call-site: Ok(finish(self.id(),value,evidence,target)). Ordem exec: P2 source_scan (2 files) -> P3 finish (50 tails) -> P4 testkit (~48 test mods) -> P5 converge."
+    },
+    {
+      "entity_id": "module:source_scan",
+      "type": "module",
+      "description": "new verifications/source_scan.rs holding the byte-identical strip_rust_comments_and_strings shared by f4_3 and f1_8"
+    },
+    {
+      "entity_id": "function:finish",
+      "type": "function",
+      "description": "unified DimScore tail helper in mod.rs; sentinel-N/A aware; proven behavior-preserving across all 50 verifiers"
+    },
+    {
+      "entity_id": "module:testkit",
+      "type": "module",
+      "description": "new #[cfg(test)] verifications/testkit.rs holding write_temp/write_temp_ext shared by ~48 test modules"
+    },
+    {
+      "entity_id": "dimension:F1_3_duplication",
+      "type": "dimension",
+      "description": "the Fail dim the refactor targets (Silver cap)"
+    },
+    {
+      "entity_id": "decision:behavior_preserving_proof",
+      "type": "decision",
+      "description": "census proved only 6 files touch the [N/A] sentinel; the 44 never produce it, so unified finish is identical for all 50"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P1|produces|module:source_scan",
+      "source": "phase:P1",
+      "type": "produces",
+      "target": "module:source_scan"
+    },
+    {
+      "relation_id": "phase:P1|produces|function:finish",
+      "source": "phase:P1",
+      "type": "produces",
+      "target": "function:finish"
+    },
+    {
+      "relation_id": "phase:P1|produces|module:testkit",
+      "source": "phase:P1",
+      "type": "produces",
+      "target": "module:testkit"
+    },
+    {
+      "relation_id": "phase:P1|produces|dimension:F1_3_duplication",
+      "source": "phase:P1",
+      "type": "produces",
+      "target": "dimension:F1_3_duplication"
+    },
+    {
+      "relation_id": "phase:P1|produces|decision:behavior_preserving_proof",
+      "source": "phase:P1",
+      "type": "produces",
+      "target": "decision:behavior_preserving_proof"
+    },
+    {
+      "relation_id": "phase:P1|designs|module:source_scan",
+      "source": "phase:P1",
+      "type": "designs",
+      "target": "module:source_scan"
+    },
+    {
+      "relation_id": "phase:P1|designs|function:finish",
+      "source": "phase:P1",
+      "type": "designs",
+      "target": "function:finish"
+    },
+    {
+      "relation_id": "phase:P1|designs|module:testkit",
+      "source": "phase:P1",
+      "type": "designs",
+      "target": "module:testkit"
+    },
+    {
+      "relation_id": "function:finish|reduces|dimension:F1_3_duplication",
+      "source": "function:finish",
+      "type": "reduces",
+      "target": "dimension:F1_3_duplication"
+    },
+    {
+      "relation_id": "decision:behavior_preserving_proof|justifies|function:finish",
+      "source": "decision:behavior_preserving_proof",
+      "type": "justifies",
+      "target": "function:finish"
+    }
+  ]
+}

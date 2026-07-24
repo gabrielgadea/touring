@@ -1,0 +1,36 @@
+# AUTO-GENERATED skeleton — touring-storage Cargo.toml
+# Generated: 2026-05-11T23:50:24.799075+00:00
+# W5.1 — Storage layer (Layer 2). Refine after W2.
+
+[package]
+name = "touring-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+touring-foundation = { workspace = true }
+rusqlite = { workspace = true, features = ["bundled"] }
+tantivy = { workspace = true }
+rkyv = { workspace = true, features = ["validation"] }
+moka = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+blake3 = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+pretty_assertions = { workspace = true }
+tracing-test = { workspace = true }
+
+[lints]
+workspace = true
+
+[features]
+default = ["sqlite", "tantivy", "rkyv"]
+sqlite = []
+tantivy = []
+rkyv = []

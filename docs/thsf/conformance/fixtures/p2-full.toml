@@ -1,0 +1,31 @@
+# RFC-001 fixture: P2 full participant with mixed adapters + requires.
+# MUST parse OK; every offer and require satisfies the schema.
+
+[holon.identity]
+name = "p2-full-holon"
+version = "1.5.2"
+description = "Mixed adapters, multiple requires, mediator block."
+autonomy_guarantee = true
+
+[holon.offers.monte-carlo-stochastic]
+schema = "schemas/monte-carlo.json"
+adapter = "cli"
+adapter_cmd = "bin/monte-carlo"
+
+[holon.offers.evtea-solve]
+schema = "schemas/evtea.json"
+adapter = "capnp"
+capnp_socket = "$XDG_RUNTIME_DIR/holon/evtea.sock"
+version = "1.0.0"
+
+[holon.requires.symbol-index]
+optional = true
+fallback = "native"
+min_version = "30.0.0"
+
+[holon.requires.quality-gate]
+optional = true
+min_version = "1.0.0"
+
+[holon.mediator]
+observability = "otlp"

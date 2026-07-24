@@ -1,0 +1,49 @@
+{
+  "_comment": "W14.8 partial (2026-05-23) — Scoop manifest SKELETON for touring (Windows). Status: SKELETON. url/hash placeholders; activated by W13.6 release-plz publish step + Gabriel creating a Scoop bucket at github.com/<org>/scoop-bucket. NOTE: per W12 spec Windows is W14 territory, so this manifest lives here for future activation when a Windows binary is in the release matrix (currently only Linux + macOS).",
+  "version": "30.3.0",
+  "description": "Code intelligence binary (Touring premium refactor 2026)",
+  "homepage": "https://touring.dev",
+  "license": "Apache-2.0 OR MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://releases.touring.dev/30.0.0/touring-x86_64-pc-windows-msvc.zip",
+      "hash": "PLACEHOLDER_REPLACED_BY_RELEASE_PIPELINE",
+      "extract_dir": "touring-x86_64-pc-windows-msvc"
+    },
+    "arm64": {
+      "url": "https://releases.touring.dev/30.0.0/touring-aarch64-pc-windows-msvc.zip",
+      "hash": "PLACEHOLDER_REPLACED_BY_RELEASE_PIPELINE",
+      "extract_dir": "touring-aarch64-pc-windows-msvc"
+    }
+  },
+  "bin": [
+    "touring.exe",
+    "touring-hook.exe",
+    "touring-daemon.exe"
+  ],
+  "checkver": {
+    "github": "https://github.com/anthropics/touring"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://releases.touring.dev/$version/touring-x86_64-pc-windows-msvc.zip",
+        "extract_dir": "touring-x86_64-pc-windows-msvc"
+      },
+      "arm64": {
+        "url": "https://releases.touring.dev/$version/touring-aarch64-pc-windows-msvc.zip",
+        "extract_dir": "touring-aarch64-pc-windows-msvc"
+      }
+    },
+    "hash": {
+      "url": "$url.sha256"
+    }
+  },
+  "notes": [
+    "Touring follows the rustup per-project pattern. To get started:",
+    "  touring toolchain init",
+    "  cd C:\\projects\\myproject",
+    "  touring init-project",
+    "Full guide: https://touring.dev/getting-started"
+  ]
+}

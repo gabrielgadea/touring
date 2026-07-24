@@ -1,0 +1,18 @@
+# AUTO-GENERATED skeleton (v4) — touring-hooks-cli
+# Generated: 2026-05-12T00:15:11.402513+00:00
+
+[package]
+name = "touring-hooks-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+touring-hooks-core = { workspace = true }
+touring-hooks-lifecycle = { workspace = true }
+touring-hooks-prediction = { workspace = true }
+touring-hooks-shared = { workspace = true }
+touring-hooks-tools = { workspace = true }
+
+[lints]
+workspace = true

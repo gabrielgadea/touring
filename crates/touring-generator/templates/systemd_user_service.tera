@@ -1,0 +1,61 @@
+[Unit]
+Description={{ description | default(value="Touring daemon service.") }}
+Documentation=file://%h/.claude/rust/crates/{{ service_name | default(value="my-service") }}/src/lib.rs
+{% if after_services is defined %}{% for svc in after_services %}
+After={{ svc }}
+{% endfor %}{% else %}
+After=default.target
+{% endif %}{% if wants_services is defined %}{% for svc in wants_services %}
+Wants={{ svc }}
+{% endfor %}{% elif after_services is defined %}{% for svc in after_services %}
+Wants={{ svc }}
+{% endfor %}{% endif %}
+# Rate-limit: belongs to [Unit] per systemd 230+. Was in [Service] (warning).
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+# Type=simple — no sd_notify required.
+Type=simple
+
+ExecStart={{ binary_path | default(value="%h/.claude/rust/target/release/my-service") }}
+
+# Restart policy: backoff on failure (rate-limit in [Unit] above).
+Restart=on-failure
+RestartSec=3
+
+# Resource limits — daemon should never grow large.
+MemoryMax={{ memory_max | default(value="200M") }}
+TasksMax={{ tasks_max | default(value="32") }}
+
+# Environment — log level + Tokio runtime size.
+Environment="RUST_LOG={{ rust_log | default(value="info") }}"
+Environment="TOKIO_WORKER_THREADS={{ tokio_workers | default(value="1") }}"
+
+# Hardening — minimal privileges.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+PrivateTmp=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+
+# Allow writes to specified paths.
+{% if read_write_paths is defined %}{% for p in read_write_paths %}
+ReadWritePaths={{ p }}
+{% endfor %}{% else %}
+ReadWritePaths=%h/.claude/touring
+{% endif %}
+
+# Standard output to journal.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

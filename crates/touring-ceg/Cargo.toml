@@ -1,0 +1,49 @@
+[package]
+name = "touring-ceg"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Code Execution Gateway — X0..X9 typestate pipeline + capability model (extracted from touring-hooks 2026-06-10)"
+
+[lib]
+name = "touring_ceg"
+path = "src/lib.rs"
+
+[features]
+default = []
+# Forwarded by touring-hooks (default-on there): gates the ExecPool txn-permit
+# defense-in-depth path (28 cfg sites across gateway/). An empty marker feature —
+# no extra deps.
+txn_lock_enforcement = []
+
+[dependencies]
+# Leaf-internal stack (the Session A/B inversion targets)
+touring-contracts = { path = "../touring-contracts" }
+touring-foundation = { path = "../touring-foundation" } # outcome_learner: TouringConfig::world_model_canonical
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-offensive = { path = "../touring-offensive" }
+touring-code = { path = "../touring-code" }
+touring-quality = { path = "../touring-quality" }  # W5 close 2026-06-26: harness_extension migrated to canonical home
+# CEG X7 DECISION extension now uses touring_quality::run_harness (canonical home
+# post W5 migration 2026-06-26).
+# External (all workspace-inherited; declared exactly as touring-hooks did)
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+regex = { workspace = true } # T-09: token-format secret redaction in redact_secrets
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+moka = { workspace = true }
+blake3 = { workspace = true }
+rustix = { version = "1", features = ["process"] }
+landlock = "0.4"
+tempfile = { workspace = true } # production dep: sandbox_executor tee dirs (not just tests)
+
+[dev-dependencies]
+serial_test = { workspace = true }
+pretty_assertions.workspace = true
+
+[lints]
+workspace = true

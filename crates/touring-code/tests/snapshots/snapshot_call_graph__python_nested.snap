@@ -1,0 +1,16 @@
+---
+source: crates/touring-ast/tests/snapshot_call_graph.rs
+expression: normalize(&graph)
+---
+- - helper
+  - inner
+  - 7
+- - main
+  - helper
+  - 3
+- - main
+  - other_fn
+  - 4
+- - other_fn
+  - helper
+  - 13

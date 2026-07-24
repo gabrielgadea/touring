@@ -1,0 +1,15 @@
+openapi: "3.1.0"
+info:
+  title: "{{ title | default(value="API") }}"
+  version: "{{ version | default(value="0.1.0") }}"
+paths:
+{% if paths is defined %}
+{% for path in paths %}
+  {{ path.url | default(value="/") }}:
+    {{ path.method | default(value="get") }}:
+      summary: "{{ path.summary | default(value="") }}"
+      responses:
+        "200":
+          description: "OK"
+{% endfor %}
+{% endif %}

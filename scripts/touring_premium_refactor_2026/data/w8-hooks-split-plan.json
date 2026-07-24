@@ -1,0 +1,297 @@
+{
+  "script": "w8_hooks_split_planner",
+  "version": "v5-leaf-enforced",
+  "wave": "W8",
+  "subtask_refs": [
+    "W8.1",
+    "W8.2",
+    "W8.3",
+    "W8.4",
+    "W8.5",
+    "W8.6",
+    "W8.7"
+  ],
+  "timestamp": "2026-05-12T00:26:18.164066+00:00",
+  "totals": {
+    "rs_files": 224,
+    "total_loc": 152371,
+    "bucket_count": 10,
+    "leaf_violations_in_shared": 1,
+    "leaf_violators_relocated": 9
+  },
+  "buckets": {
+    "touring-hooks-infra": {
+      "file_count": 8,
+      "total_loc": 3541,
+      "sample_files": [
+        "crates/touring-hooks/src/aco_bridge.rs",
+        "crates/touring-hooks/src/aco_processor.rs",
+        "crates/touring-hooks/src/aco_wiring.rs"
+      ]
+    },
+    "touring-hooks-lifecycle": {
+      "file_count": 57,
+      "total_loc": 62933,
+      "sample_files": [
+        "crates/touring-hooks/src/activity_hook.rs",
+        "crates/touring-hooks/src/auto_save_hook.rs",
+        "crates/touring-hooks/src/bidirectional/mod.rs"
+      ]
+    },
+    "touring-hooks-rl": {
+      "file_count": 1,
+      "total_loc": 1086,
+      "sample_files": [
+        "crates/touring-hooks/src/agentic_rl.rs"
+      ]
+    },
+    "touring-hooks-prediction": {
+      "file_count": 8,
+      "total_loc": 5375,
+      "sample_files": [
+        "crates/touring-hooks/src/ann_memory/mod.rs",
+        "crates/touring-hooks/src/ann_memory/persistence.rs",
+        "crates/touring-hooks/src/classifier.rs"
+      ]
+    },
+    "touring-hooks-core": {
+      "file_count": 82,
+      "total_loc": 40575,
+      "sample_files": [
+        "crates/touring-hooks/src/async_knowledge.rs",
+        "crates/touring-hooks/src/branch_fs.rs",
+        "crates/touring-hooks/src/circuit_breaker.rs"
+      ]
+    },
+    "touring-hooks-tools": {
+      "file_count": 24,
+      "total_loc": 12868,
+      "sample_files": [
+        "crates/touring-hooks/src/audit.rs",
+        "crates/touring-hooks/src/ecosystem.rs",
+        "crates/touring-hooks/src/functional_wiring.rs"
+      ]
+    },
+    "touring-hooks-cli": {
+      "file_count": 18,
+      "total_loc": 19995,
+      "sample_files": [
+        "crates/touring-hooks/src/cli_e2e.rs",
+        "crates/touring-hooks/src/cli_handlers.rs",
+        "crates/touring-hooks/src/cli_handlers_decompose.rs"
+      ]
+    },
+    "touring-hooks-misc": {
+      "file_count": 5,
+      "total_loc": 493,
+      "sample_files": [
+        "crates/touring-hooks/src/error_predictor.rs",
+        "crates/touring-hooks/src/ipc.rs",
+        "crates/touring-hooks/src/lib_on.rs"
+      ]
+    },
+    "touring-hooks-shared": {
+      "file_count": 20,
+      "total_loc": 4970,
+      "sample_files": [
+        "crates/touring-hooks/src/errors.rs",
+        "crates/touring-hooks/src/got_snapshot_store.rs",
+        "crates/touring-hooks/src/idempotency.rs"
+      ]
+    },
+    "touring-hooks-facade": {
+      "file_count": 1,
+      "total_loc": 535,
+      "sample_files": [
+        "crates/touring-hooks/src/lib.rs"
+      ]
+    }
+  },
+  "cross_bucket_edges": [
+    {
+      "from": "touring-hooks-lifecycle",
+      "to": "touring-hooks-core",
+      "use_count": 23
+    },
+    {
+      "from": "touring-hooks-core",
+      "to": "touring-hooks-lifecycle",
+      "use_count": 18
+    },
+    {
+      "from": "touring-hooks-core",
+      "to": "touring-hooks-shared",
+      "use_count": 9
+    },
+    {
+      "from": "touring-hooks-tools",
+      "to": "touring-hooks-core",
+      "use_count": 6
+    },
+    {
+      "from": "touring-hooks-lifecycle",
+      "to": "touring-hooks-shared",
+      "use_count": 5
+    },
+    {
+      "from": "touring-hooks-core",
+      "to": "touring-hooks-infra",
+      "use_count": 5
+    },
+    {
+      "from": "touring-hooks-core",
+      "to": "touring-hooks-tools",
+      "use_count": 5
+    },
+    {
+      "from": "touring-hooks-lifecycle",
+      "to": "touring-hooks-tools",
+      "use_count": 5
+    },
+    {
+      "from": "touring-hooks-lifecycle",
+      "to": "touring-hooks-misc",
+      "use_count": 5
+    },
+    {
+      "from": "touring-hooks-infra",
+      "to": "touring-hooks-core",
+      "use_count": 4
+    },
+    {
+      "from": "touring-hooks-cli",
+      "to": "touring-hooks-core",
+      "use_count": 4
+    },
+    {
+      "from": "touring-hooks-cli",
+      "to": "touring-hooks-shared",
+      "use_count": 4
+    },
+    {
+      "from": "touring-hooks-tools",
+      "to": "touring-hooks-lifecycle",
+      "use_count": 4
+    },
+    {
+      "from": "touring-hooks-cli",
+      "to": "touring-hooks-lifecycle",
+      "use_count": 3
+    },
+    {
+      "from": "touring-hooks-cli",
+      "to": "touring-hooks-tools",
+      "use_count": 3
+    },
+    {
+      "from": "touring-hooks-infra",
+      "to": "touring-hooks-lifecycle",
+      "use_count": 3
+    },
+    {
+      "from": "touring-hooks-lifecycle",
+      "to": "touring-hooks-prediction",
+      "use_count": 3
+    },
+    {
+      "from": "touring-hooks-prediction",
+      "to": "touring-hooks-shared",
+      "use_count": 3
+    },
+    {
+      "from": "touring-hooks-cli",
+      "to": "touring-hooks-prediction",
+      "use_count": 2
+    },
+    {
+      "from": "touring-hooks-core",
+      "to": "touring-hooks-misc",
+      "use_count": 2
+    },
+    {
+      "from": "touring-hooks-misc",
+      "to": "touring-hooks-core",
+      "use_count": 1
+    },
+    {
+      "from": "touring-hooks-tools",
+      "to": "touring-hooks-cli",
+      "use_count": 1
+    },
+    {
+      "from": "touring-hooks-core",
+      "to": "touring-hooks-prediction",
+      "use_count": 1
+    },
+    {
+      "from": "touring-hooks-lifecycle",
+      "to": "touring-hooks-infra",
+      "use_count": 1
+    },
+    {
+      "from": "touring-hooks-shared",
+      "to": "touring-hooks-tools",
+      "use_count": 1
+    }
+  ],
+  "cycles": {
+    "trivial_pair_count": 5,
+    "trivial_pairs": [
+      [
+        "touring-hooks-cli",
+        "touring-hooks-tools"
+      ],
+      [
+        "touring-hooks-core",
+        "touring-hooks-misc"
+      ],
+      [
+        "touring-hooks-core",
+        "touring-hooks-tools"
+      ],
+      [
+        "touring-hooks-infra",
+        "touring-hooks-lifecycle"
+      ],
+      [
+        "touring-hooks-lifecycle",
+        "touring-hooks-tools"
+      ]
+    ],
+    "real_cycle_count": 4,
+    "real_cycles": [
+      [
+        "touring-hooks-infra",
+        "touring-hooks-lifecycle",
+        "touring-hooks-tools",
+        "touring-hooks-core"
+      ],
+      [
+        "touring-hooks-lifecycle",
+        "touring-hooks-tools",
+        "touring-hooks-core"
+      ],
+      [
+        "touring-hooks-tools",
+        "touring-hooks-core",
+        "touring-hooks-shared"
+      ],
+      [
+        "touring-hooks-lifecycle",
+        "touring-hooks-tools",
+        "touring-hooks-cli"
+      ]
+    ]
+  },
+  "leaf_violations": [
+    {
+      "file": "crates/touring-hooks/src/tool_output_router.rs",
+      "violations": [
+        {
+          "target_module": "sandbox_executor",
+          "target_bucket": "touring-hooks-tools"
+        }
+      ]
+    }
+  ]
+}

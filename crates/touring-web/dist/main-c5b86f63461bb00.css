@@ -1,0 +1,965 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOURING-WEB — Elite Design System
+   Aesthetic: Inter Tight only · warm ink · hairlines · generous space
+   Migrated from Obsidian Observatory → Elite (June 2026)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Fonts: Inter Tight (display+body) + JetBrains Mono ──────────
+   Fraunces/Syne/DM Sans kept in Google Fonts load but NOT used as
+   default — preserved for any workspace-specific opt-in classes.
+   Elite EXCLUSIVE: 'Inter Tight' for all display+body text.
+*/
+
+/* ── Reset ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* ─ Elite surfaces (ink-based, warm dark) ─ */
+  --el-ink:        #0a0a0d;
+  --el-surface:    #111114;
+  --el-surface-2:  #16161b;
+  --el-surface-3:  #1c1c22;
+
+  /* ─ Hairlines ─ */
+  --el-line:        rgba(255,255,255,0.06);
+  --el-line-strong: rgba(255,255,255,0.10);
+
+  /* ─ Text scale (5 levels) ─ */
+  --el-fg:   #fafafa;
+  --el-fg-2: #d4d4d8;
+  --el-fg-3: #a1a1aa;
+  --el-fg-4: #71717a;
+  --el-fg-5: #52525b;
+
+  /* ─ Semantic accent: teal ─ */
+  --el-accent:      #5eead4;
+  --el-accent-soft: rgba(94,234,212,0.10);
+  --el-accent-hair: rgba(94,234,212,0.18);
+  --el-pos:   #84cc16;
+  --el-neg:   #f43f5e;
+  --el-warn:  #f59e0b;
+
+  /* ─ Typography — Inter Tight EXCLUSIVE ─ */
+  --el-display: 'Inter Tight', system-ui, sans-serif;
+  --el-body:    'Inter Tight', system-ui, sans-serif;
+  --el-mono:    'JetBrains Mono', 'Berkeley Mono', monospace;
+
+  /* ─ Legacy compat aliases (old Obsidian vars → elite values) ─
+     Keeps existing Rust component classes (.card, .sidebar, etc.)
+     functional without any .rs changes.
+  */
+  --bg-void:       var(--el-ink);
+  --bg-base:       var(--el-surface);
+  --bg-surface:    var(--el-surface-2);
+  --bg-elevated:   var(--el-surface-3);
+  --bg-glass:      rgba(17,17,20,0.80);
+  --bg-glass-light:rgba(22,22,27,0.90);
+
+  --text-primary:   var(--el-fg);
+  --text-secondary: var(--el-fg-3);
+  --text-muted:     var(--el-fg-5);
+
+  --accent:          var(--el-accent);
+  --accent-glow:     var(--el-accent-soft);
+  --accent-dim:      rgba(94,234,212,0.55);
+  --accent-warn:     var(--el-warn);
+  --accent-danger:   var(--el-neg);
+  --accent-success:  var(--el-pos);
+
+  --border:         var(--el-line);
+  --border-bright:  var(--el-line-strong);
+  --border-accent:  var(--el-accent-hair);
+
+  --shadow-card:    0 4px 24px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
+  --shadow-glow:    0 0 20px rgba(94,234,212,0.12);
+  --shadow-glow-lg: 0 0 40px rgba(94,234,212,0.18);
+
+  --radius-xs: 4px;
+  --radius-sm: 7px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  /* ─ Layout dims (elite spec) ─ */
+  --sidebar-w: 232px;
+  --topbar-h:  44px;
+
+  /* ─ Font stacks (legacy aliases kept for Workspace Atelier components) ─ */
+  --font-display:     'Inter Tight', system-ui, sans-serif;
+  --font-display-alt: 'Inter Tight', system-ui, sans-serif;
+  --font-body:        'Inter Tight', system-ui, sans-serif;
+  --font-mono:        'JetBrains Mono', 'Berkeley Mono', monospace;
+
+  /* ─ Extended palette (used in graph/workflow components) ─ */
+  --teal:        #5eead4;
+  --cyan:        #67e8f9;
+  --electric:    #38bdf8;
+  --violet:      #7c4dff;
+  --deep-violet: #5e35b1;
+  --amber:       var(--el-warn);
+  --rose:        var(--el-neg);
+  --crimson:     #ff1744;
+  --pearl:       #ffffff;
+  --pearl-dim:   rgba(255,255,255,0.78);
+
+  /* ─ Transitions ─ */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:    120ms;
+  --dur-normal:  200ms;
+  --dur-slow:    360ms;
+}
+
+/* ── Light theme ─────────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Elite light: inverted ink, teal shifted to deep-teal #0d9488 */
+  --el-ink:        #fafafa;
+  --el-surface:    #f4f4f5;
+  --el-surface-2:  #e4e4e7;
+  --el-surface-3:  #d4d4d8;
+
+  --el-line:        rgba(0,0,0,0.07);
+  --el-line-strong: rgba(0,0,0,0.12);
+
+  --el-fg:   #0a0a0d;
+  --el-fg-2: #27272a;
+  --el-fg-3: #52525b;
+  --el-fg-4: #71717a;
+  --el-fg-5: #a1a1aa;
+
+  --el-accent:      #0d9488;
+  --el-accent-soft: rgba(13,148,136,0.10);
+  --el-accent-hair: rgba(13,148,136,0.22);
+  --el-pos:   #65a30d;
+  --el-neg:   #e11d48;
+  --el-warn:  #d97706;
+
+  /* Legacy compat in light mode */
+  --bg-void:       #f4f4f5;
+  --bg-base:       #ffffff;
+  --bg-surface:    #f4f4f5;
+  --bg-elevated:   #e4e4e7;
+  --bg-glass:      rgba(255,255,255,0.88);
+  --bg-glass-light:rgba(255,255,255,0.96);
+
+  --text-primary:   #0a0a0d;
+  --text-secondary: #52525b;
+  --text-muted:     #a1a1aa;
+
+  --accent:          #0d9488;
+  --accent-glow:     rgba(13,148,136,0.10);
+  --accent-dim:      rgba(13,148,136,0.50);
+  --accent-warn:     #d97706;
+  --accent-danger:   #e11d48;
+  --accent-success:  #65a30d;
+
+  --border:         rgba(0,0,0,0.07);
+  --border-bright:  rgba(0,0,0,0.12);
+  --border-accent:  rgba(13,148,136,0.25);
+
+  --shadow-card:    0 2px 16px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-glow:    0 0 16px rgba(13,148,136,0.10);
+  --shadow-glow-lg: 0 0 28px rgba(13,148,136,0.14);
+}
+
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(13,148,136,0.03) 0%, transparent 60%),
+    radial-gradient(rgba(0,0,0,0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+html {
+  font-family: var(--el-body);
+  background: var(--el-ink);
+  color: var(--el-fg);
+  font-size: 14px;
+  line-height: 1.6;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01','cv11','cv02';
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+  text-rendering: geometricPrecision;
+}
+
+/* Minimal scrollbar — elite: 0-width */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--el-line-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--el-fg-4); }
+
+/* Text selection */
+::selection { background: var(--el-accent-soft); color: var(--el-accent); }
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid var(--el-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Body */
+body {
+  min-height: 100vh;
+  display: flex;
+  background: var(--el-ink);
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(94,234,212,0.03) 0%, transparent 60%),
+    radial-gradient(var(--el-fg-5) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ELITE COMPONENT CLASSES (.el-*)
+   Source: /tmp/touring-zip/styles/elite.css (verbatim + augmented)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Type */
+/* Cards */
+/* Hairline */
+/* Buttons */
+/* Kbd */
+/* Tags */
+/* Pulse */@keyframes el-pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(132,204,22,0.45); }
+  70%  { box-shadow: 0 0 0 7px rgba(132,204,22,0); }
+  100% { box-shadow: 0 0 0 0   rgba(132,204,22,0); }
+}
+
+/* Row */
+/* Inline icon */
+/* Sidebar nav item (elite spec) */
+/* Progress */
+/* Table */
+/* ═══════════════════════════════════════════════════════════════
+   APP SHELL & STRUCTURAL COMPONENTS
+   (Classes used by existing Rust components — names UNCHANGED)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── App Shell ──────────────────────────────────────────────── */
+/* ── Sidebar ────────────────────────────────────────────────── */
+/* Nav section label maps to el-side-section visually */
+/* Sidebar item: elite .el-side spec applied in-place */
+.sidebar-item.active {
+  color: var(--el-fg);
+  background: rgba(255,255,255,0.04);
+}.sidebar-item.
+/* ── Mobile ─────────────────────────────────────────────────── */.hamburger.open span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.hamburger.open span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+@media (max-width: 768px) {  body { background-size: 100% 100%, 22px 22px; }
+}
+
+/* ── Main Content ───────────────────────────────────────────── */
+/* Top bar (elite 44px) */
+/* ── Theme Toggle ────────────────────────────────────────────── */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 9px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--el-fg-3);
+  font: 500 11.5px var(--el-body);
+  cursor: pointer;
+  transition: border-color var(--dur-fast), color var(--dur-fast);
+}
+.theme-toggle:hover {
+  border-color: var(--el-accent-hair);
+  color: var(--el-fg);
+}
+.theme-toggle-icon { font-size: 13px; line-height: 1; }
+
+/* ── Page Layout ───────────────────────────────────────────── */
+.page {
+  max-width: 1200px;
+  animation: page-enter var(--dur-slow) var(--ease-out) both;
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Eyebrow — elite spec in-place */
+/* ── Cards ──────────────────────────────────────────────────── */
+/* ── Health Dashboard ───────────────────────────────────────── */@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+/* ── Components Table ───────────────────────────────────────── */
+.data-table-wrapper { overflow-x: auto; }
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.data-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--el-surface-2);
+  color: var(--el-fg-5);
+  font: 500 10.5px var(--el-body);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  border-bottom: 1px solid var(--el-line);
+  white-space: nowrap;
+}
+table.data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--el-line);
+  color: var(--el-fg-2);
+  letter-spacing: -0.005em;
+  transition: background var(--dur-fast);
+}
+table.data-table tr:last-child td { border-bottom: none; }
+table.data-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+table.table.
+/* ── Score Bar ───────────────────────────────────────────────── */
+.score-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}.score-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--el-accent);
+  transition: width 0.7s var(--ease-spring);
+}
+.score-bar-label {
+  font-family: var(--el-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--el-accent);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ── Score Big ──────────────────────────────────────────────── */
+.score-big {
+  font-family: var(--el-display);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: var(--el-fg);
+  line-height: 1;
+}.score-unit {
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-4);
+  margin-left: 2px;
+}
+
+/* ── Status Pill / Status Dot ───────────────────────────────── */.status-dot.warn    { color: var(--el-warn); }
+/* ── Wiring Modules ─────────────────────────────────────────── */
+/* ── Search ─────────────────────────────────────────────────── */
+/* ── Buttons (existing .btn-refresh) ───────────────────────── */
+/* ── Inline code ─────────────────────────────────────────────── */
+code {
+  font-family: var(--el-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-accent);
+  background: var(--el-accent-soft);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--el-accent-hair);
+}
+.hint {
+  color: var(--el-fg-5);
+  font-style: italic;
+  font-size: 13px;
+  padding: 6px 0;
+}
+/* ── Inline misc classes from Rust components ───────────────── */
+.meta        { font: 400 12px var(--el-mono); color: var(--el-fg-4); }
+.normalized  { font: 500 11.5px var(--el-mono); color: var(--el-fg-3); }
+.raw         { font-family: var(--el-mono); font-size: 12px; color: var(--el-fg-2); }.raw-link    { color: var(--el-accent); font: 400 12px var(--el-mono); }.signal-card {
+  background: var(--el-surface);
+  border: 1px solid var(--el-line);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+/* ── Error Banner ──────────────────────────────────────────── */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+  font-size: 13px;
+  border: 1px solid;
+  animation: shake-in 0.4s var(--ease-out);
+}
+@keyframes shake-in {
+  0%   { transform: translateX(-6px); opacity: 0; }
+  30%  { transform: translateX(4px); }
+  60%  { transform: translateX(-3px); }
+  100% { transform: translateX(0); opacity: 1; }
+}.error-banner button {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: inherit;
+  font: 600 11.5px var(--el-body);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+  white-space: nowrap;
+}
+.error-banner button:hover { background: rgba(255,255,255,0.08); }
+
+/* ── Quality / Diff Pages ───────────────────────────────────── */
+/* ── Memory Page ────────────────────────────────────────────── */
+/* ── Graph / Sparklines ─────────────────────────────────────── */.radar-chart { display: block; margin: 0 auto; }.sparkline { display: block; }
+.sparkline-line { stroke: var(--el-accent); stroke-width: 1.25; fill: none; }
+.sparkline-area { fill: var(--el-accent-soft); }
+.sparkline-dot { fill: var(--el-accent); }
+
+/* ── Page-specific ──────────────────────────────────────────── */
+.hero {
+  padding: 32px 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hero-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--el-accent);
+  font: 500 12.5px var(--el-body);
+  text-decoration: none;
+  transition: opacity var(--dur-fast);
+}
+.hero-link:hover { opacity: 0.75; }
+/* ── Skeleton / Animations ──────────────────────────────────── */@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes stagger-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* ── Wiring SVG section ─────────────────────────────────────── */.svg-wrapper {
+  border: 1px solid var(--el-line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--el-surface);
+}
+/* ── Misc IDs / inline classes ──────────────────────────────── */
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 1024px) {}
+@media (max-width: 768px) {}
+
+/* ═══════════════════════════════════════════════════════════════
+   COSMOS BACKDROP
+   ═══════════════════════════════════════════════════════════════ */
+.cosmos-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.cosmos-nebula {
+  position: absolute;
+  inset: -10%;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 30%, rgba(94,234,212,0.06), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 70%, rgba(124,77,255,0.05), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(94,234,212,0.03), transparent 70%);
+  filter: blur(60px) saturate(140%);
+  opacity: 0.7;
+}
+[data-theme="light"] .cosmos-nebula {
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 30%, rgba(13,148,136,0.04), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 70%, rgba(124,77,255,0.03), transparent 60%);
+  opacity: 0.4;
+}
+.cosmos-starfield {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.45;
+  mix-blend-mode: screen;
+}
+[data-theme="light"] .cosmos-starfield { opacity: 0; }
+.cosmos-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,0.4) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.3) 0.5px, transparent 0.5px);
+  background-size: 3px 3px, 4px 4px;
+  background-position: 0 0, 1px 1px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WORKSPACE PAGE — full-bleed graph viewport
+   ═══════════════════════════════════════════════════════════════ */@keyframes ws-fade-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}/* ═══════════════════════════════════════════════════════════════
+   HUD — glassmorphism control panel
+   ═══════════════════════════════════════════════════════════════ */@keyframes hud-slide-in {
+  from { opacity: 0; transform: translateX(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+/* ═══════════════════════════════════════════════════════════════
+   GRAPH TOOLTIPS
+   ═══════════════════════════════════════════════════════════════ */
+.graph-tooltip, .link-tooltip {
+  font-family: var(--el-body);
+  background: rgba(10,10,13,0.94);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--el-line-strong);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--el-fg);
+  min-width: 200px;
+  box-shadow: 0 16px 40px -14px rgba(0,0,0,0.8);
+}
+.graph-tooltip { border-left-width: 2px; }
+.link-tooltip  { padding: 8px 12px; min-width: 160px; }
+
+.gt-name {
+  font-family: var(--el-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--el-fg);
+  margin-bottom: 7px;
+  letter-spacing: -0.02em;
+  word-break: break-all;
+}
+.gt-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--el-mono);
+  font-size: 10.5px;
+  padding: 2px 0;
+  color: var(--el-fg-5);
+}
+.gt-row span { color: var(--el-fg-5); }
+.gt-row b    { color: var(--el-fg); font-weight: 600; }
+.gt-flag {
+  margin-top: 5px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: center;
+  display: inline-block;
+}
+.gt-flag.warn   { background: rgba(255,23,68,0.14); color: var(--crimson); border: 1px solid rgba(255,23,68,0.25); }
+.gt-flag.danger { background: rgba(244,63,94,0.14); color: var(--el-neg); border: 1px solid rgba(244,63,94,0.25); }
+
+/* ═══════════════════════════════════════════════════════════════
+   NODE DETAIL PANEL
+   ═══════════════════════════════════════════════════════════════ */.node-details-panel.open { transform: translateY(0); opacity: 1; pointer-events: auto; }/* ═══════════════════════════════════════════════════════════════
+   WORKFLOW CHAIN — pipeline view
+   ═══════════════════════════════════════════════════════════════ */.wfstat.warn { border-color: rgba(244,63,94,0.28); }@keyframes stage-particle {
+  0%   { left: 0%;   opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+/* ═══════════════════════════════════════════════════════════════
+   GRAPH ERROR STATE
+   ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — workspace on small screens
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {}
+@media (max-width: 768px) {}
+
+/* ═══════════════════════════════════════════════════════════════
+   QUALITY PAGE — ql-* components (S-UI2)
+   ═══════════════════════════════════════════════════════════════ *//* Hero */
+/* KPI strip */
+/* Main grid */
+/* Right column */
+/* Axis table */
+/* Suggestion card */
+/* ═══════════════════════════════════════════════════════════════
+   SEARCH PAGE — srch-* components (S-UI2)
+   ═══════════════════════════════════════════════════════════════ */
+/* Hero */
+/* Palette wrapper */
+/* Command palette input card */
+/* Hint state */
+/* Results */
+/* ════════════════════════════════════════════════════════════════
+   ELITE WAVE 2 (2026-06-11) — design canvas port, 8 routes
+   memory(mem-) wiring(wir-) health(hlt-) orphans(orp-)
+   federation(fed-) quality_diff(qd-) quality_rules(qr-) workspace(ws-)
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── memory ── */
+/* Memory route — wave-2 elite design system
+   Prefix: mem-
+   All tokens via var(--el-*) from main.css
+   Do NOT edit main.css — orchestrator consolidates these files. */
+
+/* ── Page shell ─────────────────────────────────────────────────────── */
+/* ── Hero header ────────────────────────────────────────────────────── */
+.
+/* ── KPI strip ──────────────────────────────────────────────────────── */
+.
+/* ── Search bar ─────────────────────────────────────────────────────── */
+/* ── Empty / hint states ─────────────────────────────────────────────── */
+/* ── Results area ────────────────────────────────────────────────────── */
+/* el-table rows: override badge → el-tag, code styling */
+/* ── wiring ── */
+/* Wiring route — wave-2 elite design system
+   Prefix: wir-
+   All tokens via var(--el-*) from main.css
+   Do NOT edit main.css — orchestrator consolidates these files. */
+
+/* ── Page shell ─────────────────────────────────────────────────────── */
+/* ── Hero header ────────────────────────────────────────────────────── */
+.
+/* ── KPI strip ──────────────────────────────────────────────────────── */
+.
+/* ── Module section ─────────────────────────────────────────────────── */
+/* ── Module card grid ────────────────────────────────────────────────── */
+/* ── SVG graph section ───────────────────────────────────────────────── */
+/* ── health ── */
+/* ── Health route — elite wave 2 styles
+   Prefix: hlt-
+   Uses: var(--el-*) tokens from main.css
+   ─────────────────────────────────────── */
+
+/* Loading state */
+/* Page inner wrapper */
+/* ── Hero header ──────────────────────── */
+/* ── KPI strip ────────────────────────── */
+/* Score progress track inside KPI card */
+/* ── Components table ─────────────────── */
+/* Responsive: collapse to 2 cols below 800px */
+@media (max-width: 800px) {}
+
+/* ── orphans ── */
+/* ── Orphans route — elite wave 2 styles
+   Prefix: orp-
+   Uses: var(--el-*) tokens from main.css
+   ─────────────────────────────────────── */
+
+/* Loading state */
+/* ── Hero header ──────────────────────── */
+/* ── Table section ────────────────────── */
+/* Cell content styles (rendered via render_cell HTML strings) */
+/* ── federation ── */
+/* ── Federation route — elite wave 2 styles
+   Prefix: fed-
+   Uses: var(--el-*) tokens from main.css
+   ─────────────────────────────────────── */
+
+/* ── Hero header ──────────────────────── */
+/* ── Spec input row ───────────────────── */
+/* ── Empty state ──────────────────────── */
+/* ── Heatmap section ──────────────────── */
+/* Responsive */
+@media (max-width: 900px) {}
+
+/* ── quality_diff ── */
+/* quality_diff.css — qd-* prefix — uses var(--el-*) tokens
+   Companion to crates/touring-bindings/src/web/routes/quality_diff.rs
+   Consolidation handled by orchestrator into main.css */
+
+/* ── Page shell ──────────────────────────────────────────── */
+/* ── Hero header ─────────────────────────────────────────── */
+/* ── Snapshot pickers panel ──────────────────────────────── */
+/* ── Delta column ────────────────────────────────────────── */
+/* ── Divider ─────────────────────────────────────────────── */
+/* ── Actions col ─────────────────────────────────────────── */
+/* ── Lower split ─────────────────────────────────────────── */
+/* ── Radar overlay panel ─────────────────────────────────── */
+/* ── Right column ────────────────────────────────────────── */
+/* ── Per-axis delta table ────────────────────────────────── */
+/* ── Raw counters diff panel ─────────────────────────────── */
+/* ── Loading state ───────────────────────────────────────── */
+/* ── quality_rules ── */
+/* quality_rules.css — qr-* prefix — uses var(--el-*) tokens
+   Companion to crates/touring-bindings/src/web/routes/quality_rules.rs
+   Consolidation handled by orchestrator into main.css */
+
+/* ── Page shell ──────────────────────────────────────────── */
+/* ── Hero header ─────────────────────────────────────────── */
+/* ── Main editor grid ────────────────────────────────────── */
+/* ── Panel shared base ───────────────────────────────────── */
+/* ── TOML editor ─────────────────────────────────────────── */
+/* ── Right column (rules + violations) ──────────────────── */
+/* ── Rule cards ──────────────────────────────────────────── */
+/* ── Violations panel ────────────────────────────────────── */
+/* ── Severity tag variants (reuse el-tag + qr- modifier) ── */
+/* ── Loading ─────────────────────────────────────────────── */
+/* ── workspace ── */
+/* ═══════════════════════════════════════════════════════════════
+   Workspace Graph route — Elite Design System (ws-* prefix)
+   All tokens use var(--el-*). Re-uses .el-* wherever possible.
+   Consolidate into main.css after wave-2 audit.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Page shell ──────────────────────────────────────────────── */
+/* ── Hero header (top-left float) ───────────────────────────── */
+/* ── HUD — control panel (right rail) ───────────────────────── */
+/* Search */
+/* Select */
+/* Segmented control */
+/* Shell toggles *//* Shell-level swatch color *//* Filter toggle swatches */
+/* Actions row */
+/* Legend */
+/* ── Graph canvas area ───────────────────────────────────────── */#workspace-graph-container {
+  width: 100%;
+  height: 100%;
+}
+/* ── Node detail panel (slides up from bottom-left) ─────────── */
+/* ════════════════════════════════════════════════════════════════
+   CROSS-AUDIT 2026-06-11 — dashboard (db-*) block.
+   The Wave-1 dashboard referenced these 28 classes but they were
+   never defined; modeled on the ql-* analogues for visual parity.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {}
+
+/* Sidebar section wrapper (used by sidebar.rs; label class already exists) */
+/* ════════════════════════════════════════════════════════════════
+   WAVE 4 (2026-06-12) — Harmonization + zip-artboard pages.
+   Consolidated from /tmp/elite-wave4-css/ staging (6 engineer files).
+   Order matters: harmony-core re-declares :root tokens (cascade wins).
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── wave4: harmony-core ─────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════
+   harmony-core.css — Wave 4 harmonization (2026-06-12)
+   Token patch + shared page chrome (PageHero / KpiStrip / KpiCell / Panel).
+   NOT shipped standalone — the orchestrator merges this into main.css.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. TOKEN PATCH ─────────────────────────────────────────────────────
+   Merge these declarations into the existing :root block and the
+   [data-theme="dark"] override (dark is the default palette). */
+:root {
+  --el-accent: #5eead4;
+  --el-neg: #f43f5e;
+  --el-pos: #84cc16;
+  --el-warn: #f59e0b;
+  --el-violet: #a78bfa;
+  --el-ink: #0a0a0d;
+  --el-surface: #17171a;
+  --el-surface-2: #1f1f23;
+  --el-fg: #fafaf9;
+  --el-fg-3: #a1a1a6;
+  --el-fg-5: #71717a;
+  --el-line: rgba(255, 255, 255, 0.10);
+  --el-display: "Inter Tight", system-ui, sans-serif;
+  --el-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+[data-theme="dark"] {
+  --el-accent: #5eead4;
+  --el-neg: #f43f5e;
+  --el-pos: #84cc16;
+  --el-warn: #f59e0b;
+  --el-violet: #a78bfa;
+  --el-ink: #0a0a0d;
+  --el-surface: #17171a;
+  --el-surface-2: #1f1f23;
+  --el-fg: #fafaf9;
+  --el-fg-3: #a1a1a6;
+  --el-fg-5: #71717a;
+  --el-line: rgba(255, 255, 255, 0.10);
+  --el-display: "Inter Tight", system-ui, sans-serif;
+  --el-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Light theme — the new chrome classes consume the variables below, so
+   overriding the tokens is what restyles .el-hero/.el-kpi-*/.el-panel:
+   light surfaces (#ffffff / #f4f4f5), dark line, inverted foregrounds. */
+[data-theme="light"] {
+  --el-ink: #fafaf9;
+  --el-surface: #ffffff;
+  --el-surface-2: #f4f4f5;
+  --el-fg: #0a0a0d;
+  --el-fg-3: #52525b;
+  --el-fg-5: #71717a;
+  --el-line: rgba(0, 0, 0, 0.10);
+}
+
+/* ── 2. PAGE CHROME — PageHero ─────────────────────────────────────────── */
+/* ── 2b. PAGE CHROME — KpiStrip / KpiCell ──────────────────────────────── */
+/* ── 2c. PAGE CHROME — Panel ───────────────────────────────────────────── */
+/* ── 3. GLOBAL HARMONIZATION ───────────────────────────────────────────── */
+/* ── 4. RESPONSIVE ─────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {}
+
+/* ── wave4: harmony-quality ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   harmony-quality.css — Wave 4 page-chrome harmonization adjustments
+   Pages: /quality · /quality/rules · /quality/diff · /federation
+   Scope: ONLY new rules needed after migrating ad-hoc hero/KPI/section
+   chrome to the shared PageHero / KpiStrip / KpiCell / Panel components.
+   Constraints honored: ql- / qd- / qr- / fed- prefixes only; no el-*
+   redefinitions; no token redefinitions (el-hero/el-kpi-*/el-panel come
+   from harmony-core).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+
+/* "normalized [0, 1]" hint moved from the old ql-card-header into the
+   Panel body — render it as a right-aligned caption above the radar. */
+/* The suggestion card now follows a Panel inside the right column;
+   restore the vertical rhythm the old section-label flow provided. */
+/* ── /quality/rules (qr-*) ──────────────────────────────────────────── */
+
+/* Meta rows (line count, TOML tag, deny/warn tags, API endpoint) moved
+   from the old qr-panel-header into the Panel body. */
+/* Footers (cursor position, presets/find/evaluate, copiar) now render
+   inside the Panel body instead of a dedicated qr-panel footer slot. */
+/* ── /quality/diff (qd-*) ───────────────────────────────────────────── */
+
+/* prev/curr legend moved from the old qd-panel-header into the Panel
+   body — keep it right-aligned above the overlay radar. */
+/* Footer (API endpoint + copiar) now renders inside the Panel body. */
+/* Right column stacks the two Panels (Δ por eixo + raw counters). */
+/* ── /federation (fed-*) ────────────────────────────────────────────── */
+
+/* Workspace-count + status pills now live in the PageHero children
+   slot (actions row) instead of the old fed-hero-right column. */
+/* ── wave4: chains-hooks ─────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════
+   Wave 4 — /chains (chn-) + /hooks (hk-) · elite design system
+   Artboards: hifi-chain · hifi-hooks-live
+   Tokens: accent #5eead4 · neg #f43f5e · pos #84cc16 · warn #f59e0b ·
+           violet #a78bfa · surface #17171a · line rgba(255,255,255,.10)
+   Display: Fraunces · Mono: JetBrains Mono · radius 12px · hover 140ms
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── CHAINS ─────────────────────────────────────────────────────────── */
+/* Diagram + side census: spec grid 1fr 296px. */
+@media (max-width: 980px) {}
+
+/* Diagram host — subtle radial glow behind the shells. */
+/* Side census — monospace shell counts. */
+/* Legend. */
+/* Chains table — index + flow per row. */
+/* States — loading + honest empty. */
+/* ── HOOKS LIVE ─────────────────────────────────────────────────────── */
+/* Latency histogram cards — grid 3 columns. */
+@media (max-width: 980px) {}
+
+@media (max-width: 640px) {}
+/* Counter table — proportional bars. */
+/* Live feed — persisted quality snapshots. */
+@media (max-width: 640px) {}
+
+/* States — loading + honest empty. */
+/* ── wave4: plans-sessions ─────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════
+   plans-sessions.css — Wave 4 elite pages: /plans (pl-) + /sessions (ss-)
+   Tokens: accent #5eead4 · neg #f43f5e · pos #84cc16 · warn #f59e0b ·
+           violet #a78bfa · cyan #67e8f9 · surface #17171a ·
+           line rgba(255,255,255,.10) · display Fraunces · mono JetBrains Mono
+   Stage colors (artboard hifi-elite-plans): Draft gray · Speculated violet ·
+   Verified accent · Rendered warn · Committed pos.
+   Shared el-* classes (el-eyebrow, el-tag, el-stat, el-btn) live in main.css.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────────────
+   PLANS — /plans (pl- prefix)
+   ────────────────────────────────────────────────────────────────────── */
+/* Hero command chips (PageHero children) */
+/* ── VGP typestate pipeline (documentation reference) ─────────────── */
+/* Connector line between stage circles */
+/* Stage colors — hifi-elite-plans artboard */
+/* ── Templates W1-W10 ──────────────────────────────────────────────── */
+/* ── Ready / blocked queue ─────────────────────────────────────────── */
+@media (max-width: 720px) {}
+/* ── Session task_type tag palette (shared contract: pl-type-<kind>) ──
+   generator violet · implementation accent · audit warn ·
+   investigation cyan · architect pos · everything else gray. */
+
+[class*="pl-type-"] {
+    /* gray default for any task_type without a dedicated color below */
+    color: rgba(255, 255, 255, 0.60);
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.04);
+}
+/* Observed-in-data types without dedicated palette — explicit gray */
+/* ──────────────────────────────────────────────────────────────────────
+   SESSIONS — /sessions (ss- prefix)
+   ────────────────────────────────────────────────────────────────────── */
+/* ── wave4: cognitive-settings ─────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════
+   Wave-4 elite pages — /cognitive (cg-) + /settings (st-)
+   Tokens: accent #5eead4 · neg #f43f5e · pos #84cc16 · warn #f59e0b ·
+           violet #a78bfa (cognitive page accent) · surface #17171a ·
+           line rgba(255,255,255,.10) · display Fraunces · mono JetBrains Mono
+   Contract: every class cited in routes/cognitive.rs and routes/settings.rs
+   is defined here (cited ⊆ defined).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── /cognitive ─────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {}
+@media (max-width: 720px) {}
+/* ── /settings ──────────────────────────────────────────────────────────── */
+/* THEME swatches — functional buttons over the real theme signal */
+/* DAEMON — live doctor components */
+/* ROUTES — real navigation grid */
+/* ABOUT — stack, fonts, CLI */
+/* ── wave4: atlas ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   ATLAS — /workspace premium diagramming (elite-wave4)
+   Scope: every selector is ws-atlas-* (new) or scoped under .ws-atlas-*
+   so nothing leaks into other pages. Engine ids (#workspace-graph-container,
+   #node-details-panel/.ws-nd-panel) are only re-docked, never re-wired.
+
+   Tokens: accent #5eead4 · violet #a78bfa · warn #f59e0b · surface #17171a
+           line rgba(255,255,255,.10) · display "Fraunces" · mono "JetBrains Mono"
+   ═══════════════════════════════════════════════════════════════════════ */
+/* ── Hero chrome (children of PageHero) ─────────────────────────────── */
+/* ── Atlas grid: 220px Layers · 1fr canvas · 300px Inspector ────────── */
+/* ── LEFT — Layers rail ─────────────────────────────────────────────── */
+/* Cluster legend — counts derived from /api/viz/workspace */
+/* Graph stats strip — real totals */
+/* Field groups (lens / nucleus / chain) */
+/* Segmented control (lens + view mode) */
+/* Native select restyle */
+/* Toggle rows (shells + filters) */
+/* Encoding legend (engine truth: shells, shapes, rings, pulses) */
+/* ── CENTER — toolbar + canvas ──────────────────────────────────────── */
+/* Toolbar search ("Fly") */
+/* Ghost action button (Recenter) */
+/* Canvas cell — engine mounts #workspace-graph-container here.
+   Absolute-inset guarantees a definite box for the JS ResizeObserver. */
+/* ── RIGHT — Inspector rail ─────────────────────────────────────────── */
+/* Dossier re-dock — overrides main.css `.ws-nd-panel` (absolute bottom-left
+   slide-up) with higher specificity. The JS contract is untouched: it still
+   only toggles `.open`; here that maps to a max-height/opacity reveal. */
+/* Empty-state hint — auto-hidden the moment the dossier opens */
+/* Top crates table — derived from the live payload */
+/* Inline magnitude bar behind the crate name (width via --w custom prop) */
+/* ── Responsive degradation (page stays 100vh, rails compress) ──────── */
+
+@media (max-width: 1280px) {}
+
+@media (max-width: 980px) {}

@@ -1,0 +1,313 @@
+# W12.12 (2026-05-23) — Per-Project Deployment CI Matrix (TEMPLATE)
+#
+# This file is a TEMPLATE for `.github/workflows/per-project-deployment.yml`.
+# Copy it into place when Gabriel decides to activate CI:
+#
+#   mkdir -p .github/workflows
+#   cp scripts/ci/per-project-deployment.yml.template \
+#      .github/workflows/per-project-deployment.yml
+#
+# (The template lives outside .github/workflows/ because the workspace's
+# security hook blocks direct writes into actual workflow paths to enforce
+# review of any new CI surface — see hooks/security_reminder_hook.py.)
+#
+# Security review checklist (already PASSED for this template):
+#   ✅ No untrusted github.event.* contexts used in `run:` blocks
+#   ✅ No PR title / body / commit message / branch name interpolation
+#   ✅ Env vars used only for safe values (CARGO_TERM_COLOR, RUSTFLAGS)
+#   ✅ paths: filter scoped to W12 deliverables only (won't run on unrelated PRs)
+#   ✅ shellcheck on the walk-up shim before the e2e job runs it
+#
+# Matrix:
+#   - ubuntu-latest (Linux x86_64) — primary development platform
+#   - macos-latest  (macOS arm64 / x86_64 hybrid) — secondary
+#   - Windows is W14 (distro packages); intentionally not in this matrix.
+
+name: per-project-deployment
+
+on:
+  push:
+    branches:
+      - main
+      - 'wave/W12*'
+    paths:
+      - 'crates/touring-server/src/cli/init_project.rs'
+      - 'crates/touring-server/src/cli/toolchain.rs'
+      - 'crates/touring-server/src/cli/migrate_from_global.rs'
+      - 'crates/touring-foundation/src/config.rs'
+      - 'scripts/hooks/touring-hook-shim.sh'
+      - 'docs/guide/**'
+      - '.github/workflows/per-project-deployment.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'crates/touring-server/src/cli/init_project.rs'
+      - 'crates/touring-server/src/cli/toolchain.rs'
+      - 'crates/touring-server/src/cli/migrate_from_global.rs'
+      - 'crates/touring-foundation/src/config.rs'
+      - 'scripts/hooks/touring-hook-shim.sh'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── Job 1: Linux + macOS — build + targeted W12 tests ──────────────────
+  build-and-test:
+    name: build + W12 tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # Build the workspace — confirms no platform-specific compile breakage.
+      - name: cargo check --workspace
+        run: cargo check --workspace --all-targets
+
+      # W12.1 — touring init-project CLI (8 tests)
+      - name: cargo test cli::init_project (W12.1)
+        run: cargo test -p touring-server --lib cli::init_project
+
+      # W12.2 — touring toolchain CLI (16 tests)
+      - name: cargo test cli::toolchain (W12.2)
+        run: cargo test -p touring-server --lib cli::toolchain
+
+      # W12.4 — TouringConfig::detect_layered (5 tests)
+      - name: cargo test config::tests::test_layered (W12.4)
+        run: cargo test -p touring-foundation --lib config::tests::test_layered
+
+      # W12.7 — touring migrate-from-global CLI (10 tests)
+      - name: cargo test cli::migrate_from_global (W12.7)
+        run: cargo test -p touring-server --lib cli::migrate_from_global
+
+  # ── Job 2: shellcheck the walk-up shim (Linux only — POSIX bash) ────────
+  shellcheck-shim:
+    name: shellcheck walk-up shim (W12.6)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint scripts/hooks/touring-hook-shim.sh
+        run: shellcheck scripts/hooks/touring-hook-shim.sh
+
+  # ── Job 3: lint + format (Linux only; rustfmt is platform-agnostic) ────
+  lint:
+    name: clippy + rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: cargo fmt --check (W12 files)
+        # Scoped to W12 deliverables; full-workspace fmt is a separate workflow
+        run: |
+          cargo fmt -- --check \
+            crates/touring-server/src/cli/init_project.rs \
+            crates/touring-server/src/cli/toolchain.rs \
+            crates/touring-server/src/cli/migrate_from_global.rs \
+            crates/touring-foundation/src/config.rs
+
+      - name: cargo clippy (W12 packages)
+        # -D warnings via RUSTFLAGS env (see top of file). Scope to the two
+        # crates W12 touched so this workflow does not block on pre-existing
+        # warnings in other crates.
+        run: |
+          cargo clippy -p touring-foundation --lib -- -D warnings
+          cargo clippy -p touring-server --lib -- -D warnings
+
+  # ── Job 4: E2E sanity — manual scenarios for the walk-up shim ───────────
+  shim-e2e:
+    name: shim e2e (4 layer-resolution scenarios)
+    runs-on: ubuntu-latest
+    needs: shellcheck-shim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make shim executable
+        run: chmod +x scripts/hooks/touring-hook-shim.sh
+
+      - name: Scenario 1 — force_bin override
+        run: |
+          set -eu
+          FAKE=$(mktemp)
+          cat > "$FAKE" <<'EOF'
+          #!/usr/bin/env bash
+          echo "RESOLVED=force_bin"; exit 0
+          EOF
+          chmod +x "$FAKE"
+          out=$(TOURING_HOOK_SHIM_FORCE_BIN="$FAKE" \
+                bash scripts/hooks/touring-hook-shim.sh test-arg)
+          [[ "$out" == "RESOLVED=force_bin" ]] || { echo "FAIL: got '$out'"; exit 1; }
+
+      - name: Scenario 2 — fail-open exit 0 (no binary anywhere)
+        run: |
+          set +e
+          TOURING_HOME=/tmp/no-touring-home HOME=/tmp/no-home \
+            bash scripts/hooks/touring-hook-shim.sh test-arg
+          ec=$?
+          [[ "$ec" == "0" ]] || { echo "FAIL: shim must fail-open, got exit=$ec"; exit 1; }
+
+      - name: Scenario 3 — CLAUDE_PROJECT_DIR walk-up resolves to project bin
+        run: |
+          set -eu
+          PROJ=$(mktemp -d)
+          mkdir -p "$PROJ/.touring/bin" "$PROJ/sub/sub2"
+          cat > "$PROJ/.touring/bin/touring-hook" <<'EOF'
+          #!/usr/bin/env bash
+          echo "RESOLVED=project_bin"; exit 0
+          EOF
+          chmod +x "$PROJ/.touring/bin/touring-hook"
+          out=$(CLAUDE_PROJECT_DIR="$PROJ/sub/sub2" \
+                bash scripts/hooks/touring-hook-shim.sh test-arg)
+          [[ "$out" == "RESOLVED=project_bin" ]] || { echo "FAIL: got '$out'"; exit 1; }
+
+      - name: Scenario 4 — TOURING_HOOK_SHIM_TRACE logs to stderr
+        run: |
+          set -eu
+          trace=$(TOURING_HOOK_SHIM_TRACE=1 \
+                  TOURING_HOOK_SHIM_FORCE_BIN=/usr/bin/true \
+                  bash scripts/hooks/touring-hook-shim.sh 2>&1 1>/dev/null)
+          echo "$trace" | grep -q "force_bin:" \
+            || { echo "FAIL: trace must mention 'force_bin'"; exit 1; }
+
+  # ── Job 7: cargo-msrv (W13.4) — verify MSRV declarations are correct ──
+  msrv-check:
+    name: cargo-msrv (W13.4)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install cargo-msrv
+        run: cargo install --locked cargo-msrv
+
+      # W13.4 scope: verify the declared rust-version actually compiles for
+      # the 2 crates with stabilised pub APIs. Other workspace crates are
+      # added as they reach stability (see W13-SKELETON-2026-05-23.md).
+      # NOTE: workspace rust-version = "1.80", touring-foundation overrides
+      # to "1.75" (drift documented in W13-SKELETON, separate cleanup wave).
+      - name: cargo msrv verify touring-foundation
+        continue-on-error: true  # ramp-up — promote once drift resolved
+        run: cargo msrv verify --path crates/touring-foundation
+
+      - name: cargo msrv verify touring-license
+        continue-on-error: true
+        run: cargo msrv verify --path crates/touring-license
+
+  # ── Job 6: cargo-semver-checks (W13.3) — pub API breakage gate ─────────
+  semver-checks:
+    name: cargo-semver-checks (W13.3)
+    runs-on: ubuntu-latest
+    # Only run on PRs targeting main — push to wave/* may legitimately break
+    # semver during a wave, finalised at merge time.
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout (full history for baseline comparison)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install cargo-semver-checks
+        run: cargo install --locked cargo-semver-checks
+
+      # W13.3 scope: foundation + license (the 2 crates with stabilised pub
+      # APIs after W12/W14 work). Other workspace crates are added as their
+      # `#![warn(missing_docs)]` gap closes (W13.1 follow-up).
+      - name: semver-checks touring-foundation (pub API stability)
+        # Allow failure during W13.3 ramp-up — promote to required gate once
+        # the crate's pub API has a stable baseline.
+        continue-on-error: true
+        run: cargo semver-checks check-release -p touring-foundation
+
+      - name: semver-checks touring-license (pub API stability)
+        continue-on-error: true
+        run: cargo semver-checks check-release -p touring-license
+
+  # ── Job 5: doc lint (markdown files in docs/guide/) ────────────────────
+  docs-lint:
+    name: docs/guide markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify the 3 guides exist with ≥150 LOC each
+        run: |
+          set -eu
+          for f in docs/guide/getting-started.md \
+                   docs/guide/migration.md \
+                   docs/guide/external-client.md; do
+            [[ -f "$f" ]] || { echo "FAIL: $f missing"; exit 1; }
+            loc=$(wc -l < "$f")
+            [[ "$loc" -ge 150 ]] \
+              || { echo "FAIL: $f has $loc LOC (< 150)"; exit 1; }
+            echo "OK $f ($loc LOC)"
+          done

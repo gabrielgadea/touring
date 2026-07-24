@@ -1,0 +1,49 @@
+# ─── Touring workspace .gitignore (N02 — Master Plan H0 / QA-01) ───
+# Authored 2026-06-04. Rationale: target/ + fuzz/target/ = ~4.3GB regenerable cache.
+# Source (fuzz_targets/, corpus seeds, crash artifacts) is preserved intentionally.
+
+# Build cache — regenerable (REGRA #12 disk hygiene). Matches at any nesting depth.
+target/
+**/target/
+
+# cargo-mutants output
+mutants.out/
+
+# taco-forge atomic snapshots + stray compiled rlib
+*.tf-bak.*
+*.rlib
+
+# Debug scratch
+debug_js.js
+
+# Build / report scratch dirs
+reports/
+pln2/
+
+# Editor / OS noise
+*.swp
+*~
+.DS_Store
+
+# Release artifacts (published via GitHub Releases, never in-tree)
+/dist/
+
+# Per-project local state (machine, not source)
+/.touring/
+*.sock
+
+# Python venvs / JS deps
+.venv/
+venv/
+node_modules/
+
+# Runtime/machine state & regenerable caches (never source)
+/.claude/touring/
+**/.fastembed_cache/
+docs/baselines/*.tar.gz
+/symbols.db
+*.db-shm
+*.db-wal
+
+# Claude Code session state (never source)
+/.claude/

@@ -1,0 +1,14 @@
+# Terraform module: {{ module_name | default(value="module") }}
+
+terraform {
+  required_version = ">= 1.5"
+}
+
+variable "name" {
+  description = "Resource name"
+  type        = string
+}
+
+resource "{{ resource_type | default(value="null_resource") }}" "{{ resource_name | default(value="main") }}" {
+  # TODO: configure resource
+}

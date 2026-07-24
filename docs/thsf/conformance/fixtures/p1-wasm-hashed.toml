@@ -1,0 +1,14 @@
+# RFC-001 fixture: WASM adapter with content hash pinning.
+# MUST parse OK; content_hash is optional in the schema but recommended.
+
+[holon.identity]
+name = "p1-wasm-hashed"
+version = "0.1.0"
+autonomy_guarantee = true
+
+[holon.offers.generator-health]
+schema = "schemas/generator-health.wit"
+adapter = "wasm"
+wasm_component = "dist/generator-health.wasm"
+content_hash = "blake3:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+version = "0.1.0"

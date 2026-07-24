@@ -1,0 +1,150 @@
+{
+  "checkpoint": {
+    "id": "es1-p4-claim-from-intent-2026-06-02",
+    "wave": "ES1 P4",
+    "parent_task": "task_1780444790974816425",
+    "roadmap_ref": "~/.claude/rust/docs/2026-05-30-cah-epic-subsystems-roadmap.md",
+    "plan_ref": "/home/gabrielgadea/.claude/plans/robust-riding-rose.md",
+    "shipped_at": "2026-06-03T00:08:00Z",
+    "budget_ed": 2.0,
+    "actual_ed": 2.0,
+    "scope_decision": "additive per-candidate claim derivation; filter_by_proof UNCHANGED for backward compat"
+  },
+  "predecessor": {
+    "wave": "ES1 P3.5",
+    "shipped_at": "2026-06-02",
+    "delivered": [
+      "filter_by_proof (single shared claim for all candidates) at speculative.rs:122-152",
+      "5 P3.5 tests"
+    ],
+    "meta_lesson_hint": "P3 meta-lesson's next-level mechanism: derive the ClaimKind that should be proved from the speculative driver's Action. Closure-injectable design, same pattern as filter_by_proof."
+  },
+  "deliverables": {
+    "S-4-1_claim_from_intent": {
+      "file": "crates/touring-hooks/src/offensive_integration.rs",
+      "loc_delta": 120,
+      "new_pub": [
+        "claim_from_intent(signature: &ActionSignature) -> Option<ClaimKind>"
+      ],
+      "tests_added": 4,
+      "test_names": [
+        "claim_from_intent_cargo_returns_exit_code_postcondition",
+        "claim_from_intent_rust_returns_rustc_postcondition",
+        "claim_from_intent_md_returns_none",
+        "claim_from_intent_unknown_returns_none"
+      ],
+      "intent_to_claim_mapping": {
+        "cargo | npm | yarn | pnpm": "Postcondition { predicate: 'exit code == 0' }",
+        "pytest | jest | mocha | rspec": "Postcondition { predicate: 'test suite passes' }",
+        "git": "Postcondition { predicate: 'git exit code == 0' }",
+        "rs | rust": "Postcondition { predicate: 'rustc --edition 2024 succeeds' }",
+        "py": "Postcondition { predicate: 'python -m py_compile succeeds' }",
+        "ts | tsx | js | jsx": "Postcondition { predicate: 'tsc --noEmit succeeds' }",
+        "md": "None (markdown edits — no static claim)",
+        "symbol": "Postcondition { predicate: 'result non-empty' }",
+        "free-text": "None",
+        "webfetch*": "Postcondition { predicate: 'HTTP 200' }",
+        "mcp-*": "None (MCP calls external)",
+        "default | unknown": "None (conservative under-declaration)"
+      }
+    },
+    "S-4-2_filter_by_proof_per_candidate": {
+      "file": "crates/touring-hooks/src/gateway/speculative.rs",
+      "loc_delta": 150,
+      "new_pub": [
+        "filter_by_proof_per_candidate<F, G>(candidates, claim_for, ctx, backend, prove_closure) where F: Fn(&ActionSignature) -> Option<ClaimKind>, G: Fn(&ClaimKind, &ClaimContext, SolverBackendKind) -> ProofReport"
+      ],
+      "tests_added": 2,
+      "test_names": [
+        "filter_by_proof_per_candidate_under_declaration_defaults_to_identity",
+        "filter_by_proof_per_candidate_per_candidate_derivation_works"
+      ],
+      "filter_by_proof_unchanged": "speculative.rs:122-152 NOT modified (P3.5 backward compat preserved; 5/5 P3.5 tests still pass)"
+    },
+    "S-4-3_wire_pre_exec": {
+      "file": "crates/touring-hooks/src/gateway/pre_exec.rs",
+      "loc_delta": 95,
+      "call_site_change": "pre_exec.rs:305 — filter_by_proof → filter_by_proof_per_candidate (1 line)",
+      "tests_added": 2,
+      "test_names": [
+        "run_gateway_speculative_with_per_candidate_filter_default_deps_is_identity",
+        "run_gateway_speculative_with_per_candidate_filter_bash_cargo_with_stub"
+      ],
+      "MUST_KNOW_doc_in_2_places": [
+        "speculative.rs:176 — '# MUST-KNOW edge case' (per-candidate + Z3/Cvc5 + empty ClaimContext → all derivable candidates DROPPED)",
+        "pre_exec.rs:298-302 — same warning at the production call site (with mitigation: 'Adopters switching from Stub to Z3/Cvc5 MUST populate ClaimContext with variables bound to the generated predicates')"
+      ]
+    }
+  },
+  "test_metrics": {
+    "touring_hooks_lib_tests_before": 3983,
+    "touring_hooks_lib_tests_after": 3991,
+    "tests_added_net": 8,
+    "tests_pass": 3991,
+    "tests_fail_pre_existing_unrelated": 1,
+    "tests_ignored": 1,
+    "elapsed_seconds": 52.42,
+    "p35_backward_compat_tests_pass": 5,
+    "p4_new_tests_pass": 8
+  },
+  "compilation_evidence": {
+    "cargo_check_workspace": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.60s — EXIT 0 (1 pre-existing touring-offensive unused_mut warning)",
+    "cargo_clippy_server_no_deps": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.95s — EXIT 0 with -D warnings enforced; 1 pre-existing touring-offensive warning excluded via --no-deps"
+  },
+  "p3_leftover_audit": {
+    "verdict": "ZERO risk (zero struct change)",
+    "evidence": {
+      "GatewayDeps_struct_definitions": 1,
+      "GatewayDeps_struct_literal_sites": 9,
+      "GatewayDeps_struct_literal_sites_pre_p4": 9,
+      "delta": 0,
+      "rationale": "filter_by_proof_per_candidate internally invokes ExecPool-free pure functions; no GatewayDeps field added; 1-line call site change at pre_exec.rs:305; P3.5's filter_by_proof (5 tests) UNCHANGED"
+    }
+  },
+  "regra_zero_audit": {
+    "verdict": "ZERO new orphan pub symbols",
+    "consumer_chains": {
+      "claim_from_intent (NEW pub fn)": [
+        "pre_exec.rs:307 (production call site as F arg)",
+        "offensive_integration.rs:97-126 (4 unit tests in tests_p4 mod)",
+        "offensive_integration.rs:25 (mod doc reference)",
+        "pre_exec.rs:1127, 1152-1154, 1182 (test fixtures + comments)",
+        "speculative.rs:158 (mod doc reference)"
+      ],
+      "filter_by_proof_per_candidate (NEW pub fn)": [
+        "pre_exec.rs:305 (production call site)",
+        "speculative.rs:475-509 (2 unit tests)",
+        "offensive_integration.rs:25 (mod doc reference)",
+        "pre_exec.rs:289-292 (mod doc comment)"
+      ],
+      "filter_by_proof (UNCHANGED)": "5 P3.5 tests + 1 production reference in pre_exec.rs:42 (comment) + pre_exec.rs:1002 (test)"
+    }
+  },
+  "risk_register": {
+    "R-1_N_proves_per_candidate_P2": "DOCUMENTED in speculative.rs:176 (MUST-KNOW) + pre_exec.rs:298 (MUST-KNOW); Stub backend effectively free (Void); real Z3/Cvc5 cost is N× (acceptable for N≤10)",
+    "R-2_closure_capture_P3": "MITIGATED — claim_from_intent is pure function lookup (O(1)); mod doc warns against future memory I/O inside closure",
+    "R-3_livelock_P3": "MATCHES P3.5 behavior — not a regression; Stub backend returns Void",
+    "R-4_intent_table_maintenance_P3": "MITIGATED — default = None (under-declaration); future wave can add test that locks coverage of all classify_intent_class outputs",
+    "MUST_FIX_S-OPT-1_Z3_empty_ctx_P1": "DOCUMENTED in 2+ places (speculative.rs:176 + pre_exec.rs:298-302)"
+  },
+  "lossless_contract": {
+    "default_caller_stub_backend": "claim_from_intent derives Some for cargo/rs/etc → prove_claim returns Void (Stub→Void contract) → all candidates KEPT. ZERO behavior change for default callers.",
+    "default_caller_z3_empty_ctx": "FOOTGUN — all candidates with derivable intent are DROPPED. MUST-KNOW doc explains mitigation (populate ClaimContext with variables bound to predicates).",
+    "opt_in_caller_with_claim": "deps.claim field is now UNUSED at the per-candidate call site (per-candidate derivation supersedes single-shared claim). Kept in struct for backward compat (tests, future opt-in re-enable)."
+  },
+  "outstanding_for_next_wave": [
+    "ES4 P2-P4 (unify distillation + calibrated + wire, 7ed)",
+    "ES2 P3-P5 (compaction re-attend + self-verify loop + promote, 5ed)",
+    "ES3 P4-P5 (CRDT + multi-agent runtime, ~12ed Tier 3)",
+    "ES1 P2.5 (cvc5 0.4 migration, BLOCKED on libcvc5-dev system dep, ~2ed)",
+    "Optional: Populate ClaimContext for real Z3 usage (requires app-level variable binding)",
+    "Optional: Refactor intent→predicate to const data table (S-OPT-4 stylistic)",
+    "Optional: Test negative Z3+empty-ctx+derivable-intent (S-OPT-3, currently doc-only)"
+  ],
+  "todos": [],
+  "rl_rewards_planned": [
+    "orchestrate:1.0 es1-p4:per_candidate_claim_derivation_zero_p3_leftover:2ed-closed",
+    "edit:1.0 es1-p4:8-tests-zero-orphans-3-files-p3-backward-compat-preserved",
+    "generate:0.9 es1-p4:must_know_doc_in_2_places_footgun_mitigated"
+  ]
+}

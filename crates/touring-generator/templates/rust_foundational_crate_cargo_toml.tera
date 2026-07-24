@@ -1,0 +1,45 @@
+[package]
+name = "{{ crate_name | default(value="my-crate") }}"
+version.workspace = true
+edition = "{{ edition | default(value="2021") }}"
+rust-version = "{{ rust_version | default(value="1.80") }}"
+description = "{{ description | default(value="A Rust crate.") }}"
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+{% if with_bin is defined and with_bin %}
+
+[[bin]]
+name = "{{ bin_name | default(value=crate_name) }}"
+path = "{{ bin_path | default(value="src/main.rs") }}"
+{% endif %}
+
+[dependencies]
+tokio     = { workspace = true }
+tracing   = { workspace = true }
+serde     = { workspace = true }
+thiserror = { workspace = true }
+{% if extra_deps is defined %}{% for d in extra_deps %}
+{{ d.name }} = {% if d.workspace %}{ workspace = true{% if d.features %}, features = [{% for f in d.features %}"{{ f }}"{% if not loop.last %}, {% endif %}{% endfor %}]{% endif %} }{% else %}{ version = "{{ d.version | default(value="*") }}"{% if d.features %}, features = [{% for f in d.features %}"{{ f }}"{% if not loop.last %}, {% endif %}{% endfor %}]{% endif %} }{% endif %}
+{% endfor %}{% endif %}
+{% if with_linux_deps is defined and with_linux_deps %}
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+{% endif %}
+{% if optional_features is defined %}{% for f in optional_features %}
+[dependencies.{{ f.name }}]
+optional = true
+{% endfor %}{% endif %}
+[features]
+default = []
+{% if optional_features is defined %}{% for f in optional_features %}
+{{ f.name }} = [{% for d in f.deps %}"dep:{{ d }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+{% endfor %}{% endif %}
+{% if dev_deps is defined and dev_deps %}
+[dev-dependencies]
+{% for d in dev_deps %}
+{{ d }} = { workspace = true }
+{% endfor %}
+{% endif %}
+[lints]
+workspace = true

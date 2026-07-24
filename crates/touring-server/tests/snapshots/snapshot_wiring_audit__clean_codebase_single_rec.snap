@@ -1,0 +1,5 @@
+---
+source: crates/touring-server/tests/snapshot_wiring_audit.rs
+expression: recs
+---
+- Codebase wiring is clean — no orphan pub symbols detected.

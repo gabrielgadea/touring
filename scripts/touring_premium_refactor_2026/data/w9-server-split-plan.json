@@ -1,0 +1,73 @@
+{
+  "script": "w9_server_split_planner",
+  "wave": "W9",
+  "subtask_refs": [
+    "W9.1",
+    "W9.2",
+    "W9.3",
+    "W9.4",
+    "W9.5",
+    "W9.6",
+    "W9.7"
+  ],
+  "timestamp": "2026-05-12T00:15:12.772353+00:00",
+  "totals": {
+    "rs_files": 161,
+    "total_loc": 61147,
+    "bucket_count": 6
+  },
+  "buckets": {
+    "touring-server-misc": {
+      "file_count": 113,
+      "total_loc": 32962,
+      "sample_files": [
+        "crates/touring-server/src/agent_diary.rs",
+        "crates/touring-server/src/cli/activity.rs",
+        "crates/touring-server/src/cli/assist.rs"
+      ]
+    },
+    "touring-server-reasoning": {
+      "file_count": 6,
+      "total_loc": 4483,
+      "sample_files": [
+        "crates/touring-server/src/cli/cognitive.rs",
+        "crates/touring-server/src/reasoning/decomposer.rs",
+        "crates/touring-server/src/reasoning/granularity_adapter.rs"
+      ]
+    },
+    "touring-server-tools": {
+      "file_count": 23,
+      "total_loc": 9965,
+      "sample_files": [
+        "crates/touring-server/src/cli/mcp_overhead.rs",
+        "crates/touring-server/src/tools/ast_tools.rs",
+        "crates/touring-server/src/tools/clone_tools.rs"
+      ]
+    },
+    "touring-server-bench": {
+      "file_count": 4,
+      "total_loc": 1031,
+      "sample_files": [
+        "crates/touring-server/src/cli/profile.rs",
+        "crates/touring-server/src/telemetry/mcp_overhead.rs",
+        "crates/touring-server/src/telemetry/mod.rs"
+      ]
+    },
+    "touring-server-facade": {
+      "file_count": 1,
+      "total_loc": 63,
+      "sample_files": [
+        "crates/touring-server/src/lib.rs"
+      ]
+    },
+    "touring-server-core": {
+      "file_count": 14,
+      "total_loc": 12643,
+      "sample_files": [
+        "crates/touring-server/src/main.rs",
+        "crates/touring-server/src/server/metrics.rs",
+        "crates/touring-server/src/server/mod.rs"
+      ]
+    }
+  }
+}

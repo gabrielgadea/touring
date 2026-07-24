@@ -1,0 +1,121 @@
+{
+  "categories": [
+    {
+      "name": "FunctionDef",
+      "description": "Function definition (fn, def, function)",
+      "aliases": ["method", "proc", "subroutine"]
+    },
+    {
+      "name": "StructDef",
+      "description": "Struct or class definition",
+      "aliases": ["class", "object", "record"]
+    },
+    {
+      "name": "EnumDef",
+      "description": "Enum definition",
+      "aliases": ["sum type", "tagged union"]
+    },
+    {
+      "name": "TraitDef",
+      "description": "Trait or interface definition",
+      "aliases": ["protocol", "interface"]
+    },
+    {
+      "name": "ImplBlock",
+      "description": "Implementation block",
+      "aliases": ["class body", "impl"]
+    },
+    {
+      "name": "TypeDef",
+      "description": "Type alias or type definition",
+      "aliases": ["typedef", "type alias"]
+    },
+    {
+      "name": "Module",
+      "description": "Module or namespace",
+      "aliases": ["namespace", "package", "package"]
+    },
+    {
+      "name": "UseStatement",
+      "description": "Use or import statement",
+      "aliases": ["import", "require", "include"]
+    },
+    {
+      "name": "ConstDef",
+      "description": "Constant definition",
+      "aliases": ["constant", "final", "static const"]
+    },
+    {
+      "name": "StaticDef",
+      "description": "Static variable",
+      "aliases": ["static", "class variable"]
+    },
+    {
+      "name": "FnParam",
+      "description": "Function parameter",
+      "aliases": ["parameter", "arg", "argument"]
+    },
+    {
+      "name": "StructField",
+      "description": "Struct field or class property",
+      "aliases": ["field", "property", "attribute", "member"]
+    },
+    {
+      "name": "EnumVariant",
+      "description": "Enum variant",
+      "aliases": ["variant", "case", "option"]
+    },
+    {
+      "name": "Attribute",
+      "description": "Attribute, annotation, or decorator",
+      "aliases": ["annotation", "decorator", "pragma"]
+    },
+    {
+      "name": "DocComment",
+      "description": "Documentation comment",
+      "aliases": ["docstring", "javadoc", "doc"]
+    },
+    {
+      "name": "MacroDef",
+      "description": "Macro definition",
+      "aliases": ["macro", "preprocessor"]
+    },
+    {
+      "name": "Closure",
+      "description": "Closure or lambda",
+      "aliases": ["lambda", "anonymous function", "block"]
+    },
+    {
+      "name": "ClosureParam",
+      "description": "Closure parameter",
+      "aliases": ["closure argument"]
+    },
+    {
+      "name": "TypeAnnotation",
+      "description": "Type annotation",
+      "aliases": ["type hint", "type spec"]
+    },
+    {
+      "name": "GenericParam",
+      "description": "Generic parameter",
+      "aliases": ["type parameter", "generics"]
+    },
+    {
+      "name": "WhereClause",
+      "description": "Where clause",
+      "aliases": ["constraint", "bound"]
+    },
+    {
+      "name": "ImportStatement",
+      "description": "Import statement",
+      "aliases": ["import", "using", "require"]
+    },
+    {
+      "name": "Unclassified",
+      "description": "Unclassified symbol",
+      "aliases": ["unknown", "other"]
+    }
+  ],
+  "version": "1.0",
+  "total_categories": 23
+}

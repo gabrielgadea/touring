@@ -1,0 +1,8 @@
+---
+source: crates/touring-generator/tests/snapshot_public_api.rs
+expression: debug_sorted(sources)
+---
+- LlmHypothesis
+- MemoryRecall
+- SimdTopK
+- TrigramIndex

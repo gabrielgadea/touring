@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "description": "Code intelligence and AI-assisted refactoring",
+  "homepage": "https://touring.dev",
+  "license": "MIT OR Apache-2.0",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/touring/touring/releases/download/v0.1.0/touring-x86_64-pc-windows-msvc.zip",
+      "hash": "PLACEHOLDER_FILL_AT_RELEASE"
+    }
+  },
+  "bin": "touring.exe",
+  "checkver": {
+    "github": "https://github.com/touring/touring"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/touring/touring/releases/download/v$version/touring-x86_64-pc-windows-msvc.zip"
+      }
+    }
+  }
+}

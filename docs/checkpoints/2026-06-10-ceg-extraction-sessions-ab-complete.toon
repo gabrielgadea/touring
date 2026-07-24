@@ -1,0 +1,17 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: ceg-extraction-sessions-ab-complete
+slug: ceg-extraction-sessions-ab-complete
+intent: "Sessions A+B do plano recursive-cuddling-blossom: touring-ceg extraído do monólito touring-hooks (gateway+capability 17.6k LOC), 6 submódulos shared relocados ao leaf, hook driver em ceg_adapter no parent, 3 bugs latentes corrigidos, baselines exatas (506 ceg=422+84, parent 3346=3852-506, ceg_e2e 118), build incremental CEG 5.6x mais rápido, touring-hooks 169k para 146.7k LOC"
+role: orchestrator
+task_id: ""
+timestamp: "2026-06-10T09:37:43-03:00"
+session_id: ac9e1f06-4e9f-4661-a767-17c870e3d99c
+content:
+  lines: 0
+  bytes: 0
+  sections: []
+  source_md: ""
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02

@@ -1,0 +1,17 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: w11-rescope-and-w11-6-fuzz
+slug: w11-rescope-and-w11-6-fuzz
+intent: "W11 Test Debt Repayment re-scoped + W11.6 delivered. Ground-truth re-measurement (cargo llvm-cov --json): touring-intelligence 83.14% line cov, touring-foundation 77.73% — plan premises ('15%') STALE pre-W4-W10-fusions; W11.1/W11.3 obsolete, W11.5 already met (89 proptest >50), touring-bindings feature-gated default=[] (185 tests gated). W11 re-scoped 10-15d->5-8d, plan total 133-176->128-169d. W11.6 DELIVERED: fuzz/ crate at workspace root + 8 cargo-fuzz targets VGP-verified (cargo +nightly fuzz build exit 0, cargo fuzz list=8, Cargo.toml exclude=[fuzz]). Fuzzing surfaced 5 real bugs: FIXED touring-code::polyglot search/rewrite Pattern::new->try_new panic (+2 regression tests, 17 polyglot tests pass); DEFERRED B-FUZZ-001 (ast-grep-core match_tree/mod.rs:82 ellipsis $$$ panic at match stage — real production crash touring ast grep) and B-FUZZ-002 (tree-sitter-go ABI v15 vs ast-grep-core 0.36.0). Follow-up: evaluate ast-grep-core 0.36->0.38.7/0.42.1 upgrade. cargo check --workspace exit 0, 0 regressions."
+role: engineer
+task_id: ""
+timestamp: "2026-05-15T21:41:47-03:00"
+session_id: a9198211-d445-4694-9846-6888cd6b9a6f
+content:
+  lines: 0
+  bytes: 0
+  sections: []
+  source_md: ""
+regra_anchor: "REGRA #0 POTENCIALIZAR + REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02

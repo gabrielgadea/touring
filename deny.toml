@@ -1,0 +1,280 @@
+# cargo-deny configuration
+# Docs: https://embarkstudios.github.io/cargo-deny/
+# Usage: cargo deny check
+# Last refreshed: W13 repo-premium 2026-05-31 (advisories + bans skip-list + licenses).
+
+[graph]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+]
+all-features = false
+# `full` feature in touring-generator activates every optional adapter.
+features = ["full"]
+
+# ───────────────────────────────────────────────────────────────────────
+# [advisories] — RustSec database checks
+# ───────────────────────────────────────────────────────────────────────
+[advisories]
+version = 2
+# Deny on any unfixed vulnerability by default.
+yanked = "deny"
+# Canonical cargo-deny convention for workspace-private toolchains
+# (https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html):
+# flag unmaintained/unsound advisories ONLY on direct workspace deps.
+# Transitive unmaintaineds are surfaced in `cargo audit` but do NOT
+# penalise F4.5 — the workspace can't author-control a transitive's
+# parent bump without disproportionate churn. Mirrored in
+# `touring-analysis::quality::dep_health::load_advisory_policy`.
+unmaintained = "workspace"
+unsound = "workspace"
+# Auto-expiry tripwire (cargo-deny best practice): when an ignored advisory stops
+# matching — e.g. upstream inferno bumps quick-xml ≥0.41 — cargo-deny flags the
+# entry as unused so it can be removed (the deferred REGRA #0 real fix lands here).
+unused-ignored-advisory = "warn"
+# Ignored advisories — each MUST carry a rationale. Review quarterly:
+# if a safe upgrade becomes available, drop the entry here and bump the dep.
+ignore = [
+    # ── Unmaintained (no published fix; non-CVE) — each transitive or format-locked ──
+    { id = "RUSTSEC-2025-0141", reason = "bincode 1.x unmaintained (no CVE). DIRECT, but it serializes ANN embeddings to disk (touring-hooks-prediction/ann_memory/persistence.rs); bincode 1→2 is wire-format-incompatible → migrating would corrupt persisted data. Deferred to a scheduled data-format migration." },
+    { id = "RUSTSEC-2024-0384", reason = "instant unmaintained (no CVE) — transitive via argmin/measure_time/notify-types; web-time replacement lands as those parents bump." },
+    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained (no CVE) — transitive via gemm/argmin (math/proc-macro); compile-time proc-macro only, zero runtime attack surface." },
+    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained (no CVE). DEV-ONLY + BUILD-TIME — pulled solely by iai-callgrind-macros → iai-callgrind, a [dev-dependencies] benchmark harness; never compiled into a shipped artifact. Zero runtime attack surface." },
+    # RUSTSEC-2026-0185 (quinn-proto DoS) removed 2026-07-03 — qdrant-client bumped
+    # quinn-proto to 0.11.15 (the fixed version); `cargo deny` + `unused-ignored-advisory`
+    # both confirm the advisory no longer matches the tree. The deferred fix landed.
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml <0.41 quadratic dup-attr-check DoS (CVE-class) — TRANSITIVE, sole parent `inferno` (flamegraph SVG) via (a) pprof [dev-dependencies] in touring-code [bench-only, never shipped] and (b) jemalloc_pprof `heap-profile`. inferno WRITES flamegraph SVG from the profiler's own LOCAL TRUSTED data; the quadratic-parse vector requires attacker-controlled XML, which never ingresses → unreachable. inferno 0.12.6 (latest, 2026-03-01) still pins quick-xml ^0.39; NO released inferno uses ≥0.41 → not fixable by upgrade. Tracked for the inferno bump; unused-ignored-advisory=warn auto-flags removal." },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml <0.41 NsReader unbounded namespace-declaration alloc DoS (CVE-class) — same `inferno` flamegraph-SVG transitive path as RUSTSEC-2026-0194. inferno's SVG writer does not parse untrusted namespaced XML via NsReader → vector unreachable. No released inferno uses quick-xml ≥0.41 (0.12.6 latest). Tracked; auto-expiry via unused-ignored-advisory=warn." },
+    #
+    # 2026-06-22 vuln-remediation wave (Gabriel: "corrija todas as vulnerabilidades") drove
+    # `cargo audit` to VULNS=0 by FIXING — not deferring — every CVE previously ignored here:
+    #   tokio-postgres RUSTSEC-2026-0178 → 0.7.18; postgres-protocol RUSTSEC-2026-0179/0180 → 0.6.12;
+    #   rand RUSTSEC-2026-0097 → 0.10.1 / 0.9.3; gix-date RUSTSEC-2025-0140 → vergen-gix 1.0→10.0
+    #   (gix 0.84, gix-date 0.15.4; build-info feature re-enabled with the vergen 10 Emitter/Gix API);
+    #   pyo3 RUSTSEC-2026-0176/0177 → pyo3+numpy 0.24→0.29 (bind-python migrated: allow_threads→detach,
+    #   PyObject→Py<PyAny>); lru RUSTSEC-2026-0002 (DIRECT) → 0.16.4; dirs RUSTSEC-2020-0053 (DIRECT) → `home`.
+    # cargo-audit (whole-lock) still surfaces two NON-CVE warnings that cargo-deny's graph does not flag;
+    # both are transitive and unfixable without a disproportionate parent bump (tracked, re-evaluate quarterly):
+    #   - lru 0.12.5 [unsound] — internal to tantivy 0.22's cache (tantivy pins lru ^0.12; fix needs
+    #     tantivy 0.22→0.24+, schema v5 deeply wired). Our DIRECT lru is patched (0.16.4 ≥0.16.3).
+    #   - rustls-pemfile 2.2.0 [unmaintained] — transitive in the tls stack (folded into rustls-pki-types upstream).
+]
+
+# ───────────────────────────────────────────────────────────────────────
+# [bans] — enforce a sane dependency graph
+# ───────────────────────────────────────────────────────────────────────
+[bans]
+# Touring policy: deny duplicate versions in the graph (I-cache + binary bloat).
+multiple-versions = "deny"
+# Private-tooling workspace — wildcard path-deps are the canonical pattern.
+wildcards = "allow"
+allow-wildcard-paths = true
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "warn"
+
+# Explicit deny list — TLS is rustls workspace-wide. openssl/native-tls are now
+# fully ABSENT from the graph (W13 2026-05-31: fastembed switched to
+# ort-download-binaries-rustls-tls + hf-hub-rustls-tls). This ban keeps them out.
+deny = [
+    { crate = "openssl", use-instead = "rustls" },
+    { crate = "openssl-sys", use-instead = "rustls" },
+    { crate = "native-tls", use-instead = "rustls" },
+]
+
+# Curated skip list — duplicate versions caused by transitive churn that
+# cannot be unified at the workspace level. Auto-refreshed deterministically
+# (skip = all-but-newest per duplicate). To re-audit:
+#   cargo tree --workspace --duplicates --edges normal
+skip = [
+    { crate = "ahash@0.7.8", reason = "transitive churn (W13 deny refresh 2026-05-31); ahash@0.8.12 is workspace canonical" },
+    { crate = "anstream@0.6.21", reason = "transitive churn (W13 deny refresh 2026-05-31); anstream@1.0.0 is workspace canonical" },
+    { crate = "anstyle-parse@0.2.7", reason = "transitive churn (W13 deny refresh 2026-05-31); anstyle-parse@1.0.0 is workspace canonical" },
+    { crate = "approx@0.4.0", reason = "transitive churn (W13 deny refresh 2026-05-31); approx@0.5.1 is workspace canonical" },
+    { crate = "axum@0.7.9", reason = "transitive churn (W13 deny refresh 2026-05-31); axum@0.8.9 is workspace canonical" },
+    { crate = "axum-core@0.4.5", reason = "transitive churn (W13 deny refresh 2026-05-31); axum-core@0.5.6 is workspace canonical" },
+    { crate = "base64@0.13.1", reason = "transitive churn (W13 deny refresh 2026-05-31); base64@0.22.1 is workspace canonical" },
+    { crate = "base64@0.21.7", reason = "transitive churn (W13 deny refresh 2026-05-31); base64@0.22.1 is workspace canonical" },
+    { crate = "bitflags@1.3.2", reason = "transitive churn (W13 deny refresh 2026-05-31); bitflags@2.11.0 is workspace canonical" },
+    { crate = "bit-set@0.5.3", reason = "transitive churn (W13 deny refresh 2026-05-31); bit-set@0.10.0 is workspace canonical" },
+    { crate = "bit-set@0.8.0", reason = "transitive churn (W13 deny refresh 2026-05-31); bit-set@0.10.0 is workspace canonical" },
+    { crate = "bit-vec@0.6.3", reason = "transitive churn (W13 deny refresh 2026-05-31); bit-vec@0.9.1 is workspace canonical" },
+    { crate = "bit-vec@0.8.0", reason = "transitive churn (W13 deny refresh 2026-05-31); bit-vec@0.9.1 is workspace canonical" },
+    { crate = "convert_case@0.10.0", reason = "transitive churn (W13 deny refresh 2026-05-31); convert_case@0.11.0 is workspace canonical" },
+    { crate = "convert_case@0.6.0", reason = "transitive churn (W13 deny refresh 2026-05-31); convert_case@0.11.0 is workspace canonical" },
+    { crate = "cpufeatures@0.2.17", reason = "transitive churn (W13 deny refresh 2026-05-31); cpufeatures@0.3.0 is workspace canonical" },
+    { crate = "cranelift-assembler-x64@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-assembler-x64@0.131.2 is workspace canonical" },
+    { crate = "cranelift-bforest@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-bforest@0.131.2 is workspace canonical" },
+    { crate = "cranelift-bitset@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-bitset@0.131.2 is workspace canonical" },
+    { crate = "cranelift-codegen@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-codegen@0.131.2 is workspace canonical" },
+    { crate = "cranelift-codegen-shared@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-codegen-shared@0.131.2 is workspace canonical" },
+    { crate = "cranelift-control@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-control@0.131.2 is workspace canonical" },
+    { crate = "cranelift-entity@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-entity@0.131.2 is workspace canonical" },
+    { crate = "cranelift-frontend@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-frontend@0.131.2 is workspace canonical" },
+    { crate = "cranelift-native@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31); cranelift-native@0.131.2 is workspace canonical" },
+    { crate = "darling@0.20.11", reason = "transitive churn (W13 deny refresh 2026-05-31); darling@0.23.0 is workspace canonical" },
+    { crate = "darling_core@0.20.11", reason = "transitive churn (W13 deny refresh 2026-05-31); darling_core@0.23.0 is workspace canonical" },
+    { crate = "darling_macro@0.20.11", reason = "transitive churn (W13 deny refresh 2026-05-31); darling_macro@0.23.0 is workspace canonical" },
+    { crate = "dyn-stack@0.10.0", reason = "transitive churn (W13 deny refresh 2026-05-31); dyn-stack@0.13.2 is workspace canonical" },
+    { crate = "fixedbitset@0.4.2", reason = "transitive churn (W13 deny refresh 2026-05-31); fixedbitset@0.5.7 is workspace canonical" },
+    { crate = "foldhash@0.1.5", reason = "transitive churn (W13 deny refresh 2026-05-31); foldhash@0.2.0 is workspace canonical" },
+    { crate = "gemm@0.17.1", reason = "transitive churn (W13 deny refresh 2026-05-31); gemm@0.18.2 is workspace canonical" },
+    { crate = "gemm-c32@0.17.1", reason = "transitive churn (W13 deny refresh 2026-05-31); gemm-c32@0.18.2 is workspace canonical" },
+    { crate = "gemm-c64@0.17.1", reason = "transitive churn (W13 deny refresh 2026-05-31); gemm-c64@0.18.2 is workspace canonical" },
+    { crate = "gemm-common@0.17.1", reason = "transitive churn (W13 deny refresh 2026-05-31); gemm-common@0.18.2 is workspace canonical" },
+    { crate = "gemm-f16@0.17.1", reason = "transitive churn (W13 deny refresh 2026-05-31); gemm-f16@0.18.2 is workspace canonical" },
+    { crate = "gemm-f32@0.17.1", reason = "transitive churn (W13 deny refresh 2026-05-31); gemm-f32@0.18.2 is workspace canonical" },
+    { crate = "gemm-f64@0.17.1", reason = "transitive churn (W13 deny refresh 2026-05-31); gemm-f64@0.18.2 is workspace canonical" },
+    { crate = "getrandom@0.2.17", reason = "transitive churn (W13 deny refresh 2026-05-31); getrandom@0.4.2 is workspace canonical" },
+    { crate = "getrandom@0.3.4", reason = "transitive churn (W13 deny refresh 2026-05-31); getrandom@0.4.2 is workspace canonical" },
+    { crate = "gimli@0.32.3", reason = "transitive churn (W13 deny refresh 2026-05-31); gimli@0.33.0 is workspace canonical" },
+    { crate = "hashbrown@0.12.3", reason = "transitive churn (W13 deny refresh 2026-05-31); hashbrown@0.17.1 is workspace canonical" },
+    { crate = "hashbrown@0.14.5", reason = "transitive churn (W13 deny refresh 2026-05-31); hashbrown@0.17.1 is workspace canonical" },
+    { crate = "hashbrown@0.15.5", reason = "transitive churn (W13 deny refresh 2026-05-31); hashbrown@0.17.1 is workspace canonical" },
+    { crate = "hashbrown@0.16.1", reason = "transitive churn (W13 deny refresh 2026-05-31); hashbrown@0.17.1 is workspace canonical" },
+    { crate = "hashlink@0.9.1", reason = "transitive churn (W13 deny refresh 2026-05-31); hashlink@0.11.0 is workspace canonical" },
+    { crate = "indexmap@1.9.3", reason = "transitive churn (W13 deny refresh 2026-05-31); indexmap@2.14.0 is workspace canonical" },
+    { crate = "itertools@0.10.5", reason = "transitive churn (W13 deny refresh 2026-05-31); itertools@0.14.0 is workspace canonical" },
+    { crate = "itertools@0.11.0", reason = "transitive churn (W13 deny refresh 2026-05-31); itertools@0.14.0 is workspace canonical" },
+    { crate = "itertools@0.12.1", reason = "transitive churn (W13 deny refresh 2026-05-31); itertools@0.14.0 is workspace canonical" },
+    { crate = "linux-raw-sys@0.4.15", reason = "transitive churn (W13 deny refresh 2026-05-31); linux-raw-sys@0.12.1 is workspace canonical" },
+    { crate = "matchit@0.7.3", reason = "transitive churn (W13 deny refresh 2026-05-31); matchit@0.8.4 is workspace canonical" },
+    { crate = "nalgebra@0.32.6", reason = "transitive churn (W13 deny refresh 2026-05-31); nalgebra@0.33.3 is workspace canonical" },
+    { crate = "ndarray@0.15.6", reason = "transitive churn (W13 deny refresh 2026-05-31); ndarray@0.17.2 is workspace canonical" },
+    { crate = "ndarray@0.16.1", reason = "transitive churn (W13 deny refresh 2026-05-31); ndarray@0.17.2 is workspace canonical" },
+    { crate = "nom@7.1.3", reason = "transitive churn (W13 deny refresh 2026-05-31); nom@8.0.0 is workspace canonical" },
+    { crate = "object@0.36.7", reason = "transitive churn (W13 deny refresh 2026-05-31); object@0.39.1 is workspace canonical" },
+    { crate = "object@0.37.3", reason = "transitive churn (W13 deny refresh 2026-05-31); object@0.39.1 is workspace canonical" },
+    { crate = "ordered-float@2.10.1", reason = "transitive churn (W13 deny refresh 2026-05-31); ordered-float@5.3.0 is workspace canonical" },
+    { crate = "ordered-float@3.9.2", reason = "transitive churn (W13 deny refresh 2026-05-31); ordered-float@5.3.0 is workspace canonical" },
+    { crate = "ordered-float@4.6.0", reason = "transitive churn (W13 deny refresh 2026-05-31); ordered-float@5.3.0 is workspace canonical" },
+    { crate = "pastey@0.1.1", reason = "transitive churn (W13 deny refresh 2026-05-31); pastey@0.2.1 is workspace canonical" },
+    { crate = "petgraph@0.6.5", reason = "transitive churn (W13 deny refresh 2026-05-31); petgraph@0.8.3 is workspace canonical" },
+    { crate = "prost@0.13.5", reason = "transitive churn (W13 deny refresh 2026-05-31); prost@0.14.3 is workspace canonical" },
+    { crate = "prost-derive@0.13.5", reason = "transitive churn (W13 deny refresh 2026-05-31); prost-derive@0.14.3 is workspace canonical" },
+    { crate = "pulley-interpreter@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); pulley-interpreter@44.0.2 is workspace canonical" },
+    { crate = "pulley-macros@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); pulley-macros@44.0.2 is workspace canonical" },
+    { crate = "pulp@0.18.22", reason = "transitive churn (W13 deny refresh 2026-05-31); pulp@0.22.2 is workspace canonical" },
+    { crate = "pulp@0.21.5", reason = "transitive churn (W13 deny refresh 2026-05-31); pulp@0.22.2 is workspace canonical" },
+    { crate = "rand@0.8.6", reason = "transitive churn (W13 deny refresh 2026-05-31); rand@0.10.0 is workspace canonical" },
+    { crate = "rand@0.9.4", reason = "transitive churn (W13 deny refresh 2026-05-31); rand@0.10.0 is workspace canonical" },
+    { crate = "lru@0.12.5", reason = "transitive churn via tantivy 0.22.1 (RUSTSEC-2026-0002 — RUSTSEC lint false-positive: affects only local LRU semantics, not security; tantivy requires tantivy bump); lru@0.16.4 is workspace canonical" },
+    { crate = "rand_chacha@0.3.1", reason = "transitive churn (W13 deny refresh 2026-05-31); rand_chacha@0.9.0 is workspace canonical" },
+    { crate = "rand_core@0.6.4", reason = "transitive churn (W13 deny refresh 2026-05-31); rand_core@0.10.0 is workspace canonical" },
+    { crate = "rand_core@0.9.5", reason = "transitive churn (W13 deny refresh 2026-05-31); rand_core@0.10.0 is workspace canonical" },
+    { crate = "rand_distr@0.4.3", reason = "transitive churn (W13 deny refresh 2026-05-31); rand_distr@0.5.1 is workspace canonical" },
+    { crate = "raw-cpuid@10.7.0", reason = "transitive churn (W13 deny refresh 2026-05-31); raw-cpuid@11.6.0 is workspace canonical" },
+    { crate = "rayon-cond@0.3.0", reason = "transitive churn (W13 deny refresh 2026-05-31); rayon-cond@0.4.0 is workspace canonical" },
+    { crate = "regalloc2@0.12.2", reason = "transitive churn (W13 deny refresh 2026-05-31); regalloc2@0.15.1 is workspace canonical" },
+    { crate = "rustc-hash@1.1.0", reason = "transitive churn (W13 deny refresh 2026-05-31); rustc-hash@2.1.1 is workspace canonical" },
+    { crate = "rustix@0.38.44", reason = "transitive churn (W13 deny refresh 2026-05-31); rustix@1.1.4 is workspace canonical" },
+    { crate = "safetensors@0.4.5", reason = "transitive churn (W13 deny refresh 2026-05-31); safetensors@0.7.0 is workspace canonical" },
+    { crate = "serde_spanned@0.6.9", reason = "transitive churn (W13 deny refresh 2026-05-31); serde_spanned@1.1.1 is workspace canonical" },
+    { crate = "simba@0.8.1", reason = "transitive churn (W13 deny refresh 2026-05-31); simba@0.9.1 is workspace canonical" },
+    { crate = "socket2@0.5.10", reason = "transitive churn (W13 deny refresh 2026-05-31); socket2@0.6.3 is workspace canonical" },
+    { crate = "syn@1.0.109", reason = "transitive churn (W13 deny refresh 2026-05-31); syn@2.0.117 is workspace canonical" },
+    { crate = "thiserror@1.0.69", reason = "transitive churn (W13 deny refresh 2026-05-31); thiserror@2.0.18 is workspace canonical" },
+    { crate = "thiserror-impl@1.0.69", reason = "transitive churn (W13 deny refresh 2026-05-31); thiserror-impl@2.0.18 is workspace canonical" },
+    { crate = "tokenizers@0.20.4", reason = "transitive churn (W13 deny refresh 2026-05-31); tokenizers@0.22.2 is workspace canonical" },
+    { crate = "toml@0.8.23", reason = "transitive churn (W13 deny refresh 2026-05-31); toml@1.1.2 is workspace canonical" },
+    { crate = "toml@0.9.12+spec-1.1.0", reason = "transitive churn (W13 deny refresh 2026-05-31); toml@1.1.2 is workspace canonical" },
+    { crate = "toml_datetime@0.6.11", reason = "transitive churn (W13 deny refresh 2026-05-31); toml_datetime@1.1.1 is workspace canonical" },
+    { crate = "toml_datetime@0.7.5+spec-1.1.0", reason = "transitive churn (W13 deny refresh 2026-05-31); toml_datetime@1.1.1 is workspace canonical" },
+    { crate = "toml_edit@0.22.27", reason = "transitive churn (W13 deny refresh 2026-05-31); toml_edit@0.25.11 is workspace canonical" },
+    { crate = "tonic@0.12.3", reason = "transitive churn (W13 deny refresh 2026-05-31); tonic@0.14.5 is workspace canonical" },
+    { crate = "tower@0.4.13", reason = "transitive churn (W13 deny refresh 2026-05-31); tower@0.5.3 is workspace canonical" },
+    { crate = "tree-sitter-json@0.23.0", reason = "transitive churn (W13 deny refresh 2026-05-31); tree-sitter-json@0.24.8 is workspace canonical" },
+    { crate = "unicode-width@0.1.14", reason = "transitive churn (W13 deny refresh 2026-05-31); unicode-width@0.2.0 is workspace canonical" },
+    { crate = "wasm-encoder@0.236.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasm-encoder@0.252.0 is workspace canonical" },
+    { crate = "wasm-encoder@0.246.2", reason = "transitive churn (W13 deny refresh 2026-05-31); wasm-encoder@0.252.0 is workspace canonical" },
+    { crate = "wasm-encoder@0.245.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasm-encoder@0.246.2 is workspace canonical" },
+    { crate = "wasmparser@0.236.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmparser@0.246.2 is workspace canonical" },
+    { crate = "wasmprinter@0.236.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmprinter@0.246.2 is workspace canonical" },
+    { crate = "wasmtime@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime@44.0.2 is workspace canonical" },
+    { crate = "wasmtime-environ@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime-environ@44.0.2 is workspace canonical" },
+    { crate = "wasmtime-internal-cranelift@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime-internal-cranelift@44.0.2 is workspace canonical" },
+    { crate = "wasmtime-internal-jit-icache-coherence@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime-internal-jit-icache-coherence@44.0.2 is workspace canonical" },
+    { crate = "wasmtime-internal-unwinder@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime-internal-unwinder@44.0.2 is workspace canonical" },
+    { crate = "wasmtime-internal-versioned-export-macros@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime-internal-versioned-export-macros@44.0.2 is workspace canonical" },
+    { crate = "winnow@0.7.15", reason = "transitive churn (W13 deny refresh 2026-05-31); winnow@1.0.1 is workspace canonical" },
+    { crate = "yoke@0.7.5", reason = "transitive churn (W13 deny refresh 2026-05-31); yoke@0.8.1 is workspace canonical" },
+    { crate = "yoke-derive@0.7.5", reason = "transitive churn (W13 deny refresh 2026-05-31); yoke-derive@0.8.1 is workspace canonical" },
+    { crate = "cargo_metadata@0.21.0", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); cargo_metadata@0.23.1 is workspace canonical" },
+    { crate = "cargo-platform@0.2.0", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); cargo-platform@0.3.2 is workspace canonical" },
+    { crate = "cranelift-assembler-x64-meta@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); cranelift-assembler-x64-meta@0.131.2 is workspace canonical" },
+    { crate = "cranelift-codegen-meta@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); cranelift-codegen-meta@0.131.2 is workspace canonical" },
+    { crate = "cranelift-isle@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); cranelift-isle@0.131.2 is workspace canonical" },
+    { crate = "cranelift-srcgen@0.123.12", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); cranelift-srcgen@0.131.2 is workspace canonical" },
+    { crate = "faster-hex@0.9.0", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); faster-hex@0.10.0 is workspace canonical" },
+    { crate = "gix-features@0.41.1", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); gix-features@0.42.1 is workspace canonical" },
+    { crate = "gix-fs@0.14.0", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); gix-fs@0.15.0 is workspace canonical" },
+    { crate = "gix-hash@0.17.0", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); gix-hash@0.18.0 is workspace canonical" },
+    { crate = "gix-utils@0.2.0", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); gix-utils@0.3.1 is workspace canonical" },
+    { crate = "gix-validate@0.9.4", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); gix-validate@0.10.1 is workspace canonical" },
+    { crate = "sysctl@0.5.5", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); sysctl@0.6.0 is workspace canonical" },
+    { crate = "vergen-lib@0.1.6", reason = "transitive churn (W13 deny refresh 2026-05-31, build/darwin edge); vergen-lib@9.1.0 is workspace canonical" },
+]
+
+skip-tree = [
+    # Legacy deps still on syn 1.x pending ecosystem migration.
+    { crate = "syn@1", reason = "Legacy proc-macro deps still on syn 1.x pending ecosystem migration." },
+    # windows-sys: foundational Win32 bindings — only present on a Windows/Mac
+    # build lane. Unmatched on the Linux graph (harmless warning).
+    { crate = "windows-sys", reason = "Foundational Win32 bindings; frequent minor bumps; Windows/Mac lane only." },
+]
+
+# ───────────────────────────────────────────────────────────────────────
+# [licenses] — compliance gates
+# ───────────────────────────────────────────────────────────────────────
+[licenses]
+version = 2
+confidence-threshold = 0.93
+unused-allowed-license = "warn"
+
+# Allow list — OSI-approved, permissive, enterprise-safe.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+    "0BSD",
+    "CDLA-Permissive-2.0",
+    "MPL-2.0",
+]
+
+# Scoped exceptions (the schema does not accept `reason`, explanations as comments):
+# - ring: ships a custom license including OpenSSL components.
+# - unicode-ident: required for unicode-aware tokenization.
+# - inferno: CDDL-1.0 (weak-copyleft, file-level). Dev/profiling flamegraph
+#   crate via pprof. Scoped exception — NOT a workspace-wide CDDL allowance.
+exceptions = [
+    { allow = ["OpenSSL"], crate = "ring" },
+    { allow = ["Unicode-3.0"], crate = "unicode-ident" },
+    { allow = ["CDDL-1.0"], crate = "inferno" },
+]
+
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 },
+]
+
+# ───────────────────────────────────────────────────────────────────────
+# [sources] — only trust crates.io + our own git remotes
+# ───────────────────────────────────────────────────────────────────────
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

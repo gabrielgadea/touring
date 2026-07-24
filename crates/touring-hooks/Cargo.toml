@@ -1,0 +1,132 @@
+[package]
+name = "touring-hooks"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Compatibility façade over touring-dispatch + touring-hooks-core, plus the touring-hook / touring-daemon binaries (daemon-lib-rearch Phases C+D)"
+license.workspace = true
+
+[[bin]]
+name = "touring-hook"
+path = "src/main.rs"
+
+[[bin]]
+name = "touring-daemon"
+path = "src/daemon_main.rs"
+
+[features]
+# Every feature forwards to touring-dispatch (which forwards core-gated ones
+# to touring-hooks-core) — the façade is the single activation point for
+# consumers (the server crate pins 6 of these explicitly). NOTE: the server's
+# architecture guard greps this file for its own crate name as a raw
+# substring, so do not name it here.
+# hooks-active gates the HOOKS_MODE flag here (B.4) AND forwards so the
+# dispatch default set stays feature-controlled (the dep is declared with
+# default-features = false — without that, `--no-default-features` on this
+# façade could never reproduce the monolith's stubs-only benchmark build).
+hooks-active = ["touring-dispatch/hooks-active"]
+hooks-noop = ["touring-dispatch/hooks-noop"]
+default = ["hooks-active", "all-hooks", "templates", "shadow-workspace", "quantization", "u4-quantization", "persistence", "gpu-compute", "tantivy-fts", "inferlets-wasm", "rkyv-ipc", "nlp-enrichment", "inventory-registry", "capnp-server", "semantic-embeddings", "txn_lock_enforcement"]
+capnp-server = ["touring-dispatch/capnp-server"]
+all-hooks = ["touring-dispatch/all-hooks"]
+pre-hooks = ["touring-dispatch/pre-hooks"]
+post-hooks = ["touring-dispatch/post-hooks"]
+session-hooks = ["touring-dispatch/session-hooks"]
+utilities = ["touring-dispatch/utilities"]
+shadow-workspace = ["touring-dispatch/shadow-workspace"]
+nlp-enrichment = ["touring-dispatch/nlp-enrichment"]
+inferlets-wasm = ["touring-dispatch/inferlets-wasm"]
+ann-blast = ["touring-dispatch/ann-blast"]
+quantization = ["touring-dispatch/quantization"]
+u4-quantization = ["touring-dispatch/u4-quantization"]
+persistence = ["touring-dispatch/persistence"]
+gpu-compute = ["touring-dispatch/gpu-compute"]
+tantivy-fts = ["touring-dispatch/tantivy-fts"]
+rkyv-ipc = ["touring-dispatch/rkyv-ipc"]
+inventory-registry = ["touring-dispatch/inventory-registry"]
+acp-protocol = ["touring-dispatch/acp-protocol"]
+templates = ["touring-dispatch/templates"]
+mpatch-fuzzy = ["touring-dispatch/mpatch-fuzzy"]
+resource-monitor = ["touring-dispatch/resource-monitor"]
+saga = ["touring-dispatch/saga"]
+txn_lock_enforcement = ["touring-dispatch/txn_lock_enforcement"]
+semantic-embeddings = ["touring-dispatch/semantic-embeddings"]
+
+[dependencies]
+touring-dispatch = { path = "../touring-dispatch", default-features = false }
+# Direct dep so the binaries can name `touring_hook_runtime::hook_runtime::HookDispatchError`
+# (the unified hook-dispatch error type) in their `match subcommand` arms.
+touring-hook-runtime = { path = "../touring-hook-runtime" }
+# Used directly by the two binaries (main.rs / daemon_main.rs).
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "signal"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+# The 57 integration suites referenced these crates directly when they were
+# production deps of the monolith — they remain available to tests only.
+blake3 = { workspace = true }
+chrono = { workspace = true }
+hdrhistogram = { workspace = true }
+ndarray = { workspace = true }
+rusqlite = { workspace = true }
+serde_yaml = { workspace = true }
+touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] }
+touring-rkyv = { path = "../touring-rkyv" }
+touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
+touring-code = { path = "../touring-code" }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-capnp-server = { path = "../touring-capnp-server" }
+touring-foundation = { path = "../touring-foundation" }
+uuid = { workspace = true, features = ["v4"] }
+serial_test = { workspace = true }
+criterion = { workspace = true }
+divan = { workspace = true }
+tempfile = { workspace = true }
+serde_json = { workspace = true }
+# Phase 5 Opt A E2E — capnp client stack used only in `tests/capnp_embed_e2e.rs`.
+# Mirrors the dev-deps of touring-capnp-server so the in-daemon embed
+# path can be exercised without depending on the standalone binary.
+capnp = { workspace = true }
+capnp-rpc = { workspace = true }
+capnp-futures = { workspace = true }
+tokio-util = { workspace = true, features = ["compat"] }
+futures = { workspace = true }
+# Snapshot testing for pre-computed signal outputs — locks the string
+# shape of `file_digest_signal` against silent drift from tree-sitter /
+# complexity engine updates. Review new snapshots via `cargo insta review`.
+insta = { workspace = true, features = ["yaml"] }
+# Tier A (2026-04-19) — colored structural diffs on assert_eq failures.
+pretty_assertions = { workspace = true }
+# Tier A (2026-04-19) — #[traced_test] attribute to capture tracing events
+# emitted by the 138-hook pipeline inside unit tests.
+tracing-test = { workspace = true }
+static_assertions = { workspace = true }
+
+[[bench]]
+name = "classifier"
+harness = false
+
+[[bench]]
+name = "knowledge_db"
+harness = false
+
+[[bench]]
+name = "gate_metrics_divan"
+harness = false
+
+[[bench]]
+name = "ceg_baseline"
+harness = false
+
+[[bench]]
+name = "dry_run_cache"
+harness = false
+
+[[bench]]
+name = "fast_path"
+harness = false
+
+[lints]
+workspace = true

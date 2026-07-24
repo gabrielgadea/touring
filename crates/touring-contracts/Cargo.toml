@@ -1,0 +1,20 @@
+[package]
+name = "touring-contracts"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Leaf crate (zero parent deps) housing Touring's dependency-inversion contract traits — the IoC seam extracted from touring-hooks gateway/deps.rs. Hosts LearnRuntime (the X9 LEARN persistence abstraction: learning_reward/gotcha_add/memory_store, all fail-open returning JSON strings) and future segregated runtime contract traits, enabling subsystem leaf-crate extraction without rewriting call sites. Sole dependency: serde_json."
+
+[lib]
+name = "touring_contracts"
+path = "src/lib.rs"
+
+[dependencies]
+# Leaf crate — the sole runtime dependency is serde_json (the contract traits
+# exchange `serde_json::Value` payloads). No parent-crate deps by design.
+serde_json.workspace = true
+
+[lints]
+workspace = true

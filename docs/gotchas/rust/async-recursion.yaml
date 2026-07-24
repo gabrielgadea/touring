@@ -1,0 +1,11 @@
+id: rust:async-recursion
+language: rust
+pattern: async fn
+description: "Async functions cannot directly recurse — Future size becomes infinite."
+severity: high
+resolution: |
+  Wrap the recursive call in `Box::pin`:
+  - Change `async fn foo(...) -> T` to return `Pin<Box<dyn Future<Output = T>>>` for the recursive branch
+  - Or use the `async-recursion` crate macro `#[async_recursion]`
+metadata:
+  introduced: 2026-04-25

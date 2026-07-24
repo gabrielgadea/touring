@@ -1,0 +1,14 @@
+{
+  "script": "w12_migration_tool",
+  "wave": "W12",
+  "subtask_refs": [
+    "W12.migrate"
+  ],
+  "timestamp": "2026-05-12T00:53:39.670233+00:00",
+  "status": "OK",
+  "subcommands": [
+    "from-global",
+    "to-global"
+  ],
+  "spec_path": "scripts/touring_premium_refactor_2026/staging/w12-migration-tool-spec.md"
+}

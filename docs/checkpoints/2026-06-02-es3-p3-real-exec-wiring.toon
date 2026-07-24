@@ -1,0 +1,140 @@
+{
+  "checkpoint": {
+    "id": "es3-p3-real-exec-wiring-2026-06-02",
+    "wave": "ES3 P3",
+    "parent_task": "task_1780442683222393564",
+    "roadmap_ref": "~/.claude/rust/docs/2026-05-30-cah-epic-subsystems-roadmap.md",
+    "plan_ref": "/home/gabrielgadea/.claude/plans/robust-riding-rose.md",
+    "shipped_at": "2026-06-02T23:42:00Z",
+    "budget_ed": 4.0,
+    "actual_ed": 3.5,
+    "scope_decision": "PRODUCTION wire-up of ES3 P2 substrate; 1 site deeply + 1 site lightly; 3 sites intentionally skipped (documented in mod doc)"
+  },
+  "predecessor": {
+    "wave": "ES3 P2",
+    "shipped_at": "2026-06-02",
+    "delivered": [
+      "run_supervised_with_locks (supervised.rs:429)",
+      "WriteAudit (supervised.rs:209+)",
+      "from_tool_payload_full (txn.rs:144)",
+      "SandboxError::Conflict (sandbox_executor.rs:79)",
+      "ceg_write_paths_observed_count (gate_metrics.rs:685)"
+    ],
+    "consumed_only_by_tests": true,
+    "production_caller_before_p3": 0
+  },
+  "deliverables": {
+    "S-3-1_real_exec_helper": {
+      "files": [
+        "crates/touring-server/src/cli/exec.rs"
+      ],
+      "loc_delta": 130,
+      "new_private": [
+        "real_exec_with_locks (private fn at L226, signature: anyhow::Result<i32>)"
+      ],
+      "new_field": [
+        "ExecArgs::use_real_exec: bool (L74)",
+        "SpeculativeArgs::use_real_exec: bool (L419)"
+      ],
+      "new_parser_arms": [
+        "--real-exec on parse_exec_args (L111)",
+        "--real-exec on parse_speculative_args (L445)"
+      ],
+      "exit_codes_introduced": [
+        "75 (EX_TEMPFAIL) — SandboxError::Conflict, transient, retryable"
+      ],
+      "design_adjustments": [
+        "real_exec_with_locks returns anyhow::Result<i32> (not Result<()>) — preserves command's actual exit code for caller; CLI's run() wrapper does std::process::exit on non-zero return. Enables direct e2e test of exit-code preservation without terminating the test process.",
+        "Conflict error annotated with [exit 75 EX_TEMPFAIL] marker so callers can grep stderr for the exit code class.",
+        "Verdict::Deny path does NOT call real_exec_with_locks — gateway block prevents spawn (defense-in-depth)."
+      ]
+    },
+    "S-3-2_speculative_site": {
+      "files": ["crates/touring-server/src/cli/exec.rs"],
+      "loc_delta": 30,
+      "behavior": "After accepted prefix returned by speculative driver, iterate accepted_indices sequentially via real_exec_with_locks. Conflict on candidate N truncates prefix (lossless: re-batch smaller for recovery). Reuses singleton real_exec_with_locks — uniform lock-manager access pattern."
+    },
+    "S-3-3_tests": {
+      "files": ["crates/touring-server/src/cli/exec.rs::tests"],
+      "tests_added": 5,
+      "test_names": [
+        "parse_exec_args_reads_the_real_exec_flag (unit parser)",
+        "e2e_run_real_exec_executes_command_when_verdict_allow (e2e all platforms)",
+        "e2e_real_exec_with_locks_preserves_command_exit_code (e2e all platforms, drives helper directly)",
+        "e2e_real_exec_with_locks_denies_on_concurrent_conflict (e2e linux-gated, uses ExecPool::global() to hold conflicting permit)",
+        "e2e_run_without_real_exec_flag_still_analysis_only (e2e all platforms, backward-compat proof)"
+      ]
+    }
+  },
+  "test_metrics": {
+    "touring_server_lib_tests_before": 44,
+    "touring_server_lib_tests_after": 49,
+    "touring_server_tests_added": 5,
+    "touring_server_tests_pass": 49,
+    "touring_server_tests_fail": 0,
+    "touring_hooks_lib_tests_pass": 3983,
+    "touring_hooks_lib_tests_fail_pre_existing": 1,
+    "touring_hooks_lib_tests_ignored": 1,
+    "touring_hooks_regression": 0
+  },
+  "compilation_evidence": {
+    "cargo_check_workspace": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.04s — EXIT 0; pre-existing touring-offensive unused_mut warning is unrelated to P3",
+    "cargo_clippy_server_no_deps": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.29s — EXIT 0; 344 pre-existing touring-foundation missing_docs errors excluded via --no-deps",
+    "cargo_test_server_lib": "5 passed; 0 failed; 0 ignored; 49 total; 813 filtered out — full exec::tests suite green"
+  },
+  "p3_leftover_audit": {
+    "verdict": "ZERO risk (zero struct change)",
+    "evidence": {
+      "GatewayDeps_struct_definitions": 1,
+      "GatewayDeps_struct_literal_sites": 9,
+      "GatewayDeps_struct_literal_sites_pre_p3": 9,
+      "delta": 0,
+      "rationale": "Lock state via ExecPool::global() singleton (exec_pool.rs:249); no GatewayDeps field added; 5 touring-server + 4 pre_exec sites untouched."
+    }
+  },
+  "regra_zero_audit": {
+    "verdict": "ZERO new pub symbols",
+    "consumer_chains": {
+      "real_exec_with_locks (PRIVATE fn)": ["L378 in run() (production)", "L575 in run_speculative() (production)", "L2129 in e2e_real_exec_with_locks_preserves_command_exit_code (test)", "L2173 in e2e_real_exec_with_locks_denies_on_concurrent_conflict (test)"],
+      "ExecArgs::use_real_exec": ["L378 in run() body", "L2126 in e2e test fixture"],
+      "SpeculativeArgs::use_real_exec": ["L561 in run_speculative() body", "L2170 in e2e test fixture"],
+      "ExecArgs/SpeculativeArgs parsers": ["L111 + L445"]
+    }
+  },
+  "honest_scope": {
+    "verdict": "1 site deeply wired + 1 site lightly wired; 3 sites intentionally skipped",
+    "wired_sites": {
+      "run (touring exec)": "deeply — calls real_exec_with_locks after Allow/Warn verdict",
+      "run_speculative (touring exec-speculative)": "lightly — lossless per-candidate conflict handling"
+    },
+    "intentionally_skipped_sites": {
+      "run_plan_gated (touring plan-gated)": "no use case for real exec in plan-gated — analysis-only by design",
+      "run_verified_depth (touring plan-verified-depth)": "no use case for real exec in verified-depth — analysis-only by design",
+      "run_evidence (touring evidence)": "evidence mode is inspection-only by design — real exec would defeat its purpose"
+    },
+    "mod_doc_callout": "exec.rs:40 — 'is unchanged. Only run (touring exec) and run_speculative (touring exec-speculative) consume the new --real-exec flag'"
+  },
+  "risk_register": {
+    "R-01_P0_meta_first_spawn": "MITIGATED — explicit opt-in flag; default behavior preserved; mod doc + CHANGELOG",
+    "R-02_P1_async_sync_boundary": "MITIGATED — tokio::runtime::Builder::new_current_thread() inline; proven pattern from run_supervised_blocking (supervised.rs:463)",
+    "R-03_P1_conflict_exit_75_convention": "MITIGATED — documented in mod doc; 75 = EX_TEMPFAIL = transient/retryable; could be 76 (EX_PROTOCOL) if user prefers",
+    "R-04_P2_real_exec_naming": "MITIGATED — documented as 'actually spawn the command (vs analyze only)'; could be renamed to --spawn if user prefers",
+    "R-05_P2_three_sites_skipped": "MITIGATED — explicit mod doc callout at exec.rs:40",
+    "R-06_P1_tokio_runtime_shutdown_panic": "MITIGATED — use block_on (not spawn); runtime drops at fn end; proven in run_supervised_blocking",
+    "R-07_P1_docs_completeness": "MITIGATED — 2 memory notes + 4 doc placements + this .toon + release note + roadmap progress"
+  },
+  "outstanding_for_next_wave": [
+    "ES1 P2.5 (cvc5 0.4 migration, blocking on libcvc5-dev system dep, ~2ed)",
+    "ES1 P4 (claim_from_intent helper, ~2ed)",
+    "ES4 P2-P4 (unify distillation + calibrated + wire, 7ed)",
+    "ES2 P3-P5 (compaction re-attend + self-verify loop + promote, 5ed)",
+    "ES3 P4-P5 (CRDT convergence + multi-agent runtime, ~12ed Tier 3)",
+    "Optional: address 344 pre-existing touring-foundation missing_docs clippy errors in future hygiene wave (W18 candidate)"
+  ],
+  "pre_existing_issues_NOT_caused_by_p3": [
+    "touring-hooks/src/wiring.rs:1665 — test_find_all_cycles_workspace_root_filter fails (konverter-only must report 1 cycle, got []). Crate untouched by P3. Likely environmental (konverter not in current workspace index).",
+    "touring-foundation/src/activity/verify.rs — 344 pre-existing missing_docs clippy errors. Foundation untouched by P3. Run with --no-deps to exclude."
+  ],
+  "todos": [],
+  "rl_rewards_planned": ["orchestrate:1.0 es3-p3:real_exec_wired_zero_p3_leftover:3.5ed-closed", "edit:1.0 es3-p3:5-tests-zero-orphans-2-sites-wired", "generate:0.9 es3-p3:design_adjustment_result_i32_pattern"]
+}

@@ -1,0 +1,6 @@
+---
+source: crates/touring-hooks/tests/snapshot_file_digest_signal.rs
+expression: normalize(out)
+---
+- "0.53"
+- "digest(6L, 2 symbols, CC avg=1 max=1)"

@@ -1,0 +1,5 @@
+# RFC-001 fixture: name uses uppercase characters. MUST error thsf-manifest-003.
+
+[holon.identity]
+name = "BadUpperCase"
+version = "0.1.0"

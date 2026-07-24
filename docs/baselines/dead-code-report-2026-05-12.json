@@ -1,0 +1,80 @@
+{
+  "script": "w1_audit_dead_code",
+  "wave": "W1",
+  "subtask_refs": [
+    "W1.1",
+    "W1.2"
+  ],
+  "timestamp": "2026-05-12T01:07:05.701261+00:00",
+  "apply": true,
+  "total_audited": 4,
+  "candidates_for_deletion": 4,
+  "audits": [
+    {
+      "crate": "touring-semantic-spike",
+      "exists": true,
+      "path": "crates/touring-semantic-spike",
+      "loc_src": 67,
+      "pub_count": 0,
+      "has_architecture_md": true,
+      "in_workspace_members": false,
+      "candidate_for_deletion": true,
+      "reason": "Archived per ARCHITECTURE.md; 66 LOC, 0 pub"
+    },
+    {
+      "crate": "touring-wasm-client",
+      "exists": true,
+      "path": "crates/touring-wasm-client",
+      "loc_src": 0,
+      "pub_count": 0,
+      "has_architecture_md": true,
+      "in_workspace_members": false,
+      "candidate_for_deletion": true,
+      "reason": "0 LOC src"
+    },
+    {
+      "crate": "touring-wasm-common",
+      "exists": true,
+      "path": "crates/touring-wasm-common",
+      "loc_src": 0,
+      "pub_count": 0,
+      "has_architecture_md": true,
+      "in_workspace_members": false,
+      "candidate_for_deletion": true,
+      "reason": "0 LOC src"
+    },
+    {
+      "crate": "touring-wasm-server",
+      "exists": true,
+      "path": "crates/touring-wasm-server",
+      "loc_src": 0,
+      "pub_count": 0,
+      "has_architecture_md": true,
+      "in_workspace_members": false,
+      "candidate_for_deletion": true,
+      "reason": "0 LOC src"
+    }
+  ],
+  "actions": [
+    {
+      "crate": "touring-semantic-spike",
+      "status": "DELETED",
+      "workspace_updated": false
+    },
+    {
+      "crate": "touring-wasm-client",
+      "status": "DELETED",
+      "workspace_updated": false
+    },
+    {
+      "crate": "touring-wasm-common",
+      "status": "DELETED",
+      "workspace_updated": false
+    },
+    {
+      "crate": "touring-wasm-server",
+      "status": "DELETED",
+      "workspace_updated": false
+    }
+  ]
+}

@@ -1,0 +1,1188 @@
+{
+  "cargo_decl_files": [
+    "crates/touring-analysis/Cargo.toml",
+    "crates/touring-antt/Cargo.toml",
+    "crates/touring-assists/Cargo.toml",
+    "crates/touring-ast/Cargo.toml",
+    "crates/touring-capnp-server/Cargo.toml",
+    "crates/touring-cognitive/Cargo.toml",
+    "crates/touring-cortex/Cargo.toml",
+    "crates/touring-embeddings/Cargo.toml",
+    "crates/touring-generator/Cargo.toml",
+    "crates/touring-hooks/Cargo.toml",
+    "crates/touring-learning/Cargo.toml",
+    "crates/touring-offensive/Cargo.toml",
+    "crates/touring-python/Cargo.toml",
+    "crates/touring-rule-engine/Cargo.toml",
+    "crates/touring-search-fusion/Cargo.toml",
+    "crates/touring-server/Cargo.toml",
+    "crates/touring-simd/Cargo.toml"
+  ],
+  "consumers": {
+    "touring-analysis": [
+      {
+        "file": "crates/touring-analysis/src/pipeline.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 710,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/cache.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 229,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/blast_radius/warning.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 8,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, DiagnosticCode, Severity};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/finding.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 11,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, DiagnosticCode, Severity};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/orphan.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 309,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/cycle_detection.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 128,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/functional_chains.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 84,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/fingerprints.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 89,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/mod.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 184,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/learning/mod.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 225,
+            "text": "conn.execute_batch(touring_core::schema::graph::GRAPH_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/knowledge/mod.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 179,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/temporal/trends.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 376,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/quality/quality_finding.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 7,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, DiagnosticCode, Severity};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/quality/tdg.rs",
+        "use_count": 5,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 45,
+            "text": "use touring_core::diagnostic::{codes, DiagnosticCode, Severity};"
+          },
+          {
+            "line": 325,
+            "text": "pub fn to_diagnostic_opt(&self) -> Option<touring_core::diagnostic::Diagnostic> {"
+          },
+          {
+            "line": 328,
+            "text": "touring_core::diagnostic::Diagnostic::new("
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-analysis/src/e2e/schema_guard.rs",
+        "use_count": 8,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 210,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          },
+          {
+            "line": 222,
+            "text": "conn.execute_batch(touring_core::schema::memory::MEMORY_SCHEMA_V8)"
+          },
+          {
+            "line": 234,
+            "text": "conn.execute_batch(touring_core::schema::knowledge::KNOWLEDGE_SCHEMA_V8)"
+          }
+        ]
+      }
+    ],
+    "touring-antt": [
+      {
+        "file": "crates/touring-antt/src/rlm_integration.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 25,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      }
+    ],
+    "touring-ast": [
+      {
+        "file": "crates/touring-ast/src/symbols.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 21,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-ast/src/surgery.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 10,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      }
+    ],
+    "touring-ast-polyglot": [
+      {
+        "file": "crates/touring-ast-polyglot/src/scan.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 29,
+            "text": "/// Severity classification — mirrors `touring_core::diagnostic::Severity`"
+          }
+        ]
+      }
+    ],
+    "touring-capnp-server": [
+      {
+        "file": "crates/touring-capnp-server/src/generator_health.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 28,
+            "text": "use touring_core::health_events::{self, DeltaOutcome, HealthDeltaEvent};"
+          }
+        ]
+      }
+    ],
+    "touring-cortex": [
+      {
+        "file": "crates/touring-cortex/src/circuit_breaker.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 100,
+            "text": "impl touring_core::shared::circuit_breaker::CircuitBreaker for HandlerBreaker {"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-cortex/src/runtime.rs",
+        "use_count": 3,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 59,
+            "text": "let db_path = touring_core::TouringConfig::knowledge_db_canonical(&project_root);"
+          },
+          {
+            "line": 69,
+            "text": "let memory_path = touring_core::TouringConfig::memory_db_canonical(&project_root);"
+          },
+          {
+            "line": 78,
+            "text": "let graph_path = touring_core::TouringConfig::graph_db_canonical(&project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/lifecycle.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 22,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/learning.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 187,
+            "text": "touring_core::TouringConfig::graph_db_canonical(&ctx.project_root),"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/intelligence.rs",
+        "use_count": 3,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 13,
+            "text": "use touring_core::truncate_str;"
+          },
+          {
+            "line": 217,
+            "text": "let rlm_path = touring_core::TouringConfig::memory_db_canonical(&ctx.project_root);"
+          },
+          {
+            "line": 244,
+            "text": "let rlm_path = touring_core::TouringConfig::graph_db_canonical(&ctx.project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/enrichment.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 25,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      }
+    ],
+    "touring-embeddings": [
+      {
+        "file": "crates/touring-embeddings/src/adapter.rs",
+        "use_count": 4,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 21,
+            "text": "//! use touring_core::plugin::{global_registry, PluginFamily};"
+          },
+          {
+            "line": 30,
+            "text": "//! use touring_core::plugin::{global_registry, PluginFamily};"
+          },
+          {
+            "line": 45,
+            "text": "use touring_core::plugin::{PluginFamily, ProviderPlugin};"
+          }
+        ]
+      }
+    ],
+    "touring-generator": [
+      {
+        "file": "crates/touring-generator/src/error.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 170,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, Severity};"
+          }
+        ]
+      }
+    ],
+    "touring-hooks": [
+      {
+        "file": "crates/touring-hooks/src/capnp_embed.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 5,
+            "text": "//! `touring_core::health_events` broadcast singleton shared between the"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/post_edit.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 29,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/pre_read.rs",
+        "use_count": 3,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 40,
+            "text": "use touring_core::mvkl::FileIndex;"
+          },
+          {
+            "line": 41,
+            "text": "use touring_core::truncate_str;"
+          },
+          {
+            "line": 979,
+            "text": "pub fn pre_read_file_index_provider(path: &str, query: &str) -> Vec<touring_core::mvkl::FileIndexEnt"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/rfc100_emission.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 20,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, Severity};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/stop.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 11,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/post_write.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 29,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/pre_write.rs",
+        "use_count": 2,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 32,
+            "text": "use touring_core::truncate_str;"
+          },
+          {
+            "line": 1288,
+            "text": "use touring_core::diagnostic::DiagnosticCode;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_polyglot.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 36,
+            "text": "use touring_core::char_classes::{CharClass, CharClasses};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/memory_finding.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 11,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, DiagnosticCode, Severity};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_runtime.rs",
+        "use_count": 8,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 60,
+            "text": "use touring_core::schema::entity_registry::EntityRegistry;"
+          },
+          {
+            "line": 700,
+            "text": "let db_path = touring_core::TouringConfig::knowledge_db_canonical(project_root);"
+          },
+          {
+            "line": 753,
+            "text": "let symbol_store_path = touring_core::TouringConfig::symbols_db_canonical("
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/pre_tool_use.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 18,
+            "text": "use touring_core::diagnostic::DiagnosticCode;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/tantivy_index.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 37,
+            "text": "use touring_core::char_classes::{CharClass, CharClasses};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/health_delta.rs",
+        "use_count": 9,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 62,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, Severity};"
+          },
+          {
+            "line": 453,
+            "text": "let mut outcome_for_bus = touring_core::DeltaOutcome::Neutral;"
+          },
+          {
+            "line": 479,
+            "text": "outcome_for_bus = touring_core::DeltaOutcome::Regression;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/instructions_loaded.rs",
+        "use_count": 8,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 202,
+            "text": "/// [`touring_core::health::compute_composite_health_score`]."
+          },
+          {
+            "line": 228,
+            "text": "let score = touring_core::health::compute_composite_health_score(&combined);"
+          },
+          {
+            "line": 229,
+            "text": "if let Some(warning) = touring_core::health::compose_degraded_warning(score) {"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/pre_bash.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 23,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers.rs",
+        "use_count": 21,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 21,
+            "text": "use touring_core::diagnostic::DiagnosticCode;"
+          },
+          {
+            "line": 655,
+            "text": "use touring_core::diagnostic::DiagnosticCode;"
+          },
+          {
+            "line": 1093,
+            "text": "let memory_db_path = touring_core::TouringConfig::memory_db_canonical("
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/knowledge.rs",
+        "use_count": 7,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 15,
+            "text": "use touring_core::mvkl::{Artifact, KnowledgeLayer, LayerLevel, QueryResult, SemanticGraph};"
+          },
+          {
+            "line": 208,
+            "text": "use touring_core::migration::SCHEMA_VERSION;"
+          },
+          {
+            "line": 4105,
+            "text": "pub fn add_relation(&self, from: String, to: String, kind: touring_core::mvkl::layer2_semantic_graph"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_rl.rs",
+        "use_count": 2,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 126,
+            "text": "let graph_db = touring_core::TouringConfig::graph_db_canonical(&runtime.project_root);"
+          },
+          {
+            "line": 330,
+            "text": "let graph_db = touring_core::TouringConfig::graph_db_canonical(&runtime.project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/pre_edit.rs",
+        "use_count": 4,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 25,
+            "text": "use touring_core::diagnostic::DiagnosticCode;"
+          },
+          {
+            "line": 26,
+            "text": "use touring_core::truncate_str;"
+          },
+          {
+            "line": 1247,
+            "text": "\"RUST ANTIPATTERN: &s[..s.len().min(N)] can panic on multi-byte UTF-8. Use touring_core::truncate_st"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_session.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 8,
+            "text": "use touring_core::checkpoint::CheckpointSettingsFingerprint;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/post_bash.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 22,
+            "text": "use touring_core::truncate_str;"
+          },
+          {
+            "line": 570,
+            "text": "/// Truncate string to max length (UTF-8 safe, delegates to touring_core)."
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/daemon.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 575,
+            "text": "// `touring_core::health_events` broadcast singleton across producer"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/session_hooks.rs",
+        "use_count": 4,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 595,
+            "text": "let db_path = touring_core::TouringConfig::graph_db_canonical(&runtime.project_root);"
+          },
+          {
+            "line": 650,
+            "text": "let db_path = touring_core::TouringConfig::graph_db_canonical(&runtime.project_root);"
+          },
+          {
+            "line": 898,
+            "text": "let db_path = touring_core::TouringConfig::graph_db_canonical(&rt.project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_failure.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 22,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_e2e.rs",
+        "use_count": 4,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 753,
+            "text": "let memory_db_path = touring_core::TouringConfig::memory_db_canonical(&rt.project_root);"
+          },
+          {
+            "line": 961,
+            "text": "let graph_db_path = touring_core::TouringConfig::graph_db_canonical(&rt.project_root);"
+          },
+          {
+            "line": 1011,
+            "text": "let graph_db_path = touring_core::TouringConfig::graph_db_canonical(&rt.project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_repo_score.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 33,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, Severity};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/pre_compact.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 54,
+            "text": "let db_path = touring_core::TouringConfig::graph_db_canonical(&rt.project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/runtime/impls_cognitive.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 19,
+            "text": "let db_path = touring_core::TouringConfig::knowledge_db_canonical(&self.project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-hooks/src/runtime/impls_knowledge.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 45,
+            "text": "let db_path = touring_core::TouringConfig::knowledge_db_canonical(&self.project_root);"
+          }
+        ]
+      }
+    ],
+    "touring-offensive": [
+      {
+        "file": "crates/touring-offensive/src/erickson.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 27,
+            "text": "use touring_core::feedback::{FeedbackPattern, FeedbackRelation, PatternFeedbackContext, PatternFeedb"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-offensive/src/erickson/rl_feedback.rs",
+        "use_count": 2,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 15,
+            "text": "use touring_core::feedback::{FeedbackPattern, FeedbackRelation, FeedbackResult, FeedbackSignal, Patt"
+          },
+          {
+            "line": 18,
+            "text": "use touring_core::feedback::PatternFeedback;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-offensive/src/vuln/mod.rs",
+        "use_count": 2,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 8,
+            "text": "//! These types live in [`touring_core::security::vulnerability`] as"
+          },
+          {
+            "line": 14,
+            "text": "pub use touring_core::security::vulnerability::{VulnMatch, VulnerabilityPattern};"
+          }
+        ]
+      }
+    ],
+    "touring-search-fusion": [
+      {
+        "file": "crates/touring-search-fusion/src/hybrid/pipeline.rs",
+        "use_count": 4,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 11,
+            "text": "use touring_core::governor::ResourceGovernor;"
+          },
+          {
+            "line": 13,
+            "text": "use touring_core::plugin::ProviderPlugin;"
+          },
+          {
+            "line": 237,
+            "text": "pub fn with_registry<P>(config: super::HybridConfig, plugin_family: touring_core::plugin::PluginFami"
+          }
+        ]
+      }
+    ],
+    "touring-server": [
+      {
+        "file": "crates/touring-server/src/graph_service.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 219,
+            "text": "let knowledge_db = touring_core::TouringConfig::knowledge_db_canonical(&current_project);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/memory_store.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 8,
+            "text": "use touring_core::embedding::{Embedder, GpuEmbedder};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/main.rs",
+        "use_count": 4,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 177,
+            "text": "touring_core::plugin::populate_global_registry();"
+          },
+          {
+            "line": 185,
+            "text": "use touring_core::plugin::embeddings::EmbeddingProviderPlugin;"
+          },
+          {
+            "line": 192,
+            "text": "touring_core::plugin::PluginFamily::Embeddings,"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_metadata.rs",
+        "use_count": 2,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 17,
+            "text": "config: &touring_core::TouringConfig,"
+          },
+          {
+            "line": 19,
+            "text": "let db_path = touring_core::TouringConfig::knowledge_db_canonical(&config.project_root);"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_infra.rs",
+        "use_count": 3,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 787,
+            "text": "touring_core::TouringConfig::knowledge_db_canonical(&self.config.project_root);"
+          },
+          {
+            "line": 1229,
+            "text": "touring_core::TouringConfig::knowledge_db_canonical(&self.config.project_root);"
+          },
+          {
+            "line": 1793,
+            "text": "let json = touring_core::profile::aggregator::snapshot_json();"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/server/mod.rs",
+        "use_count": 5,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 32,
+            "text": "use touring_core::embedding::{Embedder, GpuEmbedder};"
+          },
+          {
+            "line": 33,
+            "text": "use touring_core::TouringConfig;"
+          },
+          {
+            "line": 260,
+            "text": "pub fn new() -> touring_core::Result<Self> {"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/tools/utility_tools.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 10,
+            "text": "use touring_core::config::TouringConfig;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/tools/file_tools.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 13,
+            "text": "use touring_core::config::TouringConfig;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/tools/cluster_tools.rs",
+        "use_count": 21,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 9,
+            "text": "use touring_core::config::TouringConfig;"
+          },
+          {
+            "line": 80,
+            "text": "pub fn new(_config: &TouringConfig) -> Result<Self, touring_core::TouringError> {"
+          },
+          {
+            "line": 89,
+            "text": ") -> Result<MemoryClustersOutput, touring_core::TouringError> {"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/tools/ast_tools.rs",
+        "use_count": 18,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 27,
+            "text": "fn extract_from_content(&self, content: &str, lang: Lang) -> touring_core::Result<Vec<Symbol>> {"
+          },
+          {
+            "line": 28,
+            "text": "extract_symbols(content, lang).map_err(|e| touring_core::TouringError::Parse(e.to_string()))"
+          },
+          {
+            "line": 107,
+            "text": ") -> Result<CallToolResult, touring_core::TouringError> {"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/tools/generator_tools.rs",
+        "use_count": 6,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 72,
+            "text": "/// Resolves the DB path via [`touring_core::TouringConfig::knowledge_db_canonical`]"
+          },
+          {
+            "line": 79,
+            "text": "let db_path = touring_core::TouringConfig::knowledge_db_canonical(std::path::Path::new("
+          },
+          {
+            "line": 196,
+            "text": "let db_path = touring_core::TouringConfig::knowledge_db_canonical(std::path::Path::new("
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/tools/project_tools.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 11,
+            "text": "use touring_core::config::TouringConfig;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/tools/memory_tools.rs",
+        "use_count": 7,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 11,
+            "text": "use touring_core::config::TouringConfig;"
+          },
+          {
+            "line": 142,
+            "text": "pub fn new(config: &TouringConfig) -> Result<Self, touring_core::TouringError> {"
+          },
+          {
+            "line": 148,
+            "text": "touring_core::TouringError::Memory(format!(\"Failed to create memory store: {}\", e))"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/ingest/watcher.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 9,
+            "text": "use touring_core::embedding::{Embedder, GpuEmbedder};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/ingest/parser.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 7,
+            "text": "use touring_core::truncate_str;"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/cli/migrate.rs",
+        "use_count": 10,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 19,
+            "text": "use touring_core::migration::consolidation::{"
+          },
+          {
+            "line": 49,
+            "text": "// Migration primitives are defined in touring_core::migration::consolidation"
+          },
+          {
+            "line": 244,
+            "text": "use touring_core::schema::{"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/cli/diagnostics.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 8,
+            "text": "use touring_core::diagnostic::{codes, Diagnostic, Severity};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/cli/status.rs",
+        "use_count": 2,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 222,
+            "text": "/// [`touring_core::health::compute_composite_health_score`] so the same"
+          },
+          {
+            "line": 230,
+            "text": "touring_core::health::compute_composite_health_score(combined)"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/cli/highlight.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 44,
+            "text": "use touring_core::char_classes::{CharClass, CharClasses};"
+          }
+        ]
+      },
+      {
+        "file": "crates/touring-server/src/cli/synergy.rs",
+        "use_count": 1,
+        "has_extern_crate": false,
+        "sample_lines": [
+          {
+            "line": 49,
+            "text": "(\"touring_core::health\", \"compute_composite_health_score (shared)\", \"v4.21.0 S8\", \"Wave 9 S8 — moved"
+          }
+        ]
+      }
+    ]
+  },
+  "sub_modules_used": {
+    "TouringConfig": 45,
+    "TouringError": 42,
+    "diagnostic": 28,
+    "schema": 27,
+    "truncate_str": 17,
+    "plugin": 15,
+    "health": 12,
+    "mvkl": 8,
+    "DeltaOutcome": 7,
+    "config": 6,
+    "health_events": 3,
+    "char_classes": 3,
+    "migration": 3,
+    "feedback": 3,
+    "embedding": 3,
+    "profile": 2,
+    "security": 2,
+    "Result": 2,
+    "shared": 1,
+    "HealthDeltaEvent": 1,
+    "publish_health_event": 1,
+    "checkpoint": 1,
+    "governor": 1
+  },
+  "estimate": {
+    "cargo_toml_update_hours": 0.85,
+    "ast_grep_rewrite_hours": 1.62,
+    "manual_review_hours": 8.1,
+    "cargo_check_iterations_hours": 1.0,
+    "total_hours": 11.57,
+    "total_engineer_days": 1.45,
+    "totals": {
+      "cargo_files": 17,
+      "consumer_files": 81,
+      "total_use_statements": 233
+    }
+  }
+}

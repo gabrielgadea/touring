@@ -1,0 +1,10 @@
+---
+source: crates/touring-ast/tests/snapshot_complexity_async.rs
+expression: normalize(entries)
+---
+- - fetch_all
+  - 3
+- - fetch_one
+  - 2
+- - read
+  - 1

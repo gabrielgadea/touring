@@ -1,0 +1,18 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: masterplan-elite-aw3p1-ioc-2026-06-09
+slug: masterplan-elite-aw3p1-ioc-2026-06-09
+intent: ""
+role: engineer
+task_id: ""
+timestamp: "2026-06-09T11:29:02-03:00"
+session_id: ac9e1f06-4e9f-4661-a767-17c870e3d99c
+content:
+  lines: 46
+  bytes: 2651
+  sections[7]: Context,FASE A — Consolidation (doc-drift + whitepaper),A.W3.P1 — HookRuntime IoC (Gabriel overrode the diminishing-returns caveat),"Validation (proof, not assertion)","Metrics (canonical, in loco)",DAG state,Deploy note
+  source_md: embedded_below
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02
+body: "# Master Plan Elite — Consolidation + A.W3.P1 IoC (2026-06-09)\n\n## Context\nGround-truthed the 2026-06-04 Elite Master Plan (DAG task_1780622111986800900) five days\nafter authoring. Tracks A/C/D found technically closed (12/14 findings resolved in loco by\nintervening sessions). Executed the remaining non-business-gated work.\n\n## FASE A — Consolidation (doc-drift + whitepaper)\n- gen_reference --validate was RED (mcp-tools.md drift): regenerated, captured +3 curated\n  MCP tools (touring_cortex_classify / touring_hook_metrics / touring_tdg). Now exit 0.\n- Whitepaper (E.W1.P4) synced 6 stale metrics from canonical sources: crates 36->39,\n  LOC 474k->477k, hooks 198->218, MCP 88->102 (curated 22 opt-in), cycles 9-catastrophic->0.\n- 4 dogfooding gates GREEN: sync_metrics, file_size_gate, wiring_integrity, gen_reference.\n\n## A.W3.P1 — HookRuntime IoC (Gabriel overrode the diminishing-returns caveat)\n- CODE-FIRST FINDING: plan A.W3.P1.T9 hallucinated a fat HookRuntime trait\n  (dispatch/register_hook/get_config). Real HookRuntime is a 88-pub-fn God-object\n  (RL/cognitive/symbol state), NOT a dispatcher. Correct IoC = Interface Segregation\n  (the CegRuntime/LearnRuntime pattern from S-13), not a fat trait.\n- DELIVERED: leaf crate `touring-contracts` (zero parent deps; sole dep serde_json) housing\n  the LearnRuntime IoC trait migrated from gateway/deps.rs. deps.rs re-exports it\n  (`pub use touring_contracts::LearnRuntime`) preserving every call site + the\n  `CegRuntime: LearnRuntime` supertrait + the `impl ... for HookRuntime` at dispatch.rs:375.\n- Skeleton stubs (error.rs/types.rs) removed (REGRA #0 — no dead code).\n- A.W3.P1 was ~85% already done by the S-13 seam; this materialized the missing leaf crate.\n\n## Validation (proof, not assertion)\n- cargo check --workspace: 0 errors (17.41s)\n- touring-contracts: 3 tests (2 unit + 1 integration proving external API usability)\n- gateway:: consumers: 434 passed / 0 failed\n- clippy -p touring-contracts -D warnings: 0\n- wiring cycles: 0 (no cycle introduced)\n\n## Metrics (canonical, in loco)\n- crates 39 (40 workspace_members incl. fuzz) | LOC 477,745 src / 545,533 ws | 13,323 test fns\n\n## DAG state\n- Track A (Eng): A-W1..A-W4 ALL COMPLETED (Track A closed)\n- Track C (Quality): C-W1..C-W3 COMPLETED\n- Track D (Docs): D-W1..D-W4 COMPLETED\n- Track B (Product) + Track E (GTM): business-gated (release CI=git, multi-LLM=keys,\n  SDK/GTM = Gabriel decisions) — backlog awaiting Gabriel.\n\n## Deploy note\nChange is structural-only (trait relocation + re-export) — zero runtime behavior change.\nProduction daemon binary unchanged; `update-touring` deploy is optional/non-urgent.\n"

@@ -1,0 +1,13 @@
+# AUTO-GENERATED — W8.6 façade [dependencies] section
+# Generated: 2026-05-12T00:49:27.702232+00:00
+# Replace existing [dependencies] in crates/touring-hooks/Cargo.toml
+
+[dependencies]
+touring-hooks-cli = { workspace = true }
+touring-hooks-core = { workspace = true }
+touring-hooks-infra = { workspace = true }
+touring-hooks-lifecycle = { workspace = true }
+touring-hooks-prediction = { workspace = true }
+touring-hooks-rl = { workspace = true }
+touring-hooks-shared = { workspace = true }
+touring-hooks-tools = { workspace = true }

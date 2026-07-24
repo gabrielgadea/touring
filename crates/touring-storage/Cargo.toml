@@ -1,0 +1,114 @@
+[package]
+name = "touring-storage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Unified storage layer for Touring fusing 5 crates: virtual filesystem (vfs), salsa incremental memoization (salsa), vector store backends (vec), embedding providers (embeddings), and hybrid BM25+vector search (hybrid_search). All heavy backends opt-in via storage-* feature flags."
+
+[lib]
+name = "touring_storage"
+path = "src/lib.rs"
+
+[dependencies]
+# --- Touring path deps ---
+touring-foundation = { path = "../touring-foundation" }
+# A5 Path-A step-4: the `impl KnowledgeSource for ThreadSafeKnowledgeDB` consumes
+# the `KnowledgeSource` trait + 6 record types from `touring_foundation::
+# knowledge_source` (relocated there 2026-06-16) — NOT from touring-intelligence.
+# A direct touring-storage→touring-intelligence dep would close the
+# storage→intelligence→analysis→code→storage Cargo cycle, so the trait lives in
+# the kernel and `touring_intelligence::reasoning::bridge` re-exports it.
+
+# --- Always-available stack ---
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+
+# Concurrency / collections
+parking_lot = { workspace = true }
+hashbrown = { workspace = true }
+moka = { workspace = true, features = ["sync"] }
+arc-swap = { workspace = true }
+rustc-hash = { workspace = true }
+
+# Hashing
+blake3 = { workspace = true }
+
+# Filesystem
+bytes = { workspace = true, features = ["serde"] }
+filetime = { workspace = true }
+walkdir = { workspace = true }
+
+# Incremental memoization
+salsa = { workspace = true }
+
+# --- Optional backends (opt-in via storage-* features) ---
+rusqlite = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+qdrant-client = { workspace = true, optional = true }
+deadpool-postgres = { workspace = true, optional = true }
+tokio-postgres = { workspace = true, features = ["with-serde_json-1"], optional = true }
+reqwest = { workspace = true, features = ["json"], optional = true }
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }
+candle-transformers = { workspace = true, optional = true }
+tokenizers = { workspace = true, optional = true }
+fastembed = { workspace = true, optional = true }
+notify = { workspace = true, optional = true }
+notify-debouncer-mini = { workspace = true, optional = true }
+rkyv = { workspace = true, features = ["validation", "std"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+pretty_assertions = { workspace = true }
+rand = { workspace = true }
+
+[features]
+# Default: light modules + sqlite vector backend + fastembed + hybrid search.
+default = ["storage-vfs", "storage-salsa", "storage-vec-sqlite", "storage-emb-fastembed", "storage-hybrid"]
+
+# --- Public storage-* feature surface (W5 deliverable) ---
+storage-vfs = []
+storage-vfs-watcher = ["watcher", "sync_projector"]
+storage-salsa = []
+storage-vec-sqlite = ["sqlite-vec"]
+storage-vec-qdrant = ["qdrant"]
+storage-vec-postgres = ["postgres"]
+storage-vec-mem = []
+storage-emb-candle = ["candle-bge"]
+storage-emb-fastembed = ["fastembed"]
+storage-emb-voyage = ["voyage"]
+# GPU embedding client relocated from touring-foundation (A4 P4). Gates `pub mod embedding`
+# and pulls reqwest (HTTP client to the embedding service); tracing/rkyv/async-trait/tokio
+# are non-optional deps it also uses.
+gpu-embeddings = ["dep:reqwest"]
+storage-hybrid = ["vector-store"]
+# Knowledge DB (FileKnowledgeDB) — requires rusqlite, sha2, chrono, regex. The
+# `impl KnowledgeSource` uses `touring_foundation::knowledge_source` (always on,
+# no feature dep) — see the touring-intelligence note in [dependencies] above.
+knowledge = ["dep:rusqlite", "dep:sha2", "dep:chrono", "dep:regex"]
+# Session-hooks — cfg-gate for session-aware methods on FileKnowledgeDB
+session-hooks = []
+
+# --- Internal feature names (match #[cfg(feature = ...)] in moved code) ---
+watcher = ["dep:notify", "dep:notify-debouncer-mini"]
+sync_projector = []
+sqlite-vec = ["dep:rusqlite"]
+qdrant = ["dep:qdrant-client"]
+postgres = ["dep:deadpool-postgres", "dep:tokio-postgres"]
+candle-bge = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers"]
+fastembed = ["dep:fastembed"]
+voyage = ["dep:reqwest"]
+vector-store = []
+
+[lints]
+workspace = true

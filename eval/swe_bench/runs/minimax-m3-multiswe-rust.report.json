@@ -1,0 +1,112 @@
+{
+  "solver": "file",
+  "total": 5,
+  "resolved": 0,
+  "resolved_pct": 0.0,
+  "claimed_resolved": 1,
+  "vgp_false_positives": 1,
+  "vgp_false_positive_rate": 1.0,
+  "mean_tokens": 4087.0,
+  "results": [
+    {
+      "instance_id": "tokio-rs__bytes-732",
+      "resolved": false,
+      "applied": false,
+      "claims_resolved": false,
+      "vgp_false_positive": false,
+      "tokens": 0,
+      "fail_to_pass": {},
+      "pass_to_pass": {},
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": "solver produced no patch"
+    },
+    {
+      "instance_id": "tokio-rs__bytes-543",
+      "resolved": false,
+      "applied": false,
+      "claims_resolved": false,
+      "vgp_false_positive": false,
+      "tokens": 0,
+      "fail_to_pass": {},
+      "pass_to_pass": {},
+      "regressions": [],
+      "malformed": [
+        "fail_to_pass is empty (an instance must have a test that starts red)"
+      ],
+      "aider_resolved": null,
+      "error": "malformed instance"
+    },
+    {
+      "instance_id": "tokio-rs__bytes-721",
+      "resolved": false,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": true,
+      "tokens": 20435,
+      "fail_to_pass": {
+        "mut_shared_is_unique": false
+      },
+      "pass_to_pass": {
+        "test_maybe_uninit_buf_mut_small": false,
+        "freeze_after_advance_arc": false,
+        "reserve_in_arc_nonunique_does_not_overallocate": false,
+        "test_clone": false,
+        "copy_to_bytes_less": false,
+        "freeze_after_split_off": false,
+        "reserve_vec_recycling": false,
+        "test_bytesmut_from_bytes_promotable_even_arc_2": false,
+        "fmt": false,
+        "vec_is_unique": false
+      },
+      "regressions": [
+        "test_maybe_uninit_buf_mut_small",
+        "freeze_after_advance_arc",
+        "reserve_in_arc_nonunique_does_not_overallocate",
+        "test_clone",
+        "copy_to_bytes_less",
+        "freeze_after_split_off",
+        "reserve_vec_recycling",
+        "test_bytesmut_from_bytes_promotable_even_arc_2",
+        "fmt",
+        "vec_is_unique"
+      ],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    },
+    {
+      "instance_id": "tokio-rs__bytes-643",
+      "resolved": false,
+      "applied": false,
+      "claims_resolved": false,
+      "vgp_false_positive": false,
+      "tokens": 0,
+      "fail_to_pass": {},
+      "pass_to_pass": {},
+      "regressions": [],
+      "malformed": [
+        "fail_to_pass is empty (an instance must have a test that starts red)"
+      ],
+      "aider_resolved": null,
+      "error": "malformed instance"
+    },
+    {
+      "instance_id": "tokio-rs__bytes-547",
+      "resolved": false,
+      "applied": false,
+      "claims_resolved": false,
+      "vgp_false_positive": false,
+      "tokens": 0,
+      "fail_to_pass": {},
+      "pass_to_pass": {},
+      "regressions": [],
+      "malformed": [
+        "fail_to_pass is empty (an instance must have a test that starts red)"
+      ],
+      "aider_resolved": null,
+      "error": "malformed instance"
+    }
+  ]
+}

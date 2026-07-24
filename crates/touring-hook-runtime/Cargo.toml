@@ -1,0 +1,61 @@
+[package]
+name = "touring-hook-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HookRuntime substrate — the runtime God-object + its trait decomposition (runtime/impls_*), inferlets WASM service, hook memory, wiring engine, schemas, reindex/signals engines (Wave R+C carve, 2026-06-10)"
+
+[lib]
+name = "touring_hook_runtime"
+path = "src/lib.rs"
+
+[features]
+# Mirrors of the dispatch layer's gates for the moved modules — the dispatch
+# crate forwards each one.
+acp-protocol = []
+inferlets-wasm = []
+tantivy-fts = ["touring-hooks-core/tantivy-fts"]
+post-hooks = []
+saga = ["touring-hooks-saga/saga"]
+semantic-embeddings = ["dep:touring-storage"]
+# Wave H (2026-06-10): ceg_adapter carries 2 txn-gated tests; mirrors the
+# dispatch-layer default-on gate (forwards to the CEG leaf).
+txn_lock_enforcement = ["touring-ceg/txn_lock_enforcement"]
+
+[dependencies]
+touring-hooks-core = { path = "../touring-hooks-core" }
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-hooks-prediction = { path = "../touring-hooks-prediction" }
+touring-hooks-saga = { path = "../touring-hooks-saga" }
+touring-hooks-rl = { path = "../touring-hooks-rl" }
+touring-ceg = { path = "../touring-ceg" }
+touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] }
+touring-code = { path = "../touring-code" }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-foundation = { path = "../touring-foundation" }
+touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
+touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed"] }
+touring-bindings = { path = "../touring-bindings", features = ["bind-wasm"] }
+blake3 = { workspace = true }
+chrono = { workspace = true }
+moka = { workspace = true }
+once_cell = { workspace = true }
+petgraph = { workspace = true }
+rusqlite = { workspace = true }
+rustc-hash = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+validator = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+
+[lints]
+workspace = true

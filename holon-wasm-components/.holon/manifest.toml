@@ -1,0 +1,42 @@
+# schema: /home/gabrielgadea/.claude/tools/holon/holon-manifest.schema.json
+# THSF Fase 4 Wave 4D — provider manifest exposing 3 WebAssembly components
+# as Holon capabilities via adapter=wasm. konverter (and any other holon
+# declaring `requires.quality-gate` / `requires.blast-radius` / `requires.spec-version`)
+# will match these offers during symbiosis.
+
+[holon.identity]
+name = "holon-wasm-components"
+version = "0.1.0"
+description = "THSF Fase 4 pilot — WebAssembly Components exporting holon:core/capabilities@0.1.0."
+autonomy_guarantee = true
+
+[holon.offers.spec-version]
+adapter = "wasm"
+wasm_component = "../target/wasm32-wasip2/release/holon_spec_version.wasm"
+version = "0.1.0"
+# Returns the WIT package version — proof-of-life.
+
+[holon.offers.blast-radius]
+adapter = "wasm"
+wasm_component = "../target/wasm32-wasip2/release/holon_blast_radius.wasm"
+version = "0.1.0"
+# Graph BFS over a pre-serialised reverse adjacency list.
+# Input JSON: {"graph": {<file>: [<dependents>]}, "target": <file>}
+# Output JSON: {"target": ..., "blast_radius": N, "dependents": [...]}
+
+[holon.offers.quality-gate]
+adapter = "wasm"
+wasm_component = "../target/wasm32-wasip2/release/holon_quality_gate.wasm"
+version = "0.1.0"
+# Anti-pattern density scoring (Rust/Python).
+# Input JSON: {"source": "<code>", "lang": "rust|python"}
+# Output JSON: {"score": f32, "lang": ..., "antipatterns": [...], "lines": N}
+
+[holon.offers.generator-health]
+adapter = "wasm"
+wasm_component = "../target/wasm32-wasip2/release/holon_generator_health.wasm"
+version = "0.1.0"
+# THSF Phase 5 Wave H — pure-function formatter for health_delta snapshots.
+# Input JSON: {"counters":{...7 fields...}, "per_path":[{file_path, regression_streak, improvement_streak}]}
+# Output JSON: {"summary": "...", "alerts": [...], "metrics": {health_score, regression_ratio, ...}}
+# Host fetches counters via `touring gate-metrics -j` + per-path via `touring health-delta status`.

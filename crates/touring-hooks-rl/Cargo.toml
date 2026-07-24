@@ -1,0 +1,21 @@
+[package]
+name = "touring-hooks-rl"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Leaf crate extracted from touring-hooks (A01): agentic RL — POMDP state + PPO policy (AgenticRL, AgenticRLState, BeliefState, ObservableState, ToolType). Depends only on touring-hooks-shared (pattern_bandit), touring-learning (learning_signals), tokio, serde."
+
+[lib]
+name = "touring_hooks_rl"
+path = "src/lib.rs"
+
+[dependencies]
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-intelligence = { path = "../touring-intelligence" }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros", "time"] }
+serde = { workspace = true, features = ["derive"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,62 @@
+{
+ "captured": "2026-07-02",
+ "note": "post-reform (W0-W5+W4.2/4.3/4.4) vs W0.5 baseline; deltas are EXPECTED corrections (real CC, quality-gate, artifact-resolution, NotApplicable, cross-file dup)",
+ "rows": [
+  {
+   "target": "crates/touring-storage/src/embeddings/providers/candle_bge.rs",
+   "baseline": 0.982,
+   "post_reform": 0.9642,
+   "delta": -0.0178,
+   "tier": "Diamond"
+  },
+  {
+   "target": "crates/touring-identity/src/types.rs",
+   "baseline": 0.9586,
+   "post_reform": 0.9537,
+   "delta": -0.0048,
+   "tier": "Silver"
+  },
+  {
+   "target": "crates/touring-quality/src/verifications/mod.rs",
+   "baseline": 0.9817,
+   "post_reform": 0.9488,
+   "delta": -0.0328,
+   "tier": "Silver"
+  },
+  {
+   "target": "/home/gabrielgadea/.claude/skills/Touring/scripts/lib_touring.py",
+   "baseline": 0.9781,
+   "post_reform": 0.9687,
+   "delta": -0.0094,
+   "tier": "Diamond"
+  },
+  {
+   "target": "/home/gabrielgadea/.claude/hooks/session_startup_intelligence.py",
+   "baseline": 0.97,
+   "post_reform": 0.9387,
+   "delta": -0.0313,
+   "tier": "Silver"
+  },
+  {
+   "target": "crates/touring-identity",
+   "baseline": 0.9637,
+   "post_reform": 0.8836,
+   "delta": -0.0801,
+   "tier": "Silver"
+  },
+  {
+   "target": "/home/gabrielgadea/.claude/skills/Touring/scripts",
+   "baseline": 0.9777,
+   "post_reform": 0.9067,
+   "delta": -0.071,
+   "tier": "Platinum"
+  },
+  {
+   "target": "README.md",
+   "baseline": 0.9828,
+   "post_reform": 0.9817,
+   "delta": -0.0012,
+   "tier": "Diamond"
+  }
+ ]
+}

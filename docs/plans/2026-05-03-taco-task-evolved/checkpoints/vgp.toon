@@ -1,0 +1,193 @@
+[24]:
+  -
+    symbol: "comrak::format_commonmark"
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: comrak::format_commonmark"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 22.0
+    cached: false
+  -
+    symbol: "touring_ast::markdown_analysis::analyse"
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: touring_ast::markdown_analysis::analyse"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 25.16
+    cached: false
+  -
+    symbol: "miette::Diagnostic"
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: miette::Diagnostic"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 21.77
+    cached: false
+  -
+    symbol: "core::error::prelude"
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: core::error::prelude"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.51
+    cached: false
+  -
+    symbol: "PlanExecutor::speculate"
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: PlanExecutor::speculate"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 27.25
+    cached: false
+  -
+    symbol: "GeneratorKind::is_markdown_emitting"
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: GeneratorKind::is_markdown_emitting"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 25.99
+    cached: false
+  -
+    symbol: GeneratorKinds
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: GeneratorKinds"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 22.07
+    cached: false
+  -
+    symbol: PlanMarkdown
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: PlanMarkdown"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 23.2
+    cached: false
+  -
+    symbol: SkillDocument
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: SkillDocument"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 23.02
+    cached: false
+  -
+    symbol: DiaryEntry
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: DiaryEntry"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 29.36
+    cached: false
+  -
+    symbol: ChangelogEntry
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: ChangelogEntry"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.43
+    cached: false
+  -
+    symbol: TaskScaffold
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: TaskScaffold"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 24.44
+    cached: false
+  -
+    symbol: PlanExecutor
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: PlanExecutor"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 20.86
+    cached: false
+  -
+    symbol: GeneratorKind
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: GeneratorKind"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 23.05
+    cached: false
+  -
+    symbol: MarkdownDocument
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: MarkdownDocument"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 20.26
+    cached: false
+  -
+    symbol: TouringError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: TouringError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 22.59
+    cached: false
+  -
+    symbol: MigrationError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: MigrationError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 22.5
+    cached: false
+  -
+    symbol: AdapterError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: AdapterError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.4
+    cached: false
+  -
+    symbol: SkipParseError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: SkipParseError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.3
+    cached: false
+  -
+    symbol: AstError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: AstError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 20.19
+    cached: false
+  -
+    symbol: CognitiveError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: CognitiveError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 28.11
+    cached: false
+  -
+    symbol: LearningError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: LearningError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 22.06
+    cached: false
+  -
+    symbol: TasksfileError
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: TasksfileError"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 23.03
+    cached: false
+  -
+    symbol: markdown_structural_layer
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: NOT FOUND: markdown_structural_layer"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.67
+    cached: false

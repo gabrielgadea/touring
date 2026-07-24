@@ -1,0 +1,133 @@
+//! Realistic Rust source fixture for throughput benchmarks (~2 KB).
+
+use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+
+pub mod inner {
+    pub const VERSION: &str = "1.0.0";
+
+    pub trait Validator {
+        fn validate(&self, input: &str) -> bool;
+    }
+
+    pub struct NonEmptyValidator;
+    impl Validator for NonEmptyValidator {
+        fn validate(&self, input: &str) -> bool {
+            !input.trim().is_empty()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    pub name: String,
+    pub max_retries: u32,
+    pub timeout_ms: u64,
+    pub features: Vec<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            name: "default".into(),
+            max_retries: 3,
+            timeout_ms: 5000,
+            features: Vec::new(),
+        }
+    }
+}
+
+impl Config {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self { name: name.into(), ..Default::default() }
+    }
+
+    pub fn with_retries(mut self, retries: u32) -> Self {
+        self.max_retries = retries;
+        self
+    }
+
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.name.is_empty() {
+            Err("name cannot be empty")
+        } else if self.max_retries == 0 {
+            Err("max_retries must be > 0")
+        } else {
+            Ok(())
+        }
+    }
+}
+
+pub struct Processor {
+    cache: HashMap<String, usize>,
+    inner: inner::NonEmptyValidator,
+}
+
+impl Processor {
+    pub fn new() -> Self {
+        Self {
+            cache: HashMap::new(),
+            inner: inner::NonEmptyValidator,
+        }
+    }
+
+    pub fn process(&mut self, input: &str) -> Result<usize, &'static str> {
+        if !self.inner.validate(input) {
+            return Err("validation failed");
+        }
+        let len = input.len();
+        *self.cache.entry(input.to_string()).or_insert(0) += 1;
+        Ok(len)
+    }
+
+    pub fn cache_size(&self) -> usize {
+        self.cache.len()
+    }
+}
+
+impl Default for Processor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+enum State {
+    Idle,
+    Running(u32),
+    Done,
+}
+
+impl State {
+    pub fn next(&mut self, counter: u32) {
+        *self = match self {
+            State::Idle => State::Running(counter),
+            State::Running(n) if *n < 10 => State::Running(n + 1),
+            _ => State::Done,
+        };
+    }
+
+    pub fn is_done(&self) -> bool {
+        matches!(self, State::Done)
+    }
+}
+
+pub fn compute_hash(data: &[u8]) -> u64 {
+    data.iter().map(|&b| b as u64).sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_validation() {
+        let cfg = Config::default();
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn test_processor_empty() {
+        let mut p = Processor::new();
+        assert!(p.process("").is_err());
+    }
+}

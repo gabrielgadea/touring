@@ -1,0 +1,19 @@
+//! MCP tool: {{ tool_name | default(value="tool") }}
+
+use rmcp::tool;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct {{ params_struct | default(value="Params") }} {
+{% if params is defined %}
+{% for p in params %}
+    pub {{ p.name | default(value="param") }}: {{ p.ty | default(value="String") }},
+{% endfor %}
+{% endif %}
+}
+
+// #[tool]
+pub async fn {{ tool_fn | default(value="handle") }}(params: {{ params_struct | default(value="Params") }}) -> Result<String, String> {
+    let _ = params;
+    Ok("{{ tool_name | default(value="tool") }}: not yet implemented".to_owned())
+}

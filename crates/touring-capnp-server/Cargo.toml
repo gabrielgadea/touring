@@ -1,0 +1,50 @@
+[package]
+name = "touring-capnp-server"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cap'n Proto RPC server shim — implementation in touring-bindings/bind-capnp"
+# Opt out of auto-discovery so `examples/util.rs` is treated as a shared
+# module included via `#[path]`, not compiled as a standalone binary.
+autoexamples = false
+
+[[example]]
+name = "bench_d34"
+path = "examples/bench_d34.rs"
+
+[[example]]
+name = "bench_generator_health"
+path = "examples/bench_generator_health.rs"
+
+[[example]]
+name = "client_demo"
+path = "examples/client_demo.rs"
+
+[lib]
+name = "touring_capnp_server"
+
+[dependencies]
+touring-bindings = { path = "../touring-bindings" }
+
+[features]
+# bind-capnp ON by default so all existing consumers see the symbols
+default = ["bind-capnp"]
+bind-capnp = ["touring-bindings/bind-capnp"]
+
+[dev-dependencies]
+anyhow.workspace = true
+capnp.workspace = true
+capnp-rpc.workspace = true
+futures.workspace = true
+hdrhistogram.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["compat"] }
+touring-foundation = { path = "../touring-foundation" }
+
+[lints]
+workspace = true

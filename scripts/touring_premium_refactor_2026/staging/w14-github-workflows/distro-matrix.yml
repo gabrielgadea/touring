@@ -1,0 +1,17 @@
+# AUTO-GENERATED — distro packaging matrix
+name: Distro Packaging
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  package:
+    strategy:
+      matrix:
+        format: [deb, rpm, brew, scoop, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.format }} package
+        run: ./scripts/touring_premium_refactor_2026/w14_distro_packager.py

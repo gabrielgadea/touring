@@ -1,0 +1,7 @@
+#!/bin/sh
+# Touring post-install script
+set -e
+if [ "$1" = "configure" ]; then
+    update-alternatives --install /usr/local/bin/touring touring \
+        /usr/lib/touring/bin/touring 100 || true
+fi

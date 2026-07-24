@@ -1,0 +1,74 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "P2 DONE. strip_rust_comments_and_strings co-locado em mod.rs (pub(crate)); removidas as 2 copias byte-identicas de f4_3 e f1_8; religadas via import. cargo check default+no-default-features EXIT 0/0; cargo test -p touring-quality 344 passed 0 failed + doctest ok. Comportamento preservado. Pivot de design: taco-forge instalado (Sprint 1) NAO tem perfect-create/perfect-edit; helpers co-locados em mod.rs (mais limpo, zero arquivos novos); edits via Edit tool (NUDGE-permitido, guard nao bloqueia .rs edit), cargo = gate real."
+    },
+    {
+      "entity_id": "function:strip_rust_comments_and_strings",
+      "type": "function",
+      "description": "shared pub(crate) helper now in mod.rs; single definition replacing 2 byte-identical copies"
+    },
+    {
+      "entity_id": "file:f4_3_deprecated",
+      "type": "file",
+      "description": "rewired: removed local strip copy, imports shared one"
+    },
+    {
+      "entity_id": "file:f1_8_dep_cycles",
+      "type": "file",
+      "description": "rewired: removed local strip copy, imports shared one"
+    },
+    {
+      "entity_id": "decision:cargo_proof_P2",
+      "type": "decision",
+      "description": "cargo check default+no-default-features EXIT 0/0; cargo test 344 passed 0 failed"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P2|produces|function:strip_rust_comments_and_strings",
+      "source": "phase:P2",
+      "type": "produces",
+      "target": "function:strip_rust_comments_and_strings"
+    },
+    {
+      "relation_id": "phase:P2|produces|file:f4_3_deprecated",
+      "source": "phase:P2",
+      "type": "produces",
+      "target": "file:f4_3_deprecated"
+    },
+    {
+      "relation_id": "phase:P2|produces|file:f1_8_dep_cycles",
+      "source": "phase:P2",
+      "type": "produces",
+      "target": "file:f1_8_dep_cycles"
+    },
+    {
+      "relation_id": "phase:P2|produces|decision:cargo_proof_P2",
+      "source": "phase:P2",
+      "type": "produces",
+      "target": "decision:cargo_proof_P2"
+    },
+    {
+      "relation_id": "file:f4_3_deprecated|consumes|function:strip_rust_comments_and_strings",
+      "source": "file:f4_3_deprecated",
+      "type": "consumes",
+      "target": "function:strip_rust_comments_and_strings"
+    },
+    {
+      "relation_id": "file:f1_8_dep_cycles|consumes|function:strip_rust_comments_and_strings",
+      "source": "file:f1_8_dep_cycles",
+      "type": "consumes",
+      "target": "function:strip_rust_comments_and_strings"
+    },
+    {
+      "relation_id": "decision:cargo_proof_P2|verifies|function:strip_rust_comments_and_strings",
+      "source": "decision:cargo_proof_P2",
+      "type": "verifies",
+      "target": "function:strip_rust_comments_and_strings"
+    }
+  ]
+}

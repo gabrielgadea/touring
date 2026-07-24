@@ -1,0 +1,223 @@
+{
+  "status": "OK",
+  "script": "dimension_scorer",
+  "timestamp": "2026-05-24T02:37:08+00:00",
+  "source": "/home/gabrielgadea/.claude/plans/sprint-4-6-daemon-root-cause/plan.md",
+  "ground_truth_used": false,
+  "composite_current": 4.22,
+  "composite_target": 8.78,
+  "composite_delta": 4.56,
+  "below_threshold": [
+    "scalability",
+    "performance",
+    "functionality",
+    "quality",
+    "detail",
+    "integration",
+    "dependencies",
+    "potentiation"
+  ],
+  "dimensions": [
+    {
+      "name": "precision",
+      "current": 8.0,
+      "target": 10.0,
+      "delta": 2.0,
+      "hits": 47,
+      "density": 19.67,
+      "base_score": 8.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "4.6",
+        "2.0",
+        "20%",
+        "0 errors",
+        ":21"
+      ],
+      "recommendations": [
+        "Replace prose 'around line N' with exact `file:LINE` from `touring ast find`.",
+        "Embed function signatures verbatim.",
+        "Add numeric targets (P50/P99/RPS) with units."
+      ]
+    },
+    {
+      "name": "scalability",
+      "current": 3.0,
+      "target": 8.5,
+      "delta": 5.5,
+      "hits": 5,
+      "density": 2.09,
+      "base_score": 3.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "scalability",
+        "parallel"
+      ],
+      "recommendations": [
+        "Replace one-off branches with trait + registry pattern.",
+        "Document horizontal-scaling strategy.",
+        "Identify which subtask creates an extension point."
+      ]
+    },
+    {
+      "name": "performance",
+      "current": 1.0,
+      "target": 8.5,
+      "delta": 7.5,
+      "hits": 1,
+      "density": 0.42,
+      "base_score": 1.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "latency"
+      ],
+      "recommendations": [
+        "Declare P99 latency target + workload.",
+        "Name the criterion bench that proves the claim.",
+        "Add complexity O() for hot paths."
+      ]
+    },
+    {
+      "name": "functionality",
+      "current": 2.0,
+      "target": 8.5,
+      "delta": 6.5,
+      "hits": 3,
+      "density": 1.26,
+      "base_score": 2.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "capabilit",
+        "system"
+      ],
+      "recommendations": [
+        "Wire every orphan listed by `touring wiring orphans -j` or document why deferred.",
+        "Add capability matrix per change.",
+        "Name new pub symbols and their consumers."
+      ]
+    },
+    {
+      "name": "quality",
+      "current": 6.0,
+      "target": 9.0,
+      "delta": 3.0,
+      "hits": 26,
+      "density": 10.88,
+      "base_score": 6.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "ruff",
+        "pyright",
+        "0 errors",
+        "panic",
+        "assert"
+      ],
+      "recommendations": [
+        "Every change names a test (`test_*`) + the assertion.",
+        "Remove every `unwrap()` from the diff.",
+        "Add the error branch in the same subtask."
+      ]
+    },
+    {
+      "name": "detail",
+      "current": 6.0,
+      "target": 9.0,
+      "delta": 3.0,
+      "hits": 30,
+      "density": 12.55,
+      "base_score": 6.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        ".py",
+        ".md",
+        ".rs",
+        ".json",
+        "loc",
+        "concrete",
+        "```bash",
+        "null"
+      ],
+      "recommendations": [
+        "Embed input + output schemas for every API change.",
+        "Enumerate edge cases (null, empty, oversize, timeout).",
+        "Show the concrete pseudocode inline."
+      ]
+    },
+    {
+      "name": "integration",
+      "current": 5.0,
+      "target": 8.5,
+      "delta": 3.5,
+      "hits": 17,
+      "density": 7.11,
+      "base_score": 5.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "cross-ref",
+        "Cross-ref",
+        "integrat",
+        "->",
+        "Wiring",
+        "Wire",
+        "wiring",
+        "sequence",
+        "chain"
+      ],
+      "recommendations": [
+        "Run `touring wiring audit -j` and map each subtask to a connection.",
+        "Diagram new cross-module flows (Mermaid).",
+        "Name the caller(s) of every new pub symbol."
+      ]
+    },
+    {
+      "name": "dependencies",
+      "current": 3.0,
+      "target": 8.5,
+      "delta": 5.5,
+      "hits": 8,
+      "density": 3.35,
+      "base_score": 3.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "v2.0",
+        "ruff",
+        "pyright",
+        "require"
+      ],
+      "recommendations": [
+        "Pin every version explicitly (no wildcards).",
+        "Document required feature flags.",
+        "Note MSRV / Python version range."
+      ]
+    },
+    {
+      "name": "potentiation",
+      "current": 4.0,
+      "target": 8.5,
+      "delta": 4.5,
+      "hits": 10,
+      "density": 4.18,
+      "base_score": 4.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "drift",
+        "evolv",
+        "Enables"
+      ],
+      "recommendations": [
+        "Every subtask must have non-empty Enables (REGRA #0).",
+        "Rewrite dead-end subtasks as hooks / extension points.",
+        "Identify compounding effects in the matrix."
+      ]
+    }
+  ]
+}

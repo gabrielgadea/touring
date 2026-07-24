@@ -1,0 +1,11 @@
+{
+  "phase": "F3",
+  "entities": [
+    {
+      "entity_id": "phase:F3",
+      "type": "phase",
+      "description": "F3 (touring update + component) COMPLETA \u2014 o n\u00facleo da propaga\u00e7\u00e3o: (3.1) touring update [ch|--rollback|--dry-run|--all-projects via ProjectRegistry|--no-restart] re-linka .touring/bin, grava toolchain.lock (requested-vs-resolved rustup-like: touring.toml nunca reescrito) e reinicia daemon per-project no bin\u00e1rio NOVO via restart_socket_with_bin; (3.2) touring component list/add/remove (core n\u00e3o-remov\u00edvel REGRA #0); (3.3) toolchain install --from-source (ponte dev\u2192toolchain p/ PILOT) + --from-url (curl; sigstore=F5); (3.4) lockfile {active,previous,updated_at,reason} at\u00f4mico. Design: project_toolchain.rs = casa \u00fanica channel\u2194lock\u2194bins (li\u00e7\u00e3o F-NEW-1 recursos pareados); resolu\u00e7\u00e3o lock>pin compartilhada por init-project/update/component. Provas: RED\u2192GREEN E2E 5/5 (bin\u00e1rio real, HOME/TOURING_HOME isolados); unit 63; lib completa 1416/1416; clippy 0; 50-dim 0.898-0.953 (project_toolchain Diamond); 6 P0 PASS; deploy update-touring exit 0 doctor 5/5; validate_phase3.sh 8/8 ALL PASS com bin\u00e1rio deployado incl. daemon global inalterado. Gotcha novo: grafo release-TEST do server com E0460/E0463 (fingerprints stale p\u00f3s-move F4) \u2014 grafo normal compila; harness E2E migrado p/ debug (bin\u00e1rio testado segue release); d\u00e9bito segue aberto p/ investiga\u00e7\u00e3o de fingerprints."
+    }
+  ],
+  "relations": []
+}

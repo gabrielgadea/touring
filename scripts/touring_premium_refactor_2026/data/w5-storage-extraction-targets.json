@@ -1,0 +1,1327 @@
+{
+  "script": "w5_storage_skeleton",
+  "wave": "W5",
+  "subtask_refs": [
+    "W5.1"
+  ],
+  "timestamp": "2026-05-11T23:50:24.798435+00:00",
+  "totals": {
+    "crates_with_storage_code": 13,
+    "total_files": 142,
+    "total_hits": 1596
+  },
+  "findings_per_crate": {
+    "touring-analysis": [
+      {
+        "file": "crates/touring-analysis/src/e2e/schema_guard.rs",
+        "loc": 345,
+        "pattern_hits": {
+          "sqlite": 25
+        },
+        "total_hits": 25
+      },
+      {
+        "file": "crates/touring-analysis/src/pipeline.rs",
+        "loc": 848,
+        "pattern_hits": {
+          "sqlite": 19
+        },
+        "total_hits": 19
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/orphan.rs",
+        "loc": 561,
+        "pattern_hits": {
+          "sqlite": 14
+        },
+        "total_hits": 14
+      },
+      {
+        "file": "crates/touring-analysis/src/learning/mod.rs",
+        "loc": 367,
+        "pattern_hits": {
+          "sqlite": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/cycle_detection.rs",
+        "loc": 266,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/fingerprints.rs",
+        "loc": 181,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-analysis/src/e2e/mod.rs",
+        "loc": 156,
+        "pattern_hits": {
+          "sqlite": 6
+        },
+        "total_hits": 6
+      },
+      {
+        "file": "crates/touring-analysis/src/cache.rs",
+        "loc": 354,
+        "pattern_hits": {
+          "sqlite": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/mod.rs",
+        "loc": 321,
+        "pattern_hits": {
+          "sqlite": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-analysis/src/temporal/trends.rs",
+        "loc": 670,
+        "pattern_hits": {
+          "sqlite": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-analysis/src/wiring/functional_chains.rs",
+        "loc": 139,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-analysis/src/knowledge/mod.rs",
+        "loc": 275,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-analysis/src/lib.rs",
+        "loc": 154,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-analysis/src/error.rs",
+        "loc": 38,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-ast": [
+      {
+        "file": "crates/touring-ast/src/store.rs",
+        "loc": 1737,
+        "pattern_hits": {
+          "sqlite": 30
+        },
+        "total_hits": 30
+      },
+      {
+        "file": "crates/touring-ast/src/incremental_pipeline.rs",
+        "loc": 1667,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-ast/src/error.rs",
+        "loc": 389,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-cognitive": [
+      {
+        "file": "crates/touring-cognitive/src/sqlite_graph.rs",
+        "loc": 443,
+        "pattern_hits": {
+          "sqlite": 14
+        },
+        "total_hits": 14
+      },
+      {
+        "file": "crates/touring-cognitive/src/snapshot.rs",
+        "loc": 304,
+        "pattern_hits": {
+          "rkyv": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-cognitive/src/session_persistence.rs",
+        "loc": 380,
+        "pattern_hits": {
+          "sqlite": 5
+        },
+        "total_hits": 5
+      }
+    ],
+    "touring-core": [
+      {
+        "file": "crates/touring-core/src/checkpoint/fingerprint.rs",
+        "loc": 453,
+        "pattern_hits": {
+          "checkpoint": 42
+        },
+        "total_hits": 42
+      },
+      {
+        "file": "crates/touring-core/src/schema/mod.rs",
+        "loc": 125,
+        "pattern_hits": {
+          "sqlite": 28
+        },
+        "total_hits": 28
+      },
+      {
+        "file": "crates/touring-core/src/migration/consolidation.rs",
+        "loc": 1018,
+        "pattern_hits": {
+          "sqlite": 14,
+          "checkpoint": 3
+        },
+        "total_hits": 17
+      },
+      {
+        "file": "crates/touring-core/src/migration.rs",
+        "loc": 306,
+        "pattern_hits": {
+          "sqlite": 6
+        },
+        "total_hits": 6
+      },
+      {
+        "file": "crates/touring-core/src/shared/pool.rs",
+        "loc": 224,
+        "pattern_hits": {
+          "sqlite": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-core/src/embedding/client.rs",
+        "loc": 1113,
+        "pattern_hits": {
+          "rkyv": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-core/src/schema/entity_registry.rs",
+        "loc": 486,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-core/src/checkpoint/mod.rs",
+        "loc": 9,
+        "pattern_hits": {
+          "checkpoint": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-core/src/schema/graph.rs",
+        "loc": 126,
+        "pattern_hits": {
+          "checkpoint": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-core/src/error.rs",
+        "loc": 180,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-core/src/lib.rs",
+        "loc": 83,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-cortex": [
+      {
+        "file": "crates/touring-cortex/src/handlers/lifecycle.rs",
+        "loc": 2260,
+        "pattern_hits": {
+          "checkpoint": 13
+        },
+        "total_hits": 13
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/session.rs",
+        "loc": 505,
+        "pattern_hits": {
+          "checkpoint": 10
+        },
+        "total_hits": 10
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/evolution.rs",
+        "loc": 543,
+        "pattern_hits": {
+          "checkpoint": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/intelligence.rs",
+        "loc": 970,
+        "pattern_hits": {
+          "sqlite": 6
+        },
+        "total_hits": 6
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/learning.rs",
+        "loc": 336,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/enforcement.rs",
+        "loc": 1623,
+        "pattern_hits": {
+          "checkpoint": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/neural.rs",
+        "loc": 956,
+        "pattern_hits": {
+          "checkpoint": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-cortex/src/runtime.rs",
+        "loc": 292,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-generator": [
+      {
+        "file": "crates/touring-generator/src/core/context.rs",
+        "loc": 4113,
+        "pattern_hits": {
+          "sqlite": 5,
+          "rkyv": 6,
+          "checkpoint": 14
+        },
+        "total_hits": 25
+      },
+      {
+        "file": "crates/touring-generator/src/executor/typestate.rs",
+        "loc": 1480,
+        "pattern_hits": {
+          "checkpoint": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-generator/src/lib.rs",
+        "loc": 137,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-geopostgis": [
+      {
+        "file": "crates/touring-geopostgis/src/lib.rs",
+        "loc": 436,
+        "pattern_hits": {
+          "sqlite": 12
+        },
+        "total_hits": 12
+      }
+    ],
+    "touring-hooks": [
+      {
+        "file": "crates/touring-hooks/src/tantivy_index.rs",
+        "loc": 2556,
+        "pattern_hits": {
+          "tantivy": 75
+        },
+        "total_hits": 75
+      },
+      {
+        "file": "crates/touring-hooks/src/knowledge.rs",
+        "loc": 4180,
+        "pattern_hits": {
+          "sqlite": 55,
+          "checkpoint": 4
+        },
+        "total_hits": 59
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers.rs",
+        "loc": 7347,
+        "pattern_hits": {
+          "sqlite": 26,
+          "checkpoint": 2
+        },
+        "total_hits": 28
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_session.rs",
+        "loc": 318,
+        "pattern_hits": {
+          "sqlite": 1,
+          "checkpoint": 23
+        },
+        "total_hits": 24
+      },
+      {
+        "file": "crates/touring-hooks/src/auto_save_hook.rs",
+        "loc": 397,
+        "pattern_hits": {
+          "sqlite": 2,
+          "checkpoint": 17
+        },
+        "total_hits": 19
+      },
+      {
+        "file": "crates/touring-hooks/src/async_knowledge.rs",
+        "loc": 795,
+        "pattern_hits": {
+          "sqlite": 14,
+          "checkpoint": 3
+        },
+        "total_hits": 17
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_decompose_bridge.rs",
+        "loc": 529,
+        "pattern_hits": {
+          "sqlite": 1,
+          "checkpoint": 15
+        },
+        "total_hits": 16
+      },
+      {
+        "file": "crates/touring-hooks/src/wiring.rs",
+        "loc": 2534,
+        "pattern_hits": {
+          "sqlite": 16
+        },
+        "total_hits": 16
+      },
+      {
+        "file": "crates/touring-hooks/src/functional_wiring.rs",
+        "loc": 1111,
+        "pattern_hits": {
+          "sqlite": 15
+        },
+        "total_hits": 15
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle.rs",
+        "loc": 19251,
+        "pattern_hits": {
+          "checkpoint": 14
+        },
+        "total_hits": 14
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_update.rs",
+        "loc": 1243,
+        "pattern_hits": {
+          "checkpoint": 14
+        },
+        "total_hits": 14
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_e2e.rs",
+        "loc": 1883,
+        "pattern_hits": {
+          "sqlite": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-hooks/src/suggesters/failure_threshold.rs",
+        "loc": 395,
+        "pattern_hits": {
+          "sqlite": 11
+        },
+        "total_hits": 11
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_memory.rs",
+        "loc": 1204,
+        "pattern_hits": {
+          "sqlite": 9
+        },
+        "total_hits": 9
+      },
+      {
+        "file": "crates/touring-hooks/src/daemon.rs",
+        "loc": 1786,
+        "pattern_hits": {
+          "sqlite": 3,
+          "rkyv": 1,
+          "checkpoint": 5
+        },
+        "total_hits": 9
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_decompose.rs",
+        "loc": 2657,
+        "pattern_hits": {
+          "sqlite": 5,
+          "checkpoint": 3
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_scout.rs",
+        "loc": 409,
+        "pattern_hits": {
+          "sqlite": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-hooks/src/tfidf_retriever.rs",
+        "loc": 680,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/health_delta_audit.rs",
+        "loc": 435,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/task_digest.rs",
+        "loc": 332,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/suggesters/stuck_subtask.rs",
+        "loc": 301,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/suggesters/plan_mode_complexity.rs",
+        "loc": 457,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/ann_memory/persistence.rs",
+        "loc": 295,
+        "pattern_hits": {
+          "sqlite": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_registry.rs",
+        "loc": 1847,
+        "pattern_hits": {
+          "checkpoint": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_runtime.rs",
+        "loc": 2920,
+        "pattern_hits": {
+          "sqlite": 2,
+          "checkpoint": 3
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-hooks/src/dependency_cache.rs",
+        "loc": 624,
+        "pattern_hits": {
+          "rkyv": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-hooks/src/got_snapshot_store.rs",
+        "loc": 283,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/instructions_loaded.rs",
+        "loc": 440,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/post_compact_handler.rs",
+        "loc": 113,
+        "pattern_hits": {
+          "checkpoint": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_mcp.rs",
+        "loc": 1114,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_index.rs",
+        "loc": 1130,
+        "pattern_hits": {
+          "sqlite": 1,
+          "checkpoint": 2
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/session_hooks.rs",
+        "loc": 970,
+        "pattern_hits": {
+          "checkpoint": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/ecosystem.rs",
+        "loc": 215,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/cognitive_bridge.rs",
+        "loc": 258,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/errors.rs",
+        "loc": 218,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/bidirectional/storage.rs",
+        "loc": 191,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/pre_compact.rs",
+        "loc": 84,
+        "pattern_hits": {
+          "checkpoint": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/post_edit.rs",
+        "loc": 2794,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_wiring_repair.rs",
+        "loc": 180,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/prompt_enhance.rs",
+        "loc": 2300,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/health_delta.rs",
+        "loc": 1363,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/lib.rs",
+        "loc": 535,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_rl.rs",
+        "loc": 465,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_evolution.rs",
+        "loc": 578,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/main.rs",
+        "loc": 885,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/schemas/mcp_params.rs",
+        "loc": 242,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/bidirectional/suggester.rs",
+        "loc": 179,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/shared/session_context.rs",
+        "loc": 274,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/e2e_tests.rs",
+        "loc": 581,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/runtime/impls_cognitive.rs",
+        "loc": 292,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/plan_mode/enter.rs",
+        "loc": 480,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/plan_mode/exit.rs",
+        "loc": 413,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-identity": [
+      {
+        "file": "crates/touring-identity/src/schema.rs",
+        "loc": 171,
+        "pattern_hits": {
+          "sqlite": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-identity/src/registry.rs",
+        "loc": 858,
+        "pattern_hits": {
+          "sqlite": 6
+        },
+        "total_hits": 6
+      }
+    ],
+    "touring-learning": [
+      {
+        "file": "crates/touring-learning/src/data/checkpoint.rs",
+        "loc": 279,
+        "pattern_hits": {
+          "checkpoint": 43
+        },
+        "total_hits": 43
+      },
+      {
+        "file": "crates/touring-learning/src/evolution/persistence.rs",
+        "loc": 880,
+        "pattern_hits": {
+          "sqlite": 21
+        },
+        "total_hits": 21
+      },
+      {
+        "file": "crates/touring-learning/src/memory/crdt_graph.rs",
+        "loc": 951,
+        "pattern_hits": {
+          "rkyv": 19
+        },
+        "total_hits": 19
+      },
+      {
+        "file": "crates/touring-learning/src/experiment_log.rs",
+        "loc": 483,
+        "pattern_hits": {
+          "sqlite": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/linucb.rs",
+        "loc": 2250,
+        "pattern_hits": {
+          "rkyv": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-learning/src/rl/qtable.rs",
+        "loc": 1401,
+        "pattern_hits": {
+          "rkyv": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-learning/src/aco/esaa.rs",
+        "loc": 1165,
+        "pattern_hits": {
+          "tantivy": 2,
+          "rkyv": 10
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-learning/src/memory/embedding_u4.rs",
+        "loc": 171,
+        "pattern_hits": {
+          "sqlite": 10
+        },
+        "total_hits": 10
+      },
+      {
+        "file": "crates/touring-learning/src/memory/recall.rs",
+        "loc": 925,
+        "pattern_hits": {
+          "sqlite": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-learning/src/n1/tool_catalog.rs",
+        "loc": 509,
+        "pattern_hits": {
+          "checkpoint": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-learning/src/memory/pattern_cluster.rs",
+        "loc": 710,
+        "pattern_hits": {
+          "sqlite": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-learning/src/data/mod.rs",
+        "loc": 15,
+        "pattern_hits": {
+          "checkpoint": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-learning/src/memory/rlm.rs",
+        "loc": 838,
+        "pattern_hits": {
+          "sqlite": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-learning/src/lib.rs",
+        "loc": 309,
+        "pattern_hits": {
+          "checkpoint": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-learning/src/error.rs",
+        "loc": 140,
+        "pattern_hits": {
+          "sqlite": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-learning/src/n1/basic_generator.rs",
+        "loc": 442,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-rkyv": [
+      {
+        "file": "crates/touring-rkyv/src/templates.rs",
+        "loc": 220,
+        "pattern_hits": {
+          "rkyv": 14
+        },
+        "total_hits": 14
+      },
+      {
+        "file": "crates/touring-rkyv/src/saga_ipc.rs",
+        "loc": 318,
+        "pattern_hits": {
+          "rkyv": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-rkyv/src/ipc.rs",
+        "loc": 214,
+        "pattern_hits": {
+          "rkyv": 12
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-rkyv/src/lib.rs",
+        "loc": 57,
+        "pattern_hits": {
+          "rkyv": 11
+        },
+        "total_hits": 11
+      }
+    ],
+    "touring-server": [
+      {
+        "file": "crates/touring-server/src/tools/utility_tools.rs",
+        "loc": 729,
+        "pattern_hits": {
+          "sqlite": 6,
+          "checkpoint": 146
+        },
+        "total_hits": 152
+      },
+      {
+        "file": "crates/touring-server/src/reasoning/persistence.rs",
+        "loc": 943,
+        "pattern_hits": {
+          "sqlite": 2,
+          "checkpoint": 58
+        },
+        "total_hits": 60
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_infra.rs",
+        "loc": 2234,
+        "pattern_hits": {
+          "sqlite": 50,
+          "checkpoint": 1
+        },
+        "total_hits": 51
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_analysis.rs",
+        "loc": 2092,
+        "pattern_hits": {
+          "checkpoint": 46
+        },
+        "total_hits": 46
+      },
+      {
+        "file": "crates/touring-server/src/cli/migrate.rs",
+        "loc": 1331,
+        "pattern_hits": {
+          "sqlite": 41,
+          "checkpoint": 2
+        },
+        "total_hits": 43
+      },
+      {
+        "file": "crates/touring-server/src/session/manager.rs",
+        "loc": 639,
+        "pattern_hits": {
+          "checkpoint": 42
+        },
+        "total_hits": 42
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_metadata.rs",
+        "loc": 1208,
+        "pattern_hits": {
+          "sqlite": 26
+        },
+        "total_hits": 26
+      },
+      {
+        "file": "crates/touring-server/src/server/mod.rs",
+        "loc": 1151,
+        "pattern_hits": {
+          "sqlite": 10,
+          "checkpoint": 12
+        },
+        "total_hits": 22
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_core.rs",
+        "loc": 1901,
+        "pattern_hits": {
+          "checkpoint": 18
+        },
+        "total_hits": 18
+      },
+      {
+        "file": "crates/touring-server/src/tools/summary_cache.rs",
+        "loc": 223,
+        "pattern_hits": {
+          "sqlite": 10
+        },
+        "total_hits": 10
+      },
+      {
+        "file": "crates/touring-server/src/server/params.rs",
+        "loc": 1948,
+        "pattern_hits": {
+          "checkpoint": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-server/src/cli/session.rs",
+        "loc": 60,
+        "pattern_hits": {
+          "checkpoint": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-server/src/cli/backup.rs",
+        "loc": 422,
+        "pattern_hits": {
+          "sqlite": 6,
+          "checkpoint": 1
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-server/src/knowledge_adapter.rs",
+        "loc": 274,
+        "pattern_hits": {
+          "sqlite": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-server/src/tools/generator_tools.rs",
+        "loc": 2184,
+        "pattern_hits": {
+          "checkpoint": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-server/src/cli/doctor.rs",
+        "loc": 317,
+        "pattern_hits": {
+          "sqlite": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-server/src/context_compiler.rs",
+        "loc": 1528,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-server/src/cli/classify.rs",
+        "loc": 232,
+        "pattern_hits": {
+          "checkpoint": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-server/src/cli/common.rs",
+        "loc": 1038,
+        "pattern_hits": {
+          "tantivy": 1,
+          "checkpoint": 1
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-server/src/cli/entity.rs",
+        "loc": 470,
+        "pattern_hits": {
+          "sqlite": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-server/src/reasoning/mod.rs",
+        "loc": 26,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/tools/mod.rs",
+        "loc": 275,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/session/mod.rs",
+        "loc": 7,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/cli/mod.rs",
+        "loc": 313,
+        "pattern_hits": {
+          "checkpoint": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-vector-store": [
+      {
+        "file": "crates/touring-vector-store/src/backends/sqlite_vec.rs",
+        "loc": 267,
+        "pattern_hits": {
+          "sqlite": 8
+        },
+        "total_hits": 8
+      }
+    ]
+  },
+  "top_15_extraction_targets": [
+    {
+      "file": "crates/touring-server/src/tools/utility_tools.rs",
+      "loc": 729,
+      "pattern_hits": {
+        "sqlite": 6,
+        "checkpoint": 146
+      },
+      "total_hits": 152
+    },
+    {
+      "file": "crates/touring-hooks/src/tantivy_index.rs",
+      "loc": 2556,
+      "pattern_hits": {
+        "tantivy": 75
+      },
+      "total_hits": 75
+    },
+    {
+      "file": "crates/touring-server/src/reasoning/persistence.rs",
+      "loc": 943,
+      "pattern_hits": {
+        "sqlite": 2,
+        "checkpoint": 58
+      },
+      "total_hits": 60
+    },
+    {
+      "file": "crates/touring-hooks/src/knowledge.rs",
+      "loc": 4180,
+      "pattern_hits": {
+        "sqlite": 55,
+        "checkpoint": 4
+      },
+      "total_hits": 59
+    },
+    {
+      "file": "crates/touring-server/src/server/tools_infra.rs",
+      "loc": 2234,
+      "pattern_hits": {
+        "sqlite": 50,
+        "checkpoint": 1
+      },
+      "total_hits": 51
+    },
+    {
+      "file": "crates/touring-server/src/server/tools_analysis.rs",
+      "loc": 2092,
+      "pattern_hits": {
+        "checkpoint": 46
+      },
+      "total_hits": 46
+    },
+    {
+      "file": "crates/touring-learning/src/data/checkpoint.rs",
+      "loc": 279,
+      "pattern_hits": {
+        "checkpoint": 43
+      },
+      "total_hits": 43
+    },
+    {
+      "file": "crates/touring-server/src/cli/migrate.rs",
+      "loc": 1331,
+      "pattern_hits": {
+        "sqlite": 41,
+        "checkpoint": 2
+      },
+      "total_hits": 43
+    },
+    {
+      "file": "crates/touring-core/src/checkpoint/fingerprint.rs",
+      "loc": 453,
+      "pattern_hits": {
+        "checkpoint": 42
+      },
+      "total_hits": 42
+    },
+    {
+      "file": "crates/touring-server/src/session/manager.rs",
+      "loc": 639,
+      "pattern_hits": {
+        "checkpoint": 42
+      },
+      "total_hits": 42
+    },
+    {
+      "file": "crates/touring-ast/src/store.rs",
+      "loc": 1737,
+      "pattern_hits": {
+        "sqlite": 30
+      },
+      "total_hits": 30
+    },
+    {
+      "file": "crates/touring-core/src/schema/mod.rs",
+      "loc": 125,
+      "pattern_hits": {
+        "sqlite": 28
+      },
+      "total_hits": 28
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers.rs",
+      "loc": 7347,
+      "pattern_hits": {
+        "sqlite": 26,
+        "checkpoint": 2
+      },
+      "total_hits": 28
+    },
+    {
+      "file": "crates/touring-server/src/server/tools_metadata.rs",
+      "loc": 1208,
+      "pattern_hits": {
+        "sqlite": 26
+      },
+      "total_hits": 26
+    },
+    {
+      "file": "crates/touring-analysis/src/e2e/schema_guard.rs",
+      "loc": 345,
+      "pattern_hits": {
+        "sqlite": 25
+      },
+      "total_hits": 25
+    }
+  ]
+}

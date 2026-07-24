@@ -1,0 +1,57 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "P4 DONE: loop_phase_close.py criado (DAG update + memory + reward + OKF PhaseReport + Hyper-Extract typed abstract deterministic + log append). Onda C parte 1 completa."
+    },
+    {
+      "entity_id": "symbol:loop_phase_close.py",
+      "type": "symbol",
+      "description": "phase-close script: DAG+memory+reward+OKF report+typed abstract+log"
+    },
+    {
+      "entity_id": "decision:hyper-extract-native",
+      "type": "decision",
+      "description": "adopt the Hyper-Extract typed-abstract pattern natively (no external dep)"
+    },
+    {
+      "entity_id": "learning:deterministic-ids-regra17",
+      "type": "learning",
+      "description": "entity_id/relation_id are deterministic, aligning REGRA #17 \u2014 diff/merge across runs"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P4|produces|symbol:loop_phase_close.py",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "symbol:loop_phase_close.py"
+    },
+    {
+      "relation_id": "phase:P4|produces|decision:hyper-extract-native",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "decision:hyper-extract-native"
+    },
+    {
+      "relation_id": "phase:P4|produces|learning:deterministic-ids-regra17",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "learning:deterministic-ids-regra17"
+    },
+    {
+      "relation_id": "phase:P4|implements|decision:hyper-extract-native",
+      "source": "phase:P4",
+      "type": "implements",
+      "target": "decision:hyper-extract-native"
+    },
+    {
+      "relation_id": "symbol:loop_phase_close.py|realizes|learning:deterministic-ids-regra17",
+      "source": "symbol:loop_phase_close.py",
+      "type": "realizes",
+      "target": "learning:deterministic-ids-regra17"
+    }
+  ]
+}

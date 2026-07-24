@@ -1,0 +1,15 @@
+# {{ plan_title | default(value="Plan") }} — TACO Plan
+
+> **Phase**: {{ phase | default(value="5") }} | **Date**: {{ date | default(value="") }}
+
+## Objective
+
+{{ objective | default(value="TODO") }}
+
+## Subtasks
+
+{% if tasks is defined %}
+{% for task in tasks %}
+- [ ] **{{ task.id | default(value="T") }}**: {{ task.description | default(value="") }}
+{% endfor %}
+{% endif %}

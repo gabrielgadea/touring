@@ -1,0 +1,104 @@
+checkpoint:
+  id: w9-d3-d4-resolved
+  date: 2026-06-11
+  type: post-audit-fix
+  scope: kazuba-rust-core W9 cross-audit findings D3 + D4
+  parent: w9-documentation-cross-audit
+  target_resolved: "D4 (2 example compilation errors) + D3 (2 faq.md anchor mismatches)"
+
+purpose: |
+  Resolve the 2 remaining findings from W9 documentation cross-audit
+  (2026-06-11-w9-documentation-cross-audit.toon). Both fixes are
+  REGRA #0 aligned: potentialize, never reduce.
+
+d4_fix_example_compilation:
+  status: COMPLETE
+  root_cause: "All 4 examples (01_bm25_search, 02_citation_graph, 03_rl_cognitive, 04_doc_generation) imported `kazuba_rust_core::error::KazubaResult` from the pre-W2 monolithic crate. After W2 multi-crate split, `kazuba_rust_core` no longer exists (workspace has `kazuba-python`); `KazubaResult` is not defined anywhere in the workspace (0 defs in touring index)."
+  chain_5_compilation_evidence: "cargo test --workspace --examples → 2 errors before fix, 0 errors after"
+  fix_applied: "Removed broken `use kazuba_rust_core::error::KazubaResult;` import + changed `fn main() -> KazubaResult<()>` to `fn main()` + replaced `Ok(())` with explanatory comment, in all 4 example files. Comment preserves historical context: 'kazuba_rust_core::error::KazubaResult was removed in W2 multi-crate split ... Examples are demo only — return () from main instead of Result<()>'."
+  files_modified:
+    - examples/01_bm25_search.rs (2 edits)
+    - examples/02_citation_graph.rs (2 edits)
+    - examples/03_rl_cognitive.rs (2 edits)
+    - examples/04_doc_generation.rs (2 edits)
+  reg_0_compliance: "FIX EXPANDS capability (examples now RUN, previously broken). NOT delete, NOT suppress."
+
+d3_fix_faq_anchors:
+  status: COMPLETE
+  root_cause: "2 anchor links in docs/faq.md pointed to non-existent slugs. Heading on line 74 is 'I'm getting a Tesseract error. How do I install it?' → slug `#im-getting-a-tesseract-error-how-do-i-install-it`. Heading on line 90 is 'Can I install without OCR support?' → slug `#can-i-install-without-ocr-support`. Links were using incorrect slugs from earlier draft."
+  fix_applied: "Updated 2 anchor links to point to the correct current heading slugs."
+  files_modified:
+    - docs/faq.md (2 edits)
+  line_96_change: "#how-do-i-install-tesseract-for-ocr-features → #im-getting-a-tesseract-error-how-do-i-install-it"
+  line_359_change: "#how-do-i-install-without-ocr-support → #can-i-install-without-ocr-support"
+  reg_0_compliance: "FIX targets correct slugs (no scope reduction, no content removed)."
+
+validation_gates:
+  - name: cargo check --workspace --examples
+    status: PASS
+    cmd: "cargo check --workspace --examples"
+    expected: "0 errors (no example compilation errors)"
+    actual: "Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.18s, exit 0"
+    pre_existing_warnings_only: "kazuba-nlp (2 cfg condition warnings), kazuba-agents (1 unused variable), kazuba-rlm (175 warnings from proptest) — all unrelated to examples"
+  - name: cargo run --example (each of 4)
+    status: PASS
+    expected: "Each example exits 0 with informative output"
+    actual:
+      - example: 01_bm25_search
+        output: "Index ready — call index.search() with your query"
+        exit: 0
+      - example: 02_citation_graph
+        output: "Graph built — call detect_cycles() and export methods"
+        exit: 0
+      - example: 03_rl_cognitive
+        output: "RL + Cognitive ready — wire into pipeline for adaptive routing"
+        exit: 0
+      - example: 04_doc_generation
+        output: "Pipeline ready — build DocPlan and flow through typestates"
+        exit: 0
+  - name: Plugin C-ABI test suite (regression check)
+    status: PASS
+    cmd: "cargo test -p kazuba-plugin-sdk -p kazuba-plugin-citation -p kazuba-plugin-ocr -p kazuba-plugin-rag"
+    actual: "1 passed, 0 failed, 2 ignored (docstring ignore blocks); 0 regressions"
+  - name: mkdocs build --strict
+    status: PASS
+    cmd: "mkdocs build --strict"
+    expected: "0 warnings, no anchor mismatches"
+    actual: "Documentation built in 2.02 seconds, 0 warnings, 0 anchor mismatches"
+
+do_not_ship:
+  - pre_existing_warnings_in_kazuba_rlm: "175 proptest warnings, deferred W2.2.5.1 (per L84)"
+  - pre_existing_warnings_in_kazuba_agents: "1 unused variable in qa/mod.rs, pre-existing May 2026"
+  - pre_existing_warnings_in_kazuba_nlp: "2 cfg condition warnings (nlp-extended, encoding), pre-existing"
+
+lessons:
+  id: L142
+  rule: "Pre-W2 monolithic crate references in examples are latent technical debt"
+  source: 2026-06-11 W9 D4 fix (4 examples × 1 broken import each)
+  detail: |
+    After the W2 multi-crate split (kazuba-rust-core → 9 internal crates),
+    any code referencing `kazuba_rust_core::*` becomes broken UNLESS
+    the referenced symbols happen to be re-exported. The 4 examples all
+    had `use kazuba_rust_core::error::KazubaResult;` — a symbol that
+    was not re-exported anywhere. Lesson: when splitting a monolithic
+    crate, grep for `use kazuba_rust_core::` across the entire
+    workspace (including examples/, tests/, benches/, docs/) and
+    migrate each reference explicitly. Don't rely on `pub use`
+    re-exports to silently absorb the breakage.
+
+  id: L143
+  rule: "mkdocs --strict INFO messages (vs WARNING) deserve attention even when not blocking"
+  source: 2026-06-11 W9 D3 fix (2 INFO messages about anchor mismatches)
+  detail: |
+    The 2 anchor mismatches were emitted as INFO (not WARNING) by
+    mkdocs --strict and would have been silently swallowed if not
+    caught by the W9 cross-audit. Anchor links in a documentation
+    site degrade UX (clicking lands on top of page instead of the
+    relevant section). For a Premium Elite site, INFO messages about
+    broken anchors are a quality signal that should be fixed even
+    when the strict mode does not block on them.
+
+links:
+  - parent_audit: 2026-06-11-w9-documentation-cross-audit.toon
+  - w9_release: 2026-06-11-w9-premium-documentation.toon
+  - v3.1.0_release: 2026-06-11-w8-v3-1-0-release.toon

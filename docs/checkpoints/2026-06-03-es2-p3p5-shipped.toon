@@ -1,0 +1,136 @@
+checkpoint: es2-p3p5-shipped
+date: 2026-06-03
+plan: ~/.claude/plans/silent-cooking-pine.md
+release_note: crates/touring-hooks/ES2-P3P5-NOTE.md
+phase_protocol: TACO v6.2 (FASE 0→7)
+
+# ═══ WAVE SUMMARY ═══
+budget_ed: 5.0
+consumed_ed: 5.0
+status: SHIPPED ✅
+cah_target: eagle.b6-sink-token-contract PARCIAL 0.5 → CONFORME 0.85
+cah_overall: 22 → 23 CONFORME
+tier1_closure: 4/4 (ES4 P1 + ES2 P1-P5 + ES3 P1-P3 + ES1 P1+P2+P2.5+P3+P3.5+P4)
+
+# ═══ FASE 0 HEALTH GATE ═══
+cargo_check_workspace: PASS (32.46s, 0 errors)
+touring_doctor: 5/6 ok (1 pre-existing wiring_diagnostic warning)
+touring_status: composite_health 0.5595 (daemon 7/8, ema_reward null)
+touring_e2e: 79/84 tests, score 0.83
+es2_p1p2_verification: SHIPPED, no regression, harness_contract.rs live
+gate_decision: GREEN (no BLOCK, warnings environmental)
+
+# ═══ FASE 1 SCOUT FINDINGS ═══
+files_scanned:
+  - crates/touring-hooks/src/gateway/harness_contract.rs (P1+P2 deliverable, 411 LOC)
+  - crates/touring-hooks/src/lifecycle/pre_compact.rs (P3 target, 84 LOC, L83 returns String::new())
+  - crates/touring-hooks/src/session_hooks.rs (P3 target, 981 LOC, run_session_start at L19)
+  - crates/touring-hooks/src/instructions_loaded.rs (P3 overflow target, 22.4K)
+  - crates/touring-hooks/src/drift_corrector.rs (P4 target, 162 LOC, 5 tests)
+  - crates/touring-hooks/src/gateway/learn.rs (P4 target, 617 LOC, reconcile_drift at L111)
+  - crates/touring-hooks/src/hook_runtime.rs (P3 infra, HookRuntime struct at L609)
+  - ~/.claude/tools/cah-diagnostic/spec_kb.yaml (P5 target, 66K, 37 rows)
+  - ~/.claude/rust/docs/2026-05-30-cah-epic-subsystems-roadmap.md (ES2 spec, line 67-73)
+gaps_confirmed: all 5 gaps from plan verified via file:line evidence
+fase_4_5_audit: 5 FP patterns checked, none match → ACCEPT
+
+# ═══ FASE 4 DAG DECOMPOSITION ═══
+task_id: task_1780494063216403383
+dag_built_via: touring decompose (flag-driven --depends-on= per REGRA #4)
+subtasks: 14 total
+  - P3 (parent)
+  - P3.1 pre_compact.rs re-attest
+  - P3.2 session_hooks.rs re-attest + HookRuntime field
+  - P3.3 instructions_loaded.rs overflow re-attest
+  - P3.V cargo check + clippy + 5 P3 tests
+  - P4 (parent)
+  - P4.1 drift_corrector.rs constitutional_digest axis (5 tests)
+  - P4.2 gateway/learn.rs wire contract to SensorReading
+  - P4.V cargo check + clippy + 6 P4 tests
+  - P5 (parent)
+  - P5.1 spec_kb.yaml B-6 row update
+  - P5.V YAML lint + cah_diagnostic oracle re-run
+  + 2 P1+P2 references
+finalized: 9 (subtask-level finalize calls, parent wrappers auto-archive)
+
+# ═══ FASE 5 ENGINEERING ═══
+files_modified:
+  - lifecycle/pre_compact.rs: +50 LOC, render_contract_status (private fn), claim_short_name (private fn)
+  - session_hooks.rs: +15 LOC, HarnessContract::attest at end of run_session_start
+  - instructions_loaded.rs: +12 LOC, overflow re-pin with tracing::debug!
+  - hook_runtime.rs: +10 LOC, contract_attestation: Option<HarnessContract> field + 1-liner init
+  - drift_corrector.rs: +90 LOC, constitutional_digest_prefix field + from_signals_with_contract + 5 new tests
+  - gateway/learn.rs: +20 LOC, from_signals_with_contract at reconcile_drift + 2 test/helper updates
+  - lifecycle/e2e_tests.rs: 3 tests updated to new contract (no panic / no ERROR)
+  - lifecycle.rs: 1 test updated (pre_compact_flushes_without_error)
+  - cah-diagnostic/spec_kb.yaml: +20 LOC (1 row, mechanism + spec_compat_reason)
+total: 9 files, +217 LOC, 0 deletions, 5 new tests, 3 tests updated
+
+# ═══ FASE 6 POST-IMPL AUDIT ═══
+cargo_check_workspace_final: PASS (18.01s, 0 errors)
+composite_health_score: 0.5595 (unchanged, daemon 7/8)
+new_pub_items: 3 (from_signals_with_contract, SensorReading.constitutional_digest_prefix, HookRuntime.contract_attestation)
+new_orphan_pub_symbols: 0 (all 3 new pub items consumed)
+r1_risk_mitigated: 3 tests updated to new contract
+r2_risk_mitigated: 1 test + 1 helper updated
+r3_cost: negligible (2-5ms re-attest, compaction is multi-second)
+r4_collision: none (B-6 row ES2-owned)
+r5_intentional: drift surfaces it, human decides
+r6_log_spam: tracing::debug! on overflow, info! on primary
+r7_carve_out: documented in 4 places (harness_contract.rs, pre_compact.rs, spec_kb.yaml, NOTE)
+
+# ═══ FASE 7 DOCUMENTATION ═══
+release_note: crates/touring-hooks/ES2-P3P5-NOTE.md (12 sections, comprehensive)
+memory_lesson: es2-p3p5-shipped-2026-06-03 (tier=semantic)
+rl_rewards:
+  - orchestrate 1.0 (es2-p3p5:wave-shipped:5ed:3996-tests:0-regression)
+  - edit 0.9 (es2-p3p5:9-files-modified-additive-only)
+next_wave_options:
+  - ES4 P2-P4 (7ed, unify distillation + calibrated + wire)
+  - ES3 P4-P5 (8-9ed, CRDT + multi-agent runtime)
+  - (ES1 P2.5 cvc5 already shipped 2026-06-02)
+
+# ═══ TEST MATH ═══
+baseline_3991 → final_3996 (+5 net)
+drift_corrector: 5 → 10 (5 new: constitutional_digest_change_flags_drift, _unchanged_does_not_flag, _drift_alone_is_enough, pre_attestation_baseline_skipped_no_false_positive, first_action_with_real_attestation_does_not_trip_baseline)
+pre_compact: 4 → 4 (3 updated: e2e_tests::pre_compact_returns_empty_and_does_not_panic, e2e_tests::pre_compact_is_idempotent_on_repeated_invocation, lifecycle::tests::pre_compact_flushes_without_error)
+learn: 17 → 17 (1 updated: sensor_reading_serialise_roundtrips + 1 helper: parse_sensor_reading)
+pre_existing_failures: 1 (wiring::test_find_all_cycles_workspace_root_filter, environmental, NOT caused by P3-P5)
+touring_offensive: 277 → 277 (P3-P5 does not touch)
+
+# ═══ SYMBOL VERIFICATION (REGRA #15 constitutional) ═══
+verified_existing:
+  - HarnessContract::attest (gateway/harness_contract.rs:118) — P1
+  - HarnessContract::digest (gateway/harness_contract.rs:94) — P1
+  - HarnessContract::is_attested (gateway/harness_contract.rs:226) — P1
+  - ContractClaim enum (gateway/harness_contract.rs:51) — P1
+  - HookRuntime struct (hook_runtime.rs:609) — P3 added 1 new field
+  - drift_corrector::SensorReading + reconcile (drift_corrector.rs:25,64) — P4 modified
+  - learn::reconcile_drift (gateway/learn.rs:111) — P4 modified
+modified_existing:
+  - handle_pre_compact (lifecycle/pre_compact.rs:20) — P3 modified (now returns digest line)
+  - run_session_start (session_hooks.rs:19) — P3 modified
+  - run_returning (instructions_loaded.rs:18) — P3 modified (overflow re-pin)
+  - SensorReading struct (drift_corrector.rs:25) — P4 added new field
+  - reconcile fn (drift_corrector.rs:64) — P4 added new branch
+  - reconcile_drift fn (gateway/learn.rs:111) — P4 wired from_signals_with_contract
+  - eagle.b6-sink-token-contract row (spec_kb.yaml) — P5 modified
+  - 3 test sites updated to new contract (pre_compact return value)
+  - 1 test + 1 helper updated for new SensorReading field
+no_new_pub_symbols: true (all new helpers are private fn or struct fields)
+no_invented_symbols: true (all symbols VGP-verified via touring index find or grep file:line)
+
+# ═══ META-LESSONS ═══
+L1: Cross-crate struct field addition (HookRuntime.contract_attestation) caught at compile time by 1 site (Self construction) — fast feedback
+L2: Drift corrector pure fn design (no IO) made it trivial to add a new axis without state management
+L3: Pre-existing test contract (handle_pre_compact returns String::new()) is a foot-gun for future changes — R1 of plan was correctly predicted
+L4: Honest carve-out (model-layer attention non-eviction) is the value-add of documenting, not the value-add of working around
+L5: For P3.2 (session_start), the function takes &mut HookRuntime so we can update state; for P3.3 (instructions_loaded) the function takes &HookRuntime, so we can only log a re-pin — different signatures dictate different behaviors
+
+# ═══ ES2 EPIC CLOSURE ═══
+ES2_total_ed: 10
+ES2_consumed: 10 (P1 2.5 + P2 2.5 + P3 2.0 + P4 2.0 + P5 1.0)
+ES2_status: COMPLETE
+TIER1_status: 4/4 closed (ES4 P1 + ES2 P1-P5 + ES3 P1-P3 + ES1 P1+P2+P2.5+P3+P3.5+P4)
+CAH_impact: B-6 row fully attested, 22 → 23 CONFORME
+remaining_B6_gap: model-layer attention non-eviction (honest carve-out, out of scope)

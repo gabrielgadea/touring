@@ -1,0 +1,23 @@
+// THSF Fase 4 — Wave 4C composition demo.
+//
+// Aggregates the three proof-of-life components (spec-version,
+// blast-radius, quality-gate) into a single .wasm artefact. Each
+// component's `holon:core/capabilities` export is re-exported under
+// a namespaced alias so the caller can tell them apart.
+//
+// Build:
+//   cd holon-wasm-components
+//   wac compose compose/aggregate.wac \
+//       --dep holon:spec-version=target/wasm32-wasip2/release/holon_spec_version.wasm \
+//       --dep holon:blast-radius=target/wasm32-wasip2/release/holon_blast_radius.wasm \
+//       --dep holon:quality-gate=target/wasm32-wasip2/release/holon_quality_gate.wasm \
+//       -o target/wasm32-wasip2/release/holon_aggregate.wasm
+package holon:aggregate@0.1.0;
+
+let sv = new holon:spec-version { ... };
+let br = new holon:blast-radius { ... };
+let qg = new holon:quality-gate { ... };
+
+export sv["holon:core/capabilities@0.1.0"] as "holon:core/spec-version@0.1.0";
+export br["holon:core/capabilities@0.1.0"] as "holon:core/blast-radius@0.1.0";
+export qg["holon:core/capabilities@0.1.0"] as "holon:core/quality-gate@0.1.0";

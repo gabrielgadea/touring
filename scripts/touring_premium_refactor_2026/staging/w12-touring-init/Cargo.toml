@@ -1,0 +1,21 @@
+# touring-init CLI installer (rustup-like)
+# Generated: 2026-05-12T00:42:22.478993+00:00
+
+[package]
+name = "touring-init"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "touring-init"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+reqwest = { version = "0.12", features = ["blocking", "rustls-tls"], default-features = false }
+sha2 = "0.10"
+anyhow = "1.0"
+directories = "5.0"

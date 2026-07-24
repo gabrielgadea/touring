@@ -1,0 +1,28 @@
+[package]
+name = "touring-identity"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Entity Identity Registry — canonical name resolution with confidence scoring for Touring's multi-crate architecture. Provides EntityId, Entity, Criterion, EntityRelation, RelationKind types and SQLite DDL. D5.1 of Touring v8 Master Plan S5 Entity Identity Registry."
+
+[lib]
+name = "touring_identity"
+path = "src/lib.rs"
+
+[dependencies]
+# Workspace-inherited (standard touring stack). Add more as needed.
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tracing.workspace = true
+smol_str = { workspace = true }
+rusqlite = { workspace = true, features = ["bundled"] }
+tempfile.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[lints]
+workspace = true

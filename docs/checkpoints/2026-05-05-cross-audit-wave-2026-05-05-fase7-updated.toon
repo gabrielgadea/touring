@@ -1,0 +1,18 @@
+format: toon
+format_version: "1.0"
+kind: checkpoint
+topic: cross-audit-wave-2026-05-05-fase7-updated
+slug: cross-audit-wave-2026-05-05-fase7-updated
+intent: ""
+role: scriber
+task_id: ""
+timestamp: "2026-05-05T23:10:15-03:00"
+session_id: 765eb8be-ea0d-4e90-9d79-a948b3573f20
+content:
+  lines: 45
+  bytes: 2248
+  sections[5]: Implementation Summary,Memory Store (4 lessons),RL Rewards,Checkpoint,Next Recommendations
+  source_md: embedded_below
+regra_anchor: "REGRA #14 AGENTIC PARADIGM"
+wave_anchor: TRM 2026-05-02
+body: "# Cross-Audit Wave 2026-05-05 — Phase 7 Documentation\n\n## Implementation Summary\n\n### OPP-1: score_to_rgb Formula FIXED\n- **File**: `crates/touring-desktop-ui/src/components/wiring_graph_viewer.rs:108`\n- **Fix**: Formula corrected — r=255*(1-score), g=228*score (was inverted)\n- **Verification**: 3 tests PASS\n- **Status**: COMPLETED\n\n### OPP-2: wave24 E2E FALSE_POSITIVE\n- **Claim**: tests failing\n- **Verification**: cargo test 20/20 PASS\n- **Root cause**: scout misidentified metrics warnings as failures\n- **Classification**: FALSE_POSITIVE\n- **Action**: VP-Scout Chain 5 (compilation evidence) should have been executed\n\n### OPP-3: allow(dead_code) in cross_validator.rs:291\n- **Status**: AWAITING background engineer completion\n- **Pattern**: `#[allow(dead_code)]` in touring-antt/src/cross_validator.rs\n- **Action**: Engineer should wire the unused item or document why suppress is intentional (REGRA #0)\n\n### OPP-4: orphan rate DB_STALENESS\n- **Finding**: orphan_count=8881 exceeds total_pub_symbols=6848\n- **Classification**: DB_STALENESS (not real orphan surge)\n- **Action**: Chain 7 verification required — always grep consumer before accepting orphan claim\n\n## Memory Store (4 lessons)\n1. `lesson:wave-2026-05-05:score_to_rgb_fix` — OPP-1 formula correct at line 108\n2. `lesson:wave-2026-05-05:wave24_false_positive` — OPP-2 compilation evidence prevents FP\n3. `lesson:wave-2026-05-05:orphan_staleness` — OPP-4 daemon staleness causes false orphan reports\n4. `lesson:wave-2026-05-05:allow_dead_code_opp3` — OPP-3 REGRA #0 requires wiring or documenting\n\n## RL Rewards\n- `fase7_complete:cross-audit-wave-2026-05-05` → value=1.0\n- `documentation:symbol_verification_passed` → value=0.8\n\n## Checkpoint\n- `/home/gabrielgadea/.claude/rust/docs/checkpoints/2026-05-05-cross-audit-wave-esa-wiring-fase7.toon` (prior)\n- `/home/gabrielgadea/.claude/rust/docs/checkpoints/2026-05-05-cross-audit-wave-2026-05-05-fase7.toon` (this session)\n\n## Next Recommendations\n1. OPP-3: Engineer should either wire or document the `#[allow(dead_code)]` at cross_validator.rs:291\n2. OPP-4: Verify orphan via grep before classification (Chain 7)\n3. OPP-2 lesson: Always execute cargo check as compilation evidence before claiming test failures\n"

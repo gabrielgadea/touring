@@ -1,0 +1,84 @@
+[package]
+name = "touring-cortex"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Cortex hook execution engine — 81 handlers + pipeline (extracted from touring-server S4)"
+license.workspace = true
+
+[features]
+# ALL features always enabled — zero optional dependencies
+default = ["fascicles", "cognitive-memory"]
+fascicles = []
+# Cognitive memory — MenteDB Curva-U attention + Delta-Aware Serving + Belief Propagation.
+cognitive-memory = []
+
+[dependencies]
+# Always available — MenteDB cognitive pipeline
+mentedb-cognitive = { workspace = true }
+mentedb-core = { workspace = true }
+uuid = { workspace = true }
+
+# Touring workspace crates
+touring-foundation = { path = "../touring-foundation" }
+touring-hooks = { path = "../touring-hooks" }
+touring-code = { path = "../touring-code" }
+touring-bindings = { path = "../touring-bindings", features = ["bind-wasm"] }
+touring-simd = { path = "../touring-simd", features = ["cortex-integration"] }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-analysis = { path = "../touring-analysis" }
+# 2026-06-25 W6 of harness-consolidation-master-plan-v3:
+# H54 TouringQualityScoreHandler bridges the 50-dim quality score
+# into the cortex hook pipeline (feeds X7.5 QUALITY-SIGNAL in CEG).
+touring-quality = { path = "../touring-quality" }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Patterns
+once_cell = { workspace = true }
+regex = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Hashing
+rustc-hash = { workspace = true }
+
+# Persistence
+rusqlite = { workspace = true }
+
+# Collections
+dashmap = { workspace = true }
+lru = { workspace = true }
+moka = { workspace = true }
+
+# Parallel processing
+rayon = { workspace = true }
+tokio = { workspace = true }
+
+# Graph
+petgraph = { workspace = true }
+
+# Compression
+zstd = { workspace = true }
+
+# Tokenization
+tiktoken-rs = { workspace = true }
+
+# Encoding
+base64 = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

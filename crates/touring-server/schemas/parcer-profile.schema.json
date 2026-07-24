@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://touring.dev/parcer-profile.schema.json",
+  "title": "PARCER Profile",
+  "description": "Persona·Audience·Rules·Context·Execution·Response — ESAA agent profile schema. Schema-versioned, validated at subagent startup and SubagentStop response.",
+  "type": "object",
+  "required": ["schema_version", "agent_id", "agent_role", "persona", "audience", "rules", "context", "execution", "response"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Semantic version of this schema (e.g. 1.0). Profiles must validate against the schema version they declare.",
+      "examples": ["1.0", "1.1"]
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Unique identifier of the agent this profile governs.",
+      "examples": ["touring-scouter", "touring-engineer", "touring-auditor"]
+    },
+    "agent_role": {
+      "type": "string",
+      "enum": ["scouter", "architect", "engineer", "auditor", "scriber"],
+      "description": "Canonical TACO role this agent plays in the orchestration hierarchy."
+    },
+    "persona": {
+      "type": "object",
+      "required": ["role"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "description": "Free-text persona description — who this agent is and how it behaves."
+        },
+        "identity_constraints": {
+          "type": "array",
+          "description": "Hard behavioral constraints that define the agent's identity. Violations = output.rejected.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "failure_default": {
+          "type": "string",
+          "description": "What the agent must return when it cannot fulfill its task.",
+          "default": "Return JSON with status=failed and composite_score=0.0"
+        }
+      }
+    },
+    "audience": {
+      "type": "object",
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "enum": ["orchestrator", "human", "system", "auditor"],
+          "description": "Who the primary consumer of this agent's output is."
+        },
+        "calibration": {
+          "type": "string",
+          "description": "Guidance on output format and level of detail for the primary audience.",
+          "default": "Output must be parseable JSON, never prose."
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "required": ["hard"],
+      "properties": {
+        "hard": {
+          "type": "array",
+          "description": "Non-negotiable rules. Output is rejected if any hard rule is violated.",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "soft": {
+          "type": "array",
+          "description": "Preferred behaviors. Violations produce warnings, not rejection.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "inject": {
+          "type": "array",
+          "description": "Context elements to always inject before execution (e.g. blast_radius, VGP results).",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "never_inject": {
+          "type": "array",
+          "description": "Context elements that must never be injected (e.g. full cargo check output).",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "execution": {
+      "type": "array",
+      "description": "Ordered list of execution phases/steps this agent must follow.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "response": {
+      "type": "object",
+      "required": ["format"],
+      "properties": {
+        "format": {
+          "type": "object",
+          "required": ["schema_ref"],
+          "properties": {
+            "schema_ref": {
+              "type": "string",
+              "description": "Reference to the JSON Schema that the agent's response output must validate against.",
+              "examples": ["engineer-output.schema.json", "scouter-output.schema.json"]
+            },
+            "content_type": {
+              "type": "string",
+              "enum": ["application/json", "application/jsonl"],
+              "default": "application/json",
+              "description": "MIME type of the response body."
+            }
+          }
+        },
+        "valid_examples": {
+          "type": "array",
+          "description": "Example payloads that must validate successfully.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "invalid_examples": {
+          "type": "array",
+          "description": "Example payloads that must fail validation with specific errors.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "gap_analysis": [
+    {
+      "gap_id": 1,
+      "confirmed_problem": "sim",
+      "proposed_architecture": "Adicionar CircuitBreakerRegistry ao Pipeline struct. Antes de cada handler: circuit_breaker.should_skip(handler.name()). Apos exec: medir tempo, se > timeout_ms() chamar record_timeout() senao record_success(). Handler trait: adicionar timeout_ms() -> u64 com default 50ms.",
+      "files_to_modify": [
+        "crates/touring-cortex/src/pipeline.rs",
+        "crates/touring-cortex/src/handler.rs",
+        "crates/touring-cortex/src/circuit_breaker.rs"
+      ],
+      "backward_compat_risk": "baixo (novo metodo com default)",
+      "test_strategy": "Testar que handler timeoutado nao executa novamente ate cooldown; que handler normal continua executando."
+    },
+    {
+      "gap_id": 2,
+      "confirmed_problem": "sim",
+      "proposed_architecture": "Criar LazyHandler<H> que envolve Box<dyn Handler> em OnceLock. register_lazy() instancia no primeiro for_event() matching. Manter register() para backward-compat. HandlerConfig (E5-S2) ja existe e funciona — Gap 2 e sobre adiar allocacao, nao sobre desabilitar.",
+      "files_to_modify": [
+        "crates/touring-cortex/src/pipeline.rs",
+        "crates/touring-cortex/src/handlers/mod.rs"
+      ],
+      "backward_compat_risk": "nenhum (novo metodo)",
+      "test_strategy": "Testar que handler lazy nao aparece em handler_count() antes do primeiro evento matching."
+    },
+    {
+      "gap_id": 3,
+      "confirmed_problem": "complexo (handler existe mas nao invalida cache)",
+      "proposed_architecture": "Arquitetura ESCOLHIDA: CortexContext.needs_cache_invalidation = true quando handler requer invalidacao. Pipeline::execute() verifica este flag APOS handler execution (nao durante) e limpa filter_cache se setado. Handler trait: adicionar requires_cache_invalidation() -> bool (default false). FileChangedHandler: override para true. Implementacao: flag setado no HandlerResult via ctx.needs_cache_invalidation = true; Pipeline checa e limpa.",
+      "files_to_modify": [
+        "crates/touring-cortex/src/pipeline.rs",
+        "crates/touring-cortex/src/context.rs",
+        "crates/touring-cortex/src/handler.rs",
+        "crates/touring-cortex/src/types.rs"
+      ],
+      "backward_compat_risk": "baixo (novo campo com default false)",
+      "test_strategy": "Testar que FileChanged event limpa FilterCache. Testar que outros eventos nao limpam cache."
+    },
+    {
+      "gap_id": 4,
+      "confirmed_problem": "sim (hardcoded IDs sem centralizacao)",
+      "proposed_architecture": "Criar touring-learning/src/constants.rs exportando pub consts: STATE_* para eventos (0-11), ACTION_* para tools (0-13). rl_mapping.rs usa touring_learning::constants::* em vez de valores hardcoded. SE touring-learning nao tem: criar o modulo e exportar os IDs. touring-learning usa os mesmos consts.",
+      "files_to_modify": [
+        "crates/touring-learning/src/constants.rs (criar)",
+        "crates/touring-cortex/src/rl_mapping.rs",
+        "crates/touring-learning/src/lib.rs"
+      ],
+      "backward_compat_risk": "medio (muda IDs de RL — requer migracao de QTable)",
+      "test_strategy": "Testar que event_to_state e tool_to_action retornam mesmos valores. QTable existente pode precisar migracao."
+    },
+    {
+      "gap_id": 5,
+      "confirmed_problem": "sim",
+      "proposed_architecture": "Criar dspy.rs com RustNativeValidator: regex para bracket balance, indentacao, keywords. DspyQualityBridgeHandler: tenta python3 subprocess PRIMEIRO; se falhar ou timeout, usa RustNativeValidator como fallback ANTES de skip. Score 0.5-0.8 = warn (nao block). CodeStandardsEnforcer (H51) ja tem lint diff-based — pode ser reutilizado parcialmente.",
+      "files_to_modify": [
+        "crates/touring-cortex/src/handlers/quality.rs",
+        "crates/touring-cortex/src/handlers/dspy.rs (criar)"
+      ],
+      "backward_compat_risk": "nenhum (fallback, nao quebra existente)",
+      "test_strategy": "Testar que sem python3/dspy, Rust fallback ainda retorna validacao com score. Testar que com dspy disponivel, usa dspy PRIMARY."
+    },
+    {
+      "gap_id": 6,
+      "confirmed_problem": "nao (LRU capacity ja resolve)",
+      "proposed_architecture": "CORRECAO: LRU com capacidade fixa (10_000) JA EVICTA entries antigas — nao ha memory leak! O unico problema real: peek() nao atualiza LRU order entao cache pode reter keys hot que nao sao recentement acessadas. FIX: adicionar FilterCache::touch(key) que atualiza LRU order sem recomputar. Para metricas: expor len() e is_empty() ja existem. Manter Architecture.md atualizado para nao alarmar desnecessariamente.",
+      "files_to_modify": [
+        "crates/touring-cortex/src/pipeline.rs"
+      ],
+      "backward_compat_risk": "nenhum",
+      "test_strategy": "Testar que touch() move key para top da LRU. Confirmar que capacidade maxima e respeitada."
+    },
+    {
+      "gap_id": 7,
+      "confirmed_problem": "sim",
+      "proposed_architecture": "Criar DocLenBucket struct com short/medium/long (u32 fields). bm25_score_with_bucket(doc_len, avg_bucket) usa avg do bucket. Bucket boundaries: SHORT < 50, MEDIUM < 200, LONG >= 200. Callers em intelligence.rs que usam scoring.rs devem computar bucket averages dos seus documentos. Fallback: se bucket avg indisponivel, usar avg_doc_len global (150).",
+      "files_to_modify": [
+        "crates/touring-cortex/src/scoring.rs",
+        "crates/touring-cortex/src/handlers/intelligence.rs"
+      ],
+      "backward_compat_risk": "nenhum (novo parametro + novo metodo)",
+      "test_strategy": "Testar que buckets diferentes produzem scores diferentes. Testar fallback para avg_doc_len global."
+    }
+  ],
+  "critical_decisions": [
+    "Gap 3: usar needs_cache_invalidation flag em CortexContext (nao passar Pipeline para Handler) — evita circular dependency",
+    "Gap 4: constants em touring-learning (nao touring-cortex) porque touring-learning e o consumidor dos IDs",
+    "Gap 6: CLARIFICAR no ARCHITECTURE.md que LRU capacity ja e suficiente — Gap 6 e误解 (misunderstanding)"
+  ],
+  "risks": [
+    "Gap 4: mudanca de IDs RL pode invalidar QTable existente — requer warn no CHANGELOG e possivel migracao",
+    "Gap 1: adicionar timeout a handlers pode causar race condition se同一个 handler for chamado simultaneamente de multiplas threads — mas pipeline e single-thread entao seguro"
+  ],
+  "recommendations": [
+    "Ordem de implementacao: Gap 6 (trivial, apenas clarificar) -> Gap 1 (P1, critica) -> Gap 3 (P1, cache) -> Gap 5 (P2, DSPy fallback) -> Gap 2 (P2, lazy) -> Gap 7 (P3, BM25) -> Gap 4 (P3, RLM schema)"
+  ]
+}

@@ -1,0 +1,5 @@
+id: python:print-in-prod
+language: python
+pattern: print($$$X)
+message: "print() in production. Use logging module."
+severity: info

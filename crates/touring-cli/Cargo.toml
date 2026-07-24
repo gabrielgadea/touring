@@ -1,0 +1,56 @@
+[package]
+name = "touring-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "CLI daemon-side query handlers — cli/ (55 handlers) + cli_suggester + cli_e2e carved from touring-dispatch (Wave C2, PoNR #4, 2026-06-10)"
+
+[lib]
+name = "touring_cli"
+path = "src/lib.rs"
+
+[features]
+# Mirrors of the dispatch-layer gates for the moved modules — the dispatch
+# crate forwards each one.
+tantivy-fts = ["touring-hooks-core/tantivy-fts", "touring-hook-runtime/tantivy-fts"]
+acp-protocol = ["touring-hook-runtime/acp-protocol"]
+templates = ["touring-orchestration/templates"]
+mpatch-fuzzy = ["touring-hooks-core/mpatch-fuzzy"]
+ann-blast = []
+
+[dependencies]
+touring-hook-runtime = { path = "../touring-hook-runtime" }
+touring-hooks-core = { path = "../touring-hooks-core" }
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-hooks-prediction = { path = "../touring-hooks-prediction" }
+touring-hooks-rl = { path = "../touring-hooks-rl" }
+touring-ceg = { path = "../touring-ceg" }
+touring-orchestration = { path = "../touring-orchestration" }
+touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] }
+touring-code = { path = "../touring-code" }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-foundation = { path = "../touring-foundation" }
+touring-offensive = { path = "../touring-offensive" }
+aho-corasick = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+libc = { workspace = true }
+moka = { workspace = true }
+regex = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+
+[lints]
+workspace = true

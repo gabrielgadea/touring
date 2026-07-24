@@ -1,0 +1,9 @@
+## [{{ version | default(value="0.0.0") }}] - {{ date | default(value="Unreleased") }}
+
+### {{ change_type | default(value="Changed") }}
+
+{% if changes is defined %}
+{% for change in changes %}
+- {{ change | default(value="") }}
+{% endfor %}
+{% endif %}

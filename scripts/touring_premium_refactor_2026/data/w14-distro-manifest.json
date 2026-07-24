@@ -1,0 +1,25 @@
+{
+  "script": "w14_distro_packager",
+  "wave": "W14",
+  "subtask_refs": [
+    "W14.distro"
+  ],
+  "timestamp": "2026-05-12T00:53:39.464506+00:00",
+  "status": "OK",
+  "formats": [
+    "deb",
+    "rpm",
+    "brew",
+    "scoop",
+    "docker"
+  ],
+  "files_emitted": [
+    "scripts/touring_premium_refactor_2026/staging/w14-packaging/deb/postinst",
+    "scripts/touring_premium_refactor_2026/staging/w14-packaging/deb/postrm",
+    "scripts/touring_premium_refactor_2026/staging/w14-packaging/rpm/touring.spec",
+    "scripts/touring_premium_refactor_2026/staging/w14-packaging/brew/touring.rb",
+    "scripts/touring_premium_refactor_2026/staging/w14-packaging/scoop/touring.json",
+    "scripts/touring_premium_refactor_2026/staging/w14-packaging/docker/Dockerfile",
+    "scripts/touring_premium_refactor_2026/staging/w14-github-workflows/distro-matrix.yml"
+  ]
+}

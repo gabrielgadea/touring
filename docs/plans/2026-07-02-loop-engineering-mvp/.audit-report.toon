@@ -1,0 +1,16 @@
+task_id: task_1782996878252842489
+audit_timestamp: 2026-07-02T10:56:10-03:00
+duration_seconds: 420
+status: FAIL
+checks_passed[5]:
+  - "daemon healthy"
+  - "no VGP symbols declared (skip)"
+  - "orphan delta 0 ≤ 0 (REGRA #0 satisfied)"
+  - "cargo check clean"
+  - "cargo test build clean"
+fail_reasons[3]:
+  - "DAG incomplete: 0/8"
+  - "e2e 0 < 0.7"
+  - "1 phase validators failed"
+e2e_composite: 0
+orphan_delta: 0

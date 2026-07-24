@@ -1,0 +1,192 @@
+{
+  "dirs": [
+    {
+      "version": "6.0",
+      "sources": [
+        "crates/touring-server/Cargo.toml"
+      ]
+    },
+    {
+      "version": "6.0.0",
+      "sources": [
+        "crates/touring-learning/Cargo.toml"
+      ]
+    }
+  ],
+  "serde": [
+    {
+      "version": "1",
+      "sources": [
+        "crates/touring-assists/Cargo.toml",
+        "crates/touring-embeddings/Cargo.toml",
+        "crates/touring-vfs/Cargo.toml",
+        "crates/touring-web/Cargo.toml",
+        "crates/touring-desktop-ui/Cargo.toml",
+        "crates/touring-vector-store/Cargo.toml"
+      ]
+    },
+    {
+      "version": "1.0",
+      "sources": [
+        "crates/touring-search-fusion/Cargo.toml",
+        "crates/touring-incremental-salsa/Cargo.toml"
+      ]
+    }
+  ],
+  "serde_json": [
+    {
+      "version": "1",
+      "sources": [
+        "crates/touring-assists/Cargo.toml",
+        "crates/touring-vector-store/Cargo.toml"
+      ]
+    },
+    {
+      "version": "1.0",
+      "sources": [
+        "crates/touring-search-fusion/Cargo.toml"
+      ]
+    }
+  ],
+  "anyhow": [
+    {
+      "version": "1",
+      "sources": [
+        "crates/touring-assists/Cargo.toml"
+      ]
+    },
+    {
+      "version": "1.0",
+      "sources": [
+        "crates/touring-core/Cargo.toml",
+        "crates/touring-incremental-salsa/Cargo.toml"
+      ]
+    }
+  ],
+  "tempfile": [
+    {
+      "version": "3",
+      "sources": [
+        "crates/touring-assists/Cargo.toml",
+        "crates/touring-activity/Cargo.toml",
+        "crates/touring-vfs/Cargo.toml",
+        "crates/touring-vector-store/Cargo.toml"
+      ]
+    },
+    {
+      "version": "3.14",
+      "sources": [
+        "crates/touring-incremental-salsa/Cargo.toml"
+      ]
+    }
+  ],
+  "arc-swap": [
+    {
+      "version": "1",
+      "sources": [
+        "crates/touring-embeddings/Cargo.toml"
+      ]
+    },
+    {
+      "version": "1.6",
+      "sources": [
+        "crates/touring-core/Cargo.toml"
+      ]
+    }
+  ],
+  "proptest": [
+    {
+      "version": "1",
+      "sources": [
+        "crates/touring-activity/Cargo.toml"
+      ]
+    },
+    {
+      "version": "1.5",
+      "sources": [
+        "crates/touring-rkyv/Cargo.toml",
+        "crates/touring-ast/Cargo.toml",
+        "crates/touring-simd/Cargo.toml",
+        "crates/touring-learning/Cargo.toml"
+      ]
+    },
+    {
+      "version": "1.6",
+      "sources": [
+        "crates/touring-generator/Cargo.toml"
+      ]
+    }
+  ],
+  "notify-debouncer-mini": [
+    {
+      "version": "0.5",
+      "sources": [
+        "crates/touring-vfs/Cargo.toml"
+      ]
+    },
+    {
+      "version": "0.5.0",
+      "sources": [
+        "crates/touring-ast/Cargo.toml"
+      ]
+    }
+  ],
+  "rstest": [
+    {
+      "version": "0.23",
+      "sources": [
+        "crates/touring-generator/Cargo.toml"
+      ]
+    },
+    {
+      "version": "0.26",
+      "sources": [
+        "crates/touring-ast/Cargo.toml"
+      ]
+    }
+  ],
+  "hdrhistogram": [
+    {
+      "version": "7",
+      "sources": [
+        "crates/touring-hooks/Cargo.toml"
+      ]
+    },
+    {
+      "version": "7.5",
+      "sources": [
+        "crates/touring-ast/Cargo.toml",
+        "crates/touring-capnp-server/Cargo.toml",
+        "crates/touring-core/Cargo.toml"
+      ]
+    }
+  ],
+  "walkdir": [
+    {
+      "version": "2",
+      "sources": [
+        "crates/touring-vfs/Cargo.toml"
+      ]
+    },
+    {
+      "version": "2.5",
+      "sources": [
+        "crates/touring-capnp-server/Cargo.toml"
+      ]
+    }
+  ],
+  "pretty_assertions": [
+    {
+      "version": "1",
+      "sources": [
+        "crates/touring-vfs/Cargo.toml"
+      ]
+    },
+    {
+      "version": "1.4",
+      "sources": [
+        "crates/touring-ast-polyglot/Cargo.toml"
+      ]
+    }
+  ]
+}

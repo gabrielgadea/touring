@@ -1,0 +1,65 @@
+[8]:
+  -
+    symbol: ComplianceDomain
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceDomain at packages/lexcore-core/src/lexcore_core/legal/compliance.py:18"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.25
+    cached: false
+  -
+    symbol: ComplianceLevel
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceLevel at packages/lexcore-core/src/lexcore_core/legal/compliance.py:28"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.45
+    cached: false
+  -
+    symbol: ComplianceRequirement
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceRequirement at packages/lexcore-core/src/lexcore_core/legal/compliance.py:38"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.74
+    cached: false
+  -
+    symbol: ComplianceViolation
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceViolation at packages/lexcore-sdk-py/src/lexcore_sdk/models.py:90"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.81
+    cached: false
+  -
+    symbol: ComplianceResult
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceResult at packages/lexcore-mcp/src/lib.rs:35"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.92
+    cached: false
+  -
+    symbol: AccessibilityComplianceChecker
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: AccessibilityComplianceChecker at packages/lexcore-core/src/lexcore_core/legal/compliance.py:255"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 19.1
+    cached: false
+  -
+    symbol: ComplianceManager
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: ComplianceManager at packages/lexcore-core/src/lexcore_core/legal/compliance.py:301"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.51
+    cached: false
+  -
+    symbol: VerificationManager
+    status: verified
+    evidence: "VGP V1+V2 PASS; blast_radius=0. V2 evidence: FOUND: VerificationManager at packages/lexcore-core/src/lexcore_core/compliance/verification.py:251"
+    file_paths: []
+    blast_radius: 0
+    latency_ms: 18.23
+    cached: false

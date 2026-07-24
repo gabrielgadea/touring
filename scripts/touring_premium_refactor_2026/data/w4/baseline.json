@@ -1,0 +1,33 @@
+{
+  "wave": "W4",
+  "captured_at": "2026-05-15",
+  "cargo_check_workspace": {
+    "exit_code": 0,
+    "errors": 0,
+    "warnings_non_blocking": "deprecated/FFI in touring-wasm, touring-web, touring-desktop-ui"
+  },
+  "source_crates": {
+    "touring-ast": {"loc_src": 23219, "loc_tests": 4350, "files": 41, "features": 5, "deps": 60, "consumers": 76},
+    "touring-ast-polyglot": {"loc_src": 769, "loc_tests": 104, "files": 6, "features": 0, "deps": 6, "consumers": 6},
+    "touring-language": {"loc_src": 558, "loc_tests": 19, "files": 6, "features": 0, "deps": 5, "consumers": 1},
+    "touring-semantics": {"loc_src": 1072, "loc_tests": 140, "files": 5, "features": 0, "deps": 9, "consumers": 2}
+  },
+  "totals": {
+    "loc_src": 25618,
+    "loc_tests": 4613,
+    "consumers_total": 85,
+    "files_src": 58
+  },
+  "touring_status": {
+    "symbol_count": 57624,
+    "orphan_count": 3415,
+    "ema_reward": 0.179606,
+    "composite_health_score": 0.598
+  },
+  "plan_doc_estimate_delta": {
+    "expected_consumers": 38,
+    "actual_consumers": 85,
+    "ratio_actual_vs_expected": 2.24,
+    "note": "W4 Discovery Updates already flagged 77 consumer files — this baseline confirms 85."
+  }
+}

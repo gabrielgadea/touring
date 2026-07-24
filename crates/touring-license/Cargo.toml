@@ -1,0 +1,33 @@
+[package]
+name = "touring-license"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Tier model + license parsing for Touring (W14.1 + W14.2 skeleton)"
+
+[features]
+# W14.1 — Tier features. Each enables the cap of the layer above it
+# (additive: enterprise implies premium implies standard implies free).
+# Production binaries opt in to the maximum tier they want to expose.
+tier-free = []
+tier-standard = ["tier-free"]
+tier-premium = ["tier-standard"]
+tier-enterprise = ["tier-premium"]
+default = ["tier-free"]
+
+# JWT verification is a future enhancement (requires jsonwebtoken + ed25519
+# additions to workspace deps). The current crate parses and validates the
+# tier/expiry shape; cryptographic verification is a follow-up.
+jwt-verify = []
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,66 @@
+{
+  "scoring": {
+    "pipeline_stages": [
+      {
+        "name": "override",
+        "priority": 100,
+        "description": "Per-language TOML overrides",
+        "confidence_boost": 0.2
+      },
+      {
+        "name": "file_detection",
+        "priority": 90,
+        "description": "File path pattern matching",
+        "confidence_boost": 0.15
+      },
+      {
+        "name": "token_purpose",
+        "priority": 80,
+        "description": "Syntactic token role classification",
+        "confidence_boost": 0.1
+      },
+      {
+        "name": "universal_exact",
+        "priority": 70,
+        "description": "Exact name match in universal_rules.json",
+        "confidence_boost": 0.0
+      },
+      {
+        "name": "universal_majority",
+        "priority": 60,
+        "description": "Majority vote across similar symbols",
+        "confidence_boost": -0.1
+      },
+      {
+        "name": "category",
+        "priority": 50,
+        "description": "Category-level heuristics",
+        "confidence_boost": 0.0
+      },
+      {
+        "name": "name_heuristic",
+        "priority": 40,
+        "description": "Name pattern heuristics",
+        "confidence_boost": -0.15
+      },
+      {
+        "name": "unclassified",
+        "priority": 10,
+        "description": "Fallback when no rule matches",
+        "confidence_boost": 0.0
+      }
+    ],
+    "confidence_thresholds": {
+      "high": 0.8,
+      "medium": 0.5,
+      "low": 0.3
+    },
+    "rule_priority_ranges": {
+      "exact_match": [80, 100],
+      "prefix_suffix_match": [40, 79],
+      "pattern_match": [20, 39],
+      "heuristic": [1, 19]
+    }
+  },
+  "version": "1.0"
+}

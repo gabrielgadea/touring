@@ -1,0 +1,704 @@
+{
+  "report_date": "2026-03-22",
+  "total_files": 68,
+  "total_loc": 29072,
+  "crates_analyzed": ["touring-server", "touring-hooks"],
+
+  "modules": {
+    "touring-server/src/server.rs": {
+      "purpose": "Main MCP server implementation. 26 tools via rmcp SDK macros (#[tool_router] + #[tool]). Manages TouringServer struct with 17 Arc<Mutex<>> fields. Handles AST, memory, learning, graph, session, decompose, evolve, suggest, refactor, mask, mcts, speculate, online_learn tools. Spawns 3 background tasks (JSONL watcher, evolution engine, symbol refresh).",
+      "loc": 3335,
+      "problems": [
+        "CRITICAL: Cyclomatic complexity CC=27 in new(), CC=21 in ast_find(), CC=11 in ast_overview() — exceeds CC<=10 threshold",
+        "God object anti-pattern: TouringServer has 17 fields all behind Arc<Mutex<>>, single struct owns all state",
+        "Background task in spawn_background_tasks() runs external Python script (touring_bootstrap_symbols.py) without timeout — can hang indefinitely",
+        "tool_name_to_action() uses djb2 hash % 64 — collision risk for action ID mapping",
+        "suggest_next_tool_simple() is #[allow(dead_code)] — unused but not removed",
+        "Duplicate graph_hotspots code between evolve/extract_patterns and decompose/validate_order (DRY violation)",
+        "memory_recall total_matches calculation is confusing: adds rlm_json.len().saturating_sub(result.rlm_matches.len()) which is always 0"
+      ],
+      "improvements": [
+        "Split TouringServer into sub-routers per domain (AST, Memory, Learning, Graph) using rmcp router composition",
+        "Extract graph_hotspots into a shared GraphService method",
+        "Add timeout to Python script execution in spawn_background_tasks()",
+        "Replace djb2 hash with a proper bijective mapping for tool→action"
+      ]
+    },
+    "touring-server/src/tools/mod.rs": {
+      "purpose": "Tool module registry. Declares 7 sub-modules (ast, file, project, memory, learning, utility, hook). Contains 4 structural tests validating tool count (26), module existence, public API presence, and hooks crate independence.",
+      "loc": 113,
+      "problems": [],
+      "improvements": ["Doc comment says 21 tools but test asserts 26 — comment drift"]
+    },
+    "touring-server/src/tools/ast_tools.rs": {
+      "purpose": "AST symbol extraction, find, diff, blast radius tools. Uses touring-ast for tree-sitter parsing. Supports Python/Rust/TypeScript/JavaScript. Contains AstOverviewTool, AstFindArgs, BlastRadiusArgs.",
+      "loc": 560,
+      "problems": [
+        "AstOverviewTool.parser_pool field is #[allow(dead_code)] — constructed but never used",
+        "Language parsing duplicated across touring_ast_overview, touring_symbol_at_line, touring_diff_symbols — should be a shared function",
+        "touring_ast_find creates a NEW SymbolIndex per call — does not reuse the server's persistent index"
+      ],
+      "improvements": [
+        "Remove dead parser_pool field or integrate it",
+        "Extract language parsing to a shared helper",
+        "Wire ast_find to use the persistent SymbolStore for cross-call symbol persistence"
+      ]
+    },
+    "touring-server/src/tools/file_tools.rs": {
+      "purpose": "File operations (read, write, find, list) with path validation, atomic writes, recursive find with gitignore-like exclusions. Project root sandboxing.",
+      "loc": 598,
+      "problems": [
+        "find_recursive compiles Regex on EVERY call inside the loop (line 314) — should pre-compile",
+        "All operations are synchronous (blocking) despite handle_async wrapper existing"
+      ],
+      "improvements": [
+        "Pre-compile regex once in find_files, pass reference to find_recursive",
+        "Actually implement async I/O in handle_async instead of delegating to sync"
+      ]
+    },
+    "touring-server/src/tools/hook_tools.rs": {
+      "purpose": "LEGACY: Hook tools for intent classification and PII scanning. Both functions end with unimplemented!() — superseded by cortex handlers (rmcp 1.2).",
+      "loc": 155,
+      "problems": [
+        "CRITICAL: 2x unimplemented!() — _touring_classify_intent and _touring_scan_pii will panic if called",
+        "Dead code: Static OnceLock instances (CLASSIFIER, PII_SCANNER) are allocated but the functions panic before use",
+        "These functions should be removed entirely since they're superseded"
+      ],
+      "improvements": [
+        "Remove entire file — it's dead code that will panic if accidentally called",
+        "Or convert unimplemented!() to proper error returns"
+      ]
+    },
+    "touring-server/src/tools/learning_tools.rs": {
+      "purpose": "LEGACY: Q-table RL and skill clustering tools. Both main functions end with unimplemented!() — superseded by cortex handlers.",
+      "loc": 485,
+      "problems": [
+        "CRITICAL: 2x unimplemented!() — _touring_learn_pattern and _touring_cluster_skills will panic",
+        "Dead code: 4 static OnceLock instances (QTABLE, CLUSTERER, RANKER, DRIFT_DETECTOR) unused",
+        "These are parallel state stores disconnected from the server's actual state"
+      ],
+      "improvements": [
+        "Remove entire file — dead code with panic paths"
+      ]
+    },
+    "touring-server/src/tools/memory_tools.rs": {
+      "purpose": "Memory store/recall tools with RLM + semantic search, tier filtering, embedding support. Well-structured with proper async implementation and tests.",
+      "loc": 318,
+      "problems": [
+        "MemoryStoreBuilder referenced but usage not visible from this file alone"
+      ],
+      "improvements": []
+    },
+    "touring-server/src/tools/project_tools.rs": {
+      "purpose": "Project management (status, activate, config). Simple CRUD for project state. Contains ProjectTools handler with activate_project mutation.",
+      "loc": 430,
+      "problems": [
+        "activate_project stores path in self.active_project but doesn't update config.project_root — activation is cosmetic only",
+        "get_status always returns files_indexed=None and last_indexed=None — placeholder that was never completed"
+      ],
+      "improvements": [
+        "Wire activate_project to actually update the project_root",
+        "Implement actual file count from SymbolStore in get_status"
+      ]
+    },
+    "touring-server/src/tools/utility_tools.rs": {
+      "purpose": "Index status and checkpoint (read/write/list) tools with JSON and TOON format support. Atomic writes for checkpoints.",
+      "loc": 684,
+      "problems": [
+        "get_index_status returns all-zero placeholder stats — never queries actual index",
+        "TOON parser is extremely simplistic (key:value pairs only, no nesting/arrays)"
+      ],
+      "improvements": [
+        "Wire get_index_status to query SymbolStore and FileCache for real stats"
+      ]
+    },
+    "touring-server/src/cortex/mod.rs": {
+      "purpose": "Cortex module root. Re-exports all cortex types and subsystems. Legacy alias for builtin_handlers.",
+      "loc": 40,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/cortex/handler.rs": {
+      "purpose": "Handler trait definition — contract for all cortex hook handlers. Defines name(), events(), tool_matcher(), is_async(), execute().",
+      "loc": 39,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/cortex/pipeline.rs": {
+      "purpose": "Pipeline execution engine. Filters handlers by event+tool, executes sync handlers (stops on Block), then async handlers. Well-tested (8 tests).",
+      "loc": 411,
+      "problems": [],
+      "improvements": [
+        "Consider parallel execution for async handlers instead of sequential"
+      ]
+    },
+    "touring-server/src/cortex/runtime.rs": {
+      "purpose": "CortexRuntime — CLI entry point. Initializes knowledge DB, RLM, semantic recall, learning persistence. Reads stdin with 2s timeout. Single-threaded execution model.",
+      "loc": 164,
+      "problems": [
+        "read_stdin() spawns a thread per invocation — thread leak if called repeatedly",
+        "#[allow(clippy::arc_with_non_send_sync)] on 3 instances — rusqlite::Connection is !Sync"
+      ],
+      "improvements": [
+        "Consider reusing thread or using a timeout on stdin directly",
+        "Document the single-threaded invariant more prominently"
+      ]
+    },
+    "touring-server/src/cortex/types.rs": {
+      "purpose": "Core types: HookEvent (19 variants), Decision (Allow/Block/Skip with escalation), HandlerResult, CortexOutput, HookSpecificOutput. Extensive parsing with multi-format support (kebab-case, snake_case, camelCase).",
+      "loc": 531,
+      "problems": [
+        "HookEvent::parse CC=22 and as_str CC=21 — complex but inherent to pattern matching 19 variants"
+      ],
+      "improvements": [
+        "Consider a macro or static lookup table to reduce parse/as_str boilerplate"
+      ]
+    },
+    "touring-server/src/cortex/context.rs": {
+      "purpose": "CortexContext — shared mutable state for pipeline execution. Manages context budget, decision escalation, metrics accumulation. Single Source of Truth for output building (take_output/into_output/build_output). Handles hookSpecificOutput vs systemMessage routing.",
+      "loc": 669,
+      "problems": [
+        "build_output CC=19 — high but justified by event-type-specific output routing"
+      ],
+      "improvements": []
+    },
+    "touring-server/src/cortex/enrichment.rs": {
+      "purpose": "Context enrichment pipeline with priority-based composition (gotchas > relations > errors). Wilson confidence-based selective gating. CILA-adaptive budget computation.",
+      "loc": 442,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/cortex/cache_strategy.rs": {
+      "purpose": "Prompt cache stratification (Anthropic cache optimization). StableSessionContext (project summary, cached prefix) + VolatilePromptContext (CILA level, focus, per-turn data). Deterministic serialization with sorted collections. Extensive test coverage (23 tests).",
+      "loc": 809,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/cortex/handlers/mod.rs": {
+      "purpose": "Handler registry. Claims 73 builtin handlers across 10 domains (neural, enforcement, intelligence, lifecycle, learning, session, tools, evolution, quality, enrichment).",
+      "loc": 70,
+      "problems": [
+        "Comment history shows rapid version churn (v9.2 to v10.8) — risk of count drift",
+        "BUILTIN_HANDLER_COUNT is manually maintained — easy to desync"
+      ],
+      "improvements": [
+        "Auto-compute handler count from registry instead of hardcoded constant"
+      ]
+    },
+    "touring-server/src/cortex/handlers/enforcement.rs": {
+      "purpose": "8 enforcement handlers: CILA strategy enforcer, data structure validator, pipeline validator, SIAC validators, ACO rollback enforcer, user prompt validator. Uses IntentClassifier for CILA routing.",
+      "loc": 570,
+      "problems": [
+        "CC_max=17 in handler execute methods"
+      ],
+      "improvements": []
+    },
+    "touring-server/src/cortex/handlers/enrichment.rs": {
+      "purpose": "10 enrichment handlers (H60-H69): Permission auto-approver, symbol enricher, semantic read enricher, VGP advisory, blast radius guard, RLM capture, PGCC drift validator, Rust accelerator check, plan fact checker, learning session startup. Migrated from Python hooks.",
+      "loc": 650,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/cortex/handlers/evolution.rs": {
+      "purpose": "4 evolution handlers: ACO evolution checkpoint, generator learning, session optimizer (tool effectiveness + rework detection), retrospective (lessons learned). All async except retrospective.",
+      "loc": 359,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/cortex/handlers/intelligence.rs": {
+      "purpose": "Intelligence handlers: ACO Phase0 detector, DSPy perception, prompt recall with FTS5 + Wilson scoring, CILA-aware context budget.",
+      "loc": 450,
+      "problems": [
+        "CRITICAL: CC=34 and CC=35 in two execute() methods — extremely high complexity"
+      ],
+      "improvements": [
+        "Decompose complex execute methods into smaller helper functions"
+      ]
+    },
+    "touring-server/src/cortex/handlers/learning.rs": {
+      "purpose": "2 RL learning handlers: RlRewardEmitter (multi-dimensional reward: base + tool_bonus + rework + first_try + seq_failure) and TdLearningLoop (QTable TD(0) + tier promotion). Both async.",
+      "loc": 363,
+      "problems": [
+        "TdLearningLoop opens a RAW rusqlite Connection to rlm_memory.db bypassing the LearningPersistence abstraction — fragile coupling",
+        "Duplicate event_to_state/tool_to_action mappings (also in server.rs) — DRY violation"
+      ],
+      "improvements": [
+        "Use LearningPersistence API instead of direct SQL",
+        "Extract state/action mapping to a shared module"
+      ]
+    },
+    "touring-server/src/cortex/handlers/lifecycle.rs": {
+      "purpose": "10+ lifecycle handlers: PreCompact, PostCompact, SubagentStart/Stop, TeammateIdle, TaskCompleted, PostToolUseFailure, StopFailure, SessionEnd, ConfigChange, PermissionRequest.",
+      "loc": 620,
+      "problems": [
+        "CC=33 in build_completion_report — very high complexity"
+      ],
+      "improvements": [
+        "Decompose build_completion_report into sub-functions"
+      ]
+    },
+    "touring-server/src/cortex/handlers/neural.rs": {
+      "purpose": "10 original neural hook wrappers: PreRead, PostRead, PreBash, PostBash, PreEdit, PostEdit, SessionStart, SessionStop, ClassifyIntent, ScanPii. Bridges touring-hooks functions to Cortex Handler trait. Uses IncrementalPipeline for PostEdit.",
+      "loc": 550,
+      "problems": [
+        "CC=33 in build_completion_report, CC=12 in PostEditHandler execute, CC=12 in try_incremental_reindex"
+      ],
+      "improvements": []
+    },
+    "touring-server/src/cortex/handlers/quality.rs": {
+      "purpose": "3 quality handlers: CodeStandardsEnforcer (diff-based ruff lint, CAN BLOCK), PostQualityGate (format + complexity check), ComplianceCollector (metrics to compliance.jsonl + Wilson). Uses DashMap for lint cache.",
+      "loc": 450,
+      "problems": [
+        "CodeStandardsEnforcer spawns ruff process per edit — no batching"
+      ],
+      "improvements": [
+        "Consider ruff-as-library or batched invocation"
+      ]
+    },
+    "touring-server/src/cortex/handlers/session.rs": {
+      "purpose": "3 session handlers: SessionFinalizer (checkpoint on stop), SessionStateManager (atomic checkpoint on PreCompact), CostTracker (token cost estimation on stop). All async except StateManager.",
+      "loc": 300,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/cortex/handlers/tools.rs": {
+      "purpose": "5 tool intelligence handlers: SubagentContextInjectorV2 (FTS5 + Wilson), SubagentOutcomeRecorderV2, ShadowLintGate (removed), ToolSearchAdvisor, FailureRecorder.",
+      "loc": 350,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/index/mod.rs": {
+      "purpose": "Index subsystem root. Re-exports FileWatcher, FileCache, IncrementalIndex.",
+      "loc": 15,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/index/cache.rs": {
+      "purpose": "LRU file content cache with configurable max size, mtime tracking, and eviction policy.",
+      "loc": 439,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/index/incremental.rs": {
+      "purpose": "Incremental symbol indexing. Tracks file mtime to avoid re-parsing unchanged files. Uses touring-ast ParserPool and DashMap for concurrent access.",
+      "loc": 516,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/index/watcher.rs": {
+      "purpose": "Cross-platform file watcher using notify crate. Gitignore-aware filtering, 100ms debounce, channel-based event batching.",
+      "loc": 593,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/ingest/mod.rs": {
+      "purpose": "JSONL ingestion module root. Re-exports JsonlParser, ParsedEntry, SourceType, JsonlWatcher.",
+      "loc": 10,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/ingest/parser.rs": {
+      "purpose": "JSONL line parsers for 5 source types (compliance, cost, skill, hook_trace, lna). Extracts key/tier/value/entry_type per line.",
+      "loc": 269,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/ingest/watcher.rs": {
+      "purpose": "Live JSONL file watcher. Polls files, tracks byte offsets, auto-embeds via GPU service, ingests into MemoryStore. Persistent state via JSON.",
+      "loc": 341,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/reasoning/mod.rs": {
+      "purpose": "Reasoning subsystem root. Re-exports TaskDecomposer, Task, SubTask, SubTaskStatus.",
+      "loc": 7,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/reasoning/decomposer.rs": {
+      "purpose": "DAG-based task decomposition. Topological sort for execution order validation. Supports subtask dependencies and priority.",
+      "loc": 335,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/session/mod.rs": {
+      "purpose": "Session subsystem root. Re-exports SessionManager, Session, SessionCheckpoint, SessionStatus.",
+      "loc": 7,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/session/manager.rs": {
+      "purpose": "Session lifecycle manager with checkpoints, metrics tracking, and status transitions.",
+      "loc": 266,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/output/mod.rs": {
+      "purpose": "Output formatting root. Delegates to toon.rs and json.rs for symbol serialization.",
+      "loc": 20,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/output/json.rs": {
+      "purpose": "JSON symbol serialization (pretty + compact).",
+      "loc": 72,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/output/toon.rs": {
+      "purpose": "TOON (Token-Optimized Object Notation) serializer. 40-60% token reduction vs JSON. Pipe-delimited format with header, compact, and brief modes.",
+      "loc": 422,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/context_compiler.rs": {
+      "purpose": "Context compiler for subagent prompts. Multi-file context coalescing with priority-based compaction (P0-P3). FxHasher for deterministic cache keys. Moka TinyLFU cache (cap=256). ObservationMasker integration.",
+      "loc": 1377,
+      "problems": [
+        "CC=23 in generate_structured_summary, CC=16 in compile_context — complex but justified by the compaction logic"
+      ],
+      "improvements": []
+    },
+    "touring-server/src/observation_masker.rs": {
+      "purpose": "Token reduction via tool output summarization. Classifies context entries by role (System/User/Assistant/ToolCall/ToolResult). Replaces verbose tool outputs with 1-line summaries. Activation threshold: 4000 tokens.",
+      "loc": 882,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/graph_service.rs": {
+      "purpose": "GraphService — active graph intelligence. Focus Tracker + SymbolIndex wrapper. Computes imports/imported_by/blast_radius/confidence_modifier for every tool response. Lock ordering invariant documented.",
+      "loc": 224,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/memory_store.rs": {
+      "purpose": "Unified MemoryStore combining RLM + SemanticRecall. Provides store/query/promote_tier. Hybrid search (FTS5 + cosine). Optional GPU embedding.",
+      "loc": 556,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/knowledge_adapter.rs": {
+      "purpose": "Bridges touring-hooks FileKnowledgeDB to touring-cognitive KnowledgeSource trait. Maps field names and types. Mutex wrapper for rusqlite !Sync.",
+      "loc": 265,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/plugins/mod.rs": {
+      "purpose": "WASM plugin system root (feature-gated: wasm-plugins).",
+      "loc": 13,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/plugins/runner.rs": {
+      "purpose": "WasmPluginRunner — WASM sandbox with fuel metering (10M instructions), stack limit (1MB), import whitelist. Uses wasmtime.",
+      "loc": 308,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-server/src/telemetry/mod.rs": {
+      "purpose": "Telemetry subsystem with eBPF or tracing backend selection. eBPF is feature-gated (Linux + CAP_BPF). Falls back to tracing-subscriber.",
+      "loc": 156,
+      "problems": [],
+      "improvements": []
+    },
+
+    "touring-hooks/src/lib.rs": {
+      "purpose": "Crate root for touring-hooks. Neural Hooks Architecture: Sensory (pre-hooks inject knowledge) + Motor (post-hooks capture outcomes) + Knowledge (SQLite WAL). Re-exports all public types.",
+      "loc": 58,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-hooks/src/classifier.rs": {
+      "purpose": "CILA L0-L6 intent classifier. 49 patterns compiled into single RegexSet for O(n) matching. FxHasher LRU cache for repeat queries. Cognitive technique hints per level.",
+      "loc": 888,
+      "problems": [
+        "CC=11 in CognitiveTechnique::hint()"
+      ],
+      "improvements": []
+    },
+    "touring-hooks/src/pii.rs": {
+      "purpose": "Brazilian PII scanner (CPF, CNPJ, SEI, email, phone). 5 detection patterns + 13 whitelist patterns. RegexSet for O(n) scanning. SHA-256 content hashing. Domain filtering for @antt.gov.br emails.",
+      "loc": 635,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-hooks/src/ast_bridge.rs": {
+      "purpose": "Intelligence layer between touring-ast and hooks. FileQualityMetrics (CC analysis), EditImpactResult (syntax + blast radius + complexity delta), enriched symbol extraction with docstrings/decorators/complexity.",
+      "loc": 633,
+      "problems": [
+        "CC=15 in analyze_file_quality, CC=14 in validate_edit_impact"
+      ],
+      "improvements": [
+        "Decompose analyze_file_quality into sub-functions (metric collection, scoring, warning generation)"
+      ]
+    },
+    "touring-hooks/src/prompt_enhance.rs": {
+      "purpose": "Native Rust prompt enhancer (replaces Python prompt_enhancer.py). 8 intent categories, 6 techniques (chain-of-thought, constitutional constraints, structured output, few-shot, self-validation, precision hints). <1ms vs 40ms Python.",
+      "loc": 825,
+      "problems": [
+        "CRITICAL: CC=34 in action_directives(), CC=26 in template_for() — extremely high complexity",
+        "Hardcoded Portuguese+English keyword lists in code rather than config"
+      ],
+      "improvements": [
+        "Extract the large match blocks into static lookup tables",
+        "Consider data-driven keyword/template configuration"
+      ]
+    },
+    "touring-hooks/src/knowledge.rs": {
+      "purpose": "FileKnowledgeDB — SQLite WAL knowledge graph. Tables: file_knowledge, file_relations, access_log, bash_outcomes, edit_history, gotchas. FTS5 search, weighted error patterns with exponential decay, gotcha auto-creation.",
+      "loc": 2210,
+      "problems": [
+        "Largest file in the codebase at 2210 LOC — God module with 50+ methods",
+        "Multiple CC>10 methods: lookup CC=12, find_bash_outcomes CC=12, recent_failures_for_file CC=11, recent_errors_with_decay CC=11",
+        "97 unwrap() calls — highest in the codebase, many in test code but some in production paths"
+      ],
+      "improvements": [
+        "Split into sub-modules: FileStore, RelationStore, BashStore, EditStore, GotchaStore",
+        "Replace production unwrap() calls with proper error handling",
+        "Extract SQL query strings into constants"
+      ]
+    },
+    "touring-hooks/src/runtime.rs": {
+      "purpose": "HookRuntime — lightweight init (<10ms). Opens knowledge DB, creates classifier + PII scanner. Helper functions: make_relative, read_stdin, emit_allow/emit_context/emit_block.",
+      "loc": 154,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-hooks/src/pre_read.rs": {
+      "purpose": "Pre-read hook: HIGH-SIGNAL-ONLY context injection. Only injects notes/gotchas, bash failures, and dependents (>=2). Silence is default.",
+      "loc": 355,
+      "problems": [
+        "CC=14 in compose_high_signal_context",
+        "22 unwrap() calls — many in test assertions but some in production"
+      ],
+      "improvements": [
+        "Replace production unwrap() with proper error propagation"
+      ]
+    },
+    "touring-hooks/src/post_read.rs": {
+      "purpose": "Post-read hook: learns from files Claude read. AST path (tree-sitter) for supported languages, regex fallback for others. Updates file_knowledge, file_relations, access_log.",
+      "loc": 463,
+      "problems": [
+        "CC=14 in run(), CC=16 in detect_language(), CC=12 in extract_imports_fast/extract_symbols_fast"
+      ],
+      "improvements": [
+        "Decompose detect_language into a static lookup table"
+      ]
+    },
+    "touring-hooks/src/pre_bash.rs": {
+      "purpose": "Pre-bash hook: contextual outcome recall. Silence by default. Only injects when same-command+same-file past failure exists. Relevance-tiered matching.",
+      "loc": 343,
+      "problems": [
+        "CC=17 in compose_relevant_context"
+      ],
+      "improvements": []
+    },
+    "touring-hooks/src/post_bash.rs": {
+      "purpose": "Post-bash hook: captures command outcomes. Extracts exit code from output patterns, error patterns, file context. Stores in bash_outcomes.",
+      "loc": 320,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-hooks/src/pre_edit.rs": {
+      "purpose": "Pre-edit hook: impact analysis. Queries dependents, recent edits, error patterns. Injects warning for hub files. Rust anti-pattern detection. ErrorPredictor integration.",
+      "loc": 532,
+      "problems": [
+        "CC=26 in compose_edit_context, CC=14 in run() — high complexity",
+        "16 unwrap() calls"
+      ],
+      "improvements": [
+        "Decompose compose_edit_context into sub-functions per signal type"
+      ]
+    },
+    "touring-hooks/src/post_edit.rs": {
+      "purpose": "Post-edit hook: tracks changes, re-indexes file, updates relations, error-driven learning (auto-gotcha creation after 2+ recurrences of same error pattern).",
+      "loc": 806,
+      "problems": [
+        "CC=20 in extract_error_message, CC=29 in extract_edit_error_pattern, CC=11 in build_edit_summary",
+        "27 unwrap() calls — highest per-file in hooks"
+      ],
+      "improvements": [
+        "Extract error pattern normalization into a standalone module",
+        "Replace unwrap() chains with Result propagation"
+      ]
+    },
+    "touring-hooks/src/pre_edit_prevention.rs": {
+      "purpose": "Proactive error prevention before edits. Queries gotchas (sorted by F1 score proxy) and cross-session error patterns with exponential decay. Injects warning only for high-confidence patterns.",
+      "loc": 310,
+      "problems": [
+        "CC=19 in detect_language, CC=11 in compose_pre_edit_warning"
+      ],
+      "improvements": []
+    },
+    "touring-hooks/src/error_predictor.rs": {
+      "purpose": "Markov-based predictive error prevention. Builds transition model from edit sequences to error outcomes. Predicts at >=80% probability, >=5 observations. Graceful degradation with insufficient data.",
+      "loc": 349,
+      "problems": [
+        "CC=11 in train_from_db"
+      ],
+      "improvements": []
+    },
+    "touring-hooks/src/session_hooks.rs": {
+      "purpose": "Session lifecycle: session-start (knowledge stats + trend + predictor readiness injection) and session-stop (access log + summary output).",
+      "loc": 129,
+      "problems": [
+        "CC=15 in run_session_start"
+      ],
+      "improvements": []
+    },
+    "touring-hooks/src/session_insights.rs": {
+      "purpose": "Cross-session knowledge transfer. Extracts top gotchas, error patterns, edited files, success rate. Persists as JSON for warm-starting next session. Trend computation (improving/declining/stable).",
+      "loc": 607,
+      "problems": [],
+      "improvements": []
+    },
+    "touring-hooks/src/shadow.rs": {
+      "purpose": "Shadow workspace V1 — single in-memory file overlay for speculative lint-before-edit. Runs ruff on tempfile without modifying real filesystem. Graceful degradation if ruff unavailable.",
+      "loc": 548,
+      "problems": [
+        "CC=13 in parse_ruff_json",
+        "22 unwrap() calls — mostly in tests"
+      ],
+      "improvements": []
+    },
+    "touring-hooks/src/shadow_v2.rs": {
+      "purpose": "Shadow workspace V2 — multi-branch speculative execution. N parallel branches with independent overlays. Scored independently before best branch committed. Zero filesystem mutations until explicit commit.",
+      "loc": 981,
+      "problems": [
+        "CC=13 in parse_ruff_json (duplicated from shadow.rs), CC=11 in commit_branch",
+        "73 unwrap() calls — highest file, mostly in tests but pattern should be reviewed"
+      ],
+      "improvements": [
+        "Extract shared parse_ruff_json into a common module to eliminate duplication with shadow.rs"
+      ]
+    },
+    "touring-hooks/tests/integration_e2e.rs": {
+      "purpose": "Integration tests for hook pipeline. Tests session-start stats, pre-read silence/context, post-bash outcomes, knowledge DB CRUD, edit error patterns, gotcha creation, error predictor training.",
+      "loc": 594,
+      "problems": [],
+      "improvements": [
+        "Add integration tests for pre-edit prevention flow (currently missing)"
+      ]
+    }
+  },
+
+  "critical_issues": [
+    {
+      "severity": "P0",
+      "location": "touring-server/src/tools/hook_tools.rs",
+      "issue": "4x unimplemented!() panics in hook_tools.rs and learning_tools.rs — dead code that will crash if called",
+      "recommendation": "Remove both files entirely — they are superseded by cortex handlers and serve no purpose except as panic landmines"
+    },
+    {
+      "severity": "P0",
+      "location": "touring-server/src/cortex/handlers/intelligence.rs",
+      "issue": "CC=34 and CC=35 in two execute() methods — extremely hard to maintain and test",
+      "recommendation": "Decompose into 3-4 sub-functions each with CC<=10"
+    },
+    {
+      "severity": "P1",
+      "location": "touring-hooks/src/knowledge.rs",
+      "issue": "God module at 2210 LOC with 50+ methods and 97 unwrap() calls",
+      "recommendation": "Split into 5 sub-modules (File, Relation, Bash, Edit, Gotcha stores)"
+    },
+    {
+      "severity": "P1",
+      "location": "touring-hooks/src/prompt_enhance.rs",
+      "issue": "CC=34 in action_directives() and CC=26 in template_for() — match blocks with 50+ arms",
+      "recommendation": "Convert to static lookup tables (HashMap<Intent, &[&str]>)"
+    },
+    {
+      "severity": "P1",
+      "location": "touring-server/src/server.rs",
+      "issue": "God object: TouringServer has 17 Arc<Mutex<>> fields, CC=27 in new()",
+      "recommendation": "Split into sub-routers using rmcp router composition (AST, Memory, Learning, Graph, Evolution)"
+    },
+    {
+      "severity": "P1",
+      "location": "touring-hooks/src/post_edit.rs",
+      "issue": "CC=29 in extract_edit_error_pattern — nearly untestable",
+      "recommendation": "Extract into a standalone error normalization module with unit tests per pattern"
+    }
+  ],
+
+  "architecture_gaps": [
+    {
+      "gap": "Dead code accumulation",
+      "detail": "hook_tools.rs (155 LOC) and learning_tools.rs (485 LOC) are entirely dead — 640 LOC of unimplemented!() panic paths",
+      "impact": "Maintenance burden, false sense of coverage, potential panic if incorrectly wired"
+    },
+    {
+      "gap": "Duplicate state/action mapping",
+      "detail": "event_type_to_state() and tool_name_to_action() exist in server.rs AND cortex/handlers/learning.rs with DIFFERENT implementations (djb2 hash vs explicit match)",
+      "impact": "Q-table entries from hooks vs server use different action IDs for the same tool — learning data corruption"
+    },
+    {
+      "gap": "Duplicate ruff parsing",
+      "detail": "parse_ruff_json() is copy-pasted between shadow.rs and shadow_v2.rs",
+      "impact": "Bug fixes must be applied twice"
+    },
+    {
+      "gap": "No shared language detection",
+      "detail": "Language detection/parsing is duplicated across ast_tools.rs, post_read.rs, pre_edit_prevention.rs, touring_ast_overview, touring_symbol_at_line, touring_diff_symbols",
+      "impact": "Inconsistent language support across modules"
+    },
+    {
+      "gap": "Placeholder implementations",
+      "detail": "utility_tools.rs get_index_status returns all-zero stats, project_tools.rs get_status returns None for files_indexed",
+      "impact": "Tools return misleading data to Claude"
+    },
+    {
+      "gap": "Missing integration test coverage",
+      "detail": "integration_e2e.rs covers 8 hook flows but misses pre-edit prevention, error predictor, shadow workspace, and session insights",
+      "impact": "Regressions in prevention/prediction/speculative execution may go undetected"
+    }
+  ],
+
+  "integration_issues": [
+    {
+      "issue": "Inconsistent state/action ID mapping between server.rs and cortex learning handler",
+      "detail": "server.rs uses djb2_hash % 64 for tool→action, cortex/handlers/learning.rs uses explicit match table (Read=0, Write=1, etc.). QTable entries written by one system are misinterpreted by the other.",
+      "severity": "HIGH"
+    },
+    {
+      "issue": "TdLearningLoop bypasses LearningPersistence abstraction",
+      "detail": "cortex/handlers/learning.rs opens raw rusqlite::Connection to rlm_memory.db instead of using the LearningPersistence API, creating fragile coupling to DB schema.",
+      "severity": "MEDIUM"
+    },
+    {
+      "issue": "FileKnowledgeDB is !Sync but shared across Arc",
+      "detail": "Multiple #[allow(clippy::arc_with_non_send_sync)] annotations in runtime.rs and neural handlers. Safe only because CLI model is single-threaded — will break if concurrency is added.",
+      "severity": "MEDIUM"
+    },
+    {
+      "issue": "ast_tools::touring_ast_find creates ephemeral SymbolIndex per call",
+      "detail": "Does not use the server's persistent SymbolStore/SymbolIndex. Each find call re-indexes the provided files from scratch.",
+      "severity": "LOW"
+    },
+    {
+      "issue": "Background Python script without timeout",
+      "detail": "spawn_background_tasks() calls touring_bootstrap_symbols.py via tokio::process::Command without any timeout. Script failure or hang blocks the symbol refresh loop forever.",
+      "severity": "MEDIUM"
+    }
+  ],
+
+  "unwrap_summary": {
+    "touring_server_total": 259,
+    "touring_server_files_affected": 27,
+    "touring_hooks_total": 313,
+    "touring_hooks_files_affected": 15,
+    "grand_total": 572,
+    "worst_offenders": [
+      "touring-hooks/src/knowledge.rs: 97 unwrap()",
+      "touring-hooks/src/shadow_v2.rs: 73 unwrap()",
+      "touring-hooks/src/post_edit.rs: 27 unwrap()",
+      "touring-hooks/src/pre_read.rs: 22 unwrap()",
+      "touring-hooks/src/shadow.rs: 22 unwrap()",
+      "touring-server/src/index/watcher.rs: 25 unwrap()",
+      "touring-server/src/cortex/handlers/enforcement.rs: 20 unwrap()",
+      "touring-server/src/memory_store.rs: 18 unwrap()",
+      "touring-server/src/index/incremental.rs: 18 unwrap()",
+      "touring-server/src/cortex/handlers/lifecycle.rs: 18 unwrap()"
+    ]
+  }
+}

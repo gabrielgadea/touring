@@ -1,0 +1,399 @@
+{
+ "target": "crates/touring-hooks-core",
+ "unit_count": 1,
+ "scored": 1,
+ "enforcement": {
+  "block": [
+   "F2_1",
+   "F2_4",
+   "F2_5",
+   "F2_6",
+   "F4_3",
+   "F4_5"
+  ],
+  "warn": [
+   "F1_1",
+   "F1_2",
+   "F1_3",
+   "F1_4",
+   "F1_5",
+   "F1_6",
+   "F3_1",
+   "F3_2",
+   "F3_3",
+   "F3_4",
+   "F3_5",
+   "F3_6",
+   "F3_7"
+  ]
+ },
+ "dim_health": {
+  "F1_1": {
+   "Warn": 1
+  },
+  "F1_2": {
+   "Warn": 1
+  },
+  "F1_3": {
+   "Warn": 1
+  },
+  "F1_4": {
+   "Pass": 1
+  },
+  "F1_5": {
+   "Pass": 1
+  },
+  "F1_6": {
+   "Pass": 1
+  },
+  "F1_7": {
+   "Warn": 1
+  },
+  "F1_8": {
+   "Pass": 1
+  },
+  "F1_9": {
+   "Pass": 1
+  },
+  "F1_10": {
+   "Pass": 1
+  },
+  "F1_11": {
+   "Pass": 1
+  },
+  "F1_12": {
+   "Pass": 1
+  },
+  "F2_1": {
+   "Pass": 1
+  },
+  "F2_2": {
+   "Pass": 1
+  },
+  "F2_3": {
+   "Pass": 1
+  },
+  "F2_4": {
+   "Pass": 1
+  },
+  "F2_5": {
+   "Pass": 1
+  },
+  "F2_6": {
+   "Pass": 1
+  },
+  "F2_7": {
+   "Pass": 1
+  },
+  "F2_8": {
+   "Pass": 1
+  },
+  "F2_9": {
+   "Pass": 1
+  },
+  "F2_10": {
+   "Pass": 1
+  },
+  "F2_11": {
+   "Pass": 1
+  },
+  "F2_12": {
+   "Pass": 1
+  },
+  "F2_13": {
+   "Pass": 1
+  },
+  "F3_1": {
+   "Warn": 1
+  },
+  "F3_2": {
+   "Pass": 1
+  },
+  "F3_3": {
+   "Pass": 1
+  },
+  "F3_4": {
+   "Pass": 1
+  },
+  "F3_5": {
+   "Pass": 1
+  },
+  "F3_6": {
+   "Pass": 1
+  },
+  "F3_7": {
+   "Pass": 1
+  },
+  "F3_8": {
+   "Pass": 1
+  },
+  "F3_9": {
+   "Pass": 1
+  },
+  "F3_10": {
+   "Pass": 1
+  },
+  "F3_11": {
+   "Fail": 1
+  },
+  "F3_12": {
+   "Pass": 1
+  },
+  "F3_13": {
+   "Pass": 1
+  },
+  "F4_1": {
+   "Pass": 1
+  },
+  "F4_2": {
+   "Pass": 1
+  },
+  "F4_3": {
+   "Pass": 1
+  },
+  "F4_4": {
+   "Pass": 1
+  },
+  "F4_5": {
+   "Warn": 1
+  },
+  "F4_6": {
+   "Pass": 1
+  },
+  "F4_7": {
+   "Warn": 1
+  },
+  "F4_8": {
+   "NotApplicable": 1
+  },
+  "F4_9": {
+   "NotApplicable": 1
+  },
+  "F4_10": {
+   "Pass": 1
+  },
+  "F4_11": {
+   "NotApplicable": 1
+  },
+  "F4_12": {
+   "Pass": 1
+  }
+ },
+ "crate_risk": {
+  "touring-hooks-core": {
+   "risk": 8.4,
+   "composite": 0.9167,
+   "tier": "Platinum",
+   "blast_fan_in": 4,
+   "block_fails": [],
+   "n_fail": 1,
+   "n_warn": 7,
+   "weighted_load": 6.0
+  }
+ },
+ "crate_dims": {
+  "touring-hooks-core": {
+   "F1_1": {
+    "value": 0.734,
+    "status": "Warn"
+   },
+   "F1_2": {
+    "value": 0.65,
+    "status": "Warn"
+   },
+   "F1_3": {
+    "value": 0.527,
+    "status": "Warn"
+   },
+   "F1_4": {
+    "value": 0.936,
+    "status": "Pass"
+   },
+   "F1_5": {
+    "value": 0.995,
+    "status": "Pass"
+   },
+   "F1_6": {
+    "value": 0.873,
+    "status": "Pass"
+   },
+   "F1_7": {
+    "value": 0.749,
+    "status": "Warn"
+   },
+   "F1_8": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F1_9": {
+    "value": 0.994,
+    "status": "Pass"
+   },
+   "F1_10": {
+    "value": 0.999,
+    "status": "Pass"
+   },
+   "F1_11": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F1_12": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_1": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_2": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_3": {
+    "value": 0.996,
+    "status": "Pass"
+   },
+   "F2_4": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_5": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_6": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_7": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_8": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_9": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_10": {
+    "value": 0.999,
+    "status": "Pass"
+   },
+   "F2_11": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_12": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F2_13": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F3_1": {
+    "value": 0.652,
+    "status": "Warn"
+   },
+   "F3_2": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F3_3": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F3_4": {
+    "value": 0.994,
+    "status": "Pass"
+   },
+   "F3_5": {
+    "value": 0.996,
+    "status": "Pass"
+   },
+   "F3_6": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F3_7": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F3_8": {
+    "value": 0.921,
+    "status": "Pass"
+   },
+   "F3_9": {
+    "value": 0.994,
+    "status": "Pass"
+   },
+   "F3_10": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F3_11": {
+    "value": 0.419,
+    "status": "Fail"
+   },
+   "F3_12": {
+    "value": 0.99,
+    "status": "Pass"
+   },
+   "F3_13": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F4_1": {
+    "value": 0.985,
+    "status": "Pass"
+   },
+   "F4_2": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F4_3": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F4_4": {
+    "value": 1.0,
+    "status": "Pass"
+   },
+   "F4_5": {
+    "value": 0.7,
+    "status": "Warn"
+   },
+   "F4_6": {
+    "value": 0.941,
+    "status": "Pass"
+   },
+   "F4_7": {
+    "value": 0.557,
+    "status": "Warn"
+   },
+   "F4_8": {
+    "value": 1.0,
+    "status": "NotApplicable"
+   },
+   "F4_9": {
+    "value": 1.0,
+    "status": "NotApplicable"
+   },
+   "F4_10": {
+    "value": 0.98,
+    "status": "Pass"
+   },
+   "F4_11": {
+    "value": 1.0,
+    "status": "NotApplicable"
+   },
+   "F4_12": {
+    "value": 1.0,
+    "status": "Pass"
+   }
+  }
+ },
+ "errors": {}
+}

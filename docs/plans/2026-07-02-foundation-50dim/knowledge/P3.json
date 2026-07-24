@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "Multi-scope dogfood: --scope module applied to all 20 touring-foundation modules (ranked, all >= Silver 0.889). Per-file hot-spots: config.rs F1.2=0.322, semantic F3.1 coverage. No new genuine P0. F3.11-README caps at module-scope (per-crate artifact, distinct walk-up target) documented as follow-up."
+    }
+  ],
+  "relations": []
+}

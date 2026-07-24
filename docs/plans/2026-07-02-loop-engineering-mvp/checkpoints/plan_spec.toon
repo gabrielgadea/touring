@@ -1,0 +1,78 @@
+metadata:
+  intent: "Loop Engineering MVP para o Touring: um orquestrador de loop agentic hibrido-autonomo. Construir (fatia-fina): (1) skill loop-engineering (SKILL.md, o cerebro de orquestracao: protocolo do loop, gate de convergencia mensuravel, pontos de human-gate, referencias aos scripts e a um AGENTS.md de manutencao do bundle estilo OpenKB); (2) scripts/loop_diagnose.py (diagnostico one-shot compondo touring map+scout+blast+touring-quality --workspace+wiring chains+memory recall num digest JSON+OKF); (3) scripts/loop_converged.py (gate de convergencia mensuravel: decompose-ready-vazio E touring-quality>=0.80 E 0 dims P0 Fail E orphans<=baseline E cargo check/test/clippy verde E cross-audit limpo; exit0=convergiu exit1=continua+unmet[]+next_action); (4) scripts/loop_phase_close.py (phase-close: memory store + learning reward + decompose update/finalize + append plan.md + relatorio de fase OKF-compliant + Knowledge Abstract tipado estilo Hyper-Extract com entity_id/relation_id deterministicos + wikilinks); (5) scripts/loop_doc_link_gate.py (validador OKF: schema frontmatter + resolucao de links bundle-relative + lint de contradicoes estilo OpenKB); (6) dois hooks em settings.json: Stop loop-stop-guard (nao-convergiu injeta continue+proxima-subtask-ready) e PreCompact loop-snapshot (snapshot do loop-state que sobrevive compactacao, analogo checkpointer LangGraph); (7) convencao de bundle .md OKF-compliant (index.md+log.md+frontmatter+cross-links bundle-relative) como ledger duravel resumivel. Doc-layer: adotar OKF integralmente; adotar padroes Hyper-Extract+OpenKB nativamente (sem deps Python externas no MVP; ferramentas reais deferidas). Reusar primitivas Touring existentes (master commands, decompose DAG, touring-quality); zero CLI nova."
+  task_id: task_1782996878252842489
+  cila_level: 3
+  title: Loop Engineering MVP para o Touring
+  plan_id: loop-engineering-mvp-para-o-touring
+  intent_sha12: 2514a2c29b4b
+  generated_at: "2026-07-02T12:54:40.001029Z"
+  generator: taco-forge plan --quality high
+  generator_version: 1.15.0
+  quality_dimensions:
+    a_precision: VGP-verified symbols + Touring CLI evidence
+    b_scalability: DAG decomposition; per-phase isolation
+    c_performance: discover ~3s; VGP cached via memory store
+    d_applicability: 31 generator kinds; 10 assist handlers
+    e_code_quality: TDD enforced; clippy 0; tdg >= B
+    f_detail: validation script per phase; cross-audit final
+    g_systemic_integration: wiring orphans delta == 0; cycles 0
+    h_dependencies: cargo update + workspace-info checked
+    i_potentialization: "REGRA #0 — orphans wired; deliverables max scope"
+  plan_type: null
+discover:
+  timestamp: "2026-07-02T12:54:38.297868Z"
+  daemon_healthy: true
+  composite_health_score: 0.6402
+  symbol_count: 250549
+  orphan_count: 5044
+  cycle_count: 0
+  ema_reward: 0.179606
+  drift_alert_level: unknown
+  workspace_packages[42]: touring-foundation,touring-license,touring-simd,touring-hooks,touring-dispatch,touring-analysis,touring-code,touring-storage,touring-offensive,touring-bindings,inferlets,touring-intelligence,touring-rkyv,touring-capnp-server,touring-ceg,touring-contracts,touring-hooks-shared,touring-quality,touring-cli,touring-hook-runtime,touring-hooks-core,touring-hooks-prediction,touring-orchestration,touring-hooks-rl,touring-hooks-saga,touring-hook-handlers,touring-resilience,touring-server,touring-assists,touring-generator,touring-identity,touring-cortex,touring-server-reasoning,touring-server-session,touring-server-visual,touring-python,touring-integration-tests,touring-loom-proofs,touring-search-fusion-bench,touring-web,touring-web-server,touring-lsp
+  e2e_score: 0.0
+  gotcha_matches: []
+  memory_hits: []
+  tantivy_hits: []
+  synergy_wired_pairs: 52
+  synergy_metrics: {}
+vgp_results: []
+phases[1]:
+  -
+    id: P0
+    title: Phase P0
+    contribution: Phase P0
+    impacts: []
+    deliverables: []
+    vgp_symbols: []
+    tdd_artifacts: []
+    validation:
+      cargo_check: true
+      cargo_test: true
+      cargo_test_filter: null
+      rust_package: null
+      tdg_files: []
+      tdg_min_grade: B
+      wiring_orphans_delta_max: 0
+      gate_metrics_required: true
+      e2e_depth: standard
+      e2e_min_score: 0.7
+      custom_steps: []
+      tdd_red_gate: true
+      tdd_green_gate: true
+      tdd_refactor_gate: true
+    dependencies: []
+    cross_refs: []
+    status: pending
+    cila_level: 3
+    estimated_effort_hours: 4.0
+    references: []
+    risks: []
+    rollback: ""
+    family: ""
+    definition_of_done[7]: `validate-phase-P0.sh` exits 0,`cargo check --workspace` exit 0,`cargo test` for the affected package(s) passes,"`touring wiring orphans` shows zero new orphans (REGRA #0)",`touring ast tdg <changed-files>` grade ≥ B,"`touring memory store --tier semantic plan:<task>:phase:P0:outcome` persisted",`touring learning reward orchestrate 1.0 phase_P0_validated` injected
+final_goal: "Loop Engine MVP funcional e validado end-to-end num run real: extrair o boilerplate compartilhado dos 50 verifiers de touring-quality (F1.3 duplicacao 30.6%) levando o crate de Silver a Gold, com formato OKF + padroes Hyper-Extract/OpenKB nativos."
+consequences[5]: "Codebase consequences: deliverables added/modified per phase; orphan delta == 0.","Testing consequences: test files generated BEFORE impl (TDD); validation scripts run per phase.","Memory consequences: outcome persisted via `touring memory store --tier semantic`.","RL consequences: reward injected per phase + final audit (closes feedback loop).","Documentation consequences: plan + validators + audit script tracked under plan/."
+success_criteria: []
+target_dimensions: {}
+composite_target: 0.0
+threshold_acceptance: 0.85

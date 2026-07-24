@@ -1,0 +1,19 @@
+//! {{ module_name | default(value="module") }} — {{ description | default(value="Generated module.") }}
+
+{% if pub_use is defined %}
+{% for item in pub_use %}
+pub use {{ item | default(value="") }};
+{% endfor %}
+{% endif %}
+
+{% if structs is defined %}
+{% for s in structs %}
+/// {{ s.doc | default(value=s.name | default(value="")) }}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct {{ s.name | default(value="Struct") }} {
+{% for field in s.fields %}
+    pub {{ field.name | default(value="field") }}: {{ field.ty | default(value="String") }},
+{% endfor %}
+}
+{% endfor %}
+{% endif %}

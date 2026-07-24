@@ -1,0 +1,825 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOURING WEB — ELITE COMPONENT CATALOG (SPEC 2026-06-12 §3.3)
+   Closed catalog: every page composes ONLY these classes plus its
+   own .pg-<route>- grid helpers. Source: zip styles/elite.css,
+   extended with el-shell/el-rail/el-kpi/el-palette/el-toggle/etc.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Shell ─────────────────────────────────────────────────── */
+
+.el-shell {
+  display: grid;
+  grid-template-rows: var(--el-titlebar-h) 1fr;
+  height: 100vh;
+  background: var(--el-ink);
+  color: var(--el-fg-2);
+  overflow: hidden;
+}
+
+.el-shell-body {
+  display: grid;
+  grid-template-columns: var(--el-sidebar-w) 1fr;
+  min-height: 0;
+}
+
+.el-main {
+  overflow-y: auto;
+  min-width: 0;
+  padding: 52px 64px 80px;
+}
+
+.el-main-editorial {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* ── 2. Titlebar (44px) ──────────────────────────────────────── */
+
+.el-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--el-titlebar-h);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--el-line);
+  background: var(--el-ink);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.el-tl {
+  display: flex;
+  gap: 7px;
+}
+
+.el-tl span {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--el-surface-3);
+  border: 1px solid var(--el-line-strong);
+}
+
+.el-titlebar-app {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--el-fg);
+}
+
+.el-titlebar-div {
+  width: 1px;
+  height: 16px;
+  background: var(--el-line-strong);
+}
+
+.el-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--el-fg-4);
+}
+
+.el-breadcrumb .sep { color: var(--el-fg-5); }
+.el-breadcrumb .cur { color: var(--el-fg-2); }
+
+.el-titlebar-spacer { flex: 1; }
+
+.el-titlebar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 320px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--el-line);
+  border-radius: 7px;
+  background: var(--el-surface);
+  color: var(--el-fg-4);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--el-dur) var(--el-ease);
+}
+
+.el-titlebar-search:hover {
+  border-color: var(--el-accent-hair);
+}
+
+.el-titlebar-search .el-kbd { margin-left: auto; }
+
+/* ── 3. Sidebar ──────────────────────────────────────────────── */
+
+.el-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--el-line);
+  background: var(--el-ink);
+  padding: 18px 12px 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.el-side-section {
+  font-size: var(--el-size-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+  padding: 16px 10px 6px;
+}
+
+.el-side {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  color: var(--el-fg-3);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--el-dur) var(--el-ease),
+              color var(--el-dur) var(--el-ease);
+}
+
+.el-side:hover {
+  background: var(--el-surface);
+  color: var(--el-fg);
+}
+
+.el-side.active {
+  background: var(--el-accent-soft);
+  color: var(--el-accent);
+}
+
+.el-side .el-icon { flex: none; }
+
+.el-sidebar-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--el-line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.el-daemon-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  color: var(--el-fg-4);
+}
+
+.el-user-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.el-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-ink);
+  background: linear-gradient(135deg, var(--el-accent), var(--el-violet));
+}
+
+.el-user-name {
+  font-size: 12px;
+  color: var(--el-fg-2);
+}
+
+/* ── 4. Icons (SVG inline, stroke 1.5) ───────────────────────── */
+
+.el-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── 5. Cards / panels / rows ────────────────────────────────── */
+
+.el-card {
+  background: var(--el-surface);
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius);
+  padding: 20px 22px;
+}
+
+.el-card-quiet {
+  background: transparent;
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius);
+  padding: 20px 22px;
+}
+
+.el-hr {
+  border: 0;
+  border-top: 1px solid var(--el-line);
+  margin: 14px 0;
+}
+
+.el-panel {
+  background: var(--el-surface);
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius);
+  padding: 20px 22px;
+  margin-top: 22px;
+}
+
+.el-panel-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.el-eyebrow {
+  font-size: var(--el-size-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--el-fg-4);
+}
+
+.el-eyebrow-num {
+  color: var(--el-fg-5);
+  margin-right: 6px;
+}
+
+.el-cmd-label {
+  font-family: var(--el-mono);
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--el-fg-5);
+}
+
+.el-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--el-line);
+}
+
+.el-row:last-child { border-bottom: 0; }
+
+/* ── 6. Hero / KPI ───────────────────────────────────────────── */
+
+.el-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 8px 0 34px;
+}
+
+.el-hero-main { min-width: 0; }
+
+.el-hero-title {
+  font-family: var(--el-display);
+  font-size: var(--el-size-display-hero);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  color: var(--el-fg);
+  margin: 10px 0 14px;
+}
+
+.el-hero-em {
+  font-style: italic;
+  color: var(--el-fg-3);
+}
+
+.el-hero-sub {
+  max-width: 560px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--el-fg-3);
+  margin: 0 0 18px;
+}
+
+.el-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.el-hero-stat { text-align: right; flex: none; }
+
+.el-hero-stat-value {
+  font-family: var(--el-display);
+  font-size: var(--el-size-stat-hero);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--el-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.el-hero-stat-denom {
+  font-size: 0.32em;
+  color: var(--el-fg-4);
+  letter-spacing: -0.01em;
+}
+
+.el-hero-stat-delta {
+  font-family: var(--el-mono);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.el-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius);
+  background: var(--el-surface);
+  margin-bottom: 26px;
+}
+
+.el-kpi-cell {
+  padding: 22px 24px;
+  border-left: 1px solid var(--el-line);
+  min-width: 0;
+}
+
+.el-kpi-cell:first-child { border-left: 0; }
+
+.el-stat,
+.el-kpi-value {
+  font-family: var(--el-display);
+  font-size: var(--el-size-stat);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: var(--el-fg);
+  margin: 8px 0 4px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.el-kpi-sub {
+  font-size: 11.5px;
+  color: var(--el-fg-4);
+}
+
+/* ── 7. Buttons / kbd / tags / toggles ───────────────────────── */
+
+.el-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 7px;
+  background: transparent;
+  text-decoration: none;
+  color: var(--el-fg-2);
+  font-family: var(--el-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: background var(--el-dur) var(--el-ease),
+              border-color var(--el-dur) var(--el-ease),
+              color var(--el-dur) var(--el-ease);
+}
+
+.el-btn:hover {
+  background: var(--el-surface-2);
+  border-color: var(--el-line-strong);
+  color: var(--el-fg);
+}
+
+.el-btn-primary {
+  background: var(--el-fg);
+  border-color: var(--el-fg);
+  color: var(--el-ink);
+}
+
+.el-btn-primary:hover {
+  background: var(--el-fg-2);
+  border-color: var(--el-fg-2);
+  color: var(--el-ink);
+}
+
+.el-btn-ghost {
+  border-color: transparent;
+  color: var(--el-fg-3);
+}
+
+.el-btn-sm {
+  height: 24px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.el-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--el-line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--el-mono);
+  font-size: 10px;
+  color: var(--el-fg-4);
+  background: var(--el-surface-2);
+}
+
+.el-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 11px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--el-fg-3);
+  white-space: nowrap;
+}
+
+.el-tag-on   { border-color: var(--el-accent-hair); color: var(--el-accent); background: var(--el-accent-soft); }
+.el-tag-pos  { border-color: transparent; color: var(--el-pos);  background: var(--el-pos-soft); }
+.el-tag-neg  { border-color: transparent; color: var(--el-neg);  background: var(--el-neg-soft); }
+.el-tag-warn { border-color: transparent; color: var(--el-warn); background: var(--el-warn-soft); }
+
+.el-toggle {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--el-line-strong);
+  background: var(--el-surface-2);
+  cursor: pointer;
+  transition: background var(--el-dur) var(--el-ease);
+}
+
+.el-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--el-fg-4);
+  transition: transform var(--el-dur) var(--el-ease),
+              background var(--el-dur) var(--el-ease);
+}
+
+.el-toggle.on { background: var(--el-accent-soft); border-color: var(--el-accent-hair); }
+.el-toggle.on::after { transform: translateX(12px); background: var(--el-accent); }
+
+/* ── 8. Pulse / progress / stage dots ────────────────────────── */
+
+.el-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--el-pos);
+  animation: el-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes el-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+.el-prog-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.el-prog-track {
+  height: 2px;
+  border-radius: 1px;
+  background: var(--el-line-strong);
+  overflow: hidden;
+}
+
+.el-prog-fill {
+  height: 100%;
+  border-radius: 1px;
+  background: var(--el-accent);
+  transition: width var(--el-dur-slow) var(--el-ease);
+}
+
+.el-stage-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--el-fg-5);
+  background: transparent;
+  flex: none;
+}
+
+.el-stage-dot.done   { border-color: var(--el-accent); background: var(--el-accent); }
+.el-stage-dot.active {
+  width: 14px;
+  height: 14px;
+  border-color: var(--el-accent);
+  box-shadow: 0 0 0 4px var(--el-accent-soft);
+}
+.el-stage-dot.warn { border-color: var(--el-warn); background: var(--el-warn); }
+
+/* ── 9. Tables ───────────────────────────────────────────────── */
+
+.el-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.el-table th {
+  font-size: var(--el-size-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--el-line-strong);
+}
+
+.el-table td {
+  font-size: 13px;
+  color: var(--el-fg-2);
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--el-line);
+}
+
+.el-table tbody tr {
+  transition: background var(--el-dur) var(--el-ease);
+}
+
+.el-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.el-table tbody tr.clickable { cursor: pointer; }
+
+/* ── 10. Type utilities / mono / code ────────────────────────── */
+
+.el-display {
+  font-family: var(--el-display);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+
+.el-mono {
+  font-family: var(--el-mono);
+  font-size: 12px;
+  font-feature-settings: 'ss01', 'calt';
+}
+
+.el-code {
+  font-family: var(--el-mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  background: var(--el-surface-2);
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius-sm);
+  padding: 14px 16px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--el-fg-3);
+}
+
+/* ── 11. Right rail ──────────────────────────────────────────── */
+
+.el-rail {
+  width: var(--el-rail-w);
+  flex: none;
+  background: var(--el-ink);
+  border-left: 1px solid var(--el-line);
+  padding: 26px 24px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.el-rail-section { margin-bottom: 24px; }
+
+.el-with-rail {
+  display: grid;
+  grid-template-columns: 1fr var(--el-rail-w);
+  gap: 0;
+  align-items: start;
+}
+
+/* ── 12. Command palette (⌘K) ────────────────────────────────── */
+
+.el-palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(5, 5, 8, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+}
+
+.el-palette {
+  width: 640px;
+  max-width: calc(100vw - 48px);
+  background: var(--el-surface);
+  border: 1px solid var(--el-line-strong);
+  border-radius: 14px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.el-palette-input {
+  width: 100%;
+  height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-bottom: 1px solid var(--el-line);
+  background: transparent;
+  color: var(--el-fg);
+  font-family: var(--el-body);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  outline: none;
+}
+
+.el-palette-input::placeholder { color: var(--el-fg-5); }
+
+.el-palette-results {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.el-palette-group {
+  font-size: var(--el-size-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+  padding: 10px 12px 4px;
+}
+
+.el-result-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--el-fg-2);
+  cursor: pointer;
+}
+
+.el-result-row:hover,
+.el-result-row.selected {
+  background: var(--el-surface-2);
+  color: var(--el-fg);
+}
+
+.el-result-row .hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--el-fg-5);
+}
+
+.el-palette-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--el-line);
+  font-size: 11px;
+  color: var(--el-fg-5);
+}
+
+/* ── 13. Swatches / banners / skeletons / empty states ───────── */
+
+.el-swatch {
+  width: 120px;
+  border: 1px solid var(--el-line);
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color var(--el-dur) var(--el-ease);
+}
+
+.el-swatch.active { border-color: var(--el-accent); }
+.el-swatch.disabled { opacity: 0.4; cursor: not-allowed; }
+
+.el-swatch-bands {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  height: 28px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.el-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius-sm);
+  background: var(--el-surface);
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+
+.el-banner-warn { border-color: var(--el-warn-soft); color: var(--el-warn); }
+
+.el-skeleton {
+  border-radius: var(--el-radius);
+  background: var(--el-surface);
+  border: 1px solid var(--el-line);
+  min-height: 120px;
+  animation: el-skeleton-fade 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes el-skeleton-fade {
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
+}
+
+.el-empty {
+  padding: 36px 22px;
+  text-align: center;
+  color: var(--el-fg-4);
+  font-size: 13px;
+}
+
+/* ── 14. Transport bar (scrubbers — chains/impact/sessions) ──── */
+
+.el-transport {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius);
+  background: var(--el-surface);
+  margin-top: 16px;
+}
+
+.el-transport .el-prog-track { flex: 1; height: 3px; }
+
+/* ── 15. Sparkline base ──────────────────────────────────────── */
+
+.el-spark {
+  stroke-width: 1.25;
+  fill: none;
+}
+
+/* ── 16. Responsive guards ───────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .el-main { padding: 32px 28px 60px; }
+  .el-with-rail { grid-template-columns: 1fr; }
+  .el-rail { width: auto; border-left: 0; border-top: 1px solid var(--el-line); }
+  .el-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .el-kpi-cell:nth-child(odd) { border-left: 0; }
+  .el-hero { flex-direction: column; align-items: flex-start; }
+  .el-hero-stat { text-align: left; }
+}
+
+@media (max-width: 760px) {
+  .el-shell-body { grid-template-columns: 1fr; }
+  .el-sidebar { display: none; }
+  .el-sidebar.mobile-open {
+    display: flex;
+    position: fixed;
+    inset: var(--el-titlebar-h) auto 0 0;
+    width: var(--el-sidebar-w);
+    z-index: 40;
+    box-shadow: 24px 0 60px rgba(0, 0, 0, 0.5);
+  }
+}

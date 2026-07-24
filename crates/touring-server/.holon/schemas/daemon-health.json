@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-daemon-health.schema.json",
+  "title": "Capability: daemon-health",
+  "description": "Daemon health probe",
+  "type": "object",
+  "additionalProperties": true
+}

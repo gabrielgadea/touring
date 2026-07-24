@@ -1,0 +1,3350 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOURING WEB — PAGE GRIDS (SPEC 2026-06-12 §9.1)
+   Only page-specific layout helpers live here (prefix .pg-<route>-).
+   Components/typography/tokens belong to elite.css / tokens.css.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── /quality (Elite W1 pilot) ───────────────────────────────── */
+
+.pg-quality-grid {
+  display: grid;
+  grid-template-columns: 480px 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.pg-quality-grid > .el-panel { margin-top: 0; }
+
+.pg-quality-right {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.pg-quality-right > .el-panel { margin-top: 0; }
+
+.pg-quality-radar {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.pg-quality-radar svg {
+  width: 100%;
+  height: auto;
+}
+
+.pg-quality-axis-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--el-fg);
+}
+
+.pg-quality-axis-desc {
+  font-size: 11.5px;
+  color: var(--el-fg-4);
+  margin-top: 2px;
+}
+
+.pg-quality-prog-col { width: 180px; }
+
+.pg-quality-raw {
+  text-align: right;
+  color: var(--el-fg-3);
+  white-space: nowrap;
+}
+
+.pg-quality-suggest { background: var(--el-accent-soft); }
+
+.pg-quality-suggest-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-fg-2);
+  margin: 10px 0 14px;
+}
+
+@media (max-width: 1100px) {
+  .pg-quality-grid { grid-template-columns: 1fr; }
+}
+
+/* ── /dashboard — Elite overview (SPEC W2 §5.1) ──────────────── */
+
+.pg-dashboard-kpi-title { margin: 26px 0 10px; }
+
+.pg-dashboard-cols {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 22px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+.pg-dashboard-main,
+.pg-dashboard-side {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+.pg-dashboard-main > .el-panel,
+.pg-dashboard-side > .el-panel { margin-top: 0; }
+
+.pg-dashboard-moves {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.pg-dashboard-move {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-dashboard-move-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pg-dashboard-move-body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--el-fg-3);
+  flex: 1;
+}
+
+.pg-dashboard-sysrow { grid-template-columns: 1fr auto; }
+
+.pg-dashboard-syslabel {
+  font-size: 12.5px;
+  color: var(--el-fg-3);
+}
+
+.pg-dashboard-latency {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-dashboard-latency .el-minibars {
+  width: 100%;
+  height: 64px;
+}
+
+.pg-dashboard-latency-label {
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+@media (max-width: 1100px) {
+  .pg-dashboard-cols { grid-template-columns: 1fr; }
+}
+
+/* ── /federation — cross-workspace atlas (SPEC W2 §5.5) ──────── */
+
+.pg-federation-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 1.4fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.pg-federation-grid > .el-panel { margin-top: 0; }
+
+@media (max-width: 960px) {
+  .pg-federation-grid { grid-template-columns: 1fr; }
+}
+
+.pg-federation-dist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 0 4px;
+}
+
+.pg-federation-dist svg.el-minibars {
+  width: 100%;
+  height: 72px;
+}
+
+.pg-federation-dist-note {
+  color: var(--el-fg-4);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+
+.pg-federation-hist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.pg-federation-hist-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 36px;
+  align-items: center;
+  gap: 12px;
+}
+
+.pg-federation-hist-label {
+  font-size: 12px;
+  text-transform: capitalize;
+  color: var(--el-fg-3);
+}
+
+.pg-federation-hist-track { min-width: 0; }
+
+.pg-federation-hist-count {
+  text-align: right;
+  color: var(--el-fg-4);
+}
+
+.pg-federation-sig-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pg-federation-sig-cell > .el-mono {
+  min-width: 44px;
+  text-align: right;
+}
+
+.pg-federation-sig-bar {
+  flex: 1;
+  min-width: 80px;
+  max-width: 160px;
+}
+
+.pg-federation-banner-title { font-weight: 600; }
+
+.pg-federation-empty-hint {
+  margin: 8px auto 0;
+  max-width: 52ch;
+  color: var(--el-fg-4);
+  line-height: 1.6;
+}
+
+.pg-federation-summary-tags {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── /health — vital signs (SPEC W2 §5.6) ────────────────────── */
+
+.pg-health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.pg-health-grid > .el-panel { margin-top: 0; }
+
+@media (max-width: 960px) {
+  .pg-health-grid { grid-template-columns: 1fr; }
+}
+
+.pg-health-comp-table .pg-health-comp-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pg-health-comp-detail {
+  max-width: 0;
+  width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.78;
+}
+
+.pg-health-lat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pg-health-lat-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.6fr) minmax(140px, 1.4fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.pg-health-lat-label {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.pg-health-lat-row .el-minibars {
+  width: 100%;
+  height: 32px;
+  display: block;
+}
+
+.pg-health-lat-p99 {
+  font-size: 12px;
+  opacity: 0.85;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.pg-health-lat-legend {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.45;
+  text-align: right;
+}
+
+.pg-health-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-health-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pg-health-row-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.pg-health-row-track {
+  flex: 1;
+  max-width: 320px;
+}
+
+.pg-health-empty {
+  font-size: 13px;
+  opacity: 0.55;
+  font-style: italic;
+  margin: 4px 0;
+}
+
+/* ── /settings — preferences (SPEC W2 §5.17) ─────────────────── */
+
+.pg-settings-swatch {
+  appearance: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.pg-settings-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.pg-settings-swatch-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-fg-2);
+}
+
+.pg-settings-swatch-sub {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--el-fg-5);
+}
+
+.pg-settings-note {
+  margin: 0 0 12px;
+  max-width: 62ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--el-fg-4);
+}
+
+.pg-settings-refresh {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pg-settings-current {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+.pg-settings-row { grid-template-columns: 140px 1fr; }
+
+.pg-settings-key {
+  font-size: var(--el-size-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+}
+
+.pg-settings-val {
+  font-size: 12.5px;
+  color: var(--el-fg-2);
+  overflow-wrap: anywhere;
+}
+
+.pg-settings-daemon {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--el-fg-2);
+}
+
+.pg-settings-routes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.pg-settings-skel { min-height: 56px; }
+
+.pg-settings-about-actions { margin-top: 14px; }
+
+
+/* ── /sessions — Elite W3 (SPEC §5.15): traceable history + assess detail.
+   Scope: `.pg-sessions-*` only — composes the shared `.el-*` primitives
+   (el-card, el-row, el-tag, el-empty, el-skeleton, el-stat).        ── */
+
+.pg-sessions-grid {
+  display: grid;
+  grid-template-columns: 312px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* 01 · session list ─────────────────────────────────────────────── */
+
+.pg-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.pg-sessions-item {
+  cursor: pointer;
+  padding: 10px 12px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pg-sessions-item:hover {
+  border-color: var(--el-line-strong);
+}
+
+.pg-sessions-item.active {
+  border-color: var(--el-accent);
+  background: var(--el-accent-soft);
+}
+
+.pg-sessions-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pg-sessions-item-objective {
+  font-weight: 600;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-sessions-item-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+.pg-sessions-item-sid {
+  font-size: 11px;
+}
+
+.pg-sessions-item-ts {
+  white-space: nowrap;
+}
+
+/* 02 · assess detail ────────────────────────────────────────────── */
+
+.pg-sessions-health {
+  font-size: clamp(18px, 2.2vw, 26px);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 14px;
+  word-break: break-word;
+}
+
+.pg-sessions-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-sessions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pg-sessions-row-label {
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+
+.pg-sessions-row-track {
+  flex: 1;
+  max-width: 320px;
+}
+
+/* 03 · global learner state ─────────────────────────────────────── */
+
+.pg-sessions-rl-note {
+  margin-bottom: 10px;
+  color: var(--el-fg-4);
+}
+
+/* responsive — single column under 1100px ───────────────────────── */
+
+@media (max-width: 1100px) {
+  .pg-sessions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pg-sessions-list {
+    max-height: 360px;
+  }
+}
+
+/* ── /plans — decompose orchestration board (Elite W3, SPEC §5.14) ──
+   Scoped block: `.pg-plans-*` only. Composes the global `.el-*` tokens
+   (cards, tags, tables, stage dots, empty states); nothing here touches
+   main.css / pages.css / elite.css. */
+
+/* ── 01 · Workflow templates — expandable card grid ───────────────── */
+
+.pg-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.pg-plans-card {
+  cursor: pointer;
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+.pg-plans-card:hover {
+  border-color: var(--el-accent);
+  transform: translateY(-1px);
+}
+.pg-plans-card-open {
+  border-color: var(--el-accent);
+}
+
+.pg-plans-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pg-plans-card-patterns {
+  color: var(--el-fg-3);
+}
+
+.pg-plans-card-name {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.pg-plans-card-desc {
+  margin: 0;
+  color: var(--el-fg-3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.pg-plans-card-pitfall {
+  margin: 10px 0 0;
+  color: var(--el-warn);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* Expanded playbook — real per-step list from the endpoint. */
+.pg-plans-steps {
+  margin: 12px 0 0;
+  padding: 10px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--el-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pg-plans-step {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: baseline;
+  font-size: 12.5px;
+}
+.pg-plans-step-order {
+  color: var(--el-fg-4);
+}
+.pg-plans-step-action {
+  font-weight: 550;
+}
+.pg-plans-step-cmd {
+  grid-column: 2;
+  color: var(--el-accent);
+  font-size: 11.5px;
+  word-break: break-all;
+}
+.pg-plans-step-note {
+  grid-column: 2;
+  color: var(--el-fg-4);
+  font-size: 11.5px;
+}
+.pg-plans-steps-empty {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--el-border);
+  color: var(--el-fg-4);
+  font-size: 12px;
+}
+
+/* Honest fallback banner when the endpoint yields no JSON array. */
+.pg-plans-fallback-note {
+  margin: 0 0 12px;
+  color: var(--el-warn);
+  font-size: 12.5px;
+}
+
+/* ── 02 · Pipeline — caption above the PipelineStages chart ───────── */
+
+.pg-plans-pipeline-caption {
+  margin: 0 0 14px;
+  color: var(--el-fg-3);
+  font-size: 12px;
+}
+
+/* ── 03 · Task lookup — narrow palette-style input + Fetch button ── */
+
+.pg-plans-lookup-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.pg-plans-input {
+  flex: 1 1 280px;
+  max-width: 360px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--el-border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+.pg-plans-input:focus {
+  outline: none;
+  border-color: var(--el-accent);
+}
+
+.pg-plans-task-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.pg-plans-task-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pg-plans-task-label {
+  color: var(--el-fg-4);
+}
+.pg-plans-task-value {
+  font-size: 13.5px;
+  word-break: break-word;
+}
+
+/* Shared status cell (lookup subtasks table + ready queue table). */
+.pg-plans-status-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.pg-plans-status {
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+.pg-plans-depends {
+  color: var(--el-fg-4);
+  font-size: 12px;
+}
+
+/* ── 04 · Ready queue meta line (blocked / parallel groups counts) ── */
+
+.pg-plans-queue-meta {
+  margin: 8px 0 0;
+  color: var(--el-fg-4);
+  font-size: 12px;
+}
+
+/* ── /memory — Memory palace (Elite W3 · SPEC 2026-06-12 §5.12) ──────
+   Scope: .pg-memory-* block ONLY. Composes with the shared .el-*
+   primitives in elite.css (hero, kpi strip, panel, row, tag, skeleton,
+   isopalace). The palace grouping is derived from real key prefixes —
+   the panel label says so; nothing here implies a deeper hierarchy. */
+
+.pg-memory-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.pg-memory-grid > .el-panel { margin-top: 0; }
+
+.pg-memory-palace { padding: 6px 0 2px; }
+
+.pg-memory-palace svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.pg-memory-palace-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--el-fg-5);
+}
+
+.pg-memory-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* .el-palette-input anatomy, panel-sized (bordered box, not sheet). */
+.pg-memory-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-fg);
+  font-family: var(--el-body);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  outline: none;
+}
+
+.pg-memory-input::placeholder { color: var(--el-fg-5); }
+
+.pg-memory-input:focus { border-color: var(--el-accent); }
+
+.pg-memory-hint {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--el-fg-5);
+}
+
+.pg-memory-results {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-memory-key {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  color: var(--el-fg-2);
+}
+
+.pg-memory-meta {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+/* Real RRF diagnostics (M-510 / M-520 …) — small mono footer rows. */
+.pg-memory-diag {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--el-line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pg-memory-diag-row {
+  font-size: 11px;
+  color: var(--el-fg-5);
+}
+
+.pg-memory-diag-code { color: var(--el-fg-4); }
+
+.pg-memory-entries-head {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+  margin-bottom: 8px;
+}
+
+@media (max-width: 1100px) {
+  .pg-memory-grid { grid-template-columns: 1fr; }
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   /hooks — Hooks Live (SPEC W3 §5.13, artboard hifi-hooks-live).
+   Scope: .pg-hooks-* block only — composes with global .el-* primitives
+   (el-panel, el-table, el-eyebrow, el-mono, el-empty, el-skeleton).
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Empty state — daemon unreachable (honest, never mocked) */
+.pg-hooks-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 32px;
+}
+
+.pg-hooks-empty-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-fg-4);
+  max-width: 56ch;
+}
+
+/* Panel 01 — top-24 counters table */
+.pg-hooks-counters-cap {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  letter-spacing: 0.04em;
+  margin: 4px 0 10px;
+}
+
+.pg-hooks-counters {
+  width: 100%;
+}
+
+.pg-hooks-counter-key {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.pg-hooks-counter-val {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  text-align: right;
+  color: var(--el-fg);
+  white-space: nowrap;
+  padding-right: 16px;
+}
+
+.pg-hooks-prog-col {
+  width: 38%;
+  min-width: 160px;
+}
+
+/* Panel 02 — latency histogram rows */
+.pg-hooks-lat-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-hooks-lat-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, 2fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--el-line);
+}
+
+.pg-hooks-lat-row:last-child {
+  border-bottom: none;
+}
+
+.pg-hooks-lat-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--el-fg-2);
+}
+
+.pg-hooks-lat-count {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  letter-spacing: 0.03em;
+}
+
+.pg-hooks-lat-bars {
+  min-width: 0;
+}
+
+.pg-hooks-lat-bars .el-minibars {
+  width: 100%;
+  height: 48px;
+  display: block;
+}
+
+.pg-hooks-lat-max {
+  font-size: 12px;
+  color: var(--el-fg-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.pg-hooks-lat-caption {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--el-fg-4);
+  letter-spacing: 0.03em;
+}
+
+/* Panel 03 — lifetime activity strip + legend chips */
+.pg-hooks-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pg-hooks-activity .el-minibars {
+  width: 100%;
+  max-width: 480px;
+  height: 64px;
+  display: block;
+}
+
+.pg-hooks-activity-note {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  letter-spacing: 0.03em;
+}
+
+.pg-hooks-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pg-hooks-legend-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius-sm);
+  background: var(--el-surface-2);
+  font-size: 12px;
+  color: var(--el-fg-2);
+}
+
+.pg-hooks-legend-val {
+  color: var(--el-accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Responsive collapse for the latency grid */
+@media (max-width: 720px) {
+  .pg-hooks-lat-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .pg-hooks-lat-max {
+    text-align: left;
+  }
+
+  .pg-hooks-prog-col {
+    min-width: 100px;
+  }
+}
+
+/* ── /quality/rules — TOML ruleset editor (Elite W3, SPEC §5.3) ──
+   Scoped block: `.pg-qrules-*` only. Composes the global `.el-*`
+   primitives (panels, tags, banners, cards, mono, skeleton); nothing
+   here touches main.css / pages.css / elite.css. */
+
+/* ── Layout — artboard hifi-quality-rules: editor 1.4fr / column 1fr ── */
+
+.pg-qrules-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 1020px) {
+  .pg-qrules-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pg-qrules-right {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── 01 · rules.toml editor ──────────────────────────────────────── */
+
+.pg-qrules-pathrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.pg-qrules-path {
+  overflow-wrap: anywhere;
+}
+
+.pg-qrules-meta {
+  color: var(--el-fg-4);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.pg-qrules-newfile {
+  margin-bottom: 10px;
+}
+
+/* Plain mono textarea — syntax-highlight overlay deliberately deferred
+   in W3 (scroll-synced mirror div adds complexity, zero data value). */
+.pg-qrules-editor {
+  width: 100%;
+  min-height: 480px;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: var(--el-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  color: var(--el-fg);
+  background: var(--el-surface-2);
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius-sm);
+  padding: 12px 14px;
+  white-space: pre;
+  overflow: auto;
+  caret-color: var(--el-accent);
+}
+.pg-qrules-editor:focus {
+  outline: none;
+  border-color: var(--el-accent);
+}
+
+/* ── 02 · Save state ─────────────────────────────────────────────── */
+
+.pg-qrules-hint {
+  color: var(--el-fg-4);
+  font-family: var(--el-mono);
+  font-size: 12.5px;
+}
+
+.pg-qrules-saved {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.pg-qrules-save-path {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  overflow-wrap: anywhere;
+}
+
+.pg-qrules-save-bytes {
+  font-size: 12.5px;
+  color: var(--el-fg-3);
+}
+
+/* Real parser messages keep their line/column carets — preserve them. */
+.pg-qrules-err {
+  white-space: pre-wrap;
+  font-family: var(--el-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* ── 03 · Evaluate ───────────────────────────────────────────────── */
+
+.pg-qrules-pass {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.pg-qrules-signal {
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+
+.pg-qrules-vios {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-qrules-vio-count {
+  font-size: 11.5px;
+  color: var(--el-fg-4);
+}
+
+.pg-qrules-vio {
+  padding: 12px 14px;
+}
+.pg-qrules-vio-deny {
+  background: var(--el-neg-soft);
+}
+.pg-qrules-vio-warn {
+  background: var(--el-warn-soft);
+}
+
+.pg-qrules-vio-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.pg-qrules-vio-name {
+  font-weight: 650;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+}
+
+.pg-qrules-vio-msg {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--el-fg-2);
+  margin-bottom: 6px;
+}
+
+.pg-qrules-vio-metric {
+  font-size: 11.5px;
+  color: var(--el-fg-3);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   /quality/diff — Snapshot Diff (SPEC W3 §5.4, artboard hifi-quality-diff).
+   Scope: .pg-qdiff-* block only — composes with global .el-* primitives
+   (el-panel, el-table, el-eyebrow, el-mono, el-empty, el-skeleton,
+   el-chart-legend, el-btn, el-kpi-*). All colors come from elite tokens.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Panel 01 — snapshot picker row (prev select · swap · curr select) */
+.pg-qdiff-picker {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 6px 0 2px;
+}
+
+.pg-qdiff-picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+}
+
+.pg-qdiff-picker-tag-prev { color: var(--el-violet); }
+.pg-qdiff-picker-tag-curr { color: var(--el-accent); }
+
+.pg-qdiff-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 6px;
+  color: var(--el-fg);
+  font-family: var(--el-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  padding: 8px 28px 8px 10px;
+  cursor: pointer;
+}
+
+.pg-qdiff-select:focus-visible {
+  outline: 1px solid var(--el-accent);
+  outline-offset: 1px;
+}
+
+.pg-qdiff-picker-note {
+  margin-left: auto;
+  align-self: center;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--el-fg-4);
+  text-transform: uppercase;
+}
+
+/* Lower split — radar overlay (fixed) · delta table (fluid) */
+.pg-qdiff-grid {
+  display: grid;
+  grid-template-columns: 480px 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+@media (max-width: 1180px) {
+  .pg-qdiff-grid { grid-template-columns: 1fr; }
+}
+
+/* Panel 02 — radar overlay legend (prev violet dashed · curr accent) */
+.pg-qdiff-legend {
+  display: flex;
+  gap: 18px;
+  margin: 2px 0 6px;
+}
+
+.pg-qdiff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--el-fg-2);
+}
+
+.pg-qdiff-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.pg-qdiff-swatch-prev {
+  background: transparent;
+  border: 1.5px dashed var(--el-violet);
+}
+
+.pg-qdiff-swatch-curr {
+  background: var(--el-accent);
+}
+
+.pg-qdiff-radar {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 2px;
+}
+
+/* Panels 03/04 — delta tables (numeric columns right-aligned, tabular) */
+.pg-qdiff-table { width: 100%; }
+
+.pg-qdiff-th-num,
+.pg-qdiff-val-prev,
+.pg-qdiff-val-curr,
+.pg-qdiff-val-delta {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
+
+.pg-qdiff-axis { color: var(--el-fg); }
+
+.pg-qdiff-raw-key {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  white-space: nowrap;
+}
+
+.pg-qdiff-val-prev  { color: var(--el-violet); }
+.pg-qdiff-val-curr  { color: var(--el-accent); }
+.pg-qdiff-val-delta { color: var(--el-fg-2); }
+
+/* Dual-marker knob — prev (violet) vs curr (accent) on a shared track */
+.pg-qdiff-knob-col {
+  width: 32%;
+  min-width: 150px;
+  padding-left: 16px;
+}
+
+.pg-qdiff-knob {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--el-line-strong);
+}
+
+.pg-qdiff-knob-marker {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.pg-qdiff-knob-prev {
+  background: var(--el-violet);
+  opacity: 0.85;
+}
+
+.pg-qdiff-knob-curr {
+  background: var(--el-accent);
+}
+
+/* ── /orphans — Orphan registry (Elite W3 · SPEC 2026-06-12 §5.7) ────
+   Scope: .pg-orphans-* block ONLY. Composes the shared .el-* primitives
+   in elite.css (hero, kpi strip, panel, table, row, tag, btn, empty,
+   skeleton). Left column = filterable paginated registry (50/page over
+   1,531 rows); right rail = why/suggest/impact probes whose all-zero
+   impact counters are the visual proof of orphan-ness.               */
+
+.pg-orphans-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+  align-items: start;
+}
+
+.pg-orphans-grid > .el-panel { margin-top: 0; }
+
+/* 01 · registry controls ────────────────────────────────────────── */
+
+.pg-orphans-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* .el-palette-input anatomy, panel-sized (bordered box, not sheet). */
+.pg-orphans-filter {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-fg);
+  font-family: var(--el-body);
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  outline: none;
+}
+
+.pg-orphans-filter::placeholder { color: var(--el-fg-5); }
+
+.pg-orphans-filter:focus { border-color: var(--el-accent); }
+
+.pg-orphans-kind {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-fg-2);
+  font-family: var(--el-body);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.pg-orphans-kind:focus { border-color: var(--el-accent); }
+
+.pg-orphans-shown {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  white-space: nowrap;
+}
+
+/* 01 · registry table ───────────────────────────────────────────── */
+
+.pg-orphans-table td { vertical-align: middle; }
+
+.pg-orphans-table tbody tr.active,
+.pg-orphans-table tbody tr.active:hover {
+  background: var(--el-accent-soft);
+}
+
+.pg-orphans-sym {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  overflow-wrap: anywhere;
+}
+
+.pg-orphans-module {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  white-space: nowrap;
+}
+
+.pg-orphans-pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.pg-orphans-page-label {
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+/* inspect rail ──────────────────────────────────────────────────── */
+
+.pg-orphans-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 18px;
+}
+
+.pg-orphans-rail > .el-panel { margin-top: 0; }
+
+.pg-orphans-rail-empty { padding: 28px 16px; }
+
+/* 02 · why orphan card */
+
+.pg-orphans-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.pg-orphans-card-sym {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-fg);
+  overflow-wrap: anywhere;
+}
+
+.pg-orphans-card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pg-orphans-card-module {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  overflow-wrap: anywhere;
+}
+
+.pg-orphans-card-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--el-fg-5);
+}
+
+/* 03 · suggest */
+
+.pg-orphans-suggest {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-orphans-suggest-row .el-mono {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  overflow-wrap: anywhere;
+}
+
+/* The daemon's own diagnostic note, rendered verbatim. */
+.pg-orphans-suggest-note {
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+/* 04 · impact */
+
+.pg-orphans-impact {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-orphans-impact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pg-orphans-impact-label {
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+
+.pg-orphans-proof {
+  padding: 12px 0 4px;
+}
+
+.pg-orphans-paths {
+  margin-top: 12px;
+}
+
+.pg-orphans-paths-label {
+  margin-bottom: 6px;
+  color: var(--el-fg-4);
+}
+
+.pg-orphans-path-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pg-orphans-path-module {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* responsive ────────────────────────────────────────────────────── */
+
+@media (max-width: 1080px) {
+  .pg-orphans-grid { grid-template-columns: 1fr; }
+  .pg-orphans-rail { position: static; }
+}
+
+/* ── /search — fused search (Elite W3 · SPEC 2026-06-12 §5.11) ───────
+   Scope: .pg-search-* block ONLY. Composes with the shared .el-*
+   primitives in elite.css (hero, card, palette-group, result-row, tag,
+   kbd, empty, skeleton). The timing line shows honest client-measured
+   fetch latency per source — never an invented number. */
+
+.pg-search-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+  padding: 10px 20px;
+  transition:
+    border-color var(--el-dur) var(--el-ease),
+    box-shadow var(--el-dur) var(--el-ease);
+}
+
+/* Accent glow when the big input holds focus. */
+.pg-search-box:focus-within {
+  border-color: var(--el-accent-hair);
+  box-shadow:
+    0 0 0 3px var(--el-accent-soft),
+    0 0 24px var(--el-accent-soft);
+}
+
+.pg-search-box .el-icon {
+  flex: none;
+  color: var(--el-fg-5);
+}
+
+.pg-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 58px;
+  border: none;
+  background: transparent;
+  color: var(--el-fg);
+  font-family: var(--el-body);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  outline: none;
+}
+
+.pg-search-input::placeholder { color: var(--el-fg-5); }
+
+/* Source pills — el-tag anatomy on a real <button>. */
+.pg-search-pills {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.pg-search-pill {
+  cursor: pointer;
+  background: transparent;
+  font-family: var(--el-body);
+}
+
+/* Honest per-source latency line (client js_sys::Date::now deltas). */
+.pg-search-timing {
+  margin: 10px 2px 2px;
+  font-size: 11px;
+  color: var(--el-fg-5);
+}
+
+.pg-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pg-search-group {
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.pg-search-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pg-search-group-count {
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--el-fg-5);
+}
+
+.pg-search-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Rows carry no click action on this page (links arrive with W4) —
+   keep the shared hover affordance but a default cursor, honestly. */
+.pg-search-group .el-result-row { cursor: default; }
+
+.pg-search-group .el-result-row .hint {
+  max-width: 52%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-search-symbol {
+  font-weight: 500;
+  color: var(--el-fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-search-key {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tier/type tags own the right edge of a memory row. */
+.pg-search-tags {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .pg-search-input { font-size: 18px; height: 48px; }
+  .pg-search-group .el-result-row .hint { max-width: 40%; }
+}
+
+/* ── /wiring — Elite W3 (SPEC §5.8): modules & integration.
+   Scope: `.pg-wiring-*` only — composes the shared `.el-*` primitives
+   (el-table, el-tag, el-empty, el-skeleton, el-btn, el-prog-track).  ── */
+
+/* 01 · module table toolbar ─────────────────────────────────────── */
+
+.pg-wiring-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.pg-wiring-filter {
+  flex: 1;
+  min-width: 220px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-fg);
+  font-family: var(--el-body);
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  outline: none;
+}
+
+.pg-wiring-filter::placeholder { color: var(--el-fg-5); }
+
+.pg-wiring-filter:focus { border-color: var(--el-accent); }
+
+.pg-wiring-sort {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 8px;
+  background: var(--el-surface);
+  color: var(--el-fg-2);
+  font-family: var(--el-body);
+  font-size: 12.5px;
+  outline: none;
+  cursor: pointer;
+}
+
+.pg-wiring-sort:focus { border-color: var(--el-accent); }
+
+/* 01 · module table ─────────────────────────────────────────────── */
+
+.pg-wiring-table { width: 100%; }
+
+.pg-wiring-path {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  white-space: nowrap;
+}
+
+.pg-wiring-prog-col {
+  width: 34%;
+  min-width: 200px;
+}
+
+.pg-wiring-zero {
+  color: var(--el-fg-5);
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-wiring-pubs,
+.pg-wiring-th-right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 01 · pager ────────────────────────────────────────────────────── */
+
+.pg-wiring-pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pg-wiring-page-label {
+  font-size: 12px;
+  color: var(--el-fg-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pg-wiring-pager-total {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--el-fg-5);
+}
+
+/* 02/03 · secondary panels (chains + svg) ───────────────────────── */
+
+.pg-wiring-secondary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-top: 20px;
+}
+
+@media (max-width: 980px) {
+  .pg-wiring-secondary { grid-template-columns: 1fr; }
+}
+
+.pg-wiring-chains-count {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+
+.pg-wiring-chains-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.pg-wiring-chain-item {
+  font-size: 12px;
+  color: var(--el-fg-2);
+  padding: 8px 10px;
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-wiring-svg {
+  overflow: auto;
+  max-height: 520px;
+}
+
+.pg-wiring-svg svg {
+  width: 100%;
+  height: auto;
+}
+
+
+/* ── /cognitive — Cognitive engines (Elite re-skin, SPEC §5.16) ──────────
+   Block: .pg-cognitive-* only — composes with the shared el-* primitives
+   (el-hero, el-kpi-strip, el-panel, el-prog-track, el-empty).
+   Page accent: violet #a78bfa (predictive / orchestration layer). */
+
+.pg-cognitive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  margin-top: 28px;
+}
+
+.pg-cognitive-engine {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pg-cognitive-engine-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pg-cognitive-engine-name {
+  font-family: "Inter Tight", Inter, sans-serif;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.pg-cognitive-status {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pg-cognitive-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-fg-4, #8a8f98);
+}
+
+.pg-cognitive-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-cognitive-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-top: 1px solid var(--el-line, rgba(127, 127, 127, 0.16));
+}
+
+.pg-cognitive-row-key {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  color: var(--el-fg-3, #9aa1ab);
+}
+
+.pg-cognitive-row-val {
+  font-size: 13px;
+}
+
+.pg-cognitive-row-track {
+  flex: 1;
+  max-width: 220px;
+}
+
+/* Violet accent on the hero em segment, scoped to this page only. */
+.pg-cognitive .el-hero-em {
+  color: #a78bfa;
+}
+
+/* ── /mcp — MCP Tools executor (Elite W4, SPEC §6.1) ───────────────── */
+
+.pg-mcp-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-top: 28px;
+}
+.pg-mcp-grid > .el-panel { margin-top: 0; }
+
+/* ── 01 · Catalog ─────────────────────────────────────────────────── */
+
+.pg-mcp-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+.pg-mcp-row {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+}
+
+.pg-mcp-name {
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+}
+.pg-mcp-name-prefix { color: var(--el-fg-5); }
+.pg-mcp-name-rest   { color: var(--el-accent); }
+
+/* ── 02 · Executor ────────────────────────────────────────────────── */
+
+.pg-mcp-exec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-mcp-exec-name {
+  font-size: 14px;
+  color: var(--el-fg);
+}
+
+.pg-mcp-doc {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--el-fg-3);
+  margin: 0;
+}
+
+.pg-mcp-arg {
+  width: 100%;
+  padding: 9px 12px;
+  font-family: var(--el-mono);
+  font-size: 12.5px;
+  color: var(--el-fg);
+  background: var(--el-surface-2);
+  border: 1px solid var(--el-line);
+  border-radius: var(--el-radius-sm);
+  outline: none;
+}
+.pg-mcp-arg:focus { border-color: var(--el-accent); }
+
+.pg-mcp-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pg-mcp-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pg-mcp-output {
+  max-height: 380px;
+  overflow: auto;
+}
+
+/* ── 03 · Job queue ───────────────────────────────────────────────── */
+
+.pg-mcp-jobid {
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
+  .pg-mcp-grid { grid-template-columns: 1fr; }
+}
+
+/* ── /wiring/impact — BFS blast radius (Elite W4, SPEC §6.2) ─────────
+   Closed .pg-impact-* block; composes the shared .el-* primitives
+   (palette input, transport bar, banner, rows, prog track). */
+
+.pg-impact-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 24px;
+}
+
+.pg-impact-input {
+  flex: 1;
+  max-width: 440px;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: var(--el-radius-sm);
+  background: var(--el-surface);
+}
+
+.pg-impact-depth-select {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: var(--el-radius-sm);
+  background: var(--el-surface);
+  color: var(--el-fg-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pg-impact-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 22px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+.pg-impact-grid > .el-panel { margin-top: 0; }
+
+.pg-impact-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pg-impact-rings-wrap { display: flex; flex-direction: column; }
+
+.pg-impact-rings { width: 100%; }
+
+.pg-impact-rings .el-depthrings {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.pg-impact-cap-banner { margin-bottom: 12px; }
+
+.pg-impact-transport { margin-top: 14px; }
+
+.pg-impact-transport-label {
+  font-size: 11px;
+  color: var(--el-fg-4);
+  white-space: nowrap;
+}
+
+.pg-impact-nucleus { padding: 16px; }
+
+.pg-impact-nucleus-sym {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-fg);
+  word-break: break-all;
+}
+
+.pg-impact-nucleus-counts {
+  margin-top: 6px;
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+.pg-impact-depth-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pg-impact-depth-label {
+  width: 36px;
+  flex: none;
+  font-size: 11px;
+  color: var(--el-fg-3);
+}
+
+.pg-impact-depth-track { flex: 1; min-width: 0; }
+
+.pg-impact-depth-count {
+  width: 36px;
+  flex: none;
+  text-align: right;
+  font-size: 11px;
+  color: var(--el-fg-2);
+}
+
+.pg-impact-path-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pg-impact-path-main { flex: 1; min-width: 0; }
+
+.pg-impact-path-sym {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--el-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-impact-path-mod {
+  display: block;
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-impact-path-depth {
+  flex: none;
+  font-size: 11px;
+  color: var(--el-fg-3);
+}
+
+.pg-impact-zero-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+.pg-impact-empty .el-hero-actions {
+  margin-top: 12px;
+  justify-content: center;
+}
+
+@media (max-width: 1100px) {
+  .pg-impact-grid { grid-template-columns: 1fr; }
+  .pg-impact-input { max-width: none; }
+}
+
+/* ── /speculate — 6-layer speculative validation radar (Elite W4, SPEC §6.3) ──
+   Page-scoped block: .pg-speculate-* only. Composes with the shared
+   .el-* primitives (el-card, el-table, el-tag, el-banner, el-empty). */
+
+/* path input bar — el-card surface + borderless inline input */
+.pg-speculate-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+.pg-speculate-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--el-fg-1);
+  font-family: var(--el-mono-font, ui-monospace, monospace);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+.pg-speculate-input::placeholder {
+  color: var(--el-fg-4);
+}
+
+/* two-column working grid: fixed radar column + fluid per-layer column */
+.pg-speculate-grid {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: 24px;
+  align-items: start;
+  margin-top: 24px;
+}
+@media (max-width: 1100px) {
+  .pg-speculate-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* radar panel body */
+.pg-speculate-radar {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+.pg-speculate-radar-svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* right column — per-layer table panel + diagnostic cards stack */
+.pg-speculate-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.pg-speculate-layer-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pg-speculate-prog-col {
+  width: 34%;
+  min-width: 160px;
+}
+.pg-speculate-diag-count {
+  text-align: right;
+  color: var(--el-fg-3);
+}
+
+/* warn-tinted diagnostics card — real messages per failed layer */
+.pg-speculate-diag-card {
+  border-left: 2px solid var(--el-warn);
+  background: color-mix(in srgb, var(--el-warn) 6%, transparent);
+}
+.pg-speculate-diag-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--el-fg-2);
+}
+
+/* initial empty state — three real clickable file suggestions */
+.pg-speculate-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  margin-top: 24px;
+}
+.pg-speculate-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.pg-speculate-suggest .el-btn {
+  font-family: var(--el-mono-font, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+/* endpoint error banner spacing under the KPI strip */
+.pg-speculate-banner {
+  margin-top: 24px;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   /workspace — Atlas elite page (SPEC W5 §8). `.pg-atlas-*` block ONLY.
+   Replaces the dead `ws-atlas-*` / `ws-nd-*` Rust-side dialect. Engine
+   ids (#workspace-graph-container, #node-details-panel + nd-* ids) are
+   untouched; JS-injected children (.ndflag, .nd-edge, .nd-empty,
+   .ws-mount*) keep their global styles in main.css.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Page shell — full-bleed (no el-main-editorial) ─────────────── */
+
+.page.pg-atlas {
+  max-width: none;
+  padding: 16px 22px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Compact hero — same el-hero anatomy, tightened for a full-bleed tool
+   page (the atlas canvas is the protagonist, not the headline). */
+.pg-atlas-hero {
+  padding: 10px 0 6px;
+  margin-bottom: 0;
+}
+.pg-atlas-hero .el-hero-title {
+  font-size: clamp(34px, 4.6vw, 56px);
+  line-height: 1.04;
+}
+.pg-atlas-hero .el-hero-sub {
+  max-width: 560px;
+  font-size: 13.5px;
+}
+.pg-atlas-hero .el-hero-stat-value {
+  font-size: clamp(40px, 5vw, 72px);
+}
+
+/* ── 2. Atlas grid: 232px layers · 1fr canvas · 320px rail ─────────── */
+
+.pg-atlas-body {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr) 320px;
+  gap: 14px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+/* Left + right rails — independent scroll, sticky against the canvas */
+.pg-atlas-side,
+.pg-atlas-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  position: sticky;
+  top: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--el-line-strong) transparent;
+}
+.pg-atlas-side > .el-panel,
+.pg-atlas-rail > .el-panel {
+  margin-top: 0;
+}
+
+/* ── 3. LAYERS panel — cluster legend + live stats ─────────────────── */
+
+.pg-atlas-clusters {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.pg-atlas-cluster-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 11.5px var(--el-body);
+  color: var(--el-fg-3);
+}
+.pg-atlas-cluster-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.pg-atlas-cluster-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-atlas-cluster-count {
+  font: 600 10.5px var(--el-mono);
+  color: var(--el-fg-4);
+}
+
+.pg-atlas-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--el-line);
+}
+.pg-atlas-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pg-atlas-stat-num {
+  font: 600 14px var(--el-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--el-fg);
+}
+.pg-atlas-stat-lbl {
+  font: 400 9px var(--el-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+}
+
+/* ── 4. OPTICS panel — lens · nucleus · chain ──────────────────────── */
+
+.pg-atlas-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.pg-atlas-field:last-child {
+  margin-bottom: 0;
+}
+.pg-atlas-field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font: 400 9.5px var(--el-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+}
+.pg-atlas-field-hint {
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--el-accent);
+}
+
+/* Segmented control — shared by the aspect lens (.pg-atlas-lens) and
+   the Sphere/Chain view toggle. Buttons are el-btn-sm re-skinned into
+   a single fused track. */
+.pg-atlas-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 1px solid var(--el-line-strong);
+  border-radius: var(--el-radius-sm, 8px);
+  overflow: hidden;
+  background: var(--el-surface);
+}
+.pg-atlas-seg .el-btn,
+.pg-atlas-seg button {
+  flex: 1 1 auto;
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid var(--el-line);
+  background: transparent;
+  font: 500 10.5px var(--el-mono);
+  letter-spacing: 0.05em;
+  padding: 6px 8px;
+  color: var(--el-fg-4);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.pg-atlas-seg .el-btn:last-child,
+.pg-atlas-seg button:last-child {
+  border-right: none;
+}
+.pg-atlas-seg .el-btn:hover,
+.pg-atlas-seg button:hover {
+  color: var(--el-fg-2);
+  background: var(--el-accent-soft);
+}
+.pg-atlas-seg .el-btn.active,
+.pg-atlas-seg button.active {
+  color: var(--el-accent);
+  background: var(--el-accent-soft);
+  box-shadow: inset 0 -2px 0 var(--el-accent);
+}
+
+/* The lens variant wraps to two rows gracefully (5 lenses, 232px rail) */
+.pg-atlas-lens .el-btn,
+.pg-atlas-lens button {
+  flex: 1 1 33%;
+  min-width: 64px;
+}
+
+.pg-atlas-select {
+  width: 100%;
+  padding: 7px 9px;
+  font: 400 11.5px var(--el-mono);
+  color: var(--el-fg-2);
+  background: var(--el-surface);
+  border: 1px solid var(--el-line-strong);
+  border-radius: var(--el-radius-sm, 8px);
+  outline: none;
+}
+.pg-atlas-select:focus {
+  border-color: var(--el-accent);
+}
+
+/* ── 5. SHELLS panel — engine visibility toggles ───────────────────── */
+
+.pg-atlas-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.pg-atlas-toggles:last-child {
+  margin-bottom: 0;
+}
+.pg-atlas-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 11.5px var(--el-body);
+  color: var(--el-fg-3);
+  cursor: pointer;
+  user-select: none;
+}
+.pg-atlas-toggle input[type="checkbox"] {
+  accent-color: var(--el-accent);
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  flex: none;
+}
+.pg-atlas-toggle-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--swatch, var(--el-fg-5));
+  box-shadow: 0 0 6px var(--swatch, transparent);
+}
+.pg-atlas-toggle-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── 6. ENCODING legend ────────────────────────────────────────────── */
+
+.pg-atlas-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font: 400 11px var(--el-body);
+  color: var(--el-fg-4);
+}
+.pg-atlas-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pg-atlas-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.pg-atlas-glow {
+  box-shadow: 0 0 8px currentColor, 0 0 8px rgba(255, 255, 255, 0.35);
+}
+.pg-atlas-diamond {
+  border-radius: 2px;
+  transform: rotate(45deg) scale(0.85);
+}
+.pg-atlas-square {
+  border-radius: 2px;
+}
+.pg-atlas-dashed {
+  background: transparent;
+  border: 1.5px dashed currentColor;
+}
+
+/* ── 7. CENTER — toolbar + canvas ──────────────────────────────────── */
+
+.pg-atlas-center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 12px;
+  background: var(--el-surface);
+  overflow: hidden;
+}
+
+.pg-atlas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--el-line);
+  flex: none;
+  flex-wrap: wrap;
+}
+.pg-atlas-toolbar-title {
+  font: 600 11px var(--el-mono);
+  letter-spacing: 0.06em;
+  color: var(--el-accent);
+}
+.pg-atlas-toolbar-counts {
+  font: 400 10.5px var(--el-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--el-fg-4);
+}
+.pg-atlas-toolbar-spacer {
+  flex: 1;
+}
+.pg-atlas-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pg-atlas-search {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--el-line-strong);
+  border-radius: var(--el-radius-sm, 8px);
+  overflow: hidden;
+  background: var(--el-surface);
+}
+.pg-atlas-search input {
+  width: 170px;
+  padding: 6px 9px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: 400 11.5px var(--el-mono);
+  color: var(--el-fg-2);
+}
+.pg-atlas-search input::placeholder {
+  color: var(--el-fg-5);
+}
+.pg-atlas-search button {
+  border: none;
+  border-left: 1px solid var(--el-line);
+  background: transparent;
+  font: 600 10.5px var(--el-mono);
+  letter-spacing: 0.05em;
+  padding: 6px 11px;
+  color: var(--el-accent);
+  cursor: pointer;
+}
+.pg-atlas-search button:hover {
+  background: var(--el-accent-soft);
+}
+
+/* Canvas cell — engine mounts #workspace-graph-container here.
+   Absolute-inset guarantees a definite box for the JS ResizeObserver
+   (ENGINE CONTRACT — do not change the id). */
+.pg-atlas-canvas {
+  flex: 1;
+  min-height: 560px;
+  position: relative;
+}
+.pg-atlas-canvas #workspace-graph-container {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+}
+
+/* Loading / error message — centered in the canvas cell */
+.pg-atlas-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  font: italic 400 14px var(--el-display);
+  letter-spacing: -0.01em;
+  color: var(--el-fg-4);
+}
+.pg-atlas-msg-error {
+  font: 400 12.5px var(--el-body);
+  max-width: 360px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ── 8. FALLBACK 2D (SPEC §8.2/§8.3) — SVG Pauling shells ──────────── */
+
+.pg-atlas-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  min-height: 0;
+}
+.pg-atlas-banner {
+  align-self: flex-start;
+  flex: none;
+}
+.pg-atlas-fallback .el-depthrings {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+/* ── 9. RIGHT rail — dossier · top crates · chains link ────────────── */
+
+/* Node dossier — JS toggles `.open` on #node-details-panel (ENGINE
+   CONTRACT). Closed = collapsed; open = max-height/opacity reveal. */
+.pg-atlas-dossier {
+  position: static;
+  width: auto;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--el-violet-soft, rgba(167, 139, 250, 0.28));
+  border-radius: 10px;
+  background: var(--el-surface);
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+.pg-atlas-dossier.open {
+  opacity: 1;
+  max-height: 1400px;
+  padding: 12px;
+}
+
+.pg-atlas-nd-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pg-atlas-nd-eyebrow {
+  color: var(--el-violet);
+}
+.pg-atlas-nd-title {
+  margin: 2px 0 0;
+  font: 600 14px var(--el-body);
+  color: var(--el-fg);
+  word-break: break-all;
+}
+.pg-atlas-nd-id {
+  font: 400 9.5px var(--el-mono);
+  color: var(--el-fg-5);
+  word-break: break-all;
+  margin-top: 2px;
+}
+.pg-atlas-nd-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--el-fg-4);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pg-atlas-nd-close:hover {
+  color: var(--el-neg);
+  border-color: var(--el-neg-soft, rgba(244, 63, 94, 0.25));
+}
+
+/* JS injects `.ndflag` chips here (global styles in main.css) */
+.pg-atlas-nd-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.pg-atlas-nd-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-line);
+  border-radius: 10px;
+  background: var(--el-surface-2, rgba(255, 255, 255, 0.02));
+}
+.pg-atlas-nd-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pg-atlas-nd-stat-label {
+  font: 400 9px var(--el-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+}
+.pg-atlas-nd-stat-value {
+  font: 600 12px var(--el-mono);
+  color: var(--el-fg);
+  word-break: break-word;
+}
+
+.pg-atlas-nd-radar-wrap {
+  margin: 0 auto 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+.pg-atlas-nd-radar-wrap canvas {
+  display: block;
+  width: 220px;
+  height: 200px;
+}
+
+.pg-atlas-nd-section-title {
+  font: 400 9.5px var(--el-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+  margin-bottom: 7px;
+}
+
+/* JS injects `.nd-edge` / `.nd-empty` rows here (global styles) */
+.pg-atlas-nd-edges {
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* Empty-state hint — auto-hidden the moment the dossier opens */
+.pg-atlas-hint {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--el-fg-5);
+  border: 1px dashed var(--el-line-strong);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.pg-atlas-dossier.open + .pg-atlas-hint {
+  display: none;
+}
+
+/* Top crates table — share bar under the crate name cell */
+.pg-atlas-table {
+  width: 100%;
+}
+.pg-atlas-table th {
+  font: 400 9px var(--el-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--el-fg-5);
+  text-align: left;
+  padding: 4px 6px;
+}
+.pg-atlas-table td {
+  padding: 5px 6px;
+  font-size: 11.5px;
+}
+.pg-atlas-table-crate {
+  position: relative;
+  overflow: hidden;
+}
+.pg-atlas-table-crate > span:last-child {
+  position: relative;
+  font: 400 11px var(--el-mono);
+  color: var(--el-fg-2);
+}
+.pg-atlas-bar {
+  position: absolute;
+  left: 0;
+  top: 15%;
+  bottom: 15%;
+  width: var(--w, 0%);
+  background: var(--el-accent-soft);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.pg-atlas-table-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-fg-3);
+}
+
+.pg-atlas-chain-link {
+  justify-content: center;
+  text-align: center;
+  letter-spacing: 0.12em;
+}
+
+/* ── 10. Responsive collapse ───────────────────────────────────────── */
+
+@media (max-width: 1180px) {
+  .pg-atlas-body {
+    grid-template-columns: 212px minmax(0, 1fr);
+  }
+  .pg-atlas-rail {
+    grid-column: 1 / -1;
+    position: static;
+    max-height: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .pg-atlas-rail > * {
+    flex: 1 1 300px;
+  }
+}
+
+@media (max-width: 820px) {
+  .pg-atlas-body {
+    grid-template-columns: 1fr;
+  }
+  .pg-atlas-side {
+    position: static;
+    max-height: none;
+  }
+  .pg-atlas-canvas {
+    min-height: 420px;
+  }
+}
+
+/* ── /chains — Elite W5 re-skin (SPEC §5.10, artboard hifi-elite-chain) ──
+   Page-scoped block: `.pg-chains-*` ONLY. Primitives (.el-btn, .el-panel,
+   .el-transport, .el-prog-track, .el-skeleton…) live in elite.css; tokens
+   (--el-accent / --el-violet / --el-line…) in tokens.css. */
+
+/* ── Layout: main column + right rail ───────────────────────────── */
+
+.pg-chains-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.pg-chains-main,
+.pg-chains-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── Panel 01 — lane diagram ────────────────────────────────────── */
+
+.pg-chains-svg-host svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pg-chains-node {
+  transition: fill-opacity var(--el-dur-slow) var(--el-ease);
+}
+
+.pg-chains-diagram-note {
+  margin: 10px 2px 0;
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+/* Honest 0-chains banner (chain_count=0 from /api/wiring/chains). */
+.pg-chains-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  border: 1px dashed var(--el-line-strong);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+
+.pg-chains-banner code {
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-warn);
+}
+
+/* ── Transport (extends .el-transport from elite.css) ───────────── */
+
+.pg-chains-scrub {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 18px;
+  min-width: 120px;
+}
+
+.pg-chains-scrub .el-prog-track {
+  width: 100%;
+  height: 3px;
+}
+
+/* Invisible quarter-width seek segments — one per lane. */
+.pg-chains-seek-seg {
+  position: absolute;
+  top: 0;
+  width: 25%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pg-chains-seek-seg:focus-visible {
+  outline: 1px solid var(--el-accent);
+  outline-offset: -1px;
+}
+
+.pg-chains-lane-label {
+  min-width: 64px;
+  text-align: center;
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-3);
+}
+
+.pg-chains-speed {
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 6px;
+  background: var(--el-surface);
+  color: var(--el-fg-2);
+  font-family: var(--el-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* ── Panel 02 — functional chains table ─────────────────────────── */
+
+.pg-chains-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-chains-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--el-line);
+  font-size: 12px;
+}
+
+.pg-chains-row:last-child {
+  border-bottom: 0;
+}
+
+.pg-chains-idx {
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+.pg-chains-flow code {
+  font-family: var(--el-mono);
+  font-size: 11.5px;
+  color: var(--el-fg-2);
+}
+
+.pg-chains-arrow {
+  margin: 0 8px;
+  color: var(--el-accent);
+}
+
+/* ── Empty / unavailable states (honest, no invented data) ──────── */
+
+.pg-chains-empty {
+  padding: 28px 8px;
+  text-align: center;
+}
+
+.pg-chains-empty-note {
+  margin: 8px auto 0;
+  max-width: 420px;
+  font-size: 12px;
+  color: var(--el-fg-4);
+}
+
+.pg-chains-empty-cmd {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 6px;
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-accent);
+}
+
+/* ── Right rail — selected lane ─────────────────────────────────── */
+
+.pg-chains-sel-name {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--el-fg-3);
+}
+
+.pg-chains-dir {
+  margin: 2px 0;
+  font-family: var(--el-mono);
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  color: var(--el-accent);
+}
+
+.pg-chains-dir-sub {
+  margin: 2px 0 0;
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+.pg-chains-wavefront {
+  margin-top: 14px;
+}
+
+.pg-chains-wave-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--el-line);
+  font-size: 12px;
+}
+
+.pg-chains-wave-row:last-child {
+  border-bottom: 0;
+}
+
+.pg-chains-wave-name {
+  font-family: var(--el-mono);
+  color: var(--el-fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chains-wave-deg {
+  font-family: var(--el-mono);
+  color: var(--el-fg-4);
+  flex: none;
+}
+
+/* ── Right rail — lane census (clickable lane headers) ──────────── */
+
+.pg-chains-lane-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--el-fg-2);
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pg-chains-lane-row:hover {
+  border-color: var(--el-line);
+}
+
+.pg-chains-lane-row.active {
+  border-color: var(--el-line-strong);
+  background: var(--el-violet-soft);
+}
+
+.pg-chains-lane-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.pg-chains-lane-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chains-lane-count {
+  font-family: var(--el-mono);
+  color: var(--el-fg-3);
+}
+
+.pg-chains-legend-note {
+  margin: 10px 2px 0;
+  font-size: 11px;
+  color: var(--el-fg-4);
+}
+
+/* ── Right rail — ?focus= card (deep link from the Atlas) ───────── */
+
+.pg-chains-focus-sym {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 8px;
+  border: 1px solid var(--el-line-strong);
+  border-radius: 6px;
+  font-family: var(--el-mono);
+  font-size: 11.5px;
+  color: var(--el-warn);
+}
+
+.pg-chains-focus-path {
+  margin: 0 0 4px;
+  font-family: var(--el-mono);
+  font-size: 11px;
+  color: var(--el-fg-2);
+  word-break: break-all;
+}
+
+.pg-chains-focus-sym + .pg-chains-dir-sub,
+.pg-chains-focus-path + .pg-chains-dir-sub {
+  margin-bottom: 10px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .pg-chains-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ── /inspector — tri-pane library | canvas | inspector (SPEC W6 §6.5) ── */
+.pg-inspector-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .pg-inspector-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left — library rows (domain selectors with live counts) */
+.pg-inspector-lib {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pg-inspector-lib-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.pg-inspector-lib-label {
+  flex: 1;
+}
+.pg-inspector-lib-count {
+  font-size: 12px;
+  color: var(--el-fg-4);
+}
+
+/* Center — canvas (search input + top-N table) */
+.pg-inspector-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.pg-inspector-search {
+  width: 100%;
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--el-fg);
+  background: transparent;
+  border: 1px solid var(--el-border);
+  border-radius: 6px;
+}
+.pg-inspector-search:focus {
+  outline: none;
+  border-color: var(--el-accent);
+}
+.pg-inspector-row {
+  cursor: pointer;
+}
+.pg-inspector-row:hover td {
+  background: var(--el-surface-2, rgba(127, 127, 127, 0.06));
+}
+.pg-inspector-loc {
+  font-size: 12px;
+  color: var(--el-fg-4);
+  word-break: break-all;
+}
+.pg-inspector-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.pg-inspector-value {
+  font-size: 12px;
+  color: var(--el-fg-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Right — inspector detail for the pinned item */
+.pg-inspector-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.pg-inspector-detail-name {
+  font-size: 14px;
+  word-break: break-all;
+}
+.pg-inspector-detail-loc {
+  font-size: 12px;
+  color: var(--el-fg-5);
+  word-break: break-all;
+}
+.pg-inspector-detail-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-fg-3);
+}

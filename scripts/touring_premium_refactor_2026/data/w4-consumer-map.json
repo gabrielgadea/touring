@@ -1,0 +1,1289 @@
+{
+  "script": "w4_consumer_audit",
+  "wave": "W4",
+  "subtask_refs": [
+    "W4.7",
+    "W4.8",
+    "W4.9",
+    "W4.10"
+  ],
+  "timestamp": "2026-05-11T23:32:33.116622+00:00",
+  "total_consumer_files": 77,
+  "distinct_consumer_crates": [
+    "touring-analysis",
+    "touring-assists",
+    "touring-ast",
+    "touring-cognitive",
+    "touring-cortex",
+    "touring-generator",
+    "touring-hooks",
+    "touring-index",
+    "touring-learning",
+    "touring-python",
+    "touring-semantics",
+    "touring-server"
+  ],
+  "consumers_per_source": {
+    "touring-ast": {
+      "consumer_crates": 11,
+      "consumer_files": 68
+    },
+    "touring-ast-polyglot": {
+      "consumer_crates": 4,
+      "consumer_files": 6
+    },
+    "touring-language": {
+      "consumer_crates": 1,
+      "consumer_files": 1
+    },
+    "touring-semantics": {
+      "consumer_crates": 2,
+      "consumer_files": 2
+    }
+  },
+  "details": {
+    "touring-ast": {
+      "touring-analysis": [
+        {
+          "file": "crates/touring-analysis/src/lib.rs",
+          "references": 1,
+          "loc": 154,
+          "sample_lines": [
+            {
+              "line": 37,
+              "text": "//! use touring_ast::SymbolIndex;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-analysis/src/pipeline.rs",
+          "references": 5,
+          "loc": 848,
+          "sample_lines": [
+            {
+              "line": 202,
+              "text": "symbol_index: Option<std::sync::Arc<touring_ast::SymbolIndex>>,"
+            },
+            {
+              "line": 276,
+              "text": "/// use touring_ast::SymbolIndex;"
+            },
+            {
+              "line": 288,
+              "text": "pub fn with_symbol_index(mut self, index: std::sync::Arc<touring_ast::SymbolIndex>) -> Self {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-analysis/src/blast_radius/hnsw.rs",
+          "references": 2,
+          "loc": 256,
+          "sample_lines": [
+            {
+              "line": 25,
+              "text": "use touring_ast::SymbolIndex;"
+            },
+            {
+              "line": 192,
+              "text": "use touring_ast::SymbolIndex;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-analysis/src/blast_radius/bfs.rs",
+          "references": 2,
+          "loc": 234,
+          "sample_lines": [
+            {
+              "line": 11,
+              "text": "use touring_ast::SymbolIndex;"
+            },
+            {
+              "line": 126,
+              "text": "use touring_ast::SymbolIndex;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-analysis/src/blast_radius/mod.rs",
+          "references": 5,
+          "loc": 393,
+          "sample_lines": [
+            {
+              "line": 19,
+              "text": "//! use touring_ast::SymbolIndex;"
+            },
+            {
+              "line": 56,
+              "text": "use touring_ast::SymbolIndex;"
+            },
+            {
+              "line": 139,
+              "text": "pub fn hnsw_only(symbol_index: &touring_ast::SymbolIndex, k: usize) -> Self {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-analysis/src/quality/rust_semantic.rs",
+          "references": 3,
+          "loc": 208,
+          "sample_lines": [
+            {
+              "line": 1,
+              "text": "//! Rust-specific quality signals derived from `touring_ast::rust_semantic`."
+            },
+            {
+              "line": 15,
+              "text": "//! (`touring_ast::quality::QualityReport`) by adding semantic depth that"
+            },
+            {
+              "line": 20,
+              "text": "use touring_ast::rust_semantic::RustSemanticReport;"
+            }
+          ]
+        }
+      ],
+      "touring-assists": [
+        {
+          "file": "crates/touring-assists/src/handlers/format_rust_preserve.rs",
+          "references": 1,
+          "loc": 92,
+          "sample_lines": [
+            {
+              "line": 4,
+              "text": "use touring_ast::surgery::format_rust_code;"
+            }
+          ]
+        }
+      ],
+      "touring-cognitive": [
+        {
+          "file": "crates/touring-cognitive/src/predictive_focus_cache.rs",
+          "references": 1,
+          "loc": 307,
+          "sample_lines": [
+            {
+              "line": 28,
+              "text": "use touring_ast::graph::SymbolPheromoneMap;"
+            }
+          ]
+        }
+      ],
+      "touring-cortex": [
+        {
+          "file": "crates/touring-cortex/src/handlers/neural.rs",
+          "references": 1,
+          "loc": 956,
+          "sample_lines": [
+            {
+              "line": 16,
+              "text": "use touring_ast::IncrementalPipeline;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-cortex/src/handlers/incremental_indexing.rs",
+          "references": 4,
+          "loc": 609,
+          "sample_lines": [
+            {
+              "line": 29,
+              "text": "use touring_ast::graph::SymbolLocation;"
+            },
+            {
+              "line": 30,
+              "text": "use touring_ast::incremental_pipeline::{IncrementalEditResult, IncrementalPipeline};"
+            },
+            {
+              "line": 31,
+              "text": "use touring_ast::languages::Lang;"
+            }
+          ]
+        }
+      ],
+      "touring-generator": [
+        {
+          "file": "crates/touring-generator/src/executor/typestate.rs",
+          "references": 6,
+          "loc": 1480,
+          "sample_lines": [
+            {
+              "line": 777,
+              "text": "let cg = touring_ast::call_graph::build_call_graph("
+            },
+            {
+              "line": 779,
+              "text": "touring_ast::Lang::Rust,"
+            },
+            {
+              "line": 1344,
+              "text": "touring_ast::call_graph::build_call_graph(mutually_recursive, touring_ast::Lang::Rust);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-generator/src/core/context.rs",
+          "references": 2,
+          "loc": 4113,
+          "sample_lines": [
+            {
+              "line": 1901,
+              "text": "/// parsed by `touring_ast::rust_semantic::RustSemanticReport` and its"
+            },
+            {
+              "line": 2845,
+              "text": "/// Speculate bridge — wraps `touring_ast::speculate_v2`."
+            }
+          ]
+        }
+      ],
+      "touring-hooks": [
+        {
+          "file": "crates/touring-hooks/src/knowledge_symbol_bridge.rs",
+          "references": 2,
+          "loc": 146,
+          "sample_lines": [
+            {
+              "line": 18,
+              "text": "use touring_ast::{SymbolChangeObserver, SymbolChangeSet};"
+            },
+            {
+              "line": 74,
+              "text": "use touring_ast::{SymbolChangeSet, SymbolLocation};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/post_edit.rs",
+          "references": 27,
+          "loc": 2794,
+          "sample_lines": [
+            {
+              "line": 28,
+              "text": "use touring_ast::speculate_v2;"
+            },
+            {
+              "line": 65,
+              "text": "let Ok(lang) = lang_str.parse::<touring_ast::Lang>() else {"
+            },
+            {
+              "line": 68,
+              "text": "let graph = touring_ast::call_graph::build_call_graph(source, lang);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/pre_read.rs",
+          "references": 16,
+          "loc": 3797,
+          "sample_lines": [
+            {
+              "line": 39,
+              "text": "use touring_ast::{build_scope_map, ModuleTree, SymbolIndex, SymbolStore};"
+            },
+            {
+              "line": 1285,
+              "text": "locations: &[touring_ast::SymbolLocation],"
+            },
+            {
+              "line": 1641,
+              "text": "fn detect_scope_lang(file_path: &str) -> Option<touring_ast::Lang> {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/post_write.rs",
+          "references": 22,
+          "loc": 1525,
+          "sample_lines": [
+            {
+              "line": 28,
+              "text": "use touring_ast::speculate_v2;"
+            },
+            {
+              "line": 146,
+              "text": "let Ok(lang) = lang_str.parse::<touring_ast::Lang>() else {"
+            },
+            {
+              "line": 149,
+              "text": "let graph = touring_ast::call_graph::build_call_graph(source, lang);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/pre_edit_prevention.rs",
+          "references": 2,
+          "loc": 1474,
+          "sample_lines": [
+            {
+              "line": 21,
+              "text": "use touring_ast::{"
+            },
+            {
+              "line": 461,
+              "text": ".any(|layer| matches!(layer.layer, touring_ast::ValidationLayer::Syntax) && !layer.passed);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/cli_handlers_index.rs",
+          "references": 10,
+          "loc": 1130,
+          "sample_lines": [
+            {
+              "line": 17,
+              "text": "use touring_ast::{"
+            },
+            {
+              "line": 676,
+              "text": "/// Uses touring_ast::SemanticSymbolIndex with 16-dim feature vectors."
+            },
+            {
+              "line": 693,
+              "text": "touring_ast::symbols::Symbol::new(query, SymbolKind::Function, 0, 1, 0, 0, 0, query, true);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/pre_write.rs",
+          "references": 7,
+          "loc": 2307,
+          "sample_lines": [
+            {
+              "line": 31,
+              "text": "use touring_ast::speculate_v2;"
+            },
+            {
+              "line": 198,
+              "text": "let score_info = if let Ok(lang) = lang_str.parse::<touring_ast::Lang>() {"
+            },
+            {
+              "line": 724,
+              "text": "fn speculative_validation_signals(content: &str, lang: touring_ast::Lang) -> Vec<(f32, String)> {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/callgraph_enrichment.rs",
+          "references": 2,
+          "loc": 185,
+          "sample_lines": [
+            {
+              "line": 7,
+              "text": "use touring_ast::call_graph::{build_call_graph, CallGraph};"
+            },
+            {
+              "line": 8,
+              "text": "use touring_ast::Lang;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/hook_runtime.rs",
+          "references": 11,
+          "loc": 2920,
+          "sample_lines": [
+            {
+              "line": 32,
+              "text": "use touring_ast::{"
+            },
+            {
+              "line": 417,
+              "text": "pub learning_loop: RefCell<touring_ast::learning_loop::LearningLoop>,"
+            },
+            {
+              "line": 422,
+              "text": "pub heat_map: RefCell<touring_ast::HeatMap>,"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/precomputed_signals.rs",
+          "references": 5,
+          "loc": 221,
+          "sample_lines": [
+            {
+              "line": 100,
+              "text": "lang: touring_ast::languages::Lang,"
+            },
+            {
+              "line": 102,
+              "text": "let complexities = touring_ast::complexity::compute_complexity_for_source(source, lang).ok()?;"
+            },
+            {
+              "line": 189,
+              "text": "let result = file_digest_signal(src, touring_ast::languages::Lang::Rust);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/cli_handlers_decompose.rs",
+          "references": 1,
+          "loc": 2657,
+          "sample_lines": [
+            {
+              "line": 2291,
+              "text": "use touring_ast::node_types::node_types_for_language;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/health_delta.rs",
+          "references": 1,
+          "loc": 1363,
+          "sample_lines": [
+            {
+              "line": 61,
+              "text": "use touring_ast::{analyze_quality, Lang};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/cli_handlers.rs",
+          "references": 8,
+          "loc": 7347,
+          "sample_lines": [
+            {
+              "line": 20,
+              "text": "use touring_ast::{speculate_v2, Lang};"
+            },
+            {
+              "line": 4230,
+              "text": "let rules = touring_ast::ssr::prebuilt_rules();"
+            },
+            {
+              "line": 4263,
+              "text": "let rule = touring_ast::ssr::SsrRule {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/post_read.rs",
+          "references": 2,
+          "loc": 1173,
+          "sample_lines": [
+            {
+              "line": 193,
+              "text": "ll.record_event(touring_ast::learning_loop::GenerationEvent {"
+            },
+            {
+              "line": 895,
+              "text": "let path = resolve_import_path(\"touring_ast::semantic::CosineComputer\", \"rust\");"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/pre_edit.rs",
+          "references": 25,
+          "loc": 2282,
+          "sample_lines": [
+            {
+              "line": 552,
+              "text": "// Language-guarded (Rust + Python only via touring_ast::Lang). Fallback: .ok() = silent."
+            },
+            {
+              "line": 1141,
+              "text": "touring_ast::SymbolKind::Function"
+            },
+            {
+              "line": 1142,
+              "text": "| touring_ast::SymbolKind::AsyncFunction"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/qa_syntax.rs",
+          "references": 2,
+          "loc": 286,
+          "sample_lines": [
+            {
+              "line": 31,
+              "text": "match touring_ast::validate_syntax(source, touring_ast::Lang::Python) {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/post_edit_rule_engine.rs",
+          "references": 2,
+          "loc": 78,
+          "sample_lines": [
+            {
+              "line": 18,
+              "text": "use touring_ast::api_cascade::{CascadePlan, Severity, SubtaskProposal};"
+            },
+            {
+              "line": 19,
+              "text": "use touring_ast::rust_semantic::ApiChangeKind;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/ast_bridge.rs",
+          "references": 9,
+          "loc": 1081,
+          "sample_lines": [
+            {
+              "line": 14,
+              "text": "use touring_ast::{"
+            },
+            {
+              "line": 136,
+              "text": "touring_ast::graph::extract_imports(source, lang)"
+            },
+            {
+              "line": 157,
+              "text": "touring_ast::graph::extract_method_calls(source, lang)"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/dependency_cache.rs",
+          "references": 1,
+          "loc": 624,
+          "sample_lines": [
+            {
+              "line": 35,
+              "text": "use touring_ast::graph::BlastRadiusOutput;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shadow_v2.rs",
+          "references": 9,
+          "loc": 1576,
+          "sample_lines": [
+            {
+              "line": 22,
+              "text": "use touring_ast::speculate_v2;"
+            },
+            {
+              "line": 214,
+              "text": "let lang_opt = touring_ast::Lang::from_path(path);"
+            },
+            {
+              "line": 365,
+              "text": "result: &touring_ast::SpeculateResult,"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/idempotency.rs",
+          "references": 2,
+          "loc": 200,
+          "sample_lines": [
+            {
+              "line": 76,
+              "text": "let (first, was_formatted) = touring_ast::surgery::format_rust_code_best_effort(content);"
+            },
+            {
+              "line": 83,
+              "text": "let (second, second_formatted) = touring_ast::surgery::format_rust_code_best_effort(&first);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/wave5_workflow.rs",
+          "references": 1,
+          "loc": 714,
+          "sample_lines": [
+            {
+              "line": 33,
+              "text": "use touring_ast::{analyze_quality, extract_symbols, CodeGenWorkflow, Lang};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/cli_handlers_semantics.rs",
+          "references": 3,
+          "loc": 666,
+          "sample_lines": [
+            {
+              "line": 13,
+              "text": "use touring_ast::languages::Lang;"
+            },
+            {
+              "line": 14,
+              "text": "use touring_ast::parser::ParserPool;"
+            },
+            {
+              "line": 15,
+              "text": "use touring_ast::tree_sitter;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/signal_pipeline.rs",
+          "references": 17,
+          "loc": 1133,
+          "sample_lines": [
+            {
+              "line": 32,
+              "text": "use touring_ast::graph::pheromone::PheromoneGraph;"
+            },
+            {
+              "line": 33,
+              "text": "use touring_ast::{compute_enriched_blast_radius, SymbolIndex};"
+            },
+            {
+              "line": 381,
+              "text": "/// use touring_ast::{SymbolIndex, graph::pheromone::PheromoneGraph};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/cascade_queue.rs",
+          "references": 4,
+          "loc": 256,
+          "sample_lines": [
+            {
+              "line": 18,
+              "text": "use touring_ast::api_cascade::SubtaskProposal;"
+            },
+            {
+              "line": 85,
+              "text": "pub fn push(&self, path: &std::path::Path, plan: &touring_ast::api_cascade::CascadePlan) {"
+            },
+            {
+              "line": 166,
+              "text": "use touring_ast::api_cascade::{CascadePlan, Severity, SubtaskProposal};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/reindex.rs",
+          "references": 2,
+          "loc": 347,
+          "sample_lines": [
+            {
+              "line": 66,
+              "text": "pipeline: &touring_ast::incremental_pipeline::SharedPipeline,"
+            },
+            {
+              "line": 67,
+              "text": "symbol_store: Option<&touring_ast::store::SymbolStore>,"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/api_cascade_bridge.rs",
+          "references": 7,
+          "loc": 365,
+          "sample_lines": [
+            {
+              "line": 5,
+              "text": "//! [`plan_api_cascade`](touring_ast::api_cascade::plan_api_cascade). It owns"
+            },
+            {
+              "line": 34,
+              "text": "use touring_ast::api_cascade::{plan_api_cascade, CascadePlan, Severity};"
+            },
+            {
+              "line": 35,
+              "text": "use touring_ast::call_graph::{build_call_graph, CallGraph};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/cursor_pool.rs",
+          "references": 1,
+          "loc": 71,
+          "sample_lines": [
+            {
+              "line": 18,
+              "text": "use touring_ast::tree_sitter::QueryCursor;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/signals.rs",
+          "references": 6,
+          "loc": 1382,
+          "sample_lines": [
+            {
+              "line": 20,
+              "text": "use touring_ast::graph::SymbolIndex;"
+            },
+            {
+              "line": 1062,
+              "text": "let idx = touring_ast::graph::SymbolIndex::new();"
+            },
+            {
+              "line": 1078,
+              "text": "let idx = touring_ast::graph::SymbolIndex::new();"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/parser_cache.rs",
+          "references": 1,
+          "loc": 145,
+          "sample_lines": [
+            {
+              "line": 13,
+              "text": "use touring_ast::incremental_pipeline::SharedPipeline;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/runtime/traits.rs",
+          "references": 2,
+          "loc": 470,
+          "sample_lines": [
+            {
+              "line": 17,
+              "text": "use touring_ast::graph::SymbolLocation;"
+            },
+            {
+              "line": 18,
+              "text": "use touring_ast::{"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/runtime/impls_symbols.rs",
+          "references": 2,
+          "loc": 132,
+          "sample_lines": [
+            {
+              "line": 5,
+              "text": "use touring_ast::graph::SymbolLocation;"
+            },
+            {
+              "line": 6,
+              "text": "use touring_ast::{"
+            }
+          ]
+        }
+      ],
+      "touring-index": [
+        {
+          "file": "crates/touring-index/src/similarity.rs",
+          "references": 5,
+          "loc": 271,
+          "sample_lines": [
+            {
+              "line": 11,
+              "text": "use touring_ast::symbols::Symbol;"
+            },
+            {
+              "line": 82,
+              "text": ".filter(|s| matches!(s.kind, touring_ast::symbols::SymbolKind::Function))"
+            },
+            {
+              "line": 89,
+              "text": "touring_ast::symbols::SymbolKind::Class"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-index/src/watcher.rs",
+          "references": 1,
+          "loc": 807,
+          "sample_lines": [
+            {
+              "line": 11,
+              "text": "//! - [`touring_ast::watcher::FileWatcher`]: AST-focused file watcher with debouncing"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-index/src/incremental.rs",
+          "references": 2,
+          "loc": 764,
+          "sample_lines": [
+            {
+              "line": 15,
+              "text": "use touring_ast::languages::Lang;"
+            },
+            {
+              "line": 17,
+              "text": "use touring_ast::symbols::{extract_symbols, Symbol};"
+            }
+          ]
+        }
+      ],
+      "touring-learning": [
+        {
+          "file": "crates/touring-learning/src/bandit/ast_features.rs",
+          "references": 1,
+          "loc": 231,
+          "sample_lines": [
+            {
+              "line": 74,
+              "text": "let symbols = touring_ast::extract_symbols_from_file(path).ok()?;"
+            }
+          ]
+        }
+      ],
+      "touring-python": [
+        {
+          "file": "crates/touring-python/src/rust_semantic_bindings.rs",
+          "references": 3,
+          "loc": 196,
+          "sample_lines": [
+            {
+              "line": 29,
+              "text": "use touring_ast::rust_semantic::RustSemanticReport;"
+            },
+            {
+              "line": 30,
+              "text": "use touring_ast::{format_rust_code, CodeGenWorkflow, WorkspaceInfo};"
+            },
+            {
+              "line": 83,
+              "text": "/// `touring_ast::rust_semantic::RustSemanticReport::public_api_surface`)."
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-python/src/ast_rl_bridge.rs",
+          "references": 1,
+          "loc": 144,
+          "sample_lines": [
+            {
+              "line": 25,
+              "text": "use touring_ast::{extract_symbols_from_file, Lang};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-python/src/ast_bindings.rs",
+          "references": 4,
+          "loc": 404,
+          "sample_lines": [
+            {
+              "line": 11,
+              "text": "use touring_ast::{"
+            },
+            {
+              "line": 19,
+              "text": "// PyAstSymbol — immutable wrapper around touring_ast::Symbol"
+            },
+            {
+              "line": 231,
+              "text": "let imports = touring_ast::graph::extract_imports(&source, lang);"
+            }
+          ]
+        }
+      ],
+      "touring-semantics": [
+        {
+          "file": "crates/touring-semantics/src/lib.rs",
+          "references": 1,
+          "loc": 31,
+          "sample_lines": [
+            {
+              "line": 19,
+              "text": "use touring_ast::languages::Lang;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-semantics/src/source_to_def.rs",
+          "references": 1,
+          "loc": 188,
+          "sample_lines": [
+            {
+              "line": 15,
+              "text": "use touring_ast::languages::Lang;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-semantics/src/semantics.rs",
+          "references": 5,
+          "loc": 193,
+          "sample_lines": [
+            {
+              "line": 10,
+              "text": "//! use touring_ast::languages::Lang;"
+            },
+            {
+              "line": 11,
+              "text": "//! use touring_ast::parser::ParserPool;"
+            },
+            {
+              "line": 24,
+              "text": "use touring_ast::languages::Lang;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-semantics/src/multi_lang.rs",
+          "references": 1,
+          "loc": 272,
+          "sample_lines": [
+            {
+              "line": 8,
+              "text": "use touring_ast::languages::Lang;"
+            }
+          ]
+        }
+      ],
+      "touring-server": [
+        {
+          "file": "crates/touring-server/src/graph_service.rs",
+          "references": 4,
+          "loc": 894,
+          "sample_lines": [
+            {
+              "line": 27,
+              "text": "use touring_ast::graph::SymbolIndex;"
+            },
+            {
+              "line": 28,
+              "text": "use touring_ast::store::SymbolStore;"
+            },
+            {
+              "line": 752,
+              "text": "use touring_ast::languages::Lang;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/server/tools_core.rs",
+          "references": 3,
+          "loc": 1901,
+          "sample_lines": [
+            {
+              "line": 825,
+              "text": "match touring_ast::surgery::replace_symbol_body(content, &symbol_name, &new_body) {"
+            },
+            {
+              "line": 848,
+              "text": "let lang = language.parse::<touring_ast::Lang>().map_err(|_| {"
+            },
+            {
+              "line": 852,
+              "text": "match touring_ast::surgery::validate_syntax(content, lang) {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/server/tools_infra.rs",
+          "references": 4,
+          "loc": 2234,
+          "sample_lines": [
+            {
+              "line": 1890,
+              "text": "let lang = touring_ast::Lang::from_str(&p.lang)"
+            },
+            {
+              "line": 1894,
+              "text": "let rule = touring_ast::ssr::SsrRule {"
+            },
+            {
+              "line": 1903,
+              "text": "let result = touring_ast::ssr::apply_ssr_rule(&rule, &p.source, lang)"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/server/tools_analysis.rs",
+          "references": 7,
+          "loc": 2092,
+          "sample_lines": [
+            {
+              "line": 39,
+              "text": "let lang: touring_ast::languages::Lang = match f.language.parse() {"
+            },
+            {
+              "line": 120,
+              "text": "let lang: touring_ast::languages::Lang = lang_str"
+            },
+            {
+              "line": 124,
+              "text": "let imports = touring_ast::graph::extract_imports(&content, lang);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/server/mod.rs",
+          "references": 3,
+          "loc": 1151,
+          "sample_lines": [
+            {
+              "line": 30,
+              "text": "use touring_ast::graph::SymbolIndex;"
+            },
+            {
+              "line": 31,
+              "text": "use touring_ast::store::SymbolStore;"
+            },
+            {
+              "line": 873,
+              "text": "touring_ast::store::SymbolStore::new("
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/tools/ast_tools.rs",
+          "references": 7,
+          "loc": 624,
+          "sample_lines": [
+            {
+              "line": 6,
+              "text": "use touring_ast::languages::Lang;"
+            },
+            {
+              "line": 11,
+              "text": "use touring_ast::symbols::{extract_symbols, Symbol};"
+            },
+            {
+              "line": 363,
+              "text": "use touring_ast::graph::{SymbolIndex, SymbolLocation};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/tools/refactor_tools.rs",
+          "references": 1,
+          "loc": 71,
+          "sample_lines": [
+            {
+              "line": 4,
+              "text": "//! For AST-aware rename, delegates to touring_ast::ssr structural rewrite."
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/tools/clone_tools.rs",
+          "references": 5,
+          "loc": 267,
+          "sample_lines": [
+            {
+              "line": 1,
+              "text": "//! Clone Detection Tools — structural clone detection via touring_ast::symbols::find_clones."
+            },
+            {
+              "line": 8,
+              "text": "use touring_ast::languages::Lang;"
+            },
+            {
+              "line": 9,
+              "text": "use touring_ast::symbols::{find_clones, Symbol};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/output/json.rs",
+          "references": 2,
+          "loc": 72,
+          "sample_lines": [
+            {
+              "line": 5,
+              "text": "use touring_ast::symbols::Symbol;"
+            },
+            {
+              "line": 28,
+              "text": "use touring_ast::symbols::Symbol;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/output/mod.rs",
+          "references": 1,
+          "loc": 20,
+          "sample_lines": [
+            {
+              "line": 6,
+              "text": "use touring_ast::symbols::Symbol;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/output/toon.rs",
+          "references": 1,
+          "loc": 422,
+          "sample_lines": [
+            {
+              "line": 7,
+              "text": "use touring_ast::symbols::Symbol;"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/cli/ast.rs",
+          "references": 10,
+          "loc": 414,
+          "sample_lines": [
+            {
+              "line": 158,
+              "text": "let result = touring_ast::node_types_for_language(lang);"
+            },
+            {
+              "line": 172,
+              "text": "let lang = touring_ast::languages::Lang::from_path(std::path::Path::new(file_path))"
+            },
+            {
+              "line": 173,
+              "text": ".unwrap_or(touring_ast::languages::Lang::Rust);"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-server/src/cli/ssr.rs",
+          "references": 2,
+          "loc": 132,
+          "sample_lines": [
+            {
+              "line": 11,
+              "text": "use touring_ast::ssr::{self, SsrApplyResult, SsrRule};"
+            },
+            {
+              "line": 120,
+              "text": "let ast_lang = touring_ast::Lang::from_str(lang_str)"
+            }
+          ]
+        }
+      ]
+    },
+    "touring-ast-polyglot": {
+      "touring-ast": [
+        {
+          "file": "crates/touring-ast/src/ssr/mod.rs",
+          "references": 3,
+          "loc": 481,
+          "sample_lines": [
+            {
+              "line": 4,
+              "text": "//! 1. **ast-grep** (`touring_ast_polyglot::rewrite`) — pattern-based multi-language SSR"
+            },
+            {
+              "line": 37,
+              "text": "use touring_ast_polyglot::lang::Lang as PolyglotLang;"
+            },
+            {
+              "line": 38,
+              "text": "use touring_ast_polyglot::rewrite::rewrite as polyglot_rewrite;"
+            }
+          ]
+        }
+      ],
+      "touring-generator": [
+        {
+          "file": "crates/touring-generator/src/validate/polyglot.rs",
+          "references": 1,
+          "loc": 123,
+          "sample_lines": [
+            {
+              "line": 14,
+              "text": "use touring_ast_polyglot::{detect_lang, search, Lang};"
+            }
+          ]
+        }
+      ],
+      "touring-hooks": [
+        {
+          "file": "crates/touring-hooks/src/cli_handlers_polyglot.rs",
+          "references": 5,
+          "loc": 385,
+          "sample_lines": [
+            {
+              "line": 33,
+              "text": "use touring_ast_polyglot::{"
+            },
+            {
+              "line": 111,
+              "text": "/// converted into `touring_ast_polyglot::Rule`."
+            },
+            {
+              "line": 288,
+              "text": "fn hit_is_in_string_like(hit: &touring_ast_polyglot::search::Match, ranges: &[(usize, usize)]) -> bool {"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/ast_grep_signal.rs",
+          "references": 2,
+          "loc": 530,
+          "sample_lines": [
+            {
+              "line": 3,
+              "text": "//! A thin layer over `touring_ast_polyglot::search` that:"
+            },
+            {
+              "line": 32,
+              "text": "use touring_ast_polyglot::{search, Lang};"
+            }
+          ]
+        },
+        {
+          "file": "crates/touring-hooks/src/shared/risk_patterns.rs",
+          "references": 1,
+          "loc": 191,
+          "sample_lines": [
+            {
+              "line": 16,
+              "text": "use touring_ast_polyglot::Lang;"
+            }
+          ]
+        }
+      ],
+      "touring-server": [
+        {
+          "file": "crates/touring-server/src/server/tools_metadata.rs",
+          "references": 1,
+          "loc": 1208,
+          "sample_lines": [
+            {
+              "line": 396,
+              "text": "use touring_ast_polyglot::{"
+            }
+          ]
+        }
+      ]
+    },
+    "touring-language": {
+      "touring-server": [
+        {
+          "file": "crates/touring-server/src/cli/language.rs",
+          "references": 6,
+          "loc": 268,
+          "sample_lines": [
+            {
+              "line": 13,
+              "text": "use touring_language::LanguageSupport;"
+            },
+            {
+              "line": 83,
+              "text": ".filter(|c| c.level != touring_language::SupportLevel::None)"
+            },
+            {
+              "line": 94,
+              "text": "if c.level != touring_language::SupportLevel::None {"
+            }
+          ]
+        }
+      ]
+    },
+    "touring-semantics": {
+      "touring-hooks": [
+        {
+          "file": "crates/touring-hooks/src/cli_handlers_semantics.rs",
+          "references": 1,
+          "loc": 666,
+          "sample_lines": [
+            {
+              "line": 16,
+              "text": "use touring_semantics::{source_to_definition, Definition, DefinitionKind};"
+            }
+          ]
+        }
+      ],
+      "touring-index": [
+        {
+          "file": "crates/touring-index/src/lib.rs",
+          "references": 1,
+          "loc": 32,
+          "sample_lines": [
+            {
+              "line": 8,
+              "text": "pub use touring_semantics::{Definition, DefinitionId, DefinitionKind, FileRange, Usage, UsageKind};"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

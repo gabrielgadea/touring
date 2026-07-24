@@ -1,0 +1,16 @@
+# ADR-{{ number | default(value="NNN") }}: {{ title | default(value="Untitled") }}
+
+**Date**: {{ date | default(value="") }}
+**Status**: {{ status | default(value="Proposed") }}
+
+## Context
+
+{{ context | default(value="TODO") }}
+
+## Decision
+
+{{ decision | default(value="TODO") }}
+
+## Consequences
+
+{{ consequences | default(value="TODO") }}

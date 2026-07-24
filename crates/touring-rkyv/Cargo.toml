@@ -1,0 +1,27 @@
+[package]
+name = "touring-rkyv"
+version = "0.1.0"
+edition = "2024"
+description = "Zero-copy serialization templates for touring crates"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+rkyv = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+serde_json = { workspace = true }
+proptest = { workspace = true }
+
+[features]
+default = ["std", "validation"]
+std = ["rkyv/std"]
+validation = ["rkyv/validation"]
+
+[[bench]]
+name = "ipc_vs_json"
+harness = false
+
+[lints]
+workspace = true

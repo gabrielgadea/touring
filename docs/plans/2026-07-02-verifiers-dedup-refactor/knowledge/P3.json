@@ -1,0 +1,91 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "P3 DONE. fn finish(id,value,evidence,target)->DimScore unificado em mod.rs; transform deterministico (python3 -c) religou os 50 rodapes check() para Ok(crate::verifications::finish(...)); removeu auto_remediation import onde nao-usado; removeu DimStatus import de 44 files. 2 gotchas encontrados+corrigidos (memory gotcha:bulk-regex-tail-transform:2026-07-02): (a) regex engoliu 'let evidence=format!()' inline pos-status em 4 files (f2_1/f2_4/f2_6 auto_remediation early-returns + f4_3/f2_4 evidence) -> restaurados; (b) 2 files (f2_5/f4_5) usam DimStatus em test via super::* -> qualificado crate::DimStatus::Fail. Gate: cargo check default+no-default EXIT 0/0 com 0 warnings; cargo test 344 passed 0 failed + doctest. Comportamento preservado (evidence de f2_4 reconstruido semanticamente-equivalente, nao test-coberto)."
+    },
+    {
+      "entity_id": "function:finish",
+      "type": "function",
+      "description": "unified check() tail helper in mod.rs; collapsed 50 ~7-line tails into 1 call each; sentinel-N/A aware; behavior-preserving"
+    },
+    {
+      "entity_id": "gotcha:transform_greediness_bug",
+      "type": "gotcha",
+      "description": "regex tail-replace swallowed inline 'let evidence' bindings after status in 4 files; fixed by restoring evidence + auto_remediation imports"
+    },
+    {
+      "entity_id": "gotcha:test_only_import_gotcha",
+      "type": "gotcha",
+      "description": "cargo check non-test flagged DimStatus unused, but cargo test revealed 2 files use it in tests via super::*; qualified as crate::DimStatus::Fail"
+    },
+    {
+      "entity_id": "decision:DimStatus_import_cleanup",
+      "type": "decision",
+      "description": "removed now-unused DimStatus import from 44 files (production no longer references it post-finish)"
+    },
+    {
+      "entity_id": "decision:cargo_proof_P3",
+      "type": "decision",
+      "description": "cargo check default+no-default EXIT 0/0, 0 warnings; cargo test 344 passed 0 failed"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P3|produces|function:finish",
+      "source": "phase:P3",
+      "type": "produces",
+      "target": "function:finish"
+    },
+    {
+      "relation_id": "phase:P3|produces|gotcha:transform_greediness_bug",
+      "source": "phase:P3",
+      "type": "produces",
+      "target": "gotcha:transform_greediness_bug"
+    },
+    {
+      "relation_id": "phase:P3|produces|gotcha:test_only_import_gotcha",
+      "source": "phase:P3",
+      "type": "produces",
+      "target": "gotcha:test_only_import_gotcha"
+    },
+    {
+      "relation_id": "phase:P3|produces|decision:DimStatus_import_cleanup",
+      "source": "phase:P3",
+      "type": "produces",
+      "target": "decision:DimStatus_import_cleanup"
+    },
+    {
+      "relation_id": "phase:P3|produces|decision:cargo_proof_P3",
+      "source": "phase:P3",
+      "type": "produces",
+      "target": "decision:cargo_proof_P3"
+    },
+    {
+      "relation_id": "function:finish|reduces|dimension:F1_3_duplication",
+      "source": "function:finish",
+      "type": "reduces",
+      "target": "dimension:F1_3_duplication"
+    },
+    {
+      "relation_id": "gotcha:transform_greediness_bug|was_fixed_by|decision:cargo_proof_P3",
+      "source": "gotcha:transform_greediness_bug",
+      "type": "was_fixed_by",
+      "target": "decision:cargo_proof_P3"
+    },
+    {
+      "relation_id": "gotcha:test_only_import_gotcha|was_fixed_by|decision:cargo_proof_P3",
+      "source": "gotcha:test_only_import_gotcha",
+      "type": "was_fixed_by",
+      "target": "decision:cargo_proof_P3"
+    },
+    {
+      "relation_id": "decision:cargo_proof_P3|verifies|function:finish",
+      "source": "decision:cargo_proof_P3",
+      "type": "verifies",
+      "target": "function:finish"
+    }
+  ]
+}

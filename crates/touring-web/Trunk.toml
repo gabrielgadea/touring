@@ -1,0 +1,20 @@
+[build]
+dist = "dist"
+
+[serve]
+# Trunk dev server with hot-reload for the WASM bundle.
+# Listening on :3001 to avoid conflict with touring-web-server on :3000
+# (which serves the production static dist/ snapshot + the /api/* backend).
+addresses = ["127.0.0.1"]
+port = 3001
+open = false
+# SPA fallback is the Trunk default: when the path doesn't match a built
+# asset, Trunk returns index.html so the Leptos client-side router can
+# resolve the route. Makes F5 on /workspace, /health, /orphans work.
+
+[[proxy]]
+# All /api/* requests are forwarded to the touring-web-server backend
+# (which owns :3000). The rewrite keeps the path identical, so the backend
+# sees the same URL the WASM client requested.
+backend = "http://127.0.0.1:3000/api/"
+rewrite = "/api/"

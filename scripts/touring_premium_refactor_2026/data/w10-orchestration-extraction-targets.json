@@ -1,0 +1,1259 @@
+{
+  "script": "w10_orchestration_skeleton",
+  "wave": "W10",
+  "subtask_refs": [
+    "W10.1"
+  ],
+  "timestamp": "2026-05-12T00:42:22.452222+00:00",
+  "status": "OK",
+  "totals": {
+    "crates_with_orch_code": 14,
+    "total_files": 147,
+    "total_hits": 1426
+  },
+  "findings_per_crate": {
+    "touring-activity": [
+      {
+        "file": "crates/touring-activity/src/event.rs",
+        "loc": 216,
+        "pattern_hits": {
+          "session": 2
+        },
+        "total_hits": 2
+      }
+    ],
+    "touring-analysis": [
+      {
+        "file": "crates/touring-analysis/src/learning/mod.rs",
+        "loc": 367,
+        "pattern_hits": {
+          "rl_bridge": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-analysis/src/lib.rs",
+        "loc": 154,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-analysis/src/e2e/schema_guard.rs",
+        "loc": 345,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-analysis/src/quality/quality_finding.rs",
+        "loc": 169,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-ast": [
+      {
+        "file": "crates/touring-ast/src/api_cascade.rs",
+        "loc": 555,
+        "pattern_hits": {
+          "decompose": 8
+        },
+        "total_hits": 8
+      }
+    ],
+    "touring-cognitive": [
+      {
+        "file": "crates/touring-cognitive/src/adaptive_engine.rs",
+        "loc": 461,
+        "pattern_hits": {
+          "rl_bridge": 6
+        },
+        "total_hits": 6
+      },
+      {
+        "file": "crates/touring-cognitive/src/mcts.rs",
+        "loc": 1558,
+        "pattern_hits": {
+          "rl_bridge": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-cognitive/src/rl_bridge.rs",
+        "loc": 269,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-cognitive/src/reasoning_engine.rs",
+        "loc": 354,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-cognitive/src/analysis_bridge.rs",
+        "loc": 249,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-core": [
+      {
+        "file": "crates/touring-core/src/diagnostic.rs",
+        "loc": 785,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-core/src/schema/entity_registry.rs",
+        "loc": 486,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-cortex": [
+      {
+        "file": "crates/touring-cortex/src/handlers/session.rs",
+        "loc": 505,
+        "pattern_hits": {
+          "session": 14
+        },
+        "total_hits": 14
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/lifecycle.rs",
+        "loc": 2260,
+        "pattern_hits": {
+          "session": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/self_reflection.rs",
+        "loc": 664,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-cortex/src/runtime.rs",
+        "loc": 292,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-cortex/src/types.rs",
+        "loc": 798,
+        "pattern_hits": {
+          "session": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-cortex/src/handlers/neural.rs",
+        "loc": 956,
+        "pattern_hits": {
+          "session": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-generator": [
+      {
+        "file": "crates/touring-generator/src/core/context.rs",
+        "loc": 4113,
+        "pattern_hits": {
+          "decompose": 27,
+          "session": 12,
+          "rl_bridge": 8
+        },
+        "total_hits": 47
+      },
+      {
+        "file": "crates/touring-generator/src/executor/typestate.rs",
+        "loc": 1480,
+        "pattern_hits": {
+          "decompose": 18,
+          "session": 2,
+          "rl_bridge": 2
+        },
+        "total_hits": 22
+      },
+      {
+        "file": "crates/touring-generator/src/lib.rs",
+        "loc": 137,
+        "pattern_hits": {
+          "decompose": 1,
+          "rl_bridge": 1
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-generator/src/generator/kinds.rs",
+        "loc": 215,
+        "pattern_hits": {
+          "decompose": 2
+        },
+        "total_hits": 2
+      }
+    ],
+    "touring-hooks": [
+      {
+        "file": "crates/touring-hooks/src/lifecycle.rs",
+        "loc": 19251,
+        "pattern_hits": {
+          "decompose": 165,
+          "session": 14
+        },
+        "total_hits": 179
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_get.rs",
+        "loc": 1104,
+        "pattern_hits": {
+          "decompose": 44
+        },
+        "total_hits": 44
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_registry.rs",
+        "loc": 1847,
+        "pattern_hits": {
+          "decompose": 38,
+          "session": 4
+        },
+        "total_hits": 42
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_decompose.rs",
+        "loc": 2657,
+        "pattern_hits": {
+          "decompose": 41
+        },
+        "total_hits": 41
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_decompose_bridge.rs",
+        "loc": 529,
+        "pattern_hits": {
+          "decompose": 37
+        },
+        "total_hits": 37
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_output.rs",
+        "loc": 1532,
+        "pattern_hits": {
+          "decompose": 29
+        },
+        "total_hits": 29
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_list.rs",
+        "loc": 1954,
+        "pattern_hits": {
+          "decompose": 24,
+          "rl_bridge": 4
+        },
+        "total_hits": 28
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_runtime.rs",
+        "loc": 2920,
+        "pattern_hits": {
+          "decompose": 6,
+          "rl_bridge": 20
+        },
+        "total_hits": 26
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers.rs",
+        "loc": 7347,
+        "pattern_hits": {
+          "decompose": 22,
+          "rl_bridge": 1
+        },
+        "total_hits": 23
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_update.rs",
+        "loc": 1243,
+        "pattern_hits": {
+          "decompose": 23
+        },
+        "total_hits": 23
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/plan_mode/enter.rs",
+        "loc": 480,
+        "pattern_hits": {
+          "decompose": 16,
+          "session": 2
+        },
+        "total_hits": 18
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_e2e.rs",
+        "loc": 1883,
+        "pattern_hits": {
+          "rl_bridge": 16
+        },
+        "total_hits": 16
+      },
+      {
+        "file": "crates/touring-hooks/src/shared/session_bus.rs",
+        "loc": 453,
+        "pattern_hits": {
+          "decompose": 6,
+          "rl_bridge": 7
+        },
+        "total_hits": 13
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_create.rs",
+        "loc": 1521,
+        "pattern_hits": {
+          "decompose": 12,
+          "session": 1
+        },
+        "total_hits": 13
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/e2e_tests.rs",
+        "loc": 581,
+        "pattern_hits": {
+          "decompose": 10,
+          "session": 2
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_rl_tests.rs",
+        "loc": 437,
+        "pattern_hits": {
+          "rl_bridge": 11
+        },
+        "total_hits": 11
+      },
+      {
+        "file": "crates/touring-hooks/src/runtime/traits.rs",
+        "loc": 470,
+        "pattern_hits": {
+          "rl_bridge": 11
+        },
+        "total_hits": 11
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_rl.rs",
+        "loc": 465,
+        "pattern_hits": {
+          "decompose": 2,
+          "rl_bridge": 8
+        },
+        "total_hits": 10
+      },
+      {
+        "file": "crates/touring-hooks/src/shared/gate_metrics.rs",
+        "loc": 2809,
+        "pattern_hits": {
+          "session": 3,
+          "rl_bridge": 7
+        },
+        "total_hits": 10
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/plan_mode/hints.rs",
+        "loc": 1726,
+        "pattern_hits": {
+          "decompose": 10
+        },
+        "total_hits": 10
+      },
+      {
+        "file": "crates/touring-hooks/src/prompt_enhance.rs",
+        "loc": 2300,
+        "pattern_hits": {
+          "decompose": 9
+        },
+        "total_hits": 9
+      },
+      {
+        "file": "crates/touring-hooks/src/team_hooks.rs",
+        "loc": 1393,
+        "pattern_hits": {
+          "decompose": 9
+        },
+        "total_hits": 9
+      },
+      {
+        "file": "crates/touring-hooks/src/suggesters/stuck_subtask.rs",
+        "loc": 301,
+        "pattern_hits": {
+          "decompose": 9
+        },
+        "total_hits": 9
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_stop.rs",
+        "loc": 155,
+        "pattern_hits": {
+          "decompose": 5,
+          "session": 3
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-hooks/src/runtime/impls_rl.rs",
+        "loc": 220,
+        "pattern_hits": {
+          "rl_bridge": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/plan_mode/exit.rs",
+        "loc": 413,
+        "pattern_hits": {
+          "decompose": 7,
+          "session": 1
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-hooks/src/tfidf_retriever.rs",
+        "loc": 680,
+        "pattern_hits": {
+          "decompose": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/schemas/mcp_params.rs",
+        "loc": 242,
+        "pattern_hits": {
+          "decompose": 7
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/shared/task_features.rs",
+        "loc": 366,
+        "pattern_hits": {
+          "decompose": 2,
+          "rl_bridge": 5
+        },
+        "total_hits": 7
+      },
+      {
+        "file": "crates/touring-hooks/src/metrics.rs",
+        "loc": 310,
+        "pattern_hits": {
+          "rl_bridge": 6
+        },
+        "total_hits": 6
+      },
+      {
+        "file": "crates/touring-hooks/src/instructions_loaded.rs",
+        "loc": 440,
+        "pattern_hits": {
+          "decompose": 3,
+          "session": 2
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-hooks/src/pre_edit.rs",
+        "loc": 2282,
+        "pattern_hits": {
+          "decompose": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-hooks/src/daemon.rs",
+        "loc": 1786,
+        "pattern_hits": {
+          "rl_bridge": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-hooks/src/session_hooks.rs",
+        "loc": 970,
+        "pattern_hits": {
+          "session": 3,
+          "rl_bridge": 2
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-hooks/src/aco_processor.rs",
+        "loc": 143,
+        "pattern_hits": {
+          "decompose": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/mcts_materializer.rs",
+        "loc": 289,
+        "pattern_hits": {
+          "decompose": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/suggesters/failure_threshold.rs",
+        "loc": 395,
+        "pattern_hits": {
+          "decompose": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/task_delete.rs",
+        "loc": 64,
+        "pattern_hits": {
+          "decompose": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-hooks/src/circuit_state_machine.rs",
+        "loc": 457,
+        "pattern_hits": {
+          "decompose": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/hook_memory.rs",
+        "loc": 1204,
+        "pattern_hits": {
+          "decompose": 1,
+          "session": 2
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/lib.rs",
+        "loc": 535,
+        "pattern_hits": {
+          "decompose": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/circuit_breaker.rs",
+        "loc": 849,
+        "pattern_hits": {
+          "decompose": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/wave3_extended.rs",
+        "loc": 409,
+        "pattern_hits": {
+          "rl_bridge": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_failure.rs",
+        "loc": 390,
+        "pattern_hits": {
+          "decompose": 2,
+          "rl_bridge": 1
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/pre_compact.rs",
+        "loc": 84,
+        "pattern_hits": {
+          "rl_bridge": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/file_changed/hints.rs",
+        "loc": 929,
+        "pattern_hits": {
+          "decompose": 2,
+          "session": 1
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/file_changed/mod.rs",
+        "loc": 233,
+        "pattern_hits": {
+          "decompose": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-hooks/src/schemas/hook_payloads.rs",
+        "loc": 284,
+        "pattern_hits": {
+          "decompose": 1,
+          "session": 1
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/shared/hook_events.rs",
+        "loc": 271,
+        "pattern_hits": {
+          "session": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/lifecycle/shared.rs",
+        "loc": 373,
+        "pattern_hits": {
+          "decompose": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/runtime/impls_cognitive.rs",
+        "loc": 292,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-hooks/src/daemon_main.rs",
+        "loc": 33,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/pattern_bandit.rs",
+        "loc": 462,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_use.rs",
+        "loc": 318,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/hooks_task_lifecycle.rs",
+        "loc": 334,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/wiring.rs",
+        "loc": 2534,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/knowledge.rs",
+        "loc": 4180,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/post_compact_handler.rs",
+        "loc": 113,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_mcp.rs",
+        "loc": 1114,
+        "pattern_hits": {
+          "session": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/session_guide.rs",
+        "loc": 324,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_suggester.rs",
+        "loc": 1163,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/agentic_rl.rs",
+        "loc": 1086,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/cli_handlers_evolution.rs",
+        "loc": 578,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/cortex_dispatcher.rs",
+        "loc": 553,
+        "pattern_hits": {
+          "session": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/nlp_bridge.rs",
+        "loc": 207,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/main.rs",
+        "loc": 885,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/post_tool_batch.rs",
+        "loc": 259,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/bidirectional/storage.rs",
+        "loc": 191,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/bidirectional/suggester.rs",
+        "loc": 179,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-hooks/src/shared/cascade_queue.rs",
+        "loc": 256,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-index": [
+      {
+        "file": "crates/touring-index/src/smart_cache.rs",
+        "loc": 179,
+        "pattern_hits": {
+          "rl_bridge": 6
+        },
+        "total_hits": 6
+      },
+      {
+        "file": "crates/touring-index/src/lib.rs",
+        "loc": 32,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-learning": [
+      {
+        "file": "crates/touring-learning/src/bandit/linucb.rs",
+        "loc": 2250,
+        "pattern_hits": {
+          "rl_bridge": 87
+        },
+        "total_hits": 87
+      },
+      {
+        "file": "crates/touring-learning/src/online_rl.rs",
+        "loc": 1266,
+        "pattern_hits": {
+          "rl_bridge": 24
+        },
+        "total_hits": 24
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/transfer.rs",
+        "loc": 375,
+        "pattern_hits": {
+          "rl_bridge": 24
+        },
+        "total_hits": 24
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/mod.rs",
+        "loc": 198,
+        "pattern_hits": {
+          "rl_bridge": 19
+        },
+        "total_hits": 19
+      },
+      {
+        "file": "crates/touring-learning/src/lib.rs",
+        "loc": 309,
+        "pattern_hits": {
+          "rl_bridge": 15
+        },
+        "total_hits": 15
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/ast_enriched.rs",
+        "loc": 477,
+        "pattern_hits": {
+          "rl_bridge": 11
+        },
+        "total_hits": 11
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/granularity.rs",
+        "loc": 728,
+        "pattern_hits": {
+          "decompose": 5,
+          "rl_bridge": 6
+        },
+        "total_hits": 11
+      },
+      {
+        "file": "crates/touring-learning/src/n1/tool_catalog.rs",
+        "loc": 509,
+        "pattern_hits": {
+          "decompose": 9
+        },
+        "total_hits": 9
+      },
+      {
+        "file": "crates/touring-learning/src/evolution/persistence.rs",
+        "loc": 880,
+        "pattern_hits": {
+          "rl_bridge": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/reminder_bandit.rs",
+        "loc": 492,
+        "pattern_hits": {
+          "rl_bridge": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-learning/src/rl/actor_critic.rs",
+        "loc": 1020,
+        "pattern_hits": {
+          "rl_bridge": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-learning/src/online_learning/ftrl.rs",
+        "loc": 356,
+        "pattern_hits": {
+          "rl_bridge": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-learning/src/n1/basic_generator.rs",
+        "loc": 442,
+        "pattern_hits": {
+          "decompose": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-learning/src/rl/ndarray_mlp.rs",
+        "loc": 227,
+        "pattern_hits": {
+          "rl_bridge": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-learning/src/rl/burn_transformer.rs",
+        "loc": 208,
+        "pattern_hits": {
+          "rl_bridge": 3
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-learning/src/meta/opportunity_scorer.rs",
+        "loc": 809,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/adaptive_alpha.rs",
+        "loc": 113,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-learning/src/online_learning/mod.rs",
+        "loc": 31,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-learning/src/aco/tracker_rl_bridge.rs",
+        "loc": 173,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-learning/src/aco/tracker.rs",
+        "loc": 734,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-learning/src/streaming_hook_integration.rs",
+        "loc": 197,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-learning/src/bandit/ast_features.rs",
+        "loc": 231,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-learning/src/templates/mod.rs",
+        "loc": 12,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-python": [
+      {
+        "file": "crates/touring-python/src/rl_bindings.rs",
+        "loc": 240,
+        "pattern_hits": {
+          "rl_bridge": 18
+        },
+        "total_hits": 18
+      },
+      {
+        "file": "crates/touring-python/src/ast_rl_bridge.rs",
+        "loc": 144,
+        "pattern_hits": {
+          "rl_bridge": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-python/src/lib.rs",
+        "loc": 94,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-rkyv": [
+      {
+        "file": "crates/touring-rkyv/src/templates.rs",
+        "loc": 220,
+        "pattern_hits": {
+          "rl_bridge": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-rkyv/src/lib.rs",
+        "loc": 57,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-server": [
+      {
+        "file": "crates/touring-server/src/reasoning/decomposer.rs",
+        "loc": 2705,
+        "pattern_hits": {
+          "decompose": 75
+        },
+        "total_hits": 75
+      },
+      {
+        "file": "crates/touring-server/src/reasoning/persistence.rs",
+        "loc": 943,
+        "pattern_hits": {
+          "decompose": 50
+        },
+        "total_hits": 50
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_analysis.rs",
+        "loc": 2092,
+        "pattern_hits": {
+          "decompose": 25,
+          "rl_bridge": 1
+        },
+        "total_hits": 26
+      },
+      {
+        "file": "crates/touring-server/src/tools/generator_tools.rs",
+        "loc": 2184,
+        "pattern_hits": {
+          "decompose": 14,
+          "session": 2,
+          "rl_bridge": 3
+        },
+        "total_hits": 19
+      },
+      {
+        "file": "crates/touring-server/src/cli/decompose.rs",
+        "loc": 239,
+        "pattern_hits": {
+          "decompose": 14
+        },
+        "total_hits": 14
+      },
+      {
+        "file": "crates/touring-server/src/server/mod.rs",
+        "loc": 1151,
+        "pattern_hits": {
+          "decompose": 8,
+          "rl_bridge": 4
+        },
+        "total_hits": 12
+      },
+      {
+        "file": "crates/touring-server/src/cli/tasksfile.rs",
+        "loc": 180,
+        "pattern_hits": {
+          "decompose": 9
+        },
+        "total_hits": 9
+      },
+      {
+        "file": "crates/touring-server/src/cli/devrcfile.rs",
+        "loc": 132,
+        "pattern_hits": {
+          "decompose": 8
+        },
+        "total_hits": 8
+      },
+      {
+        "file": "crates/touring-server/src/cli/diary.rs",
+        "loc": 434,
+        "pattern_hits": {
+          "decompose": 6
+        },
+        "total_hits": 6
+      },
+      {
+        "file": "crates/touring-server/src/agent_diary.rs",
+        "loc": 786,
+        "pattern_hits": {
+          "decompose": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-server/src/cli/suggest.rs",
+        "loc": 110,
+        "pattern_hits": {
+          "decompose": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-server/src/reasoning/mod.rs",
+        "loc": 26,
+        "pattern_hits": {
+          "decompose": 4
+        },
+        "total_hits": 4
+      },
+      {
+        "file": "crates/touring-server/src/cli/common.rs",
+        "loc": 1038,
+        "pattern_hits": {
+          "decompose": 2,
+          "rl_bridge": 1
+        },
+        "total_hits": 3
+      },
+      {
+        "file": "crates/touring-server/src/cli/activity.rs",
+        "loc": 235,
+        "pattern_hits": {
+          "session": 2
+        },
+        "total_hits": 2
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_context_router.rs",
+        "loc": 465,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/server/params.rs",
+        "loc": 1948,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/server/tools_infra.rs",
+        "loc": 2234,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/cli/learning.rs",
+        "loc": 64,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/cli/workflow.rs",
+        "loc": 68,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/cli/granularity.rs",
+        "loc": 107,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/cli/mod.rs",
+        "loc": 313,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      },
+      {
+        "file": "crates/touring-server/src/cli/synergy.rs",
+        "loc": 552,
+        "pattern_hits": {
+          "rl_bridge": 1
+        },
+        "total_hits": 1
+      }
+    ],
+    "touring-tasksfile": [
+      {
+        "file": "crates/touring-tasksfile/src/compiler.rs",
+        "loc": 233,
+        "pattern_hits": {
+          "decompose": 5
+        },
+        "total_hits": 5
+      },
+      {
+        "file": "crates/touring-tasksfile/src/lib.rs",
+        "loc": 47,
+        "pattern_hits": {
+          "decompose": 1
+        },
+        "total_hits": 1
+      }
+    ]
+  },
+  "skeleton_files_emitted": [
+    "scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/Cargo.toml",
+    "scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/lib.rs",
+    "scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/error.rs",
+    "scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/decompose.rs",
+    "scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/session.rs",
+    "scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/rl_bridge.rs"
+  ]
+}

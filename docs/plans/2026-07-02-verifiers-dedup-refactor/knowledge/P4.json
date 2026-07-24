@@ -1,0 +1,74 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "P4 (corrigido, evidence-driven) DONE. Extraiu is_detector_own_source: 35 copias byte-identicas (17L, hash 1dc23bade5f8) -> 1 def compartilhada pub(crate) em mod.rs (gated workspace-integration) + delegacao 1-linha nos 35 (mantem doc/attr/call-sites; colapsa 17L->3L). 4 variantes (f1_5/f2_6/f2_1/f2_4, allowlists extras) preservadas. lang_from_ext PULADO (19 variantes fragmentadas, nao clones entre si). Gate: cargo check default+no-default EXIT 0/0 0 warnings; cargo test 344 passed 0 failed. F1.3 MEDIDO pos-P4: dir=28.9% (1205 dup/4166 lines, 80 clone blocks) status=Fail, tier=Silver -- INALTERADO. CONCLUSAO HONESTA: os 80 clone blocks restantes sao similaridade ESTRUTURAL inerente dos 50 impls do trait Verification (mesmo shape analyze->finish), nao boilerplate extraivel; per-file F1.3=1.0 (Diamond). Convergencia dir-F1.3->Gold NAO alcancavel por dedup behavior-preserving: exigiria (a) macro-collapse dos 50 verifiers (L4/L5, pior legibilidade) OU (b) fix da semantica dir-F1.3 (concatena vs score-per-file WeightedLoc; defeito ja na reforma-9-waves). Valor entregue P2+P3+P4: ~1000 linhas dup real removidas, 344 tests verdes, comportamento preservado."
+    },
+    {
+      "entity_id": "function:is_detector_own_source",
+      "type": "function",
+      "description": "shared pub(crate) fn in mod.rs (gated workspace-integration); 35 byte-identical 17-line copies collapsed to 1-line delegations"
+    },
+    {
+      "entity_id": "decision:F1_3_structural_finding",
+      "type": "decision",
+      "description": "dir-F1.3=28.9% (1205 dup/4166 lines, 80 clone blocks) is inherent 50-trait-impl structural similarity + concatenation semantics, NOT extractable boilerplate; per-file F1.3 all 1.0"
+    },
+    {
+      "entity_id": "decision:convergence_blocked",
+      "type": "decision",
+      "description": "tier Gold via dir-F1.3 unreachable by behavior-preserving dedup; needs macro-collapse (undesirable) or harness dir-scope fix (separate reform)"
+    },
+    {
+      "entity_id": "decision:cargo_proof_P4",
+      "type": "decision",
+      "description": "cargo check default+no-default EXIT 0/0 0 warnings; cargo test 344 passed 0 failed"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P4|produces|function:is_detector_own_source",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "function:is_detector_own_source"
+    },
+    {
+      "relation_id": "phase:P4|produces|decision:F1_3_structural_finding",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "decision:F1_3_structural_finding"
+    },
+    {
+      "relation_id": "phase:P4|produces|decision:convergence_blocked",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "decision:convergence_blocked"
+    },
+    {
+      "relation_id": "phase:P4|produces|decision:cargo_proof_P4",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "decision:cargo_proof_P4"
+    },
+    {
+      "relation_id": "phase:P4|extracted|function:is_detector_own_source",
+      "source": "phase:P4",
+      "type": "extracted",
+      "target": "function:is_detector_own_source"
+    },
+    {
+      "relation_id": "decision:F1_3_structural_finding|blocks|decision:convergence_blocked",
+      "source": "decision:F1_3_structural_finding",
+      "type": "blocks",
+      "target": "decision:convergence_blocked"
+    },
+    {
+      "relation_id": "decision:cargo_proof_P4|verifies|function:is_detector_own_source",
+      "source": "decision:cargo_proof_P4",
+      "type": "verifies",
+      "target": "function:is_detector_own_source"
+    }
+  ]
+}

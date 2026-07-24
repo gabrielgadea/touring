@@ -1,0 +1,54 @@
+{
+  "entries": [
+    {
+      "tool_class": "bash",
+      "intent_class": "unknown",
+      "context": "plain",
+      "successes": 77,
+      "failures": 0
+    },
+    {
+      "tool_class": "edit",
+      "intent_class": "md",
+      "context": "plain",
+      "successes": 3,
+      "failures": 0
+    },
+    {
+      "tool_class": "edit",
+      "intent_class": "rs",
+      "context": "plain",
+      "successes": 17,
+      "failures": 0
+    },
+    {
+      "tool_class": "other",
+      "intent_class": "unknown",
+      "context": "plain",
+      "successes": 21,
+      "failures": 0
+    },
+    {
+      "tool_class": "read",
+      "intent_class": "md",
+      "context": "plain",
+      "successes": 3,
+      "failures": 0
+    },
+    {
+      "tool_class": "read",
+      "intent_class": "rs",
+      "context": "plain",
+      "successes": 17,
+      "failures": 0
+    },
+    {
+      "tool_class": "write",
+      "intent_class": "md",
+      "context": "plain",
+      "successes": 6,
+      "failures": 0
+    }
+  ],
+  "total_examples": 144
+}

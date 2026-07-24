@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "holon-capability-wiring-audit.schema.json",
+  "title": "Capability: wiring-audit",
+  "description": "Orphan + module integration audit",
+  "type": "object",
+  "additionalProperties": true
+}

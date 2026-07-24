@@ -1,0 +1,24 @@
+{
+  "violations": [
+    {
+      "file": "crates/touring-hooks/src/tool_output_router.rs",
+      "violations": [
+        {
+          "target_module": "sandbox_executor",
+          "target_bucket": "touring-hooks-tools"
+        }
+      ]
+    }
+  ],
+  "auto_relocated": {
+    "task_digest.rs": "touring-hooks-tools",
+    "gotcha_loader.rs": "touring-hooks-tools",
+    "permission_request.rs": "touring-hooks-tools",
+    "stop.rs": "touring-hooks-lifecycle",
+    "ecosystem.rs": "touring-hooks-tools",
+    "nlp_bridge.rs": "touring-hooks-infra",
+    "hooks_task_lifecycle.rs": "touring-hooks-lifecycle",
+    "mcts_materializer.rs": "touring-hooks-tools",
+    "triad_hook.rs": "touring-hooks-lifecycle"
+  }
+}

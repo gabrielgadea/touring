@@ -1,0 +1,12 @@
+id: typescript:any-type
+language: typescript
+pattern: ": any"
+description: "`any` opts out of type-checking. Prefer `unknown` and narrow at use sites."
+severity: medium
+resolution: |
+  Replace `any` with:
+  - `unknown` when type is genuinely unknown
+  - `Record<string, T>` for object shapes
+  - Generic type parameter `<T>` for flexible APIs
+metadata:
+  introduced: 2026-04-25

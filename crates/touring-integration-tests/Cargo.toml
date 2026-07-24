@@ -1,0 +1,26 @@
+[package]
+name = "touring-integration-tests"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Integration tests for touring-analysis + touring-ast pipeline wiring (pln2: B6, B7, E1, E3, E4, F1, G1, G2, G3, C9)"
+license.workspace = true
+publish = false
+
+[dependencies]
+touring-analysis = { path = "../touring-analysis" }
+touring-code = { path = "../touring-code" }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-hooks = { path = "../touring-hooks" }
+touring-rkyv = { path = "../touring-rkyv" }
+touring-offensive = { path = "../touring-offensive" }
+touring-generator = { path = "../touring-generator" }
+rusqlite = { workspace = true }
+ndarray = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,99 @@
+checkpoint:
+  id: w13-audited-plan-ready
+  date: 2026-06-11
+  type: post-wave-audit
+  scope: kazuba-rust-core W13.1 doc-intel audit + T12.1.2/T12.2.2 planning
+  parent: 2026-06-11-master-plan-implementation-complete
+
+purpose: |
+  Document W13.1 candle 0.8 audit (4 sub-tasks) and the 2 deferred
+  planning ADRs (T12.1.2 async API, T12.2.2 GPU layer). The audit
+  captured 244 error locations and 5 distinct error kinds; the
+  remediation plan is ready but multi-session (estimated 2-4 sessions
+  per the Master Plan W2.3.2+ work).
+
+w13.1_summary:
+  w13.1.1_audit:
+    status: COMPLETE
+    finding: "candle 0.8 API drift is the root cause of the 87+ test target errors. The drift is contained in 244 file:line locations across learning/ (101), rlm/ (77), doc_memory/ (19), doc_generator/ (14), doc_graph/ (13), doc_symbols/ (13), doc_ast/ (5), qa/ (1), lib.rs (2)."
+    error_kinds: 5 (E0107, E0277×2, E0283, E0061×2)
+    output: notes/doc_intel_test_audit_2026-06-11.md
+  w13.1.2_candle_migration:
+    status: PLANNED (ADR-0016 + audit document the plan)
+    resolution: "candle 0.6 → 0.8 mechanical sed style for Tensor::new, plus manual fixes for E0277 trait bound cases. ~244 sites. Estimated 1-2 sessions."
+  w13.1.3_reinclude:
+    status: ATTEMPTED + REVERTED
+    finding: "Cargo.toml re-inclusion triggered 14 errors (E0107, E0283, E0277, E0061) in consumers. Reverted to keep workspace integrity (14 members, 0 errors). Right approach is multi-session, not comment-toggle."
+  w13.1.4_audit_documented:
+    status: COMPLETE
+    output: notes/doc_intel_test_audit_2026-06-11.md
+    remediation_phases:
+      - "Phase 1: Audit (DONE in this checkpoint)"
+      - "Phase 2: candle 0.8 migration (W13.1.2 follow-up, 1-2 sessions)"
+      - "Phase 3: doc_symbols::store + doc_graph::communities modules (0.5-1 session)"
+      - "Phase 4: Re-include + validate (0.5-1 session)"
+
+t12.1.2_async_api:
+  status: PLANNED (ADR-0024)
+  scope: "PyO3 #[pyo3(async)] adapter for BM25Index.search. Tokio runtime setup. Python migration docs. 10K req/s benchmark."
+  estimated_effort: 6-9h (~1-2 sessions)
+  score_impact: +0.05 (8.95 → 9.0)
+
+t12.2.2_gpu_layer:
+  status: PLANNED (ADR-0025)
+  scope: "GpuOps trait + CPU/CUDA/Embeddings backends. Consumer migration. Bench harness."
+  estimated_effort: 10-12h (~2-3 sessions)
+  score_impact: +0.05 (8.95 → 9.0)
+
+validation_gates_post_w13_audit:
+  - name: cargo check --workspace --all-targets
+    status: PASS
+    errors: 0
+  - name: cargo clippy --workspace --lib
+    status: PASS
+    warnings: 5 (was 109+; 96% reduction)
+  - name: Plugin C-ABI compilation (all 4)
+    status: PASS
+  - name: mkdocs build --strict
+    status: PASS
+    warnings: 0
+    time: 2.32s
+  - name: cargo metadata (workspace members)
+    status: PASS
+    members: 14 (preserved; doc-intelligence re-inclusion reverted to keep baseline)
+  - name: scripts/check_dep_cycles.py
+    status: PASS
+    cycles: 0
+
+new_adrs_in_this_cycle:
+  - id: 0024
+    title: "async API stabilization"
+    status: planning
+  - id: 0025
+    title: "GPU layer abstraction"
+    status: planning
+
+new_notes_in_this_cycle:
+  - notes/doc_intel_test_audit_2026-06-11.md
+
+score_evolution:
+  v3.1.0: 7.5/10
+  after_master_plan_immediate: 8.95/10
+  after_w13_audit: 8.95/10 (no change — W13.1 needs multi-session)
+  target_premium_elite: 9.4/10
+  remaining_gap: 0.45 (4 multi-session items: W13.1, T12.1.2, T12.2.2, W14-W28)
+
+w13_1_remediation_roadmap:
+  sessions_estimated: 2.5-4
+  breakdown:
+    - candle_migration: 1-2 sessions (244 sites)
+    - missing_modules: 0.5-1 session (doc_symbols::store, doc_graph::communities)
+    - reinclude_validate: 0.5-1 session (Cargo.toml + cargo test)
+  score_after_completion: 8.95 → 9.05
+  all_subtasks_done_after: 30/31 (97%)
+
+next_session_continue:
+  - W13.1.2 candle migration (1-2 sessions, +0.10 score)
+  - T12.1.2 async API (1-2 sessions, +0.05 score)
+  - T12.2.2 GPU layer (2-3 sessions, +0.05 score)
+  - W14+ (long-term per ADR-0023, 15-25 sessions for 9.4/10)

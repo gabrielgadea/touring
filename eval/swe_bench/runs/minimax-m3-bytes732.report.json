@@ -1,0 +1,38 @@
+{
+  "solver": "file",
+  "total": 1,
+  "resolved": 1,
+  "resolved_pct": 1.0,
+  "claimed_resolved": 1,
+  "vgp_false_positives": 0,
+  "vgp_false_positive_rate": 0.0,
+  "mean_tokens": 16881.0,
+  "results": [
+    {
+      "instance_id": "tokio-rs__bytes-732",
+      "resolved": true,
+      "applied": true,
+      "claims_resolved": true,
+      "vgp_false_positive": false,
+      "tokens": 16881,
+      "fail_to_pass": {
+        "test_get_int": true
+      },
+      "pass_to_pass": {
+        "copy_to_bytes_less": true,
+        "test_get_u16": true,
+        "test_vec_deque": true,
+        "bytes_mut::tests::test_original_capacity_to_repr": true,
+        "test_deref_buf_forwards": true,
+        "test_fresh_cursor_vec": true,
+        "test_bufs_vec": true,
+        "test_get_u8": true,
+        "bytes_mut::tests::test_original_capacity_from_repr": true
+      },
+      "regressions": [],
+      "malformed": [],
+      "aider_resolved": null,
+      "error": null
+    }
+  ]
+}

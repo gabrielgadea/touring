@@ -1,0 +1,1878 @@
+{
+  "workspace_root": "/home/gabrielgadea/.claude/rust",
+  "packages": [
+    {
+      "name": "touring-core",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-core/Cargo.toml",
+      "features": {
+        "default": [
+          "gpu-embeddings"
+        ],
+        "gpu-embeddings": [],
+        "mimalloc-allocator": []
+      },
+      "dependencies": [
+        "anyhow",
+        "arc-swap",
+        "async-trait",
+        "blake3",
+        "chrono",
+        "futures",
+        "hdrhistogram",
+        "memory-stats",
+        "miette",
+        "mimalloc",
+        "once_cell",
+        "reqwest",
+        "rkyv",
+        "rusqlite",
+        "serde",
+        "serde_json",
+        "sha2",
+        "thiserror",
+        "tokio",
+        "toml",
+        "tracing",
+        "tracing-attributes",
+        "tempfile",
+        "libc"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-simd",
+      "version": "0.2.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-simd/Cargo.toml",
+      "features": {
+        "ann": [],
+        "core-integration": [],
+        "cortex-integration": [],
+        "default": [
+          "core-integration",
+          "learning-integration",
+          "gpu-compute",
+          "cortex-integration",
+          "quantization",
+          "ann"
+        ],
+        "gpu-compute": [],
+        "learning-integration": [],
+        "quantization": []
+      },
+      "dependencies": [
+        "bytemuck",
+        "half",
+        "pollster",
+        "pulp",
+        "rayon",
+        "serde",
+        "statrs",
+        "touring-core",
+        "wgpu",
+        "approx",
+        "criterion",
+        "divan",
+        "proptest",
+        "static_assertions"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-learning",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-learning/Cargo.toml",
+      "features": {
+        "ast-features": [
+          "dep:touring-ast"
+        ],
+        "async-memory": [
+          "dep:tokio"
+        ],
+        "default": [
+          "simple-clustering",
+          "ast-features",
+          "leiden-clustering",
+          "hnsw-working-memory",
+          "ftrl",
+          "u4-quantization",
+          "async-memory",
+          "ebpf",
+          "semantic-embeddings"
+        ],
+        "ebpf": [],
+        "ftrl": [
+          "dep:linfa-ftrl",
+          "dep:linfa",
+          "dep:ndarray015"
+        ],
+        "gpu-compute": [
+          "touring-simd/gpu-compute"
+        ],
+        "hnsw-working-memory": [
+          "dep:bumpalo",
+          "dep:instant-distance",
+          "dep:tokio"
+        ],
+        "leiden-clustering": [
+          "dep:linfa",
+          "dep:linfa-clustering"
+        ],
+        "semantic-embeddings": [
+          "dep:candle-core",
+          "dep:candle-nn",
+          "dep:candle-transformers",
+          "dep:tokenizers"
+        ],
+        "simple-clustering": [],
+        "u4-quantization": [
+          "touring-simd/quantization"
+        ]
+      },
+      "dependencies": [
+        "bumpalo",
+        "bytemuck",
+        "candle-core",
+        "candle-nn",
+        "candle-transformers",
+        "chrono",
+        "crdts",
+        "dashmap",
+        "dirs",
+        "glob",
+        "indexmap",
+        "instant-distance",
+        "linfa",
+        "linfa-clustering",
+        "linfa-ftrl",
+        "lru",
+        "memmap2",
+        "moka",
+        "ndarray",
+        "ndarray",
+        "once_cell",
+        "petgraph",
+        "rand",
+        "rayon",
+        "regex",
+        "rkyv",
+        "rusqlite",
+        "rustc-hash",
+        "serde",
+        "serde_json",
+        "sha2",
+        "single-clustering",
+        "smallvec",
+        "static_assertions",
+        "thiserror",
+        "tokenizers",
+        "tokio",
+        "touring-ast",
+        "touring-core",
+        "touring-offensive",
+        "touring-rkyv",
+        "touring-simd",
+        "tracing",
+        "wgpu",
+        "criterion",
+        "pretty_assertions",
+        "proptest",
+        "tempfile",
+        "tracing-test"
+      ],
+      "optional_dependencies": [
+        "bumpalo",
+        "candle-core",
+        "candle-nn",
+        "candle-transformers",
+        "instant-distance",
+        "linfa",
+        "linfa-clustering",
+        "linfa-ftrl",
+        "ndarray",
+        "tokenizers",
+        "tokio",
+        "touring-ast"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-ast",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-ast/Cargo.toml",
+      "features": {
+        "ann": [
+          "touring-simd/ann"
+        ],
+        "async-pipeline": [],
+        "default": [
+          "simd-search",
+          "ann",
+          "more-languages",
+          "async-pipeline"
+        ],
+        "more-languages": [],
+        "simd-search": [
+          "touring-simd/learning-integration"
+        ]
+      },
+      "dependencies": [
+        "cargo_metadata",
+        "derive_more",
+        "indexmap",
+        "lru",
+        "miette",
+        "moka",
+        "notify",
+        "notify-debouncer-mini",
+        "parking_lot",
+        "petgraph",
+        "prettyplease",
+        "public-api",
+        "quote",
+        "rayon",
+        "regex",
+        "ropey",
+        "rusqlite",
+        "serde",
+        "serde_json",
+        "static_assertions",
+        "streaming-iterator",
+        "strum",
+        "syn",
+        "thiserror",
+        "tokio",
+        "touring-ast-polyglot",
+        "touring-core",
+        "touring-simd",
+        "touring-vfs",
+        "tracing",
+        "tracing-error",
+        "tree-sitter",
+        "tree-sitter-bash",
+        "tree-sitter-css",
+        "tree-sitter-go",
+        "tree-sitter-html",
+        "tree-sitter-java",
+        "tree-sitter-javascript",
+        "tree-sitter-json",
+        "tree-sitter-md",
+        "tree-sitter-python",
+        "tree-sitter-rust",
+        "tree-sitter-toml-ng",
+        "tree-sitter-typescript",
+        "tree-sitter-yaml",
+        "arbitrary",
+        "criterion",
+        "derive_arbitrary",
+        "hdrhistogram",
+        "insta",
+        "mockall",
+        "pprof",
+        "pretty_assertions",
+        "proptest",
+        "rstest",
+        "rusty-fork",
+        "serial_test",
+        "tempfile",
+        "tokio",
+        "tracing-test"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-ast-polyglot",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-ast-polyglot/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "ast-grep-core",
+        "ast-grep-language",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "pretty_assertions"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-vfs",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-vfs/Cargo.toml",
+      "features": {
+        "default": [],
+        "notify": [
+          "dep:notify"
+        ],
+        "notify-debouncer-mini": [
+          "dep:notify-debouncer-mini"
+        ],
+        "sync_projector": [],
+        "watcher": [
+          "notify",
+          "notify-debouncer-mini"
+        ]
+      },
+      "dependencies": [
+        "blake3",
+        "bytes",
+        "filetime",
+        "hashbrown",
+        "notify",
+        "notify-debouncer-mini",
+        "parking_lot",
+        "serde",
+        "thiserror",
+        "walkdir",
+        "pretty_assertions",
+        "tempfile"
+      ],
+      "optional_dependencies": [
+        "notify",
+        "notify-debouncer-mini"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-offensive",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-offensive/Cargo.toml",
+      "features": {
+        "cvc5": [
+          "dep:cvc5"
+        ],
+        "cve-fetch": [
+          "reqwest/blocking"
+        ],
+        "default": [
+          "stub",
+          "cve-fetch",
+          "z3"
+        ],
+        "reqwest": [
+          "dep:reqwest"
+        ],
+        "stub": [],
+        "z3": [
+          "dep:z3"
+        ]
+      },
+      "dependencies": [
+        "anyhow",
+        "cvc5",
+        "regex",
+        "reqwest",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "touring-core",
+        "unicode-segmentation",
+        "z3",
+        "tempfile"
+      ],
+      "optional_dependencies": [
+        "cvc5",
+        "reqwest",
+        "z3"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-rkyv",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-rkyv/Cargo.toml",
+      "features": {
+        "default": [
+          "std",
+          "validation"
+        ],
+        "std": [
+          "rkyv/std"
+        ],
+        "validation": [
+          "rkyv/validation"
+        ]
+      },
+      "dependencies": [
+        "rkyv",
+        "serde",
+        "criterion",
+        "proptest",
+        "serde_json"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-hooks",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-hooks/Cargo.toml",
+      "features": {
+        "acp-protocol": [],
+        "all-hooks": [
+          "pre-hooks",
+          "post-hooks",
+          "session-hooks",
+          "utilities",
+          "nlp-enrichment",
+          "ann-blast"
+        ],
+        "ann-blast": [],
+        "capnp-server": [
+          "dep:touring-capnp-server"
+        ],
+        "default": [
+          "hooks-active",
+          "all-hooks",
+          "templates",
+          "shadow-workspace",
+          "quantization",
+          "u4-quantization",
+          "persistence",
+          "gpu-compute",
+          "tantivy-fts",
+          "inferlets-wasm",
+          "rkyv-ipc",
+          "nlp-enrichment",
+          "inventory-registry",
+          "capnp-server"
+        ],
+        "gpu-compute": [],
+        "hooks-active": [],
+        "hooks-noop": [],
+        "inferlets-wasm": [],
+        "inventory-registry": [
+          "dep:inventory"
+        ],
+        "mpatch-fuzzy": [
+          "dep:mpatch"
+        ],
+        "nlp-enrichment": [],
+        "persistence": [],
+        "post-hooks": [
+          "pre-hooks"
+        ],
+        "pre-hooks": [],
+        "quantization": [
+          "touring-simd/quantization"
+        ],
+        "resource-monitor": [
+          "dep:touring-resource-monitor"
+        ],
+        "rkyv-ipc": [],
+        "saga": [],
+        "session-hooks": [],
+        "shadow-workspace": [],
+        "tantivy-fts": [
+          "dep:tantivy"
+        ],
+        "templates": [
+          "touring-tasksfile/templates"
+        ],
+        "u4-quantization": [
+          "touring-learning/u4-quantization"
+        ],
+        "utilities": []
+      },
+      "dependencies": [
+        "aho-corasick",
+        "base64",
+        "bincode",
+        "blake3",
+        "chrono",
+        "dashmap",
+        "deadpool-sqlite",
+        "hdrhistogram",
+        "indexmap",
+        "inventory",
+        "lru",
+        "memchr",
+        "memory-stats",
+        "moka",
+        "mpatch",
+        "ndarray",
+        "num_cpus",
+        "once_cell",
+        "petgraph",
+        "rayon",
+        "regex",
+        "rkyv",
+        "rusqlite",
+        "rustc-hash",
+        "serde",
+        "serde_json",
+        "serde_yaml",
+        "sha2",
+        "stringzilla",
+        "tantivy",
+        "tempfile",
+        "thiserror",
+        "tokio",
+        "toml",
+        "touring-activity",
+        "touring-analysis",
+        "touring-antt",
+        "touring-ast",
+        "touring-ast-polyglot",
+        "touring-capnp-server",
+        "touring-cognitive",
+        "touring-core",
+        "touring-definitions",
+        "touring-devrc-adapter",
+        "touring-flow",
+        "touring-learning",
+        "touring-offensive",
+        "touring-resource-monitor",
+        "touring-rkyv",
+        "touring-semantics",
+        "touring-simd",
+        "touring-tasksfile",
+        "touring-wasm",
+        "tracing",
+        "tracing-subscriber",
+        "uuid",
+        "validator",
+        "capnp",
+        "capnp-futures",
+        "capnp-rpc",
+        "criterion",
+        "divan",
+        "futures",
+        "insta",
+        "pretty_assertions",
+        "serde_json",
+        "serial_test",
+        "static_assertions",
+        "tempfile",
+        "tokio-util",
+        "touring-learning",
+        "tracing-test",
+        "cfg_aliases"
+      ],
+      "optional_dependencies": [
+        "inventory",
+        "mpatch",
+        "tantivy",
+        "touring-capnp-server",
+        "touring-resource-monitor"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-activity",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-activity/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "hex",
+        "serde",
+        "serde_json",
+        "sha2",
+        "thiserror",
+        "tracing",
+        "uuid",
+        "pretty_assertions",
+        "proptest",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-analysis",
+      "version": "0.3.3",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-analysis/Cargo.toml",
+      "features": {
+        "ann-blast": [
+          "touring-simd/ann"
+        ],
+        "blast-radius": [],
+        "deep": [
+          "blast-radius",
+          "quality",
+          "wiring",
+          "temporal"
+        ],
+        "default": [
+          "blast-radius",
+          "quality",
+          "wiring",
+          "temporal",
+          "simd-temporal",
+          "ann-blast",
+          "deep",
+          "simd-wiring",
+          "simd-temporal-ac",
+          "erickson-bridge"
+        ],
+        "erickson-bridge": [],
+        "quality": [],
+        "simd-temporal": [
+          "temporal",
+          "touring-simd/learning-integration"
+        ],
+        "simd-temporal-ac": [],
+        "simd-wiring": [],
+        "temporal": [],
+        "wiring": []
+      },
+      "dependencies": [
+        "aho-corasick",
+        "chrono",
+        "glob",
+        "memchr",
+        "moka",
+        "petgraph",
+        "rayon",
+        "rusqlite",
+        "rustsec",
+        "serde",
+        "serde_json",
+        "static_assertions",
+        "stringzilla",
+        "thiserror",
+        "toml",
+        "touring-ast",
+        "touring-core",
+        "touring-offensive",
+        "touring-simd",
+        "tracing",
+        "criterion",
+        "iai-callgrind",
+        "insta",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-antt",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-antt/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "aho-corasick",
+        "chrono",
+        "dashmap",
+        "indexmap",
+        "lru",
+        "moka",
+        "once_cell",
+        "petgraph",
+        "rayon",
+        "regex",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "touring-core",
+        "touring-learning",
+        "touring-simd",
+        "tracing",
+        "unicode-segmentation",
+        "approx",
+        "criterion",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-capnp-server",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-capnp-server/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "anyhow",
+        "capnp",
+        "capnp-futures",
+        "capnp-rpc",
+        "futures",
+        "serde",
+        "serde_json",
+        "tokio",
+        "tokio-util",
+        "toml",
+        "touring-core",
+        "tracing",
+        "walkdir",
+        "hdrhistogram",
+        "tempfile",
+        "tokio",
+        "capnpc"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-cognitive",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-cognitive/Cargo.toml",
+      "features": {
+        "analysis-bridge": [
+          "dep:touring-analysis"
+        ],
+        "default": [
+          "analysis-bridge"
+        ],
+        "esaa": []
+      },
+      "dependencies": [
+        "bytemuck",
+        "chrono",
+        "dashmap",
+        "deadpool-sqlite",
+        "lru",
+        "petgraph",
+        "pollster",
+        "rayon",
+        "rkyv",
+        "rusqlite",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tokio",
+        "touring-analysis",
+        "touring-antt",
+        "touring-ast",
+        "touring-core",
+        "touring-learning",
+        "touring-rkyv",
+        "touring-simd",
+        "tracing",
+        "wgpu",
+        "criterion",
+        "tempfile",
+        "tokio"
+      ],
+      "optional_dependencies": [
+        "touring-analysis"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-definitions",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-definitions/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "clap",
+        "glob",
+        "regex",
+        "serde",
+        "serde_json",
+        "serde_yaml",
+        "strum",
+        "toml",
+        "touring-core",
+        "tracing",
+        "pretty_assertions",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-devrc-adapter",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-devrc-adapter/Cargo.toml",
+      "features": {
+        "default": [
+          "yaml",
+          "templates"
+        ],
+        "templates": [
+          "dep:tera"
+        ],
+        "yaml": [
+          "dep:serde_yaml"
+        ]
+      },
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "serde_json",
+        "serde_yaml",
+        "tera",
+        "thiserror",
+        "touring-tasksfile",
+        "tempfile"
+      ],
+      "optional_dependencies": [
+        "serde_yaml",
+        "tera"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-tasksfile",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-tasksfile/Cargo.toml",
+      "features": {
+        "chrono": [
+          "dep:chrono"
+        ],
+        "default": [
+          "yaml",
+          "templates"
+        ],
+        "http-client": [
+          "dep:reqwest"
+        ],
+        "templates": [
+          "dep:tera"
+        ],
+        "yaml": [
+          "dep:serde_yaml"
+        ]
+      },
+      "dependencies": [
+        "anyhow",
+        "chrono",
+        "reqwest",
+        "serde",
+        "serde_json",
+        "serde_yaml",
+        "tera",
+        "thiserror",
+        "tokio",
+        "tempfile"
+      ],
+      "optional_dependencies": [
+        "chrono",
+        "reqwest",
+        "serde_yaml",
+        "tera"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-flow",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-flow/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tracing",
+        "pretty_assertions"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-resource-monitor",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-resource-monitor/Cargo.toml",
+      "features": {
+        "default": [],
+        "sysinfo-system": [
+          "dep:sysinfo"
+        ],
+        "systemd-notify": [
+          "dep:sd-notify"
+        ]
+      },
+      "dependencies": [
+        "memory-stats",
+        "sd-notify",
+        "serde",
+        "sysinfo",
+        "thiserror",
+        "tokio",
+        "tracing",
+        "tracing-subscriber",
+        "serde_json",
+        "tempfile",
+        "tokio",
+        "libc"
+      ],
+      "optional_dependencies": [
+        "sd-notify",
+        "sysinfo"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-semantics",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-semantics/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "anyhow",
+        "indexmap",
+        "once_cell",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "touring-ast",
+        "touring-vfs",
+        "tree-sitter"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-wasm",
+      "version": "1.0.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-wasm/Cargo.toml",
+      "features": {
+        "default": [
+          "pooling-allocator"
+        ],
+        "pooling-allocator": []
+      },
+      "dependencies": [
+        "anyhow",
+        "async-trait",
+        "inferlets",
+        "serde_json",
+        "tokio",
+        "touring-simd",
+        "tracing",
+        "wasmtime",
+        "wat",
+        "tokio"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "inferlets",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/inferlets/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "serde",
+        "serde_json",
+        "sha2",
+        "toml"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-server",
+      "version": "30.0.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-server/Cargo.toml",
+      "features": {
+        "analysis-gate": [
+          "touring-generator/analysis-gate"
+        ],
+        "async-memory": [
+          "touring-learning/async-memory"
+        ],
+        "build-info": [
+          "dep:vergen-gix"
+        ],
+        "cognitive-nexus": [
+          "touring-generator/cognitive-nexus"
+        ],
+        "console": [
+          "dep:console-subscriber"
+        ],
+        "default": [
+          "wasm-plugins",
+          "l7b-alpha",
+          "async-memory",
+          "scip-emit",
+          "simd-fuzzy",
+          "rl-integration",
+          "mcts-synthesis",
+          "syn-quote",
+          "cognitive-nexus",
+          "analysis-gate",
+          "nlp-reranking",
+          "observability",
+          "memory-integration",
+          "generator-wasm-sandbox",
+          "generator-zero-copy",
+          "ebpf-telemetry",
+          "console",
+          "otlp",
+          "file-logs",
+          "rkyv-ipc",
+          "build-info",
+          "heap-profile",
+          "tantivy-fts"
+        ],
+        "dhat-heap": [
+          "dep:dhat"
+        ],
+        "ebpf-telemetry": [
+          "dep:aya",
+          "dep:aya-log",
+          "dep:touring-telemetry"
+        ],
+        "file-logs": [
+          "dep:tracing-appender"
+        ],
+        "generator-wasm-sandbox": [
+          "touring-generator/wasm-sandbox"
+        ],
+        "generator-zero-copy": [
+          "touring-generator/zero-copy"
+        ],
+        "heap-profile": [
+          "jemalloc",
+          "dep:jemalloc_pprof"
+        ],
+        "jemalloc": [
+          "dep:tikv-jemallocator"
+        ],
+        "l7b-alpha": [
+          "touring-hooks/persistence",
+          "touring-learning/ftrl",
+          "touring-learning/leiden-clustering",
+          "touring-learning/async-memory",
+          "touring-simd/quantization",
+          "touring-simd/ann"
+        ],
+        "mcts-synthesis": [
+          "touring-generator/mcts-synthesis"
+        ],
+        "memory-integration": [
+          "touring-generator/memory-integration"
+        ],
+        "nlp-reranking": [
+          "touring-generator/nlp-reranking"
+        ],
+        "observability": [
+          "touring-generator/observability"
+        ],
+        "otlp": [
+          "dep:opentelemetry",
+          "dep:opentelemetry_sdk",
+          "dep:opentelemetry-otlp",
+          "dep:tracing-opentelemetry"
+        ],
+        "prod-allocator": [
+          "touring-core/mimalloc-allocator"
+        ],
+        "rkyv-ipc": [
+          "touring-hooks/rkyv-ipc",
+          "dep:touring-rkyv"
+        ],
+        "rl-integration": [
+          "touring-generator/rl-integration"
+        ],
+        "scip-emit": [
+          "dep:prost",
+          "dep:prost-types"
+        ],
+        "simd-fuzzy": [
+          "touring-generator/simd-fuzzy"
+        ],
+        "syn-quote": [
+          "touring-generator/syn-quote"
+        ],
+        "tantivy-fts": [
+          "touring-hooks/tantivy-fts"
+        ],
+        "tracy": [
+          "dep:tracing-tracy"
+        ],
+        "wasm-plugins": [
+          "dep:touring-wasm"
+        ]
+      },
+      "dependencies": [
+        "anyhow",
+        "aya",
+        "aya-log",
+        "chrono",
+        "console-subscriber",
+        "dashmap",
+        "dhat",
+        "dirs",
+        "hex",
+        "ignore",
+        "inferlets",
+        "jemalloc_pprof",
+        "lru",
+        "moka",
+        "notify",
+        "num_cpus",
+        "once_cell",
+        "opentelemetry",
+        "opentelemetry-otlp",
+        "opentelemetry_sdk",
+        "petgraph",
+        "prost",
+        "prost-types",
+        "rayon",
+        "regex",
+        "reqwest",
+        "rkyv",
+        "rmcp",
+        "rusqlite",
+        "rustc-hash",
+        "schemars",
+        "serde",
+        "serde_json",
+        "serde_yaml",
+        "sha2",
+        "streaming-iterator",
+        "syntect",
+        "tempfile",
+        "termtree",
+        "thiserror",
+        "tikv-jemallocator",
+        "tokio",
+        "toml",
+        "touring-activity",
+        "touring-analysis",
+        "touring-antt",
+        "touring-assists",
+        "touring-ast",
+        "touring-ast-polyglot",
+        "touring-cognitive",
+        "touring-core",
+        "touring-cortex",
+        "touring-embeddings",
+        "touring-flow",
+        "touring-generator",
+        "touring-hooks",
+        "touring-identity",
+        "touring-index",
+        "touring-language",
+        "touring-learning",
+        "touring-rkyv",
+        "touring-search-fusion",
+        "touring-semantics",
+        "touring-simd",
+        "touring-telemetry",
+        "touring-vector-store",
+        "touring-vfs",
+        "touring-wasm",
+        "tracing",
+        "tracing-appender",
+        "tracing-opentelemetry",
+        "tracing-subscriber",
+        "tracing-tracy",
+        "assert_cmd",
+        "criterion",
+        "insta",
+        "predicates",
+        "serial_test",
+        "static_assertions",
+        "tempfile",
+        "vergen-gix"
+      ],
+      "optional_dependencies": [
+        "aya",
+        "aya-log",
+        "console-subscriber",
+        "dhat",
+        "jemalloc_pprof",
+        "opentelemetry",
+        "opentelemetry-otlp",
+        "opentelemetry_sdk",
+        "prost",
+        "prost-types",
+        "tikv-jemallocator",
+        "touring-rkyv",
+        "touring-telemetry",
+        "touring-wasm",
+        "tracing-appender",
+        "tracing-opentelemetry",
+        "tracing-tracy",
+        "vergen-gix"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-assists",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-assists/Cargo.toml",
+      "features": {
+        "default": []
+      },
+      "dependencies": [
+        "anyhow",
+        "quote",
+        "serde",
+        "serde_json",
+        "syn",
+        "thiserror",
+        "touring-ast",
+        "touring-core",
+        "touring-generator",
+        "tracing",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-generator",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-generator/Cargo.toml",
+      "features": {
+        "analysis-gate": [
+          "touring-analysis",
+          "rusqlite"
+        ],
+        "blast-check": [],
+        "cognitive-nexus": [
+          "touring-cognitive"
+        ],
+        "default": [
+          "tera-engine",
+          "native-async",
+          "full"
+        ],
+        "enrichment-gate": [],
+        "full": [
+          "zero-copy",
+          "observability",
+          "memory-integration",
+          "wasm-sandbox",
+          "simd-fuzzy",
+          "rl-integration",
+          "nlp-reranking",
+          "cognitive-nexus",
+          "analysis-gate",
+          "mcts-synthesis",
+          "quality-gate",
+          "health-gate",
+          "blast-check",
+          "enrichment-gate",
+          "security-gate"
+        ],
+        "health-gate": [],
+        "mcts-synthesis": [
+          "touring-cognitive",
+          "rustc-hash"
+        ],
+        "memory-integration": [],
+        "native-async": [],
+        "nlp-reranking": [
+          "touring-antt"
+        ],
+        "observability": [],
+        "quality-gate": [
+          "touring-analysis/quality"
+        ],
+        "rkyv": [
+          "dep:rkyv"
+        ],
+        "rl-integration": [
+          "touring-learning"
+        ],
+        "rusqlite": [
+          "dep:rusqlite"
+        ],
+        "rustc-hash": [
+          "dep:rustc-hash"
+        ],
+        "security-gate": [
+          "touring-offensive"
+        ],
+        "simd-fuzzy": [
+          "touring-simd",
+          "touring-hooks",
+          "dep:mpatch"
+        ],
+        "syn-quote": [],
+        "tera-engine": [],
+        "touring-analysis": [
+          "dep:touring-analysis"
+        ],
+        "touring-antt": [
+          "dep:touring-antt"
+        ],
+        "touring-cognitive": [
+          "dep:touring-cognitive"
+        ],
+        "touring-hooks": [
+          "dep:touring-hooks"
+        ],
+        "touring-learning": [
+          "dep:touring-learning"
+        ],
+        "touring-offensive": [
+          "dep:touring-offensive"
+        ],
+        "touring-rkyv": [
+          "dep:touring-rkyv"
+        ],
+        "touring-simd": [
+          "dep:touring-simd"
+        ],
+        "touring-wasm": [
+          "dep:touring-wasm"
+        ],
+        "wasm-sandbox": [
+          "touring-wasm"
+        ],
+        "zero-copy": [
+          "rkyv",
+          "touring-rkyv"
+        ]
+      },
+      "dependencies": [
+        "anyhow",
+        "async-trait",
+        "camino",
+        "chrono",
+        "dashmap",
+        "either",
+        "globset",
+        "moka",
+        "mpatch",
+        "num_cpus",
+        "proc-macro2",
+        "quote",
+        "rayon",
+        "regex",
+        "rkyv",
+        "rusqlite",
+        "rustc-hash",
+        "schemars",
+        "semver",
+        "serde",
+        "serde_json",
+        "sha2",
+        "syn",
+        "tera",
+        "thiserror",
+        "tokio",
+        "touring-analysis",
+        "touring-antt",
+        "touring-ast",
+        "touring-ast-polyglot",
+        "touring-cognitive",
+        "touring-core",
+        "touring-hooks",
+        "touring-identity",
+        "touring-index",
+        "touring-learning",
+        "touring-offensive",
+        "touring-rkyv",
+        "touring-simd",
+        "touring-wasm",
+        "tracing",
+        "uuid",
+        "cargo-mutants",
+        "criterion",
+        "insta",
+        "mockall",
+        "proptest",
+        "rstest",
+        "tempfile",
+        "tokio-test"
+      ],
+      "optional_dependencies": [
+        "mpatch",
+        "rkyv",
+        "rusqlite",
+        "rustc-hash",
+        "touring-analysis",
+        "touring-antt",
+        "touring-cognitive",
+        "touring-hooks",
+        "touring-learning",
+        "touring-offensive",
+        "touring-rkyv",
+        "touring-simd",
+        "touring-wasm"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-identity",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-identity/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "rusqlite",
+        "serde",
+        "serde_json",
+        "smol_str",
+        "tempfile",
+        "thiserror",
+        "tracing",
+        "pretty_assertions"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-index",
+      "version": "1.0.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-index/Cargo.toml",
+      "features": {
+        "default": [
+          "simd-similarity",
+          "smart-cache"
+        ],
+        "simd-similarity": [],
+        "smart-cache": []
+      },
+      "dependencies": [
+        "dashmap",
+        "ignore",
+        "lru",
+        "moka",
+        "ndarray",
+        "notify",
+        "serde",
+        "sha2",
+        "thiserror",
+        "tokio",
+        "touring-ast",
+        "touring-learning",
+        "touring-semantics",
+        "touring-simd",
+        "tracing",
+        "tempfile",
+        "tokio"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-cortex",
+      "version": "1.0.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-cortex/Cargo.toml",
+      "features": {
+        "cognitive-memory": [],
+        "default": [
+          "fascicles",
+          "cognitive-memory"
+        ],
+        "fascicles": []
+      },
+      "dependencies": [
+        "anyhow",
+        "base64",
+        "chrono",
+        "dashmap",
+        "lru",
+        "mentedb-cognitive",
+        "mentedb-core",
+        "moka",
+        "once_cell",
+        "petgraph",
+        "rayon",
+        "regex",
+        "rusqlite",
+        "rustc-hash",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tiktoken-rs",
+        "tokio",
+        "touring-analysis",
+        "touring-antt",
+        "touring-ast",
+        "touring-cognitive",
+        "touring-core",
+        "touring-hooks",
+        "touring-learning",
+        "touring-simd",
+        "touring-wasm",
+        "tracing",
+        "uuid",
+        "zstd",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-embeddings",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-embeddings/Cargo.toml",
+      "features": {
+        "candle-bge": [
+          "dep:candle-core",
+          "dep:candle-nn",
+          "dep:candle-transformers",
+          "dep:tokenizers"
+        ],
+        "default": [],
+        "fastembed": [
+          "dep:fastembed"
+        ],
+        "voyage": [
+          "dep:reqwest"
+        ]
+      },
+      "dependencies": [
+        "arc-swap",
+        "async-trait",
+        "candle-core",
+        "candle-nn",
+        "candle-transformers",
+        "fastembed",
+        "reqwest",
+        "serde",
+        "thiserror",
+        "tokenizers",
+        "tokio",
+        "touring-core"
+      ],
+      "optional_dependencies": [
+        "candle-core",
+        "candle-nn",
+        "candle-transformers",
+        "fastembed",
+        "reqwest",
+        "tokenizers"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-language",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-language/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tracing",
+        "pretty_assertions"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-search-fusion",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-search-fusion/Cargo.toml",
+      "features": {
+        "vector-store": [
+          "dep:touring-vector-store"
+        ]
+      },
+      "dependencies": [
+        "async-trait",
+        "serde",
+        "serde_json",
+        "tokio",
+        "touring-core",
+        "touring-embeddings",
+        "touring-vector-store",
+        "touring-vfs"
+      ],
+      "optional_dependencies": [
+        "touring-vector-store"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-vector-store",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-vector-store/Cargo.toml",
+      "features": {
+        "postgres": [
+          "dep:tokio-postgres",
+          "dep:deadpool-postgres"
+        ],
+        "qdrant": [
+          "dep:qdrant-client"
+        ],
+        "reqwest": [
+          "dep:reqwest"
+        ],
+        "sqlite-vec": [
+          "dep:rusqlite"
+        ]
+      },
+      "dependencies": [
+        "async-trait",
+        "deadpool-postgres",
+        "qdrant-client",
+        "reqwest",
+        "rusqlite",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tokio",
+        "tokio-postgres",
+        "rand",
+        "tempfile"
+      ],
+      "optional_dependencies": [
+        "deadpool-postgres",
+        "qdrant-client",
+        "reqwest",
+        "rusqlite",
+        "tokio-postgres"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-telemetry",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-telemetry/Cargo.toml",
+      "features": {
+        "default": [
+          "ebpf"
+        ],
+        "ebpf": [
+          "dep:aya",
+          "dep:aya-log"
+        ]
+      },
+      "dependencies": [
+        "aya",
+        "aya-log",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tokio",
+        "tracing",
+        "tempfile"
+      ],
+      "optional_dependencies": [
+        "aya",
+        "aya-log"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-python",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-python/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "chrono",
+        "lru",
+        "ndarray",
+        "numpy",
+        "petgraph",
+        "pyo3",
+        "rayon",
+        "serde",
+        "serde_json",
+        "sha2",
+        "tokio",
+        "touring-antt",
+        "touring-ast",
+        "touring-cognitive",
+        "touring-core",
+        "touring-learning",
+        "touring-simd"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-integration-tests",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-integration-tests/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "ndarray",
+        "rusqlite",
+        "serde_json",
+        "touring-analysis",
+        "touring-ast",
+        "touring-generator",
+        "touring-hooks",
+        "touring-learning",
+        "touring-offensive",
+        "touring-rkyv",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-incremental-salsa",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-incremental-salsa/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "anyhow",
+        "moka",
+        "parking_lot",
+        "rustc-hash",
+        "salsa",
+        "serde",
+        "thiserror",
+        "criterion",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-loom-proofs",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-loom-proofs/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "loom"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-geopostgis",
+      "version": "0.3.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-geopostgis/Cargo.toml",
+      "features": {
+        "async-sqlx": [
+          "sqlx/runtime-tokio",
+          "sqlx/postgres",
+          "geozero/with-postgis-sqlx"
+        ],
+        "default": [
+          "sync-api"
+        ],
+        "postgres": [
+          "dep:postgres"
+        ],
+        "sqlx": [
+          "dep:sqlx"
+        ],
+        "sync-api": [
+          "postgres"
+        ]
+      },
+      "dependencies": [
+        "geo-types",
+        "geozero",
+        "postgres",
+        "sqlx",
+        "thiserror",
+        "tokio",
+        "geo",
+        "tokio-test"
+      ],
+      "optional_dependencies": [
+        "postgres",
+        "sqlx"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-rule-engine",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-rule-engine/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "glob",
+        "regex",
+        "serde",
+        "serde_json",
+        "serde_yaml",
+        "thiserror",
+        "touring-core",
+        "tracing",
+        "pretty_assertions",
+        "tempfile"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-search-fusion-bench",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/benches/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "async-trait",
+        "criterion",
+        "pollster",
+        "tokio",
+        "touring-embeddings",
+        "touring-search-fusion"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-desktop-ui",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-desktop-ui/Cargo.toml",
+      "features": {
+        "graphviz-rust": [
+          "dep:graphviz-rust"
+        ]
+      },
+      "dependencies": [
+        "eframe",
+        "egui",
+        "graphviz-rust",
+        "png",
+        "resvg",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tiny-skia",
+        "tokio",
+        "tracing",
+        "pretty_assertions"
+      ],
+      "optional_dependencies": [
+        "graphviz-rust"
+      ],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-web",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-web/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "js-sys",
+        "leptos",
+        "leptos_meta",
+        "leptos_router",
+        "serde",
+        "serde-wasm-bindgen",
+        "serde_json",
+        "thiserror",
+        "wasm-bindgen-futures",
+        "web-sys",
+        "pretty_assertions",
+        "leptos_macro",
+        "getrandom",
+        "wasm-bindgen",
+        "wasm-bindgen-test"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    },
+    {
+      "name": "touring-web-server",
+      "version": "0.1.0",
+      "manifest_path": "/home/gabrielgadea/.claude/rust/crates/touring-web-server/Cargo.toml",
+      "features": {},
+      "dependencies": [
+        "axum",
+        "futures",
+        "leptos",
+        "leptos_axum",
+        "libc",
+        "regex",
+        "serde_json",
+        "thiserror",
+        "tokio",
+        "tokio-stream",
+        "touring-web",
+        "tower",
+        "tower-http",
+        "tracing",
+        "tracing-subscriber",
+        "http-body-util",
+        "reqwest",
+        "tokio",
+        "tower"
+      ],
+      "optional_dependencies": [],
+      "is_workspace_member": true
+    }
+  ],
+  "workspace_member_count": 43
+}

@@ -1,0 +1,7 @@
+# AUTO-GENERATED — W2.4 cargo-machete config
+
+[package.metadata.cargo-machete]
+ignored = [
+    # build-deps that machete can't statically detect
+    "napi-build",
+]

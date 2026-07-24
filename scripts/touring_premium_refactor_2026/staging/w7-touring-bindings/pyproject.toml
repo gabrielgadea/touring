@@ -1,0 +1,18 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "touring"
+description = "Python bindings for Touring code intelligence"
+authors = [{name = "Gabriel Gadea"}]
+license = "MIT"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+]
+
+[tool.maturin]
+features = ["bind-py"]
+module-name = "touring"

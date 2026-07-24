@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gadea.local/touring/gotcha-rule.schema.json",
+  "title": "Touring Gotcha Rule",
+  "type": "object",
+  "required": ["id", "language", "pattern", "description", "severity"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$",
+      "description": "Stable unique identifier in the form '<lang>:<name>'."
+    },
+    "language": {
+      "type": "string",
+      "enum": ["rust", "python", "typescript", "javascript", "go", "multi-lang"]
+    },
+    "pattern": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Substring or regex used by gotcha_match for file lookup."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280,
+      "description": "Human-readable summary."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "resolution": {
+      "type": "string",
+      "description": "Multi-line suggested fix."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "introduced": { "type": "string", "format": "date" },
+        "references": { "type": "array", "items": { "type": "string", "format": "uri" } }
+      }
+    }
+  }
+}

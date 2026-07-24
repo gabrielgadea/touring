@@ -1,0 +1,24 @@
+[package]
+name = "holon-wasm-runner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "THSF Fase 4 host runner — loads a WASM Component (WASI 0.2) and drives its `capabilities` interface."
+
+[[bin]]
+name = "holon-wasm-runner"
+path = "src/main.rs"
+
+[dependencies]
+# Full wasmtime with component-model + wasmtime-wasi. Even "no-imports"
+# components built for wasm32-wasip2 implicitly link `wasi:io/error` via
+# std, so we must provide a WASI linker.
+wasmtime = { version = "42", features = ["component-model", "cranelift", "runtime"] }
+wasmtime-wasi = "42"
+anyhow = "1"
+serde_json = "1"
+
+[package.metadata.docs.rs]
+all-features = true

@@ -1,0 +1,14 @@
+//! Criterion benchmark: {{ bench_name | default(value="bench") }}
+
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
+fn bench_{{ bench_fn | default(value="bench_fn") }}(c: &mut Criterion) {
+    c.bench_function("{{ bench_name | default(value="bench") }}", |b| {
+        b.iter(|| {
+            black_box(());
+        });
+    });
+}
+
+criterion_group!(benches, bench_{{ bench_fn | default(value="bench_fn") }});
+criterion_main!(benches);

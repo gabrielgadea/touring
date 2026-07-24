@@ -1,0 +1,46 @@
+# THSF Fase 4 — WASM components workspace.
+#
+# This workspace sits *outside* the main `crates/` workspace on purpose:
+#   - Components compile for `wasm32-wasip2`, not host — keeping them
+#     separate avoids polluting the main workspace lockfile and prevents
+#     accidental inclusion in `cargo build --workspace`.
+#   - Each component is an independent `cdylib` library emitting a
+#     WebAssembly Component (NOT a legacy wasm module).
+#   - WIT source lives in `../crates/touring-wasm/wit/holon-core.wit`
+#     and is referenced via relative path so there is one authoritative
+#     schema location.
+#
+# Build a component::
+#
+#     cd holon-wasm-components
+#     cargo build --release --target wasm32-wasip2 -p holon-spec-version
+#
+# Resulting binary::
+#
+#     target/wasm32-wasip2/release/holon_spec_version.wasm
+
+[workspace]
+resolver = "2"
+members = [
+    "spec-version",
+    "blast-radius",
+    "quality-gate",
+    "generator-health",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"  # minimum for stable wasm32-wasip2 component target
+license = "MIT OR Apache-2.0"
+authors = ["THSF contributors"]
+
+[workspace.dependencies]
+wit-bindgen = "0.35"
+
+[profile.release]
+opt-level = "s"      # size-optimized .wasm artifacts
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

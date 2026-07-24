@@ -1,0 +1,15 @@
+{
+  "format": "TOON",
+  "format_version": "1.0",
+  "kind": "checkpoint",
+  "topic": "w30-voto-v2-produto-final-seal",
+  "slug": "w30-voto-v2-produto-final-seal",
+  "timestamp": "2026-05-24T22:21:41",
+  "session_id": "76549783",
+  "hash_blake2b": "0875f1c3ec146119b3511d5780890d0a16bff2a16c806d400f81e65e7e1ed03b",
+  "predecessor_hash": "989a5308a89cca8bdca9be93c79dac03efe5986619da784092172fba3640cdf3",
+  "predecessor_topic": "w17v2-mef-anchored-monte-carlo-seal",
+  "body_lines": 47,
+  "body_chars": 2096,
+  "body": "\nW30 \u2014 Voto Deliberativo v2.0 PRODUTO FINAL SEAL\n================================================\nDate: 2026-05-24\nPosition: 14th checkpoint in TOON hash chain\nPredecessor: w17v2-mef-anchored-monte-carlo-seal (#13)\n\nDELIVERABLES:\n  - analysis/voto_v2_PRODUTO_FINAL.md (11127 chars, 10 sections)\n  - analysis/W19_W20_methodology_premium.md (8721 chars, 7 sections)\n  - 11 JSONs in data/ (FASE \u03b1'/\u03b1/\u03b2/\u03b3 outputs)\n  - ~10 Python scripts in W19/W20/W21/W21B/W22/W23/W24_W25_W26/W30/\n\nCOMPOSITE SCORES:\n  W21 Methodology M01-M12: 0.955 PASS\n  W22 Clause C01-C23: 0.902 PASS\n  W26 Risk Matrix 3D: 0.800 PASS\n  W21B Benchmark: VERDICT ALIGNED (78th percentile global)\n  W25 Edital Lei 14.133: 0.775 WARN\n  W23 6x6 Cross-Validation: 0.252 BLOCK (design intentional, feeds F14)\n\nLESSONS (L74-L85):\n  L74: HF model card is canonical (plans 10wk old underestimate 56x)\n  L75: GLM-OCR SOTA #1 OmniDocBench V1.5 (94.62)\n  L76: Two-stage pipeline embedded (layout + recognition)\n  L77: Information Extraction JSON schema = killer feature\n  L78: vllm nightly + transformers main required for 2025+ models\n  L79: vllm stable (0.6.4) does not know new architectures\n  L80: ModelRegistry.get_supported_archs() check before pesado install\n  L81: Official SDK > custom code (REGRA #3 > REGRA #14)\n  L82: Backend versioning critical (vllm v0.19.0 exato HF docs)\n  L83: Newton-Raphson + brentq 3-tier IRR solver fixes Multiple IRR Problem\n  L84: Sobol indices reveal S2 interactions invisible in Pearson tornado\n  L85: N=1024 Saltelli minimum for Sobol convergence (CI<0.10)\n\nGAPS RECOGNIZED:\n  - Sprint 8 substrate: 16/27 sheets (59% coverage)\n  - 11 sheets remaining (opex.rs, receitas.rs, demanda_od.rs, etc.)\n  - Code quality: CC>15 in 3 audit functions (refactor quick-win available)\n  - W23 BLOCK is DESIGN intentional (feeds F14 critical analysis)\n  - W-GLM-2 OCR backend blocked (vllm + GLM-OCR compatibility); SDK installed\n\nNEXT STEPS:\n  1. Complete Sprint 8 (11 Rust parsers) \u2014 8-12h\n  2. Refactor audit functions CC<15 \u2014 45 min\n  3. W22 Voto v2.0 PRODUTO FINAL ENTREGUE pronto para Diretoria Colegiada ANTT\n"
+}

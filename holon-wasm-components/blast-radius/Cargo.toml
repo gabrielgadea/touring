@@ -1,0 +1,17 @@
+[package]
+name = "holon-blast-radius"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "THSF Fase 4 — `blast-radius` capability: graph BFS over a pre-serialised dependency map; zero filesystem access."
+
+[lib]
+name = "holon_blast_radius"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wit-bindgen = { workspace = true }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }

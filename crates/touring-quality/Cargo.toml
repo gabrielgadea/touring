@@ -1,0 +1,56 @@
+[package]
+name = "touring-quality"
+version.workspace = true
+edition.workspace = true
+description = "50-dimension quality scoring engine for Touring — makes any LLM produce elite-grade code via auto-scoring, BLOCK enforcement, and auto-remediation generators"
+license.workspace = true
+authors = ["Gabriel Gadea <gabriel@example.com>"]
+
+# W9 Elite Harness cutover (2026-06-14): graduated to workspace member.
+# Inherits version + edition + license from [workspace.package] in root Cargo.toml.
+# Standalone [workspace] table removed (would conflict with parent workspace).
+
+[lib]
+name = "touring_quality"
+path = "src/lib.rs"
+
+[[bin]]
+name = "touring-quality"
+path = "src/bin/touring-quality.rs"
+
+[dependencies]
+# Core
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "cargo"] }
+
+# Touring integration: the real in-workspace CWE/OWASP SecurityAnalyzer engine
+# backing F2.1 (default-on via the `workspace-integration` feature). The previous
+# `touring-cli` dep was unused by any verifier and was dropped.
+touring-analysis = { path = "../touring-analysis", optional = true }
+
+# Output formatting
+tera = { version = "1.20", default-features = false }
+
+# Async (for parallel scoring)
+tokio = { version = "1.40", features = ["full"] }
+rayon = "1.10"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[features]
+# DEPLOYED 2026-06-21: the real CWE/OWASP SecurityAnalyzer engine backs F2.1 by
+# default (the 10 vuln detectors are now tp/fp-validated against the workspace).
+# `--no-default-features` falls back to the labelled substring sinks, keeping the
+# crate standalone-buildable with no workspace dependency.
+default = ["workspace-integration"]
+workspace-integration = ["dep:touring-analysis"]

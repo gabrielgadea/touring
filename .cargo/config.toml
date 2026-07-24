@@ -1,0 +1,71 @@
+# Workspace-wide cargo configuration.
+# Docs: https://doc.rust-lang.org/cargo/reference/config.html
+#
+# NOTE: `--cfg tokio_unstable` is REQUIRED by `console-subscriber`
+# (tokio-console) for task instrumentation. It is ABI-stable for our
+# workspace — Tokio's unstable flag gates new APIs, not breakage.
+
+[build]
+# ── sccache DISABLED for this workspace (2026-06-26) ──────────────────
+# Empirical: sccache Rust hit-rate here = 2.29% (measured `sccache --show-stats`),
+# NOT the 37-75% the dev-profile comment once assumed. Worse, it is a
+# CORRECTNESS hazard, not just a slow cache:
+#   - `bin`/`proc-macro` crates (the `touring` binary is a `bin`) are
+#     non-cacheable and run the system linker anyway (mozilla/sccache,
+#     docs/Rust.md → "crates invoking the system linker ... cannot be cached").
+#   - "Procedural macros reading from the filesystem may not cache properly"
+#     (same doc) — this workspace is saturated with proc-macros (serde/rkyv/
+#     syn/tokio). On 2026-06-26 sccache served a STALE object: the build
+#     completed (exit 0, "Compiling touring-server") yet the binary did NOT
+#     contain the edited code → binary ≠ source, a silent ship.
+# An empty string OVERRIDES the global ~/.cargo/config.toml rustc-wrapper,
+# routing rustc directly. The local incremental cache (see [profile.dev]
+# incremental = true in Cargo.toml) is the correct cache for iterative Rust
+# dev. sccache stays ON globally for other projects (C/C++ hit-rate 47%).
+rustc-wrapper = ""
+rustflags = [
+    "--cfg", "tokio_unstable",
+    "-C", "link-arg=-fuse-ld=gold",
+]
+
+# Wave 9 Fix1 (2026-04-26): `split-debuginfo` is a profile-level setting,
+# not a build-level one — placing it under `[build]` triggers the
+# "unused config key `build.split-debuginfo`" warning on cargo ≥1.93.
+# Disk-optimization wave (2026-04-26): `split-debuginfo = "unpacked"` is
+# now properly configured at workspace root `Cargo.toml` under `[profile.dev]`.
+
+# ── gold linker (Linux x86_64) — fallback from mold due to stdc++ path issue ──────
+# Disk-optimization wave (2026-04-26). mold 2.30.0 could not resolve libstdc++ at
+# /usr/lib/x86_64-linux-gnu. Using gold (GNU ld 2.42) as reliable fallback.
+# NOTE: overrides ~/.cargo/config.toml [target.x86_64-unknown-linux-gnu] to avoid merge
+[target.x86_64-unknown-linux-gnu]
+# Using gcc as linker to bypass mold/gold fuse-ld conflict from ~/.cargo/config.toml
+linker = "gcc"
+rustflags = [
+    "--cfg", "tokio_unstable",
+    # REGRA #21 (zero-tolerância) — pyo3 0.29+ needs libpython at link time for
+    # tests that pull in pyo3 transitively (e.g. touring-bindings lib tests).
+    # gcc only resolves this symbol if pyo3 is actually in the link graph, so
+    # crates without pyo3 are unaffected. Baseline issue surfaced during W0
+    # of harness-consolidation-master-plan-v3.
+    "-C", "link-arg=-lpython3.12",
+]
+
+# wasm32 uses rust-lld which doesn't understand -fuse-ld=gold
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "--cfg", "tokio_unstable",
+]
+[alias]
+# Run all tests via nextest using the CI profile.
+test-ci = "nextest run --profile ci --workspace"
+# Fast local test loop — default profile.
+t = "nextest run --workspace"
+# Coverage run — matches the CI gate in .github/workflows/ci.yml.
+cov = "llvm-cov --workspace --lcov --output-path lcov.info"
+# Deny check — full audit pass.
+deny-all = "deny --all-features check"
+# Disk guard — prune only duplicate binary artifacts (keeps current build)
+disk-clean = "!find target -maxdepth 3 -name 'touring-????????????????' -not -name '$(cat target/.touring-hash 2>/dev/null)' -type f -delete && find target -name '*.rlib' -type f -size +100M -delete"
+# Show target directory size
+disk-size = "du -sh target"

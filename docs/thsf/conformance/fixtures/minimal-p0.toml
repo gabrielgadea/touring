@@ -1,0 +1,7 @@
+# RFC-001 fixture: minimal P0 (Discoverable-only) holon. MUST parse OK.
+
+[holon.identity]
+name = "docs-only-holon"
+version = "0.1.0"
+description = "Reference-only, no executable capabilities."
+autonomy_guarantee = true

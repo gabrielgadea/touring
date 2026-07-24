@@ -1,0 +1,5 @@
+{
+  "blocker_fires": false,
+  "triggers": [],
+  "rationale": "all 3 metrics within target"
+}

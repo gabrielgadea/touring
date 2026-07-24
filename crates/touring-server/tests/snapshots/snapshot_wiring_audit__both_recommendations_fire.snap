@@ -1,0 +1,6 @@
+---
+source: crates/touring-server/tests/snapshot_wiring_audit.rs
+expression: recs
+---
+- 2 module(s) have orphan pub symbols — consider wiring into consumers or reducing visibility.
+- 1 module(s) have integration score < 0.5 — review symbol dependencies.

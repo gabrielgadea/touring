@@ -1,0 +1,23 @@
+{
+  "script": "w1_clean_reexports",
+  "wave": "W1",
+  "subtask_refs": [
+    "W1.3"
+  ],
+  "timestamp": "2026-05-12T01:07:13.843282+00:00",
+  "deleted_modules": [
+    "touring_semantic_spike",
+    "touring_wasm_client",
+    "touring_wasm_common",
+    "touring_wasm_server",
+    "touring_loom_proofs"
+  ],
+  "apply": false,
+  "totals": {
+    "files": 0,
+    "lines": 0,
+    "applied_total": 0
+  },
+  "findings": {},
+  "applied": {}
+}

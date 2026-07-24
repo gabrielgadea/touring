@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package {{ package_name | default(value="mypackage") }};
+
+{% if messages is defined %}
+{% for msg in messages %}
+message {{ msg.name | default(value="Message") }} {
+{% for field in msg.fields %}
+  {{ field.type | default(value="string") }} {{ field.name | default(value="field") }} = {{ loop.index }};
+{% endfor %}
+}
+{% endfor %}
+{% endif %}

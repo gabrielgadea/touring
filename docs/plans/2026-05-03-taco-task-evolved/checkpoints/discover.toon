@@ -1,0 +1,15 @@
+timestamp: "2026-05-03T23:31:22.548182Z"
+daemon_healthy: true
+composite_health_score: 0.5519
+symbol_count: 0
+orphan_count: 0
+cycle_count: 0
+ema_reward: 0.179606
+drift_alert_level: none
+workspace_packages: []
+e2e_score: 0.0
+gotcha_matches: []
+memory_hits: []
+tantivy_hits: []
+synergy_wired_pairs: 50
+synergy_metrics: {}

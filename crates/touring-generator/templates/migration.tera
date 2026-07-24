@@ -1,0 +1,8 @@
+-- Migration: {{ migration_name | default(value="migration") }}
+-- Created: {{ created_at | default(value="") }}
+
+{% if statements is defined %}
+{% for stmt in statements %}
+{{ stmt | default(value="") }};
+{% endfor %}
+{% endif %}

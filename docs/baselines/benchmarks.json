@@ -1,0 +1,17 @@
+{
+  "touring-index-find": {
+    "typical_upper_ns": 6230731
+  },
+  "touring-quality-check-f1-1": {
+    "typical_upper_ns": 1685423
+  },
+  "touring-quality-check-f2-4": {
+    "typical_upper_ns": 5744194
+  },
+  "touring-quality-score-workspace": {
+    "typical_upper_ns": 5899602
+  },
+  "touring-wiring-cycles": {
+    "typical_upper_ns": 5681610
+  }
+}

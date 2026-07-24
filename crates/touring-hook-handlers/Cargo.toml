@@ -1,0 +1,61 @@
+[package]
+name = "touring-hook-handlers"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Pre/post lifecycle hook handlers — hooks/ (25 files) + hook_decompose_bridge + mcts_materializer carved from touring-dispatch (Wave H, PoNR #5, 2026-06-10)"
+
+[lib]
+name = "touring_hook_handlers"
+path = "src/lib.rs"
+
+[features]
+# Mirrors of the dispatch-layer gates — the dispatch crate forwards each one.
+pre-hooks = []
+post-hooks = ["pre-hooks"]
+session-hooks = ["touring-hooks-core/session-hooks"]
+tantivy-fts = ["touring-hooks-core/tantivy-fts", "touring-hook-runtime/tantivy-fts", "touring-cli/tantivy-fts"]
+mpatch-fuzzy = ["touring-hooks-core/mpatch-fuzzy"]
+nlp-enrichment = ["touring-hooks-core/nlp-enrichment"]
+resource-monitor = ["touring-resilience/resource-monitor"]
+
+[dependencies]
+touring-cli = { path = "../touring-cli" }
+touring-hook-runtime = { path = "../touring-hook-runtime" }
+touring-hooks-core = { path = "../touring-hooks-core" }
+touring-hooks-shared = { path = "../touring-hooks-shared" }
+touring-hooks-prediction = { path = "../touring-hooks-prediction" }
+touring-hooks-rl = { path = "../touring-hooks-rl" }
+touring-ceg = { path = "../touring-ceg" }
+touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] }
+touring-code = { path = "../touring-code" }
+touring-intelligence = { path = "../touring-intelligence" }
+touring-foundation = { path = "../touring-foundation" }
+touring-resilience = { path = "../touring-resilience" }
+touring-orchestration = { path = "../touring-orchestration" }
+touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
+blake3 = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+indexmap = { workspace = true }
+memchr = { workspace = true }
+once_cell = { workspace = true }
+rayon = { workspace = true }
+regex = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+validator = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+
+[lints]
+workspace = true

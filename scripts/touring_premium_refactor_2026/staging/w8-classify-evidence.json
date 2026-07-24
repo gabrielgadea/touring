@@ -1,0 +1,1348 @@
+{
+  "classifications": [
+    {
+      "file": "crates/touring-hooks/src/aco_bridge.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "explicit-map:aco_bridge.rs",
+      "loc": 694
+    },
+    {
+      "file": "crates/touring-hooks/src/aco_processor.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "explicit-map:aco_processor.rs",
+      "loc": 143
+    },
+    {
+      "file": "crates/touring-hooks/src/aco_wiring.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "explicit-map:aco_wiring.rs",
+      "loc": 674
+    },
+    {
+      "file": "crates/touring-hooks/src/activity_hook.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:activity_hook.rs",
+      "loc": 216
+    },
+    {
+      "file": "crates/touring-hooks/src/agentic_rl.rs",
+      "bucket": "touring-hooks-rl",
+      "evidence": "explicit-map:agentic_rl.rs",
+      "loc": 1086
+    },
+    {
+      "file": "crates/touring-hooks/src/ann_memory/mod.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "parent-dir:ann_memory",
+      "loc": 947
+    },
+    {
+      "file": "crates/touring-hooks/src/ann_memory/persistence.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "parent-dir:ann_memory",
+      "loc": 295
+    },
+    {
+      "file": "crates/touring-hooks/src/ast_bridge.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "explicit-map:ast_bridge.rs",
+      "loc": 1081
+    },
+    {
+      "file": "crates/touring-hooks/src/async_knowledge.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:async_knowledge.rs",
+      "loc": 795
+    },
+    {
+      "file": "crates/touring-hooks/src/audit.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "explicit-map:audit.rs",
+      "loc": 459
+    },
+    {
+      "file": "crates/touring-hooks/src/auto_save_hook.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:auto_save_hook.rs",
+      "loc": 397
+    },
+    {
+      "file": "crates/touring-hooks/src/bidirectional/mod.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:bidirectional",
+      "loc": 24
+    },
+    {
+      "file": "crates/touring-hooks/src/bidirectional/storage.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:bidirectional",
+      "loc": 191
+    },
+    {
+      "file": "crates/touring-hooks/src/bidirectional/suggester.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:bidirectional",
+      "loc": 179
+    },
+    {
+      "file": "crates/touring-hooks/src/branch_fs.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:branch_fs.rs",
+      "loc": 464
+    },
+    {
+      "file": "crates/touring-hooks/src/callgraph_enrichment.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "explicit-map:callgraph_enrichment.rs",
+      "loc": 185
+    },
+    {
+      "file": "crates/touring-hooks/src/capnp_embed.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "explicit-map:capnp_embed.rs",
+      "loc": 299
+    },
+    {
+      "file": "crates/touring-hooks/src/circuit_breaker.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:circuit_breaker.rs",
+      "loc": 849
+    },
+    {
+      "file": "crates/touring-hooks/src/circuit_state_machine.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:circuit_state_machine.rs",
+      "loc": 457
+    },
+    {
+      "file": "crates/touring-hooks/src/classifier.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "explicit-map:classifier.rs",
+      "loc": 1114
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_e2e.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 1883
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 7347
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_decompose.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 2657
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_entity.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 163
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_evolution.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 578
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_file_knowledge.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 312
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_index.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 1130
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_kpi.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 414
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_mcp.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 1114
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_mutation_test.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 254
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_polyglot.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 385
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_repo_health.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 417
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_repo_score.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 605
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_scout.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 409
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_semantics.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 666
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_session.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 318
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_handlers_wiring_repair.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 180
+    },
+    {
+      "file": "crates/touring-hooks/src/cli_suggester.rs",
+      "bucket": "touring-hooks-cli",
+      "evidence": "basename-substr:^cli_|_cli\\b",
+      "loc": 1163
+    },
+    {
+      "file": "crates/touring-hooks/src/cognitive_bridge.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "explicit-map:cognitive_bridge.rs",
+      "loc": 258
+    },
+    {
+      "file": "crates/touring-hooks/src/compression_profiles.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:compression_profiles.rs",
+      "loc": 808
+    },
+    {
+      "file": "crates/touring-hooks/src/cortex_dispatcher.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:cortex_dispatcher.rs",
+      "loc": 553
+    },
+    {
+      "file": "crates/touring-hooks/src/daemon.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "basename-substr:\\b(lib\\.rs|main\\.rs|hook_runtime|hook_re",
+      "loc": 1786
+    },
+    {
+      "file": "crates/touring-hooks/src/daemon_main.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "basename-substr:\\b(lib\\.rs|main\\.rs|hook_runtime|hook_re",
+      "loc": 33
+    },
+    {
+      "file": "crates/touring-hooks/src/dependency_cache.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:dependency_cache.rs",
+      "loc": 624
+    },
+    {
+      "file": "crates/touring-hooks/src/ecosystem.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "leaf-violator-relocated:ecosystem.rs",
+      "loc": 215
+    },
+    {
+      "file": "crates/touring-hooks/src/error_predictor.rs",
+      "bucket": "touring-hooks-misc",
+      "evidence": "fallback:no-rule-matched",
+      "loc": 406
+    },
+    {
+      "file": "crates/touring-hooks/src/errors.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 218
+    },
+    {
+      "file": "crates/touring-hooks/src/functional_wiring.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "explicit-map:functional_wiring.rs",
+      "loc": 1111
+    },
+    {
+      "file": "crates/touring-hooks/src/got_snapshot_store.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 283
+    },
+    {
+      "file": "crates/touring-hooks/src/gotcha_loader.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "leaf-violator-relocated:gotcha_loader.rs",
+      "loc": 346
+    },
+    {
+      "file": "crates/touring-hooks/src/health_delta.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:health_delta.rs",
+      "loc": 1363
+    },
+    {
+      "file": "crates/touring-hooks/src/health_delta_audit.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "basename-substr:\\b(lib\\.rs|main\\.rs|hook_runtime|hook_re",
+      "loc": 435
+    },
+    {
+      "file": "crates/touring-hooks/src/hook_decompose_bridge.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "explicit-map:hook_decompose_bridge.rs",
+      "loc": 529
+    },
+    {
+      "file": "crates/touring-hooks/src/hook_memory.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 1204
+    },
+    {
+      "file": "crates/touring-hooks/src/hook_registry.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "basename-substr:\\b(lib\\.rs|main\\.rs|hook_runtime|hook_re",
+      "loc": 1847
+    },
+    {
+      "file": "crates/touring-hooks/src/hook_response.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:hook_response.rs",
+      "loc": 545
+    },
+    {
+      "file": "crates/touring-hooks/src/hook_runtime.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "basename-substr:\\b(lib\\.rs|main\\.rs|hook_runtime|hook_re",
+      "loc": 2920
+    },
+    {
+      "file": "crates/touring-hooks/src/hooks_task_lifecycle.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "leaf-violator-relocated:hooks_task_lifecycle.rs",
+      "loc": 334
+    },
+    {
+      "file": "crates/touring-hooks/src/idempotency.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 200
+    },
+    {
+      "file": "crates/touring-hooks/src/inferlets.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "explicit-map:inferlets.rs",
+      "loc": 722
+    },
+    {
+      "file": "crates/touring-hooks/src/inferlets_assets.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "basename-substr:\\b(tools_|decompose|file_tools|project_t",
+      "loc": 77
+    },
+    {
+      "file": "crates/touring-hooks/src/instructions_loaded.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 440
+    },
+    {
+      "file": "crates/touring-hooks/src/integration_tests.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:integration_tests.rs",
+      "loc": 896
+    },
+    {
+      "file": "crates/touring-hooks/src/inventory_registry.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 134
+    },
+    {
+      "file": "crates/touring-hooks/src/ipc.rs",
+      "bucket": "touring-hooks-misc",
+      "evidence": "fallback:no-rule-matched",
+      "loc": 61
+    },
+    {
+      "file": "crates/touring-hooks/src/knowledge.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:knowledge.rs",
+      "loc": 4180
+    },
+    {
+      "file": "crates/touring-hooks/src/knowledge_symbol_bridge.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "basename-substr:\\b(lib\\.rs|main\\.rs|hook_runtime|hook_re",
+      "loc": 146
+    },
+    {
+      "file": "crates/touring-hooks/src/layer7_prediction.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "basename-substr:\\b(layer7|predictor|classify|prediction|",
+      "loc": 459
+    },
+    {
+      "file": "crates/touring-hooks/src/lib.rs",
+      "bucket": "touring-hooks-facade",
+      "evidence": "fa\u00e7ade-exempt",
+      "loc": 535
+    },
+    {
+      "file": "crates/touring-hooks/src/lib_off.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 88
+    },
+    {
+      "file": "crates/touring-hooks/src/lib_on.rs",
+      "bucket": "touring-hooks-misc",
+      "evidence": "fallback:no-rule-matched",
+      "loc": 6
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/cwd_changed.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 99
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/e2e_tests.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 581
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/file_changed/hints.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 929
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/file_changed/mod.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 233
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/plan_mode/enter.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 480
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/plan_mode/exit.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 413
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/plan_mode/hints.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 1726
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/plan_mode/mod.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 44
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/pre_compact.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 84
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/shared.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 373
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/subagent.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 30
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/task_create.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 1521
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/task_delete.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 64
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/task_get.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 1104
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/task_list.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 1954
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/task_output.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 1532
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/task_stop.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 155
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/task_update.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 1243
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle/worktree.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:lifecycle",
+      "loc": 56
+    },
+    {
+      "file": "crates/touring-hooks/src/lifecycle.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:lifecycle.rs",
+      "loc": 19251
+    },
+    {
+      "file": "crates/touring-hooks/src/llm_judge.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "explicit-map:llm_judge.rs",
+      "loc": 701
+    },
+    {
+      "file": "crates/touring-hooks/src/main.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "basename-substr:\\b(lib\\.rs|main\\.rs|hook_runtime|hook_re",
+      "loc": 885
+    },
+    {
+      "file": "crates/touring-hooks/src/mcp_overhead.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 169
+    },
+    {
+      "file": "crates/touring-hooks/src/mcts_materializer.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "leaf-violator-relocated:mcts_materializer.rs",
+      "loc": 289
+    },
+    {
+      "file": "crates/touring-hooks/src/memory_finding.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 212
+    },
+    {
+      "file": "crates/touring-hooks/src/metrics.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 310
+    },
+    {
+      "file": "crates/touring-hooks/src/mutation_test.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "basename-substr:\\b(tools_|decompose|file_tools|project_t",
+      "loc": 571
+    },
+    {
+      "file": "crates/touring-hooks/src/n1_bridge.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 188
+    },
+    {
+      "file": "crates/touring-hooks/src/nlp_bridge.rs",
+      "bucket": "touring-hooks-infra",
+      "evidence": "leaf-violator-relocated:nlp_bridge.rs",
+      "loc": 207
+    },
+    {
+      "file": "crates/touring-hooks/src/output_capture.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:output_capture.rs",
+      "loc": 619
+    },
+    {
+      "file": "crates/touring-hooks/src/pattern_bandit.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 462
+    },
+    {
+      "file": "crates/touring-hooks/src/permission_request.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "leaf-violator-relocated:permission_request.rs",
+      "loc": 413
+    },
+    {
+      "file": "crates/touring-hooks/src/pii.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "explicit-map:pii.rs",
+      "loc": 720
+    },
+    {
+      "file": "crates/touring-hooks/src/pipeline/stages.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "parent-dir:pipeline",
+      "loc": 116
+    },
+    {
+      "file": "crates/touring-hooks/src/pipeline.rs",
+      "bucket": "touring-hooks-misc",
+      "evidence": "fallback:no-rule-matched",
+      "loc": 4
+    },
+    {
+      "file": "crates/touring-hooks/src/plugin.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 272
+    },
+    {
+      "file": "crates/touring-hooks/src/post_bash.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 948
+    },
+    {
+      "file": "crates/touring-hooks/src/post_compact_handler.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 113
+    },
+    {
+      "file": "crates/touring-hooks/src/post_edit.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 2794
+    },
+    {
+      "file": "crates/touring-hooks/src/post_edit_rule_engine.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 78
+    },
+    {
+      "file": "crates/touring-hooks/src/post_read.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 1173
+    },
+    {
+      "file": "crates/touring-hooks/src/post_tool_batch.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 259
+    },
+    {
+      "file": "crates/touring-hooks/src/post_tool_failure.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 390
+    },
+    {
+      "file": "crates/touring-hooks/src/post_tool_rl.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 465
+    },
+    {
+      "file": "crates/touring-hooks/src/post_tool_rl_tests.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 437
+    },
+    {
+      "file": "crates/touring-hooks/src/post_tool_use.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 318
+    },
+    {
+      "file": "crates/touring-hooks/src/post_write.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 1525
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_bash.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 701
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_edit.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 2282
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_edit_prevention.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 1474
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_glob.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 23
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_grep.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 309
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_read.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 3797
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_tool_use.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:pre_tool_use.rs",
+      "loc": 746
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_tool_validator.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:pre_tool_validator.rs",
+      "loc": 1116
+    },
+    {
+      "file": "crates/touring-hooks/src/pre_write.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 2307
+    },
+    {
+      "file": "crates/touring-hooks/src/precomputed_signals.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 221
+    },
+    {
+      "file": "crates/touring-hooks/src/prompt_enhance.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:prompt_enhance.rs",
+      "loc": 2300
+    },
+    {
+      "file": "crates/touring-hooks/src/protocol/acp.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:protocol",
+      "loc": 254
+    },
+    {
+      "file": "crates/touring-hooks/src/protocol/mod.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:protocol",
+      "loc": 8
+    },
+    {
+      "file": "crates/touring-hooks/src/qa_syntax.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 286
+    },
+    {
+      "file": "crates/touring-hooks/src/query_dsl.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 323
+    },
+    {
+      "file": "crates/touring-hooks/src/reranked_context.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 88
+    },
+    {
+      "file": "crates/touring-hooks/src/rfc100_emission.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 258
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/impls_aco.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 116
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/impls_cognitive.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 292
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/impls_context.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 23
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/impls_hook.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 33
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/impls_knowledge.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 87
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/impls_rl.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 220
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/impls_symbols.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 132
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/mod.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 20
+    },
+    {
+      "file": "crates/touring-hooks/src/runtime/traits.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:runtime",
+      "loc": 470
+    },
+    {
+      "file": "crates/touring-hooks/src/saga/distributed.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:saga",
+      "loc": 538
+    },
+    {
+      "file": "crates/touring-hooks/src/saga/mod.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:saga",
+      "loc": 20
+    },
+    {
+      "file": "crates/touring-hooks/src/saga/tests/mod.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:saga",
+      "loc": 6
+    },
+    {
+      "file": "crates/touring-hooks/src/saga/tests/saga_feature_gated_tests.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:saga",
+      "loc": 68
+    },
+    {
+      "file": "crates/touring-hooks/src/sandbox_executor.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "explicit-map:sandbox_executor.rs",
+      "loc": 865
+    },
+    {
+      "file": "crates/touring-hooks/src/schemas/hook_payloads.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:schemas",
+      "loc": 284
+    },
+    {
+      "file": "crates/touring-hooks/src/schemas/mcp_params.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:schemas",
+      "loc": 242
+    },
+    {
+      "file": "crates/touring-hooks/src/schemas/mod.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:schemas",
+      "loc": 10
+    },
+    {
+      "file": "crates/touring-hooks/src/schemas/validation.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:schemas",
+      "loc": 150
+    },
+    {
+      "file": "crates/touring-hooks/src/semantic_classifier.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "explicit-map:semantic_classifier.rs",
+      "loc": 459
+    },
+    {
+      "file": "crates/touring-hooks/src/session_guide.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 324
+    },
+    {
+      "file": "crates/touring-hooks/src/session_hooks.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 970
+    },
+    {
+      "file": "crates/touring-hooks/src/session_insights.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "basename-substr:\\b(session|pre_read|post_read|pre_write|",
+      "loc": 679
+    },
+    {
+      "file": "crates/touring-hooks/src/shadow_v2.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "explicit-map:shadow_v2.rs",
+      "loc": 1576
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/antipatterns.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 393
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/api_cascade_bridge.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 365
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/ast_grep_signal.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 530
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/async_runtime.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 212
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/bash_ast_validator.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 561
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/cascade_queue.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 256
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/cila.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 231
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/command_hash.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 104
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/cursor_pool.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 71
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/detect_language.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 197
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/feature_flags.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 430
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/federation/aggregator.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 275
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/federation/mod.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 53
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/federation/types.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 181
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/file_prefetch.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 150
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/gate_metrics.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 2809
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/hook_context.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 136
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/hook_events.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 271
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/job_registry.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 561
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/latency_marker.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 196
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/leiden.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 579
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/memory_stats_probe.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 109
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/metadata_collector.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 249
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/metadata_dedup.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 152
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/mod.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 56
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/moka_policies.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 193
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/mpatch_preview.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 116
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/parser_cache.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 145
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/parser_cache_global.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 32
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/patterns.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 16
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/quality.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 171
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/query_cache.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 481
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/recursion_guard.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 60
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/reindex.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 347
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/result_ext.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 88
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/result_ext_integration_test.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 141
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/risk_patterns.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 191
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/session_bus.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 453
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/session_context.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 274
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/shadow_rollout.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 414
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/signal_pipeline.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 1133
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/signals.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 1382
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/span_context.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 176
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/tantivy_stream.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 266
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/task_features.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 366
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/terminal_job_cache.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 195
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/thread_pool.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 59
+    },
+    {
+      "file": "crates/touring-hooks/src/shared/touring_error.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "parent-dir:shared",
+      "loc": 200
+    },
+    {
+      "file": "crates/touring-hooks/src/stop.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "leaf-violator-relocated:stop.rs",
+      "loc": 203
+    },
+    {
+      "file": "crates/touring-hooks/src/suggesters/failure_threshold.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:suggesters",
+      "loc": 395
+    },
+    {
+      "file": "crates/touring-hooks/src/suggesters/mod.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:suggesters",
+      "loc": 14
+    },
+    {
+      "file": "crates/touring-hooks/src/suggesters/plan_mode_complexity.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:suggesters",
+      "loc": 457
+    },
+    {
+      "file": "crates/touring-hooks/src/suggesters/stuck_subtask.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:suggesters",
+      "loc": 301
+    },
+    {
+      "file": "crates/touring-hooks/src/tantivy_index.rs",
+      "bucket": "touring-hooks-core",
+      "evidence": "explicit-map:tantivy_index.rs",
+      "loc": 2556
+    },
+    {
+      "file": "crates/touring-hooks/src/task_digest.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "leaf-violator-relocated:task_digest.rs",
+      "loc": 332
+    },
+    {
+      "file": "crates/touring-hooks/src/team_hooks.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "explicit-map:team_hooks.rs",
+      "loc": 1393
+    },
+    {
+      "file": "crates/touring-hooks/src/test_util.rs",
+      "bucket": "touring-hooks-misc",
+      "evidence": "fallback:no-rule-matched",
+      "loc": 16
+    },
+    {
+      "file": "crates/touring-hooks/src/tfidf_retriever.rs",
+      "bucket": "touring-hooks-prediction",
+      "evidence": "explicit-map:tfidf_retriever.rs",
+      "loc": 680
+    },
+    {
+      "file": "crates/touring-hooks/src/throttle.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 190
+    },
+    {
+      "file": "crates/touring-hooks/src/tool_output_router.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 237
+    },
+    {
+      "file": "crates/touring-hooks/src/triad_hook.rs",
+      "bucket": "touring-hooks-lifecycle",
+      "evidence": "leaf-violator-relocated:triad_hook.rs",
+      "loc": 283
+    },
+    {
+      "file": "crates/touring-hooks/src/user_filters.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 422
+    },
+    {
+      "file": "crates/touring-hooks/src/wave3_extended.rs",
+      "bucket": "touring-hooks-shared",
+      "evidence": "shared-whitelist",
+      "loc": 409
+    },
+    {
+      "file": "crates/touring-hooks/src/wave5_workflow.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "explicit-map:wave5_workflow.rs",
+      "loc": 714
+    },
+    {
+      "file": "crates/touring-hooks/src/wiring/hypergraph.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "parent-dir:wiring",
+      "loc": 316
+    },
+    {
+      "file": "crates/touring-hooks/src/wiring.rs",
+      "bucket": "touring-hooks-tools",
+      "evidence": "basename-substr:\\b(tools_|decompose|file_tools|project_t",
+      "loc": 2534
+    }
+  ]
+}

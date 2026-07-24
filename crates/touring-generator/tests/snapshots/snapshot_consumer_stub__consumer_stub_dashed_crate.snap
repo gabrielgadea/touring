@@ -1,0 +1,5 @@
+---
+source: crates/touring-generator/tests/snapshot_consumer_stub.rs
+expression: rendered
+---
+# [doc = r" Auto-generated consumer stub (REGRA #0 POTENCIALIZAR)."] # [doc = r""] # [doc = r" Wires orphan pub symbol `#crate_ident::#ident` into active use."] fn consume_foo_widget () { let _ = touring_ast :: FooWidget ; }

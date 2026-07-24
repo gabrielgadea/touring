@@ -1,0 +1,52 @@
+[package]
+name = "touring-lsp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "LSP server bridging Touring cross-file capabilities (tower-lsp) — references/rename via cli_find_references and cli_rename, feature-gated lsp-bridge"
+
+[lib]
+name = "touring_lsp"
+path = "src/lib.rs"
+
+# Editor entry point. Only built with `--features lsp-bridge` so a default
+# `cargo build --workspace` never tries to compile it (it needs tower-lsp).
+[[bin]]
+name = "touring-lsp"
+path = "src/bin/touring-lsp.rs"
+required-features = ["lsp-bridge"]
+
+[dependencies]
+# Workspace-inherited (standard touring stack). Add more as needed.
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tracing.workspace = true
+# 2026-06-25 W6 of harness-consolidation-master-plan-v3:
+# QualityDiagnostics maps touring-quality's 50-dim per-dim status to
+# LSP DiagnosticSeverity for live editor feedback.
+touring-quality = { path = "../touring-quality" }
+
+# --- lsp-bridge (opt-in) ---
+# The heavy tower-lsp + tokio + async-trait stack is gated behind the
+# `lsp-bridge` feature so a DEFAULT `cargo check --workspace` does NOT pull
+# tower-lsp. Without the feature the crate compiles to its minimal mapping
+# surface (pure-function payload mapping, fully testable without a live server).
+tower-lsp = { version = "0.20", optional = true }
+tokio = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+# Backend bridge: cross-file references/rename live in touring-hooks.
+# Dependency direction is touring-lsp -> touring-hooks (never the reverse).
+touring-hooks = { path = "../touring-hooks", optional = true }
+
+[features]
+default = []
+lsp-bridge = ["dep:tower-lsp", "dep:tokio", "dep:async-trait", "dep:touring-hooks"]
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[lints]
+workspace = true

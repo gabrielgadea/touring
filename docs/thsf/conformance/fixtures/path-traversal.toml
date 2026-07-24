@@ -1,0 +1,9 @@
+# RFC-001 fixture: adapter_cmd path-escapes holon dir. MUST error thsf-manifest-006.
+
+[holon.identity]
+name = "path-traversal"
+version = "0.1.0"
+
+[holon.offers.escape]
+adapter = "cli"
+adapter_cmd = "../../etc/passwd-reader"

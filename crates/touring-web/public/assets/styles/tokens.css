@@ -1,0 +1,161 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOURING WEB — ELITE TOKENS (SPEC 2026-06-12 §3.1, canonical)
+   Single source of truth for color, type scale and motion.
+   Loaded AFTER main.css during migration so these values win.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="dark"] {
+  /* Surfaces */
+  --el-ink:        #0a0a0d;   /* page background */
+  --el-surface:    #111114;   /* card */
+  --el-surface-2:  #16161b;   /* input / inset */
+  --el-surface-3:  #1c1c22;   /* elevated */
+
+  /* Hairlines */
+  --el-line:        rgba(255, 255, 255, 0.06);
+  --el-line-strong: rgba(255, 255, 255, 0.10);
+
+  /* Text scale (5 degraus) */
+  --el-fg:   #fafafa;
+  --el-fg-2: #d4d4d8;
+  --el-fg-3: #a1a1aa;
+  --el-fg-4: #71717a;
+  --el-fg-5: #52525b;
+
+  /* Semantic */
+  --el-accent:      #5eead4;
+  --el-accent-soft: rgba(94, 234, 212, 0.10);
+  --el-accent-hair: rgba(94, 234, 212, 0.18);
+  --el-pos:    #84cc16;
+  --el-neg:    #f43f5e;
+  --el-warn:   #f59e0b;
+  --el-violet: #a78bfa;   /* secondary: wavefront, "prev" states, GoT/MCTS */
+  --el-cyan:   #67e8f9;   /* tertiary: depth-3, data sources */
+  --el-violet-soft: rgba(167, 139, 250, 0.10);
+  --el-neg-soft:    rgba(244, 63, 94, 0.10);
+  --el-warn-soft:   rgba(245, 158, 11, 0.10);
+  --el-pos-soft:    rgba(132, 204, 22, 0.10);
+
+  /* Type */
+  --el-display: 'Inter Tight', system-ui, sans-serif;
+  --el-body:    'Inter Tight', system-ui, sans-serif;
+  --el-mono:    'JetBrains Mono', monospace;
+
+  /* Type scale (SPEC §3.2) */
+  --el-size-display-hero: clamp(56px, 6.5vw, 96px);
+  --el-size-stat-hero:    clamp(88px, 9.5vw, 140px);
+  --el-size-display-2:    clamp(22px, 2.6vw, 34px);
+  --el-size-stat:         clamp(26px, 2.6vw, 34px);
+  --el-size-body:         13.5px;
+  --el-size-eyebrow:      10.5px;
+
+  /* Motion (SPEC §3.4) */
+  --el-dur:      130ms;
+  --el-dur-slow: 200ms;
+  --el-ease:     cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout */
+  --el-titlebar-h:  44px;
+  --el-sidebar-w:   232px;
+  --el-rail-w:      360px;
+  --el-radius:      12px;
+  --el-radius-sm:   8px;
+}
+
+[data-theme="light"] {
+  --el-ink:        #fafaf8;
+  --el-surface:    #ffffff;
+  --el-surface-2:  #f4f4f2;
+  --el-surface-3:  #ececea;
+
+  --el-line:        rgba(10, 10, 13, 0.08);
+  --el-line-strong: rgba(10, 10, 13, 0.14);
+
+  --el-fg:   #16161a;
+  --el-fg-2: #2e2e33;
+  --el-fg-3: #5b5b63;
+  --el-fg-4: #8a8a92;
+  --el-fg-5: #b3b3ba;
+
+  --el-accent:      #0d9488;
+  --el-accent-soft: rgba(13, 148, 136, 0.10);
+  --el-accent-hair: rgba(13, 148, 136, 0.22);
+  /* pos/neg/warn/violet/cyan: same hues, saturation −10% */
+  --el-pos:    #65a30d;
+  --el-neg:    #e11d48;
+  --el-warn:   #d97706;
+  --el-violet: #8b5cf6;
+  --el-cyan:   #0891b2;
+  --el-violet-soft: rgba(139, 92, 246, 0.10);
+  --el-neg-soft:    rgba(225, 29, 72, 0.10);
+  --el-warn-soft:   rgba(217, 119, 6, 0.10);
+  --el-pos-soft:    rgba(101, 163, 13, 0.10);
+}
+
+/* ── Legacy variable bridge (main.css consumers, dies with main.css) ── */
+:root,
+[data-theme="dark"],
+[data-theme="light"] {
+  --bg-void:        var(--el-ink);
+  --bg-base:        var(--el-surface);
+  --bg-surface:     var(--el-surface-2);
+  --bg-elevated:    var(--el-surface-3);
+  --text-primary:   var(--el-fg);
+  --text-secondary: var(--el-fg-3);
+  --text-muted:     var(--el-fg-5);
+  --accent:         var(--el-accent);
+  --accent-glow:    var(--el-accent-soft);
+  --accent-warn:    var(--el-warn);
+  --accent-danger:  var(--el-neg);
+  --accent-success: var(--el-pos);
+  --border:         var(--el-line);
+  --border-bright:  var(--el-line-strong);
+  --border-accent:  var(--el-accent-hair);
+}
+
+/* ── Global type rules (SPEC §3.1) ── */
+html {
+  background: var(--el-ink);
+}
+
+body {
+  font-family: var(--el-body);
+  font-size: var(--el-size-body);
+  font-feature-settings: 'ss01', 'cv11', 'cv02';
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
+  color: var(--el-fg-2);
+  background: var(--el-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--el-accent-soft);
+  color: var(--el-fg);
+}
+
+/* Invisible scrollbars (elite artboards) */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Visible keyboard focus (SPEC §10 a11y) */
+:focus-visible {
+  outline: 2px solid var(--el-accent-hair);
+  outline-offset: 2px;
+}
+
+/* Reduced motion: kill particles/pulse/draw-ins (SPEC §3.4) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

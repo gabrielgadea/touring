@@ -1,0 +1,223 @@
+{
+  "ab": {
+    "arm": "treatment",
+    "attributable": true,
+    "control_composite": 0.8763,
+    "delta": 0.1237,
+    "epsilon": 0.01,
+    "schema": "coupling-ab-v1",
+    "treatment_composite": 1.0,
+    "verdict": "coupling_helps"
+  },
+  "checks": [
+    {
+      "actual": 12000.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.wiring.orphans",
+      "name": "Wiring orphan symbols",
+      "rationale": "More than 100 orphans indicates significant wiring debt. ADVISORY (investigation 2026-07-01): the meter is not yet trustworthy — the count is cwd-sensitive (rust=5016 vs home=27088) and a Chain-7 spot-check found 3/4 sampled orphans have real consumers via grep (incomplete consumer population in wiring_map). Re-arm as blocking only after the wiring_map is repopulated and the FP rate is measured low.",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 100.0
+    },
+    {
+      "actual": 0.7607016343679063,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.rl.ema_reward",
+      "name": "RL EMA reward (OnlineRL engine)",
+      "rationale": "EMA reward < 0.2 means the RL loop hasn't converged yet. ADVISORY (investigation 2026-07-01): the value lives in the in-memory OnlineRLEngine, which resets on every daemon restart and re-injects a synthetic 0.2 warmup — so the first post-restart samples sit deterministically just under the 0.2 threshold (0.179606 observed byte-identical across days). A non-advisory gate on this source fails structurally after every restart without signalling anything. Re-arm only if the EMA gains durable persistence.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.2
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.cache.hit_ratio",
+      "name": "Query cache hit ratio (W17/W18)",
+      "rationale": "Hit ratio >= 0.5 confirms cache is paying for itself. ADVISORY (2026-07-01): same structural pattern as ema_reward — the moka cache is in-memory and resets to 0.0 on every daemon restart (measured 0.0 → 0.71 post-warm, telemetry §1.4), so a non-advisory gate fails transiently after each restart without signalling anything. Re-arm if the ratio gains uptime-aware gating or persistence.",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.0,
+      "advisory": false,
+      "direction": "eq",
+      "id": "touring.p99.blast_timeout",
+      "name": "Blast radius P99 timeout (D5)",
+      "rationale": "Any blast timeout indicates predictive layer regression.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "advisory": false,
+      "direction": "eq",
+      "id": "touring.p99.mcts_deadlock",
+      "name": "MCTS shadow deadlock detection (D5)",
+      "rationale": "Deadlock detection guards async actor invariants.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.gotcha.resolution",
+      "name": "Gotcha resolution count",
+      "rationale": "Gotchas should be progressively resolved over time.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": null,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.test.count",
+      "name": "Total nextest count",
+      "rationale": "Test count is a leading indicator of confidence; do not regress.",
+      "source_kind": "external",
+      "status": "STUB",
+      "threshold": 5100.0
+    },
+    {
+      "actual": null,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.coverage.line",
+      "name": "Line coverage (cargo llvm-cov)",
+      "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml.",
+      "source_kind": "external",
+      "status": "STUB",
+      "threshold": 0.75
+    },
+    {
+      "actual": null,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.mutation.kill_rate",
+      "name": "Mutation test kill_rate (touring-ast, advisory)",
+      "rationale": "Mutation testing measures how many fault injections the test suite catches. Week 1-2 baseline is 50% (advisory); ramps to 80% by month 3. See docs/mutation-testing.md.",
+      "source_kind": "daemon",
+      "status": "STUB",
+      "threshold": 50.0
+    },
+    {
+      "actual": 1028.2692307692307,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.str_bytes_per_emit",
+      "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
+      "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 800.0
+    },
+    {
+      "actual": 12351.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.hook_latency_p50_us",
+      "name": "Coupling hook dispatch latency p50 (D5, leading)",
+      "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 1000.0
+    },
+    {
+      "actual": 1776639.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.hook_latency_p99_us",
+      "name": "Coupling hook dispatch latency p99 (D5, leading)",
+      "rationale": "Tail-latency guard (cold-start/cargo). Calibrated to 50ms — not 1ms — to watch the real tail without false alarms (telemetry §1.4).",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 50000.0
+    },
+    {
+      "actual": 1775615.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.actor_queue_wait_p99_us",
+      "name": "Coupling actor queue-wait p99 — serialized-actor backpressure (D5, leading, F8)",
+      "rationale": "Time a RunHook waited in the per-project actor's serial mpsc before dequeue (F8, 2026-07-01). hook_dispatch_latency starts at dequeue, so this wait was invisible — it is the cross-session contention signal (one session's heavy hook stalling another's in the same project). >1s p99 = contention; advisory until a 2-week baseline exists.",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 1000000.0
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.health_delta_net",
+      "name": "Coupling health-delta net — improvements minus regressions (D4, lagging)",
+      "rationale": "Net effectiveness: coupling-guided edits should improve more paths than they regress. Derived from gate-metrics health_delta_{improvement,regression}_count.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.9978790711050399,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.world_model_success",
+      "name": "Coupling world-model success rate — P(success|action) (D6, lagging)",
+      "rationale": "Mean P(success) across the durable action_world_model.json (21k+ examples). The cross-session learning signal; gte 0.70 indicates the harness is converging.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 0.7
+    },
+    {
+      "actual": 0.038461538461538464,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.suggestion_uptake",
+      "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
+      "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
+      "source_kind": "derived",
+      "status": "ADVISORY",
+      "threshold": 0.4
+    },
+    {
+      "actual": 0.75,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.adoption_ratio",
+      "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
+      "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 0.5
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.pillar_induction_ratio",
+      "name": "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)",
+      "rationale": "Task #6 compounding structure (the active hook layer): after the armed pillar-induction layer nudges a differential the upstream classifiers miss (master-cli or learning-memory), did the LLM's next same-session action take it (a master/recall command)? followed/emitted over the daemon lifetime, precise predicate. gte 0.50 = the master commands are reached for once nudged. DEFAULT-OFF (TOURING_PILLAR_INDUCTION_ARMED) — STUB until armed; if it stays low while armed, that is the affordance-over-persuasion evidence (telemetry thesis ①) pushing toward productization.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    }
+  ],
+  "project_root": "/home/gabrielgadea/projects/analise",
+  "schema": "kpi-commitments-v1",
+  "snapshot_date": "2026-07-20",
+  "summary": {
+    "advisory": 7,
+    "failed": 0,
+    "passed": 7,
+    "regressions": 0,
+    "stub": 4,
+    "total": 18
+  }
+}

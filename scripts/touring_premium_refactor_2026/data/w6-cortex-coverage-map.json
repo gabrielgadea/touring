@@ -1,0 +1,138 @@
+{
+  "script": "w6_cortex_test_debt_repay",
+  "version": "v2-refined-3metrics",
+  "wave": "W6",
+  "subtask_refs": [
+    "W6.0"
+  ],
+  "timestamp": "2026-05-11T23:48:29.518721+00:00",
+  "totals": {
+    "files_audited": 61,
+    "total_src_loc": 18373,
+    "total_test_block_loc": 13450,
+    "total_test_fns": 1037,
+    "total_pub_items": 439,
+    "pub_ratio": 2.3622,
+    "loc_ratio": 0.7321,
+    "file_gap_count": 5,
+    "file_gap_threshold": 20
+  },
+  "priority_modules": [
+    {
+      "file": "crates/touring-cortex/src/dspy/dspy_teleprompter.rs",
+      "total_loc": 141,
+      "src_loc": 141,
+      "test_block_loc": 0,
+      "test_fns": 0,
+      "pub_items": [
+        "Demo",
+        "new",
+        "simple",
+        "CompiledPrompt",
+        "new",
+        "is_acceptable",
+        "len_chars",
+        "is_empty",
+        "Teleprompter",
+        "BootstrapFewShot",
+        "new",
+        "MCTSTeleprompter",
+        "new"
+      ],
+      "pub_count": 13,
+      "pub_ratio": 0.0,
+      "loc_ratio": 0.0,
+      "priority_score": 13.0
+    },
+    {
+      "file": "crates/touring-cortex/src/dspy/dspy_signature.rs",
+      "total_loc": 93,
+      "src_loc": 93,
+      "test_block_loc": 0,
+      "test_fns": 0,
+      "pub_items": [
+        "SignatureField",
+        "new",
+        "optional",
+        "DspySignature",
+        "new",
+        "to_prompt",
+        "input_names",
+        "output_names",
+        "code_generation_sig",
+        "code_reflection_sig",
+        "test_generation_sig"
+      ],
+      "pub_count": 11,
+      "pub_ratio": 0.0,
+      "loc_ratio": 0.0,
+      "priority_score": 11.0
+    },
+    {
+      "file": "crates/touring-cortex/src/dspy/dspy_compiler.rs",
+      "total_loc": 94,
+      "src_loc": 94,
+      "test_block_loc": 0,
+      "test_fns": 0,
+      "pub_items": [
+        "DspyCompiler",
+        "new",
+        "add_demo",
+        "clear_demos",
+        "compile",
+        "compile_bootstrap",
+        "compile_mcts",
+        "forward",
+        "get_signature"
+      ],
+      "pub_count": 9,
+      "pub_ratio": 0.0,
+      "loc_ratio": 0.0,
+      "priority_score": 9.0
+    },
+    {
+      "file": "crates/touring-cortex/src/dspy/dspy_module.rs",
+      "total_loc": 69,
+      "src_loc": 69,
+      "test_block_loc": 0,
+      "test_fns": 0,
+      "pub_items": [
+        "ModuleResult",
+        "get",
+        "is_acceptable",
+        "DspyModule",
+        "new",
+        "with_compiled_prompt",
+        "get_prompt",
+        "forward"
+      ],
+      "pub_count": 8,
+      "pub_ratio": 0.0,
+      "loc_ratio": 0.0,
+      "priority_score": 8.0
+    },
+    {
+      "file": "crates/touring-cortex/src/runtime.rs",
+      "total_loc": 292,
+      "src_loc": 292,
+      "test_block_loc": 0,
+      "test_fns": 0,
+      "pub_items": [
+        "KnowledgeRef",
+        "CortexRuntime",
+        "run",
+        "fascicle_dispatcher",
+        "subscribe_fascicle_to_touring_hooks_bus"
+      ],
+      "pub_count": 5,
+      "pub_ratio": 0.0,
+      "loc_ratio": 0.0,
+      "priority_score": 5.0
+    }
+  ],
+  "decision": {
+    "blocker_fires": false,
+    "triggers": [],
+    "rationale": "all 3 metrics within target"
+  }
+}

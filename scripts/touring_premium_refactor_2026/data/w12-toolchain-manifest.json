@@ -1,0 +1,18 @@
+{
+  "script": "w12_toolchain_manager",
+  "wave": "W12",
+  "subtask_refs": [
+    "W12.toolchain"
+  ],
+  "timestamp": "2026-05-12T00:53:39.646051+00:00",
+  "status": "OK",
+  "subcommands": [
+    "list",
+    "install",
+    "remove",
+    "default",
+    "link",
+    "update"
+  ],
+  "spec_path": "scripts/touring_premium_refactor_2026/staging/w12-toolchain-subcommands.md"
+}

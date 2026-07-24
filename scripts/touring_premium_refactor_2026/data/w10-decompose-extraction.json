@@ -1,0 +1,105 @@
+{
+  "script": "w10_decompose_extract",
+  "wave": "W10",
+  "subtask_refs": [
+    "W10.2"
+  ],
+  "timestamp": "2026-05-12T00:53:39.548246+00:00",
+  "status": "OK",
+  "totals": {
+    "candidates": 15,
+    "total_loc": 13339
+  },
+  "candidates": [
+    {
+      "file": "crates/touring-server/src/reasoning/decomposer.rs",
+      "loc": 2705,
+      "decompose_hits": 339,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/decomposer.rs"
+    },
+    {
+      "file": "crates/touring-server/src/reasoning/persistence.rs",
+      "loc": 943,
+      "decompose_hits": 103,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/persistence.rs"
+    },
+    {
+      "file": "crates/touring-server/src/server/tools_analysis.rs",
+      "loc": 2092,
+      "decompose_hits": 64,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/tools_analysis.rs"
+    },
+    {
+      "file": "crates/touring-server/src/cli/decompose.rs",
+      "loc": 239,
+      "decompose_hits": 20,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/decompose.rs"
+    },
+    {
+      "file": "crates/touring-server/src/reasoning/granularity_adapter.rs",
+      "loc": 302,
+      "decompose_hits": 19,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/granularity_adapter.rs"
+    },
+    {
+      "file": "crates/touring-server/src/tools/generator_tools.rs",
+      "loc": 2184,
+      "decompose_hits": 18,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/generator_tools.rs"
+    },
+    {
+      "file": "crates/touring-server/src/cli/diary.rs",
+      "loc": 434,
+      "decompose_hits": 12,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/diary.rs"
+    },
+    {
+      "file": "crates/touring-server/src/agent_diary.rs",
+      "loc": 786,
+      "decompose_hits": 10,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/agent_diary.rs"
+    },
+    {
+      "file": "crates/touring-server/src/cli/tasksfile.rs",
+      "loc": 180,
+      "decompose_hits": 10,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/tasksfile.rs"
+    },
+    {
+      "file": "crates/touring-server/src/server/mod.rs",
+      "loc": 1151,
+      "decompose_hits": 8,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/mod.rs"
+    },
+    {
+      "file": "crates/touring-server/src/cli/devrcfile.rs",
+      "loc": 132,
+      "decompose_hits": 8,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/devrcfile.rs"
+    },
+    {
+      "file": "crates/touring-server/src/cli/suggest.rs",
+      "loc": 110,
+      "decompose_hits": 7,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/suggest.rs"
+    },
+    {
+      "file": "crates/touring-server/src/reasoning/mod.rs",
+      "loc": 26,
+      "decompose_hits": 6,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/mod.rs"
+    },
+    {
+      "file": "crates/touring-server/src/server/params.rs",
+      "loc": 1948,
+      "decompose_hits": 5,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/params.rs"
+    },
+    {
+      "file": "crates/touring-server/src/cli/granularity.rs",
+      "loc": 107,
+      "decompose_hits": 3,
+      "proposed_dest": "crates/touring-orchestration/src/decompose/granularity.rs"
+    }
+  ]
+}

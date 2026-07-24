@@ -1,0 +1,10 @@
+# Reproducible toolchain for CI ⇄ dev parity (BP2 / RBP-04, 2026-06-21).
+# MSRV is declared separately as `rust-version = "1.85"` in Cargo.toml; this
+# file pins the build *channel* and guarantees the required components are
+# present so `cargo fmt`/`clippy` are always available in any checkout.
+# No specific version is pinned (the workspace is fmt-/clippy-clean on the
+# current stable, 1.95) to avoid an aging pin + an extra rustup download;
+# stable must always stay >= MSRV 1.85.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

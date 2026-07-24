@@ -1,0 +1,5 @@
+id: rust:todo-macro
+language: rust
+pattern: todo!($$$X)
+message: "todo!() marker — incomplete implementation. Track in issue tracker."
+severity: hint

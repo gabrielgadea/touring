@@ -1,0 +1,93 @@
+{
+  "checks": [
+    {
+      "actual": 9106.0,
+      "direction": "lte",
+      "id": "touring.wiring.orphans",
+      "name": "Wiring orphan symbols",
+      "rationale": "More than 100 orphans indicates significant wiring debt.",
+      "source_kind": "daemon",
+      "status": "FAIL",
+      "threshold": 100.0
+    },
+    {
+      "actual": 0.179606,
+      "direction": "gte",
+      "id": "touring.rl.ema_reward",
+      "name": "RL EMA reward (LinUCB)",
+      "rationale": "EMA reward < 0.2 means RL bandit hasn't converged yet.",
+      "source_kind": "daemon",
+      "status": "FAIL",
+      "threshold": 0.2
+    },
+    {
+      "actual": 0.0,
+      "direction": "gte",
+      "id": "touring.cache.hit_ratio",
+      "name": "Query cache hit ratio (W17/W18)",
+      "rationale": "Hit ratio >= 0.5 confirms cache is paying for itself.",
+      "source_kind": "daemon",
+      "status": "FAIL",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.0,
+      "direction": "eq",
+      "id": "touring.p99.blast_timeout",
+      "name": "Blast radius P99 timeout (D5)",
+      "rationale": "Any blast timeout indicates predictive layer regression.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "direction": "eq",
+      "id": "touring.p99.mcts_deadlock",
+      "name": "MCTS shadow deadlock detection (D5)",
+      "rationale": "Deadlock detection guards async actor invariants.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "direction": "gte",
+      "id": "touring.gotcha.resolution",
+      "name": "Gotcha resolution count",
+      "rationale": "Gotchas should be progressively resolved over time.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": null,
+      "direction": "gte",
+      "id": "touring.test.count",
+      "name": "Total nextest count",
+      "rationale": "Test count is a leading indicator of confidence; do not regress.",
+      "source_kind": "external",
+      "status": "STUB",
+      "threshold": 5100.0
+    },
+    {
+      "actual": null,
+      "direction": "gte",
+      "id": "touring.coverage.line",
+      "name": "Line coverage (cargo llvm-cov)",
+      "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml.",
+      "source_kind": "external",
+      "status": "STUB",
+      "threshold": 0.75
+    }
+  ],
+  "schema": "kpi-commitments-v1",
+  "snapshot_date": "2026-04-25",
+  "summary": {
+    "failed": 3,
+    "passed": 3,
+    "regressions": 0,
+    "stub": 2,
+    "total": 8
+  }
+}

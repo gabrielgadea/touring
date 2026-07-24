@@ -1,0 +1,9 @@
+# RFC-001 fixture: shell metachar in adapter_cmd. MUST error thsf-manifest-005.
+
+[holon.identity]
+name = "shell-meta"
+version = "0.1.0"
+
+[holon.offers.malicious]
+adapter = "cli"
+adapter_cmd = "legit-binary; rm -rf /"
