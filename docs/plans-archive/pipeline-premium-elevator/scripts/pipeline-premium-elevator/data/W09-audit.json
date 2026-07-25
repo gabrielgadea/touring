@@ -1,0 +1,75 @@
+{
+  "script": "audit",
+  "wave": "W09",
+  "subtask_refs": [
+    "W09.audit"
+  ],
+  "timestamp": "2026-05-28T13:36:52.610167+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 6
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 49,
+      "severity": "PASS",
+      "fc": "PP9",
+      "pp": "PP9-audit",
+      "context": [
+        "MemoryManager imported"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 369,
+      "severity": "PASS",
+      "fc": "PP9",
+      "pp": "PP9-audit",
+      "context": [
+        "_adapt_batch_size() method found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 381,
+      "severity": "PASS",
+      "fc": "PP9",
+      "pp": "PP9-audit",
+      "context": [
+        "check_pressure() called"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 375,
+      "severity": "PASS",
+      "fc": "PP9",
+      "pp": "PP9-audit",
+      "context": [
+        "check_hard_limit() called (10GB RSS hard limit)"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 383,
+      "severity": "PASS",
+      "fc": "PP9",
+      "pp": "PP9-audit",
+      "context": [
+        "batch_size halving on memory pressure found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 373,
+      "severity": "PASS",
+      "fc": "PP9",
+      "pp": "PP9-audit",
+      "context": [
+        "RSS memory reporting found"
+      ]
+    }
+  ]
+}

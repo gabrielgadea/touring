@@ -1,0 +1,44 @@
+{
+  "script": "audit",
+  "wave": "W03",
+  "fc": [
+    "FC-1"
+  ],
+  "pp": [
+    "PP6"
+  ],
+  "subtask_refs": [
+    "W03.audit"
+  ],
+  "timestamp": "2026-05-27T12:01:10.744780+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 2
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 409,
+      "severity": "HIGH",
+      "fc": "FC-1",
+      "context": "FC-1 HIGH: asyncio.run() at line 409 in non-async context. Fix: replace with asyncio.Runner() to save ~1-3ms per hook call."
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 517,
+      "severity": "HIGH",
+      "fc": "FC-1",
+      "context": "FC-1 HIGH: asyncio.run() at line 517 in non-async context. Fix: replace with asyncio.Runner() to save ~1-3ms per hook call."
+    }
+  ],
+  "evidence": {
+    "plan_ref": "plan.md lines 122-128 (PP6 / FC-1)",
+    "target": "scripts/process_analysis/pipeline_runner.py",
+    "target_lines": [
+      409,
+      517
+    ],
+    "confidence": "FACT [1.0]"
+  }
+}

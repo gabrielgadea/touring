@@ -1,0 +1,58 @@
+{
+  "script": "audit",
+  "wave": "W13",
+  "fc": [
+    "FC-2"
+  ],
+  "pp": [
+    "PP3"
+  ],
+  "subtask_refs": [
+    "W13.audit"
+  ],
+  "timestamp": "2026-05-28T11:27:44.935651+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 4
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 819,
+      "severity": "PASS",
+      "fc": "FC-2",
+      "pp": "PP3",
+      "context": "ProcessPoolExecutor found at line 819"
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 760,
+      "severity": "PASS",
+      "fc": "FC-2",
+      "pp": "PP3",
+      "context": "_run_one at module level (line 760) — pickle-safe for ProcessPoolExecutor"
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 824,
+      "severity": "PASS",
+      "fc": "FC-2",
+      "pp": "PP3",
+      "context": "executor.submit pattern found"
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 835,
+      "severity": "PASS",
+      "fc": "FC-2",
+      "pp": "PP3",
+      "context": "concurrent.futures.as_completed pattern found"
+    }
+  ],
+  "evidence": {
+    "plan_ref": "plan.md (PP3 — ProcessPoolExecutor, lines 252-273)",
+    "target": "scripts/process_analysis/pipeline_runner.py",
+    "confidence": "FACT [1.0]"
+  }
+}

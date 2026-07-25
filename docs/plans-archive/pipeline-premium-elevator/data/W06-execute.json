@@ -1,0 +1,14 @@
+{
+  "script": "execute",
+  "wave": "W06",
+  "subtask_refs": [
+    "W06.execute"
+  ],
+  "timestamp": "2026-05-28T13:43:03.299842+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 0
+  },
+  "findings": []
+}

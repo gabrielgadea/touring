@@ -1,0 +1,77 @@
+{
+  "script": "execute",
+  "wave": "W05",
+  "subtask_refs": [
+    "W05.execute"
+  ],
+  "timestamp": "2026-05-28T13:37:24.348189+00:00",
+  "status": "OK",
+  "apply": true,
+  "totals": {
+    "findings": 6,
+    "applied": 0,
+    "skipped": 6
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 356,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-execute",
+      "context": [
+        "should_run_phase() found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 103,
+      "severity": "P2",
+      "fc": "PP4",
+      "pp": "PP4-execute",
+      "context": [
+        "WEAK: APEX phase cache not found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 412,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-execute",
+      "context": [
+        "pre_phase hook call found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 369,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-execute",
+      "context": [
+        "_adapt_batch_size() found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 686,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-execute",
+      "context": [
+        "_execute_phase() found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 377,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-execute",
+      "context": [
+        "Error handling (MemoryError/healing) found"
+      ]
+    }
+  ]
+}

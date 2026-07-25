@@ -1,0 +1,25 @@
+{
+  "script": "audit",
+  "wave": "W01",
+  "fc": [
+    "FC-4"
+  ],
+  "pp": [
+    "PP1"
+  ],
+  "subtask_refs": [
+    "W01.audit"
+  ],
+  "timestamp": "2026-05-28T13:43:02.601000+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 0
+  },
+  "findings": [],
+  "evidence": {
+    "plan_ref": "plan.md lines 77-80 (FC-4) + 177-196 (P1)",
+    "target": "scripts/process_analysis/pipeline_runner.py",
+    "confidence": "FACT [1.0]"
+  }
+}

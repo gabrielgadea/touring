@@ -1,0 +1,65 @@
+{
+  "script": "audit",
+  "wave": "W04",
+  "subtask_refs": [
+    "W04.audit"
+  ],
+  "timestamp": "2026-05-28T13:43:03.021969+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 5
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 429,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1-audit",
+      "context": [
+        "_run_with_timeout method found at line 429"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 430,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1-audit",
+      "context": [
+        "asyncio.wait_for() call found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 434,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1-audit",
+      "context": [
+        "timeout propagated from PhaseConfig (cfg.timeout)"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 411,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP6-audit",
+      "context": [
+        "asyncio.Runner() context manager found (PP6 — persistent event loop)"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 412,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP6-audit",
+      "context": [
+        "runner.run() async bridge found inside _run_with_timeout"
+      ]
+    }
+  ]
+}

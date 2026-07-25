@@ -47,3 +47,6 @@ docs/baselines/*.tar.gz
 
 # Claude Code session state (never source)
 /.claude/
+
+# Historical plan data blobs (kept on disk, not in git)
+docs/plans-archive/**/data/ground_truth.json

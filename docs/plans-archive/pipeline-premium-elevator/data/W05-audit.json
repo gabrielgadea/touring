@@ -1,0 +1,65 @@
+{
+  "script": "audit",
+  "wave": "W05",
+  "subtask_refs": [
+    "W05.audit"
+  ],
+  "timestamp": "2026-05-28T13:43:03.160565+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 5
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 356,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-audit",
+      "context": [
+        "should_run_phase() extracted to independent method"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 402,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-audit",
+      "context": [
+        "pre_phase() extracted to independent method"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 369,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-audit",
+      "context": [
+        "_adapt_batch_size() exists as method"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 686,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-audit",
+      "context": [
+        "_execute_phase() exists as method"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 377,
+      "severity": "PASS",
+      "fc": "PP4",
+      "pp": "PP4-audit",
+      "context": [
+        "Error handling methods (MemoryError/healing) found"
+      ]
+    }
+  ]
+}
