@@ -9,6 +9,16 @@ plan: /00-INDEX.md
 
 # Release 30.3.0 — Checklist (git + infra são teus; tudo abaixo está PRONTO)
 
+> **✅ EXECUTADO 25/07/2026 (Gabriel autorizou "conecte com o github e faça tudo")**:
+> repo **privado** `github.com/gabrielgadea/touring` criado · programa commitado ·
+> tag `v30.3.0` (5 retags de iteração de CI) · **Release PUBLICADO com artifacts
+> do CI** (tarball bin/ 63MB + sha256 + SBOMs) · prova E2E: download do Release →
+> instalador (sha256 verified) → binário responde. **Restam TEUS**: (a) decidir
+> repo público (destrava attestation SLSA + `--from-url` anônimo + Homebrew);
+> (b) DNS `install/releases.touring.dev` (alternativa zero-infra já funciona via
+> GitHub Release); (c) merge do release PR do release-plz para a PRÓXIMA release.
+> Gotchas completos: memória `github-ci-gotchas-2026-07-25`.
+
 > Estado ao entregar: workflows promovidos no working tree, CHANGELOG cortado,
 > artefato local em `dist/`, packaging corrigido, `validate_phase5.sh` 10/10.
 > **Decisão de numeração**: proposto **v30.3.0** — consistente com
