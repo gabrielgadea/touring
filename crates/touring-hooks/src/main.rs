@@ -925,6 +925,21 @@ fn try_autostart_daemon() {
         .stdin(std::process::Stdio::null())
         .stdout(stdout_io)
         .stderr(stderr_io);
+    // PILOT finding (2026-07-25, 3rd spawn-site): a per-project daemon must
+    // resolve ITS OWN root — derived from the socket, never inherited from
+    // the invoker's env. Mirrors daemon_ctl::project_root_for_socket (C08:
+    // keep all spawn sites in sync). Without this, a hook running with a
+    // foreign CLAUDE_PROJECT_DIR/TOURING_PROJECT_ROOT would seed the wrong
+    // data root (cross-contamination).
+    if let Some(root) = socket_path
+        .parent()
+        .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
+        .and_then(|d| d.parent())
+    {
+        cmd.env("CLAUDE_PROJECT_DIR", root);
+        cmd.env("TOURING_PROJECT_ROOT", root);
+        cmd.current_dir(root);
+    }
     // SAFETY: pre_exec runs in the forked child before exec; setsid(2) is
     // async-signal-safe and cannot fail with EPERM there — the freshly forked
     // child is never a process-group leader.
