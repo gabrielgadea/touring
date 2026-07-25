@@ -878,19 +878,37 @@ fn try_autostart_daemon() {
         Err(_) => return,
     };
 
-    // Sprint 4 PD: resolve the dedicated `touring-daemon` binary in the
-    // sibling directory of the current executable. Falls back to the PATH
-    // name `"touring-daemon"` if the resolved path doesn't exist (e.g. when
-    // current_exe is a wrapper script or installed elsewhere).
-    let daemon_bin = exe
-        .parent()
-        .map(|d| d.join("touring-daemon"))
-        .filter(|p| p.exists())
-        .unwrap_or_else(|| std::path::PathBuf::from("touring-daemon"));
-
     // W12.5: resolve socket path on the client side and pass it explicitly,
     // so the daemon binds the same path the client is about to poll.
     let socket_path = daemon_socket_path();
+
+    // Cross-audit F-NEW-2 (2026-07-25): the daemon CHANNEL must be
+    // deterministic per socket, never "whoever spawned last". Blind sibling
+    // resolution made the GLOBAL daemon oscillate between the dev channel
+    // (update-touring restarts) and the default toolchain (autospawn by a
+    // toolchain-delivered hook). Contract, mirroring daemon_ctl::
+    // spawn_daemon_with_bin (C08 — keep both spawn sites in sync):
+    //   per-project socket → the project's PINNED `.touring/bin/touring-daemon`
+    //   any other socket   → TOURING_DAEMON_BIN env > ~/.local/bin (dev
+    //                        channel owns the global) > sibling > PATH.
+    let project_daemon = socket_path
+        .parent()
+        .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
+        .map(|d| d.join("bin").join("touring-daemon"))
+        .filter(|p| p.exists());
+    let sibling = exe
+        .parent()
+        .map(|d| d.join("touring-daemon"))
+        .filter(|p| p.exists());
+    let daemon_bin = project_daemon
+        .or_else(|| std::env::var_os("TOURING_DAEMON_BIN").map(std::path::PathBuf::from))
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|h| std::path::PathBuf::from(h).join(".local/bin/touring-daemon"))
+                .filter(|p| p.exists())
+        })
+        .or(sibling)
+        .unwrap_or_else(|| std::path::PathBuf::from("touring-daemon"));
 
     // Daemon lifetime fix (2026-07-01) — mirrors touring-server
     // `cli/daemon_ctl.rs::spawn_daemon`; keep both call-sites in sync (C08).
