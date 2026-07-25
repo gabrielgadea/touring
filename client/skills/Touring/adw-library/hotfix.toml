@@ -1,0 +1,35 @@
+# ADW `hotfix` (F3) — surgical, speed over elegance [video 15:27]. No heavy scout.
+# Instantiate: touring adw from-template hotfix
+# Run:         touring adw run hotfix --var incident="<what broke>" --var verify_cmd="<gate>"
+
+[adw]
+name = "hotfix"
+description = "Surgical incident fix: workhorse agent straight in, minimal gate, report"
+entry = "fix"
+budget_tokens = 0
+
+[node.fix]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+prompt = "PRODUCTION INCIDENT — surgical hotfix now: {{vars.incident}}. Smallest change that stops the bleeding; note any debt you knowingly take (a follow-up ticket will pay it)."
+allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+session = "resume_on_fail"
+timeout_ms = 600000
+on_pass = "verify"
+on_fail = "__fail__"
+
+[node.verify]
+type = "gate"
+command = ["bash", "-c", "{{vars.verify_cmd}}"]
+timeout_ms = 300000
+idempotent = true
+on_pass = "report"
+on_fail = "fix"
+
+[node.report]
+type = "code"
+command = ["bash", "-c", "echo 'HOTFIX shipped. Verified by gate: {{nodes.verify.summary}}' ; echo 'Agent debt notes: {{nodes.fix.summary}}' | head -c 800"]
+timeout_ms = 15000
+idempotent = true
+on_pass = "__end__"

@@ -1,0 +1,9 @@
+# Central tier → model mapping (F3). Swap models here; every ADW follows.
+# Node specs say `tier = "sota|workhorse|light"`; adw.py resolves via this table.
+[tiers]
+sota = "opus"
+workhorse = "sonnet"
+light = "haiku"
+# aliases kept for older specs
+mid = "sonnet"
+fast = "haiku"

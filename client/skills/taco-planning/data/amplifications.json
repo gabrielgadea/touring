@@ -1,0 +1,108 @@
+{
+  "status": "WARN",
+  "script": "dimension_amplifier",
+  "timestamp": "2026-05-27T10:24:48+00:00",
+  "source": "/home/gabrielgadea/.claude/plans/pipeline-premium-elevator/plan.md",
+  "threshold": 7.0,
+  "composite_current": 5.33,
+  "below_threshold_dims": [
+    "performance",
+    "functionality",
+    "quality",
+    "dependencies",
+    "potentiation"
+  ],
+  "amplifications_total": 10,
+  "amplifications": [
+    {
+      "dim": "performance",
+      "current": 3.0,
+      "threshold": 7.0,
+      "delta": 4.0,
+      "strategy_id": "Pf-1",
+      "strategy": "Target + workload + bench",
+      "action": "Declare 'P99 < N ms under M RPS; bench: `criterion::cache_hit_bench`.'"
+    },
+    {
+      "dim": "performance",
+      "current": 3.0,
+      "threshold": 7.0,
+      "delta": 4.0,
+      "strategy_id": "Pf-2",
+      "strategy": "Add complexity",
+      "action": "For every hot path: 'O(n) over n = active sessions (~10k typical).'"
+    },
+    {
+      "dim": "functionality",
+      "current": 6.0,
+      "threshold": 7.0,
+      "delta": 1.0,
+      "strategy_id": "F-1",
+      "strategy": "Wire orphans",
+      "action": "For each orphan in ground_truth.wiring_orphans not addressed by the plan, add a subtask wiring it (or document why deferred)."
+    },
+    {
+      "dim": "functionality",
+      "current": 6.0,
+      "threshold": 7.0,
+      "delta": 1.0,
+      "strategy_id": "F-2",
+      "strategy": "Surface area declaration",
+      "action": "Name every new `pub` symbol + at least one consumer."
+    },
+    {
+      "dim": "quality",
+      "current": 5.0,
+      "threshold": 7.0,
+      "delta": 2.0,
+      "strategy_id": "Q-1",
+      "strategy": "Named tests + assertion",
+      "action": "Replace 'add tests' with `test_<name>` + the exact assertion."
+    },
+    {
+      "dim": "quality",
+      "current": 5.0,
+      "threshold": 7.0,
+      "delta": 2.0,
+      "strategy_id": "Q-2",
+      "strategy": "0 unwrap",
+      "action": "Replace `unwrap()` with `?` or `.unwrap_or_else(|e| ...)`."
+    },
+    {
+      "dim": "dependencies",
+      "current": 3.0,
+      "threshold": 7.0,
+      "delta": 4.0,
+      "strategy_id": "Dep-1",
+      "strategy": "Pin everything",
+      "action": "Replace `tokio = \"*\"` with `tokio = { version = \"1.42\", features = [...] }`."
+    },
+    {
+      "dim": "dependencies",
+      "current": 3.0,
+      "threshold": 7.0,
+      "delta": 4.0,
+      "strategy_id": "Dep-2",
+      "strategy": "MSRV note",
+      "action": "Document MSRV / Python range and why it's required."
+    },
+    {
+      "dim": "potentiation",
+      "current": 3.0,
+      "threshold": 7.0,
+      "delta": 4.0,
+      "strategy_id": "Pt-1",
+      "strategy": "REGRA #0 — fill Enables",
+      "action": "For every subtask with empty `Enables`, rewrite so the change exposes a hook / trait / extension point."
+    },
+    {
+      "dim": "potentiation",
+      "current": 3.0,
+      "threshold": 7.0,
+      "delta": 4.0,
+      "strategy_id": "Pt-2",
+      "strategy": "Compounding effect",
+      "action": "Add a Potentiation Matrix showing how each subtask compounds."
+    }
+  ]
+}

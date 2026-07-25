@@ -1,0 +1,31 @@
+### Phase {{ number }} — {{ name }} ({{ mode }}, {{ subtasks | length }} items)
+
+> **Mode**: `{{ mode }}` ({% if mode == "parallel" -%}items independent, runnable in parallel{% else -%}items sequential, each depends on the previous{% endif %})
+> **Depends on**: {{ depends_on | default("—") }}
+> **Severity**: {{ severity | default("P1") }}
+> **Engineer-days**: {{ engineer_days | default("?") }}
+
+{% if objective -%}
+**Objective**: {{ objective }}
+{% endif %}
+
+{% if outcomes -%}
+**Outcomes**:
+{% for o in outcomes -%}
+- {{ o }}
+{% endfor %}
+{% endif %}
+
+{% if premises_to_verify -%}
+**Premises verified at Stage 1** (per ground_truth.json):
+{% for p in premises_to_verify -%}
+- {{ p }}
+{% endfor %}
+{% endif %}
+
+{% if risks -%}
+**Risks**:
+{% for r in risks -%}
+- {{ r.description }} — *mitigation*: {{ r.mitigation }}
+{% endfor %}
+{% endif %}

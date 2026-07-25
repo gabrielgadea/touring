@@ -1,0 +1,45 @@
+# ADW `explore-plan` (F3) — F1 + F2 composed: loop-until-dry exploration feeds
+# plan refinement to plateau; human gate decides act-vs-wait (CCE v2).
+# Instantiate: touring adw from-template explore-plan
+# Run:         touring adw run explore-plan --var topic="<what to explore/plan>"
+#              (pauses at the human gate; resume with --approve act_or_wait)
+
+[adw]
+name = "explore-plan"
+description = "Exploration loop (F1 CCE) into plan refinement (F2) with an act-vs-wait human gate"
+entry = "explore_loop"
+budget_tokens = 0
+
+# `touring explore` already loops-until-dry internally (CCE v2); the outer loop
+# node re-drives it so late findings (living memory) still count — the runner,
+# not the agent, decides dryness from NEW_FINDINGS (Law L2).
+[node.explore_loop]
+type = "loop"
+body = "explore_round"
+max_iters = 4
+dry_rounds = 2
+on_dry = "refine_plan"
+on_pass = "refine_plan"
+on_fail = "__fail__"
+
+[node.explore_round]
+type = "code"
+command = ["bash", "-c", "touring explore '{{vars.topic}}' 2>&1 | tail -c 1800"]
+timeout_ms = 900000
+idempotent = true
+
+[node.refine_plan]
+type = "code"
+command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/plan_refine.py --topic '{{vars.topic}}' 2>&1 | tail -c 1800 || true"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "act_or_wait"
+on_fail = "act_or_wait"
+
+# CCE v2 / F1.7: the human question is not "is it complete?" (undecidable) but
+# "act or wait?" under the declared yield curve and open questions.
+[node.act_or_wait]
+type = "human"
+message = "Yield curve + open questions above. Act on this plan now, or wait for another scout cycle?"
+on_pass = "__end__"
+on_fail = "explore_loop"

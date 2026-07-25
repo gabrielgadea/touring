@@ -1,0 +1,44 @@
+# ADW `audit` (F3) — deterministic masters first, light agent synthesizes.
+# Instantiate: touring adw from-template audit
+# Run:         touring adw run audit --var target="<file>"
+
+[adw]
+name = "audit"
+description = "File audit: touring audit + blast + read masters, then a light synthesis agent"
+entry = "sec_audit"
+budget_tokens = 0
+
+[node.sec_audit]
+type = "code"
+command = ["bash", "-c", "touring audit '{{vars.target}}' 2>&1 | head -c 1800; true"]
+timeout_ms = 300000
+idempotent = true
+on_pass = "blast"
+on_fail = "blast"
+
+[node.blast]
+type = "code"
+command = ["bash", "-c", "touring blast '{{vars.target}}' 2>&1 | head -c 1500; true"]
+timeout_ms = 300000
+idempotent = true
+on_pass = "read_quality"
+on_fail = "read_quality"
+
+[node.read_quality]
+type = "code"
+command = ["bash", "-c", "touring read '{{vars.target}}' 2>&1 | head -c 1500; true"]
+timeout_ms = 300000
+idempotent = true
+on_pass = "synthesize"
+on_fail = "synthesize"
+
+[node.synthesize]
+type = "agent"
+driver = "claude"
+tier = "light"
+prompt = "Synthesize this audit of {{vars.target}} into a ranked findings report (severity, evidence, action). Security: {{nodes.sec_audit.summary}} — Blast: {{nodes.blast.summary}} — Quality: {{nodes.read_quality.summary}}. Findings only; no padding."
+allowed_tools = ["Read"]
+session = "fresh"
+timeout_ms = 300000
+on_pass = "__end__"
+on_fail = "__fail__"
