@@ -17,6 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
+      - name: Install system deps (capnp + libpython — all-features pulls bind-capnp/pyo3)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - name: Mirror docs.rs build
         run: |
           cargo +nightly doc \
