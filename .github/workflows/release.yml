@@ -145,11 +145,13 @@ jobs:
           done
 
       # CICD-07: SLSA build-provenance attestation (GitHub-native, SLSA L3).
-      # continue-on-error: attestations are NOT available on user-owned PRIVATE
-      # repos (GitHub limitation, verified 2026-07-25) — best-effort until the
-      # repo goes public (Gabriel's call), then it enforces automatically.
+      # Gated on repo visibility, NOT continue-on-error (security review
+      # 2026-07-25: an unconditional continue-on-error is fail-open — it would
+      # swallow real attestation failures too). Private user-owned repos cannot
+      # persist attestations (GitHub limitation); the step SKIPS visibly there
+      # and enforces fail-closed the moment the repo goes public.
       - name: Attest build provenance
-        continue-on-error: true
+        if: ${{ !github.event.repository.private }}
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: "touring-*.tar.gz"
