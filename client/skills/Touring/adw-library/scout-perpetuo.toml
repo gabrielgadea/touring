@@ -1,0 +1,45 @@
+# ADW `scout-perpetuo` (F1.7) — exploration as a permanent background process.
+# Instantiate: touring adw from-template scout-perpetuo
+# Run:         touring adw run scout-perpetuo --var topic="<what to keep scouting>"
+#              (pauses at act_or_wait; resume with --approve act_or_wait to act now —
+#               approving does NOT stop the scout: re-run cycles any time; cadence
+#               state lives in .touring/scout-perpetuo/<slug>.json)
+
+[adw]
+name = "scout-perpetuo"
+description = "Perpetual scout: yield-adaptive explore cycles → tickets → act-vs-wait gate"
+entry = "cycle_loop"
+budget_tokens = 0
+
+# The runner counts NEW_FINDINGS printed by each cycle (Law L2); two dry cycles
+# in a row end this batch — the STATE keeps the backoff for the next batch.
+[node.cycle_loop]
+type = "loop"
+body = "cycle"
+max_iters = 4
+dry_rounds = 2
+on_dry = "present"
+on_pass = "present"
+on_fail = "__fail__"
+
+[node.cycle]
+type = "code"
+command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py cycle --topic '{{vars.topic}}'"]
+timeout_ms = 960000
+idempotent = true
+
+[node.present]
+type = "code"
+command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py status --topic '{{vars.topic}}'"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "act_or_wait"
+on_fail = "act_or_wait"
+
+# The gate question is act-vs-wait under declared uncertainty (yield curve +
+# open questions above) — never "is exploration complete?" (undecidable).
+[node.act_or_wait]
+type = "human"
+message = "Yield curve, tickets and open questions above. Act now (approve) or wait for the next scout window?"
+on_pass = "__end__"
+on_fail = "__fail__"

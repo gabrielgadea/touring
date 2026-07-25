@@ -1,0 +1,41 @@
+{
+  "_doc": "Flow manifests — deterministic artifact checklists per gated flow. Consumed by loop_outer_gate.py (via loop_stop_guard.py when the marker status is 'outer'). Placeholders {scope} and {bundle} resolve from the marker; a null bundle surfaces bundle-based artifacts as missing with a next_action that registers the bundle. Verdicts come from files on disk (mtime >= marker.created_at - slack), never from narrative (ADW Law L3).",
+  "strategy-outer": {
+    "description": "loop-engineering OUTER (steps 1-9): recall + deep diagnostic + CCE exploration + persisted strategy",
+    "max_continuations": 5,
+    "preferred_next": "touring adw from-template strategy-loop 2>/dev/null; touring adw run strategy-loop --var topic='<topic>' --var scope='{scope}' --var bundle='{bundle}'",
+    "artifacts": [
+      {
+        "id": "diagnostic-okf",
+        "glob": "{bundle}/diagnostics/*.md",
+        "min": 1,
+        "next_action": "python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope '{scope}' --bundle '{bundle}' --json"
+      },
+      {
+        "id": "explore-ledger",
+        "glob": "{scope}/.touring-explore/*.ledger.json",
+        "min": 1,
+        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 6"
+      },
+      {
+        "id": "strategy-doc",
+        "glob": "{bundle}/strategy-*.md",
+        "min": 1,
+        "next_action": "write the strategy doc into the bundle (strategy-<date>-<slug>.md) and persist it with touring memory store"
+      }
+    ]
+  },
+  "cross-audit": {
+    "description": "TACO-cross-audit: 7 phases proven with executed evidence; the report file is the deterministic exit artifact",
+    "max_continuations": 5,
+    "preferred_next": "complete the 7 phases and write the report to {scope}/docs/audits/cross-audit-<date>.md",
+    "artifacts": [
+      {
+        "id": "audit-report",
+        "glob": "{scope}/docs/audits/cross-audit-*.md",
+        "min": 1,
+        "next_action": "write the phase-7 REPORT (with executed evidence) to '{scope}/docs/audits/cross-audit-<date>.md'"
+      }
+    ]
+  }
+}

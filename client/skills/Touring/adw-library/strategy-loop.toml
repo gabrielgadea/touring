@@ -1,0 +1,68 @@
+# ADW `strategy-loop` — the DETERMINISTIC prefix of the loop-engineering OUTER
+# phase (steps 1-5): arm/refresh the outer marker with the bundle, recall
+# memory, run the deep diagnostic, explore the topic until dry (CCE), then
+# report the evidence manifest. The LLM synthesis (strategy doc) stays with the
+# session orchestrator — its absence is enforced by the Stop guard
+# (loop_outer_gate.py + flow_manifests.json), not by this run, so the adw exit
+# code stays honest: this run completes when the deterministic artifacts exist.
+# Origin: protocol-adherence-diagnosis:2026-07-23 (affordance over persuasion).
+# Run: touring adw run strategy-loop --var topic="<topic>" \
+#        --var scope="<project root>" --var bundle="<OKF bundle dir>"
+
+[adw]
+name = "strategy-loop"
+description = "Deterministic OUTER of loop-engineering: marker + recall + diagnose + CCE explore + evidence report"
+entry = "arm_marker"
+budget_tokens = 0
+
+[node.arm_marker]
+type = "code"
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope '{{vars.scope}}' --bundle '{{vars.bundle}}' --cwd '{{vars.scope}}'"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "recall"
+on_fail = "recall"          # marker write is best-effort; the flow still runs
+
+[node.recall]
+type = "code"
+command = ["bash", "-c", "touring memory recall '{{vars.topic}}' 2>&1 | head -c 1800"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "diagnose"
+on_fail = "diagnose"        # empty recall is a valid result, never a blocker
+
+[node.diagnose]
+type = "code"
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope '{{vars.scope}}' --topic '{{vars.topic}}' --bundle '{{vars.bundle}}' --json 2>&1 | tail -c 1800"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "explore_loop"
+on_fail = "__fail__"        # no diagnostic evidence -> the OUTER cannot proceed
+
+# `touring explore` loops-until-dry internally (CCE v2); the loop node re-drives
+# it so late findings still count — the runner, not the agent, decides dryness
+# from NEW_FINDINGS (Law L2). Same pattern as explore-plan.toml.
+[node.explore_loop]
+type = "loop"
+body = "explore_round"
+max_iters = 4
+dry_rounds = 2
+on_dry = "evidence_report"
+on_pass = "evidence_report"
+on_fail = "__fail__"
+
+[node.explore_round]
+type = "code"
+command = ["bash", "-c", "touring explore '{{vars.topic}}' --scope '{{vars.scope}}' 2>&1 | tail -c 1800"]
+timeout_ms = 900000
+idempotent = true
+
+[node.evidence_report]
+type = "code"
+# Report-only (|| true): the summary carries the manifest verdict; the missing
+# strategy-doc is the orchestrator's synthesis deliverable, enforced at Stop.
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_outer_gate.py --json --no-emit || true"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "__end__"
+on_fail = "__end__"

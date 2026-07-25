@@ -1,0 +1,47 @@
+# ADW `bugfix` (F3) — memory-pack recall → scoped fix agent → verified gate.
+# Instantiate: touring adw from-template bugfix
+# Run:         touring adw run bugfix --var symptom="<bug>" --var target="<file/area>" \
+#                --var verify_cmd="<test command>"
+
+[adw]
+name = "bugfix"
+description = "Expert bugfix: institutional recall feeds a workhorse fixer; gate verifies"
+entry = "recall"
+budget_tokens = 0
+
+# Memory-pack (agent expert, video 16:00): the runner compiles the domain's
+# lessons + pitfalls; the fix agent consumes it as {{nodes.recall.summary}}.
+[node.recall]
+type = "code"
+command = ["bash", "-c", "touring memory recall '{{vars.symptom}}' 2>/dev/null | head -c 1500; echo; touring gotcha match '{{vars.target}}' 2>/dev/null | head -c 500; true"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "diagnose"
+on_fail = "diagnose"
+
+[node.diagnose]
+type = "code"
+command = ["bash", "-c", "touring investigate --brief '{{vars.symptom}}' 2>/dev/null | head -c 1800; true"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "fix"
+on_fail = "fix"
+
+[node.fix]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+prompt = "Fix this bug: {{vars.symptom}} (area: {{vars.target}}). Institutional memory: {{nodes.recall.summary}} — evidence map: {{nodes.diagnose.summary}}. Root-cause it; smallest correct fix; no scope creep."
+allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+session = "resume_on_fail"
+timeout_ms = 900000
+on_pass = "verify"
+on_fail = "__fail__"
+
+[node.verify]
+type = "gate"
+command = ["bash", "-c", "{{vars.verify_cmd}}"]
+timeout_ms = 600000
+idempotent = true
+on_pass = "__end__"
+on_fail = "fix"

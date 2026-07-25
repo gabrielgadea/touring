@@ -1,0 +1,31 @@
+#### S-{{ id }}: {{ action }} [{{ severity }}] [confidence: {{ confidence }}]
+
+- **File**: `{{ file }}:{{ line }}`
+- **Source truth** (from `touring ast overview` / `touring ast find`):
+```{{ lang | default("rust") }}
+{{ source_truth }}
+```
+- **Change** (the diff to apply):
+```{{ lang | default("rust") }}
+{{ change }}
+```
+- **Blast radius**: {{ blast_radius }} direct dependents — full tree: `touring ast blast {{ file }}`
+- **Test**: `{{ test_name }}`
+  - assertion: `{{ test_assertion }}`
+{% if test_file -%}
+  - file: `{{ test_file }}`
+{% endif %}
+- **Dimensions impacted**: {{ dimensions_impact | join(", ") }}
+- **Enables** *(REGRA #0)*: {{ enables }}
+{% if evidence_cmd -%}
+- **Evidence command**:
+```bash
+{{ evidence_cmd }}
+```
+{% endif %}
+{% if gotcha_refs -%}
+- **Gotchas avoided**:
+{% for g in gotcha_refs -%}
+  - {{ g }}
+{% endfor %}
+{% endif %}

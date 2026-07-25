@@ -1,0 +1,157 @@
+---
+plan: {{ plan_slug }}
+title: {{ title }}
+authored: {{ authored }}
+level: {{ level | default("L3") }}
+status: DRAFT
+intent: |
+  {{ intent }}
+{% if registry_current and registry_target -%}
+registry:
+  current: {{ registry_current }}
+  target: {{ registry_target }}
+{% endif -%}
+quality_dimensions:
+  - precision
+  - scalability
+  - performance
+  - functionality
+  - quality
+  - detail
+  - integration
+  - dependencies
+  - potentiation
+ground_truth_ref: data/ground_truth.json
+toolkit_version: taco-planning-v2.0
+---
+
+# {{ title }} (Pln2)
+
+> **Intent**: {{ intent }}
+> **Level**: {{ level | default("L3") }} | **Authored**: {{ authored }}
+> **Composite goal**: every dimension ≥ 8, no dimension < 7.
+
+---
+
+## 1. Ground Truth Summary
+
+> Source — `data/ground_truth.json` produced by `ground_truth_collector.py`.
+
+| Field | Value |
+|-------|-------|
+| `touring doctor` overall | {{ doctor_overall | default("UNVERIFIED") }} |
+| E2E composite score | {{ e2e_composite | default("?") }} |
+| Wiring orphan count | {{ orphan_count | default("?") }} |
+| Index symbol count | {{ index_symbols | default("?") }} |
+| Evolution drift alert | {{ drift_alert | default("none") }} |
+| Memory lessons applied | {{ lessons_count | default(0) }} |
+
+### Symbols verified (VGP)
+
+| Symbol | File | Line | Signature |
+|--------|------|-----:|-----------|
+{% for sym in verified_symbols | default([]) -%}
+| `{{ sym.name }}` | `{{ sym.file }}` | {{ sym.line }} | `{{ sym.signature }}` |
+{% endfor %}
+
+### Past lessons applied
+
+{% for lesson in lessons | default([]) -%}
+- **{{ lesson.key }}** — {{ lesson.summary }}
+{% endfor %}
+
+### Known gotchas for target files
+
+{% for g in gotchas | default([]) -%}
+- `{{ g.file }}` — {{ g.pattern }}: {{ g.description }}
+{% endfor %}
+
+---
+
+## 2. 9-Dimension Scores (Pln1 → Pln2)
+
+> Source — `dimension_scorer.py`; amplifications — `dimension_amplifier.py`.
+
+| Dim | Current | Target | Delta | Amplification |
+|-----|--------:|-------:|------:|---------------|
+{% for d in dimensions | default([]) -%}
+| **{{ d.name }}** | {{ d.current }} | {{ d.target }} | {{ d.delta }} | {{ d.amplification | default("—") }} |
+{% endfor %}
+
+**Composite**: {{ composite_current | default("?") }} → {{ composite_target | default("?") }} (delta {{ composite_delta | default("?") }}).
+
+---
+
+## 3. Phases
+
+> Built by `plan_scaffolder.py`; DAG validated by `dag_builder.py`.
+
+{% for phase in phases | default([]) -%}
+### Phase {{ phase.number }} — {{ phase.name }} ({{ phase.mode }}, {{ phase.subtasks | length }} items)
+
+{% for st in phase.subtasks -%}
+#### S-{{ st.id }}: {{ st.action }} [{{ st.severity }}] [confidence: {{ st.confidence }}]
+
+- **File**: `{{ st.file }}:{{ st.line }}`
+- **Source truth**: ```{{ st.lang | default("rust") }}
+{{ st.source_truth | indent(2, false) }}
+```
+- **Change**:
+```{{ st.lang | default("rust") }}
+{{ st.change | indent(2, false) }}
+```
+- **Blast radius**: {{ st.blast_radius }} direct dependents (from `touring ast blast {{ st.file }}`)
+- **Test**: `{{ st.test_name }}` — assertion: `{{ st.test_assertion }}`
+- **Dimensions impacted**: {{ st.dimensions_impact | join(", ") }}
+- **Enables**: {{ st.enables }}  *(REGRA #0 — empty disallowed)*
+
+{% endfor %}
+{% endfor %}
+
+---
+
+## 4. DAG
+
+> Mermaid + textual; emitted by `dag_builder.py --emit`.
+
+```mermaid
+{{ dag_mermaid | default("graph LR\n  start --> end") }}
+```
+
+Textual sequence:
+{{ dag_textual | default("(generated)") }}
+
+---
+
+## 5. Verification Protocol
+
+```bash
+{% for cmd in verification_commands | default(["cargo check --workspace", "cargo test --workspace", "touring e2e -j", "ruff check .", "pyright"]) -%}
+{{ cmd }}
+{% endfor -%}
+```
+
+Acceptance:
+{% for crit in acceptance_criteria | default(["cargo: 0 errors", "tests: all green", "touring e2e: composite ≥ baseline", "ruff: 0 errors", "pyright: 0 errors", "wiring orphans delta ≤ 0"]) -%}
+- {{ crit }}
+{% endfor %}
+
+---
+
+## 6. Potentiation Matrix
+
+> Every subtask must surface what it **enables**. Empty rows fail REGRA #0.
+
+| Change | Enables |
+|--------|---------|
+{% for st in all_subtasks | default([]) -%}
+| S-{{ st.id }} — {{ st.action_short }} | {{ st.enables }} |
+{% endfor %}
+
+---
+
+## Cross-references
+
+- TACO-wt operates this plan once authored — see `~/.claude/skills/TACO-wt/SKILL.md`.
+- The 9-dimension rubric — `~/.claude/skills/taco-planning/references/dimensions-rubric.md`.
+- Amplification catalog — `~/.claude/skills/taco-planning/references/amplification-strategies.md`.

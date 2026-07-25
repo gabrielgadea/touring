@@ -1,0 +1,70 @@
+# ADW `feature` (F3) — recall → SOTA scout → plan → conflict-gated implement → verify.
+# Instantiate: touring adw from-template feature
+# Run:         touring adw run feature --var feature="<what>" --var target="<area>" \
+#                --var write_set="<files the implementer will touch>" \
+#                --var verify_cmd="<test command>"
+
+[adw]
+name = "feature"
+description = "Full feature pipeline: expert memory, SOTA scout, plan, conflict-check, verified build"
+entry = "recall"
+budget_tokens = 0
+
+[node.recall]
+type = "code"
+command = ["bash", "-c", "touring memory recall '{{vars.feature}}' 2>/dev/null | head -c 1500; echo; touring gotcha match '{{vars.target}}' 2>/dev/null | head -c 500; true"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "scout"
+on_fail = "scout"
+
+[node.scout]
+type = "agent"
+driver = "claude"
+tier = "sota"
+prompt = "Scout the codebase for implementing: {{vars.feature}} (area: {{vars.target}}). Institutional memory: {{nodes.recall.summary}}. Map integration points, risks, existing patterns to follow. End with NEW_FINDINGS=<n>."
+allowed_tools = ["Read", "Grep", "Glob", "Bash"]
+session = "fresh"
+timeout_ms = 900000
+on_pass = "plan"
+on_fail = "__fail__"
+
+[node.plan]
+type = "agent"
+driver = "claude"
+tier = "sota"
+prompt = "Write the implementation plan for: {{vars.feature}}. Scout findings: {{nodes.scout.summary}}. Concrete steps, files to touch, test strategy. Declare the exact write-set (files) the implementer needs."
+allowed_tools = ["Read", "Grep", "Glob"]
+session = "fresh"
+timeout_ms = 600000
+on_pass = "conflict_check"
+on_fail = "__fail__"
+
+# Parallel-engineer safety (F3.4): declared write-sets go through the CEG
+# conflict-check so concurrent implementers serialize instead of colliding.
+[node.conflict_check]
+type = "gate"
+command = ["bash", "-c", "touring conflict-check {{vars.write_set}}"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "implement"
+on_fail = "implement"
+
+[node.implement]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+prompt = "Implement the plan: {{nodes.plan.summary}}. Feature: {{vars.feature}}. Follow surrounding conventions; tests included."
+allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+session = "resume_on_fail"
+timeout_ms = 1800000
+on_pass = "verify"
+on_fail = "__fail__"
+
+[node.verify]
+type = "gate"
+command = ["bash", "-c", "{{vars.verify_cmd}}"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "__end__"
+on_fail = "implement"

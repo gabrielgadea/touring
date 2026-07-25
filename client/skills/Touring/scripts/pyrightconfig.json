@@ -1,0 +1,7 @@
+{
+  "include": ["*.py"],
+  "extraPaths": ["."],
+  "reportMissingImports": "none",
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic"
+}
