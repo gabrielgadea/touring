@@ -29,6 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
@@ -77,6 +79,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
       - name: cargo test --doc
         run: cargo test --workspace --doc
@@ -93,6 +97,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
         with:
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
@@ -189,6 +195,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - name: cargo nextest (ci profile, full suite)
@@ -205,6 +213,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-fuzz
       - name: cargo fuzz build
@@ -222,6 +232,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.85
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
       - name: cargo +1.85 check (declared MSRV holds)
         run: cargo check --workspace
