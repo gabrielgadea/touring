@@ -117,13 +117,63 @@ fn resolve_target_socket(cli: &DaemonCtlCli) -> PathBuf {
     daemon_socket_path()
 }
 
-/// W12.5 — the PID of the daemon holding `socket`, read from its per-socket
-/// lock file (written under flock by `acquire_lock`) and verified against
-/// `/proc/<pid>/comm`. Deterministic targeting — no name-based /proc scan.
+/// W12.5 — the PID of the daemon holding `socket`. Registry-first (F-NEW-4,
+/// cross-audit 2026-07-25): the per-socket REGISTRY entry is rewritten on
+/// every bind and is therefore fresh across respawns; the lock-file CONTENT
+/// can go stale (observed: a day-old PID in the global lock made this fn
+/// return None → the all-daemons fallback SIGTERMed every per-project daemon
+/// — a cascading kill, the exact REGRA #19 failure daemon-ctl exists to
+/// prevent). Both sources are comm-validated against `/proc`.
 fn pid_for_socket(socket: &Path) -> Option<u32> {
-    let lock = touring_foundation::config::TouringConfig::daemon_lock_path_for(socket);
+    use touring_foundation::config::TouringConfig;
+    // 1. Registry entry (written fresh on every bind — W12.5).
+    let reg = TouringConfig::daemon_registry_entry_for(socket);
+    if let Some(pid) = fs::read_to_string(reg)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("pid").and_then(serde_json::Value::as_u64))
+        .map(|p| p as u32)
+        .filter(|&p| read_proc_comm(p).as_deref() == Some("touring-daemon"))
+    {
+        return Some(pid);
+    }
+    // 2. Legacy fallback: lock-file content (upgrade-compat; may be stale).
+    let lock = TouringConfig::daemon_lock_path_for(socket);
     let pid: u32 = fs::read_to_string(lock).ok()?.trim().parse().ok()?;
     (read_proc_comm(pid).as_deref() == Some("touring-daemon")).then_some(pid)
+}
+
+/// Fallback reap-set when the target socket's owner cannot be identified:
+/// every daemon EXCEPT registered owners of OTHER sockets. The old
+/// "reap them all" (`all_daemon_pids`) predates W12.5 multi-daemon — in the
+/// per-project era it cascade-killed unrelated projects' daemons (F-NEW-4:
+/// konverter's daemon died on every `update-touring` restart of the global).
+fn orphan_daemon_pids(target: &Path) -> Vec<u32> {
+    use touring_foundation::config::TouringConfig;
+    let mut owned_elsewhere = std::collections::HashSet::new();
+    if let Ok(entries) = fs::read_dir(TouringConfig::daemon_registry_dir()) {
+        for e in entries.flatten() {
+            if let Some(v) = fs::read_to_string(e.path())
+                .ok()
+                .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+            {
+                let sock = v.get("socket").and_then(serde_json::Value::as_str);
+                let pid = v
+                    .get("pid")
+                    .and_then(serde_json::Value::as_u64)
+                    .map(|p| p as u32);
+                if let (Some(sock), Some(pid)) = (sock, pid) {
+                    if Path::new(sock) != target {
+                        owned_elsewhere.insert(pid);
+                    }
+                }
+            }
+        }
+    }
+    all_daemon_pids()
+        .into_iter()
+        .filter(|p| !owned_elsewhere.contains(p))
+        .collect()
 }
 
 // ── Public entry ─────────────────────────────────────────────────────
@@ -236,7 +286,7 @@ fn cmd_stop(json: bool, target: &Path) -> anyhow::Result<()> {
     // fallback covers a pre-upgrade global daemon without a lock PID.
     let pids = pid_for_socket(target)
         .map(|p| vec![p])
-        .unwrap_or_else(all_daemon_pids);
+        .unwrap_or_else(|| orphan_daemon_pids(target));
     if pids.is_empty() {
         if json {
             json_to_stdout(r#"{"stopped":false,"reason":"daemon_not_running"}"#);
@@ -296,7 +346,7 @@ pub(crate) fn restart_socket_with_bin(
 ) -> anyhow::Result<()> {
     let pids = pid_for_socket(target)
         .map(|p| vec![p])
-        .unwrap_or_else(all_daemon_pids);
+        .unwrap_or_else(|| orphan_daemon_pids(target));
     // Loud no-op guard (cross-audit 2026-07-24): a live socket whose owner the
     // scan cannot identify means the SIGTERM below would be skipped, the fresh
     // spawn would lose the flock race to the invisible owner, and this command
