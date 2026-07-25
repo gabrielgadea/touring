@@ -1,0 +1,54 @@
+{
+  "script": "execute",
+  "wave": "W03",
+  "fc": [
+    "FC-1"
+  ],
+  "pp": [
+    "PP6"
+  ],
+  "subtask_refs": [
+    "W03.execute"
+  ],
+  "timestamp": "2026-05-28T13:43:02.881381+00:00",
+  "status": "OK",
+  "apply": false,
+  "state": {
+    "found": true,
+    "total_asyncio_run": 0,
+    "inside_async_count": 0,
+    "outside_async_count": 0,
+    "findings": [
+      {
+        "file": "scripts/process_analysis/pipeline_runner.py",
+        "line": 1,
+        "severity": "INFO",
+        "fc": "FC-1",
+        "context": "Total asyncio.run() calls: 0"
+      },
+      {
+        "file": "scripts/process_analysis/pipeline_runner.py",
+        "line": 1,
+        "severity": "PASS",
+        "fc": "FC-1",
+        "context": "asyncio.run() inside async def: 0 (FC-1 violations)"
+      },
+      {
+        "file": "scripts/process_analysis/pipeline_runner.py",
+        "line": 1,
+        "severity": "PASS",
+        "fc": "FC-1",
+        "context": "asyncio.run() in non-async context: 0 (no violation)"
+      }
+    ]
+  },
+  "totals": {
+    "applied": 0,
+    "skipped": 0
+  },
+  "evidence": {
+    "plan_ref": "plan.md lines 122-128 (PP6 / FC-1)",
+    "target": "scripts/process_analysis/pipeline_runner.py",
+    "confidence": "FACT [1.0]"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "script": "execute",
+  "wave": "W02",
+  "fc": [
+    "FC-6"
+  ],
+  "pp": [
+    "PP2"
+  ],
+  "subtask_refs": [
+    "W02.execute"
+  ],
+  "timestamp": "2026-05-28T13:43:02.740109+00:00",
+  "status": "OK",
+  "apply": false,
+  "state": {
+    "found": true,
+    "has_lock_def": true,
+    "lock_protected": true,
+    "has_phaseconfig": true,
+    "findings": [
+      {
+        "file": "scripts/process_analysis/pipeline_runner.py",
+        "line": 1,
+        "severity": "PASS",
+        "fc": "FC-6",
+        "context": "_strategy_lock defined: True"
+      },
+      {
+        "file": "scripts/process_analysis/pipeline_runner.py",
+        "line": 220,
+        "severity": "PASS",
+        "fc": "FC-6",
+        "context": "get_phase_strategy() return lock-protected: True (1 return(s) found, 2 locked region(s))"
+      },
+      {
+        "file": "scripts/process_analysis/pipeline_runner.py",
+        "line": 1,
+        "severity": "PASS",
+        "fc": "FC-6",
+        "context": "PhaseConfig class: True"
+      }
+    ]
+  },
+  "totals": {
+    "applied": 0,
+    "skipped": 0
+  },
+  "evidence": {
+    "plan_ref": "plan.md (FC-6 / PP2 — get_phase_strategy lock)",
+    "target": "scripts/process_analysis/pipeline_runner.py",
+    "confidence": "FACT [1.0]"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "script": "execute",
+  "wave": "W08",
+  "subtask_refs": [
+    "W08.execute"
+  ],
+  "timestamp": "2026-05-28T13:37:02.026777+00:00",
+  "status": "OK",
+  "apply": true,
+  "totals": {
+    "findings": 0,
+    "applied": 0,
+    "skipped": 0
+  },
+  "findings": []
+}

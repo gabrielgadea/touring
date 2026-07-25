@@ -1,0 +1,81 @@
+{
+  "script": "execute",
+  "wave": "W04",
+  "subtask_refs": [
+    "W04.execute"
+  ],
+  "timestamp": "2026-05-28T13:43:03.021902+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 7
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 80,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1",
+      "context": [
+        "PhaseConfig dataclass found at line 80"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 84,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1",
+      "context": [
+        "timeout field found in PhaseConfig"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 85,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1",
+      "context": "retry_budget field found in PhaseConfig"
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 451,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1",
+      "context": [
+        "run_phase signature accepts PhaseConfig parameter"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 390,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1",
+      "context": [
+        "_is_transient helper method found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 568,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1",
+      "context": [
+        "Retry logic with PhaseConfig.retry_budget found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 434,
+      "severity": "PASS",
+      "fc": "FC-4",
+      "pp": "PP1",
+      "context": "asyncio.wait_for receives cfg.timeout (timeout propagated)"
+    }
+  ]
+}

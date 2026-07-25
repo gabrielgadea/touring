@@ -1,0 +1,47 @@
+{
+  "script": "audit",
+  "wave": "W02",
+  "fc": [
+    "FC-6"
+  ],
+  "pp": [
+    "PP2"
+  ],
+  "subtask_refs": [
+    "W02.audit"
+  ],
+  "timestamp": "2026-05-28T13:43:02.739971+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 3
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 191,
+      "severity": "PASS",
+      "fc": "FC-6",
+      "context": "_strategy_lock defined at line 191"
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 195,
+      "severity": "PASS",
+      "fc": "FC-6",
+      "context": "configure_phase_strategy at line 195 — uses lock (correct writer)"
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 220,
+      "severity": "PASS",
+      "fc": "FC-6",
+      "context": "get_phase_strategy return at line 220 — lock-protected (already fixed)"
+    }
+  ],
+  "evidence": {
+    "plan_ref": "plan.md (FC-6 / PP2 — Lock in get_phase_strategy read)",
+    "target": "scripts/process_analysis/pipeline_runner.py",
+    "confidence": "FACT [1.0]"
+  }
+}

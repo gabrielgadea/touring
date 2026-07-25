@@ -1,0 +1,47 @@
+{
+  "plan": "pipeline-premium-elevator",
+  "session_id": "fb463f8e-1281-4f59-b350-55baf290a6e2",
+  "saved_at": "2026-05-28T13:37:00Z",
+  "wave_state": {
+    "W01": {"status": "validated", "score": 0.90, "status_str": "PASS"},
+    "W02": {"status": "validated", "score": 0.97, "status_str": "PASS"},
+    "W03": {"status": "validated", "score": 0.98, "status_str": "PASS"},
+    "W04": {"status": "validated", "score": 1.00, "status_str": "PASS"},
+    "W05": {"status": "validated", "score": 1.00, "status_str": "PASS"},
+    "W06": {"status": "validated", "score": 1.00, "status_str": "PASS"},
+    "W07": {"status": "validated", "score": 1.00, "status_str": "PASS"},
+    "W08": {"status": "validated", "score": 1.00, "status_str": "PASS"},
+    "W09": {"status": "validated", "score": 0.875, "status_str": "PASS"},
+    "W10": {"status": "validated", "score": 1.00, "status_str": "PASS"},
+    "W11": {"status": "validated", "score": 1.00, "status_str": "PASS"},
+    "W12": {"status": "validated", "score": 1.00, "status_str": "PASS"}
+  },
+  "baseline_cross_audit": {
+    "total_waves": 12,
+    "all_pass": true,
+    "composite_score": 0.981,
+    "lowest": {"wave": "W09", "score": 0.875},
+    "findings_by_wave": {
+      "W01": {"audit": 0, "execute": 0},
+      "W02": {"audit": 3, "execute": 0},
+      "W03": {"audit": 0, "execute": 0},
+      "W04": {"audit": 5, "execute": 7},
+      "W05": {"audit": 5, "execute": 6},
+      "W06": {"audit": 0, "execute": 0},
+      "W07": {"audit": 0, "execute": 0},
+      "W08": {"audit": 0, "execute": 0},
+      "W09": {"audit": 6, "execute": 0},
+      "W10": {"audit": 0, "execute": 0},
+      "W11": {"audit": 0, "execute": 0},
+      "W12": {"audit": 0, "execute": 0}
+    }
+  },
+  "bugs_fixed_this_session": [
+    {
+      "bug": "W05-W12 scripts not persisted JSONs — _DATA_DIR path wrong in scaffold",
+      "fix": "used --output-dir data/ to bypass scaffold bug",
+      "waves_affected": ["W05","W06","W07","W08","W09","W10","W11","W12"]
+    }
+  ],
+  "memory_key": "session:pipeline-premium-elevator-2026-05-28"
+}

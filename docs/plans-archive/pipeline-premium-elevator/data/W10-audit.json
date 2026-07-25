@@ -1,0 +1,14 @@
+{
+  "script": "audit",
+  "wave": "W10",
+  "subtask_refs": [
+    "W10.audit"
+  ],
+  "timestamp": "2026-05-28T13:43:03.849172+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 0
+  },
+  "findings": []
+}

@@ -1,0 +1,86 @@
+{
+  "script": "audit",
+  "wave": "W15",
+  "fc": [
+    "P1"
+  ],
+  "pp": [
+    "PP4-pre"
+  ],
+  "subtask_refs": [
+    "W15.audit"
+  ],
+  "timestamp": "2026-05-28T12:15:47.720474+00:00",
+  "status": "OK",
+  "apply": false,
+  "totals": {
+    "findings": 6
+  },
+  "findings": [
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 80,
+      "severity": "PASS",
+      "fc": "P1",
+      "pp": "PP4-pre",
+      "context": [
+        "PhaseConfig dataclass found at line 80"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 84,
+      "severity": "PASS",
+      "fc": "P1",
+      "pp": "PP4-pre",
+      "context": [
+        "timeout field found in PhaseConfig"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 85,
+      "severity": "PASS",
+      "fc": "P1",
+      "pp": "PP4-pre",
+      "context": [
+        "retry_budget field found in PhaseConfig"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 451,
+      "severity": "PASS",
+      "fc": "P1",
+      "pp": "PP4-pre",
+      "context": [
+        "run_phase signature accepts PhaseConfig parameter"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 390,
+      "severity": "PASS",
+      "fc": "P1",
+      "pp": "PP4-pre",
+      "context": [
+        "_is_transient helper method found"
+      ]
+    },
+    {
+      "file": "scripts/process_analysis/pipeline_runner.py",
+      "line": 568,
+      "severity": "PASS",
+      "fc": "P1",
+      "pp": "PP4-pre",
+      "context": [
+        "Retry logic with PhaseConfig.retry_budget found"
+      ]
+    }
+  ],
+  "evidence": {
+    "plan_ref": "plan.md (P1 — PhaseConfig + timeout + retry)",
+    "target": "scripts/process_analysis/pipeline_runner.py",
+    "confidence": "FACT [1.0]"
+  }
+}
