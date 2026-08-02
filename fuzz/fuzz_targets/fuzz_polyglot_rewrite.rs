@@ -2,14 +2,14 @@
 //! Fuzz harness: polyglot AST rewrite.
 //!
 //! Feeds arbitrary bytes — split on byte boundaries into source / pattern /
-//! replacement — into `touring_ast_polyglot::rewrite` with `Lang::JavaScript`.
+//! replacement — into `touring_code::polyglot::rewrite` with `Lang::JavaScript`.
 //! Exercises both the ast-grep pattern compiler and the replacement renderer.
 //!
 //! `rewrite` returns `Err(Error::InvalidPattern)` on malformed patterns — a
 //! panic from this target is now a genuine finding, so libfuzzer catches it.
 
 use libfuzzer_sys::fuzz_target;
-use touring_ast_polyglot::{rewrite, Lang};
+use touring_code::polyglot::{rewrite, Lang};
 
 fuzz_target!(|data: &[u8]| {
     if data.len() < 3 {

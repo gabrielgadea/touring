@@ -2,14 +2,14 @@
 //! Fuzz harness: polyglot AST search over Rust source.
 //!
 //! Feeds arbitrary bytes — split on a byte boundary into source + pattern —
-//! into `touring_ast_polyglot::search` with `Lang::Rust`. Exercises the
+//! into `touring_code::polyglot::search` with `Lang::Rust`. Exercises the
 //! tree-sitter + ast-grep pattern compiler against hostile input.
 //!
 //! `search` returns `Err(Error::InvalidPattern)` on malformed patterns — a
 //! panic from this target is now a genuine finding, so libfuzzer catches it.
 
 use libfuzzer_sys::fuzz_target;
-use touring_ast_polyglot::{search, Lang};
+use touring_code::polyglot::{search, Lang};
 
 fuzz_target!(|data: &[u8]| {
     if data.len() < 2 {
