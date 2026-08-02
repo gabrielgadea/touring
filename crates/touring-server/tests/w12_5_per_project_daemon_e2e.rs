@@ -14,18 +14,41 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
-fn daemon_bin() -> PathBuf {
+/// Resolve a freshly-built workspace binary, preferring the profile the test
+/// itself was compiled into.
+///
+/// These tests must exercise the binary produced by THIS build — never
+/// `~/.local/bin` — so PATH is deliberately not a fallback.
+///
+/// 2026-08-02: the paths were hardcoded to `target/release`, which held only
+/// because a release build happened to be present locally. CI runs
+/// `cargo nextest run --workspace` in debug, so the release binary never
+/// existed there and both tests died with
+/// `daemon spawn failed: Os { code: 2, kind: NotFound }`.
+/// Mirrors the debug-then-release probe already used by `cli_language_e2e.rs`.
+fn workspace_bin(name: &str) -> PathBuf {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let workspace = Path::new(manifest_dir).parent().unwrap().parent().unwrap();
-    // Release binary: the workspace build (F4-3) and validate_phase1.sh both
-    // produce it; tests must exercise the freshly-built daemon, not ~/.local/bin.
-    workspace.join("target/release/touring-daemon")
+    let debug = workspace.join("target/debug").join(name);
+    let release = workspace.join("target/release").join(name);
+    if debug.exists() {
+        debug
+    } else if release.exists() {
+        release
+    } else {
+        panic!(
+            "{name} not found in target/debug or target/release — build the \
+             workspace before running this E2E (cargo build --workspace)"
+        )
+    }
+}
+
+fn daemon_bin() -> PathBuf {
+    workspace_bin("touring-daemon")
 }
 
 fn touring_bin() -> PathBuf {
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let workspace = Path::new(manifest_dir).parent().unwrap().parent().unwrap();
-    workspace.join("target/release/touring")
+    workspace_bin("touring")
 }
 
 fn spawn_daemon_on(socket: &Path) -> Child {

@@ -195,9 +195,20 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      # 2026-08-02: EmbarkStudios/cargo-deny-action runs inside a musl container,
+      # where this repo's `rust-toolchain.toml` (channel = "stable") resolves to
+      # `stable-x86_64-unknown-linux-musl` — a toolchain the image does not have:
+      #   error: override toolchain '...-musl' is not installed
+      # `cargo metadata` then degrades and the resolved graph differs from the one
+      # developers see locally, producing license/duplicate errors that cannot be
+      # reproduced with `cargo deny check`. Running cargo-deny natively on the gnu
+      # runner makes CI and local identical — the same binary, the same graph.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
         with:
-          command: check advisories bans licenses sources
+          tool: cargo-deny
+      - name: cargo deny check
+        run: cargo deny check advisories bans licenses sources
 
   integration:
     # T-02 (2026-06-13): run the integration tier under nextest's slow-timeout
