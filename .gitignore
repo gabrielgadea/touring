@@ -50,3 +50,21 @@ docs/baselines/*.tar.gz
 
 # Historical plan data blobs (kept on disk, not in git)
 docs/plans-archive/**/data/ground_truth.json
+
+# ─── Agent/session state — NEVER versioned (2026-08-02, publicação do repo) ───
+# Causa-raiz de vazamento REAL: .touring-cache/tfidf-memory/ indexa TRANSCRIPTS
+# de sessão. Em 25/07 capturou uma GEMINI_API_KEY digitada numa linha de comando
+# e a carregou para o histórico do git (commit e136e74, ancestral de v30.3.0).
+# Enquanto esses caches forem tracked, qualquer credencial digitada numa sessão
+# reentra no repo no commit seguinte. Removidos do histórico via git filter-repo;
+# os diretórios PERMANECEM em disco — só deixam de ser publicados.
+/.touring-cache/
+/.cipher/
+/.local-cache/
+/.touring-explore/
+/.full-review/
+/.serena/
+/.remember/
+**/.ruff_cache/
+**/.pytest_cache/
+**/.venv/
