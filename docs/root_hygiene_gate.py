@@ -60,10 +60,19 @@ ALLOWED_HIDDEN = {
     ".envrc",
     # Tool caches (legitimate, ephemeral)
     ".cache", ".ruff_cache", ".pytest_cache", ".mypy_cache", ".tox",
+    ".benchmarks",
     ".cipher", ".serena", ".holon", ".full-review",
     ".touring-cache", ".local-cache", ".fastembed_cache",
+    ".touring-explore", ".remember",
     # Local config / state
     ".config", ".local",
+    # Per-project toolchain state (pin + lock + bins + daemon socket)
+    ".touring",
+    # Declared architectural-layer policy — a VERSIONED product file, not
+    # scratch: it is what gives the F1.7 (Component Boundaries) check its
+    # authoritative ranks. Added 2026-08-02, when this gate failed CI with
+    # "non-allowlisted hidden file" on it.
+    ".touring-layers.toml",
 }
 
 

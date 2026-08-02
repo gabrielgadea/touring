@@ -187,11 +187,9 @@ skip = [
     { crate = "tower@0.4.13", reason = "transitive churn (W13 deny refresh 2026-05-31); tower@0.5.3 is workspace canonical" },
     { crate = "tree-sitter-json@0.23.0", reason = "transitive churn (W13 deny refresh 2026-05-31); tree-sitter-json@0.24.8 is workspace canonical" },
     { crate = "unicode-width@0.1.14", reason = "transitive churn (W13 deny refresh 2026-05-31); unicode-width@0.2.0 is workspace canonical" },
-    { crate = "wasm-encoder@0.236.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasm-encoder@0.252.0 is workspace canonical" },
-    { crate = "wasm-encoder@0.246.2", reason = "transitive churn (W13 deny refresh 2026-05-31); wasm-encoder@0.252.0 is workspace canonical" },
-    { crate = "wasm-encoder@0.245.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasm-encoder@0.246.2 is workspace canonical" },
     { crate = "wasmparser@0.236.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmparser@0.246.2 is workspace canonical" },
     { crate = "wasmprinter@0.236.1", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmprinter@0.246.2 is workspace canonical" },
+    { crate = "wasm-encoder@0.251.0", reason = "wasmtime-environ 46 pins 0.251 while wast/wat pin 0.252 — upstream split, no runtime impact (2026-08-02)." },
     { crate = "wasmtime@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime@44.0.2 is workspace canonical" },
     { crate = "wasmtime-environ@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime-environ@44.0.2 is workspace canonical" },
     { crate = "wasmtime-internal-cranelift@36.0.12", reason = "transitive churn (W13 deny refresh 2026-05-31); wasmtime-internal-cranelift@44.0.2 is workspace canonical" },
@@ -220,6 +218,15 @@ skip = [
 skip-tree = [
     # Legacy deps still on syn 1.x pending ecosystem migration.
     { crate = "syn@1", reason = "Legacy proc-macro deps still on syn 1.x pending ecosystem migration." },
+    # 2026-08-02: two wasmtime lines coexist by construction — tree-sitter 0.26
+    # unconditionally pulls `wasmtime-c-api` (the older major), while
+    # touring-bindings depends on the current one directly. That fans out into a
+    # ~23-crate cascade (cranelift-*, pulley-*, wasmtime-internal-*, wasm-encoder).
+    # Enumerating each `crate@exact.version` — the previous approach — silently
+    # rots on every bump: the RUSTSEC-2026-0222 fix (36.0.12→36.0.13, 44→46)
+    # invalidated the whole list at once and turned `bans` red. skip-tree covers
+    # the transitive closure, so the exemption survives patch bumps.
+    { crate = "wasmtime@36", reason = "Transitive line via tree-sitter 0.26 → wasmtime-c-api; upstream-locked. Covers the whole cranelift/pulley/wasm-encoder cascade." },
     # windows-sys: foundational Win32 bindings — only present on a Windows/Mac
     # build lane. Unmatched on the Linux graph (harmless warning).
     { crate = "windows-sys", reason = "Foundational Win32 bindings; frequent minor bumps; Windows/Mac lane only." },
