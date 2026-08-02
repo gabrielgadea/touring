@@ -97,7 +97,14 @@ const SKIP_DIRS: &[&str] = &[
 
 /// Upper bound on concatenated directory source scanned per verifier (keeps large
 /// monorepos bounded; single-file scoring is always unbounded).
-const DIR_SCAN_BYTE_CAP: usize = 2 * 1024 * 1024;
+///
+/// 16 MiB, raised from 2 MiB on 2026-08-02: kazuba-geo-engine's `src/` alone is
+/// ~4 MiB, so the old cap truncated the scope corpus to its alphabetical prefix
+/// — F1.3 scored HALF the crate, stayed byte-identical across real dedup edits
+/// in `s…`/`w…` files (they fell past the cut), and the truncation was invisible
+/// in the evidence line (a silent cap). Corpus verifiers are O(n) hash/scan
+/// passes, so 16 MiB stays sub-second; genuinely larger monorepos still bound.
+const DIR_SCAN_BYTE_CAP: usize = 16 * 1024 * 1024;
 
 /// Read a verifier target into a single source string.
 ///
@@ -840,6 +847,44 @@ pub(crate) fn lang_from_ext(target: &Path) -> &'static str {
         // Default to rust (the primary workspace language).
         _ => "rust",
     }
+}
+
+/// Locate a byte span in `src`, returning `(line_number, excerpt)`.
+///
+/// Gate messages used to report only a COUNT ("1 vulnerability match(es)"),
+/// which forces the author to bisect the file by hand to find what matched —
+/// three times over on 2026-08-02, each a false positive. Naming the line and
+/// the text turns a blocked write into an actionable one.
+///
+/// `redact` replaces the matched text with its shape (`<32 chars redacted>`)
+/// instead of the value. Required for secret dims: echoing the match would
+/// print the very credential the gate is protecting, into logs and CI output.
+///
+/// The excerpt is the trimmed source line, capped at 120 chars.
+#[cfg(feature = "workspace-integration")]
+pub(crate) fn locate_span(src: &str, span: (usize, usize), redact: bool) -> (usize, String) {
+    const MAX_EXCERPT: usize = 120;
+    let (start, end) = (span.0.min(src.len()), span.1.min(src.len()));
+    let line_no = src[..start].bytes().filter(|&b| b == b'\n').count() + 1;
+
+    if redact {
+        return (
+            line_no,
+            format!("<{} chars redacted>", end.saturating_sub(start)),
+        );
+    }
+
+    // Widen to the enclosing line, then trim and cap.
+    let line_start = src[..start].rfind('\n').map_or(0, |i| i + 1);
+    let line_end = src[start..].find('\n').map_or(src.len(), |i| start + i);
+    let line = src[line_start..line_end].trim();
+    let excerpt = if line.chars().count() > MAX_EXCERPT {
+        let cut: String = line.chars().take(MAX_EXCERPT).collect();
+        format!("{cut}…")
+    } else {
+        line.to_string()
+    };
+    (line_no, excerpt)
 }
 
 /// Run a single verification by dim id — uses a static dispatch table to keep CC low.

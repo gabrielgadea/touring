@@ -170,6 +170,38 @@ fn in_compile_time_include(input: &str, match_start: usize) -> bool {
     })
 }
 
+/// True when a regex match at `match_start` sits inside a Markdown link target
+/// — the `(...)` half of `[text](../../path)` — or a bare Markdown reference
+/// definition (`[label]: ../../path`).
+///
+/// A relative link in prose is a *document* path resolved by a renderer, never
+/// untrusted input reaching a filesystem API, so it is not a CWE-22 traversal.
+/// Climbing two or more levels is idiomatic in `.github/`, `docs/` and monorepo
+/// READMEs (`[SECURITY.md](../../SECURITY.md)`), which made this the single
+/// largest FP source for this pattern: it fires on ANY file the scanner reads,
+/// including `.md` and `.yml`, where CWE-22 cannot apply at all.
+///
+/// Bounded backward scan, mirroring [`in_compile_time_include`] (the `regex`
+/// crate has no lookbehind): the opener must be within 256 bytes — enough for a
+/// long link label — and still open (no `)` or newline in between).
+fn in_markdown_link(input: &str, match_start: usize) -> bool {
+    const MAX_LABEL: usize = 256;
+    let before = &input[..match_start];
+    // Inline link: `[label](target`
+    let inline = before.rfind("](").is_some_and(|pos| {
+        let after_opener = &before[pos + 2..];
+        after_opener.len() <= MAX_LABEL
+            && !after_opener.contains(')')
+            && !after_opener.contains('\n')
+    });
+    // Reference definition: `[label]: target` (start of line, allowing indent)
+    let reference = before.rfind("]: ").is_some_and(|pos| {
+        let after_opener = &before[pos + 3..];
+        after_opener.len() <= MAX_LABEL && !after_opener.contains('\n')
+    });
+    inline || reference
+}
+
 /// Detects path traversal (CWE-22): multi-level `../../` climbs and URL-encoded dot-dot sequences.
 #[derive(Debug, Clone, Copy)]
 pub struct PathTraversalPattern;
@@ -189,9 +221,12 @@ impl VulnerabilityPattern for PathTraversalPattern {
                 .expect("valid static regex")
         });
         // Report the first genuine traversal, skipping `../` literals that sit
-        // inside compile-time include macros (build-time constants, not CWE-22).
+        // inside compile-time include macros (build-time constants, not CWE-22)
+        // or Markdown link targets (document paths resolved by a renderer).
         re.find_iter(input)
-            .find(|m| !in_compile_time_include(input, m.start()))
+            .find(|m| {
+                !in_compile_time_include(input, m.start()) && !in_markdown_link(input, m.start())
+            })
             .map(|m| VulnMatch::new("PathTraversal".into(), (m.start(), m.end()), 8.0, 22))
     }
     fn name(&self) -> &str {
@@ -575,6 +610,37 @@ mod tests {
         assert!(p.detect("concat!(\"../../\", name)").is_none());
         assert!(p.detect("./local/path").is_none());
         assert!(p.detect("/absolute/path").is_none());
+        // FP — Markdown link targets. A relative link in prose is a document
+        // path a renderer resolves, never untrusted input hitting a filesystem
+        // API. Climbing 2+ levels is idiomatic in .github/, docs/ and monorepo
+        // READMEs, and this pattern runs on .md/.yml too, where CWE-22 cannot
+        // apply. (2026-08-02: this blocked writing .github/ISSUE_TEMPLATE.)
+        assert!(p.detect("[SECURITY.md](../../SECURITY.md)").is_none());
+        assert!(
+            p.detect("value: follow [SECURITY.md](../../SECURITY.md) instead")
+                .is_none()
+        );
+        assert!(
+            p.detect("See [the guide](../../../docs/guide.md).")
+                .is_none()
+        );
+        assert!(p.detect("[label]: ../../CONTRIBUTING.md").is_none()); // reference definition
+        assert!(p.detect("//! [`Foo`]: ../../foo/struct.Foo.html").is_none()); // rustdoc link
+        // TP PRESERVED — the link exclusion must not become a blanket bypass.
+        // A traversal OUTSIDE the link target is still reported, even on the
+        // same line as a legitimate link.
+        assert!(
+            p.detect("[ok](./safe.md) then open(\"../../etc/passwd\")")
+                .is_some()
+        );
+        // A closed link target does not shield what follows it.
+        assert!(p.detect("[a](../../b.md) ../../etc/passwd").is_some());
+        // Newline ends the scan window: a link on the previous line does not
+        // shield a traversal on the next one.
+        assert!(
+            p.detect("[a](../../b.md)\nopen(\"../../etc/shadow\")")
+                .is_some()
+        );
         assert!(p.detect("a..b").is_none()); // range, no slash
         // A genuine traversal still fires even when an include macro precedes it
         // (find_iter skips the suppressed macro literal, reports the real climb).

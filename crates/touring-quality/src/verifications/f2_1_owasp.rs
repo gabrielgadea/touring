@@ -81,12 +81,29 @@ fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
         let sum: f32 = report.vuln_matches.iter().map(|v| v.severity).sum();
         (1.0 - sum / 10.0).clamp(0.0, 1.0)
     };
-    let evidence = format!(
-        "OWASP/CWE (SecurityAnalyzer, {} patterns): {} vulnerability match(es), score={:.3}",
-        report.lang,
-        report.vuln_matches.len(),
-        value
-    );
+    // Name the first match (pattern, line, source text). A bare count forces the
+    // author to bisect the file to find out what tripped a BLOCK gate — which is
+    // exactly what happened three times on 2026-08-02, all false positives.
+    // Vulnerability matches are code patterns, not credentials, so quoting the
+    // line is safe here (contrast F2.4, which must redact).
+    let evidence = match report.vuln_matches.first() {
+        None => format!(
+            "OWASP/CWE (SecurityAnalyzer, {} patterns): 0 vulnerability match(es), score={value:.3}",
+            report.lang
+        ),
+        Some(first) => {
+            let (line, excerpt) =
+                crate::verifications::locate_span(raw, (first.span.0, first.span.1), false);
+            format!(
+                "OWASP/CWE (SecurityAnalyzer, {} patterns): {} vulnerability match(es), \
+                 score={value:.3}; first: {} (CWE-{}) at line {line} — `{excerpt}`",
+                report.lang,
+                report.vuln_matches.len(),
+                first.pattern_name,
+                first.cwe_id,
+            )
+        }
+    };
     (value, evidence)
 }
 

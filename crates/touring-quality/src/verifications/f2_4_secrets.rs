@@ -128,10 +128,92 @@ fn has_non_secret_markers(v: &str) -> bool {
     // checks. Markup (`<>{}`), URL scheme (`://`) and escape (`\`) never appear in
     // opaque tokens. `arn:` prefixes are AWS resource identifiers (not secrets) whose
     // random-looking resource tails would otherwise trip the entropy path.
+    // Filesystem-path prefixes are resource locations, not opaque tokens; their
+    // date/version tails (`/tmp/SINAPI_Custos_PB_122024_Desonerado.xlsx`, first
+    // hit 2026-08-02) otherwise trip the entropy path. Base64 can start with
+    // `/` (1/64 of random tokens), but a leaked key of that shape still lands
+    // on the provider-prefix and secret-named paths, so detection holds.
     v.starts_with("arn:")
         || v.contains("://")
+        || v.starts_with('/')
+        || v.starts_with("./")
+        || v.starts_with("../")
+        || v.starts_with("~/")
         || v.bytes()
             .any(|b| matches!(b, b'<' | b'>' | b'{' | b'}' | b'\\'))
+        || is_predictable_sequence(v)
+        || is_email_like(v)
+}
+
+/// True when `v` is dominated by consecutive character runs (`abc…`, `012…`).
+///
+/// Shannon entropy measures symbol *distribution*, not predictability, so a
+/// character-set literal like `"abcdefghij…XYZ0123456789_"` scores ~5.98 bits —
+/// well past the 4.5 secret floor — despite carrying essentially no randomness:
+/// every character appears exactly once, which is precisely the case that
+/// MAXIMISES Shannon entropy. Kolmogorov complexity is the honest measure, and
+/// a monotonic run is its minimum. This is the cheap deterministic proxy for it:
+/// count adjacent pairs that step by exactly +1.
+///
+/// The bar is 80%, not a bare majority. Measured on the two cases that matter:
+///
+/// * the alphabet literal — 59/62 pairs = 95% (excluded, correct)
+/// * `abcDEF123ghiJKL456mno…+/=Xy` — 20/35 pairs = 57% (kept, correct)
+///
+/// The second is the synthetic base64 token in `test_base64_token_still_blocks`;
+/// it is built from short runs (`abc`, `DEF`, `123`), so a 50% bar swallowed it
+/// and silently weakened real detection — that test caught the regression.
+/// Random tokens sit near 1/62, so 80% keeps an ample margin on both sides.
+///
+/// Origin: 2026-08-02 — the alphabet literal in
+/// `touring-identity/tests/property_tests.rs` scored 0.000 and blocked every
+/// edit to that file, including ones that never touched the literal.
+fn is_predictable_sequence(v: &str) -> bool {
+    let b = v.as_bytes();
+    if b.len() < 8 {
+        return false;
+    }
+    let pairs = b.len() - 1;
+    let consecutive = b
+        .windows(2)
+        .filter(|w| w[1] == w[0].wrapping_add(1))
+        .count();
+    // >= 80% of adjacent pairs ascending by one => generated run, not a secret.
+    consecutive * 5 >= pairs * 4
+}
+
+/// True when `v` is a plain e-mail address.
+///
+/// Addresses identify people and bots; they are not credentials. A long one
+/// nonetheless clears the length and entropy bars —
+/// `41898282+github-actions[bot]@users.noreply.github.com`, the documented
+/// public identity of GitHub's Actions bot, did exactly that on 2026-08-02 and
+/// blocked a workflow edit.
+///
+/// Deliberately narrow: any `:` disqualifies, so `user:password@host`
+/// connection strings stay on the credential path (`has_connstring_creds`).
+fn is_email_like(v: &str) -> bool {
+    if v.contains(':') {
+        return false;
+    }
+    let Some((local, domain)) = v.split_once('@') else {
+        return false;
+    };
+    if local.is_empty() || domain.contains('@') {
+        return false;
+    }
+    // Domain must be host.tld, alphabetic TLD, no exotic characters.
+    match domain.rsplit_once('.') {
+        Some((host, tld)) => {
+            !host.is_empty()
+                && tld.len() >= 2
+                && tld.bytes().all(|b| b.is_ascii_alphabetic())
+                && domain
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-'))
+        }
+        None => false,
+    }
 }
 
 fn looks_like_secret_value(v: &str) -> bool {
@@ -437,6 +519,21 @@ fn blank_raw_string(bytes: &[u8], start: usize, out: &mut Vec<u8>) -> Option<usi
 }
 
 /// Scan content, returning (strong, weak) secret signals.
+/// 1-based line number of the first line that trips the STRONG scan.
+///
+/// Re-runs [`scan`] per line rather than duplicating any detection logic, so the
+/// two can never disagree. Only called once a hit is already known, so the extra
+/// pass costs nothing on the common (clean) path.
+///
+/// Multi-line secrets (PEM blocks) still resolve, because their marker
+/// (`-----BEGIN … PRIVATE`) lives on a single line.
+///
+/// Returns `None` when the hit is not attributable to one line on its own — the
+/// caller then omits the location rather than guessing.
+fn first_offending_line(raw: &str) -> Option<usize> {
+    raw.lines().position(|line| scan(line).0).map(|idx| idx + 1)
+}
+
 fn scan(raw: &str) -> (bool, bool) {
     // (1) provider markers anywhere in the file → strong.
     if STRONG_MARKERS.iter().any(|m| raw.contains(m)) {
@@ -612,7 +709,17 @@ impl Verification for F2_4_Secrets {
             (1.0, "no hardcoded secret detected")
         };
 
-        let evidence = format!("Cryptographic Issues: {category} — score={value:.3}");
+        // Point at the offending line. This gate scores the WHOLE file, so a hit
+        // blocks every subsequent edit to it — without a line number the author
+        // has to bisect by hand to learn what tripped it (three times over on
+        // 2026-08-02, all false positives).
+        //
+        // The line NUMBER only: quoting the text would print the very credential
+        // this dim exists to protect, into terminal scrollback and CI logs.
+        let location = first_offending_line(&raw)
+            .map(|line| format!(" at line {line}"))
+            .unwrap_or_default();
+        let evidence = format!("Cryptographic Issues: {category}{location} — score={value:.3}");
         Ok(crate::verifications::finish(
             self.id(),
             value,
@@ -650,6 +757,24 @@ mod tests {
     fn test_clean_code_passes() {
         let s = score("pub fn add(a: i32, b: i32) -> i32 { a + b }\n");
         assert_eq!(s.value, 1.0, "clean code should pass");
+    }
+
+    #[test]
+    fn test_filesystem_path_with_datey_tail_passes() {
+        // Regression 2026-08-02: a test-fixture path whose date/version tail has
+        // high Shannon entropy is a resource location, not a leaked credential.
+        let s = score(
+            "let r = extract_referencia(\"/tmp/SINAPI_Custos_PB_122024_Desonerado.xlsx\");\n",
+        );
+        assert_eq!(s.value, 1.0, "filesystem path must not read as a secret");
+    }
+
+    #[test]
+    fn test_generic_base64_literal_still_blocks() {
+        // Sanity twin for the path exemption: an opaque high-entropy token that
+        // does NOT start with a path prefix must keep tripping the generic path.
+        let s = score("let k = \"q7Zp3xVb9TqLm2Rw8sYd4NcF6hJk1GtA\";\n");
+        assert_eq!(s.value, 0.0, "opaque high-entropy literal must still block");
     }
 
     #[test]
@@ -749,6 +874,10 @@ mod tests {
     fn test_base64_token_still_blocks() {
         // base64-shaped secret with `+` `/` `=` (but no `://`) must STILL block —
         // proves the URL/markup exclusion is precise and does not weaken base64.
+        // Deliberately built from short runs (`abc`, `DEF`, `123` → 57% ascending
+        // pairs): it sits just under the 80% `is_predictable_sequence` bar and is
+        // the sentinel that catches any tightening of that exemption (it DID
+        // catch the 50% bar swallowing it, 2026-08-02).
         let s = score("let blob = \"abcDEF123ghiJKL456mnoPQR789stu+/=Xy\";\n");
         assert_eq!(
             s.value, 0.0,
@@ -1165,5 +1294,99 @@ mod tests {
             ok.value, 1.0,
             "pragma must allowlist a sample-secret fixture"
         );
+    }
+
+    // ── FP guards added 2026-08-02 ──────────────────────────────────────────
+    // Each of these blocked a real, unrelated edit because the gate scores the
+    // WHOLE FILE: one stale false positive freezes every future change to it.
+
+    #[test]
+    fn predictable_runs_are_not_secrets() {
+        // The exact literal that blocked touring-identity/tests/property_tests.rs:
+        // a character-set alphabet. Every char appears once, which MAXIMISES
+        // Shannon entropy (~5.98 bits) while carrying no randomness at all.
+        let alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+        assert!(
+            shannon_entropy(alphabet) >= 4.5,
+            "premise: entropy clears the floor"
+        );
+        assert!(is_predictable_sequence(alphabet));
+        assert!(!looks_like_secret_value(alphabet));
+
+        assert!(is_predictable_sequence("abcdefghijklmnop"));
+        assert!(is_predictable_sequence("0123456789012345"));
+        // Too short to judge — stays out of the heuristic.
+        assert!(!is_predictable_sequence("abcdef"));
+
+        // REGRESSION GUARD: this token is built from short runs (abc/DEF/123)
+        // and sits at 57% consecutive pairs. A 50% bar swallowed it, silently
+        // weakening real detection — caught by test_base64_token_still_blocks.
+        // The 80% bar keeps it on the secret path.
+        assert!(!is_predictable_sequence(
+            "abcDEF123ghiJKL456mnoPQR789stu+/=Xy"
+        ));
+    }
+
+    #[test]
+    fn real_tokens_survive_the_run_heuristic() {
+        // Regression guard: the fix must not blunt detection. Random-looking
+        // tokens have ~1/62 of pairs consecutive, far under the 50% bar.
+        assert!(!is_predictable_sequence("aB3xK9mQ7zR2wY5tE8uI1oP4"));
+        assert!(!is_predictable_sequence("dGhpcyBpcyBhIHNlY3JldCB0b2tlbg"));
+        // A short ascending tail does not make the whole token predictable.
+        assert!(!is_predictable_sequence("K9mQ7zR2wY5tE8uI1oP4abcde"));
+        assert!(looks_like_secret_value("aB3xK9mQ7zR2wY5tE8uI1oP4"));
+    }
+
+    #[test]
+    fn email_addresses_are_not_secrets() {
+        // GitHub's Actions bot identity — the numeric part is its PUBLIC id,
+        // documented by GitHub. Blocked a workflow edit on 2026-08-02.
+        let bot = "41898282+github-actions[bot]@users.noreply.github.com";
+        assert!(is_email_like(bot));
+        assert!(!looks_like_secret_value(bot));
+
+        assert!(is_email_like("someone.long.name@subdomain.example.org"));
+        assert!(!is_email_like("not-an-email-at-all"));
+        assert!(!is_email_like("@nolocal.com"));
+        assert!(!is_email_like("missing-tld@example"));
+    }
+
+    #[test]
+    fn evidence_points_at_the_offending_line_without_leaking_it() {
+        let src = "fn main() {\n    let cfg = load();\n    let key = \"ghp_aBcDeF0123456789aBcDeF0123456789aBcD\";\n}\n";
+        assert_eq!(first_offending_line(src), Some(3));
+
+        let s = score(src);
+        assert_eq!(s.value, 0.0, "premise: this must block");
+        assert!(
+            s.evidence.contains("at line 3"),
+            "evidence must locate the hit: {}",
+            s.evidence
+        );
+        // The whole point of the redaction: the gate must not print the secret
+        // it is protecting into scrollback or CI logs.
+        assert!(
+            !s.evidence.contains("ghp_"),
+            "evidence must NEVER echo the secret: {}",
+            s.evidence
+        );
+    }
+
+    #[test]
+    fn clean_file_reports_no_location() {
+        let s = score("fn main() { println!(\"hello\"); }\n");
+        assert_eq!(s.value, 1.0);
+        assert!(!s.evidence.contains("at line"));
+    }
+
+    #[test]
+    fn connection_string_credentials_still_detected() {
+        // The email exclusion must NOT swallow `user:password@host`: the colon
+        // disqualifies it, so it stays on the credential path.
+        assert!(!is_email_like("admin:hunter2@db.internal.example.com"));
+        assert!(has_connstring_creds(
+            "postgres://admin:s3cr3tP4ssw0rd@db.example.com:5432/app"
+        ));
     }
 }
