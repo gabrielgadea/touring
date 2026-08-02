@@ -272,13 +272,11 @@ pub fn code_workflow_hint(file_path: &str, preloaded: Option<&str>) -> Option<St
     let owned_source;
     let source: &str = match preloaded {
         Some(s) => s,
-        None => match std::fs::read_to_string(file_path).ok() {
-            Some(s) => {
-                owned_source = s;
-                &owned_source
-            }
-            None => return None,
-        },
+        None => {
+            let s = std::fs::read_to_string(file_path).ok()?;
+            owned_source = s;
+            &owned_source
+        }
     };
     if source.trim().is_empty() {
         return None;
@@ -345,13 +343,11 @@ pub fn code_workflow_reward(file_path: &str, preloaded: Option<&str>) -> Option<
     let owned_source;
     let source: &str = match preloaded {
         Some(s) => s,
-        None => match std::fs::read_to_string(file_path).ok() {
-            Some(s) => {
-                owned_source = s;
-                &owned_source
-            }
-            None => return None,
-        },
+        None => {
+            let s = std::fs::read_to_string(file_path).ok()?;
+            owned_source = s;
+            &owned_source
+        }
     };
     if source.trim().is_empty() {
         return None;

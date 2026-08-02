@@ -395,7 +395,7 @@ fn infer_purpose_from_fn_name(name: &str) -> Option<String> {
     ];
     for v in verb {
         if let Some(rest) = name.strip_prefix(v) {
-            let purpose = format!("{} {}", &v.trim_end_matches('_'), rest.replace('_', " "));
+            let purpose = format!("{} {}", v.trim_end_matches('_'), rest.replace('_', " "));
             return Some(purpose);
         }
     }

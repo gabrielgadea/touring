@@ -626,10 +626,10 @@ impl MutableGeneratorGraph {
         self.dependencies.remove(&id_str);
         self.execution_status.remove(&id_str);
 
-        for (_, deps) in self.dependencies.iter_mut() {
+        for deps in self.dependencies.values_mut() {
             deps.retain(|d| d != &id_str);
         }
-        for (_, succs) in self.dependents.iter_mut() {
+        for succs in self.dependents.values_mut() {
             succs.retain(|s| s != &id_str);
         }
         self.generation += 1;
@@ -757,7 +757,7 @@ impl MutableGeneratorGraph {
         for id in self.node_index_by_id.keys() {
             in_degree.insert(id.clone(), 0);
         }
-        for (_node, deps) in self.dependencies.iter() {
+        for deps in self.dependencies.values() {
             for dep in deps {
                 if let Some(entry) = in_degree.get_mut(dep) {
                     *entry += 1;

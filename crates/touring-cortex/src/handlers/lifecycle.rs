@@ -1604,7 +1604,7 @@ impl Handler for FileChangedHandler {
 
         // Record file change event
         let _ = ctx.knowledge.record_access(
-            &format!("__file_changed:{}:{}__", event_type, &rel_path),
+            &format!("__file_changed:{}:{}__", event_type, rel_path),
             &ctx.session_id,
         );
 
