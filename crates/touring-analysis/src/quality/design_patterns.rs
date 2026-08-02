@@ -21,7 +21,7 @@
 //! | C++ | `getInstance(` (Singleton), `dynamic_cast` (type switching), `friend class` (encapsulation break) | a namespace, virtual dispatch, a public accessor |
 //!
 //! Comments and `#[cfg(test)]`/test regions are excluded via
-//! [`super::code_regions`]. `transmute` (owned by [`super::antipatterns`]) and
+//! `super::code_regions`. `transmute` (owned by `super::antipatterns`) and
 //! `impl Deref for` (high false-positive overlap with legitimate smart-pointer /
 //! newtype `Deref`) are deliberately *not* detected here. F1.11 is WARN
 //! (advisory). Replaces a stub that scored the `impl`/`trait` ratio — unrelated

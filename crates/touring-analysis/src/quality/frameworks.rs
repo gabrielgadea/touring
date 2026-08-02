@@ -27,7 +27,7 @@
 //! is the smallest runtime configuration for a desktop GUI app needing
 //! `spawn_blocking` support. `worker_threads(N)` defaults to `num_cpus`.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

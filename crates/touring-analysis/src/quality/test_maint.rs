@@ -25,7 +25,7 @@
 //! verified contract. A `#[ignore]` test is a hidden gap — it is debt that
 //! must be paid, not silenced.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

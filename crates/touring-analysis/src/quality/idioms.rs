@@ -15,7 +15,7 @@
 //! | C++ | clang-tidy | `using namespace std`, `NULL`→`nullptr`, C-style `malloc` cast |
 //! | Java | — | legacy boxing ctors, `Vector`/`Hashtable`, `printStackTrace` |
 //!
-//! Comments and `#[cfg(test)]`/test regions are excluded via [`super::code_regions`]
+//! Comments and `#[cfg(test)]`/test regions are excluded via `super::code_regions`
 //! (so `// use == None` documentation is never flagged). Production string
 //! literals are *not* suppressed by `code_regions`, so the rare idiom-shaped
 //! string literal (e.g. `"a == b"` in a message) can be a false positive; the

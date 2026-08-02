@@ -1,12 +1,12 @@
 //! Embedding engine — pluggable embedder trait and implementations.
 //!
-//! Provides a [`Embedder`] trait for extensible embedding backends with
+//! Provides a `Embedder` trait for extensible embedding backends with
 //! three built-in implementations:
 //!
-//! - [`GpuEmbedder`] — HTTP client for GPU service at `localhost:8200`.
+//! - `GpuEmbedder` — HTTP client for GPU service at `localhost:8200`.
 //!   Gracefully degrades to FTS5-only mode when the service is offline.
-//! - [`Fts5Embedder`] — No-op embedder for FTS5-only mode (always returns `None`).
-//! - [`NullEmbedder`] — Always-`None` embedder for testing or when embeddings
+//! - `Fts5Embedder` — No-op embedder for FTS5-only mode (always returns `None`).
+//! - `NullEmbedder` — Always-`None` embedder for testing or when embeddings
 //!   are fully disabled.
 //!
 //! # Plugin Architecture
@@ -23,8 +23,8 @@
 //!
 //! # Feature Flags
 //!
-//! - `gpu-embeddings` — enables [`GpuEmbedder`]. Without it, only
-//!   [`Fts5Embedder`] and [`NullEmbedder`] are available.
+//! - `gpu-embeddings` — enables `GpuEmbedder`. Without it, only
+//!   `Fts5Embedder` and `NullEmbedder` are available.
 
 pub mod client;
 

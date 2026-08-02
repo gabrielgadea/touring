@@ -148,7 +148,7 @@ fn snr_cutoff() -> f32 {
 /// receives dense signal, not budget-filling noise (the monograph's SNR thesis).
 ///
 /// Expects `signals` already min-max normalized via [`normalize_scores`]. When
-/// [`snr_gating_enabled`] is false (the shipped default) or fewer than 2 signals
+/// `snr_gating_enabled` is false (the shipped default) or fewer than 2 signals
 /// exist, this is a **no-op** returning `0` — byte-identical to pre-slice behavior.
 ///
 /// When armed, retains signals scoring `>= snr_cutoff()`, but NEVER empties a

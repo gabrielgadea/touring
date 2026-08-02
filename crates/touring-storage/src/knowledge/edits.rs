@@ -1,4 +1,4 @@
-//! File-edit event recording and retrieval for [`FileKnowledgeDB`].
+//! File-edit event recording and retrieval for `FileKnowledgeDB`.
 //!
 //! Method group extracted verbatim from `knowledge.rs` (1A god-file decomposition);
 //! a child-module inherent `impl` block over the parent's `FileKnowledgeDB`.

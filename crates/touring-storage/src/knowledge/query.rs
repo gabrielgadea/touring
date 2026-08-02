@@ -1,4 +1,4 @@
-//! Enriched-query and file-risk scoring for [`FileKnowledgeDB`]
+//! Enriched-query and file-risk scoring for `FileKnowledgeDB`
 //! (`query_extended` LEFT-JOIN enrichment, decayed error history, per-file risk).
 //!
 //! Method group extracted verbatim from `knowledge.rs` (1A god-file decomposition);

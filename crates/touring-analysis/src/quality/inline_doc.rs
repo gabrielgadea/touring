@@ -22,7 +22,7 @@
 //! "generates documentation for public items by default" — pub items without
 //! `///` are excluded from `cargo doc` output (`what-is-rustdoc.md`).
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

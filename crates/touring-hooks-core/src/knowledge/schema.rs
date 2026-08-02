@@ -1,4 +1,4 @@
-//! Schema creation and migration DDL for [`FileKnowledgeDB`]
+//! Schema creation and migration DDL for `FileKnowledgeDB`
 //! (`ensure_schema` table creation + `migrate_schema` versioned migrations).
 //!
 //! Method group extracted verbatim from `knowledge.rs` (1A god-file decomposition);

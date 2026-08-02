@@ -1,4 +1,4 @@
-//! Core file-knowledge CRUD, relations, and access tracking for [`FileKnowledgeDB`]
+//! Core file-knowledge CRUD, relations, and access tracking for `FileKnowledgeDB`
 //! (`lookup`/`upsert`/notes, file relations, access counts, failure counts).
 //!
 //! Method group extracted verbatim from `knowledge.rs` (1A god-file decomposition);

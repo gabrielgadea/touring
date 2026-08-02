@@ -1,8 +1,8 @@
 //! Embedding client — pluggable async embedder implementations.
 //!
-//! This module provides the [`Embedder`] trait and three built-in implementations.
-//! The `gpu-embeddings` feature enables [`GpuEmbedder`]; without it only
-//! [`Fts5Embedder`] and [`NullEmbedder`] are available.
+//! This module provides the `Embedder` trait and three built-in implementations.
+//! The `gpu-embeddings` feature enables `GpuEmbedder`; without it only
+//! `Fts5Embedder` and `NullEmbedder` are available.
 
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -45,7 +45,7 @@ mod private {
     impl Sealed for super::Degraded {}
 }
 
-/// Represents the runtime connection health state of an [`Embedder`].
+/// Represents the runtime connection health state of an `Embedder`.
 ///
 /// This enum mirrors the type-state markers ([`Disconnected`], [`Connected`], [`Degraded`])
 /// for code that needs runtime state inspection without generics.
@@ -117,9 +117,9 @@ impl std::fmt::Display for ConnectionState {
 ///
 /// | Implementation | Feature | Behavior |
 /// |---|---|---|
-/// | [`GpuEmbedder`] | `gpu-embeddings` | Real GPU service, graceful degradation |
-/// | [`Fts5Embedder`] | default | No-op fallback (always returns `None`) |
-/// | [`NullEmbedder`] | default | No-op for tests (always returns `None`) |
+/// | `GpuEmbedder` | `gpu-embeddings` | Real GPU service, graceful degradation |
+/// | `Fts5Embedder` | default | No-op fallback (always returns `None`) |
+/// | `NullEmbedder` | default | No-op for tests (always returns `None`) |
 #[async_trait]
 pub trait Embedder: Send + Sync {
     /// Embed a single text. Returns `None` if the embedder is unavailable.
@@ -178,7 +178,7 @@ mod gpu {
     /// HTTP/JSON with zero-copy serialization for sub-millisecond determinism.
     ///
     /// The type-state parameter `S` tracks the connection state at compile time
-    /// identically to [`GpuEmbedder`](super::GpuEmbedder).
+    /// identically to `GpuEmbedder`(super::GpuEmbedder).
     #[derive(Debug, Clone)]
     pub struct RkyvGpuBackend<State = Disconnected> {
         /// Path to the Unix Domain Socket the GPU service is bound
@@ -444,7 +444,7 @@ mod gpu {
     /// - [`Degraded`](super::Degraded): FTS5-only fallback (terminal state).
     ///   No outgoing transitions — callers must create a new `GpuEmbedder`.
     ///
-    /// The [`Embedder`] trait is implemented for all `GpuEmbedder<S>` via a blanket impl,
+    /// The `Embedder` trait is implemented for all `GpuEmbedder<S>` via a blanket impl,
     /// preserving runtime-polymorphic use via `dyn Embedder`.
     #[derive(Debug, Clone)]
     pub struct GpuEmbedder<State = Disconnected> {
@@ -702,13 +702,13 @@ pub struct GpuEmbedder<State = Disconnected>(std::marker::PhantomData<State>);
 
 #[cfg(not(feature = "gpu-embeddings"))]
 impl<State> GpuEmbedder<State> {
-    /// Construct a stub [`GpuEmbedder`]. Arguments are accepted for
+    /// Construct a stub `GpuEmbedder`. Arguments are accepted for
     /// API parity with the real backend but are ignored.
     pub fn new(gpu_url: impl Into<String>, embedding_dim: usize) -> Self {
         let _ = (gpu_url, embedding_dim);
         Self(std::marker::PhantomData)
     }
-    /// Construct a stub [`GpuEmbedder`] with default GPU
+    /// Construct a stub `GpuEmbedder` with default GPU
     /// parameters. Same shape as the real `default_gpu` constructor.
     pub fn default_gpu() -> Self {
         Self(std::marker::PhantomData)
@@ -767,8 +767,8 @@ impl<State> Embedder for GpuEmbedder<State> {
 pub struct Fts5Embedder;
 
 impl Fts5Embedder {
-    /// Construct a new [`Fts5Embedder`]. The struct is a unit
-    /// type; this exists only to match the [`Embedder`] trait
+    /// Construct a new `Fts5Embedder`. The struct is a unit
+    /// type; this exists only to match the `Embedder` trait
     /// shape and to give callers a uniform `::new()` entry point.
     #[inline]
     #[must_use]
@@ -810,7 +810,7 @@ impl Embedder for Fts5Embedder {
 pub struct NullEmbedder;
 
 impl NullEmbedder {
-    /// Construct a new [`NullEmbedder`]. The struct is a unit
+    /// Construct a new `NullEmbedder`. The struct is a unit
     /// type; this exists only to give callers a uniform
     /// `::new()` entry point that mirrors the other embedder
     /// constructors.
@@ -848,7 +848,7 @@ impl Embedder for NullEmbedder {
 // Legacy type alias for backwards compatibility
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Legacy type alias — prefer [`GpuEmbedder`] for new code.
+/// Legacy type alias — prefer `GpuEmbedder` for new code.
 ///
 /// `EmbeddingClient` is the old name for the GPU embedder. It is not a trait
 /// object; use `dyn Embedder` for polymorphic embedding.

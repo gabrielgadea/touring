@@ -25,7 +25,7 @@
 //! handler signatures; doctest `# Examples` ensures the example actually
 //! compiles.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

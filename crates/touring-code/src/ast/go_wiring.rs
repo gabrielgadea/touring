@@ -13,11 +13,11 @@
 //! Two asymmetric halves — both must be emitted together (producer-only would
 //! make every export a false orphan):
 //!
-//! - **Producer** ([`extract_go_exports`]) — a package's exported (Capitalized)
+//! - **Producer** (`extract_go_exports`) — a package's exported (Capitalized)
 //!   top-level `func`/`type`/`const`/`var`, keyed by the file's package
-//!   import-path ([`go_package_key_for_file`]). The import-path is
+//!   import-path (`go_package_key_for_file`). The import-path is
 //!   `<go.mod module>/<dir-of-file-relative-to-go.mod>`.
-//! - **Consumer** ([`extract_go_consumer_edges`]) — for each `import` (with its
+//! - **Consumer** (`extract_go_consumer_edges`) — for each `import` (with its
 //!   local alias) and each selector `alias.Symbol` where `Symbol` is exported,
 //!   the edge `(go:<import-path>, Symbol)`. The import statement carries the
 //!   *literal* import-path, so — unlike the producer — the consumer needs no

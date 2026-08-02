@@ -75,9 +75,9 @@ pub fn compute_composite(
 /// failure DISQUALIFYING regardless of the mean:
 ///
 /// * any **BLOCK** dimension (F2.1/F2.4/F2.5/F2.6/F4.3/F4.5) with status
-///   `Fail` → tier is capped at [`Tier::Unranked`] (rewrite);
+///   `Fail` → tier is capped at [`crate::Tier::Unranked`] (rewrite);
 /// * any **WARN** dimension with status `Fail` → tier capped at
-///   [`Tier::Silver`] (cannot be Gold+ with a failing quality dimension).
+///   [`crate::Tier::Silver`] (cannot be Gold+ with a failing quality dimension).
 ///
 /// `NotApplicable` dimensions never trip the gate. `Tier`'s `Ord` runs
 /// best→worst (Diamond is the smallest), so "cap" is `max` (the worse tier).

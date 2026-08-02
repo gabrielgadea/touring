@@ -27,7 +27,7 @@
 //! (`usage.html`). The `--benchmark-compare-fail=min:5%` flag is the
 //! standard way to fail CI on regression (`comparing.html`).
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

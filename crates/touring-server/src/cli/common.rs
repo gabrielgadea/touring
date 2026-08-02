@@ -198,7 +198,7 @@ pub fn shape_daemon_output(output: &str, flags: &GlobalFlags) -> String {
 }
 
 /// Returns whether `--brief` output shaping is active for this process (mirror
-/// of the parsed flag — see [`BRIEF_OUTPUT`]). Used by daemon-backed handlers
+/// of the parsed flag — see `BRIEF_OUTPUT`). Used by daemon-backed handlers
 /// that print directly without threading [`GlobalFlags`].
 pub fn brief_output_enabled() -> bool {
     BRIEF_OUTPUT.load(Ordering::Relaxed)

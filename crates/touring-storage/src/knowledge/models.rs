@@ -32,7 +32,7 @@ pub struct FileKnowledge {
 
 /// Extended file metadata combining FileKnowledge with enrichment from specialized tables.
 ///
-/// Created via [`FileKnowledgeDB::query_extended()`] which joins across:
+/// Created via `FileKnowledgeDB::query_extended()` which joins across:
 /// - `file_knowledge` (base 10 fields)
 /// - `cognitive_enrichment` (cognitive_score, complexity_signal, fan_in_signal, fan_out_signal, doc_signal)
 /// - `module_ecosystem` (integration_score, pub_symbol_count, import_count, re_export_count)

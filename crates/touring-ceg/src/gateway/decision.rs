@@ -136,7 +136,7 @@ fn quality_penalty_factor(report: Option<&QualitySignalReport>) -> f64 {
 ///
 /// The X7.5 QUALITY-SIGNAL modulates the additive composite **multiplicatively**
 /// (range `[0.80, 1.0]`) so the existing 5-weight invariant (`ΣW = 1.0`) is
-/// preserved. See [`quality_penalty_factor`].
+/// preserved. See `quality_penalty_factor`.
 #[must_use]
 pub fn composite_score(evidence: &Evidence) -> f64 {
     let additive = W_STATIC * static_subscore(evidence.static_report.as_ref())

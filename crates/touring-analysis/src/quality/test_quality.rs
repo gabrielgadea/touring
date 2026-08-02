@@ -25,7 +25,7 @@
 //! shelling out to cargo-mutants: a test with ZERO asserts or asserts
 //! without value comparison is a "would-not-detect-bug" smell.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

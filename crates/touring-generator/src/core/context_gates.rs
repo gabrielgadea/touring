@@ -73,7 +73,7 @@ impl std::fmt::Debug for AnalysisGateAdapter {
 /// Replaces the previous stringly-typed `Result<_, String>` so consumers can match
 /// on the failure mode and inspect the underlying [`rusqlite::Error`] via
 /// [`std::error::Error::source`], while the `Display` rendering is preserved
-/// byte-for-byte (`open knowledge db `<path>`: <error>`).
+/// byte-for-byte (`open knowledge db <path>: <error>`).
 #[cfg(feature = "analysis-gate")]
 #[derive(Debug, thiserror::Error)]
 pub enum WiringGateError {

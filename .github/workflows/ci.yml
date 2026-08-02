@@ -102,8 +102,26 @@ jobs:
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
+      # 2026-08-02: `dtolnay/rust-toolchain@stable` RESOLVES "stable" to the
+      # concrete version and installs the toolchain under that name, so
+      # llvm-tools-preview lands on e.g. `1.95.0-x86_64-...`. But this repo pins
+      # `channel = "stable"` in rust-toolchain.toml, so cargo resolves the
+      # `stable-x86_64-...` toolchain instead — which had no llvm-tools and, for
+      # cargo-llvm-cov (it builds an absolute rustc path rather than going
+      # through the rustup proxy), did not exist at all:
+      #   could not execute process `.../toolchains/stable-x86_64-.../bin/rustc`
+      #   (never executed): No such file or directory
+      # Installing the channel by its pinned name fixes both. Idempotent.
+      - name: install llvm-tools on the channel pinned by rust-toolchain.toml
+        run: rustup toolchain install stable --component llvm-tools-preview
       - name: install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        # 2026-08-02: the `@<tool-name>` shorthand resolved to a ref that ran with
+        # no `tool` input at all ("no tool specified"), so nothing was installed
+        # and the next step died with `no such command`. The explicit `@v2` +
+        # `tool:` form is the documented, dependabot-safe spelling.
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
       - name: generate LCOV coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: upload lcov artifact
@@ -198,7 +216,9 @@ jobs:
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
       - name: cargo nextest (ci profile, full suite)
         run: cargo nextest run --workspace --profile ci
 
@@ -216,7 +236,9 @@ jobs:
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-fuzz
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
       - name: cargo fuzz build
         run: cargo fuzz build
 

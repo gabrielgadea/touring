@@ -13,7 +13,7 @@
 //! 2. **coverage** — `(error_handling_coverage + test_proxy.score) / 2`
 //! 3. **duplication** — content-hash clustering (caller-supplied; MVP `1.0`)
 //! 4. **churn** — file edit frequency (caller-supplied; sourced from
-//!    [`FileKnowledgeDB`] `edit_count`, **never** `git log` per Hard
+//!    `FileKnowledgeDB` `edit_count`, **never** `git log` per Hard
 //!    Rule #11)
 //! 5. **entropy** — [`RustQualitySignals::health_score`] (Rust only;
 //!    `1.0` for non-Rust files)
@@ -38,7 +38,7 @@
 //! | D     | `[0.60, 0.70)`  |
 //! | F     | `< 0.60`        |
 //!
-//! [`FileKnowledgeDB`]: ../../touring_hooks/struct.FileKnowledgeDB.html
+//! `FileKnowledgeDB`: ../../touring_hooks/struct.FileKnowledgeDB.html
 
 use serde::{Deserialize, Serialize};
 

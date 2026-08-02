@@ -35,7 +35,7 @@
 //! (`src/templates.rs`); the `#![no_main]` attribute and `fuzz_target!`
 //! macro call are the only structural markers per file.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

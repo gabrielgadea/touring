@@ -30,7 +30,7 @@
 //! languages (TS/JS/Go/Java) manage memory automatically, so the detectable
 //! manual-memory surface is small — the engine covers the language-specific
 //! signals it can (Python's unbounded `lru_cache`). Comments and
-//! `#[cfg(test)]`/test regions are excluded via [`super::code_regions`]. Rolls up
+//! `#[cfg(test)]`/test regions are excluded via `super::code_regions`. Rolls up
 //! as `AggKind::WeightedLoc`. ADVISORY-tier. Zero non-std deps beyond `memchr`.
 
 use memchr::memmem;

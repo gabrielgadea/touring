@@ -672,7 +672,7 @@ static SECRET_TOKEN_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
 /// 2. **Env-var name pass** — a line containing a known credential var name
 ///    (`GITHUB_TOKEN`, `AWS_SECRET_ACCESS_KEY`, …) has its `KEY=value` / `KEY: value`
 ///    value replaced (catches secrets whose value has no recognizable token format).
-/// 3. **Token-format pass (T-09)** — [`SECRET_TOKEN_PATTERNS`] redact a raw token
+/// 3. **Token-format pass (T-09)** — `SECRET_TOKEN_PATTERNS` redact a raw token
 ///    value (GitHub/OpenAI/AWS/Slack) anywhere in the remaining text.
 pub fn redact_secrets(s: &str) -> String {
     let needles: &[&str] = &[

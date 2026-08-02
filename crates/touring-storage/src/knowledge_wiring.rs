@@ -1,9 +1,9 @@
-//! Wiring persistence layer for [`FileKnowledgeDB`] — pub-symbol →
+//! Wiring persistence layer for `FileKnowledgeDB` — pub-symbol →
 //! consumer CRUD on the `wiring_map` table (orphan detection substrate).
 //!
 //! Carved from `touring-hooks/src/wiring.rs` in the daemon-lib-rearch
 //! Phase C split (2026-06-10): these are inherent methods on
-//! [`FileKnowledgeDB`], and Rust requires inherent impls to live in the
+//! `FileKnowledgeDB`, and Rust requires inherent impls to live in the
 //! crate that defines the type. The graph/engine layer (impact BFS, Tarjan
 //! cycles, repair scans) stays in `touring_hooks::wiring`, which re-exports
 //! everything here so historical paths keep resolving.

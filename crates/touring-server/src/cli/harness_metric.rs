@@ -107,8 +107,8 @@ fn format_human(raw: &str) -> String {
 
 /// Run the `harness-metric` CLI subcommand.
 ///
-/// Dispatches on parsed [`HarnessFlags`]:
-/// - `--help` / `-h` → print [`USAGE`] to stdout and return `Ok(())`.
+/// Dispatches on parsed `HarnessFlags`:
+/// - `--help` / `-h` → print `USAGE` to stdout and return `Ok(())`.
 /// - `--json` / `-j` → query daemon, emit compact JSON.
 /// - (default)       → query daemon, emit pretty-printed JSON.
 ///

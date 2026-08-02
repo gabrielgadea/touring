@@ -10,7 +10,7 @@
 //! so the model receives a < ~200-token digest that NEVER masks a failure (exit_code +
 //! error lines are preserved verbatim).
 //!
-//! `--orchestrate` (R4) prepends the read-only `touring` Python SDK ([`TOURING_PY_SDK`]) so a
+//! `--orchestrate` (R4) prepends the read-only `touring` Python SDK (`TOURING_PY_SDK`) so a
 //! single sandboxed script queries the daemon over its socket — orchestration-in-code WITHOUT
 //! MCP. See `docs/2026-06-27-coupling-codemode-cli-and-master-commands.md` §3 (Camada 2 / R4).
 
@@ -235,7 +235,7 @@ fn resolve_code(cli: &RunCli) -> Result<String> {
     }
 }
 
-/// R4 — prepend the `touring` orchestration SDK ([`TOURING_PY_SDK`]) when `--orchestrate`
+/// R4 — prepend the `touring` orchestration SDK (`TOURING_PY_SDK`) when `--orchestrate`
 /// is set, so the script can call `touring.search(...)`, `touring.index_find(...)`, … against
 /// the daemon in a single execution. The SDK is Python, so `--orchestrate` requires
 /// `--lang python` (a clear error rather than a silent no-op for other languages).

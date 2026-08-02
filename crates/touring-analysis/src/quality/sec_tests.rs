@@ -24,7 +24,7 @@
 //! (`expect(response.status).toBe(401)`). A test that only verifies the
 //! happy path leaves a 401-bypass regression open.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

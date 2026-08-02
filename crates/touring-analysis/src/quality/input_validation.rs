@@ -25,7 +25,7 @@
 //! | C / C++ | `gets(` (CWE-242), `strcpy`/`strcat`/`sprintf`, `scanf("%s"` (CWE-120) | `fgets`, `strncpy`/`snprintf`, a width-limited `%s` |
 //!
 //! Comments and `#[cfg(test)]`/test regions are excluded via
-//! [`super::code_regions`]. `yaml.safe_load(` is *not* matched by the
+//! `super::code_regions`. `yaml.safe_load(` is *not* matched by the
 //! `yaml.load(` needle (so the safe form is never flagged). Replaces a stub
 //! that scored `validate`/`sanitize`/`.parse()` keyword density. Zero non-std
 //! deps beyond `memchr`.

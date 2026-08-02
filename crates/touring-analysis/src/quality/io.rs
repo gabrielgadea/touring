@@ -6,7 +6,7 @@
 //! |-------|--------|------|
 //! | blocking-in-async | an `async fn` *and* a `std::fs::`/`std::net::`/`TcpStream::connect`/`reqwest::blocking` call in the same file | Rust |
 //! | block_on-in-runtime | an `async fn` *and* a `block_on(` call in the same file | Rust |
-//! | io-in-loop | a `std::fs::`/`std::net::`/`TcpStream::`/`reqwest::blocking` call **inside a loop body** (`for`/`while` via [`super::loop_blocks::loop_bodies`]) | Rust |
+//! | io-in-loop | a `std::fs::`/`std::net::`/`TcpStream::`/`reqwest::blocking` call **inside a loop body** (`for`/`while` via `super::loop_blocks::loop_bodies`) | Rust |
 //! | unbuffered-read-loop | a `read_exact(` **inside a loop body** with no `BufReader` in the same body | Rust |
 //!
 //! **Disjoint** from F2.7 db-perf (which keys on `db.execute`/`db.query` in
@@ -16,7 +16,7 @@
 //! the other engines inspect. `block_on(` inside a runtime panics per
 //! tokio docs, so even one occurrence is a finding.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 //!
 //! **Sources (context7, `/tokio-rs/tokio`, High reputation):** a blocking
 //! call (`std::fs`/`std::net`/`reqwest::blocking`) inside an `async fn` "will

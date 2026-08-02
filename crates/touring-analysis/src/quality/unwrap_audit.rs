@@ -58,7 +58,7 @@ pub fn count_expects(source: &str) -> usize {
 /// raw [`count_unwraps`] / [`count_expects`] scanners cannot avoid — see
 /// `test_unwrap_in_comment_still_counted` for the raw scanner's documented
 /// limitation. Suppression mirrors the SAST gold standard (Semgrep ignores
-/// commented-out code and excludes test paths) via [`super::code_regions`], but
+/// commented-out code and excludes test paths) via `super::code_regions`, but
 /// at in-file region granularity (a production sink sharing a file with a
 /// `#[cfg(test)]` module is still counted).
 #[derive(Debug, Clone, Default)]
@@ -84,7 +84,7 @@ impl ProdHazards {
 }
 
 /// Count production-only error-handling hazards, excluding comment and
-/// `#[cfg(test)]`/`#[test]` regions via [`super::code_regions`].
+/// `#[cfg(test)]`/`#[test]` regions via `super::code_regions`.
 ///
 /// `lang` selects the comment/string lexer (`"rust"`, `"python"`,
 /// `"typescript"`, `"go"`, …); only Rust additionally suppresses test regions.

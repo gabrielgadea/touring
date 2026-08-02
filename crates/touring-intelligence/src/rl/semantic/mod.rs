@@ -1,6 +1,6 @@
 //! Semantic embedding layer — W1 Cognitive.
 //!
-//! Provides the [`Embedder`] trait abstracting embedding generation from the
+//! Provides the `Embedder` trait abstracting embedding generation from the
 //! concrete backend. Two implementations ship:
 //!
 //! - [`MockEmbedder`] — deterministic hash-derived vectors, zero dependencies,

@@ -629,7 +629,7 @@ impl RlmMemory {
     /// `search()` which does full-text FTS5 matching over values. Use this when
     /// you need to enumerate structured sub-trees (e.g. diary project entries).
     ///
-    /// `created_at`/`accessed_at` are normalized through [`Self::cell_to_epoch`],
+    /// `created_at`/`accessed_at` are normalized through `Self::cell_to_epoch`,
     /// so a row written by any of the shared table's writers (epoch-as-TEXT,
     /// ISO-8601 TEXT, or native INTEGER) is read correctly instead of aborting
     /// the scan — the read-adapter seam for the affinity mismatch (A12).

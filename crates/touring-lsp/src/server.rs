@@ -83,7 +83,9 @@ impl Backend {
             let payload = rename_request_payload(&file, pos, &new_name);
             match touring_hooks::HookRuntime::new(&root) {
                 Ok(mut rt) => touring_hooks::cli_handlers_semantics::cli_rename(&mut rt, &payload),
-                Err(e) => serde_json::json!({ "status": "error", "error": e.to_string() }).to_string(),
+                Err(e) => {
+                    serde_json::json!({ "status": "error", "error": e.to_string() }).to_string()
+                }
             }
         })
         .await

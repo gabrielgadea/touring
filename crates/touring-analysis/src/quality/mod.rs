@@ -173,7 +173,7 @@ pub mod input_validation;
 /// Polyglot I/O-bottleneck analysis (D23): blocking I/O in async context
 /// (`async fn` + `std::fs::`/`std::net::`/`reqwest::blocking`), `block_on(`
 /// inside a runtime, file/network I/O inside a loop body (via
-/// [`loop_blocks::loop_bodies`]), and unbuffered byte-loop reads (`read_exact(`
+/// `loop_blocks::loop_bodies`), and unbuffered byte-loop reads (`read_exact(`
 /// in a loop without `BufReader`). Backs F2.10; disjoint from F2.7 db-perf
 /// (which keys on `db.execute`/`db.query` in loop, db-specific) and F2.8
 /// memory (which keys on `unbounded_channel(`/`Box::leak(`/.clone).

@@ -1,11 +1,11 @@
 //! DepHealthAnalyzer — package-management hygiene for the F4.5 dimension (D44).
 //!
-//! Sibling to [`super::security`] (F2.5 dep-CVEs) and [`super::config_security`]
+//! Sibling to [`super::security`] (F2.5 dep-CVEs) and `super::config_security`
 //! (F2.6 misconfig). Where F2.5 owns *exploitable* dependency advisories, F4.5
 //! owns *package-management hygiene* — the cargo-deny `[bans]` family plus the
 //! cargo-machete unused-dependency check, computed hermetically (no external
 //! binary) by parsing `Cargo.toml` + `Cargo.lock` and reusing the in-process
-//! RustSec advisory DB ([`super::super::security::SecurityDb`]) for the
+//! RustSec advisory DB (`super::super::security::SecurityDb`) for the
 //! `informational` (unmaintained/unsound) advisories that F2.5 deliberately
 //! defers here (see `f2_5_dep_cves::real_engine::score`).
 //!
@@ -24,7 +24,7 @@
 //! ## Anti-theater scoring invariant
 //! Score mirrors `config_security`: `1.0 - sum(severity)/10`, clamped. But the
 //! hygiene penalty (everything except prod wildcards) is **capped at
-//! [`HYGIENE_CAP`]** so it can drive the score no lower than `0.55` (Silver/WARN,
+//! `HYGIENE_CAP`** so it can drive the score no lower than `0.55` (Silver/WARN,
 //! above the 0.5 BLOCK line). This is deliberate: F4.5 must NOT re-introduce the
 //! transitive-debt false positive that F2.5's CVE-vs-informational partition was
 //! built to avoid — a workspace with a few accepted unmaintained transitive deps

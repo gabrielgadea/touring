@@ -1,4 +1,4 @@
-//! Bash-command outcome recording and lookup for [`FileKnowledgeDB`].
+//! Bash-command outcome recording and lookup for `FileKnowledgeDB`.
 //!
 //! Method group extracted verbatim from `knowledge.rs` (1A god-file decomposition);
 //! a child-module inherent `impl` block over the parent's `FileKnowledgeDB`.

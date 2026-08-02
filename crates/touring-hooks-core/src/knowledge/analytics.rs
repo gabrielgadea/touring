@@ -1,4 +1,4 @@
-//! Aggregate analytics and maintenance for [`FileKnowledgeDB`]
+//! Aggregate analytics and maintenance for `FileKnowledgeDB`
 //! (edit/co-edit analytics, success-rate, decayed error history, DB cleanup,
 //! WAL checkpoint, aggregate stats, batched pre-read signals).
 //!
