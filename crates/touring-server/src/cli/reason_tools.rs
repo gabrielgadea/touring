@@ -7,7 +7,7 @@
 //!   (`B ∈ ℕ⁶`). The orchestrator supplies the root budget from the Workflow-tool.
 //! * **C12** [`plan_tool_chain`] — MCTS heuristic over a weighted tool graph (the
 //!   geodesic of TCA-Space). The orchestrator supplies the candidate tool graph.
-//! * **C14** [`consistency_gate`] — `GED_norm + α·(1 − cos)` merge gate for parallel
+//! * **C14** [`mod@consistency_gate`] — `GED_norm + α·(1 − cos)` merge gate for parallel
 //!   engineers. The orchestrator supplies the two produced ASTs as labelled graphs.
 //!
 //! Output is `-j/--json` or a human line; handlers always exit `Ok` (advisory).

@@ -1,4 +1,4 @@
-//! Gotcha (pitfall pattern) storage and scoring for [`FileKnowledgeDB`].
+//! Gotcha (pitfall pattern) storage and scoring for `FileKnowledgeDB`.
 //!
 //! Method group extracted verbatim from `knowledge.rs` (1A god-file decomposition).
 //! As a child module of `knowledge`, this can reach `FileKnowledgeDB` and its private

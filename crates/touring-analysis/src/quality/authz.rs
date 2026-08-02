@@ -27,7 +27,7 @@
 //! Sheet: "Applications should avoid exposing internal object identifiers… to
 //! prevent authorization bypasses and privilege escalation."
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

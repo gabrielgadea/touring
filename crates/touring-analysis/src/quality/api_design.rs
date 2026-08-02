@@ -4,7 +4,7 @@
 //! errors, idiomatic naming, encapsulation, ergonomic construction. The real
 //! oracle differs per language (Rust API Guidelines, Effective Go, Effective
 //! C++, PEP 8); this engine approximates a high-confidence **subset** of each
-//! across **7 languages**. It is deliberately disjoint from [`super::idioms`]
+//! across **7 languages**. It is deliberately disjoint from `super::idioms`
 //! (F4.1): idioms scores *local style* (`.len()==0`, `==null`), api-design
 //! scores the *public contract* (error types, getter naming, field exposure).
 //!
@@ -18,7 +18,7 @@
 //! | C++ | Effective C++ | function-like macro `#define X(...)` (→ inline function, Item 2) |
 //!
 //! Comments and `#[cfg(test)]`/test regions are excluded via
-//! [`super::code_regions`]. A per-file scanner cannot replace a type-aware API
+//! `super::code_regions`. A per-file scanner cannot replace a type-aware API
 //! linter, so it catches a high-precision subset; F1.9 is WARN (advisory), not
 //! BLOCK. Replaces a stub that counted `pub fn`/`pub struct`/`pub trait` and
 //! *penalised a wide public surface* — an anti-metric (a large, well-designed

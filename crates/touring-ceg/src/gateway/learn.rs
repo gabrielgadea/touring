@@ -304,7 +304,7 @@ pub struct SilentFailure {
 /// A Class-D failure is a *cleared-yet-failed* action: the X7 gate returned
 /// `Allow`/`Warn` (claimed pass) but the X5 sandbox dry-run actually FAILED — a
 /// non-zero exit code or surfaced error signatures, read from the [`OutputSummary`]
-/// the C5 summarizer attaches to every [`SandboxOutcome`]. The narrative says
+/// the C5 summarizer attaches to every [`crate::gateway::sandbox_stage::SandboxOutcome`]. The narrative says
 /// success; reality says failure. A `Deny` is *not* Class-D (it already names the
 /// problem) and a no-output path (`exit 0`, pure-skip / deferred sentinel) is not a
 /// failure — neither false-flags.

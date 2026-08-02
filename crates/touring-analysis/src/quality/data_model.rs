@@ -36,7 +36,7 @@
 //! modernization, and F2.2 input-validation by construction — F1.10 scores the
 //! *data shape*. (`-> String` returns and `Result<_, String>` errors are not
 //! flagged here: the adjacent identifier is not a domain field name.) Comments
-//! and `#[cfg(test)]`/test regions are excluded via [`super::code_regions`].
+//! and `#[cfg(test)]`/test regions are excluded via `super::code_regions`.
 //! Rolls up as `AggKind::WeightedLoc`. ADVISORY-tier. Zero non-std deps beyond
 //! `memchr`.
 

@@ -1,6 +1,6 @@
 //! ConfigSecurityAnalyzer — OWASP A05:2021 Security Misconfiguration detector.
 //!
-//! Sibling to [`super::security::SecurityAnalyzer`] (which covers the injection
+//! Sibling to `super::security::SecurityAnalyzer` (which covers the injection
 //! CWE class via the offensive `PatternRegistry`). This analyzer targets the
 //! *misconfiguration* class — settings insecure regardless of input: disabled
 //! TLS/cert verification (CWE-295), permissive CORS (CWE-942), active debug /
@@ -11,7 +11,7 @@
 //!
 //! Design mirrors `SecurityAnalyzer` so F2.6 composes consistently with F2.1:
 //! - emits [`touring_offensive::vuln::VulnMatch`] (shared shape: pattern_name,
-//!   span, severity, cwe_id), so the same AST-aware [`super::code_regions`] pass
+//!   span, severity, cwe_id), so the same AST-aware `super::code_regions` pass
 //!   drops matches that live in comments / `#[cfg(test)]` corpora;
 //! - severity-summed score `1.0 - sum/10` clamped — identical to the vuln-score
 //!   half of `SecurityReport`.
@@ -67,7 +67,7 @@ impl ConfigSecurityAnalyzer {
     /// Line-granular: pure-comment lines are skipped; each remaining line is
     /// matched against every rule. A hit records a [`VulnMatch`] whose `span.0`
     /// is the offset of the line's first non-whitespace byte, so the AST-aware
-    /// [`super::code_regions`] pass can drop hits inside `#[cfg(test)]` corpora
+    /// `super::code_regions` pass can drop hits inside `#[cfg(test)]` corpora
     /// or block comments (mirrors `SecurityAnalyzer::analyze`).
     #[must_use]
     pub fn analyze(&self, source: &str, lang: &str) -> ConfigReport {

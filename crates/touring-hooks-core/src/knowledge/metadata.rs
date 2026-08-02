@@ -1,4 +1,4 @@
-//! Auxiliary metadata key-value stores for [`FileKnowledgeDB`]
+//! Auxiliary metadata key-value stores for `FileKnowledgeDB`
 //! (feature flags, todos, communities, coverage, blake3 registry, session summaries,
 //! symbol events, wiring suggestions, benchmarks, cognitive enrichment).
 //!

@@ -1,6 +1,6 @@
 //! AST-aware non-executable region detection for security-analysis precision.
 //!
-//! A TEXT-regex vulnerability detector (the CWE [`PatternRegistry`]) cannot, on
+//! A TEXT-regex vulnerability detector (the CWE `PatternRegistry`) cannot, on
 //! its own, separate a real sink from a string that merely *documents* or
 //! *tests* an attack. A `UNION SELECT … --` payload living in a `// comment` or
 //! inside a `#[cfg(test)]` corpus is not an exploitable construct — flagging it
@@ -9,7 +9,7 @@
 //! `#[cfg(test)]` SQLi fixture).
 //!
 //! This module computes the byte ranges that are **non-executable** for a given
-//! `source` + `lang` so [`SecurityAnalyzer`](super::security::SecurityAnalyzer)
+//! `source` + `lang` so `SecurityAnalyzer`
 //! can drop any vulnerability match whose span starts inside one. The approach
 //! mirrors the SAST gold standard: Semgrep disregards commented-out code
 //! (`generic_comment_style`) and excludes test paths by default
@@ -26,7 +26,7 @@
 //! complementary precision lever is the pattern regex itself (e.g. SQLi
 //! requiring a quote-break), not region masking.
 
-// [`PatternRegistry`]: touring_offensive::vuln::PatternRegistry
+// `PatternRegistry`: touring_offensive::vuln::PatternRegistry
 
 /// Per-language lexical syntax: the minimum needed to find comments without
 /// misreading comment markers that live inside string or char literals.

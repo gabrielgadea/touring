@@ -25,7 +25,7 @@
 //! quote-break in a string sink — via the `SecurityAnalyzer`): F2.7 scores
 //! *performance* (the same SQL string is read for `SELECT *`, never for a
 //! quote-break). Comments and `#[cfg(test)]`/test regions are excluded via
-//! [`super::code_regions`] (production string literals are deliberately *not*
+//! `super::code_regions` (production string literals are deliberately *not*
 //! suppressed, so a real `"SELECT * FROM …"` in code is still seen). Rolls up as
 //! `AggKind::WeightedLoc`. ADVISORY-tier. Zero non-std deps beyond `memchr`.
 

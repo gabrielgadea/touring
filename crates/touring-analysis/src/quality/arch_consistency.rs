@@ -28,7 +28,7 @@
 //! convention — when a single file mixes error/log/config patterns, drift
 //! is in progress.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

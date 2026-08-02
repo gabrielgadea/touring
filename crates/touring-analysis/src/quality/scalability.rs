@@ -42,7 +42,7 @@
 //! threads for long-lived or persistent blocking workloads" (rule of
 //! thumb we mirror in our detector scoring).
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

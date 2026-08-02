@@ -55,7 +55,7 @@ pub fn density_score(weighted_total: f32, total_lines: usize, scale: f32) -> f32
 /// Line-walk count of `needle` occurrences in `bytes`, **skipping regular
 /// `//` line comments only**.
 ///
-/// The [`super::code_regions`] pipeline marks `#[test]` fn bodies and `///`
+/// The `super::code_regions` pipeline marks `#[test]` fn bodies and `///`
 /// doc comments as "non-executable" — appropriate for *security* analysis
 /// (avoids flagging `// SQL injection` as a vuln, avoids flagging SQL inside
 /// `#[cfg(test)]` corpora) but the *wrong filter* for **test-quality,

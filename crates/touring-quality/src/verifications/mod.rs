@@ -103,8 +103,8 @@ const DIR_SCAN_BYTE_CAP: usize = 2 * 1024 * 1024;
 ///
 /// * **File** → its contents (any language).
 /// * **Directory** → a deterministic (entries sorted), bounded, recursive
-///   concatenation of every polyglot source file ([`SOURCE_EXTS`]) it contains,
-///   skipping [`SKIP_DIRS`] and dot-dirs, capped at [`DIR_SCAN_BYTE_CAP`]. This
+///   concatenation of every polyglot source file (`SOURCE_EXTS`) it contains,
+///   skipping `SKIP_DIRS` and dot-dirs, capped at `DIR_SCAN_BYTE_CAP`. This
 ///   replaces the legacy "first `.rs` file" scan that silently ignored Python /
 ///   TypeScript / other polyglot projects (Rust-bias fix, 2026-06-20).
 pub fn read_target_source(target: &Path) -> Result<String> {
@@ -370,7 +370,7 @@ pub fn evidence_marks_not_applicable(evidence: &str) -> bool {
 /// * **File target** → `[target]` verbatim (an explicit file the caller pointed
 ///   at is always used, regardless of name — preserves `score README.md`).
 /// * **Directory target** → every descendant matching `class.matches`, skipping
-///   [`SKIP_DIRS`] and dot-dirs **except** those an artifact class needs
+///   `SKIP_DIRS` and dot-dirs **except** those an artifact class needs
 ///   (`.github`, `.circleci`). Deterministically sorted.
 pub fn resolve_artifacts(target: &Path, class: ArtifactClass) -> Vec<PathBuf> {
     if !target.is_dir() {
@@ -401,7 +401,7 @@ pub fn resolve_artifacts(target: &Path, class: ArtifactClass) -> Vec<PathBuf> {
     files
 }
 
-/// Whether `p` is a source-code file (extension ∈ [`SOURCE_EXTS`]). Used to keep
+/// Whether `p` is a source-code file (extension ∈ `SOURCE_EXTS`). Used to keep
 /// a per-file artifact sweep from scoring `foo.rs` AS a changelog/CI/README/
 /// arch-doc — a `.rs`/`.py`/… file is code, never a repo artifact.
 fn is_source_file(p: &Path) -> bool {
@@ -416,10 +416,10 @@ fn is_source_file(p: &Path) -> bool {
 /// directory scope contains NO artifact of this class — the caller applies the
 /// [`ARTIFACT_ABSENT_CAP`] step-function instead of a diluted density score.
 /// A file target is always `present == true` (read verbatim). Concatenation is
-/// bounded by [`DIR_SCAN_BYTE_CAP`].
+/// bounded by `DIR_SCAN_BYTE_CAP`.
 pub fn read_artifact_source(target: &Path, class: ArtifactClass) -> (String, bool) {
     // Local resolution. A **source-code** file target (`.rs`/`.py`/… ∈
-    // [`SOURCE_EXTS`]) is NEVER a repo artifact (changelog / CI / README /
+    // `SOURCE_EXTS`) is NEVER a repo artifact (changelog / CI / README /
     // arch-doc / runbook) — it falls through to inheritance/absence rather than
     // being scored AS one (the file-scope fidelity fix: a per-file sweep must not
     // read `foo.rs` as a changelog). A **non-source** file target (`CHANGELOG.md`,
@@ -453,7 +453,7 @@ pub fn read_artifact_source(target: &Path, class: ArtifactClass) -> (String, boo
 }
 
 /// Concatenate the source of resolved artifact files, bounded by
-/// [`DIR_SCAN_BYTE_CAP`]. Returns `(source, present)` — `present` is `true` iff
+/// `DIR_SCAN_BYTE_CAP`. Returns `(source, present)` — `present` is `true` iff
 /// at least one file was read.
 fn concat_artifacts(paths: &[PathBuf]) -> (String, bool) {
     let mut out = String::new();
@@ -537,8 +537,8 @@ fn resolve_artifacts_shallow(root: &Path, class: ArtifactClass, max_depth: usize
     files
 }
 
-/// Enumerate every polyglot source file ([`SOURCE_EXTS`]) under `root`, skipping
-/// [`SKIP_DIRS`] and dot-dirs. Returns a globally-sorted, deterministic list of
+/// Enumerate every polyglot source file (`SOURCE_EXTS`) under `root`, skipping
+/// `SKIP_DIRS` and dot-dirs. Returns a globally-sorted, deterministic list of
 /// file paths (**no byte cap** — the cap only bounds *concatenation* in
 /// [`read_target_source`]). A single non-directory `root` returns `[root]`
 /// verbatim, so File-scope resolution is uniform with directory scopes.

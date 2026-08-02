@@ -2,7 +2,7 @@
 //! features replacing older equivalents.
 //!
 //! D43 asks whether code uses a **newer language version/edition** construct in
-//! place of a superseded one — distinct from [`super::idioms`] (F4.1), which
+//! place of a superseded one — distinct from `super::idioms` (F4.1), which
 //! scores the idiomatic *style* of a construct that exists in every version.
 //! Modernization is **version-anchored**: `try!`(2015)→`?`(2018),
 //! `lazy_static!`→`std::sync::LazyLock`(1.80), `super(Cls, self)`→`super()`(Py3),
@@ -21,7 +21,7 @@
 //! | C++ | C++11+ | `std::bind(`→lambda, C headers `<stdio.h>`→`<cstdio>` |
 //!
 //! Comments and `#[cfg(test)]`/test regions are excluded via
-//! [`super::code_regions`]. A per-file scanner cannot replace `cargo fix
+//! `super::code_regions`. A per-file scanner cannot replace `cargo fix
 //! --edition` / a codemod, so it catches a high-confidence subset; F4.4 is WARN
 //! (advisory). Replaces a stub that counted `try!` + `extern crate` only. Zero
 //! non-std deps beyond `memchr`.

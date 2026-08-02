@@ -143,7 +143,7 @@ pub struct PreReadSignals {
     pub gotchas: Vec<Gotcha>,
 }
 
-/// Thread-safe wrapper around [`FileKnowledgeDB`].
+/// Thread-safe wrapper around `FileKnowledgeDB`.
 ///
 /// `rusqlite::Connection` is `Send` but NOT `Sync`, so `FileKnowledgeDB`
 /// cannot be shared across threads directly. This wrapper uses a `Mutex`

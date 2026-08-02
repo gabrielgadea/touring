@@ -34,7 +34,7 @@
 //! and naming things — and off-by-one errors" — the converse for concurrency
 //! is: lock ordering, lock-across-await, and shared-mutable-state scope.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

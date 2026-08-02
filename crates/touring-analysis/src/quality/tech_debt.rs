@@ -8,7 +8,7 @@
 //!    never match `TODO` (the stub's `raw.matches("BUG")` counted `DEBUG`).
 //! 2. **Comment-scoped markers** — a marker is debt only when it lives in a
 //!    comment (or test region), not in a code identifier or a production string.
-//!    Reuses [`super::code_regions`] (the markers' home is the *inverse* of where
+//!    Reuses `super::code_regions` (the markers' home is the *inverse* of where
 //!    `count_prod_hazards` looks): a `// TODO` counts, a `let todo = ...` or
 //!    `"TODO in a string"` does not.
 //! 3. **Code debt vs managed debt** — `todo!()`/`unimplemented!()` (incomplete

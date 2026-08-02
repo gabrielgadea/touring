@@ -12,7 +12,7 @@
 //! 1. **Block, not line** — a clone is `MIN_BLOCK_LINES`+ consecutive meaningful
 //!    lines recurring at a non-overlapping position; one repeated line is not debt.
 //! 2. **Production-only, comment/blank/structural-aware** — comments and
-//!    `#[cfg(test)]` regions (via [`super::code_regions`], jscpd's test-exclusion
+//!    `#[cfg(test)]` regions (via `super::code_regions`, jscpd's test-exclusion
 //!    convention) are dropped, as are blank and pure-bracket (`}`, `);`) lines
 //!    that recur everywhere and are not duplication.
 //! 3. **Content-keyed** — windows are keyed by their normalized text (whitespace

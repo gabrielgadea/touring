@@ -16,7 +16,7 @@
 //!
 //! Score is `1 - density·SCALE` (SCALE 6.0, ADVISORY-tier), where density is
 //! `weighted_violations / total_lines`. Comments / `#[cfg(test)]` are excluded via
-//! [`super::code_regions`].
+//! `super::code_regions`.
 //!
 //! **Sources (context7, `/anthropics/moka`, High reputation, bench 96):**
 //! `get_with`/`try_get_with` coalesce concurrent initialisations so only one

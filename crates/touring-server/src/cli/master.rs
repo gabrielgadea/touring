@@ -30,7 +30,7 @@ const DEFAULT_SCRIPTS_REL: &str = ".claude/skills/Touring/scripts";
 ///
 /// This is the single source of truth for the command → script mapping; both the
 /// per-command handlers and the R6 quality gate consult it, so a typo surfaces in
-/// one place and is covered by [`tests::script_for_maps_every_master_command`].
+/// one place and is covered by `tests::script_for_maps_every_master_command`.
 pub fn script_for(command: &str) -> Option<&'static str> {
     match command {
         "scout" => Some("discover_symbol.py"),

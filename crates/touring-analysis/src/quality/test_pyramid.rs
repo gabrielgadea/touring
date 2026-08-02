@@ -21,7 +21,7 @@
 //! broad unit/integration base. Auto-wait (`expect(locator).toBeVisible()`)
 //! reduces flakiness, but the cost is still 10-100× unit tests.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 

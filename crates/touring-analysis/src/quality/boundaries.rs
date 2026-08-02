@@ -21,7 +21,7 @@
 //! arbitrary `pub_count / 50` threshold that punished any large public API.
 //!
 //! Zero non-std dependencies: a brace-aware line scanner reusing
-//! [`super::code_regions`] to skip comments and `#[cfg(test)]` regions.
+//! `super::code_regions` to skip comments and `#[cfg(test)]` regions.
 //!
 //! **Scope note**: this is an *intra-file* surface measure. D07's cross-module
 //! "pub symbol with zero consumers → re-encapsulate" check is a *wiring* concern

@@ -1,6 +1,6 @@
 //! CWEx E12 — Common Weakness Enumeration Patterns
 //!
-//! Implements the [`PatternRegistry`] with 10 vulnerability detectors covering
+//! Implements the `PatternRegistry` with 10 vulnerability detectors covering
 //! OWASP Top 10 and CWE Top 25 patterns.
 //!
 //! Each detector uses regex matching to identify vulnerable code constructs.

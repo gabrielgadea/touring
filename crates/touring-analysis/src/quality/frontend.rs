@@ -24,7 +24,7 @@
 //! the file mentions a `.wasm` literal). For pure Rust or Python the engine
 //! returns an empty report.
 //!
-//! Comments / `#[cfg(test)]` are excluded via [`super::code_regions`].
+//! Comments / `#[cfg(test)]` are excluded via `super::code_regions`.
 
 use memchr::memmem;
 
