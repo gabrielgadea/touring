@@ -62,6 +62,14 @@ test-ci = "nextest run --profile ci --workspace"
 # Fast local test loop — default profile.
 t = "nextest run --workspace"
 # Coverage run — matches the CI gate in .github/workflows/ci.yml.
+# GOTCHA (2026-08-02): run it as
+#     RUSTC_WRAPPER= cargo cov
+# The `rustc-wrapper = ""` above is understood by cargo as "no wrapper", but
+# cargo-llvm-cov concatenates it into the rustc command line, yielding a leading
+# space and a path that cannot exist:
+#     could not execute process ` /home/.../bin/rustc -vV` (never executed)
+# An empty RUSTC_WRAPPER in the environment takes precedence and fixes it while
+# keeping sccache off. A cargo alias cannot carry env vars, hence this note.
 cov = "llvm-cov --workspace --lcov --output-path lcov.info"
 # Deny check — full audit pass.
 deny-all = "deny --all-features check"
