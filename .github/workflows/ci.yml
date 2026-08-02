@@ -147,10 +147,65 @@ jobs:
     name: deterministic quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Needed by the sync_metrics auto-sync step below, which pushes the
+    # regenerated ARCHITECTURE.md block back to the branch.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: sync_metrics — ARCHITECTURE.md crate-count anti-drift
-        run: python3 docs/sync_metrics.py --check
+        with:
+          # Check out the branch itself, not the detached SHA — otherwise the
+          # auto-sync step below would have nothing to push to.
+          ref: ${{ github.head_ref || github.ref_name }}
+      # 2026-08-02: this gate compares a LIVE measurement (crate count, loc_src,
+      # test_fns) against the block committed in ARCHITECTURE.md, so ANY commit
+      # touching .rs invalidated it and turned the build red until someone
+      # remembered to run `--sync`. The drift is mechanically derivable, so
+      # failing the build asked a human to do what the script already does.
+      # Now CI regenerates it and pushes the result back.
+      #
+      # Guards: `[skip ci]` keeps the push from triggering another run (which
+      # would sync, push, trigger... indefinitely); the push is skipped on forks,
+      # where GITHUB_TOKEN cannot write — those fall back to a hard failure so
+      # the drift is reported rather than silently ignored.
+      - name: sync_metrics — auto-sync ARCHITECTURE.md from measured reality
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.full_name != '' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          set -euo pipefail
+          python3 docs/sync_metrics.py --sync
+
+          if git diff --quiet -- ARCHITECTURE.md; then
+            echo "ARCHITECTURE.md already in sync — nothing to push"
+            exit 0
+          fi
+
+          echo "::notice::ARCHITECTURE.md metrics drifted; regenerated from source"
+          git --no-pager diff --stat -- ARCHITECTURE.md
+
+          if [ "${IS_FORK}" = "true" ]; then
+            echo "::error::Metrics drift on a fork PR, where CI cannot push."
+            echo "::error::Run 'python3 docs/sync_metrics.py --sync' and commit the result."
+            exit 1
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ARCHITECTURE.md
+          git commit -m "chore(docs): auto-sync ARCHITECTURE.md metrics [skip ci]"
+
+          # A concurrent push can land between checkout and here; rebase once
+          # and retry before giving up.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "pushed metrics sync (attempt ${attempt})"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto the updated branch (attempt ${attempt})"
+            git pull --rebase --autostash
+          done
+          echo "::error::Could not push the metrics sync after 3 attempts."
+          exit 1
       - name: file_size_gate — no .rs file bloat (>5k LOC)
         run: python3 docs/file_size_gate.py --check
       - name: gen_reference — docs/reference/ anti-drift
