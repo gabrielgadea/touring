@@ -284,12 +284,12 @@ fn prop_edit_distance_boundary() {
 
     // Fuzzy threshold at boundary — resolve with high distance, then filter for fuzzy only
     let all_candidates = reg.resolve("xyz", 255).expect("resolve");
-    let fuzzy_candidates: Vec<_> = all_candidates
+    let fuzzy_count = all_candidates
         .into_iter()
         .filter(|c| matches!(c.match_kind, MatchKind::Fuzzy))
-        .collect();
+        .count();
     // Should return whatever matches (possibly empty)
-    assert!(fuzzy_candidates.len() <= 10, "results should be bounded");
+    assert!(fuzzy_count <= 10, "results should be bounded");
 }
 
 #[test]

@@ -30,12 +30,10 @@ pub fn source_to_definition(source: &str, lang: Lang, node: Node) -> Option<Defi
         }
 
         // Move to parent
-        match current.parent() {
-            Some(parent) => {
-                current = parent;
-                depth += 1;
-            }
-            None => return None,
+        {
+            let parent = current.parent()?;
+            current = parent;
+            depth += 1;
         }
     }
     None

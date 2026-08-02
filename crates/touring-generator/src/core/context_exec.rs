@@ -50,7 +50,7 @@ impl RkyvFileSnapshotAdapter {
 
         for file in files {
             let path_len = u32::try_from(file.path.len()).map_err(|_| {
-                GenerateError::Internal(format!("snapshot: path `{}` exceeds u32::MAX", &file.path))
+                GenerateError::Internal(format!("snapshot: path `{}` exceeds u32::MAX", file.path))
             })?;
             let content_len = u32::try_from(file.content.len()).map_err(|_| {
                 GenerateError::Internal("snapshot: content exceeds u32::MAX".into())

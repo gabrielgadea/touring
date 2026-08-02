@@ -1001,9 +1001,9 @@ fn extract_adjacent_comments(source: &str, node: Node, prefix: &str) -> Option<S
     }
 
     doc_lines.reverse();
-    let first_line = match doc_lines.first() {
-        Some(line) => *line,
-        None => return None,
+    let first_line = {
+        let line = doc_lines.first()?;
+        *line
     };
     if first_line.is_empty() {
         doc_lines.get(1).map(|s| truncate_str(s, 120).to_string())

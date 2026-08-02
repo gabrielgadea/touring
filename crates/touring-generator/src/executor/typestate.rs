@@ -651,7 +651,7 @@ impl PlanExecutor<Rendered> {
             self.ctx.session_checkpoint(
                 &format!(
                     "gen-{}",
-                    &plan_id.to_string().chars().take(20).collect::<String>()
+                    plan_id.to_string().chars().take(20).collect::<String>()
                 ),
                 &format!("speculate_pass score={:.3}", score.value()),
             );
@@ -1163,7 +1163,7 @@ impl PlanExecutor<Speculated> {
         }
 
         // Session lifecycle: assess session quality after commit.
-        let session_id = format!("gen-{}", &pid.chars().take(20).collect::<String>());
+        let session_id = format!("gen-{}", pid.chars().take(20).collect::<String>());
         if let Some(quality) = ctx.session_assess(&session_id) {
             tracing::info!(plan_id = %plan_id, session_quality = quality, "session assessed");
         }
