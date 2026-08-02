@@ -14,7 +14,6 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 touring-code = { path = "../crates/touring-code" }
-touring-ast-polyglot = { path = "../crates/touring-ast-polyglot" }
 touring-rkyv = { path = "../crates/touring-rkyv" }
 
 [[bin]]
