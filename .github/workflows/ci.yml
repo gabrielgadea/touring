@@ -123,6 +123,19 @@ jobs:
         with:
           tool: cargo-llvm-cov
       - name: generate LCOV coverage
+        # 2026-08-02: this workspace sets `rustc-wrapper = ""` in
+        # .cargo/config.toml to override the global sccache (a correctness
+        # hazard here — it once served a stale object, binary != source).
+        # cargo itself treats the empty string as "no wrapper", but
+        # cargo-llvm-cov concatenates it into the rustc invocation, producing a
+        # leading space and therefore a path that cannot exist:
+        #   could not execute process ` /home/.../bin/rustc -vV` (never executed)
+        # Reproduced verbatim on a dev machine, so `cargo cov` was broken locally
+        # too. An explicit empty RUSTC_WRAPPER in the environment takes
+        # precedence and resolves it while keeping sccache off. Verified with
+        # `cargo llvm-cov -p touring-license --lcov`.
+        env:
+          RUSTC_WRAPPER: ""
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: upload lcov artifact
         uses: actions/upload-artifact@v4
