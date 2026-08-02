@@ -285,8 +285,12 @@ ropey = "1.6"
 # 0.26, BUT tree-sitter 0.26 unconditionally depends on `wasmtime-c-api`
 # (a wasmtime C-FFI binding) which transitively pulls `wasmtime v36`,
 # creating a 19-crate duplicate cascade with touring-bindings's direct
-# `wasmtime v44`. Downgrading to 0.25 would lose ABI 15 runtime support.
+# `wasmtime v46`. Downgrading to 0.25 would lose ABI 15 runtime support.
 # Accepting as upstream-locked and tracked via deny.toml `[bans] skip`.
+# 2026-08-02: both wasmtime lines carried RUSTSEC-2026-0222 (type-index
+# confusion across engines, 3.8 LOW). Fixed by pinning the transitive line to
+# 36.0.13 and lifting the direct dependency 44 -> 46 (first patched majors per
+# the advisory). `cargo deny check advisories` is green; bind-wasm compiles.
 tree-sitter = { version = "0.26", features = ["wasm"] }
 tree-sitter-python = "0.25"      # ABI 15
 tree-sitter-rust = "0.24"        # ABI 14 (transitional)
@@ -323,7 +327,7 @@ zstd = "0.13"
 tiktoken-rs = "0.9"
 
 # WASM runtime (optional — for plugin system)
-wasmtime = { version = "44", default-features = false, features = ["cranelift", "runtime", "pooling-allocator"] }
+wasmtime = { version = "46", default-features = false, features = ["cranelift", "runtime", "pooling-allocator"] }
 wat = "1.245"
 
 # Full-text search
