@@ -2,14 +2,14 @@
 
 > **The agentic code harness. Open, typed, auditable.**
 
-[![version: 30.0.0](https://img.shields.io/badge/version-30.0.0-blue)]()
+[![version: 30.3.0](https://img.shields.io/badge/version-30.3.0-blue)]()
 [![license: tiered](https://img.shields.io/badge/license-tiered-green)]()
 [![rustc: 1.80+](https://img.shields.io/badge/rustc-1.80%2B-orange)]()
 [![tier: free | standard | premium | enterprise](https://img.shields.io/badge/tier-4%20tiers-purple)]()
 
 Touring is the **open-source, code-native, agent-first infrastructure** for
 the next generation of code-generating agents. It is a Cargo workspace
-(`crates/*`) of **45 crates** totaling **~537k LOC**, wired into:
+(`crates/*`) of **42 crates**, wired into:
 
 - **218 lifecycle hooks** (PreToolUse / PostToolUse / Session* / Task* / Hook* / CLI* / Neural* / RL*)
 - **120 CLI commands** + **88 MCP tools** + 1 binary
@@ -124,7 +124,7 @@ Read [CONSTITUTION-v8.md](docs/CONSTITUTION-v8.md) first. Then
 
 ---
 
-_Touring 30.0.0 | daemon: healthy | workspace index: 2,147 files / 52,824 symbols (rebuilt 2026-06-06) | RL: LinUCB + 8 arms + 25 dims | hooks: 218 | e2e: 0.83 → target 0.90_
+_Touring 30.3.0 | daemon: healthy | workspace index: 2,147 files / 52,824 symbols (rebuilt 2026-06-06) | RL: LinUCB + 8 arms + 25 dims | hooks: 218 | e2e: 0.83 → target 0.90_
 <!-- index/symbol counts are the per-workspace figures; refresh via `touring index rebuild $PWD`. Crate/LOC metrics: `docs/sync_metrics.py`. -->
 
 
