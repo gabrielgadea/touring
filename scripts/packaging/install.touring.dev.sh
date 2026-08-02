@@ -11,7 +11,8 @@
 #   - PATH modification opt-in (--no-modify-path skips)
 #
 # Sources (exactly one):
-#   (default)             ${TOURING_RELEASES_BASE}/<version>/touring-<triple>.tar.gz
+#   (default)             GitHub Releases —
+#                         ${TOURING_RELEASES_BASE}/v<version>/touring-<triple>.tar.gz
 #   --from-url <url>      any tarball URL (https:// or file://)
 #   --from-tarball <path> local tarball, fully offline
 #
@@ -20,7 +21,9 @@
 # extracts 1:1 into ~/.touring/toolchains/<version>/.
 #
 # Usage:
-#   curl --proto '=https' --tlsv1.2 -sSf https://install.touring.dev | sh
+#   curl --proto '=https' --tlsv1.2 -sSfL \
+#     https://raw.githubusercontent.com/gabrielgadea/touring/main/scripts/packaging/install.touring.dev.sh \
+#     | sh -s -- --version 30.3.0
 #   sh install.touring.dev.sh --version 30.3.0 --dry-run
 #   sh install.touring.dev.sh --version 30.3.0 --from-tarball ./touring.tar.gz
 
@@ -28,7 +31,10 @@ set -eu
 
 # ── Constants ─────────────────────────────────────────────────────────────
 TOURING_VERSION="${TOURING_VERSION:-latest}"
-RELEASES_BASE="${TOURING_RELEASES_BASE:-https://releases.touring.dev}"
+# GitHub Releases is the canonical distribution channel: the assets are
+# published there with a sibling .sha256 and a CycloneDX SBOM, and they are
+# reachable anonymously. Override with TOURING_RELEASES_BASE to mirror them.
+RELEASES_BASE="${TOURING_RELEASES_BASE:-https://github.com/gabrielgadea/touring/releases/download}"
 TOURING_HOME_DEFAULT="${TOURING_HOME:-$HOME/.touring}"
 
 # ── Flags ─────────────────────────────────────────────────────────────────
@@ -71,7 +77,8 @@ FLAGS:
 ENV:
     TOURING_VERSION         Same as --version
     TOURING_HOME            Same as --toolchain-home
-    TOURING_RELEASES_BASE   Release artifact server (default: releases.touring.dev)
+    TOURING_RELEASES_BASE   Release artifact base URL
+                            (default: GitHub Releases for gabrielgadea/touring)
 EOF
             exit 0
             ;;
@@ -120,7 +127,14 @@ else
         exit 1
     fi
     RELEASE_CHANNEL=1
-    FROM_URL="${RELEASES_BASE}/${TOURING_VERSION}/touring-${TARGET_TRIPLE}.tar.gz"
+    # GitHub release tags carry a leading "v" (v30.3.0) while toolchain
+    # directories do not (~/.touring/toolchains/30.3.0). Accept either input
+    # form and normalise both spellings here.
+    case "$TOURING_VERSION" in
+        v*) RELEASE_TAG="$TOURING_VERSION"; TOURING_VERSION="${TOURING_VERSION#v}" ;;
+        *)  RELEASE_TAG="v${TOURING_VERSION}" ;;
+    esac
+    FROM_URL="${RELEASES_BASE}/${RELEASE_TAG}/touring-${TARGET_TRIPLE}.tar.gz"
     SOURCE_DESC="release channel ${FROM_URL}"
 fi
 TOOLCHAIN_DIR="${TOURING_HOME_DEFAULT}/toolchains/${TOURING_VERSION}"

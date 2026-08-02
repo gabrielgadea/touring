@@ -1,131 +1,235 @@
+<div align="center">
+
 # Touring
 
-> **The agentic code harness. Open, typed, auditable.**
+**The agentic code harness — open, typed, auditable.**
 
-[![version: 30.3.0](https://img.shields.io/badge/version-30.3.0-blue)]()
-[![license: tiered](https://img.shields.io/badge/license-tiered-green)]()
-[![rustc: 1.80+](https://img.shields.io/badge/rustc-1.80%2B-orange)]()
-[![tier: free | standard | premium | enterprise](https://img.shields.io/badge/tier-4%20tiers-purple)]()
+Code intelligence, execution sandboxing, and quality gates for AI coding agents.
+One Rust binary. Local-first. No telemetry.
 
-Touring is the **open-source, code-native, agent-first infrastructure** for
-the next generation of code-generating agents. It is a Cargo workspace
-(`crates/*`) of **42 crates**, wired into:
+[![CI](https://github.com/gabrielgadea/touring/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrielgadea/touring/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/gabrielgadea/touring?logo=github)](https://github.com/gabrielgadea/touring/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
+[![MSRV](https://img.shields.io/badge/rustc-1.85%2B-orange?logo=rust)](https://www.rust-lang.org)
 
-- **218 lifecycle hooks** (PreToolUse / PostToolUse / Session* / Task* / Hook* / CLI* / Neural* / RL*)
-- **120 CLI commands** + **88 MCP tools** + 1 binary
-- **5 RFCs** + **Constitution v8.0** as the master contract
-- **License tier model**: `free → standard → premium → enterprise` (additive)
-- **7 quality gates**: cargo check + clippy + test + e2e + cycles + orphans + TDG
-- **9 P3-NO-OP audit patterns** closed in 2026-06; tree in harmony
-
-## Quick start (5 minutes)
-
-```bash
-# 1. Install (Linux x86_64 / aarch64, macOS, Windows via WSL2)
-curl -fsSL https://touring.dev/install.sh | sh
-
-# 2. Verify
-touring --version
-touring doctor          # 6/6 OK expected
-touring index rebuild   # one-time index build for current project
-
-# 3. First query
-touring ast overview src/main.rs
-touring status -j       # composite health score visible
-```
-
-## What Touring is
-
-| You want | Touring gives you |
-|----------|-------------------|
-| Code intelligence at scale | `touring ast`, `touring wiring`, `touring tantivy` (Tantivy v5 schema) |
-| Agent harness for Claude Code | 218 hooks + CEG X0..X9 sandbox + 5 RFCs |
-| Code generation | 36 kinds via `touring-generator` (VGP pipeline) |
-| Polyglot (Rust/Python/TS/Go/...) | `touring-code::polyglot` (14 languages via tree-sitter) |
-| Inference sandbox | `inferlets` (WASM, 11 runtimes) + Z3 SMT solver for proofs |
-| RL/learned routing | `touring-intelligence::rl` (LinUCB + 8 arms + 25 dims) |
-| Per-project deployment | `touring-foundation::bin::resource-monitor` (W12) |
-| Commercial tiers | `touring-license` (Free / Standard / Premium / Enterprise) |
-
-## What Touring is NOT
-
-- **NOT an editor.** Touring is harness infrastructure; pair it with your editor.
-- **NOT a single binary per language.** Touring is one Rust binary + 88 MCP tools + the Claude Code MCP server.
-- **NOT a hosted service.** Touring is local-first; deploys per-project or system-wide.
-- **NOT a code-generation product.** Touring is the *substrate* for code-generating products.
-
-## Architecture (4 layers, 1 line of sight)
-
-```
-+================================================================+
-|  L4 SURFACE  —  CLI · MCP · hooks · dashboards                 |
-+================================================================+
-                          ↓
-+================================================================+
-|  L3 ORCHESTRATION  —  workflows · agents · tasks · RL routing  |
-+================================================================+
-                          ↓
-+================================================================+
-|  L2 INTELLIGENCE  —  code · storage · reasoning · learning     |
-+================================================================+
-                          ↓
-+================================================================+
-|  L1 INFRASTRUCTURE  —  types · error · alloc · config · ids   |
-+================================================================+
-```
-
-**Acyclic.** No back edges. 13 target productive crates (foundation, code,
-storage, intelligence, bindings, hooks, hooks-shared, hooks-prediction,
-server, server-reasoning, server-session, server-visual, orchestration)
-+ 11 auxiliaries + 12 compat shims. See `plan.md` Section I for the
-full architecture.
-
-## Where to next
-
-- 📘 **[Getting started](docs/landing/index.md)** — the 5-minute install + first query
-- 🏛️ **[Constitution v8.0](docs/CONSTITUTION-v8.md)** — the master contract
-- 📐 **[RFCs](docs/)** — 5 foundational RFCs (activity, PARCER, boundaries, identity, validation)
-- 📊 **[Premium refactor plan](docs/plans/touring-premium-refactor-2026/00-INDEX.md)** — the 16-wave roadmap
-- 🛡️ **[Security model](docs/explanation/architecture.md)** — CEG + Landlock + rlimit + cgroup
-- 🍳 **[Cookbook](docs/how-to/)** — recipes for common tasks
-
-## Stability + License
-
-| Bucket | Stability | Tier | Examples |
-|--------|-----------|------|----------|
-| Core | 🔒 locked (3) | free | foundation, code, storage, intelligence, hooks, server |
-| Internal | ✅ stable (2) | free | simd, rkyv, analysis, cortex, assists, offensive |
-| Experimental | 🧪 experimental (1) | free | cognitive, learning, antt, ast, ast-polyglot |
-| Compat shim | ✅ stable (2) | free | python, wasm, capnp-server, web, web-server |
-| Auxiliary | ✅ stable (2) | free | loom-proofs, integration-tests |
-
-**License tiers** (additive precedence via `touring-license`):
-
-| Tier | Cost | Support | Capabilities |
-|------|------|---------|--------------|
-| **Free** | $0 | Community (best-effort) | All public APIs |
-| **Standard** | $99/seat/yr | Discord + email (48h SLA) | + `jwt-verify`, + `tier-standard` features |
-| **Premium** | $499/seat/yr | Private Slack + monthly review (24h SLA) | + `tier-premium` features (MCTS-gated, conformal routing) |
-| **Enterprise** | Custom | Dedicated engineer + 99.9% SLA (4h, 24/7) | + `tier-enterprise` features (multi-tenant, on-prem) |
-
-## Contributing
-
-Read [CONSTITUTION-v8.md](docs/CONSTITUTION-v8.md) first. Then
-[CONTRIBUTING.md](CONTRIBUTING.md). Every PR passes the
-7-gate contract (cargo + clippy + test + e2e + cycles + orphans + TDG).
-
-## Credits
-
-- **Constitution v8.0** — TACO orchestrator + Gabriel Gadea (2026-05-09)
-- **Touring 30.x** — the `touring-orchestration` working group + Gabriel Gadea
-- **5 RFCs** — TACO working group (2026-04 to 2026-05)
-- **12-audit suite** — the S9 RFC-100 verification (2026-05-09)
-- **CAH roadmap closure** — 86.0% conformance, 35/37 CONFORME (2026-06-03)
+</div>
 
 ---
 
-_Touring 30.3.0 | daemon: healthy | workspace index: 2,147 files / 52,824 symbols (rebuilt 2026-06-06) | RL: LinUCB + 8 arms + 25 dims | hooks: 218 | e2e: 0.83 → target 0.90_
-<!-- index/symbol counts are the per-workspace figures; refresh via `touring index rebuild $PWD`. Crate/LOC metrics: `docs/sync_metrics.py`. -->
+## Why
 
+Coding agents fail in three predictable ways: they **edit code they don't
+understand**, they **run commands nobody sandboxed**, and they **claim success
+without proof**.
 
-_Generated 2026-06-04 by the TACO orchestrator (W1 of the upgrade plan)._
+Touring is the layer that closes all three. Before an agent edits a file, it can
+ask what breaks (`blast radius`). Before it runs a command, the gateway
+classifies and sandboxes it. Before it declares victory, quality gates say yes
+or no — fail-closed on security.
+
+It is infrastructure, not an assistant: everything is a CLI call that returns
+typed JSON in under 10 ms, so agents *and* humans use the same surface.
+
+## Install
+
+Download the release, verify the checksum, run it:
+
+```bash
+VERSION=v30.3.0
+BASE="https://github.com/gabrielgadea/touring/releases/download/$VERSION"
+
+curl -fsSLO "$BASE/touring-x86_64-unknown-linux-gnu.tar.gz"
+curl -fsSLO "$BASE/touring-x86_64-unknown-linux-gnu.tar.gz.sha256"
+sha256sum -c touring-x86_64-unknown-linux-gnu.tar.gz.sha256   # verify before running
+
+tar -xzf touring-x86_64-unknown-linux-gnu.tar.gz
+install -Dm755 touring ~/.local/bin/touring
+```
+
+Every release ships a **SHA-256 checksum** and a **CycloneDX SBOM**.
+Prefer building it yourself? See [Building and testing](#building-and-testing).
+
+## Usage
+
+First queries — each returns JSON, each runs in milliseconds:
+
+```bash
+touring doctor                 # health of every component
+touring index rebuild          # one-time index for the current project
+touring ast meta src/main.rs   # blast radius, quality score, fan-in/fan-out
+touring ast blast src/main.rs  # what breaks if I change this file
+touring index find MyStruct    # does this symbol exist, and who consumes it
+```
+
+The rule that pays for itself: **`ast meta` before every edit.** A file with a
+blast radius of 40 is not a file you refactor casually.
+
+## Building and testing
+
+Building from source requires Rust **1.85+**:
+
+```bash
+git clone https://github.com/gabrielgadea/touring
+cd touring
+cargo build --release          # binary at target/release/touring
+```
+
+Running the test suite — roughly 15.5k tests across the workspace:
+
+```bash
+cargo test --workspace                    # full suite
+cargo test -p touring-quality             # a single crate
+cargo clippy --workspace -- -D warnings   # the lint gate CI enforces
+```
+
+## What's inside
+
+Touring is a Cargo workspace of **42 crates** (~654k lines of Rust across 1,714
+files, ~15.5k tests). The capabilities below are the ones you actually invoke.
+
+### Code intelligence
+
+| Capability | Command | What it gives you |
+|---|---|---|
+| **Blast radius** | `touring ast blast <file>` | Full dependency tree — what breaks if you touch this |
+| **File triage** | `touring ast meta <file>` | Blast radius, quality score, cognitive score, fan-in/fan-out |
+| **Symbol lookup** | `touring index find <sym>` | Exact definition + consumers, indexed and constant-time |
+| **Transitive impact** | `touring wiring impact <sym>` | BFS over consumers — the real reach of a change |
+| **Cycle detection** | `touring wiring cycles` | Tarjan SCC over the dependency graph |
+| **Orphan detection** | `touring wiring orphans` | Public symbols nobody consumes (dead surface) |
+| **Full-text search** | `touring tantivy search "<q>"` | BM25-ranked, plus fuzzy and autocomplete |
+| **Rust semantics** | `touring ast rust-semantic <f>` | Generics, trait bounds, lifetimes, unsafe/async counts (via `syn`) |
+| **Structural search** | `touring ast grep <f> <pat>` | AST-level match *and* rewrite, polyglot |
+
+Parsing covers **13 languages** via tree-sitter — Rust, Python, TypeScript,
+JavaScript, Go, Java, Bash, HTML, CSS, JSON, YAML, TOML, Markdown.
+
+### Execution safety
+
+Every code-bearing action can be routed through the **Code Execution Gateway**
+— a typestate pipeline `X0..X9` (capture → classify → sandbox → gate → learn)
+where the sandbox and verification stages are structurally impossible to skip.
+
+```bash
+touring run --lang python --code 'print(sum(range(100)))'
+```
+
+Capabilities are **deny-by-default** (Deno-style). The sandbox runs 12
+languages: Python, JS/Node, TS/Bun, Ruby, Go, Rust, Perl, R, Elixir, PHP,
+Bash/sh. Credential environment variables are never on the allowlist.
+
+### Quality gates — 50 dimensions
+
+`touring-quality` scores code across **50 dimensions** in four families:
+architecture (12), security & performance (13), testing & documentation (13),
+ecosystem & operations (12).
+
+**Six are fail-closed BLOCK gates** — they stop the write, they don't warn:
+
+| Gate | Dimension |
+|---|---|
+| `F2.1` | OWASP Top 10 |
+| `F2.4` | Cryptographic issues |
+| `F2.5` | Dependency CVEs |
+| `F2.6` | Configuration security |
+| `F4.3` | Deprecated APIs |
+| `F4.5` | Package management |
+
+The remaining 44 are advisory (13 WARN, 31 log-only).
+
+```bash
+touring-quality list                                  # the full catalog
+touring-quality check --gate F2.1 --target src/       # one gate
+touring-quality score src/ --workspace --fail-below 0.80
+```
+
+### Learning and memory
+
+Touring gets better at *your* codebase across sessions, rather than restarting
+cold every time:
+
+- **Persistent memory** — `touring memory store` / `recall`, with semantic tiers,
+  FTS5 + vector recall. Lessons and gotchas survive the session.
+- **Reinforcement learning** — a LinUCB contextual bandit (8 arms) learns which
+  tools pay off in which context; `touring learning reward` closes the loop.
+- **Gotcha database** — `touring gotcha match <file>` surfaces pitfalls
+  previously hit on that file.
+- **Drift detection** — `touring evolution drift` flags when learned patterns
+  stop matching reality.
+
+### Agent workflows
+
+- **`touring adw`** — durable declarative agent workflows. Typed nodes
+  (`code` / `agent` / `gate` / `loop` / `human`), an fsync'd journal, and
+  `--resume-run` replay that survives `kill -9`.
+- **`touring factory`** — routes a ticket to the right workflow,
+  deterministic rules first, RL-fed.
+- **`touring explore`** — loop-until-dry exploration with a persistent
+  multi-lens ledger and an explicit convergence contract.
+- **`touring generate`** — code generation through a typestate pipeline
+  (Draft → Verified → Rendered → Speculated → Committed) with **36 templates**.
+  Symbols are verified to exist *before* generation, not after.
+
+### Agent integration
+
+**218 lifecycle hooks** cover the full tool-use surface (`PreToolUse`,
+`PostToolUse`, `Session*`, `Task*`), letting a harness enrich or gate every
+action an agent takes. Touring also ships an **MCP server**, so any
+MCP-compatible client can reach the same intelligence.
+
+## Architecture
+
+Four layers, acyclic — no back edges:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  L4  SURFACE          CLI · MCP · hooks · dashboards     │
+├──────────────────────────────────────────────────────────┤
+│  L3  ORCHESTRATION    workflows · agents · tasks · RL     │
+├──────────────────────────────────────────────────────────┤
+│  L2  INTELLIGENCE     code · storage · reasoning · learn  │
+├──────────────────────────────────────────────────────────┤
+│  L1  INFRASTRUCTURE   types · errors · config · identity  │
+└──────────────────────────────────────────────────────────┘
+```
+
+A daemon holds the index in memory; the CLI is a thin client over a Unix
+socket, which is why read-only queries answer in under 10 ms.
+
+## What Touring is not
+
+- **Not an editor.** It is harness infrastructure — pair it with yours.
+- **Not a hosted service.** Local-first. Nothing leaves your machine.
+- **Not an agent.** It is the substrate agents run *on*.
+- **Not a linter.** Linters check style; Touring answers structural questions
+  (*what breaks, who consumes this, is this safe to run*).
+
+## Documentation
+
+| | |
+|---|---|
+| 🚀 [Getting started](docs/landing/index.md) | Install and first queries |
+| 🏛️ [Constitution v8.0](docs/CONSTITUTION-v8.md) | The master contract |
+| 🏗️ [Architecture](docs/explanation/architecture.md) | Layers, daemon, security model |
+| 🍳 [How-to guides](docs/how-to/) | Task-oriented recipes |
+| 🔒 [Security policy](SECURITY.md) | Reporting vulnerabilities |
+| 🤝 [Contributing](CONTRIBUTING.md) | Development setup and gates |
+
+## Contributing
+
+Contributions are welcome. Every PR runs the same gates the project holds
+itself to: `cargo check`, `clippy -D warnings`, tests, e2e, dependency cycles,
+orphan symbols, and TDG scoring.
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md); please also read the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+Licensed under either of
+
+- Apache License 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option. Unless you state otherwise, any contribution you intentionally
+submit for inclusion shall be dual licensed as above, without additional terms.
