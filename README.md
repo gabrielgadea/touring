@@ -84,8 +84,9 @@ cargo clippy --workspace -- -D warnings   # the lint gate CI enforces
 
 ## What's inside
 
-Touring is a Cargo workspace of **42 crates** (~654k lines of Rust across 1,714
-files, ~15.5k tests). The capabilities below are the ones you actually invoke.
+Touring is a Cargo workspace of **42 crates** — ~584k lines of source Rust
+(~655k including tests) and 15,592 test functions. The capabilities below are
+the ones you actually invoke.
 
 ### Code intelligence
 

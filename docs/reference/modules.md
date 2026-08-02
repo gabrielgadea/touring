@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 350**
+**Count: 353**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -31,6 +31,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-analysis::health`
 - `touring-analysis::knowledge`
 - `touring-analysis::learning`
+- `touring-analysis::osv`
 - `touring-analysis::pipeline`
 - `touring-analysis::quality`
 - `touring-analysis::report`
@@ -97,7 +98,6 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::conflict`
 - `touring-foundation::diagnostic`
 - `touring-foundation::drift`
-- `touring-foundation::embedding`
 - `touring-foundation::error`
 - `touring-foundation::failover`
 - `touring-foundation::feedback`
@@ -140,13 +140,6 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-generator::template`
 - `touring-generator::validate`
 - `touring-generator::vgp`
-- `touring-harness::builtins`
-- `touring-harness::change`
-- `touring-harness::gate`
-- `touring-harness::history`
-- `touring-harness::report`
-- `touring-harness::runner`
-- `touring-harness::score`
 - `touring-hook-handlers::hook_decompose_bridge`
 - `touring-hook-handlers::mcts_materializer`
 - `touring-hook-runtime::auto_save_hook`
@@ -289,6 +282,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-intelligence::types`
 - `touring-lsp::error`
 - `touring-lsp::mapping`
+- `touring-lsp::quality_diagnostics`
 - `touring-lsp::server`
 - `touring-lsp::types`
 - `touring-offensive::bug_bounty`
@@ -300,9 +294,16 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-orchestration::flow`
 - `touring-orchestration::tasks`
 - `touring-quality::aggregate`
+- `touring-quality::builtins`
+- `touring-quality::change`
 - `touring-quality::composite`
+- `touring-quality::gate`
+- `touring-quality::history`
+- `touring-quality::report`
+- `touring-quality::runner`
 - `touring-quality::scope`
 - `touring-quality::scope_report`
+- `touring-quality::score`
 - `touring-quality::tier`
 - `touring-quality::verifications`
 - `touring-resilience::conflict`
@@ -317,6 +318,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-server::cli`
 - `touring-server::context_compiler`
 - `touring-server::daemon_client`
+- `touring-server::elite_tools`
 - `touring-server::error`
 - `touring-server::graph_service`
 - `touring-server::ingest`
@@ -333,6 +335,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-server::snapshot`
 - `touring-server::telemetry`
 - `touring-server::telemetry_init`
+- `touring-server::tool_catalog`
 - `touring-server::tools`
 - `touring-server-reasoning::reasoning`
 - `touring-server-session::session`

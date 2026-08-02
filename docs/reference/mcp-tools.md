@@ -4,8 +4,9 @@
 
 MCP tool names defined in `touring-server` (string-literal extraction). The default build exposes essentially all of them; a curated 22-tool surface is opt-in behind `--features mcp-curated` (default OFF), so this count is the full defined set, not the curated surface.
 
-**Count: 164**
+**Count: 167**
 
+- `ctx_execute`
 - `touring_activity_append`
 - `touring_activity_projection`
 - `touring_activity_replay`
@@ -22,6 +23,7 @@ MCP tool names defined in `touring-server` (string-literal extraction). The defa
 - `touring_ast_meta`
 - `touring_ast_overview`
 - `touring_ast_todos`
+- `touring_audit`
 - `touring_blast_radius_analysis`
 - `touring_checkpoint`
 - `touring_classify_intent`
@@ -149,6 +151,7 @@ MCP tool names defined in `touring-server` (string-literal extraction). The defa
 - `touring_resolve_project`
 - `touring_rlm`
 - `touring_scan_pii`
+- `touring_search`
 - `touring_search_docs`
 - `touring_search_symbols`
 - `touring_session`
