@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a capability or an improvement
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >
+        Describe the situation, not the solution. What are you doing today, and
+        where does it break down?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should Touring do? A command sketch helps.
+      placeholder: |
+        touring wiring impact <symbol> --format dot   # emit Graphviz
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing commands or workarounds you tried, and why they fell short.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this touch?
+      options:
+        - Code intelligence (ast / index / wiring / search)
+        - Execution safety (sandbox / gateway)
+        - Quality gates (50 dimensions)
+        - Learning and memory (RL / memory / gotchas)
+        - Agent workflows (adw / factory / explore / generate)
+        - Hooks and MCP integration
+        - CLI ergonomics / documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Would you be willing to work on this?
+      options:
+        - label: I would be willing to open a pull request for this

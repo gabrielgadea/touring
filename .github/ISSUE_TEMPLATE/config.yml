@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/gabrielgadea/touring/security/advisories/new
+    about: Report privately via a GitHub security advisory. Never in a public issue.
+  - name: Question or idea
+    url: https://github.com/gabrielgadea/touring/discussions
+    about: Ask questions and discuss ideas with the community.
+  - name: Documentation
+    url: https://github.com/gabrielgadea/touring/tree/main/docs
+    about: Guides, architecture notes, and the Constitution.

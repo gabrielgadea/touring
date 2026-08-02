@@ -1,0 +1,79 @@
+name: Bug report
+description: Something in Touring behaves incorrectly
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report.
+
+        If you believe you have found a **security vulnerability**, please do not
+        open a public issue — follow the security policy instead:
+        https://github.com/gabrielgadea/touring/blob/main/SECURITY.md
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect to happen, and what happened instead?
+      placeholder: |
+        I ran `touring ast blast src/main.rs` and expected the dependency tree,
+        but got an empty result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands, in order. Minimal beats complete.
+      placeholder: |
+        1. touring index rebuild
+        2. touring ast blast src/main.rs
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `touring doctor -j`
+      description: This reports the health of every component. Redact paths if needed.
+      render: json
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Touring version
+      description: Output of `touring --version`
+      placeholder: touring 30.3.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install it?
+      options:
+        - GitHub release tarball
+        - Built from source (cargo build --release)
+        - Other (describe above)
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture
+      placeholder: "Ubuntu 24.04, x86_64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Re-run with `RUST_LOG=debug` if the failure is not obvious.
+      render: shell
