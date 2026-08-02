@@ -14,6 +14,17 @@
    (`~/.touring/toolchains/`) são cópias imutáveis. Propagar exige passo explícito:
    `touring toolchain install --from-source . <versão> --force` e, por projeto,
    `touring update --project <root>` (rollback: `touring update --rollback`).
+2.1. **Propagação reprodutível em 1 comando (02/08/2026)**: `scripts/propagate-release.sh <versão>`
+   encadeia gates → `update-touring` → `toolchain install` → `toolchain default` →
+   `touring update` por projeto → verify. Rollback: `scripts/propagate-release.sh --rollback`.
+   Flags: `--dry-run --skip-build --skip-gates --skip-freeze --no-default`.
+   **Gotchas que o script encapsula** (ambos verificados por execução):
+   (a) `touring update --all-projects` SEM canal resolve pelo lock de cada projeto —
+   mantém a versão velha e NÃO propaga a nova; COM canal (`touring update <v> --all-projects`)
+   arrasta o workspace FONTE de `dev` para `<v>`, quebrando o dev iterativo. Por isso o
+   script itera projeto a projeto pulando a fonte.
+   (b) `touring --version` escreve em **stderr**, não stdout — `2>/dev/null` apaga a
+   versão e qualquer gate de verificação passa sem verificar nada.
 3. **Gates (REGRA #21 — 0 falhas)**: `cargo check` + `clippy -D warnings` + testes dos
    crates tocados + `touring e2e -j` (baseline composite 0.8749) antes de declarar pronto.
    Validators por fase do programa: `docs/plans/touring-productization-pln2/validate_*.sh`.
