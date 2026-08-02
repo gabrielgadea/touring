@@ -148,7 +148,7 @@ exclude_re = "(?i)(log|trace|debug|tracing|metric)"
 version = "30.3.0"
 license = "MIT OR Apache-2.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.95"
 authors = ["Gabriel Gadea"]
 # CICD-05 (repo identity, 2026-06-16): canonical project identity for crates.io /
 # docs.rs / SBOM provenance. The repository URL matches the one `scripts/install.sh`

@@ -264,7 +264,15 @@ jobs:
         with:
           tool: cargo-fuzz
       - name: cargo fuzz build
-        run: cargo fuzz build
+        # 2026-08-02: `+nightly` is REQUIRED here, not decorative.
+        # dtolnay/rust-toolchain@nightly installs nightly and makes it the rustup
+        # DEFAULT, but this repo ships a rust-toolchain.toml pinning
+        # `channel = "stable"`, and a toolchain file overrides the default for
+        # any cargo invocation inside the directory. cargo-fuzz then compiled
+        # with stable and died on its own sanitizer flags:
+        #   error: the option `Z` is only accepted on the nightly compiler
+        # Only an explicit `+toolchain` outranks rust-toolchain.toml.
+        run: cargo +nightly fuzz build
 
   msrv:
     # RBP-04 + RBP-10 (2026-06-16): the workspace declares `rust-version = "1.85"`,
@@ -272,14 +280,19 @@ jobs:
     # rustc >= 1.85). This job ENFORCES that contract: the workspace must actually
     # compile on the declared MSRV, so a future use of a >1.85 feature fails the build
     # instead of silently raising the real MSRV.
-    name: MSRV (rust 1.85)
+    name: MSRV (rust 1.95)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.95
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@v2
-      - name: cargo +1.85 check (declared MSRV holds)
-        run: cargo check --workspace
+      # 2026-08-02: this job was a FALSE GREEN. The step was named `cargo +1.85
+      # check` but ran plain `cargo check`, and rust-toolchain.toml
+      # (channel = "stable") overrides the rustup default that
+      # dtolnay/rust-toolchain sets — so it compiled on stable and never once
+      # exercised the declared MSRV. The `+<version>` is what makes the gate real.
+      - name: cargo +1.95 check (declared MSRV holds)
+        run: cargo +1.95 check --workspace

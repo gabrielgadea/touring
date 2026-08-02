@@ -10,7 +10,7 @@ One Rust binary. Local-first. No telemetry.
 [![CI](https://github.com/gabrielgadea/touring/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrielgadea/touring/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/gabrielgadea/touring?logo=github)](https://github.com/gabrielgadea/touring/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
-[![MSRV](https://img.shields.io/badge/rustc-1.85%2B-orange?logo=rust)](https://www.rust-lang.org)
+[![MSRV](https://img.shields.io/badge/rustc-1.95%2B-orange?logo=rust)](https://www.rust-lang.org)
 
 </div>
 
@@ -66,7 +66,7 @@ blast radius of 40 is not a file you refactor casually.
 
 ## Building and testing
 
-Building from source requires Rust **1.85+**:
+Building from source requires Rust **1.95+**:
 
 ```bash
 git clone https://github.com/gabrielgadea/touring
