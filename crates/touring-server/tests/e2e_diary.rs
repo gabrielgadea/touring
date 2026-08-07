@@ -29,7 +29,15 @@ fn resolve_bin(name: &str) -> PathBuf {
             }
         }
     }
-    PathBuf::from(format!("/home/gabrielgadea/.local/bin/{name}"))
+    // Fallback: the user's own install dir, derived from $HOME. It used to be
+    // the literal `/home/gabrielgadea/.local/bin/…`, which resolves nowhere on
+    // a CI runner — and a test whose fallback cannot exist is a test that only
+    // ever ran on one machine (run 31166066285, 2026-08-07).
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    home.map_or_else(
+        || PathBuf::from(name),
+        |h| h.join(".local").join("bin").join(name),
+    )
 }
 
 fn touring_bin() -> PathBuf {
