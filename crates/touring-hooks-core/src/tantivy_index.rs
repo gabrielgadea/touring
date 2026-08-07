@@ -1357,9 +1357,14 @@ fn index_dir_for(root: Option<&Path>) -> Option<PathBuf> {
 /// cross-project, e **eviction silenciosa**, já que `doc_id` deriva de um
 /// `file_path` RELATIVO (ver `identical_relative_coordinates_collapse_to_one_document`).
 ///
-/// O sucesso é definitivo; a **falha é retentável** (limitada por
-/// [`GLOBAL_INIT_RETRY_INTERVAL`]), de modo que uma indisponibilidade passageira
-/// no boot não condene o processo inteiro.
+/// O sucesso é definitivo; a **falha é retentável**, limitada a uma tentativa a
+/// cada 30 s por diretório (`GLOBAL_INIT_RETRY_INTERVAL`), de modo que uma
+/// indisponibilidade passageira no boot não condene o processo inteiro.
+///
+/// O intervalo aparece aqui como valor, não como link: a constante é privada e
+/// `rustdoc::private_intra_doc_links` é negado no CI (`cargo doc --no-deps
+/// --workspace`, run 31167352279). Publicá-la só para o link funcionar alargaria
+/// a API por um detalhe de sintonia; o número é o que o leitor precisa.
 pub fn tantivy_for(root: Option<&Path>) -> Option<&'static TantivyIndex> {
     let dir = index_dir_for(root)?;
     let registry = REGISTRY.get_or_init(dashmap::DashMap::new);
