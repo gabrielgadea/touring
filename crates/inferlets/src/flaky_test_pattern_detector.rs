@@ -73,26 +73,25 @@ fn parse_test_log(log_path: &str) -> Option<HashMap<String, (usize, usize)>> {
     for line in content.lines() {
         let line = line.trim();
         // Match patterns like: "test test_session_resume ... FAILED" or "test test_session_resume ... ok"
-        if let Some(rest) = line.strip_prefix("test ") {
-            if let Some(name_end) = rest.find(' ') {
-                let name_and_status = &rest[..name_end];
-                if let Some(name) = name_and_status.split_whitespace().next() {
-                    let name = name.to_string();
-                    let entry = results.entry(name).or_insert((0, 0));
-                    entry.1 += 1;
-                    if line.contains("FAILED") {
-                        entry.0 += 1;
-                    }
+        if let Some(rest) = line.strip_prefix("test ")
+            && let Some(name_end) = rest.find(' ')
+        {
+            let name_and_status = &rest[..name_end];
+            if let Some(name) = name_and_status.split_whitespace().next() {
+                let name = name.to_string();
+                let entry = results.entry(name).or_insert((0, 0));
+                entry.1 += 1;
+                if line.contains("FAILED") {
+                    entry.0 += 1;
                 }
             }
         }
         // Also handle "running N tests" header to get total
-        if let Some(count) = line.strip_prefix("running ") {
-            if let Some(n) = count.split_whitespace().next() {
-                if let Ok(_num) = n.parse::<usize>() {
-                    // Track this as a total for the next set of tests
-                }
-            }
+        if let Some(count) = line.strip_prefix("running ")
+            && let Some(n) = count.split_whitespace().next()
+            && let Ok(_num) = n.parse::<usize>()
+        {
+            // Track this as a total for the next set of tests
         }
     }
 

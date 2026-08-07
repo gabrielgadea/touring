@@ -24,6 +24,25 @@
 use std::path::Path;
 use touring_hooks::knowledge::FileKnowledgeDB;
 
+/// The workspace root the canonicalizer strips — resolved from the SAME source
+/// as `knowledge_wiring::workspace_root_marker` (`TOURING_WORKSPACE_ROOT`, else
+/// the canonical path).
+///
+/// These F2 tests used to hardcode `/home/gabrielgadea/.claude/rust/`, the root
+/// FROZEN by the 2026-07-24 relocation. Production was updated to the new root
+/// and the tests were not, so `canonicalize_module_path` correctly left the
+/// legacy prefix untouched and the assertions failed against correct code.
+/// Deriving the root tests the *behaviour* (absolute → workspace-relative)
+/// instead of one historical literal, and cannot rot on the next move.
+fn abs_in_workspace(relative: &str) -> String {
+    let mut root = std::env::var("TOURING_WORKSPACE_ROOT")
+        .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring".to_string());
+    if !root.ends_with('/') {
+        root.push('/');
+    }
+    format!("{root}{relative}")
+}
+
 fn fresh_db() -> FileKnowledgeDB {
     FileKnowledgeDB::new(Path::new(":memory:")).expect("in-memory DB opens")
 }
@@ -119,7 +138,7 @@ fn f1_legacy_md_row_filtered_out_by_select() {
 fn f2_absolute_path_at_register_becomes_relative_in_query() {
     let db = fresh_db();
     db.register_pub_symbol(
-        "/home/gabrielgadea/.claude/rust/crates/foo/src/lib.rs",
+        &abs_in_workspace("crates/foo/src/lib.rs"),
         "Foo",
         "struct",
         "public",
@@ -135,7 +154,7 @@ fn f2_producer_absolute_consumer_relative_match() {
     let db = fresh_db();
     // Producer registered with absolute path
     db.register_pub_symbol(
-        "/home/gabrielgadea/.claude/rust/crates/foo/src/lib.rs",
+        &abs_in_workspace("crates/foo/src/lib.rs"),
         "do_thing",
         "function",
         "public",
@@ -461,8 +480,8 @@ fn f2_migrate_canonicalize_paths_rewrites_legacy_absolute_rows() {
     db.conn_ref()
         .execute(
             "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
-             VALUES ('/home/gabrielgadea/.claude/rust/crates/foo/src/lib.rs', 'Bar', 'struct', 'public', 'legacy')",
-            [],
+             VALUES (?1, 'Bar', 'struct', 'public', 'legacy')",
+            [abs_in_workspace("crates/foo/src/lib.rs")],
         )
         .expect("raw insert");
     let updated = db.migrate_canonicalize_paths().expect("migration");

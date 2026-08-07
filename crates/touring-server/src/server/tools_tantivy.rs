@@ -34,10 +34,22 @@ impl TouringServer {
         let query = p.query.clone();
         let limit = p.limit.unwrap_or(10);
 
+        // A raiz vem do config do servidor; o closure e `move`, entao clonamos
+        // antes. Ate 03/08/2026 estas tools liam o indice LEGADO global,
+        // servindo simbolos de outros projetos a esta sessao MCP.
+        let project_root = self.config.project_root.clone();
         let result = tokio::task::spawn_blocking(move || {
-            let Some(idx) = touring_hooks::tantivy_index::global_tantivy() else {
+            let Some(idx) = touring_hooks::tantivy_index::tantivy_for(Some(&project_root)) else {
                 return serde_json::json!({"error": "tantivy index unavailable"});
             };
+            // F2: um índice sem documentos responde a CONDIÇÃO, não um `[]` que
+            // o cliente leria como "esse símbolo não existe".
+            if idx.is_empty() {
+                return serde_json::json!({
+                    "error": touring_hooks::tantivy_index::EMPTY_INDEX_MESSAGE,
+                    "total_docs": 0,
+                });
+            }
             match idx.search(&query, limit) {
                 Ok(hits) => serde_json::to_value(&hits)
                     .unwrap_or_else(|e| serde_json::json!({"error": format!("serialize: {e}")})),
@@ -70,10 +82,20 @@ impl TouringServer {
         let distance = p.distance.unwrap_or(2);
         let limit = p.limit.unwrap_or(10);
 
+        // A raiz vem do config do servidor; o closure e `move`, entao clonamos
+        // antes. Ate 03/08/2026 estas tools liam o indice LEGADO global,
+        // servindo simbolos de outros projetos a esta sessao MCP.
+        let project_root = self.config.project_root.clone();
         let result = tokio::task::spawn_blocking(move || {
-            let Some(idx) = touring_hooks::tantivy_index::global_tantivy() else {
+            let Some(idx) = touring_hooks::tantivy_index::tantivy_for(Some(&project_root)) else {
                 return serde_json::json!({"error": "tantivy index unavailable"});
             };
+            if idx.is_empty() {
+                return serde_json::json!({
+                    "error": touring_hooks::tantivy_index::EMPTY_INDEX_MESSAGE,
+                    "total_docs": 0,
+                });
+            }
             match idx.fuzzy_search(&query, distance, limit) {
                 Ok(hits) => serde_json::to_value(&hits)
                     .unwrap_or_else(|e| serde_json::json!({"error": format!("serialize: {e}")})),
@@ -100,8 +122,12 @@ impl TouringServer {
         &self,
         _params: Parameters<TantivyStatsParams>,
     ) -> Result<CallToolResult, McpError> {
+        // A raiz vem do config do servidor; o closure e `move`, entao clonamos
+        // antes. Ate 03/08/2026 estas tools liam o indice LEGADO global,
+        // servindo simbolos de outros projetos a esta sessao MCP.
+        let project_root = self.config.project_root.clone();
         let result = tokio::task::spawn_blocking(move || {
-            let Some(idx) = touring_hooks::tantivy_index::global_tantivy() else {
+            let Some(idx) = touring_hooks::tantivy_index::tantivy_for(Some(&project_root)) else {
                 return serde_json::json!({"error": "tantivy index unavailable"});
             };
             serde_json::to_value(idx.stats())
@@ -131,8 +157,12 @@ impl TouringServer {
         let prefix = p.prefix.clone();
         let limit = p.limit.unwrap_or(10);
 
+        // A raiz vem do config do servidor; o closure e `move`, entao clonamos
+        // antes. Ate 03/08/2026 estas tools liam o indice LEGADO global,
+        // servindo simbolos de outros projetos a esta sessao MCP.
+        let project_root = self.config.project_root.clone();
         let result = tokio::task::spawn_blocking(move || {
-            let Some(idx) = touring_hooks::tantivy_index::global_tantivy() else {
+            let Some(idx) = touring_hooks::tantivy_index::tantivy_for(Some(&project_root)) else {
                 return serde_json::json!({"error": "tantivy index unavailable"});
             };
             match idx.suggest(&prefix, limit) {
@@ -166,8 +196,12 @@ impl TouringServer {
         &self,
         _params: Parameters<TantivyReindexParams>,
     ) -> Result<CallToolResult, McpError> {
+        // A raiz vem do config do servidor; o closure e `move`, entao clonamos
+        // antes. Ate 03/08/2026 estas tools liam o indice LEGADO global,
+        // servindo simbolos de outros projetos a esta sessao MCP.
+        let project_root = self.config.project_root.clone();
         let result = tokio::task::spawn_blocking(move || {
-            let Some(idx) = touring_hooks::tantivy_index::global_tantivy() else {
+            let Some(idx) = touring_hooks::tantivy_index::tantivy_for(Some(&project_root)) else {
                 return serde_json::json!({"error": "tantivy index unavailable"});
             };
             // Reindex with an empty symbol list — clears all documents and commits.

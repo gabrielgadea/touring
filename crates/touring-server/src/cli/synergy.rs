@@ -543,10 +543,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         // Check if body is opportunities-only (no wired_pairs or pairs key).
         let is_opportunities_only =
             body.get("wired_pairs").is_none() && body.get("pairs").is_none();
-        if !is_opportunities_only {
-            if let Some(metrics) = fetch_gate_metrics_or_none() {
-                enrich_pairs_with_metrics(&mut body, &metrics);
-            }
+        if !is_opportunities_only && let Some(metrics) = fetch_gate_metrics_or_none() {
+            enrich_pairs_with_metrics(&mut body, &metrics);
         }
     }
 

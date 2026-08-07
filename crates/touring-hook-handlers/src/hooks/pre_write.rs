@@ -244,22 +244,21 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         let complexity = touring_analysis::analyze_complexity(content, lang);
         if let Some(reward) =
             crate::health_delta::complexity_reward(complexity.max_complexity as u32)
+            && reward < 0.0
         {
-            if reward < 0.0 {
-                runtime
-                    .learning
-                    .inject_reward("pre_write", reward, "high_complexity");
-            }
+            runtime
+                .learning
+                .inject_reward("pre_write", reward, "high_complexity");
         }
 
         // Unwrap penalty
         let unwrap_audit = touring_analysis::analyze_unwraps(content);
-        if let Some(reward) = crate::health_delta::unwrap_penalty(unwrap_audit.count, line_count) {
-            if reward < 0.0 {
-                runtime
-                    .learning
-                    .inject_reward("pre_write", reward, "high_unwrap_density");
-            }
+        if let Some(reward) = crate::health_delta::unwrap_penalty(unwrap_audit.count, line_count)
+            && reward < 0.0
+        {
+            runtime
+                .learning
+                .inject_reward("pre_write", reward, "high_unwrap_density");
         }
     }
 
@@ -402,23 +401,23 @@ fn collect_upfront_signals(
     // ── Tantivy BM25: related docstrings from other files (same module concepts) ──
     // Mirrors pre_read.rs:collect_index_signals pattern. Feature-gated tantivy-fts.
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = tantivy_related_docs_signal(rel_path) {
+    if let Some(s) = tantivy_related_docs_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = tantivy_fuzzy_file_signal(rel_path) {
+    if let Some(s) = tantivy_fuzzy_file_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = tantivy_kind_context_signal(rel_path) {
+    if let Some(s) = tantivy_kind_context_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = tantivy_crate_origin_signal(rel_path) {
+    if let Some(s) = tantivy_crate_origin_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = tantivy_fuzzy_symbol_signal(rel_path) {
+    if let Some(s) = tantivy_fuzzy_symbol_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
 
@@ -452,10 +451,10 @@ fn collect_upfront_signals(
     // ── Signal I-6: Extended metadata — test coverage + community affinity ──
     // Surfaces coverage_pct (untested files need careful writing) and community_id
     // (module cluster membership) from the schema-v8 LEFT JOIN enrichment query.
-    if let Ok(Some(ext)) = runtime.ctx.knowledge.query_extended(rel_path) {
-        if let Some(sig) = hook_helpers::build_file_meta_signal(&ext) {
-            signals.push((0.5, sig));
-        }
+    if let Ok(Some(ext)) = runtime.ctx.knowledge.query_extended(rel_path)
+        && let Some(sig) = hook_helpers::build_file_meta_signal(&ext)
+    {
+        signals.push((0.5, sig));
     }
 
     // ── Signal I-7: Pensieve lookup — past failure pattern detection ──
@@ -463,21 +462,21 @@ fn collect_upfront_signals(
     // Mirrors pre_bash.rs E15 pattern using command_to_states for path hashing.
     {
         let states = crate::shared::command_hash::command_to_states(rel_path);
-        if !states.is_empty() {
-            if let Ok(pensieve) = runtime.learning.pensieve.try_borrow() {
-                let penalty = match states.first() {
-                    Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
-                    _ => pensieve.check_known_failure_seq(&states),
-                };
-                if let Some(sim) = penalty {
-                    signals.push((
-                        1.2,
-                        format!(
-                            "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
-                            sim * 100.0
-                        ),
-                    ));
-                }
+        if !states.is_empty()
+            && let Ok(pensieve) = runtime.learning.pensieve.try_borrow()
+        {
+            let penalty = match states.first() {
+                Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
+                _ => pensieve.check_known_failure_seq(&states),
+            };
+            if let Some(sim) = penalty {
+                signals.push((
+                    1.2,
+                    format!(
+                        "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
+                        sim * 100.0
+                    ),
+                ));
             }
         }
     }
@@ -522,13 +521,12 @@ fn knowledge_signals_with_runtime(
     }
 
     // Signal 3: Notes/gotchas (accumulated knowledge).
-    if let Ok(Some(k)) = db.lookup(rel_path) {
-        if let Some(notes) = &k.notes {
-            if !notes.is_empty() {
-                let short = truncate_str(notes, 100);
-                signals.push((1.5, format!("note: {short}")));
-            }
-        }
+    if let Ok(Some(k)) = db.lookup(rel_path)
+        && let Some(notes) = &k.notes
+        && !notes.is_empty()
+    {
+        let short = truncate_str(notes, 100);
+        signals.push((1.5, format!("note: {short}")));
     }
 
     // Signal 4: Gotcha patterns (audit-learned anti-patterns), ranked by
@@ -584,10 +582,10 @@ fn knowledge_signals_with_runtime(
     // uses the pre-cached predictor from `ContextRuntime`; this cold-path
     // ensures predictions are still emitted when the cache misses.
     // Skipped when `runtime` is None (unit tests).
-    if let Some(rt) = runtime {
-        if let Some(s) = collect_error_prediction_signal(rt, rel_path) {
-            signals.push(s);
-        }
+    if let Some(rt) = runtime
+        && let Some(s) = collect_error_prediction_signal(rt, rel_path)
+    {
+        signals.push(s);
     }
 
     signals

@@ -35,71 +35,52 @@ pub fn cli_entity_resolve(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         .to_string();
     }
 
-    // P3.3: Entity registry integration — use actual registry from InfraRuntime
+    // P3.3: Entity registry integration — use actual registry from InfraRuntime.
+    //
+    // The lazy-init path used to carry a byte-identical copy of the whole
+    // resolve-and-serialize block. Initialising *first* and resolving *once*
+    // preserves both behaviours — an already-initialised registry is used as
+    // is, an absent one is built and then used — with a single call site.
+    // `needs_init` is bound to a `let` so the `RefCell` borrow ends before
+    // `init_entity_registry` takes its own mutable borrow.
+    let needs_init = rt.infra.entity_registry.borrow().is_none();
+    if needs_init {
+        rt.init_entity_registry();
+    }
     let entity_registry = rt.infra.entity_registry.borrow();
-    match entity_registry.as_ref() {
-        Some(registry) => {
-            match registry.resolve(symbol, context_module, crate_filter, limit) {
-                Ok(result) => {
-                    let response = serde_json::json!({
-                        "symbol": symbol,
-                        "is_generic": result.disambiguated_count > 1,
-                        "total_candidates": result.total_candidates,
-                        "disambiguated_count": result.disambiguated_count,
-                        "candidates": result.candidates.iter().map(|c| {
-                            serde_json::json!({
-                                "entity_code": c.entity_code,
-                                "module_path": c.module_path,
-                                "file_path": c.file_path,
-                                "line": c.line,
-                                "confidence": c.confidence
-                            })
-                        }).collect::<Vec<_>>(),
-                        "status": "resolved",
-                        "context_hint": context_module.or(crate_filter).map(|s| s.to_string())
-                    });
-                    return response.to_string();
-                }
-                Err(e) => {
-                    // Fall through to design_only on error
-                    tracing::warn!("entity_registry.resolve failed: {}", e);
-                }
+    if let Some(registry) = entity_registry.as_ref() {
+        match registry.resolve(symbol, context_module, crate_filter, limit) {
+            Ok(result) => {
+                let response = serde_json::json!({
+                    "symbol": symbol,
+                    "is_generic": result.disambiguated_count > 1,
+                    "total_candidates": result.total_candidates,
+                    "disambiguated_count": result.disambiguated_count,
+                    "candidates": result.candidates.iter().map(|c| {
+                        serde_json::json!({
+                            "entity_code": c.entity_code,
+                            "module_path": c.module_path,
+                            "file_path": c.file_path,
+                            "line": c.line,
+                            "confidence": c.confidence
+                        })
+                    }).collect::<Vec<_>>(),
+                    "status": "resolved",
+                    "context_hint": context_module.or(crate_filter).map(|s| s.to_string())
+                });
+                return response.to_string();
             }
-        }
-        None => {
-            // Registry not initialized yet — call init and retry
-            drop(entity_registry);
-            rt.init_entity_registry();
-            let entity_registry = rt.infra.entity_registry.borrow();
-            if let Some(registry) = entity_registry.as_ref() {
-                match registry.resolve(symbol, context_module, crate_filter, limit) {
-                    Ok(result) => {
-                        let response = serde_json::json!({
-                            "symbol": symbol,
-                            "is_generic": result.disambiguated_count > 1,
-                            "total_candidates": result.total_candidates,
-                            "disambiguated_count": result.disambiguated_count,
-                            "candidates": result.candidates.iter().map(|c| {
-                                serde_json::json!({
-                                    "entity_code": c.entity_code,
-                                    "module_path": c.module_path,
-                                    "file_path": c.file_path,
-                                    "line": c.line,
-                                    "confidence": c.confidence
-                                })
-                            }).collect::<Vec<_>>(),
-                            "status": "resolved",
-                            "context_hint": context_module.or(crate_filter).map(|s| s.to_string())
-                        });
-                        return response.to_string();
-                    }
-                    Err(e) => {
-                        tracing::warn!("entity_registry.resolve failed after init: {}", e);
-                    }
-                }
+            Err(e) => {
+                // Fall through to design_only on error.
+                tracing::warn!(
+                    "entity_registry.resolve failed{}: {}",
+                    if needs_init { " after init" } else { "" },
+                    e
+                );
             }
         }
     }
+    drop(entity_registry);
 
     // P3.3: Fallback to design_only if registry unavailable or error
     serde_json::json!({

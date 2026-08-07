@@ -647,10 +647,10 @@ fn find_ws_recursive(
             let path_str = path.to_string_lossy();
             if pattern.is_match(&path_str) {
                 if let Some(cre) = content_re {
-                    if let Ok(content) = std::fs::read_to_string(&path) {
-                        if cre.is_match(&content) {
-                            results.push(path_str.into_owned());
-                        }
+                    if let Ok(content) = std::fs::read_to_string(&path)
+                        && cre.is_match(&content)
+                    {
+                        results.push(path_str.into_owned());
                     }
                 } else {
                     results.push(path_str.into_owned());

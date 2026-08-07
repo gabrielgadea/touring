@@ -238,10 +238,10 @@ impl PatternFrequencyTracker {
                 .or_default()
                 .push(ctx.to_string());
 
-            if let Some(ctxs) = self.contexts.get_mut(keyword) {
-                if ctxs.len() > 100 {
-                    ctxs.drain(0..50);
-                }
+            if let Some(ctxs) = self.contexts.get_mut(keyword)
+                && ctxs.len() > 100
+            {
+                ctxs.drain(0..50);
             }
         }
     }
@@ -387,13 +387,12 @@ impl NlpPipeline {
         };
 
         // Cache chunks if not from cache
-        if !from_cache {
-            if let Some(ref mem_arc) = self.memory {
-                if let Ok(json) = serde_json::to_string(&chunks) {
-                    let mem = mem_arc.lock().unwrap_or_else(|e| e.into_inner());
-                    let _ = mem.store(&cache_key, MemoryTier::Working, &json, Some("chunks"), None);
-                }
-            }
+        if !from_cache
+            && let Some(ref mem_arc) = self.memory
+            && let Ok(json) = serde_json::to_string(&chunks)
+        {
+            let mem = mem_arc.lock().unwrap_or_else(|e| e.into_inner());
+            let _ = mem.store(&cache_key, MemoryTier::Working, &json, Some("chunks"), None);
         }
 
         let monetary_values = self.extract_monetary(content);
@@ -498,17 +497,17 @@ impl NlpPipeline {
             created_at: now,
         };
 
-        if let Some(ref mem_arc) = self.memory {
-            if let Ok(json) = serde_json::to_string(&record) {
-                let key = format!(
-                    "{}{}:{}",
-                    VALIDATION_PREFIX,
-                    truncate_str(assertion_content, 32),
-                    now
-                );
-                let mem = mem_arc.lock().unwrap_or_else(|e| e.into_inner());
-                let _ = mem.store(&key, MemoryTier::Reference, &json, Some("validation"), None);
-            }
+        if let Some(ref mem_arc) = self.memory
+            && let Ok(json) = serde_json::to_string(&record)
+        {
+            let key = format!(
+                "{}{}:{}",
+                VALIDATION_PREFIX,
+                truncate_str(assertion_content, 32),
+                now
+            );
+            let mem = mem_arc.lock().unwrap_or_else(|e| e.into_inner());
+            let _ = mem.store(&key, MemoryTier::Reference, &json, Some("validation"), None);
         }
 
         // Update stats

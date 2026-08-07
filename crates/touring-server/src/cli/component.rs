@@ -227,23 +227,22 @@ pub(crate) fn list_components(
         let tc_bin = touring_home.join("toolchains").join(c).join("bin");
         if let Ok(entries) = std::fs::read_dir(&tc_bin) {
             for e in entries.flatten() {
-                if let Ok(name) = e.file_name().into_string() {
-                    if !PROJECT_BINARIES.contains(&name.as_str()) {
-                        optional.push(name);
-                    }
+                if let Ok(name) = e.file_name().into_string()
+                    && !PROJECT_BINARIES.contains(&name.as_str())
+                {
+                    optional.push(name);
                 }
             }
         }
     }
     if let Ok(entries) = std::fs::read_dir(dev_bin_dir) {
         for e in entries.flatten() {
-            if let Ok(name) = e.file_name().into_string() {
-                if name.starts_with("touring")
-                    && !PROJECT_BINARIES.contains(&name.as_str())
-                    && !optional.contains(&name)
-                {
-                    optional.push(name);
-                }
+            if let Ok(name) = e.file_name().into_string()
+                && name.starts_with("touring")
+                && !PROJECT_BINARIES.contains(&name.as_str())
+                && !optional.contains(&name)
+            {
+                optional.push(name);
             }
         }
     }

@@ -102,7 +102,7 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     // Signals 3-6: Content-aware warnings (syntax, complexity, shadowing, anti-patterns)
     // Also captures the SpeculateResult for reuse by the deny gate (avoids duplicate
     // speculate_v2 call — E5 optimization).
-    let (content_warns, spec_result) = compose_content_warnings(new_string, file_path);
+    let (content_warns, spec_result) = compose_content_warnings(Some(&runtime.project_root), new_string, file_path);
     all_warnings.extend(content_warns);
 
     // Signal 7: Invalid cfg condition detection
@@ -128,10 +128,10 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     // ── Signal 11: Extended metadata — test coverage + community affinity ──
     // Surfaces low coverage or community membership so Claude can prioritize
     // adding tests for uncovered files and understand module groupings.
-    if let Ok(Some(ext)) = runtime.ctx.knowledge.query_extended(&rel_path) {
-        if let Some(sig) = hook_helpers::build_file_meta_signal(&ext) {
-            all_warnings.push(sig);
-        }
+    if let Ok(Some(ext)) = runtime.ctx.knowledge.query_extended(&rel_path)
+        && let Some(sig) = hook_helpers::build_file_meta_signal(&ext)
+    {
+        all_warnings.push(sig);
     }
 
     // ── DENY gate: critical syntax/structural breakage ──
@@ -363,6 +363,7 @@ fn collect_decay_error_warnings(db: &FileKnowledgeDB, file_path: &str) -> Vec<St
 /// - **Signal 5**: Scope shadowing detection via `build_scope_map`
 /// - **Signal 6**: Structural anti-patterns (e.g. `.unwrap()` in Rust)
 pub fn compose_content_warnings(
+    project_root: Option<&std::path::Path>,
     new_string: &str,
     file_path: &str,
 ) -> (Vec<String>, Option<SpeculateResult>) {
@@ -392,7 +393,7 @@ pub fn compose_content_warnings(
     // Surfaces what other files in the same module define so Claude can detect
     // naming conflicts and follow conventions during content edits.
     #[cfg(feature = "tantivy-fts")]
-    if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(file_path) {
+    if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(project_root, file_path) {
         warnings.push(s);
     }
 
@@ -690,14 +691,14 @@ fn collect_api_signature_changes(
     let new_sigs = extract_pub_fn_signatures(new_string);
     let mut issues = Vec::new();
     for (name, old_sig) in &old_sigs {
-        if let Some(new_sig) = new_sigs.get(name.as_str()) {
-            if old_sig != new_sig {
-                // Query wiring_map for all files that import this symbol
-                let caller_detail = format_caller_detail(db, module_file, name);
-                issues.push(format!(
-                    "⚠ SIGNATURE CHANGED: `pub fn {name}` — {old_sig} → {new_sig}{caller_detail}"
-                ));
-            }
+        if let Some(new_sig) = new_sigs.get(name.as_str())
+            && old_sig != new_sig
+        {
+            // Query wiring_map for all files that import this symbol
+            let caller_detail = format_caller_detail(db, module_file, name);
+            issues.push(format!(
+                "⚠ SIGNATURE CHANGED: `pub fn {name}` — {old_sig} → {new_sig}{caller_detail}"
+            ));
         }
     }
     issues
@@ -954,7 +955,7 @@ mod tests {
 
     #[test]
     fn test_content_warnings_empty_string() {
-        let (warnings, spec) = compose_content_warnings("", "test.rs");
+        let (warnings, spec) = compose_content_warnings(None, "", "test.rs");
         assert!(
             warnings.is_empty(),
             "Empty content should produce no warnings"
@@ -967,7 +968,7 @@ mod tests {
 
     #[test]
     fn test_content_warnings_clean_code() {
-        let (warnings, spec) = compose_content_warnings("fn clean() -> u32 { 42 }", "test.rs");
+        let (warnings, spec) = compose_content_warnings(None, "fn clean() -> u32 { 42 }", "test.rs");
         // Clean code with no unwrap, low complexity, no shadows should be clean
         let has_antipattern = warnings.iter().any(|w| w.contains("ANTIPATTERN"));
         assert!(
@@ -983,6 +984,7 @@ mod tests {
     #[test]
     fn test_content_warnings_unwrap_detection() {
         let (warnings, _spec) = compose_content_warnings(
+            None,
             "fn risky() { let _ = x.unwrap(); let _ = y.unwrap(); }",
             "test.rs",
         );
@@ -998,7 +1000,7 @@ mod tests {
 
     #[test]
     fn test_content_warnings_unwrap_not_triggered_for_python() {
-        let (warnings, _spec) = compose_content_warnings("x.unwrap()", "test.py");
+        let (warnings, _spec) = compose_content_warnings(None, "x.unwrap()", "test.py");
         let antipattern = warnings.iter().any(|w| w.contains("ANTIPATTERN"));
         assert!(
             !antipattern,
@@ -1024,7 +1026,7 @@ mod tests {
     #[test]
     fn test_content_warnings_unknown_language() {
         // Unknown language should not panic; signals gracefully degrade
-        let (warnings, spec) = compose_content_warnings("some content", "test.xyz");
+        let (warnings, spec) = compose_content_warnings(None, "some content", "test.xyz");
         // Should not panic, warnings may or may not be empty depending on heuristics
         let _ = warnings;
         assert!(

@@ -26,7 +26,7 @@
 
 use tracing::instrument;
 
-use crate::rl::bandit::{LinUCBBandit, NUM_ARMS, extract_features_rich};
+use crate::rl::bandit::{DecisionLedger, LinUCBBandit, NUM_ARMS, extract_features_rich};
 use crate::rl::rl::{QLearning, QTable, djb2_hash};
 use std::collections::VecDeque;
 
@@ -37,8 +37,10 @@ use crate::rl::rl::curiosity::CuriosityModule;
 #[cfg(feature = "ftrl")]
 use crate::rl::online_learning::ftrl::FtrlLayer;
 
-/// Discount factor for n-step TD returns.
-const GAMMA: f64 = 0.95;
+// The discount factor for n-step returns is NOT declared here: it is read from
+// the QTable being updated (`QTable::gamma`), so the return and the table it
+// targets always share one horizon. A local `const GAMMA = 0.95` used to shadow
+// the table's 0.99 (04/08/2026).
 
 /// A single (state, action, reward) transition stored in the n-step buffer.
 #[derive(Debug, Clone)]
@@ -155,6 +157,12 @@ pub struct OnlineRLEngine {
     /// Avoids repeated SystemTime syscalls in extract_features_rich hot path.
     /// Refreshed at session start via `Self::refresh_time_cache()`.
     cached_hour: Option<u8>,
+    /// Bandit selections awaiting their outcome, keyed by tool name.
+    ///
+    /// Without this the reward was credited to `djb2_hash(tool_name) % NUM_ARMS`
+    /// while the arm that actually decided was discarded at the call site — the
+    /// bandit was learning about buckets nobody chose (04/08/2026).
+    decisions: DecisionLedger,
 }
 
 impl OnlineRLEngine {
@@ -174,7 +182,62 @@ impl OnlineRLEngine {
             #[cfg(feature = "ftrl")]
             ftrl_layer: None,
             cached_hour: None,
+            decisions: DecisionLedger::default(),
         }
+    }
+
+    /// Record that `arm` was selected for `key`, so the reward that follows
+    /// credits that arm instead of a hash bucket.
+    ///
+    /// `key` must be the `tool_name` the matching [`ImmediateReward`] will
+    /// carry — that is the join between the choice and its outcome. Call this
+    /// immediately after `select_arm`; the reward path claims it exactly once.
+    ///
+    /// Sites that do not record simply keep the legacy hash attribution, so
+    /// adopting this is incremental: nothing breaks by not calling it.
+    pub fn record_decision(
+        &mut self,
+        key: impl Into<String>,
+        arm: usize,
+        features: ndarray::Array1<f64>,
+    ) {
+        self.decisions
+            .record(key, crate::rl::bandit::ArmChoice { arm, features });
+    }
+
+    /// Arm to credit when no real selection was recorded for `tool_name`.
+    ///
+    /// This is the legacy attribution: a hash bucket, which collides across
+    /// tools and corresponds to no actual choice. It survives only so sites that
+    /// have not adopted [`Self::record_decision`] keep warming arms; every site
+    /// that adopts the ledger bypasses it entirely.
+    fn fallback_arm(&self, tool_name: &str, linucb: &LinUCBBandit) -> usize {
+        let forcing_exploration = self.config.forced_explore_interval > 0
+            && self.update_count > 0
+            && self
+                .update_count
+                .is_multiple_of(self.config.forced_explore_interval);
+
+        if forcing_exploration {
+            // Warm the arm with the fewest pulls.
+            linucb
+                .arm_stats()
+                .iter()
+                .min_by_key(|(_, pulls, _)| *pulls)
+                .map(|(i, _, _)| *i)
+                .unwrap_or(0)
+        } else {
+            (djb2_hash(tool_name) % NUM_ARMS as u64) as usize
+        }
+    }
+
+    /// Read-only view of the pending-decision ledger.
+    ///
+    /// `credited_count` vs `unclaimed_evictions` is the live measure of how much
+    /// of the bandit's learning is closed-loop: evictions are selections whose
+    /// outcome was never reported.
+    pub fn decisions(&self) -> &DecisionLedger {
+        &self.decisions
     }
 
     /// Reset warmup flag for a new session.
@@ -314,11 +377,17 @@ impl OnlineRLEngine {
 
         // Compute discounted n-step return: G = Σ γ^i · r[i]  (oldest i=0 → newest)
         // The oldest entry receives full credit; future rewards discount backward.
+        //
+        // The discount comes from the table itself, not a local constant: this
+        // return IS the target handed to `qtable.update`, so discounting it with
+        // a different gamma than the table's put two effective horizons inside
+        // one update (was 0.95 here vs 0.99 there, 04/08/2026).
+        let gamma = qtable.gamma();
         let n_step_return: f64 = self
             .replay_buffer
             .iter()
             .enumerate()
-            .map(|(i, t)| GAMMA.powi(i as i32) * t.reward)
+            .map(|(i, t)| gamma.powi(i as i32) * t.reward)
             .sum();
 
         // Determine which (state, action) to update:
@@ -347,7 +416,14 @@ impl OnlineRLEngine {
             true,
         );
 
-        // LinUCB update: build enriched feature vector with quality context
+        // LinUCB update. If some call site recorded the arm it actually selected
+        // for this tool, that arm — and the features it was conditioned on — is
+        // what the reward belongs to. Only when nothing was recorded do we fall
+        // back to the legacy hash bucket. See `DecisionLedger` for why crediting
+        // a hash of the tool name was an open loop.
+        let recorded = self.decisions.take(&reward.tool_name);
+
+        // Build enriched feature vector with quality context (fallback path).
         let features = extract_features_rich(
             file_type_str(reward.file_type),
             0, // file_size not available in immediate context
@@ -362,22 +438,23 @@ impl OnlineRLEngine {
             self.cached_hour, // cached from system clock once per session
         );
 
-        // Forced exploration: every N updates, pick the coldest arm instead
-        let arm_index = if self.config.forced_explore_interval > 0
-            && self.update_count % self.config.forced_explore_interval == 0
-            && self.update_count > 0
-        {
-            // Find arm with fewest pulls
-            linucb
-                .arm_stats()
-                .iter()
-                .min_by_key(|(_, pulls, _)| *pulls)
-                .map(|(i, _, _)| *i)
-                .unwrap_or(0)
-        } else {
-            (djb2_hash(&reward.tool_name) % NUM_ARMS as u64) as usize
+        let (arm_index, arm_features) = match recorded {
+            // A real selection is on record: credit exactly that arm, with the
+            // features it saw. Forced exploration must NOT reassign here —
+            // exploration belongs at selection time (`LinUCBBandit::select_arm`
+            // already warms cold arms); reassigning at credit time would hand a
+            // reward to an arm that made no choice, which is the very defect
+            // this ledger closes.
+            Some(decision) => (decision.payload.arm, decision.payload.features),
+
+            // Nothing recorded — the arm is arbitrary either way, so keep the
+            // legacy hash bucket and the periodic cold-arm warm-up.
+            None => (
+                self.fallback_arm(&reward.tool_name, linucb),
+                features.clone(),
+            ),
         };
-        linucb.update(arm_index, &features, raw_reward);
+        linucb.update(arm_index, &arm_features, raw_reward);
 
         // FTRL-Proximal update: learn feature importance from reward signal
         // Runs after LinUCB update so the bandit arm state is already current.
@@ -472,6 +549,19 @@ impl OnlineRLEngine {
         self.last_td_error
     }
 
+    /// Mean absolute TD error over the rolling metrics window (64 updates).
+    ///
+    /// Prefer this over [`Self::last_td_error`] for any convergence *judgement*:
+    /// one sample swings with whichever tool fired last, while the window shows
+    /// whether the Q-values are settling. `touring learning status` reported the
+    /// last error under the name `mean_td_error` until 04/08/2026.
+    ///
+    /// `None` while no update has been recorded — see
+    /// [`RlMetricsCollector::mean_td_error`].
+    pub fn mean_td_error(&self) -> Option<f64> {
+        self.metrics.mean_td_error()
+    }
+
     /// Warm-start LinUCB priors for an unseen context using similar past experiences.
     ///
     /// Given a set of `(similarity_score, past_reward)` pairs from memory recall,
@@ -526,7 +616,7 @@ impl OnlineRLEngine {
         if self.config.auto_save {
             return true;
         }
-        self.update_count > 0 && self.update_count % self.config.save_interval == 0
+        self.update_count > 0 && self.update_count.is_multiple_of(self.config.save_interval)
     }
 
     /// Apply a hyperparameter adjustment proposed by the meta-optimizer.
@@ -1362,5 +1452,107 @@ mod tests {
         });
         assert!(buf.is_full());
         assert_eq!(buf.len(), 2);
+    }
+
+    fn reward_for(tool: &str) -> ImmediateReward {
+        ImmediateReward {
+            tool_name: tool.to_string(),
+            accepted: true,
+            latency_ms: 10,
+            error_count: 0,
+            cila_level: 2,
+            file_type: 1,
+            quality_score: Some(0.9),
+        }
+    }
+
+    /// The reward must reach the arm that actually made the decision.
+    ///
+    /// Regression for the open credit loop (04/08/2026): the arm credited was
+    /// `djb2_hash(tool_name) % NUM_ARMS`, so whatever `select_arm` chose never
+    /// learned from its own outcome.
+    #[test]
+    fn a_recorded_decision_is_credited_instead_of_the_hash_bucket() {
+        let hash_arm = (djb2_hash("Edit") % NUM_ARMS as u64) as usize;
+        // Pick an arm the legacy hash would never choose, so the assertion
+        // discriminates rather than passing by coincidence.
+        let chosen = (hash_arm + 1) % NUM_ARMS;
+
+        let mut engine = OnlineRLEngine::new(OnlineRLConfig::default());
+        let mut qtable = QTable::new();
+        let mut linucb = LinUCBBandit::new();
+
+        engine.record_decision("Edit", chosen, ndarray::Array1::zeros(crate::rl::bandit::FEATURE_DIM));
+        engine.process_reward(&reward_for("Edit"), &mut qtable, &mut linucb);
+
+        let stats = linucb.arm_stats();
+        let pulls = |i: usize| stats.iter().find(|(idx, _, _)| *idx == i).map(|(_, p, _)| *p);
+
+        assert_eq!(
+            pulls(chosen),
+            Some(1),
+            "the arm that decided must receive the pull"
+        );
+        assert_eq!(
+            pulls(hash_arm),
+            Some(0),
+            "the legacy hash bucket must NOT be credited when a real decision exists"
+        );
+        assert_eq!(engine.decisions().credited_count(), 1);
+    }
+
+    /// Sites that never record keep the legacy attribution — adoption is
+    /// incremental and nothing regresses by opting out.
+    #[test]
+    fn without_a_recorded_decision_the_legacy_hash_bucket_still_learns() {
+        let hash_arm = (djb2_hash("Bash") % NUM_ARMS as u64) as usize;
+
+        let mut engine = OnlineRLEngine::new(OnlineRLConfig::default());
+        let mut qtable = QTable::new();
+        let mut linucb = LinUCBBandit::new();
+
+        engine.process_reward(&reward_for("Bash"), &mut qtable, &mut linucb);
+
+        let pulled = linucb
+            .arm_stats()
+            .iter()
+            .find(|(idx, _, _)| *idx == hash_arm)
+            .map(|(_, p, _)| *p);
+        assert_eq!(pulled, Some(1), "fallback path must still update an arm");
+        assert_eq!(
+            engine.decisions().credited_count(),
+            0,
+            "nothing was recorded, so nothing was credited"
+        );
+    }
+
+    /// One decision funds exactly one credit — a second reward for the same tool
+    /// falls back rather than re-crediting a choice that already paid out.
+    #[test]
+    fn a_decision_is_credited_at_most_once() {
+        let hash_arm = (djb2_hash("Read") % NUM_ARMS as u64) as usize;
+        let chosen = (hash_arm + 3) % NUM_ARMS;
+
+        let mut engine = OnlineRLEngine::new(OnlineRLConfig::default());
+        let mut qtable = QTable::new();
+        let mut linucb = LinUCBBandit::new();
+
+        engine.record_decision("Read", chosen, ndarray::Array1::zeros(crate::rl::bandit::FEATURE_DIM));
+        engine.process_reward(&reward_for("Read"), &mut qtable, &mut linucb);
+        engine.process_reward(&reward_for("Read"), &mut qtable, &mut linucb);
+
+        let stats = linucb.arm_stats();
+        let pulls = |i: usize| stats.iter().find(|(idx, _, _)| *idx == i).map(|(_, p, _)| *p);
+
+        assert_eq!(
+            pulls(chosen),
+            Some(1),
+            "the single recorded selection must be credited exactly once"
+        );
+        assert_eq!(
+            engine.decisions().credited_count(),
+            1,
+            "the second reward found no pending decision"
+        );
     }
 }

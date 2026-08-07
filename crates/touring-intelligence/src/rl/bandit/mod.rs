@@ -14,6 +14,7 @@
 pub mod adaptive_alpha;
 pub mod ast_enriched;
 pub mod ast_features;
+pub mod decision_ledger;
 pub mod granularity;
 pub mod linucb;
 pub mod reminder_bandit;
@@ -25,6 +26,9 @@ pub use linucb::{
 };
 
 pub use adaptive_alpha::AdaptiveAlpha;
+pub use decision_ledger::{
+    ArmChoice, CaseLedger, DecisionLedger, Ledger, PendingDecision, blend_case_value,
+};
 pub use ast_enriched::AstEnrichedBandit;
 pub use ast_features::{AST_FEATURE_COUNT, FEATURE_DIM_AST, enrich_features, extract_ast_features};
 pub use granularity::{

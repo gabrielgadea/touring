@@ -18,11 +18,23 @@
 #     syn/tokio). On 2026-06-26 sccache served a STALE object: the build
 #     completed (exit 0, "Compiling touring-server") yet the binary did NOT
 #     contain the edited code → binary ≠ source, a silent ship.
-# An empty string OVERRIDES the global ~/.cargo/config.toml rustc-wrapper,
-# routing rustc directly. The local incremental cache (see [profile.dev]
-# incremental = true in Cargo.toml) is the correct cache for iterative Rust
-# dev. sccache stays ON globally for other projects (C/C++ hit-rate 47%).
-rustc-wrapper = ""
+# This OVERRIDES the global ~/.cargo/config.toml rustc-wrapper, routing rustc
+# directly. The local incremental cache (see [profile.dev] incremental = true in
+# Cargo.toml) is the correct cache for iterative Rust dev. sccache stays ON
+# globally for other projects (C/C++ hit-rate 47%).
+#
+# `/usr/bin/env` is an IDENTITY wrapper — it execs its argument unchanged, so
+# rustc runs exactly as it would unwrapped, while still displacing the global
+# `rustc-wrapper = "sccache"`. It is a real program ON PURPOSE: the previous
+# value, an empty string, also disabled sccache but made `cargo llvm-cov`
+# assemble the command `"" rustc -vV` and die with "No such file or directory".
+# So NO LCOV artifact ever existed, and F3.1 silently reported its
+# `#[test]`-presence PROXY instead of real line coverage, workspace-wide
+# (root-caused 2026-08-02). `cargo build` tolerated the empty value; llvm-cov
+# did not. Verify both halves after touching this line:
+#   cargo build -p touring-license -v 2>&1 | grep -o 'Running `[^ ]*'   # no sccache
+#   cargo llvm-cov --lcov --output-path /tmp/x.info -p touring-license  # artifact
+rustc-wrapper = "/usr/bin/env"
 rustflags = [
     "--cfg", "tokio_unstable",
     "-C", "link-arg=-fuse-ld=gold",

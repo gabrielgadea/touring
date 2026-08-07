@@ -158,19 +158,19 @@ impl MetricsExtractor for PytestExtractor {
                             warnings = n;
                         }
                     }
-                    if part.contains(" in ") {
-                        if let Some(d) = part.split(" in ").last() {
-                            duration = d.trim().to_string();
-                        }
+                    if part.contains(" in ")
+                        && let Some(d) = part.split(" in ").last()
+                    {
+                        duration = d.trim().to_string();
                     }
                 }
             }
 
             // "TOTAL    X%"
-            if trimmed.starts_with("TOTAL") || trimmed.contains("% cover") {
-                if let Some(pct) = extract_percentage(trimmed) {
-                    coverage_pct = Some(pct);
-                }
+            if (trimmed.starts_with("TOTAL") || trimmed.contains("% cover"))
+                && let Some(pct) = extract_percentage(trimmed)
+            {
+                coverage_pct = Some(pct);
             }
         }
 
@@ -242,10 +242,11 @@ impl MetricsExtractor for CargoTestExtractor {
             }
 
             // "Finished ... in Xs"
-            if trimmed.contains("Finished") && trimmed.contains(" in ") {
-                if let Some(d) = trimmed.split(" in ").last() {
-                    duration = d.trim().to_string();
-                }
+            if trimmed.contains("Finished")
+                && trimmed.contains(" in ")
+                && let Some(d) = trimmed.split(" in ").last()
+            {
+                duration = d.trim().to_string();
             }
         }
 
@@ -296,12 +297,11 @@ impl MetricsExtractor for RuffExtractor {
                 {
                     error_count = n;
                 }
-                if trimmed.contains("fixable") {
-                    if let Some(fix_part) = trimmed.split('(').nth(1) {
-                        if let Some(n) = extract_leading_number(fix_part.trim()) {
-                            fixable = n;
-                        }
-                    }
+                if trimmed.contains("fixable")
+                    && let Some(fix_part) = trimmed.split('(').nth(1)
+                    && let Some(n) = extract_leading_number(fix_part.trim())
+                {
+                    fixable = n;
                 }
             }
 
@@ -371,10 +371,10 @@ fn extract_percentage(s: &str) -> Option<f64> {
             continue;
         }
         let cleaned = word.trim_end_matches('%');
-        if let Ok(pct) = cleaned.parse::<f64>() {
-            if (0.0..=100.0).contains(&pct) {
-                return Some(pct);
-            }
+        if let Ok(pct) = cleaned.parse::<f64>()
+            && (0.0..=100.0).contains(&pct)
+        {
+            return Some(pct);
         }
     }
     // Fallback: first bare number in percentage range (no % suffix)
@@ -382,10 +382,10 @@ fn extract_percentage(s: &str) -> Option<f64> {
         if word.ends_with('%') {
             continue; // already handled above
         }
-        if let Ok(pct) = word.parse::<f64>() {
-            if (0.0..=100.0).contains(&pct) {
-                return Some(pct);
-            }
+        if let Ok(pct) = word.parse::<f64>()
+            && (0.0..=100.0).contains(&pct)
+        {
+            return Some(pct);
         }
     }
     None

@@ -53,10 +53,10 @@ pub(crate) fn ensure_qtable_loaded(runtime: &mut HookRuntime) {
     let qtable_path = runtime.project_root.join(".claude/data/qtable.rkyv");
     if runtime.learning.qtable_cache.is_none() {
         let mut qt = QTable::new();
-        if qtable_path.exists() {
-            if let Ok((loaded, _rev)) = QTable::load_rkyv(&qtable_path) {
-                qt = loaded;
-            }
+        if qtable_path.exists()
+            && let Ok((loaded, _rev)) = QTable::load_rkyv(&qtable_path)
+        {
+            qt = loaded;
         }
         runtime.learning.qtable_cache = Some(qt);
     }

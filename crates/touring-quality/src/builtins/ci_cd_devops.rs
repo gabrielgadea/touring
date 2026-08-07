@@ -66,10 +66,10 @@ fn glob_match(pattern: &str, name: &str) -> bool {
         return true;
     }
     // *.ext — endswith .ext
-    if let Some(rest) = pattern.strip_prefix("*.") {
-        if !rest.contains('*') {
-            return name.ends_with(&format!(".{rest}"));
-        }
+    if let Some(rest) = pattern.strip_prefix("*.")
+        && !rest.contains('*')
+    {
+        return name.ends_with(&format!(".{rest}"));
     }
     // Handle patterns with multiple stars (e.g. "*.tf-bak.*")
     let p_segs: Vec<&str> = pattern.split('*').filter(|s| !s.is_empty()).collect();

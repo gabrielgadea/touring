@@ -133,10 +133,9 @@ pub fn classify_payload(v: &serde_json::Value) -> FedState {
     if let Some(summary) = v
         .get("summary")
         .and_then(|s| serde_json::from_value::<FederationSummary>(s.clone()).ok())
+        && summary.entries > 0
     {
-        if summary.entries > 0 {
-            return FedState::SummaryOnly(Box::new(summary));
-        }
+        return FedState::SummaryOnly(Box::new(summary));
     }
     FedState::Empty
 }

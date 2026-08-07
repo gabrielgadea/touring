@@ -131,10 +131,10 @@ fn filter_orphans(
                 .to_string();
 
             // module_filter: check if any prefix matches
-            if let Some(filters) = module_filter {
-                if !filters.iter().any(|f| file.starts_with(f)) {
-                    return None;
-                }
+            if let Some(filters) = module_filter
+                && !filters.iter().any(|f| file.starts_with(f))
+            {
+                return None;
             }
 
             Some(Orphan {

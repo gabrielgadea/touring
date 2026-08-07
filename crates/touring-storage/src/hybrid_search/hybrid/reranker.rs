@@ -127,10 +127,10 @@ impl Reranker {
             let rerank_score = base_score + semantic_boost + keyword_boost;
 
             // Apply threshold filter
-            if let Some(threshold) = self.config.score_threshold {
-                if rerank_score < threshold {
-                    continue;
-                }
+            if let Some(threshold) = self.config.score_threshold
+                && rerank_score < threshold
+            {
+                continue;
             }
 
             results.push(RerankResult::new(

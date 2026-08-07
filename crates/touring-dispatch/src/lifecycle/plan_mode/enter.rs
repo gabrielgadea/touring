@@ -82,7 +82,7 @@ pub(crate) fn handle_enter_plan_mode(rt: &mut HookRuntime, input: &Value) -> Str
             ));
 
             // R18-S2: Index the plan session in Tantivy for future discovery.
-            upsert_plan_session_to_tantivy(&plan_task_id, intent);
+            upsert_plan_session_to_tantivy(&rt.project_root, &plan_task_id, intent);
             // R30-S2: Persist plan_task_id to memory → ExitPlanMode recalls + closes DAG entry.
             let _ = crate::cli_handlers::cli_memory_store(
                 rt,

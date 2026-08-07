@@ -275,10 +275,10 @@ fn run_project_actor(mut runtime: HookRuntime, mut cmd_rx: mpsc::Receiver<Projec
                         String::new()
                     }
                 }));
-                if let Some(elapsed) = marker.elapsed_ms() {
-                    if elapsed > 60_000 {
-                        tracing::warn!(hook = %hook_name, elapsed_ms = elapsed, "hook latency spike");
-                    }
+                if let Some(elapsed) = marker.elapsed_ms()
+                    && elapsed > 60_000
+                {
+                    tracing::warn!(hook = %hook_name, elapsed_ms = elapsed, "hook latency spike");
                 }
 
                 let output = match result {
@@ -1498,23 +1498,22 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
             let mut map = runtime.write().await;
 
             // LRU eviction: if we're over the limit, evict the least recently used
-            if map.len() >= MAX_PROJECTS_IN_MEMORY {
-                if let Some(lru_key) = map
+            if map.len() >= MAX_PROJECTS_IN_MEMORY
+                && let Some(lru_key) = map
                     .iter()
                     .min_by_key(|(_, pr)| pr.last_accessed)
                     .map(|(k, _)| k.clone())
-                {
-                    eprintln!(
-                        "[touring-daemon] LRU eviction: removing {} (idle since {:?})",
-                        lru_key.display(),
-                        map.get(&lru_key)
-                            .map(|pr| pr.last_accessed.elapsed())
-                            .unwrap_or_default()
-                    );
-                    // Dropping the ProjectRuntime drops its cmd_tx — when all
-                    // senders are gone the actor's recv loop exits naturally.
-                    map.remove(&lru_key);
-                }
+            {
+                eprintln!(
+                    "[touring-daemon] LRU eviction: removing {} (idle since {:?})",
+                    lru_key.display(),
+                    map.get(&lru_key)
+                        .map(|pr| pr.last_accessed.elapsed())
+                        .unwrap_or_default()
+                );
+                // Dropping the ProjectRuntime drops its cmd_tx — when all
+                // senders are gone the actor's recv loop exits naturally.
+                map.remove(&lru_key);
             }
 
             if let Some(existing) = map.get(&client_root) {

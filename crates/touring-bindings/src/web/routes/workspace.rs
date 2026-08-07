@@ -248,7 +248,7 @@ fn fmt_n(n: u64) -> String {
     let len = s.len();
     let mut out = String::with_capacity(len + len / 3);
     for (i, ch) in s.chars().enumerate() {
-        if i > 0 && (len - i) % 3 == 0 {
+        if i > 0 && (len - i).is_multiple_of(3) {
             out.push('.');
         }
         out.push(ch);
@@ -538,17 +538,16 @@ pub fn WorkspaceGraph() -> impl IntoView {
         if render_mode(webgl_ok.get()) != "3d" {
             return;
         }
-        if let Some(data) = graph_data.get() {
-            if !data.is_null() {
-                if let Ok(json_str) = serde_json::to_string(&data) {
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        js_init_force_graph(&json_str);
-                    }
-                    #[cfg(not(target_arch = "wasm32"))]
-                    let _ = json_str;
-                }
+        if let Some(data) = graph_data.get()
+            && !data.is_null()
+            && let Ok(json_str) = serde_json::to_string(&data)
+        {
+            #[cfg(target_arch = "wasm32")]
+            {
+                js_init_force_graph(&json_str);
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            let _ = json_str;
         }
     });
 

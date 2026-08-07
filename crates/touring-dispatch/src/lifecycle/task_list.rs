@@ -80,7 +80,7 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // R21-S2: Reuse the same ready_json for BM25 symbol cross-reference (single DB call).
     let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({}));
     let ready_hint = build_ready_subtasks_hint_from_json(&ready_json);
-    let code_hint = code_symbols_for_active_tasks(&ready_json);
+    let code_hint = code_symbols_for_active_tasks(&rt.project_root, &ready_json);
     // R25-S3: Surface generator kind for the first ready subtask so Claude Code
     // knows which artifact to scaffold without an extra round-trip.
     let gen_hint = generator_for_first_ready_subtask(&ready_json);
@@ -1306,9 +1306,12 @@ pub(crate) fn build_ready_subtasks_hint_from_json(ready_json: &str) -> String {
 ///
 /// Dispatches to `search_symbols_for_first_ready_task` when tantivy-fts is ON.
 /// Returns empty string if Tantivy is unavailable, no ready subtasks, or no non-DAG hits.
-pub(crate) fn code_symbols_for_active_tasks(ready_json: &str) -> String {
+pub(crate) fn code_symbols_for_active_tasks(
+    project_root: &std::path::Path,
+    ready_json: &str,
+) -> String {
     #[cfg(feature = "tantivy-fts")]
-    if let Some(hint) = search_symbols_for_first_ready_task(ready_json) {
+    if let Some(hint) = search_symbols_for_first_ready_task(project_root, ready_json) {
         return hint;
     }
     #[cfg(not(feature = "tantivy-fts"))]
@@ -1321,7 +1324,13 @@ pub(crate) fn code_symbols_for_active_tasks(ready_json: &str) -> String {
 /// Uses `?`-chain to propagate None at each fallible step — no panics, no unwraps.
 /// Filters out DAG/task_output/task_completed docs; surfaces up to 2 code symbols.
 #[cfg(feature = "tantivy-fts")]
-pub(crate) fn search_symbols_for_first_ready_task(ready_json: &str) -> Option<String> {
+/// A raiz do projeto acompanha a operação: o store de decompose já é
+/// per-project (`locate_task_store`), então o espelho no Tantivy segue a
+/// fonte da verdade em vez de cair no índice legado compartilhado.
+pub(crate) fn search_symbols_for_first_ready_task(
+    project_root: &std::path::Path,
+    ready_json: &str,
+) -> Option<String> {
     let v = serde_json::from_str::<serde_json::Value>(ready_json).ok()?;
     let first_id = v
         .get("ready_subtasks")
@@ -1332,7 +1341,7 @@ pub(crate) fn search_symbols_for_first_ready_task(ready_json: &str) -> Option<St
     if first_id.is_empty() {
         return None;
     }
-    let idx = crate::tantivy_index::global_tantivy()?;
+    let idx = crate::tantivy_index::tantivy_for(Some(project_root))?;
     let hits = idx.search(first_id, 8).ok()?;
     let task_kinds = ["task_dag", "task_output", "task_completed"];
     let syms: Vec<&str> = hits
@@ -1376,10 +1385,13 @@ pub(crate) fn generator_for_first_ready_subtask(ready_json: &str) -> String {
 /// Called from `handle_task_sync_post_update` on `status == "completed"`.
 /// Makes completed tasks discoverable via `touring tantivy search "task_completed"`
 /// or `touring tantivy search "<task_id>"`. Feature-gated: no-op when tantivy-fts OFF.
-pub(crate) fn upsert_task_completion_to_tantivy(task_id: &str) {
+/// A raiz do projeto acompanha a operação: o store de decompose já é
+/// per-project (`locate_task_store`), então o espelho no Tantivy segue a
+/// fonte da verdade em vez de cair no índice legado compartilhado.
+pub(crate) fn upsert_task_completion_to_tantivy(project_root: &std::path::Path, task_id: &str) {
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(project_root)) {
             let doc = crate::tantivy_index::SymbolDoc {
                 symbol_name: format!("completed:{task_id}"),
                 file_path: format!("task_lifecycle:{task_id}"),
@@ -1414,10 +1426,13 @@ pub(crate) fn upsert_task_completion_to_tantivy(task_id: &str) {
 /// modifications become BM25-searchable via `touring tantivy search "file_changed"`
 /// or `touring tantivy search "<stem>"`. Creates an audit trail of modifications.
 /// Feature-gated: no-op when tantivy-fts OFF.
-pub(super) fn upsert_file_changed_to_tantivy(rel_path: &str) {
+/// A raiz do projeto acompanha a operação: o store de decompose já é
+/// per-project (`locate_task_store`), então o espelho no Tantivy segue a
+/// fonte da verdade em vez de cair no índice legado compartilhado.
+pub(super) fn upsert_file_changed_to_tantivy(project_root: &std::path::Path, rel_path: &str) {
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(project_root)) {
             let stem = file_stem(rel_path);
             let lang = rel_path.rsplit('.').next().unwrap_or("").to_string();
             let doc = crate::tantivy_index::SymbolDoc {

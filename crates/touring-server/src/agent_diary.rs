@@ -472,10 +472,10 @@ impl AgentDiary {
         let mut entries = Vec::new();
         for ts in timestamps {
             let entry_key = self.entry_key(&ts);
-            if let Ok(Some(json)) = memory_store.get(&entry_key, "working") {
-                if let Ok(entry) = serde_json::from_str::<StructuredEntry>(&json) {
-                    entries.push(entry);
-                }
+            if let Ok(Some(json)) = memory_store.get(&entry_key, "working")
+                && let Ok(entry) = serde_json::from_str::<StructuredEntry>(&json)
+            {
+                entries.push(entry);
             }
         }
 

@@ -133,10 +133,10 @@ impl FileKnowledgeDB {
         };
         let mut matched_gotchas: Vec<Gotcha> = Vec::new();
         for gotcha_row in rows.filter_map(|r| r.ok()) {
-            if let Ok(re) = regex::Regex::new(&gotcha_row.pattern) {
-                if re.is_match(file_content) {
-                    matched_gotchas.push(gotcha_row);
-                }
+            if let Ok(re) = regex::Regex::new(&gotcha_row.pattern)
+                && re.is_match(file_content)
+            {
+                matched_gotchas.push(gotcha_row);
             }
         }
         matched_gotchas.sort_by(|a, b| {
@@ -266,10 +266,10 @@ impl FileKnowledgeDB {
                 .conn
                 .query_row(&select_sql, params![id], |row| row.get(0))
                 .unwrap_or(0);
-            if hit_count >= min_evals {
-                if let Ok(1) = self.conn.execute(&delete_sql, params![id]) {
-                    deleted += 1;
-                }
+            if hit_count >= min_evals
+                && let Ok(1) = self.conn.execute(&delete_sql, params![id])
+            {
+                deleted += 1;
             }
         }
         deleted

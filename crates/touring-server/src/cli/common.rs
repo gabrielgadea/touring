@@ -135,6 +135,32 @@ pub fn human_to_stderr(msg: &str) {
     eprintln!("{msg}");
 }
 
+/// Write the YAML document carried by an export response to `path`.
+///
+/// The export hooks answer with a JSON envelope — `{"success": true, "<field>":
+/// "<yaml>"}` — and writing that envelope verbatim is what broke the
+/// export→validate round-trip: `validate` re-read the file, parsed the envelope
+/// as YAML (JSON *is* valid YAML) and rejected it with `missing field
+/// 'version'`, because it was reading the wrapper instead of the document.
+/// Only the YAML string belongs in the file.
+pub fn write_yaml_export(
+    output: &str,
+    field: &str,
+    path: &std::path::Path,
+) -> anyhow::Result<()> {
+    let parsed: serde_json::Value = serde_json::from_str(output)
+        .map_err(|e| anyhow::anyhow!("export returned malformed JSON: {e}"))?;
+    if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
+        anyhow::bail!("export failed: {err}");
+    }
+    let yaml = parsed
+        .get(field)
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("export response carries no '{field}' field"))?;
+    std::fs::write(path, yaml)
+        .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", path.display(), e))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Daemon query with output formatting
 // ─────────────────────────────────────────────────────────────────────────────
@@ -342,6 +368,66 @@ mod tests {
 
     fn s(parts: &[&str]) -> Vec<String> {
         parts.iter().map(|p| p.to_string()).collect()
+    }
+
+    /// Regression guard for the export→validate round-trip (2026-08-02).
+    ///
+    /// `tasksfile export --file` used to write the JSON envelope, so
+    /// `tasksfile validate` rejected the very file the export had just
+    /// produced (`missing field 'version'` — it was parsing the wrapper).
+    /// The file must hold the YAML document and nothing else.
+    #[test]
+    fn write_yaml_export_writes_the_document_not_the_envelope() {
+        let dir = std::env::temp_dir().join("touring_write_yaml_export_doc");
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let path = dir.join("out.yml");
+        let yaml = "version: '1.0'\nmetadata:\n  name: t1\ntasks: {}\n";
+        let envelope = serde_json::json!({ "success": true, "tasksfile_yaml": yaml }).to_string();
+
+        write_yaml_export(&envelope, "tasksfile_yaml", &path).expect("write");
+
+        let written = std::fs::read_to_string(&path).expect("read back");
+        assert_eq!(written, yaml, "the file must carry the YAML document");
+        assert!(
+            !written.contains("\"success\""),
+            "the JSON envelope must not reach the file: {written}"
+        );
+        // And the document round-trips as YAML, which the envelope never did.
+        let parsed: serde_json::Value = serde_yaml::from_str(&written).expect("valid YAML");
+        assert_eq!(parsed.get("version").and_then(|v| v.as_str()), Some("1.0"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_yaml_export_surfaces_the_handler_error() {
+        let path = std::env::temp_dir().join("touring_write_yaml_export_err.yml");
+        let _ = std::fs::remove_file(&path);
+        let envelope = serde_json::json!({ "success": false, "error": "No task_id provided" })
+            .to_string();
+
+        let err = write_yaml_export(&envelope, "tasksfile_yaml", &path)
+            .expect_err("a failed export must not be written as if it succeeded");
+
+        assert!(
+            err.to_string().contains("No task_id provided"),
+            "the daemon's reason must survive: {err}"
+        );
+        assert!(!path.exists(), "nothing may be written on a failed export");
+    }
+
+    #[test]
+    fn write_yaml_export_rejects_a_missing_field_and_bad_json() {
+        let path = std::env::temp_dir().join("touring_write_yaml_export_missing.yml");
+        let _ = std::fs::remove_file(&path);
+
+        let no_field = serde_json::json!({ "success": true }).to_string();
+        let err = write_yaml_export(&no_field, "tasksfile_yaml", &path).expect_err("no field");
+        assert!(err.to_string().contains("tasksfile_yaml"), "{err}");
+
+        let err = write_yaml_export("not json at all", "tasksfile_yaml", &path)
+            .expect_err("malformed JSON");
+        assert!(err.to_string().contains("malformed JSON"), "{err}");
+        assert!(!path.exists(), "no file on either failure");
     }
 
     #[test]

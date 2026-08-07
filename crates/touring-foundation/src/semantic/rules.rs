@@ -27,37 +27,36 @@ pub struct Rule {
 impl Rule {
     /// Checks if a symbol name matches this rule.
     pub fn matches_name(&self, name: &str) -> bool {
-        if let Some(ref exact) = self.name_exact {
-            if name == exact {
-                return true;
-            }
+        if let Some(ref exact) = self.name_exact
+            && name == exact
+        {
+            return true;
         }
-        if let Some(ref prefix) = self.name_prefix {
-            if name.starts_with(prefix) {
-                return true;
-            }
+        if let Some(ref prefix) = self.name_prefix
+            && name.starts_with(prefix)
+        {
+            return true;
         }
-        if let Some(ref suffix) = self.name_suffix {
-            if name.ends_with(suffix) {
-                return true;
-            }
+        if let Some(ref suffix) = self.name_suffix
+            && name.ends_with(suffix)
+        {
+            return true;
         }
-        if let Some(ref pattern) = self.name_pattern {
-            if let Ok(re) = regex::Regex::new(pattern) {
-                if re.is_match(name) {
-                    return true;
-                }
-            }
+        if let Some(ref pattern) = self.name_pattern
+            && let Ok(re) = regex::Regex::new(pattern)
+            && re.is_match(name)
+        {
+            return true;
         }
         false
     }
 
     /// Checks if a file path matches this rule's file pattern.
     pub fn matches_file(&self, path: &str) -> bool {
-        if let Some(ref pattern) = self.file_pattern {
-            if let Ok(glob) = glob::Pattern::new(pattern) {
-                return glob.matches(path);
-            }
+        if let Some(ref pattern) = self.file_pattern
+            && let Ok(glob) = glob::Pattern::new(pattern)
+        {
+            return glob.matches(path);
         }
         true // No file pattern means match all
     }

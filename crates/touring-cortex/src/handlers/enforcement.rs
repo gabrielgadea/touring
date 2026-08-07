@@ -86,10 +86,11 @@ fn scan_dir_for_pattern(dir: &Path, prefix: &str, suffix: &str) -> bool {
             if scan_dir_for_pattern(&path, prefix, suffix) {
                 return true;
             }
-        } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name.starts_with(prefix) && name.ends_with(suffix) {
-                return true;
-            }
+        } else if let Some(name) = path.file_name().and_then(|n| n.to_str())
+            && name.starts_with(prefix)
+            && name.ends_with(suffix)
+        {
+            return true;
         }
     }
     false
@@ -107,10 +108,10 @@ fn scan_dir_for_exact(dir: &Path, target: &str) -> bool {
             if scan_dir_for_exact(&path, target) {
                 return true;
             }
-        } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name == target {
-                return true;
-            }
+        } else if let Some(name) = path.file_name().and_then(|n| n.to_str())
+            && name == target
+        {
+            return true;
         }
     }
     false
@@ -673,32 +674,32 @@ impl CodeFirstPipelineValidator {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.starts_with("pipeline_state_") && name.ends_with(".json") {
-                    // Try to read and parse
-                    if let Ok(content) = std::fs::read_to_string(&path) {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            // Check phases quality scores
-                            if let Some(phases) = json.get("phases").and_then(|p| p.as_object()) {
-                                for (phase_name, phase_data) in phases {
-                                    if let Some(score) =
-                                        phase_data.get("quality_score").and_then(|s| s.as_f64())
-                                    {
-                                        if score < 0.7 {
-                                            return Err(format!(
-                                                "BLOCK: Phase '{}' has quality_score {:.2} (< 0.7). \
+            if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && name.starts_with("pipeline_state_")
+                && name.ends_with(".json")
+            {
+                // Try to read and parse
+                if let Ok(content) = std::fs::read_to_string(&path)
+                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+                {
+                    // Check phases quality scores
+                    if let Some(phases) = json.get("phases").and_then(|p| p.as_object()) {
+                        for (phase_name, phase_data) in phases {
+                            if let Some(score) =
+                                phase_data.get("quality_score").and_then(|s| s.as_f64())
+                                && score < 0.7
+                            {
+                                return Err(format!(
+                                    "BLOCK: Phase '{}' has quality_score {:.2} (< 0.7). \
                                                  Re-run pipeline to improve quality before analysis.",
-                                                phase_name, score
-                                            ));
-                                        }
-                                    }
-                                }
+                                    phase_name, score
+                                ));
                             }
                         }
                     }
-                    // Found a pipeline state file — pass
-                    return Ok(());
                 }
+                // Found a pipeline state file — pass
+                return Ok(());
             }
         }
         Ok(()) // fail-open

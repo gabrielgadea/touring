@@ -202,9 +202,19 @@ fn collect_intelligence_critique(target_path: &str, issues: &mut Vec<Value>) {
 
     // R3-S3: Tantivy BM25 — related docs in other files (tantivy-fts always enabled
     // for touring-hooks in touring-server, so no cfg guard needed here)
-    if let Some((_, signal)) =
-        touring_hooks::shared::signals::tantivy_related_docs_signal(target_path)
-    {
+    // A raiz é DERIVADA do próprio alvo em vez de atravessar a cadeia:
+    // `critique_plan` é API pública sem raiz, e enfiar um parâmetro por três
+    // níveis para um consumidor advisory seria desproporcional.
+    // `normalize_project_root` faz walk-up por marcador real quando o caminho é
+    // absoluto; num caminho relativo ele devolve `$HOME`, que resolve para o
+    // índice legado — degradação explícita, não silenciosa.
+    let derived_root = target_path
+        .starts_with('/')
+        .then(|| touring_foundation::TouringConfig::normalize_project_root(std::path::Path::new(target_path)));
+    if let Some((_, signal)) = touring_hooks::shared::signals::tantivy_related_docs_signal(
+        derived_root.as_deref(),
+        target_path,
+    ) {
         issues.push(serde_json::json!({
             "severity": "info",
             "field": "related_docs",
@@ -221,15 +231,14 @@ fn check_target_path(file_path: &str, issues: &mut Vec<Value>) {
         return;
     }
     let target = std::path::Path::new(file_path);
-    if target.is_absolute() {
-        if let Some(parent) = target.parent() {
-            if !parent.exists() {
-                issues.push(serde_json::json!({
-                    "severity": "warning",
-                    "field": "target.file_path",
-                    "message": format!("parent directory does not exist: {}", parent.display()),
-                }));
-            }
-        }
+    if target.is_absolute()
+        && let Some(parent) = target.parent()
+        && !parent.exists()
+    {
+        issues.push(serde_json::json!({
+            "severity": "warning",
+            "field": "target.file_path",
+            "message": format!("parent directory does not exist: {}", parent.display()),
+        }));
     }
 }

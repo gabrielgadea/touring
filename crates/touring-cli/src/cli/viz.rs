@@ -3,6 +3,72 @@
 use crate::cli_handlers::{VizEdgeData, VizGraphData, VizNodeData};
 use crate::runtime::HookRuntime;
 
+/// The wiring edge set — every `(module_file, consumer_file)` pair that crosses
+/// a module boundary. Shared verbatim by `cli_viz_blast` and
+/// `build_wiring_graph_data`, so it lives here rather than in both.
+const WIRING_EDGES_SQL: &str = "SELECT DISTINCT module_file, consumer_file FROM wiring_map
+             WHERE module_file IS NOT NULL
+               AND consumer_file IS NOT NULL
+               AND module_file != consumer_file";
+
+/// Display label for a module path: its file name, falling back to the whole
+/// path when there is none. Every node in this module labels itself this way.
+fn module_label(module: &str) -> String {
+    std::path::Path::new(module)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| module.to_string())
+}
+
+/// A graph node for `module`. All five viz views build nodes with no measured
+/// quality signal and no unsafe signal; they differ only in the fan counts and
+/// the orphan verdict, which is why those are the only parameters.
+fn viz_node(
+    module: &str,
+    fan_in: Option<usize>,
+    fan_out: Option<usize>,
+    is_orphan: bool,
+) -> VizNodeData {
+    VizNodeData {
+        id: module.to_string(),
+        label: module_label(module),
+        quality_score: None,
+        fan_in,
+        fan_out,
+        is_orphan,
+        has_unsafe: false,
+    }
+}
+
+/// Run a two-column query and collect the rows as `(String, String)` pairs.
+///
+/// A failed `prepare` or `query_map` yields an empty set — the same fail-soft
+/// behaviour each call site spelled out by hand, since a viz view degrades to
+/// an empty graph rather than erroring.
+fn query_pairs(db: &crate::knowledge::FileKnowledgeDB, sql: &str) -> Vec<(String, String)> {
+    match db.conn_ref().prepare(sql) {
+        Ok(mut stmt) => stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Single-column counterpart of [`query_pairs`], with the same fail-soft
+/// contract: an unusable statement yields no rows rather than an error.
+fn query_column(db: &crate::knowledge::FileKnowledgeDB, sql: &str) -> Vec<String> {
+    match db.conn_ref().prepare(sql) {
+        Ok(mut stmt) => stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
 /// Handler for `cli-viz-workspace` — full crate dependency graph.
 pub fn cli_viz_workspace(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
     let db = &rt.ctx.knowledge;
@@ -32,18 +98,7 @@ pub fn cli_viz_cycles(rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
     for cycle in &cycles {
         for (i, module) in cycle.modules.iter().enumerate() {
             if seen_nodes.insert(module.clone()) {
-                nodes.push(VizNodeData {
-                    id: module.clone(),
-                    label: std::path::Path::new(module)
-                        .file_name()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_else(|| module.clone()),
-                    quality_score: None,
-                    fan_in: None,
-                    fan_out: None,
-                    is_orphan: false,
-                    has_unsafe: false,
-                });
+                nodes.push(viz_node(module, None, None, false));
             }
             if i < cycle.modules.len() - 1 {
                 edges.push(VizEdgeData {
@@ -66,38 +121,17 @@ pub fn cli_viz_cycles(rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
 /// Handler for `cli-viz-orphans` — orphan symbols only.
 pub fn cli_viz_orphans(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
     let db = &rt.ctx.knowledge;
-    let orphans: Vec<(String, String)> = {
-        let stmt_opt = db.conn_ref().prepare(
-            "SELECT module_file, symbol_name FROM wiring_map
+    let orphans = query_pairs(
+        db,
+        "SELECT module_file, symbol_name FROM wiring_map
              WHERE module_file IS NOT NULL
                AND consumer_file IS NULL",
-        );
-        if let Ok(mut stmt) = stmt_opt {
-            stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        } else {
-            Vec::new()
-        }
-    };
+    );
     let mut seen_modules: std::collections::HashSet<String> = std::collections::HashSet::new();
     let nodes: Vec<VizNodeData> = orphans
         .iter()
         .filter(|(module, _)| seen_modules.insert(module.clone()))
-        .map(|(module, _)| VizNodeData {
-            id: module.clone(),
-            label: std::path::Path::new(module)
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| module.clone()),
-            quality_score: None,
-            fan_in: Some(0),
-            fan_out: Some(0),
-            is_orphan: true,
-            has_unsafe: false,
-        })
+        .map(|(module, _)| viz_node(module, Some(0), Some(0), true))
         .collect();
     let graph = VizGraphData {
         nodes,
@@ -133,23 +167,7 @@ pub fn cli_viz_blast(rt: &mut HookRuntime, payload: &serde_json::Value) -> Strin
     };
     use std::collections::{HashMap, HashSet, VecDeque};
     let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
-    let all_edges: Vec<(String, String)> = {
-        let stmt_opt = rt.ctx.knowledge.conn_ref().prepare(
-            "SELECT DISTINCT module_file, consumer_file FROM wiring_map
-             WHERE module_file IS NOT NULL
-               AND consumer_file IS NOT NULL
-               AND module_file != consumer_file",
-        );
-        if let Ok(mut stmt) = stmt_opt {
-            stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        } else {
-            Vec::new()
-        }
-    };
+    let all_edges = query_pairs(&rt.ctx.knowledge, WIRING_EDGES_SQL);
     for (m, c) in all_edges {
         adjacency.entry(m).or_default().push(c);
     }
@@ -168,18 +186,12 @@ pub fn cli_viz_blast(rt: &mut HookRuntime, payload: &serde_json::Value) -> Strin
     queue.push_back((start_module.clone(), 0));
     visited.insert(start_module.clone());
     while let Some((current, depth)) = queue.pop_front() {
-        nodes.push(VizNodeData {
-            id: current.clone(),
-            label: std::path::Path::new(&current)
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| current.clone()),
-            quality_score: None,
-            fan_in: fan_in_counts.get(&current).copied(),
-            fan_out: fan_out_counts.get(&current).copied(),
-            is_orphan: false,
-            has_unsafe: false,
-        });
+        nodes.push(viz_node(
+            &current,
+            fan_in_counts.get(&current).copied(),
+            fan_out_counts.get(&current).copied(),
+            false,
+        ));
         if let Some(next_modules) = adjacency.get(&current) {
             for next in next_modules {
                 if visited.insert(next.clone()) {
@@ -214,21 +226,13 @@ pub fn cli_viz_feature(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         )
         .to_string();
     }
-    let raw_modules: Vec<String> = {
-        let stmt_opt = rt.ctx.knowledge.conn_ref().prepare(
-            "SELECT DISTINCT module_file FROM wiring_map
+    let raw_modules = query_column(
+        &rt.ctx.knowledge,
+        "SELECT DISTINCT module_file FROM wiring_map
              WHERE module_file IS NOT NULL
                AND consumer_file IS NOT NULL
                AND module_file != consumer_file",
-        );
-        if let Ok(mut stmt) = stmt_opt {
-            stmt.query_map([], |row| row.get::<_, String>(0))
-                .map(|rows| rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        }
-    };
+    );
     let modules: Vec<String> = raw_modules
         .into_iter()
         .filter(|m| {
@@ -236,34 +240,16 @@ pub fn cli_viz_feature(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         })
         .collect();
     let all_modules: Vec<String> = if modules.is_empty() {
-        let stmt_opt =
-            rt.ctx.knowledge.conn_ref().prepare(
-                "SELECT DISTINCT module_file FROM wiring_map WHERE module_file IS NOT NULL",
-            );
-        if let Ok(mut stmt) = stmt_opt {
-            stmt.query_map([], |row| row.get::<_, String>(0))
-                .map(|rows| rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        }
+        query_column(
+            &rt.ctx.knowledge,
+            "SELECT DISTINCT module_file FROM wiring_map WHERE module_file IS NOT NULL",
+        )
     } else {
         modules.clone()
     };
     let nodes: Vec<VizNodeData> = all_modules
         .iter()
-        .map(|m: &String| VizNodeData {
-            id: m.clone(),
-            label: std::path::Path::new(m)
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| m.clone()),
-            quality_score: None,
-            fan_in: None,
-            fan_out: None,
-            is_orphan: false,
-            has_unsafe: false,
-        })
+        .map(|m: &String| viz_node(m, None, None, false))
         .collect();
     let graph = VizGraphData {
         nodes,
@@ -281,23 +267,7 @@ fn build_wiring_graph_data(db: &crate::knowledge::FileKnowledgeDB) -> VizGraphDa
     let mut fan_out_counts: HashMap<String, usize> = HashMap::new();
     let mut all_nodes: HashSet<String> = HashSet::new();
     let mut orphan_candidates: HashSet<String> = HashSet::new();
-    let rows: Vec<(String, String)> = {
-        let stmt_opt = db.conn_ref().prepare(
-            "SELECT DISTINCT module_file, consumer_file FROM wiring_map
-             WHERE module_file IS NOT NULL
-               AND consumer_file IS NOT NULL
-               AND module_file != consumer_file",
-        );
-        if let Ok(mut stmt) = stmt_opt {
-            stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        } else {
-            Vec::new()
-        }
-    };
+    let rows = query_pairs(db, WIRING_EDGES_SQL);
     for (module, consumer) in &rows {
         all_nodes.insert(module.clone());
         all_nodes.insert(consumer.clone());
@@ -313,11 +283,11 @@ fn build_wiring_graph_data(db: &crate::knowledge::FileKnowledgeDB) -> VizGraphDa
          WHERE module_file IS NOT NULL
            AND consumer_file IS NULL",
     );
-    if let Ok(mut stmt) = stmt_orphans {
-        if let Ok(rows) = stmt.query_map([], |row| row.get::<_, String>(0)) {
-            for row in rows.filter_map(|r| r.ok()) {
-                orphan_candidates.insert(row);
-            }
+    if let Ok(mut stmt) = stmt_orphans
+        && let Ok(rows) = stmt.query_map([], |row| row.get::<_, String>(0))
+    {
+        for row in rows.filter_map(|r| r.ok()) {
+            orphan_candidates.insert(row);
         }
     }
     let mut all_modules: Vec<String> = all_nodes.into_iter().collect();
@@ -325,19 +295,12 @@ fn build_wiring_graph_data(db: &crate::knowledge::FileKnowledgeDB) -> VizGraphDa
     let nodes: Vec<VizNodeData> = all_modules
         .iter()
         .map(|m| {
-            let label = std::path::Path::new(m)
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| m.clone());
-            VizNodeData {
-                id: m.clone(),
-                label,
-                quality_score: None,
-                fan_in: fan_in_counts.get(m).copied(),
-                fan_out: fan_out_counts.get(m).copied(),
-                is_orphan: orphan_candidates.contains(m),
-                has_unsafe: false,
-            }
+            viz_node(
+                m,
+                fan_in_counts.get(m).copied(),
+                fan_out_counts.get(m).copied(),
+                orphan_candidates.contains(m),
+            )
         })
         .collect();
     let edges: Vec<VizEdgeData> = rows

@@ -117,7 +117,7 @@ impl AstEnrichedArm {
 
     /// Check and reset numerically unstable A_inv (every 100 pulls).
     fn maybe_reorthogonalize(&mut self) -> bool {
-        if self.pulls % 100 != 0 || self.pulls == 0 {
+        if !self.pulls.is_multiple_of(100) || self.pulls == 0 {
             return false;
         }
         let dim = self.a_inv.nrows();

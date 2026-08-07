@@ -361,10 +361,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         AstCmd::Scan { rules, root } => {
             let mut payload = serde_json::json!({"rules_dir": rules});
-            if !root.is_empty() {
-                if let Some(obj) = payload.as_object_mut() {
-                    obj.insert("root".to_string(), serde_json::json!(root));
-                }
+            if !root.is_empty()
+                && let Some(obj) = payload.as_object_mut()
+            {
+                obj.insert("root".to_string(), serde_json::json!(root));
             }
             let output = daemon_query("cli-ast-scan", payload)?;
             println!("{output}");
@@ -619,28 +619,28 @@ fn render_blast_as_tree(json_output: &str) -> String {
     let blast_radius = v.get("blast_radius").and_then(|v| v.as_u64()).unwrap_or(0);
     let mut root = Tree::new(format!("{file_path} [blast_radius={blast_radius}]"));
 
-    if let Some(consumers) = v.get("consumers").and_then(|v| v.as_array()) {
-        if !consumers.is_empty() {
-            let mut deps = Tree::new("Direct dependents".to_string());
-            for c in consumers {
-                if let Some(s) = c.as_str() {
-                    deps.push(Tree::new(s.to_string()));
-                }
+    if let Some(consumers) = v.get("consumers").and_then(|v| v.as_array())
+        && !consumers.is_empty()
+    {
+        let mut deps = Tree::new("Direct dependents".to_string());
+        for c in consumers {
+            if let Some(s) = c.as_str() {
+                deps.push(Tree::new(s.to_string()));
             }
-            root.push(deps);
         }
+        root.push(deps);
     }
 
-    if let Some(coedit) = v.get("coedit_files").and_then(|v| v.as_array()) {
-        if !coedit.is_empty() {
-            let mut co = Tree::new("Co-edit signals".to_string());
-            for c in coedit {
-                if let Some(s) = c.as_str() {
-                    co.push(Tree::new(s.to_string()));
-                }
+    if let Some(coedit) = v.get("coedit_files").and_then(|v| v.as_array())
+        && !coedit.is_empty()
+    {
+        let mut co = Tree::new("Co-edit signals".to_string());
+        for c in coedit {
+            if let Some(s) = c.as_str() {
+                co.push(Tree::new(s.to_string()));
             }
-            root.push(co);
         }
+        root.push(co);
     }
 
     format!("{root}")

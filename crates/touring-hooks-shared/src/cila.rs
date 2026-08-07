@@ -14,10 +14,10 @@ pub fn cila_budget(cila_level: u8, env_prefix: &str, low: usize, mid: usize, hig
         2 | 3 => format!("{env_prefix}_L2"),
         _ => format!("{env_prefix}_L4"),
     };
-    if let Ok(val) = std::env::var(&env_key) {
-        if let Ok(n) = val.parse::<usize>() {
-            return n;
-        }
+    if let Ok(val) = std::env::var(&env_key)
+        && let Ok(n) = val.parse::<usize>()
+    {
+        return n;
     }
     match cila_level {
         0 | 1 => low,

@@ -548,14 +548,14 @@ fn extract_model_from_expr(
     expr: &ConstraintExpr,
     result: &mut HashMap<String, i64>,
 ) {
-    if let ConstraintExpr::Symbolic(sym) = expr {
-        if let SymbolKind::Variable = &sym.kind {
-            let int_var = Int::new_const(sym.name.as_str());
-            if let Some(evaluated) = model.eval(&int_var, true) {
-                if let Some(val) = evaluated.as_i64() {
-                    result.insert(sym.name.clone(), val);
-                }
-            }
+    if let ConstraintExpr::Symbolic(sym) = expr
+        && let SymbolKind::Variable = &sym.kind
+    {
+        let int_var = Int::new_const(sym.name.as_str());
+        if let Some(evaluated) = model.eval(&int_var, true)
+            && let Some(val) = evaluated.as_i64()
+        {
+            result.insert(sym.name.clone(), val);
         }
     }
 }

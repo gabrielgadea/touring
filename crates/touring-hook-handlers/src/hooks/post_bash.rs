@@ -82,13 +82,13 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     // EC6: Fire-and-forget async record_bash_outcome to AsyncFileKnowledgeDB.
     // Runs alongside the sync call above — non-blocking, same outcome, async persistence path.
     // Uses Handle::try_current() — safe from tokio::task::spawn_blocking context.
-    if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned() {
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            let outcome_clone = outcome.clone();
-            drop(handle.spawn(async move {
-                let _ = adb.record_bash_outcome(&outcome_clone).await;
-            }));
-        }
+    if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned()
+        && let Ok(handle) = tokio::runtime::Handle::try_current()
+    {
+        let outcome_clone = outcome.clone();
+        drop(handle.spawn(async move {
+            let _ = adb.record_bash_outcome(&outcome_clone).await;
+        }));
     }
 
     // Wire to OnlineRL: feed ImmediateReward after recording bash outcome.
@@ -372,10 +372,10 @@ fn build_capture_response(
     }
 
     // Structured metrics from OutputCapture (test counts, coverage, lint errors).
-    if let Some(cap) = capture {
-        if !cap.metrics.is_empty() {
-            parts.push(format_capture_context(cap));
-        }
+    if let Some(cap) = capture
+        && !cap.metrics.is_empty()
+    {
+        parts.push(format_capture_context(cap));
     }
 
     if parts.is_empty() {

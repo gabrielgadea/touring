@@ -337,28 +337,28 @@ fn collect_reasons(evidence: &Evidence) -> Vec<String> {
 /// 4. Below-threshold composite score.
 /// 5. Generic review prompt for a `Warn`.
 fn build_canonical_fix(evidence: &Evidence, score: f64) -> String {
-    if let Some(r) = &evidence.static_report {
-        if r.severity == StaticSeverity::Block {
-            let detail = r
-                .findings
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "a destructive pattern".to_owned());
-            return format!(
-                "X2 STATIC blocked the code ({detail}). Revise the command, then re-run the gateway."
-            );
-        }
+    if let Some(r) = &evidence.static_report
+        && r.severity == StaticSeverity::Block
+    {
+        let detail = r
+            .findings
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "a destructive pattern".to_owned());
+        return format!(
+            "X2 STATIC blocked the code ({detail}). Revise the command, then re-run the gateway."
+        );
     }
-    if let Some(r) = &evidence.gate_report {
-        if let Some(denied) = r.first_blocking_denial() {
-            return format!(
-                "Profile '{}' denies the {} capability '{}'. Run under a profile that grants it, \
+    if let Some(r) = &evidence.gate_report
+        && let Some(denied) = r.first_blocking_denial()
+    {
+        return format!(
+            "Profile '{}' denies the {} capability '{}'. Run under a profile that grants it, \
                  or remove the operation from the code.",
-                r.profile_name,
-                capability_class(&denied.capability),
-                denied.operation
-            );
-        }
+            r.profile_name,
+            capability_class(&denied.capability),
+            denied.operation
+        );
     }
     // P8.7 — workflow antipattern advisory (Warn only, R13/R14 — never Deny).
     // When X2 STATIC raised a Warn that includes a workflow antipattern finding
@@ -366,12 +366,11 @@ fn build_canonical_fix(evidence: &Evidence, score: f64) -> String {
     // promote it to the canonical fix so the agent receives the elite-tool hint.
     // This block is intentionally after all hard-block checks to preserve
     // deny-wins discipline.
-    if let Some(r) = &evidence.static_report {
-        if r.severity != StaticSeverity::Block {
-            if let Some(wf_finding) = r.findings.iter().find(|f| f.starts_with("workflow[")) {
-                return wf_finding.clone();
-            }
-        }
+    if let Some(r) = &evidence.static_report
+        && r.severity != StaticSeverity::Block
+        && let Some(wf_finding) = r.findings.iter().find(|f| f.starts_with("workflow["))
+    {
+        return wf_finding.clone();
     }
     if score < DENY_THRESHOLD {
         return format!(

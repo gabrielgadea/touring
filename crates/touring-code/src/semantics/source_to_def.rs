@@ -151,10 +151,10 @@ fn collect_definitions(
     file_id: u32,
     results: &mut Vec<Definition>,
 ) {
-    if let Some(def) = try_def_from_node(node, lang, source) {
-        if def.kind() == target_kind {
-            results.push(def);
-        }
+    if let Some(def) = try_def_from_node(node, lang, source)
+        && def.kind() == target_kind
+    {
+        results.push(def);
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {

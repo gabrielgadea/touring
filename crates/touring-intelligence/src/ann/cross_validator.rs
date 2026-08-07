@@ -853,20 +853,19 @@ impl CrossValidator {
 
     fn validate_normative_citations(&mut self, assertions: &[Assertion]) {
         for assertion in assertions {
-            if assertion.assertion_type == AssertionType::NormativeCitation {
-                if let Some(NormalizedValue::Reference { type_name, number }) =
+            if assertion.assertion_type == AssertionType::NormativeCitation
+                && let Some(NormalizedValue::Reference { type_name, number }) =
                     &assertion.normalized_value
-                {
-                    let is_valid = self.normative_index.exists(type_name, number);
+            {
+                let is_valid = self.normative_index.exists(type_name, number);
 
-                    if let Some(node) = self.graph.get_node_mut(&assertion.id) {
-                        if is_valid {
-                            node.initial_confidence = node.initial_confidence.max(0.90);
-                            node.validated_confidence = node.initial_confidence;
-                        } else {
-                            node.initial_confidence = 0.10;
-                            node.validated_confidence = 0.10;
-                        }
+                if let Some(node) = self.graph.get_node_mut(&assertion.id) {
+                    if is_valid {
+                        node.initial_confidence = node.initial_confidence.max(0.90);
+                        node.validated_confidence = node.initial_confidence;
+                    } else {
+                        node.initial_confidence = 0.10;
+                        node.validated_confidence = 0.10;
                     }
                 }
             }
@@ -969,17 +968,17 @@ impl CrossValidator {
             });
         }
 
-        if assertion.assertion_type == AssertionType::DocumentCitation {
-            if let Some(NormalizedValue::Reference { number, .. }) = &assertion.normalized_value {
-                let has_reference = self.graph.node_index.keys().any(|id| id.contains(number));
-                if !has_reference {
-                    gaps.push(Gap {
-                        gap_type: GapType::MissingReference,
-                        description: format!("Documento {} citado mas não localizado", number),
-                        expected_document: Some(number.clone()),
-                        severity: 0.5,
-                    });
-                }
+        if assertion.assertion_type == AssertionType::DocumentCitation
+            && let Some(NormalizedValue::Reference { number, .. }) = &assertion.normalized_value
+        {
+            let has_reference = self.graph.node_index.keys().any(|id| id.contains(number));
+            if !has_reference {
+                gaps.push(Gap {
+                    gap_type: GapType::MissingReference,
+                    description: format!("Documento {} citado mas não localizado", number),
+                    expected_document: Some(number.clone()),
+                    severity: 0.5,
+                });
             }
         }
 

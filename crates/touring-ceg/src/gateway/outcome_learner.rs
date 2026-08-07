@@ -568,11 +568,11 @@ pub fn persist_global_model_to(path: &Path) -> bool {
             return false;
         }
     };
-    if let Some(parent) = path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            tracing::warn!("ES4: world model dir create failed: {e}");
-            return false;
-        }
+    if let Some(parent) = path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        tracing::warn!("ES4: world model dir create failed: {e}");
+        return false;
     }
     let tmp = path.with_extension("json.tmp");
     if let Err(e) = std::fs::write(&tmp, json.as_bytes()) {

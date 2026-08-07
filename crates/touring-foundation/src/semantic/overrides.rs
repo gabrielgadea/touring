@@ -71,17 +71,16 @@ impl OverrideEngine {
     pub fn apply(&self, language: &str, name: &str, path: &str) -> Option<SemanticClass> {
         let rules = self.overrides.get(language)?;
         for rule in rules {
-            if let Ok(glob) = glob::Pattern::new(&rule.name_pattern) {
-                if glob.matches(name) {
-                    if let Some(ref file_pattern) = rule.file_pattern {
-                        if let Ok(fp) = glob::Pattern::new(file_pattern) {
-                            if !fp.matches(path) {
-                                continue;
-                            }
-                        }
-                    }
-                    return str_to_class(&rule.class);
+            if let Ok(glob) = glob::Pattern::new(&rule.name_pattern)
+                && glob.matches(name)
+            {
+                if let Some(ref file_pattern) = rule.file_pattern
+                    && let Ok(fp) = glob::Pattern::new(file_pattern)
+                    && !fp.matches(path)
+                {
+                    continue;
                 }
+                return str_to_class(&rule.class);
             }
         }
         None

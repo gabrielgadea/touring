@@ -41,10 +41,10 @@ pub fn parse_vmstat(content: &str) -> Result<VmstatReading, PressureReadError> {
     let mut slots = [None::<u64>; 3];
     for line in content.lines() {
         for &(key, idx) in &FIELDS {
-            if slots[idx].is_none() {
-                if let Some(v) = extract_vmstat_field(line, key)? {
-                    slots[idx] = Some(v);
-                }
+            if slots[idx].is_none()
+                && let Some(v) = extract_vmstat_field(line, key)?
+            {
+                slots[idx] = Some(v);
             }
         }
     }

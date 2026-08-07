@@ -533,12 +533,11 @@ impl CheckpointManager {
 
         // Replay events (simplified - real implementation would apply changes)
         for (event_type, payload, _) in events {
-            if event_type == "StatusChanged" {
-                if let Ok(update) = serde_json::from_str::<StatusChangePayload>(&payload) {
-                    if let Some(st) = task.get_subtask_mut(&update.subtask_id) {
-                        st.status = update.new_status;
-                    }
-                }
+            if event_type == "StatusChanged"
+                && let Ok(update) = serde_json::from_str::<StatusChangePayload>(&payload)
+                && let Some(st) = task.get_subtask_mut(&update.subtask_id)
+            {
+                st.status = update.new_status;
             }
         }
 

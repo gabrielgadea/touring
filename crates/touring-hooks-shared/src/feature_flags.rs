@@ -141,19 +141,18 @@ impl FeatureFlagExtractor for ShellExtractor {
         let mut features = Vec::new();
         for line in content.lines() {
             // Match: FEATURE=${FEATURE:-default} or [[ -v FEATURE ]]
-            if line.contains("FEATURE=")
+            if (line.contains("FEATURE=")
                 || line.contains("-v FEATURE")
-                || line.contains("${FEATURE")
+                || line.contains("${FEATURE"))
+                && let Some(start) = line.find("FEATURE")
             {
-                if let Some(start) = line.find("FEATURE") {
-                    let after = &line[start..];
-                    if let Some(end) =
-                        after.find(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
-                    {
-                        let name = &after[..end.min(50)];
-                        if !name.is_empty() && name.len() > 1 {
-                            features.push(name.to_string());
-                        }
+                let after = &line[start..];
+                if let Some(end) =
+                    after.find(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
+                {
+                    let name = &after[..end.min(50)];
+                    if !name.is_empty() && name.len() > 1 {
+                        features.push(name.to_string());
                     }
                 }
             }

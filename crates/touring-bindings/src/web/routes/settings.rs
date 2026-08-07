@@ -128,10 +128,10 @@ pub fn SettingsPage() -> impl IntoView {
         if prev.is_some() {
             return;
         }
-        if let Some(secs) = load_refresh_secs() {
-            if bus.interval_secs.get_untracked() != secs {
-                bus.interval_secs.set(secs);
-            }
+        if let Some(secs) = load_refresh_secs()
+            && bus.interval_secs.get_untracked() != secs
+        {
+            bus.interval_secs.set(secs);
         }
     });
 

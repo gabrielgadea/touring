@@ -153,22 +153,23 @@ impl SkipContext {
             // Block comment: /* touring:skip-region */ anywhere on the line
             if let Some(cmt_start) = line.find("/*") {
                 let cmt_trimmed = line[cmt_start..].trim_start();
-                if cmt_trimmed.starts_with("/*") && cmt_trimmed.contains("touring:skip-region") {
-                    if let Some(cmt_end) = line[cmt_start..].find("*/") {
-                        let comment_start = line_cursor + cmt_start as u64;
-                        let comment_end = comment_start + cmt_end as u64 + 2;
-                        let region = SkipRegion::new(
-                            file_path.to_string_lossy().to_string(),
-                            comment_start,
-                            comment_end,
-                            SkipStyle::BlockComment,
-                        );
-                        self.regions
-                            .write()
-                            .expect("RwLock poisoned")
-                            .insert(region);
-                        count += 1;
-                    }
+                if cmt_trimmed.starts_with("/*")
+                    && cmt_trimmed.contains("touring:skip-region")
+                    && let Some(cmt_end) = line[cmt_start..].find("*/")
+                {
+                    let comment_start = line_cursor + cmt_start as u64;
+                    let comment_end = comment_start + cmt_end as u64 + 2;
+                    let region = SkipRegion::new(
+                        file_path.to_string_lossy().to_string(),
+                        comment_start,
+                        comment_end,
+                        SkipStyle::BlockComment,
+                    );
+                    self.regions
+                        .write()
+                        .expect("RwLock poisoned")
+                        .insert(region);
+                    count += 1;
                 }
             }
 
@@ -176,20 +177,18 @@ impl SkipContext {
         }
 
         // Handle unclosed region: extends to end of file
-        if in_region {
-            if let Some(start) = region_start.take() {
-                let region = SkipRegion::new(
-                    file_path.to_string_lossy().to_string(),
-                    start,
-                    line_cursor, // end at current cursor = EOF
-                    SkipStyle::LineComment,
-                );
-                self.regions
-                    .write()
-                    .expect("RwLock poisoned")
-                    .insert(region);
-                count += 1;
-            }
+        if in_region && let Some(start) = region_start.take() {
+            let region = SkipRegion::new(
+                file_path.to_string_lossy().to_string(),
+                start,
+                line_cursor, // end at current cursor = EOF
+                SkipStyle::LineComment,
+            );
+            self.regions
+                .write()
+                .expect("RwLock poisoned")
+                .insert(region);
+            count += 1;
         }
 
         Ok(count)

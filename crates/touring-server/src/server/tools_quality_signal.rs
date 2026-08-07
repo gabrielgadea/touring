@@ -61,10 +61,8 @@ impl TouringServer {
                 let signal = compute_quality_signal(&ws);
                 let mut value = serde_json::to_value(&signal)
                     .unwrap_or_else(|_| serde_json::json!({"error": "failed to serialize signal"}));
-                if no_diagnostics {
-                    if let Some(obj) = value.as_object_mut() {
-                        obj.remove("diagnostics");
-                    }
+                if no_diagnostics && let Some(obj) = value.as_object_mut() {
+                    obj.remove("diagnostics");
                 }
                 if let Some(obj) = value.as_object_mut() {
                     obj.insert(

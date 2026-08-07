@@ -170,11 +170,11 @@ impl EventStore {
                 Err("projection hash mismatch".to_string())
             };
 
-            if let Err(ref e) = result {
-                if e.contains("sha256") || e.contains("hash") {
-                    results.push((event.seq, Err("invariant violated".to_string())));
-                    continue;
-                }
+            if let Err(ref e) = result
+                && (e.contains("sha256") || e.contains("hash"))
+            {
+                results.push((event.seq, Err("invariant violated".to_string())));
+                continue;
             }
             results.push((event.seq, result.map_err(|e| e.to_string())));
         }

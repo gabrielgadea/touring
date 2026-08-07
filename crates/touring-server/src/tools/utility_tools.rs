@@ -342,10 +342,10 @@ impl UtilityTools {
                 let name_str = name.to_string_lossy();
 
                 // Extract name without extension
-                if let Some(stem) = name_str.split('.').next() {
-                    if !checkpoints.contains(&stem.to_string()) {
-                        checkpoints.push(stem.to_string());
-                    }
+                if let Some(stem) = name_str.split('.').next()
+                    && !checkpoints.contains(&stem.to_string())
+                {
+                    checkpoints.push(stem.to_string());
                 }
             }
         }

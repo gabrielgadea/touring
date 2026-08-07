@@ -255,13 +255,28 @@ fn hook_registry_has_wiring_community() {
     );
 }
 
+/// Tripwire da contagem de hooks. O nome NÃO carrega mais o número: as três
+/// cópias deste invariante (aqui, `stringzilla_e2e.rs` e
+/// `touring-dispatch/src/hook_registry_tests.rs`) chamavam-se `_is_172` e
+/// `_is_176` enquanto asseriam 222 — um nome que mente sobre o que o teste faz
+/// é pior que nenhum nome.
 #[test]
-fn hook_registry_count_is_176() {
+fn hook_registry_count_matches_the_dispatch_registry() {
     let names = touring_hooks::hook_registry::all_daemon_hook_names();
+    // Ciente da feature: `acp-protocol` (não-default) contribui 2 nomes.
+    // ⚠ Sincronizar JUNTO com os outros quatro tripwires — a lista está no
+    // doc de `test_hook_registry_counts_match_the_dispatch_registry`
+    // (touring-hooks/tests/stringzilla_e2e.rs). Atualizar um subconjunto foi
+    // como `cli-memory-credit` chegou ao CI com três testes vermelhos.
+    #[cfg(feature = "acp-protocol")]
+    const EXPECTED_NAMES: usize = 225;
+    #[cfg(not(feature = "acp-protocol"))]
+    const EXPECTED_NAMES: usize = 223;
     assert_eq!(
         names.len(),
-        222,
-        "Expected 222 hook names (sync with touring-dispatch hook_registry test), got {}",
+        EXPECTED_NAMES,
+        "esperados {EXPECTED_NAMES} nomes de hook (em sincronia com o teste \
+         hook_registry de touring-dispatch), veio {}",
         names.len()
     );
 }

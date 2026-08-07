@@ -702,10 +702,10 @@ pub fn redact_secrets(s: &str) -> String {
         }
         // Pass 2: env-var name → redact the value after the first `=`/`:`.
         let mut redacted: Cow<'_, str> = Cow::Borrowed(line);
-        if needles.iter().any(|n| line.contains(n)) {
-            if let Some(eq_idx) = line.find(['=', ':']) {
-                redacted = Cow::Owned(format!("{} [REDACTED]", &line[..=eq_idx]));
-            }
+        if needles.iter().any(|n| line.contains(n))
+            && let Some(eq_idx) = line.find(['=', ':'])
+        {
+            redacted = Cow::Owned(format!("{} [REDACTED]", &line[..=eq_idx]));
         }
         // Pass 3: token-format patterns anywhere in the (possibly redacted) line.
         for re in SECRET_TOKEN_PATTERNS.iter() {

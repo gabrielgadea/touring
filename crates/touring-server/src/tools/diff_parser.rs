@@ -189,27 +189,27 @@ pub fn parse_unified_diff(diff_text: &str) -> Vec<DiffHunk> {
             continue;
         }
 
-        if let Some(caps) = hunk_re.captures(line) {
-            if let Some(ref file) = current_file {
-                let start: u32 = caps[1].parse().unwrap_or(0);
-                let count: u32 = caps
-                    .get(2)
-                    .map(|m| m.as_str().parse().unwrap_or(1))
-                    .unwrap_or(1);
+        if let Some(caps) = hunk_re.captures(line)
+            && let Some(ref file) = current_file
+        {
+            let start: u32 = caps[1].parse().unwrap_or(0);
+            let count: u32 = caps
+                .get(2)
+                .map(|m| m.as_str().parse().unwrap_or(1))
+                .unwrap_or(1);
 
-                let (end, change_type) = if count == 0 {
-                    (start, ChangeType::Deleted)
-                } else {
-                    (start + count - 1, ChangeType::Modified)
-                };
+            let (end, change_type) = if count == 0 {
+                (start, ChangeType::Deleted)
+            } else {
+                (start + count - 1, ChangeType::Modified)
+            };
 
-                hunks.push(DiffHunk {
-                    file_path: file.clone(),
-                    start_line: start,
-                    end_line: end,
-                    change_type,
-                });
-            }
+            hunks.push(DiffHunk {
+                file_path: file.clone(),
+                start_line: start,
+                end_line: end,
+                change_type,
+            });
         }
     }
 
@@ -301,11 +301,11 @@ pub fn extract_relevant_lines(
     ranges.sort();
     let mut merged: Vec<(usize, usize)> = Vec::new();
     for (start, end) in ranges {
-        if let Some(last) = merged.last_mut() {
-            if start <= last.1 + 1 {
-                last.1 = last.1.max(end);
-                continue;
-            }
+        if let Some(last) = merged.last_mut()
+            && start <= last.1 + 1
+        {
+            last.1 = last.1.max(end);
+            continue;
         }
         merged.push((start, end));
     }

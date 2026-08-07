@@ -154,13 +154,12 @@ impl LearningPersistence {
 
         for row in rows {
             let (key, q_value) = row?;
-            if let Some((state_str, action_str)) = key.split_once(':') {
-                if let (Ok(state), Ok(action)) =
+            if let Some((state_str, action_str)) = key.split_once(':')
+                && let (Ok(state), Ok(action)) =
                     (state_str.parse::<u64>(), action_str.parse::<u64>())
-                {
-                    qtable.load_q_value(state, action, q_value);
-                    count += 1;
-                }
+            {
+                qtable.load_q_value(state, action, q_value);
+                count += 1;
             }
         }
         Ok(count)

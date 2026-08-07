@@ -142,6 +142,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-gotcha-stats",
         "cli-memory-stats",
         "cli-memory-recall",
+        "cli-memory-credit",
         "cli-memory-store",
         "cli-memory-list",
         "cli-memory-reindex",
@@ -360,6 +361,14 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-viz-orphans",
         "cli-viz-feature",
     ]);
+    // ACP (feature `acp-protocol`). Gate idêntico ao de `build_dispatch_table`:
+    // as duas listas são fontes da verdade paralelas, e até 03/08/2026 só a
+    // tabela conhecia estes dois hooks. Sob `--all-features` eles ficavam
+    // despacháveis porém invisíveis à introspecção — `all_daemon_hook_names` é
+    // o que enumera a superfície do daemon. `dispatch_table_and_registry_are_in_sync`
+    // é o teste que guarda a paridade; ele reprovava exatamente aqui.
+    #[cfg(feature = "acp-protocol")]
+    names.extend_from_slice(&["cli-acp-message", "cli-acp-discover"]);
 
     names
 }
@@ -457,6 +466,7 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-gotcha-stats",
     "cli-memory-stats",
     "cli-memory-recall",
+    "cli-memory-credit",
     "cli-memory-store",
     "cli-memory-list",
     "cli-memory-reindex",
@@ -1377,6 +1387,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-memory-recall", |rt, v| {
         crate::cli_handlers::cli_memory_recall(rt, v)
+    });
+    m.insert("cli-memory-credit", |rt, v| {
+        crate::cli_handlers::cli_memory_credit(rt, v)
     });
     m.insert("cli-memory-store", |rt, v| {
         crate::cli_handlers::cli_memory_store(rt, v)

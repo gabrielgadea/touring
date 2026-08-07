@@ -33,25 +33,25 @@ use super::daemon_query;
 pub fn run(args: &[String]) -> anyhow::Result<()> {
     let mut payload = serde_json::Map::new();
 
-    if let Some(pkg) = super::common::flag_value(args, "--package") {
-        if !pkg.is_empty() {
-            payload.insert("package".into(), serde_json::Value::String(pkg.into()));
-        }
+    if let Some(pkg) = super::common::flag_value(args, "--package")
+        && !pkg.is_empty()
+    {
+        payload.insert("package".into(), serde_json::Value::String(pkg.into()));
     }
-    if let Some(t) = super::common::flag_value(args, "--threshold") {
-        if let Ok(parsed) = t.parse::<f64>() {
-            payload.insert("threshold".into(), serde_json::Value::from(parsed));
-        }
+    if let Some(t) = super::common::flag_value(args, "--threshold")
+        && let Ok(parsed) = t.parse::<f64>()
+    {
+        payload.insert("threshold".into(), serde_json::Value::from(parsed));
     }
-    if let Some(t) = super::common::flag_value(args, "--timeout") {
-        if let Ok(parsed) = t.parse::<u64>() {
-            payload.insert("timeout_secs".into(), serde_json::Value::from(parsed));
-        }
+    if let Some(t) = super::common::flag_value(args, "--timeout")
+        && let Ok(parsed) = t.parse::<u64>()
+    {
+        payload.insert("timeout_secs".into(), serde_json::Value::from(parsed));
     }
-    if let Some(j) = super::common::flag_value(args, "--jobs") {
-        if let Ok(parsed) = j.parse::<u64>() {
-            payload.insert("jobs".into(), serde_json::Value::from(parsed));
-        }
+    if let Some(j) = super::common::flag_value(args, "--jobs")
+        && let Ok(parsed) = j.parse::<u64>()
+    {
+        payload.insert("jobs".into(), serde_json::Value::from(parsed));
     }
     if args.iter().any(|a| a == "--force") {
         payload.insert("force".into(), serde_json::Value::Bool(true));

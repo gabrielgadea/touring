@@ -231,12 +231,11 @@ fn conformal_gate_threshold(rt: &HookRuntime) -> f32 {
 
     static CACHE: OnceLock<std::sync::Mutex<Option<(f32, std::time::Instant)>>> = OnceLock::new();
     let cell = CACHE.get_or_init(|| std::sync::Mutex::new(None));
-    if let Ok(guard) = cell.lock() {
-        if let Some((tau, at)) = *guard {
-            if at.elapsed().as_secs() < SUGGESTION_TTL_SECS {
-                return tau;
-            }
-        }
+    if let Ok(guard) = cell.lock()
+        && let Some((tau, at)) = *guard
+        && at.elapsed().as_secs() < SUGGESTION_TTL_SECS
+    {
+        return tau;
     }
 
     // Recompute from the bash outcome substrate — the richest live stream.
@@ -641,40 +640,39 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
     // Pattern 1: grep/rg for a symbol-like token.
     if (command.starts_with("grep") || command.starts_with("rg ") || command.starts_with("rg\t"))
         && command.contains(' ')
+        && let Some(sym) = extract_first_symbol_in_text(command)
     {
-        if let Some(sym) = extract_first_symbol_in_text(command) {
-            return Some(ClassifierOutput {
-                cluster: "symbol-lookup".into(),
-                must: vec![
-                    cmd(format!("touring index find {sym} -j"), "<10ms exact lookup"),
-                    cmd(
-                        format!("touring wiring impact {sym} --depth 2"),
-                        "BFS consumers (transitive)",
-                    ),
-                ],
-                should: vec![
-                    cmd(
-                        format!("touring ast find {sym} -j"),
-                        "signature + module path",
-                    ),
-                    cmd(
-                        format!("touring tantivy search \"{sym}\""),
-                        "BM25-ranked context hits",
-                    ),
-                ],
-                may: vec![cmd(
-                    format!("grep -rn \"{sym}\" crates/ --include='*.rs'"),
-                    "VP-Scout Chain 7 (wiring staleness fallback)",
-                )],
-                reason: format!(
-                    "Pattern '{sym}' looks like a symbol — indexed lookup is exact \
-                     and constant-time; wiring impact reveals transitive consumers."
+        return Some(ClassifierOutput {
+            cluster: "symbol-lookup".into(),
+            must: vec![
+                cmd(format!("touring index find {sym} -j"), "<10ms exact lookup"),
+                cmd(
+                    format!("touring wiring impact {sym} --depth 2"),
+                    "BFS consumers (transitive)",
                 ),
-                confidence: 0.92,
-                symbol_hint: Some(sym),
-                file_hint: None,
-            });
-        }
+            ],
+            should: vec![
+                cmd(
+                    format!("touring ast find {sym} -j"),
+                    "signature + module path",
+                ),
+                cmd(
+                    format!("touring tantivy search \"{sym}\""),
+                    "BM25-ranked context hits",
+                ),
+            ],
+            may: vec![cmd(
+                format!("grep -rn \"{sym}\" crates/ --include='*.rs'"),
+                "VP-Scout Chain 7 (wiring staleness fallback)",
+            )],
+            reason: format!(
+                "Pattern '{sym}' looks like a symbol — indexed lookup is exact \
+                     and constant-time; wiring impact reveals transitive consumers."
+            ),
+            confidence: 0.92,
+            symbol_hint: Some(sym),
+            file_hint: None,
+        });
     }
 
     // Pattern 2: cargo build/check/test — health gate first.
@@ -740,45 +738,44 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
         .ok()
         .map(|re| re.is_match(command))
         .unwrap_or(false)
+        && let Some(file) = extract_code_file_from_command(command)
     {
-        if let Some(file) = extract_code_file_from_command(command) {
-            let is_rs = is_rust_file(&file);
-            let mut should = vec![
-                cmd(
-                    format!("touring ast overview {file} -j"),
-                    "module structure + symbol map",
-                ),
-                cmd(
-                    "Read tool with line ranges".to_string(),
-                    "raw content, but cirurgical",
-                ),
-            ];
-            if is_rs {
-                should.push(cmd(
-                    format!("touring ast rust-semantic {file}"),
-                    "generics, traits, lifetimes, semantic_complexity",
-                ));
-                should.push(cmd(
-                    format!("touring ast tdg {file}"),
-                    "TDG grade A+..F (6 dimensions)",
-                ));
-            }
-            return Some(ClassifierOutput {
-                cluster: "raw-read-code-file".into(),
-                must: vec![cmd(
-                    format!("touring ast meta {file} --depth summary -j"),
-                    "blast_radius + quality + cognitive (file-metadata-first)",
-                )],
-                should,
-                may: vec![],
-                reason: "Raw cat dumps bytes; ast metadata in <10ms reveals risk \
-                         metrics before any read."
-                    .into(),
-                confidence: 0.86,
-                symbol_hint: None,
-                file_hint: Some(file),
-            });
+        let is_rs = is_rust_file(&file);
+        let mut should = vec![
+            cmd(
+                format!("touring ast overview {file} -j"),
+                "module structure + symbol map",
+            ),
+            cmd(
+                "Read tool with line ranges".to_string(),
+                "raw content, but cirurgical",
+            ),
+        ];
+        if is_rs {
+            should.push(cmd(
+                format!("touring ast rust-semantic {file}"),
+                "generics, traits, lifetimes, semantic_complexity",
+            ));
+            should.push(cmd(
+                format!("touring ast tdg {file}"),
+                "TDG grade A+..F (6 dimensions)",
+            ));
         }
+        return Some(ClassifierOutput {
+            cluster: "raw-read-code-file".into(),
+            must: vec![cmd(
+                format!("touring ast meta {file} --depth summary -j"),
+                "blast_radius + quality + cognitive (file-metadata-first)",
+            )],
+            should,
+            may: vec![],
+            reason: "Raw cat dumps bytes; ast metadata in <10ms reveals risk \
+                         metrics before any read."
+                .into(),
+            confidence: 0.86,
+            symbol_hint: None,
+            file_hint: Some(file),
+        });
     }
 
     // Pattern 5: destructive inline edits (sed -i, awk -i inplace, perl -pi,
@@ -1246,16 +1243,16 @@ fn enrich(rt: &HookRuntime, classifier: &ClassifierOutput) -> EnrichmentData {
     let mut data = EnrichmentData::default();
 
     // Symbol enrichment.
-    if let Some(ref sym) = classifier.symbol_hint {
-        if let Some(ref store) = rt.infra.symbol_store {
-            match store.find_symbol(sym) {
-                Ok(locs) => {
-                    data.symbol_in_index = Some(!locs.is_empty());
-                    data.symbol_definition_count = Some(locs.len() as u32);
-                }
-                Err(_) => {
-                    data.symbol_in_index = Some(false);
-                }
+    if let Some(ref sym) = classifier.symbol_hint
+        && let Some(ref store) = rt.infra.symbol_store
+    {
+        match store.find_symbol(sym) {
+            Ok(locs) => {
+                data.symbol_in_index = Some(!locs.is_empty());
+                data.symbol_definition_count = Some(locs.len() as u32);
+            }
+            Err(_) => {
+                data.symbol_in_index = Some(false);
             }
         }
     }
@@ -1298,10 +1295,10 @@ fn enrich(rt: &HookRuntime, classifier: &ClassifierOutput) -> EnrichmentData {
         }
 
         // Pub symbol count in this file.
-        if let Some(ref store) = rt.infra.symbol_store {
-            if let Ok(syms) = store.find_symbols_in_file(&rel) {
-                data.pub_symbol_count = Some(syms.len() as u32);
-            }
+        if let Some(ref store) = rt.infra.symbol_store
+            && let Ok(syms) = store.find_symbols_in_file(&rel)
+        {
+            data.pub_symbol_count = Some(syms.len() as u32);
         }
 
         // Cognitive complexity score — from `cognitive_enrichment` table.
@@ -1364,12 +1361,12 @@ fn workflow_enrichment_hint(classifier: &ClassifierOutput) -> Option<String> {
 
     // Glob validation hint — surface when the classifier is file-enumeration
     // and the pattern was extracted from the cluster context.
-    if classifier.cluster == "file-enumeration" {
-        if let Some(ref pattern) = glob_pattern_from_classifier(classifier) {
-            let result = validate_glob_pattern(pattern, None);
-            if let Some(hint) = result.hint() {
-                we.glob_hint = Some(hint.to_owned());
-            }
+    if classifier.cluster == "file-enumeration"
+        && let Some(ref pattern) = glob_pattern_from_classifier(classifier)
+    {
+        let result = validate_glob_pattern(pattern, None);
+        if let Some(hint) = result.hint() {
+            we.glob_hint = Some(hint.to_owned());
         }
     }
 
@@ -1546,10 +1543,10 @@ fn federated_db_paths(
     let mut guard = FEDERATED_DB_CACHE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some((refreshed_at, mem, know)) = guard.as_ref() {
-        if federated_cache_is_fresh(*refreshed_at, FEDERATED_DB_TTL, std::time::Instant::now()) {
-            return (std::sync::Arc::clone(mem), std::sync::Arc::clone(know));
-        }
+    if let Some((refreshed_at, mem, know)) = guard.as_ref()
+        && federated_cache_is_fresh(*refreshed_at, FEDERATED_DB_TTL, std::time::Instant::now())
+    {
+        return (std::sync::Arc::clone(mem), std::sync::Arc::clone(know));
     }
     let claude_dir = crate::cli_handlers::touring_claude_dir();
     let mem_primary = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);

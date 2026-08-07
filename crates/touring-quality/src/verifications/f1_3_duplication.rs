@@ -49,12 +49,16 @@ impl Verification for F1_3_Duplication {
 fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
     use touring_analysis::quality::analyze_duplication;
 
-    let raw = crate::verifications::read_target_source(target)?;
+    // Machine-generated trees (openapi-generator markers) are excluded from the
+    // DUPLICATION corpus only — their clones are the generator's signature, not
+    // debt — and the exclusion is announced in the evidence (never silent).
+    let (raw, generated_excluded) =
+        crate::verifications::read_target_source_excluding_generated(target)?;
     let lang = crate::verifications::lang_from_ext(target);
     let r = analyze_duplication(&raw, lang);
 
     let value = score_duplication(r.ratio);
-    let evidence = format!(
+    let mut evidence = format!(
         "F1.3: duplication ratio={:.1}% ({} dup / {} meaningful lines, {} clone block(s)) \
          ({lang}) — score={value:.3} (touring-analysis analyze_duplication, Type-1 block clones)",
         r.ratio * 100.0,
@@ -62,6 +66,11 @@ fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
         r.total_meaningful_lines,
         r.clone_blocks
     );
+    if generated_excluded > 0 {
+        evidence.push_str(&format!(
+            "; {generated_excluded} machine-generated file(s) excluded (openapi-generator markers)"
+        ));
+    }
     Ok((value, evidence))
 }
 
@@ -197,6 +206,62 @@ mod tests {
             "copy-pasted block ({}) must score below clean ({})",
             sd.value,
             sc.value
+        );
+    }
+
+    /// A machine-generated SDK tree (openapi-generator marker) is excluded from
+    /// the duplication corpus, and the exclusion is ANNOUNCED in the evidence.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn test_generated_sdk_tree_excluded_and_announced() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let block = "    let a = step_one(input);\n    let b = step_two(a);\n    \
+                     let c = step_three(b);\n    let d = step_four(c);\n    \
+                     let e = step_five(d);\n    let g = step_six(e);\n    let h = step_seven(g);\n";
+        let sdk = dir.path().join("sdks").join("go");
+        std::fs::create_dir_all(&sdk).expect("mkdir");
+        std::fs::write(sdk.join(".openapi-generator-ignore"), "").expect("marker");
+        std::fs::write(
+            sdk.join("a.go"),
+            format!("func first() {{\n{block}}}\nfunc second() {{\n{block}}}\n"),
+        )
+        .expect("write");
+        std::fs::write(dir.path().join("clean.rs"), "fn f() -> i32 { 1 + 2 + 3 }\n")
+            .expect("write");
+        let s = F1_3_Duplication.check(dir.path()).expect("check");
+        assert!(
+            s.value > 0.95,
+            "generated-tree clones must not count as debt, got {}",
+            s.value
+        );
+        assert!(
+            s.evidence.contains("machine-generated file(s) excluded"),
+            "exclusion must be announced, got: {}",
+            s.evidence
+        );
+    }
+
+    /// Without a generator marker the same tree DOES count (the filter is
+    /// structural, never a blanket sdk-name exemption).
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn test_unmarked_sdk_tree_still_counts() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let block = "    let a = step_one(input);\n    let b = step_two(a);\n    \
+                     let c = step_three(b);\n    let d = step_four(c);\n    \
+                     let e = step_five(d);\n    let g = step_six(e);\n    let h = step_seven(g);\n";
+        let sdk = dir.path().join("sdks").join("go");
+        std::fs::create_dir_all(&sdk).expect("mkdir");
+        std::fs::write(
+            sdk.join("a.go"),
+            format!("func first() {{\n{block}}}\nfunc second() {{\n{block}}}\n"),
+        )
+        .expect("write");
+        let s = F1_3_Duplication.check(dir.path()).expect("check");
+        assert!(
+            s.value < 0.95,
+            "unmarked clones must still count as debt, got {}",
+            s.value
         );
     }
 

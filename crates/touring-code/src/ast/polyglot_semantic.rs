@@ -182,12 +182,11 @@ impl PolyglotSemanticReport {
                 self.total_params += total;
             }
             "call" => {
-                if let Some(func) = node.child_by_field_name("function") {
-                    if let Ok(name) = func.utf8_text(bytes) {
-                        if is_python_dynamic_escape(name) {
-                            self.dynamic_escapes += 1;
-                        }
-                    }
+                if let Some(func) = node.child_by_field_name("function")
+                    && let Ok(name) = func.utf8_text(bytes)
+                    && is_python_dynamic_escape(name)
+                {
+                    self.dynamic_escapes += 1;
                 }
             }
             _ => {}

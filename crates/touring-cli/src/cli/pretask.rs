@@ -121,11 +121,11 @@ fn subprocess_suppressed() -> bool {
 fn run_quick(touring_bin: &str, args: &[&str], out: &mut String, timeout: Duration) {
     let mut cmd = std::process::Command::new(touring_bin);
     cmd.args(args);
-    if let Some(found) = run_in_process_group_timeout(cmd, timeout) {
-        if !found.is_empty() {
-            out.push_str(&found);
-            out.push('\n');
-        }
+    if let Some(found) = run_in_process_group_timeout(cmd, timeout)
+        && !found.is_empty()
+    {
+        out.push_str(&found);
+        out.push('\n');
     }
 }
 
@@ -316,17 +316,16 @@ fn run_scouter_task_mode(rt: &mut HookRuntime, subject: &str, tool_name: &str) -
                 h
             })
             .collect();
-        if !state_hashes.is_empty() {
-            if let Ok(pensieve) = rt.learning.pensieve.try_borrow() {
-                if let Some(penalty) = pensieve.check_known_failure_seq(&state_hashes) {
-                    parts
+        if !state_hashes.is_empty()
+            && let Ok(pensieve) = rt.learning.pensieve.try_borrow()
+            && let Some(penalty) = pensieve.check_known_failure_seq(&state_hashes)
+        {
+            parts
                         .push(
                             format!(
                                 "⚠ pensieve: similar task failed before (penalty={penalty:.2}) — review gotchas before proceeding"
                             ),
                         );
-                }
-            }
         }
     }
     parts.join(" | ")

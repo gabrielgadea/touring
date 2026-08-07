@@ -189,6 +189,28 @@ impl RlmMemory {
             "ALTER TABLE memory_entries ADD COLUMN palace_path TEXT",
         )?;
 
+        // The `r` of a case `(s, a, r)`.
+        //
+        // Memento (arXiv 2508.16153, Eq. 12) writes every case to the bank as a
+        // (state, action, reward) triple, and its optimal retrieval policy is a
+        // softmax over the value of those cases (Eq. 7) — not over similarity.
+        // Touring's bank stored only (key, value): entries carried no notion of
+        // whether the lesson they hold ever WORKED, so recall could rank by
+        // resemblance alone. These two columns are what a value-ranked recall
+        // needs to exist at all (04/08/2026).
+        //
+        // Nullable on purpose: an entry whose outcome was never observed is
+        // NOT the same as one that scored zero, and collapsing the two would
+        // teach the ranker that unmeasured means bad.
+        self.add_column_if_missing(
+            "outcome_reward",
+            "ALTER TABLE memory_entries ADD COLUMN outcome_reward REAL",
+        )?;
+        self.add_column_if_missing(
+            "outcome_context",
+            "ALTER TABLE memory_entries ADD COLUMN outcome_context TEXT",
+        )?;
+
         self.ensure_indexes()?;
         self.ensure_fts()?;
         Ok(())

@@ -95,7 +95,7 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
     let tantivy_hint = {
         let symbols = extract_backtick_symbols(output_text);
         if !symbols.is_empty() {
-            if let Some(idx) = crate::tantivy_index::global_tantivy() {
+            if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
                 let docstring = output_text[..output_text.len().min(300)].to_string();
                 for sym in &symbols {
                     let doc = crate::tantivy_index::SymbolDoc {

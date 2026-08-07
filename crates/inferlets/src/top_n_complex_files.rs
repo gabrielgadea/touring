@@ -84,13 +84,12 @@ fn walk_rust_files(dir: &Path, results: &mut Vec<(String, usize, usize)>) {
                     continue;
                 }
                 walk_rust_files(&path, results);
-            } else if path.is_file() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.ends_with(".rs") {
-                        let loc = simple_loc(&path);
-                        results.push((path.to_string_lossy().into_owned(), 0, loc));
-                    }
-                }
+            } else if path.is_file()
+                && let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && name.ends_with(".rs")
+            {
+                let loc = simple_loc(&path);
+                results.push((path.to_string_lossy().into_owned(), 0, loc));
             }
         }
     }

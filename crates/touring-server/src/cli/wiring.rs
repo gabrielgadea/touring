@@ -394,23 +394,23 @@ fn render_audit_as_tree(json_output: &str) -> String {
     }
 
     // Low-score modules subtree
-    if let Some(modules) = v.get("low_score_modules").and_then(|v| v.as_array()) {
-        if !modules.is_empty() {
-            let mut mod_tree = Tree::new(format!("Low-Score Modules ({})", modules.len()));
-            for m in modules {
-                let file = m
-                    .get("file_path")
-                    .or_else(|| m.get("module_file"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("?");
-                let score = m
-                    .get("integration_score")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0);
-                mod_tree.push(Tree::new(format!("{file} (score={score:.2})")));
-            }
-            root.push(mod_tree);
+    if let Some(modules) = v.get("low_score_modules").and_then(|v| v.as_array())
+        && !modules.is_empty()
+    {
+        let mut mod_tree = Tree::new(format!("Low-Score Modules ({})", modules.len()));
+        for m in modules {
+            let file = m
+                .get("file_path")
+                .or_else(|| m.get("module_file"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
+            let score = m
+                .get("integration_score")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            mod_tree.push(Tree::new(format!("{file} (score={score:.2})")));
         }
+        root.push(mod_tree);
     }
 
     // Cycles subtree
@@ -421,16 +421,16 @@ fn render_audit_as_tree(json_output: &str) -> String {
             .unwrap_or(0);
         if count > 0 {
             let mut cycle_tree = Tree::new(format!("Dependency Cycles ({count})"));
-            if let Some(detail) = cycles_obj.get("detail") {
-                if let Some(cycles_arr) = detail.get("cycles").and_then(|v| v.as_array()) {
-                    for cycle in cycles_arr.iter().take(10) {
-                        let label = serde_json::to_string(cycle)
-                            .unwrap_or_default()
-                            .chars()
-                            .take(80)
-                            .collect::<String>();
-                        cycle_tree.push(Tree::new(label));
-                    }
+            if let Some(detail) = cycles_obj.get("detail")
+                && let Some(cycles_arr) = detail.get("cycles").and_then(|v| v.as_array())
+            {
+                for cycle in cycles_arr.iter().take(10) {
+                    let label = serde_json::to_string(cycle)
+                        .unwrap_or_default()
+                        .chars()
+                        .take(80)
+                        .collect::<String>();
+                    cycle_tree.push(Tree::new(label));
                 }
             }
             root.push(cycle_tree);

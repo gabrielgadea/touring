@@ -264,36 +264,36 @@ pub fn check_deadlines(db: &FileKnowledgeDB, task_id: &str) -> usize {
 
     let mut breached = 0;
     for (subtask_id, deadline_str, behavior_str) in rows {
-        if let Ok(deadline) = chrono::DateTime::parse_from_rfc3339(&deadline_str) {
-            if deadline.with_timezone(&chrono::Utc) < now {
-                breached += 1;
-                let behavior = DeadlineBehavior::from_str(&behavior_str);
-                match behavior {
-                    DeadlineBehavior::Fail => {
-                        let _ = db.conn_ref().execute(
+        if let Ok(deadline) = chrono::DateTime::parse_from_rfc3339(&deadline_str)
+            && deadline.with_timezone(&chrono::Utc) < now
+        {
+            breached += 1;
+            let behavior = DeadlineBehavior::from_str(&behavior_str);
+            match behavior {
+                DeadlineBehavior::Fail => {
+                    let _ = db.conn_ref().execute(
                             "UPDATE decomposition_subtasks SET status = 'failed', updated_at = ?1 WHERE subtask_id = ?2",
                             params![now_str, subtask_id],
                         );
-                    }
-                    DeadlineBehavior::Skip => {
-                        let _ = db.conn_ref().execute(
+                }
+                DeadlineBehavior::Skip => {
+                    let _ = db.conn_ref().execute(
                             "UPDATE decomposition_subtasks SET status = 'skipped', updated_at = ?1 WHERE subtask_id = ?2",
                             params![now_str, subtask_id],
                         );
-                    }
-                    DeadlineBehavior::Notify => {
-                        tracing::warn!(
-                            "deadline breached: subtask_id={} deadline={}",
-                            subtask_id,
-                            deadline_str
-                        );
-                    }
-                    DeadlineBehavior::Backburner => {
-                        let _ = db.conn_ref().execute(
+                }
+                DeadlineBehavior::Notify => {
+                    tracing::warn!(
+                        "deadline breached: subtask_id={} deadline={}",
+                        subtask_id,
+                        deadline_str
+                    );
+                }
+                DeadlineBehavior::Backburner => {
+                    let _ = db.conn_ref().execute(
                             "UPDATE decomposition_subtasks SET priority = 220, updated_at = ?1 WHERE subtask_id = ?2",
                             params![now_str, subtask_id],
                         );
-                    }
                 }
             }
         }
@@ -472,145 +472,10 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
         &serde_json::json!({"task_type": task_type, "description": description}),
     );
 
-    // T2.2: Tasksfile YAML import — when tasksfile_yaml is provided, parse and
-    // compile into decompose subtasks. The existing `subtasks` JSON array field
-    // continues to work as-is; YAML is an alternative input format.
-    let tasksfile_subtasks_added: usize = if let Some(yaml_str) =
-        payload.get("tasksfile_yaml").and_then(|v| v.as_str())
-    {
-        match parse_yaml(yaml_str) {
-            Ok(root) => {
-                match TasksfileCompiler::new().compile(&root) {
-                    Ok(compiled) => {
-                        let mut added = 0;
-                        for compiled_task in &compiled.tasks {
-                            // T3.2: Resolve task-level env_file and merge with inline env.
-                            // load_env_for_template is feature-gated in touring-tasksfile;
-                            // use empty map when the feature is disabled.
-                            #[cfg(feature = "templates")]
-                            let task_env_vars = load_env_for_template(&compiled_task.env_file);
-                            #[cfg(not(feature = "templates"))]
-                            let task_env_vars = std::collections::HashMap::<String, String>::new();
-                            // Merge inline env (compiled_task.env) over env_file vars.
-                            // (consumed only by the templates-gated render arms below)
-                            #[cfg_attr(not(feature = "templates"), allow(unused_variables))]
-                            let merged_env: std::collections::HashMap<
-                                String,
-                                String,
-                            > = task_env_vars
-                                .into_iter()
-                                .chain(
-                                    compiled_task
-                                        .env
-                                        .iter()
-                                        .map(|(k, v)| (k.clone(), v.clone())),
-                                )
-                                .collect();
-
-                            // T3.3/T3.4: Render description and command with template substitution.
-                            // Empty params map — Tera's default filter handles missing vars gracefully.
-                            #[cfg_attr(not(feature = "templates"), allow(unused_variables))]
-                            let empty_params =
-                                std::collections::HashMap::<String, serde_json::Value>::new();
-                            let rendered_description = {
-                                #[cfg(feature = "templates")]
-                                {
-                                    touring_orchestration::tasks::template_engine::render_command(
-                                        &compiled_task.description,
-                                        &empty_params,
-                                        &merged_env,
-                                    )
-                                    .unwrap_or_else(|_| compiled_task.description.clone())
-                                }
-                                #[cfg(not(feature = "templates"))]
-                                {
-                                    compiled_task.description.clone()
-                                }
-                            };
-                            let rendered_command = {
-                                #[cfg(feature = "templates")]
-                                {
-                                    touring_orchestration::tasks::template_engine::render_command(
-                                        &compiled_task.command,
-                                        &empty_params,
-                                        &merged_env,
-                                    )
-                                    .unwrap_or_else(|_| compiled_task.command.clone())
-                                }
-                                #[cfg(not(feature = "templates"))]
-                                {
-                                    compiled_task.command.clone()
-                                }
-                            };
-
-                            let deps_json = serde_json::to_string(&compiled_task.depends_on)
-                                .unwrap_or_else(|_| "[]".to_string());
-                            let scoped_id = format!("{}::{}", task_id, compiled_task.task_id);
-                            let deadline_behavior =
-                                compiled_task.deadline_behavior.as_deref().unwrap_or("Fail");
-                            let retry_policy_json = compiled_task
-                                .retry_policy
-                                .as_ref()
-                                .map(|rp| {
-                                    serde_json::to_string(rp).unwrap_or_else(|_| "{}".to_string())
-                                })
-                                .unwrap_or_else(|| "{}".to_string());
-                            let insert_result = db.conn_ref().execute(
-                                "INSERT OR REPLACE INTO decomposition_subtasks \
-                                 (subtask_id, task_id, description, depends_on, priority, status, \
-                                  deadline, deadline_behavior, parallel_group, review_required, \
-                                  complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) \
-                                 VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, ?10, ?11, 0, NULL, ?12, ?13)",
-                                params![
-                                    scoped_id,
-                                    task_id,
-                                    rendered_description,
-                                    deps_json,
-                                    compiled_task.priority,
-                                    compiled_task.deadline,
-                                    deadline_behavior,
-                                    compiled_task.parallel_group,
-                                    compiled_task.review_required as i32,
-                                    compiled_task.complexity_hint,
-                                    retry_policy_json,
-                                    now,
-                                    now,
-                                ],
-                            );
-                            if insert_result.is_ok() {
-                                added += 1;
-                                // Emit event for each subtask created from tasksfile
-                                log_event(
-                                    db,
-                                    &task_id,
-                                    Some(&scoped_id),
-                                    "subtask_added_from_tasksfile",
-                                    &serde_json::json!({
-                                        "description": rendered_description,
-                                        "command": rendered_command,
-                                        "depends_on": &compiled_task.depends_on,
-                                        "priority": compiled_task.priority,
-                                        "templates_rendered": true,
-                                    }),
-                                );
-                            }
-                        }
-                        added
-                    }
-                    Err(e) => {
-                        tracing::debug!("tasksfile compile failed: {}", e);
-                        0
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::debug!("tasksfile parse failed: {}", e);
-                0
-            }
-        }
-    } else {
-        0
-    };
+    // T2.2: Tasksfile YAML import — quando `tasksfile_yaml` vem no payload, o
+    // documento é compilado em subtarefas. O campo `subtasks` (array JSON) segue
+    // funcionando; o YAML é um formato de entrada alternativo.
+    let tasksfile_subtasks_added = import_tasksfile_subtasks(db, &task_id, payload, &now);
 
     // FA-2: Signal active plan hint to SessionBus for pre_edit context injection.
     rt.ctx
@@ -629,6 +494,136 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
         "tasksfile_subtasks_added": tasksfile_subtasks_added,
     })
     .to_string()
+}
+
+/// Compila `payload["tasksfile_yaml"]` em subtarefas de `task_id`; devolve
+/// quantas foram inseridas (0 quando o campo está ausente ou o YAML não compila).
+///
+/// Extraída de `cli_decompose_create` em 03/08/2026 para ser chamada também pela
+/// implementação DESPACHADA (`cli/decompose.rs`), que não tinha esta etapa: o
+/// registry roteia `cli-decompose-create` para lá, então `touring tasksfile
+/// import` criava a tarefa e **descartava as subtarefas em silêncio**. Provado
+/// com o binário em produção: o import de um YAML de 2 tarefas devolveu
+/// `subtask_count = 0`. Os 8 testes que cobriam o import passavam porque
+/// importavam esta cópia superseded direto, sem passar pelo dispatch.
+///
+/// Uma função, dois chamadores — clonar as ~140 linhas reintroduziria
+/// exatamente a assimetria que causou o defeito.
+pub(crate) fn import_tasksfile_subtasks(
+    db: &FileKnowledgeDB,
+    task_id: &str,
+    payload: &serde_json::Value,
+    now: &str,
+) -> usize {
+    let Some(yaml_str) = payload.get("tasksfile_yaml").and_then(|v| v.as_str()) else {
+        return 0;
+    };
+    let root = match parse_yaml(yaml_str) {
+        Ok(root) => root,
+        Err(e) => {
+            tracing::debug!("tasksfile parse failed: {}", e);
+            return 0;
+        }
+    };
+    let compiled = match TasksfileCompiler::new().compile(&root) {
+        Ok(compiled) => compiled,
+        Err(e) => {
+            tracing::debug!("tasksfile compile failed: {}", e);
+            return 0;
+        }
+    };
+    let mut added = 0;
+    for compiled_task in &compiled.tasks {
+        // T3.2: resolve o `env_file` da tarefa e mescla com o `env` inline
+        // (inline vence). `load_env_for_template` é feature-gated em
+        // touring-tasksfile — sem a feature, o mapa é vazio.
+        #[cfg(feature = "templates")]
+        let task_env_vars = load_env_for_template(&compiled_task.env_file);
+        #[cfg(not(feature = "templates"))]
+        let task_env_vars = std::collections::HashMap::<String, String>::new();
+        #[cfg_attr(not(feature = "templates"), allow(unused_variables))]
+        let merged_env: std::collections::HashMap<String, String> = task_env_vars
+            .into_iter()
+            .chain(
+                compiled_task
+                    .env
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone())),
+            )
+            .collect();
+
+        // T3.3/T3.4: substituição de template em descrição e comando. Mapa de
+        // params vazio — o filtro `default` do Tera cobre variáveis ausentes.
+        #[cfg_attr(not(feature = "templates"), allow(unused_variables))]
+        let empty_params = std::collections::HashMap::<String, serde_json::Value>::new();
+        #[cfg_attr(not(feature = "templates"), allow(unused_variables))]
+        let render = |raw: &str| -> String {
+            #[cfg(feature = "templates")]
+            {
+                touring_orchestration::tasks::template_engine::render_command(
+                    raw,
+                    &empty_params,
+                    &merged_env,
+                )
+                .unwrap_or_else(|_| raw.to_string())
+            }
+            #[cfg(not(feature = "templates"))]
+            {
+                raw.to_string()
+            }
+        };
+        let rendered_description = render(&compiled_task.description);
+        let rendered_command = render(&compiled_task.command);
+
+        let deps_json =
+            serde_json::to_string(&compiled_task.depends_on).unwrap_or_else(|_| "[]".to_string());
+        let scoped_id = format!("{}::{}", task_id, compiled_task.task_id);
+        let deadline_behavior = compiled_task.deadline_behavior.as_deref().unwrap_or("Fail");
+        let retry_policy_json = compiled_task
+            .retry_policy
+            .as_ref()
+            .map(|rp| serde_json::to_string(rp).unwrap_or_else(|_| "{}".to_string()))
+            .unwrap_or_else(|| "{}".to_string());
+        let insert_result = db.conn_ref().execute(
+            "INSERT OR REPLACE INTO decomposition_subtasks \
+             (subtask_id, task_id, description, depends_on, priority, status, \
+              deadline, deadline_behavior, parallel_group, review_required, \
+              complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, ?10, ?11, 0, NULL, ?12, ?13)",
+            params![
+                scoped_id,
+                task_id,
+                rendered_description,
+                deps_json,
+                compiled_task.priority,
+                compiled_task.deadline,
+                deadline_behavior,
+                compiled_task.parallel_group,
+                compiled_task.review_required as i32,
+                compiled_task.complexity_hint,
+                retry_policy_json,
+                now,
+                now,
+            ],
+        );
+        if insert_result.is_ok() {
+            added += 1;
+            log_event(
+                db,
+                task_id,
+                Some(&scoped_id),
+                "subtask_added_from_tasksfile",
+                &serde_json::json!({
+                    "description": rendered_description,
+                    "command": rendered_command,
+                    "depends_on": &compiled_task.depends_on,
+                    "priority": compiled_task.priority,
+                    "templates_rendered": true,
+                }),
+            );
+        }
+    }
+    added
 }
 
 /// Adds a subtask to an existing task's DAG, recording its dependencies on other subtasks.
@@ -883,8 +878,18 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     ensure_decompose_tables(db);
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Only mutate the parent task row when status was actually provided.
-    let task_affected = if !status.is_empty() {
+    // P1-S1: Also update subtask-level fields if provided
+    let subtask_id_opt = payload.get("subtask_id").and_then(|v| v.as_str());
+
+    // O status escrito na linha-PAI só vem do chamador quando ele endereçou o
+    // pai (sem `subtask_id`). Endereçando uma subtarefa, o pai é DERIVADO dos
+    // filhos mais abaixo — até 03/08/2026 o status ia direto para o pai em
+    // ambos os casos, e o primeiro `decompose update <task> <fase> --status done`
+    // de um plano multi-fase o marcava inteiro como concluído (Lei L2: o DAG é a
+    // fonte autoritativa de progresso; um pai falsamente `done` corrompe
+    // exatamente o que o gate de convergência mede).
+    let addresses_parent = subtask_id_opt.is_none();
+    let task_affected = if !status.is_empty() && addresses_parent {
         db.conn_ref()
             .execute(
                 "UPDATE task_decompositions SET status = ?1, updated_at = ?3 WHERE task_id = ?2",
@@ -894,9 +899,6 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     } else {
         0
     };
-
-    // P1-S1: Also update subtask-level fields if provided
-    let subtask_id_opt = payload.get("subtask_id").and_then(|v| v.as_str());
     let scoped = subtask_id_opt.map(|raw| {
         if raw.contains("::") {
             raw.to_string()
@@ -979,6 +981,13 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
         false
     };
 
+    // Endereçando uma subtarefa, o pai reflete o estado REAL dos filhos.
+    let task_affected = if addresses_parent {
+        task_affected
+    } else {
+        refresh_parent_status(db, task_id, &now)
+    };
+
     serde_json::json!({
         "task_id": task_id,
         "status": status,
@@ -989,6 +998,48 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
         "retry_scheduled": retry_scheduled
     })
     .to_string()
+}
+
+/// Recalcula o status do plano a partir das subtarefas — `done` só quando TODAS
+/// são terminais.
+///
+/// O vocabulário é misto por herança: `completed` (closes legados) e `done`
+/// (`loop_phase_close`) são ambos terminais, junto de `finalized`; tratar um
+/// deles como pendente tornaria a conclusão inalcançável (o mesmo cuidado que
+/// `loop_converged.py::clause_dag` já documenta). Um plano sem subtarefas não é
+/// tocado: não há filhos de onde derivar, e sobrescrevê-lo apagaria o status que
+/// o chamador definiu explicitamente.
+pub(crate) fn refresh_parent_status(db: &FileKnowledgeDB, task_id: &str, now: &str) -> usize {
+    const TERMINAL: [&str; 3] = ["done", "completed", "finalized"];
+    let statuses: Vec<String> = {
+        let Ok(mut stmt) = db
+            .conn_ref()
+            .prepare("SELECT status FROM decomposition_subtasks WHERE task_id = ?1")
+        else {
+            return 0;
+        };
+        let Ok(rows) = stmt.query_map(params![task_id], |row| row.get::<_, String>(0)) else {
+            return 0;
+        };
+        rows.filter_map(Result::ok).collect()
+    };
+    if statuses.is_empty() {
+        return 0;
+    }
+    let terminal = |s: &String| TERMINAL.contains(&s.as_str());
+    let derived = if statuses.iter().all(terminal) {
+        "done"
+    } else if statuses.iter().any(|s| terminal(s) || s == "in_progress") {
+        "in_progress"
+    } else {
+        "pending"
+    };
+    db.conn_ref()
+        .execute(
+            "UPDATE task_decompositions SET status = ?1, updated_at = ?3 WHERE task_id = ?2",
+            params![derived, task_id, now],
+        )
+        .unwrap_or(0)
 }
 
 /// S1.6: Take a checkpoint snapshot of the task state before finalizing.
@@ -1092,18 +1143,17 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
                 })
                 .to_string();
             }
-            if let Some(qt) = quality_threshold {
-                if let Some(qs) = quality_score {
-                    if qs < qt {
-                        return serde_json::json!({
-                            "error": "Subtask quality_score below threshold",
-                            "blocking_subtask": st["subtask_id"],
-                            "quality_score": qs,
-                            "quality_threshold": qt
-                        })
-                        .to_string();
-                    }
-                }
+            if let Some(qt) = quality_threshold
+                && let Some(qs) = quality_score
+                && qs < qt
+            {
+                return serde_json::json!({
+                    "error": "Subtask quality_score below threshold",
+                    "blocking_subtask": st["subtask_id"],
+                    "quality_score": qs,
+                    "quality_threshold": qt
+                })
+                .to_string();
             }
         }
     }

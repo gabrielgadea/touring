@@ -108,15 +108,15 @@ fn parse_outcome(s: &str) -> DeltaOutcome {
 /// Open the connection, ensure parent dir exists, apply schema.
 /// On any failure, returns `None` so the caller sees a no-op singleton.
 fn try_open(db_path: &std::path::Path) -> Option<Connection> {
-    if let Some(parent) = db_path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            tracing::warn!(
-                error = %e,
-                path = %parent.display(),
-                "health-delta-audit: create_dir_all failed — audit trail disabled"
-            );
-            return None;
-        }
+    if let Some(parent) = db_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        tracing::warn!(
+            error = %e,
+            path = %parent.display(),
+            "health-delta-audit: create_dir_all failed — audit trail disabled"
+        );
+        return None;
     }
     let conn = match Connection::open(db_path) {
         Ok(c) => c,

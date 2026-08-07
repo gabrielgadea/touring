@@ -83,17 +83,17 @@ fn is_logical_binary(source: &str, node: Node, lang: Lang) -> bool {
         return false;
     }
     // Get the operator child
-    if let Some(op) = node.child_by_field_name("operator") {
-        if let Ok(text) = op.utf8_text(source.as_bytes()) {
-            return match lang {
-                Lang::Python => matches!(text, "and" | "or"),
-                Lang::Rust | Lang::TypeScript | Lang::JavaScript | Lang::Bash => {
-                    matches!(text, "&&" | "||")
-                }
-                // Data/markup languages have no binary expressions
-                _ => false,
-            };
-        }
+    if let Some(op) = node.child_by_field_name("operator")
+        && let Ok(text) = op.utf8_text(source.as_bytes())
+    {
+        return match lang {
+            Lang::Python => matches!(text, "and" | "or"),
+            Lang::Rust | Lang::TypeScript | Lang::JavaScript | Lang::Bash => {
+                matches!(text, "&&" | "||")
+            }
+            // Data/markup languages have no binary expressions
+            _ => false,
+        };
     }
     false
 }

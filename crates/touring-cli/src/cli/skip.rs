@@ -7,23 +7,50 @@
 use crate::cli_handlers::SkipRegionRaw;
 use crate::runtime::HookRuntime;
 
+/// Outcome of resolving the `file_path` payload field and reading that file —
+/// the prelude both `cli_skip_*` handlers share.
+///
+/// The failure travels as **data** rather than a pre-serialized envelope
+/// because the two handlers report it differently on purpose: `cli_skip_list`
+/// answers with a bare `error`, while `cli_skip_validate` answers with a
+/// `valid: false` verdict that still names the file.
+enum PayloadSource<'a> {
+    Loaded { file_path: &'a str, source: String },
+    MissingPath,
+    Unreadable {
+        file_path: &'a str,
+        error: std::io::Error,
+    },
+}
+
+/// Resolve `payload.file_path` and read it. See [`PayloadSource`].
+fn load_payload_source(payload: &serde_json::Value) -> PayloadSource<'_> {
+    let file_path = payload
+        .get("file_path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if file_path.is_empty() {
+        return PayloadSource::MissingPath;
+    }
+    match std::fs::read_to_string(file_path) {
+        Ok(source) => PayloadSource::Loaded { file_path, source },
+        Err(error) => PayloadSource::Unreadable { file_path, error },
+    }
+}
+
 /// Parse skip regions from a file and return them as JSON.
 ///
 /// Payload: `{"file_path": "..."}` — relative or absolute path.
 /// Uses the same self-contained parser as `post_edit::parse_skip_regions`
 /// to avoid a circular dependency on `touring-generator`.
 pub fn cli_skip_list(_rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    let file_path = payload
-        .get("file_path")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if file_path.is_empty() {
-        return serde_json::json!({ "error" : "missing 'file_path' field" }).to_string();
-    }
-    let source = match std::fs::read_to_string(file_path) {
-        Ok(s) => s,
-        Err(e) => {
-            return serde_json::json!({ "error" : format!("read error: {}", e) }).to_string();
+    let (file_path, source) = match load_payload_source(payload) {
+        PayloadSource::Loaded { file_path, source } => (file_path, source),
+        PayloadSource::MissingPath => {
+            return serde_json::json!({ "error" : "missing 'file_path' field" }).to_string();
+        }
+        PayloadSource::Unreadable { error, .. } => {
+            return serde_json::json!({ "error" : format!("read error: {}", error) }).to_string();
         }
     };
     let regions = parse_skip_regions_raw(&source);
@@ -36,19 +63,15 @@ pub fn cli_skip_list(_rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
 ///
 /// Payload: `{"file_path": "..."}` — returns validation result as JSON.
 pub fn cli_skip_validate(_rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    let file_path = payload
-        .get("file_path")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if file_path.is_empty() {
-        return serde_json::json!({ "error" : "missing 'file_path' field" }).to_string();
-    }
-    let source = match std::fs::read_to_string(file_path) {
-        Ok(s) => s,
-        Err(e) => {
+    let (file_path, source) = match load_payload_source(payload) {
+        PayloadSource::Loaded { file_path, source } => (file_path, source),
+        PayloadSource::MissingPath => {
+            return serde_json::json!({ "error" : "missing 'file_path' field" }).to_string();
+        }
+        PayloadSource::Unreadable { file_path, error } => {
             return serde_json::json!(
                 { "file" : file_path, "valid" : false, "error" :
-                format!("read error: {}", e) }
+                format!("read error: {}", error) }
             )
             .to_string();
         }

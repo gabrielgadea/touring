@@ -65,6 +65,15 @@ impl health_delta_listener::Server for CollectingListener {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+// `install()` guarda EMBED_STATE num OnceLock GLOBAL ao processo: o primeiro a
+// chamar vence e liga os sockets no SEU tempdir; o segundo recebe `false`. Em
+// paralelo a ordem é indeterminada — e quando o vencedor é `install_is_idempotent`,
+// o tempdir dele é destruído no fim do teste, levando junto o diretório onde a
+// thread de embed tentava ligar. O próprio código já sinalizava o risco
+// ("non-deterministic with respect to test ordering"); reprovou no
+// `cargo test --workspace` de 03/08/2026. `#[serial]` torna a ordem determinística:
+// quem roda primeiro liga e valida; quem roda depois recebe `false` e sai cedo.
+#[serial_test::serial(capnp_embed_state)]
 async fn embed_install_serves_capnp_and_delivers_events() {
     let tmp = TempDir::new().expect("tempdir");
     let sock_reg = tmp.path().join("registry.sock");
@@ -86,11 +95,22 @@ async fn embed_install_serves_capnp_and_delivers_events() {
         return;
     }
 
-    // Give the embed thread a moment to bind.
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // Espera o socket APARECER em vez de dormir um orçamento fixo.
+    //
+    // Eram 100 ms fixos, o que basta numa máquina ociosa e não basta sob
+    // `cargo test --workspace` — o teste reprovou em 03/08/2026 com "generator
+    // socket should be bound", acusando a thread de embed quando a causa era o
+    // relógio. É a mesma correção aplicada ao `PrivateDaemon` nesta sessão:
+    // condição, não cronômetro. O teto de 5 s mantém a falha real detectável.
+    for _ in 0..100 {
+        if sock_gen.exists() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
     assert!(
         sock_gen.exists(),
-        "generator socket should be bound when install() succeeded"
+        "generator socket should be bound when install() succeeded (esperado até 5s)"
     );
 
     // --- Client runs on a LocalSet in this test thread.
@@ -182,6 +202,7 @@ async fn embed_install_serves_capnp_and_delivers_events() {
 /// spawning a new thread. Separate test keeps the first from leaking into
 /// this one (EMBED_STATE is singleton; we still call `shutdown_and_join`).
 #[test]
+#[serial_test::serial(capnp_embed_state)]
 fn install_is_idempotent() {
     use tempfile::TempDir;
 

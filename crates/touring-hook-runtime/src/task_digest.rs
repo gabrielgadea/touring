@@ -207,12 +207,12 @@ fn compute_deactivation_cooldown(conn: &rusqlite::Connection, action_type: &str)
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
         )
         .ok();
-    if let Some((acc, total)) = result {
-        if total >= 10 {
-            let rate = acc as f64 / total as f64;
-            if rate < 0.2 {
-                return "+72 hours";
-            }
+    if let Some((acc, total)) = result
+        && total >= 10
+    {
+        let rate = acc as f64 / total as f64;
+        if rate < 0.2 {
+            return "+72 hours";
         }
     }
     "+24 hours"

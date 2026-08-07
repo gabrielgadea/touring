@@ -34,6 +34,23 @@ enum MemoryCmd {
     Recall {
         /// Query words (remaining positional args, joined).
         query: Vec<String>,
+        /// Include auto-recorded `outcome:*` entries (excluded by default).
+        ///
+        /// They are 50% of the store and were the eight most-recalled entries in
+        /// it, crowding curated lessons out of every result set (2026-08-02).
+        #[arg(long = "include-outcomes")]
+        include_outcomes: bool,
+    },
+    /// Credit a previous recall with the verdict of the work it informed.
+    ///
+    /// Closes the loop the case bank never had: recall -> use -> measure ->
+    /// reinforce. The query must match the one passed to `memory recall`.
+    Credit {
+        /// The recall query being credited (words; joined and normalised).
+        query: Vec<String>,
+        /// Outcome in [-1.0, 1.0] — e.g. 1.0 when the gate passed, 0.0 when it failed.
+        #[arg(long)]
+        reward: f64,
     },
     /// Persist a new key-value entry.
     Store {
@@ -44,6 +61,15 @@ enum MemoryCmd {
         /// Memory tier (default: semantic).
         #[arg(long, default_value = "semantic")]
         tier: String,
+        /// Measured outcome of this case, in [-1.0, 1.0] — the `r` of a case
+        /// `(s, a, r)`. Omit when the outcome is unknown: absent is stored as
+        /// NULL and treated as neutral by value-ranked recall, whereas 0.0
+        /// records a genuine failure.
+        #[arg(long = "reward")]
+        reward: Option<f64>,
+        /// Free-text note on where the reward came from (gate name, task id).
+        #[arg(long = "outcome-context")]
+        outcome_context: Option<String>,
         /// Entry type (default: lesson).
         #[arg(long = "type", default_value = "lesson")]
         entry_type: String,
@@ -58,10 +84,21 @@ enum MemoryCmd {
         sort: String,
     },
     /// Backfill the ANN corpus from existing memory_entries (S-04 2026-05-29).
+    ///
+    /// Incremental by default: only entries missing from the corpus are embedded,
+    /// and a single call is bounded by `--max-entries` so it cannot monopolise the
+    /// daemon actor (which on 2026-08-02 wedged the whole memory subsystem for
+    /// minutes). Re-run while the response reports `remaining > 0`.
     Reindex {
         /// Batch size for upsert operations (default: 256).
         #[arg(long = "batch-size", default_value_t = 256u64)]
         batch_size: u64,
+        /// Re-embed every entry, not only those missing from the corpus.
+        #[arg(long)]
+        all: bool,
+        /// Maximum entries embedded in this call (default: 2000).
+        #[arg(long = "max-entries", default_value_t = 2_000u64)]
+        max_entries: u64,
     },
 }
 
@@ -81,10 +118,23 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             let output = daemon_query("cli-memory-stats", serde_json::json!({}))?;
             println!("{output}");
         }
-        MemoryCmd::Recall { query } => {
+        MemoryCmd::Recall {
+            query,
+            include_outcomes,
+        } => {
             let output = daemon_query(
                 "cli-memory-recall",
-                serde_json::json!({ "query": query.join(" ") }),
+                serde_json::json!({
+                    "query": query.join(" "),
+                    "include_outcomes": include_outcomes,
+                }),
+            )?;
+            println!("{output}");
+        }
+        MemoryCmd::Credit { query, reward } => {
+            let output = daemon_query(
+                "cli-memory-credit",
+                serde_json::json!({ "query": query.join(" "), "reward": reward }),
             )?;
             println!("{output}");
         }
@@ -93,6 +143,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             value,
             tier,
             entry_type,
+            reward,
+            outcome_context,
         } => {
             if key.is_empty() {
                 anyhow::bail!(
@@ -112,22 +164,38 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "value": value_text,
                 "tier": tier,
                 "entry_type": entry_type,
+                // `null` when the caller did not measure an outcome — the store
+                // keeps NULL rather than inventing a 0.0 that would read as
+                // "this case failed".
+                "reward": reward,
+                "outcome_context": outcome_context,
             });
             let output = daemon_query("cli-memory-store", payload)?;
             println!("{output}");
         }
         MemoryCmd::List { limit, sort } => {
+            // Key is "sort", not "sort_by": the handler reads `payload["sort"]`,
+            // so the old name meant `--sort` was silently ignored and every
+            // listing fell back to the default ordering (2026-08-02).
             let payload = serde_json::json!({
                 "limit": limit,
-                "sort_by": sort,
+                "sort": sort,
             });
             let output = daemon_query("cli-memory-list", payload)?;
             println!("{output}");
         }
-        MemoryCmd::Reindex { batch_size } => {
+        MemoryCmd::Reindex {
+            batch_size,
+            all,
+            max_entries,
+        } => {
             let output = daemon_query(
                 "cli-memory-reindex",
-                serde_json::json!({ "batch_size": batch_size }),
+                serde_json::json!({
+                    "batch_size": batch_size,
+                    "all": all,
+                    "max_entries": max_entries,
+                }),
             )?;
             println!("{output}");
         }
@@ -218,7 +286,7 @@ mod tests {
     #[test]
     fn recall_with_query() {
         let cli = parse(&["memory", "recall", "error", "handling", "pattern"]);
-        let Some(MemoryCmd::Recall { query }) = cli.cmd else {
+        let Some(MemoryCmd::Recall { query, .. }) = cli.cmd else {
             panic!("expected Recall");
         };
         assert_eq!(query.join(" "), "error handling pattern");
@@ -227,7 +295,7 @@ mod tests {
     #[test]
     fn recall_empty_query() {
         let cli = parse(&["memory", "recall"]);
-        let Some(MemoryCmd::Recall { query }) = cli.cmd else {
+        let Some(MemoryCmd::Recall { query, .. }) = cli.cmd else {
             panic!("expected Recall");
         };
         assert!(query.is_empty());
@@ -243,6 +311,8 @@ mod tests {
             value,
             tier,
             entry_type,
+            reward,
+            ..
         }) = cli.cmd
         else {
             panic!("expected Store");
@@ -250,6 +320,11 @@ mod tests {
         assert_eq!(key, "mykey");
         assert_eq!(value.join(" "), "hello world");
         assert_eq!(tier, "semantic");
+        assert_eq!(
+            reward, None,
+            "an unmeasured case must stay NULL, never default to 0.0 — a \
+             value-ranked recall reads 0.0 as 'this failed'"
+        );
         assert_eq!(entry_type, "lesson");
     }
 
@@ -316,7 +391,7 @@ mod tests {
     #[test]
     fn reindex_default_batch_size() {
         let cli = parse(&["memory", "reindex"]);
-        let Some(MemoryCmd::Reindex { batch_size }) = cli.cmd else {
+        let Some(MemoryCmd::Reindex { batch_size, .. }) = cli.cmd else {
             panic!("expected Reindex");
         };
         assert_eq!(batch_size, 256);
@@ -325,7 +400,7 @@ mod tests {
     #[test]
     fn reindex_custom_batch_size() {
         let cli = parse(&["memory", "reindex", "--batch-size", "512"]);
-        let Some(MemoryCmd::Reindex { batch_size }) = cli.cmd else {
+        let Some(MemoryCmd::Reindex { batch_size, .. }) = cli.cmd else {
             panic!("expected Reindex");
         };
         assert_eq!(batch_size, 512);

@@ -55,13 +55,13 @@ impl SolverBackend for StubSolverBackend {
         for constraint in &self.constraints {
             if constraint.satisfiable {
                 // For symbolic expressions, try to extract variable bindings.
-                if let ConstraintExpr::Symbolic(sym) = &constraint.expr {
-                    if let crate::concolic::SymbolKind::Constant(v) = &sym.kind {
-                        // If the constraint is a simple constant assignment,
-                        // add it to the model.
-                        if !sym.name.starts_with("const_") {
-                            model.insert(sym.name.clone(), *v);
-                        }
+                if let ConstraintExpr::Symbolic(sym) = &constraint.expr
+                    && let crate::concolic::SymbolKind::Constant(v) = &sym.kind
+                {
+                    // If the constraint is a simple constant assignment,
+                    // add it to the model.
+                    if !sym.name.starts_with("const_") {
+                        model.insert(sym.name.clone(), *v);
                     }
                 }
             }

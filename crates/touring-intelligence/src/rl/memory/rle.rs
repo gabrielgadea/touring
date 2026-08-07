@@ -32,7 +32,7 @@ pub fn encode_u64(input: &[u64]) -> Vec<u8> {
 
 /// Decodes RLE bytes back into a `Vec<u64>`.
 pub fn decode_u64(input: &[u8]) -> Option<Vec<u64>> {
-    if input.len() % 12 != 0 {
+    if !input.len().is_multiple_of(12) {
         return None;
     }
 
@@ -79,7 +79,7 @@ pub fn encode_u64_pair(input: &[(u64, u64)]) -> Vec<u8> {
 
 /// Decodes RLE bytes back into `Vec<(u64, u64)>`.
 pub fn decode_u64_pair(input: &[u8]) -> Option<Vec<(u64, u64)>> {
-    if input.len() % 20 != 0 {
+    if !input.len().is_multiple_of(20) {
         return None;
     }
 

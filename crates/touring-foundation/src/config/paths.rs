@@ -134,10 +134,10 @@ impl TouringConfig {
         env_override: Option<&str>,
     ) -> PathBuf {
         // Layer 1: explicit override (env var in production, explicit arg in tests)
-        if let Some(p) = env_override {
-            if !p.is_empty() {
-                return PathBuf::from(p);
-            }
+        if let Some(p) = env_override
+            && !p.is_empty()
+        {
+            return PathBuf::from(p);
         }
 
         // Layer 2: walk-up looking for a per-project daemon.
@@ -377,10 +377,10 @@ impl TouringConfig {
                 std::fs::create_dir_all(parent)?;
             }
         }
-        if let Some(ref knowledge_path) = self.touring_knowledge_path {
-            if let Some(parent) = knowledge_path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
+        if let Some(ref knowledge_path) = self.touring_knowledge_path
+            && let Some(parent) = knowledge_path.parent()
+        {
+            std::fs::create_dir_all(parent)?;
         }
         Ok(())
     }

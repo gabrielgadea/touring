@@ -50,10 +50,10 @@ impl TouringServer {
                         return false;
                     }
                 }
-                if let Some(ref cat) = p.category {
-                    if !i.category.contains(cat.as_str()) {
-                        return false;
-                    }
+                if let Some(ref cat) = p.category
+                    && !i.category.contains(cat.as_str())
+                {
+                    return false;
                 }
                 if let Some(ref sev) = p.min_severity {
                     let min = match sev.as_str() {
@@ -207,10 +207,10 @@ impl TouringServer {
             "filter_metric": output.filter_metric,
             "results": output.results,
         });
-        if let Some(err) = output.error {
-            if let serde_json::Value::Object(ref mut map) = json_output {
-                map.insert("error".to_string(), serde_json::json!(err));
-            }
+        if let Some(err) = output.error
+            && let serde_json::Value::Object(ref mut map) = json_output
+        {
+            map.insert("error".to_string(), serde_json::json!(err));
         }
         self.graph_svc.inject(&mut json_output, &gctx);
 

@@ -234,14 +234,14 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // EC7: Fire-and-forget async record_access to AsyncFileKnowledgeDB.
     // Captures file access in the async knowledge DB alongside the HeatMap.
     // session_id from CLAUDE_SESSION_ID env var — empty string if unavailable.
-    if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned() {
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            let path = rel_path.to_string();
-            let sid = std::env::var("CLAUDE_SESSION_ID").unwrap_or_default();
-            drop(handle.spawn(async move {
-                let _ = adb.record_access(&path, &sid).await;
-            }));
-        }
+    if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned()
+        && let Ok(handle) = tokio::runtime::Handle::try_current()
+    {
+        let path = rel_path.to_string();
+        let sid = std::env::var("CLAUDE_SESSION_ID").unwrap_or_default();
+        drop(handle.spawn(async move {
+            let _ = adb.record_access(&path, &sid).await;
+        }));
     }
 
     // S6/E19: Read session CILA level — prefer stable session context,
@@ -274,21 +274,22 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Layer 2: AST/source + parallel index signals via SignalPipeline.
     // DB context already assembled above; remaining budget fed to the pipeline.
     let remaining = remaining_budget(&context, max_chars);
-    if remaining > 0 && token_budget.has_remaining() {
-        if let Some(extra) = build_parallel_signal_pipeline(
+    if remaining > 0
+        && token_budget.has_remaining()
+        && let Some(extra) = build_parallel_signal_pipeline(
             runtime,
             file_path,
             &rel_path,
             remaining,
             cila_level as usize,
-        ) {
-            let extra_tokens = TokenBudget::estimate_from_chars(extra.len());
-            if token_budget.allocate(extra_tokens) > 0 {
-                append_to_context(&mut context, extra);
-            } else {
-                // Budget exhausted — signal pipeline output dropped.
-                gate_metrics::record_metadata_backpressure_dropped();
-            }
+        )
+    {
+        let extra_tokens = TokenBudget::estimate_from_chars(extra.len());
+        if token_budget.allocate(extra_tokens) > 0 {
+            append_to_context(&mut context, extra);
+        } else {
+            // Budget exhausted — signal pipeline output dropped.
+            gate_metrics::record_metadata_backpressure_dropped();
         }
     }
 
@@ -309,18 +310,18 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
         // FA-1 ANN: pre-warm context by searching for similar past files.
         // Uses path-hash embedding to find semantically related files
         // from ANN memory, then caches results in SessionBus for pre_edit.
-        if let Some(ref ann_recall) = *runtime.ctx.ann_recall.borrow() {
-            if !ann_recall.is_empty() {
-                let query_emb = crate::ann_memory::path_hash_embedding(&rel_path);
-                let ann_results = ann_recall.search(&query_emb, 5);
-                if !ann_results.is_empty() {
-                    // Convert MemorySearchResult → SearchResult for SessionBus caching.
-                    let cacheable: Vec<_> = ann_results
-                        .into_iter()
-                        .map(|r| crate::ann_memory::SearchResult::new(r.id, r.score))
-                        .collect();
-                    bus.cache_ann_results(&rel_path, cacheable);
-                }
+        if let Some(ref ann_recall) = *runtime.ctx.ann_recall.borrow()
+            && !ann_recall.is_empty()
+        {
+            let query_emb = crate::ann_memory::path_hash_embedding(&rel_path);
+            let ann_results = ann_recall.search(&query_emb, 5);
+            if !ann_results.is_empty() {
+                // Convert MemorySearchResult → SearchResult for SessionBus caching.
+                let cacheable: Vec<_> = ann_results
+                    .into_iter()
+                    .map(|r| crate::ann_memory::SearchResult::new(r.id, r.score))
+                    .collect();
+                bus.cache_ann_results(&rel_path, cacheable);
             }
         }
     }
@@ -329,10 +330,10 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // When quality is LOW, inject a warning so Claude adjusts confidence.
     // Budget guard: 60 chars minimum to fit a meaningful quality signal.
     let remaining = remaining_budget(&context, max_chars);
-    if remaining > 60 {
-        if let Some(quality_signal) = build_quality_context(runtime, remaining) {
-            append_to_context(&mut context, quality_signal);
-        }
+    if remaining > 60
+        && let Some(quality_signal) = build_quality_context(runtime, remaining)
+    {
+        append_to_context(&mut context, quality_signal);
     }
 
     // Layer 3: S4 Drift detection — compare baseline error rates vs current session.
@@ -686,12 +687,11 @@ fn build_db_context(
     // so it understands the chain context from the first glance.
     // Budget guard: min 50 chars to fit a meaningful chain signal.
     let rem_fc = remaining_budget(&context, max_chars);
-    if rem_fc > 50 {
-        if let Some((_, chain_sig)) =
+    if rem_fc > 50
+        && let Some((_, chain_sig)) =
             crate::functional_wiring::functional_chain_signal(&runtime.ctx.knowledge, rel_path)
-        {
-            append_to_context(&mut context, chain_sig);
-        }
+    {
+        append_to_context(&mut context, chain_sig);
     }
 
     // ── S3: Error prediction — Markov-predicted error from edit history ──
@@ -699,21 +699,20 @@ fn build_db_context(
     // in the knowledge DB. Injected pre-read so Claude can watch for the pattern
     // while reading rather than discovering it only after writing.
     let rem_ep = remaining_budget(&context, max_chars);
-    if rem_ep > 60 {
-        if let Some(ref predictor) = runtime.ctx.error_predictor {
-            if let Some(pred) = predictor.predict() {
-                let pat_len = pred.error_pattern.len().min(60);
-                let sig = format!(
-                    "⚠ predicted: {}% chance of '{}' ({}× observed)",
-                    (pred.probability * 100.0) as u32,
-                    &pred.error_pattern[..pat_len],
-                    pred.observations
-                );
-                let rem_ep2 = remaining_budget(&context, max_chars);
-                if sig.len() + 3 <= rem_ep2 {
-                    append_to_context(&mut context, sig);
-                }
-            }
+    if rem_ep > 60
+        && let Some(ref predictor) = runtime.ctx.error_predictor
+        && let Some(pred) = predictor.predict()
+    {
+        let pat_len = pred.error_pattern.len().min(60);
+        let sig = format!(
+            "⚠ predicted: {}% chance of '{}' ({}× observed)",
+            (pred.probability * 100.0) as u32,
+            &pred.error_pattern[..pat_len],
+            pred.observations
+        );
+        let rem_ep2 = remaining_budget(&context, max_chars);
+        if sig.len() + 3 <= rem_ep2 {
+            append_to_context(&mut context, sig);
         }
     }
 
@@ -721,14 +720,13 @@ fn build_db_context(
     // coverage_pct surfaces untested files before reading; community_id reveals
     // which module cluster this file belongs to for architectural awareness.
     let rem_ext = remaining_budget(&context, max_chars);
-    if rem_ext > 40 {
-        if let Ok(Some(ext)) = runtime.ctx.knowledge.query_extended(rel_path) {
-            if let Some(sig) = hook_helpers::build_file_meta_signal(&ext) {
-                let rem_ext2 = remaining_budget(&context, max_chars);
-                if sig.len() + 3 <= rem_ext2 {
-                    append_to_context(&mut context, sig);
-                }
-            }
+    if rem_ext > 40
+        && let Ok(Some(ext)) = runtime.ctx.knowledge.query_extended(rel_path)
+        && let Some(sig) = hook_helpers::build_file_meta_signal(&ext)
+    {
+        let rem_ext2 = remaining_budget(&context, max_chars);
+        if sig.len() + 3 <= rem_ext2 {
+            append_to_context(&mut context, sig);
         }
     }
 
@@ -868,31 +866,31 @@ fn collect_index_signals(
 
     // Tantivy BM25: related docstrings from OTHER files (same module concepts)
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_related_docs_signal(rel_path) {
+    if let Some(s) = crate::shared::signals::tantivy_related_docs_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
 
     // Tantivy fuzzy: similar file names across the project
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_fuzzy_file_signal(rel_path) {
+    if let Some(s) = crate::shared::signals::tantivy_fuzzy_file_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
 
     // Tantivy kind context: symbols of the same kind across the project
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_kind_context_signal(rel_path) {
+    if let Some(s) = crate::shared::signals::tantivy_kind_context_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
 
     // Tantivy crate origin: other files from the same crate
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_crate_origin_signal(rel_path) {
+    if let Some(s) = crate::shared::signals::tantivy_crate_origin_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
 
     // Tantivy fuzzy symbol: symbol names similar to current file's basename
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_fuzzy_symbol_signal(rel_path) {
+    if let Some(s) = crate::shared::signals::tantivy_fuzzy_symbol_signal(Some(&runtime.project_root), rel_path) {
         signals.push(s);
     }
 
@@ -1150,11 +1148,11 @@ fn collect_gotcha_history_signals(
     out: &mut Vec<(f32, String)>,
 ) {
     // ── Signal 1: Notes (HIGH value — not visible in file) ──
-    if let Some(notes) = &signals_data.notes {
-        if !notes.is_empty() {
-            let short = truncate_str(notes, 120);
-            out.push((1.5, format!("\u{26a0}\u{fe0f} {short}")));
-        }
+    if let Some(notes) = &signals_data.notes
+        && !notes.is_empty()
+    {
+        let short = truncate_str(notes, 120);
+        out.push((1.5, format!("\u{26a0}\u{fe0f} {short}")));
     }
 
     // ── Signal 1b: Structured gotchas (pattern-matched, trackable) ──
@@ -1552,10 +1550,9 @@ fn source_based_signals(file_path: &str) -> Vec<(f32, String)> {
             .extension()
             .and_then(|e| e.to_str()),
         Some("ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs")
-    ) {
-        if let Some(sig) = ts_js_exports_signal(&source) {
-            signals.push(sig);
-        }
+    ) && let Some(sig) = ts_js_exports_signal(&source)
+    {
+        signals.push(sig);
     }
 
     // S3.4: ScopeMap shadowing warnings (Rust + Python — build_scope_map limitation)

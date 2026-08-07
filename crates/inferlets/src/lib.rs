@@ -242,10 +242,10 @@ fn extract_inferlet_kind(input: &str) -> Option<&str> {
             let rest = &after_key[colon + 1..];
             let val_start = rest.find(|c: char| !c.is_ascii_whitespace())?;
             let rest = &rest[val_start..];
-            if let Some(stripped) = rest.strip_prefix('"') {
-                if let Some(end) = stripped.find('"') {
-                    return Some(&stripped[..end]);
-                }
+            if let Some(stripped) = rest.strip_prefix('"')
+                && let Some(end) = stripped.find('"')
+            {
+                return Some(&stripped[..end]);
             }
         }
     }

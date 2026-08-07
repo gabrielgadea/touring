@@ -305,21 +305,20 @@ impl ObservationMasker {
         for line in result.lines() {
             let trimmed = line.trim();
             // Look for file path indicator.
-            if trimmed.starts_with("File:") || trimmed.starts_with("Reading") {
-                if let Some(path_part) = trimmed.split_whitespace().last() {
-                    file_path = path_part.to_string();
-                }
+            if (trimmed.starts_with("File:") || trimmed.starts_with("Reading"))
+                && let Some(path_part) = trimmed.split_whitespace().last()
+            {
+                file_path = path_part.to_string();
             }
             // Parse line numbers from "  N→" or "  N│" format.
-            if RE_READ_RESULT.is_match(trimmed) {
-                if let Some(num_str) = trimmed.split(|c: char| !c.is_ascii_digit()).next() {
-                    if let Ok(n) = num_str.parse::<usize>() {
-                        if first_num.is_none() {
-                            first_num = Some(n);
-                        }
-                        last_num = Some(n);
-                    }
+            if RE_READ_RESULT.is_match(trimmed)
+                && let Some(num_str) = trimmed.split(|c: char| !c.is_ascii_digit()).next()
+                && let Ok(n) = num_str.parse::<usize>()
+            {
+                if first_num.is_none() {
+                    first_num = Some(n);
                 }
+                last_num = Some(n);
             }
         }
 
@@ -371,11 +370,11 @@ impl ObservationMasker {
             if let Some(caps) = RE_BASH_EXIT.find(line.trim()) {
                 let matched = caps.as_str();
                 // Extract the trailing number.
-                if let Some(num_str) = matched.split_whitespace().last() {
-                    if let Ok(code) = num_str.parse::<i32>() {
-                        exit_code = Some(code);
-                        break;
-                    }
+                if let Some(num_str) = matched.split_whitespace().last()
+                    && let Ok(code) = num_str.parse::<i32>()
+                {
+                    exit_code = Some(code);
+                    break;
                 }
             }
         }
@@ -510,10 +509,10 @@ struct ContextBlock {
 fn detect_tool_name(line: &str) -> String {
     let trimmed = line.trim();
     // Pattern: "→ Read ..." or "→ Grep ..." (tool call markers)
-    if let Some(rest) = trimmed.strip_prefix('→') {
-        if let Some(name) = rest.split_whitespace().next() {
-            return name.to_string();
-        }
+    if let Some(rest) = trimmed.strip_prefix('→')
+        && let Some(name) = rest.split_whitespace().next()
+    {
+        return name.to_string();
     }
     // Pattern: "ToolResult(Read)" or "tool_result: Read"
     for tool in &["Read", "Grep", "Bash", "Edit", "Write", "Glob"] {

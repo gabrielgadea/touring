@@ -527,19 +527,19 @@ pub fn run_subagent_stop_gate(
         .or_else(|| input.get("teammate_name"))
         .and_then(|v| v.as_str())
         .unwrap_or("engineer");
-    if let Some(output) = extract_final_output(transcript) {
-        if let Some(problem) = validate_parcer_output(agent_id, &output) {
-            tracing::info!(
-                session_id,
-                agent_id,
-                problem,
-                "PARCER validation failed — blocking subagent stop"
-            );
-            return SubagentStopResult {
-                feedback: problem,
-                exit_code: 2,
-            };
-        }
+    if let Some(output) = extract_final_output(transcript)
+        && let Some(problem) = validate_parcer_output(agent_id, &output)
+    {
+        tracing::info!(
+            session_id,
+            agent_id,
+            problem,
+            "PARCER validation failed — blocking subagent stop"
+        );
+        return SubagentStopResult {
+            feedback: problem,
+            exit_code: 2,
+        };
     }
 
     let tool_calls = extract_tool_calls(transcript);
@@ -824,26 +824,25 @@ pub fn run_task_completed(
         .get("result_summary")
         .or_else(|| input.get("message"))
         .and_then(|v| v.as_str())
+        && !summary.is_empty()
     {
-        if !summary.is_empty() {
-            let _ = runtime
-                .ctx
-                .knowledge
-                .record_bash_outcome(&crate::knowledge::BashOutcome {
-                    command: format!(
-                        "task_completion:{}:{}",
-                        task_id,
-                        &summary[..summary.len().min(200)]
-                    ),
-                    command_short: "task_completion".to_string(),
-                    exit_code: if success { 0 } else { 1 },
-                    success,
-                    error_pattern: None,
-                    file_context: None,
-                    command_hash: String::new(),
-                    executed_at: String::new(),
-                });
-        }
+        let _ = runtime
+            .ctx
+            .knowledge
+            .record_bash_outcome(&crate::knowledge::BashOutcome {
+                command: format!(
+                    "task_completion:{}:{}",
+                    task_id,
+                    &summary[..summary.len().min(200)]
+                ),
+                command_short: "task_completion".to_string(),
+                exit_code: if success { 0 } else { 1 },
+                success,
+                error_pattern: None,
+                file_context: None,
+                command_hash: String::new(),
+                executed_at: String::new(),
+            });
     }
 
     // N1: Wire to ACO — deposit task heat

@@ -20,10 +20,10 @@ pub(crate) fn extract_texts_to_scan(data: &serde_json::Value) -> Vec<&str> {
 
     let mut texts = Vec::new();
     for key in SCANNABLE_FIELDS {
-        if let Some(s) = tool_input.get(*key).and_then(|v| v.as_str()) {
-            if !s.is_empty() {
-                texts.push(s);
-            }
+        if let Some(s) = tool_input.get(*key).and_then(|v| v.as_str())
+            && !s.is_empty()
+        {
+            texts.push(s);
         }
     }
     texts

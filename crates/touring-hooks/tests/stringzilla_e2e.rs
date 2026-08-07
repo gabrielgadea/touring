@@ -430,23 +430,44 @@ fn test_all_workflow_hooks_in_registry() {
     }
 }
 
-/// Verifies the count of hooks matches the expected 178 (full default feature set).
-/// This locks the count against accidental drift — if someone adds a hook without
-/// updating the assertions, this test fails loudly.
+/// Locks the registry size against accidental drift: add or remove a hook
+/// without updating the assertions and this test fails loudly.
+///
+/// ⚠ The same two quantities are asserted in **five** places, and they must be
+/// changed together — updating a subset is how a registry change reaches CI
+/// half-fixed (observed twice: 2026-08-04, then again 2026-08-06 when
+/// `cli-memory-credit` was registered and only `hook_registry_tests.rs` was
+/// updated, leaving these three red):
+///
+/// - `touring-dispatch/src/hook_registry_tests.rs`  ← the canonical pair
+/// - `touring-hooks/tests/stringzilla_e2e.rs`       (this file, BOTH asserts)
+/// - `touring-hooks/tests/wave2_4_e2e.rs`
+/// - `touring-hooks/tests/wave_c_e2e.rs`
+///
+/// (`potentialization_comprehensive_e2e.rs` and `e2e_touring_hooks_integration.rs`
+/// assert lower bounds only, so they never drift.)
 #[test]
-fn test_hook_registry_count_is_172() {
+fn test_hook_registry_counts_match_the_dispatch_registry() {
     assert_eq!(
         ALL_DAEMON_HOOK_NAMES.len(),
-        218,
-        "ALL_DAEMON_HOOK_NAMES must have exactly 218 entries (sync with touring-dispatch hook_registry test)"
+        219,
+        "ALL_DAEMON_HOOK_NAMES must have exactly 219 entries (sync with touring-dispatch hook_registry test)"
     );
     // NOTE: all_daemon_hook_names() and ALL_DAEMON_HOOK_NAMES differ by feature-gated entries
     // and 'stop' which is in constant but not in function.
     // test_hook_registry_no_duplicates validates no duplicates.
+    // Ciente da feature, como o tripwire irmão em
+    // `touring-dispatch/src/hook_registry_tests.rs`: `acp-protocol` (não-default)
+    // contribui 2 nomes, então um literal único não pode ser verdade nos dois perfis.
+    #[cfg(feature = "acp-protocol")]
+    const EXPECTED_NAMES: usize = 225;
+    #[cfg(not(feature = "acp-protocol"))]
+    const EXPECTED_NAMES: usize = 223;
     assert_eq!(
         all_daemon_hook_names().len(),
-        222,
-        "all_daemon_hook_names() returns 222 (sync with touring-dispatch hook_registry test)"
+        EXPECTED_NAMES,
+        "all_daemon_hook_names() deve ter {EXPECTED_NAMES} entradas \
+         (em sincronia com o teste hook_registry de touring-dispatch)"
     );
 }
 

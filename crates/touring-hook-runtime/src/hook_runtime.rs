@@ -377,6 +377,14 @@ pub struct LearningRuntime {
     /// [`HookRuntime::granularity_bandit`]. Rewarded from `CodeHealthReport`
     /// deltas after tasks finalize.
     pub granularity_bandit: Option<GranularityBandit>,
+    /// Memory cases served by a recall, awaiting the verdict of the work they
+    /// informed (`memory recall` records → `memory credit` claims).
+    ///
+    /// This is the only path to a real utility signal for the case bank:
+    /// `access_count` counts writes AND exact-key reads while the actual recall
+    /// (FTS5 / LIKE / ANN / TF-IDF) never touches it, so it cannot answer "did
+    /// this case help?" (measured 04/08/2026). Attribution can.
+    pub case_ledger: touring_intelligence::rl::bandit::CaseLedger,
 }
 impl LearningRuntime {
     /// S-25: Inject a reward signal for a CLI command after successful execution.
@@ -738,10 +746,10 @@ impl HookRuntime {
             FileKnowledgeDB::new(&db_path).map_err(|e| format!("Cannot open knowledge DB: {e}"))?;
         let linucb_path = data_dir.join("linucb.rkyv");
         let linucb_result = LinUCBBandit::load_rkyv(&linucb_path);
-        if let Err(ref e) = linucb_result {
-            if linucb_path.exists() {
-                eprintln!("[touring-hooks] WARN: linucb init failed (file corrupt?): {e}");
-            }
+        if let Err(ref e) = linucb_result
+            && linucb_path.exists()
+        {
+            eprintln!("[touring-hooks] WARN: linucb init failed (file corrupt?): {e}");
         }
         let linucb = linucb_result.ok();
         let granularity_path = data_dir.join("granularity_bandit.json");
@@ -871,6 +879,7 @@ impl HookRuntime {
                 last_arm_selected: None,
                 hook_quality_assessments_consumed: 0,
                 granularity_bandit,
+                case_ledger: Default::default(),
             },
             infra: InfraRuntime {
                 symbol_store,
@@ -1668,14 +1677,14 @@ pub(crate) fn find_cargo_workspace_root(start: &std::path::Path) -> Option<PathB
     let mut dir = start.to_path_buf();
     loop {
         let manifest = dir.join("Cargo.toml");
-        if manifest.exists() {
-            if let Ok(contents) = std::fs::read_to_string(&manifest) {
-                let has_workspace = contents
-                    .lines()
-                    .any(|l| l.trim_start().starts_with("[workspace]"));
-                if has_workspace {
-                    return Some(dir);
-                }
+        if manifest.exists()
+            && let Ok(contents) = std::fs::read_to_string(&manifest)
+        {
+            let has_workspace = contents
+                .lines()
+                .any(|l| l.trim_start().starts_with("[workspace]"));
+            if has_workspace {
+                return Some(dir);
             }
         }
         if !dir.pop() {

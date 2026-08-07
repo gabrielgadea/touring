@@ -191,27 +191,26 @@ impl Handler for PromptRecallHandler {
 /// Source 1: file knowledge notes + failed bash outcomes from touring_knowledge.db.
 fn recall_file_knowledge(ctx: &CortexContext, keywords: &[String], snippets: &mut Vec<String>) {
     for keyword in keywords.iter().take(4) {
-        if let Ok(Some(fk)) = ctx.knowledge.lookup(keyword) {
-            if let Some(ref notes) = fk.notes {
-                if !notes.is_empty() {
-                    snippets.push(format!(
-                        "[file:{}] {}",
-                        fk.file_path,
-                        truncate_str(notes, 100)
-                    ));
-                }
-            }
+        if let Ok(Some(fk)) = ctx.knowledge.lookup(keyword)
+            && let Some(ref notes) = fk.notes
+            && !notes.is_empty()
+        {
+            snippets.push(format!(
+                "[file:{}] {}",
+                fk.file_path,
+                truncate_str(notes, 100)
+            ));
         }
         if let Ok(outcomes) = ctx.knowledge.find_bash_outcomes(keyword, 2) {
             for outcome in outcomes {
-                if !outcome.success {
-                    if let Some(ref err) = outcome.error_pattern {
-                        snippets.push(format!(
-                            "[cmd:{}] {}",
-                            outcome.command_short,
-                            truncate_str(err, 100)
-                        ));
-                    }
+                if !outcome.success
+                    && let Some(ref err) = outcome.error_pattern
+                {
+                    snippets.push(format!(
+                        "[cmd:{}] {}",
+                        outcome.command_short,
+                        truncate_str(err, 100)
+                    ));
                 }
             }
         }
@@ -501,11 +500,11 @@ impl Handler for CrystallizerHandler {
 
         // Drift check
         let mut drift_info = String::new();
-        if let Ok(Some((trend, _mean, _std))) = persistence.drift_detect("reward_distribution") {
-            if trend.abs() > 0.1 {
-                let dir = if trend > 0.0 { "↑" } else { "↓" };
-                drift_info = format!(" DRIFT:reward{dir}{trend:.2}");
-            }
+        if let Ok(Some((trend, _mean, _std))) = persistence.drift_detect("reward_distribution")
+            && trend.abs() > 0.1
+        {
+            let dir = if trend > 0.0 { "↑" } else { "↓" };
+            drift_info = format!(" DRIFT:reward{dir}{trend:.2}");
         }
 
         // Wilson top patterns

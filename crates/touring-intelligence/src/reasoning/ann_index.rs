@@ -135,11 +135,11 @@ impl AnnIndex {
                 for v in &mut new_centroid {
                     *v /= count;
                 }
-                if let Some(centroid) = self.centroids.get_mut(*ci) {
-                    if *centroid != new_centroid {
-                        *centroid = new_centroid;
-                        changed = true;
-                    }
+                if let Some(centroid) = self.centroids.get_mut(*ci)
+                    && *centroid != new_centroid
+                {
+                    *centroid = new_centroid;
+                    changed = true;
                 }
             }
 

@@ -111,29 +111,29 @@ impl Handler for SymbolEnricherHandler {
             let mut parts: Vec<String> = Vec::new();
 
             // Include file notes if any
-            if let Some(ref notes) = fk.notes {
-                if !notes.is_empty() {
-                    let snippet = truncate_str(notes, 100);
-                    parts.push(format!("notes: {snippet}"));
-                }
+            if let Some(ref notes) = fk.notes
+                && !notes.is_empty()
+            {
+                let snippet = truncate_str(notes, 100);
+                parts.push(format!("notes: {snippet}"));
             }
 
             // Include relations (imports)
-            if let Ok(rels) = ctx.knowledge.get_relations_from(rel_path) {
-                if !rels.is_empty() {
-                    let imports: Vec<String> = rels
-                        .iter()
-                        .take(8)
-                        .map(|r| {
-                            Path::new(&r.target)
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .unwrap_or(&r.target)
-                                .to_string()
-                        })
-                        .collect();
-                    parts.push(format!("imports({}): {}", rels.len(), imports.join(", ")));
-                }
+            if let Ok(rels) = ctx.knowledge.get_relations_from(rel_path)
+                && !rels.is_empty()
+            {
+                let imports: Vec<String> = rels
+                    .iter()
+                    .take(8)
+                    .map(|r| {
+                        Path::new(&r.target)
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or(&r.target)
+                            .to_string()
+                    })
+                    .collect();
+                parts.push(format!("imports({}): {}", rels.len(), imports.join(", ")));
             }
 
             if parts.is_empty() {
@@ -210,19 +210,17 @@ impl Handler for SemanticReadEnricherHandler {
         }
 
         // FTS5 search in semantic recall
-        if let Some(ref recall) = ctx.recall {
-            if let Ok(hits) = recall.fts_search(&query, 5) {
-                if hits.len() >= 2 {
-                    let mut lines: Vec<String> =
-                        vec![format!("Semantic memories for {file_path}:")];
-                    for hit in hits.iter().take(3) {
-                        let snippet = truncate_str(&hit.content, 120);
-                        lines.push(format!("  [#{}] {}", hit.id, snippet));
-                    }
-                    let context = lines.join("\n");
-                    return HandlerResult::allow(self.name(), Some(context));
-                }
+        if let Some(ref recall) = ctx.recall
+            && let Ok(hits) = recall.fts_search(&query, 5)
+            && hits.len() >= 2
+        {
+            let mut lines: Vec<String> = vec![format!("Semantic memories for {file_path}:")];
+            for hit in hits.iter().take(3) {
+                let snippet = truncate_str(&hit.content, 120);
+                lines.push(format!("  [#{}] {}", hit.id, snippet));
             }
+            let context = lines.join("\n");
+            return HandlerResult::allow(self.name(), Some(context));
         }
 
         HandlerResult::skip(self.name())
@@ -792,23 +790,23 @@ impl Handler for LearningSessionStartupHandler {
         let mut parts: Vec<String> = Vec::new();
 
         // Load top Wilson-ranked patterns for session guidance
-        if let Some(ref persistence) = ctx.persistence {
-            if let Ok(top) = persistence.wilson_top_k(5) {
-                for (id, score, successes, trials) in &top {
-                    if *score > 0.6 && *trials > 2 {
-                        parts.push(format!("{id} (conf={score:.2}, {successes}/{trials})"));
-                    }
+        if let Some(ref persistence) = ctx.persistence
+            && let Ok(top) = persistence.wilson_top_k(5)
+        {
+            for (id, score, successes, trials) in &top {
+                if *score > 0.6 && *trials > 2 {
+                    parts.push(format!("{id} (conf={score:.2}, {successes}/{trials})"));
                 }
             }
         }
 
         // Load recent workflow executions from RLM
-        if let Some(ref rlm) = ctx.rlm {
-            if let Ok(entries) = rlm.search("exec:", None, 3) {
-                for entry in &entries {
-                    let snippet = entry.value.chars().take(80).collect::<String>();
-                    parts.push(format!("[recent] {snippet}"));
-                }
+        if let Some(ref rlm) = ctx.rlm
+            && let Ok(entries) = rlm.search("exec:", None, 3)
+        {
+            for entry in &entries {
+                let snippet = entry.value.chars().take(80).collect::<String>();
+                parts.push(format!("[recent] {snippet}"));
             }
         }
 
@@ -942,10 +940,10 @@ impl CodeFirstPipelineGuardHandler {
         }
 
         // For Task events: extract antt-* from prompt/subagent_type
-        if let Some(subagent) = ctx.tool_input.get("subagent_type").and_then(|v| v.as_str()) {
-            if subagent.starts_with("antt-") || ANTT_SKILLS.contains(&subagent) {
-                return subagent.to_string();
-            }
+        if let Some(subagent) = ctx.tool_input.get("subagent_type").and_then(|v| v.as_str())
+            && (subagent.starts_with("antt-") || ANTT_SKILLS.contains(&subagent))
+        {
+            return subagent.to_string();
         }
 
         // Heuristic: search prompt for antt-* pattern
@@ -1024,18 +1022,18 @@ impl Handler for CipherKnowledgeRetrievalHandler {
                         if let Ok(patterns) = serde_json::from_str::<Vec<serde_json::Value>>(&data)
                         {
                             for pat in patterns.iter().take(2) {
-                                if let Some(tags) = pat.get("tags").and_then(|t| t.as_str()) {
-                                    if tags.contains(filename) || tags.contains(file_ext) {
-                                        let preview = pat
-                                            .get("content_preview")
-                                            .and_then(|c| c.as_str())
-                                            .unwrap_or("")
-                                            .chars()
-                                            .take(80)
-                                            .collect::<String>();
-                                        if !preview.is_empty() {
-                                            hits.push(format!("[cipher] {preview}"));
-                                        }
+                                if let Some(tags) = pat.get("tags").and_then(|t| t.as_str())
+                                    && (tags.contains(filename) || tags.contains(file_ext))
+                                {
+                                    let preview = pat
+                                        .get("content_preview")
+                                        .and_then(|c| c.as_str())
+                                        .unwrap_or("")
+                                        .chars()
+                                        .take(80)
+                                        .collect::<String>();
+                                    if !preview.is_empty() {
+                                        hits.push(format!("[cipher] {preview}"));
                                     }
                                 }
                             }
@@ -1308,16 +1306,16 @@ impl Handler for ObserverLearningLoopHandler {
             .get("turn_count")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
-        if turn_count > 20 {
-            if let Some(ref persistence) = ctx.persistence {
-                let _ = persistence.wilson_update("session:high_turn_count", false); // negative signal
-                let _ = persistence.log_hook_event(
-                    "Stop",
-                    "ObserverLearning",
-                    &format!("turn_count={turn_count} (retry storm signal)"),
-                    0.4,
-                );
-            }
+        if turn_count > 20
+            && let Some(ref persistence) = ctx.persistence
+        {
+            let _ = persistence.wilson_update("session:high_turn_count", false); // negative signal
+            let _ = persistence.log_hook_event(
+                "Stop",
+                "ObserverLearning",
+                &format!("turn_count={turn_count} (retry storm signal)"),
+                0.4,
+            );
         }
 
         HandlerResult::skip(self.name()) // Learning only, no context

@@ -380,10 +380,10 @@ where
 /// state and exit cleanly. Safe to call multiple times — subsequent calls
 /// are no-ops if the cache was never initialized.
 pub fn shutdown() {
-    if let Some(cache) = CIRCUIT_CACHE.get() {
-        if let Ok(state) = cache.read() {
-            let _ = state.flush_tx.send(FlushCmd::Shutdown);
-        }
+    if let Some(cache) = CIRCUIT_CACHE.get()
+        && let Ok(state) = cache.read()
+    {
+        let _ = state.flush_tx.send(FlushCmd::Shutdown);
     }
 }
 
@@ -416,16 +416,15 @@ fn ensure_flush_thread() {
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                         // Periodic flush — check if cache is dirty
-                        if let Some(cache) = CIRCUIT_CACHE.get() {
-                            if let Ok(mut cache) = cache.write() {
-                                if cache.dirty {
-                                    let state = cache.inner.clone();
-                                    let _ = write_state_to_file(&path, &state);
-                                    cache.dirty = false;
-                                    cache.dirty_count = 0;
-                                    cache.last_flush = Instant::now();
-                                }
-                            }
+                        if let Some(cache) = CIRCUIT_CACHE.get()
+                            && let Ok(mut cache) = cache.write()
+                            && cache.dirty
+                        {
+                            let state = cache.inner.clone();
+                            let _ = write_state_to_file(&path, &state);
+                            cache.dirty = false;
+                            cache.dirty_count = 0;
+                            cache.last_flush = Instant::now();
                         }
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
@@ -530,43 +529,41 @@ pub fn check(hook_name: &str, project: Option<&str>, session: Option<&str>) -> C
     }
 
     // 2. Operation class check
-    if let Some(class_breaker) = inner.by_class.get(&op_class) {
-        if class_breaker.open_until_ts > now {
-            return CircuitCheck::skip(
-                "operation class circuit open",
-                "class",
-                op_class,
-                class_breaker.open_until_ts.saturating_sub(now),
-            );
-        }
+    if let Some(class_breaker) = inner.by_class.get(&op_class)
+        && class_breaker.open_until_ts > now
+    {
+        return CircuitCheck::skip(
+            "operation class circuit open",
+            "class",
+            op_class,
+            class_breaker.open_until_ts.saturating_sub(now),
+        );
     }
 
     // 3. Project check
-    if let Some(p) = project {
-        if let Some(proj_breaker) = inner.by_project.get(p) {
-            if proj_breaker.open_until_ts > now {
-                return CircuitCheck::skip(
-                    "project circuit open",
-                    "project",
-                    op_class,
-                    proj_breaker.open_until_ts.saturating_sub(now),
-                );
-            }
-        }
+    if let Some(p) = project
+        && let Some(proj_breaker) = inner.by_project.get(p)
+        && proj_breaker.open_until_ts > now
+    {
+        return CircuitCheck::skip(
+            "project circuit open",
+            "project",
+            op_class,
+            proj_breaker.open_until_ts.saturating_sub(now),
+        );
     }
 
     // 4. Session check
-    if let Some(s) = session {
-        if let Some(sess_breaker) = inner.by_session.get(s) {
-            if sess_breaker.open_until_ts > now {
-                return CircuitCheck::skip(
-                    "session circuit open",
-                    "session",
-                    op_class,
-                    sess_breaker.open_until_ts.saturating_sub(now),
-                );
-            }
-        }
+    if let Some(s) = session
+        && let Some(sess_breaker) = inner.by_session.get(s)
+        && sess_breaker.open_until_ts > now
+    {
+        return CircuitCheck::skip(
+            "session circuit open",
+            "session",
+            op_class,
+            sess_breaker.open_until_ts.saturating_sub(now),
+        );
     }
 
     CircuitCheck::proceed(op_class)
@@ -701,17 +698,17 @@ pub fn record_success(hook_name: &str, project: Option<&str>, session: Option<&s
     }
 
     // Decay project breaker weighted score
-    if let Some(p) = project {
-        if let Some(breaker) = state.by_project.get_mut(p) {
-            decay_project_breaker(breaker, op_class, now);
-        }
+    if let Some(p) = project
+        && let Some(breaker) = state.by_project.get_mut(p)
+    {
+        decay_project_breaker(breaker, op_class, now);
     }
 
     // Decay session breaker
-    if let Some(s) = session {
-        if let Some(breaker) = state.by_session.get_mut(s) {
-            decay_session_breaker(breaker, now);
-        }
+    if let Some(s) = session
+        && let Some(breaker) = state.by_session.get_mut(s)
+    {
+        decay_session_breaker(breaker, now);
     }
 
     // Global catastrophic: on ANY success, start recovery

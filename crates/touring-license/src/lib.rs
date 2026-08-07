@@ -288,9 +288,31 @@ mod tests {
     }
 
     #[test]
-    fn binary_max_tier_default_is_free() {
-        // Default features only enable tier-free
-        assert_eq!(binary_max_tier(), Tier::Free);
+    fn tier_features_are_additive_and_cap_is_the_highest_enabled() {
+        // This replaces `binary_max_tier_default_is_free`, whose premise
+        // ("default features only enable tier-free") holds ONLY for
+        // `cargo test -p touring-license`. Under `cargo test --workspace` cargo
+        // UNIFIES features across members, and `touring-server/Cargo.toml`
+        // depends on this crate with `features = ["tier-enterprise"]` — so the
+        // crate really is compiled as Enterprise and the old assertion failed
+        // against correct code (2026-08-02).
+        //
+        // Assert the contract that is true in EVERY configuration: the tier
+        // features are additive, and the reported cap is exactly the highest one
+        // compiled in.
+        if cfg!(feature = "tier-enterprise") {
+            assert!(cfg!(feature = "tier-premium"), "enterprise implies premium");
+            assert_eq!(binary_max_tier(), Tier::Enterprise);
+        } else if cfg!(feature = "tier-premium") {
+            assert!(cfg!(feature = "tier-standard"), "premium implies standard");
+            assert_eq!(binary_max_tier(), Tier::Premium);
+        } else if cfg!(feature = "tier-standard") {
+            assert!(cfg!(feature = "tier-free"), "standard implies free");
+            assert_eq!(binary_max_tier(), Tier::Standard);
+        } else {
+            assert_eq!(binary_max_tier(), Tier::Free);
+        }
+        assert!(cfg!(feature = "tier-free"), "tier-free is in `default`");
     }
 
     #[test]

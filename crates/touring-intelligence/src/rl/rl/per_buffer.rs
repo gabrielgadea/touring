@@ -58,10 +58,10 @@ impl PrioritizedReplayBuffer {
     pub fn push(&mut self, state: u64, action: u64, reward: f64, next_state: u64) -> usize {
         let idx = self.next_idx;
         self.next_idx = self.next_idx.wrapping_add(1);
-        if self.transitions.len() >= self.capacity {
-            if let Some(&oldest) = self.transitions.keys().min() {
-                self.transitions.remove(&oldest);
-            }
+        if self.transitions.len() >= self.capacity
+            && let Some(&oldest) = self.transitions.keys().min()
+        {
+            self.transitions.remove(&oldest);
         }
         self.transitions.insert(
             idx,

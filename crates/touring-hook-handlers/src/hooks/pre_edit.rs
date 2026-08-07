@@ -186,13 +186,13 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
 
     // FA-2: Inject active plan hint into context for task-aware editing.
     // Set by decompose/MCTS hooks via session_bus.signal_plan_active().
-    if let Some(plan) = &plan_hint {
-        if !plan.is_empty() {
-            if !context.is_empty() {
-                context.push_str(" | ");
-            }
-            context.push_str(&format!("plan: {}", plan));
+    if let Some(plan) = &plan_hint
+        && !plan.is_empty()
+    {
+        if !context.is_empty() {
+            context.push_str(" | ");
         }
+        context.push_str(&format!("plan: {}", plan));
     }
 
     // A9: Hook chaining — read pre_read's result from session_bus and inject into context.
@@ -202,18 +202,17 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
         .session_bus
         .borrow()
         .get_last_hook_result("pre_read")
-    {
-        if let (Some(fp), Some(clen)) = (
+        && let (Some(fp), Some(clen)) = (
             pre_read_result.get("file_path").and_then(|v| v.as_str()),
             pre_read_result.get("context_len").and_then(|v| v.as_u64()),
-        ) {
-            // Only inject if same file was read before editing
-            if fp == rel_path {
-                if !context.is_empty() {
-                    context.push_str(" | ");
-                }
-                context.push_str(&format!("chain:pre_read(ctx_len={})", clen));
+        )
+    {
+        // Only inject if same file was read before editing
+        if fp == rel_path {
+            if !context.is_empty() {
+                context.push_str(" | ");
             }
+            context.push_str(&format!("chain:pre_read(ctx_len={})", clen));
         }
     }
 
@@ -429,22 +428,22 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Uses the same command_to_states hashing as pre_bash.rs for consistent embeddings.
     {
         let states = crate::shared::command_hash::command_to_states(&rel_path);
-        if !states.is_empty() {
-            if let Ok(pensieve) = runtime.learning.pensieve.try_borrow() {
-                let penalty = match states.first() {
-                    Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
-                    _ => pensieve.check_known_failure_seq(&states),
-                };
-                if let Some(sim) = penalty {
-                    let sig = format!(
-                        "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
-                        sim * 100.0
-                    );
-                    if !context.is_empty() {
-                        context.push_str(" | ");
-                    }
-                    context.push_str(&sig);
+        if !states.is_empty()
+            && let Ok(pensieve) = runtime.learning.pensieve.try_borrow()
+        {
+            let penalty = match states.first() {
+                Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
+                _ => pensieve.check_known_failure_seq(&states),
+            };
+            if let Some(sim) = penalty {
+                let sig = format!(
+                    "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
+                    sim * 100.0
+                );
+                if !context.is_empty() {
+                    context.push_str(" | ");
                 }
+                context.push_str(&sig);
             }
         }
     }
@@ -527,19 +526,19 @@ fn compose_edit_context_impl(
     let mut parts: Vec<String> = Vec::new();
 
     // ── Signal 1: Dependents (who imports this file?) ──
-    if let Ok(dependents) = db.get_dependents(file_path) {
-        if !dependents.is_empty() {
-            let dep_files: Vec<&str> = dependents
-                .iter()
-                .take(5)
-                .map(|r| r.source.as_str())
-                .collect();
-            parts.push(format!(
-                "impact: {} file(s) import this [{}]",
-                dependents.len(),
-                short_list(&dep_files)
-            ));
-        }
+    if let Ok(dependents) = db.get_dependents(file_path)
+        && !dependents.is_empty()
+    {
+        let dep_files: Vec<&str> = dependents
+            .iter()
+            .take(5)
+            .map(|r| r.source.as_str())
+            .collect();
+        parts.push(format!(
+            "impact: {} file(s) import this [{}]",
+            dependents.len(),
+            short_list(&dep_files)
+        ));
     }
 
     // ── Signal I-5: Callgraph enrichment — who calls functions in this file ──
@@ -583,20 +582,19 @@ fn compose_edit_context_impl(
     }
 
     // ── Signal 3: Notes/gotchas (accumulated knowledge) ──
-    if let Ok(Some(k)) = db.lookup(file_path) {
-        if let Some(notes) = &k.notes {
-            if !notes.is_empty() {
-                let short = truncate_str(notes, 100);
-                parts.push(format!("note: {short}"));
-            }
-        }
+    if let Ok(Some(k)) = db.lookup(file_path)
+        && let Some(notes) = &k.notes
+        && !notes.is_empty()
+    {
+        let short = truncate_str(notes, 100);
+        parts.push(format!("note: {short}"));
     }
 
     // ── Signal 4: Edit frequency (churn awareness) ──
-    if let Ok(edits) = db.recent_edits(file_path, 5) {
-        if edits.len() >= 3 {
-            parts.push(format!("{}x edited recently", edits.len()));
-        }
+    if let Ok(edits) = db.recent_edits(file_path, 5)
+        && edits.len() >= 3
+    {
+        parts.push(format!("{}x edited recently", edits.len()));
     }
 
     // ── Signal 5: File risk score (RL-computed historical failure rate) ──
@@ -636,38 +634,35 @@ fn compose_edit_context_impl(
     // Uses the project-local EntityRegistry to detect when an edit targets a generic
     // symbol name (Handler, Index, Manager, etc.) that has multiple definitions.
     // Skips silently when runtime is unavailable (graceful degradation).
-    if let Some(rt) = runtime {
-        if let Some(entity_hint) = rt.infra.entity_registry.borrow().as_ref() {
-            if let Ok(true) = entity_hint.is_generic(file_path) {
-                if let Ok(result) = entity_hint.resolve(file_path, None, None, 5) {
-                    if result.disambiguated_count > 1 {
-                        let hint = format!(
-                            "⚠ ENTITY AMBIGUITY: '{}' has {} definitions. Best match: {} ({}, line {}), confidence {:.2}",
-                            file_path,
-                            result.disambiguated_count,
-                            result
-                                .candidates
-                                .first()
-                                .map(|c| c.entity_code.as_str())
-                                .unwrap_or("?"),
-                            result
-                                .candidates
-                                .first()
-                                .map(|c| c.module_path.as_str())
-                                .unwrap_or("?"),
-                            result.candidates.first().map(|c| c.line).unwrap_or(0),
-                            result
-                                .candidates
-                                .first()
-                                .map(|c| c.confidence)
-                                .unwrap_or(0.0),
-                        );
-                        parts.push(hint);
-                        let _ = entity_hint.bump_pattern_hit(file_path);
-                    }
-                }
-            }
-        }
+    if let Some(rt) = runtime
+        && let Some(entity_hint) = rt.infra.entity_registry.borrow().as_ref()
+        && let Ok(true) = entity_hint.is_generic(file_path)
+        && let Ok(result) = entity_hint.resolve(file_path, None, None, 5)
+        && result.disambiguated_count > 1
+    {
+        let hint = format!(
+            "⚠ ENTITY AMBIGUITY: '{}' has {} definitions. Best match: {} ({}, line {}), confidence {:.2}",
+            file_path,
+            result.disambiguated_count,
+            result
+                .candidates
+                .first()
+                .map(|c| c.entity_code.as_str())
+                .unwrap_or("?"),
+            result
+                .candidates
+                .first()
+                .map(|c| c.module_path.as_str())
+                .unwrap_or("?"),
+            result.candidates.first().map(|c| c.line).unwrap_or(0),
+            result
+                .candidates
+                .first()
+                .map(|c| c.confidence)
+                .unwrap_or(0.0),
+        );
+        parts.push(hint);
+        let _ = entity_hint.bump_pattern_hit(file_path);
     }
 
     // ── Signal 8: Error predictions (Markov-based proactive warnings) ──
@@ -738,26 +733,27 @@ fn compose_edit_context_impl(
     }
 
     // ── Signal 11: Wiring Check — orphan pub symbols in this file ──
-    if let Ok(status) = db.module_wiring_status(file_path) {
-        if !status.orphan_symbols.is_empty() && status.integration_score < 1.0 {
-            let orphan_list = status.orphan_symbols.join(", ");
-            let short = truncate_str(&orphan_list, 80);
-            // R6-S1: Suggest generator CLI to scaffold a wiring plan for orphans.
-            // Mirrors R5-S4 (post_write) — surfaces the automation trigger at pre-edit
-            // time too, so Claude Code can choose to generate a consumer before editing.
-            let first_orphan = status
-                .orphan_symbols
-                .first()
-                .map(String::as_str)
-                .unwrap_or("symbol");
-            parts.push(format!(
+    if let Ok(status) = db.module_wiring_status(file_path)
+        && !status.orphan_symbols.is_empty()
+        && status.integration_score < 1.0
+    {
+        let orphan_list = status.orphan_symbols.join(", ");
+        let short = truncate_str(&orphan_list, 80);
+        // R6-S1: Suggest generator CLI to scaffold a wiring plan for orphans.
+        // Mirrors R5-S4 (post_write) — surfaces the automation trigger at pre-edit
+        // time too, so Claude Code can choose to generate a consumer before editing.
+        let first_orphan = status
+            .orphan_symbols
+            .first()
+            .map(String::as_str)
+            .unwrap_or("symbol");
+        parts.push(format!(
                 "wiring({:.0}%): {} orphan pub symbol(s) [{}] — run: touring generate plan-suggest --intent \"wire {} into a consumer caller\"",
                 status.integration_score * 100.0,
                 status.orphan_symbols.len(),
                 short,
                 first_orphan,
             ));
-        }
     }
 
     // ── Signal 6c: Ecosystem fit — warn about modules with low integration ──
@@ -837,13 +833,13 @@ fn compose_edit_context_impl(
     // Feature-gated (tantivy-fts is ON by default in touring-hooks).
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(file_path) {
+        if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(runtime.map(|r| r.project_root.as_path()), file_path) {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_kind_context_signal(file_path) {
+        if let Some((_, s)) = crate::shared::signals::tantivy_kind_context_signal(runtime.map(|r| r.project_root.as_path()), file_path) {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_crate_origin_signal(file_path) {
+        if let Some((_, s)) = crate::shared::signals::tantivy_crate_origin_signal(runtime.map(|r| r.project_root.as_path()), file_path) {
             parts.push(s);
         }
     }
@@ -851,10 +847,10 @@ fn compose_edit_context_impl(
     // ── Signal 15: Extended metadata — test coverage + community affinity ──
     // coverage_pct surfaces files with low test coverage before editing so Claude
     // knows to add tests. community_id reveals module grouping for architectural context.
-    if let Ok(Some(ext)) = db.query_extended(file_path) {
-        if let Some(sig) = hook_helpers::build_file_meta_signal(&ext) {
-            parts.push(sig);
-        }
+    if let Ok(Some(ext)) = db.query_extended(file_path)
+        && let Some(sig) = hook_helpers::build_file_meta_signal(&ext)
+    {
+        parts.push(sig);
     }
 
     if parts.is_empty() {

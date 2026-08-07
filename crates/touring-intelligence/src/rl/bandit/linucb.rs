@@ -374,7 +374,7 @@ impl LinUCBArm {
     ///
     /// Returns `true` if a reset was performed.
     pub fn maybe_reorthogonalize(&mut self) -> bool {
-        if self.pulls % 100 != 0 || self.pulls == 0 {
+        if !self.pulls.is_multiple_of(100) || self.pulls == 0 {
             return false;
         }
 

@@ -29,7 +29,7 @@ impl NibbleBlock {
 
     /// Ensures the block holds at least `min_bytes` nibble-packed bytes (rounded up to even).
     fn ensure_capacity(&mut self, min_bytes: usize) {
-        let needed = if min_bytes % 2 == 0 {
+        let needed = if min_bytes.is_multiple_of(2) {
             min_bytes
         } else {
             min_bytes + 1

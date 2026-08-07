@@ -10,8 +10,34 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use tempfile::TempDir;
 
+/// Resolve a touring binary, preferring the WORKSPACE build over the installed one.
+///
+/// Both helpers used to hardcode `/home/gabrielgadea/.local/bin/…`, so this
+/// suite exercised whatever was last *deployed* rather than the code under
+/// test — a green run said nothing about the working tree, and the paths break
+/// on any other machine. Workspace first, installed as fallback.
+fn resolve_bin(name: &str) -> PathBuf {
+    let workspace_target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.join("target"));
+    if let Some(target) = workspace_target {
+        for profile in ["debug", "release"] {
+            let candidate = target.join(profile).join(name);
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+    PathBuf::from(format!("/home/gabrielgadea/.local/bin/{name}"))
+}
+
 fn touring_bin() -> PathBuf {
-    PathBuf::from("/home/gabrielgadea/.local/bin/touring")
+    resolve_bin("touring")
+}
+
+fn daemon_bin() -> PathBuf {
+    resolve_bin("touring-daemon")
 }
 
 /// Start a fresh daemon for test isolation.
@@ -20,8 +46,25 @@ fn touring_bin() -> PathBuf {
 /// makes broad `pkill -9 -f touring-daemon` unnecessary AND dangerous —
 /// it would also kill the daemon of any parallel test process or of
 /// other CC sessions on the same host. Clean only OUR socket/lock here.
+/// Socket path unique to the CURRENT TEST, not merely the current process.
+///
+/// Keying on `process::id()` alone gave all 9 tests in this binary ONE socket,
+/// and `start_daemon` opens with `remove_file(&socket_path)` — so a test
+/// starting up deleted the endpoint a concurrently-running neighbour was
+/// already talking to, and that neighbour's next CLI call died with
+/// "No such file or directory (os error 2)" (2026-08-02). libtest names the
+/// worker thread after the test, so both `start_daemon` and `touring` derive
+/// the same value inside one test without threading any parameter through.
+fn socket_path() -> String {
+    let test = std::thread::current()
+        .name()
+        .unwrap_or("main")
+        .replace([':', '/'], "_");
+    format!("/tmp/touring-daemon-{}-{}.sock", std::process::id(), test)
+}
+
 fn start_daemon() -> u32 {
-    let socket_path = format!("/tmp/touring-daemon-{}.sock", std::process::id());
+    let socket_path = socket_path();
     let _ = std::fs::remove_file(&socket_path);
     let _ = std::fs::remove_file(format!("{socket_path}.lock"));
 
@@ -29,7 +72,13 @@ fn start_daemon() -> u32 {
     // subsequent touring CLI calls can reach the socket. `stop_daemon()` later
     // kills it via SIGKILL + socket cleanup. `mem::forget` prevents Drop from
     // reaping the handle prematurely.
-    let daemon = Command::new("/home/gabrielgadea/.local/bin/touring-daemon")
+    // The socket must be handed to the DAEMON, not only to the client. Without
+    // this the daemon bound the global default socket while `touring()` dialed
+    // `/tmp/touring-daemon-<pid>.sock`, so every CLI call failed with
+    // "No such file or directory (os error 2)" — the isolation the doc comment
+    // above promised never actually existed (found 2026-08-02).
+    let daemon = Command::new(daemon_bin())
+        .env("TOURING_DAEMON_SOCKET", &socket_path)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
@@ -42,7 +91,7 @@ fn start_daemon() -> u32 {
 
 /// Run touring CLI in a temp directory
 fn touring(args: &[&str], tmpdir: &TempDir) -> std::process::Output {
-    let socket_path = format!("/tmp/touring-daemon-{}.sock", std::process::id());
+    let socket_path = socket_path();
     let mut cmd = Command::new(touring_bin());
     for arg in args {
         cmd.arg(arg);

@@ -578,7 +578,13 @@ impl PurgeTargets {
 }
 
 /// Performs targeted cleanup of the selected purge targets, returning a summary as JSON; preserves semantic memory.
-pub fn ctx_purge(targets: PurgeTargets) -> Value {
+pub fn ctx_purge(project_root: Option<&std::path::Path>, targets: PurgeTargets) -> Value {
+    // The parameter is consumed only by the tantivy branch below. The signature
+    // stays feature-agnostic so callers need no `cfg`, so acknowledge it here to
+    // keep `clippy -D warnings` green without `tantivy-fts`.
+    #[cfg(not(feature = "tantivy-fts"))]
+    let _ = project_root;
+
     crate::shared::gate_metrics::record_ctx_purge();
     let do_tee = targets.tee_logs || targets.all;
     let do_tool_outputs = targets.tool_outputs_index || targets.all;
@@ -592,7 +598,7 @@ pub fn ctx_purge(targets: PurgeTargets) -> Value {
 
     #[cfg(feature = "tantivy-fts")]
     let tool_outputs_removed = if do_tool_outputs {
-        if let Some(idx) = crate::tantivy_index::global_tool_outputs() {
+        if let Some(idx) = crate::tantivy_index::tool_outputs_for(project_root) {
             idx.cleanup_expired(0).unwrap_or(0)
         } else {
             0
@@ -621,21 +627,52 @@ pub fn ctx_purge(targets: PurgeTargets) -> Value {
 }
 
 /// T1-03 — `ctx_doctor`: diagnostics for ctx subsystem.
-pub fn ctx_doctor() -> Value {
+/// `project_root`: raiz do projeto a diagnosticar. `None` cai no cwd — que
+/// dentro do daemon é o cwd DO DAEMON, não o do chamador; por isso quem tem
+/// a raiz deve passá-la (o wrapper MCP tem `self.config.project_root`).
+pub fn ctx_doctor(project_root: Option<&std::path::Path>) -> Value {
+    // See `ctx_purge`: the parameter feeds the tantivy component only, but the
+    // signature stays feature-agnostic for callers.
+    #[cfg(not(feature = "tantivy-fts"))]
+    let _ = project_root;
+
     crate::shared::gate_metrics::record_ctx_doctor_call();
 
     let mut components: Vec<Value> = Vec::new();
 
     #[cfg(feature = "tantivy-fts")]
     {
-        let symbols = crate::tantivy_index::global_tantivy().is_some();
+        // A raiz vem do PARÂMETRO, não do cwd (cross-audit 03/08/2026).
+        //
+        // A primeira versão usava `std::env::current_dir()`. Isso estava errado:
+        // `ctx_doctor` executa DENTRO do daemon, então o cwd é o do daemon, não
+        // o de quem perguntou. Verificado: daemon global com
+        // cwd=/home/gabrielgadea/projects/touring responderia "touring" a uma
+        // sondagem vinda de qualquer outro projeto. Num daemon per-project o cwd
+        // coincide com o projeto e o erro ficaria invisível — o pior tipo.
+        //
+        // Agora quem chama informa a raiz: o wrapper MCP passa
+        // `self.config.project_root` (que ele sempre teve) e o `cwd` só entra
+        // como fallback para chamadores sem contexto.
+        //
+        // O componente foi renomeado de `tantivy_global` para `tantivy`: ele
+        // deixou de descrever um índice compartilhado e passou a descrever o
+        // índice DESTE projeto. O nome antigo viraria mentira.
+        let root = project_root.map(std::path::Path::to_path_buf).or_else(|| {
+            std::env::current_dir()
+                .ok()
+                .map(|cwd| touring_foundation::TouringConfig::normalize_project_root(&cwd))
+        });
+        let idx = crate::tantivy_index::tantivy_for(root.as_deref());
         components.push(json!({
-            "name": "tantivy_global",
-            "status": if symbols { "healthy" } else { "not_initialized" },
+            "name": "tantivy",
+            "status": if idx.is_some() { "healthy" } else { "not_initialized" },
+            "project_root": root.as_ref().map(|r| r.display().to_string()),
+            "total_docs": idx.map(|i| i.stats().total_docs),
         }));
-        let tool_outputs = crate::tantivy_index::global_tool_outputs().is_some();
+        let tool_outputs = crate::tantivy_index::tool_outputs_for(root.as_deref()).is_some();
         components.push(json!({
-            "name": "tool_outputs_global",
+            "name": "tool_outputs",
             "status": if tool_outputs { "healthy" } else { "not_initialized" },
         }));
     }
@@ -964,7 +1001,7 @@ pub fn ctx_budget(used_tokens: u64) -> Value {
 ///
 /// Accepts a JSON array of items `[{"kind":"replay","n":5}, {"kind":"smart","path":"..."}]`.
 /// Each item returns its own envelope; aggregator preserves order.
-pub fn ctx_batch_execute(items: &[Value]) -> Value {
+pub fn ctx_batch_execute(project_root: Option<&std::path::Path>, items: &[Value]) -> Value {
     crate::shared::gate_metrics::record_ctx_batch_execute(items.len() as u64);
     let results: Vec<Value> = items
         .iter()
@@ -979,7 +1016,10 @@ pub fn ctx_batch_execute(items: &[Value]) -> Value {
                     let path = item.get("path").and_then(|v| v.as_str()).unwrap_or("");
                     ctx_smart(path)
                 }
-                "doctor" => ctx_doctor(),
+                // A raiz atravessa o batch: sem isso o `doctor` despachado por aqui
+                // continuava caindo no cwd DO DAEMON — a correção parcial que o
+                // cross-audit de 04/08/2026 encontrou sobrevivendo neste irmão.
+                "doctor" => ctx_doctor(project_root),
                 "gain_history" => {
                     let days = item.get("days").and_then(|v| v.as_u64()).unwrap_or(7) as u32;
                     ctx_gain_history(days)

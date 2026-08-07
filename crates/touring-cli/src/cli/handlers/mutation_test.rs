@@ -52,10 +52,10 @@ pub fn cli_mutation_test(rt: &mut HookRuntime, payload: &Value) -> String {
     let request = parse_payload(payload, &rt.project_root);
     let cache_root = touring_cache_root(&request.workspace);
 
-    if !request.force {
-        if let Some(cached) = lookup_cache(&cache_root, request.package.as_deref()) {
-            return success_envelope(&cached, true);
-        }
+    if !request.force
+        && let Some(cached) = lookup_cache(&cache_root, request.package.as_deref())
+    {
+        return success_envelope(&cached, true);
     }
 
     if request.cache_only {

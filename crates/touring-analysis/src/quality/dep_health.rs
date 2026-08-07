@@ -571,13 +571,13 @@ fn load_deny_skip(lockfile: &Path) -> std::collections::HashSet<String> {
         return Default::default();
     };
     let mut out = std::collections::HashSet::new();
-    if let Some(bans) = doc.get("bans").and_then(toml::Value::as_table) {
-        if let Some(skip) = bans.get("skip").and_then(toml::Value::as_array) {
-            for entry in skip {
-                let Some(t) = entry.as_table() else { continue };
-                if let Some(crate_str) = t.get("crate").and_then(toml::Value::as_str) {
-                    out.insert(crate_str.to_string());
-                }
+    if let Some(bans) = doc.get("bans").and_then(toml::Value::as_table)
+        && let Some(skip) = bans.get("skip").and_then(toml::Value::as_array)
+    {
+        for entry in skip {
+            let Some(t) = entry.as_table() else { continue };
+            if let Some(crate_str) = t.get("crate").and_then(toml::Value::as_str) {
+                out.insert(crate_str.to_string());
             }
         }
     }
@@ -613,14 +613,14 @@ fn load_advisories_ignore(lockfile: &Path) -> std::collections::HashSet<String> 
         return Default::default();
     };
     let mut out = std::collections::HashSet::new();
-    if let Some(adv) = doc.get("advisories").and_then(toml::Value::as_table) {
-        if let Some(ignore) = adv.get("ignore").and_then(toml::Value::as_array) {
-            for entry in ignore {
-                if let Some(t) = entry.as_table() {
-                    if let Some(id) = t.get("id").and_then(toml::Value::as_str) {
-                        out.insert(id.to_string());
-                    }
-                }
+    if let Some(adv) = doc.get("advisories").and_then(toml::Value::as_table)
+        && let Some(ignore) = adv.get("ignore").and_then(toml::Value::as_array)
+    {
+        for entry in ignore {
+            if let Some(t) = entry.as_table()
+                && let Some(id) = t.get("id").and_then(toml::Value::as_str)
+            {
+                out.insert(id.to_string());
             }
         }
     }
@@ -639,12 +639,11 @@ fn is_ignored_advisory(entry: &str, ignored: &std::collections::HashSet<String>)
 /// means "any 2.11.x is skipped". `None` means exact-version form.
 fn skip_range_for(skip: &std::collections::HashSet<String>, name: &str) -> Option<(u32, u32)> {
     for entry in skip {
-        if let Some(rest) = entry.strip_prefix(&format!("{name}@")) {
-            if let Some((maj, min)) = rest.split_once('.') {
-                if let (Ok(m), Ok(n)) = (maj.parse(), min.parse()) {
-                    return Some((m, n));
-                }
-            }
+        if let Some(rest) = entry.strip_prefix(&format!("{name}@"))
+            && let Some((maj, min)) = rest.split_once('.')
+            && let (Ok(m), Ok(n)) = (maj.parse(), min.parse())
+        {
+            return Some((m, n));
         }
     }
     None
@@ -743,12 +742,12 @@ fn collect_rs(dir: &Path, hay: &mut String, count: &mut usize) {
                 continue;
             }
             collect_rs(&path, hay, count);
-        } else if path.extension().and_then(|x| x.to_str()) == Some("rs") {
-            if let Ok(s) = std::fs::read_to_string(&path) {
-                hay.push_str(&s);
-                hay.push('\n');
-                *count += 1;
-            }
+        } else if path.extension().and_then(|x| x.to_str()) == Some("rs")
+            && let Ok(s) = std::fs::read_to_string(&path)
+        {
+            hay.push_str(&s);
+            hay.push('\n');
+            *count += 1;
         }
     }
 }

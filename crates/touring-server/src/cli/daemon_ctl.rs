@@ -162,10 +162,10 @@ fn orphan_daemon_pids(target: &Path) -> Vec<u32> {
                     .get("pid")
                     .and_then(serde_json::Value::as_u64)
                     .map(|p| p as u32);
-                if let (Some(sock), Some(pid)) = (sock, pid) {
-                    if Path::new(sock) != target {
-                        owned_elsewhere.insert(pid);
-                    }
+                if let (Some(sock), Some(pid)) = (sock, pid)
+                    && Path::new(sock) != target
+                {
+                    owned_elsewhere.insert(pid);
                 }
             }
         }

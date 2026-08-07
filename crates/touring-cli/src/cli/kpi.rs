@@ -345,6 +345,14 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
             Some(followed / emitted)
         }
         "world_model_success" => read_world_model_success(),
+        // The `touring.memory.*` family (2026-08-02). Derived by SQL over the
+        // project's memory.db — no new instrumentation, same shape as the ADW
+        // derivations. Retroactive justification for the family: the ANN corpus
+        // had drifted to 79,7 % coverage for weeks with a one-command remedy, and
+        // nothing measured it, so nobody could see it.
+        "memory_corpus_coverage" => memory_corpus_coverage(&rt.project_root),
+        "memory_curated_recall_share" => memory_curated_recall_share(&rt.project_root),
+        "memory_never_recalled_ratio" => memory_never_recalled_ratio(&rt.project_root),
         // F6.4 (ADW plan 2026-07-19) — the software-factory KPI family. All are
         // file-derived from per-project artifacts the ADW stack already writes;
         // `None` (→ STUB) whenever the project has no such artifacts yet.
@@ -381,13 +389,12 @@ fn adw_explore_rounds_to_dry(root: &std::path::Path) -> Option<f64> {
             .pointer("/verdict/converged")
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
-        if converged {
-            if let Some(rounds) = ledger
+        if converged
+            && let Some(rounds) = ledger
                 .pointer("/rounds")
                 .and_then(serde_json::Value::as_array)
-            {
-                totals.push(rounds.len() as f64);
-            }
+        {
+            totals.push(rounds.len() as f64);
         }
     }
     if totals.is_empty() {
@@ -413,14 +420,12 @@ fn adw_plan_refine_iters(root: &std::path::Path) -> Option<f64> {
             } else if path
                 .file_name()
                 .is_some_and(|n| n.to_string_lossy().ends_with(".refine.json"))
+                && let Ok(text) = std::fs::read_to_string(&path)
+                && let Ok(serde_json::Value::Array(iters)) = serde_json::from_str(&text)
             {
-                if let Ok(text) = std::fs::read_to_string(&path) {
-                    if let Ok(serde_json::Value::Array(iters)) = serde_json::from_str(&text) {
-                        let n = iters.len() as f64;
-                        if best.is_none_or(|b| n > b) {
-                            *best = Some(n);
-                        }
-                    }
+                let n = iters.len() as f64;
+                if best.is_none_or(|b| n > b) {
+                    *best = Some(n);
                 }
             }
         }
@@ -495,6 +500,85 @@ fn flow_compliance_ratio(root: &std::path::Path) -> Option<f64> {
 
 /// Pure core of [`flow_compliance_ratio`], separated so tests can feed a
 /// synthetic log: ratio of `complete: true` records whose `cwd` is `root`.
+/// Open the project's `memory.db` read-only, or `None` when it does not exist.
+fn memory_db(root: &std::path::Path) -> Option<rusqlite::Connection> {
+    let path = touring_foundation::TouringConfig::memory_db_canonical(root);
+    if !path.exists() {
+        return None;
+    }
+    rusqlite::Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).ok()
+}
+
+/// Share of stored entries that are actually reachable by ANN recall.
+///
+/// Counted as a JOIN (entries present in the corpus / entries), not
+/// `COUNT(embeddings) / COUNT(entries)` — the corpus can hold rows for entries
+/// that no longer exist, which would push the ratio above 1.0 and hide a real gap.
+fn memory_corpus_coverage(root: &std::path::Path) -> Option<f64> {
+    let conn = memory_db(root)?;
+    let entries: i64 = conn
+        .query_row("SELECT COUNT(*) FROM memory_entries", [], |r| r.get(0))
+        .ok()?;
+    if entries <= 0 {
+        return None;
+    }
+    let indexed: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM memory_entries me JOIN embeddings em ON em.id = me.key",
+            [],
+            |r| r.get(0),
+        )
+        .ok()?;
+    Some(indexed as f64 / entries as f64)
+}
+
+/// Share of retrievals landing on curated lessons rather than auto-recorded noise.
+///
+/// Uses the SAME `outcome:` namespace the recall filter drops, so the metric
+/// tracks that fix's effect directly instead of muddying attribution with other
+/// automatic namespaces.
+fn memory_curated_recall_share(root: &std::path::Path) -> Option<f64> {
+    let conn = memory_db(root)?;
+    let total: i64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(access_count), 0) FROM memory_entries",
+            [],
+            |r| r.get(0),
+        )
+        .ok()?;
+    if total <= 0 {
+        return None;
+    }
+    let curated: i64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(access_count), 0) FROM memory_entries
+             WHERE key NOT LIKE 'outcome:%'",
+            [],
+            |r| r.get(0),
+        )
+        .ok()?;
+    Some(curated as f64 / total as f64)
+}
+
+/// Share of entries no recall has ever returned — dead weight in the store.
+fn memory_never_recalled_ratio(root: &std::path::Path) -> Option<f64> {
+    let conn = memory_db(root)?;
+    let total: i64 = conn
+        .query_row("SELECT COUNT(*) FROM memory_entries", [], |r| r.get(0))
+        .ok()?;
+    if total <= 0 {
+        return None;
+    }
+    let never: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM memory_entries WHERE COALESCE(access_count, 0) = 0",
+            [],
+            |r| r.get(0),
+        )
+        .ok()?;
+    Some(never as f64 / total as f64)
+}
+
 fn flow_compliance_from_log(log: &std::path::Path, root: &std::path::Path) -> Option<f64> {
     let text = std::fs::read_to_string(log).ok()?;
     let root_str = root.display().to_string();
@@ -718,68 +802,68 @@ pub fn recommend_refinements(s: &CouplingSignals) -> Vec<RefinementAction> {
     let gate = s.ab_attributable == Some(true);
     let mut actions = Vec::new();
 
-    if let Some(uptake) = s.suggestion_uptake {
-        if uptake < UPTAKE_FLOOR {
-            actions.push(RefinementAction {
-                kind: "demote_hint",
-                signal: "suggestion_uptake",
-                observed: uptake,
-                threshold: UPTAKE_FLOOR,
-                actionable: gate,
-                rationale: format!(
-                    "uptake {uptake:.2} < {UPTAKE_FLOOR:.2}: hints are ignored — demote the \
+    if let Some(uptake) = s.suggestion_uptake
+        && uptake < UPTAKE_FLOOR
+    {
+        actions.push(RefinementAction {
+            kind: "demote_hint",
+            signal: "suggestion_uptake",
+            observed: uptake,
+            threshold: UPTAKE_FLOOR,
+            actionable: gate,
+            rationale: format!(
+                "uptake {uptake:.2} < {UPTAKE_FLOOR:.2}: hints are ignored — demote the \
                      noisiest cluster and re-arm with a number (telemetry §12, I5)."
-                ),
-            });
-        }
+            ),
+        });
     }
 
-    if let Some(bytes) = s.str_bytes_per_emit {
-        if bytes > STR_BYTES_CEIL {
-            actions.push(RefinementAction {
-                kind: "tighten_elision",
-                signal: "str_bytes_per_emit",
-                observed: bytes,
-                threshold: STR_BYTES_CEIL,
-                actionable: gate,
-                rationale: format!(
-                    "STR {bytes:.0}B/emit > {STR_BYTES_CEIL:.0}: tighten the --brief/summarizer \
+    if let Some(bytes) = s.str_bytes_per_emit
+        && bytes > STR_BYTES_CEIL
+    {
+        actions.push(RefinementAction {
+            kind: "tighten_elision",
+            signal: "str_bytes_per_emit",
+            observed: bytes,
+            threshold: STR_BYTES_CEIL,
+            actionable: gate,
+            rationale: format!(
+                "STR {bytes:.0}B/emit > {STR_BYTES_CEIL:.0}: tighten the --brief/summarizer \
                      elision floor (auto-tune, telemetry §12)."
-                ),
-            });
-        }
+            ),
+        });
     }
 
-    if let Some(adoption) = s.adoption_ratio {
-        if adoption < ADOPTION_FLOOR {
-            actions.push(RefinementAction {
-                kind: "promote_capability",
-                signal: "adoption_ratio",
-                observed: adoption,
-                threshold: ADOPTION_FLOOR,
-                actionable: gate,
-                rationale: format!(
-                    "adoption {adoption:.2} < {ADOPTION_FLOOR:.2}: prior-bash still wins — promote \
+    if let Some(adoption) = s.adoption_ratio
+        && adoption < ADOPTION_FLOOR
+    {
+        actions.push(RefinementAction {
+            kind: "promote_capability",
+            signal: "adoption_ratio",
+            observed: adoption,
+            threshold: ADOPTION_FLOOR,
+            actionable: gate,
+            rationale: format!(
+                "adoption {adoption:.2} < {ADOPTION_FLOOR:.2}: prior-bash still wins — promote \
                      the capability via a high-signal-rare trigger (telemetry §12)."
-                ),
-            });
-        }
+            ),
+        });
     }
 
-    if let Some(net) = s.health_delta_net {
-        if net < 0.0 {
-            actions.push(RefinementAction {
-                kind: "alert_drift",
-                signal: "health_delta_net",
-                observed: net,
-                threshold: 0.0,
-                actionable: gate,
-                rationale: format!(
-                    "health_delta_net {net:.0} < 0: coupling-guided edits regress more than they \
+    if let Some(net) = s.health_delta_net
+        && net < 0.0
+    {
+        actions.push(RefinementAction {
+            kind: "alert_drift",
+            signal: "health_delta_net",
+            observed: net,
+            threshold: 0.0,
+            actionable: gate,
+            rationale: format!(
+                "health_delta_net {net:.0} < 0: coupling-guided edits regress more than they \
                      improve — raise a drift alert + RL penalty (telemetry §12)."
-                ),
-            });
-        }
+            ),
+        });
     }
 
     actions

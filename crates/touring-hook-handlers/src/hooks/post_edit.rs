@@ -217,54 +217,51 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
             .ctx
             .result_cache
             .get_result("post_edit", &mutants_key)
+            && !prev_job_id.is_empty()
         {
-            if !prev_job_id.is_empty() {
-                let status_json = crate::shared::job_registry::poll_worker(&prev_job_id);
-                if let Some(status_str) = status_json.get("status").and_then(|v| v.as_str()) {
-                    match status_str {
-                        "completed" => {
-                            if let Some(result) = status_json.get("result").and_then(|v| v.as_str())
-                            {
-                                if result.contains("mutants survived")
-                                    && !result.contains("0 mutants survived")
-                                {
-                                    let reward = ImmediateReward {
-                                        tool_name: "cargo-mutants".to_string(),
-                                        accepted: false,
-                                        latency_ms: 0,
-                                        error_count: 1,
-                                        cila_level,
-                                        file_type: 1,
-                                        quality_score: None,
-                                    };
-                                    if let Some(mut qtable) = runtime.learning.qtable_cache.take() {
-                                        runtime.process_immediate_reward(&reward, &mut qtable);
-                                        runtime.learning.qtable_cache = Some(qtable);
-                                    }
-                                    tracing::debug!(
-                                        job_id = % prev_job_id,
-                                        "mutation testing: surviving mutants detected — negative reward injected"
-                                    );
-                                }
+            let status_json = crate::shared::job_registry::poll_worker(&prev_job_id);
+            if let Some(status_str) = status_json.get("status").and_then(|v| v.as_str()) {
+                match status_str {
+                    "completed" => {
+                        if let Some(result) = status_json.get("result").and_then(|v| v.as_str())
+                            && result.contains("mutants survived")
+                            && !result.contains("0 mutants survived")
+                        {
+                            let reward = ImmediateReward {
+                                tool_name: "cargo-mutants".to_string(),
+                                accepted: false,
+                                latency_ms: 0,
+                                error_count: 1,
+                                cila_level,
+                                file_type: 1,
+                                quality_score: None,
+                            };
+                            if let Some(mut qtable) = runtime.learning.qtable_cache.take() {
+                                runtime.process_immediate_reward(&reward, &mut qtable);
+                                runtime.learning.qtable_cache = Some(qtable);
                             }
-                            runtime.ctx.result_cache.cache_result(
-                                "post_edit",
-                                &mutants_key,
-                                String::new(),
+                            tracing::debug!(
+                                job_id = % prev_job_id,
+                                "mutation testing: surviving mutants detected — negative reward injected"
                             );
                         }
-                        "failed" | "not_found" | "" => {
-                            runtime.ctx.result_cache.cache_result(
-                                "post_edit",
-                                &mutants_key,
-                                String::new(),
-                            );
-                        }
-                        // Still running → an in-flight mutants job exists for this
-                        // file; don't spawn a duplicate (F-7 per-file dedup).
-                        _ => {
-                            should_spawn = false;
-                        }
+                        runtime.ctx.result_cache.cache_result(
+                            "post_edit",
+                            &mutants_key,
+                            String::new(),
+                        );
+                    }
+                    "failed" | "not_found" | "" => {
+                        runtime.ctx.result_cache.cache_result(
+                            "post_edit",
+                            &mutants_key,
+                            String::new(),
+                        );
+                    }
+                    // Still running → an in-flight mutants job exists for this
+                    // file; don't spawn a duplicate (F-7 per-file dedup).
+                    _ => {
+                        should_spawn = false;
                     }
                 }
             }
@@ -354,14 +351,14 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
             .inject_reward("post_edit", reward_val, "wave5_v6_rust_workflow");
     }
     crate::shared::query_cache::invalidate_by_path(file_path);
-    if let Some(src) = file_content.as_deref() {
-        if let Some(delta) = crate::health_delta::compute_signals_delta(file_path, src) {
-            issues.push(crate::health_delta::format_delta_hint(&delta));
-            if let Some(reward) = crate::health_delta::delta_reward(&delta) {
-                runtime
-                    .learning
-                    .inject_reward("post_edit", reward, "wave9_health_delta");
-            }
+    if let Some(src) = file_content.as_deref()
+        && let Some(delta) = crate::health_delta::compute_signals_delta(file_path, src)
+    {
+        issues.push(crate::health_delta::format_delta_hint(&delta));
+        if let Some(reward) = crate::health_delta::delta_reward(&delta) {
+            runtime
+                .learning
+                .inject_reward("post_edit", reward, "wave9_health_delta");
         }
     }
     {
@@ -437,13 +434,13 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         .and_then(|s| s.parse().ok())
         .unwrap_or(2);
     let mut feedback = compose_post_edit_feedback(issues, cila_level);
-    if let Some(report) = runtime.infra.cortex_dispatcher.flush_evidence() {
-        if report.drift_detected {
-            tracing::info!(
-                "post_edit: concept drift detected ks={:.3}",
-                report.ks_statistic
-            );
-        }
+    if let Some(report) = runtime.infra.cortex_dispatcher.flush_evidence()
+        && report.drift_detected
+    {
+        tracing::info!(
+            "post_edit: concept drift detected ks={:.3}",
+            report.ks_statistic
+        );
     }
     {
         let mut bus = runtime.ctx.session_bus.borrow_mut();
@@ -458,10 +455,10 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
     };
     let bridge_result =
         hook_decompose_bridge::bridge_cognitive_mcts_trigger(runtime, complexity_score);
-    if let Ok(result_str) = bridge_result {
-        if !result_str.starts_with("skipped") {
-            feedback = format!("{} [MCTS: {}]", feedback, complexity_score);
-        }
+    if let Ok(result_str) = bridge_result
+        && !result_str.starts_with("skipped")
+    {
+        feedback = format!("{} [MCTS: {}]", feedback, complexity_score);
     }
     HookResponse::Context {
         context: feedback,
@@ -590,28 +587,27 @@ fn phase1_tracking(
         // setter had zero production callers (the root of the cold DB, REGRA #0).
         // Only runs when the file actually changed (inside the not-skip-reindex
         // branch). Fail-open: a warm miss never blocks the edit.
-        if let Some((cognitive, complexity)) = compute_cognitive_warm(file_path) {
-            if let Err(e) = runtime
+        if let Some((cognitive, complexity)) = compute_cognitive_warm(file_path)
+            && let Err(e) = runtime
                 .ctx
                 .knowledge
                 .upsert_cognitive_enrichment(rel_path, cognitive, complexity, 0.0, 0.0, 0.0)
-            {
-                tracing::debug!("post_edit: warm cognitive enrichment failed for {rel_path}: {e}");
-            }
+        {
+            tracing::debug!("post_edit: warm cognitive enrichment failed for {rel_path}: {e}");
         }
-        if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned() {
-            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                let edit = crate::knowledge::EditEvent {
-                    file_path: rel_path.to_string(),
-                    edit_type: "edit".to_string(),
-                    summary: None,
-                    error_pattern: None,
-                    edited_at: chrono::Local::now().to_rfc3339(),
-                };
-                drop(handle.spawn(async move {
-                    let _ = adb.record_edit(&edit).await;
-                }));
-            }
+        if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned()
+            && let Ok(handle) = tokio::runtime::Handle::try_current()
+        {
+            let edit = crate::knowledge::EditEvent {
+                file_path: rel_path.to_string(),
+                edit_type: "edit".to_string(),
+                summary: None,
+                error_pattern: None,
+                edited_at: chrono::Local::now().to_rfc3339(),
+            };
+            drop(handle.spawn(async move {
+                let _ = adb.record_edit(&edit).await;
+            }));
         }
         #[cfg(feature = "tantivy-fts")]
         {
@@ -632,20 +628,25 @@ fn phase1_tracking(
                 functional_signature: None,
                 community_id: None,
             };
-            if !crate::shared::tantivy_stream::try_send_symbol(doc.clone()) {
-                if let Some(tantivy_idx) = crate::tantivy_index::global_tantivy() {
-                    if let Err(e) = tantivy_idx.upsert_symbol(&doc) {
-                        tracing::debug!("tantivy upsert failed for {rel_path}: {e}");
-                    }
-                }
+            // A raiz acompanha o documento nos DOIS caminhos (stream e fallback
+            // síncrono): `rel_path` é relativo A ESTA raiz, e sem ela o índice
+            // não consegue distinguir `src/lib.rs` deste projeto do de outro.
+            if !crate::shared::tantivy_stream::try_send_symbol(
+                runtime.project_root.clone(),
+                doc.clone(),
+            ) && let Some(tantivy_idx) =
+                crate::tantivy_index::tantivy_for(Some(&runtime.project_root))
+                && let Err(e) = tantivy_idx.upsert_symbol(&doc)
+            {
+                tracing::debug!("tantivy upsert failed for {rel_path}: {e}");
             }
         }
     }
     record_coedits(&runtime.ctx.knowledge, rel_path);
-    if let Some(ref sid) = session_id {
-        if let Err(e) = runtime.ctx.knowledge.record_access(rel_path, sid) {
-            tracing::debug!("record_access failed for {rel_path}: {e}");
-        }
+    if let Some(ref sid) = session_id
+        && let Err(e) = runtime.ctx.knowledge.record_access(rel_path, sid)
+    {
+        tracing::debug!("record_access failed for {rel_path}: {e}");
     }
     {
         let ts_nanos = std::time::SystemTime::now()
@@ -691,10 +692,10 @@ fn phase1_tracking(
             );
         }
     }
-    if let Some(lang_str) = language {
-        if let Ok(new_content) = std::fs::read_to_string(file_path) {
-            persist_call_edges(&runtime.ctx.knowledge, rel_path, &new_content, lang_str);
-        }
+    if let Some(lang_str) = language
+        && let Ok(new_content) = std::fs::read_to_string(file_path)
+    {
+        persist_call_edges(&runtime.ctx.knowledge, rel_path, &new_content, lang_str);
     }
     runtime.infra.prediction.record_edit(file_path);
     runtime.invalidate_dependency_cache_for_file(std::path::Path::new(file_path));
@@ -719,17 +720,17 @@ fn phase1_tracking(
             pg.reinforce_path(&[pf, file_path]);
         }
     }
-    if let Ok(mut ann_guard) = runtime.ctx.ann_recall.try_borrow_mut() {
-        if let Some(ref mut ann) = *ann_guard {
-            let embedding = crate::ann_memory::path_hash_embedding(file_path);
-            let entry = crate::ann_memory::MemoryEntry::new(
-                rel_path,
-                format!("edited:{tool_name}:{}", rel_path),
-                embedding,
-            );
-            if let Err(e) = ann.add_memory(entry) {
-                tracing::debug!("ANN add_memory failed for {rel_path}: {e}");
-            }
+    if let Ok(mut ann_guard) = runtime.ctx.ann_recall.try_borrow_mut()
+        && let Some(ref mut ann) = *ann_guard
+    {
+        let embedding = crate::ann_memory::path_hash_embedding(file_path);
+        let entry = crate::ann_memory::MemoryEntry::new(
+            rel_path,
+            format!("edited:{tool_name}:{}", rel_path),
+            embedding,
+        );
+        if let Err(e) = ann.add_memory(entry) {
+            tracing::debug!("ANN add_memory failed for {rel_path}: {e}");
         }
     }
     if let Some(cognitive) = runtime.cognitive.as_ref() {
@@ -846,10 +847,10 @@ static RE_ANTIPATTERN_COUNT: once_cell::sync::Lazy<Regex> = once_cell::sync::Laz
 fn parse_antipattern_counts(issues: &[String]) -> std::collections::HashMap<String, usize> {
     let mut counts = std::collections::HashMap::new();
     for issue in issues {
-        if let Some(caps) = RE_ANTIPATTERN_COUNT.captures(issue) {
-            if let (Ok(count), Some(msg)) = (caps[1].parse::<usize>(), caps.get(2)) {
-                counts.insert(msg.as_str().to_string(), count);
-            }
+        if let Some(caps) = RE_ANTIPATTERN_COUNT.captures(issue)
+            && let (Ok(count), Some(msg)) = (caps[1].parse::<usize>(), caps.get(2))
+        {
+            counts.insert(msg.as_str().to_string(), count);
         }
     }
     counts
@@ -952,56 +953,54 @@ fn phase2_verification(
         pipeline_item,
     );
     compute_antipattern_delta_and_block(&runtime.ctx.result_cache, rel_path, &mut issues);
-    if let (Some(old_json), Some(src)) = (old_symbols_json, file_content) {
-        if let Some(diff_msg) =
+    if let (Some(old_json), Some(src)) = (old_symbols_json, file_content)
+        && let Some(diff_msg) =
             crate::ast_bridge::diff_pub_api_from_snapshot(old_json, src, file_path)
-        {
-            issues.push(diff_msg);
-        }
+    {
+        issues.push(diff_msg);
     }
-    if let (Some(old_src), Some(new_src)) = (old_source, file_content) {
-        if let Some(impact) = crate::ast_bridge::validate_edit_impact(
+    if let (Some(old_src), Some(new_src)) = (old_source, file_content)
+        && let Some(impact) = crate::ast_bridge::validate_edit_impact(
             old_src,
             new_src,
             file_path,
             runtime.infra.symbol_index.as_ref(),
             15,
-        ) {
-            if !impact.syntax_valid {
-                issues.push(format!("SYNTAX INVALID after edit: {}", impact.summary));
-            } else if impact.complexity_violation || impact.affected_files > 3 {
-                issues.push(format!("EDIT IMPACT: {}", impact.summary));
-            }
+        )
+    {
+        if !impact.syntax_valid {
+            issues.push(format!("SYNTAX INVALID after edit: {}", impact.summary));
+        } else if impact.complexity_violation || impact.affected_files > 3 {
+            issues.push(format!("EDIT IMPACT: {}", impact.summary));
         }
     }
     if let Some(src) = file_content {
         let pipeline = touring_simd::cortex::MetacognitivePipeline::new();
         if let Some(resolved) = crate::ast_bridge::fuse_quality_evidence(src, file_path, &pipeline)
+            && resolved.fused_value < 0.6
         {
-            if resolved.fused_value < 0.6 {
-                issues.push(format!(
-                    "QUALITY fused={:.2} (wilson_lb={:.2}) — consider refactoring",
-                    resolved.fused_value, resolved.wilson_bound,
-                ));
-            }
+            issues.push(format!(
+                "QUALITY fused={:.2} (wilson_lb={:.2}) — consider refactoring",
+                resolved.fused_value, resolved.wilson_bound,
+            ));
         }
     }
-    if issues.len() < 8 {
-        if let Some(health) = post_health {
-            let dashboard = health.to_dashboard();
-            tracing::debug!(
-                target : "touring_metrics", dashboard = % dashboard.to_json_line(),
-                "post_edit health dashboard"
-            );
-            let alerts = dashboard.alerts_below(0.8);
-            if !alerts.is_empty() {
-                issues.push(format!("HEALTH {}", alerts.join(", ")));
-            } else if health.composite_score < 1.0 {
-                issues.push(format!(
-                    "HEALTH {}",
-                    health.to_analysis_summary().one_liner()
-                ));
-            }
+    if issues.len() < 8
+        && let Some(health) = post_health
+    {
+        let dashboard = health.to_dashboard();
+        tracing::debug!(
+            target : "touring_metrics", dashboard = % dashboard.to_json_line(),
+            "post_edit health dashboard"
+        );
+        let alerts = dashboard.alerts_below(0.8);
+        if !alerts.is_empty() {
+            issues.push(format!("HEALTH {}", alerts.join(", ")));
+        } else if health.composite_score < 1.0 {
+            issues.push(format!(
+                "HEALTH {}",
+                health.to_analysis_summary().one_liner()
+            ));
         }
     }
     if let Some(ref cognitive) = runtime.cognitive {
@@ -1156,13 +1155,13 @@ fn compute_speculate_issues(source: &str, lang: touring_code::ast::Lang) -> Vec<
         .iter()
         .flat_map(collect_layer_diagnostics)
         .collect();
-    if let Some(score) = spec_result.bayesian_score {
-        if !issues.is_empty() {
-            issues.push(format!(
-                "SPECULATE bayesian_confidence={:.2}, composite={:.2}",
-                score, spec_result.composite_score
-            ));
-        }
+    if let Some(score) = spec_result.bayesian_score
+        && !issues.is_empty()
+    {
+        issues.push(format!(
+            "SPECULATE bayesian_confidence={:.2}, composite={:.2}",
+            score, spec_result.composite_score
+        ));
     }
     issues
 }

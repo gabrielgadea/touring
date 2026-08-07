@@ -402,14 +402,14 @@ impl SymbolIndex {
             }
 
             // Get files that import current_file (only if within depth limit)
-            if distance < max_depth {
-                if let Some(importers) = self.reverse_deps.get(&current_file) {
-                    for importer in importers {
-                        if !affected_files.contains(importer) {
-                            affected_files.insert(importer.clone());
-                            distance_map.insert(importer.clone(), distance + 1);
-                            queue.push_back((importer.clone(), distance + 1));
-                        }
+            if distance < max_depth
+                && let Some(importers) = self.reverse_deps.get(&current_file)
+            {
+                for importer in importers {
+                    if !affected_files.contains(importer) {
+                        affected_files.insert(importer.clone());
+                        distance_map.insert(importer.clone(), distance + 1);
+                        queue.push_back((importer.clone(), distance + 1));
                     }
                 }
             }

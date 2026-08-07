@@ -276,10 +276,8 @@ pub fn run(
     // Block-and-reason: auto-save must complete before RL processing continues.
     // Extract result first to avoid borrow conflict (immutable borrow in condition, mutable in body).
     let should_auto_save = runtime.auto_save.increment_exchange();
-    if should_auto_save {
-        if let Err(e) = runtime.auto_save.run_auto_save(runtime) {
-            tracing::warn!("AutoSaveHook checkpoint failed: {e}");
-        }
+    if should_auto_save && let Err(e) = runtime.auto_save.run_auto_save(runtime) {
+        tracing::warn!("AutoSaveHook checkpoint failed: {e}");
     }
 
     let cila_level = std::env::var("CILA_LEVEL")
@@ -328,10 +326,10 @@ pub fn run(
     let qtable_path = runtime.project_root.join(".claude/data/qtable.rkyv");
     if runtime.learning.qtable_cache.is_none() {
         let mut qt = QTable::new();
-        if qtable_path.exists() {
-            if let Ok((loaded, _rev)) = QTable::load_rkyv(&qtable_path) {
-                qt = loaded;
-            }
+        if qtable_path.exists()
+            && let Ok((loaded, _rev)) = QTable::load_rkyv(&qtable_path)
+        {
+            qt = loaded;
         }
         runtime.learning.qtable_cache = Some(qt);
     }
@@ -417,10 +415,9 @@ pub fn run(
         .as_ref()
         .map(|a| a.update_count() > 0)
         .unwrap_or(false)
+        && let Err(e) = runtime.save_agentic_rl()
     {
-        if let Err(e) = runtime.save_agentic_rl() {
-            tracing::debug!("agentic_rl periodic save failed (non-fatal): {e}");
-        }
+        tracing::debug!("agentic_rl periodic save failed (non-fatal): {e}");
     }
 
     // 8. Batch-persist QTable + LinUCB.
@@ -432,10 +429,10 @@ pub fn run(
         // Also persist LinUCB to graph.db for SQLite observability
         let graph_db = touring_foundation::TouringConfig::graph_db_canonical(&runtime.project_root);
         let persistence = touring_intelligence::rl::LearningPersistence::new(&graph_db);
-        if let Some(ref bandit) = runtime.learning.linucb {
-            if let Err(e) = persistence.save_linucb(bandit) {
-                tracing::debug!("Failed to persist LinUCB to graph.db: {e}");
-            }
+        if let Some(ref bandit) = runtime.learning.linucb
+            && let Err(e) = persistence.save_linucb(bandit)
+        {
+            tracing::debug!("Failed to persist LinUCB to graph.db: {e}");
         }
     }
 

@@ -100,12 +100,11 @@ impl CircuitBreakerImpl {
     /// Advance OPEN → HALF_OPEN if cooldown has elapsed.
     /// Called at the start of `record_success` / `record_failure`.
     fn sync_half_open(&mut self) {
-        if self.state == CircuitState::Open {
-            if let Some(opened) = self.opened_at {
-                if opened.elapsed() >= self.cooldown {
-                    self.state = CircuitState::HalfOpen;
-                }
-            }
+        if self.state == CircuitState::Open
+            && let Some(opened) = self.opened_at
+            && opened.elapsed() >= self.cooldown
+        {
+            self.state = CircuitState::HalfOpen;
         }
     }
 }

@@ -369,10 +369,10 @@ fn init_memory_store(project_root: &Path) -> anyhow::Result<MemoryStore> {
         .join("touring")
         .join("semantic.db");
 
-    if !memory_db.exists() || !semantic_db.exists() {
-        if let Some(parent) = memory_db.parent() {
-            std::fs::create_dir_all(parent).ok();
-        }
+    if (!memory_db.exists() || !semantic_db.exists())
+        && let Some(parent) = memory_db.parent()
+    {
+        std::fs::create_dir_all(parent).ok();
     }
 
     MemoryStore::new(&memory_db, &semantic_db)
@@ -391,12 +391,11 @@ pub(super) fn command() -> clap::Command {
 fn extract_flag(args: &[String], flag: &str) -> Option<String> {
     let mut iter = args.iter().peekable();
     while let Some(arg) = iter.next() {
-        if arg == flag {
-            if let Some(value) = iter.peek() {
-                if !value.starts_with("--") {
-                    return Some((**value).clone());
-                }
-            }
+        if arg == flag
+            && let Some(value) = iter.peek()
+            && !value.starts_with("--")
+        {
+            return Some((**value).clone());
         }
     }
     None

@@ -142,15 +142,15 @@ impl AnalysisGateAdapter {
     /// Returns [`WiringGateError`] when opening the database fails — same as `open()`.
     pub fn open_with_env(db_path: &std::path::Path) -> Result<Self, WiringGateError> {
         let mut adapter = Self::open(db_path)?;
-        if let Ok(s) = std::env::var("TOURING_WIRING_GATE_MIN_SCORE") {
-            if let Ok(v) = s.parse::<f64>() {
-                adapter.min_score = v.clamp(0.0, 1.0);
-            }
+        if let Ok(s) = std::env::var("TOURING_WIRING_GATE_MIN_SCORE")
+            && let Ok(v) = s.parse::<f64>()
+        {
+            adapter.min_score = v.clamp(0.0, 1.0);
         }
-        if let Ok(s) = std::env::var("TOURING_WIRING_GATE_MAX_DELTA") {
-            if let Ok(v) = s.parse::<usize>() {
-                adapter.max_projected_orphan_delta = v;
-            }
+        if let Ok(s) = std::env::var("TOURING_WIRING_GATE_MAX_DELTA")
+            && let Ok(v) = s.parse::<usize>()
+        {
+            adapter.max_projected_orphan_delta = v;
         }
         if let Ok(s) = std::env::var("TOURING_WIRING_GATE_DISABLED") {
             let lower = s.to_lowercase();

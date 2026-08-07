@@ -468,13 +468,13 @@ pub fn build_enriched_knowledge_with_quality(file_path: &str, source: &str) -> F
     let mut note_parts: Vec<String> = Vec::new();
 
     // Pass 1: complexity analysis via enriched symbols
-    if let Some(metrics) = analyze_file_quality(source, file_path) {
-        if !metrics.complex_symbols.is_empty() {
-            note_parts.push(format!(
-                "High complexity: {}",
-                metrics.complex_symbols.join(", ")
-            ));
-        }
+    if let Some(metrics) = analyze_file_quality(source, file_path)
+        && !metrics.complex_symbols.is_empty()
+    {
+        note_parts.push(format!(
+            "High complexity: {}",
+            metrics.complex_symbols.join(", ")
+        ));
     }
 
     // Pass 2: anti-pattern analysis via AST-native quality module

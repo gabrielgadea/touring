@@ -198,13 +198,13 @@ impl SemanticRecall {
         embedding: Option<&[f32]>,
         metadata: Option<&serde_json::Value>,
     ) -> Result<i64> {
-        if let Some(emb) = embedding {
-            if emb.len() != self.embedding_dim {
-                return Err(RecallError::DimensionMismatch {
-                    expected: self.embedding_dim,
-                    actual: emb.len(),
-                });
-            }
+        if let Some(emb) = embedding
+            && emb.len() != self.embedding_dim
+        {
+            return Err(RecallError::DimensionMismatch {
+                expected: self.embedding_dim,
+                actual: emb.len(),
+            });
         }
 
         let embedding_bytes: Option<Vec<u8>> =
@@ -388,10 +388,10 @@ impl SemanticRecall {
         // (8x smaller, faster I/O) with fallback to full f32 embedding.
         #[cfg(feature = "u4-quantization")]
         {
-            if let Ok(results) = self.ann_search_u4(query_embedding, top_k) {
-                if !results.is_empty() {
-                    return Ok(results);
-                }
+            if let Ok(results) = self.ann_search_u4(query_embedding, top_k)
+                && !results.is_empty()
+            {
+                return Ok(results);
             }
         }
 
@@ -598,11 +598,11 @@ impl SemanticRecall {
         // 5. Return top-k in RRF order with the fused RRF score
         let mut out = Vec::with_capacity(fused.len());
         for (id_str, rrf_score) in fused {
-            if let Ok(id) = id_str.parse::<i64>() {
-                if let Some(mut chunk) = lookup.remove(&id) {
-                    chunk.score = rrf_score as f32;
-                    out.push(chunk);
-                }
+            if let Ok(id) = id_str.parse::<i64>()
+                && let Some(mut chunk) = lookup.remove(&id)
+            {
+                chunk.score = rrf_score as f32;
+                out.push(chunk);
             }
         }
         Ok(out)

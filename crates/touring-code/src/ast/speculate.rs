@@ -432,10 +432,10 @@ fn collect_identifiers<'a>(source: &'a str, root: tree_sitter::Node) -> HashSet<
                 // Skip entire subtree — don't descend into comments/strings
                 // did_enter stays false; next sibling sets it to true
             } else {
-                if is_identifier_kind(kind) {
-                    if let Some(text) = source.get(node.byte_range()) {
-                        ids.insert(text);
-                    }
+                if is_identifier_kind(kind)
+                    && let Some(text) = source.get(node.byte_range())
+                {
+                    ids.insert(text);
                 }
                 if cursor.goto_first_child() {
                     continue;

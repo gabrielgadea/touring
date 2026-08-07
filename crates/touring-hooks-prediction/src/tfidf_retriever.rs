@@ -326,15 +326,15 @@ impl TfidfIndex {
         if !path.exists() {
             return Ok(None);
         }
-        if let Ok(meta) = fs::metadata(path) {
-            if let Ok(age) = meta.modified().and_then(|m| {
+        if let Ok(meta) = fs::metadata(path)
+            && let Ok(age) = meta.modified().and_then(|m| {
                 m.duration_since(SystemTime::UNIX_EPOCH)
                     .map_err(|e| std::io::Error::other(e))
-            }) {
-                let age_secs = now_secs().saturating_sub(age.as_secs());
-                if age_secs > max_age_secs {
-                    return Ok(None);
-                }
+            })
+        {
+            let age_secs = now_secs().saturating_sub(age.as_secs());
+            if age_secs > max_age_secs {
+                return Ok(None);
             }
         }
         let bytes = fs::read(path)?;

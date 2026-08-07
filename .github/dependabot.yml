@@ -1,0 +1,50 @@
+# Dependabot — mantém as pins de supply-chain vivas.
+#
+# As actions deste repositório são pinadas por SHA de commit (`@<sha> # vX`),
+# a recomendação OpenSSF/SLSA: uma tag é mutável, um SHA não. O custo dessa
+# escolha é que pins envelhecem em silêncio — por isso este arquivo entra
+# JUNTO com as pins, nunca depois.
+#
+# Desde 31/10/2022 o Dependabot atualiza actions pinadas por SHA **e** mantém
+# o comentário de versão em sincronia, então `@<sha> # v4` continua legível
+# depois de cada bump:
+#   https://github.blog/changelog/2022-10-31-dependabot-now-updates-comments-in-github-actions-workflows-referencing-action-versions/
+#
+# `directory: "/"` cobre todo o `.github/workflows` — não é preciso uma entrada
+# por arquivo (docs.github.com, "Keeping your actions up to date with Dependabot").
+#
+# NOTA sobre `dtolnay/rust-toolchain`: os refs `@stable`, `@nightly` e `@1.95`
+# são BRANCHES, não tags, e o próprio ref carrega a semântica da toolchain.
+# Deliberadamente NÃO são pinados: dependabot-core#14716 documenta que um SHA
+# sem tag direta é avançado para o HEAD do branch, deixando o comentário de
+# versão obsoleto — trocaríamos uma pin legível por uma pin mentirosa.
+#   https://github.com/dependabot/dependabot-core/issues/14716
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      # Um PR por semana para todo o ecossistema de actions: bumps de SHA são
+      # ruído individualmente e sinal em conjunto.
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Patches agrupados; minor/major seguem individuais para revisão humana,
+      # que é onde uma quebra de MSRV (1.95) ou de API apareceria.
+      patch-updates:
+        update-types:
+          - "patch"

@@ -132,10 +132,10 @@ impl LayerPolicy {
                 continue;
             };
             let key = key.trim().trim_matches(['"', '\'']);
-            if let Ok(rank) = val.trim().parse::<u8>() {
-                if !key.is_empty() {
-                    ranks.insert(Self::norm(key), rank);
-                }
+            if let Ok(rank) = val.trim().parse::<u8>()
+                && !key.is_empty()
+            {
+                ranks.insert(Self::norm(key), rank);
             }
         }
         Self { ranks }

@@ -64,7 +64,7 @@ impl PersistedAnnMemoryRecall {
     /// Replaces unmaintained `bincode 1.x` (RUSTSEC-2025-0141); format is
     /// width-pure LE f32, byte length must be a multiple of 4.
     fn deserialize_embedding(bytes: &[u8]) -> Result<Vec<f32>, PersistError> {
-        if bytes.len() % std::mem::size_of::<f32>() != 0 {
+        if !bytes.len().is_multiple_of(std::mem::size_of::<f32>()) {
             return Err(PersistError::Serialize(format!(
                 "embedding byte length {} is not a multiple of {}",
                 bytes.len(),

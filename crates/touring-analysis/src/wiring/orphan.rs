@@ -86,11 +86,11 @@ fn column_exists(conn: &rusqlite::Connection, table: &str, column: &str) -> bool
             let mut has_col = false;
             if let Ok(mut rows) = stmt.query([]) {
                 while let Ok(Some(row)) = rows.next() {
-                    if let Ok(col_name) = row.get::<_, String>(1) {
-                        if col_name == column {
-                            has_col = true;
-                            break;
-                        }
+                    if let Ok(col_name) = row.get::<_, String>(1)
+                        && col_name == column
+                    {
+                        has_col = true;
+                        break;
                     }
                 }
             }
@@ -182,13 +182,11 @@ pub fn count_orphans(conn: &rusqlite::Connection) -> OrphanResult {
                           AND COALESCE(consumer_type, 'rust_import') = 'rust_import' \
                         THEN 1 ELSE 0 END) > 0 \
              ORDER BY module_file, symbol_name"
-        )) {
-            if let Ok(rows) = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            }) {
-                for row in rows.flatten() {
-                    orphans.push(row);
-                }
+        )) && let Ok(rows) = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            for row in rows.flatten() {
+                orphans.push(row);
             }
         }
     } else {
@@ -199,13 +197,11 @@ pub fn count_orphans(conn: &rusqlite::Connection) -> OrphanResult {
              GROUP BY module_file, symbol_name \
              HAVING SUM(CASE WHEN consumer_file IS NOT NULL THEN 1 ELSE 0 END) = 0 \
              ORDER BY module_file, symbol_name"
-        )) {
-            if let Ok(rows) = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            }) {
-                for row in rows.flatten() {
-                    orphans.push(row);
-                }
+        )) && let Ok(rows) = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            for row in rows.flatten() {
+                orphans.push(row);
             }
         }
     }

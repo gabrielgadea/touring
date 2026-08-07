@@ -381,12 +381,12 @@ fn extract_crate_name(file_path: &str) -> String {
     }
 
     // Fallback: parent directory of 'src'
-    if let Some(pos) = components.iter().position(|c| c == "src") {
-        if pos > 0 {
-            let parent = &components[pos - 1];
-            if parent != "src" {
-                return parent.clone();
-            }
+    if let Some(pos) = components.iter().position(|c| c == "src")
+        && pos > 0
+    {
+        let parent = &components[pos - 1];
+        if parent != "src" {
+            return parent.clone();
         }
     }
 

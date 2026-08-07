@@ -829,16 +829,16 @@ impl Handler for PostCompactHandler {
         }
 
         // Tier 2 (if budget allows): Knowledge DB stats (~200 chars = ~50 tokens)
-        if budget_remaining >= 200 {
-            if let Ok(stats) = ctx.knowledge.stats() {
-                let tier2 = format!(
-                    " | Knowledge: files={} relations={} bash={} edits={}",
-                    stats.file_count, stats.relation_count, stats.bash_count, stats.edit_count,
-                );
-                if tier2.len() <= budget_remaining {
-                    output.push_str(&tier2);
-                    budget_remaining -= tier2.len();
-                }
+        if budget_remaining >= 200
+            && let Ok(stats) = ctx.knowledge.stats()
+        {
+            let tier2 = format!(
+                " | Knowledge: files={} relations={} bash={} edits={}",
+                stats.file_count, stats.relation_count, stats.bash_count, stats.edit_count,
+            );
+            if tier2.len() <= budget_remaining {
+                output.push_str(&tier2);
+                budget_remaining -= tier2.len();
             }
         }
 
@@ -1101,12 +1101,12 @@ impl Handler for InstructionsEnricherHandler {
             }
         }
 
-        if let Some(ref rlm) = ctx.rlm {
-            if let Ok(matches) = rlm.search("gotcha:", None, 3) {
-                for m in &matches {
-                    let snippet: String = m.value.chars().take(60).collect();
-                    warnings.push(format!("[rlm] {snippet}"));
-                }
+        if let Some(ref rlm) = ctx.rlm
+            && let Ok(matches) = rlm.search("gotcha:", None, 3)
+        {
+            for m in &matches {
+                let snippet: String = m.value.chars().take(60).collect();
+                warnings.push(format!("[rlm] {snippet}"));
             }
         }
 

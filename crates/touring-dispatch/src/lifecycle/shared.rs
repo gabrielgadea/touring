@@ -273,7 +273,7 @@ pub(crate) fn persist_task_creation(
     // Tantivy upsert — each subtask becomes a searchable task_dag SymbolDoc.
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
             let subject_snippet = if task_subject.is_empty() {
                 String::new()
             } else {

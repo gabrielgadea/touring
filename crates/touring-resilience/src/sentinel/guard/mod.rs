@@ -120,11 +120,11 @@ impl MemoryGuard {
     /// Stop the ticker. Best-effort: if the lock is poisoned, leaves the
     /// JoinHandle in place (Tokio will reap it on runtime shutdown).
     pub fn stop_ticker(&self) {
-        if let Ok(mut guard) = self.ticker_handle.lock() {
-            if let Some(h) = guard.take() {
-                h.abort();
-                tracing::info!("memory pressure ticker stopped");
-            }
+        if let Ok(mut guard) = self.ticker_handle.lock()
+            && let Some(h) = guard.take()
+        {
+            h.abort();
+            tracing::info!("memory pressure ticker stopped");
         }
     }
 }

@@ -152,23 +152,22 @@ fn extract_local_imports(source: &str, module_index: &HashMap<String, String>) -
     for line in source.lines() {
         let line = line.trim();
         if let Some(rest) = line.strip_prefix("use crate::") {
-            if let Some(target) = rest.split([':', ';', '{', ' ']).next() {
-                if let Some(file) = module_index.get(target) {
-                    out.push(file.clone());
-                }
+            if let Some(target) = rest.split([':', ';', '{', ' ']).next()
+                && let Some(file) = module_index.get(target)
+            {
+                out.push(file.clone());
             }
         } else if let Some(rest) = line.strip_prefix("use super::") {
-            if let Some(target) = rest.split([':', ';', '{', ' ']).next() {
-                if let Some(file) = module_index.get(target) {
-                    out.push(file.clone());
-                }
+            if let Some(target) = rest.split([':', ';', '{', ' ']).next()
+                && let Some(file) = module_index.get(target)
+            {
+                out.push(file.clone());
             }
-        } else if let Some(rest) = line.strip_prefix("mod ") {
-            if let Some(name) = rest.split([';', ' ', '{']).next() {
-                if let Some(file) = module_index.get(name) {
-                    out.push(file.clone());
-                }
-            }
+        } else if let Some(rest) = line.strip_prefix("mod ")
+            && let Some(name) = rest.split([';', ' ', '{']).next()
+            && let Some(file) = module_index.get(name)
+        {
+            out.push(file.clone());
         }
     }
     out.sort();
@@ -185,11 +184,9 @@ fn extract_function_cc(source: &str) -> Vec<(String, u32)> {
     for line in source.lines() {
         let trimmed = line.trim();
 
-        if !in_fn {
-            if let Some(name) = parse_top_level_fn(trimmed) {
-                current = Some((name, 1));
-                in_fn = true;
-            }
+        if !in_fn && let Some(name) = parse_top_level_fn(trimmed) {
+            current = Some((name, 1));
+            in_fn = true;
         }
 
         for ch in line.chars() {
@@ -207,11 +204,9 @@ fn extract_function_cc(source: &str) -> Vec<(String, u32)> {
             }
         }
 
-        if in_fn {
-            if let Some((_, cc)) = current.as_mut() {
-                let inc = count_decision_tokens(trimmed);
-                *cc = cc.saturating_add(inc);
-            }
+        if in_fn && let Some((_, cc)) = current.as_mut() {
+            let inc = count_decision_tokens(trimmed);
+            *cc = cc.saturating_add(inc);
         }
     }
     out

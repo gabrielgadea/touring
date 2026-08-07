@@ -85,10 +85,10 @@ fn extract_imports_treesitter(source: &str, lang: Lang) -> Option<Vec<ImportInfo
                     entry.push(sym);
                 }
             }
-            if let Some(def) = default_import {
-                if !entry.contains(&def) {
-                    entry.push(def);
-                }
+            if let Some(def) = default_import
+                && !entry.contains(&def)
+            {
+                entry.push(def);
             }
         }
     }
@@ -285,35 +285,36 @@ fn extract_ts_imports_regex(source: &str) -> Vec<ImportInfo> {
     for line in source.lines() {
         let line = line.trim();
 
-        if line.starts_with("import ") && line.contains(" from ") {
-            if let Some(from_idx) = line.find(" from ") {
-                let module_part = &line[from_idx + 6..].trim();
-                let module = module_part
-                    .trim_end_matches(';')
-                    .trim_matches('"')
-                    .trim_matches('\'');
+        if line.starts_with("import ")
+            && line.contains(" from ")
+            && let Some(from_idx) = line.find(" from ")
+        {
+            let module_part = &line[from_idx + 6..].trim();
+            let module = module_part
+                .trim_end_matches(';')
+                .trim_matches('"')
+                .trim_matches('\'');
 
-                let import_part = &line[7..from_idx];
+            let import_part = &line[7..from_idx];
 
-                let symbols: Vec<String> = if let Some(start) = import_part.find('{') {
-                    if let Some(end) = import_part.find('}') {
-                        import_part[start + 1..end]
-                            .split(',')
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty())
-                            .collect()
-                    } else {
-                        Vec::new()
-                    }
+            let symbols: Vec<String> = if let Some(start) = import_part.find('{') {
+                if let Some(end) = import_part.find('}') {
+                    import_part[start + 1..end]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect()
                 } else {
-                    vec![import_part.trim().to_string()]
-                };
+                    Vec::new()
+                }
+            } else {
+                vec![import_part.trim().to_string()]
+            };
 
-                imports.push(ImportInfo {
-                    module_path: module.to_string(),
-                    symbols,
-                });
-            }
+            imports.push(ImportInfo {
+                module_path: module.to_string(),
+                symbols,
+            });
         }
     }
 

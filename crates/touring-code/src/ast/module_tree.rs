@@ -163,13 +163,13 @@ fn build_module_node(source: &str, file_path: &str) -> ModuleNode {
                 // Check if has inline body (declaration_list)
                 let mut sub_children = Vec::new();
                 let mod_body_idx = query.capture_index_for_name("mod_body");
-                if let Some(mb_idx) = mod_body_idx {
-                    if let Some(body_cap) = m.captures.iter().find(|c| c.index == mb_idx) {
-                        // Parse inner modules from the body text
-                        let body_text = node_text(source, body_cap.node);
-                        let inner = build_module_node(body_text, &mod_name);
-                        sub_children = inner.children;
-                    }
+                if let Some(mb_idx) = mod_body_idx
+                    && let Some(body_cap) = m.captures.iter().find(|c| c.index == mb_idx)
+                {
+                    // Parse inner modules from the body text
+                    let body_text = node_text(source, body_cap.node);
+                    let inner = build_module_node(body_text, &mod_name);
+                    sub_children = inner.children;
                 }
 
                 children.push(ModuleNode {
@@ -230,10 +230,11 @@ fn build_python_module_node(source: &str, file_path: &str) -> ModuleNode {
                         let mod_name = node_text(source, mod_node).to_string();
                         // Collect imported names as re-exports
                         for j in 0..child.named_child_count() {
-                            if let Some(name_child) = child.named_child(j as u32) {
-                                if name_child.kind() == "dotted_name" && name_child != mod_node {
-                                    re_exports.push(node_text(source, name_child).to_string());
-                                }
+                            if let Some(name_child) = child.named_child(j as u32)
+                                && name_child.kind() == "dotted_name"
+                                && name_child != mod_node
+                            {
+                                re_exports.push(node_text(source, name_child).to_string());
                             }
                         }
                         // Add module as child if not already there
@@ -330,11 +331,11 @@ fn find_module_by_name<'a>(node: &'a ModuleNode, name: &str) -> Option<&'a Modul
 /// Check if a node has a visibility_modifier child indicating `pub`.
 fn check_node_pub(source: &str, node: tree_sitter::Node) -> bool {
     for i in 0..node.child_count() {
-        if let Some(child) = node.child(i as u32) {
-            if child.kind() == "visibility_modifier" {
-                let text = node_text(source, child);
-                return text.starts_with("pub");
-            }
+        if let Some(child) = node.child(i as u32)
+            && child.kind() == "visibility_modifier"
+        {
+            let text = node_text(source, child);
+            return text.starts_with("pub");
         }
     }
     false

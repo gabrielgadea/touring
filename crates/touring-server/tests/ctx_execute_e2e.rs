@@ -168,7 +168,15 @@ fn test_output_truncation() {
 }
 
 // T2.7: Forbidden calls detection — always runs (JS-only)
+// A política de forbidden-calls vem de env var lida em `from_env()` no momento
+// da chamada, e env var é global ao PROCESSO. Os três testes abaixo a leem ou
+// mutam, então rodar em paralelo faz um observar o estado montado por outro:
+// `test_forbidden_calls_detected` reprovou no `cargo test --workspace` de
+// 03/08/2026 com `Err(ForbiddenCalls([...]))` — ele viu o `ENFORCE=1` que um
+// vizinho havia acabado de setar. Passa isolado, o que torna a corrida fácil
+// de confundir com flakiness de ambiente. `#[serial]` remove a janela.
 #[test]
+#[serial_test::serial(ceg_forbidden_env)]
 fn test_forbidden_calls_detected() {
     if !runtime_available("node") {
         eprintln!("SKIP (node not available)");
@@ -263,6 +271,7 @@ fn test_p13_perl_substring_fallback() {
 // P1.4 E2E: ForbiddenCallPolicy enforcement.
 // T2.12: allow_forbidden=true bypasses Block policy (fail-open override).
 #[test]
+#[serial_test::serial(ceg_forbidden_env)]
 fn test_p14_allow_forbidden_override() {
     use touring_server::tools::ctx_execute_tools::{ForbiddenCallPolicy, ctx_execute_impl};
     // Set Block policy in env for this test.
@@ -295,6 +304,7 @@ fn test_p14_allow_forbidden_override() {
 
 // T2.13: Off policy suppresses scanner entirely — forbidden_calls is empty even for bad code.
 #[test]
+#[serial_test::serial(ceg_forbidden_env)]
 fn test_p14_off_policy_suppresses_detection() {
     use touring_hooks::sandbox_executor::SandboxLanguage;
     use touring_hooks::shared::forbidden_patterns::ast_forbidden_scan;

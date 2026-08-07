@@ -238,12 +238,12 @@ impl LearningLoop {
 /// If language-specific data exists, blend it 70/30 with global EMA.
 /// Otherwise fall back to global EMA alone.
 fn language_aware_rate(stats: &StrategyStats, language: &str) -> f64 {
-    if let Some(&(total, successes)) = stats.per_language.get(language) {
-        if total > 0 {
-            let lang_rate = successes as f64 / total as f64;
-            // Blend: 70% language-specific, 30% global EMA
-            return 0.7 * lang_rate + 0.3 * stats.ema_rate;
-        }
+    if let Some(&(total, successes)) = stats.per_language.get(language)
+        && total > 0
+    {
+        let lang_rate = successes as f64 / total as f64;
+        // Blend: 70% language-specific, 30% global EMA
+        return 0.7 * lang_rate + 0.3 * stats.ema_rate;
     }
     stats.ema_rate
 }

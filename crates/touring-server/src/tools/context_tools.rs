@@ -117,12 +117,11 @@ pub fn build_minimal_context(input: MinimalContextInput<'_>) -> serde_json::Valu
         "suggested_tools": suggestions,
     });
 
-    if detail_level.include_summaries() {
-        if let Some(hint) = task_hint {
-            if let Some(obj) = result.as_object_mut() {
-                obj.insert("task_context".to_string(), json!(hint));
-            }
-        }
+    if detail_level.include_summaries()
+        && let Some(hint) = task_hint
+        && let Some(obj) = result.as_object_mut()
+    {
+        obj.insert("task_context".to_string(), json!(hint));
     }
 
     // Add estimated token cost (chars/4 approximation from CRG)
@@ -184,11 +183,11 @@ pub fn compact_response(
             .map(|o| o.insert("next_tool_suggestions".to_string(), json!(capped)));
     }
 
-    if detail_level.include_bodies() {
-        if let Some(d) = data {
-            resp.as_object_mut()
-                .map(|o| o.insert("data".to_string(), d));
-        }
+    if detail_level.include_bodies()
+        && let Some(d) = data
+    {
+        resp.as_object_mut()
+            .map(|o| o.insert("data".to_string(), d));
     }
 
     // Add token cost estimate

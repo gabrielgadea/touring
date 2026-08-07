@@ -373,6 +373,15 @@ pub struct GateMetrics {
     pub tantivy_stream_flush_count: AtomicU64,
     /// Total docs flushed across all commits. Divide by flush_count for mean batch size.
     pub tantivy_stream_flush_docs_count: AtomicU64,
+    /// Docs descartados **no flush** porque o índice do projeto não resolveu.
+    ///
+    /// Distinto de `backpressure_drop` (canal cheio, na entrada): aqui o
+    /// documento já estava no buffer e o índice de destino falhou ao abrir.
+    /// Sem este contador o descarte só existia num `tracing::debug!` — os
+    /// documentos sumiam da observabilidade, que é exatamente o modo de falha
+    /// silenciosa que a partição per-project deveria eliminar, não criar
+    /// (cross-audit 2026-08-03).
+    pub tantivy_stream_index_unavailable_drop_count: AtomicU64,
 
     // ── MCTS Prefetch Actor (Suggestion 3 — 2026-04-20) ───────────────────────
     //
@@ -843,6 +852,7 @@ impl Default for GateMetrics {
             tantivy_stream_backpressure_drop_count: AtomicU64::new(0),
             tantivy_stream_flush_count: AtomicU64::new(0),
             tantivy_stream_flush_docs_count: AtomicU64::new(0),
+            tantivy_stream_index_unavailable_drop_count: AtomicU64::new(0),
             prefetch_enqueued_count: AtomicU64::new(0),
             prefetch_warmed_count: AtomicU64::new(0),
             jdm_class_a_count: AtomicU64::new(0),
@@ -1319,6 +1329,18 @@ pub fn record_tantivy_stream_backpressure_drop() {
     global()
         .tantivy_stream_backpressure_drop_count
         .fetch_add(1, Ordering::Relaxed);
+}
+
+/// Registra docs descartados no flush por índice de projeto indisponível.
+///
+/// O par com `record_tantivy_stream_backpressure_drop` fecha a contabilidade do
+/// stream: `enqueued = flush_docs + backpressure_drop + index_unavailable_drop`.
+/// Sem ele a soma não fechava e o sumiço era invisível.
+#[inline]
+pub fn record_tantivy_stream_index_unavailable_drop(docs: u64) {
+    global()
+        .tantivy_stream_index_unavailable_drop_count
+        .fetch_add(docs, Ordering::Relaxed);
 }
 
 /// Record one stream flush (commit) with the batch doc count.

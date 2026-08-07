@@ -553,12 +553,12 @@ pub fn touring_ast_find(
             .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
         let db_path =
             touring_foundation::config::TouringConfig::symbols_db_canonical(&project_root);
-        if db_path.exists() {
-            if let Ok(store) = touring_code::ast::store::SymbolStore::new(&db_path) {
-                let loaded = store.load_into_index(&mut index).unwrap_or(0);
-                if loaded > 0 {
-                    from_cache = true;
-                }
+        if db_path.exists()
+            && let Ok(store) = touring_code::ast::store::SymbolStore::new(&db_path)
+        {
+            let loaded = store.load_into_index(&mut index).unwrap_or(0);
+            if loaded > 0 {
+                from_cache = true;
             }
         }
     } else {

@@ -475,10 +475,10 @@ impl CrdtSemanticGraph {
 
         // Weights in other that are newer than self's (LWW)
         for (&id, other_w) in &other.weights {
-            if let Some(self_w) = self.weights.get(&id) {
-                if other_w.updated_at > self_w.updated_at {
-                    updated_weights.push((id, other_w.clone()));
-                }
+            if let Some(self_w) = self.weights.get(&id)
+                && other_w.updated_at > self_w.updated_at
+            {
+                updated_weights.push((id, other_w.clone()));
             }
         }
 

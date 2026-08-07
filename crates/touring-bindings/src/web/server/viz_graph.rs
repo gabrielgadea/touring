@@ -26,48 +26,48 @@ pub(super) fn normalize_and_deduplicate_nodes(graph: &mut Value, workspace_root:
                     let existing: &mut serde_json::Value = &mut new_nodes[*existing_idx];
                     if let (Some(e_obj), Some(n_obj)) = (existing.as_object_mut(), n.as_object()) {
                         let mut n_fi = 0;
-                        if let Some(v) = n_obj.get("fan_in") {
-                            if let Some(num) = v.as_u64() {
-                                n_fi = num;
-                            }
+                        if let Some(v) = n_obj.get("fan_in")
+                            && let Some(num) = v.as_u64()
+                        {
+                            n_fi = num;
                         }
                         let mut e_fi = 0;
-                        if let Some(v) = e_obj.get("fan_in") {
-                            if let Some(num) = v.as_u64() {
-                                e_fi = num;
-                            }
+                        if let Some(v) = e_obj.get("fan_in")
+                            && let Some(num) = v.as_u64()
+                        {
+                            e_fi = num;
                         }
                         if e_fi + n_fi > 0 {
                             e_obj.insert("fan_in".into(), Value::Number((e_fi + n_fi).into()));
                         }
 
                         let mut n_fo = 0;
-                        if let Some(v) = n_obj.get("fan_out") {
-                            if let Some(num) = v.as_u64() {
-                                n_fo = num;
-                            }
+                        if let Some(v) = n_obj.get("fan_out")
+                            && let Some(num) = v.as_u64()
+                        {
+                            n_fo = num;
                         }
                         let mut e_fo = 0;
-                        if let Some(v) = e_obj.get("fan_out") {
-                            if let Some(num) = v.as_u64() {
-                                e_fo = num;
-                            }
+                        if let Some(v) = e_obj.get("fan_out")
+                            && let Some(num) = v.as_u64()
+                        {
+                            e_fo = num;
                         }
                         if e_fo + n_fo > 0 {
                             e_obj.insert("fan_out".into(), Value::Number((e_fo + n_fo).into()));
                         }
 
                         let mut n_orphan = true;
-                        if let Some(v) = n_obj.get("is_orphan") {
-                            if let Some(b) = v.as_bool() {
-                                n_orphan = b;
-                            }
+                        if let Some(v) = n_obj.get("is_orphan")
+                            && let Some(b) = v.as_bool()
+                        {
+                            n_orphan = b;
                         }
                         let mut e_orphan = true;
-                        if let Some(v) = e_obj.get("is_orphan") {
-                            if let Some(b) = v.as_bool() {
-                                e_orphan = b;
-                            }
+                        if let Some(v) = e_obj.get("is_orphan")
+                            && let Some(b) = v.as_bool()
+                        {
+                            e_orphan = b;
                         }
                         e_obj.insert("is_orphan".into(), Value::Bool(e_orphan && n_orphan));
                     }
@@ -171,12 +171,12 @@ pub(super) fn enrich_workspace_graph(
     if let Some(nodes) = graph.get_mut("nodes").and_then(Value::as_array_mut) {
         // Backfill `crate` on nodes that came from the upstream CLI without it.
         for n in nodes.iter_mut() {
-            if n.get("crate").is_none() {
-                if let Some(id) = n.get("id").and_then(Value::as_str) {
-                    let cn = crate_of(id);
-                    if let Some(obj) = n.as_object_mut() {
-                        obj.insert("crate".into(), Value::String(cn));
-                    }
+            if n.get("crate").is_none()
+                && let Some(id) = n.get("id").and_then(Value::as_str)
+            {
+                let cn = crate_of(id);
+                if let Some(obj) = n.as_object_mut() {
+                    obj.insert("crate".into(), Value::String(cn));
                 }
             }
         }
@@ -265,19 +265,19 @@ pub(super) fn tag_existing_edges(graph: &mut Value, workspace_root: &std::path::
 pub(super) fn refine_node_labels(graph: &mut Value) {
     if let Some(nodes) = graph.get_mut("nodes").and_then(Value::as_array_mut) {
         for n in nodes.iter_mut() {
-            if let Some(id) = n.get("id").and_then(Value::as_str) {
-                if id.ends_with("/mod.rs") || id.ends_with("/lib.rs") || id.ends_with("/main.rs") {
-                    let p = std::path::Path::new(id);
-                    if let Some(parent) = p
-                        .parent()
-                        .and_then(|p| p.file_name())
-                        .and_then(|n| n.to_str())
-                    {
-                        let file_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                        let new_label = format!("{}/{}", parent, file_name);
-                        if let Some(obj) = n.as_object_mut() {
-                            obj.insert("label".into(), Value::String(new_label));
-                        }
+            if let Some(id) = n.get("id").and_then(Value::as_str)
+                && (id.ends_with("/mod.rs") || id.ends_with("/lib.rs") || id.ends_with("/main.rs"))
+            {
+                let p = std::path::Path::new(id);
+                if let Some(parent) = p
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                {
+                    let file_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    let new_label = format!("{}/{}", parent, file_name);
+                    if let Some(obj) = n.as_object_mut() {
+                        obj.insert("label".into(), Value::String(new_label));
                     }
                 }
             }
@@ -423,10 +423,8 @@ pub(super) fn backfill_external_flag(graph: &mut Value) {
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
             let is_ext = already || crate_name == "external" || id.starts_with("ext:");
-            if is_ext {
-                if let Some(obj) = n.as_object_mut() {
-                    obj.insert("is_external".into(), Value::Bool(true));
-                }
+            if is_ext && let Some(obj) = n.as_object_mut() {
+                obj.insert("is_external".into(), Value::Bool(true));
             }
         }
     }
@@ -865,14 +863,14 @@ pub(super) fn enrich_external_deps(graph: &mut Value, workspace_root: &std::path
             .unwrap_or(true)
     });
 
-    if !new_nodes.is_empty() {
-        if let Some(nodes) = graph.get_mut("nodes").and_then(Value::as_array_mut) {
-            nodes.extend(new_nodes);
-        }
+    if !new_nodes.is_empty()
+        && let Some(nodes) = graph.get_mut("nodes").and_then(Value::as_array_mut)
+    {
+        nodes.extend(new_nodes);
     }
-    if !new_edges.is_empty() {
-        if let Some(edges) = graph.get_mut("edges").and_then(Value::as_array_mut) {
-            edges.extend(new_edges);
-        }
+    if !new_edges.is_empty()
+        && let Some(edges) = graph.get_mut("edges").and_then(Value::as_array_mut)
+    {
+        edges.extend(new_edges);
     }
 }

@@ -37,19 +37,19 @@ fn validate(root: &TasksfileRoot) -> Result<()> {
 
         // Validate params
         for (param_name, param) in &task.params {
-            if let Some(ref options) = param.options {
-                if let Some(ref default) = param.default {
-                    let default_str = match default {
-                        serde_json::Value::String(s) => s.clone(),
-                        serde_json::Value::Number(n) => n.to_string(),
-                        _ => continue,
-                    };
-                    if !options.iter().any(|o| o == &default_str) {
-                        return Err(TasksfileError::InvalidOption(format!(
-                            "Task '{}' param '{}' default '{}' not in options {:?}",
-                            name, param_name, default_str, options
-                        )));
-                    }
+            if let Some(ref options) = param.options
+                && let Some(ref default) = param.default
+            {
+                let default_str = match default {
+                    serde_json::Value::String(s) => s.clone(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    _ => continue,
+                };
+                if !options.iter().any(|o| o == &default_str) {
+                    return Err(TasksfileError::InvalidOption(format!(
+                        "Task '{}' param '{}' default '{}' not in options {:?}",
+                        name, param_name, default_str, options
+                    )));
                 }
             }
         }

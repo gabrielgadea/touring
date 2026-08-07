@@ -227,15 +227,15 @@ pub fn next_moves(status: &Value) -> Vec<NextMove> {
     let total = status
         .pointer("/daemon_health/total_count")
         .and_then(Value::as_i64);
-    if let (Some(h), Some(t)) = (healthy, total) {
-        if h < t {
-            moves.push(NextMove {
+    if let (Some(h), Some(t)) = (healthy, total)
+        && h < t
+    {
+        moves.push(NextMove {
                 title: format!("Inspect daemon health ({h}/{t})"),
                 body: "One or more daemon components report degraded — drill into the health page before stateful work.".to_string(),
                 href: "/health",
                 cta: "Health",
             });
-        }
     }
 
     moves.truncate(3);

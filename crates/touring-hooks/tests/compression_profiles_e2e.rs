@@ -309,13 +309,12 @@ fn audit_unknown_tool_passthrough() {
     assert_eq!(&*out, raw, "unknown tool → unchanged passthrough");
 }
 
-#[test]
-fn audit_disabled_flag_passthrough() {
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("TOURING_COMPRESSION_PROFILES", "0") };
-    let raw = "test result: ok 100/100\n";
-    let out = compress_for("Bash", &bash("cargo test"), raw);
-    assert_eq!(&*out, raw, "disabled flag → raw passthrough");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("TOURING_COMPRESSION_PROFILES") };
-}
+// `audit_disabled_flag_passthrough` lived here until 2026-08-02 and MUTATED the
+// process environment (`set_var("TOURING_COMPRESSION_PROFILES", "0")`) — its own
+// TODO admitted the hazard. Env vars are process-global and libtest runs this
+// file's tests concurrently, so during that window every neighbour saw
+// compression disabled and got raw passthrough. That is what made
+// `audit_p04_git_log_collapses_to_one_line` fail under `cargo test --workspace`
+// while passing in isolation. The test now lives in its own integration file,
+// `compression_kill_switch_e2e.rs`: cargo compiles each `tests/*.rs` as a
+// separate BINARY, so the mutation can no longer reach anything else.

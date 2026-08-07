@@ -91,9 +91,15 @@ impl FastMetadata {
     /// and computing the average cognitive_score across symbols.
     #[cfg(feature = "tantivy-fts")]
     pub fn with_cognitive_from_index(mut self) -> Self {
-        use crate::tantivy_index::global_tantivy;
-
-        let idx = match global_tantivy() {
+        // A raiz é DERIVADA do próprio `file_path` do coletor: ele é um builder
+        // sem acesso ao runtime, mas conhece o arquivo que está descrevendo.
+        // `normalize_project_root` faz walk-up por marcador real quando o caminho
+        // é absoluto; num relativo devolve `$HOME`, que resolve para o índice
+        // legado — degradação explícita, não silenciosa.
+        let root = self.file_path.is_absolute().then(|| {
+            touring_foundation::TouringConfig::normalize_project_root(&self.file_path)
+        });
+        let idx = match crate::tantivy_index::tantivy_for(root.as_deref()) {
             Some(idx) => idx,
             None => return self,
         };

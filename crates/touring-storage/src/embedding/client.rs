@@ -276,13 +276,13 @@ mod gpu {
                     model = % model_name, "RkyvGpuBackend: model reported by service"
                 );
             }
-            if let Some(dim) = resp.dimension {
-                if dim != self.embedding_dim {
-                    return Err(super::EmbeddingError::DimensionMismatch {
-                        expected: self.embedding_dim,
-                        actual: dim,
-                    });
-                }
+            if let Some(dim) = resp.dimension
+                && dim != self.embedding_dim
+            {
+                return Err(super::EmbeddingError::DimensionMismatch {
+                    expected: self.embedding_dim,
+                    actual: dim,
+                });
             }
             for (i, emb) in resp.embeddings.iter().enumerate() {
                 if emb.len() != self.embedding_dim {
@@ -525,13 +525,13 @@ mod gpu {
                     model = % model_name, "GPU embedder: model reported by service"
                 );
             }
-            if let Some(dim) = embed_resp.dimension {
-                if dim != self.embedding_dim {
-                    return Err(EmbeddingError::DimensionMismatch {
-                        expected: self.embedding_dim,
-                        actual: dim,
-                    });
-                }
+            if let Some(dim) = embed_resp.dimension
+                && dim != self.embedding_dim
+            {
+                return Err(EmbeddingError::DimensionMismatch {
+                    expected: self.embedding_dim,
+                    actual: dim,
+                });
             }
             for (i, emb) in embed_resp.embeddings.iter().enumerate() {
                 if emb.len() != self.embedding_dim {

@@ -93,20 +93,20 @@ fn get_fixes_for(code: &str) -> Vec<String> {
 fn check_pub_symbols(source: &str, file_path: &str) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for (idx, line) in source.lines().enumerate() {
-        if line.contains("pub fn") || line.contains("pub struct") {
-            if let Some(name) = extract_symbol_name(line) {
-                out.push(
-                    Diagnostic::new(
-                        codes::Q_201_TDG_GRADE_F,
-                        Severity::Warning,
-                        format!("pub symbol `{name}` may be orphan — verify wiring"),
-                    )
-                    .with_file(file_path)
-                    .with_line((idx + 1) as u32)
-                    .with_help("Run `touring wiring orphans` to check; use `auto_wire` assist")
-                    .with_fixes(get_fixes_for("Q-201")),
-                );
-            }
+        if (line.contains("pub fn") || line.contains("pub struct"))
+            && let Some(name) = extract_symbol_name(line)
+        {
+            out.push(
+                Diagnostic::new(
+                    codes::Q_201_TDG_GRADE_F,
+                    Severity::Warning,
+                    format!("pub symbol `{name}` may be orphan — verify wiring"),
+                )
+                .with_file(file_path)
+                .with_line((idx + 1) as u32)
+                .with_help("Run `touring wiring orphans` to check; use `auto_wire` assist")
+                .with_fixes(get_fixes_for("Q-201")),
+            );
         }
     }
     out

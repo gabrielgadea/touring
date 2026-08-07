@@ -94,12 +94,13 @@ pub fn derive_summary_with_tool(result: &SandboxResult, tool_name: &str) -> Stri
 /// This is the single function the PreToolUse router calls on a
 /// `RouteToSandbox` decision — it owns the full closure of D2.2 + D2.3.
 pub fn execute_and_store(
+    project_root: Option<&std::path::Path>,
     tool_name: &str,
     original_args: Value,
     config: SandboxConfig,
 ) -> Result<SandboxResult, SandboxError> {
     let result = execute_in_sandbox_blocking(tool_name, original_args, config)?;
-    if let Some(idx) = crate::tantivy_index::global_tool_outputs() {
+    if let Some(idx) = crate::tantivy_index::tool_outputs_for(project_root) {
         let doc = sandbox_result_to_doc(&result, tool_name);
         if let Err(e) = idx.store_tool_output(&doc) {
             tracing::warn!(

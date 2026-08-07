@@ -40,7 +40,7 @@ fn audit_t101_replay_caps_at_50() {
 
 #[test]
 fn audit_t102_purge_targets_all() {
-    let v = mcp::ctx_purge(PurgeTargets::all());
+    let v = mcp::ctx_purge(None, PurgeTargets::all());
     assert_eq!(v["ok"], json!(true));
     assert!(v["removed"].is_object());
     assert!(v["preserved"]["memory_semantic"].as_str().is_some());
@@ -48,7 +48,7 @@ fn audit_t102_purge_targets_all() {
 
 #[test]
 fn audit_t102_purge_targets_partial_default() {
-    let v = mcp::ctx_purge(PurgeTargets::default());
+    let v = mcp::ctx_purge(None, PurgeTargets::default());
     assert_eq!(v["ok"], json!(true));
     assert_eq!(v["removed"]["tee_logs"], json!(0));
     assert_eq!(v["removed"]["tool_outputs_index"], json!(0));
@@ -56,7 +56,7 @@ fn audit_t102_purge_targets_partial_default() {
 
 #[test]
 fn audit_t103_doctor_reports_components() {
-    let v = mcp::ctx_doctor();
+    let v = mcp::ctx_doctor(None);
     assert_eq!(v["ok"], json!(true));
     let comps = v["components"].as_array().expect("components is array");
     assert!(comps.len() >= 3, "doctor should report ≥3 components");
@@ -186,7 +186,7 @@ fn audit_t111_budget_ok_below_75pct() {
 #[test]
 fn audit_t112_batch_execute_runs_multiple_kinds() {
     let items = vec![json!({"kind": "doctor"}), json!({"kind": "replay", "n": 3})];
-    let v = mcp::ctx_batch_execute(&items);
+    let v = mcp::ctx_batch_execute(None, &items);
     assert_eq!(v["ok"], json!(true));
     assert_eq!(v["count"], json!(2));
     let results = v["results"].as_array().unwrap();
@@ -196,7 +196,7 @@ fn audit_t112_batch_execute_runs_multiple_kinds() {
 #[test]
 fn audit_t112_batch_execute_unknown_kind_fails_per_item() {
     let items = vec![json!({"kind": "nonexistent"})];
-    let v = mcp::ctx_batch_execute(&items);
+    let v = mcp::ctx_batch_execute(None, &items);
     let res = &v["results"][0];
     assert_eq!(res["ok"], json!(false));
 }
@@ -263,8 +263,8 @@ fn audit_mcp_tool_names_count_27() {
 fn audit_full_pipeline_15_t1_initiatives() {
     // Drives every T1 in a single integrated flow that mirrors a real session.
     let _ = mcp::ctx_replay(5);
-    let _ = mcp::ctx_purge(PurgeTargets::default());
-    let doctor = mcp::ctx_doctor();
+    let _ = mcp::ctx_purge(None, PurgeTargets::default());
+    let doctor = mcp::ctx_doctor(None);
     assert_eq!(doctor["ok"], json!(true));
     let _ = mcp::ctx_gain_history(7);
     let _ = mcp::ctx_gain_graph(7);
@@ -276,7 +276,7 @@ fn audit_full_pipeline_15_t1_initiatives() {
     let _ = mcp::ctx_explain("ctx_replay_count");
     let budget = mcp::ctx_budget(0);
     assert_eq!(budget["alert_level"], json!("ok"));
-    let batch = mcp::ctx_batch_execute(&[json!({"kind": "doctor"})]);
+    let batch = mcp::ctx_batch_execute(None, &[json!({"kind": "doctor"})]);
     assert_eq!(batch["ok"], json!(true));
     let _ = mcp::ctx_execute_file(&this_test_file(), "rust");
     let upgrade = mcp::ctx_upgrade(true);
@@ -285,4 +285,38 @@ fn audit_full_pipeline_15_t1_initiatives() {
     assert_eq!(discover["ok"], json!(true));
     // Final check: 27 MCP tools registered
     assert_eq!(ctx_mcp_tool_count(), 27);
+}
+
+/// O `doctor` despachado pelo BATCH reporta a raiz que recebeu — não o cwd.
+///
+/// O cross-audit de 03/08 corrigiu `ctx_doctor` para receber a raiz por
+/// parâmetro, mas o dispatcher de batch continuou passando `None`, caindo no
+/// cwd — que DENTRO do daemon é o cwd do daemon, não o de quem perguntou. O
+/// cross-audit de 04/08 encontrou a correção parcial sobrevivendo neste irmão.
+#[test]
+fn batch_doctor_reports_the_given_root_not_the_process_cwd() {
+    let fake_root = tempfile::TempDir::new().expect("tempdir");
+    std::fs::create_dir_all(fake_root.path().join(".git")).expect("marcador de projeto");
+
+    let items = vec![serde_json::json!({"kind": "doctor"})];
+    let out = mcp::ctx_batch_execute(Some(fake_root.path()), &items);
+
+    let texto = serde_json::to_string(&out).expect("serializável");
+    let esperado = fake_root.path().display().to_string();
+    assert!(
+        texto.contains(&esperado),
+        "o doctor do batch tem de reportar a raiz RECEBIDA ({esperado}), \
+         não o cwd do processo. Saída: {texto}"
+    );
+
+    // Contraprova — sem a raiz, o resultado é OUTRO. Sem esta metade o teste
+    // passaria mesmo que a correção fosse revertida, desde que o tempdir
+    // aparecesse na saída por qualquer outro motivo.
+    let sem_raiz = serde_json::to_string(&mcp::ctx_batch_execute(None, &items))
+        .expect("serializável");
+    assert!(
+        !sem_raiz.contains(&esperado),
+        "com root=None o doctor NÃO pode reportar o tempdir — se reportar, o \
+         teste não discrimina e não prova a correção. Saída: {sem_raiz}"
+    );
 }

@@ -265,10 +265,8 @@ impl IncrementalPipeline {
             Self::diff_symbols(&old_symbols, &new_symbols, &changed_ranges);
 
         // Only persist if symbols actually changed (early cutoff optimization).
-        if symbols_changed {
-            if let Some(store) = &self.symbol_store {
-                self.persist_delta(store, file_path, &new_symbols)?;
-            }
+        if symbols_changed && let Some(store) = &self.symbol_store {
+            self.persist_delta(store, file_path, &new_symbols)?;
         }
 
         Ok(IncrementalEditResult {
@@ -320,10 +318,8 @@ impl IncrementalPipeline {
             .update(Path::new(file_path), symbols.clone());
 
         // Only persist if symbols actually changed (early cutoff optimization).
-        if symbols_changed {
-            if let Some(store) = &self.symbol_store {
-                self.persist_delta(store, file_path, &symbols)?;
-            }
+        if symbols_changed && let Some(store) = &self.symbol_store {
+            self.persist_delta(store, file_path, &symbols)?;
         }
 
         let symbols_added = symbols;
@@ -354,25 +350,25 @@ impl IncrementalPipeline {
         }
 
         // Try cached tree (peek = no LRU promotion).
-        if let Some(tree) = self.parser.peek_tree(file_path) {
-            if let Some(doc) = self.documents.get(file_path) {
-                let content = doc.content();
-                let symbols = self.extract_all_symbols(&tree, &content, file_path);
-                // Populate the symbol cache for future calls.
-                // Mutex lock is re-acquired: prior lock guard was dropped above.
-                self.symbol_cache
-                    .lock()
-                    .expect("symbol_cache lock")
-                    .update(Path::new(file_path), symbols.clone());
-                return symbols;
-            }
+        if let Some(tree) = self.parser.peek_tree(file_path)
+            && let Some(doc) = self.documents.get(file_path)
+        {
+            let content = doc.content();
+            let symbols = self.extract_all_symbols(&tree, &content, file_path);
+            // Populate the symbol cache for future calls.
+            // Mutex lock is re-acquired: prior lock guard was dropped above.
+            self.symbol_cache
+                .lock()
+                .expect("symbol_cache lock")
+                .update(Path::new(file_path), symbols.clone());
+            return symbols;
         }
 
         // Fall back to SymbolStore.
-        if let Some(store) = &self.symbol_store {
-            if let Ok(syms) = store.find_symbols_in_file(file_path) {
-                return syms;
-            }
+        if let Some(store) = &self.symbol_store
+            && let Ok(syms) = store.find_symbols_in_file(file_path)
+        {
+            return syms;
         }
 
         Vec::new()
@@ -414,10 +410,10 @@ impl IncrementalPipeline {
             if std::path::Path::new(path).extension().is_none() {
                 continue;
             }
-            if let Ok(content) = std::fs::read_to_string(path) {
-                if self.process_file(path, &content).is_ok() {
-                    warmed += 1;
-                }
+            if let Ok(content) = std::fs::read_to_string(path)
+                && self.process_file(path, &content).is_ok()
+            {
+                warmed += 1;
             }
         }
         warmed

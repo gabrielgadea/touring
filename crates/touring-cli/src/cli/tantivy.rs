@@ -8,6 +8,42 @@ use rusqlite::params;
 #[cfg(feature = "tantivy-fts")]
 use touring_analysis::e2e::schema_guard;
 
+/// Mensagem do índice vazio — vem de `touring-hooks-core` para que o operador
+/// leia a MESMA frase venha ela do CLI ou do MCP.
+#[cfg(feature = "tantivy-fts")]
+use crate::tantivy_index::EMPTY_INDEX_MESSAGE as EMPTY_INDEX_ERROR;
+
+/// Envelope explícito quando o índice tem **zero documentos**; `None` quando há
+/// o que buscar (aí um resultado vazio é um "não encontrei" legítimo).
+///
+/// Por que existe (F2, 03/08/2026): um `[]` vindo de um índice vazio é
+/// ambíguo — lê-se como "esse símbolo não existe", quando o fato é "não há nada
+/// indexado". Com a migração para índices per-project, todo projeto nasce vazio
+/// até o primeiro `reindex`, então essa ambiguidade deixaria de ser exceção e
+/// viraria o caso comum. Trocar um erro alto por um vazio silencioso seria uma
+/// regressão de qualidade mesmo com a arquitetura correta — por isso esta fase é
+/// **pré-condição** do corte para per-project, não um polimento posterior.
+///
+/// A forma é a MESMA do erro já existente (`{error, hits}`), não uma nova: os
+/// consumidores já precisam tratá-la hoje, quando o índice está indisponível.
+///
+/// Recebe a contagem em vez do índice para ser uma função pura — testável sem
+/// montar um índice de verdade.
+#[cfg(feature = "tantivy-fts")]
+fn empty_index_envelope(total_docs: u64) -> Option<String> {
+    if total_docs > 0 {
+        return None;
+    }
+    Some(
+        serde_json::json!({
+            "error": EMPTY_INDEX_ERROR,
+            "hits": [],
+            "total_docs": 0,
+        })
+        .to_string(),
+    )
+}
+
 /// Handler: cli-tantivy-search
 /// Payload: {query: str, top: usize, source_file?: str}
 /// Returns BM25-ranked search hits from the Tantivy symbol index.
@@ -49,11 +85,17 @@ pub fn cli_tantivy_search(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         if let Some(cached) = crate::shared::query_cache::get(&cache_key) {
             return cached;
         }
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
+            if let Some(envelope) = empty_index_envelope(idx.stats().total_docs) {
+                return envelope;
+            }
             let out = match idx.search_with_community_boost(query, top_k, source_community_id) {
                 Ok(hits) => {
+                    // Coverage, not a constant: a query that matched nothing did
+                    // not succeed just because it did not error.
+                    let reward = crate::cli::shared::retrieval_coverage_reward(hits.len(), top_k);
                     rt.learning
-                        .inject_reward("cli-tantivy-search", 1.0, "successful_query");
+                        .inject_reward("cli-tantivy-search", reward, "query_coverage");
                     serde_json::to_string(&hits).unwrap_or_default()
                 }
                 Err(e) => serde_json::json!({ "error" : e, "hits" : [] }).to_string(),
@@ -88,11 +130,15 @@ pub fn cli_tantivy_fuzzy(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             .and_then(|v| v.as_u64())
             .unwrap_or(2) as u8;
         let top_k = payload.get("top").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
+            if let Some(envelope) = empty_index_envelope(idx.stats().total_docs) {
+                return envelope;
+            }
             return match idx.fuzzy_search(query, distance, top_k) {
                 Ok(hits) => {
+                    let reward = crate::cli::shared::retrieval_coverage_reward(hits.len(), top_k);
                     rt.learning
-                        .inject_reward("cli-tantivy-fuzzy", 1.0, "successful_query");
+                        .inject_reward("cli-tantivy-fuzzy", reward, "query_coverage");
                     serde_json::to_string(&hits).unwrap_or_default()
                 }
                 Err(e) => serde_json::json!({ "error" : e, "hits" : [] }).to_string(),
@@ -114,11 +160,19 @@ pub fn cli_tantivy_fuzzy(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
 }
 /// Handler: cli-tantivy-stats
 /// Payload: {}
-/// Returns IndexStats (total_docs, index_size_bytes, pending_ops, total_commits, total_upserts).
-pub fn cli_tantivy_stats(_rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
+/// Returns IndexStats (total_docs, index_size_bytes, pending_ops, total_commits,
+/// total_upserts, writable).
+///
+/// `writable: false` significa que OUTRO daemon detém o writer lock exclusivo
+/// (topologia per-project): a busca funciona, mas as escritas deste processo são
+/// recusadas. É o campo que separa "não houve escrita" de "não PODE escrever".
+pub fn cli_tantivy_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
+    // `rt` deixou de ser `_rt` em 03/08/2026: as estatísticas agora descrevem o
+    // índice DESTE projeto, então a raiz é necessária.
+    let _ = &rt;
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
             let stats = idx.stats();
             return serde_json::to_string(&stats).unwrap_or_default();
         }
@@ -143,11 +197,15 @@ pub fn cli_tantivy_suggest(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     {
         let prefix = payload.get("prefix").and_then(|v| v.as_str()).unwrap_or("");
         let top_k = payload.get("top").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
+            if let Some(envelope) = empty_index_envelope(idx.stats().total_docs) {
+                return envelope;
+            }
             return match idx.suggest(prefix, top_k) {
                 Ok(hits) => {
+                    let reward = crate::cli::shared::retrieval_coverage_reward(hits.len(), top_k);
                     rt.learning
-                        .inject_reward("cli-tantivy-suggest", 1.0, "successful_query");
+                        .inject_reward("cli-tantivy-suggest", reward, "query_coverage");
                     serde_json::to_string(&hits).unwrap_or_default()
                 }
                 Err(e) => serde_json::json!({ "error" : e, "hits" : [] }).to_string(),
@@ -192,7 +250,7 @@ pub fn cli_tantivy_suggest(rt: &mut HookRuntime, payload: &serde_json::Value) ->
 pub fn cli_tantivy_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
             let Some(store) = rt.infra.symbol_store.as_ref() else {
                 return serde_json::json!(
                     { "reindexed" : false, "error" : "symbol store unavailable", "stats"
@@ -213,13 +271,11 @@ pub fn cli_tantivy_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 .get("clear")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(mode == "full");
-            if should_clear {
-                if let Err(e) = idx.reindex(vec![]) {
-                    return serde_json::json!(
-                        { "reindexed" : false, "error" : format!("clear: {e}") }
-                    )
-                    .to_string();
-                }
+            if should_clear && let Err(e) = idx.reindex(vec![]) {
+                return serde_json::json!(
+                    { "reindexed" : false, "error" : format!("clear: {e}") }
+                )
+                .to_string();
             }
             const PAGE_SIZE: usize = 5_000;
             let mut offset = batch_offset;
@@ -318,5 +374,73 @@ pub fn cli_tantivy_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) ->
             { "reindexed" : false, "error" : "tantivy-fts feature not compiled in" }
         )
         .to_string()
+    }
+}
+
+/// Contrato do índice vazio (F2, 03/08/2026).
+///
+/// Pré-condição do corte para índices per-project: com a migração, todo projeto
+/// nasce vazio até o primeiro `reindex`. Se um índice vazio respondesse `[]`, a
+/// janela entre "cortou" e "reindexou" leria como "esse símbolo não existe" —
+/// trocaríamos um erro alto por um vazio silencioso, que é pior.
+#[cfg(all(test, feature = "tantivy-fts"))]
+mod empty_index_tests {
+    use super::*;
+
+    #[test]
+    fn an_empty_index_answers_with_an_actionable_error_not_an_empty_list() {
+        let raw = empty_index_envelope(0).expect("índice vazio precisa de envelope");
+        let parsed: serde_json::Value = serde_json::from_str(&raw).expect("JSON válido");
+
+        assert_ne!(raw.trim(), "[]", "a resposta NÃO pode ser uma lista vazia");
+        let error = parsed["error"].as_str().expect("campo error presente");
+        assert!(
+            error.contains("reindex"),
+            "o operador precisa ler a AÇÃO, não só a condição; veio: {error}"
+        );
+        assert!(
+            error.contains("empty"),
+            "a condição real tem de estar nomeada; veio: {error}"
+        );
+    }
+
+    #[test]
+    fn the_envelope_keeps_the_shape_consumers_already_handle() {
+        let raw = empty_index_envelope(0).expect("envelope");
+        let parsed: serde_json::Value = serde_json::from_str(&raw).expect("JSON válido");
+        // Mesma forma do erro que já existia (`{error, hits}`) — os consumidores
+        // já a tratam hoje, quando o índice está indisponível. Introduzir uma
+        // forma NOVA quebraria quem já lida com a antiga.
+        assert!(parsed["hits"].is_array(), "campo hits presente e array");
+        assert_eq!(parsed["hits"].as_array().expect("array").len(), 0);
+        assert_eq!(parsed["total_docs"], 0, "a contagem torna o diagnóstico direto");
+    }
+
+    /// A mensagem sai de `touring-hooks-core`, não de uma cópia local.
+    ///
+    /// Guarda a paridade entre as DUAS superfícies: `touring_tantivy_search` e
+    /// `touring_tantivy_fuzzy` estão em `CURATED_TOOLS` (superfície MCP padrão,
+    /// ativa), e eu quase fechei a F2 tratando só o CLI. Se alguém reintroduzir
+    /// um literal local aqui, as duas superfícies passam a dizer coisas
+    /// diferentes sobre a mesma condição — e este teste cai.
+    #[test]
+    fn cli_and_mcp_speak_with_one_voice_about_an_empty_index() {
+        let raw = empty_index_envelope(0).expect("envelope");
+        let parsed: serde_json::Value = serde_json::from_str(&raw).expect("JSON válido");
+        assert_eq!(
+            parsed["error"].as_str(),
+            Some(crate::tantivy_index::EMPTY_INDEX_MESSAGE),
+            "a mensagem tem de ser exatamente a constante compartilhada"
+        );
+    }
+
+    #[test]
+    fn a_populated_index_is_left_alone() {
+        assert!(
+            empty_index_envelope(1).is_none(),
+            "com 1 documento a busca segue normal — zero resultados ali é um \
+             'não encontrei' legítimo, não um índice vazio"
+        );
+        assert!(empty_index_envelope(796_676).is_none());
     }
 }

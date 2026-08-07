@@ -104,7 +104,18 @@ fn registry_has_expected_count() {
     // 2026-05-30 (ES4 P1): +1 cli-world-model-status (durable world-model probe): 219→220.
     // 2026-05-30 (ES2 P2): +1 cli-attest-contract (constitutional sink-token, B-6): 220→221.
     // 2026-06-01 (ES1 P4): +1 cli-prove-claim (standalone SMT service, CAH roadmap): 221→222.
-    assert_eq!(names.len(), 222);
+    // 2026-08-03: o tripwire passa a ser CIENTE DA FEATURE. `acp-protocol` (não-default)
+    //   contribui 2 nomes; antes eles existiam só em `build_dispatch_table`, e a divergência
+    //   entre as duas listas reprovava `dispatch_table_and_registry_are_in_sync` sob
+    //   `--all-features`. Um número único não consegue ser verdade nos dois perfis — somar
+    //   2 ao literal consertaria `--all-features` e quebraria o default.
+    // 2026-08-04: +1 cli-memory-credit (case attribution — closes the
+    //   recall->outcome loop the case bank never had): 222->223 / 224->225.
+    #[cfg(feature = "acp-protocol")]
+    const EXPECTED_NAMES: usize = 225;
+    #[cfg(not(feature = "acp-protocol"))]
+    const EXPECTED_NAMES: usize = 223;
+    assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205
     // 2026-05-10 (B3): +1 cli-index-ingest = 206
@@ -119,7 +130,8 @@ fn registry_has_expected_count() {
     // 2026-05-30 (ES4 P1): +1 cli-world-model-status = 216.
     // 2026-05-30 (ES2 P2): +1 cli-attest-contract = 217.
     // 2026-06-01 (ES1 P4): +1 cli-prove-claim = 218.
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 218);
+    // 2026-08-04: +1 cli-memory-credit = 219.
+    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 219);
 }
 
 /// Sprint 4.6 regression guard (2026-05-23).

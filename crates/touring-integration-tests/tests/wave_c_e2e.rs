@@ -209,10 +209,10 @@ fn edit_removes_api_and_queue_receives_high_severity_proposals() {
     let outcome = analyze_rust_edit(rs_path(), SRC_FOO_REMOVED, &cache);
 
     // Simulate what post_edit does: push high-severity proposals into the queue.
-    if let Some(plan) = outcome.plan() {
-        if !plan.high_severity().is_empty() {
-            queue.push(rs_path(), plan);
-        }
+    if let Some(plan) = outcome.plan()
+        && !plan.high_severity().is_empty()
+    {
+        queue.push(rs_path(), plan);
     }
 
     assert_eq!(

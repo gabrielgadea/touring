@@ -53,20 +53,18 @@ fn emit_vergen() {
         std::process::Command::new(std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string()))
             .arg("--version")
             .output()
+        && let Ok(s) = String::from_utf8(rustc.stdout)
     {
-        if let Ok(s) = String::from_utf8(rustc.stdout) {
-            println!("cargo:rustc-env=VERGEN_RUSTC_SEMVER={}", s.trim());
-        }
+        println!("cargo:rustc-env=VERGEN_RUSTC_SEMVER={}", s.trim());
     }
 
     if let Ok(ts) = std::process::Command::new("date")
         .arg("-u")
         .arg("+%Y-%m-%dT%H:%M:%SZ")
         .output()
+        && let Ok(s) = String::from_utf8(ts.stdout)
     {
-        if let Ok(s) = String::from_utf8(ts.stdout) {
-            println!("cargo:rustc-env=VERGEN_BUILD_TIMESTAMP={}", s.trim());
-        }
+        println!("cargo:rustc-env=VERGEN_BUILD_TIMESTAMP={}", s.trim());
     }
 
     // Cargo already exposes the active feature list via env vars of the

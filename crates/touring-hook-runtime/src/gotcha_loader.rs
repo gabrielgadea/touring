@@ -169,10 +169,10 @@ fn walk_yaml_files(root: &Path) -> Vec<PathBuf> {
                 Err(_) => continue,
             };
             if file_type.is_dir() {
-                if let Some(name) = path.file_name() {
-                    if !is_skipped_dir(name) {
-                        stack.push(path);
-                    }
+                if let Some(name) = path.file_name()
+                    && !is_skipped_dir(name)
+                {
+                    stack.push(path);
                 }
             } else if file_type.is_file() {
                 let is_yaml = path

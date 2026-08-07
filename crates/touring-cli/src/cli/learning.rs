@@ -29,7 +29,12 @@ pub fn cli_learning_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -
     let linucb = rt.learning.linucb.as_ref();
     let bandit = rt.learning.bandit.as_ref();
     let ema_reward = online.map(|e| e.ema_reward()).unwrap_or(0.0);
-    let mean_td_error = online.map(|e| e.last_td_error()).unwrap_or(0.0);
+    let last_td_error = online.map(|e| e.last_td_error()).unwrap_or(0.0);
+    // The rolling mean is the convergence signal; fall back to the single most
+    // recent sample only while the window is still empty (no update recorded).
+    let mean_td_error = online
+        .and_then(|e| e.mean_td_error())
+        .unwrap_or(last_td_error);
     let bandit_type = bandit
         .map(|b| b.export_snapshot().bandit_type.clone())
         .or_else(|| linucb.map(|l| l.export_snapshot().bandit_type.clone()))
@@ -40,6 +45,7 @@ pub fn cli_learning_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -
         update_count,
         ema_reward,
         mean_td_error,
+        last_td_error,
         linucb_loaded: linucb.is_some(),
         bandit_type,
         arm_count,

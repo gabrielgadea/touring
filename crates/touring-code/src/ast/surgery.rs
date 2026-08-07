@@ -88,10 +88,11 @@ fn find_body_range(source: &str, symbol: &Symbol, tree: &Tree) -> SurgeryResult<
             // more specific (e.g., function_definition inside module).
         }
         for i in 0..node.child_count() {
-            if let Some(child) = node.child(i as u32) {
-                if child.start_byte() <= start && child.end_byte() >= end {
-                    find_deepest_node_at_range(child, start, end, target, depth + 1);
-                }
+            if let Some(child) = node.child(i as u32)
+                && child.start_byte() <= start
+                && child.end_byte() >= end
+            {
+                find_deepest_node_at_range(child, start, end, target, depth + 1);
             }
         }
     }
@@ -168,10 +169,10 @@ fn find_body_in_node(source: &str, node: Node) -> SurgeryResult<(usize, usize)> 
         // TypeScript/JavaScript
         "function_declaration" | "class_declaration" | "method_definition" => {
             for i in 0..node.child_count() {
-                if let Some(child) = node.child(i as u32) {
-                    if child.kind() == "statement_block" || child.kind() == "class_body" {
-                        return Ok((child.start_byte(), child.end_byte()));
-                    }
+                if let Some(child) = node.child(i as u32)
+                    && (child.kind() == "statement_block" || child.kind() == "class_body")
+                {
+                    return Ok((child.start_byte(), child.end_byte()));
                 }
             }
 

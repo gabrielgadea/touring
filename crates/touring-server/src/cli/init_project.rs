@@ -63,7 +63,14 @@ impl InitProjectArgs {
 
 /// Default `touring.toml` body written when `--bare` is not passed. Mirrors
 /// the rustup `rust-toolchain.toml` shape (channel + components + targets).
-const DEFAULT_TOURING_TOML: &str = "# Per-project touring configuration.\n\
+///
+/// The `channel` pin is derived from `CARGO_PKG_VERSION` at compile time, so a
+/// scaffolded project pins the toolchain that actually created it. It used to
+/// be the literal `"30.3.0"`, which meant every workspace version bump silently
+/// began minting projects pinned to the PREVIOUS version — the drift was found
+/// while bumping to 30.3.1 (04/08/2026). `concat!` + `env!` keep it a `const`.
+const DEFAULT_TOURING_TOML: &str = concat!(
+    "# Per-project touring configuration.\n\
 # Read by `TouringConfig::detect_layered()` as the Project layer (highest precedence\n\
 # below env-var overrides). Edit any field to override the User/System layers.\n\
 \n\
@@ -90,14 +97,17 @@ evolution_interval_s = 300\n\
 # toolchain this project uses (`~/.touring/toolchains/<channel>`). Read by\n\
 # `TouringConfig::detect_layered()`; consumed by `touring update` / `.touring/bin`.\n\
 [toolchain]\n\
-channel = \"30.3.0\"\n\
+channel = \"",
+    env!("CARGO_PKG_VERSION"),
+    "\"\n\
 \n\
 # W12.5 — opt in to a dedicated per-project daemon (default OFF: without this\n\
 # block the project shares the global daemon). When true, every touring client\n\
 # inside this project resolves `<project>/.touring/daemon.sock` and the first\n\
 # call autostarts the daemon there.\n\
 # [daemon]\n\
-# per_project = true\n";
+# per_project = true\n"
+);
 
 /// Subdirectories created under `.touring/` (in addition to `touring.toml`).
 const SUBDIRS: &[&str] = &["data", "bin", "hooks"];
@@ -272,5 +282,20 @@ mod tests {
         assert!(nested.join(".touring").is_dir());
         // Outer tmp must be untouched
         assert!(!tmp.path().join(".touring").exists());
+    }
+
+    /// O canal do scaffold acompanha a versão que o gerou — nunca uma literal.
+    ///
+    /// Antes de 04/08/2026 o `channel` era o literal "30.3.0": todo bump de
+    /// versão passava, em silêncio, a cunhar projetos pinados na versão
+    /// ANTERIOR. Este teste falha se alguém reintroduzir a literal.
+    #[test]
+    fn scaffold_pins_the_version_that_generated_it() {
+        let esperado = format!("channel = \"{}\"", env!("CARGO_PKG_VERSION"));
+        assert!(
+            DEFAULT_TOURING_TOML.contains(&esperado),
+            "o touring.toml gerado deve pinar {esperado:?} — a versão viva, \
+             não uma literal congelada. Conteúdo: {DEFAULT_TOURING_TOML}"
+        );
     }
 }
