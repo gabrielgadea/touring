@@ -108,11 +108,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             if let Some(path) = output_file {
                 // Write the YAML document, not the JSON envelope around it —
                 // the envelope made `tasksfile validate` reject its own export.
-                super::common::write_yaml_export(
-                    &output,
-                    "tasksfile_yaml",
-                    &expand_path(&path),
-                )?;
+                super::common::write_yaml_export(&output, "tasksfile_yaml", &expand_path(&path))?;
                 println!("Exported to {}", path);
             } else {
                 println!("{output}");

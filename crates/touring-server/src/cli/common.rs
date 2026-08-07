@@ -143,11 +143,7 @@ pub fn human_to_stderr(msg: &str) {
 /// as YAML (JSON *is* valid YAML) and rejected it with `missing field
 /// 'version'`, because it was reading the wrapper instead of the document.
 /// Only the YAML string belongs in the file.
-pub fn write_yaml_export(
-    output: &str,
-    field: &str,
-    path: &std::path::Path,
-) -> anyhow::Result<()> {
+pub fn write_yaml_export(output: &str, field: &str, path: &std::path::Path) -> anyhow::Result<()> {
     let parsed: serde_json::Value = serde_json::from_str(output)
         .map_err(|e| anyhow::anyhow!("export returned malformed JSON: {e}"))?;
     if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
@@ -402,8 +398,8 @@ mod tests {
     fn write_yaml_export_surfaces_the_handler_error() {
         let path = std::env::temp_dir().join("touring_write_yaml_export_err.yml");
         let _ = std::fs::remove_file(&path);
-        let envelope = serde_json::json!({ "success": false, "error": "No task_id provided" })
-            .to_string();
+        let envelope =
+            serde_json::json!({ "success": false, "error": "No task_id provided" }).to_string();
 
         let err = write_yaml_export(&envelope, "tasksfile_yaml", &path)
             .expect_err("a failed export must not be written as if it succeeded");

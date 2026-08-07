@@ -413,7 +413,10 @@ mod empty_index_tests {
         // forma NOVA quebraria quem já lida com a antiga.
         assert!(parsed["hits"].is_array(), "campo hits presente e array");
         assert_eq!(parsed["hits"].as_array().expect("array").len(), 0);
-        assert_eq!(parsed["total_docs"], 0, "a contagem torna o diagnóstico direto");
+        assert_eq!(
+            parsed["total_docs"], 0,
+            "a contagem torna o diagnóstico direto"
+        );
     }
 
     /// A mensagem sai de `touring-hooks-core`, não de uma cópia local.

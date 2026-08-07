@@ -102,7 +102,8 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     // Signals 3-6: Content-aware warnings (syntax, complexity, shadowing, anti-patterns)
     // Also captures the SpeculateResult for reuse by the deny gate (avoids duplicate
     // speculate_v2 call — E5 optimization).
-    let (content_warns, spec_result) = compose_content_warnings(Some(&runtime.project_root), new_string, file_path);
+    let (content_warns, spec_result) =
+        compose_content_warnings(Some(&runtime.project_root), new_string, file_path);
     all_warnings.extend(content_warns);
 
     // Signal 7: Invalid cfg condition detection
@@ -393,7 +394,9 @@ pub fn compose_content_warnings(
     // Surfaces what other files in the same module define so Claude can detect
     // naming conflicts and follow conventions during content edits.
     #[cfg(feature = "tantivy-fts")]
-    if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(project_root, file_path) {
+    if let Some((_, s)) =
+        crate::shared::signals::tantivy_related_docs_signal(project_root, file_path)
+    {
         warnings.push(s);
     }
 
@@ -968,7 +971,8 @@ mod tests {
 
     #[test]
     fn test_content_warnings_clean_code() {
-        let (warnings, spec) = compose_content_warnings(None, "fn clean() -> u32 { 42 }", "test.rs");
+        let (warnings, spec) =
+            compose_content_warnings(None, "fn clean() -> u32 { 42 }", "test.rs");
         // Clean code with no unwrap, low complexity, no shadows should be clean
         let has_antipattern = warnings.iter().any(|w| w.contains("ANTIPATTERN"));
         assert!(

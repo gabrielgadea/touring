@@ -189,12 +189,11 @@ fn check_tool_output_routing(
             // persist to global tool_outputs index. The returned `modified`
             // payload carries `content_hash` so the LLM can retrieve via
             // ctx_retrieve(content_hash) without re-running the tool.
-            let modified =
-                crate::tool_output_router::build_sandbox_wrapper_args(
-                    Some(&runtime.project_root),
-                    tool_name,
-                    tool_args.clone(),
-                );
+            let modified = crate::tool_output_router::build_sandbox_wrapper_args(
+                Some(&runtime.project_root),
+                tool_name,
+                tool_args.clone(),
+            );
 
             // Record metric for gate-metrics observability
             crate::shared::gate_metrics::record_tool_output_routed();

@@ -476,7 +476,6 @@ pub fn tantivy_related_docs_signal(
     project_root: Option<&std::path::Path>,
     rel_path: &str,
 ) -> Option<(f32, String)> {
-
     let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     // Extract module context from path (e.g., "auth" from "src/auth/login.rs")
@@ -571,7 +570,6 @@ pub fn tantivy_fuzzy_file_signal(
     project_root: Option<&std::path::Path>,
     rel_path: &str,
 ) -> Option<(f32, String)> {
-
     let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     // Extract file basename without extension
@@ -621,7 +619,6 @@ pub fn tantivy_kind_context_signal(
     project_root: Option<&std::path::Path>,
     rel_path: &str,
 ) -> Option<(f32, String)> {
-
     let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     let module_terms = extract_module_terms(rel_path)?;
@@ -672,7 +669,6 @@ pub fn tantivy_crate_origin_signal(
     project_root: Option<&std::path::Path>,
     rel_path: &str,
 ) -> Option<(f32, String)> {
-
     let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     // Extract crate name from path (e.g. "touring-hooks" from "crates/touring-hooks/src/...")
@@ -726,7 +722,6 @@ pub fn tantivy_fuzzy_symbol_signal(
     project_root: Option<&std::path::Path>,
     rel_path: &str,
 ) -> Option<(f32, String)> {
-
     let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     let basename = std::path::Path::new(rel_path)

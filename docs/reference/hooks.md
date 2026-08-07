@@ -4,7 +4,7 @@
 
 Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 
-**Count: 218**
+**Count: 219**
 
 - `ceg-observe`
 - `cli-ast-blast`
@@ -99,6 +99,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-learning-reward`
 - `cli-learning-status`
 - `cli-mcts-search`
+- `cli-memory-credit`
 - `cli-memory-list`
 - `cli-memory-recall`
 - `cli-memory-reindex`

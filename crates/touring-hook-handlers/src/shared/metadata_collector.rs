@@ -96,9 +96,10 @@ impl FastMetadata {
         // `normalize_project_root` faz walk-up por marcador real quando o caminho
         // é absoluto; num relativo devolve `$HOME`, que resolve para o índice
         // legado — degradação explícita, não silenciosa.
-        let root = self.file_path.is_absolute().then(|| {
-            touring_foundation::TouringConfig::normalize_project_root(&self.file_path)
-        });
+        let root = self
+            .file_path
+            .is_absolute()
+            .then(|| touring_foundation::TouringConfig::normalize_project_root(&self.file_path));
         let idx = match crate::tantivy_index::tantivy_for(root.as_deref()) {
             Some(idx) => idx,
             None => return self,

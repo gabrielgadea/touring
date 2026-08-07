@@ -24,8 +24,8 @@
 //! `touring tantivy reindex` when upgrading.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use tantivy::schema::FAST;
@@ -382,8 +382,7 @@ impl From<String> for TantivyIndexError {
 /// Vive aqui, e não em cada superfície, para que o operador leia a MESMA frase
 /// venha ela do CLI ou do MCP. O formato do envelope continua sendo de cada
 /// superfície — o contrato é a condição e a ação, não a embalagem.
-pub const EMPTY_INDEX_MESSAGE: &str =
-    "tantivy index is empty for this project (0 documents) — run \
+pub const EMPTY_INDEX_MESSAGE: &str = "tantivy index is empty for this project (0 documents) — run \
      'touring tantivy reindex' to populate it from this project's symbols.db";
 
 /// Erro canônico de escrita em handle somente-leitura — uma única origem, para
@@ -408,8 +407,7 @@ const WRITER_RETRY_INTERVAL: Duration = Duration::from_secs(30);
 /// Mensagem única do modo somente-leitura. Os testes ancoram no literal
 /// `read-only`, e o CLI a repassa verbatim — o operador precisa ler a condição
 /// REAL (outro daemon detém o lock), não um "falhou" genérico.
-const READ_ONLY_ERROR: &str =
-    "tantivy index is read-only: the exclusive writer lock is held by another \
+const READ_ONLY_ERROR: &str = "tantivy index is read-only: the exclusive writer lock is held by another \
      touring daemon (per-project topology). Reads work; writes are skipped until \
      the lock is released.";
 
@@ -567,7 +565,6 @@ impl TantivyIndex {
         }
         Ok(guard)
     }
-
 
     /// `true` se já passou [`WRITER_RETRY_INTERVAL`] desde a última tentativa
     /// (e registra a tentativa atual).

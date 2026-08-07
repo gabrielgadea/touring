@@ -385,8 +385,23 @@ fn is_readable_placeholder(v: &str) -> bool {
     // your value here", so their presence is decisive regardless of length
     // (`your_api_key_here` is 17 chars but obviously not a credential).
     const PLACEHOLDER_WORDS: &[&str] = &[
-        "your", "here", "changeme", "change-me", "example", "sample", "dummy", "fake", "test",
-        "placeholder", "redacted", "xxx", "todo", "fixme", "insert", "replace", "notasecret",
+        "your",
+        "here",
+        "changeme",
+        "change-me",
+        "example",
+        "sample",
+        "dummy",
+        "fake",
+        "test",
+        "placeholder",
+        "redacted",
+        "xxx",
+        "todo",
+        "fixme",
+        "insert",
+        "replace",
+        "notasecret",
     ];
     let lower = v.to_ascii_lowercase();
     if PLACEHOLDER_WORDS.iter().any(|w| lower.contains(w)) {
@@ -885,7 +900,11 @@ mod tests {
         // The twin of the exemption above — each of these must STILL block:
         // a digit disqualifies, a symbol outside `-_.` disqualifies, and 16+
         // characters disqualifies (a long passphrase is a real secret).
-        assert_eq!(score("password = \"P@ssw0rd123\"\n").value, 0.0, "mixed classes");
+        assert_eq!(
+            score("password = \"P@ssw0rd123\"\n").value,
+            0.0,
+            "mixed classes"
+        );
         assert_eq!(score("token = \"abc123def456\"\n").value, 0.0, "has digits");
         assert_eq!(
             score("secret = \"correcthorsebatterystaple\"\n").value,
@@ -1226,7 +1245,10 @@ mod tests {
         let s = score(
             "let r = \"mem:lexhub:sei-50500-115208-2024-45-inventario-completo-relatorio-diretoria-2026-07-25\";\n",
         );
-        assert_eq!(s.value, 1.0, "memory refs must not be entropy false positives");
+        assert_eq!(
+            s.value, 1.0,
+            "memory refs must not be entropy false positives"
+        );
     }
 
     // ── 2026-06-24: comment-line filter — doc comments discussing the concept

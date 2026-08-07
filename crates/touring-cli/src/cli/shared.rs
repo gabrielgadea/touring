@@ -667,7 +667,10 @@ mod retrieval_reward_tests {
     #[test]
     fn coverage_is_proportional_between_the_extremes() {
         let half = retrieval_coverage_reward(5, 10);
-        assert!((half - 0.5).abs() < f64::EPSILON, "5 of 10 is 0.5, got {half}");
+        assert!(
+            (half - 0.5).abs() < f64::EPSILON,
+            "5 of 10 is 0.5, got {half}"
+        );
     }
 
     #[test]

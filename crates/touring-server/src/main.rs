@@ -337,7 +337,10 @@ mod tests {
     #[test]
     fn binary_mtime_is_read_from_disk_not_a_compile_time_constant() {
         let stamp = binary_mtime_utc();
-        assert_ne!(stamp, "unknown", "the test binary exists, so its mtime must resolve");
+        assert_ne!(
+            stamp, "unknown",
+            "the test binary exists, so its mtime must resolve"
+        );
 
         let parsed = chrono::DateTime::parse_from_rfc3339(&stamp)
             .unwrap_or_else(|e| panic!("`{stamp}` is not RFC-3339: {e}"));

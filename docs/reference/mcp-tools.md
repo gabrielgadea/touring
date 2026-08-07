@@ -4,7 +4,7 @@
 
 MCP tool names defined in `touring-server` (string-literal extraction). The default build exposes essentially all of them; a curated 22-tool surface is opt-in behind `--features mcp-curated` (default OFF), so this count is the full defined set, not the curated surface.
 
-**Count: 167**
+**Count: 168**
 
 - `ctx_execute`
 - `touring_activity_append`
@@ -173,3 +173,4 @@ MCP tool names defined in `touring-server` (string-literal extraction). The defa
 - `touring_wiring_audit`
 - `touring_wiring_purpose`
 - `touring_wiring_suggest`
+- `touring_write_yaml_export_doc`
