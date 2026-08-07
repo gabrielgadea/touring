@@ -10,15 +10,38 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use tempfile::TempDir;
 
+/// Resolve a binary from the WORKSPACE build — never from an installed path.
+///
+/// 2026-08-07: `start_daemon` spawned the absolute
+/// `/home/gabrielgadea/.local/bin/touring-daemon`, so every test in this file
+/// could only ever pass on one developer's machine; on any CI runner the spawn
+/// failed and the suite went red (run 31166066285, 19 E2E failures of this
+/// class). `touring_bin` had the milder version of the same bug — it pinned
+/// `target/debug`, so a release-only tree found nothing.
+///
+/// Resolving from `CARGO_MANIFEST_DIR` keeps the suite testing the code under
+/// test rather than whatever happens to be deployed, and it works anywhere.
+fn resolve_bin(name: &str) -> PathBuf {
+    let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .map(std::path::Path::to_path_buf)
+        .expect("resolve workspace root from CARGO_MANIFEST_DIR");
+    for profile in ["debug", "release"] {
+        let candidate = workspace.join("target").join(profile).join(name);
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+    panic!(
+        "`{name}` not built — looked in {}/target/{{debug,release}}. \
+         Build it first: `cargo build -p touring-server`.",
+        workspace.display()
+    );
+}
+
 fn touring_bin() -> PathBuf {
-    // Always use the debug binary so tests run against the most recently compiled code.
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let workspace = std::path::Path::new(manifest_dir)
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
-    workspace.join("target/debug/touring")
+    resolve_bin("touring")
 }
 
 fn start_daemon() -> u32 {
@@ -30,7 +53,7 @@ fn start_daemon() -> u32 {
     let _ = std::fs::remove_file(&socket_path);
     let _ = std::fs::remove_file(format!("{socket_path}.lock"));
 
-    let daemon = Command::new("/home/gabrielgadea/.local/bin/touring-daemon")
+    let daemon = Command::new(resolve_bin("touring-daemon"))
         .env("TOURING_DAEMON_SOCKET", &socket_path)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
