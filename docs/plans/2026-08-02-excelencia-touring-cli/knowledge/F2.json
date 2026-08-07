@@ -1,0 +1,11 @@
+{
+  "phase": "F2",
+  "entities": [
+    {
+      "entity_id": "phase:F2",
+      "type": "phase",
+      "description": "F2 honestidade do vazio concluida, em AMBAS as superficies. EMPTY_INDEX_MESSAGE vive em touring-hooks-core (uma frase para CLI e MCP); TantivyIndex::is_empty() e o predicado compartilhado; cada superficie monta o envelope no formato que os SEUS consumidores ja tratam ({error,hits,total_docs} no CLI, {error,total_docs} no MCP). Aplicado a cli_tantivy_search/fuzzy/suggest e as tools MCP touring_tantivy_search/fuzzy \u2014 que estao em CURATED_TOOLS, superficie padrao ATIVA: eu quase fechei a fase tratando so o CLI, e o teste cli_and_mcp_speak_with_one_voice_about_an_empty_index agora trava essa paridade. 4 testes novos incluindo a_populated_index_is_left_alone (indice com docs segue normal \u2014 zero resultados ali e um 'nao encontrei' legitimo). BONUS pedido pelo Gabriel: auditoria completa dos hooks Pre/PostToolUse (diagnostics/tantivy-hooks-audit-20260803.md) \u2014 ACHADO CRITICO: STREAM_TX e um mpsc GLOBAL de SymbolDoc; post_edit/post_write TEM runtime.project_root mas o descartam na fronteira do canal, e o actor drena tudo para um indice so. A raiz nao e apenas nao-passada: e APAGADA. Isso reordena a F3 \u2014 o stream deve vir PRIMEIRO, senao escrita e leitura apontam para indices diferentes durante a janela. Gates: 281+564+1427 testes verdes, clippy -D warnings limpo nos perfis validos, cargo check --workspace --all-targets verde. Nota: --all-features nao e perfil valido para touring-server (compile_error deliberado, alocadores mutuamente exclusivos)."
+    }
+  ],
+  "relations": []
+}

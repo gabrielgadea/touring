@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "D3 (gotcha_stats reportando campos que nao sao o que medem) corrigido: campos de GotchaStats renomeados para total_hits / total_prevented em crates/touring-cli/src/cli/handlers/dispatch.rs e nos callsites. Decisao do Gabriel via AskUserQuestion: 'Renomear para o que medem' em vez de trocar a semantica."
+    }
+  ],
+  "relations": []
+}

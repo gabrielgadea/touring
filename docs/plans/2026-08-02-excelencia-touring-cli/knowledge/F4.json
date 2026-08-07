@@ -1,0 +1,11 @@
+{
+  "phase": "F4",
+  "entities": [
+    {
+      "entity_id": "phase:F4",
+      "type": "phase",
+      "description": "F4 corte + backfill CONCLUIDA E PROVADA EM RUNTIME. Deploy via update-touring (UPDATE_EXIT=0). PROVAS: (1) F2 seguriu a janela \u2014 a busca no indice recem-criado devolveu o envelope acionavel ('index is empty ... run touring tantivy reindex'), NAO []; a rede de seguranca funcionou no cenario real para o qual foi feita pre-condicao. (2) A raiz resolveu certo: o indice nasceu em <root>/.claude/touring/tantivy na PRIMEIRA busca (13:49:52, criacao lazy) \u2014 risco R4 (root mal resolvido) nao materializou. (3) writable=true: o indice per-project tem writer lock PROPRIO, sem contencao com o daemon do analise que segue no legado \u2014 a contencao acabou por construcao, nao por mitigacao. (4) Contaminacao ZERO: busca por 'numpy' devolveu 2 hits, nenhum de outro projeto (antes vinha apps/ai-service do transferegov_pipeline). CUSTO MEDIDO: 5,2s para 85.152 docs em 4 batches \u2014 backfill e INTERATIVO, nao precisa de job de fundo; essa era a incerteza #4 da estrategia. VERIFICACAO QUE QUASE PASSEI BATIDO: o reindex parou em 85.152 contra 263.771 linhas em symbols; conferi o predicado real da fonte (symbols_page filtra is_definition=1) e 85.152 e EXATAMENTE esse numero \u2014 backfill completo, minha estimativa inicial e que contava a tabela toda. Legado de 177MB intocado: rollback segue sendo uma linha."
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "P5",
+  "entities": [
+    {
+      "entity_id": "phase:P5",
+      "type": "phase",
+      "description": "F1 (separar outcome:* do corpus de recall) implementado em crates/touring-cli/src/cli/memory.rs: OUTCOME_PREFIX='outcome:' e filter_outcomes() aplicado as TRES fontes (SQL federado, ANN, TF-IDF) ANTES da fusao RRF -- filtrar depois da fusao deslocaria o ranking. Flag --include-outcomes para o comportamento antigo. Decisao do Gabriel: 'Excluir por padrao, flag para incluir'. Baseline medida: 72% das recuperacoes iam para outcome:*, um vies ruido:sinal de 2.4:1."
+    }
+  ],
+  "relations": []
+}

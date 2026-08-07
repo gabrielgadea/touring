@@ -1,0 +1,11 @@
+{
+  "phase": "F1",
+  "entities": [
+    {
+      "entity_id": "phase:F1",
+      "type": "phase",
+      "description": "F1 fundacao concluida. (a) HIPOTESE DA EVICTION CONFIRMADA POR EXECUCAO \u2014 nao e mais inferencia: identical_relative_coordinates_collapse_to_one_document passa, sobra 1 documento e o sobrevivente e o ULTIMO a escrever (projeto-b), provando que o primeiro projeto perde o documento. (b) tantivy_for(Option<&Path>) + registry DashMap<PathBuf,&'static> com Box::leak por PROJETO; index_dir_for reusa TouringConfig::normalize_project_root em vez de resolvedor novo (risco R4). (c) global_tantivy() vira fachada = tantivy_for(None), o que torna a conversao dos 41 sites incremental com sistema verde em todo commit. (d) 3 testes novos: separate_index_dirs_let_both_projects_keep_their_document prova que a particao RESOLVE a eviction sem tocar no schema; the_registry_returns_one_index_per_root guarda o risco R3 (mesmo root -> mesmo ponteiro, roots distintos -> indices distintos); the_legacy_facade_resolves_to_the_shared_global_index ancora a fachada. Gates: 564/564 testes, clippy -D warnings limpo, cargo check --workspace --all-targets verde."
+    }
+  ],
+  "relations": []
+}
