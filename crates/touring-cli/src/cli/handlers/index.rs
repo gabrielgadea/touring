@@ -616,20 +616,19 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                         // fan-out blow-up on generic names like `clone`).
                         let method_names =
                             crate::ast_bridge::extract_file_method_calls(&content, abs_path_str);
-                        if !method_names.is_empty() {
-                            if let Ok(producers) = rt
+                        if !method_names.is_empty()
+                            && let Ok(producers) = rt
                                 .ctx
                                 .knowledge
                                 .find_producer_modules_for_methods(&method_names, 4)
-                            {
-                                for (module_file, symbol_name) in &producers {
-                                    let _ = rt.ctx.knowledge.record_consumer(
-                                        module_file,
-                                        symbol_name,
-                                        &rel_path,
-                                        None,
-                                    );
-                                }
+                        {
+                            for (module_file, symbol_name) in &producers {
+                                let _ = rt.ctx.knowledge.record_consumer(
+                                    module_file,
+                                    symbol_name,
+                                    &rel_path,
+                                    None,
+                                );
                             }
                         }
 
@@ -679,31 +678,30 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // DEFENSE-IN-DEPTH: even when not aborted, we double-check the
     // absolute path with `Path::exists()` before purging — covers the
     // case where a single file failed to be read but is still on disk.
-    if !aborted_memory_pressure {
-        if let Some(store) = rt.symbol_store() {
-            if let Ok(db_files) = store.get_indexed_files(usize::MAX) {
-                for db_path in &db_files {
-                    if walked_rel_paths.contains(db_path) {
-                        continue;
-                    }
-                    // Belt-and-suspenders existence check.
-                    let abs_path = project_root.join(db_path);
-                    if abs_path.exists() {
-                        continue;
-                    }
-                    let _ = store.remove_file(db_path);
-                    let _ = rt.ctx.knowledge.clear_wiring(db_path);
-                    let _ = rt.ctx.knowledge.clear_consumer_entries(db_path);
-                    #[cfg(feature = "tantivy-fts")]
-                    if let Some(tantivy_idx) = crate::tantivy_index::global_tantivy() {
-                        let _ = tantivy_idx.delete_by_file(db_path);
-                    }
-                    if stale_paths_sample.len() < 5 {
-                        stale_paths_sample.push(db_path.clone());
-                    }
-                    stale_files_purged += 1;
-                }
+    if !aborted_memory_pressure
+        && let Some(store) = rt.symbol_store()
+        && let Ok(db_files) = store.get_indexed_files(usize::MAX)
+    {
+        for db_path in &db_files {
+            if walked_rel_paths.contains(db_path) {
+                continue;
             }
+            // Belt-and-suspenders existence check.
+            let abs_path = project_root.join(db_path);
+            if abs_path.exists() {
+                continue;
+            }
+            let _ = store.remove_file(db_path);
+            let _ = rt.ctx.knowledge.clear_wiring(db_path);
+            let _ = rt.ctx.knowledge.clear_consumer_entries(db_path);
+            #[cfg(feature = "tantivy-fts")]
+            if let Some(tantivy_idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
+                let _ = tantivy_idx.delete_by_file(db_path);
+            }
+            if stale_paths_sample.len() < 5 {
+                stale_paths_sample.push(db_path.clone());
+            }
+            stale_files_purged += 1;
         }
     }
 
@@ -996,9 +994,11 @@ pub fn cli_ast_semantic(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
     let results = index.find_similar_symbols(&query_sym, threshold as f64, limit);
     let count = results.len();
 
-    // S-25: Inject RL reward for successful CLI command execution
+    // S-25: RL reward, weighted by how much of the requested limit was
+    // actually matched — a constant carries no signal to learn from.
+    let reward = crate::cli::shared::retrieval_coverage_reward(count, limit);
     rt.learning
-        .inject_reward("cli-ast-semantic", 1.0, "successful_query");
+        .inject_reward("cli-ast-semantic", reward, "similarity_coverage");
 
     serde_json::json!({
         "query": query,
@@ -1021,9 +1021,12 @@ pub fn cli_ast_quality(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     let lang = Lang::from_path(Path::new(&file_path)).unwrap_or(Lang::Rust);
     let report: QualityReport = analyze_quality(&source, lang);
 
-    // S-25: Inject RL reward for successful CLI command execution
+    // S-25: RL reward = the quality actually measured, not a constant. This
+    // call site is the luckiest of the five: it already computed a real scalar
+    // in [0, 1] and was throwing it away in favour of a literal `1.0`.
+    let reward = f64::from(report.overall_score).clamp(0.0, 1.0);
     rt.learning
-        .inject_reward("cli-ast-quality", 1.0, "successful_analysis");
+        .inject_reward("cli-ast-quality", reward, "measured_overall_score");
 
     serde_json::json!({
         "file_path": file_path,
@@ -1187,17 +1190,17 @@ pub fn cli_ast_modules(_rt: &mut HookRuntime, payload: &serde_json::Value) -> St
             let path = entry.path();
             if path.is_dir() {
                 walk_dir(&path, acc);
-            } else if path.extension().map(|e| e == "rs").unwrap_or(false) {
-                if let Ok(content) = std::fs::read_to_string(&path) {
-                    let filename = path.file_name().unwrap_or_default().to_string_lossy();
-                    let tree = ModuleTree::build_from_source(&content, &filename);
-                    acc.push(serde_json::json!({
-                        "file": filename,
-                        "path": path.to_string_lossy(),
-                        "root": tree.root.name,
-                        "children": tree.root.children.len()
-                    }));
-                }
+            } else if path.extension().map(|e| e == "rs").unwrap_or(false)
+                && let Ok(content) = std::fs::read_to_string(&path)
+            {
+                let filename = path.file_name().unwrap_or_default().to_string_lossy();
+                let tree = ModuleTree::build_from_source(&content, &filename);
+                acc.push(serde_json::json!({
+                    "file": filename,
+                    "path": path.to_string_lossy(),
+                    "root": tree.root.name,
+                    "children": tree.root.children.len()
+                }));
             }
         }
     }

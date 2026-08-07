@@ -112,10 +112,10 @@ impl Handler for SessionStateManagerHandler {
         let final_path = ckpt_dir.join(format!("session_state_{ts}.toon"));
         let tmp_path = ckpt_dir.join(format!(".session_state_{ts}.tmp"));
 
-        if let Ok(json) = serde_json::to_string_pretty(&state) {
-            if std::fs::write(&tmp_path, &json).is_ok() {
-                let _ = std::fs::rename(&tmp_path, &final_path);
-            }
+        if let Ok(json) = serde_json::to_string_pretty(&state)
+            && std::fs::write(&tmp_path, &json).is_ok()
+        {
+            let _ = std::fs::rename(&tmp_path, &final_path);
         }
 
         // Store compact state in RlmMemory for post-compact recovery
@@ -202,10 +202,9 @@ impl Handler for CostTrackerHandler {
             .create(true)
             .append(true)
             .open(&costs_path)
+            && let Ok(line) = serde_json::to_string(&record)
         {
-            if let Ok(line) = serde_json::to_string(&record) {
-                let _ = writeln!(f, "{line}");
-            }
+            let _ = writeln!(f, "{line}");
         }
 
         HandlerResult::skip(self.name())

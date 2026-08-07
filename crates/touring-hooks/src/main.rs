@@ -821,13 +821,13 @@ fn cleanup_orphan_daemon_state() {
     // Remove the orphan socket so a new daemon can bind
     let _ = std::fs::remove_file(&socket_path);
     // Remove stale lock file (if the PID inside is dead)
-    if let Ok(contents) = std::fs::read_to_string(&lock_path) {
-        if let Ok(pid) = contents.trim().parse::<u32>() {
-            // kill(pid, 0) checks if process exists without sending a signal
-            let alive = unsafe { libc_kill(pid as i32, 0) } == 0;
-            if !alive {
-                let _ = std::fs::remove_file(&lock_path);
-            }
+    if let Ok(contents) = std::fs::read_to_string(&lock_path)
+        && let Ok(pid) = contents.trim().parse::<u32>()
+    {
+        // kill(pid, 0) checks if process exists without sending a signal
+        let alive = unsafe { libc_kill(pid as i32, 0) } == 0;
+        if !alive {
+            let _ = std::fs::remove_file(&lock_path);
         }
     }
     // Reset circuit breaker — failures from the dead daemon are stale

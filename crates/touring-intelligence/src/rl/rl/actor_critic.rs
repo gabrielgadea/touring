@@ -781,11 +781,9 @@ impl ActorCritic {
         }
 
         // Bootstrap with V(s_n) if the last experience was not terminal
-        if !terminal {
-            if let Some(last) = experiences.last() {
-                let bootstrap_value = self.critic.forward(&last.next_state);
-                ret += discount * bootstrap_value;
-            }
+        if !terminal && let Some(last) = experiences.last() {
+            let bootstrap_value = self.critic.forward(&last.next_state);
+            ret += discount * bootstrap_value;
         }
 
         // Use state and action from the first experience for per-step advantage tracking.

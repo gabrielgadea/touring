@@ -615,35 +615,35 @@ pub fn cli_wiring_chains(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             }
         };
     }
-    if let Some(file_path) = payload.get("file_path").and_then(|v| v.as_str()) {
-        if !file_path.is_empty() {
-            let file_path = normalize_to_relative(file_path, &rt.project_root);
-            return match db.chains_for_module(&file_path) {
-                Ok(chains) => {
-                    let chains_json: Vec<serde_json::Value> = chains
-                        .iter()
-                        .map(|c| {
-                            serde_json::json!(
-                                { "id" : c.id, "source_module" : c.source_module,
-                                "source_symbol" : c.source_symbol, "source_output" : c
-                                .source_output, "sink_module" : c.sink_module, "sink_symbol"
-                                : c.sink_symbol, "sink_input" : c.sink_input, "chain_type" :
-                                c.chain_type, "confidence" : c.confidence, }
-                            )
-                        })
-                        .collect();
-                    serde_json::json!(
-                        { "file_path" : file_path, "chain_count" : chains_json.len(),
-                        "chains" : chains_json, }
-                    )
-                    .to_string()
-                }
-                Err(e) => serde_json::json!(
-                    { "file_path" : file_path, "error" : format!("{e}"), }
+    if let Some(file_path) = payload.get("file_path").and_then(|v| v.as_str())
+        && !file_path.is_empty()
+    {
+        let file_path = normalize_to_relative(file_path, &rt.project_root);
+        return match db.chains_for_module(&file_path) {
+            Ok(chains) => {
+                let chains_json: Vec<serde_json::Value> = chains
+                    .iter()
+                    .map(|c| {
+                        serde_json::json!(
+                            { "id" : c.id, "source_module" : c.source_module,
+                            "source_symbol" : c.source_symbol, "source_output" : c
+                            .source_output, "sink_module" : c.sink_module, "sink_symbol"
+                            : c.sink_symbol, "sink_input" : c.sink_input, "chain_type" :
+                            c.chain_type, "confidence" : c.confidence, }
+                        )
+                    })
+                    .collect();
+                serde_json::json!(
+                    { "file_path" : file_path, "chain_count" : chains_json.len(),
+                    "chains" : chains_json, }
                 )
-                .to_string(),
-            };
-        }
+                .to_string()
+            }
+            Err(e) => serde_json::json!(
+                { "file_path" : file_path, "error" : format!("{e}"), }
+            )
+            .to_string(),
+        };
     }
     match db.rebuild_functional_chains() {
         Ok(count) => serde_json::json!({ "rebuilt" : true, "chain_count" : count, }).to_string(),

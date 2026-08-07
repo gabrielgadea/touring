@@ -608,13 +608,12 @@ pub fn install_cc_hooks() -> Result<Vec<String>> {
         ("cc-post-edit.sh", CC_POST_EDIT_HOOK),
     ] {
         let path = hooks_dir.join(name);
-        if path.exists() {
-            if let Ok(existing) = std::fs::read_to_string(&path) {
-                if existing == content {
-                    installed.push(path.to_string_lossy().to_string());
-                    continue;
-                }
-            }
+        if path.exists()
+            && let Ok(existing) = std::fs::read_to_string(&path)
+            && existing == content
+        {
+            installed.push(path.to_string_lossy().to_string());
+            continue;
         }
         std::fs::write(&path, content)?;
         #[cfg(unix)]

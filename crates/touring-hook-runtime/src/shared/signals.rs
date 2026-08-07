@@ -422,10 +422,10 @@ pub fn enrich_with_cognitive(
     // Next tool prediction from SessionPredictor (pre_read only)
     if include_predictions {
         let predictions = cognitive.predictor().predict_top_k("Read", 2);
-        if let Some(top) = predictions.first() {
-            if top.1 >= 0.5 {
-                signals.push(format!("\u{1f52e} Next: {} ({:.0}%)", top.0, top.1 * 100.0));
-            }
+        if let Some(top) = predictions.first()
+            && top.1 >= 0.5
+        {
+            signals.push(format!("\u{1f52e} Next: {} ({:.0}%)", top.0, top.1 * 100.0));
         }
     }
 
@@ -472,10 +472,12 @@ pub fn similar_symbol_signal_for_path(
 ///
 /// Weight: 0.7 (informational, below blast radius and callers).
 #[cfg(feature = "tantivy-fts")]
-pub fn tantivy_related_docs_signal(rel_path: &str) -> Option<(f32, String)> {
-    use crate::tantivy_index::global_tantivy;
+pub fn tantivy_related_docs_signal(
+    project_root: Option<&std::path::Path>,
+    rel_path: &str,
+) -> Option<(f32, String)> {
 
-    let idx = global_tantivy()?;
+    let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     // Extract module context from path (e.g., "auth" from "src/auth/login.rs")
     let module_terms = extract_module_terms(rel_path)?;
@@ -565,10 +567,12 @@ fn fname(fp: &str) -> &str {
 ///
 /// Weight: 0.65 (informational, below similar symbols).
 #[cfg(feature = "tantivy-fts")]
-pub fn tantivy_fuzzy_file_signal(rel_path: &str) -> Option<(f32, String)> {
-    use crate::tantivy_index::global_tantivy;
+pub fn tantivy_fuzzy_file_signal(
+    project_root: Option<&std::path::Path>,
+    rel_path: &str,
+) -> Option<(f32, String)> {
 
-    let idx = global_tantivy()?;
+    let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     // Extract file basename without extension
     let basename = std::path::Path::new(rel_path)
@@ -613,10 +617,12 @@ pub fn tantivy_fuzzy_file_signal(rel_path: &str) -> Option<(f32, String)> {
 ///
 /// Weight: 0.73 (between similar_symbols 0.8 and ANN 0.68).
 #[cfg(feature = "tantivy-fts")]
-pub fn tantivy_kind_context_signal(rel_path: &str) -> Option<(f32, String)> {
-    use crate::tantivy_index::global_tantivy;
+pub fn tantivy_kind_context_signal(
+    project_root: Option<&std::path::Path>,
+    rel_path: &str,
+) -> Option<(f32, String)> {
 
-    let idx = global_tantivy()?;
+    let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     let module_terms = extract_module_terms(rel_path)?;
     let hits = idx.search(&module_terms, 10).ok()?;
@@ -662,10 +668,12 @@ pub fn tantivy_kind_context_signal(rel_path: &str) -> Option<(f32, String)> {
 ///
 /// Weight: 0.68 (informational, same tier as ANN predictions).
 #[cfg(feature = "tantivy-fts")]
-pub fn tantivy_crate_origin_signal(rel_path: &str) -> Option<(f32, String)> {
-    use crate::tantivy_index::global_tantivy;
+pub fn tantivy_crate_origin_signal(
+    project_root: Option<&std::path::Path>,
+    rel_path: &str,
+) -> Option<(f32, String)> {
 
-    let idx = global_tantivy()?;
+    let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     // Extract crate name from path (e.g. "touring-hooks" from "crates/touring-hooks/src/...")
     let crate_name: String = std::path::Path::new(rel_path)
@@ -714,10 +722,12 @@ pub fn tantivy_crate_origin_signal(rel_path: &str) -> Option<(f32, String)> {
 ///
 /// Weight: 0.62 (lower priority, supplementary to kind_context).
 #[cfg(feature = "tantivy-fts")]
-pub fn tantivy_fuzzy_symbol_signal(rel_path: &str) -> Option<(f32, String)> {
-    use crate::tantivy_index::global_tantivy;
+pub fn tantivy_fuzzy_symbol_signal(
+    project_root: Option<&std::path::Path>,
+    rel_path: &str,
+) -> Option<(f32, String)> {
 
-    let idx = global_tantivy()?;
+    let idx = crate::tantivy_index::tantivy_for(project_root)?;
 
     let basename = std::path::Path::new(rel_path)
         .file_stem()

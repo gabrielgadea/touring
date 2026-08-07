@@ -88,13 +88,13 @@ fn name_field_children<'a>(node: Node<'a>) -> Vec<Node<'a>> {
 /// Push `name_node`'s text as an export of `kind`, filtered to exported (i.e.
 /// Capitalized) identifiers.
 fn push_export(out: &mut Vec<GoExport>, name_node: Node, kind: &'static str, bytes: &[u8]) {
-    if let Ok(text) = name_node.utf8_text(bytes) {
-        if is_exported(text) {
-            out.push(GoExport {
-                name: text.to_string(),
-                kind,
-            });
-        }
+    if let Ok(text) = name_node.utf8_text(bytes)
+        && is_exported(text)
+    {
+        out.push(GoExport {
+            name: text.to_string(),
+            kind,
+        });
     }
 }
 
@@ -224,31 +224,26 @@ pub fn extract_go_consumer_edges(source: &str) -> Vec<GoConsumerEdge> {
     let mut edges: Vec<GoConsumerEdge> = Vec::new();
     let mut stack = vec![root];
     while let Some(node) = stack.pop() {
-        if node.kind() == "selector_expression" {
-            if let (Some(operand), Some(field)) = (
+        if node.kind() == "selector_expression"
+            && let (Some(operand), Some(field)) = (
                 node.child_by_field_name("operand"),
                 node.child_by_field_name("field"),
-            ) {
-                // The operand must be a bare identifier equal to an import
-                // alias — `a.b.C` (operand is itself a selector) is a field
-                // access on a value, not a package reference.
-                if operand.kind() == "identifier" {
-                    if let (Ok(alias), Ok(symbol)) =
-                        (operand.utf8_text(bytes), field.utf8_text(bytes))
-                    {
-                        if is_exported(symbol) {
-                            if let Some((_, import_path)) = aliases.iter().find(|(a, _)| a == alias)
-                            {
-                                let edge = GoConsumerEdge {
-                                    package_key: format!("go:{import_path}"),
-                                    symbol: symbol.to_string(),
-                                };
-                                if !edges.contains(&edge) {
-                                    edges.push(edge);
-                                }
-                            }
-                        }
-                    }
+            )
+        {
+            // The operand must be a bare identifier equal to an import
+            // alias — `a.b.C` (operand is itself a selector) is a field
+            // access on a value, not a package reference.
+            if operand.kind() == "identifier"
+                && let (Ok(alias), Ok(symbol)) = (operand.utf8_text(bytes), field.utf8_text(bytes))
+                && is_exported(symbol)
+                && let Some((_, import_path)) = aliases.iter().find(|(a, _)| a == alias)
+            {
+                let edge = GoConsumerEdge {
+                    package_key: format!("go:{import_path}"),
+                    symbol: symbol.to_string(),
+                };
+                if !edges.contains(&edge) {
+                    edges.push(edge);
                 }
             }
         }

@@ -208,16 +208,16 @@ pub fn flow_result_to_dot(result: &FlowResult, _opts: &crate::visual::DotOpts) -
         )
         .ok();
         writeln!(out, "    style=dashed;").ok();
-        if let Some(first) = path.nodes.first() {
-            if first != &result.from {
-                writeln!(
-                    out,
-                    "  \"{from}\" -> \"{first}\" [color=gray, style=dashed];",
-                    from = result.from,
-                    first = first
-                )
-                .ok();
-            }
+        if let Some(first) = path.nodes.first()
+            && first != &result.from
+        {
+            writeln!(
+                out,
+                "  \"{from}\" -> \"{first}\" [color=gray, style=dashed];",
+                from = result.from,
+                first = first
+            )
+            .ok();
         }
         for window in path.nodes.windows(2) {
             if let [from_node, to_node] = window {
@@ -237,16 +237,16 @@ pub fn flow_result_to_dot(result: &FlowResult, _opts: &crate::visual::DotOpts) -
                     .ok();
             }
         }
-        if let Some(last) = path.nodes.last() {
-            if last != &result.to {
-                writeln!(
-                    out,
-                    "  \"{last}\" -> \"{to}\" [color=gray, style=dashed];",
-                    last = last,
-                    to = result.to
-                )
-                .ok();
-            }
+        if let Some(last) = path.nodes.last()
+            && last != &result.to
+        {
+            writeln!(
+                out,
+                "  \"{last}\" -> \"{to}\" [color=gray, style=dashed];",
+                last = last,
+                to = result.to
+            )
+            .ok();
         }
         writeln!(out, "  }}").ok();
     }
@@ -271,20 +271,20 @@ pub fn flow_result_to_mermaid(result: &FlowResult, _opts: &crate::visual::Mermai
     writeln!(out, "  {}[('{}' (target))]", result.to, result.to).ok();
     for (path_idx, path) in result.paths.iter().enumerate() {
         let path_label = format!("P{}", path_idx + 1);
-        if let Some(first) = path.nodes.first() {
-            if first != &result.from {
-                writeln!(out, "  {} -.-> {}", result.from, first).ok();
-            }
+        if let Some(first) = path.nodes.first()
+            && first != &result.from
+        {
+            writeln!(out, "  {} -.-> {}", result.from, first).ok();
         }
         for window in path.nodes.windows(2) {
             if let [from_node, to_node] = window {
                 writeln!(out, "  {} -->|{}| {}", from_node, path_label, to_node).ok();
             }
         }
-        if let Some(last) = path.nodes.last() {
-            if last != &result.to {
-                writeln!(out, "  {} -.-> {}", last, result.to).ok();
-            }
+        if let Some(last) = path.nodes.last()
+            && last != &result.to
+        {
+            writeln!(out, "  {} -.-> {}", last, result.to).ok();
         }
     }
     out

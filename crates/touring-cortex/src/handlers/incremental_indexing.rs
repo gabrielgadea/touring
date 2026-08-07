@@ -341,10 +341,10 @@ impl Handler for IncrementalIndexingHandler {
         };
 
         // Check file size
-        if let Ok(metadata) = std::fs::metadata(file_path) {
-            if metadata.len() > MAX_FILE_SIZE_BYTES {
-                return HandlerResult::skip(self.name());
-            }
+        if let Ok(metadata) = std::fs::metadata(file_path)
+            && metadata.len() > MAX_FILE_SIZE_BYTES
+        {
+            return HandlerResult::skip(self.name());
         }
 
         // Get current content from cache or disk

@@ -111,27 +111,25 @@ fn build_knowledge_upsert_fn() -> Option<touring_generator::KnowledgeUpsertFn> {
                     .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("");
-                if matches!(ext, "md" | "txt" | "rst" | "adoc") {
-                    if let Ok(content_str) = std::str::from_utf8(content) {
-                        touring_hooks::nlp_bridge::analyze_text_async(path, content_str);
+                if matches!(ext, "md" | "txt" | "rst" | "adoc")
+                    && let Ok(content_str) = std::str::from_utf8(content)
+                {
+                    touring_hooks::nlp_bridge::analyze_text_async(path, content_str);
 
-                        // R3-S5: Extract ANTT semantic keywords and append as knowledge note.
-                        // Enables future memory recall to surface generator-produced docs by
-                        // regulatory/technical category (Resolution, Law, TechnicalNote, etc.).
-                        let kw = touring_hooks::extract_keywords(content_str);
-                        if !kw.is_empty() {
-                            let mut seen = std::collections::HashSet::new();
-                            let cats: Vec<String> = kw
-                                .iter()
-                                .filter_map(|m| m.category.clone())
-                                .filter(|c| seen.insert(c.clone()))
-                                .collect();
-                            if !cats.is_empty() {
-                                let _ = guard.append_note(
-                                    path,
-                                    &format!("generator-nlp: {}", cats.join(",")),
-                                );
-                            }
+                    // R3-S5: Extract ANTT semantic keywords and append as knowledge note.
+                    // Enables future memory recall to surface generator-produced docs by
+                    // regulatory/technical category (Resolution, Law, TechnicalNote, etc.).
+                    let kw = touring_hooks::extract_keywords(content_str);
+                    if !kw.is_empty() {
+                        let mut seen = std::collections::HashSet::new();
+                        let cats: Vec<String> = kw
+                            .iter()
+                            .filter_map(|m| m.category.clone())
+                            .filter(|c| seen.insert(c.clone()))
+                            .collect();
+                        if !cats.is_empty() {
+                            let _ = guard
+                                .append_note(path, &format!("generator-nlp: {}", cats.join(",")));
                         }
                     }
                 }

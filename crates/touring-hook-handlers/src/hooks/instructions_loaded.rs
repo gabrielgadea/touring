@@ -98,18 +98,18 @@ fn push_mcp_overhead_parts(parts: &mut Vec<String>) {
                 let report: Option<McpOverheadReport> = serde_json::from_str(&snapshot).ok();
                 RwLock::new(report)
             });
-            if let Ok(guard) = cached.read() {
-                if let Some(ref report) = *guard {
-                    emit_mcp_overhead_report(report, parts);
-                }
+            if let Ok(guard) = cached.read()
+                && let Some(ref report) = *guard
+            {
+                emit_mcp_overhead_report(report, parts);
             }
             return;
         }
     };
-    if let Ok(guard) = cell.read() {
-        if let Some(ref report) = *guard {
-            emit_mcp_overhead_report(report, parts);
-        }
+    if let Ok(guard) = cell.read()
+        && let Some(ref report) = *guard
+    {
+        emit_mcp_overhead_report(report, parts);
     }
 }
 fn emit_mcp_overhead_report(
@@ -166,12 +166,10 @@ fn push_db_parts(runtime: &HookRuntime, parts: &mut Vec<String>) {
     }
     if let Ok(mut stmt) =
         conn.prepare("SELECT COUNT(*) FROM wiring_map WHERE consumers = 0 AND visibility = 'pub'")
+        && let Ok(count) = stmt.query_row(rusqlite::params![], |row| row.get::<_, i64>(0))
+        && count > 0
     {
-        if let Ok(count) = stmt.query_row(rusqlite::params![], |row| row.get::<_, i64>(0)) {
-            if count > 0 {
-                parts.push(format!("{count} orphan pub symbols"));
-            }
-        }
+        parts.push(format!("{count} orphan pub symbols"));
     }
 }
 /// Push tool-hint parts based on edit/file state.

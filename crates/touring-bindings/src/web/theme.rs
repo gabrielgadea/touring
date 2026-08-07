@@ -77,18 +77,17 @@ pub fn apply_theme(theme: Theme) {
     // Cross-audit 2026-06-11: the old code looped over `--var` lines calling
     // `set_attribute("--x", …)` — attribute names cannot start with `--`, so
     // every call failed with a swallowed InvalidCharacterError (pure no-op).
-    if let Some(window) = web_sys::window() {
-        if let Some(document) = window.document() {
-            if let Some(html) = document.document_element() {
-                let _ = html.set_attribute("data-theme", theme.name());
-            }
-        }
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+        && let Some(html) = document.document_element()
+    {
+        let _ = html.set_attribute("data-theme", theme.name());
     }
     // Persist to localStorage.
-    if let Some(window) = web_sys::window() {
-        if let Ok(Some(storage)) = window.local_storage() {
-            let _: Result<(), JsValue> = storage.set_item(STORAGE_KEY, theme.name());
-        }
+    if let Some(window) = web_sys::window()
+        && let Ok(Some(storage)) = window.local_storage()
+    {
+        let _: Result<(), JsValue> = storage.set_item(STORAGE_KEY, theme.name());
     }
 }
 
@@ -101,12 +100,11 @@ pub fn theme_signal() -> RwSignal<Theme> {
     // CRITICAL: Set data-theme on <html> BEFORE injecting CSS.
     // CSS selectors like [data-theme="dark"] body rely on this attribute.
     // apply_theme() sets it too, but we need it BEFORE mount_to for first render.
-    if let Some(window) = web_sys::window() {
-        if let Some(document) = window.document() {
-            if let Some(html) = document.document_element() {
-                let _ = html.set_attribute("data-theme", theme.name());
-            }
-        }
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+        && let Some(html) = document.document_element()
+    {
+        let _ = html.set_attribute("data-theme", theme.name());
     }
 
     // Inject CSS at startup to avoid external stylesheet dependency.
@@ -116,15 +114,15 @@ pub fn theme_signal() -> RwSignal<Theme> {
     // wins the cascade — it MUST stay identical to what Trunk serves.
     let css = theme.css_vars();
     web_sys::console::log_1(&"INJECTING_CSS".into());
-    if let Some(window) = web_sys::window() {
-        if let Some(document) = window.document() {
-            let style = document.create_element("style").ok();
-            if let Some(style) = style {
-                let _ = style.set_attribute("type", "text/css");
-                let _ = style.set_attribute("id", "touring-web-main-styles");
-                let _ = style.set_text_content(Some(css));
-                let _ = document.head().map(|h| h.append_child(&style).ok());
-            }
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+    {
+        let style = document.create_element("style").ok();
+        if let Some(style) = style {
+            let _ = style.set_attribute("type", "text/css");
+            let _ = style.set_attribute("id", "touring-web-main-styles");
+            let _ = style.set_text_content(Some(css));
+            let _ = document.head().map(|h| h.append_child(&style).ok());
         }
     }
     web_sys::console::log_1(&"CSS_INJECTED".into());

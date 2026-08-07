@@ -275,21 +275,20 @@ fn run_list() -> anyhow::Result<()> {
     let entries = fs::read_dir(&dir)?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) == Some("json") {
-            if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(data) = serde_json::from_str::<SnapshotData>(&content) {
-                    snapshots.push(serde_json::json!({
-                        "name": data.name,
-                        "timestamp": data.timestamp,
-                        "project_root": data.project_root,
-                        "node_count": data.node_count,
-                        "edge_count": data.edge_count,
-                        "orphan_count": data.orphan_count,
-                        "index_symbol_count": data.index_symbol_count,
-                        "integration_score_avg": data.integration_score_avg,
-                    }));
-                }
-            }
+        if path.extension().and_then(|s| s.to_str()) == Some("json")
+            && let Ok(content) = fs::read_to_string(&path)
+            && let Ok(data) = serde_json::from_str::<SnapshotData>(&content)
+        {
+            snapshots.push(serde_json::json!({
+                "name": data.name,
+                "timestamp": data.timestamp,
+                "project_root": data.project_root,
+                "node_count": data.node_count,
+                "edge_count": data.edge_count,
+                "orphan_count": data.orphan_count,
+                "index_symbol_count": data.index_symbol_count,
+                "integration_score_avg": data.integration_score_avg,
+            }));
         }
     }
 

@@ -160,31 +160,31 @@ fn scan(src: &str, syn: &LangSyntax) -> (Vec<(usize, usize)>, Vec<u8>) {
     let mut i = 0usize;
     'outer: while i < n {
         // 1. Block comment.
-        if let Some((open, close, nest)) = syn.block {
-            if starts_with(b, i, open) {
-                let start = i;
-                blank(&mut masked, i, open.len());
-                i += open.len();
-                let mut depth = 1usize;
-                while i < n && depth > 0 {
-                    if nest && starts_with(b, i, open) {
-                        depth += 1;
-                        blank(&mut masked, i, open.len());
-                        i += open.len();
-                    } else if starts_with(b, i, close) {
-                        depth -= 1;
-                        blank(&mut masked, i, close.len());
-                        i += close.len();
-                    } else {
-                        if b[i] != b'\n' {
-                            masked[i] = b' ';
-                        }
-                        i += 1;
+        if let Some((open, close, nest)) = syn.block
+            && starts_with(b, i, open)
+        {
+            let start = i;
+            blank(&mut masked, i, open.len());
+            i += open.len();
+            let mut depth = 1usize;
+            while i < n && depth > 0 {
+                if nest && starts_with(b, i, open) {
+                    depth += 1;
+                    blank(&mut masked, i, open.len());
+                    i += open.len();
+                } else if starts_with(b, i, close) {
+                    depth -= 1;
+                    blank(&mut masked, i, close.len());
+                    i += close.len();
+                } else {
+                    if b[i] != b'\n' {
+                        masked[i] = b' ';
                     }
+                    i += 1;
                 }
-                comments.push((start, i));
-                continue;
             }
+            comments.push((start, i));
+            continue;
         }
         // 2. Line comment.
         for lc in syn.line {
@@ -413,13 +413,13 @@ fn merge(mut v: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     v.sort_by_key(|r| r.0);
     let mut out: Vec<(usize, usize)> = Vec::with_capacity(v.len());
     for (s, e) in v {
-        if let Some(last) = out.last_mut() {
-            if s <= last.1 {
-                if e > last.1 {
-                    last.1 = e;
-                }
-                continue;
+        if let Some(last) = out.last_mut()
+            && s <= last.1
+        {
+            if e > last.1 {
+                last.1 = e;
             }
+            continue;
         }
         out.push((s, e));
     }

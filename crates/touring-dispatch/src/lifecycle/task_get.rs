@@ -48,7 +48,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
     // R19-S2: Search Tantivy for all indexed docs associated with this task_id.
     // Surfaces task_dag subtasks, task_output captures, and plan_session docs in a single view.
     // Makes TaskGet a complete knowledge aggregator across CC + Touring + Tantivy.
-    let tantivy_hint = search_tantivy_for_task(task_id);
+    let tantivy_hint = search_tantivy_for_task(&rt.project_root, task_id);
 
     // R23-S1: Detect active (in_progress) subtask from live DAG and suggest matching generator.
     // TaskGet → dag_state JSON → first in_progress subtask description → keyword → GeneratorKind hint.
@@ -1052,23 +1052,26 @@ pub(crate) fn scout_tantivy_search_hint(dag_json: &str, task_id: &str) -> String
 /// Queries the `file_path` field for `task_dag:<task_id>`, `task_output:<task_id>`,
 /// and `plan_session:<task_id>` to aggregate all indexed knowledge for the task.
 /// Returns a formatted hint string; empty string when Tantivy is disabled or no hits.
-pub(crate) fn search_tantivy_for_task(task_id: &str) -> String {
+/// A raiz do projeto acompanha a operação: o store de decompose já é
+/// per-project (`locate_task_store`), então o espelho no Tantivy segue a
+/// fonte da verdade em vez de cair no índice legado compartilhado.
+pub(crate) fn search_tantivy_for_task(project_root: &std::path::Path, task_id: &str) -> String {
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(project_root)) {
             let query = format!("task:{task_id}");
-            if let Ok(hits) = idx.search(&query, 10) {
-                if !hits.is_empty() {
-                    let mut kinds = std::collections::BTreeSet::new();
-                    for h in &hits {
-                        kinds.insert(h.symbol_kind.as_str());
-                    }
-                    let kinds_str = kinds.into_iter().collect::<Vec<_>>().join(", ");
-                    return format!(
-                        " | tantivy: {} doc(s) found ({kinds_str}) — `touring tantivy search \"{task_id}\"`",
-                        hits.len()
-                    );
+            if let Ok(hits) = idx.search(&query, 10)
+                && !hits.is_empty()
+            {
+                let mut kinds = std::collections::BTreeSet::new();
+                for h in &hits {
+                    kinds.insert(h.symbol_kind.as_str());
                 }
+                let kinds_str = kinds.into_iter().collect::<Vec<_>>().join(", ");
+                return format!(
+                    " | tantivy: {} doc(s) found ({kinds_str}) — `touring tantivy search \"{task_id}\"`",
+                    hits.len()
+                );
             }
         }
     }

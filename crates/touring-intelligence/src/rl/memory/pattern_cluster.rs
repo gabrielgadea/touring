@@ -445,22 +445,22 @@ impl PatternClusterer {
 
         // For each cluster, renormalize the centroid (handles numerical drift)
         for cluster_id in cluster_ids {
-            if let Some(pos) = self.centroids.iter().position(|(id, _)| *id == cluster_id) {
-                if let Some(centroid) = self.centroids.get_mut(pos).map(|c| &mut c.1) {
-                    // Renormalize to unit vector (handles numerical precision drift)
-                    let norm: f32 = centroid.iter().map(|v| v * v).sum::<f32>().sqrt();
-                    if norm > 0.0 {
-                        for v in centroid.iter_mut() {
-                            *v /= norm;
-                        }
-                        // Update DB
-                        let embedding_bytes: Vec<u8> =
-                            centroid.iter().flat_map(|f| f.to_le_bytes()).collect();
-                        self.conn.execute(
+            if let Some(pos) = self.centroids.iter().position(|(id, _)| *id == cluster_id)
+                && let Some(centroid) = self.centroids.get_mut(pos).map(|c| &mut c.1)
+            {
+                // Renormalize to unit vector (handles numerical precision drift)
+                let norm: f32 = centroid.iter().map(|v| v * v).sum::<f32>().sqrt();
+                if norm > 0.0 {
+                    for v in centroid.iter_mut() {
+                        *v /= norm;
+                    }
+                    // Update DB
+                    let embedding_bytes: Vec<u8> =
+                        centroid.iter().flat_map(|f| f.to_le_bytes()).collect();
+                    self.conn.execute(
                             "UPDATE pattern_clusters SET centroid_embedding = ?1, last_updated = ?2 WHERE cluster_id = ?3",
                             params![embedding_bytes, current_timestamp(), cluster_id as i64],
                         )?;
-                    }
                 }
             }
         }

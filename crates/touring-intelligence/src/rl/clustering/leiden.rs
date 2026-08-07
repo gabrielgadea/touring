@@ -4,14 +4,26 @@
 //! skill co-occurrence graphs. Provides modularity-quality community partitions.
 //!
 //! # Example
+//!
+//! `Graph` is always available; `detect_communities` lives on the
+//! `leiden-clustering`-gated impl, so the call is gated here too. Without the
+//! gate this example failed to compile whenever the feature was off — which is
+//! the default (found 04/08/2026).
+//!
 //! ```
 //! use touring_intelligence::rl::clustering::leiden::{LeidenCommunityDetector, Graph};
 //!
-//! let mut detector = LeidenCommunityDetector::default();
+//! let detector = LeidenCommunityDetector::default();
 //! let mut graph = Graph::new();
 //! graph.add_edge("skill_a", "skill_b", 1.5);
 //! graph.add_edge("skill_b", "skill_c", 2.0);
-//! let communities = detector.detect_communities(&graph);
+//! assert_eq!(graph.node_count(), 3);
+//!
+//! #[cfg(feature = "leiden-clustering")]
+//! {
+//!     let communities = detector.detect_communities(&graph);
+//!     assert!(communities.num_communities() >= 1);
+//! }
 //! ```
 
 #[cfg(feature = "leiden-clustering")]

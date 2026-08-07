@@ -58,10 +58,10 @@ impl SemanticConflictDetector {
         let sigs_a = Self::extract_signatures(a);
         let sigs_b = Self::extract_signatures(b);
         for (name_a, sig_a) in &sigs_a {
-            if let Some(sig_b) = sigs_b.get(name_a) {
-                if sig_a != sig_b {
-                    return true;
-                }
+            if let Some(sig_b) = sigs_b.get(name_a)
+                && sig_a != sig_b
+            {
+                return true;
             }
         }
         false

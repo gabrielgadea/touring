@@ -76,13 +76,13 @@ pub fn compose_json(file_path: &str, result: &SyntaxResult) -> serde_json::Value
         "syntax_valid": result.valid,
     });
 
-    if !result.valid {
-        if let Some(obj) = json.as_object_mut() {
-            obj.insert(
-                "error".to_string(),
-                serde_json::Value::String(result.error.clone()),
-            );
-        }
+    if !result.valid
+        && let Some(obj) = json.as_object_mut()
+    {
+        obj.insert(
+            "error".to_string(),
+            serde_json::Value::String(result.error.clone()),
+        );
     }
 
     json

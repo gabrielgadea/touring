@@ -85,77 +85,75 @@ fn extract_symbols_via_pipeline(
     language: &str,
 ) -> (String, i64) {
     // Try process_edit first when we have cached tree + old content.
-    if let Some(old) = old_content {
-        if pipeline.has_cached_tree(rel_path) {
-            // Sprint 4.7 (2026-05-24) — upstream defense for ropey OOB panic:
-            //
-            // `compute_edit_offsets(old, content)` returns `old_end_byte ≤ old.len()`,
-            // valid for the `old` snapshot. But if the cached pipeline doc has
-            // drifted (cross-actor race, queued-after-mutation, file watcher
-            // racing CC edit, full reparse intervening), `old.len()` may exceed
-            // the cached rope's `len_bytes`. In that case `old_end_byte` is
-            // out-of-bounds for the cached rope, and `Document::edit` would
-            // historically panic in `Rope::byte_to_char`.
-            //
-            // Sprint 4.6 added a clamp+warn defense inside `Document::edit`
-            // so the daemon no longer dies, but the resulting "edit" applied
-            // to a divergent rope state produces a meaningless InputEdit. Far
-            // better to detect the drift here and bail to a full reparse —
-            // which is what cli_index_rebuild does and is known-good.
-            //
-            // Forensic anchor: Sprint 4.6 captured panic at byte_idx=84877
-            // vs cached rope len=84279 (drift = 598 bytes) on thread
-            // `touring-project-actor`.
-            let cached_len =
-                pipeline.with_read(|p| p.get_document(rel_path).map(|d| d.len_bytes()));
-            if cached_len != Some(old.len()) {
-                tracing::debug!(
-                    target: "touring::reindex",
-                    file = %rel_path,
-                    expected_old_len = old.len(),
-                    cached_doc_len = ?cached_len,
-                    "old content drift vs cached pipeline doc — bailing to full reparse \
-                     (avoids stale-offset OOB in Document::edit; Sprint 4.7 upstream defense)"
-                );
-                // Skip the incremental block — fall through to full reparse below.
-            } else {
-                let (start_byte, old_end_byte) = compute_edit_offsets(old, content);
-                if let Ok(result) = pipeline
-                    .with_write(|p| p.process_edit(rel_path, start_byte, old_end_byte, content))
+    if let Some(old) = old_content
+        && pipeline.has_cached_tree(rel_path)
+    {
+        // Sprint 4.7 (2026-05-24) — upstream defense for ropey OOB panic:
+        //
+        // `compute_edit_offsets(old, content)` returns `old_end_byte ≤ old.len()`,
+        // valid for the `old` snapshot. But if the cached pipeline doc has
+        // drifted (cross-actor race, queued-after-mutation, file watcher
+        // racing CC edit, full reparse intervening), `old.len()` may exceed
+        // the cached rope's `len_bytes`. In that case `old_end_byte` is
+        // out-of-bounds for the cached rope, and `Document::edit` would
+        // historically panic in `Rope::byte_to_char`.
+        //
+        // Sprint 4.6 added a clamp+warn defense inside `Document::edit`
+        // so the daemon no longer dies, but the resulting "edit" applied
+        // to a divergent rope state produces a meaningless InputEdit. Far
+        // better to detect the drift here and bail to a full reparse —
+        // which is what cli_index_rebuild does and is known-good.
+        //
+        // Forensic anchor: Sprint 4.6 captured panic at byte_idx=84877
+        // vs cached rope len=84279 (drift = 598 bytes) on thread
+        // `touring-project-actor`.
+        let cached_len = pipeline.with_read(|p| p.get_document(rel_path).map(|d| d.len_bytes()));
+        if cached_len != Some(old.len()) {
+            tracing::debug!(
+                target: "touring::reindex",
+                file = %rel_path,
+                expected_old_len = old.len(),
+                cached_doc_len = ?cached_len,
+                "old content drift vs cached pipeline doc — bailing to full reparse \
+                 (avoids stale-offset OOB in Document::edit; Sprint 4.7 upstream defense)"
+            );
+            // Skip the incremental block — fall through to full reparse below.
+        } else {
+            let (start_byte, old_end_byte) = compute_edit_offsets(old, content);
+            if let Ok(result) =
+                pipeline.with_write(|p| p.process_edit(rel_path, start_byte, old_end_byte, content))
+            {
+                if let Some(store) = symbol_store
+                    && let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added)
                 {
-                    if let Some(store) = symbol_store {
-                        if let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added)
-                        {
-                            tracing::warn!(
-                                target: "touring::reindex",
-                                file = %rel_path,
-                                error = %e,
-                                "process_edit succeeded but replace_file_symbols failed — \
-                                 symbols.db will drift; try `touring index rebuild`",
-                            );
-                        }
-                    }
-                    let symbols_json = serde_json::to_string(&result.symbols_added)
-                        .unwrap_or_else(|_| "[]".to_string());
-                    return (symbols_json, result.symbols_added.len() as i64);
+                    tracing::warn!(
+                        target: "touring::reindex",
+                        file = %rel_path,
+                        error = %e,
+                        "process_edit succeeded but replace_file_symbols failed — \
+                         symbols.db will drift; try `touring index rebuild`",
+                    );
                 }
-            } // close `} else {` block of Sprint 4.7 drift check
-        }
+                let symbols_json = serde_json::to_string(&result.symbols_added)
+                    .unwrap_or_else(|_| "[]".to_string());
+                return (symbols_json, result.symbols_added.len() as i64);
+            }
+        } // close `} else {` block of Sprint 4.7 drift check
     }
 
     // Fall back to full reparse.
     match pipeline.with_write(|p| p.process_file(rel_path, content)) {
         Ok(result) => {
-            if let Some(store) = symbol_store {
-                if let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added) {
-                    tracing::warn!(
-                        target: "touring::reindex",
-                        file = %rel_path,
-                        error = %e,
-                        "process_file succeeded but replace_file_symbols failed — \
-                         symbols.db will drift; try `touring index rebuild`",
-                    );
-                }
+            if let Some(store) = symbol_store
+                && let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added)
+            {
+                tracing::warn!(
+                    target: "touring::reindex",
+                    file = %rel_path,
+                    error = %e,
+                    "process_file succeeded but replace_file_symbols failed — \
+                     symbols.db will drift; try `touring index rebuild`",
+                );
             }
             let symbols_json =
                 serde_json::to_string(&result.symbols_added).unwrap_or_else(|_| "[]".to_string());

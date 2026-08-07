@@ -276,11 +276,11 @@ impl SearchPipeline {
         use touring_foundation::plugin::global_registry;
 
         // Try to get plugin from registry and adapt it
-        if let Some(plugin) = global_registry().get(plugin_family, "default") {
-            if let Ok(adapter) = PluginAdapter::<P>::new(plugin) {
-                let provider: Arc<dyn EmbeddingProvider> = Arc::new(adapter);
-                return Self::with_provider(config, provider);
-            }
+        if let Some(plugin) = global_registry().get(plugin_family, "default")
+            && let Ok(adapter) = PluginAdapter::<P>::new(plugin)
+        {
+            let provider: Arc<dyn EmbeddingProvider> = Arc::new(adapter);
+            return Self::with_provider(config, provider);
         }
 
         // Fall back to config-only pipeline (no embedding provider)
@@ -534,32 +534,32 @@ impl SearchPipeline {
         limit: usize,
     ) -> Vec<(String, f32)> {
         #[cfg(feature = "vector-store")]
-        if let Some(ref store) = self.vector_store {
-            if let Ok(embedding_result) = provider.embed_query(query.to_string()).await {
-                let vector = embedding_result
-                    .vectors
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| vec![0.0; embedding_result.dimension]);
-                let _schema = CollectionSchema {
-                    name: "semantic".to_string(),
-                    dimension: embedding_result.dimension,
-                    distance: DistanceMetric::Cosine,
-                };
-                if let Ok(hits) = store
-                    .search(
-                        "semantic",
-                        crate::vec::SearchQuery {
-                            vector,
-                            top_k: limit,
-                            with_metadata: false,
-                            filter: None,
-                        },
-                    )
-                    .await
-                {
-                    return hits.into_iter().map(|h| (h.id, h.score)).collect();
-                }
+        if let Some(ref store) = self.vector_store
+            && let Ok(embedding_result) = provider.embed_query(query.to_string()).await
+        {
+            let vector = embedding_result
+                .vectors
+                .first()
+                .cloned()
+                .unwrap_or_else(|| vec![0.0; embedding_result.dimension]);
+            let _schema = CollectionSchema {
+                name: "semantic".to_string(),
+                dimension: embedding_result.dimension,
+                distance: DistanceMetric::Cosine,
+            };
+            if let Ok(hits) = store
+                .search(
+                    "semantic",
+                    crate::vec::SearchQuery {
+                        vector,
+                        top_k: limit,
+                        with_metadata: false,
+                        filter: None,
+                    },
+                )
+                .await
+            {
+                return hits.into_iter().map(|h| (h.id, h.score)).collect();
             }
         }
         match provider.embed_query(query.to_string()).await {

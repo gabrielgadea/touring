@@ -127,19 +127,19 @@ fn extract_rust_imports(source: &str) -> ImportResolver {
     let use_arg_idx = query.capture_index_for_name("use_arg");
 
     while let Some(m) = matches.next() {
-        if let Some(ua_idx) = use_arg_idx {
-            if let Some(cap) = m.captures.iter().find(|c| c.index == ua_idx) {
-                let text = node_text(source, cap.node).to_string();
-                let line = cap.node.start_position().row + 1;
-                let is_glob = text.ends_with("::*") || text.ends_with("*");
+        if let Some(ua_idx) = use_arg_idx
+            && let Some(cap) = m.captures.iter().find(|c| c.index == ua_idx)
+        {
+            let text = node_text(source, cap.node).to_string();
+            let line = cap.node.start_position().row + 1;
+            let is_glob = text.ends_with("::*") || text.ends_with("*");
 
-                imports.push(ResolvedImport {
-                    path: text,
-                    alias: None,
-                    is_glob,
-                    line,
-                });
-            }
+            imports.push(ResolvedImport {
+                path: text,
+                alias: None,
+                is_glob,
+                line,
+            });
         }
     }
 
@@ -169,17 +169,17 @@ fn extract_python_imports(source: &str) -> ImportResolver {
 
     while let Some(m) = matches.next() {
         // Bare import
-        if let Some(in_idx) = import_name_idx {
-            if let Some(cap) = m.captures.iter().find(|c| c.index == in_idx) {
-                let text = node_text(source, cap.node).to_string();
-                imports.push(ResolvedImport {
-                    path: text,
-                    alias: None,
-                    is_glob: false,
-                    line: cap.node.start_position().row + 1,
-                });
-                continue;
-            }
+        if let Some(in_idx) = import_name_idx
+            && let Some(cap) = m.captures.iter().find(|c| c.index == in_idx)
+        {
+            let text = node_text(source, cap.node).to_string();
+            imports.push(ResolvedImport {
+                path: text,
+                alias: None,
+                is_glob: false,
+                line: cap.node.start_position().row + 1,
+            });
+            continue;
         }
 
         // From import
@@ -232,89 +232,85 @@ fn extract_ts_imports(source: &str, lang: Lang) -> ImportResolver {
                 // Check for named imports: import { A, B } from '...'
                 let mut found_named = false;
                 for i in 0..node.named_child_count() {
-                    if let Some(child) = node.named_child(i as u32) {
-                        if child.kind() == "import_clause" {
-                            // Default import: import X from '...'
-                            if let Some(id) = child.child_by_field_name("default") {
-                                let name = node_text(source, id).to_string();
-                                imports.push(ResolvedImport {
-                                    path: format!("{module_path}.{name}"),
-                                    alias: None,
-                                    is_glob: false,
-                                    line,
-                                });
-                                found_named = true;
-                            }
-                            // Named imports: { A, B }
-                            for j in 0..child.named_child_count() {
-                                if let Some(named) = child.named_child(j as u32) {
-                                    if named.kind() == "named_imports" {
-                                        for k in 0..named.named_child_count() {
-                                            if let Some(spec) = named.named_child(k as u32) {
-                                                if spec.kind() == "import_specifier" {
-                                                    let imp_name = if let Some(alias_node) =
-                                                        spec.child_by_field_name("alias")
-                                                    {
-                                                        let original = spec
-                                                            .child_by_field_name("name")
-                                                            .map(|n| {
-                                                                node_text(source, n).to_string()
-                                                            })
-                                                            .unwrap_or_default();
-                                                        let alias = node_text(source, alias_node)
-                                                            .to_string();
-                                                        imports.push(ResolvedImport {
-                                                            path: format!(
-                                                                "{module_path}.{original}"
-                                                            ),
-                                                            alias: Some(alias),
-                                                            is_glob: false,
-                                                            line,
-                                                        });
-                                                        found_named = true;
-                                                        continue;
-                                                    } else if let Some(name_node) =
-                                                        spec.child_by_field_name("name")
-                                                    {
-                                                        node_text(source, name_node).to_string()
-                                                    } else {
-                                                        node_text(source, spec).to_string()
-                                                    };
-                                                    imports.push(ResolvedImport {
-                                                        path: format!("{module_path}.{imp_name}"),
-                                                        alias: None,
-                                                        is_glob: false,
-                                                        line,
-                                                    });
-                                                    found_named = true;
-                                                }
-                                            }
+                    if let Some(child) = node.named_child(i as u32)
+                        && child.kind() == "import_clause"
+                    {
+                        // Default import: import X from '...'
+                        if let Some(id) = child.child_by_field_name("default") {
+                            let name = node_text(source, id).to_string();
+                            imports.push(ResolvedImport {
+                                path: format!("{module_path}.{name}"),
+                                alias: None,
+                                is_glob: false,
+                                line,
+                            });
+                            found_named = true;
+                        }
+                        // Named imports: { A, B }
+                        for j in 0..child.named_child_count() {
+                            if let Some(named) = child.named_child(j as u32) {
+                                if named.kind() == "named_imports" {
+                                    for k in 0..named.named_child_count() {
+                                        if let Some(spec) = named.named_child(k as u32)
+                                            && spec.kind() == "import_specifier"
+                                        {
+                                            let imp_name = if let Some(alias_node) =
+                                                spec.child_by_field_name("alias")
+                                            {
+                                                let original = spec
+                                                    .child_by_field_name("name")
+                                                    .map(|n| node_text(source, n).to_string())
+                                                    .unwrap_or_default();
+                                                let alias =
+                                                    node_text(source, alias_node).to_string();
+                                                imports.push(ResolvedImport {
+                                                    path: format!("{module_path}.{original}"),
+                                                    alias: Some(alias),
+                                                    is_glob: false,
+                                                    line,
+                                                });
+                                                found_named = true;
+                                                continue;
+                                            } else if let Some(name_node) =
+                                                spec.child_by_field_name("name")
+                                            {
+                                                node_text(source, name_node).to_string()
+                                            } else {
+                                                node_text(source, spec).to_string()
+                                            };
+                                            imports.push(ResolvedImport {
+                                                path: format!("{module_path}.{imp_name}"),
+                                                alias: None,
+                                                is_glob: false,
+                                                line,
+                                            });
+                                            found_named = true;
                                         }
                                     }
-                                    // Namespace import: import * as X from '...'
-                                    if named.kind() == "namespace_import" {
-                                        let alias_name = named
-                                            .child_by_field_name("name")
-                                            .or_else(|| {
-                                                // Sometimes the identifier is a direct child
-                                                for c in 0..named.named_child_count() {
-                                                    if let Some(ch) = named.named_child(c as u32) {
-                                                        if ch.kind() == "identifier" {
-                                                            return Some(ch);
-                                                        }
-                                                    }
+                                }
+                                // Namespace import: import * as X from '...'
+                                if named.kind() == "namespace_import" {
+                                    let alias_name = named
+                                        .child_by_field_name("name")
+                                        .or_else(|| {
+                                            // Sometimes the identifier is a direct child
+                                            for c in 0..named.named_child_count() {
+                                                if let Some(ch) = named.named_child(c as u32)
+                                                    && ch.kind() == "identifier"
+                                                {
+                                                    return Some(ch);
                                                 }
-                                                None
-                                            })
-                                            .map(|n| node_text(source, n).to_string());
-                                        imports.push(ResolvedImport {
-                                            path: module_path.clone(),
-                                            alias: alias_name,
-                                            is_glob: true,
-                                            line,
-                                        });
-                                        found_named = true;
-                                    }
+                                            }
+                                            None
+                                        })
+                                        .map(|n| node_text(source, n).to_string());
+                                    imports.push(ResolvedImport {
+                                        path: module_path.clone(),
+                                        alias: alias_name,
+                                        is_glob: true,
+                                        line,
+                                    });
+                                    found_named = true;
                                 }
                             }
                         }

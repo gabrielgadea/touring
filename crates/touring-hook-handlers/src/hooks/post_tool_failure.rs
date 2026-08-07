@@ -173,16 +173,16 @@ fn record_failure_outcome(
     // S3b: Wire GotEngine — record failure pattern in GoT pheromone trails.
     // Records the failure in the session's GoT snapshot so future reasoning
     // can avoid re-exploring failed thought paths.
-    if !file_path.is_empty() {
-        if let Some(ref mut snapshot) = runtime.got_snapshot {
-            let path_key = format!(
-                "failure:{}:{}",
-                tool_name,
-                file_path.rsplit('/').next().unwrap_or(file_path)
-            );
-            let entry = snapshot.pheromone_trails.entry(path_key).or_insert(0.0);
-            *entry = entry.max(1.0); // penalise failed paths with max strength
-        }
+    if !file_path.is_empty()
+        && let Some(ref mut snapshot) = runtime.got_snapshot
+    {
+        let path_key = format!(
+            "failure:{}:{}",
+            tool_name,
+            file_path.rsplit('/').next().unwrap_or(file_path)
+        );
+        let entry = snapshot.pheromone_trails.entry(path_key).or_insert(0.0);
+        *entry = entry.max(1.0); // penalise failed paths with max strength
     }
 
     if !file_path.is_empty() {
@@ -343,10 +343,10 @@ fn inject_security_reward(runtime: &mut HookRuntime, state: &SecurityState) {
     if runtime.learning.qtable_cache.is_none() {
         let qtable_path = runtime.project_root.join(".claude/data/qtable.rkyv");
         let mut qt = touring_intelligence::rl::QTable::new();
-        if qtable_path.exists() {
-            if let Ok((loaded, _rev)) = touring_intelligence::rl::QTable::load_rkyv(&qtable_path) {
-                qt = loaded;
-            }
+        if qtable_path.exists()
+            && let Ok((loaded, _rev)) = touring_intelligence::rl::QTable::load_rkyv(&qtable_path)
+        {
+            qt = loaded;
         }
         runtime.learning.qtable_cache = Some(qt);
     }

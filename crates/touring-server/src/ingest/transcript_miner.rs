@@ -462,17 +462,17 @@ pub fn extract_error_resolution_pairs(lines: &[ParsedTranscriptLine]) -> Vec<Err
                 chain_len += 1;
             } else {
                 // Success: this is the resolution candidate.
-                if let Some((_, first_use, first_result)) = chain_start {
-                    if chain_len <= RESOLUTION_SCAN_WINDOW {
-                        pairs.push(ErrorResolutionPair {
-                            tool_name: tool_name.clone(),
-                            failed_input: first_use.input.clone(),
-                            error_text: truncate_chars(&first_result.content_text, ERROR_TEXT_MAX),
-                            resolution_input: use_entry.input.clone(),
-                            session_id: first_result.session_id.clone(),
-                            timestamp: first_result.timestamp.clone(),
-                        });
-                    }
+                if let Some((_, first_use, first_result)) = chain_start
+                    && chain_len <= RESOLUTION_SCAN_WINDOW
+                {
+                    pairs.push(ErrorResolutionPair {
+                        tool_name: tool_name.clone(),
+                        failed_input: first_use.input.clone(),
+                        error_text: truncate_chars(&first_result.content_text, ERROR_TEXT_MAX),
+                        resolution_input: use_entry.input.clone(),
+                        session_id: first_result.session_id.clone(),
+                        timestamp: first_result.timestamp.clone(),
+                    });
                 }
                 // Success resets the chain regardless.
                 chain_start = None;

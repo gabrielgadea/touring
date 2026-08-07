@@ -93,6 +93,13 @@ const SKIP_DIRS: &[&str] = &[
     ".idea",
     ".vs",
     "coverage",
+    // Mutation-testing artifacts: a full mutated copy of the tree (mutmut /
+    // cosmic-ray write `mutants/`, cargo-mutants writes `mutants.out`). Every
+    // file inside is a near-identical clone of a source file by construction —
+    // counting them made F1.3 report 51% duplication on a package whose real
+    // src/ duplication was 3.1% (antt-process-analysis, 2026-08-02).
+    "mutants",
+    "mutants.out",
 ];
 
 /// Upper bound on concatenated directory source scanned per verifier (keeps large
@@ -130,6 +137,57 @@ pub fn read_target_source(target: &Path) -> Result<String> {
         }
     }
     Ok(out)
+}
+
+/// True when `path` sits under a machine-generated client/SDK tree: some ancestor
+/// (walking up to `root`, inclusive) carries an `.openapi-generator-ignore` file
+/// or an `.openapi-generator/` dir.
+///
+/// Generated trees are rewritten wholesale on regeneration, so their internal
+/// duplication is the GENERATOR's signature, never maintenance debt — jscpd and
+/// SonarQube exclude generated code from duplication for the same reason. ONLY
+/// F1.3 consults this: security/secret/CVE dims keep scanning generated code
+/// (the corpus-wide `@generated` content filter was tried on 2026-08-02 and
+/// reverted for exactly that blindness, plus 85 prose false-positives).
+pub(crate) fn is_under_generated_tree(path: &Path, root: &Path) -> bool {
+    let mut cur = path.parent();
+    while let Some(dir) = cur {
+        if dir.join(".openapi-generator-ignore").is_file() || dir.join(".openapi-generator").is_dir()
+        {
+            return true;
+        }
+        if dir == root {
+            break;
+        }
+        cur = dir.parent();
+    }
+    false
+}
+
+/// `read_target_source` minus machine-generated trees — the F1.3 duplication
+/// corpus. Returns the concatenated source plus HOW MANY files were excluded, so
+/// the caller can surface the exclusion in its evidence line (a silent filter
+/// would repeat the invisible-cap failure fixed on 2026-08-02).
+pub fn read_target_source_excluding_generated(target: &Path) -> Result<(String, usize)> {
+    if !target.is_dir() {
+        return read_target_source(target).map(|s| (s, 0));
+    }
+    let mut out = String::new();
+    let mut excluded = 0usize;
+    for p in enumerate_source_files(target) {
+        if is_under_generated_tree(&p, target) {
+            excluded += 1;
+            continue;
+        }
+        if let Ok(s) = std::fs::read_to_string(&p) {
+            out.push_str(&s);
+            out.push('\n');
+            if out.len() >= DIR_SCAN_BYTE_CAP {
+                return Ok((out, excluded));
+            }
+        }
+    }
+    Ok((out, excluded))
 }
 
 /// Strip Rust line comments (`//…`) and block comments (`/* … */`) from `src`
@@ -581,7 +639,22 @@ pub fn enumerate_source_files(root: &Path) -> Vec<std::path::PathBuf> {
                 .and_then(|e| e.to_str())
                 .is_some_and(|e| SOURCE_EXTS.contains(&e))
             {
-                files.push(p);
+                // Vendored/minified bundles (`lunr.pt.min.js`, `app.min.css`…)
+                // are machine-written single-line blobs, not project source —
+                // jscpd and SonarQube exclude `**/*.min.*` for the same reason.
+                let minified = p
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.contains(".min."));
+                // NOTE: a content-based `@generated` header filter was tried here
+                // (2026-08-02) and reverted: prose mentions ("Auto-generated test
+                // for…") false-positived 85 real source files in one package —
+                // and this enumeration feeds EVERY dim, so a false skip would
+                // also blind the secrets/CVE scans. Generated-but-committed SDKs
+                // therefore stay in scope; their duplication is visible debt.
+                if !minified {
+                    files.push(p);
+                }
             }
         }
     }
@@ -975,6 +1048,35 @@ pub fn run_verification(dim: DimId, target: &Path) -> Result<DimScore> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    /// Mutation-testing trees are near-identical clones of the source by
+    /// construction — enumerating them made F1.3 report 51% duplication on a
+    /// package whose real src/ duplication was 3.1% (2026-08-02).
+    #[test]
+    fn test_enumerate_skips_mutation_testing_dirs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::write(root.join("real.py"), "x = 1\n").expect("write");
+        for skip in ["mutants", "mutants.out"] {
+            let d = root.join(skip).join("src");
+            std::fs::create_dir_all(&d).expect("mkdir");
+            std::fs::write(d.join("clone.py"), "x = 1\n").expect("write");
+        }
+        let files = enumerate_source_files(root);
+        assert_eq!(files, vec![root.join("real.py")]);
+    }
+
+    /// Vendored minified bundles are machine-written blobs, not project source
+    /// (jscpd/SonarQube exclude `**/*.min.*` for the same reason).
+    #[test]
+    fn test_enumerate_skips_minified_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::write(root.join("app.js"), "let a = 1;\n").expect("write");
+        std::fs::write(root.join("lunr.pt.min.js"), "!function(){}();\n").expect("write");
+        let files = enumerate_source_files(root);
+        assert_eq!(files, vec![root.join("app.js")]);
+    }
 
     #[test]
     fn test_artifact_class_matches_by_name() {

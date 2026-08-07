@@ -663,10 +663,10 @@ pub async fn api_quality_rules_put(State(state): State<AppState>, body: String) 
         return Json(serde_json::json!({"error": format!("invalid TOML: {e}")}));
     }
     let path = quality_rules_path(&state.project_path);
-    if let Some(parent) = path.parent() {
-        if let Err(e) = tokio::fs::create_dir_all(parent).await {
-            return Json(serde_json::json!({"error": format!("mkdir failed: {e}")}));
-        }
+    if let Some(parent) = path.parent()
+        && let Err(e) = tokio::fs::create_dir_all(parent).await
+    {
+        return Json(serde_json::json!({"error": format!("mkdir failed: {e}")}));
     }
     match tokio::fs::write(&path, &body).await {
         Ok(()) => Json(serde_json::json!({
@@ -831,10 +831,9 @@ fn reshape_e2e_to_quality_signal(raw: &Value, root: &str) -> Value {
         if let (Some(name), Some(score)) = (
             p.get("phase").and_then(Value::as_str),
             p.get("score").and_then(Value::as_f64),
-        ) {
-            if score < min_phase.1 {
-                min_phase = (name.to_string(), score);
-            }
+        ) && score < min_phase.1
+        {
+            min_phase = (name.to_string(), score);
         }
     }
     let bottleneck = match min_phase.0.as_str() {

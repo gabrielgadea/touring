@@ -539,13 +539,13 @@ pub fn run_speculative(args: &[String]) -> anyhow::Result<()> {
                 println!("  ✓ [{rank}] {}", c.payload);
             }
         }
-        if prefix.len() < ranked.len() {
-            if let Some(c) = ranked.get(prefix.len()) {
-                println!(
-                    "  ✗ truncated at: {} (gateway Deny — nothing past it is drafted)",
-                    c.payload
-                );
-            }
+        if prefix.len() < ranked.len()
+            && let Some(c) = ranked.get(prefix.len())
+        {
+            println!(
+                "  ✗ truncated at: {} (gateway Deny — nothing past it is drafted)",
+                c.payload
+            );
         }
     }
 

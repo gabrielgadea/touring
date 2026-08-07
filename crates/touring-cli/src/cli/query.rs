@@ -37,15 +37,15 @@ pub fn cli_graph_flow(rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
         if !validate {
             return Some(identifier.to_string());
         }
-        if let Some(ref store) = rt.infra.symbol_store {
-            if let Ok(locations) = store.find_symbol(identifier) {
-                let loc = locations
-                    .iter()
-                    .find(|l| l.is_definition)
-                    .or_else(|| locations.first());
-                if let Some(loc) = loc {
-                    return Some(loc.file_path.clone());
-                }
+        if let Some(ref store) = rt.infra.symbol_store
+            && let Ok(locations) = store.find_symbol(identifier)
+        {
+            let loc = locations
+                .iter()
+                .find(|l| l.is_definition)
+                .or_else(|| locations.first());
+            if let Some(loc) = loc {
+                return Some(loc.file_path.clone());
             }
         }
         Some(identifier.to_string())
@@ -145,12 +145,12 @@ pub fn cli_graph_flow(rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
         }
         if let Some(neighbors) = adj.get(nodes[node]) {
             for next in neighbors {
-                if let Some(&ni) = idx.get(next.as_str()) {
-                    if !path.contains(&ni) {
-                        let mut new_path = path.clone();
-                        new_path.push(ni);
-                        queue.push_back((ni, new_path));
-                    }
+                if let Some(&ni) = idx.get(next.as_str())
+                    && !path.contains(&ni)
+                {
+                    let mut new_path = path.clone();
+                    new_path.push(ni);
+                    queue.push_back((ni, new_path));
                 }
             }
         }

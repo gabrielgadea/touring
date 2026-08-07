@@ -382,13 +382,12 @@ impl TouringServer {
 
         // Auto-embed via GPU service before storing (graceful degradation)
         let mut embedded = false;
-        if entry.embedding.is_none() {
-            if let Some(ref client) = self.embedder {
-                if let Some(emb) = client.embed_single(&value).await {
-                    entry = entry.with_embedding(emb);
-                    embedded = true;
-                }
-            }
+        if entry.embedding.is_none()
+            && let Some(ref client) = self.embedder
+            && let Some(emb) = client.embed_single(&value).await
+        {
+            entry = entry.with_embedding(emb);
+            embedded = true;
         }
 
         let mem = memory.lock().await;
@@ -445,10 +444,10 @@ impl TouringServer {
         }
 
         // Auto-embed query for hybrid search (cosine + FTS5)
-        if let Some(ref client) = self.embedder {
-            if let Some(emb) = client.embed_single(&p.query).await {
-                query.embedding = Some(emb);
-            }
+        if let Some(ref client) = self.embedder
+            && let Some(emb) = client.embed_single(&p.query).await
+        {
+            query.embedding = Some(emb);
         }
 
         let mem = memory.lock().await;

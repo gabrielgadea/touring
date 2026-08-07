@@ -177,6 +177,10 @@ pub struct GateMetricsSnapshot {
     /// Total docs committed across all stream flushes.
     #[serde(default)]
     pub tantivy_stream_flush_docs_count: u64,
+    /// Docs descartados no flush porque o índice do PROJETO não resolveu.
+    /// Fecha a contabilidade do stream junto com flush_docs e backpressure_drop.
+    #[serde(default)]
+    pub tantivy_stream_index_unavailable_drop_count: u64,
     /// File paths enqueued for predictive prefetch after MCTS shadow rollout.
     #[serde(default)]
     pub prefetch_enqueued_count: u64,
@@ -706,6 +710,9 @@ impl GateMetricsSnapshot {
             tantivy_stream_flush_count: m.tantivy_stream_flush_count.load(Ordering::Relaxed),
             tantivy_stream_flush_docs_count: m
                 .tantivy_stream_flush_docs_count
+                .load(Ordering::Relaxed),
+            tantivy_stream_index_unavailable_drop_count: m
+                .tantivy_stream_index_unavailable_drop_count
                 .load(Ordering::Relaxed),
             prefetch_enqueued_count: m.prefetch_enqueued_count.load(Ordering::Relaxed),
             prefetch_warmed_count: m.prefetch_warmed_count.load(Ordering::Relaxed),

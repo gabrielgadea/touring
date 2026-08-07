@@ -21,10 +21,20 @@ session-hooks = []
 nlp-enrichment = []
 utilities = []
 inventory-registry = ["dep:inventory"]
-# Pure cfg-gate: the gated code in health_delta.rs consumes the leaf's
-# mpatch_preview API, not mpatch directly (dep:mpatch stays in touring-hooks
-# for cli/handlers/dispatch.rs).
-mpatch-fuzzy = []
+# O código gated em health_delta.rs consome a API `mpatch_preview` da leaf, não
+# o `mpatch` direto (o `dep:mpatch` fica em touring-hooks, para
+# cli/handlers/dispatch.rs) — mas a feature TEM de ser propagada para a leaf.
+#
+# Até 03/08/2026 isto era `[]`, um cfg-gate puro. Todo o grafo desemboca aqui
+# (touring-cli, touring-hook-handlers e touring-dispatch apontam para
+# `touring-hooks-core/mpatch-fuzzy`), então ligar `mpatch-fuzzy` habilitava o
+# CHAMADOR (`cli_mpatch_preview`) e deixava o MOTOR
+# (`touring_hooks_shared::mpatch_preview::preview_patch`) no stub que devolve
+# `None`. Resultado: `{"matched": false}` para todo patch válido — falha
+# silenciosa em vez do honesto "feature not enabled". Os 3 testes de
+# `cli_mpatch_preview` só reprovam sob `--all-features`, que é o único perfil
+# onde a assimetria existe.
+mpatch-fuzzy = ["touring-hooks-shared/mpatch-fuzzy"]
 quantization = ["touring-simd/quantization"]
 
 [dependencies]

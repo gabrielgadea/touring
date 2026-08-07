@@ -139,15 +139,15 @@ impl TierManager {
     ///
     /// Promotion takes priority over demotion when both conditions are met.
     pub fn evaluate(&self, tier: TierLevel, access_count: u32, days_idle: u32) -> TierDecision {
-        if self.should_promote(tier, access_count) {
-            if let Some(next) = tier.promoted() {
-                return TierDecision::Promote(next);
-            }
+        if self.should_promote(tier, access_count)
+            && let Some(next) = tier.promoted()
+        {
+            return TierDecision::Promote(next);
         }
-        if self.should_demote(tier, days_idle) {
-            if let Some(prev) = tier.demoted() {
-                return TierDecision::Demote(prev);
-            }
+        if self.should_demote(tier, days_idle)
+            && let Some(prev) = tier.demoted()
+        {
+            return TierDecision::Demote(prev);
         }
         TierDecision::Keep
     }

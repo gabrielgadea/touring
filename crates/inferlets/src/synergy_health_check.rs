@@ -52,14 +52,14 @@ fn check_touring_ast_orphan(wired_pairs: &[serde_json::Value]) -> Option<Issue> 
         if let (Some(source), Some(target)) = (
             pair.get("source").and_then(|v| v.as_str()),
             pair.get("target").and_then(|v| v.as_str()),
-        ) {
-            if source.contains("touring-ast") && target.contains("unconsumed") {
-                return Some(Issue {
-                    pair: format!("{}→{}", source, target),
-                    severity: "medium".to_string(),
-                    description: "touring-ast module has no registered consumers".to_string(),
-                });
-            }
+        ) && source.contains("touring-ast")
+            && target.contains("unconsumed")
+        {
+            return Some(Issue {
+                pair: format!("{}→{}", source, target),
+                severity: "medium".to_string(),
+                description: "touring-ast module has no registered consumers".to_string(),
+            });
         }
     }
     None
@@ -229,21 +229,21 @@ pub(crate) fn evaluate_raw(input: &str) -> i32 {
     let mut issues = Vec::new();
 
     // Run checks
-    if let Some(ref json) = wiring_json {
-        if let Some(pairs) = json.get("wired_pairs").and_then(|p| p.as_array()) {
-            // Check for known broken patterns
-            if let Some(issue) = check_touring_ast_orphan(pairs) {
-                issues.push(issue);
-            }
-
-            // Check for missing integrations
-            let missing_issues = check_missing_integrations(pairs);
-            issues.extend(missing_issues);
-
-            // Check for low integration scores
-            let low_score_issues = check_low_integration_score(pairs);
-            issues.extend(low_score_issues);
+    if let Some(ref json) = wiring_json
+        && let Some(pairs) = json.get("wired_pairs").and_then(|p| p.as_array())
+    {
+        // Check for known broken patterns
+        if let Some(issue) = check_touring_ast_orphan(pairs) {
+            issues.push(issue);
         }
+
+        // Check for missing integrations
+        let missing_issues = check_missing_integrations(pairs);
+        issues.extend(missing_issues);
+
+        // Check for low integration scores
+        let low_score_issues = check_low_integration_score(pairs);
+        issues.extend(low_score_issues);
     }
 
     let score = calculate_score(filtered.len(), &issues);

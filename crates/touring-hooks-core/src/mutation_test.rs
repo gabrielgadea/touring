@@ -320,12 +320,11 @@ pub fn cache_load(cache_root: &Path, package: Option<&str>) -> Result<Option<Mut
         return Ok(None);
     }
     let metadata = fs::metadata(&path)?;
-    if let Ok(modified) = metadata.modified() {
-        if let Ok(age) = modified.elapsed() {
-            if age.as_secs() > CACHE_STALE_SECS {
-                return Ok(None);
-            }
-        }
+    if let Ok(modified) = metadata.modified()
+        && let Ok(age) = modified.elapsed()
+        && age.as_secs() > CACHE_STALE_SECS
+    {
+        return Ok(None);
     }
     let bytes = fs::read(&path)?;
     let report: MutationReport =

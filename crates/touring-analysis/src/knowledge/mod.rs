@@ -52,13 +52,11 @@ pub fn analyze_knowledge(conn: &rusqlite::Connection) -> KnowledgeReport {
     if let Ok(mut stmt) = conn.prepare(&format!(
         "SELECT language, COUNT(*) FROM {file_table} \
          WHERE language IS NOT NULL GROUP BY language ORDER BY COUNT(*) DESC"
-    )) {
-        if let Ok(rows) = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
-        }) {
-            for row in rows.flatten() {
-                language_distribution.insert(row.0, row.1);
-            }
+    )) && let Ok(rows) = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+    }) {
+        for row in rows.flatten() {
+            language_distribution.insert(row.0, row.1);
         }
     }
 

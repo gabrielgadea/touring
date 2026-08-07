@@ -225,10 +225,10 @@ impl BlastRadiusEngine {
         result.duration_ms = pipeline_start.elapsed().as_millis() as u64;
 
         // Enforce budget truncation post-hoc
-        if let Some(budget) = config.budget_ms {
-            if result.duration_ms > budget {
-                result.truncated = true;
-            }
+        if let Some(budget) = config.budget_ms
+            && result.duration_ms > budget
+        {
+            result.truncated = true;
         }
 
         result

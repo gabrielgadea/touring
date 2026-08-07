@@ -101,10 +101,10 @@ impl Theme {
 
         if config_path.exists() {
             let content = std::fs::read_to_string(&config_path).ok();
-            if let Some(c) = content {
-                if let Ok(theme) = toml::from_str::<Theme>(&c) {
-                    return theme;
-                }
+            if let Some(c) = content
+                && let Ok(theme) = toml::from_str::<Theme>(&c)
+            {
+                return theme;
             }
         }
         Self::default()

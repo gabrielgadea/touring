@@ -491,12 +491,11 @@ impl CognitiveRuntime {
     /// Falls back to empty vec if no knowledge source is connected.
     fn get_coedit_pairs_cached(&self) -> Vec<CoEditPair> {
         // Fast path: check cache under read lock
-        if let Ok(cache) = self.coedit_cache.read() {
-            if let Some(ref cached) = *cache {
-                if cached.fetched_at.elapsed().as_secs() < COEDIT_CACHE_TTL_SECS {
-                    return cached.pairs.clone();
-                }
-            }
+        if let Ok(cache) = self.coedit_cache.read()
+            && let Some(ref cached) = *cache
+            && cached.fetched_at.elapsed().as_secs() < COEDIT_CACHE_TTL_SECS
+        {
+            return cached.pairs.clone();
         }
 
         // Slow path: fetch fresh and update cache

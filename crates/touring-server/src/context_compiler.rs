@@ -817,10 +817,10 @@ fn compute_cache_key(intent: &str, files: &[String]) -> String {
 
         // S0.3: Include mtime for cache invalidation on file edit.
         // Gracefully skips if file doesn't exist or mtime unavailable.
-        if let Ok(meta) = std::fs::metadata(f) {
-            if let Ok(mtime) = meta.modified() {
-                mtime.hash(&mut hasher);
-            }
+        if let Ok(meta) = std::fs::metadata(f)
+            && let Ok(mtime) = meta.modified()
+        {
+            mtime.hash(&mut hasher);
         }
     }
     format!("{:016x}", hasher.finish())

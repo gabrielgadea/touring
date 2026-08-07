@@ -158,19 +158,19 @@ impl TestGenerationHandler {
         let mut types = Vec::new();
 
         // Find parentheses content
-        if let Some(start) = signature.find('(') {
-            if let Some(end) = signature.find(')') {
-                let params = &signature[start + 1..end];
-                for param in params.split(',') {
-                    let param = param.trim();
-                    // Extract type (after colon if present)
-                    if let Some(col_pos) = param.find(':') {
-                        let type_str = param[col_pos + 1..].trim();
-                        types.push(type_str.to_string());
-                    } else if !param.is_empty() && !param.starts_with("fn ") {
-                        // Likely a bare type
-                        types.push(param.to_string());
-                    }
+        if let Some(start) = signature.find('(')
+            && let Some(end) = signature.find(')')
+        {
+            let params = &signature[start + 1..end];
+            for param in params.split(',') {
+                let param = param.trim();
+                // Extract type (after colon if present)
+                if let Some(col_pos) = param.find(':') {
+                    let type_str = param[col_pos + 1..].trim();
+                    types.push(type_str.to_string());
+                } else if !param.is_empty() && !param.starts_with("fn ") {
+                    // Likely a bare type
+                    types.push(param.to_string());
                 }
             }
         }

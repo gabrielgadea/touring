@@ -9,30 +9,65 @@ use crate::cli::params::{str_opt, str_or, str_or_empty};
 use crate::cli_handlers::{ensure_decompose_tables, keyword_skill_match};
 use crate::runtime::HookRuntime;
 use rusqlite::params;
+use touring_intelligence::rl::bandit::extract_features_rich;
+
+/// Select a bandit arm for a query-only decision.
+///
+/// Two defects fixed here on 04/08/2026, both proven by running
+/// `touring suggest next`, which answered with a constant fallback for every
+/// input:
+///
+/// 1. The caller read `rt.learning.bandit` directly. That field is materialised
+///    lazily by `HookRuntime::get_bandit`, so reading it first always saw `None`
+///    and the trained LinUCB was never consulted.
+/// 2. The feature vector was 6 elements — `[query.len()/100, 0, 0, 0, 0, 0]` —
+///    against a space of `FEATURE_DIM = 25`. Worse than the rank mismatch: in
+///    the trained space slot 0 is the "file type is Python" one-hot, so that
+///    wrote a string length into a categorical indicator.
+///
+/// There is no query-text feature in the 25-dim space, so a query-only call
+/// contributes the neutral context and lets the bandit answer from what it has
+/// learned generally. Enriching this space with query features is a separate,
+/// deliberate change — silently reusing another feature's slot is not.
+fn select_query_arm(rt: &mut HookRuntime) -> (usize, f64) {
+    let features = extract_features_rich(
+        "other", // file type: a query names no file
+        0,       // file size
+        0,       // session turn
+        0,       // recent errors
+        0,       // cila level
+        None,    // quality score
+        None,    // file risk
+        None,    // session error count
+        None,    // recent tool success rate
+        None,    // hour of day
+    );
+    let slice = features.as_slice().unwrap_or(&[]);
+    rt.get_bandit().select_arm(slice)
+}
 
 /// Suggests the next action for a query via the LinUCB bandit, returning the hint as JSON.
 pub fn cli_suggest_next(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let query = payload.get("query").and_then(|v| v.as_str()).unwrap_or("");
-    let suggestion = if let Some(ref mut bandit) = rt.learning.bandit {
-        let features: Vec<f64> = vec![query.len() as f64 / 100.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let (arm_idx, confidence) = bandit.select_arm(&features);
-        serde_json::json!(
-            { "suggested_action" : arm_idx, "confidence" : confidence, "source" :
-            "linucb_bandit" }
-        )
-    } else {
-        serde_json::json!(
-            { "suggested_action" : "explore", "confidence" : 0.5, "source" : "fallback" }
-        )
-    };
-    suggestion.to_string()
+    let (arm_idx, confidence) = select_query_arm(rt);
+    // `query` is echoed, not consumed: the 25-dim space carries no query-text
+    // feature, so the arm reflects learned context only. Echoing it keeps the
+    // caller's input visible instead of silently discarding it, and makes the
+    // gap measurable — see `select_query_arm`.
+    serde_json::json!(
+        { "suggested_action" : arm_idx, "confidence" : confidence, "source" :
+        "linucb_bandit", "query" : query, "query_informed_selection" : false }
+    )
+    .to_string()
 }
 /// Suggests a relevant skill for a query via keyword matching, returning the match as JSON.
 pub fn cli_suggest_skill(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let query = payload.get("query").and_then(|v| v.as_str()).unwrap_or("");
-    let skills: Vec<serde_json::Value> = if let Some(ref mut bandit) = rt.learning.bandit {
-        let features: Vec<f64> = vec![query.len() as f64 / 100.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let (arm_idx, confidence) = bandit.select_arm(&features);
+    let skills: Vec<serde_json::Value> = {
+        // Same fix as `cli_suggest_next`: consult the lazily-materialised bandit
+        // through `get_bandit()` with a correctly-ranked 25-dim vector, instead
+        // of reading a `None` field with a 6-element one.
+        let (arm_idx, confidence) = select_query_arm(rt);
         let arm_skills: Vec<(&str, &str, &str)> = match arm_idx {
             0 => {
                 vec![
@@ -158,7 +193,7 @@ pub fn cli_suggest_skill(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 ]
             }
         };
-        arm_skills
+        let mut merged: Vec<serde_json::Value> = arm_skills
             .into_iter()
             .map(|(skill, relevance, description)| {
                 serde_json::json!(
@@ -167,9 +202,28 @@ pub fn cli_suggest_skill(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                     : "linucb_bandit" }
                 )
             })
-            .collect()
-    } else {
-        keyword_skill_match(query)
+            .collect();
+
+        // Keep the keyword match: it is the only QUERY-AWARE signal here, since
+        // the 25-dim bandit space carries no query text. It used to sit in an
+        // `else` branch reachable only when the bandit was absent — which, given
+        // the `None`-field bug, was in practice the only branch that ever ran.
+        // Merging keeps both signals rather than trading one for the other.
+        let already = |list: &[serde_json::Value], name: &str| {
+            list.iter()
+                .any(|s| s.get("skill").and_then(|v| v.as_str()) == Some(name))
+        };
+        for candidate in keyword_skill_match(query) {
+            let name = candidate
+                .get("skill")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string();
+            if name.is_empty() || !already(&merged, &name) {
+                merged.push(candidate);
+            }
+        }
+        merged
     };
     serde_json::json!({ "query" : query, "skills" : skills, "count" : skills.len() }).to_string()
 }

@@ -116,6 +116,18 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
     if key.is_empty() || value.is_empty() {
         return serde_json::json!({ "error" : "key and value are required" }).to_string();
     }
+    // The measured outcome of this case, if the caller knows it. Absent stays
+    // NULL: an unobserved case is not a failed one, and recording 0.0 for
+    // "unknown" would teach a value-ranked recall that unmeasured means bad.
+    let outcome_reward = payload
+        .get("reward")
+        .or_else(|| payload.get("outcome_reward"))
+        .and_then(serde_json::Value::as_f64)
+        .map(|r| r.clamp(-1.0, 1.0));
+    let outcome_context = payload
+        .get("outcome_context")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty());
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     if let Some(parent) = memory_db_path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -135,10 +147,25 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
                 conn.execute("DROP TABLE IF EXISTS memory_entries", [])?;
                 conn.execute(CREATE_MEMORY_ENTRIES, [])?;
             }
+            // The `r` of a case `(s, a, r)` — Memento Eq. 12. Added idempotently
+            // so an existing store gains the columns without a destructive
+            // rebuild (`ALTER TABLE` errors when the column is already there,
+            // which is exactly the "already migrated" signal, hence `.ok()`).
             conn.execute(
-                "INSERT OR REPLACE INTO memory_entries (key, value, tier, entry_type, access_count, last_accessed_at)
-             VALUES (?1, ?2, ?3, ?4, COALESCE((SELECT access_count FROM memory_entries WHERE key = ?1), 0) + 1, datetime('now'))",
-                params![key, value, tier, entry_type],
+                "ALTER TABLE memory_entries ADD COLUMN outcome_reward REAL",
+                [],
+            )
+            .ok();
+            conn.execute(
+                "ALTER TABLE memory_entries ADD COLUMN outcome_context TEXT",
+                [],
+            )
+            .ok();
+
+            conn.execute(
+                "INSERT OR REPLACE INTO memory_entries (key, value, tier, entry_type, access_count, last_accessed_at, outcome_reward, outcome_context)
+             VALUES (?1, ?2, ?3, ?4, COALESCE((SELECT access_count FROM memory_entries WHERE key = ?1), 0) + 1, datetime('now'), ?5, ?6)",
+                params![key, value, tier, entry_type, outcome_reward, outcome_context],
             )?;
             Ok(())
         });
@@ -214,10 +241,10 @@ impl crate::gateway::deps::LearnRuntime for crate::runtime::HookRuntime {
 // `HookRuntime` field it abstracts; fail-open by construction.
 impl crate::gateway::deps::CegRuntime for crate::runtime::HookRuntime {
     fn record_tool_outcome(&self, event_type: &str, payload: &[u8]) {
-        if let (Some(actor), Some(ledger)) = (&self.actor_id, &self.cross_agent_ledger) {
-            if let Err(e) = ledger.write_event(actor, event_type, payload) {
-                tracing::debug!(error = %e, "cross-agent ledger write_event failed (fail-open)");
-            }
+        if let (Some(actor), Some(ledger)) = (&self.actor_id, &self.cross_agent_ledger)
+            && let Err(e) = ledger.write_event(actor, event_type, payload)
+        {
+            tracing::debug!(error = %e, "cross-agent ledger write_event failed (fail-open)");
         }
     }
 

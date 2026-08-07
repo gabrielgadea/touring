@@ -295,17 +295,17 @@ pub fn validate_glob_pattern(pattern: &str, workspace_root: Option<&Path>) -> Gl
     }
 
     // ── 3. Base-directory existence check ────────────────────────────────────
-    if let Some(root) = workspace_root {
-        if let Some(missing) = nonexistent_base(pattern, root) {
-            return GlobValidationResult::Likely {
-                category: GlobErrorCategory::NonexistentBase,
-                hint: format!(
-                    "glob[nonexistent-base]: base directory `{missing}` does not exist. \
+    if let Some(root) = workspace_root
+        && let Some(missing) = nonexistent_base(pattern, root)
+    {
+        return GlobValidationResult::Likely {
+            category: GlobErrorCategory::NonexistentBase,
+            hint: format!(
+                "glob[nonexistent-base]: base directory `{missing}` does not exist. \
                      {}",
-                    GlobErrorCategory::NonexistentBase.prevention()
-                ),
-            };
-        }
+                GlobErrorCategory::NonexistentBase.prevention()
+            ),
+        };
     }
 
     // ── 4. Pattern-too-broad check ───────────────────────────────────────────

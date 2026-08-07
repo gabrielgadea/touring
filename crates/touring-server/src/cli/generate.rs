@@ -1243,10 +1243,9 @@ fn run_autonomous(intent: &str, is_json: bool) -> anyhow::Result<()> {
     if let (Some(contracts), Some(plan_obj)) = (
         suggestion.get("suggested_contracts"),
         plan_value.as_object_mut(),
-    ) {
-        if contracts.is_object() {
-            plan_obj.insert("contracts".to_string(), contracts.clone());
-        }
+    ) && contracts.is_object()
+    {
+        plan_obj.insert("contracts".to_string(), contracts.clone());
     }
 
     let plan_json = serde_json::to_string(&plan_value)?;

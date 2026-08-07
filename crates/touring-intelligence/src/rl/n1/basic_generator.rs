@@ -375,14 +375,14 @@ pub fn validate_sequence(seq: &GeneratedSequence, objective: &ObjectiveSpec) -> 
     let mut failures = Vec::new();
 
     // Check tool call count
-    if let Some(max) = seq.validation.max_tool_calls {
-        if seq.tool_calls.len() > max {
-            failures.push(format!(
-                "Sequence has {} tool calls, exceeds maximum {}",
-                seq.tool_calls.len(),
-                max
-            ));
-        }
+    if let Some(max) = seq.validation.max_tool_calls
+        && seq.tool_calls.len() > max
+    {
+        failures.push(format!(
+            "Sequence has {} tool calls, exceeds maximum {}",
+            seq.tool_calls.len(),
+            max
+        ));
     }
 
     // Check all targets are covered

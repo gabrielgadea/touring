@@ -363,10 +363,10 @@ impl MemoryStore {
     /// Embeds the query string first, then runs hybrid search.
     pub async fn query_with_embedding(&self, mut query: MemoryQuery) -> Result<MemoryResult> {
         // Auto-embed the query if embedder is available and no embedding provided
-        if query.embedding.is_none() {
-            if let Some(client) = &self.embedder {
-                query.embedding = client.embed_single(&query.query).await;
-            }
+        if query.embedding.is_none()
+            && let Some(client) = &self.embedder
+        {
+            query.embedding = client.embed_single(&query.query).await;
         }
         self.query(query)
     }

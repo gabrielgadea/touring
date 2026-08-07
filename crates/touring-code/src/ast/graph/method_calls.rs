@@ -75,10 +75,10 @@ fn extract_method_calls_inner(
     let mut names: HashSet<String> = HashSet::new();
     while let Some(m) = matches.next() {
         for capture in m.captures {
-            if let Ok(text) = capture.node.utf8_text(source.as_bytes()) {
-                if !text.is_empty() {
-                    names.insert(text.to_string());
-                }
+            if let Ok(text) = capture.node.utf8_text(source.as_bytes())
+                && !text.is_empty()
+            {
+                names.insert(text.to_string());
             }
         }
     }

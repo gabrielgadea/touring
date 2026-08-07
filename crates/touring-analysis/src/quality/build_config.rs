@@ -140,10 +140,10 @@ fn has_key_in(profile_bytes: &[u8], key: &[u8]) -> bool {
     while let Some(rel) = memmem::find(&profile_bytes[search_from..], key) {
         let off = search_from + rel;
         search_from = off + key.len();
-        if let Some(&prev) = profile_bytes.get(off.checked_sub(1).unwrap_or(usize::MAX)) {
-            if prev.is_ascii_alphanumeric() || prev == b'_' || prev == b'-' {
-                continue;
-            }
+        if let Some(&prev) = profile_bytes.get(off.checked_sub(1).unwrap_or(usize::MAX))
+            && (prev.is_ascii_alphanumeric() || prev == b'_' || prev == b'-')
+        {
+            continue;
         }
         let after = off + key.len();
         let mut i = after;

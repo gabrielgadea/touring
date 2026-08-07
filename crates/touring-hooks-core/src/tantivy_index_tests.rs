@@ -110,6 +110,254 @@ fn test_open_existing_index() {
     assert!(!hits.is_empty(), "data should persist across open");
 }
 
+/// Caracterização da identidade do documento — a base factual da estratégia de
+/// particionamento por projeto (03/08/2026).
+///
+/// `doc_id = blake3(symbol_name | file_path | line_number)` e `upsert_symbol`
+/// executa `delete_term(blake3_hash == doc_id)` **antes** de `add_document`.
+/// Como `file_path` é gravado **relativo**, dois projetos que compartilhem
+/// `(símbolo, caminho relativo, linha)` produzem o MESMO `doc_id` — e num índice
+/// compartilhado o segundo write **remove** o primeiro.
+///
+/// A superfície medida em `~/projects`: `README.md` existe em 8 projetos,
+/// `.gitignore` em 8, `pyproject.toml` em 6, `Cargo.toml` em 5.
+///
+/// Este teste é o árbitro da hipótese: 1 documento ⇒ eviction confirmada;
+/// 2 ⇒ a leitura do código estava errada e a prioridade da frente cai.
+/// `crate_name` difere entre os dois docs justamente para mostrar que um campo
+/// distinto **não** participa da identidade.
+#[test]
+fn identical_relative_coordinates_collapse_to_one_document() {
+    let (idx, _dir) = make_index();
+
+    let mut from_project_a = symbol("title", "README.md", "heading");
+    from_project_a.crate_name = Some("projeto-a".to_string());
+    let mut from_project_b = symbol("title", "README.md", "heading");
+    from_project_b.crate_name = Some("projeto-b".to_string());
+
+    idx.upsert_symbol(&from_project_a).expect("upsert A");
+    idx.upsert_symbol(&from_project_b).expect("upsert B");
+    idx.commit().expect("commit");
+
+    let hits = idx.search("title", 10).expect("search");
+    assert_eq!(
+        hits.len(),
+        1,
+        "coordenadas relativas idênticas compartilham doc_id — o segundo write \
+         evicta o primeiro. Vieram {} docs: {:?}",
+        hits.len(),
+        hits.iter().map(|h| h.crate_name.clone()).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        hits[0].crate_name.as_deref(),
+        Some("projeto-b"),
+        "o sobrevivente é o ÚLTIMO a escrever — o primeiro projeto perdeu o documento"
+    );
+}
+
+/// A partição por diretório é o que **resolve** a eviction caracterizada em
+/// `identical_relative_coordinates_collapse_to_one_document`.
+///
+/// Dois projetos com o mesmo `README.md:1::title` vão para índices distintos, de
+/// modo que ambos sobrevivem. Note que o schema NÃO mudou: a propriedade vem do
+/// particionamento, não de um campo novo — o que importa porque uma mudança de
+/// schema dispara o ramo de recuperação que APAGA o diretório.
+#[test]
+fn separate_index_dirs_let_both_projects_keep_their_document() {
+    let project_a = TempDir::new().expect("tempdir A");
+    let project_b = TempDir::new().expect("tempdir B");
+    let idx_a = TantivyIndex::open_or_create(project_a.path()).expect("open A");
+    let idx_b = TantivyIndex::open_or_create(project_b.path()).expect("open B");
+
+    let mut doc_a = symbol("title", "README.md", "heading");
+    doc_a.crate_name = Some("projeto-a".to_string());
+    let mut doc_b = symbol("title", "README.md", "heading");
+    doc_b.crate_name = Some("projeto-b".to_string());
+
+    idx_a.upsert_symbol(&doc_a).expect("upsert A");
+    idx_b.upsert_symbol(&doc_b).expect("upsert B");
+    idx_a.commit().expect("commit A");
+    idx_b.commit().expect("commit B");
+
+    let hits_a = idx_a.search("title", 10).expect("search A");
+    let hits_b = idx_b.search("title", 10).expect("search B");
+    assert_eq!(hits_a.len(), 1, "A mantém o seu");
+    assert_eq!(hits_b.len(), 1, "B mantém o seu");
+    assert_eq!(hits_a[0].crate_name.as_deref(), Some("projeto-a"));
+    assert_eq!(
+        hits_b[0].crate_name.as_deref(),
+        Some("projeto-b"),
+        "cada projeto conserva o SEU documento — nenhum evictou o outro"
+    );
+}
+
+/// O registry devolve o MESMO ponteiro para a mesma raiz.
+///
+/// Guarda contra o risco R3 da estratégia: `Box::leak` por resolução vazaria sem
+/// limite se cada chamada abrisse um índice novo. O vazamento tem de ser
+/// proporcional ao número de PROJETOS, não ao de chamadas.
+#[test]
+fn the_registry_returns_one_index_per_root() {
+    let project = TempDir::new().expect("tempdir");
+    let root = project.path();
+    // O root precisa de um marcador real, senão `normalize_project_root` sobe
+    // até $HOME e duas raízes de teste colapsariam no mesmo diretório.
+    std::fs::create_dir_all(root.join(".git")).expect("marcador de projeto");
+
+    let first = tantivy_for(Some(root)).expect("primeira resolução");
+    let second = tantivy_for(Some(root)).expect("segunda resolução");
+    assert!(
+        std::ptr::eq(first, second),
+        "a mesma raiz tem de devolver o mesmo índice — senão o Box::leak vaza por chamada"
+    );
+
+    let other = TempDir::new().expect("tempdir 2");
+    std::fs::create_dir_all(other.path().join(".git")).expect("marcador");
+    let third = tantivy_for(Some(other.path())).expect("outra raiz");
+    assert!(
+        !std::ptr::eq(first, third),
+        "raízes distintas têm de devolver índices distintos"
+    );
+}
+
+/// A fachada histórica continua servindo o índice legado global — é o que torna
+/// a conversão dos ~41 chamadores incremental, com o sistema verde em cada passo.
+/// ⚠ Este teste APONTA `HOME` PARA UM TEMPDIR — de propósito.
+///
+/// A fachada resolve `$HOME/.claude/touring/tantivy`, e `open_or_create` CRIA o
+/// diretório. Rodando contra o `HOME` real, a suíte **recriava** o índice legado
+/// que a F5b tinha acabado de aposentar — um teste unitário escrevendo no
+/// ambiente do usuário e desfazendo uma migração (achado do cross-audit
+/// 2026-08-03, comprovado: diretório ausente antes do teste, presente depois).
+///
+/// `HOME` é global ao processo, daí o `#[serial]`.
+#[test]
+#[serial_test::serial(tantivy_home_env)]
+#[expect(
+    deprecated,
+    reason = "este teste É o guardião da fachada depreciada: enquanto `global_tantivy` \
+              existir, tem de continuar equivalente a `tantivy_for(None)`. Some junto com ela."
+)]
+fn the_legacy_facade_resolves_to_the_shared_global_index() {
+    let fake_home = TempDir::new().expect("tempdir HOME");
+    let real_home = std::env::var_os("HOME");
+    // SAFETY: serializado por `#[serial]`; nenhum outro teste lê HOME em paralelo.
+    unsafe { std::env::set_var("HOME", fake_home.path()) };
+
+    let via_facade = global_tantivy();
+    let via_none = tantivy_for(None);
+    match (via_facade, via_none) {
+        (Some(a), Some(b)) => assert!(
+            std::ptr::eq(a, b),
+            "global_tantivy() tem de ser exatamente tantivy_for(None)"
+        ),
+        (None, None) => { /* índice global indisponível no ambiente — coerente */ }
+        _ => {
+            restore_home(real_home);
+            panic!("fachada e tantivy_for(None) divergiram");
+        }
+    }
+    restore_home(real_home);
+}
+
+/// Devolve `HOME` ao valor original. Chamado também no caminho de falha — um
+/// `panic!` com `HOME` apontando para um tempdir já removido contaminaria todo
+/// teste subsequente do binário.
+fn restore_home(original: Option<std::ffi::OsString>) {
+    // SAFETY: chamado apenas dentro de testes marcados `#[serial]`.
+    unsafe {
+        match original {
+            Some(h) => std::env::set_var("HOME", h),
+            None => std::env::remove_var("HOME"),
+        }
+    }
+}
+
+/// Regressão do incidente 2026-08-03: **dois daemons legítimos, um índice**.
+///
+/// A topologia per-project (Pln2 L4) permite N daemons vivos — o global e um por
+/// projeto pinado. Todos resolvem o índice Tantivy para o MESMO diretório
+/// (`$HOME/.claude/touring/tantivy`), e o *writer lock* do Tantivy é exclusivo:
+/// quem abre primeiro ganha, os demais recebiam `Err` de `open_or_create` e
+/// ficavam **permanentemente** sem FTS (o singleton é `OnceLock` — cacheia o
+/// `None` para sempre). Observado ao vivo: daemon global PID 43304 sem nenhum fd
+/// em tantivy enquanto o daemon de `~/projects/analise` (PID 68025) segurava
+/// `.tantivy-writer.lock` com lock exclusivo (`lsof` FD `10wW`; `flock` de um
+/// terceiro processo retornou `EWOULDBLOCK`).
+///
+/// A leitura **nunca** precisou desse lock — só a escrita. Abrir o índice tem de
+/// degradar para somente-leitura em vez de falhar por inteiro.
+#[test]
+fn a_second_opener_reads_while_the_first_holds_the_writer_lock() {
+    let dir = TempDir::new().expect("tempdir");
+    let first = TantivyIndex::open_or_create(dir.path()).expect("first open");
+    first
+        .upsert_symbol(&symbol("SharedSymbol", "src/shared.rs", "struct"))
+        .expect("upsert");
+    first.commit().expect("commit");
+    assert!(first.is_writable(), "o primeiro a abrir detém o writer lock");
+
+    // O segundo daemon abre o MESMO diretório enquanto `first` ainda vive.
+    let second = TantivyIndex::open_or_create(dir.path())
+        .expect("segundo opener não pode falhar — leitura não usa o writer lock");
+    assert!(
+        !second.is_writable(),
+        "o writer lock é exclusivo: o segundo opener fica somente-leitura"
+    );
+
+    let hits = second
+        .search("SharedSymbol", 10)
+        .expect("busca a partir do segundo opener");
+    assert!(
+        !hits.is_empty(),
+        "o segundo opener tem de LER o índice compartilhado (era o sintoma: 0 hits + erro)"
+    );
+}
+
+/// A escrita a partir de um handle somente-leitura falha de forma **explícita** —
+/// nunca em silêncio. Um upsert perdido sem erro reapareceria como "o índice está
+/// desatualizado" horas depois, longe da causa (constituição: *falhe loud*).
+#[test]
+fn a_read_only_handle_rejects_writes_with_an_explicit_error() {
+    let dir = TempDir::new().expect("tempdir");
+    let _holder = TantivyIndex::open_or_create(dir.path()).expect("holder");
+    let read_only = TantivyIndex::open_or_create(dir.path()).expect("read-only opener");
+    assert!(!read_only.is_writable());
+
+    let err = read_only
+        .upsert_symbol(&symbol("Rejected", "src/r.rs", "fn"))
+        .expect_err("upsert em handle somente-leitura tem de falhar")
+        .to_string();
+    assert!(
+        err.contains("read-only"),
+        "o erro precisa nomear a condição real, veio: {err}"
+    );
+}
+
+/// Quando o detentor do lock some, o handle degradado **se recupera sozinho** no
+/// próximo write — sem exigir restart. Era o segundo meio do bug: mesmo que o
+/// outro daemon morresse, o handle continuava estéril.
+#[test]
+fn a_degraded_handle_reacquires_the_writer_after_the_holder_goes_away() {
+    let dir = TempDir::new().expect("tempdir");
+    let degraded = {
+        let _holder = TantivyIndex::open_or_create(dir.path()).expect("holder");
+        let degraded = TantivyIndex::open_or_create(dir.path()).expect("second opener");
+        assert!(!degraded.is_writable(), "nasce somente-leitura");
+        degraded
+        // `_holder` é dropado aqui — o writer lock é liberado.
+    };
+
+    degraded
+        .upsert_symbol(&symbol("Recovered", "src/rec.rs", "struct"))
+        .expect("o writer tem de ser readquirido sob demanda");
+    degraded.commit().expect("commit após reaquisição");
+    assert!(degraded.is_writable(), "o handle voltou a ser gravável");
+
+    let hits = degraded.search("Recovered", 5).expect("search");
+    assert!(!hits.is_empty(), "o documento gravado tem de estar visível");
+}
+
 #[test]
 fn test_expanded_schema_fields() {
     let (idx, _dir) = make_index();
@@ -395,6 +643,97 @@ fn sample_doc(hash: &str, tool: &str) -> ToolOutputDoc {
         stored_at_unix: 1_700_000_000,
         tool_args: None,
     }
+}
+
+/// O SEGUNDO opener do índice de tool-outputs degrada para somente-leitura.
+///
+/// O `TantivyIndex` tinha essa prova desde a F1; o `ToolOutputsIndex` **não** —
+/// lacuna encontrada no cross-audit de 04/08/2026. Sem ela, a correção
+/// reader-first aplicada a este índice nunca havia sido exercitada.
+#[test]
+fn a_second_tool_outputs_opener_degrades_to_read_only() {
+    let dir = TempDir::new().expect("tempdir");
+    let first = ToolOutputsIndex::open_or_create(dir.path()).expect("primeiro opener");
+    assert!(first.is_writable(), "o primeiro detém o writer lock");
+
+    let second = ToolOutputsIndex::open_or_create(dir.path())
+        .expect("segundo opener não pode falhar — leitura não usa o writer lock");
+    assert!(
+        !second.is_writable(),
+        "o writer lock é exclusivo: o segundo fica somente-leitura"
+    );
+
+    let err = second
+        .store_tool_output(&sample_doc("hash-ro", "Bash"))
+        .expect_err("escrita em handle somente-leitura tem de falhar")
+        .to_string();
+    assert!(
+        err.contains("read-only"),
+        "o erro nomeia a condição real, veio: {err}"
+    );
+}
+
+/// `reset_tool_outputs_global` NÃO esvazia o registry — de propósito.
+///
+/// As entradas são `Box::leak`; limpá-las as tornaria inalcançáveis sem
+/// liberá-las, criando um vazamento proporcional ao número de RESETS em vez de
+/// projetos (cross-audit 04/08/2026). Como a chave é o diretório, um `HOME`
+/// diferente já resolve para outra entrada — esvaziar não traz benefício.
+#[test]
+fn reset_keeps_the_registry_so_leaked_indices_stay_reachable() {
+    let project = TempDir::new().expect("tempdir");
+    std::fs::create_dir_all(project.path().join(".git")).expect("marcador");
+
+    let before = tool_outputs_for(Some(project.path())).expect("primeira resolução");
+    reset_tool_outputs_global();
+    let after = tool_outputs_for(Some(project.path())).expect("após reset");
+
+    assert!(
+        std::ptr::eq(before, after),
+        "o reset não pode abandonar o índice já vazado — a mesma raiz devolve o \
+         MESMO ponteiro, senão cada reset vaza um índice inteiro"
+    );
+}
+
+/// O índice de tool-outputs é particionado por projeto, como o de símbolos.
+///
+/// Era o último representante da classe de defeito (singleton global, path fixo
+/// em `$HOME`, `None` cacheado para sempre, writer lock exclusivo, e um `unsafe`
+/// com ponteiro cru como remendo de teste). Corrigido no cross-audit 03/08/2026.
+#[test]
+fn tool_outputs_are_partitioned_per_project() {
+    let a = TempDir::new().expect("tempdir A");
+    let b = TempDir::new().expect("tempdir B");
+    // Marcador real: sem ele `normalize_project_root` sobe até $HOME e as duas
+    // raízes colapsariam na mesma — o teste passaria sem provar nada.
+    std::fs::create_dir_all(a.path().join(".git")).expect("marcador A");
+    std::fs::create_dir_all(b.path().join(".git")).expect("marcador B");
+
+    let idx_a = tool_outputs_for(Some(a.path())).expect("índice A");
+    let idx_b = tool_outputs_for(Some(b.path())).expect("índice B");
+    assert!(
+        !std::ptr::eq(idx_a, idx_b),
+        "raízes distintas têm de resolver índices distintos"
+    );
+    assert!(
+        std::ptr::eq(idx_a, tool_outputs_for(Some(a.path())).expect("re-resolução")),
+        "a mesma raiz devolve o MESMO índice — senão o Box::leak vaza por chamada"
+    );
+
+    // O MESMO content_hash em projetos diferentes não se sobrescreve.
+    let doc_a = sample_doc("hash-compartilhado", "Bash");
+    let doc_b = sample_doc("hash-compartilhado", "Grep");
+    idx_a.store_tool_output(&doc_a).expect("store A");
+    idx_b.store_tool_output(&doc_b).expect("store B");
+
+    let got_a = idx_a.get_tool_output("hash-compartilhado").expect("get A");
+    let got_b = idx_b.get_tool_output("hash-compartilhado").expect("get B");
+    assert_eq!(got_a.expect("A presente").tool_name, "Bash");
+    assert_eq!(
+        got_b.expect("B presente").tool_name,
+        "Grep",
+        "cada projeto conserva o SEU output — nenhum evictou o outro"
+    );
 }
 
 #[test]

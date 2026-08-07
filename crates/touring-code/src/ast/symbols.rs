@@ -577,17 +577,17 @@ impl Symbol {
         match lang {
             Lang::Python => {
                 // Check if parent is a decorated_definition
-                if let Some(parent) = node.parent() {
-                    if parent.kind() == "decorated_definition" {
-                        let mut cursor = parent.walk();
-                        for child in parent.children(&mut cursor) {
-                            if child.kind() == "decorator" {
-                                if let Ok(text) = child.utf8_text(source.as_bytes()) {
-                                    // Strip the @ prefix and whitespace
-                                    let name = text.trim().strip_prefix('@').unwrap_or(text.trim());
-                                    decorators.push(name.to_string());
-                                }
-                            }
+                if let Some(parent) = node.parent()
+                    && parent.kind() == "decorated_definition"
+                {
+                    let mut cursor = parent.walk();
+                    for child in parent.children(&mut cursor) {
+                        if child.kind() == "decorator"
+                            && let Ok(text) = child.utf8_text(source.as_bytes())
+                        {
+                            // Strip the @ prefix and whitespace
+                            let name = text.trim().strip_prefix('@').unwrap_or(text.trim());
+                            decorators.push(name.to_string());
                         }
                     }
                 }
@@ -595,12 +595,12 @@ impl Symbol {
                 if node.kind() == "decorated_definition" {
                     let mut cursor = node.walk();
                     for child in node.children(&mut cursor) {
-                        if child.kind() == "decorator" {
-                            if let Ok(text) = child.utf8_text(source.as_bytes()) {
-                                let name = text.trim().strip_prefix('@').unwrap_or(text.trim());
-                                if !decorators.contains(&name.to_string()) {
-                                    decorators.push(name.to_string());
-                                }
+                        if child.kind() == "decorator"
+                            && let Ok(text) = child.utf8_text(source.as_bytes())
+                        {
+                            let name = text.trim().strip_prefix('@').unwrap_or(text.trim());
+                            if !decorators.contains(&name.to_string()) {
+                                decorators.push(name.to_string());
                             }
                         }
                     }
@@ -645,11 +645,12 @@ impl Symbol {
                 if let Some(parent) = node.parent() {
                     let mut cursor = parent.walk();
                     for child in parent.children(&mut cursor) {
-                        if child.kind() == "decorator" && child.end_byte() <= node.start_byte() {
-                            if let Ok(text) = child.utf8_text(source.as_bytes()) {
-                                let name = text.trim().strip_prefix('@').unwrap_or(text.trim());
-                                decorators.push(name.to_string());
-                            }
+                        if child.kind() == "decorator"
+                            && child.end_byte() <= node.start_byte()
+                            && let Ok(text) = child.utf8_text(source.as_bytes())
+                        {
+                            let name = text.trim().strip_prefix('@').unwrap_or(text.trim());
+                            decorators.push(name.to_string());
                         }
                     }
                 }
@@ -671,29 +672,26 @@ impl Symbol {
                 for child in node.children(&mut cursor) {
                     if child.kind() == "block" {
                         // Only check the FIRST statement in block (child(0))
-                        if let Some(block_child) = child.child(0) {
-                            if block_child.kind() == "expression_statement" {
-                                let mut expr_cursor = block_child.walk();
-                                for expr_child in block_child.children(&mut expr_cursor) {
-                                    if expr_child.kind() == "string"
-                                        || expr_child.kind() == "concatenated_string"
-                                    {
-                                        if let Ok(text) = expr_child.utf8_text(source.as_bytes()) {
-                                            let cleaned = text
-                                                .trim()
-                                                .trim_start_matches("\"\"\"")
-                                                .trim_start_matches("'''")
-                                                .trim_end_matches("\"\"\"")
-                                                .trim_end_matches("'''")
-                                                .trim();
-                                            let first_line =
-                                                cleaned.lines().next().unwrap_or(cleaned).trim();
-                                            if !first_line.is_empty() {
-                                                return Some(
-                                                    truncate_str(first_line, 120).to_string(),
-                                                );
-                                            }
-                                        }
+                        if let Some(block_child) = child.child(0)
+                            && block_child.kind() == "expression_statement"
+                        {
+                            let mut expr_cursor = block_child.walk();
+                            for expr_child in block_child.children(&mut expr_cursor) {
+                                if (expr_child.kind() == "string"
+                                    || expr_child.kind() == "concatenated_string")
+                                    && let Ok(text) = expr_child.utf8_text(source.as_bytes())
+                                {
+                                    let cleaned = text
+                                        .trim()
+                                        .trim_start_matches("\"\"\"")
+                                        .trim_start_matches("'''")
+                                        .trim_end_matches("\"\"\"")
+                                        .trim_end_matches("'''")
+                                        .trim();
+                                    let first_line =
+                                        cleaned.lines().next().unwrap_or(cleaned).trim();
+                                    if !first_line.is_empty() {
+                                        return Some(truncate_str(first_line, 120).to_string());
                                     }
                                 }
                             }
@@ -1017,31 +1015,29 @@ fn extract_jsdoc_comment(source: &str, node: Node) -> Option<String> {
     // Look at previous sibling for a comment node
     let mut prev = node.prev_sibling();
     // Skip export_statement wrapper
-    if prev.is_none() {
-        if let Some(parent) = node.parent() {
-            if parent.kind() == "export_statement" {
-                prev = parent.prev_sibling();
-            }
-        }
+    if prev.is_none()
+        && let Some(parent) = node.parent()
+        && parent.kind() == "export_statement"
+    {
+        prev = parent.prev_sibling();
     }
 
-    if let Some(prev_node) = prev {
-        if prev_node.kind() == "comment" {
-            if let Ok(text) = prev_node.utf8_text(source.as_bytes()) {
-                let text = text.trim();
-                if text.starts_with("/**") {
-                    let cleaned = text
-                        .strip_prefix("/**")
-                        .and_then(|s| s.strip_suffix("*/"))
-                        .unwrap_or(text)
-                        .trim();
-                    let first_line = cleaned
-                        .lines()
-                        .map(|l| l.trim().trim_start_matches('*').trim())
-                        .find(|l| !l.is_empty())?;
-                    return Some(truncate_str(first_line, 120).to_string());
-                }
-            }
+    if let Some(prev_node) = prev
+        && prev_node.kind() == "comment"
+        && let Ok(text) = prev_node.utf8_text(source.as_bytes())
+    {
+        let text = text.trim();
+        if text.starts_with("/**") {
+            let cleaned = text
+                .strip_prefix("/**")
+                .and_then(|s| s.strip_suffix("*/"))
+                .unwrap_or(text)
+                .trim();
+            let first_line = cleaned
+                .lines()
+                .map(|l| l.trim().trim_start_matches('*').trim())
+                .find(|l| !l.is_empty())?;
+            return Some(truncate_str(first_line, 120).to_string());
         }
     }
 
@@ -1178,13 +1174,13 @@ fn extract_symbols_from_tree(
     // When a Python file declares `__all__ = [...]`, only listed names are
     // truly public. Symbols not in __all__ are demoted to Module visibility,
     // so `touring wiring orphans` doesn't flag them as orphan pub symbols.
-    if lang == Lang::Python {
-        if let Some(all_list) = parse_python_all(source) {
-            for sym in symbols.iter_mut() {
-                if sym.is_public && !all_list.contains(&sym.name) {
-                    sym.is_public = false;
-                    sym.visibility = Some(Visibility::Module);
-                }
+    if lang == Lang::Python
+        && let Some(all_list) = parse_python_all(source)
+    {
+        for sym in symbols.iter_mut() {
+            if sym.is_public && !all_list.contains(&sym.name) {
+                sym.is_public = false;
+                sym.visibility = Some(Visibility::Module);
             }
         }
     }

@@ -127,10 +127,10 @@ impl MemoryTools {
             .unwrap_or("semantic")
             .to_string();
 
-        if let Some(filter) = tier_filter {
-            if tier != **filter {
-                return None;
-            }
+        if let Some(filter) = tier_filter
+            && tier != **filter
+        {
+            return None;
         }
 
         let entry_type = m
@@ -198,10 +198,10 @@ impl MemoryTools {
         // Convert RLM matches (with tier filter applied)
         for m in result.rlm_matches {
             // Skip if tier filter is specified and doesn't match
-            if let Some(ref filter) = tier_filter {
-                if m.tier != **filter {
-                    continue;
-                }
+            if let Some(ref filter) = tier_filter
+                && m.tier != **filter
+            {
+                continue;
             }
             matches.push(MemoryMatchResult {
                 key: m.key,

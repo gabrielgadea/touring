@@ -198,10 +198,10 @@ impl Handler for SessionOptimizerHandler {
         if let Some((best, score)) = tool_avg.first() {
             hints.push(format!("best_tool={best} (avg_reward={score:.2})"));
         }
-        if let Some((worst, score)) = tool_avg.last() {
-            if *score < 0.0 {
-                hints.push(format!("worst_tool={worst} (avg_reward={score:.2})"));
-            }
+        if let Some((worst, score)) = tool_avg.last()
+            && *score < 0.0
+        {
+            hints.push(format!("worst_tool={worst} (avg_reward={score:.2})"));
         }
 
         // 2. Rework detection
@@ -222,17 +222,17 @@ impl Handler for SessionOptimizerHandler {
         }
 
         // Store optimization hints
-        if !hints.is_empty() {
-            if let Some(ref rlm) = ctx.rlm {
-                let val = hints.join(" | ");
-                let _ = rlm.store(
-                    &format!("session:optimization:{}", epoch_secs()),
-                    touring_intelligence::rl::memory::rlm::MemoryTier::Working,
-                    &val,
-                    Some("optimization_hint"),
-                    None,
-                );
-            }
+        if !hints.is_empty()
+            && let Some(ref rlm) = ctx.rlm
+        {
+            let val = hints.join(" | ");
+            let _ = rlm.store(
+                &format!("session:optimization:{}", epoch_secs()),
+                touring_intelligence::rl::memory::rlm::MemoryTier::Working,
+                &val,
+                Some("optimization_hint"),
+                None,
+            );
         }
 
         HandlerResult::skip(self.name())

@@ -150,21 +150,20 @@ impl DefaultResourceGovernor {
         {
             use std::io::Read;
             let mut statm = String::new();
-            if let Ok(f) = std::fs::File::open("/proc/self/statm") {
-                if std::io::BufReader::new(f)
+            if let Ok(f) = std::fs::File::open("/proc/self/statm")
+                && std::io::BufReader::new(f)
                     .read_to_string(&mut statm)
                     .is_ok()
-                {
-                    // statm fields: size resident shared text doc (anon) etc.
-                    // resident pages (field 1, 0-indexed)
-                    let parts: Vec<u64> = statm
-                        .split_whitespace()
-                        .filter_map(|s| s.parse().ok())
-                        .collect();
-                    if parts.len() >= 2 {
-                        // Convert pages to MB (assuming 4 KiB page size)
-                        return (parts[1] * 4) as f64 / 1024.0;
-                    }
+            {
+                // statm fields: size resident shared text doc (anon) etc.
+                // resident pages (field 1, 0-indexed)
+                let parts: Vec<u64> = statm
+                    .split_whitespace()
+                    .filter_map(|s| s.parse().ok())
+                    .collect();
+                if parts.len() >= 2 {
+                    // Convert pages to MB (assuming 4 KiB page size)
+                    return (parts[1] * 4) as f64 / 1024.0;
                 }
             }
         }
@@ -256,34 +255,37 @@ impl ResourceGovernor for DefaultResourceGovernor {
     }
 
     fn check_budget(&self, stats: &GovernorStats) -> anyhow::Result<()> {
-        if let Some(limit) = self.limits.memory_mb {
-            if stats.memory_mb as u64 > limit && limit > 0 {
-                anyhow::bail!(
-                    "memory budget exceeded: {} MB used > {} MB limit",
-                    stats.memory_mb,
-                    limit
-                );
-            }
+        if let Some(limit) = self.limits.memory_mb
+            && stats.memory_mb as u64 > limit
+            && limit > 0
+        {
+            anyhow::bail!(
+                "memory budget exceeded: {} MB used > {} MB limit",
+                stats.memory_mb,
+                limit
+            );
         }
 
-        if let Some(limit) = self.limits.context_tokens {
-            if stats.context_tokens > limit && limit > 0 {
-                anyhow::bail!(
-                    "context token budget exceeded: {} tokens > {} limit",
-                    stats.context_tokens,
-                    limit
-                );
-            }
+        if let Some(limit) = self.limits.context_tokens
+            && stats.context_tokens > limit
+            && limit > 0
+        {
+            anyhow::bail!(
+                "context token budget exceeded: {} tokens > {} limit",
+                stats.context_tokens,
+                limit
+            );
         }
 
-        if let Some(limit) = self.limits.max_concurrent_ops {
-            if stats.active_operations > limit && limit > 0 {
-                anyhow::bail!(
-                    "concurrent operations budget exceeded: {} ops > {} limit",
-                    stats.active_operations,
-                    limit
-                );
-            }
+        if let Some(limit) = self.limits.max_concurrent_ops
+            && stats.active_operations > limit
+            && limit > 0
+        {
+            anyhow::bail!(
+                "concurrent operations budget exceeded: {} ops > {} limit",
+                stats.active_operations,
+                limit
+            );
         }
 
         Ok(())

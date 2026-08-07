@@ -230,10 +230,10 @@ pub fn apply_ssr_batch(rules: &[SsrRule], file_paths: &[PathBuf]) -> SsrBatchRes
 
         let mut current = source;
         for rule in rules {
-            if let Some(ref restriction) = rule.file_path {
-                if restriction != &file_path.to_string_lossy() {
-                    continue;
-                }
+            if let Some(ref restriction) = rule.file_path
+                && restriction != &file_path.to_string_lossy()
+            {
+                continue;
             }
 
             match apply_ssr_rule(rule, &current, ast_lang) {

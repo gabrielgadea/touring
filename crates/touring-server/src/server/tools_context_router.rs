@@ -131,6 +131,7 @@ impl TouringServer {
         params: Parameters<CtxPurgeParams>,
     ) -> Result<CallToolResult, McpError> {
         let p = params.0;
+        let project_root = self.config.project_root.clone();
         let result = tokio::task::spawn_blocking(move || {
             let targets = touring_hooks::cli_handlers_mcp::PurgeTargets {
                 tee_logs: p.tee_logs.unwrap_or(false),
@@ -138,7 +139,7 @@ impl TouringServer {
                 expired_memory: p.expired_memory.unwrap_or(false),
                 all: p.all.unwrap_or(false),
             };
-            touring_hooks::cli_handlers_mcp::ctx_purge(targets)
+            touring_hooks::cli_handlers_mcp::ctx_purge(Some(&project_root), targets)
         })
         .await
         .unwrap_or_else(|e| serde_json::json!({"error": format!("spawn_blocking: {e}")}));
@@ -155,9 +156,14 @@ impl TouringServer {
         &self,
         _params: Parameters<CtxDoctorParams>,
     ) -> Result<CallToolResult, McpError> {
-        let result = tokio::task::spawn_blocking(touring_hooks::cli_handlers_mcp::ctx_doctor)
-            .await
-            .unwrap_or_else(|e| serde_json::json!({"error": format!("spawn_blocking: {e}")}));
+        // A raiz vem do config do servidor — o handler roda no daemon, então o
+        // cwd de lá NÃO é o do chamador (cross-audit 03/08/2026).
+        let project_root = self.config.project_root.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            touring_hooks::cli_handlers_mcp::ctx_doctor(Some(&project_root))
+        })
+        .await
+        .unwrap_or_else(|e| serde_json::json!({"error": format!("spawn_blocking: {e}")}));
         let text = serde_json::to_string_pretty(&result)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -321,8 +327,9 @@ impl TouringServer {
         params: Parameters<CtxBatchExecuteParams>,
     ) -> Result<CallToolResult, McpError> {
         let items = params.0.items.clone();
+        let project_root = self.config.project_root.clone();
         let result = tokio::task::spawn_blocking(move || {
-            touring_hooks::cli_handlers_mcp::ctx_batch_execute(&items)
+            touring_hooks::cli_handlers_mcp::ctx_batch_execute(Some(&project_root), &items)
         })
         .await
         .unwrap_or_else(|e| serde_json::json!({"error": format!("spawn_blocking: {e}")}));

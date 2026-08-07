@@ -49,7 +49,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             archive: touring-x86_64-unknown-linux-gnu.tar.gz
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -65,7 +65,7 @@ jobs:
         # capnproto: touring-bindings build.rs shells out to `capnp` (bind-capnp).
         run: sudo apt-get update && sudo apt-get install -y libpython3.12-dev capnproto
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           key: ${{ matrix.target }}
 
@@ -92,7 +92,7 @@ jobs:
 
       # CICD-07: CycloneDX SBOM for the release archive (supply-chain transparency).
       - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           file: ${{ matrix.archive }}
           format: cyclonedx-json
@@ -107,7 +107,7 @@ jobs:
           "${SMOKE}/bin/touring" --help >/dev/null
           echo "smoke OK"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.archive }}
           path: |
@@ -127,13 +127,13 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           merge-multiple: true
 
       # CICD-07: keyless signing of every archive via cosign + sigstore (OIDC, no
       # long-lived keys) → emits `<archive>.sig` (signature) + `<archive>.pem` (cert).
-      - uses: sigstore/cosign-installer@v3
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
       - name: Sign archives (cosign keyless)
         run: |
           set -euo pipefail
@@ -152,11 +152,11 @@ jobs:
       # and enforces fail-closed the moment the repo goes public.
       - name: Attest build provenance
         if: ${{ !github.event.repository.private }}
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1
         with:
           subject-path: "touring-*.tar.gz"
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
             touring-*.tar.gz

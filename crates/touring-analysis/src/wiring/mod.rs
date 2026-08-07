@@ -230,12 +230,11 @@ pub fn analyze_wiring_memoized(conn: &rusqlite::Connection) -> WiringReport {
     let Some(sig) = wiring_db_signature(conn) else {
         return analyze_wiring(conn);
     };
-    if let Ok(guard) = WIRING_MEMO.lock() {
-        if let Some((cached_sig, report)) = guard.as_ref() {
-            if *cached_sig == sig {
-                return report.clone();
-            }
-        }
+    if let Ok(guard) = WIRING_MEMO.lock()
+        && let Some((cached_sig, report)) = guard.as_ref()
+        && *cached_sig == sig
+    {
+        return report.clone();
     }
     let report = analyze_wiring(conn);
     if let Ok(mut guard) = WIRING_MEMO.lock() {

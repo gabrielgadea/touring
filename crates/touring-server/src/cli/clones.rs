@@ -124,11 +124,10 @@ fn collect_symbols() -> anyhow::Result<Vec<serde_json::Value>> {
                         .context(format!("failed to query AST overview for {}", path))?;
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(&overview)
                     .context("failed to parse AST overview response")
+                    && let Some(syms) = data.get("symbols").and_then(|v| v.as_array())
                 {
-                    if let Some(syms) = data.get("symbols").and_then(|v| v.as_array()) {
-                        for sym in syms {
-                            all_symbols.push(sym.clone());
-                        }
+                    for sym in syms {
+                        all_symbols.push(sym.clone());
                     }
                 }
             }

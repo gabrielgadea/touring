@@ -479,6 +479,16 @@ impl QTable {
     pub fn metrics(&self) -> &QLearningMetrics {
         &self.metrics
     }
+
+    /// The discount factor this table bootstraps with.
+    ///
+    /// Exposed so callers that build their own multi-step returns discount with
+    /// the SAME gamma the table uses, instead of a private constant of their
+    /// own. `OnlineRLEngine` used to hardcode `0.95` while the table ran at
+    /// `0.99` — two effective horizons inside one update (04/08/2026).
+    pub fn gamma(&self) -> f64 {
+        self.params.gamma
+    }
 }
 
 impl Default for QTable {
@@ -510,18 +520,31 @@ impl QLearning for QTable {
             return reward;
         }
 
-        // Compute TD error
+        // Compute TD error. A terminal transition has no successor, so it MUST
+        // NOT bootstrap: `next_q = 0`.
+        //
+        // Until 04/08/2026 `terminal` was honoured only on the first visit (the
+        // branch above, `current_q == 0.0`); every later update bootstrapped off
+        // `next_state` regardless. `OnlineRLEngine::process_reward` passes
+        // `next_state == state`, so that was a self-loop whose fixed point is
+        // `reward / (1 - gamma)` — 100x the reward scale at gamma = 0.99.
+        // Simulating this rule with the real constants drove Q to ~655 while
+        // rewards are bounded in [-1, 1] (Memento cross-audit, 04/08/2026).
         let current_q = self.get_q_internal(state, action);
-        let next_q = match next_action {
-            // SARSA: use next action Q-value
-            Some(na) => {
-                self.ensure_q(next_state, na);
-                self.get_q_internal(next_state, na)
+        let next_q = if terminal {
+            0.0
+        } else {
+            match next_action {
+                // SARSA: use next action Q-value
+                Some(na) => {
+                    self.ensure_q(next_state, na);
+                    self.get_q_internal(next_state, na)
+                }
+                // Q-learning: use max Q-value
+                None => self
+                    .best_action(next_state)
+                    .map_or(0.0, |best| self.get_q_internal(next_state, best)),
             }
-            // Q-learning: use max Q-value
-            None => self
-                .best_action(next_state)
-                .map_or(0.0, |best| self.get_q_internal(next_state, best)),
         };
 
         let td_error = reward + self.params.gamma * next_q - current_q;
@@ -554,6 +577,15 @@ impl QLearning for QTable {
                     self.traces.remove(&key);
                 }
             }
+        }
+
+        // A terminal transition ends the episode, so eligibility traces must not
+        // survive into the next one. `process_reward` marks every transition
+        // terminal, so keeping them applied one tool's TD error to the Q-values
+        // of unrelated tools observed earlier — contamination, not credit
+        // assignment.
+        if terminal {
+            self.traces.clear();
         }
 
         // Track convergence metrics
@@ -1434,6 +1466,136 @@ mod tests {
             restored.metrics().total_updates(),
             0,
             "metrics should be transient and reset on restore"
+        );
+    }
+
+    /// A terminal transition has no successor, so it must not bootstrap.
+    ///
+    /// Regression for the 04/08/2026 divergence: `terminal` was honoured only
+    /// on the first visit, so every later update added `gamma * next_q`.
+    #[test]
+    fn terminal_transitions_never_bootstrap() {
+        let params = LearningParams {
+            alpha: 1.0, // full step so the assertion reads the target directly
+            gamma: 0.99,
+            lambda: 0.0,
+            initial_q: 0.0,
+            ..Default::default()
+        };
+        let mut q = QTable::with_params(params);
+
+        // Seed a large Q on a sibling action of the SAME state, so a bootstrap
+        // over `next_state == state` would visibly leak into the TD error.
+        q.update(7, 1, 0.0, 7, None, false);
+        for _ in 0..50 {
+            q.update(7, 1, 10.0, 7, None, false);
+        }
+        assert!(
+            q.get_q(7, 1) > 5.0,
+            "sibling action must carry a large Q for this test to discriminate"
+        );
+
+        // First visit of (7, 0) takes the warm-start branch; the SECOND is the
+        // one that used to bootstrap.
+        q.update(7, 0, 1.0, 7, None, true);
+        let td = q.update(7, 0, 1.0, 7, None, true);
+
+        assert!(
+            td.abs() < 1e-9,
+            "terminal target is the reward alone: Q was already 1.0, so td must \
+             be ~0, got {td} (a bootstrap off the sibling's Q leaks in here)"
+        );
+    }
+
+    /// Q-values must stay on the reward scale, never `reward / (1 - gamma)`.
+    ///
+    /// This is the exact loop `OnlineRLEngine::process_reward` drives —
+    /// `next_state == state`, `next_action == None`, `terminal == true`. Before
+    /// the fix it converged to 100x the reward at gamma = 0.99 (simulated: Q
+    /// reached ~655 for rewards bounded in [-1, 1]).
+    #[test]
+    fn repeated_terminal_self_loop_updates_stay_on_the_reward_scale() {
+        let params = LearningParams {
+            alpha: 0.1,
+            gamma: 0.99,
+            lambda: 0.9,
+            initial_q: 0.0,
+            ..Default::default()
+        };
+        let mut q = QTable::with_params(params);
+
+        const REWARD: f64 = 1.0;
+        for i in 0..4000u64 {
+            q.update(5, i % 3, REWARD, 5, None, true);
+        }
+
+        for action in 0..3u64 {
+            let value = q.get_q(5, action);
+            assert!(
+                value.abs() <= REWARD + 1e-6,
+                "Q({action}) = {value} exceeded the reward scale; the old \
+                 self-loop bootstrap converged to REWARD/(1-gamma) = {}",
+                REWARD / (1.0 - 0.99)
+            );
+        }
+    }
+
+    /// Eligibility traces must not survive a terminal transition.
+    ///
+    /// `process_reward` marks every transition terminal, so surviving traces
+    /// applied one tool's TD error to Q-values of unrelated tools seen earlier.
+    #[test]
+    fn terminal_update_clears_eligibility_traces() {
+        let params = LearningParams {
+            alpha: 0.5,
+            gamma: 0.99,
+            lambda: 0.9,
+            initial_q: 0.0,
+            ..Default::default()
+        };
+        let mut q = QTable::with_params(params);
+
+        // Establish (1, 1) with a non-zero Q, then close its episode.
+        q.update(1, 1, 0.5, 1, None, true);
+        q.update(1, 1, 0.5, 1, None, true);
+        let before = q.get_q(1, 1);
+
+        // A completely unrelated state-action fires next. Its TD error must not
+        // touch (1, 1).
+        q.update(99, 99, -1.0, 99, None, true);
+        q.update(99, 99, -1.0, 99, None, true);
+
+        assert!(
+            (q.get_q(1, 1) - before).abs() < 1e-12,
+            "unrelated terminal transition moved Q(1,1) from {before} to {} — \
+             traces leaked across episodes",
+            q.get_q(1, 1)
+        );
+    }
+
+    /// Non-terminal transitions must STILL bootstrap — the fix is scoped.
+    #[test]
+    fn non_terminal_transitions_still_bootstrap() {
+        let params = LearningParams {
+            alpha: 1.0,
+            gamma: 0.5,
+            lambda: 0.0,
+            initial_q: 0.0,
+            ..Default::default()
+        };
+        let mut q = QTable::with_params(params);
+
+        // Give state 2 a known value, then step into it from state 1.
+        q.update(2, 0, 4.0, 2, None, true);
+        assert!((q.get_q(2, 0) - 4.0).abs() < 1e-9);
+
+        // The warm-start shortcut is terminal-only, so this non-terminal update
+        // goes straight through the TD path: td = 0 + gamma * max_a Q(2,a) - 0.
+        let td = q.update(1, 0, 0.0, 2, None, false);
+
+        assert!(
+            (td - 2.0).abs() < 1e-9,
+            "non-terminal update must bootstrap gamma * Q(2,0) = 2.0, got {td}"
         );
     }
 }

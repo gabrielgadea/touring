@@ -1327,14 +1327,14 @@ impl GeneratorContext {
     /// * `file_path` — absolute path of the written artifact
     /// * `content`   — raw bytes written to disk
     pub fn evaluate_knowledge_upsert(&self, file_path: &str, content: &[u8]) {
-        if let Some(ref f) = self.knowledge_upsert_fn {
-            if let Err(e) = f(file_path, content) {
-                tracing::warn!(
-                    file_path = file_path,
-                    error = %e,
-                    "knowledge_upsert_fn failed — continuing (non-fatal)"
-                );
-            }
+        if let Some(ref f) = self.knowledge_upsert_fn
+            && let Err(e) = f(file_path, content)
+        {
+            tracing::warn!(
+                file_path = file_path,
+                error = %e,
+                "knowledge_upsert_fn failed — continuing (non-fatal)"
+            );
         }
     }
 
@@ -1356,10 +1356,10 @@ impl GeneratorContext {
 
     /// Checkpoint the touring session. Non-fatal on error.
     pub fn session_checkpoint(&self, session_id: &str, data: &str) {
-        if let Some(f) = &self.session_checkpoint_fn {
-            if let Err(e) = f(session_id, data) {
-                tracing::warn!(session_id, error = %e, "session_checkpoint_fn failed");
-            }
+        if let Some(f) = &self.session_checkpoint_fn
+            && let Err(e) = f(session_id, data)
+        {
+            tracing::warn!(session_id, error = %e, "session_checkpoint_fn failed");
         }
     }
 
@@ -1397,12 +1397,12 @@ impl GeneratorContext {
 
     /// Update a subtask status in the decompose DAG. Non-fatal on error.
     pub fn decompose_update_status(&self, task_id: &str, subtask_id: &str, status: &str) {
-        if let Some(f) = &self.decompose_update_fn {
-            if let Err(e) = f(task_id, subtask_id, status) {
-                tracing::warn!(task_id, subtask_id, status, error = %e, "decompose_update_fn failed");
-                // R7: Penalize decompose bridge failures so RL learns the pattern.
-                self.rl_reward("decompose_bridge", -0.3, "update_failed");
-            }
+        if let Some(f) = &self.decompose_update_fn
+            && let Err(e) = f(task_id, subtask_id, status)
+        {
+            tracing::warn!(task_id, subtask_id, status, error = %e, "decompose_update_fn failed");
+            // R7: Penalize decompose bridge failures so RL learns the pattern.
+            self.rl_reward("decompose_bridge", -0.3, "update_failed");
         }
     }
 

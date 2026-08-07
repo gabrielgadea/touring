@@ -97,8 +97,8 @@ impl VgpEngine {
     pub fn new(metrics: Arc<dyn TelemetrySink>, fuzzy: Arc<dyn FuzzySearcher>) -> Self {
         let cache = Cache::builder()
             .max_capacity(10_000)
-            .time_to_idle(Duration::from_secs(300))
-            .time_to_live(Duration::from_secs(3_600))
+            .time_to_idle(Duration::from_mins(5))
+            .time_to_live(Duration::from_hours(1))
             .build();
 
         let num_threads = (num_cpus::get().saturating_sub(2)).max(1);

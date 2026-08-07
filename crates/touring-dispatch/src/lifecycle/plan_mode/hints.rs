@@ -8,10 +8,17 @@
 /// Records the plan session as a searchable symbol with kind="plan_session",
 /// enabling `touring tantivy search "plan_session"` and intent-keyword lookup.
 /// No-op when the `tantivy-fts` feature is disabled.
-pub(crate) fn upsert_plan_session_to_tantivy(plan_task_id: &str, intent: &str) {
+/// A raiz do projeto acompanha a operação: o store de decompose já é
+/// per-project (`locate_task_store`), então o espelho no Tantivy segue a
+/// fonte da verdade em vez de cair no índice legado compartilhado.
+pub(crate) fn upsert_plan_session_to_tantivy(
+    project_root: &std::path::Path,
+    plan_task_id: &str,
+    intent: &str,
+) {
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(project_root)) {
             let doc = crate::tantivy_index::SymbolDoc {
                 symbol_name: plan_task_id.to_string(),
                 file_path: format!("plan_session:{plan_task_id}"),

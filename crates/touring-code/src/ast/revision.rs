@@ -233,14 +233,14 @@ impl SymbolCache {
         let new_hash = hash_symbols(&new_symbols);
         let current_rev = self.revisions.current(durability);
 
-        if let Some(entry) = self.entries.get_mut(&file_path.to_path_buf()) {
-            if entry.content_hash == new_hash {
-                // EARLY CUTOFF: symbols unchanged — update verified_at but
-                // DON'T signal downstream invalidation.
-                entry.verified_at = current_rev;
-                self.early_cutoffs += 1;
-                return false;
-            }
+        if let Some(entry) = self.entries.get_mut(&file_path.to_path_buf())
+            && entry.content_hash == new_hash
+        {
+            // EARLY CUTOFF: symbols unchanged — update verified_at but
+            // DON'T signal downstream invalidation.
+            entry.verified_at = current_rev;
+            self.early_cutoffs += 1;
+            return false;
         }
 
         // Symbols changed — update cache entry.

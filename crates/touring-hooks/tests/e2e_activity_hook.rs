@@ -21,10 +21,10 @@ fn project_root(n: &'static str) -> PathBuf {
     > = std::sync::LazyLock::new(|| std::sync::RwLock::new(std::collections::HashMap::new()));
 
     // Fast path: já foi criado para este n.
-    if let Ok(guard) = DIRS.read() {
-        if let Some((_, path)) = guard.get(n) {
-            return path.clone();
-        }
+    if let Ok(guard) = DIRS.read()
+        && let Some((_, path)) = guard.get(n)
+    {
+        return path.clone();
     }
     // Slow path: criar e registrar.
     let mut guard = DIRS.write().expect("DIRS write");

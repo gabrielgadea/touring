@@ -200,17 +200,17 @@ pub fn derive_lane_stats(modules: &[ModuleNode], graph: &serde_json::Value) -> [
                 .get("to")
                 .or_else(|| e.get("target"))
                 .and_then(|v| v.as_str());
-            if let Some(f) = from {
-                if let Some(&s) = normalize_rel(f).and_then(|k| lane_of.get(k)) {
-                    stats[s].out_deg += 1;
-                    *node_deg.entry(f.to_string()).or_insert(0) += 1;
-                }
+            if let Some(f) = from
+                && let Some(&s) = normalize_rel(f).and_then(|k| lane_of.get(k))
+            {
+                stats[s].out_deg += 1;
+                *node_deg.entry(f.to_string()).or_insert(0) += 1;
             }
-            if let Some(t) = to {
-                if let Some(&s) = normalize_rel(t).and_then(|k| lane_of.get(k)) {
-                    stats[s].in_deg += 1;
-                    *node_deg.entry(t.to_string()).or_insert(0) += 1;
-                }
+            if let Some(t) = to
+                && let Some(&s) = normalize_rel(t).and_then(|k| lane_of.get(k))
+            {
+                stats[s].in_deg += 1;
+                *node_deg.entry(t.to_string()).or_insert(0) += 1;
             }
         }
     }

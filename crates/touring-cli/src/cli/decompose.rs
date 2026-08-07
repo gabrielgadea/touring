@@ -157,12 +157,21 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
             "bandit_subtasks" : bandit_subtasks }
         ),
     );
+    // T2.2 Tasksfile import. Esta etapa faltava AQUI, na implementação que o
+    // registry despacha — `touring tasksfile import` envia `tasksfile_yaml` para
+    // `cli-decompose-create` e recebia a tarefa criada com ZERO subtarefas, em
+    // silêncio (provado com o binário em produção: YAML de 2 tarefas →
+    // `subtask_count = 0`). A lógica é compartilhada, não copiada: duas cópias
+    // divergentes foram justamente o que produziu o defeito.
+    let tasksfile_subtasks_added =
+        crate::cli_handlers_decompose::import_tasksfile_subtasks(db, &task_id, payload, &now);
     serde_json::json!(
         { "task_id" : task_id, "task_type" : task_type, "description" : description,
         "status" : "created", "created_at" : now, "origin" : origin, "mirrored_to_cc" :
         mirrored_to_cc == 1, "cila_level" : cila_level, "priority" : priority_token,
         "persisted" : result.is_ok(), "bandit_split_factor" : bandit_split_factor,
-        "bandit_subtasks" : bandit_subtasks, }
+        "bandit_subtasks" : bandit_subtasks,
+        "tasksfile_subtasks_added" : tasksfile_subtasks_added, }
     )
     .to_string()
 }
@@ -405,7 +414,16 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     };
     let db = store.db();
     let now = chrono::Utc::now().to_rfc3339();
-    let task_affected = if !status.is_empty() {
+    let has_subtask_id = payload.get("subtask_id").and_then(|v| v.as_str()).is_some();
+    // O status vai direto para a linha-PAI apenas quando o chamador endereçou o
+    // pai. Endereçando uma subtarefa, o pai é DERIVADO dos filhos logo abaixo —
+    // até 03/08/2026 gravava-se nos dois casos, e o primeiro
+    // `decompose update <task> <fase> --status done` marcava o plano inteiro
+    // como concluído (visto em task_1785699543075533970: pai `done` com 6 de 8
+    // subtarefas `pending`). O DAG é a fonte autoritativa de progresso do loop
+    // (Lei L2) — um pai falsamente concluído corrompe o que o gate de
+    // convergência existe para medir.
+    let task_affected = if !status.is_empty() && !has_subtask_id {
         db.conn_ref()
             .execute(
                 "UPDATE task_decompositions SET status = ?1, updated_at = ?3 WHERE task_id = ?2",
@@ -415,7 +433,6 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     } else {
         0
     };
-    let has_subtask_id = payload.get("subtask_id").and_then(|v| v.as_str()).is_some();
     let subtask_affected = if has_subtask_id
         || priority.is_some()
         || quality_score.is_some()
@@ -466,6 +483,14 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
         }
     } else {
         0
+    };
+    // Derivação do pai. Fica ANTES do bloco de eventos porque aquele bloco
+    // retorna cedo para qualquer status fora de {in_progress, completed, failed}
+    // — e `done`, o status que `loop_phase_close.py` emite, é justamente um deles.
+    let task_affected = if has_subtask_id {
+        crate::cli_handlers_decompose::refresh_parent_status(db, task_id, &now)
+    } else {
+        task_affected
     };
     if subtask_affected > 0 {
         let raw_subtask_id = payload
@@ -641,28 +666,28 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
         _ => return serde_json::json!({ "error" : "task_id required" }).to_string(),
     };
     let new_result = crate::cli_handlers_decompose::cli_decompose_finalize(rt, payload);
-    if let Ok(result) = serde_json::from_str::<serde_json::Value>(&new_result) {
-        if result.get("error").is_none() {
-            let completion_pct = result
-                .get("metrics")
-                .and_then(|m| m.get("completion_pct"))
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            let ctx = format!("decompose_finalize:task_id={task_id}:pct={completion_pct:.0}");
-            // Sprint 2 PB (REGRA #19): reap the child to prevent <defunct>
-            // zombies. The daemon runs indefinitely and never calls waitpid
-            // implicitly — `Drop<Child>` only closes the fd, it does NOT wait.
-            let _ = std::thread::spawn(move || {
-                if let Ok(mut child) = std::process::Command::new("touring")
-                    .args(["learning", "reward", "orchestrate", "1.0", &ctx])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .spawn()
-                {
-                    let _ = child.wait();
-                }
-            });
-        }
+    if let Ok(result) = serde_json::from_str::<serde_json::Value>(&new_result)
+        && result.get("error").is_none()
+    {
+        let completion_pct = result
+            .get("metrics")
+            .and_then(|m| m.get("completion_pct"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let ctx = format!("decompose_finalize:task_id={task_id}:pct={completion_pct:.0}");
+        // Sprint 2 PB (REGRA #19): reap the child to prevent <defunct>
+        // zombies. The daemon runs indefinitely and never calls waitpid
+        // implicitly — `Drop<Child>` only closes the fd, it does NOT wait.
+        let _ = std::thread::spawn(move || {
+            if let Ok(mut child) = std::process::Command::new("touring")
+                .args(["learning", "reward", "orchestrate", "1.0", &ctx])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+            {
+                let _ = child.wait();
+            }
+        });
     }
     new_result
 }
@@ -687,33 +712,31 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         { "task_id" : task_id, "only_ready" : only_ready }
     );
     let result = crate::cli_handlers_decompose::cli_decompose_ready(rt, &delegate_payload);
-    if by_priority {
-        if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&result) {
-            if let Some(arr) = val.get_mut("ready_subtasks").and_then(|v| v.as_array_mut()) {
-                arr.sort_by(|a, b| {
-                    let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                    let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                    pa.cmp(&pb)
-                });
-            }
-            if let Some(arr) = val
-                .get_mut("parallel_groups")
-                .and_then(|v| v.as_array_mut())
-            {
-                for group in arr {
-                    if let Some(members) = group.get_mut("members").and_then(|v| v.as_array_mut()) {
-                        members.sort_by(|a, b| {
-                            let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                            let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                            pa.cmp(&pb)
-                        });
-                    }
+    if by_priority && let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&result) {
+        if let Some(arr) = val.get_mut("ready_subtasks").and_then(|v| v.as_array_mut()) {
+            arr.sort_by(|a, b| {
+                let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
+                let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
+                pa.cmp(&pb)
+            });
+        }
+        if let Some(arr) = val
+            .get_mut("parallel_groups")
+            .and_then(|v| v.as_array_mut())
+        {
+            for group in arr {
+                if let Some(members) = group.get_mut("members").and_then(|v| v.as_array_mut()) {
+                    members.sort_by(|a, b| {
+                        let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
+                        let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
+                        pa.cmp(&pb)
+                    });
                 }
             }
-            val.as_object_mut()
-                .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(true)));
-            return val.to_string();
         }
+        val.as_object_mut()
+            .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(true)));
+        return val.to_string();
     }
     let mut val = match serde_json::from_str::<serde_json::Value>(&result) {
         Ok(v) => v,

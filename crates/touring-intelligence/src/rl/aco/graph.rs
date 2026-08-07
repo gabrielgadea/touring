@@ -240,14 +240,14 @@ impl MutableGeneratorGraph {
         }
 
         for edge in self.graph.edge_indices() {
-            if let Some((src, dst)) = self.graph.edge_endpoints(edge) {
-                if let (Some(sid), Some(did)) = (
+            if let Some((src, dst)) = self.graph.edge_endpoints(edge)
+                && let (Some(sid), Some(did)) = (
                     self.id_by_node_index.get(&src),
                     self.id_by_node_index.get(&dst),
-                ) {
-                    *fan_out.entry(sid.clone()).or_insert(0) += 1;
-                    *fan_in.entry(did.clone()).or_insert(0) += 1;
-                }
+                )
+            {
+                *fan_out.entry(sid.clone()).or_insert(0) += 1;
+                *fan_in.entry(did.clone()).or_insert(0) += 1;
             }
         }
 
@@ -779,12 +779,12 @@ impl MutableGeneratorGraph {
             for id in &ready {
                 if let Some(downstream) = self.dependents.get(id) {
                     for d in downstream {
-                        if let Some(deg) = in_degree.get_mut(d) {
-                            if *deg > 0 {
-                                *deg -= 1;
-                                if *deg == 0 {
-                                    next.push(d.clone());
-                                }
+                        if let Some(deg) = in_degree.get_mut(d)
+                            && *deg > 0
+                        {
+                            *deg -= 1;
+                            if *deg == 0 {
+                                next.push(d.clone());
                             }
                         }
                     }

@@ -821,24 +821,24 @@ impl PlanExecutor<Speculated> {
         for artifact in artifacts.iter() {
             use touring_hooks_shared::mpatch_preview::preview_patch;
             // Read current disk content for diff preview.
-            if let Ok(disk_content) = std::fs::read_to_string(&artifact.path) {
-                if let Some(preview) = preview_patch(&disk_content, &artifact.content) {
-                    tracing::debug!(
+            if let Ok(disk_content) = std::fs::read_to_string(&artifact.path)
+                && let Some(preview) = preview_patch(&disk_content, &artifact.content)
+            {
+                tracing::debug!(
+                    plan_id = %plan_id,
+                    path = %artifact.path,
+                    method = ?preview.method,
+                    confidence = preview.confidence,
+                    "mpatch preview: fuzzy match detected"
+                );
+                // Gate: block commit if confidence < MPATCH_CONFIDENCE_FLOOR (low-quality patch).
+                if preview.confidence < MPATCH_CONFIDENCE_FLOOR {
+                    tracing::warn!(
                         plan_id = %plan_id,
                         path = %artifact.path,
-                        method = ?preview.method,
                         confidence = preview.confidence,
-                        "mpatch preview: fuzzy match detected"
+                        "mpatch confidence too low — inspect before commit"
                     );
-                    // Gate: block commit if confidence < MPATCH_CONFIDENCE_FLOOR (low-quality patch).
-                    if preview.confidence < MPATCH_CONFIDENCE_FLOOR {
-                        tracing::warn!(
-                            plan_id = %plan_id,
-                            path = %artifact.path,
-                            confidence = preview.confidence,
-                            "mpatch confidence too low — inspect before commit"
-                        );
-                    }
                 }
             }
         }
@@ -1223,22 +1223,21 @@ impl PlanExecutor<Speculated> {
                 .args(["ast", "blast", path, "-j"])
                 .output()
                 .await;
-            if let Ok(out) = output {
-                if out.status.success() {
-                    if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
-                        let count = json
-                            .get("affected_count")
-                            .and_then(serde_json::Value::as_i64)
-                            .and_then(|v| usize::try_from(v).ok())
-                            .unwrap_or(0);
-                        if count < 5 {
-                            ctx.rl
-                                .inject("stable_commit", NormalizedScore::clamped(0.5), plan_id);
-                        }
-                        // Cache the blast count for multidimensional RL.
-                        crate::core::context::BLAST_COUNTS.insert(path.clone(), count);
-                    }
+            if let Ok(out) = output
+                && out.status.success()
+                && let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout)
+            {
+                let count = json
+                    .get("affected_count")
+                    .and_then(serde_json::Value::as_i64)
+                    .and_then(|v| usize::try_from(v).ok())
+                    .unwrap_or(0);
+                if count < 5 {
+                    ctx.rl
+                        .inject("stable_commit", NormalizedScore::clamped(0.5), plan_id);
                 }
+                // Cache the blast count for multidimensional RL.
+                crate::core::context::BLAST_COUNTS.insert(path.clone(), count);
             }
         }
     }
@@ -1303,19 +1302,19 @@ impl PlanExecutor<Speculated> {
         }
 
         // clean_commit: wiring score > 0.9 (populated by evaluate_wiring_gate).
-        if let Some(score) = crate::core::context::WIRING_SCORES.get(plan_id) {
-            if score > 0.9 {
-                ctx.rl
-                    .inject("clean_commit", NormalizedScore::clamped(0.6), plan_id);
-            }
+        if let Some(score) = crate::core::context::WIRING_SCORES.get(plan_id)
+            && score > 0.9
+        {
+            ctx.rl
+                .inject("clean_commit", NormalizedScore::clamped(0.6), plan_id);
         }
 
         // health_pass: composite score > 0.7 from touring e2e (populated by HealthGateAdapter::check).
-        if let Some(score) = crate::core::context::HEALTH_SCORES.get(project_root) {
-            if score >= 0.7 {
-                ctx.rl
-                    .inject("health_pass", NormalizedScore::clamped(score), plan_id);
-            }
+        if let Some(score) = crate::core::context::HEALTH_SCORES.get(project_root)
+            && score >= 0.7
+        {
+            ctx.rl
+                .inject("health_pass", NormalizedScore::clamped(score), plan_id);
         }
     }
 }

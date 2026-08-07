@@ -99,10 +99,10 @@ pub fn extract_and_analyze(text: &str, discount_rate: f64) -> ConcessionAnalysis
     } else {
         let mut cfs: Vec<f64> = values.iter().map(|v| v.value).collect();
         // Negate first value as investment (convention: CF0 < 0)
-        if let Some(first) = cfs.first_mut() {
-            if *first > 0.0 {
-                *first = -*first;
-            }
+        if let Some(first) = cfs.first_mut()
+            && *first > 0.0
+        {
+            *first = -*first;
         }
         cfs
     };

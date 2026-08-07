@@ -121,11 +121,11 @@ pub fn resolve_import_path(import: &str, language: &str) -> Option<String> {
 /// "crates/touring-hooks/src/foo/bar.rs" → "crates/touring-hooks/src"
 /// "crates/touring-server/src/server/main.rs" → "crates/touring-server/src"
 fn detect_crate_src_root(source_file: &str) -> Option<String> {
-    if let Some(crates_pos) = source_file.find("crates/") {
-        if let Some(src_pos) = source_file[crates_pos..].find("/src") {
-            let end = crates_pos + src_pos + 4; // include "/src"
-            return Some(source_file[..end].to_string());
-        }
+    if let Some(crates_pos) = source_file.find("crates/")
+        && let Some(src_pos) = source_file[crates_pos..].find("/src")
+    {
+        let end = crates_pos + src_pos + 4; // include "/src"
+        return Some(source_file[..end].to_string());
     }
     None
 }
@@ -221,12 +221,11 @@ pub fn resolve_import_path_with_source(
                 let mut dir = std::env::current_dir().ok()?;
                 loop {
                     let toml_path = dir.join("Cargo.toml");
-                    if toml_path.is_file() {
-                        if let Ok(content) = std::fs::read_to_string(&toml_path) {
-                            if content.contains("[workspace]") {
-                                return Some(dir.display().to_string());
-                            }
-                        }
+                    if toml_path.is_file()
+                        && let Ok(content) = std::fs::read_to_string(&toml_path)
+                        && content.contains("[workspace]")
+                    {
+                        return Some(dir.display().to_string());
                     }
                     if !dir.pop() {
                         break;
@@ -282,26 +281,25 @@ pub fn resolve_import_path_with_source(
                     .is_some_and(|stem| matches!(stem, "super" | "self" | "Self"))
             }
 
-            if let Some(src) = source_file {
-                if import.starts_with("crate::") || import.starts_with("super::") {
-                    if let Some(crate_src_root) = detect_crate_src_root(src) {
-                        let relative = import
-                            .strip_prefix("crate::")
-                            .or_else(|| import.strip_prefix("super::"))
-                            .unwrap_or(import);
-                        let rel = relative.replace("::", "/");
-                        // Try file-style and directory-style layouts; either
-                        // None (neither exists, e.g. OUT_DIR-generated module)
-                        // or filename keyword sentinel rejects the candidate.
-                        if let Some(candidate) = resolve_module_layout(&crate_src_root, &rel) {
-                            if is_keyword_filename(&candidate) {
-                                return None;
-                            }
-                            return Some(candidate);
-                        }
+            if let Some(src) = source_file
+                && (import.starts_with("crate::") || import.starts_with("super::"))
+                && let Some(crate_src_root) = detect_crate_src_root(src)
+            {
+                let relative = import
+                    .strip_prefix("crate::")
+                    .or_else(|| import.strip_prefix("super::"))
+                    .unwrap_or(import);
+                let rel = relative.replace("::", "/");
+                // Try file-style and directory-style layouts; either
+                // None (neither exists, e.g. OUT_DIR-generated module)
+                // or filename keyword sentinel rejects the candidate.
+                if let Some(candidate) = resolve_module_layout(&crate_src_root, &rel) {
+                    if is_keyword_filename(&candidate) {
                         return None;
                     }
+                    return Some(candidate);
                 }
+                return None;
             }
             // External-import guard (regression: phantom std/serde/tokio/etc.):
             // If the import didn't match a workspace crate or `crate::` prefix,

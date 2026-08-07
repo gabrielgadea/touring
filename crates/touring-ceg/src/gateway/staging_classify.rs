@@ -150,10 +150,10 @@ fn detect_script_write(tokens: &[&str]) -> Option<PathBuf> {
         } else {
             None
         };
-        if let Some(c) = candidate {
-            if let Some(path) = as_script_path(c) {
-                return Some(path);
-            }
+        if let Some(c) = candidate
+            && let Some(path) = as_script_path(c)
+        {
+            return Some(path);
         }
     }
     None
@@ -164,10 +164,10 @@ fn detect_script_run(tokens: &[&str]) -> Option<PathBuf> {
     let first = *tokens.first()?;
 
     // Direct execution: `./deploy.sh` or `/abs/path/run.py`.
-    if first.starts_with("./") || first.starts_with('/') {
-        if let Some(path) = as_script_path(first) {
-            return Some(path);
-        }
+    if (first.starts_with("./") || first.starts_with('/'))
+        && let Some(path) = as_script_path(first)
+    {
+        return Some(path);
     }
 
     // Runner invocation: `bash x.sh`, `python3 x.py`, `/usr/bin/node app.js`.

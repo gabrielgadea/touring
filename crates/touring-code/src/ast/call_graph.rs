@@ -183,10 +183,9 @@ impl CallGraph {
             if let (Some(&from), Some(&to)) = (
                 name_to_idx.get(site.caller.as_str()),
                 name_to_idx.get(site.callee.as_str()),
-            ) {
-                if edge_set.insert((from, to)) {
-                    graph.add_edge(from, to, ());
-                }
+            ) && edge_set.insert((from, to))
+            {
+                graph.add_edge(from, to, ());
             }
         }
 

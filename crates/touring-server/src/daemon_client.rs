@@ -144,9 +144,70 @@ fn send_daemon_request(
     let response: DaemonResponse = parse_daemon_response(&response_bytes)
         .map_err(|e| anyhow::anyhow!("Failed to parse daemon response: {}", e))?;
     if !response.success {
-        anyhow::bail!("Daemon returned success=false");
+        anyhow::bail!("{}", daemon_failure_message(&response.output));
     }
     Ok(response.output)
+}
+
+/// Build a *diagnosable* failure message from the daemon's response payload.
+///
+/// The handlers already produce specific causes — `cli_memory_reindex` returns
+/// `{"error":"ANN recall not initialised — daemon startup did not call
+/// init_ann_memory"}` — but this call site used to discard `output` entirely and
+/// surface only "Daemon returned success=false". On 2026-08-02 that turned a real
+/// outage (the memory subsystem wedged behind a long-running handler) into an
+/// undiagnosable one and sent the investigation to a wrong root cause. Failing
+/// loud is cheap; guessing is not.
+fn daemon_failure_message(output: &str) -> String {
+    const PREFIX: &str = "Daemon returned success=false";
+    const MAX_SNIPPET: usize = 400;
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return format!("{PREFIX} (empty response payload)");
+    }
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed)
+        && let Some(err) = value.get("error").and_then(|e| e.as_str())
+    {
+        return format!("{PREFIX}: {err}");
+    }
+    // Not JSON, or JSON without an `error` key: carry a bounded snippet rather
+    // than nothing. Truncation counts CHARS, never bytes — a byte slice can
+    // split a multi-byte UTF-8 boundary and panic on an accented message.
+    let mut snippet: String = trimmed.chars().take(MAX_SNIPPET).collect();
+    if trimmed.chars().count() > MAX_SNIPPET {
+        snippet.push('…');
+    }
+    format!("{PREFIX}: {snippet}")
+}
+
+#[cfg(test)]
+mod daemon_failure_message_tests {
+    use super::daemon_failure_message;
+
+    #[test]
+    fn carries_the_handler_error_field() {
+        let msg = daemon_failure_message(r#"{"error":"ANN recall not initialised"}"#);
+        assert!(msg.contains("ANN recall not initialised"), "{msg}");
+    }
+
+    #[test]
+    fn reports_an_empty_payload_as_such() {
+        assert!(daemon_failure_message("   ").contains("empty response payload"));
+    }
+
+    #[test]
+    fn falls_back_to_a_snippet_without_an_error_key() {
+        let msg = daemon_failure_message(r#"{"status":"partial","failed":7}"#);
+        assert!(msg.contains("partial") && msg.contains("failed"), "{msg}");
+    }
+
+    #[test]
+    fn truncates_on_char_boundaries_never_panicking() {
+        let long = "ç".repeat(1_000); // 2 bytes each — a byte-slice would panic
+        let msg = daemon_failure_message(&long);
+        assert!(msg.ends_with('…'));
+        assert!(msg.chars().count() < 1_000);
+    }
 }
 
 #[derive(serde::Deserialize)]

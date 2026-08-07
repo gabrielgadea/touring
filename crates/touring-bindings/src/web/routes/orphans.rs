@@ -94,7 +94,7 @@ pub fn fmt_thousands(n: u64) -> String {
     let len = digits.len();
     let mut out = String::with_capacity(len + len / 3);
     for (i, ch) in digits.chars().enumerate() {
-        if i > 0 && (len - i) % 3 == 0 {
+        if i > 0 && (len - i).is_multiple_of(3) {
             out.push('.');
         }
         out.push(ch);
@@ -310,10 +310,10 @@ pub fn OrphanList() -> impl IntoView {
     let kind_options: Memo<Vec<String>> = Memo::new(move |_| {
         let mut set = std::collections::BTreeSet::new();
         for o in rows.get() {
-            if let Some(k) = o.kind {
-                if !k.is_empty() {
-                    set.insert(k);
-                }
+            if let Some(k) = o.kind
+                && !k.is_empty()
+            {
+                set.insert(k);
             }
         }
         set.into_iter().collect()

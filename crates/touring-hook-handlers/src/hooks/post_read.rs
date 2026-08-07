@@ -120,34 +120,32 @@ pub fn run(
     // distinct call name to prevent fan-out blow-up for generic names like
     // `clone` or `iter`. No-op for non-Rust files (the helper returns []).
     let method_names = crate::ast_bridge::extract_file_method_calls(&content, &abs_path);
-    if !method_names.is_empty() {
-        if let Ok(producers) = runtime
+    if !method_names.is_empty()
+        && let Ok(producers) = runtime
             .ctx
             .knowledge
             .find_producer_modules_for_methods(&method_names, 4)
-        {
-            for (module_file, symbol_name) in &producers {
-                let _ = runtime.ctx.knowledge.record_consumer(
-                    module_file,
-                    symbol_name,
-                    &rel_path,
-                    None,
-                );
-            }
+    {
+        for (module_file, symbol_name) in &producers {
+            let _ =
+                runtime
+                    .ctx
+                    .knowledge
+                    .record_consumer(module_file, symbol_name, &rel_path, None);
         }
     }
 
     // ── Functional Signature: register module's functional identity for chain detection ──
     // Runs only for AST-supported languages where symbols_json is populated.
     // INSERT OR REPLACE — safe to call on every re-read of the same file.
-    if let Some(symbols_json) = knowledge.symbols_json.as_deref() {
-        if let Some(sig) = crate::functional_wiring::extract_functional_signature(
+    if let Some(symbols_json) = knowledge.symbols_json.as_deref()
+        && let Some(sig) = crate::functional_wiring::extract_functional_signature(
             &rel_path,
             &content,
             symbols_json,
-        ) {
-            let _ = runtime.ctx.knowledge.register_functional_signature(&sig);
-        }
+        )
+    {
+        let _ = runtime.ctx.knowledge.register_functional_signature(&sig);
     }
 
     // ── L0 Ecosystem: register module in ecosystem map ──
@@ -235,10 +233,10 @@ fn populate_wiring_map(
     knowledge: &FileKnowledge,
 ) {
     // Skip non-code languages — they don't have real symbol visibility
-    if let Some(lang) = knowledge.language.as_deref() {
-        if matches!(lang, "toml" | "json" | "yaml" | "markdown" | "html" | "css") {
-            return;
-        }
+    if let Some(lang) = knowledge.language.as_deref()
+        && matches!(lang, "toml" | "json" | "yaml" | "markdown" | "html" | "css")
+    {
+        return;
     }
 
     // Skip subprojects that are not part of the touring crates proper
@@ -247,24 +245,24 @@ fn populate_wiring_map(
     }
 
     // Register pub symbols defined in this file
-    if let Some(ref symbols_json) = knowledge.symbols_json {
-        if let Ok(symbols) = serde_json::from_str::<Vec<serde_json::Value>>(symbols_json) {
-            // Clear previous wiring entries for this module to avoid stale data
-            let _ = db.clear_wiring(rel_path);
-            for sym in &symbols {
-                let is_public = sym
-                    .get("is_public")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                if is_public {
-                    let name = sym.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    let kind = sym
-                        .get("kind")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown");
-                    if !name.is_empty() {
-                        let _ = db.register_pub_symbol(rel_path, name, kind, "public");
-                    }
+    if let Some(ref symbols_json) = knowledge.symbols_json
+        && let Ok(symbols) = serde_json::from_str::<Vec<serde_json::Value>>(symbols_json)
+    {
+        // Clear previous wiring entries for this module to avoid stale data
+        let _ = db.clear_wiring(rel_path);
+        for sym in &symbols {
+            let is_public = sym
+                .get("is_public")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if is_public {
+                let name = sym.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let kind = sym
+                    .get("kind")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                if !name.is_empty() {
+                    let _ = db.register_pub_symbol(rel_path, name, kind, "public");
                 }
             }
         }
@@ -279,35 +277,34 @@ fn populate_wiring_map(
     // method/function producer they imported into a phantom orphan. The new code
     // accepts any well-formed identifier and filters out only globs/keywords
     // (`*`, `self`, `super`, `crate`) which are not real symbols.
-    if let Some(ref imports_json) = knowledge.imports_json {
-        if let Ok(imports) = serde_json::from_str::<Vec<String>>(imports_json) {
-            // Clear previous consumer entries from this file
-            let _ = db.clear_consumer_entries(rel_path);
-            for import_path in &imports {
-                let Some(symbol_name) = import_path.rsplit("::").next() else {
-                    continue;
-                };
-                if !is_likely_rust_symbol_name(symbol_name) {
-                    continue;
-                }
-                let module_hint = import_path
-                    .rsplit_once("::")
-                    .map(|(m, _)| m)
-                    .unwrap_or(import_path);
+    if let Some(ref imports_json) = knowledge.imports_json
+        && let Ok(imports) = serde_json::from_str::<Vec<String>>(imports_json)
+    {
+        // Clear previous consumer entries from this file
+        let _ = db.clear_consumer_entries(rel_path);
+        for import_path in &imports {
+            let Some(symbol_name) = import_path.rsplit("::").next() else {
+                continue;
+            };
+            if !is_likely_rust_symbol_name(symbol_name) {
+                continue;
+            }
+            let module_hint = import_path
+                .rsplit_once("::")
+                .map(|(m, _)| m)
+                .unwrap_or(import_path);
 
-                // Check for cross-crate imports using resolve_import_path
-                if let Some(resolved) = resolve_import_path(module_hint, "rust") {
-                    let _ = db.record_consumer(&resolved, symbol_name, rel_path, None);
-                } else if module_hint.starts_with("crate::") {
-                    // Crate-relative fallback (project-root resolution).
-                    // Note: `super::` was previously also handled here but
-                    // produced phantom files like "super/Foo.rs" — the
-                    // resolver's keyword guard above now correctly returns
-                    // None for those, and we deliberately skip them here.
-                    let module_file =
-                        module_hint.replace("crate::", "src/").replace("::", "/") + ".rs";
-                    let _ = db.record_consumer(&module_file, symbol_name, rel_path, None);
-                }
+            // Check for cross-crate imports using resolve_import_path
+            if let Some(resolved) = resolve_import_path(module_hint, "rust") {
+                let _ = db.record_consumer(&resolved, symbol_name, rel_path, None);
+            } else if module_hint.starts_with("crate::") {
+                // Crate-relative fallback (project-root resolution).
+                // Note: `super::` was previously also handled here but
+                // produced phantom files like "super/Foo.rs" — the
+                // resolver's keyword guard above now correctly returns
+                // None for those, and we deliberately skip them here.
+                let module_file = module_hint.replace("crate::", "src/").replace("::", "/") + ".rs";
+                let _ = db.record_consumer(&module_file, symbol_name, rel_path, None);
             }
         }
     }

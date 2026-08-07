@@ -246,12 +246,11 @@ fn file_dependency_fingerprint(index: &super::SymbolIndex, file: &str) -> Vec<f3
     let mut fingerprint = vec![0.0_f32; files.len()];
 
     for (i, &f) in files.iter().enumerate() {
-        if let Some(importers) = index.reverse_deps.get(f) {
-            if importers.iter().any(|imp| imp == file) {
-                if let Some(slot) = fingerprint.get_mut(i) {
-                    *slot = 1.0;
-                }
-            }
+        if let Some(importers) = index.reverse_deps.get(f)
+            && importers.iter().any(|imp| imp == file)
+            && let Some(slot) = fingerprint.get_mut(i)
+        {
+            *slot = 1.0;
         }
     }
 

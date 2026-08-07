@@ -83,12 +83,12 @@ fn count_extensions(workspace: &str, extensions: &[String]) -> HashMap<String, u
                         continue;
                     }
                     walk_dir(&path, extensions, counts);
-                } else if path.is_file() {
-                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        for ext in extensions {
-                            if name.ends_with(ext) {
-                                *counts.entry(ext.clone()).or_insert(0) += 1;
-                            }
+                } else if path.is_file()
+                    && let Some(name) = path.file_name().and_then(|n| n.to_str())
+                {
+                    for ext in extensions {
+                        if name.ends_with(ext) {
+                            *counts.entry(ext.clone()).or_insert(0) += 1;
                         }
                     }
                 }

@@ -25,8 +25,8 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
-use std::time::Instant;
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 use tantivy::schema::FAST;
 use tantivy::schema::{
@@ -154,6 +154,11 @@ pub struct IndexStats {
     pub total_commits: u64,
     /// Cumulative count of symbol upserts performed.
     pub total_upserts: u64,
+    /// `false` quando outro daemon detém o writer lock exclusivo: a busca segue
+    /// íntegra, mas as escritas deste processo são recusadas. Publicado para
+    /// que `touring tantivy stats` distinga "não houve escrita" de "não PODE
+    /// escrever" — a diferença que tornava o incidente 2026-08-03 invisível.
+    pub writable: bool,
 }
 
 // ─── Schema Field Handles ────────────────────────────────────────────────────
@@ -321,7 +326,14 @@ fn build_symbol_facet(doc: &SymbolDoc) -> tantivy::schema::Facet {
 pub struct TantivyIndex {
     index: Index,
     reader: IndexReader,
-    writer: std::sync::Mutex<IndexWriter>,
+    /// `None` ⇒ **somente-leitura**: outro processo detém o writer lock
+    /// exclusivo do Tantivy (`.tantivy-writer.lock`). Leitura nunca precisou
+    /// desse lock, então o handle continua plenamente útil para busca; só a
+    /// escrita degrada. Reaquirido sob demanda por [`Self::writer_guard`].
+    writer: std::sync::Mutex<Option<IndexWriter>>,
+    /// Instante da última tentativa de adquirir o writer, para não pagar a
+    /// alocação da arena de 50 MB a cada upsert enquanto o lock está ocupado.
+    last_writer_attempt: std::sync::Mutex<Option<Instant>>,
     /// Stored separately — `MmapDirectory::root_path` is private.
     index_dir: PathBuf,
     fields: SchemaFields,
@@ -358,6 +370,49 @@ impl From<String> for TantivyIndexError {
     }
 }
 
+/// Mensagem canônica do índice vazio, compartilhada por CLI e MCP (F2,
+/// 03/08/2026).
+///
+/// Um `[]` vindo de um índice sem documentos é ambíguo — lê-se como "esse
+/// símbolo não existe", quando o fato é "não há nada indexado". Com índices
+/// per-project, todo projeto nasce vazio até o primeiro `reindex`, então essa
+/// ambiguidade deixaria de ser exceção e viraria o caso comum: trocaríamos um
+/// erro alto por um vazio silencioso, que é pior.
+///
+/// Vive aqui, e não em cada superfície, para que o operador leia a MESMA frase
+/// venha ela do CLI ou do MCP. O formato do envelope continua sendo de cada
+/// superfície — o contrato é a condição e a ação, não a embalagem.
+pub const EMPTY_INDEX_MESSAGE: &str =
+    "tantivy index is empty for this project (0 documents) — run \
+     'touring tantivy reindex' to populate it from this project's symbols.db";
+
+/// Erro canônico de escrita em handle somente-leitura — uma única origem, para
+/// que CLI, hooks e testes leiam exatamente a mesma frase. Função livre porque
+/// os DOIS índices (símbolos e tool-outputs) compartilham a condição.
+fn read_only_error() -> TantivyIndexError {
+    TantivyIndexError::from(READ_ONLY_ERROR.to_string())
+}
+
+/// Arena de escrita do Tantivy (50 MB). Alocada por `Index::writer` — é o que
+/// torna caro tentar readquirir o lock a cada operação.
+const WRITER_ARENA_BYTES: usize = 50_000_000;
+
+/// Arena do índice de tool-outputs (15 MB) — corpus menor que o de símbolos.
+const TOOL_OUTPUTS_ARENA_BYTES: usize = 15_000_000;
+
+/// Intervalo mínimo entre tentativas de readquirir o writer lock num handle
+/// degradado. Curto o bastante para que a morte do detentor se resolva sozinha
+/// em menos de um minuto; longo o bastante para não custar 50 MB por upsert.
+const WRITER_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Mensagem única do modo somente-leitura. Os testes ancoram no literal
+/// `read-only`, e o CLI a repassa verbatim — o operador precisa ler a condição
+/// REAL (outro daemon detém o lock), não um "falhou" genérico.
+const READ_ONLY_ERROR: &str =
+    "tantivy index is read-only: the exclusive writer lock is held by another \
+     touring daemon (per-project topology). Reads work; writes are skipped until \
+     the lock is released.";
+
 impl TantivyIndex {
     /// Open an existing index or create a new one at `path`.
     ///
@@ -367,50 +422,16 @@ impl TantivyIndex {
     pub fn open_or_create(path: &Path) -> Result<Self, TantivyIndexError> {
         let (schema, fields) = build_schema();
         std::fs::create_dir_all(path).map_err(|e| format!("create_dir_all: {e}"))?;
+        let index = Self::open_index_dir(path, schema)?;
+        Self::register_trigram_tokenizer(&index)?;
 
-        let mmap_dir = tantivy::directory::MmapDirectory::open(path)
-            .map_err(|e| format!("MmapDirectory: {e}"))?;
-        let index = match Index::open_or_create(mmap_dir, schema) {
-            Ok(idx) => idx,
-            Err(first_err) => {
-                // Schema mismatch — on-disk index was built with an older schema version.
-                // Delete the stale directory and retry from scratch so the daemon can
-                // self-recover without manual intervention.
-                tracing::warn!(
-                    dir = %path.display(),
-                    err = %first_err,
-                    "tantivy: open_or_create failed (likely schema mismatch) \
-                     — deleting stale index dir and retrying"
-                );
-                std::fs::remove_dir_all(path)
-                    .map_err(|e| format!("remove_dir_all (schema mismatch recovery): {e}"))?;
-                std::fs::create_dir_all(path)
-                    .map_err(|e| format!("create_dir_all (retry): {e}"))?;
-                let (schema2, _) = build_schema();
-                let mmap_dir2 = tantivy::directory::MmapDirectory::open(path)
-                    .map_err(|e| format!("MmapDirectory (retry): {e}"))?;
-                Index::open_or_create(mmap_dir2, schema2).map_err(|e| {
-                    format!("Index::open_or_create (retry after schema mismatch): {e}")
-                })?
-            }
-        };
-
-        // I-01: register trigram tokenizer (3,3) on this index. Idempotent —
-        // re-registering the same name overwrites with identical config.
-        // Wrapped in a TextAnalyzer so it composes with LowerCaser for
-        // case-insensitive substring search.
-        let trigram = tantivy::tokenizer::TextAnalyzer::builder(
-            tantivy::tokenizer::NgramTokenizer::new(3, 3, false)
-                .map_err(|e| format!("ngram tokenizer: {e}"))?,
-        )
-        .filter(tantivy::tokenizer::LowerCaser)
-        .build();
-        index.tokenizers().register("trigram_3", trigram);
-
-        let writer = index
-            .writer(50_000_000)
-            .map_err(|e| format!("writer: {e}"))?;
+        // A LEITURA é o caminho crítico e não depende do writer lock — por isso
+        // vem primeiro e é a única etapa fatal. O writer é BEST-EFFORT: com N
+        // daemons vivos (topologia per-project, Pln2 L4) só um detém o lock
+        // exclusivo, e falhar a abertura inteira por isso deixava todos os
+        // outros sem FTS permanentemente (incidente 2026-08-03).
         let reader = index.reader().map_err(|e| format!("reader: {e}"))?;
+        let writer = Self::try_acquire_writer(&index, path);
 
         Ok(TantivyIndex {
             index_dir: path.to_path_buf(),
@@ -418,6 +439,11 @@ impl TantivyIndex {
             index,
             reader,
             writer: std::sync::Mutex::new(writer),
+            // `None` = "ainda não houve RETENTATIVA". A tentativa da abertura não
+            // conta: se o detentor do lock morrer logo depois, a primeira escrita
+            // recupera o writer na hora em vez de esperar o intervalo inteiro.
+            // Custa no máximo uma alocação extra de arena por handle degradado.
+            last_writer_attempt: std::sync::Mutex::new(None),
             pending_count: AtomicU32::new(0),
             total_upserts: AtomicU64::new(0),
             total_commits: AtomicU64::new(0),
@@ -427,6 +453,134 @@ impl TantivyIndex {
             query_cache_hits: AtomicU64::new(0),
             query_cache_misses: AtomicU64::new(0),
         })
+    }
+
+    /// Abre o diretório do índice, recuperando-se de **incompatibilidade de
+    /// schema** — e somente dela.
+    ///
+    /// A recuperação apaga o diretório inteiro, então precisa ser cirúrgica: até
+    /// 03/08/2026 este ramo capturava QUALQUER erro sob o rótulo "likely schema
+    /// mismatch", de modo que uma falha transitória de I/O ou de permissão
+    /// destruía um índice de 180 MB. Agora um erro não classificado propaga —
+    /// perder busca é reversível (`touring tantivy reindex`), apagar dados do
+    /// usuário por um palpite não é.
+    fn open_index_dir(path: &Path, schema: Schema) -> Result<Index, TantivyIndexError> {
+        let mmap_dir = tantivy::directory::MmapDirectory::open(path)
+            .map_err(|e| format!("MmapDirectory: {e}"))?;
+        let first_err = match Index::open_or_create(mmap_dir, schema) {
+            Ok(idx) => return Ok(idx),
+            Err(e) => e,
+        };
+        if !matches!(first_err, tantivy::TantivyError::SchemaError(_)) {
+            return Err(format!("Index::open_or_create: {first_err}").into());
+        }
+        tracing::warn!(
+            dir = %path.display(),
+            err = %first_err,
+            "tantivy: schema mismatch — recriando o índice a partir do zero"
+        );
+        std::fs::remove_dir_all(path)
+            .map_err(|e| format!("remove_dir_all (schema mismatch recovery): {e}"))?;
+        std::fs::create_dir_all(path).map_err(|e| format!("create_dir_all (retry): {e}"))?;
+        let (schema2, _) = build_schema();
+        let mmap_dir2 = tantivy::directory::MmapDirectory::open(path)
+            .map_err(|e| format!("MmapDirectory (retry): {e}"))?;
+        Index::open_or_create(mmap_dir2, schema2)
+            .map_err(|e| format!("Index::open_or_create (retry after schema mismatch): {e}").into())
+    }
+
+    /// I-01: registra o NgramTokenizer (3,3) para busca por substring. Idempotente
+    /// — re-registrar o mesmo nome sobrescreve com config idêntica. Envolto em
+    /// `TextAnalyzer` para compor com `LowerCaser` (case-insensitive).
+    fn register_trigram_tokenizer(index: &Index) -> Result<(), TantivyIndexError> {
+        let trigram = tantivy::tokenizer::TextAnalyzer::builder(
+            tantivy::tokenizer::NgramTokenizer::new(3, 3, false)
+                .map_err(|e| format!("ngram tokenizer: {e}"))?,
+        )
+        .filter(tantivy::tokenizer::LowerCaser)
+        .build();
+        index.tokenizers().register("trigram_3", trigram);
+        Ok(())
+    }
+
+    /// Tenta tomar o writer lock exclusivo. `None` ⇒ outro processo o detém e
+    /// este handle opera somente-leitura (busca continua íntegra).
+    fn try_acquire_writer(index: &Index, path: &Path) -> Option<IndexWriter> {
+        match index.writer(WRITER_ARENA_BYTES) {
+            Ok(w) => Some(w),
+            Err(e) => {
+                tracing::info!(
+                    dir = %path.display(),
+                    err = %e,
+                    "tantivy: writer lock indisponível (outro daemon o detém) \
+                     — handle em modo somente-leitura; a busca segue funcional"
+                );
+                None
+            }
+        }
+    }
+
+    /// `true` quando o índice não tem documento algum.
+    ///
+    /// Um resultado vazio vindo daqui NÃO é um "não encontrei" — é "não há nada
+    /// para encontrar". As duas superfícies (CLI e MCP) usam este predicado com
+    /// [`EMPTY_INDEX_MESSAGE`] para dizer isso ao operador; cada uma monta o
+    /// envelope no formato que os SEUS consumidores já tratam.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.stats().total_docs == 0
+    }
+
+    /// `true` quando este handle detém o writer lock e pode gravar.
+    ///
+    /// Exposto para observabilidade: `stats()` o publica como `writable`, de modo
+    /// que um índice que parou de receber upserts se distinga na hora de um que
+    /// simplesmente não teve escritas.
+    #[must_use]
+    pub fn is_writable(&self) -> bool {
+        self.writer
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
+    }
+
+    /// Trava o writer, **readquirindo-o sob demanda** se este handle nasceu (ou
+    /// ficou) somente-leitura.
+    ///
+    /// A reaquisição é limitada por [`WRITER_RETRY_INTERVAL`] porque
+    /// `Index::writer` aloca uma arena de 50 MB — tentar a cada upsert com o lock
+    /// ocupado transformaria a degradação em problema de desempenho. Sem essa
+    /// releitura o handle degradado permaneceria estéril até o processo reiniciar,
+    /// mesmo depois de o detentor do lock morrer.
+    fn writer_guard(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, Option<IndexWriter>>, TantivyIndexError> {
+        let mut guard = self
+            .writer
+            .lock()
+            .map_err(|e| format!("writer lock: {e}"))?;
+        if guard.is_none() && self.writer_retry_is_due()? {
+            *guard = Self::try_acquire_writer(&self.index, &self.index_dir);
+        }
+        if guard.is_none() {
+            return Err(TantivyIndexError::from(READ_ONLY_ERROR.to_string()));
+        }
+        Ok(guard)
+    }
+
+
+    /// `true` se já passou [`WRITER_RETRY_INTERVAL`] desde a última tentativa
+    /// (e registra a tentativa atual).
+    fn writer_retry_is_due(&self) -> Result<bool, TantivyIndexError> {
+        let mut last = self
+            .last_writer_attempt
+            .lock()
+            .map_err(|e| format!("last_writer_attempt lock: {e}"))?;
+        let due = last.is_none_or(|t| t.elapsed() >= WRITER_RETRY_INTERVAL);
+        if due {
+            *last = Some(Instant::now());
+        }
+        Ok(due)
     }
 
     /// I-01 — Substring search via the dedicated trigram field. Lowercases
@@ -483,12 +637,13 @@ impl TantivyIndex {
 
     /// Commit all pending writes to disk.
     pub fn commit(&self) -> Result<(), TantivyIndexError> {
-        let mut writer = self
-            .writer
-            .lock()
-            .map_err(|e| format!("writer lock: {e}"))?;
-        writer.commit().map_err(|e| format!("commit: {e}"))?;
-        drop(writer);
+        let mut guard = self.writer_guard()?;
+        guard
+            .as_mut()
+            .ok_or_else(read_only_error)?
+            .commit()
+            .map_err(|e| format!("commit: {e}"))?;
+        drop(guard);
         self.reader
             .reload()
             .map_err(|e| format!("reader reload: {e}"))?;
@@ -829,10 +984,8 @@ impl TantivyIndex {
 
     /// Delete all symbols that belong to `file`.
     pub fn delete_by_file(&self, file: &str) -> Result<(), TantivyIndexError> {
-        let writer = self
-            .writer
-            .lock()
-            .map_err(|e| format!("writer lock: {e}"))?;
+        let guard = self.writer_guard()?;
+        let writer = guard.as_ref().ok_or_else(read_only_error)?;
         let term = Term::from_field_text(self.fields.file_path, file);
         writer.delete_term(term);
         Ok(())
@@ -843,10 +996,8 @@ impl TantivyIndex {
     pub fn reindex(&self, docs: Vec<SymbolDoc>) -> Result<IndexStats, TantivyIndexError> {
         // Delete all existing documents by committing with a match-all delete
         {
-            let writer = self
-                .writer
-                .lock()
-                .map_err(|e| format!("writer lock: {e}"))?;
+            let guard = self.writer_guard()?;
+            let writer = guard.as_ref().ok_or_else(read_only_error)?;
             // Delete all docs using a match-all query approach
             let searcher = self.reader.searcher();
             let all_query = tantivy::query::AllQuery;
@@ -864,10 +1015,8 @@ impl TantivyIndex {
         // Add all new documents
         for doc in &docs {
             let (tantivy_doc, doc_id) = Self::build_tantivy_doc(&self.fields, doc);
-            let writer = self
-                .writer
-                .lock()
-                .map_err(|e| format!("writer lock: {e}"))?;
+            let guard = self.writer_guard()?;
+            let writer = guard.as_ref().ok_or_else(read_only_error)?;
             let term = Term::from_field_text(self.fields.blake3_hash, &doc_id);
             writer.delete_term(term);
             writer
@@ -939,6 +1088,7 @@ impl TantivyIndex {
             pending_ops: self.pending_count.load(Ordering::Relaxed),
             total_commits: self.total_commits.load(Ordering::Relaxed),
             total_upserts: self.total_upserts.load(Ordering::Relaxed),
+            writable: self.is_writable(),
         }
     }
 
@@ -1024,10 +1174,8 @@ impl TantivyIndex {
     pub fn upsert_symbol(&self, doc: &SymbolDoc) -> Result<(), TantivyIndexError> {
         let (tantivy_doc, doc_id) = Self::build_tantivy_doc(&self.fields, doc);
         {
-            let writer = self
-                .writer
-                .lock()
-                .map_err(|e| format!("writer lock poisoned: {e}"))?;
+            let guard = self.writer_guard()?;
+            let writer = guard.as_ref().ok_or_else(read_only_error)?;
             let term = Term::from_field_text(self.fields.blake3_hash, &doc_id);
             writer.delete_term(term);
             writer
@@ -1145,42 +1293,146 @@ fn extract_u64_opt(doc: &TantivyDocument, field: Field) -> Option<u64> {
 /// gracefully: callers receive `None` and skip Tantivy work rather than panicking.
 ///
 /// Index directory: `~/.claude/touring/tantivy/`
-static TANTIVY_GLOBAL: OnceLock<Option<TantivyIndex>> = OnceLock::new();
-
-/// Return a reference to the global [`TantivyIndex`] singleton, initializing
-/// it on first call.
 ///
-/// Returns `None` if initialization fails (e.g. permission error, disk full).
-/// All call-sites must handle `None` gracefully — Tantivy is additive; its
-/// absence must never block the hook path.
-pub fn global_tantivy() -> Option<&'static TantivyIndex> {
-    TANTIVY_GLOBAL
-        .get_or_init(|| {
+/// Guarda apenas o **sucesso**. Até 03/08/2026 era `OnceLock<Option<_>>`: uma
+/// falha transitória na primeira chamada gravava `None` e o processo ficava sem
+/// FTS até reiniciar — e a mensagem ao operador ("run `touring tantivy reindex`")
+/// era conselho impossível, porque o reindex batia no mesmo `None` cacheado.
+/// Registry de índices **por raiz de projeto** (F1, 03/08/2026).
+///
+/// Um `OnceLock` de processo não consegue ser per-project: **um daemon serve N
+/// projetos** (observados 2 e 4 na mesma máquina). A chave é o diretório do
+/// índice já normalizado, de modo que duas grafias da mesma raiz nunca abram
+/// dois índices.
+///
+/// Guarda apenas o **sucesso**. Até 03/08/2026 era `OnceLock<Option<_>>`: uma
+/// falha transitória na primeira chamada gravava `None` e o processo ficava sem
+/// FTS até reiniciar — e a mensagem ao operador ("run `touring tantivy reindex`")
+/// era conselho impossível, porque o reindex batia no mesmo `None` cacheado.
+static REGISTRY: OnceLock<dashmap::DashMap<PathBuf, &'static TantivyIndex>> = OnceLock::new();
+
+/// Instante da última tentativa fracassada **por diretório**, para limitar a
+/// frequência de novas tentativas no caminho quente dos hooks.
+static LAST_ATTEMPT: OnceLock<dashmap::DashMap<PathBuf, Instant>> = OnceLock::new();
+
+/// Intervalo mínimo entre tentativas de abrir um índice que falhou.
+const GLOBAL_INIT_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Diretório do índice de `root`, ou o índice **legado global** quando `None`.
+///
+/// A raiz passa por [`TouringConfig::normalize_project_root`] em vez de um
+/// resolvedor novo: aquele já trata cwd relativo, trata `$HOME/.claude` como
+/// diretório de configuração (nunca projeto) e faz walk-up por marcador real.
+/// Foi escrito para o incidente dos "29 stray DBs" de 20/07/2026 — reescrevê-lo
+/// aqui seria convidar o mesmo defeito de volta.
+fn index_dir_for(root: Option<&Path>) -> Option<PathBuf> {
+    match root {
+        Some(raw) => {
+            let normalized = touring_foundation::config::TouringConfig::normalize_project_root(raw);
+            Some(normalized.join(".claude").join("touring").join("tantivy"))
+        }
+        None => {
             let home = std::env::var("HOME").unwrap_or_default();
             if home.is_empty() {
-                tracing::warn!("tantivy global: HOME not set — skipping init");
+                tracing::warn!("tantivy: HOME not set — skipping init");
                 return None;
             }
-            let index_dir = PathBuf::from(&home)
-                .join(".claude")
-                .join("touring")
-                .join("tantivy");
-            match TantivyIndex::open_or_create(&index_dir) {
-                Ok(idx) => {
-                    tracing::debug!(
-                        dir = %index_dir.display(),
-                        docs = idx.stats().total_docs,
-                        "tantivy global singleton initialized"
-                    );
-                    Some(idx)
-                }
-                Err(e) => {
-                    tracing::warn!("tantivy global init failed: {e}");
-                    None
-                }
-            }
-        })
-        .as_ref()
+            Some(
+                PathBuf::from(&home)
+                    .join(".claude")
+                    .join("touring")
+                    .join("tantivy"),
+            )
+        }
+    }
+}
+
+/// Índice Tantivy de um projeto. `None` ⇒ o índice **legado global**
+/// (`~/.claude/touring/tantivy`), compartilhado por todos os projetos.
+///
+/// O `None` existe como **fachada de migração**: enquanto os ~41 chamadores
+/// históricos não passarem a sua raiz, eles seguem servidos pelo índice legado e
+/// o sistema fica verde em todo commit. O gate de conclusão da migração é
+/// determinístico — `grep -c "global_tantivy()"` fora da fachada igual a zero.
+///
+/// Por que particionar: o índice único produz três defeitos de uma só causa —
+/// contenção do writer lock (exclusivo por diretório), contaminação
+/// cross-project, e **eviction silenciosa**, já que `doc_id` deriva de um
+/// `file_path` RELATIVO (ver `identical_relative_coordinates_collapse_to_one_document`).
+///
+/// O sucesso é definitivo; a **falha é retentável** (limitada por
+/// [`GLOBAL_INIT_RETRY_INTERVAL`]), de modo que uma indisponibilidade passageira
+/// no boot não condene o processo inteiro.
+pub fn tantivy_for(root: Option<&Path>) -> Option<&'static TantivyIndex> {
+    let dir = index_dir_for(root)?;
+    let registry = REGISTRY.get_or_init(dashmap::DashMap::new);
+    if let Some(existing) = registry.get(&dir) {
+        return Some(*existing);
+    }
+    if !retry_is_due(&dir) {
+        return None;
+    }
+    match TantivyIndex::open_or_create(&dir) {
+        Ok(idx) => {
+            // `Box::leak` preserva o `&'static` que os chamadores esperam. O
+            // vazamento é limitado pelo número de PROJETOS servidos, não por
+            // chamada — o mesmo trade que o `OnceLock` anterior já fazia, N vezes
+            // em vez de 1. Abrir FORA do `entry` evita segurar o lock do shard
+            // durante uma alocação de 50 MB + I/O; o custo é que uma corrida real
+            // vaza o box perdedor (um por corrida, e a corrida é rara).
+            let leaked: &'static TantivyIndex = Box::leak(Box::new(idx));
+            let stored = *registry.entry(dir.clone()).or_insert(leaked);
+            tracing::debug!(
+                dir = %dir.display(),
+                docs = stored.stats().total_docs,
+                writable = stored.is_writable(),
+                "tantivy index opened for project root"
+            );
+            Some(stored)
+        }
+        Err(e) => {
+            tracing::warn!(dir = %dir.display(), "tantivy init failed: {e}");
+            None
+        }
+    }
+}
+
+/// Fachada histórica — **removida em 03/08/2026 (F5)**.
+///
+/// Existiu para tornar a conversão dos ~41 chamadores incremental: cada site
+/// migrado passava a chamar [`tantivy_for`] com a raiz do seu projeto, e os não
+/// migrados seguiam servidos pelo índice legado, com o sistema verde em todo
+/// commit. O último consumidor (`ctx_doctor`) passou a receber a raiz por
+/// parâmetro — o cwd só entra como fallback, porque dentro do daemon ele é o cwd
+/// DO DAEMON e não o do chamador (corrigido no cross-audit 03/08/2026).
+///
+/// O caminho legado **continua acessível** por `tantivy_for(None)` — o que
+/// desapareceu foi o atalho que o tornava o default implícito. Quem quiser o
+/// índice compartilhado agora tem de pedi-lo por extenso.
+// `since` acompanha a versão REAL do workspace (30.3.0). Eu havia escrito
+// "30.4.0" antecipando um bump que não vai acontecer aqui: o `Cargo.toml`
+// amarra a versão à constituição/docs e adia o rebrand SemVer para a Fase 5.
+// Anunciar uma versão inexistente seria pior que não anunciar nenhuma.
+#[deprecated(
+    since = "30.3.0",
+    note = "use `tantivy_for(Some(&project_root))`; para o índice legado compartilhado, \
+            `tantivy_for(None)` explicitamente"
+)]
+pub fn global_tantivy() -> Option<&'static TantivyIndex> {
+    tantivy_for(None)
+}
+
+/// `true` se já passou [`GLOBAL_INIT_RETRY_INTERVAL`] desde a última tentativa
+/// para ESTE diretório (e registra a tentativa atual).
+fn retry_is_due(dir: &Path) -> bool {
+    let attempts = LAST_ATTEMPT.get_or_init(dashmap::DashMap::new);
+    let due = attempts
+        .get(dir)
+        .is_none_or(|last| last.elapsed() >= GLOBAL_INIT_RETRY_INTERVAL);
+    if due {
+        attempts.insert(dir.to_path_buf(), Instant::now());
+    }
+    due
 }
 
 /// Map a file path extension to a language name suitable for the Tantivy `language` field.
@@ -1492,7 +1744,20 @@ fn decode_tool_output_doc(doc: &TantivyDocument, fields: &ToolOutputsFields) -> 
 pub struct ToolOutputsIndex {
     index: Index,
     reader: IndexReader,
-    writer: std::sync::Mutex<IndexWriter>,
+    /// `None` ⇒ somente-leitura. Mesma semântica de [`TantivyIndex::writer`]:
+    /// o writer lock do Tantivy é exclusivo por diretório, e a leitura nunca
+    /// precisou dele (cross-audit 03/08/2026 — este índice carregava a classe
+    /// inteira de defeitos que a partição per-project eliminou no índice de
+    /// símbolos).
+    writer: std::sync::Mutex<Option<IndexWriter>>,
+    /// Instante da última tentativa de readquirir o writer, para não pagar a
+    /// arena de 15 MB a cada escrita enquanto o lock está ocupado.
+    last_writer_attempt: std::sync::Mutex<Option<Instant>>,
+    /// Diretório real do índice. Existe para o DIAGNÓSTICO: sem ele o log de
+    /// reaquisição do writer imprimia o literal "tool_outputs" em vez do
+    /// projeto, escondendo justamente a informação que se procura ao investigar
+    /// "qual projeto não consegue escrever?" (cross-audit 04/08/2026).
+    index_dir: PathBuf,
     fields: ToolOutputsFields,
 }
 
@@ -1507,16 +1772,73 @@ impl ToolOutputsIndex {
             schema,
         )
         .map_err(|e| format!("Index::open_or_create: {e}"))?;
-        let writer = index
-            .writer(15_000_000)
-            .map_err(|e| format!("writer: {e}"))?;
+        // Reader primeiro (única etapa fatal); writer best-effort — ver
+        // `TantivyIndex::open_or_create` para o incidente que originou a ordem.
         let reader = index.reader().map_err(|e| format!("reader: {e}"))?;
+        let writer = Self::try_acquire_writer(&index, path);
         Ok(ToolOutputsIndex {
             index,
             reader,
             writer: std::sync::Mutex::new(writer),
+            last_writer_attempt: std::sync::Mutex::new(None),
+            index_dir: path.to_path_buf(),
             fields,
         })
+    }
+
+    /// Tenta tomar o writer lock exclusivo. `None` ⇒ somente-leitura.
+    fn try_acquire_writer(index: &Index, path: &Path) -> Option<IndexWriter> {
+        match index.writer(TOOL_OUTPUTS_ARENA_BYTES) {
+            Ok(w) => Some(w),
+            Err(e) => {
+                tracing::info!(
+                    dir = %path.display(),
+                    err = %e,
+                    "tool_outputs: writer lock indisponível — handle somente-leitura"
+                );
+                None
+            }
+        }
+    }
+
+    /// `true` quando este handle detém o writer lock.
+    #[must_use]
+    pub fn is_writable(&self) -> bool {
+        self.writer
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
+    }
+
+    /// Trava o writer, readquirindo-o sob demanda. Ver
+    /// [`TantivyIndex::writer_guard`] — mesma disciplina, mesmo throttle.
+    fn writer_guard(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, Option<IndexWriter>>, TantivyIndexError> {
+        let mut guard = self
+            .writer
+            .lock()
+            .map_err(|e| format!("writer lock: {e}"))?;
+        if guard.is_none() {
+            let due = {
+                let mut last = self
+                    .last_writer_attempt
+                    .lock()
+                    .map_err(|e| format!("last_writer_attempt lock: {e}"))?;
+                let due = last.is_none_or(|t| t.elapsed() >= WRITER_RETRY_INTERVAL);
+                if due {
+                    *last = Some(Instant::now());
+                }
+                due
+            };
+            if due {
+                *guard = Self::try_acquire_writer(&self.index, &self.index_dir);
+            }
+        }
+        if guard.is_none() {
+            return Err(TantivyIndexError::from(READ_ONLY_ERROR.to_string()));
+        }
+        Ok(guard)
     }
 
     /// I-05 — Returns Some(stored_at_unix) when a doc with `content_hash`
@@ -1551,10 +1873,8 @@ impl ToolOutputsIndex {
         let hits = searcher
             .search(&all_q, &TopDocs::with_limit(100_000))
             .map_err(|e| format!("cleanup search: {e}"))?;
-        let mut w = self
-            .writer
-            .lock()
-            .map_err(|e| format!("writer lock poisoned: {e}"))?;
+        let mut guard = self.writer_guard()?;
+        let w = guard.as_mut().ok_or_else(read_only_error)?;
         let mut deleted = 0u64;
         for (_score, addr) in hits {
             let Ok(stored) = searcher.doc::<TantivyDocument>(addr) else {
@@ -1590,10 +1910,8 @@ impl ToolOutputsIndex {
             crate::shared::gate_metrics::record_tool_outputs_ttl_skip();
             return Ok(());
         }
-        let mut w = self
-            .writer
-            .lock()
-            .map_err(|e| format!("writer lock poisoned: {e}"))?;
+        let mut guard = self.writer_guard()?;
+        let w = guard.as_mut().ok_or_else(read_only_error)?;
         // Delete any previous record for the same content_hash (idempotent upsert).
         let term = Term::from_field_text(self.fields.content_hash, &doc.content_hash);
         w.delete_term(term);
@@ -1616,14 +1934,14 @@ impl ToolOutputsIndex {
         let dt = tantivy::DateTime::from_timestamp_secs(doc.stored_at_unix as i64);
         td.add_date(self.fields.stored_at_dt, dt);
         // I-06 — persist tool_args as JSON field when caller provided it.
-        if let Some(ref args) = doc.tool_args {
-            if let Some(map) = args.as_object() {
-                let owned: std::collections::BTreeMap<String, tantivy::schema::OwnedValue> = map
-                    .iter()
-                    .map(|(k, v)| (k.clone(), serde_value_to_tantivy_owned(v)))
-                    .collect();
-                td.add_object(self.fields.tool_args_json, owned);
-            }
+        if let Some(ref args) = doc.tool_args
+            && let Some(map) = args.as_object()
+        {
+            let owned: std::collections::BTreeMap<String, tantivy::schema::OwnedValue> = map
+                .iter()
+                .map(|(k, v)| (k.clone(), serde_value_to_tantivy_owned(v)))
+                .collect();
+            td.add_object(self.fields.tool_args_json, owned);
         }
 
         w.add_document(td)
@@ -1658,10 +1976,8 @@ impl ToolOutputsIndex {
 
     /// Forces a writer commit + reader reload. Useful for tests.
     pub fn commit(&self) -> Result<(), TantivyIndexError> {
-        let mut w = self
-            .writer
-            .lock()
-            .map_err(|e| format!("writer lock poisoned: {e}"))?;
+        let mut guard = self.writer_guard()?;
+        let w = guard.as_mut().ok_or_else(read_only_error)?;
         w.commit().map_err(|e| format!("commit: {e}"))?;
         self.reader.reload().map_err(|e| format!("reload: {e}"))?;
         Ok(())
@@ -1736,20 +2052,20 @@ impl ToolOutputsIndex {
         };
         // Build a query over the `summary` field for snippet highlighting.
         let qp = tantivy::query::QueryParser::for_index(&self.index, vec![self.fields.summary]);
-        if let Ok(parsed) = qp.parse_query(query) {
-            if let Ok(mut snippet_gen) = tantivy::snippet::SnippetGenerator::create(
+        if let Ok(parsed) = qp.parse_query(query)
+            && let Ok(mut snippet_gen) = tantivy::snippet::SnippetGenerator::create(
                 &searcher,
                 parsed.as_ref(),
                 self.fields.summary,
-            ) {
-                snippet_gen.set_max_num_chars(512);
-                if let Ok(stored) = searcher.doc::<TantivyDocument>(addr) {
-                    let snippet = snippet_gen.snippet_from_doc(&stored);
-                    let html = snippet.to_html();
-                    if !html.is_empty() {
-                        // Strip <b>/<em> tags emitted by Tantivy highlight
-                        doc.summary = strip_html_tags(&html);
-                    }
+            )
+        {
+            snippet_gen.set_max_num_chars(512);
+            if let Ok(stored) = searcher.doc::<TantivyDocument>(addr) {
+                let snippet = snippet_gen.snippet_from_doc(&stored);
+                let html = snippet.to_html();
+                if !html.is_empty() {
+                    // Strip <b>/<em> tags emitted by Tantivy highlight
+                    doc.summary = strip_html_tags(&html);
                 }
             }
         }
@@ -1776,72 +2092,110 @@ fn strip_html_tags(html: &str) -> String {
 
 // ─── Global Singleton (parallel to global_tantivy) ───────────────────────────
 
-/// Wrapper allows tests to swap in a fresh OnceLock when HOME changes between
-/// test cases. Without this, a singleton OnceLock initialized with the first
-/// HOME value stays pinned to that path for the entire process lifetime.
-static TOOL_OUTPUTS_GLOBAL: Mutex<Option<OnceLock<Option<ToolOutputsIndex>>>> = Mutex::new(None);
-
-/// Reset the `TOOL_OUTPUTS_GLOBAL` singleton so the next call to
-/// [`global_tool_outputs`] re-reads `HOME` and re-initializes the index.
+/// Registry de índices de tool-outputs **por raiz de projeto**.
 ///
-/// **This is test infrastructure only.**  In production the daemon runs with
-/// a fixed `HOME` and this function is never called.
+/// Substituiu (cross-audit 03/08/2026) um
+/// `Mutex<Option<OnceLock<Option<ToolOutputsIndex>>>>` que existia só para
+/// permitir a testes trocar o `OnceLock` quando `HOME` mudava — e que exigia um
+/// bloco `unsafe` com ponteiro cru para devolver `&'static`. O registry por
+/// chave resolve o mesmo problema **sem `unsafe`**: raízes diferentes já são
+/// entradas diferentes, e um `HOME` diferente é só outra chave.
+///
+/// Guarda apenas o sucesso, como o registry de símbolos: uma falha transitória
+/// não condena o processo.
+static TOOL_OUTPUTS_REGISTRY: OnceLock<dashmap::DashMap<PathBuf, &'static ToolOutputsIndex>> =
+    OnceLock::new();
+
+/// Última tentativa fracassada por diretório (throttle de reabertura).
+static TOOL_OUTPUTS_LAST_ATTEMPT: OnceLock<dashmap::DashMap<PathBuf, Instant>> = OnceLock::new();
+
+/// Limpa o cache de TENTATIVAS de abertura, permitindo que a próxima resolução
+/// reabra um índice que falhou.
+///
+/// **Infraestrutura de teste.** Antes trocava um `OnceLock` inteiro para
+/// contornar `HOME` pinado; com o registry por chave isso deixou de ser
+/// necessário — um `HOME` diferente já é outra chave, e nunca reusa o índice
+/// anterior.
+///
+/// **Deliberadamente NÃO limpa `TOOL_OUTPUTS_REGISTRY`** (cross-audit
+/// 04/08/2026): as entradas são `Box::leak`, então `clear()` as tornaria
+/// inalcançáveis sem liberá-las — um vetor de vazamento proporcional ao número
+/// de resets, não de projetos. Como a chave já isola, esvaziar o registry não
+/// traz benefício algum; só o custo.
 pub fn reset_tool_outputs_global() {
-    let mut guard = TOOL_OUTPUTS_GLOBAL
-        .lock()
-        .expect("TOOL_OUTPUTS_GLOBAL mutex poisoned");
-    *guard = Some(OnceLock::new());
+    if let Some(att) = TOOL_OUTPUTS_LAST_ATTEMPT.get() {
+        att.clear();
+    }
 }
 
-/// Lazy singleton for the `tool_outputs` Tantivy index.
+/// Diretório de tool-outputs de `root`, ou o legado global quando `None`.
+fn tool_outputs_dir_for(root: Option<&Path>) -> Option<PathBuf> {
+    match root {
+        Some(raw) => {
+            let normalized = touring_foundation::config::TouringConfig::normalize_project_root(raw);
+            Some(
+                normalized
+                    .join(".claude")
+                    .join("touring")
+                    .join("tool_outputs"),
+            )
+        }
+        None => {
+            let home = std::env::var("HOME").unwrap_or_default();
+            if home.is_empty() {
+                tracing::warn!("tool_outputs: HOME not set");
+                return None;
+            }
+            Some(
+                PathBuf::from(&home)
+                    .join(".claude")
+                    .join("touring")
+                    .join("tool_outputs"),
+            )
+        }
+    }
+}
+
+/// Índice de tool-outputs de um projeto. `None` ⇒ o legado compartilhado.
 ///
-/// Initialised on first access at `~/.claude/touring/tool_outputs/`. Returns
-/// `None` on init failure so callers degrade gracefully (matches the
-/// `global_tantivy()` pattern).
+/// Mesmo desenho de [`tantivy_for`]: registry por raiz, `Box::leak` limitado ao
+/// número de projetos, sucesso definitivo e falha retentável. Sem `unsafe`.
+pub fn tool_outputs_for(root: Option<&Path>) -> Option<&'static ToolOutputsIndex> {
+    let dir = tool_outputs_dir_for(root)?;
+    let registry = TOOL_OUTPUTS_REGISTRY.get_or_init(dashmap::DashMap::new);
+    if let Some(existing) = registry.get(&dir) {
+        return Some(*existing);
+    }
+    let attempts = TOOL_OUTPUTS_LAST_ATTEMPT.get_or_init(dashmap::DashMap::new);
+    let due = attempts
+        .get(&dir)
+        .is_none_or(|last| last.elapsed() >= WRITER_RETRY_INTERVAL);
+    if !due {
+        return None;
+    }
+    attempts.insert(dir.clone(), Instant::now());
+    match ToolOutputsIndex::open_or_create(&dir) {
+        Ok(idx) => {
+            let leaked: &'static ToolOutputsIndex = Box::leak(Box::new(idx));
+            let stored = *registry.entry(dir.clone()).or_insert(leaked);
+            tracing::debug!(dir = %dir.display(), writable = stored.is_writable(), "tool_outputs aberto");
+            Some(stored)
+        }
+        Err(e) => {
+            tracing::warn!(dir = %dir.display(), err = %e, "tool_outputs init failed");
+            None
+        }
+    }
+}
+
+/// Fachada histórica — o índice de tool-outputs compartilhado.
+#[deprecated(
+    since = "30.3.0",
+    note = "use `tool_outputs_for(Some(&project_root))`; para o legado compartilhado, \
+            `tool_outputs_for(None)` explicitamente"
+)]
 pub fn global_tool_outputs() -> Option<&'static ToolOutputsIndex> {
-    // Phase 1: ensure OnceLock exists in the static (lock held briefly).
-    let once_ptr: *const OnceLock<Option<ToolOutputsIndex>> = {
-        let mut guard = TOOL_OUTPUTS_GLOBAL
-            .lock()
-            .expect("TOOL_OUTPUTS_GLOBAL mutex poisoned");
-        if guard.is_none() {
-            *guard = Some(OnceLock::new());
-        }
-        // SAFETY: OnceLock lives in the static at a stable address. The
-        // address remains valid for the program's lifetime — the Mutex itself
-        // is never dropped. The pointer is valid for the 'static lifetime.
-        guard.as_ref().expect("guard set to Some above")
-            as *const OnceLock<Option<ToolOutputsIndex>>
-    };
-    // Phase 2: init without lock (OnceLock is Send + Sync, safe to use
-    // from any thread once stored in the static).
-    // SAFETY: once_ptr points to the OnceLock in the static (stable for
-    // program lifetime). The OnceLock is only ever accessed through this
-    // static, so there is no data race. The returned reference is 'static
-    // because the OnceLock and its contents are stored in the static.
-    let once: &'static OnceLock<Option<ToolOutputsIndex>> = unsafe { &*once_ptr };
-    once.get_or_init(|| {
-        let home = std::env::var("HOME").unwrap_or_default();
-        if home.is_empty() {
-            tracing::warn!("tool_outputs global: HOME not set");
-            return None;
-        }
-        let dir = PathBuf::from(&home)
-            .join(".claude")
-            .join("touring")
-            .join("tool_outputs");
-        match ToolOutputsIndex::open_or_create(&dir) {
-            Ok(idx) => {
-                tracing::debug!(dir = %dir.display(), "tool_outputs singleton init");
-                Some(idx)
-            }
-            Err(e) => {
-                tracing::warn!(err = %e, "tool_outputs init failed");
-                None
-            }
-        }
-    })
-    .as_ref()
+    tool_outputs_for(None)
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

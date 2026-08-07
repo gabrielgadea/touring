@@ -479,6 +479,12 @@ pub fn dry_run_bridge(
             "value": lesson_value,
             "tier": "semantic",
             "type": "lesson",
+            // The `r` of the case, stated rather than encoded in the key suffix.
+            // Value-ranked recall can still derive it from `:failure`, but a key
+            // convention is a fragile carrier for the one field the ranking
+            // depends on — a rename would silently drop every verdict.
+            "reward": 0.0,
+            "outcome_context": "ceg-dry-run-blocked",
         });
         let _mem_result = rt.memory_store(&mem_payload);
     }

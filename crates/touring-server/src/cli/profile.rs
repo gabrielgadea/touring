@@ -296,10 +296,10 @@ fn profile_list(args: &[String]) -> Result<()> {
                     .and_then(|s| s.strip_suffix(".parcer.yaml"))
                     .unwrap_or(&name)
                     .to_string();
-                if let Some(ref needle) = filter {
-                    if !agent.to_lowercase().contains(needle) {
-                        continue;
-                    }
+                if let Some(ref needle) = filter
+                    && !agent.to_lowercase().contains(needle)
+                {
+                    continue;
                 }
                 let path = entry.path().display().to_string();
                 agents.push(serde_json::json!({

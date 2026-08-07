@@ -172,24 +172,24 @@ impl PalaceHierarchy {
         }
 
         // Validate room
-        if let Some(ref r) = room {
-            if r.len() > MAX_ROOM_LEN {
-                return Err(PalacePathError::RoomTooLong(r.len()));
-            }
+        if let Some(ref r) = room
+            && r.len() > MAX_ROOM_LEN
+        {
+            return Err(PalacePathError::RoomTooLong(r.len()));
         }
 
         // Validate closet
-        if let Some(ref c) = closet {
-            if c.len() > MAX_CLOSET_LEN {
-                return Err(PalacePathError::ClosetTooLong(c.len()));
-            }
+        if let Some(ref c) = closet
+            && c.len() > MAX_CLOSET_LEN
+        {
+            return Err(PalacePathError::ClosetTooLong(c.len()));
         }
 
         // Validate drawer
-        if let Some(ref d) = drawer {
-            if d.len() > MAX_DRAWER_LEN {
-                return Err(PalacePathError::DrawerTooLong(d.len()));
-            }
+        if let Some(ref d) = drawer
+            && d.len() > MAX_DRAWER_LEN
+        {
+            return Err(PalacePathError::DrawerTooLong(d.len()));
         }
 
         // Check for invalid characters (no dots in individual components)

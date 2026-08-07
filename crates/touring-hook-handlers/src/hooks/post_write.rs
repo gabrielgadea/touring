@@ -41,10 +41,10 @@ static RE_ANTIPATTERN_COUNT: Lazy<Regex> =
 fn parse_antipattern_counts(issues: &[String]) -> std::collections::HashMap<String, usize> {
     let mut counts = std::collections::HashMap::new();
     for issue in issues {
-        if let Some(caps) = RE_ANTIPATTERN_COUNT.captures(issue) {
-            if let (Ok(count), Some(msg)) = (caps[1].parse::<usize>(), caps.get(2)) {
-                counts.insert(msg.as_str().to_string(), count);
-            }
+        if let Some(caps) = RE_ANTIPATTERN_COUNT.captures(issue)
+            && let (Ok(count), Some(msg)) = (caps[1].parse::<usize>(), caps.get(2))
+        {
+            counts.insert(msg.as_str().to_string(), count);
         }
     }
     counts
@@ -250,19 +250,19 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         let _ = cache.get_or_create(&path_buf);
         // EC5: Fire-and-forget async record_edit to AsyncFileKnowledgeDB.
         // Only fires when content actually changed (BLAKE3 miss path).
-        if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned() {
-            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                let edit = crate::knowledge::EditEvent {
-                    file_path: rel_path.to_string(),
-                    edit_type: "write".to_string(),
-                    summary: None,
-                    error_pattern: None,
-                    edited_at: chrono::Local::now().to_rfc3339(),
-                };
-                drop(handle.spawn(async move {
-                    let _ = adb.record_edit(&edit).await;
-                }));
-            }
+        if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned()
+            && let Ok(handle) = tokio::runtime::Handle::try_current()
+        {
+            let edit = crate::knowledge::EditEvent {
+                file_path: rel_path.to_string(),
+                edit_type: "write".to_string(),
+                summary: None,
+                error_pattern: None,
+                edited_at: chrono::Local::now().to_rfc3339(),
+            };
+            drop(handle.spawn(async move {
+                let _ = adb.record_edit(&edit).await;
+            }));
         }
         // Tantivy FTS: upsert the written file into the full-text index.
         // Runs only on BLAKE3 miss (content actually changed). Graceful — failure
@@ -289,12 +289,15 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
             // Try async stream first (non-blocking, amortized commit).
             // Fall back to synchronous upsert when actor is not running or
             // channel is full (backpressure drop recorded in stream metrics).
-            if !crate::shared::tantivy_stream::try_send_symbol(doc.clone()) {
-                if let Some(tantivy_idx) = crate::tantivy_index::global_tantivy() {
-                    if let Err(e) = tantivy_idx.upsert_symbol(&doc) {
-                        tracing::debug!("tantivy upsert failed for {rel_path}: {e}");
-                    }
-                }
+            // A raiz acompanha o documento nos DOIS caminhos — ver post_edit.rs.
+            if !crate::shared::tantivy_stream::try_send_symbol(
+                runtime.project_root.clone(),
+                doc.clone(),
+            ) && let Some(tantivy_idx) =
+                crate::tantivy_index::tantivy_for(Some(&runtime.project_root))
+                && let Err(e) = tantivy_idx.upsert_symbol(&doc)
+            {
+                tracing::debug!("tantivy upsert failed for {rel_path}: {e}");
             }
         }
     }
@@ -308,10 +311,9 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
             .extension()
             .and_then(|e| e.to_str()),
         Some("md" | "txt" | "rst" | "adoc")
-    ) {
-        if let Ok(text) = std::fs::read_to_string(file_path) {
-            crate::nlp_bridge::analyze_text_async(rel_path.to_string(), text);
-        }
+    ) && let Ok(text) = std::fs::read_to_string(file_path)
+    {
+        crate::nlp_bridge::analyze_text_async(rel_path.to_string(), text);
     }
 
     // EC_sev: Append a CRDT symbol-level event to `symbol_events_log` for auditing
@@ -390,10 +392,10 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     // CC sees the regression/improvement signal — same surface as
     // V1-V6 advisories. No reward inject because `&HookRuntime` is
     // immutable here; reward path remains owned by post_edit.
-    if let Some(content) = input_content.as_deref() {
-        if let Some(delta) = crate::health_delta::compute_signals_delta(file_path, content) {
-            all_issues.push(crate::health_delta::format_delta_hint(&delta));
-        }
+    if let Some(content) = input_content.as_deref()
+        && let Some(delta) = crate::health_delta::compute_signals_delta(file_path, content)
+    {
+        all_issues.push(crate::health_delta::format_delta_hint(&delta));
     }
 
     // Step 4: Cognitive enrichment (risk + gotchas) — parity with post_edit.
@@ -477,17 +479,14 @@ fn record_layer7_and_aco(runtime: &HookRuntime, file_path: &str, rel_path: &str)
     // ANN Memory: persist write context for future semantic recall.
     // Stores file path + "wrote" as a memory with path-hash embedding —
     // parity with post_edit which stores "edited:<tool>:<path>".
-    if let Ok(mut ann_guard) = runtime.ctx.ann_recall.try_borrow_mut() {
-        if let Some(ref mut ann) = *ann_guard {
-            let embedding = crate::ann_memory::path_hash_embedding(file_path);
-            let entry = crate::ann_memory::MemoryEntry::new(
-                rel_path,
-                format!("wrote:{}", rel_path),
-                embedding,
-            );
-            if let Err(e) = ann.add_memory(entry) {
-                tracing::debug!("ANN add_memory failed for {rel_path}: {e}");
-            }
+    if let Ok(mut ann_guard) = runtime.ctx.ann_recall.try_borrow_mut()
+        && let Some(ref mut ann) = *ann_guard
+    {
+        let embedding = crate::ann_memory::path_hash_embedding(file_path);
+        let entry =
+            crate::ann_memory::MemoryEntry::new(rel_path, format!("wrote:{}", rel_path), embedding);
+        if let Err(e) = ann.add_memory(entry) {
+            tracing::debug!("ANN add_memory failed for {rel_path}: {e}");
         }
     }
 
@@ -597,10 +596,10 @@ fn record_write_event(runtime: &HookRuntime, input: &serde_json::Value, rel_path
         tracing::debug!("record_edit_full failed for {rel_path}: {e}");
     }
     // T1-S3: Record file access for file_access_log (feeds recent_accessed_files in post_edit).
-    if let Some(ref sid) = session_id {
-        if let Err(e) = runtime.ctx.knowledge.record_access(rel_path, sid) {
-            tracing::debug!("record_access failed for {rel_path}: {e}");
-        }
+    if let Some(ref sid) = session_id
+        && let Err(e) = runtime.ctx.knowledge.record_access(rel_path, sid)
+    {
+        tracing::debug!("record_access failed for {rel_path}: {e}");
     }
     // D1.6: Emit activity event before record_write_event returns.
     crate::activity_hook::emit_post_write(&runtime.project_root, rel_path, language);
@@ -647,20 +646,20 @@ fn collect_quality_issues(
         .or_else(|| crate::shared::quality::measure_quality_snapshot(file_path));
 
     // V3: Complexity baseline — derive from snapshot instead of a separate call.
-    if let Some(ref qa) = quality_snapshot {
-        if qa.max_complexity > 10 {
-            let names = qa
-                .complex_symbols
-                .iter()
-                .take(3)
-                .map(|s| s.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
-            all_issues.push(format!(
-                "complexity: CC_max={} in [{}] — consider refactoring",
-                qa.max_complexity, names
-            ));
-        }
+    if let Some(ref qa) = quality_snapshot
+        && qa.max_complexity > 10
+    {
+        let names = qa
+            .complex_symbols
+            .iter()
+            .take(3)
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        all_issues.push(format!(
+            "complexity: CC_max={} in [{}] — consider refactoring",
+            qa.max_complexity, names
+        ));
     }
 
     // V4: Wiring orphan detection (registration already done by reindex_file).
@@ -681,27 +680,27 @@ fn collect_quality_issues(
     // Only emitted when issues are accumulating (< 6 to avoid noise) and
     // content is available — avoids a redundant disk read.
     // Uses hook_path() budget (<40ms) to stay within post_write latency SLA.
-    if all_issues.len() < 6 {
-        if let Some(src) = content {
-            let files = vec![(file_path.to_string(), src.to_string(), lang_str.to_string())];
-            let builder = touring_analysis::pipeline::AnalysisPipelineBuilder::new(
-                runtime.ctx.knowledge.conn_ref(),
-            )
-            .config(touring_analysis::engine::AnalysisConfig::hook_path())
-            .with_files(files);
-            // Wire symbol index for blast-radius dimension (enables BFS blast analysis).
-            // touring-analysis is always linked with default features (includes blast-radius).
-            let builder = if let Some(ref idx) = runtime.infra.symbol_index {
-                builder.with_symbol_index(std::sync::Arc::new(idx.clone()))
-            } else {
-                builder
-            };
-            let pipeline = builder.build();
-            let report = pipeline.run(rel_path);
-            let summary = report.to_analysis_summary();
-            if !summary.passes {
-                all_issues.push(format!("HEALTH {}", summary.one_liner()));
-            }
+    if all_issues.len() < 6
+        && let Some(src) = content
+    {
+        let files = vec![(file_path.to_string(), src.to_string(), lang_str.to_string())];
+        let builder = touring_analysis::pipeline::AnalysisPipelineBuilder::new(
+            runtime.ctx.knowledge.conn_ref(),
+        )
+        .config(touring_analysis::engine::AnalysisConfig::hook_path())
+        .with_files(files);
+        // Wire symbol index for blast-radius dimension (enables BFS blast analysis).
+        // touring-analysis is always linked with default features (includes blast-radius).
+        let builder = if let Some(ref idx) = runtime.infra.symbol_index {
+            builder.with_symbol_index(std::sync::Arc::new(idx.clone()))
+        } else {
+            builder
+        };
+        let pipeline = builder.build();
+        let report = pipeline.run(rel_path);
+        let summary = report.to_analysis_summary();
+        if !summary.passes {
+            all_issues.push(format!("HEALTH {}", summary.one_liner()));
         }
     }
 

@@ -48,7 +48,12 @@ pub fn cli_tasksfile_validate(_rt: &mut HookRuntime, payload: &serde_json::Value
 }
 
 /// Handle `touring tasksfile export <task_id>` — export a decompose task to Tasksfile YAML.
-pub fn cli_tasksfile_export(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+/// Export a decompose task as a Tasksfile YAML envelope.
+///
+/// `cli_tasksfile_export` and `cli_devrcfile_export` carried byte-identical
+/// 113-line bodies. They still answer identically — see the note on
+/// [`cli_devrcfile_export`] — so the body lives here once instead of twice.
+fn export_task_as_tasksfile(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let task_id = payload
         .get("task_id")
         .and_then(|v| v.as_str())
@@ -160,6 +165,11 @@ pub fn cli_tasksfile_export(rt: &mut HookRuntime, payload: &serde_json::Value) -
         "tasksfile_yaml": serde_yaml::to_string(&root).unwrap_or_default(),
     })
     .to_string()
+}
+
+/// `cli-tasksfile-export` — export a decompose task as Tasksfile YAML.
+pub fn cli_tasksfile_export(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    export_task_as_tasksfile(rt, payload)
 }
 
 // ─── D31: touring definitions CLI (classify / node-types / semantic-search) ───
@@ -434,115 +444,5 @@ pub fn cli_devrcfile_import(rt: &mut HookRuntime, payload: &serde_json::Value) -
 
 /// Handle `touring devrcfile export <task_id>` — export a decompose task to Devrcfile YAML.
 pub fn cli_devrcfile_export(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    let task_id = payload
-        .get("task_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if task_id.is_empty() {
-        return serde_json::json!({
-            "error": "No task_id provided",
-            "success": false,
-        })
-        .to_string();
-    }
-
-    let db = &rt.ctx.knowledge;
-    ensure_decompose_tables(db);
-
-    // Get task info
-    let task_row: Option<(String, String)> = db
-        .conn_ref()
-        .query_row(
-            "SELECT task_id, description FROM task_decompositions WHERE task_id = ?1",
-            params![task_id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .ok();
-
-    let (task_desc, _task_type) =
-        task_row.unwrap_or_else(|| (task_id.to_string(), "general".to_string()));
-
-    // Get all subtasks
-    let mut stmt = match db.conn_ref().prepare(
-        "SELECT subtask_id, description, depends_on, priority, status, deadline, deadline_behavior, review_required FROM decomposition_subtasks WHERE task_id = ?1",
-    ) {
-        Ok(s) => s,
-        Err(e) => return serde_json::json!({"error": e.to_string(), "success": false}).to_string(),
-    };
-
-    let rows = match stmt.query_map(params![task_id], |r| {
-        Ok((
-            r.get::<_, String>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
-            r.get::<_, i32>(3)?,
-            r.get::<_, String>(4)?,
-            r.get::<_, Option<String>>(5)?,
-            r.get::<_, Option<String>>(6)?,
-            r.get::<_, i32>(7)?,
-        ))
-    }) {
-        Ok(r) => r.filter_map(|x| x.ok()).collect::<Vec<_>>(),
-        Err(e) => return serde_json::json!({"error": e.to_string(), "success": false}).to_string(),
-    };
-
-    // Build Tasksfile YAML structure
-    let tasks: serde_json::Map<String, serde_json::Value> = rows
-        .iter()
-        .map(
-            |(
-                subtask_id,
-                desc,
-                deps_json,
-                priority,
-                _status,
-                deadline,
-                deadline_behavior,
-                review_required,
-            )| {
-                let mut task_map = serde_json::Map::new();
-                task_map.insert("desc".to_string(), serde_json::json!(desc));
-                // Parse depends_on JSON
-                let deps: Vec<String> = serde_json::from_str(deps_json).unwrap_or_default();
-                if !deps.is_empty() {
-                    task_map.insert("deps".to_string(), serde_json::json!(deps));
-                }
-                // Priority
-                let priority_label = match *priority {
-                    v if v <= 100 => "high",
-                    v if v >= 180 => "low",
-                    _ => "normal",
-                };
-                task_map.insert("tags".to_string(), serde_json::json!([priority_label]));
-                // Deadline
-                if let Some(dl) = deadline {
-                    task_map.insert("deadline".to_string(), serde_json::json!(dl));
-                }
-                // Deadline behavior
-                if let Some(dbg) = deadline_behavior {
-                    task_map.insert("deadline_behavior".to_string(), serde_json::json!(dbg));
-                }
-                // Review required
-                if *review_required != 0 {
-                    task_map.insert("review_required".to_string(), serde_json::json!(true));
-                }
-                (subtask_id.clone(), serde_json::Value::Object(task_map))
-            },
-        )
-        .collect();
-
-    let root = serde_json::json!({
-        "version": "1.0",
-        "metadata": {
-            "name": task_id,
-            "description": task_desc,
-        },
-        "tasks": tasks,
-    });
-
-    serde_json::json!({
-        "success": true,
-        "tasksfile_yaml": serde_yaml::to_string(&root).unwrap_or_default(),
-    })
-    .to_string()
+    export_task_as_tasksfile(rt, payload)
 }

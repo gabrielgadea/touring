@@ -145,17 +145,17 @@ impl Handler for CodeStandardsEnforcerHandler {
         ));
         if std::fs::write(&tmp, new_content).is_ok() {
             let tmp_str = tmp.to_string_lossy().to_string();
-            if let Some(report) = score_python_quality(&tmp_str) {
-                if should_block_quality(&report) {
-                    let _ = std::fs::remove_file(&tmp);
-                    let reason = format!(
-                        "CodeStandards BLOCK: composite={:.3} < 0.80 OR P0 BLOCK dim failed (blockers={:?}) in {}",
-                        report.composite, report.blockers, file_path
-                    );
-                    return HandlerResult::block(self.name(), reason);
-                }
-                // Quality OK — fall through to existing ruff diff.
+            if let Some(report) = score_python_quality(&tmp_str)
+                && should_block_quality(&report)
+            {
+                let _ = std::fs::remove_file(&tmp);
+                let reason = format!(
+                    "CodeStandards BLOCK: composite={:.3} < 0.80 OR P0 BLOCK dim failed (blockers={:?}) in {}",
+                    report.composite, report.blockers, file_path
+                );
+                return HandlerResult::block(self.name(), reason);
             }
+            // Quality OK — fall through to existing ruff diff.
             let _ = std::fs::remove_file(&tmp);
         }
 
@@ -167,10 +167,11 @@ impl Handler for CodeStandardsEnforcerHandler {
 
         // Check cache: if we already linted this exact content, skip
         let content_hash = Self::hash_content(new_content);
-        if let Some(cached) = self.cache.get(&content_hash) {
-            if cached.0 == 0 && cached.1 == 0 {
-                return HandlerResult::skip(self.name());
-            }
+        if let Some(cached) = self.cache.get(&content_hash)
+            && cached.0 == 0
+            && cached.1 == 0
+        {
+            return HandlerResult::skip(self.name());
         }
 
         // Run ruff on new content
@@ -488,24 +489,21 @@ impl Handler for DspyQualityBridgeHandler {
         let dspy_available = self.is_dspy_available();
         let script = dirs_home().join(".claude/scripts/dspy_quality_bridge.py");
 
-        if dspy_available && script.exists() {
-            if let Ok(output) = std::process::Command::new("python3")
+        if dspy_available
+            && script.exists()
+            && let Ok(output) = std::process::Command::new("python3")
                 .arg(&script)
                 .arg(&file_path)
                 .output()
-            {
-                if output.status.success() {
-                    if let Ok(parsed) = serde_json::from_slice::<serde_json::Value>(&output.stdout)
-                    {
-                        let e = parsed.get("errors").and_then(|v| v.as_u64()).unwrap_or(0);
-                        let w = parsed.get("warnings").and_then(|v| v.as_u64()).unwrap_or(0);
-                        if parsed.get("status").and_then(|v| v.as_str()) != Some("skip") {
-                            ctx.needs_cache_invalidation = true;
-                            let context = format!("DSPy[{e}E/{w}W]: {file_path}");
-                            return HandlerResult::allow(self.name(), Some(context));
-                        }
-                    }
-                }
+            && output.status.success()
+            && let Ok(parsed) = serde_json::from_slice::<serde_json::Value>(&output.stdout)
+        {
+            let e = parsed.get("errors").and_then(|v| v.as_u64()).unwrap_or(0);
+            let w = parsed.get("warnings").and_then(|v| v.as_u64()).unwrap_or(0);
+            if parsed.get("status").and_then(|v| v.as_str()) != Some("skip") {
+                ctx.needs_cache_invalidation = true;
+                let context = format!("DSPy[{e}E/{w}W]: {file_path}");
+                return HandlerResult::allow(self.name(), Some(context));
             }
         }
 
@@ -568,35 +566,34 @@ impl Handler for DspySessionOptimizerHandler {
         };
 
         // Parse and store suggestions in RlmMemory
-        if let Ok(parsed) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
-            if let Some(suggestions) = parsed.get("suggestions").and_then(|v| v.as_array()) {
-                if !suggestions.is_empty() {
-                    let summary: Vec<String> = suggestions
-                        .iter()
-                        .filter_map(|s| s.get("message").and_then(|m| m.as_str()))
-                        .map(String::from)
-                        .collect();
+        if let Ok(parsed) = serde_json::from_slice::<serde_json::Value>(&output.stdout)
+            && let Some(suggestions) = parsed.get("suggestions").and_then(|v| v.as_array())
+            && !suggestions.is_empty()
+        {
+            let summary: Vec<String> = suggestions
+                .iter()
+                .filter_map(|s| s.get("message").and_then(|m| m.as_str()))
+                .map(String::from)
+                .collect();
 
-                    if let Some(ref rlm) = ctx.rlm {
-                        use touring_intelligence::rl::memory::rlm::MemoryTier;
-                        let _ = rlm.store(
-                            "session:dspy_suggestions",
-                            MemoryTier::Core,
-                            &summary.join(" | "),
-                            Some("suggestion"),
-                            None,
-                        );
-                    }
+            if let Some(ref rlm) = ctx.rlm {
+                use touring_intelligence::rl::memory::rlm::MemoryTier;
+                let _ = rlm.store(
+                    "session:dspy_suggestions",
+                    MemoryTier::Core,
+                    &summary.join(" | "),
+                    Some("suggestion"),
+                    None,
+                );
+            }
 
-                    if let Some(ref persistence) = ctx.persistence {
-                        let _ = persistence.log_hook_event(
-                            "SessionEnd",
-                            "DspySessionOptimizer",
-                            &format!("suggestions={}", suggestions.len()),
-                            0.8,
-                        );
-                    }
-                }
+            if let Some(ref persistence) = ctx.persistence {
+                let _ = persistence.log_hook_event(
+                    "SessionEnd",
+                    "DspySessionOptimizer",
+                    &format!("suggestions={}", suggestions.len()),
+                    0.8,
+                );
             }
         }
 

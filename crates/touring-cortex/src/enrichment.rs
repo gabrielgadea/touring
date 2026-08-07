@@ -576,10 +576,10 @@ pub fn truncate_at_semantic_boundary(text: &str, max_tokens: usize) -> &str {
 
     let mut best_cut = 0;
     for marker in &boundary_markers {
-        if let Some(pos) = search_range.rfind(marker) {
-            if pos > best_cut {
-                best_cut = pos;
-            }
+        if let Some(pos) = search_range.rfind(marker)
+            && pos > best_cut
+        {
+            best_cut = pos;
         }
     }
 

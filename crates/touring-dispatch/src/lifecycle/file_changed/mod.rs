@@ -69,7 +69,7 @@ pub(crate) fn handle_file_changed(rt: &mut HookRuntime, input: &Value) -> String
     let rel_path = crate::runtime::make_relative(file_path, &rt.project_root);
     crate::wiring::update_wiring_after_edit(&rt.ctx.knowledge, &rel_path);
     // R22-S2: Upsert file change event to Tantivy for BM25 audit trail.
-    super::upsert_file_changed_to_tantivy(&rel_path);
+    super::upsert_file_changed_to_tantivy(&rt.project_root, &rel_path);
     // R129: Persist file change event to knowledge graph — enables `touring memory recall "file_changed:<path>"`.
     // Closes the gap: file changes are searchable via Tantivy but were not recallable via memory graph.
     // Tier "semantic" so cross-session `touring memory recall` finds recently changed files.
@@ -173,15 +173,15 @@ fn collect_wiring_warnings(rt: &mut HookRuntime, rel_path: &str) -> (Vec<String>
     for dep in dependents.iter().take(10) {
         let _ = rt.ctx.result_cache.invalidate_file(&dep.source);
     }
-    if let Ok(score) = rt.ctx.knowledge.integration_score(rel_path) {
-        if score < 0.5 {
-            let stem = file_stem(rel_path);
-            warnings.push(format!(
+    if let Ok(score) = rt.ctx.knowledge.integration_score(rel_path)
+        && score < 0.5
+    {
+        let stem = file_stem(rel_path);
+        warnings.push(format!(
                 "wiring: {rel_path} changed (score={:.0}%) — {} dependents may be affected — run: touring generate plan-suggest --intent \"wire {stem} orphan symbols into consumers\"",
                 score * 100.0,
                 dependents.len(),
             ));
-        }
     }
     (warnings, has_dependents)
 }

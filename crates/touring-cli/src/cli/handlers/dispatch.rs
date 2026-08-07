@@ -39,8 +39,14 @@ pub struct LearningStatus {
     pub update_count: u64,
     /// Exponential moving average of received rewards.
     pub ema_reward: f64,
-    /// Mean temporal-difference error across updates.
+    /// Mean absolute temporal-difference error over the rolling window (64
+    /// updates). Until 04/08/2026 this field carried the LAST TD error despite
+    /// its name; `last_td_error` below now exposes that separately.
     pub mean_td_error: f64,
+    /// Most recent absolute temporal-difference error — a single sample, which
+    /// swings with whichever tool fired last. Judge convergence by
+    /// `mean_td_error`; use this to see the latest transition.
+    pub last_td_error: f64,
     /// Whether the LinUCB bandit model was loaded.
     pub linucb_loaded: bool,
     /// Identifier of the active bandit algorithm.
@@ -109,14 +115,24 @@ pub struct GotchaEntry {
     pub resolved: bool,
 }
 /// Aggregate counts over the gotcha database.
+///
+/// Field names corrected 2026-08-02. `GotchaDb::gotcha_stats()` returns — by its
+/// own doc comment — `(total_count, total_hits, total_prevented)`, but the values
+/// were bound positionally onto `unresolved_count` / `resolved_count`. The result
+/// was arithmetically impossible output that surfaced in `touring memory stats`:
+/// `total_count: 13` alongside `unresolved_count: 383107`, which was really the
+/// SUM of `hit_count` over those 13 rows. The data was never wrong — the names
+/// were. There is no resolution column in the gotcha schema, so genuine
+/// resolved/unresolved counts are not derivable today.
 #[derive(Serialize)]
 pub struct GotchaStats {
     /// Total number of gotcha entries.
     pub total_count: usize,
-    /// Number of unresolved gotcha entries.
-    pub unresolved_count: usize,
-    /// Number of resolved gotcha entries.
-    pub resolved_count: usize,
+    /// Sum of `hit_count` across all gotchas — how often they matched.
+    pub total_hits: usize,
+    /// Sum of `prevented_errors` across all gotchas — matches credited with
+    /// preventing a real error.
+    pub total_prevented: usize,
 }
 /// Aggregate counts over the knowledge store.
 #[derive(Serialize)]
@@ -214,6 +230,7 @@ pub use crate::cli::knowledge::cli_metadata_backfill;
 pub use crate::cli::knowledge::cli_session_summary;
 pub use crate::cli::learning::cli_learning_reward;
 pub use crate::cli::learning::cli_learning_status;
+pub use crate::cli::memory::cli_memory_credit;
 pub use crate::cli::memory::cli_memory_list;
 pub use crate::cli::memory::cli_memory_recall;
 pub use crate::cli::memory::cli_memory_reindex;

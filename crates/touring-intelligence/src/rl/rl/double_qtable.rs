@@ -83,7 +83,7 @@ impl DoubleQTable {
         self.online.load_q_value(state, action, new_q);
 
         self.update_count += 1;
-        if self.update_count % self.sync_every == 0 {
+        if self.update_count.is_multiple_of(self.sync_every) {
             self.sync_target();
         }
         td_error

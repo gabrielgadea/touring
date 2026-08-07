@@ -63,10 +63,10 @@ pub const DEFAULT_STAGING_RETENTION_SECS: u64 = 24 * 60 * 60;
 /// [`tee_dir`] so the HOME-or-`/tmp`
 /// fallback logic lives in exactly one place.
 pub fn staging_root() -> PathBuf {
-    if let Ok(custom) = std::env::var("TOURING_STAGING_DIR") {
-        if !custom.is_empty() {
-            return PathBuf::from(custom);
-        }
+    if let Ok(custom) = std::env::var("TOURING_STAGING_DIR")
+        && !custom.is_empty()
+    {
+        return PathBuf::from(custom);
     }
     tee_dir()
         .parent()
@@ -259,10 +259,10 @@ fn last_activity(dir: &Path) -> SystemTime {
         .unwrap_or(UNIX_EPOCH);
     if let Ok(rd) = fs::read_dir(dir) {
         for entry in rd.flatten() {
-            if let Ok(mtime) = entry.metadata().and_then(|m| m.modified()) {
-                if mtime > newest {
-                    newest = mtime;
-                }
+            if let Ok(mtime) = entry.metadata().and_then(|m| m.modified())
+                && mtime > newest
+            {
+                newest = mtime;
             }
         }
     }

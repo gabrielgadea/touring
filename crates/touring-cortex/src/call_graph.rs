@@ -232,10 +232,10 @@ impl CallGraph {
         // Check cache first
         {
             let cache = self.scc_cache.read().expect("RwLock poisoned");
-            if let Some(ref cached) = *cache {
-                if cached.version == current_version {
-                    return (cached.has_cycles, cached.sccs.clone());
-                }
+            if let Some(ref cached) = *cache
+                && cached.version == current_version
+            {
+                return (cached.has_cycles, cached.sccs.clone());
             }
         }
 

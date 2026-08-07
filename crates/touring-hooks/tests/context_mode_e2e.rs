@@ -374,6 +374,7 @@ fn audit_full_pipeline_subprocess_to_retrieve() {
     let _home = isolate_home("full_pipeline");
     // Step 1: real subprocess via execute_and_store
     let res = execute_and_store(
+        None,
         "Bash",
         json!({"command": "printf 'pipeline-end-to-end-evidence'"}),
         SandboxConfig::default(),
@@ -386,7 +387,7 @@ fn audit_full_pipeline_subprocess_to_retrieve() {
     // Step 2: retrieve from the GLOBAL tool_outputs index — proves
     // execute_and_store actually wired into the singleton, not just a
     // local index.
-    let global = touring_hooks::tantivy_index::global_tool_outputs()
+    let global = touring_hooks::tantivy_index::tool_outputs_for(None)
         .expect("global tool_outputs MUST initialise (HOME set)");
     let doc = global
         .get_tool_output(&res.content_hash)
@@ -404,7 +405,7 @@ fn audit_full_pipeline_subprocess_to_retrieve() {
 fn audit_build_sandbox_wrapper_returns_content_hash_for_real_subprocess() {
     let _home = isolate_home("wrapper_shape");
     let original = json!({"command": "printf 'wrapper-evidence'"});
-    let wrapped = build_sandbox_wrapper_args("Bash", original);
+    let wrapped = build_sandbox_wrapper_args(None, "Bash", original);
 
     // After wave 2026-05-08: wrapper MUST carry actual content_hash, not
     // just the boolean flag from the legacy stub.

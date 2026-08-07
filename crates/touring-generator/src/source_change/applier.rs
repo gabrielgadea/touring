@@ -265,17 +265,17 @@ impl Applier {
 
         // Write text edits to disk
         for (file_id, _) in change.edits() {
-            if let Some(path) = path_for(*file_id) {
-                if let Some(content) = files.get(file_id) {
-                    if let Err(e) = fs::write(&path, content) {
-                        let fs_edit = FileSystemEdit::OverwriteFile {
-                            path: path.clone(),
-                            content: String::new(),
-                        };
-                        errors.push(ApplyError::fs_edit_failed(&fs_edit, &e));
-                    } else {
-                        files_written += 1;
-                    }
+            if let Some(path) = path_for(*file_id)
+                && let Some(content) = files.get(file_id)
+            {
+                if let Err(e) = fs::write(&path, content) {
+                    let fs_edit = FileSystemEdit::OverwriteFile {
+                        path: path.clone(),
+                        content: String::new(),
+                    };
+                    errors.push(ApplyError::fs_edit_failed(&fs_edit, &e));
+                } else {
+                    files_written += 1;
                 }
             }
         }
@@ -324,12 +324,12 @@ impl Applier {
                     });
                 }
                 // Check parent directory exists
-                if let Some(parent) = path.parent() {
-                    if !parent.exists() {
-                        return Err(ApplyError::FileNotFound {
-                            path: parent.to_string_lossy().into(),
-                        });
-                    }
+                if let Some(parent) = path.parent()
+                    && !parent.exists()
+                {
+                    return Err(ApplyError::FileNotFound {
+                        path: parent.to_string_lossy().into(),
+                    });
                 }
                 Ok(())
             }

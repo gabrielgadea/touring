@@ -233,10 +233,10 @@ pub fn walk_files(root: &Path, extensions: &[&str]) -> Vec<PathBuf> {
                 Err(_) => continue,
             };
             if file_type.is_dir() {
-                if let Some(name) = path.file_name() {
-                    if !is_skipped_dir(name) {
-                        stack.push(path);
-                    }
+                if let Some(name) = path.file_name()
+                    && !is_skipped_dir(name)
+                {
+                    stack.push(path);
                 }
             } else if file_type.is_file() {
                 let ext_match = path
@@ -347,15 +347,15 @@ mod tests {
         assert_eq!(r.matches.len(), 3);
         // Adjacent lines must be non-decreasing within same file
         for window in r.matches.windows(2) {
-            if let [a, b] = window {
-                if a.file_path == b.file_path {
-                    assert!(
-                        a.line <= b.line,
-                        "lines not sorted: {} vs {}",
-                        a.line,
-                        b.line
-                    );
-                }
+            if let [a, b] = window
+                && a.file_path == b.file_path
+            {
+                assert!(
+                    a.line <= b.line,
+                    "lines not sorted: {} vs {}",
+                    a.line,
+                    b.line
+                );
             }
         }
         let _ = std::fs::remove_file(&p1);

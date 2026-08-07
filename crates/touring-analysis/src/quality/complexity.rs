@@ -625,11 +625,11 @@ pub fn estimate_halstead(source: &str, language: &str) -> HalsteadMetrics {
                     break;
                 }
             }
-            if let Some(token) = bytes.get(start..i) {
-                if !keyword_ops.contains(token) {
-                    distinct_operands.insert(token);
-                    big_n2 += 1;
-                }
+            if let Some(token) = bytes.get(start..i)
+                && !keyword_ops.contains(token)
+            {
+                distinct_operands.insert(token);
+                big_n2 += 1;
             }
         } else if b.is_ascii_digit() {
             let start = i;

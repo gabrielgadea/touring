@@ -108,19 +108,20 @@ fn parse_skip_regions(source: &str) -> Vec<SkipRegion> {
         // Block comment: /* touring:skip-region */ anywhere on the line
         if let Some(cmt_start) = line.find("/*") {
             let cmt_trimmed = line[cmt_start..].trim_start();
-            if cmt_trimmed.starts_with("/*") && cmt_trimmed.contains("touring:skip-region") {
-                if let Some(cmt_end) = cmt_trimmed[2..].find("*/") {
-                    let comment_start = line_cursor + cmt_start as u64;
-                    let comment_end = comment_start + cmt_end as u64 + 2;
-                    regions.push(SkipRegion {
-                        file_path: String::new(), // filled by caller
-                        span: ByteSpan {
-                            start: comment_start,
-                            end: comment_end,
-                        },
-                        style: SkipStyle::BlockComment,
-                    });
-                }
+            if cmt_trimmed.starts_with("/*")
+                && cmt_trimmed.contains("touring:skip-region")
+                && let Some(cmt_end) = cmt_trimmed[2..].find("*/")
+            {
+                let comment_start = line_cursor + cmt_start as u64;
+                let comment_end = comment_start + cmt_end as u64 + 2;
+                regions.push(SkipRegion {
+                    file_path: String::new(), // filled by caller
+                    span: ByteSpan {
+                        start: comment_start,
+                        end: comment_end,
+                    },
+                    style: SkipStyle::BlockComment,
+                });
             }
         }
 

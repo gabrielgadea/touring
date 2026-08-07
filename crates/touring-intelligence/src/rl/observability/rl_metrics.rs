@@ -76,6 +76,25 @@ impl RlMetricsCollector {
         }
     }
 
+    /// Mean absolute TD error over the rolling window.
+    ///
+    /// `td_error_history` was written on every update since the collector
+    /// existed but never read back, so `touring learning status` reported the
+    /// LAST TD error under the name `mean_td_error` (04/08/2026). A single
+    /// sample is noise; the window is what tells convergence from divergence.
+    ///
+    /// Returns `None` while no update has been recorded — an empty window has
+    /// no mean, and reporting `0.0` there would read as "perfectly converged".
+    pub fn mean_td_error(&self) -> Option<f64> {
+        let vals: Vec<i64> = self.td_error_history.iter().copied().collect();
+        if vals.is_empty() {
+            return None;
+        }
+        let sum: i64 = vals.iter().sum();
+        // Values are stored as |td| * 1000 (see `record_update`).
+        Some(sum as f64 / vals.len() as f64 / 1000.0)
+    }
+
     /// Compute trend direction from EMA history: 1 = improving, 0 = stable, -1 = degrading.
     pub fn ema_trend(&self) -> i8 {
         let vals: Vec<i64> = self.ema_history.iter().copied().collect();
@@ -160,5 +179,49 @@ mod tests {
         let snap = collector.snapshot();
         assert_eq!(snap.update_count, 0);
         assert_eq!(snap.qtable_lookups, 0);
+    }
+
+    /// `mean_td_error` must average the window, not echo the last sample.
+    ///
+    /// `touring learning status` reported the LAST error under the name
+    /// `mean_td_error` until 04/08/2026 because this window was written on
+    /// every update and never read back.
+    #[test]
+    fn mean_td_error_averages_the_window_instead_of_echoing_the_last_sample() {
+        let mut collector = RlMetricsCollector::new(8);
+        assert_eq!(
+            collector.mean_td_error(),
+            None,
+            "an empty window has no mean — reporting 0.0 would read as converged"
+        );
+
+        for td in [1.0, 2.0, 3.0, 4.0] {
+            collector.record_update(0.5, td);
+        }
+
+        let mean = collector.mean_td_error().expect("window is non-empty");
+        assert!(
+            (mean - 2.5).abs() < 1e-9,
+            "mean of [1,2,3,4] is 2.5, got {mean}"
+        );
+        // The discriminating half: the mean must NOT be the last sample (4.0).
+        assert!(
+            (mean - 4.0).abs() > 1.0,
+            "mean {mean} collapsed onto the last sample — the window is unused"
+        );
+    }
+
+    /// The window averages absolute values, so sign-flipping errors do not cancel.
+    #[test]
+    fn mean_td_error_uses_absolute_values() {
+        let mut collector = RlMetricsCollector::new(8);
+        collector.record_update(0.0, 3.0);
+        collector.record_update(0.0, -3.0);
+
+        let mean = collector.mean_td_error().expect("window is non-empty");
+        assert!(
+            (mean - 3.0).abs() < 1e-9,
+            "+3 and -3 must average to 3.0 (magnitude), not 0.0; got {mean}"
+        );
     }
 }

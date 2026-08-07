@@ -457,10 +457,10 @@ impl<'a> AnalysisPipeline<'a> {
         }
 
         // Learning (graph.db query)
-        if self.config.learning {
-            if let Some(graph_conn) = self.graph_conn {
-                dimensions.push(self.run_learning(graph_conn));
-            }
+        if self.config.learning
+            && let Some(graph_conn) = self.graph_conn
+        {
+            dimensions.push(self.run_learning(graph_conn));
         }
 
         let total_ms = start.elapsed().as_millis() as u64;

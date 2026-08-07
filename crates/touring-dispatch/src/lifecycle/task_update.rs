@@ -139,7 +139,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
             )
         };
         // R21-S3: Upsert completion marker to Tantivy.
-        upsert_task_completion_to_tantivy(task_id);
+        upsert_task_completion_to_tantivy(&rt.project_root, task_id);
         // R34-S1
         let checkpoint_hint = auto_checkpoint_on_task_complete(rt, task_id);
         // R39-S3

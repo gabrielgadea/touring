@@ -12,10 +12,10 @@ use std::path::PathBuf;
 
 /// Read a file path argument, expanding `~` to home.
 fn expand_path(s: &str) -> PathBuf {
-    if s.starts_with("~/") {
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home).join(s.trim_start_matches("~/"));
-        }
+    if s.starts_with("~/")
+        && let Ok(home) = std::env::var("HOME")
+    {
+        return PathBuf::from(home).join(s.trim_start_matches("~/"));
     }
     PathBuf::from(s)
 }
@@ -106,8 +106,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             });
             let output = daemon_query("cli-tasksfile-export", payload)?;
             if let Some(path) = output_file {
-                std::fs::write(expand_path(&path), &output)
-                    .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", path, e))?;
+                // Write the YAML document, not the JSON envelope around it —
+                // the envelope made `tasksfile validate` reject its own export.
+                super::common::write_yaml_export(
+                    &output,
+                    "tasksfile_yaml",
+                    &expand_path(&path),
+                )?;
                 println!("Exported to {}", path);
             } else {
                 println!("{output}");

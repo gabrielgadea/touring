@@ -173,13 +173,13 @@ impl QualityGateAdapter {
         // (no deep semantic report yet → honest no-op, never a silent pass).
         if self.min_semantic_score > 0.0 {
             for file in files {
-                if let Some((health, detail)) = Self::semantic_health(&file.path, &file.content) {
-                    if health < self.min_semantic_score {
-                        return Err(GenerateError::Internal(format!(
-                            "quality gate {detail}: health_score {health:.3} in {} below min {:.3}",
-                            file.path, self.min_semantic_score,
-                        )));
-                    }
+                if let Some((health, detail)) = Self::semantic_health(&file.path, &file.content)
+                    && health < self.min_semantic_score
+                {
+                    return Err(GenerateError::Internal(format!(
+                        "quality gate {detail}: health_score {health:.3} in {} below min {:.3}",
+                        file.path, self.min_semantic_score,
+                    )));
                 }
             }
         }

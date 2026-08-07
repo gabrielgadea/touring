@@ -155,10 +155,11 @@ impl TelemetryLoader {
         let mut paths: Vec<PathBuf> = Vec::new();
         for entry in entries.flatten() {
             let path = entry.path();
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.starts_with("1p_failed_events.") && name.ends_with(".json") {
-                    paths.push(path);
-                }
+            if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && name.starts_with("1p_failed_events.")
+                && name.ends_with(".json")
+            {
+                paths.push(path);
             }
         }
 

@@ -218,17 +218,18 @@ pub fn find_sentence_containing(
         }
     }
 
-    if left > 0 {
-        if let Some(b) = boundaries.get(left - 1) {
-            if pos >= b.start && pos < b.end {
-                return Some(left - 1);
-            }
-        }
+    if left > 0
+        && let Some(b) = boundaries.get(left - 1)
+        && pos >= b.start
+        && pos < b.end
+    {
+        return Some(left - 1);
     }
-    if let Some(b) = boundaries.get(left) {
-        if pos >= b.start && pos < b.end {
-            return Some(left);
-        }
+    if let Some(b) = boundaries.get(left)
+        && pos >= b.start
+        && pos < b.end
+    {
+        return Some(left);
     }
     None
 }

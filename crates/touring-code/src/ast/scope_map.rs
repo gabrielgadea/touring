@@ -153,16 +153,16 @@ fn push_capture(
     cap_idx: Option<u32>,
     kind: ScopeKind,
 ) -> bool {
-    if let Some(idx) = cap_idx {
-        if let Some(cap) = m.captures.iter().find(|c| c.index == idx) {
-            entries.push(ScopeEntry {
-                name: node_text(source, cap.node).to_string(),
-                type_str: None,
-                kind,
-                line: cap.node.start_position().row + 1,
-            });
-            return true;
-        }
+    if let Some(idx) = cap_idx
+        && let Some(cap) = m.captures.iter().find(|c| c.index == idx)
+    {
+        entries.push(ScopeEntry {
+            name: node_text(source, cap.node).to_string(),
+            type_str: None,
+            kind,
+            line: cap.node.start_position().row + 1,
+        });
+        return true;
     }
     false
 }
@@ -191,20 +191,20 @@ fn build_rust_scope_map(source: &str) -> ScopeMap {
 
     while let Some(m) = matches.next() {
         // Let bindings
-        if let Some(ln_idx) = let_name_idx {
-            if let Some(cap) = m.captures.iter().find(|c| c.index == ln_idx) {
-                let name = node_text(source, cap.node).to_string();
-                let type_str = let_type_idx
-                    .and_then(|ti| m.captures.iter().find(|c| c.index == ti))
-                    .map(|c| node_text(source, c.node).to_string());
-                entries.push(ScopeEntry {
-                    name,
-                    type_str,
-                    kind: ScopeKind::Let,
-                    line: cap.node.start_position().row + 1,
-                });
-                continue;
-            }
+        if let Some(ln_idx) = let_name_idx
+            && let Some(cap) = m.captures.iter().find(|c| c.index == ln_idx)
+        {
+            let name = node_text(source, cap.node).to_string();
+            let type_str = let_type_idx
+                .and_then(|ti| m.captures.iter().find(|c| c.index == ti))
+                .map(|c| node_text(source, c.node).to_string());
+            entries.push(ScopeEntry {
+                name,
+                type_str,
+                kind: ScopeKind::Let,
+                line: cap.node.start_position().row + 1,
+            });
+            continue;
         }
 
         // Parameters

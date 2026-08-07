@@ -1277,7 +1277,7 @@ fn maybe_generator_kind_hint_returns_none_for_unknown() {
 #[test]
 fn search_tantivy_for_task_does_not_panic() {
     // global_tantivy() returns None in test environment — function must return "" cleanly
-    let result = super::search_tantivy_for_task("t-r19-smoke");
+    let result = super::search_tantivy_for_task(std::path::Path::new("/tmp/projeto-de-teste"), "t-r19-smoke");
     // Either empty (no Tantivy) or formatted hint — both acceptable; must not panic
     assert!(
         result.is_empty() || result.contains("tantivy"),
@@ -1570,7 +1570,7 @@ fn task_sync_list_code_symbols_hint_does_not_panic() {
 #[test]
 fn upsert_task_completion_to_tantivy_does_not_panic() {
     // global_tantivy() returns None in test env — function must be a no-op, not panic
-    super::upsert_task_completion_to_tantivy("t-r21-s3-smoke");
+    super::upsert_task_completion_to_tantivy(std::path::Path::new("/tmp/projeto-de-teste"), "t-r21-s3-smoke");
 }
 
 #[test]
@@ -1649,8 +1649,8 @@ fn task_sync_create_without_subject_no_generator_hint() {
 // R22-S2: upsert_file_changed_to_tantivy does not panic (no Tantivy in test env)
 #[test]
 fn upsert_file_changed_to_tantivy_does_not_panic() {
-    super::upsert_file_changed_to_tantivy("crates/foo/src/lib.rs");
-    super::upsert_file_changed_to_tantivy(""); // edge: empty path
+    super::upsert_file_changed_to_tantivy(std::path::Path::new("/tmp/projeto-de-teste"), "crates/foo/src/lib.rs");
+    super::upsert_file_changed_to_tantivy(std::path::Path::new("/tmp/projeto-de-teste"), ""); // edge: empty path
 }
 
 #[test]

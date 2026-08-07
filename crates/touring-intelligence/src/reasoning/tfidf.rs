@@ -88,7 +88,7 @@ impl TfIdfVectorizer {
             // Feature hashing: map token to bucket via FNV-1a hash
             let bucket = hash_token(token) % EMBEDDING_DIM;
             // Sign trick: alternate positive/negative to reduce collision bias
-            let sign = if (hash_token(token) / EMBEDDING_DIM) % 2 == 0 {
+            let sign = if (hash_token(token) / EMBEDDING_DIM).is_multiple_of(2) {
                 1.0
             } else {
                 -1.0

@@ -84,68 +84,41 @@ pub fn cli_profile_status(_rt: &mut HookRuntime, payload: &serde_json::Value) ->
         Ok(v) => v,
         Err(_) => return r#"{"entries":[],"percent_total":0.0}"#.to_string(),
     };
+    // The three filtering arms were byte-identical apart from which of
+    // `section`/`top_n` they applied; the envelope they built was the same in
+    // all three. Applying both as optional stages keeps every combination
+    // behaviourally identical — a `None` section matches every label, and a
+    // `None` top_n takes every survivor — while the unfiltered case still
+    // short-circuits to the parsed document untouched.
     let filtered = match (section, top_n) {
-        (Some(sec), Some(n)) => {
-            let entries = parsed.get("entries").and_then(|e| e.as_array());
-            let filtered: Vec<_> = entries
-                .map(|arr| {
-                    arr.iter()
-                        .filter(|e| {
-                            e.get("label")
-                                .and_then(|l| l.as_str())
-                                .map(|l| l.starts_with(sec))
-                                .unwrap_or(false)
-                        })
-                        .take(n)
-                        .cloned()
-                        .collect()
-                })
-                .unwrap_or_default();
-            let mut out = serde_json::json!({});
-            out["entries"] = serde_json::json!(filtered);
-            out["percent_total"] = parsed
-                .get("percent_total")
-                .unwrap_or(&serde_json::Value::Null)
-                .clone();
-            out
-        }
-        (Some(sec), None) => {
-            let entries = parsed.get("entries").and_then(|e| e.as_array());
-            let filtered: Vec<_> = entries
-                .map(|arr| {
-                    arr.iter()
-                        .filter(|e| {
-                            e.get("label")
-                                .and_then(|l| l.as_str())
-                                .map(|l| l.starts_with(sec))
-                                .unwrap_or(false)
-                        })
-                        .cloned()
-                        .collect()
-                })
-                .unwrap_or_default();
-            let mut out = serde_json::json!({});
-            out["entries"] = serde_json::json!(filtered);
-            out["percent_total"] = parsed
-                .get("percent_total")
-                .unwrap_or(&serde_json::Value::Null)
-                .clone();
-            out
-        }
-        (None, Some(n)) => {
-            let entries = parsed.get("entries").and_then(|e| e.as_array());
-            let filtered: Vec<_> = entries
-                .map(|arr| arr.iter().take(n).cloned().collect())
-                .unwrap_or_default();
-            let mut out = serde_json::json!({});
-            out["entries"] = serde_json::json!(filtered);
-            out["percent_total"] = parsed
-                .get("percent_total")
-                .unwrap_or(&serde_json::Value::Null)
-                .clone();
-            out
-        }
         (None, None) => parsed,
+        _ => {
+            let entries: Vec<serde_json::Value> = parsed
+                .get("entries")
+                .and_then(|e| e.as_array())
+                .map(|arr| {
+                    let kept = arr.iter().filter(|e| match section {
+                        Some(sec) => e
+                            .get("label")
+                            .and_then(|l| l.as_str())
+                            .map(|l| l.starts_with(sec))
+                            .unwrap_or(false),
+                        None => true,
+                    });
+                    match top_n {
+                        Some(n) => kept.take(n).cloned().collect(),
+                        None => kept.cloned().collect(),
+                    }
+                })
+                .unwrap_or_default();
+            serde_json::json!({
+                "entries": entries,
+                "percent_total": parsed
+                    .get("percent_total")
+                    .unwrap_or(&serde_json::Value::Null)
+                    .clone(),
+            })
+        }
     };
     serde_json::to_string(&filtered).unwrap_or_else(|_err: serde_json::Error| json.clone())
 }

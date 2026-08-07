@@ -105,12 +105,23 @@ fn main() -> anyhow::Result<()> {
     {
         let early_args: Vec<String> = std::env::args().collect();
         let early_subcmd = early_args.get(1).map(String::as_str).unwrap_or("serve");
-        let comm = if early_subcmd == "serve" {
+        let is_mcp_bridge = early_subcmd == "serve";
+        let comm = if is_mcp_bridge {
             "touring-mcp"
         } else {
             "touring-cli"
         };
         touring_hooks::proc_identity::set_process_name(comm);
+
+        // No papel de CLI, restaura o `SIGPIPE` padrão. Rust instala `SIG_IGN`,
+        // o que faz `touring … | head -1` entrar em panic com "Broken pipe" —
+        // e `panic = "abort"` transforma isso em SIGABRT (exit 134). Foi o que
+        // derrubou o `propagate-release.sh` em 03/08/2026. O bridge MCP fica
+        // com o `SIG_IGN` de propósito: lá, morrer em silêncio esconderia o
+        // erro. Ver `panic_log::restore_default_sigpipe_for_cli`.
+        if !is_mcp_bridge {
+            touring_hooks::panic_log::restore_default_sigpipe_for_cli();
+        }
     }
 
     // Heap profiling — only instantiated when dhat-heap feature is active.
@@ -178,6 +189,28 @@ fn resolve_subcommand(args: &[String]) -> String {
         .get(1)
         .map(|s| s.to_string())
         .unwrap_or_else(|| "serve".to_string())
+}
+
+/// Modification time of the running executable, as UTC RFC-3339.
+///
+/// `VERGEN_BUILD_TIMESTAMP` is stamped by `build.rs`, and cargo only re-runs
+/// that script when `Cargo.toml` or `build.rs` change. A rebuild driven purely
+/// by a source edit therefore leaves `built:` pointing at an *older* build —
+/// observed 04/08/2026, when a binary written at 21:55 still reported the
+/// 18:36 stamp. This value is read from the binary on disk at every
+/// invocation, so it cannot go stale: it is the field to trust when answering
+/// "is the binary I am running the one I just built?" — the recurring
+/// stale-binary diagnosis that `update-touring` exists to settle.
+fn binary_mtime_utc() -> String {
+    std::env::current_exe()
+        .and_then(|path| path.metadata())
+        .and_then(|meta| meta.modified())
+        .map(|t| {
+            chrono::DateTime::<chrono::Utc>::from(t)
+                .format("%Y-%m-%dT%H:%M:%SZ")
+                .to_string()
+        })
+        .unwrap_or_else(|_| "unknown".to_string())
 }
 
 /// Async body of `main()`. Holds the original subcommand dispatch and
@@ -249,6 +282,7 @@ async fn async_main() -> anyhow::Result<()> {
             eprintln!("  git:      {git_sha}");
             eprintln!("  rustc:    {rustc}");
             eprintln!("  built:    {built}");
+            eprintln!("  binary:   {} (mtime)", binary_mtime_utc());
             if !features.is_empty() {
                 eprintln!("  features: {features}");
             }
@@ -290,10 +324,34 @@ async fn async_main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_subcommand;
+    use super::{binary_mtime_utc, resolve_subcommand};
 
     fn argv(parts: &[&str]) -> Vec<String> {
         parts.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// The `binary:` field must be read from the executable on disk, never
+    /// baked in at compile time — that is the whole reason it exists next to
+    /// `built:`, which cargo can leave stale (04/08/2026: binary written at
+    /// 21:55 still reporting the 18:36 build stamp).
+    #[test]
+    fn binary_mtime_is_read_from_disk_not_a_compile_time_constant() {
+        let stamp = binary_mtime_utc();
+        assert_ne!(stamp, "unknown", "the test binary exists, so its mtime must resolve");
+
+        let parsed = chrono::DateTime::parse_from_rfc3339(&stamp)
+            .unwrap_or_else(|e| panic!("`{stamp}` is not RFC-3339: {e}"));
+
+        // A compile-time constant would drift from the file forever; a disk
+        // read tracks it. Pin only what cannot be true of a stale constant:
+        // this binary was linked after the crate existed and is not in the
+        // future.
+        let epoch_2020 = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z").unwrap();
+        assert!(parsed > epoch_2020, "mtime {stamp} predates the crate");
+        assert!(
+            parsed <= chrono::Utc::now() + chrono::Duration::days(1),
+            "mtime {stamp} is in the future — not a real file timestamp"
+        );
     }
 
     #[test]

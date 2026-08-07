@@ -76,12 +76,10 @@ pub fn compute_impact(db: &FileKnowledgeDB, symbol: &str, max_depth: usize) -> I
         if let Ok(mut stmt) = db.conn_ref().prepare(
             "SELECT DISTINCT consumer_file, symbol_name FROM wiring_map
              WHERE symbol_name = ?1 AND consumer_file IS NOT NULL",
-        ) {
-            if let Ok(rows) = stmt.query_map(params![symbol], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            }) {
-                result = rows.filter_map(|r| r.ok()).collect();
-            }
+        ) && let Ok(rows) = stmt.query_map(params![symbol], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            result = rows.filter_map(|r| r.ok()).collect();
         }
         result
     };
@@ -227,15 +225,15 @@ fn path_exists_resolved(p: &str, root: Option<&str>) -> bool {
     if path.is_absolute() {
         return path.exists();
     }
-    if let Some(r) = root {
-        if Path::new(r).join(p).exists() {
-            return true;
-        }
+    if let Some(r) = root
+        && Path::new(r).join(p).exists()
+    {
+        return true;
     }
-    if let Some(home) = std::env::var_os("HOME") {
-        if Path::new(&home).join(p).exists() {
-            return true;
-        }
+    if let Some(home) = std::env::var_os("HOME")
+        && Path::new(&home).join(p).exists()
+    {
+        return true;
     }
     path.exists()
 }
@@ -438,23 +436,23 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
 
     if let Ok(Some(knowledge)) = db.lookup(file_path) {
         // Re-register pub symbols (clear + re-add to catch added/removed)
-        if let Some(ref symbols_json) = knowledge.symbols_json {
-            if let Ok(symbols) = serde_json::from_str::<Vec<serde_json::Value>>(symbols_json) {
-                let _ = db.clear_wiring(file_path);
-                for sym in &symbols {
-                    let is_public = sym
-                        .get("is_public")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
-                    if is_public {
-                        let name = sym.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                        let kind = sym
-                            .get("kind")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown");
-                        if !name.is_empty() {
-                            let _ = db.register_pub_symbol(file_path, name, kind, "public");
-                        }
+        if let Some(ref symbols_json) = knowledge.symbols_json
+            && let Ok(symbols) = serde_json::from_str::<Vec<serde_json::Value>>(symbols_json)
+        {
+            let _ = db.clear_wiring(file_path);
+            for sym in &symbols {
+                let is_public = sym
+                    .get("is_public")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                if is_public {
+                    let name = sym.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let kind = sym
+                        .get("kind")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
+                    if !name.is_empty() {
+                        let _ = db.register_pub_symbol(file_path, name, kind, "public");
                     }
                 }
             }
@@ -473,12 +471,12 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
         //      content pulled from `file_knowledge.notes` when available (fallback:
         //      extract from imports which ast_bridge already surfaces via symbol_use
         //      edges in the enriched extractor).
-        if let Some(ref imports_json) = knowledge.imports_json {
-            if let Ok(imports) = serde_json::from_str::<Vec<String>>(imports_json) {
-                let _ = db.clear_consumer_entries(file_path);
-                for import_path in &imports {
-                    record_consumer_from_path(db, import_path, file_path);
-                }
+        if let Some(ref imports_json) = knowledge.imports_json
+            && let Ok(imports) = serde_json::from_str::<Vec<String>>(imports_json)
+        {
+            let _ = db.clear_consumer_entries(file_path);
+            for import_path in &imports {
+                record_consumer_from_path(db, import_path, file_path);
             }
         }
 
@@ -489,14 +487,14 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
         // tests exercise `update_wiring_after_edit` without a real file.
 
         // Log integration score change
-        if let Ok(score) = db.integration_score(file_path) {
-            if score < 1.0 {
-                tracing::debug!(
-                    file = file_path,
-                    score,
-                    "wiring: integration score after edit"
-                );
-            }
+        if let Ok(score) = db.integration_score(file_path)
+            && score < 1.0
+        {
+            tracing::debug!(
+                file = file_path,
+                score,
+                "wiring: integration score after edit"
+            );
         }
     }
 
@@ -735,10 +733,10 @@ fn extract_direct_path_expressions(content: &str) -> Vec<String> {
         }
         // The span [start..end] is guaranteed ASCII (only identifier chars
         // and `:`), so slicing is safe.
-        if let Some(path) = content.get(start..end) {
-            if path.matches("::").count() >= 2 {
-                out.insert(path.to_string());
-            }
+        if let Some(path) = content.get(start..end)
+            && path.matches("::").count() >= 2
+        {
+            out.insert(path.to_string());
         }
         i = j.max(start + 1);
     }

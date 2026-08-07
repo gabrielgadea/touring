@@ -15,7 +15,7 @@ mod tests {
     /// Verify `tantivy_related_docs_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_related_docs_signal_never_panics() {
-        let result = signals::tantivy_related_docs_signal("src/shared/signals.rs");
+        let result = signals::tantivy_related_docs_signal(None, "src/shared/signals.rs");
         // Valid inputs: returns Some or None, no panic
         assert!(result.is_none() || result.is_some());
     }
@@ -23,28 +23,28 @@ mod tests {
     /// Verify `tantivy_fuzzy_file_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_fuzzy_file_signal_never_panics() {
-        let result = signals::tantivy_fuzzy_file_signal("src/shared/signals.rs");
+        let result = signals::tantivy_fuzzy_file_signal(None, "src/shared/signals.rs");
         assert!(result.is_none() || result.is_some());
     }
 
     /// Verify `tantivy_kind_context_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_kind_context_signal_never_panics() {
-        let result = signals::tantivy_kind_context_signal("src/shared/signals.rs");
+        let result = signals::tantivy_kind_context_signal(None, "src/shared/signals.rs");
         assert!(result.is_none() || result.is_some());
     }
 
     /// Verify `tantivy_crate_origin_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_crate_origin_signal_never_panics() {
-        let result = signals::tantivy_crate_origin_signal("src/shared/signals.rs");
+        let result = signals::tantivy_crate_origin_signal(None, "src/shared/signals.rs");
         assert!(result.is_none() || result.is_some());
     }
 
     /// Verify `tantivy_fuzzy_symbol_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_fuzzy_symbol_signal_never_panics() {
-        let result = signals::tantivy_fuzzy_symbol_signal("src/shared/signals.rs");
+        let result = signals::tantivy_fuzzy_symbol_signal(None, "src/shared/signals.rs");
         assert!(result.is_none() || result.is_some());
     }
 
@@ -54,11 +54,11 @@ mod tests {
     #[test]
     fn all_tantivy_signals_have_valid_weight() {
         let cases = [
-            signals::tantivy_related_docs_signal("src/shared/signals.rs"),
-            signals::tantivy_fuzzy_file_signal("src/shared/signals.rs"),
-            signals::tantivy_kind_context_signal("src/shared/signals.rs"),
-            signals::tantivy_crate_origin_signal("src/shared/signals.rs"),
-            signals::tantivy_fuzzy_symbol_signal("src/shared/signals.rs"),
+            signals::tantivy_related_docs_signal(None, "src/shared/signals.rs"),
+            signals::tantivy_fuzzy_file_signal(None, "src/shared/signals.rs"),
+            signals::tantivy_kind_context_signal(None, "src/shared/signals.rs"),
+            signals::tantivy_crate_origin_signal(None, "src/shared/signals.rs"),
+            signals::tantivy_fuzzy_symbol_signal(None, "src/shared/signals.rs"),
         ];
 
         for case in cases {
@@ -77,14 +77,14 @@ mod tests {
     /// Short paths (< 3 chars) must not cause panics.
     #[test]
     fn short_path_does_not_panic() {
-        let result = signals::tantivy_fuzzy_file_signal("a.rs");
+        let result = signals::tantivy_fuzzy_file_signal(None, "a.rs");
         assert!(result.is_none()); // < 3 chars, fuzzy disabled
     }
 
     /// Empty path must not cause panic.
     #[test]
     fn empty_path_does_not_panic() {
-        let result = signals::tantivy_fuzzy_file_signal("");
+        let result = signals::tantivy_fuzzy_file_signal(None, "");
         assert!(result.is_none());
     }
 

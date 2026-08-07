@@ -124,10 +124,10 @@ impl Handler for DriftAuditHandler {
         let ks_stat = detector.ks_statistic(&baseline_sample, &current_sample);
 
         // Check if drift is significant.
-        if has_significant_drift(ks_stat, KS_THRESHOLD) {
-            if let Some(ref persistence) = ctx.persistence {
-                let _ = persistence.drift_record("edit_success_drift", ks_stat);
-            }
+        if has_significant_drift(ks_stat, KS_THRESHOLD)
+            && let Some(ref persistence) = ctx.persistence
+        {
+            let _ = persistence.drift_record("edit_success_drift", ks_stat);
         }
 
         // Never inject context — drift audit is observational only.

@@ -123,3 +123,87 @@ pub fn preview_patch(source: &str, diff: &str) -> Option<PatchPreview> {
 pub fn preview_patch(_source: &str, _diff: &str) -> Option<PatchPreview> {
     None
 }
+
+/// Testes do motor de preview. O módulo tinha **zero** cobertura até 03/08/2026:
+/// seu comportamento era garantido apenas por 3 asserções em
+/// `cli_handlers_e2e.rs`, e essas rodam só sob `--all-features` — o perfil em que
+/// a feature `mpatch-fuzzy` chegava ao CHAMADOR mas não a este motor, deixando
+/// `preview_patch` no stub `None`. Com o motor sem testes próprios, nada apontava
+/// para cá; o sintoma aparecia como "o patch não casa".
+#[cfg(all(test, feature = "mpatch-fuzzy"))]
+mod tests {
+    use super::*;
+
+    /// Dialetos de unified diff que o motor precisa aceitar. Fixa o contrato
+    /// contra o parser do `mpatch` (1.6.4 no lock, `1.4.1` declarado no
+    /// Cargo.toml — um bump minor silencioso passaria despercebido sem isto).
+    #[test]
+    fn accepts_the_unified_diff_dialects_the_callers_emit() {
+        let cases: &[(&str, &str, &str)] = &[
+            (
+                "contexto sem o espaço inicial (tolerado)",
+                "line one\nline two\nline three\n",
+                "--- s.txt\n+++ s.txt\n@@ -1,3 +1,3 @@\nline one\n-line two\n+line two\nline three\n",
+            ),
+            (
+                "contexto com o espaço inicial (canônico POSIX)",
+                "line one\nline two\nline three\n",
+                "--- s.txt\n+++ s.txt\n@@ -1,3 +1,3 @@\n line one\n-line two\n+line two\n line three\n",
+            ),
+            (
+                "range abreviado @@ -1 +1 @@",
+                "Hello world\n",
+                "--- s.txt\n+++ s.txt\n@@ -1 +1 @@\n-Hello world\n+Hello world!\n",
+            ),
+            (
+                "range explícito @@ -1,1 +1,1 @@",
+                "Hello world\n",
+                "--- s.txt\n+++ s.txt\n@@ -1,1 +1,1 @@\n-Hello world\n+Hello world!\n",
+            ),
+        ];
+        for (name, source, diff) in cases {
+            let preview = preview_patch(source, diff)
+                .unwrap_or_else(|| panic!("dialeto rejeitado pelo motor: {name}"));
+            assert!(preview.matched, "{name}: deveria casar");
+            assert_eq!(preview.method, PatchMethod::Exact, "{name}: casamento exato");
+            assert!(
+                preview.confidence >= 0.99,
+                "{name}: confiança {}",
+                preview.confidence
+            );
+        }
+    }
+
+    #[test]
+    fn applies_the_replacement_in_the_preview_text() {
+        let preview = preview_patch(
+            "Hello world\n",
+            "--- s.txt\n+++ s.txt\n@@ -1 +1 @@\n-Hello world\n+Hello world!\n",
+        )
+        .expect("patch válido");
+        assert!(
+            preview.preview.contains("Hello world!"),
+            "o preview carrega o texto já modificado, veio: {:?}",
+            preview.preview
+        );
+    }
+
+    #[test]
+    fn rejects_input_that_is_not_a_diff() {
+        assert!(
+            preview_patch("qualquer coisa\n", "isto não é um diff").is_none(),
+            "entrada não-diff tem de virar None, não um casamento falso"
+        );
+    }
+
+    #[test]
+    fn is_confident_respects_the_threshold() {
+        let preview = preview_patch(
+            "Hello world\n",
+            "--- s.txt\n+++ s.txt\n@@ -1 +1 @@\n-Hello world\n+Hello world!\n",
+        )
+        .expect("patch válido");
+        assert!(preview.is_confident(0.9));
+        assert!(!preview.is_confident(1.01));
+    }
+}

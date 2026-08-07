@@ -145,20 +145,20 @@ fn extract_rust_details(source: &str, symbol_name: &str) -> Vec<SymbolDetail> {
             let field_cap = m.captures.iter().find(|c| c.index == fn_idx);
             let type_cap = field_type_idx.and_then(|ti| m.captures.iter().find(|c| c.index == ti));
 
-            if let (Some(parent), Some(field)) = (parent_cap, field_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    let field_node = field.node;
-                    let is_pub = check_field_pub(source, field_node);
-                    let type_text = type_cap.map(|c| node_text(source, c.node).to_string());
-                    details.push(SymbolDetail {
-                        name: node_text(source, field_node).to_string(),
-                        kind: MemberKind::Field,
-                        type_str: type_text,
-                        is_pub,
-                        line: field_node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(field)) = (parent_cap, field_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                let field_node = field.node;
+                let is_pub = check_field_pub(source, field_node);
+                let type_text = type_cap.map(|c| node_text(source, c.node).to_string());
+                details.push(SymbolDetail {
+                    name: node_text(source, field_node).to_string(),
+                    kind: MemberKind::Field,
+                    type_str: type_text,
+                    is_pub,
+                    line: field_node.start_position().row + 1,
+                });
+                continue;
             }
         }
 
@@ -167,18 +167,18 @@ fn extract_rust_details(source: &str, symbol_name: &str) -> Vec<SymbolDetail> {
             let parent_cap = m.captures.iter().find(|c| c.index == en_idx);
             let variant_cap = m.captures.iter().find(|c| c.index == vn_idx);
 
-            if let (Some(parent), Some(variant)) = (parent_cap, variant_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    let variant_node = variant.node;
-                    details.push(SymbolDetail {
-                        name: node_text(source, variant_node).to_string(),
-                        kind: MemberKind::Variant,
-                        type_str: None,
-                        is_pub: false,
-                        line: variant_node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(variant)) = (parent_cap, variant_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                let variant_node = variant.node;
+                details.push(SymbolDetail {
+                    name: node_text(source, variant_node).to_string(),
+                    kind: MemberKind::Variant,
+                    type_str: None,
+                    is_pub: false,
+                    line: variant_node.start_position().row + 1,
+                });
+                continue;
             }
         }
 
@@ -187,19 +187,19 @@ fn extract_rust_details(source: &str, symbol_name: &str) -> Vec<SymbolDetail> {
             let parent_cap = m.captures.iter().find(|c| c.index == it_idx);
             let method_cap = m.captures.iter().find(|c| c.index == mn_idx);
 
-            if let (Some(parent), Some(method)) = (parent_cap, method_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    let method_node = method.node;
-                    let is_pub = check_fn_pub(source, method_node);
-                    details.push(SymbolDetail {
-                        name: node_text(source, method_node).to_string(),
-                        kind: MemberKind::Method,
-                        type_str: None,
-                        is_pub,
-                        line: method_node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(method)) = (parent_cap, method_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                let method_node = method.node;
+                let is_pub = check_fn_pub(source, method_node);
+                details.push(SymbolDetail {
+                    name: node_text(source, method_node).to_string(),
+                    kind: MemberKind::Method,
+                    type_str: None,
+                    is_pub,
+                    line: method_node.start_position().row + 1,
+                });
+                continue;
             }
         }
     }
@@ -246,21 +246,21 @@ fn extract_python_details(source: &str, symbol_name: &str) -> Vec<SymbolDetail> 
             let parent_cap = m.captures.iter().find(|c| c.index == cn_idx);
             let method_cap = m.captures.iter().find(|c| c.index == mn_idx);
 
-            if let (Some(parent), Some(method)) = (parent_cap, method_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    let name = node_text(source, method.node).to_string();
-                    let key = (name.clone(), MemberKind::Method);
-                    if seen.insert(key) {
-                        details.push(SymbolDetail {
-                            name,
-                            kind: MemberKind::Method,
-                            type_str: None,
-                            is_pub: !node_text(source, method.node).starts_with('_'),
-                            line: method.node.start_position().row + 1,
-                        });
-                    }
-                    continue;
+            if let (Some(parent), Some(method)) = (parent_cap, method_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                let name = node_text(source, method.node).to_string();
+                let key = (name.clone(), MemberKind::Method);
+                if seen.insert(key) {
+                    details.push(SymbolDetail {
+                        name,
+                        kind: MemberKind::Method,
+                        type_str: None,
+                        is_pub: !node_text(source, method.node).starts_with('_'),
+                        line: method.node.start_position().row + 1,
+                    });
                 }
+                continue;
             }
         }
 
@@ -271,22 +271,22 @@ fn extract_python_details(source: &str, symbol_name: &str) -> Vec<SymbolDetail> 
             let type_cap =
                 dc_field_type_idx.and_then(|ti| m.captures.iter().find(|c| c.index == ti));
 
-            if let (Some(parent), Some(field)) = (parent_cap, field_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    let name = node_text(source, field.node).to_string();
-                    let type_str = type_cap.map(|c| node_text(source, c.node).to_string());
-                    let key = (name.clone(), MemberKind::Field);
-                    if seen.insert(key) {
-                        details.push(SymbolDetail {
-                            name,
-                            kind: MemberKind::Field,
-                            type_str,
-                            is_pub: true,
-                            line: field.node.start_position().row + 1,
-                        });
-                    }
-                    continue;
+            if let (Some(parent), Some(field)) = (parent_cap, field_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                let name = node_text(source, field.node).to_string();
+                let type_str = type_cap.map(|c| node_text(source, c.node).to_string());
+                let key = (name.clone(), MemberKind::Field);
+                if seen.insert(key) {
+                    details.push(SymbolDetail {
+                        name,
+                        kind: MemberKind::Field,
+                        type_str,
+                        is_pub: true,
+                        line: field.node.start_position().row + 1,
+                    });
                 }
+                continue;
             }
         }
 
@@ -295,29 +295,29 @@ fn extract_python_details(source: &str, symbol_name: &str) -> Vec<SymbolDetail> 
             let parent_cap = m.captures.iter().find(|c| c.index == ecn_idx);
             let member_cap = m.captures.iter().find(|c| c.index == emn_idx);
 
-            if let (Some(parent), Some(member)) = (parent_cap, member_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    let name = node_text(source, member.node).to_string();
-                    // Determine if this is a variant (Enum member) or field
-                    // by checking if the class inherits from Enum
-                    let is_enum = is_python_enum_class(source, parent.node);
-                    let kind = if is_enum {
-                        MemberKind::Variant
-                    } else {
-                        MemberKind::Field
-                    };
-                    let key = (name.clone(), kind.clone());
-                    if seen.insert(key) {
-                        details.push(SymbolDetail {
-                            name,
-                            kind,
-                            type_str: None,
-                            is_pub: true,
-                            line: member.node.start_position().row + 1,
-                        });
-                    }
-                    continue;
+            if let (Some(parent), Some(member)) = (parent_cap, member_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                let name = node_text(source, member.node).to_string();
+                // Determine if this is a variant (Enum member) or field
+                // by checking if the class inherits from Enum
+                let is_enum = is_python_enum_class(source, parent.node);
+                let kind = if is_enum {
+                    MemberKind::Variant
+                } else {
+                    MemberKind::Field
+                };
+                let key = (name.clone(), kind.clone());
+                if seen.insert(key) {
+                    details.push(SymbolDetail {
+                        name,
+                        kind,
+                        type_str: None,
+                        is_pub: true,
+                        line: member.node.start_position().row + 1,
+                    });
                 }
+                continue;
             }
         }
     }
@@ -331,13 +331,13 @@ fn extract_python_details(source: &str, symbol_name: &str) -> Vec<SymbolDetail> 
 /// Check if a Python class inherits from Enum.
 fn is_python_enum_class(source: &str, class_name_node: tree_sitter::Node) -> bool {
     // class_name_node is the identifier; parent is class_definition
-    if let Some(class_def) = class_name_node.parent() {
-        if let Some(bases) = class_def.child_by_field_name("superclasses") {
-            let bases_text = node_text(source, bases);
-            return bases_text.contains("Enum")
-                || bases_text.contains("IntEnum")
-                || bases_text.contains("StrEnum");
-        }
+    if let Some(class_def) = class_name_node.parent()
+        && let Some(bases) = class_def.child_by_field_name("superclasses")
+    {
+        let bases_text = node_text(source, bases);
+        return bases_text.contains("Enum")
+            || bases_text.contains("IntEnum")
+            || bases_text.contains("StrEnum");
     }
     false
 }
@@ -359,13 +359,12 @@ fn extract_python_init_fields(
     let mut stack = vec![root];
 
     while let Some(node) = stack.pop() {
-        if node.kind() == "class_definition" {
-            if let Some(name_node) = node.child_by_field_name("name") {
-                if node_text(source, name_node) == symbol_name {
-                    // Find __init__ method inside this class
-                    find_init_self_fields(source, node, details, seen);
-                }
-            }
+        if node.kind() == "class_definition"
+            && let Some(name_node) = node.child_by_field_name("name")
+            && node_text(source, name_node) == symbol_name
+        {
+            // Find __init__ method inside this class
+            find_init_self_fields(source, node, details, seen);
         }
         for i in 0..node.child_count() {
             if let Some(child) = node.child(i as u32) {
@@ -385,14 +384,13 @@ fn find_init_self_fields(
     let mut stack = vec![class_node];
 
     while let Some(node) = stack.pop() {
-        if node.kind() == "function_definition" {
-            if let Some(name_node) = node.child_by_field_name("name") {
-                if node_text(source, name_node) == "__init__" {
-                    // Walk body for `self.x = ...` (assignment with attribute LHS)
-                    collect_self_assignments(source, node, details, seen);
-                    return;
-                }
-            }
+        if node.kind() == "function_definition"
+            && let Some(name_node) = node.child_by_field_name("name")
+            && node_text(source, name_node) == "__init__"
+        {
+            // Walk body for `self.x = ...` (assignment with attribute LHS)
+            collect_self_assignments(source, node, details, seen);
+            return;
         }
         for i in 0..node.child_count() {
             if let Some(child) = node.child(i as u32) {
@@ -412,27 +410,23 @@ fn collect_self_assignments(
     let mut stack = vec![fn_node];
 
     while let Some(node) = stack.pop() {
-        if node.kind() == "assignment" {
-            if let Some(left) = node.child_by_field_name("left") {
-                if left.kind() == "attribute" {
-                    if let Some(obj) = left.child_by_field_name("object") {
-                        if node_text(source, obj) == "self" {
-                            if let Some(attr) = left.child_by_field_name("attribute") {
-                                let name = node_text(source, attr).to_string();
-                                let key = (name.clone(), MemberKind::Field);
-                                if seen.insert(key) {
-                                    details.push(SymbolDetail {
-                                        name,
-                                        kind: MemberKind::Field,
-                                        type_str: None,
-                                        is_pub: !node_text(source, attr).starts_with('_'),
-                                        line: attr.start_position().row + 1,
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
+        if node.kind() == "assignment"
+            && let Some(left) = node.child_by_field_name("left")
+            && left.kind() == "attribute"
+            && let Some(obj) = left.child_by_field_name("object")
+            && node_text(source, obj) == "self"
+            && let Some(attr) = left.child_by_field_name("attribute")
+        {
+            let name = node_text(source, attr).to_string();
+            let key = (name.clone(), MemberKind::Field);
+            if seen.insert(key) {
+                details.push(SymbolDetail {
+                    name,
+                    kind: MemberKind::Field,
+                    type_str: None,
+                    is_pub: !node_text(source, attr).starts_with('_'),
+                    line: attr.start_position().row + 1,
+                });
             }
         }
         for i in 0..node.child_count() {
@@ -492,17 +486,17 @@ fn extract_ts_details(source: &str, symbol_name: &str, lang: Lang) -> Vec<Symbol
             let parent_cap = m.captures.iter().find(|c| c.index == in_idx);
             let prop_cap = m.captures.iter().find(|c| c.index == pn_idx);
 
-            if let (Some(parent), Some(prop)) = (parent_cap, prop_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    details.push(SymbolDetail {
-                        name: node_text(source, prop.node).to_string(),
-                        kind: MemberKind::Field,
-                        type_str: None,
-                        is_pub: true,
-                        line: prop.node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(prop)) = (parent_cap, prop_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                details.push(SymbolDetail {
+                    name: node_text(source, prop.node).to_string(),
+                    kind: MemberKind::Field,
+                    type_str: None,
+                    is_pub: true,
+                    line: prop.node.start_position().row + 1,
+                });
+                continue;
             }
         }
 
@@ -511,17 +505,17 @@ fn extract_ts_details(source: &str, symbol_name: &str, lang: Lang) -> Vec<Symbol
             let parent_cap = m.captures.iter().find(|c| c.index == imc_idx);
             let method_cap = m.captures.iter().find(|c| c.index == imn_idx);
 
-            if let (Some(parent), Some(method)) = (parent_cap, method_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    details.push(SymbolDetail {
-                        name: node_text(source, method.node).to_string(),
-                        kind: MemberKind::Method,
-                        type_str: None,
-                        is_pub: true,
-                        line: method.node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(method)) = (parent_cap, method_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                details.push(SymbolDetail {
+                    name: node_text(source, method.node).to_string(),
+                    kind: MemberKind::Method,
+                    type_str: None,
+                    is_pub: true,
+                    line: method.node.start_position().row + 1,
+                });
+                continue;
             }
         }
 
@@ -530,17 +524,17 @@ fn extract_ts_details(source: &str, symbol_name: &str, lang: Lang) -> Vec<Symbol
             let parent_cap = m.captures.iter().find(|c| c.index == cn_idx);
             let field_cap = m.captures.iter().find(|c| c.index == cfn_idx);
 
-            if let (Some(parent), Some(field)) = (parent_cap, field_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    details.push(SymbolDetail {
-                        name: node_text(source, field.node).to_string(),
-                        kind: MemberKind::Field,
-                        type_str: None,
-                        is_pub: true,
-                        line: field.node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(field)) = (parent_cap, field_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                details.push(SymbolDetail {
+                    name: node_text(source, field.node).to_string(),
+                    kind: MemberKind::Field,
+                    type_str: None,
+                    is_pub: true,
+                    line: field.node.start_position().row + 1,
+                });
+                continue;
             }
         }
 
@@ -549,17 +543,17 @@ fn extract_ts_details(source: &str, symbol_name: &str, lang: Lang) -> Vec<Symbol
             let parent_cap = m.captures.iter().find(|c| c.index == cmc_idx);
             let method_cap = m.captures.iter().find(|c| c.index == cmn_idx);
 
-            if let (Some(parent), Some(method)) = (parent_cap, method_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    details.push(SymbolDetail {
-                        name: node_text(source, method.node).to_string(),
-                        kind: MemberKind::Method,
-                        type_str: None,
-                        is_pub: true,
-                        line: method.node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(method)) = (parent_cap, method_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                details.push(SymbolDetail {
+                    name: node_text(source, method.node).to_string(),
+                    kind: MemberKind::Method,
+                    type_str: None,
+                    is_pub: true,
+                    line: method.node.start_position().row + 1,
+                });
+                continue;
             }
         }
 
@@ -568,17 +562,17 @@ fn extract_ts_details(source: &str, symbol_name: &str, lang: Lang) -> Vec<Symbol
             let parent_cap = m.captures.iter().find(|c| c.index == en_idx);
             let member_cap = m.captures.iter().find(|c| c.index == emn_idx);
 
-            if let (Some(parent), Some(member)) = (parent_cap, member_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    details.push(SymbolDetail {
-                        name: node_text(source, member.node).to_string(),
-                        kind: MemberKind::Variant,
-                        type_str: None,
-                        is_pub: true,
-                        line: member.node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(member)) = (parent_cap, member_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                details.push(SymbolDetail {
+                    name: node_text(source, member.node).to_string(),
+                    kind: MemberKind::Variant,
+                    type_str: None,
+                    is_pub: true,
+                    line: member.node.start_position().row + 1,
+                });
+                continue;
             }
         }
 
@@ -587,17 +581,17 @@ fn extract_ts_details(source: &str, symbol_name: &str, lang: Lang) -> Vec<Symbol
             let parent_cap = m.captures.iter().find(|c| c.index == ebn_idx);
             let member_cap = m.captures.iter().find(|c| c.index == ebmn_idx);
 
-            if let (Some(parent), Some(member)) = (parent_cap, member_cap) {
-                if node_text(source, parent.node) == symbol_name {
-                    details.push(SymbolDetail {
-                        name: node_text(source, member.node).to_string(),
-                        kind: MemberKind::Variant,
-                        type_str: None,
-                        is_pub: true,
-                        line: member.node.start_position().row + 1,
-                    });
-                    continue;
-                }
+            if let (Some(parent), Some(member)) = (parent_cap, member_cap)
+                && node_text(source, parent.node) == symbol_name
+            {
+                details.push(SymbolDetail {
+                    name: node_text(source, member.node).to_string(),
+                    kind: MemberKind::Variant,
+                    type_str: None,
+                    is_pub: true,
+                    line: member.node.start_position().row + 1,
+                });
+                continue;
             }
         }
     }
@@ -613,11 +607,11 @@ fn check_field_pub(source: &str, field_node: tree_sitter::Node) -> bool {
     // The field_node is the field_identifier; go to its parent (field_declaration)
     if let Some(parent) = field_node.parent() {
         for i in 0..parent.child_count() {
-            if let Some(child) = parent.child(i as u32) {
-                if child.kind() == "visibility_modifier" {
-                    let text = node_text(source, child);
-                    return text.starts_with("pub");
-                }
+            if let Some(child) = parent.child(i as u32)
+                && child.kind() == "visibility_modifier"
+            {
+                let text = node_text(source, child);
+                return text.starts_with("pub");
             }
         }
     }
@@ -629,11 +623,11 @@ fn check_fn_pub(source: &str, method_name_node: tree_sitter::Node) -> bool {
     // method_name_node is the identifier; go to parent function_item
     if let Some(fn_item) = method_name_node.parent() {
         for i in 0..fn_item.child_count() {
-            if let Some(child) = fn_item.child(i as u32) {
-                if child.kind() == "visibility_modifier" {
-                    let text = node_text(source, child);
-                    return text.starts_with("pub");
-                }
+            if let Some(child) = fn_item.child(i as u32)
+                && child.kind() == "visibility_modifier"
+            {
+                let text = node_text(source, child);
+                return text.starts_with("pub");
             }
         }
     }

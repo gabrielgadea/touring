@@ -34,21 +34,87 @@ fn locate_binary(name: &str) -> Option<PathBuf> {
     None
 }
 
+/// A daemon bound to a socket private to one test, killed on drop.
+///
+/// The `task-*` receipts below assert on content that only a *responding*
+/// daemon produces — and a hook is fail-open BY DESIGN: when the daemon does
+/// not answer, it prints nothing rather than blocking Claude Code. Sharing the
+/// global daemon with the rest of the suite therefore made those assertions
+/// depend on whatever else was running: under `cargo llvm-cov --workspace`
+/// (dozens of test binaries against one daemon actor) both produced empty
+/// stdout, while the same tests passed standalone, under a 16-core CPU load,
+/// and under llvm-cov in isolation — measured 2026-08-02. A private socket
+/// makes the assertion a statement about THIS binary again.
+///
+/// Same isolation rationale as `touring-server/tests/cli_wave6_e2e.rs`, and it
+/// keeps REGRA #19 satisfied: we only ever signal a PID we spawned ourselves,
+/// never a pattern-matched one.
+struct PrivateDaemon {
+    pid: u32,
+    socket: String,
+}
+
+impl PrivateDaemon {
+    /// Spawn a daemon on a socket unique to this process + `tag`. Returns
+    /// `None` when the daemon binary isn't built — a skip, not a failure.
+    fn start(tag: &str) -> Option<Self> {
+        let bin = locate_binary("touring-daemon")?;
+        let socket = format!("/tmp/touring-wave24-{tag}-{}.sock", std::process::id());
+        let _ = std::fs::remove_file(&socket);
+        let _ = std::fs::remove_file(format!("{socket}.lock"));
+
+        let child = Command::new(&bin)
+            .env("TOURING_DAEMON_SOCKET", &socket)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()?;
+        let pid = child.id();
+        std::mem::forget(child); // reaped by `stop`, not by the parent handle
+
+        // Wait for the socket to appear rather than sleeping a fixed budget.
+        for _ in 0..100 {
+            if std::path::Path::new(&socket).exists() {
+                return Some(Self { pid, socket });
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        let _ = Command::new("kill").arg(pid.to_string()).output();
+        None
+    }
+}
+
+impl Drop for PrivateDaemon {
+    fn drop(&mut self) {
+        // Signal by the PID we spawned — never by name (REGRA #19).
+        let _ = Command::new("kill").arg(self.pid.to_string()).output();
+        let _ = std::fs::remove_file(&self.socket);
+        let _ = std::fs::remove_file(format!("{}.lock", self.socket));
+    }
+}
+
 /// Run a binary with `stdin` and capture stdout. Returns `None` if the
 /// binary isn't built — caller should treat that as a skip, not a failure.
+///
+/// `socket` pins `TOURING_DAEMON_SOCKET` so the child talks to the caller's
+/// daemon; `None` keeps the ambient environment (used where the assertion does
+/// not depend on daemon-derived content).
 fn run_with_stdin(
     bin_name: &str,
     args: &[&str],
     stdin_payload: &str,
+    socket: Option<&str>,
 ) -> Option<(String, String, i32)> {
     let bin = locate_binary(bin_name)?;
-    let mut child = Command::new(&bin)
-        .args(args)
+    let mut cmd = Command::new(&bin);
+    cmd.args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn");
+        .stderr(Stdio::piped());
+    if let Some(sock) = socket {
+        cmd.env("TOURING_DAEMON_SOCKET", sock);
+    }
+    let mut child = cmd.spawn().expect("spawn");
 
     if let Some(mut sin) = child.stdin.take() {
         sin.write_all(stdin_payload.as_bytes())
@@ -71,7 +137,10 @@ fn run_with_stdin(
 #[test]
 fn pre_task_scout_returns_pretooluse_envelope() {
     let payload = r#"{"tool_name":"TaskCreate","tool_input":{"subject":"wave24 e2e","description":"validate scout"}}"#;
-    let Some((stdout, _stderr, exit)) = run_with_stdin("touring", &["pre-task-scout"], payload)
+    // No private daemon here: this asserts only the PreToolUse envelope shape,
+    // which the hook emits whether or not the daemon answers.
+    let Some((stdout, _stderr, exit)) =
+        run_with_stdin("touring", &["pre-task-scout"], payload, None)
     else {
         eprintln!("touring binary not built — skipping pre_task_scout test");
         return;
@@ -104,7 +173,12 @@ fn pre_task_scout_returns_pretooluse_envelope() {
 #[test]
 fn task_created_event_returns_scaffolded_receipt() {
     let payload = r#"{"task_id":"wave24-test","subject":"e2e validation"}"#;
-    let Some((stdout, _stderr, exit)) = run_with_stdin("touring-hook", &["task-created"], payload)
+    let Some(daemon) = PrivateDaemon::start("created") else {
+        eprintln!("touring-daemon not built or would not bind — skipping task_created test");
+        return;
+    };
+    let Some((stdout, _stderr, exit)) =
+        run_with_stdin("touring-hook", &["task-created"], payload, Some(&daemon.socket))
     else {
         eprintln!("touring-hook binary not built — skipping task_created test");
         return;
@@ -137,9 +211,16 @@ fn task_created_event_returns_scaffolded_receipt() {
 #[test]
 fn task_completed_event_returns_full_outcome_receipt() {
     let payload = r#"{"task_id":"wave24-test","status":"completed"}"#;
-    let Some((stdout, _stderr, exit)) =
-        run_with_stdin("touring-hook", &["task-completed"], payload)
-    else {
+    let Some(daemon) = PrivateDaemon::start("completed") else {
+        eprintln!("touring-daemon not built or would not bind — skipping task_completed test");
+        return;
+    };
+    let Some((stdout, _stderr, exit)) = run_with_stdin(
+        "touring-hook",
+        &["task-completed"],
+        payload,
+        Some(&daemon.socket),
+    ) else {
         eprintln!("touring-hook binary not built — skipping task_completed test");
         return;
     };

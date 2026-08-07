@@ -171,10 +171,10 @@ impl CachedAnalysisPipeline {
         let now = std::time::Instant::now();
         let cache_key = depth.to_string();
 
-        if let Some((cached_at, cached_report)) = self.cache.borrow().get(&cache_key) {
-            if now.duration_since(*cached_at).as_secs() < ttl {
-                return Ok(cached_report.clone());
-            }
+        if let Some((cached_at, cached_report)) = self.cache.borrow().get(&cache_key)
+            && now.duration_since(*cached_at).as_secs() < ttl
+        {
+            return Ok(cached_report.clone());
         }
 
         let payload = serde_json::json!({ "depth": depth });
@@ -278,7 +278,7 @@ fn phase_index(rt: &mut HookRuntime, target: &Path, _depth: Depth) -> PhaseResul
 
     // U19: Augment metrics with Tantivy FTS stats when available
     #[cfg(feature = "tantivy-fts")]
-    let tantivy_metrics = crate::tantivy_index::global_tantivy().map(|idx| {
+    let tantivy_metrics = crate::tantivy_index::tantivy_for(Some(&rt.project_root)).map(|idx| {
         let s = idx.stats();
         serde_json::json!({
             "tantivy_docs": s.total_docs,
@@ -302,11 +302,11 @@ fn phase_index(rt: &mut HookRuntime, target: &Path, _depth: Depth) -> PhaseResul
         "symbols_per_file": if file_count > 0 { symbol_count as f64 / file_count as f64 } else { 0.0 },
     });
 
-    if let Some(tantivy) = tantivy_metrics {
-        if let (Some(m), Some(t)) = (metrics.as_object_mut(), tantivy.as_object()) {
-            for (k, v) in t {
-                m.insert(k.clone(), v.clone());
-            }
+    if let Some(tantivy) = tantivy_metrics
+        && let (Some(m), Some(t)) = (metrics.as_object_mut(), tantivy.as_object())
+    {
+        for (k, v) in t {
+            m.insert(k.clone(), v.clone());
         }
     }
 
@@ -661,16 +661,16 @@ fn phase_knowledge(rt: &mut HookRuntime) -> PhaseResult {
                         continue;
                     }
                     files.extend(walk_rust_files(&path, depth + 1, max_depth));
-                } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                    if ext == "rs" {
-                        // Skip test files
-                        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                        if !name.contains("_test")
-                            && !name.starts_with("test_")
-                            && !path.to_string_lossy().contains("/tests/")
-                        {
-                            files.push(path);
-                        }
+                } else if let Some(ext) = path.extension().and_then(|e| e.to_str())
+                    && ext == "rs"
+                {
+                    // Skip test files
+                    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if !name.contains("_test")
+                        && !name.starts_with("test_")
+                        && !path.to_string_lossy().contains("/tests/")
+                    {
+                        files.push(path);
                     }
                 }
             }
@@ -712,10 +712,10 @@ fn phase_knowledge(rt: &mut HookRuntime) -> PhaseResult {
             }
             let re = regex::Regex::new(&pattern).expect("guarded by is_err() check above");
             for path in &file_paths {
-                if let Ok(content) = std::fs::read_to_string(path) {
-                    if re.is_match(&content) {
-                        db.increment_gotcha_hit(gotcha_id);
-                    }
+                if let Ok(content) = std::fs::read_to_string(path)
+                    && re.is_match(&content)
+                {
+                    db.increment_gotcha_hit(gotcha_id);
                 }
             }
         }
@@ -1567,10 +1567,10 @@ fn collect_files_recursive(dir: &Path, files: &mut Vec<String>, limit: usize) {
                 continue;
             }
             collect_files_recursive(&path, files, limit);
-        } else if is_code_extension(&path) {
-            if let Some(s) = path.to_str() {
-                files.push(s.to_string());
-            }
+        } else if is_code_extension(&path)
+            && let Some(s) = path.to_str()
+        {
+            files.push(s.to_string());
         }
     }
 }

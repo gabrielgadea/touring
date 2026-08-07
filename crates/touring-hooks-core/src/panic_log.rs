@@ -66,6 +66,46 @@ fn signal_handler_ptr() -> libc::sighandler_t {
     signal_handler as usize
 }
 
+/// Restaura o comportamento PADRÃO do `SIGPIPE` — só para o papel de **CLI**.
+///
+/// # O defeito que isto corrige
+///
+/// Rust instala `SIG_IGN` para `SIGPIPE` no startup. Com isso, escrever num
+/// pipe fechado não mata o processo: a escrita devolve `EPIPE`, e `println!`
+/// **entra em panic** (`"failed printing to stdout: Broken pipe"`). Como o
+/// perfil release usa `panic = "abort"`, o panic vira **SIGABRT** — exit 134.
+///
+/// Observado em 03/08/2026: `propagate-release.sh` abortou com 134 no meio do
+/// relatório final, em `touring --version 2>&1 | head -1`. O `--version` escreve
+/// 5 linhas; o `head -1` fecha o pipe depois da primeira. Reproduzido: 3 abortos
+/// em 200 tentativas — é uma corrida, daí a intermitência que dificultou o
+/// diagnóstico. Qualquer `touring … | head`, `| grep -q` ou `| less` fechado
+/// cedo tem o mesmo efeito, inclusive digitado à mão no terminal.
+///
+/// Com `SIG_DFL` o processo morre silenciosamente ao ter o pipe fechado, como
+/// `ls`, `grep` e todo utilitário Unix — que é o comportamento que um
+/// consumidor de pipeline espera.
+///
+/// # Por que APENAS no CLI
+///
+/// O mesmo binário serve três papéis: CLI efêmero, daemon e **bridge MCP
+/// stdio**. No bridge, morrer em silêncio ao fechar o pipe transformaria um
+/// erro diagnosticável num desaparecimento mudo no meio de uma sessão do Claude
+/// Code. Lá o `SIG_IGN` do Rust é o comportamento desejável: o erro sobe como
+/// `EPIPE` e pode ser tratado. Por isso a restauração é condicionada ao papel,
+/// resolvido em `main()` antes de qualquer runtime subir.
+///
+/// Idempotente e sem alocação — seguro no caminho de inicialização.
+pub fn restore_default_sigpipe_for_cli() {
+    // SAFETY: `signal()` é async-signal-safe e `SIG_DFL` é a disposição
+    // herdada de `execve` — estamos apenas desfazendo o `SIG_IGN` que o
+    // runtime do Rust instala. Chamado de `main()` antes de qualquer thread
+    // ser criada, então não há corrida com outro instalador.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
 /// Install the daemon crash-log signal handlers.
 ///
 /// Idempotent — subsequent calls are no-ops. Returns `true` if a handler was
@@ -287,6 +327,50 @@ pub fn _panic_log_init() -> bool {
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod sigpipe_tests {
+    /// A restauração do `SIGPIPE` é lida de VOLTA do kernel, não assumida.
+    ///
+    /// Prova a correção do exit 134 de 03/08/2026: sem ela o Rust deixa
+    /// `SIG_IGN`, `println!` entra em panic ao escrever num pipe fechado, e
+    /// `panic = "abort"` transforma isso em SIGABRT. Reproduzido na época em
+    /// 3 de 200 execuções de `touring --version | head -1`.
+    ///
+    /// `#[serial]` porque a disposição de sinal é global ao PROCESSO — este
+    /// teste a modifica e restaura, e um vizinho paralelo observaria o estado
+    /// intermediário (a mesma classe de defeito que os outros `#[serial]`
+    /// desta sessão corrigiram).
+    #[test]
+    #[serial_test::serial(process_signal_disposition)]
+    fn cli_role_restores_default_sigpipe_disposition() {
+        // SAFETY: leitura da disposição atual; `SIG_IGN` é reinstalado ao fim
+        // para não vazar estado para os testes seguintes do binário.
+        let previous = unsafe { libc::signal(libc::SIGPIPE, libc::SIG_IGN) };
+
+        super::restore_default_sigpipe_for_cli();
+
+        // `signal()` devolve a disposição ANTERIOR — consultamos sem alterar
+        // o resultado, reinstalando o que acabamos de ler.
+        // SAFETY: mesma justificativa; nenhuma thread concorrente sob #[serial].
+        let after = unsafe {
+            let d = libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+            libc::signal(libc::SIGPIPE, d);
+            d
+        };
+        assert_eq!(
+            after,
+            libc::SIG_DFL,
+            "após a restauração o SIGPIPE tem de estar em SIG_DFL — senão \
+             `touring … | head` volta a abortar com 134"
+        );
+
+        // SAFETY: devolve o processo ao estado anterior ao teste.
+        unsafe {
+            libc::signal(libc::SIGPIPE, previous);
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

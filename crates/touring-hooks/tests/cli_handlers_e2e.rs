@@ -19,9 +19,15 @@ use touring_hooks::cli_handlers::*;
 // to `cli_handlers_index` in Wave 22 (S-Q6 dead-duplicate removal). The
 // glob import above no longer pulls it in; alias here so existing test
 // bodies keep their original call sites.
-use touring_hooks::cli_handlers_decompose::{
-    cli_decompose_create, cli_tasksfile_export, cli_tasksfile_validate,
-};
+// 2026-08-03: `cli_decompose_create` saiu deste import explícito. Existem DUAS
+// implementações da família decompose — `cli/decompose.rs` (a que o registry
+// despacha, com o roteamento por store per-project) e `cli/handlers/decompose.rs`
+// (superseded para esses handlers). O import explícito sombreava o glob, então a
+// suíte criava o DAG pela implementação morta e o atualizava pela viva: um teste
+// verde sobre código que nunca roda em produção. Agora `cli_decompose_*` vem
+// todo do glob `cli_handlers::*` = o que o daemon executa de fato.
+// `cli_tasksfile_*` seguem aqui porque só existem neste módulo.
+use touring_hooks::cli_handlers_decompose::{cli_tasksfile_export, cli_tasksfile_validate};
 use touring_hooks::cli_handlers_index::{cli_ast_blast, cli_ast_find, cli_ast_overview};
 use touring_hooks::runtime::HookRuntime;
 
@@ -311,6 +317,77 @@ fn test_decompose_update_status() {
         &serde_json::json!({"task_id": task_id}),
     ));
     assert_eq!(get["task"]["status"], "in_progress");
+}
+
+/// Regressão 2026-08-03: fechar UMA subtarefa marcava o PLANO INTEIRO como
+/// concluído.
+///
+/// `cli_decompose_update` gravava o `status` recebido na linha-pai
+/// incondicionalmente — inclusive quando o chamador havia endereçado uma
+/// subtarefa via `subtask_id`. Como `loop_phase_close.py` emite exatamente
+/// `decompose update <task> <phase> --status done` a cada fase, o primeiro
+/// phase-close de um plano de 8 fases já deixava o pai `done`. Observado ao vivo
+/// em `task_1785699543075533970`: `task.status == "done"` com 6 de 8 subtarefas
+/// ainda `pending`.
+///
+/// O DAG é a fonte AUTORITATIVA de progresso do loop (Lei L2) — um pai
+/// falsamente concluído corrompe justamente o que o gate de convergência existe
+/// para medir.
+#[test]
+fn closing_one_subtask_must_not_mark_the_whole_plan_done() {
+    let (_tmp, mut rt) = setup_runtime();
+    let create = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "plan", "description": "plano de duas fases"}),
+    ));
+    let task_id = create["task_id"].as_str().unwrap().to_string();
+
+    for id in ["P1", "P2"] {
+        cli_decompose_add(
+            &mut rt,
+            &serde_json::json!({
+                "task_id": task_id, "subtask_id": id,
+                "description": format!("fase {id}"), "depends_on": []
+            }),
+        );
+    }
+
+    // Fecha só a P1 — exatamente o que loop_phase_close.py emite.
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "P1", "status": "done"}),
+    );
+
+    let get = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_ne!(
+        get["task"]["status"], "done",
+        "com P2 ainda pendente o plano NÃO está concluído; veio {}",
+        get["task"]["status"]
+    );
+    let p2 = get["subtasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["subtask_id"].as_str().unwrap().ends_with("::P2"))
+        .expect("P2 presente");
+    assert_eq!(p2["status"], "pending", "P2 não foi tocada");
+
+    // Fechada a última fase, o pai passa a refletir a conclusão real.
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "P2", "status": "done"}),
+    );
+    let get2 = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        get2["task"]["status"], "done",
+        "todas as subtarefas terminais ⇒ o plano está concluído"
+    );
 }
 
 #[test]

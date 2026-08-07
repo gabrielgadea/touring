@@ -86,10 +86,10 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     let scout_context = match (scout_context, n1_sequence) {
         (Some(ctx_str), Some(seq)) => {
             if let Ok(mut ctx_val) = serde_json::from_str::<serde_json::Value>(&ctx_str) {
-                if let Some(obj) = ctx_val.as_object_mut() {
-                    if let Ok(seq_val) = serde_json::to_value(&seq) {
-                        obj.insert("n1_sequence".to_string(), seq_val);
-                    }
+                if let Some(obj) = ctx_val.as_object_mut()
+                    && let Ok(seq_val) = serde_json::to_value(&seq)
+                {
+                    obj.insert("n1_sequence".to_string(), seq_val);
                 }
                 serde_json::to_string(&ctx_val).ok()
             } else {
@@ -190,7 +190,11 @@ fn check_tool_output_routing(
             // payload carries `content_hash` so the LLM can retrieve via
             // ctx_retrieve(content_hash) without re-running the tool.
             let modified =
-                crate::tool_output_router::build_sandbox_wrapper_args(tool_name, tool_args.clone());
+                crate::tool_output_router::build_sandbox_wrapper_args(
+                    Some(&runtime.project_root),
+                    tool_name,
+                    tool_args.clone(),
+                );
 
             // Record metric for gate-metrics observability
             crate::shared::gate_metrics::record_tool_output_routed();

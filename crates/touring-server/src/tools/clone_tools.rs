@@ -119,14 +119,14 @@ fn extract_all_symbols(workspace_root: &std::path::Path) -> Vec<FileSymbol> {
 
     for file_path in rust_files {
         let file_str = file_path.to_string_lossy().to_string();
-        if let Ok(content) = std::fs::read_to_string(&file_path) {
-            if let Ok(symbols) = touring_code::ast::symbols::extract_symbols(&content, Lang::Rust) {
-                for sym in symbols {
-                    all.push(FileSymbol {
-                        file: file_str.clone(),
-                        symbol: sym,
-                    });
-                }
+        if let Ok(content) = std::fs::read_to_string(&file_path)
+            && let Ok(symbols) = touring_code::ast::symbols::extract_symbols(&content, Lang::Rust)
+        {
+            for sym in symbols {
+                all.push(FileSymbol {
+                    file: file_str.clone(),
+                    symbol: sym,
+                });
             }
         }
     }

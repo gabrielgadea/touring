@@ -552,24 +552,24 @@ impl SemanticGraph {
     /// Call `rebuild_ann_index()` first for O(N/K * P) retrieval.
     pub fn retrieve_by_embedding_ann(&self, query: &[f32], k: usize) -> Vec<MemoryNode> {
         // Try ANN index first
-        if let Ok(ann_guard) = self.ann_index.lock() {
-            if let Some(ann) = ann_guard.as_ref() {
-                let ann_results = ann.query(query, k);
-                if !ann_results.is_empty() {
-                    // Map IDs back to MemoryNodes
-                    let g = match self.graph.read() {
-                        Ok(g) => g,
-                        Err(_) => return vec![],
-                    };
-                    return ann_results
-                        .into_iter()
-                        .filter_map(|(id, _score)| {
-                            self.node_index
-                                .get(&id)
-                                .and_then(|idx| g.node_weight(*idx).cloned())
-                        })
-                        .collect();
-                }
+        if let Ok(ann_guard) = self.ann_index.lock()
+            && let Some(ann) = ann_guard.as_ref()
+        {
+            let ann_results = ann.query(query, k);
+            if !ann_results.is_empty() {
+                // Map IDs back to MemoryNodes
+                let g = match self.graph.read() {
+                    Ok(g) => g,
+                    Err(_) => return vec![],
+                };
+                return ann_results
+                    .into_iter()
+                    .filter_map(|(id, _score)| {
+                        self.node_index
+                            .get(&id)
+                            .and_then(|idx| g.node_weight(*idx).cloned())
+                    })
+                    .collect();
             }
         }
 

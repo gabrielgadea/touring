@@ -1014,21 +1014,19 @@ impl TouringServer {
                         "prevented_errors": r.get::<_, i64>(7)?,
                         "created_at": r.get::<_, String>(8)?,
                     });
-                    if has_decay {
-                        if let serde_json::Value::Object(ref mut map) = entry {
-                            map.insert(
-                                "decay_score".to_string(),
-                                serde_json::json!(r.get::<_, f64>(9).unwrap_or(1.0)),
-                            );
-                            map.insert(
-                                "last_occurrence".to_string(),
-                                serde_json::json!(r.get::<_, Option<String>>(10)?),
-                            );
-                            map.insert(
-                                "resolved_at".to_string(),
-                                serde_json::json!(r.get::<_, Option<String>>(11)?),
-                            );
-                        }
+                    if has_decay && let serde_json::Value::Object(ref mut map) = entry {
+                        map.insert(
+                            "decay_score".to_string(),
+                            serde_json::json!(r.get::<_, f64>(9).unwrap_or(1.0)),
+                        );
+                        map.insert(
+                            "last_occurrence".to_string(),
+                            serde_json::json!(r.get::<_, Option<String>>(10)?),
+                        );
+                        map.insert(
+                            "resolved_at".to_string(),
+                            serde_json::json!(r.get::<_, Option<String>>(11)?),
+                        );
                     }
                     Ok(entry)
                 };
@@ -1452,12 +1450,11 @@ impl TouringServer {
         );
 
         // Include scope_filter in output so callers know which files were targeted
-        if let Some(files) = scope_filter {
-            if !files.is_empty() {
-                if let Some(obj) = output.as_object_mut() {
-                    obj.insert("scope_filter".to_string(), serde_json::json!(files));
-                }
-            }
+        if let Some(files) = scope_filter
+            && !files.is_empty()
+            && let Some(obj) = output.as_object_mut()
+        {
+            obj.insert("scope_filter".to_string(), serde_json::json!(files));
         }
 
         {
@@ -1576,15 +1573,13 @@ impl TouringServer {
                                 "SELECT severity, gotcha FROM gotchas \
                              WHERE pattern LIKE ?1 AND resolved_at IS NULL \
                              LIMIT 5",
-                            ) {
-                                if let Ok(rows) = stmt.query_map([&pattern], |row| {
-                                    let sev: String = row.get(0)?;
-                                    let desc: String = row.get(1)?;
-                                    Ok(format!("[{}] {}: {}", sev, f, desc))
-                                }) {
-                                    for r in rows.flatten() {
-                                        warnings.push(r);
-                                    }
+                            ) && let Ok(rows) = stmt.query_map([&pattern], |row| {
+                                let sev: String = row.get(0)?;
+                                let desc: String = row.get(1)?;
+                                Ok(format!("[{}] {}: {}", sev, f, desc))
+                            }) {
+                                for r in rows.flatten() {
+                                    warnings.push(r);
                                 }
                             }
                         }
@@ -1863,12 +1858,11 @@ impl TouringServer {
                             // Keep label and count always
                             if k == "label" || k == "count" || k == "total_us" {
                                 new_entry.insert(k.clone(), v.clone());
-                            } else if let Some(num) = k.strip_prefix("p") {
-                                if let Ok(pval) = num.parse::<u8>() {
-                                    if pct.contains(&pval) {
-                                        new_entry.insert(k.clone(), v.clone());
-                                    }
-                                }
+                            } else if let Some(num) = k.strip_prefix("p")
+                                && let Ok(pval) = num.parse::<u8>()
+                                && pct.contains(&pval)
+                            {
+                                new_entry.insert(k.clone(), v.clone());
                             }
                         }
                         serde_json::Value::Object(new_entry)

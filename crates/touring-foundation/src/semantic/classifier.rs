@@ -165,10 +165,10 @@ impl SemanticClassifier {
             } else {
                 ""
             };
-            if !language.is_empty() {
-                if let Some(class) = self.override_engine.apply(language, name, path) {
-                    return ClassificationResult::exact(class, "override");
-                }
+            if !language.is_empty()
+                && let Some(class) = self.override_engine.apply(language, name, path)
+            {
+                return ClassificationResult::exact(class, "override");
             }
         }
 
@@ -190,17 +190,17 @@ impl SemanticClassifier {
     /// API and the file path for [`classify_with_path`].
     fn classify_tail(&self, name: &str, path: &str) -> ClassificationResult {
         // Stage 4: universal_exact — exact match in rules.
-        if let Some(rule) = self.rule_engine.find_rule(name, path) {
-            if let Some(class) = self.name_to_class(&rule.class) {
-                return ClassificationResult::from_rule(class, rule.confidence, "universal_exact");
-            }
+        if let Some(rule) = self.rule_engine.find_rule(name, path)
+            && let Some(class) = self.name_to_class(&rule.class)
+        {
+            return ClassificationResult::from_rule(class, rule.confidence, "universal_exact");
         }
 
         // Stage 7: name_heuristic — pattern-based heuristics.
-        if self.config.use_name_heuristics {
-            if let Some(class) = self.name_heuristic(name) {
-                return ClassificationResult::exact(class, "name_heuristic");
-            }
+        if self.config.use_name_heuristics
+            && let Some(class) = self.name_heuristic(name)
+        {
+            return ClassificationResult::exact(class, "name_heuristic");
         }
 
         // Stage 8: unclassified — fallback.

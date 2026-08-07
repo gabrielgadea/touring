@@ -109,7 +109,7 @@ pub fn run_session_start(
     // reads. Failure is logged and silently swallowed (exit-0 invariant).
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&runtime.project_root)) {
             tracing::debug!(docs = idx.stats().total_docs, "tantivy warmup: index ready");
         }
     }
@@ -118,7 +118,7 @@ pub fn run_session_start(
     // Runs only when tantivy-fts feature is active. Exit-0 invariant: no panic, no block.
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&runtime.project_root)) {
             let stats = idx.stats();
             if stats.total_docs == 0 {
                 tracing::warn!(
@@ -598,12 +598,12 @@ pub fn run_session_stop(
     // Queues a PRAGMA wal_checkpoint(TRUNCATE) on the async DB so that edit/bash
     // records written by EC5/EC6 reach the main DB file before the next session starts.
     // Non-blocking: daemon EC8 handles the final flush on process exit.
-    if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned() {
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            drop(handle.spawn(async move {
-                let _ = adb.wal_checkpoint().await;
-            }));
-        }
+    if let Some(adb) = runtime.ctx.async_knowledge.as_ref().cloned()
+        && let Ok(handle) = tokio::runtime::Handle::try_current()
+    {
+        drop(handle.spawn(async move {
+            let _ = adb.wal_checkpoint().await;
+        }));
     }
 
     // U10: Commit any pending Tantivy writes at session boundary.
@@ -611,10 +611,10 @@ pub fn run_session_stop(
     // warmup. Failure is logged and never propagates (exit-0 invariant).
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some(idx) = crate::tantivy_index::global_tantivy() {
-            if let Err(e) = idx.commit() {
-                tracing::debug!("tantivy session-stop commit failed (non-critical): {e}");
-            }
+        if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&runtime.project_root))
+            && let Err(e) = idx.commit()
+        {
+            tracing::debug!("tantivy session-stop commit failed (non-critical): {e}");
         }
     }
 

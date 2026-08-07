@@ -55,13 +55,11 @@ pub fn analyze_chains(conn: &rusqlite::Connection) -> ChainResult {
     let mut by_type = Vec::new();
     if let Ok(mut stmt) = conn.prepare(&format!(
         "SELECT chain_type, COUNT(*) FROM {table} GROUP BY chain_type ORDER BY COUNT(*) DESC"
-    )) {
-        if let Ok(rows) = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
-        }) {
-            for row in rows.flatten() {
-                by_type.push(row);
-            }
+    )) && let Ok(rows) = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+    }) {
+        for row in rows.flatten() {
+            by_type.push(row);
         }
     }
 

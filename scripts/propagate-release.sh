@@ -205,10 +205,20 @@ else
         bin="$proj/.touring/bin/touring"
         lock="$(grep -m1 '^active' "$proj/.touring/toolchain.lock" 2>/dev/null | cut -d'"' -f2 || echo '?')"
         if [ -x "$bin" ]; then
-            # GOTCHA (verificado 2026-08-02): `touring --version` escreve em
+            # GOTCHA 1 (verificado 2026-08-02): `touring --version` escreve em
             # STDERR, não stdout — `2>/dev/null` apagaria a versão inteira e o
             # gate passaria sem verificar nada. Daí o 2>&1.
-            ver="$($bin --version 2>&1 | head -1)"
+            #
+            # GOTCHA 2 (verificado 2026-08-03): NÃO usar `| head -1` aqui.
+            # `--version` escreve 5 linhas; o `head` fecha o pipe após a
+            # primeira, o processo recebe EPIPE, `println!` entra em panic e
+            # `panic = "abort"` vira SIGABRT — que `pipefail` propaga e `set -e`
+            # transforma em morte do script (exit 134). Reproduzido: 3 em 200.
+            # A correção de campo veio no binário (SIG_DFL para CLI), mas o
+            # script não depende dela: lê tudo e corta a primeira linha em
+            # bash puro, sem pipe para fechar cedo.
+            ver="$($bin --version 2>&1)"
+            ver="${ver%%$'\n'*}"
             [ -n "$ver" ] || ver="ERRO (sem saída de --version)"
         else
             ver="(sem bin local)"

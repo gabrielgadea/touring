@@ -796,16 +796,14 @@ fn walk_tree_for_name(node: tree_sitter::Node<'_>, source: &[u8], name: &[u8], f
     if *found {
         return;
     }
-    if node.kind() == "identifier"
+    if (node.kind() == "identifier"
         || node.kind() == "type_identifier"
-        || node.kind() == "field_identifier"
+        || node.kind() == "field_identifier")
+        && let Ok(node_text) = node.utf8_text(source)
+        && node_text.as_bytes() == name
     {
-        if let Ok(node_text) = node.utf8_text(source) {
-            if node_text.as_bytes() == name {
-                *found = true;
-                return;
-            }
-        }
+        *found = true;
+        return;
     }
     let mut i = 0;
     while let Some(child) = node.child(i) {
@@ -859,26 +857,26 @@ fn collect_rename_sites(
     //    cross-file rename site carries placeholder zero byte offsets; the
     //    line/column locate the identifier and the applier re-resolves the exact
     //    span in the target file before mutating it.
-    if scope != "file" && !def_name.is_empty() {
-        if let Some(ref store) = rt.infra.symbol_store {
-            if let Ok(locations) = store.find_all_locations(&def_name) {
-                for loc in locations {
-                    // The origin file is already covered by the AST scan above
-                    // (with exact byte spans); skip it to avoid duplicates.
-                    if loc.file_path == origin_file {
-                        continue;
-                    }
-                    sites.push(RenameSite {
-                        file_path: loc.file_path,
-                        // Byte spans are not retained by the symbol store; the
-                        // applier resolves them from line/column in the target file.
-                        byte_start: 0,
-                        byte_end: 0,
-                        line: loc.line,
-                        column: loc.column,
-                    });
-                }
+    if scope != "file"
+        && !def_name.is_empty()
+        && let Some(ref store) = rt.infra.symbol_store
+        && let Ok(locations) = store.find_all_locations(&def_name)
+    {
+        for loc in locations {
+            // The origin file is already covered by the AST scan above
+            // (with exact byte spans); skip it to avoid duplicates.
+            if loc.file_path == origin_file {
+                continue;
             }
+            sites.push(RenameSite {
+                file_path: loc.file_path,
+                // Byte spans are not retained by the symbol store; the
+                // applier resolves them from line/column in the target file.
+                byte_start: 0,
+                byte_end: 0,
+                line: loc.line,
+                column: loc.column,
+            });
         }
     }
 
@@ -892,22 +890,20 @@ fn collect_matching_identifiers(
     file_path: &str,
     sites: &mut Vec<RenameSite>,
 ) {
-    if node.kind() == "identifier"
+    if (node.kind() == "identifier"
         || node.kind() == "type_identifier"
-        || node.kind() == "field_identifier"
+        || node.kind() == "field_identifier")
+        && let Ok(text) = node.utf8_text(source.as_bytes())
+        && text.as_bytes() == name
     {
-        if let Ok(text) = node.utf8_text(source.as_bytes()) {
-            if text.as_bytes() == name {
-                let (line, col) = point_to_line_col(source, node.start_byte());
-                sites.push(RenameSite {
-                    file_path: file_path.to_string(),
-                    byte_start: node.start_byte(),
-                    byte_end: node.end_byte(),
-                    line,
-                    column: col,
-                });
-            }
-        }
+        let (line, col) = point_to_line_col(source, node.start_byte());
+        sites.push(RenameSite {
+            file_path: file_path.to_string(),
+            byte_start: node.start_byte(),
+            byte_end: node.end_byte(),
+            line,
+            column: col,
+        });
     }
     let mut i = 0;
     while let Some(child) = node.child(i) {
@@ -992,25 +988,25 @@ fn find_all_references(
     //    optional: when the project is not indexed it is `None`, and we simply
     //    return the origin-file results (graceful, never panics) — mirroring
     //    the `if let Some(ref store)` pattern in `cli_index_find`.
-    if scope != "file" && !def_name.is_empty() {
-        if let Some(ref store) = rt.infra.symbol_store {
-            if let Ok(locations) = store.find_all_locations(&def_name) {
-                for loc in locations {
-                    // The origin file is already covered by the AST scan above
-                    // (with full line context); skip it to avoid duplicates.
-                    if loc.file_path == origin_file {
-                        continue;
-                    }
-                    refs.push(ReferenceLocation {
-                        file_path: loc.file_path,
-                        line: loc.line,
-                        column: loc.column,
-                        // The symbol store does not retain the source line; the
-                        // file_path/line/column are sufficient to navigate.
-                        context: String::new(),
-                    });
-                }
+    if scope != "file"
+        && !def_name.is_empty()
+        && let Some(ref store) = rt.infra.symbol_store
+        && let Ok(locations) = store.find_all_locations(&def_name)
+    {
+        for loc in locations {
+            // The origin file is already covered by the AST scan above
+            // (with full line context); skip it to avoid duplicates.
+            if loc.file_path == origin_file {
+                continue;
             }
+            refs.push(ReferenceLocation {
+                file_path: loc.file_path,
+                line: loc.line,
+                column: loc.column,
+                // The symbol store does not retain the source line; the
+                // file_path/line/column are sufficient to navigate.
+                context: String::new(),
+            });
         }
     }
 
@@ -1024,22 +1020,20 @@ fn collect_reference_nodes(
     file_path: &str,
     refs: &mut Vec<ReferenceLocation>,
 ) {
-    if node.kind() == "identifier"
+    if (node.kind() == "identifier"
         || node.kind() == "type_identifier"
-        || node.kind() == "field_identifier"
+        || node.kind() == "field_identifier")
+        && let Ok(text) = node.utf8_text(source.as_bytes())
+        && text.as_bytes() == name
     {
-        if let Ok(text) = node.utf8_text(source.as_bytes()) {
-            if text.as_bytes() == name {
-                let (line, col) = point_to_line_col(source, node.start_byte());
-                let context = extract_node_context(node, source);
-                refs.push(ReferenceLocation {
-                    file_path: file_path.to_string(),
-                    line,
-                    column: col,
-                    context,
-                });
-            }
-        }
+        let (line, col) = point_to_line_col(source, node.start_byte());
+        let context = extract_node_context(node, source);
+        refs.push(ReferenceLocation {
+            file_path: file_path.to_string(),
+            line,
+            column: col,
+            context,
+        });
     }
     let mut i = 0;
     while let Some(child) = node.child(i) {

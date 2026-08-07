@@ -44,10 +44,10 @@ enum DevrcfileCmd {
 }
 /// Expand `~/` prefix to home directory.
 fn expand_path(s: &str) -> PathBuf {
-    if s.starts_with("~/") {
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home).join(s.trim_start_matches("~/"));
-        }
+    if s.starts_with("~/")
+        && let Ok(home) = std::env::var("HOME")
+    {
+        return PathBuf::from(home).join(s.trim_start_matches("~/"));
     }
     PathBuf::from(s)
 }
@@ -82,9 +82,17 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             );
             let output = daemon_query("cli-devrcfile-export", payload)?;
             if let Some(path) = output_file {
-                std::fs::write(expand_path(&path), &output)
-                    .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", path, e))?;
-                println!("Exported Devrcfile to {}", path);
+                // Same envelope-vs-document fix as `tasksfile export`. Note the
+                // field really is `tasksfile_yaml`: `cli-devrcfile-export`
+                // currently emits a Tasksfile, because no Devrcfile serializer
+                // exists (`touring_orchestration::devrc` is import-only —
+                // `parse_devrcfile` + `devrcfile_to_tasksfile`, no inverse).
+                super::common::write_yaml_export(
+                    &output,
+                    "tasksfile_yaml",
+                    &expand_path(&path),
+                )?;
+                println!("Exported to {} (Tasksfile format)", path);
             } else {
                 println!("{output}");
             }

@@ -117,11 +117,11 @@ pub fn infer_relations_with_boundaries(
     // Phase 2: apply inferred relations
     let mut relations_added = 0;
     for (i, rel_opt) in inferred.into_iter().enumerate() {
-        if let Some(rel) = rel_opt {
-            if let Some(elem) = elements.get_mut(i) {
-                elem.relation = Some(rel);
-                relations_added += 1;
-            }
+        if let Some(rel) = rel_opt
+            && let Some(elem) = elements.get_mut(i)
+        {
+            elem.relation = Some(rel);
+            relations_added += 1;
         }
     }
 
@@ -182,36 +182,30 @@ fn infer_relation_for_element(
         ctx.current_sentence_idx,
         ctx.next_element,
         ctx.next_sentence_idx,
-    ) {
-        if ctx.total_sentences >= 2
-            && curr_idx == ctx.total_sentences - 2
-            && next_idx == ctx.total_sentences - 1
-        {
-            if let Some(last_boundary) = get_sentence_boundaries(text).get(ctx.total_sentences - 1)
-            {
-                let midpoint = last_boundary.start + (last_boundary.end - last_boundary.start) / 2;
-                if next.start < midpoint {
-                    return Some(RelationType::Conclude);
-                }
-            }
+    ) && ctx.total_sentences >= 2
+        && curr_idx == ctx.total_sentences - 2
+        && next_idx == ctx.total_sentences - 1
+        && let Some(last_boundary) = get_sentence_boundaries(text).get(ctx.total_sentences - 1)
+    {
+        let midpoint = last_boundary.start + (last_boundary.end - last_boundary.start) / 2;
+        if next.start < midpoint {
+            return Some(RelationType::Conclude);
         }
     }
 
     // Rule 4: Check for contrast markers — uses get_relation_context to detect same sentence
-    if let Some(prev) = ctx.prev_element {
-        if get_relation_context(ctx.current.start, prev.start, boundaries) == RelationContext::Same
-            && has_contrast_marker(ctx.current, text)
-        {
-            return Some(RelationType::Contrast);
-        }
+    if let Some(prev) = ctx.prev_element
+        && get_relation_context(ctx.current.start, prev.start, boundaries) == RelationContext::Same
+        && has_contrast_marker(ctx.current, text)
+    {
+        return Some(RelationType::Contrast);
     }
 
     // Rule 5: Elaborate — same sentence as preceding element, via get_relation_context
-    if let Some(prev) = ctx.prev_element {
-        if get_relation_context(ctx.current.start, prev.start, boundaries) == RelationContext::Same
-        {
-            return Some(RelationType::Elaborate);
-        }
+    if let Some(prev) = ctx.prev_element
+        && get_relation_context(ctx.current.start, prev.start, boundaries) == RelationContext::Same
+    {
+        return Some(RelationType::Elaborate);
     }
 
     // Default: no relation

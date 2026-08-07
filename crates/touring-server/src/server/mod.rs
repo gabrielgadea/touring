@@ -293,14 +293,14 @@ fn merge_cross_project_symbols(project_root: &std::path::Path, graph_index: &mut
         if !symbols_db.exists() {
             continue;
         }
-        if let Ok(store) = SymbolStore::new(&symbols_db) {
-            if let Ok(n) = store.load_into_index(graph_index) {
-                info!(
-                    "Cross-project loaded: {} symbols from {}",
-                    n,
-                    symbols_db.display()
-                );
-            }
+        if let Ok(store) = SymbolStore::new(&symbols_db)
+            && let Ok(n) = store.load_into_index(graph_index)
+        {
+            info!(
+                "Cross-project loaded: {} symbols from {}",
+                n,
+                symbols_db.display()
+            );
         }
     }
 }
@@ -384,11 +384,11 @@ impl TouringServer {
 
         // H3: async-pipeline — verify stream subscription API is accessible.
         // Each consumer calls subscribe_stream() independently to get their own broadcast Receiver.
-        if let Some(ref store_arc) = symbol_store {
-            if let Ok(store) = store_arc.try_lock() {
-                let _ = store.subscribe_stream();
-                info!("SymbolStore async-pipeline stream ready");
-            }
+        if let Some(ref store_arc) = symbol_store
+            && let Ok(store) = store_arc.try_lock()
+        {
+            let _ = store.subscribe_stream();
+            info!("SymbolStore async-pipeline stream ready");
         }
 
         // Phase 5: Cross-project symbol merging
@@ -950,178 +950,177 @@ impl TouringServer {
         }
 
         // 1. Spawn JSONL watcher for live data ingestion
-        if self.config.jsonl_watch_enabled {
-            if let Some(ref memory) = self.memory {
-                let store = Arc::clone(memory);
-                let embedder = self.embedder.clone();
-                let poll_interval = self.config.jsonl_poll_interval_s;
-                let data_dir = self.config.project_root.join("data");
-                let state_path = self.config.project_root.join("data/watcher_state.json");
+        if self.config.jsonl_watch_enabled
+            && let Some(ref memory) = self.memory
+        {
+            let store = Arc::clone(memory);
+            let embedder = self.embedder.clone();
+            let poll_interval = self.config.jsonl_poll_interval_s;
+            let data_dir = self.config.project_root.join("data");
+            let state_path = self.config.project_root.join("data/watcher_state.json");
 
-                tokio::spawn(async move {
-                    let watch_paths = discover_jsonl_paths(&data_dir);
-                    if watch_paths.is_empty() {
-                        info!(
-                            "JsonlWatcher: no JSONL files found in {}",
-                            data_dir.display()
-                        );
-                        return;
-                    }
+            tokio::spawn(async move {
+                let watch_paths = discover_jsonl_paths(&data_dir);
+                if watch_paths.is_empty() {
+                    info!(
+                        "JsonlWatcher: no JSONL files found in {}",
+                        data_dir.display()
+                    );
+                    return;
+                }
 
-                    let watcher_config = WatcherConfig {
-                        watch_paths,
-                        poll_interval_s: poll_interval,
-                        state_path,
-                        embed_batch_size: 32,
-                    };
+                let watcher_config = WatcherConfig {
+                    watch_paths,
+                    poll_interval_s: poll_interval,
+                    state_path,
+                    embed_batch_size: 32,
+                };
 
-                    let watcher = JsonlWatcher::new(watcher_config, store, embedder);
-                    info!("JsonlWatcher started: polling every {}s", poll_interval);
-                    watcher.run().await;
-                });
-            }
+                let watcher = JsonlWatcher::new(watcher_config, store, embedder);
+                info!("JsonlWatcher started: polling every {}s", poll_interval);
+                watcher.run().await;
+            });
         }
 
         // 2. Spawn evolution analysis engine
-        if self.config.evolution_enabled {
-            if let Some(ref memory) = self.memory {
-                let store = Arc::clone(memory);
-                let qtable_bg = Arc::clone(&self.qtable);
-                let linucb_bg = Arc::clone(&self.linucb);
-                let online_rl_bg = Arc::clone(&self.online_rl);
-                let interval_s = self.config.evolution_interval_s;
-                let db_path = self.config.rlm_db_path.clone();
+        if self.config.evolution_enabled
+            && let Some(ref memory) = self.memory
+        {
+            let store = Arc::clone(memory);
+            let qtable_bg = Arc::clone(&self.qtable);
+            let linucb_bg = Arc::clone(&self.linucb);
+            let online_rl_bg = Arc::clone(&self.online_rl);
+            let interval_s = self.config.evolution_interval_s;
+            let db_path = self.config.rlm_db_path.clone();
 
-                tokio::spawn(async move {
-                    let mut ticker =
-                        tokio::time::interval(std::time::Duration::from_secs(interval_s));
-                    // Skip first tick (fires immediately)
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(std::time::Duration::from_secs(interval_s));
+                // Skip first tick (fires immediately)
+                ticker.tick().await;
+
+                // P0-1 fix: Track last processed event ID to avoid reprocessing
+                let mut last_processed_id: i64 = 0;
+
+                loop {
                     ticker.tick().await;
 
-                    // P0-1 fix: Track last processed event ID to avoid reprocessing
-                    let mut last_processed_id: i64 = 0;
-
-                    loop {
-                        ticker.tick().await;
-
-                        // Create fresh std::sync::Mutex instances each tick (read-only analysis)
-                        let rlm_tick = match RlmMemory::new(&db_path) {
-                            Ok(r) => r,
-                            Err(e) => {
-                                warn!("Evolution: RLM open failed: {}", e);
-                                continue;
-                            }
-                        };
-                        let mut ranker_tick = WilsonRanker::new();
-                        let mut drift_tick = DriftDetector::new();
-                        {
-                            let p = LearningPersistence::new(&db_path);
-                            let _ = p.load_wilson(&mut ranker_tick);
-                            let _ = p.load_drift(&mut drift_tick);
+                    // Create fresh std::sync::Mutex instances each tick (read-only analysis)
+                    let rlm_tick = match RlmMemory::new(&db_path) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            warn!("Evolution: RLM open failed: {}", e);
+                            continue;
                         }
-                        let analyzer = EvolutionAnalyzer::new(rlm_tick, ranker_tick, drift_tick);
+                    };
+                    let mut ranker_tick = WilsonRanker::new();
+                    let mut drift_tick = DriftDetector::new();
+                    {
+                        let p = LearningPersistence::new(&db_path);
+                        let _ = p.load_wilson(&mut ranker_tick);
+                        let _ = p.load_drift(&mut drift_tick);
+                    }
+                    let analyzer = EvolutionAnalyzer::new(rlm_tick, ranker_tick, drift_tick);
 
-                        let results = analyzer.analyze_all();
-                        let insights = InsightEngine::generate(&results);
+                    let results = analyzer.analyze_all();
+                    let insights = InsightEngine::generate(&results);
 
-                        if !insights.is_empty() {
-                            info!("Evolution engine: {} insights generated", insights.len());
+                    if !insights.is_empty() {
+                        info!("Evolution engine: {} insights generated", insights.len());
 
-                            // Store insights as memory entries
-                            let store_lock = store.lock().await;
-                            for insight in &insights {
-                                let entry = MemoryEntry::new(
-                                    format!("insight:{}:{}", insight.category, insight.created_at),
-                                    "reference",
-                                    &insight.message,
-                                )
-                                .with_entry_type("insight");
-                                if let Err(e) = store_lock.store(entry) {
-                                    warn!("Failed to store insight: {}", e);
-                                }
+                        // Store insights as memory entries
+                        let store_lock = store.lock().await;
+                        for insight in &insights {
+                            let entry = MemoryEntry::new(
+                                format!("insight:{}:{}", insight.category, insight.created_at),
+                                "reference",
+                                &insight.message,
+                            )
+                            .with_entry_type("insight");
+                            if let Err(e) = store_lock.store(entry) {
+                                warn!("Failed to store insight: {}", e);
                             }
-                            drop(store_lock);
+                        }
+                        drop(store_lock);
+                    }
+
+                    // Auto-learn: feed recent hook events into QTable (Bellman updates)
+                    let persistence = LearningPersistence::new(&db_path);
+                    // P0-1: Use tracked last_processed_id instead of 0
+                    let events = persistence.load_hook_events_since(last_processed_id, 200);
+                    if !events.is_empty() {
+                        // P0-3: Minimize lock scope — collect data first, then lock briefly
+                        let updates: Vec<_> = events
+                            .iter()
+                            .map(|(id, event_type, tool_name, reward)| {
+                                let state = event_type_to_state(event_type);
+                                let action_id = tool_name_to_action(tool_name);
+                                (*id, state, action_id, tool_name.clone(), *reward)
+                            })
+                            .collect();
+
+                        // P0-1: Track highest event ID to avoid reprocessing
+                        if let Some(max_id) = events.iter().map(|(id, _, _, _)| *id).max() {
+                            last_processed_id = max_id;
                         }
 
-                        // Auto-learn: feed recent hook events into QTable (Bellman updates)
-                        let persistence = LearningPersistence::new(&db_path);
-                        // P0-1: Use tracked last_processed_id instead of 0
-                        let events = persistence.load_hook_events_since(last_processed_id, 200);
-                        if !events.is_empty() {
-                            // P0-3: Minimize lock scope — collect data first, then lock briefly
-                            let updates: Vec<_> = events
-                                .iter()
-                                .map(|(id, event_type, tool_name, reward)| {
-                                    let state = event_type_to_state(event_type);
-                                    let action_id = tool_name_to_action(tool_name);
-                                    (*id, state, action_id, tool_name.clone(), *reward)
-                                })
-                                .collect();
+                        let mut qt = qtable_bg.lock().await;
+                        let mut bandit = linucb_bg.lock().await;
+                        let mut rl_engine = online_rl_bg.lock().await;
+                        let mut online_processed: usize = 0;
 
-                            // P0-1: Track highest event ID to avoid reprocessing
-                            if let Some(max_id) = events.iter().map(|(id, _, _, _)| *id).max() {
-                                last_processed_id = max_id;
+                        // P0-3: Process pre-collected updates under lock (minimal hold time)
+                        for (_id, state, action_id, tool_name, reward) in &updates {
+                            let next_state = state.saturating_add(1) % 9;
+                            let _td_error =
+                                qt.update(*state, *action_id, *reward, next_state, None, false);
+
+                            let immediate = ImmediateReward {
+                                tool_name: tool_name.clone(),
+                                accepted: *reward > 0.0,
+                                latency_ms: 0,
+                                error_count: if *reward < 0.0 { 1 } else { 0 },
+                                cila_level: (state / 4).min(6) as u8,
+                                file_type: (state % 4).min(3) as u8,
+                                quality_score: None,
+                            };
+                            if rl_engine
+                                .process_reward(&immediate, &mut qt, &mut bandit)
+                                .is_some()
+                            {
+                                online_processed += 1;
                             }
+                        }
 
-                            let mut qt = qtable_bg.lock().await;
-                            let mut bandit = linucb_bg.lock().await;
-                            let mut rl_engine = online_rl_bg.lock().await;
-                            let mut online_processed: usize = 0;
-
-                            // P0-3: Process pre-collected updates under lock (minimal hold time)
-                            for (_id, state, action_id, tool_name, reward) in &updates {
-                                let next_state = state.saturating_add(1) % 9;
-                                let _td_error =
-                                    qt.update(*state, *action_id, *reward, next_state, None, false);
-
-                                let immediate = ImmediateReward {
-                                    tool_name: tool_name.clone(),
-                                    accepted: *reward > 0.0,
-                                    latency_ms: 0,
-                                    error_count: if *reward < 0.0 { 1 } else { 0 },
-                                    cila_level: (state / 4).min(6) as u8,
-                                    file_type: (state % 4).min(3) as u8,
-                                    quality_score: None,
-                                };
-                                if rl_engine
-                                    .process_reward(&immediate, &mut qt, &mut bandit)
-                                    .is_some()
-                                {
-                                    online_processed += 1;
-                                }
-                            }
-
-                            info!(
-                                "Evolution auto_learn: {} events processed ({} online RL updates, since_id={})",
-                                updates.len(),
-                                online_processed,
-                                last_processed_id
+                        info!(
+                            "Evolution auto_learn: {} events processed ({} online RL updates, since_id={})",
+                            updates.len(),
+                            online_processed,
+                            last_processed_id
+                        );
+                        // P0-2: Persist state atomically — save all before releasing locks
+                        if let Err(e) = persistence.save_qtable(&qt) {
+                            warn!("Failed to persist QTable after auto_learn: {}", e);
+                        }
+                        if rl_engine.should_save() {
+                            tracing::debug!(
+                                ema_reward = rl_engine.ema_reward(),
+                                total_updates = rl_engine.update_count(),
+                                "OnlineRLEngine save checkpoint reached"
                             );
-                            // P0-2: Persist state atomically — save all before releasing locks
-                            if let Err(e) = persistence.save_qtable(&qt) {
-                                warn!("Failed to persist QTable after auto_learn: {}", e);
-                            }
-                            if rl_engine.should_save() {
-                                tracing::debug!(
-                                    ema_reward = rl_engine.ema_reward(),
-                                    total_updates = rl_engine.update_count(),
-                                    "OnlineRLEngine save checkpoint reached"
-                                );
-                            }
-                            // P0-3: Release all locks together after persistence
-                            drop(rl_engine);
-                            drop(bandit);
-                            drop(qt);
-                        } else {
-                            // Persist QTable state even without new events
-                            let qt = qtable_bg.lock().await;
-                            if let Err(e) = persistence.save_qtable(&qt) {
-                                warn!("Failed to persist QTable state: {}", e);
-                            }
+                        }
+                        // P0-3: Release all locks together after persistence
+                        drop(rl_engine);
+                        drop(bandit);
+                        drop(qt);
+                    } else {
+                        // Persist QTable state even without new events
+                        let qt = qtable_bg.lock().await;
+                        if let Err(e) = persistence.save_qtable(&qt) {
+                            warn!("Failed to persist QTable state: {}", e);
                         }
                     }
-                });
-            }
+                }
+            });
         }
 
         // 3. Spawn periodic symbol index refresh (bootstrap script → clear → reload ALL projects)
@@ -1189,24 +1188,23 @@ impl TouringServer {
                                                 .join(".claude")
                                                 .join("touring")
                                                 .join("symbols.db");
-                                            if symbols_db.exists() {
-                                                if let Ok(cross_store) =
+                                            if symbols_db.exists()
+                                                && let Ok(cross_store) =
                                                     touring_code::ast::store::SymbolStore::new(
                                                         &symbols_db,
                                                     )
-                                                {
-                                                    match cross_store.load_into_index(&mut idx) {
-                                                        Ok(n) => info!(
-                                                            "SymbolRefresh: loaded {} symbols from cross-project {}",
-                                                            n,
-                                                            symbols_db.display()
-                                                        ),
-                                                        Err(e) => warn!(
-                                                            "SymbolRefresh: cross-project load failed ({}): {}",
-                                                            symbols_db.display(),
-                                                            e
-                                                        ),
-                                                    }
+                                            {
+                                                match cross_store.load_into_index(&mut idx) {
+                                                    Ok(n) => info!(
+                                                        "SymbolRefresh: loaded {} symbols from cross-project {}",
+                                                        n,
+                                                        symbols_db.display()
+                                                    ),
+                                                    Err(e) => warn!(
+                                                        "SymbolRefresh: cross-project load failed ({}): {}",
+                                                        symbols_db.display(),
+                                                        e
+                                                    ),
                                                 }
                                             }
                                         }

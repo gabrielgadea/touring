@@ -51,10 +51,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         Ok(ws) => {
             let signal = touring_analysis::quality::compute_quality_signal(&ws);
             let mut value = serde_json::to_value(&signal).unwrap_or_else(|_| serde_json::json!({}));
-            if !include_diagnostics {
-                if let Some(obj) = value.as_object_mut() {
-                    obj.remove("diagnostics");
-                }
+            if !include_diagnostics && let Some(obj) = value.as_object_mut() {
+                obj.remove("diagnostics");
             }
             if let Some(obj) = value.as_object_mut() {
                 obj.insert(

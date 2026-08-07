@@ -129,10 +129,10 @@ impl AnalysisServerMetrics {
 
         let mut out = String::with_capacity(512);
         for &(name, kind, value) in metrics {
-            if let Some(prefix) = filter {
-                if !name.starts_with(prefix) {
-                    continue;
-                }
+            if let Some(prefix) = filter
+                && !name.starts_with(prefix)
+            {
+                continue;
             }
             out.push_str(&format!(
                 "# HELP {name} {help}\n# TYPE {name} {kind}\n{name} {value}\n",

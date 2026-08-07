@@ -145,7 +145,7 @@ exclude_re = "(?i)(log|trace|debug|tracing|metric)"
 # member crates inherit via `version.workspace = true`; the binary derives it
 # through `env!("CARGO_PKG_VERSION")`. 30.3.0 matches the daemon's public
 # version (constitution/docs); the GA SemVer rebrand is a Fase 5 decision.
-version = "30.3.0"
+version = "30.3.1"
 license = "MIT OR Apache-2.0"
 edition = "2024"
 rust-version = "1.95"

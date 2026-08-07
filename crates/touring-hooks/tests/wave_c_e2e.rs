@@ -91,10 +91,22 @@ fn hook_registry_has_cascade_queue_handlers() {
         names.contains(&"cli-cascade-queue-drain"),
         "hook registry must contain cli-cascade-queue-drain"
     );
+    // Quarta e última cópia deste invariante (as outras: wave2_4_e2e.rs,
+    // stringzilla_e2e.rs e touring-dispatch/src/hook_registry_tests.rs). Ciente
+    // da feature: `acp-protocol` (não-default) contribui 2 nomes, e um literal
+    // único não pode ser verdade nos dois perfis.
+    // ⚠ Sincronizar JUNTO com os outros quatro tripwires — a lista está no
+    // doc de `test_hook_registry_counts_match_the_dispatch_registry`
+    // (touring-hooks/tests/stringzilla_e2e.rs).
+    #[cfg(feature = "acp-protocol")]
+    const EXPECTED_NAMES: usize = 225;
+    #[cfg(not(feature = "acp-protocol"))]
+    const EXPECTED_NAMES: usize = 223;
     assert_eq!(
         names.len(),
-        222,
-        "hook registry must have exactly 222 entries (sync with touring-dispatch hook_registry test), got {}",
+        EXPECTED_NAMES,
+        "o hook registry deve ter exatamente {EXPECTED_NAMES} entradas \
+         (em sincronia com o teste hook_registry de touring-dispatch), veio {}",
         names.len()
     );
 }

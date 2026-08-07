@@ -57,10 +57,10 @@ pub fn parse_meminfo(content: &str) -> Result<MeminfoReading, PressureReadError>
     let mut slots = [None::<u64>; 5];
     for line in content.lines() {
         for &(prefix, idx) in &FIELDS {
-            if slots[idx].is_none() {
-                if let Some(val) = extract_kb(line, prefix)? {
-                    slots[idx] = Some(val);
-                }
+            if slots[idx].is_none()
+                && let Some(val) = extract_kb(line, prefix)?
+            {
+                slots[idx] = Some(val);
             }
         }
     }

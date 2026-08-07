@@ -214,15 +214,15 @@ fn match_target(table: &HashMap<String, FileCoverage>, target: &Path) -> Option<
     let tail = last_two(target);
     let mut suffix_hit: Option<FileCoverage> = None;
     for (sf, cov) in table {
-        if let (Some(ct), Ok(cs)) = (&canon_target, Path::new(sf).canonicalize()) {
-            if *ct == cs {
-                return Some(*cov);
-            }
+        if let (Some(ct), Ok(cs)) = (&canon_target, Path::new(sf).canonicalize())
+            && *ct == cs
+        {
+            return Some(*cov);
         }
-        if let Some(t) = &tail {
-            if sf.replace('\\', "/").ends_with(t) {
-                suffix_hit = Some(*cov);
-            }
+        if let Some(t) = &tail
+            && sf.replace('\\', "/").ends_with(t)
+        {
+            suffix_hit = Some(*cov);
         }
     }
     suffix_hit

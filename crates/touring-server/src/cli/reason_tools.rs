@@ -140,10 +140,10 @@ pub fn run_plan_chain(args: &[String]) -> anyhow::Result<()> {
     let mut graph = ToolGraph::new();
     for e in flag_values(args, "--edge") {
         let parts: Vec<&str> = e.split(',').map(|s| s.trim()).collect();
-        if let [f, t, c] = parts[..] {
-            if let (Ok(f), Ok(t), Ok(c)) = (f.parse::<u64>(), t.parse::<u64>(), c.parse::<u32>()) {
-                graph.add_edge(f, t, c);
-            }
+        if let [f, t, c] = parts[..]
+            && let (Ok(f), Ok(t), Ok(c)) = (f.parse::<u64>(), t.parse::<u64>(), c.parse::<u32>())
+        {
+            graph.add_edge(f, t, c);
         }
     }
     let start = flag_value::<u64>(args, "--start", 0);

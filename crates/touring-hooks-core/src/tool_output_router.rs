@@ -128,7 +128,11 @@ fn estimate_glob_output_size(args: &Value) -> u64 {
 /// args echoed back — callers may then decide to fall back to direct
 /// execution.
 #[cfg(feature = "tantivy-fts")]
-pub fn build_sandbox_wrapper_args(tool_name: &str, original_args: Value) -> Value {
+pub fn build_sandbox_wrapper_args(
+    project_root: Option<&std::path::Path>,
+    tool_name: &str,
+    original_args: Value,
+) -> Value {
     // S-13 cross-audit (2026-06-06): execute_and_store moved to the parent module
     // sandbox_output_store (tool-output storage); SandboxConfig stays in the gateway.
     use crate::sandbox_executor::SandboxConfig;
@@ -138,7 +142,7 @@ pub fn build_sandbox_wrapper_args(tool_name: &str, original_args: Value) -> Valu
         max_output_bytes: crate::shared::feature_flags::sandbox_max_output_bytes(),
         fallback_on_timeout: crate::shared::feature_flags::sandbox_fallback_on_timeout(),
     };
-    match execute_and_store(tool_name, original_args.clone(), cfg) {
+    match execute_and_store(project_root, tool_name, original_args.clone(), cfg) {
         Ok(res) => serde_json::json!({
             "_sandbox_routed": true,
             "ok": true,
@@ -229,7 +233,7 @@ mod tests {
     #[test]
     fn test_sandbox_wrapper_args_returns_envelope() {
         let original = json!({"command": "echo wrapper-shape-only"});
-        let wrapped = build_sandbox_wrapper_args("Bash", original.clone());
+        let wrapped = build_sandbox_wrapper_args(None, "Bash", original.clone());
         // Envelope must always carry these structural fields so callers
         // (HookResponse::ContextWithUpdatedInput) get a stable shape.
         assert!(wrapped.get("_sandbox_routed").is_some());

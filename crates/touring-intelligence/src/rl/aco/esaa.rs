@@ -125,13 +125,13 @@ impl<V: Clone> QueryCache<V> {
     pub fn get(&self, key: &str) -> Option<V> {
         let mut inner = self.inner.write().unwrap_or_else(|e| e.into_inner());
         if let Some(entry) = inner.lru.peek(key) {
-            if let Some(ttl) = inner.ttl {
-                if entry.created_at.elapsed() > ttl {
-                    inner.lru.pop(key);
-                    inner.expired += 1;
-                    inner.misses += 1;
-                    return None;
-                }
+            if let Some(ttl) = inner.ttl
+                && entry.created_at.elapsed() > ttl
+            {
+                inner.lru.pop(key);
+                inner.expired += 1;
+                inner.misses += 1;
+                return None;
             }
             let val = inner.lru.get(key).map(|e| e.value.clone());
             inner.hits += 1;

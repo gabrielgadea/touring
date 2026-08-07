@@ -148,15 +148,15 @@ fn extract_metavar_names(pattern: &str) -> Vec<String> {
                 break;
             }
         }
-        if j > name_start {
-            if let Some(name) = pattern.get(name_start..j) {
-                let starts_ok = name
-                    .chars()
-                    .next()
-                    .is_some_and(|c| c.is_ascii_uppercase() || c == '_');
-                if starts_ok && !out.iter().any(|existing| existing == name) {
-                    out.push(name.to_string());
-                }
+        if j > name_start
+            && let Some(name) = pattern.get(name_start..j)
+        {
+            let starts_ok = name
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_uppercase() || c == '_');
+            if starts_ok && !out.iter().any(|existing| existing == name) {
+                out.push(name.to_string());
             }
         }
         i = j.max(i + 1);

@@ -134,11 +134,23 @@ fn has_non_secret_markers(v: &str) -> bool {
     // `/` (1/64 of random tokens), but a leaked key of that shape still lands
     // on the provider-prefix and secret-named paths, so detection holds.
     v.starts_with("arn:")
+        // Reference-scheme prefixes: memory keys (`mem:lexhub:sei-50500-115208-…`,
+        // first hit 2026-08-03 blocking a registry edit) and URNs are pointers to
+        // resources, never opaque credentials — same category as `arn:`. A leaked
+        // key with such a prefix would still land on the provider-prefix and
+        // secret-named paths, so detection holds.
+        || v.starts_with("mem:")
+        || v.starts_with("urn:")
         || v.contains("://")
         || v.starts_with('/')
         || v.starts_with("./")
         || v.starts_with("../")
         || v.starts_with("~/")
+        // Relative repo paths (`docs/…/15-DIAGNOSTICO-….md#7.2`, second hit
+        // 2026-08-03): a `/`-separated value whose last segment carries a short
+        // file extension (with optional `#anchor`) is a resource location, not an
+        // opaque token — same rationale as the absolute-path prefixes above.
+        || is_relative_file_path(v)
         || v.bytes()
             .any(|b| matches!(b, b'<' | b'>' | b'{' | b'}' | b'\\'))
         || is_predictable_sequence(v)
@@ -168,6 +180,26 @@ fn has_non_secret_markers(v: &str) -> bool {
 /// Origin: 2026-08-02 — the alphabet literal in
 /// `touring-identity/tests/property_tests.rs` scored 0.000 and blocked every
 /// edit to that file, including ones that never touched the literal.
+/// A `/`-separated value whose LAST segment carries a short alphanumeric file
+/// extension (optionally followed by a `#anchor`) — a relative repo path like
+/// `docs/plans/15-DIAGNOSTICO-INTEGRACAO.md#7.2`, never an opaque token. Opaque
+/// base64 tokens contain `/` but have no dotted short-extension tail; a leaked
+/// key inside a path-shaped string still lands on the provider-prefix and
+/// secret-named detection paths.
+fn is_relative_file_path(v: &str) -> bool {
+    if !v.contains('/') {
+        return false;
+    }
+    let last = v.rsplit('/').next().unwrap_or("");
+    let stem = last.split('#').next().unwrap_or(last);
+    match stem.rsplit_once('.') {
+        Some((_, ext)) => {
+            (1..=5).contains(&ext.len()) && ext.bytes().all(|b| b.is_ascii_alphanumeric())
+        }
+        None => false,
+    }
+}
+
 fn is_predictable_sequence(v: &str) -> bool {
     let b = v.as_bytes();
     if b.len() < 8 {
@@ -317,6 +349,52 @@ fn looks_like_secret_value_named(v: &str) -> bool {
     let has_alpha = v.bytes().any(|b| b.is_ascii_alphabetic());
     let is_hex = v.len() >= 32 && v.bytes().all(|b| b.is_ascii_hexdigit());
     is_hex || (has_digit && has_alpha && shannon_entropy(v) >= 3.5)
+}
+
+/// True when a secret-named RHS is plainly a human-readable placeholder, not a
+/// credential: short, digit-free, and made only of letters plus `-`/`_`/`.`
+/// separators (`"my-secret-token"`, `"changeme"`, `"your_api_key_here"`).
+///
+/// Origin 2026-08-02 (cross-audit): the quoted branch of the secret-named path
+/// hard-blocked on ANY non-empty literal, so `client.connect(token="my-secret-
+/// token")` in a test fixture scored 0.000 and blocked every edit to the file
+/// — the fourth false-positive class found in this dim today (after paths,
+/// generated sequences and e-mail addresses).
+///
+/// Deliberately narrow so real credentials keep firing: any digit, any symbol
+/// outside `-_.`, or 16+ characters disqualifies the exemption. A real token
+/// carries entropy (`ghp_aBcD…`), a real password mixes classes (`P@ssw0rd1`),
+/// and a long passphrase still blocks at the 16-character bar.
+fn is_readable_placeholder(v: &str) -> bool {
+    let v = v.trim();
+    if v.is_empty() {
+        return false;
+    }
+    // Letters plus separators only — any digit or other symbol means the value
+    // carries entropy or mixes character classes, i.e. a real credential. A
+    // SPACE is allowed here because auth values legitimately read as prose
+    // (`"Bearer test-token"`); the digit/symbol bar is what keeps real tokens
+    // out (`"Bearer eyJhbGciOiJIUzI1NiJ9…"` has digits).
+    let wordy = v
+        .bytes()
+        .all(|b| b.is_ascii_alphabetic() || matches!(b, b'-' | b'_' | b'.' | b' '));
+    if !wordy {
+        return false;
+    }
+    // Explicit placeholder vocabulary — these words are how humans SAY "put
+    // your value here", so their presence is decisive regardless of length
+    // (`your_api_key_here` is 17 chars but obviously not a credential).
+    const PLACEHOLDER_WORDS: &[&str] = &[
+        "your", "here", "changeme", "change-me", "example", "sample", "dummy", "fake", "test",
+        "placeholder", "redacted", "xxx", "todo", "fixme", "insert", "replace", "notasecret",
+    ];
+    let lower = v.to_ascii_lowercase();
+    if PLACEHOLDER_WORDS.iter().any(|w| lower.contains(w)) {
+        return true;
+    }
+    // Otherwise fall back to length: short prose-like text is a stand-in; a
+    // 16+ character passphrase of words is a real secret and still blocks.
+    v.len() < 16
 }
 
 /// Double-quoted string literals on a line (odd-indexed `"`-split segments).
@@ -594,7 +672,9 @@ fn line_has_strong_secret(line: &str) -> bool {
         && names_secret(lhs)
     {
         let strong = if rhs.trim_start().starts_with('"') {
-            extract_quoted(rhs).iter().any(|l| !l.is_empty())
+            extract_quoted(rhs)
+                .iter()
+                .any(|l| !l.is_empty() && !is_readable_placeholder(l))
         } else {
             looks_like_secret_value_named(rhs)
         };
@@ -775,6 +855,43 @@ mod tests {
         // does NOT start with a path prefix must keep tripping the generic path.
         let s = score("let k = \"q7Zp3xVb9TqLm2Rw8sYd4NcF6hJk1GtA\";\n");
         assert_eq!(s.value, 0.0, "opaque high-entropy literal must still block");
+    }
+
+    #[test]
+    fn test_readable_placeholder_in_secret_named_arg_does_not_block() {
+        // Regression 2026-08-02: a test fixture's `token="my-secret-token"`
+        // scored 0.000 (P0 BLOCK) and blocked every edit to the file. Short,
+        // digit-free, letters-and-separators text is a placeholder, not a
+        // credential.
+        //
+        // The bar here is "does not BLOCK", not "scores 1.0": the keyword is
+        // still a real secret-named identifier, so the module's documented
+        // weak-scan Warn (0.5) is the CORRECT outcome — surfaced, not blocking.
+        // P0 fails below 0.5, so 0.5 clears the gate.
+        for line in [
+            "client.connect(\"https://x.example.com\", token=\"my-secret-token\")\n",
+            "password = \"changeme\"\n",
+            "api_key = \"your_api_key_here\"\n",
+            // Prose-shaped auth value: the space must not disqualify it.
+            "client.connect(url, token=\"Bearer test-token\")\n",
+        ] {
+            let v = score(line).value;
+            assert!(v >= 0.5, "must not P0-BLOCK (got {v}) for: {line}");
+        }
+    }
+
+    #[test]
+    fn test_real_credentials_in_secret_named_arg_still_block() {
+        // The twin of the exemption above — each of these must STILL block:
+        // a digit disqualifies, a symbol outside `-_.` disqualifies, and 16+
+        // characters disqualifies (a long passphrase is a real secret).
+        assert_eq!(score("password = \"P@ssw0rd123\"\n").value, 0.0, "mixed classes");
+        assert_eq!(score("token = \"abc123def456\"\n").value, 0.0, "has digits");
+        assert_eq!(
+            score("secret = \"correcthorsebatterystaple\"\n").value,
+            0.0,
+            "26 chars — past the 16-char bar"
+        );
     }
 
     #[test]
@@ -1090,6 +1207,26 @@ mod tests {
         // AWS ARN with a random-looking resource tail → identifier, not a secret.
         let s = score("let r = \"arn:aws:iam::123456789012:role/AppRoleX9k2Lm4Qp7Zt\";\n");
         assert_eq!(s.value, 1.0, "ARN must not be an entropy false positive");
+    }
+
+    #[test]
+    fn test_relative_repo_path_no_false_positive() {
+        // 2026-08-03 (second hit, same registry edit): a doc path with an anchor
+        // is a resource location — high digit density must not read as entropy.
+        let s = score(
+            "let r = \"docs/legal-normative-infrastructure/explanation/15-DIAGNOSTICO-INTEGRACAO-PROCESS-ANALYSIS.md#7.2\";\n",
+        );
+        assert_eq!(s.value, 1.0, "relative repo paths must not be entropy FPs");
+    }
+
+    #[test]
+    fn test_memory_ref_no_false_positive() {
+        // 2026-08-03: a long kebab-case memory key blocked a registry edit — a
+        // `mem:`/`urn:` reference is a pointer to a resource, never a credential.
+        let s = score(
+            "let r = \"mem:lexhub:sei-50500-115208-2024-45-inventario-completo-relatorio-diretoria-2026-07-25\";\n",
+        );
+        assert_eq!(s.value, 1.0, "memory refs must not be entropy false positives");
     }
 
     // ── 2026-06-24: comment-line filter — doc comments discussing the concept

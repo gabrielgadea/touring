@@ -50,10 +50,10 @@ pub struct FailoverCoordinator {
 
 impl Drop for FailoverCoordinator {
     fn drop(&mut self) {
-        if let Ok(mut guard) = self.monitor_handle.write() {
-            if let Some(handle) = guard.take() {
-                handle.abort();
-            }
+        if let Ok(mut guard) = self.monitor_handle.write()
+            && let Some(handle) = guard.take()
+        {
+            handle.abort();
         }
     }
 }

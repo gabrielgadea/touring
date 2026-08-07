@@ -786,24 +786,24 @@ impl Task {
             if st.status != SubTaskStatus::InProgress && st.status != SubTaskStatus::Pending {
                 continue;
             }
-            if let Some(deadline) = st.deadline {
-                if deadline < now {
-                    match st.deadline_behavior {
-                        DeadlineBehavior::Fail => {
-                            transitions.push((st.id.clone(), SubTaskStatus::Failed));
-                        }
-                        DeadlineBehavior::Skip => {
-                            transitions.push((st.id.clone(), SubTaskStatus::Skipped));
-                        }
-                        DeadlineBehavior::Extend => {
-                            let extend_by = st
-                                .complexity_hint
-                                .as_ref()
-                                .and_then(|c| c.estimated_ms)
-                                .unwrap_or(3_600_000);
-                            st.deadline =
-                                Some(deadline + chrono::Duration::milliseconds(extend_by as i64));
-                        }
+            if let Some(deadline) = st.deadline
+                && deadline < now
+            {
+                match st.deadline_behavior {
+                    DeadlineBehavior::Fail => {
+                        transitions.push((st.id.clone(), SubTaskStatus::Failed));
+                    }
+                    DeadlineBehavior::Skip => {
+                        transitions.push((st.id.clone(), SubTaskStatus::Skipped));
+                    }
+                    DeadlineBehavior::Extend => {
+                        let extend_by = st
+                            .complexity_hint
+                            .as_ref()
+                            .and_then(|c| c.estimated_ms)
+                            .unwrap_or(3_600_000);
+                        st.deadline =
+                            Some(deadline + chrono::Duration::milliseconds(extend_by as i64));
                     }
                 }
             }
@@ -838,12 +838,12 @@ impl Task {
                     return false;
                 }
                 // Deadline check: exclude if expired with Fail or Skip behavior
-                if let Some(deadline) = s.deadline {
-                    if deadline < now {
-                        match s.deadline_behavior {
-                            DeadlineBehavior::Fail | DeadlineBehavior::Skip => return false,
-                            DeadlineBehavior::Extend => {}
-                        }
+                if let Some(deadline) = s.deadline
+                    && deadline < now
+                {
+                    match s.deadline_behavior {
+                        DeadlineBehavior::Fail | DeadlineBehavior::Skip => return false,
+                        DeadlineBehavior::Extend => {}
                     }
                 }
                 true

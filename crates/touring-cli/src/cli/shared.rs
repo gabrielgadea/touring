@@ -10,6 +10,31 @@
 use crate::runtime::HookRuntime;
 use rusqlite::params;
 
+/// Reward for a retrieval that returned `found` of an asked-for `requested`.
+///
+/// # Why this exists
+///
+/// Five CLI sites used to inject a literal `1.0` on any non-error result
+/// (`cli-tantivy-search`, `-fuzzy`, `-suggest`, `cli-ast-semantic`,
+/// `cli-ast-quality`). A constant reward has **zero variance**: the LinUCB
+/// regression then fits `x·θ = 1` for every context and can discriminate
+/// nothing, and once the EMA converges onto that constant the
+/// `min_reward_delta` filter drops the updates entirely. A signal that is
+/// always the same teaches nothing (04/08/2026).
+///
+/// Coverage is the honest scalar available at those call sites: a query that
+/// found nothing did *not* succeed just because it did not error.
+///
+/// Returns 0.0 for an empty result and saturates at 1.0 once the caller got
+/// everything it asked for. A `requested` of 0 is meaningless as a denominator,
+/// so it degrades to "found anything at all".
+pub(crate) fn retrieval_coverage_reward(found: usize, requested: usize) -> f64 {
+    if requested == 0 {
+        return if found > 0 { 1.0 } else { 0.0 };
+    }
+    (found as f64 / requested as f64).clamp(0.0, 1.0)
+}
+
 /// Synthetic RL warm-up: seed the online bandit with a small set of
 /// canonical tool rewards so the first real edits aren't cold-started.
 pub(crate) fn inject_synthetic_tool_rewards(rt: &mut HookRuntime) {
@@ -85,16 +110,49 @@ pub(crate) fn memory_recall_fts5_expr(query: &str) -> String {
         .join(" ")
 }
 
-/// Maps a recall result row (`key, value, tier, entry_type`) to JSON.
+/// SQL expression yielding `outcome_reward`, degrading to `NULL` when the
+/// column is absent.
+///
+/// Recall is **federated**: it reaches other projects' `memory.db` files, which
+/// may predate the outcome columns. Probing costs one PRAGMA and is far better
+/// than letting a `no such column` error turn that project's recall into an
+/// empty result — which is precisely how `memory_recall_fts5` fails, silently.
+pub(crate) fn outcome_reward_select(conn: &rusqlite::Connection, alias: &str) -> String {
+    let present = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('memory_entries') WHERE name = 'outcome_reward'",
+            [],
+            |r| r.get::<_, i32>(0),
+        )
+        .map(|c| c > 0)
+        .unwrap_or(false);
+    if present {
+        format!("{alias}outcome_reward")
+    } else {
+        "NULL".to_string()
+    }
+}
+
+/// Maps a recall result row (`key, value, tier, entry_type, outcome_reward`) to JSON.
+///
+/// `outcome_reward` is the `r` of a case `(s, a, r)` (Memento Eq. 12) and is
+/// emitted ONLY when non-NULL: an unobserved case must stay distinguishable
+/// from one measured at zero, or a value-ranked recall would bury every curated
+/// lesson for the crime of never having been scored.
 pub(crate) fn memory_recall_row_to_json(
     row: &rusqlite::Row<'_>,
 ) -> rusqlite::Result<serde_json::Value> {
-    Ok(serde_json::json!({
+    let mut out = serde_json::json!({
         "key": row.get::<_, String>(0)?,
         "value": row.get::<_, String>(1)?,
         "tier": row.get::<_, String>(2)?,
         "type": row.get::<_, String>(3)?,
-    }))
+    });
+    let reward = row.get::<_, Option<f64>>(4).ok().flatten();
+    if let (Some(r), Some(obj)) = (reward, out.as_object_mut()) {
+        obj.insert("outcome_reward".into(), serde_json::json!(r));
+    }
+    Ok(out)
 }
 
 /// FTS5 primary recall path — tokenized `MATCH` over `memories_fts`,
@@ -106,13 +164,15 @@ pub(crate) fn memory_recall_fts5(
     conn: &rusqlite::Connection,
     fts_expr: &str,
 ) -> Vec<serde_json::Value> {
-    let Ok(mut stmt) = conn.prepare(
-        "SELECT e.key, e.value, e.tier, e.entry_type \
+    let reward_col = outcome_reward_select(conn, "e.");
+    let sql = format!(
+        "SELECT e.key, e.value, e.tier, e.entry_type, {reward_col} \
          FROM memories_fts \
          JOIN memory_entries e ON e.rowid = memories_fts.rowid \
          WHERE memories_fts MATCH ?1 \
-         ORDER BY bm25(memories_fts) LIMIT 20",
-    ) else {
+         ORDER BY bm25(memories_fts) LIMIT 20"
+    );
+    let Ok(mut stmt) = conn.prepare(&sql) else {
         return vec![];
     };
     stmt.query_map(params![fts_expr], memory_recall_row_to_json)
@@ -141,8 +201,9 @@ pub(crate) fn memory_recall_like(
             .join(" AND ");
         (clause, terms.iter().map(|t| format!("%{t}%")).collect())
     };
+    let reward_col = outcome_reward_select(conn, "");
     let sql = format!(
-        "SELECT key, value, tier, entry_type FROM memory_entries \
+        "SELECT key, value, tier, entry_type, {reward_col} FROM memory_entries \
          WHERE {where_clause} LIMIT 20"
     );
     let mut stmt = match conn.prepare(&sql) {
@@ -581,5 +642,50 @@ pub(crate) fn require_file_path(payload: &serde_json::Value) -> Result<&str, Str
         Err(serde_json::json!({"error": "file_path required"}).to_string())
     } else {
         Ok(fp)
+    }
+}
+
+#[cfg(test)]
+mod retrieval_reward_tests {
+    use super::retrieval_coverage_reward;
+
+    /// The whole point: the signal must MOVE with the outcome.
+    ///
+    /// The five call sites this replaced all emitted a literal `1.0`, so a
+    /// query that found nothing and one that found everything were
+    /// indistinguishable to the learner.
+    #[test]
+    fn coverage_discriminates_empty_from_full_results() {
+        assert_eq!(retrieval_coverage_reward(0, 10), 0.0, "nothing found");
+        assert_eq!(retrieval_coverage_reward(10, 10), 1.0, "fully satisfied");
+        assert!(
+            retrieval_coverage_reward(0, 10) < retrieval_coverage_reward(10, 10),
+            "an empty result must not be rewarded like a full one"
+        );
+    }
+
+    #[test]
+    fn coverage_is_proportional_between_the_extremes() {
+        let half = retrieval_coverage_reward(5, 10);
+        assert!((half - 0.5).abs() < f64::EPSILON, "5 of 10 is 0.5, got {half}");
+    }
+
+    #[test]
+    fn overshooting_the_request_saturates_at_one() {
+        assert_eq!(
+            retrieval_coverage_reward(50, 10),
+            1.0,
+            "reward must stay within the [-1, 1] band the engine clamps to"
+        );
+    }
+
+    #[test]
+    fn a_zero_request_degrades_to_found_anything_at_all() {
+        assert_eq!(retrieval_coverage_reward(0, 0), 0.0);
+        assert_eq!(
+            retrieval_coverage_reward(3, 0),
+            1.0,
+            "0 is meaningless as a denominator — never divide by it"
+        );
     }
 }
