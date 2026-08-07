@@ -1,0 +1,11 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "D2 (reindex bloqueando o ator do daemon ate estourar o timeout) corrigido em crates/touring-cli/src/cli/memory.rs: DEFAULT_REINDEX_BUDGET=2000 e helper reindex_candidates() com LEFT JOIN, reindexando incrementalmente so o que falta no corpus ANN; flags --max-entries e --all expostas em crates/touring-server/src/cli/memory.rs. Gotcha registrado: rodar o reindex antigo travou o subsistema de memoria por minutos nesta sessao, recuperado com touring daemon-ctl restart (REGRA #19, nunca pkill)."
+    }
+  ],
+  "relations": []
+}

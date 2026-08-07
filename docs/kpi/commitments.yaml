@@ -220,3 +220,27 @@ commitments:
     advisory: true
     source: "derived:flow_compliance"
     rationale: "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here."
+
+  - id: touring.memory.corpus_coverage
+    name: "Memory entries reachable by ANN recall (indexed / stored)"
+    threshold: 0.95
+    direction: gte
+    advisory: true
+    source: "derived:memory_corpus_coverage"
+    rationale: "Entries absent from the ANN corpus are 4.3x more likely to never be recalled (measured 2026-08-02: 50.9% never-read outside the corpus vs 11.8% inside). This drifted to 0.797 for weeks with a one-command remedy — `touring memory reindex` — and nothing measured it, so nobody could see it. Below 0.95: run the reindex."
+
+  - id: touring.memory.curated_recall_share
+    name: "Recall share landing on curated lessons, not auto-recorded outcomes"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:memory_curated_recall_share"
+    rationale: "Before the 2026-08-02 filter the eight most-recalled entries in the whole store were all `outcome:*:failure`, and automatic entries were retrieved 2.4x more often than curated lessons — the ACO pheromone diluted by its own exhaust. This is the anti-regression meter for that fix; a fall back below 0.5 means noise is crowding the channel again."
+
+  - id: touring.memory.never_recalled_ratio
+    name: "Stored entries no recall has ever returned"
+    threshold: 0.25
+    direction: lte
+    advisory: true
+    source: "derived:memory_never_recalled_ratio"
+    rationale: "Dead weight in the store: written once, never read. 0.200 at 2026-08-02. Rising means either the corpus is drifting again (see corpus_coverage) or entries are being written in a shape recall cannot match."

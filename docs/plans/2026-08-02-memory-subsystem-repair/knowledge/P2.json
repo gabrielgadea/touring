@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "D1 (list contra formato abandonado) corrigido em crates/touring-cli/src/cli/memory.rs: cli_memory_list reescrito para consultar a tabela memory_entries (o formato vivo) em vez do layout legado; parse_memory_row legado removido junto com seu codigo orfao (REGRA #0). Antes o comando retornava vazio mesmo com 6.9k entradas gravadas."
+    }
+  ],
+  "relations": []
+}
