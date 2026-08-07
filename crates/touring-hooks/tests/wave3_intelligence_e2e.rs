@@ -312,8 +312,8 @@ fn batch_doctor_reports_the_given_root_not_the_process_cwd() {
     // Contraprova — sem a raiz, o resultado é OUTRO. Sem esta metade o teste
     // passaria mesmo que a correção fosse revertida, desde que o tempdir
     // aparecesse na saída por qualquer outro motivo.
-    let sem_raiz = serde_json::to_string(&mcp::ctx_batch_execute(None, &items))
-        .expect("serializável");
+    let sem_raiz =
+        serde_json::to_string(&mcp::ctx_batch_execute(None, &items)).expect("serializável");
     assert!(
         !sem_raiz.contains(&esperado),
         "com root=None o doctor NÃO pode reportar o tempdir — se reportar, o \

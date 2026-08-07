@@ -866,31 +866,41 @@ fn collect_index_signals(
 
     // Tantivy BM25: related docstrings from OTHER files (same module concepts)
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_related_docs_signal(Some(&runtime.project_root), rel_path) {
+    if let Some(s) =
+        crate::shared::signals::tantivy_related_docs_signal(Some(&runtime.project_root), rel_path)
+    {
         signals.push(s);
     }
 
     // Tantivy fuzzy: similar file names across the project
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_fuzzy_file_signal(Some(&runtime.project_root), rel_path) {
+    if let Some(s) =
+        crate::shared::signals::tantivy_fuzzy_file_signal(Some(&runtime.project_root), rel_path)
+    {
         signals.push(s);
     }
 
     // Tantivy kind context: symbols of the same kind across the project
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_kind_context_signal(Some(&runtime.project_root), rel_path) {
+    if let Some(s) =
+        crate::shared::signals::tantivy_kind_context_signal(Some(&runtime.project_root), rel_path)
+    {
         signals.push(s);
     }
 
     // Tantivy crate origin: other files from the same crate
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_crate_origin_signal(Some(&runtime.project_root), rel_path) {
+    if let Some(s) =
+        crate::shared::signals::tantivy_crate_origin_signal(Some(&runtime.project_root), rel_path)
+    {
         signals.push(s);
     }
 
     // Tantivy fuzzy symbol: symbol names similar to current file's basename
     #[cfg(feature = "tantivy-fts")]
-    if let Some(s) = crate::shared::signals::tantivy_fuzzy_symbol_signal(Some(&runtime.project_root), rel_path) {
+    if let Some(s) =
+        crate::shared::signals::tantivy_fuzzy_symbol_signal(Some(&runtime.project_root), rel_path)
+    {
         signals.push(s);
     }
 

@@ -217,7 +217,10 @@ mod tests {
         ledger.record("Edit", choice(5, 0.25));
 
         let claimed = ledger.take("Edit").expect("decision was recorded");
-        assert_eq!(claimed.payload.arm, 5, "credit must go to the arm that decided");
+        assert_eq!(
+            claimed.payload.arm, 5,
+            "credit must go to the arm that decided"
+        );
         assert!((claimed.payload.features[0] - 0.25).abs() < f64::EPSILON);
         assert_eq!(ledger.credited_count(), 1);
     }
@@ -254,7 +257,10 @@ mod tests {
         ledger.record("Edit", choice(7, 0.9));
 
         let claimed = ledger.take("Edit").expect("decision present");
-        assert_eq!(claimed.payload.arm, 7, "the newer selection is the live one");
+        assert_eq!(
+            claimed.payload.arm, 7,
+            "the newer selection is the live one"
+        );
         assert!(ledger.is_empty());
     }
 

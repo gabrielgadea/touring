@@ -146,7 +146,9 @@ fn identical_relative_coordinates_collapse_to_one_document() {
         "coordenadas relativas idênticas compartilham doc_id — o segundo write \
          evicta o primeiro. Vieram {} docs: {:?}",
         hits.len(),
-        hits.iter().map(|h| h.crate_name.clone()).collect::<Vec<_>>()
+        hits.iter()
+            .map(|h| h.crate_name.clone())
+            .collect::<Vec<_>>()
     );
     assert_eq!(
         hits[0].crate_name.as_deref(),
@@ -295,7 +297,10 @@ fn a_second_opener_reads_while_the_first_holds_the_writer_lock() {
         .upsert_symbol(&symbol("SharedSymbol", "src/shared.rs", "struct"))
         .expect("upsert");
     first.commit().expect("commit");
-    assert!(first.is_writable(), "o primeiro a abrir detém o writer lock");
+    assert!(
+        first.is_writable(),
+        "o primeiro a abrir detém o writer lock"
+    );
 
     // O segundo daemon abre o MESMO diretório enquanto `first` ainda vive.
     let second = TantivyIndex::open_or_create(dir.path())
@@ -716,7 +721,10 @@ fn tool_outputs_are_partitioned_per_project() {
         "raízes distintas têm de resolver índices distintos"
     );
     assert!(
-        std::ptr::eq(idx_a, tool_outputs_for(Some(a.path())).expect("re-resolução")),
+        std::ptr::eq(
+            idx_a,
+            tool_outputs_for(Some(a.path())).expect("re-resolução")
+        ),
         "a mesma raiz devolve o MESMO índice — senão o Box::leak vaza por chamada"
     );
 

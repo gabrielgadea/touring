@@ -208,9 +208,9 @@ fn collect_intelligence_critique(target_path: &str, issues: &mut Vec<Value>) {
     // `normalize_project_root` faz walk-up por marcador real quando o caminho é
     // absoluto; num caminho relativo ele devolve `$HOME`, que resolve para o
     // índice legado — degradação explícita, não silenciosa.
-    let derived_root = target_path
-        .starts_with('/')
-        .then(|| touring_foundation::TouringConfig::normalize_project_root(std::path::Path::new(target_path)));
+    let derived_root = target_path.starts_with('/').then(|| {
+        touring_foundation::TouringConfig::normalize_project_root(std::path::Path::new(target_path))
+    });
     if let Some((_, signal)) = touring_hooks::shared::signals::tantivy_related_docs_signal(
         derived_root.as_deref(),
         target_path,

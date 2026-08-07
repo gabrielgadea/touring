@@ -258,8 +258,8 @@ fn partition_cases(entries: &[serde_json::Value]) -> serde_json::Value {
         "negative": negative,
         "unobserved": unobserved,
         "guidance": "Reuse the approach in `positive` (cases whose outcome was \
-measured as good). Treat `negative` as patterns to avoid, never as guidance. \
-`unobserved` carries no verdict — judge it on its own merits.",
+    measured as good). Treat `negative` as patterns to avoid, never as guidance. \
+    `unobserved` carries no verdict — judge it on its own merits.",
         "cap_per_class": MAX_CASES_PER_CLASS,
     })
 }
@@ -293,7 +293,11 @@ const CASE_CREDIT_ALPHA: f64 = 0.2;
 /// process (a phase close, a gate) that re-states the query, not from the
 /// recall's own memory of it.
 fn credit_key(query: &str) -> String {
-    query.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+    query
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 
 /// Credit the cases a previous recall served with the verdict of the work they
@@ -354,8 +358,11 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 )
                 .ok()
                 .flatten();
-            let blended =
-                touring_intelligence::rl::bandit::blend_case_value(prior, reward, CASE_CREDIT_ALPHA);
+            let blended = touring_intelligence::rl::bandit::blend_case_value(
+                prior,
+                reward,
+                CASE_CREDIT_ALPHA,
+            );
             // `execute` returns ROWS AFFECTED. Counting `is_ok()` scored a
             // no-op update as a credit, so the one number that reports whether
             // attribution is working would have reported success while writing
@@ -1308,7 +1315,11 @@ mod repair_case_tests {
         let positive = part["positive"].as_array().cloned().unwrap_or_default();
         let negative = part["negative"].as_array().cloned().unwrap_or_default();
 
-        assert_eq!(positive.len(), 1, "the repair belongs to the positive class");
+        assert_eq!(
+            positive.len(),
+            1,
+            "the repair belongs to the positive class"
+        );
         assert_eq!(
             positive[0].get("when").and_then(|v| v.as_str()),
             Some("err A"),
@@ -1385,7 +1396,11 @@ mod real_shape_regression_tests {
     fn the_object_resolution_reaches_the_positive_class_shaped() {
         let part = partition_cases(&[real_mined_case()]);
         let positive = part["positive"].as_array().cloned().unwrap_or_default();
-        assert_eq!(positive.len(), 1, "a real mined repair belongs to `positive`");
+        assert_eq!(
+            positive.len(),
+            1,
+            "a real mined repair belongs to `positive`"
+        );
         assert!(
             positive[0]["do"]
                 .as_str()
@@ -1402,7 +1417,8 @@ mod real_shape_regression_tests {
             "error": "e", "resolution_input": "{\"cmd\":\"ls\"}",
         })
         .to_string();
-        let entry = serde_json::json!({ "key": "outcome:bash:transcript-s:failure", "value": value });
+        let entry =
+            serde_json::json!({ "key": "outcome:bash:transcript-s:failure", "value": value });
         assert!(repair_from(&entry).is_some());
     }
 
@@ -1425,7 +1441,11 @@ mod real_shape_regression_tests {
                 repair_from(&entry).is_none(),
                 "no action means no repair: {value}"
             );
-            assert_eq!(case_value(&entry), Some(0.0), "falls back to the key verdict");
+            assert_eq!(
+                case_value(&entry),
+                Some(0.0),
+                "falls back to the key verdict"
+            );
         }
     }
 
@@ -1438,7 +1458,11 @@ mod real_shape_regression_tests {
             "value": "O miner grava error e resolution_input no mesmo registro.",
         });
         assert!(repair_from(&entry).is_none());
-        assert_eq!(case_value(&entry), None, "a curated lesson stays unobserved");
+        assert_eq!(
+            case_value(&entry),
+            None,
+            "a curated lesson stays unobserved"
+        );
         assert_eq!(shape_case(&entry), entry, "and is passed through untouched");
     }
 
@@ -1448,8 +1472,14 @@ mod real_shape_regression_tests {
             json_field_as_text(Some(&serde_json::json!("text"))),
             Some("text".into())
         );
-        assert_eq!(json_field_as_text(Some(&serde_json::json!({"a":1}))), Some("{\"a\":1}".into()));
-        assert_eq!(json_field_as_text(Some(&serde_json::json!([1,2]))), Some("[1,2]".into()));
+        assert_eq!(
+            json_field_as_text(Some(&serde_json::json!({"a":1}))),
+            Some("{\"a\":1}".into())
+        );
+        assert_eq!(
+            json_field_as_text(Some(&serde_json::json!([1, 2]))),
+            Some("[1,2]".into())
+        );
         assert_eq!(json_field_as_text(Some(&serde_json::json!(""))), None);
         assert_eq!(json_field_as_text(Some(&serde_json::json!({}))), None);
         assert_eq!(json_field_as_text(Some(&serde_json::Value::Null)), None);

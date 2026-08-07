@@ -165,7 +165,11 @@ mod tests {
             let preview = preview_patch(source, diff)
                 .unwrap_or_else(|| panic!("dialeto rejeitado pelo motor: {name}"));
             assert!(preview.matched, "{name}: deveria casar");
-            assert_eq!(preview.method, PatchMethod::Exact, "{name}: casamento exato");
+            assert_eq!(
+                preview.method,
+                PatchMethod::Exact,
+                "{name}: casamento exato"
+            );
             assert!(
                 preview.confidence >= 0.99,
                 "{name}: confiança {}",

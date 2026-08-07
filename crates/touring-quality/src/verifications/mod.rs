@@ -152,7 +152,8 @@ pub fn read_target_source(target: &Path) -> Result<String> {
 pub(crate) fn is_under_generated_tree(path: &Path, root: &Path) -> bool {
     let mut cur = path.parent();
     while let Some(dir) = cur {
-        if dir.join(".openapi-generator-ignore").is_file() || dir.join(".openapi-generator").is_dir()
+        if dir.join(".openapi-generator-ignore").is_file()
+            || dir.join(".openapi-generator").is_dir()
         {
             return true;
         }

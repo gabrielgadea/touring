@@ -833,13 +833,22 @@ fn compose_edit_context_impl(
     // Feature-gated (tantivy-fts is ON by default in touring-hooks).
     #[cfg(feature = "tantivy-fts")]
     {
-        if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(runtime.map(|r| r.project_root.as_path()), file_path) {
+        if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(
+            runtime.map(|r| r.project_root.as_path()),
+            file_path,
+        ) {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_kind_context_signal(runtime.map(|r| r.project_root.as_path()), file_path) {
+        if let Some((_, s)) = crate::shared::signals::tantivy_kind_context_signal(
+            runtime.map(|r| r.project_root.as_path()),
+            file_path,
+        ) {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_crate_origin_signal(runtime.map(|r| r.project_root.as_path()), file_path) {
+        if let Some((_, s)) = crate::shared::signals::tantivy_crate_origin_signal(
+            runtime.map(|r| r.project_root.as_path()),
+            file_path,
+        ) {
             parts.push(s);
         }
     }

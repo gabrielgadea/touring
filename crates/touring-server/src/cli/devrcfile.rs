@@ -87,11 +87,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 // currently emits a Tasksfile, because no Devrcfile serializer
                 // exists (`touring_orchestration::devrc` is import-only —
                 // `parse_devrcfile` + `devrcfile_to_tasksfile`, no inverse).
-                super::common::write_yaml_export(
-                    &output,
-                    "tasksfile_yaml",
-                    &expand_path(&path),
-                )?;
+                super::common::write_yaml_export(&output, "tasksfile_yaml", &expand_path(&path))?;
                 println!("Exported to {} (Tasksfile format)", path);
             } else {
                 println!("{output}");

@@ -177,9 +177,12 @@ fn task_created_event_returns_scaffolded_receipt() {
         eprintln!("touring-daemon not built or would not bind — skipping task_created test");
         return;
     };
-    let Some((stdout, _stderr, exit)) =
-        run_with_stdin("touring-hook", &["task-created"], payload, Some(&daemon.socket))
-    else {
+    let Some((stdout, _stderr, exit)) = run_with_stdin(
+        "touring-hook",
+        &["task-created"],
+        payload,
+        Some(&daemon.socket),
+    ) else {
         eprintln!("touring-hook binary not built — skipping task_created test");
         return;
     };

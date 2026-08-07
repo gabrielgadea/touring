@@ -15,7 +15,10 @@ use crate::runtime::HookRuntime;
 /// answers with a bare `error`, while `cli_skip_validate` answers with a
 /// `valid: false` verdict that still names the file.
 enum PayloadSource<'a> {
-    Loaded { file_path: &'a str, source: String },
+    Loaded {
+        file_path: &'a str,
+        source: String,
+    },
     MissingPath,
     Unreadable {
         file_path: &'a str,

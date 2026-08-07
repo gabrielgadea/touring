@@ -303,7 +303,11 @@ mod tests {
         let after = gate_metrics::global()
             .tantivy_stream_index_unavailable_drop_count
             .load(std::sync::atomic::Ordering::Relaxed);
-        assert_eq!(after, before + 7, "o contador soma o LOTE, não uma ocorrência");
+        assert_eq!(
+            after,
+            before + 7,
+            "o contador soma o LOTE, não uma ocorrência"
+        );
 
         let json = serde_json::to_string(&gate_metrics::GateMetricsSnapshot::capture())
             .expect("snapshot serializável");

@@ -186,8 +186,7 @@ pub fn cli_workflow_compare(rt: &mut HookRuntime, payload: &serde_json::Value) -
     fn task_metrics(db: &FileKnowledgeDB, task_id: &str) -> serde_json::Value {
         let total = subtask_count(db, task_id, None);
         let completed = subtask_count(db, task_id, Some("completed"));
-        let avg_ms: Option<f64> =
-            results_aggregate(db, task_id, AVG_DURATION, DURATION_NOT_NULL);
+        let avg_ms: Option<f64> = results_aggregate(db, task_id, AVG_DURATION, DURATION_NOT_NULL);
         let cache_rate: Option<f64> = results_aggregate(db, task_id, CACHE_HIT_RATE, "");
         serde_json::json!({
             "task_id": task_id,

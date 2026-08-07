@@ -1482,11 +1482,20 @@ mod tests {
         let mut qtable = QTable::new();
         let mut linucb = LinUCBBandit::new();
 
-        engine.record_decision("Edit", chosen, ndarray::Array1::zeros(crate::rl::bandit::FEATURE_DIM));
+        engine.record_decision(
+            "Edit",
+            chosen,
+            ndarray::Array1::zeros(crate::rl::bandit::FEATURE_DIM),
+        );
         engine.process_reward(&reward_for("Edit"), &mut qtable, &mut linucb);
 
         let stats = linucb.arm_stats();
-        let pulls = |i: usize| stats.iter().find(|(idx, _, _)| *idx == i).map(|(_, p, _)| *p);
+        let pulls = |i: usize| {
+            stats
+                .iter()
+                .find(|(idx, _, _)| *idx == i)
+                .map(|(_, p, _)| *p)
+        };
 
         assert_eq!(
             pulls(chosen),
@@ -1537,12 +1546,21 @@ mod tests {
         let mut qtable = QTable::new();
         let mut linucb = LinUCBBandit::new();
 
-        engine.record_decision("Read", chosen, ndarray::Array1::zeros(crate::rl::bandit::FEATURE_DIM));
+        engine.record_decision(
+            "Read",
+            chosen,
+            ndarray::Array1::zeros(crate::rl::bandit::FEATURE_DIM),
+        );
         engine.process_reward(&reward_for("Read"), &mut qtable, &mut linucb);
         engine.process_reward(&reward_for("Read"), &mut qtable, &mut linucb);
 
         let stats = linucb.arm_stats();
-        let pulls = |i: usize| stats.iter().find(|(idx, _, _)| *idx == i).map(|(_, p, _)| *p);
+        let pulls = |i: usize| {
+            stats
+                .iter()
+                .find(|(idx, _, _)| *idx == i)
+                .map(|(_, p, _)| *p)
+        };
 
         assert_eq!(
             pulls(chosen),
