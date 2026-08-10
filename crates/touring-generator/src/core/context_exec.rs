@@ -140,9 +140,9 @@ impl RkyvFileSnapshotAdapter {
 
     /// Wraps an rkyv zero-copy archive around a byte snapshot.
     ///
-    /// Delegates to `rkyv::to_bytes` for the final aligned buffer, adding
+    /// Delegates to `touring_rkyv::to_bytes` for the final aligned buffer, adding
     /// an rkyv-format wrapper around the self-describing snapshot above.
-    /// The resulting buffer can be mapped via `rkyv::check_archived_root`
+    /// The resulting buffer can be mapped via `touring_rkyv::check_archived_root`
     /// for zero-copy inspection without full deserialization.
     ///
     /// # Errors
@@ -151,9 +151,9 @@ impl RkyvFileSnapshotAdapter {
     /// the rkyv serialization step fails.
     pub fn snapshot_rkyv(
         files: &[crate::plan::result::RenderedFile],
-    ) -> Result<rkyv::AlignedVec, GenerateError> {
+    ) -> Result<touring_rkyv::AlignedVec, GenerateError> {
         let inner = Self::snapshot(files)?;
-        rkyv::to_bytes::<_, 1024>(&inner)
+        touring_rkyv::to_bytes::<_, 1024>(&inner)
             .map_err(|e| GenerateError::Internal(format!("rkyv serialize: {e}")))
     }
 }

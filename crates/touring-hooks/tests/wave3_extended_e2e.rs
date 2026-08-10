@@ -83,7 +83,26 @@ fn audit_t210_roi_sonnet_pricing() {
     let v = w3::ctx_roi("sonnet");
     assert_eq!(v["ok"], json!(true));
     assert_eq!(v["model"], json!("sonnet"));
-    assert!(v["usd_saved"].as_str().unwrap().starts_with('$'));
+    assert_eq!(v["rate_per_million_usd"], json!(3.0));
+    // A2 (2026-08-08): `usd_saved` is null unless tokens were really counted.
+    // The old assertion ("starts with $") was satisfiable by a fabricated
+    // `$0.0000` — it asserted formatting, and so accepted three stacked guesses
+    // (30_000/event, 20_000/event, bytes/4) as long as they printed a dollar
+    // sign. The contract is now about provenance, not shape.
+    let measured = !v["usd_saved"].is_null();
+    if measured {
+        assert!(v["usd_saved"].as_str().expect("string when measured").starts_with('$'));
+        assert!(v["tokens_saved"].is_u64());
+    } else {
+        assert!(v["tokens_saved"].is_null(), "unmeasured tokens must be null");
+        assert!(
+            v["usd_saved_estimate"].as_str().expect("estimate").starts_with('$'),
+            "the estimate still exists — under a name that says it is one"
+        );
+    }
+    // Bytes are exact in either case, and the envelope names its own source.
+    assert!(v["bytes_saved"].is_u64());
+    assert_eq!(v["source"], json!("local_process"));
 }
 
 #[test]

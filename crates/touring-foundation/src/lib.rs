@@ -49,6 +49,12 @@ pub mod feedback;
 pub mod gate_metrics;
 pub mod gate_metrics_snapshot;
 pub mod governor;
+
+/// Shared BM25 ranking math (one scorer for every intent-ranked corpus).
+pub mod text_rank;
+
+/// Capability Portfolio — prior-art discovery keyed by purpose.
+pub mod portfolio;
 pub mod hash;
 pub mod health;
 pub mod health_events;

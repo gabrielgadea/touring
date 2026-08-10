@@ -570,6 +570,14 @@ pub struct GateMetrics {
     /// subprocess (D2.2 sandbox_executor). Drives the `tool_output_routed_count`
     /// metric in `touring gate-metrics -j`.
     pub tool_output_routed_count: AtomicU64,
+    /// A4 (2026-08-07): PreToolUse mirror rewrites actually applied.
+    ///
+    /// The adoption metric for affordance-over-persuasion: `pillar_induction_*`
+    /// counts nudges EMITTED and hopes; this counts calls the hook actually
+    /// improved. A rewrite that fires needs no follow-through from the model,
+    /// so emitted == followed by construction.
+    pub hook_rewrite_applied_count: AtomicU64,
+
 
     /// Total sandbox executions that fell back to original tool execution
     /// due to timeout.
@@ -593,6 +601,27 @@ pub struct GateMetrics {
     pub sandbox_tee_persisted_count: AtomicU64,
     /// NEW-1 — Per-command compression profile applications (any profile).
     pub compression_profile_applied_count: AtomicU64,
+    // ── A2 (2026-08-08) — MEASURED context savings ─────────────────────────
+    // Before this, `ctx_roi` multiplied the two event counters above by the
+    // invented constants 30_000 and 20_000 and divided by 4. Every number it
+    // reported — bytes, tokens, USD — was a product of three guesses. These
+    // counters are exact `len()` sums taken at the sites that do the work.
+    /// Raw bytes handed to a compression profile.
+    pub compression_bytes_in_total: AtomicU64,
+    /// Bytes that same profile emitted (`in - out` is the saving).
+    pub compression_bytes_out_total: AtomicU64,
+    /// Bytes a routed tool would have put in-band (the sandbox's real capture).
+    pub routed_bytes_in_total: AtomicU64,
+    /// Bytes of the envelope the model receives instead of that output.
+    pub routed_bytes_out_total: AtomicU64,
+    /// Tokens entering — advanced ONLY when a real tokenizer is registered.
+    pub measured_tokens_in_total: AtomicU64,
+    /// Tokens leaving — same condition, same text.
+    pub measured_tokens_out_total: AtomicU64,
+    /// Savings events whose tokens were actually counted (coverage numerator).
+    pub token_measured_event_count: AtomicU64,
+    /// Savings events recorded at all (coverage denominator).
+    pub savings_event_count: AtomicU64,
     // ── Wave 3 INTELLIGENCE — 16 T1 counters ───────────────────────────────
     /// T1-01 ctx_replay invocations.
     pub ctx_replay_count: AtomicU64,
@@ -885,6 +914,7 @@ impl Default for GateMetrics {
             core_pinning_p_count: AtomicU64::new(0),
             core_pinning_e_count: AtomicU64::new(0),
             tool_output_routed_count: AtomicU64::new(0),
+            hook_rewrite_applied_count: AtomicU64::new(0),
             sandbox_timeout_fallback_count: AtomicU64::new(0),
             phrase_query_match_count: AtomicU64::new(0),
             tantivy_trigram_query_count: AtomicU64::new(0),
@@ -892,6 +922,14 @@ impl Default for GateMetrics {
             tool_outputs_cleanup_deleted_count: AtomicU64::new(0),
             sandbox_tee_persisted_count: AtomicU64::new(0),
             compression_profile_applied_count: AtomicU64::new(0),
+            compression_bytes_in_total: AtomicU64::new(0),
+            compression_bytes_out_total: AtomicU64::new(0),
+            routed_bytes_in_total: AtomicU64::new(0),
+            routed_bytes_out_total: AtomicU64::new(0),
+            measured_tokens_in_total: AtomicU64::new(0),
+            measured_tokens_out_total: AtomicU64::new(0),
+            token_measured_event_count: AtomicU64::new(0),
+            savings_event_count: AtomicU64::new(0),
             // Wave 3 T1 — 19 counters
             ctx_replay_count: AtomicU64::new(0),
             ctx_purge_count: AtomicU64::new(0),
@@ -1202,6 +1240,13 @@ pub fn record_tool_output_routed() {
         .fetch_add(1, Ordering::Relaxed);
 }
 
+/// Record one PreToolUse mirror rewrite applied (A4).
+pub fn record_hook_rewrite_applied() {
+    global()
+        .hook_rewrite_applied_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
 /// Record one sandbox execution that fell back to original args due to timeout.
 #[inline]
 /// I-02 — record a successful PhraseQuery match in `search()`.
@@ -1244,6 +1289,74 @@ pub fn record_compression_profile_applied() {
     global()
         .compression_profile_applied_count
         .fetch_add(1, Ordering::Relaxed);
+}
+
+// ── A2 (2026-08-08) — measured context savings ─────────────────────────────
+
+/// A registered token counter, i.e. a real tokenizer.
+///
+/// The tokenizer (`cl100k_base`, `touring-cortex::enrichment::count_tokens`)
+/// lives ABOVE the crates that do the compressing — `touring-cortex` depends on
+/// `touring-hooks`, so the site cannot call it directly without a cycle. This
+/// `OnceLock` is the seam: a process that already pays for a tokenizer installs
+/// it, every other process pays nothing and simply reports tokens as **not
+/// measured** rather than inventing them.
+/// `None` means "this text could not be tokenized" — the tokenizer is loaded
+/// lazily and may fail, and a failed load must read as *not measured*, never as
+/// zero tokens. The whole point of A2 is that an unmeasurable quantity is
+/// reported as unmeasured.
+type TokenCounter = fn(&str) -> Option<usize>;
+static TOKEN_COUNTER: OnceLock<TokenCounter> = OnceLock::new();
+
+/// Installs the process-wide token counter. Returns `false` if one was already
+/// installed (first writer wins — registration is startup-time, not per-call).
+pub fn set_token_counter(counter: TokenCounter) -> bool {
+    TOKEN_COUNTER.set(counter).is_ok()
+}
+
+/// `true` when a real tokenizer is installed in THIS process.
+#[must_use]
+pub fn has_token_counter() -> bool {
+    TOKEN_COUNTER.get().is_some()
+}
+
+/// Records one savings event from the two texts, taking EXACT byte counts and —
+/// only if a tokenizer is installed — exact token counts of the same text.
+///
+/// `before`/`after` are the real strings the site handled; nothing is estimated.
+pub fn record_compression_savings(before: &str, after: &str) {
+    let m = global();
+    m.compression_bytes_in_total
+        .fetch_add(before.len() as u64, Ordering::Relaxed);
+    m.compression_bytes_out_total
+        .fetch_add(after.len() as u64, Ordering::Relaxed);
+    m.savings_event_count.fetch_add(1, Ordering::Relaxed);
+    // Both halves must tokenize, or the event contributes NO token data — a
+    // partial pair would make `in - out` a difference between two different
+    // measurements.
+    if let Some(count) = TOKEN_COUNTER.get()
+        && let (Some(tin), Some(tout)) = (count(before), count(after))
+    {
+        m.measured_tokens_in_total
+            .fetch_add(tin as u64, Ordering::Relaxed);
+        m.measured_tokens_out_total
+            .fetch_add(tout as u64, Ordering::Relaxed);
+        m.token_measured_event_count
+            .fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Records one routing event by byte count.
+///
+/// The routed output lives on disk (only its size is known in memory), so this
+/// event contributes exact bytes and **no** tokens — which is why coverage is
+/// reported next to the totals instead of being assumed complete.
+pub fn record_routing_savings(bytes_in: u64, bytes_out: u64) {
+    let m = global();
+    m.routed_bytes_in_total.fetch_add(bytes_in, Ordering::Relaxed);
+    m.routed_bytes_out_total
+        .fetch_add(bytes_out, Ordering::Relaxed);
+    m.savings_event_count.fetch_add(1, Ordering::Relaxed);
 }
 
 /// Records one fallback caused by a sandbox execution timeout.

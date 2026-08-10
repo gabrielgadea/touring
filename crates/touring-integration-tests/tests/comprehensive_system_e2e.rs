@@ -9,7 +9,7 @@
 //! | Terminal job cache | touring-hooks::shared::terminal_job_cache | Moka store/lookup/forget |
 //! | Tantivy BM25 | touring-hooks::tantivy_index | Symbol index + search + fuzzy + suggest |
 //! | Functional wiring | touring-hooks::functional_wiring | Signature extraction + chain detection |
-//! | rkyv IPC | touring-rkyv::ipc | Frame/unframe roundtrip (request + response) |
+//! | rkyv IPC | touring-touring_rkyv::ipc | Frame/unframe roundtrip (request + response) |
 //! | AgenticRL belief | touring-hooks::agentic_rl | ObservableState encode + BeliefState update |
 //! | AgenticRL policy | touring-hooks::agentic_rl | PolicyNetwork forward → valid distribution |
 //! | Erickson NLP | touring-offensive | extract_with_relations → PopulationResult |

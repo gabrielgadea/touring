@@ -1,13 +1,16 @@
 //! Round-trip serialization tests for touring-rkyv templates.
 //!
 //! RKYV-4b: Verifies all 13 Archived types can:
-//! 1. Serialize via `rkyv::to_bytes`
-//! 2. Deserialize to owned type via `rkyv::Deserialize::deserialize`
+//! 1. Serialize via `touring_rkyv::to_bytes`
+//! 2. Deserialize to owned type via `touring_rkyv::deserialize`
 //!
-//! Note: byte validation via `check_archived_root` requires `#[archive(check_bytes)]`
-//! which not all types have. These tests verify the core serialize→deserialize pipeline.
+//! These tests verify the core serialize→deserialize pipeline. They go through
+//! the FAÇADE on purpose (`touring_rkyv::*`, never `rkyv::*` directly): since the
+//! 0.7→0.8 migration the façade's adapters are what preserve the old call shape,
+//! so routing the round-trip through them makes this suite the regression guard
+//! for the adapters themselves — a test that bypassed them would keep passing
+//! while every consumer broke.
 
-use rkyv::Deserialize;
 use touring_rkyv::templates::*;
 
 /// Verify: serialize + deserialize all succeed for a type.
@@ -17,11 +20,12 @@ macro_rules! round_trip_test {
         fn $name() {
             let original: $type = $value;
             // Serialize
-            let bytes = rkyv::to_bytes::<$type, 8192>(&original).unwrap();
-            // Deserialize to owned type (unsafe required by rkyv)
-            let archived = unsafe { rkyv::archived_root::<$type>(&bytes) };
-            let _deserialized: $type =
-                Deserialize::<$type, _>::deserialize(archived, &mut rkyv::Infallible).unwrap();
+            let bytes = touring_rkyv::to_bytes::<$type, 8192>(&original).unwrap();
+            // Zero-copy access — safe here because the bytes were just produced
+            // by `to_bytes` above, which is exactly the contract `archived_root`
+            // documents.
+            let archived = unsafe { touring_rkyv::archived_root::<$type>(&bytes) };
+            let _deserialized: $type = touring_rkyv::deserialize::<$type>(archived).unwrap();
         }
     };
 }

@@ -381,8 +381,8 @@ impl EventBuffer {
 /// Event record optimized for rkyv zero-copy serialization.
 /// Used for IPC between Touring processes (NOT for Claude Code hook boundary).
 #[derive(rkyv::Archive, rkyv::Deserialize, rkyv::Serialize, Debug, Clone)]
-#[archive(compare(PartialEq), check_bytes)]
-#[archive_attr(derive(Debug))]
+#[rkyv(compare(PartialEq))]
+#[rkyv(derive(Debug))]
 pub struct EventRecord {
     /// Session the event belongs to.
     pub session_id: String,
@@ -426,7 +426,7 @@ impl EsaaRkyvReader {
                 size: self.mmap.len(),
             });
         }
-        rkyv::check_archived_root::<EventRecord>(&self.mmap[offset..])
+        touring_rkyv::check_archived_root::<EventRecord>(&self.mmap[offset..])
             .map_err(|e| EsaaReaderError::Validate(e.to_string()))
     }
 
@@ -436,14 +436,14 @@ impl EsaaRkyvReader {
     ///
     /// - `offset` must be within bounds of the memory-mapped region.
     /// - The data at `offset` must be a valid `rkyv`-archived `EventRecord`,
-    ///   i.e., it must have been produced by `rkyv::to_bytes::<EventRecord, _>()`.
+    ///   i.e., it must have been produced by `touring_rkyv::to_bytes::<EventRecord, _>()`.
     /// - The archived data must be properly aligned for `ArchivedEventRecord`.
     #[allow(clippy::indexing_slicing)]
     pub unsafe fn read_unchecked(&self, offset: usize) -> &ArchivedEventRecord {
         // SAFETY: per this fn's `# Safety` contract, the caller guarantees `offset`
         // is in bounds and the bytes there are a valid, aligned `rkyv`-archived
         // `EventRecord` — exactly the preconditions `archived_root` requires.
-        unsafe { rkyv::archived_root::<EventRecord>(&self.mmap[offset..]) }
+        unsafe { touring_rkyv::archived_root::<EventRecord>(&self.mmap[offset..]) }
     }
 
     /// Get the total size of the mmap'd file.
@@ -458,8 +458,10 @@ impl EsaaRkyvReader {
 }
 
 /// Serialize an EventRecord to bytes for writing to an rkyv file.
-pub fn serialize_event_record(record: &EventRecord) -> Result<rkyv::AlignedVec, EsaaReaderError> {
-    rkyv::to_bytes::<_, 256>(record).map_err(|e| EsaaReaderError::Serialize(e.to_string()))
+pub fn serialize_event_record(
+    record: &EventRecord,
+) -> Result<touring_rkyv::AlignedVec, EsaaReaderError> {
+    touring_rkyv::to_bytes::<_, 256>(record).map_err(|e| EsaaReaderError::Serialize(e.to_string()))
 }
 
 /// Errors returned by the [`EsaaRkyvReader`] zero-copy reader and the
@@ -913,7 +915,7 @@ mod tests {
             timestamp_ms: 1_700_000_000_000,
         };
         let bytes = serialize_event_record(&record).unwrap();
-        let archived = rkyv::check_archived_root::<EventRecord>(&bytes).unwrap();
+        let archived = touring_rkyv::check_archived_root::<EventRecord>(&bytes).unwrap();
         assert_eq!(archived.tool_name.as_str(), "Read");
         assert_eq!(archived.latency_ms, 42);
         assert_eq!(archived.cila_level, 2);

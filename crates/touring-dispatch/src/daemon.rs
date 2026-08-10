@@ -1029,6 +1029,31 @@ async fn handle_connection_async(stream: tokio::net::UnixStream, runtime: &Runti
     .await;
 }
 
+/// A protocol-level failure the CLIENT can actually diagnose.
+///
+/// `daemon_client::daemon_failure_message` prints the payload's `error` field
+/// when there is one — but these paths used to answer with an EMPTY payload, so
+/// a real failure reached the operator as "Daemon returned success=false (empty
+/// response payload)": the exact dead end that message was written to avoid.
+///
+/// Observed 09/08/2026: `memory recall` failing this way inside a loaded
+/// `cargo test --workspace` (`e2e_diary::test_diary_fts5_searchable`), passing
+/// 3/3 isolated — so the one occurrence that mattered left nothing to act on.
+/// Reason strings are bounded: a malformed request must never echo an unbounded
+/// payload back through the log.
+fn protocol_failure(reason: impl std::fmt::Display) -> DaemonResponse {
+    const MAX_REASON: usize = 300;
+    let full = reason.to_string();
+    let mut bounded: String = full.chars().take(MAX_REASON).collect();
+    if full.chars().count() > MAX_REASON {
+        bounded.push('…');
+    }
+    DaemonResponse {
+        output: serde_json::json!({ "error": bounded }).to_string(),
+        success: false,
+    }
+}
+
 /// Legacy JSON path — reads a newline-delimited JSON `DaemonRequest`.
 async fn handle_json_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
@@ -1039,21 +1064,21 @@ where
 {
     let mut line = String::new();
     match reader.read_line(&mut line).await {
-        Ok(0) | Err(_) => {
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+        Ok(0) => {
+            return protocol_failure("client closed the connection before sending a request");
+        }
+        Err(e) => {
+            return protocol_failure(format_args!("reading the request line: {e} ({:?})", e.kind()));
         }
         Ok(_) => {}
     }
 
     match serde_json::from_str::<DaemonRequest>(line.trim()) {
         Ok(req) => dispatch_request_async(req, runtime).await,
-        Err(_) => DaemonResponse {
-            output: String::new(),
-            success: false,
-        },
+        Err(e) => protocol_failure(format_args!(
+            "malformed DaemonRequest JSON: {e} (received {} bytes)",
+            line.len()
+        )),
     }
 }
 
@@ -1069,10 +1094,10 @@ where
 {
     match serde_json::from_str::<DaemonRequest>(line.trim()) {
         Ok(req) => dispatch_request_async(req, runtime).await,
-        Err(_) => DaemonResponse {
-            output: String::new(),
-            success: false,
-        },
+        Err(e) => protocol_failure(format_args!(
+            "malformed DaemonRequest JSON (pre-read line): {e} (received {} bytes)",
+            line.len()
+        )),
     }
 }
 
@@ -1110,7 +1135,17 @@ where
     }
     if header[..4] != touring_rkyv::ipc::IPC_MAGIC {
         record_rkyv_parse_error();
-        return rkyv_error("bad magic");
+        // Nomear a causa em vez de dizer só "bad magic": durante a janela de
+        // rollout da migração rkyv 0.8, o peer defasado é a explicação mais
+        // provável, e um bridge MCP de outra sessão CC pode sobreviver ao
+        // restart do daemon.
+        return if header[..4] == touring_rkyv::ipc::IPC_MAGIC_V1 {
+            rkyv_error(
+                "bad magic: peer speaks the v1 wire format (pre-rkyv-0.8 build) — rebuild/restart it",
+            )
+        } else {
+            rkyv_error("bad magic")
+        };
     }
     let body_len = u32::from_le_bytes(header[4..8].try_into().expect("infallible slice")) as usize;
 
@@ -1183,14 +1218,24 @@ where
     R: tokio::io::AsyncRead + Unpin,
 {
     use tokio::io::AsyncReadExt;
-    use touring_rkyv::saga_ipc::{SagaMessage, unframe_saga};
+    use touring_rkyv::saga_ipc::{SAGA_FRAME_LEN, SAGA_MAGIC, SAGA_MAGIC_V1, SagaMessage};
 
-    let mut header = [0u8; 8];
+    let mut header = [0u8; SAGA_FRAME_LEN];
     if reader.read_exact(&mut header).await.is_err() {
         return rkyv_error("saga: read header");
     }
-    if &header[..4] != b"SAGA" {
-        return rkyv_error("saga: bad magic");
+    // Comparar com a CONSTANTE, não com um literal: até 2026-08-07 este sítio
+    // usava `b"SAGA"` enquanto o irmão rkyv logo acima já usava `IPC_MAGIC` —
+    // uma assimetria que faria qualquer versionamento do magic passar batido
+    // exatamente aqui.
+    if header[..4] != SAGA_MAGIC {
+        return if header[..4] == SAGA_MAGIC_V1 {
+            rkyv_error(
+                "saga: bad magic: peer speaks the v1 wire format (pre-rkyv-0.8 build) — rebuild/restart it",
+            )
+        } else {
+            rkyv_error("saga: bad magic")
+        };
     }
     let body_len = u32::from_le_bytes(header[4..8].try_into().expect("infallible")) as usize;
     const MAX_SAGA_BODY: usize = 2 * 1024 * 1024;
@@ -1203,13 +1248,16 @@ where
         return rkyv_error("saga: read body");
     }
 
-    // Parse the saga message (body contains the rkyv-serialized SagaMessage)
-    let msg: SagaMessage = match unframe_saga(&body) {
-        Ok(body_bytes) => match rkyv::from_bytes::<SagaMessage>(body_bytes) {
-            Ok(m) => m,
-            Err(_) => return rkyv_error("saga: deserialize"),
-        },
-        Err(e) => return rkyv_error(&format!("saga: unframe: {e}")),
+    // Parse the saga message. `body` JÁ é o arquivo rkyv: o header (magic+len)
+    // foi consumido e validado acima, exatamente como o irmão
+    // `handle_rkyv_request_async` faz. Até 2026-08-07 este ponto chamava
+    // `unframe_saga(&body)`, que espera o frame COMPLETO — um duplo-unframe que
+    // fazia a checagem de magic recair sobre os bytes do arquivo e, portanto,
+    // rejeitava TODA mensagem saga. Passou despercebido porque `frame_saga` não
+    // tem cliente de produção; o caminho nunca foi exercido de verdade.
+    let msg: SagaMessage = match touring_rkyv::from_bytes::<SagaMessage>(&body) {
+        Ok(m) => m,
+        Err(_) => return rkyv_error("saga: deserialize"),
     };
 
     // Get the first available project runtime. In single-project mode this is
@@ -1320,11 +1368,8 @@ where
 
     // Read the full ACP message (already consumed first line in detection)
     let mut line = String::new();
-    if reader.read_line(&mut line).await.is_err() {
-        return DaemonResponse {
-            output: String::new(),
-            success: false,
-        };
+    if let Err(e) = reader.read_line(&mut line).await {
+        return protocol_failure(format_args!("reading the ACP message: {e} ({:?})", e.kind()));
     }
 
     let msg = match acp::parse_message(line.trim()) {
@@ -1381,10 +1426,7 @@ where
     let _rt = match rt_guard.values().next() {
         Some(r) => r,
         None => {
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+            return protocol_failure("no project runtime is registered in this daemon");
         }
     };
 
@@ -1523,10 +1565,10 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
                     Ok(rt) => rt,
                     Err(e) => {
                         eprintln!("[touring-daemon] init for {}: {e}", req.project_root);
-                        return DaemonResponse {
-                            output: String::new(),
-                            success: false,
-                        };
+                        return protocol_failure(format_args!(
+                            "initialising the runtime for {}: {e}",
+                            req.project_root
+                        ));
                     }
                 };
                 // Initialize async knowledge pool for non-blocking SQLite operations
@@ -1575,18 +1617,24 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
         Ok(Ok(p)) => p,
         Ok(Err(_)) => {
             // Semaphore closed — daemon is shutting down.
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+            return protocol_failure("the daemon is shutting down (project semaphore closed)");
         }
         Err(_) => {
             // Timed out — project is saturated. Fail fast instead of leaking FDs.
+            //
+            // Shedding the request is correct; shedding it SILENTLY was not.
+            // This is the branch behind the 09/08/2026 failures: under a full
+            // `index rebuild` and under a loaded `cargo test --workspace`, a
+            // `memory recall` was dropped here and the operator saw only
+            // "Daemon returned success=false (empty response payload)" — no way
+            // to tell saturation from a wedged memory subsystem. It now names
+            // itself, so the caller can retry or raise the budget.
             tracing::debug!("[touring-daemon] per-project semaphore timeout — dropping request");
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+            return protocol_failure(format_args!(
+                "project saturated: no handler slot within {}s (concurrent requests are queued; \
+                 retry, or raise the budget with `touring --timeout <secs> …`)",
+                REQUEST_TIMEOUT.as_secs()
+            ));
         }
     };
 

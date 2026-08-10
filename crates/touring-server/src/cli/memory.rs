@@ -73,6 +73,18 @@ enum MemoryCmd {
         /// Entry type (default: lesson).
         #[arg(long = "type", default_value = "lesson")]
         entry_type: String,
+        /// Weight in 1..=5. Omit when unjudged — absent stays NULL, and recall
+        /// ranks an unweighted entry by relevance alone rather than punishing
+        /// it for never having been scored.
+        #[arg(long)]
+        importance: Option<i64>,
+        /// Keep this entry at the top of every matching recall.
+        #[arg(long)]
+        pinned: bool,
+        /// Key of the entry this one corrects. The old entry stays in the table
+        /// for audit and stops surfacing — retirement, not deletion.
+        #[arg(long)]
+        supersedes: Option<String>,
     },
     /// List entries with optional pagination and sort control.
     List {
@@ -145,6 +157,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             entry_type,
             reward,
             outcome_context,
+            importance,
+            pinned,
+            supersedes,
         } => {
             if key.is_empty() {
                 anyhow::bail!(
@@ -169,6 +184,11 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 // "this case failed".
                 "reward": reward,
                 "outcome_context": outcome_context,
+                // S4: same NULL discipline as `reward` — an unweighted entry is
+                // unjudged, not judged-as-average.
+                "importance": importance,
+                "pinned": pinned,
+                "supersedes": supersedes,
             });
             let output = daemon_query("cli-memory-store", payload)?;
             println!("{output}");

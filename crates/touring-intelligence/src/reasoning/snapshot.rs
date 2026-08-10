@@ -73,8 +73,7 @@ const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
     serde::Serialize,
     serde::Deserialize,
 )]
-#[archive(check_bytes)]
-#[archive_attr(derive(Debug))]
+#[rkyv(derive(Debug))]
 pub struct GotNodeSnapshot {
     /// Node ID (u64 serialized as string for rkyv compatibility).
     pub id: u64,
@@ -100,8 +99,7 @@ pub struct GotNodeSnapshot {
     serde::Serialize,
     serde::Deserialize,
 )]
-#[archive(check_bytes)]
-#[archive_attr(derive(Debug))]
+#[rkyv(derive(Debug))]
 pub struct GoTSnapshot {
     /// Schema version for forward-compatibility checks.
     pub version: u32,
@@ -160,7 +158,7 @@ impl GoTSnapshot {
     ///
     /// Returns a descriptive error if serialization fails.
     pub fn to_bytes(&self) -> Result<Vec<u8>, GoTSnapshotError> {
-        rkyv::to_bytes::<_, 4096>(self)
+        touring_rkyv::to_bytes::<_, 4096>(self)
             .map(|b| b.to_vec())
             .map_err(|e| {
                 GoTSnapshotError::Serialize(format!("GoTSnapshot rkyv serialization failed: {e}"))
@@ -176,7 +174,7 @@ impl GoTSnapshot {
     ///
     /// Returns error on validation failure, schema mismatch, or deserialization failure.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, GoTSnapshotError> {
-        let archived = rkyv::check_archived_root::<Self>(bytes).map_err(|e| {
+        let archived = touring_rkyv::check_archived_root::<Self>(bytes).map_err(|e| {
             GoTSnapshotError::Validate(format!("GoTSnapshot rkyv validation failed: {e}"))
         })?;
 
@@ -187,10 +185,9 @@ impl GoTSnapshot {
             )));
         }
 
-        let snapshot: Self = rkyv::Deserialize::deserialize(archived, &mut rkyv::Infallible)
-            .map_err(|e| {
-                GoTSnapshotError::Deserialize(format!("GoTSnapshot deserialization failed: {e}"))
-            })?;
+        let snapshot: Self = touring_rkyv::deserialize(archived).map_err(|e| {
+            GoTSnapshotError::Deserialize(format!("GoTSnapshot deserialization failed: {e}"))
+        })?;
 
         Ok(snapshot)
     }

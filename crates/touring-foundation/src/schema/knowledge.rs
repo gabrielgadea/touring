@@ -175,6 +175,27 @@ CREATE INDEX IF NOT EXISTS idx_wiring_orphans
     ON wiring_map(consumer_file) WHERE consumer_file IS NULL;
 CREATE INDEX IF NOT EXISTS idx_wiring_module
     ON wiring_map(module_file);
+
+-- S1 (2026-08-07): imports the resolver could NOT map to a producer file.
+-- A separate table, not a synthetic wiring_map row: an unresolved import is
+-- the ABSENCE of an edge, and storing it beside real edges risks it being read
+-- as a consumer — which would erase true orphans and invert the metric it
+-- exists to explain. Separation makes that contamination structurally
+-- impossible rather than merely unlikely.
+CREATE TABLE IF NOT EXISTS wiring_unresolved (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    module_path TEXT NOT NULL,
+    symbol_name TEXT NOT NULL,
+    consumer_file TEXT NOT NULL,
+    import_line INTEGER,
+    language TEXT NOT NULL DEFAULT 'rust',
+    class TEXT NOT NULL DEFAULT 'workspace_unresolved',
+    observed_at TEXT DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wiring_unresolved_unique
+    ON wiring_unresolved(module_path, symbol_name, consumer_file);
+CREATE INDEX IF NOT EXISTS idx_wiring_unresolved_consumer
+    ON wiring_unresolved(consumer_file);
 -- PLT-2026-06-02: dedicated index for the `WHERE workspace_root = ?` filter
 -- used by every cycle-detection / orphan / chain query post-migration.
 CREATE INDEX IF NOT EXISTS idx_wiring_workspace_root

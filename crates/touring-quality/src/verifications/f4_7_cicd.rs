@@ -18,8 +18,8 @@
 //!
 //! **Scope**: per-file; rolls up as `AggKind::WeightedLoc`. ADVISORY-tier.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -31,14 +31,8 @@ impl Verification for F4_7_Cicd {
     fn id(&self) -> DimId {
         DimId::F4_7
     }
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_f4_7_cicd_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_f4_7_cicd_dim(target)
     }
 }
 
@@ -66,11 +60,7 @@ fn analyze_f4_7_cicd_dim(target: &Path) -> Result<(f32, String)> {
     let lang = crate::verifications::lang_from_ext(target);
     let r = analyze_cicd(&raw, lang);
     let value = score_cicd(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {} ({}x)", m, c))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "FF4_7: {} CI/CD Pipeline smell(s) over {} lines ({lang}) -- score={value:.3}          (touring-analysis analyze_cicd: see header for detector catalog){top}",
         r.violations, r.total_lines

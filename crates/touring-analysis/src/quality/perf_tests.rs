@@ -52,27 +52,7 @@ const PERF_TEST_NAME: &[&[u8]] = &[b"perf(", b"performance(", b"bench("];
 
 /// Findings of a single performance-test coverage analysis pass: the
 /// canonical "no benchmark / regression-guard" smell rolled up per file.
-#[derive(Debug, Clone, Default)]
-pub struct PerfTestsReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl PerfTestsReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type PerfTestsReport = crate::quality::SmellReport;
 
 /// Count the number of times `needle` appears in `bytes` outside
 /// non-executable regions (comments + `#[cfg(test)]`).

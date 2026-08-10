@@ -15,9 +15,15 @@ serde_json = { workspace = true }
 proptest = { workspace = true }
 
 [features]
+# P2 da migração 0.8 (RUSTSEC-2026-0235): o rkyv 0.8 renomeou a feature de
+# validação — `validation` deixou de existir e o mesmo papel passou a ser feito
+# por `bytecheck`. O nome `validation` é PRESERVADO aqui como feature DESTA
+# fachada para que nenhum consumidor precise mudar: ele apenas passa a encaminhar
+# para `rkyv/bytecheck`. É o contrato da fachada em ação — a troca acontece neste
+# arquivo, não nos crates que dependem dela.
 default = ["std", "validation"]
 std = ["rkyv/std"]
-validation = ["rkyv/validation"]
+validation = ["rkyv/bytecheck"]
 
 [[bench]]
 name = "ipc_vs_json"

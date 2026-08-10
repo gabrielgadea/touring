@@ -182,6 +182,12 @@ fn test_snapshot_zero_ratio_when_no_calls() {
         adoption_antipattern_count: 0,
         pillar_induction_emitted_count: 0,
         pillar_induction_followed_count: 0,
+        // Exhaustive literals here were incidental, not an anti-drift
+        // device: adding 8 measured-savings fields (A2) broke two tests
+        // that assert ratios and care about none of them. The mapping
+        // that MUST stay exhaustive is `capture()`, and the compiler
+        // already enforces that one.
+        ..Default::default()
     };
     assert_eq!(snap.pre_edit_fast_ratio, 0.0);
     assert_eq!(snap.total_invocations, 0);
@@ -348,6 +354,12 @@ fn test_snapshot_ratio_50_percent() {
         adoption_antipattern_count: 0,
         pillar_induction_emitted_count: 0,
         pillar_induction_followed_count: 0,
+        // Exhaustive literals here were incidental, not an anti-drift
+        // device: adding 8 measured-savings fields (A2) broke two tests
+        // that assert ratios and care about none of them. The mapping
+        // that MUST stay exhaustive is `capture()`, and the compiler
+        // already enforces that one.
+        ..Default::default()
     };
     assert!((snap.pre_edit_fast_ratio - 0.5).abs() < 1e-9);
     assert!((snap.pre_write_fast_ratio - 0.7).abs() < 1e-9);

@@ -120,30 +120,7 @@ fn select_star(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
 }
 
 /// Per-file DB-performance analysis (parallel shape to [`super::idioms::IdiomReport`]).
-#[derive(Debug, Clone, Default)]
-pub struct DbPerfReport {
-    /// Total DB-performance anti-patterns found in production code.
-    pub violations: usize,
-    /// Weighted sum (each anti-pattern scaled by its category weight).
-    pub weighted_total: f32,
-    /// Production lines considered (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired category, for evidence (highest count first).
-    pub findings: Vec<(String, usize)>,
-}
-
-impl DbPerfReport {
-    /// Record `count` occurrences of one anti-pattern category with `weight`.
-    /// A zero count is a no-op.
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count == 0 {
-            return;
-        }
-        self.violations += count;
-        self.weighted_total += weight * count as f32;
-        self.findings.push((message.to_string(), count));
-    }
-}
+pub type DbPerfReport = crate::quality::SmellReport;
 
 /// Analyze DB-performance anti-patterns for `lang`. Unknown languages still get
 /// the language-agnostic `SELECT *` check (SQL is embedded in strings) but no

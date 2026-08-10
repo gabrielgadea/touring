@@ -17,7 +17,7 @@ budget_tokens = 0
 
 [node.arm_marker]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope '{{vars.scope}}' --bundle '{{vars.bundle}}' --cwd '{{vars.scope}}'"]
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
 timeout_ms = 30000
 idempotent = true
 on_pass = "recall"
@@ -25,7 +25,7 @@ on_fail = "recall"          # marker write is best-effort; the flow still runs
 
 [node.recall]
 type = "code"
-command = ["bash", "-c", "touring memory recall '{{vars.topic}}' 2>&1 | head -c 1800"]
+command = ["bash", "-c", "touring memory recall \"$1\" 2>&1 | head -c 1800", "--", "{{vars.topic}}"]
 timeout_ms = 120000
 idempotent = true
 on_pass = "diagnose"
@@ -33,7 +33,7 @@ on_fail = "diagnose"        # empty recall is a valid result, never a blocker
 
 [node.diagnose]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope '{{vars.scope}}' --topic '{{vars.topic}}' --bundle '{{vars.bundle}}' --json 2>&1 | tail -c 1800"]
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope \"$1\" --topic \"$2\" --bundle \"$3\" --json 2>&1 | tail -c 1800", "--", "{{vars.scope}}", "{{vars.topic}}", "{{vars.bundle}}"]
 timeout_ms = 900000
 idempotent = true
 on_pass = "explore_loop"
@@ -53,7 +53,7 @@ on_fail = "__fail__"
 
 [node.explore_round]
 type = "code"
-command = ["bash", "-c", "touring explore '{{vars.topic}}' --scope '{{vars.scope}}' 2>&1 | tail -c 1800"]
+command = ["bash", "-c", "touring explore \"$1\" --scope \"$2\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}", "{{vars.scope}}"]
 timeout_ms = 900000
 idempotent = true
 

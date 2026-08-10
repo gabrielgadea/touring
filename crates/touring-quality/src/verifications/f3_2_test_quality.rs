@@ -29,8 +29,8 @@
 //!
 //! **Scope**: per-file; rolls up as `AggKind::WeightedLoc`. ADVISORY-tier.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -42,14 +42,8 @@ impl Verification for F3_2_TestQuality {
     fn id(&self) -> DimId {
         DimId::F3_2
     }
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_test_quality_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_test_quality_dim(target)
     }
 }
 
@@ -68,11 +62,7 @@ fn analyze_test_quality_dim(target: &Path) -> Result<(f32, String)> {
     let lang = crate::verifications::lang_from_ext(target);
     let r = analyze_test_quality(&raw, lang);
     let value = score_test_quality(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F3.2: {} test-quality gap(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_test_quality: no-assert-test / trivial-assert / \

@@ -145,8 +145,7 @@ mod gpu {
     use std::marker::PhantomData;
     /// Zero-copy serializable request for GPU embedding service via UDS.
     #[derive(Debug, Archive, Serialize, Deserialize)]
-    #[archive(check_bytes)]
-    #[archive_attr(derive(Debug))]
+    #[rkyv(derive(Debug))]
     pub struct IpcEmbedRequest {
         /// Texts to embed. The GPU service processes them in one
         /// batch (subject to `batch_size` slicing).
@@ -160,8 +159,7 @@ mod gpu {
     }
     /// Zero-copy serializable response from GPU embedding service via UDS.
     #[derive(Debug, Archive, Serialize, Deserialize)]
-    #[archive(check_bytes)]
-    #[archive_attr(derive(Debug))]
+    #[rkyv(derive(Debug))]
     pub struct IpcEmbedResponse {
         /// One embedding vector per input text. Order matches
         /// `IpcEmbedRequest::texts`.
@@ -241,7 +239,7 @@ mod gpu {
                 batch_size: 32,
                 max_length: 512,
             };
-            let bytes = rkyv::to_bytes::<_, 256>(&request).map_err(|e| {
+            let bytes = touring_rkyv::to_bytes::<_, 256>(&request).map_err(|e| {
                 self.healthy.store(false, Ordering::Relaxed);
                 super::EmbeddingError::ParseError(format!("rkyv serialize: {}", e))
             })?;
@@ -267,7 +265,7 @@ mod gpu {
                 self.healthy.store(false, Ordering::Relaxed);
                 super::EmbeddingError::HttpError(format!("uds read body: {}", e))
             })?;
-            let resp: IpcEmbedResponse = rkyv::from_bytes(&resp_buf).map_err(|e| {
+            let resp: IpcEmbedResponse = touring_rkyv::from_bytes(&resp_buf).map_err(|e| {
                 self.healthy.store(false, Ordering::Relaxed);
                 super::EmbeddingError::ParseError(format!("rkyv deserialize: {}", e))
             })?;

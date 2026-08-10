@@ -15,9 +15,44 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// Default daemon socket read timeout, in seconds.
+///
+/// Kept modest so a genuinely wedged daemon surfaces quickly. Operations known
+/// to outlast it raise their own budget via [`raise_timeout_floor`], which never
+/// overrides an explicit `--timeout`.
+pub(crate) const DEFAULT_DAEMON_READ_TIMEOUT_SECS: u64 = 120;
+
 /// Daemon socket read timeout in seconds. Set by `--timeout` CLI flag.
 /// Default: 120s (was 30s — caused EOF on heavy ops like index rebuild).
-pub static DAEMON_READ_TIMEOUT_SECS: AtomicU64 = AtomicU64::new(120);
+pub static DAEMON_READ_TIMEOUT_SECS: AtomicU64 = AtomicU64::new(DEFAULT_DAEMON_READ_TIMEOUT_SECS);
+
+/// Set by `--timeout`, so [`raise_timeout_floor`] can tell an operator's choice
+/// from the untouched default.
+///
+/// A sentinel comparison against `DEFAULT_DAEMON_READ_TIMEOUT_SECS` cannot:
+/// `--timeout 120` is byte-identical to the default and would be silently
+/// raised to the floor — the exact opposite of the "explicit choice always
+/// wins" contract this module documents.
+static TIMEOUT_SET_BY_OPERATOR: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Record that the operator passed `--timeout` explicitly.
+pub fn mark_timeout_explicit() {
+    TIMEOUT_SET_BY_OPERATOR.store(true, Ordering::Relaxed);
+}
+
+/// Raise the read timeout to `secs` **unless the operator set one** — an
+/// explicit `--timeout` always wins, including `--timeout 120`.
+///
+/// For a known-heavy call, a default tuned for "is the daemon alive?" is the
+/// wrong budget. `index rebuild` on this very workspace (2065 files) ran past
+/// 120s and the CLI abandoned a rebuild that was progressing normally.
+pub fn raise_timeout_floor(secs: u64) {
+    if TIMEOUT_SET_BY_OPERATOR.load(Ordering::Relaxed) {
+        return;
+    }
+    DAEMON_READ_TIMEOUT_SECS.store(secs, Ordering::Relaxed);
+}
 
 // ── Socket client ───────────────────────────────────────────────────────
 
@@ -140,13 +175,38 @@ fn send_daemon_request(
         stream.flush()?;
     }
     let mut response_bytes = Vec::new();
-    stream.read_to_end(&mut response_bytes)?;
+    if let Err(e) = stream.read_to_end(&mut response_bytes) {
+        return Err(read_failure(hook, &e, read_timeout));
+    }
     let response: DaemonResponse = parse_daemon_response(&response_bytes)
         .map_err(|e| anyhow::anyhow!("Failed to parse daemon response: {}", e))?;
     if !response.success {
         anyhow::bail!("{}", daemon_failure_message(&response.output));
     }
     Ok(response.output)
+}
+
+/// Name the cause of a failed socket read instead of forwarding the bare errno.
+///
+/// A read timeout arrives as `WouldBlock`, whose `Display` is "Resource
+/// temporarily unavailable (os error 11)". Propagated verbatim, that sent an
+/// investigation after file descriptors and memory pressure when the real story
+/// was `index rebuild` running past the client's budget — the elapsed time was
+/// 2m0.058s against a 120s timeout, and the daemon was working the whole time.
+///
+/// Same lesson as [`daemon_failure_message`] one branch over: the failure path
+/// that carries no context is the one that costs the hours.
+fn read_failure(hook: &str, err: &std::io::Error, timeout_secs: u64) -> anyhow::Error {
+    use std::io::ErrorKind;
+    if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) {
+        return anyhow::anyhow!(
+            "`{hook}` returned no response within {timeout_secs}s (socket read timeout). \
+             The daemon may still be running the request — heavy operations such as a full \
+             `index rebuild` outlast the default on large workspaces. Retry with a larger \
+             budget: `touring --timeout <secs> …`."
+        );
+    }
+    anyhow::anyhow!("reading the daemon response for `{hook}`: {err}")
 }
 
 /// Build a *diagnosable* failure message from the daemon's response payload.
@@ -178,6 +238,92 @@ fn daemon_failure_message(output: &str) -> String {
         snippet.push('…');
     }
     format!("{PREFIX}: {snippet}")
+}
+
+#[cfg(test)]
+mod read_failure_tests {
+    use super::{
+        DAEMON_READ_TIMEOUT_SECS, DEFAULT_DAEMON_READ_TIMEOUT_SECS, mark_timeout_explicit,
+        raise_timeout_floor, read_failure,
+    };
+    use std::sync::atomic::Ordering;
+
+    /// The bug: a read timeout surfaces as `WouldBlock`, whose Display is
+    /// "Resource temporarily unavailable (os error 11)". Verbatim, that reads as
+    /// resource exhaustion and hides both the real cause and the existing knob.
+    #[test]
+    fn a_read_timeout_says_timeout_and_names_the_knob() {
+        let err = std::io::Error::new(std::io::ErrorKind::WouldBlock, "eagain");
+        let msg = read_failure("cli-index-rebuild", &err, 120).to_string();
+        assert!(msg.contains("120s"), "{msg}");
+        assert!(msg.contains("timeout"), "{msg}");
+        assert!(msg.contains("--timeout"), "{msg}");
+        assert!(msg.contains("cli-index-rebuild"), "{msg}");
+        assert!(
+            !msg.contains("Resource temporarily unavailable"),
+            "the raw errno is exactly what must not reach the operator: {msg}"
+        );
+    }
+
+    /// A non-timeout read failure keeps its own cause — the fix must not flatten
+    /// every error into "probably a timeout".
+    #[test]
+    fn other_read_failures_keep_their_cause() {
+        let err = std::io::Error::new(std::io::ErrorKind::ConnectionReset, "peer reset");
+        let msg = read_failure("cli-status", &err, 120).to_string();
+        assert!(msg.contains("peer reset"), "{msg}");
+        assert!(!msg.contains("--timeout"), "{msg}");
+    }
+
+    /// The floor lifts the default, and an operator's explicit `--timeout` wins.
+    ///
+    /// Serializado com [`explicit_timeout_equal_to_the_default_still_wins`]: ambos
+    /// mexem no MESMO par de estáticos, e `cargo test` roda testes em paralelo —
+    /// sem o mutex um zeraria a premissa do outro de forma intermitente.
+    #[test]
+    fn timeout_floor_lifts_the_default_but_never_an_explicit_choice() {
+        let _g = TIMEOUT_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_timeout_state();
+        raise_timeout_floor(1800);
+        assert_eq!(DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed), 1800);
+
+        reset_timeout_state();
+        DAEMON_READ_TIMEOUT_SECS.store(45, Ordering::Relaxed); // as if `--timeout 45`
+        mark_timeout_explicit();
+        raise_timeout_floor(1800);
+        assert_eq!(DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed), 45);
+
+        reset_timeout_state();
+    }
+
+    /// O caso de borda que a versão por sentinela ERRAVA em silêncio.
+    ///
+    /// `raise_timeout_floor` comparava o valor atual com `DEFAULT_…_SECS`; um
+    /// `--timeout 120` é byte-idêntico ao default, então a escolha explícita do
+    /// operador era sobrescrita por 1800 — o oposto do contrato documentado. O
+    /// teste anterior usava 45 e passava: cobria o caso que o autor pensou, não o
+    /// que o PROPÓSITO implica.
+    #[test]
+    fn explicit_timeout_equal_to_the_default_still_wins() {
+        let _g = TIMEOUT_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_timeout_state();
+        DAEMON_READ_TIMEOUT_SECS.store(DEFAULT_DAEMON_READ_TIMEOUT_SECS, Ordering::Relaxed);
+        mark_timeout_explicit(); // `--timeout 120`
+        raise_timeout_floor(1800);
+        assert_eq!(
+            DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed),
+            DEFAULT_DAEMON_READ_TIMEOUT_SECS,
+            "--timeout 120 é uma escolha do operador, não o default intocado"
+        );
+        reset_timeout_state();
+    }
+
+    static TIMEOUT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn reset_timeout_state() {
+        DAEMON_READ_TIMEOUT_SECS.store(DEFAULT_DAEMON_READ_TIMEOUT_SECS, Ordering::Relaxed);
+        super::TIMEOUT_SET_BY_OPERATOR.store(false, Ordering::Relaxed);
+    }
 }
 
 #[cfg(test)]

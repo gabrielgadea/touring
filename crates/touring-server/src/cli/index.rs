@@ -108,6 +108,12 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             println!("{output}");
         }
         IndexCmd::Rebuild { dir } => {
+            // A full rebuild walks the whole tree; on this workspace (2065 source
+            // files) it runs past the 120s default, and the client used to give up
+            // on a rebuild that was progressing normally — reporting the raw
+            // `WouldBlock` errno as "Resource temporarily unavailable". An explicit
+            // `--timeout` still wins over this floor.
+            crate::daemon_client::raise_timeout_floor(1800);
             let payload = match dir {
                 Some(d) => serde_json::json!({ "dir": d }),
                 None => serde_json::json!({}),

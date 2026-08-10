@@ -34,6 +34,13 @@ pub trait Profile: Send + Sync {
 ///
 /// Counter `compression_profile_applied_count` increments for ANY match
 /// (user or built-in) so observability is uniform.
+///
+/// **A2 (2026-08-08)** — every match also records the EXACT bytes in and out
+/// (`record_compression_savings`). This is the site the savings claim was always
+/// about: `ctx_roi` used to multiply the event counter above by an invented
+/// 20_000 bytes, when the actual delta is right here as `raw.len() - out.len()`.
+/// A match that compresses nothing now correctly contributes a zero saving
+/// instead of a fictional 20 KB.
 pub fn compress_for<'a>(tool_name: &str, args: &Value, raw: &'a str) -> Cow<'a, str> {
     if !crate::shared::feature_flags::compression_profiles_enabled() {
         return Cow::Borrowed(raw);
@@ -42,13 +49,17 @@ pub fn compress_for<'a>(tool_name: &str, args: &Value, raw: &'a str) -> Cow<'a, 
     let user_filters = crate::user_filters::load_user_filters();
     if let Some(uf) = crate::user_filters::find_matching_filter(&user_filters, tool_name, args) {
         crate::shared::gate_metrics::record_compression_profile_applied();
-        return crate::user_filters::apply_user_filter(uf, raw);
+        let out = crate::user_filters::apply_user_filter(uf, raw);
+        crate::shared::gate_metrics::record_compression_savings(raw, &out);
+        return out;
     }
     // NEW-1 fallback: built-in registry
     for profile in registry().iter() {
         if profile.applies_to(tool_name, args) {
             crate::shared::gate_metrics::record_compression_profile_applied();
-            return profile.compress(raw);
+            let out = profile.compress(raw);
+            crate::shared::gate_metrics::record_compression_savings(raw, &out);
+            return out;
         }
     }
     Cow::Borrowed(raw)

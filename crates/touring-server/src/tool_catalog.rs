@@ -485,9 +485,7 @@ pub struct ScoredEntry {
 }
 
 /// BM25 term-frequency saturation parameter.
-const BM25_K1: f64 = 1.2;
 /// BM25 length-normalization parameter.
-const BM25_B: f64 = 0.75;
 /// Multiplier when a query term matches the entry's name or keyword list — a
 /// name/keyword hit is a stronger tool-selection signal than a prose hit.
 const FIELD_BOOST: f64 = 2.0;
@@ -571,22 +569,15 @@ fn bm25_score(
     n: f64,
     avgdl: f64,
 ) -> f64 {
-    let dl = doc.len() as f64;
-    let mut score = 0.0_f64;
-    for (t, term) in terms.iter().enumerate() {
-        let tf = doc.iter().filter(|w| *w == term).count() as f64;
-        if df[t] == 0.0 || tf == 0.0 {
-            continue;
-        }
-        let idf = (1.0 + (n - df[t] + 0.5) / (df[t] + 0.5)).ln();
-        let norm = tf * (BM25_K1 + 1.0) / (tf + BM25_K1 * (1.0 - BM25_B + BM25_B * dl / avgdl));
-        let mut term_score = idf * norm;
-        if term_in_name_or_keywords(entry, term) {
-            term_score *= FIELD_BOOST;
-        }
-        score += term_score;
-    }
-    score
+    touring_foundation::text_rank::bm25_score_doc(
+        doc,
+        terms,
+        df,
+        n,
+        avgdl,
+        &|term| term_in_name_or_keywords(entry, term),
+        FIELD_BOOST,
+    )
 }
 
 /// Rank the curated catalog against a natural-language `intent`, returning up to

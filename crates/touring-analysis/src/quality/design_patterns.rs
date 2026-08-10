@@ -168,30 +168,7 @@ fn pattern_needles_for(lang: Lang) -> &'static [PatternRule] {
 }
 
 /// Per-file design-pattern analysis (parallel shape to [`super::idioms::IdiomReport`]).
-#[derive(Debug, Clone, Default)]
-pub struct DesignPatternReport {
-    /// Total design anti-patterns found in production code.
-    pub violations: usize,
-    /// Weighted sum (each anti-pattern scaled by its rule weight).
-    pub weighted_total: f32,
-    /// Production lines considered (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired rule, for evidence (highest count first).
-    pub findings: Vec<(String, usize)>,
-}
-
-impl DesignPatternReport {
-    /// Record `count` occurrences of one anti-pattern with the given `weight`.
-    /// A zero count is a no-op.
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count == 0 {
-            return;
-        }
-        self.violations += count;
-        self.weighted_total += weight * count as f32;
-        self.findings.push((message.to_string(), count));
-    }
-}
+pub type DesignPatternReport = crate::quality::SmellReport;
 
 // ── Structural detectors ──────────────────────────────────────────────────────
 

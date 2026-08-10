@@ -195,30 +195,7 @@ fn input_needles_for(lang: Lang) -> &'static [InputRule] {
 }
 
 /// Per-file input-validation analysis (parallel shape to [`super::idioms::IdiomReport`]).
-#[derive(Debug, Clone, Default)]
-pub struct InputValidationReport {
-    /// Total input-validation anti-patterns found in production code.
-    pub violations: usize,
-    /// Weighted sum (each anti-pattern scaled by its rule weight).
-    pub weighted_total: f32,
-    /// Production lines considered (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired rule, for evidence (highest count first).
-    pub findings: Vec<(String, usize)>,
-}
-
-impl InputValidationReport {
-    /// Record `count` occurrences of one anti-pattern with the given `weight`.
-    /// A zero count is a no-op.
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count == 0 {
-            return;
-        }
-        self.violations += count;
-        self.weighted_total += weight * count as f32;
-        self.findings.push((message.to_string(), count));
-    }
-}
+pub type InputValidationReport = crate::quality::SmellReport;
 
 /// `gets(` (unbounded read, CWE-242) with a word boundary so the *safe*
 /// `fgets(` (a superset of the `gets(` substring) is never flagged.

@@ -3,7 +3,9 @@
 pub mod hybrid;
 pub mod intent;
 
-pub use hybrid::pipeline::{ConfidenceTier, QueryIntent as HybridQueryIntent};
+pub use hybrid::pipeline::{
+    BackendStatus, ConfidenceTier, KeywordSearch, QueryIntent as HybridQueryIntent, SearchStats,
+};
 pub use hybrid::{
     HybridConfig, HybridQuery, HybridScorer, RrfFusion, SearchPipeline, SearchResult,
 };

@@ -25,6 +25,14 @@ fn main() {
     // the same exe path. Must run BEFORE the tokio runtime spawns workers.
     touring_hooks::proc_identity::set_process_name("touring-daemon");
 
+    // A2 (2026-08-08): install the cl100k_base counter into the context-savings
+    // ledger. Registration is free — the BPE table builds lazily on the first
+    // compression/routing event, so a daemon whose routing subsystem never
+    // fires never pays for it. Without this the ledger reports tokens as
+    // `not_measured`, which is the truth, rather than bytes/4 dressed up as a
+    // token count (the pre-A2 behavior). Disable with TOURING_TOKEN_METER=0.
+    touring_hooks::token_meter::install();
+
     // Initialize tracing — same pattern as touring-hook
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)

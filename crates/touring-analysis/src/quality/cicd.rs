@@ -29,29 +29,8 @@ use super::code_regions::{non_executable_regions, offset_suppressed};
 
 const SCALE: f32 = 6.0;
 
-#[derive(Debug, Clone, Default)]
 /// CI/CD-pipeline findings for one workflow file.
-pub struct CicdReport {
-    /// Total raw violation count across all detectors.
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl CicdReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type CicdReport = crate::quality::SmellReport;
 
 const CLIPPY: &[u8] = b"clippy";
 const CARGO_TEST: &[u8] = b"cargo test";

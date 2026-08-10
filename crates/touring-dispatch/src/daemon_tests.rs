@@ -199,3 +199,49 @@ fn kpi_snapshot_request_targets_cli_kpi_snapshot() {
     );
     assert!(req.session_id.is_none());
 }
+
+// ── protocol failures must be diagnosable (09/08/2026) ────────────────
+// `daemon_client::daemon_failure_message` prints the payload's `error` field,
+// and falls back to "(empty response payload)" when there is none. Every
+// protocol-level refusal therefore has to CARRY a reason: the saturation
+// branch used to send an empty payload, so a shed `memory recall` was
+// indistinguishable from a wedged memory subsystem.
+
+#[test]
+fn a_protocol_failure_carries_a_reason_the_client_can_print() {
+    let resp = protocol_failure("project saturated: no handler slot within 30s");
+    assert!(!resp.success);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&resp.output).expect("payload must be JSON");
+    assert_eq!(
+        parsed.get("error").and_then(serde_json::Value::as_str),
+        Some("project saturated: no handler slot within 30s"),
+        "the client reads `error`; anything else reaches the operator as an empty payload"
+    );
+}
+
+#[test]
+fn a_protocol_failure_never_echoes_an_unbounded_payload() {
+    let resp = protocol_failure("x".repeat(10_000));
+    let parsed: serde_json::Value = serde_json::from_str(&resp.output).expect("JSON");
+    let err = parsed["error"].as_str().expect("error string");
+    assert!(
+        err.chars().count() <= 301,
+        "a malformed request must not echo itself back in full, got {} chars",
+        err.chars().count()
+    );
+    assert!(err.ends_with('…'), "truncation must be visible, not silent");
+}
+
+#[test]
+fn a_protocol_failure_is_never_the_empty_payload_it_replaced() {
+    for reason in ["", "   "] {
+        let resp = protocol_failure(reason);
+        let parsed: serde_json::Value = serde_json::from_str(&resp.output).expect("JSON");
+        assert!(
+            parsed.get("error").is_some(),
+            "even an empty reason keeps the `error` key, so the client never falls \
+             back to the (empty response payload) dead end"
+        );
+    }
+}

@@ -27,6 +27,26 @@ pub enum AggKind {
     CoverageRatio,
     /// Computed once on the scope graph/artifact (never folded per-file).
     ScopeNative,
+    /// Computado uma vez **por crate**, depois composto por LOC.
+    ///
+    /// Existe porque [`AggKind::ScopeNative`] concatena o escopo inteiro e essa
+    /// concatenação é limitada por `DIR_SCAN_BYTE_CAP` (16 MiB). Medido em
+    /// 07/08/2026: o corpus deste workspace tem 26,9 MB, então uma varredura de
+    /// `crates/` cobria 69% e a da raiz 62%. Como o corte é por BYTES, o efeito
+    /// não era só perder a cauda — remover duplicação dentro da janela apenas
+    /// **admitia mais conteúdo** na borda, deixando o score praticamente imóvel
+    /// diante de remediação real (provado: 372 linhas deduplicadas moveram os
+    /// scores por crate e não moveram um dígito do score da raiz).
+    ///
+    /// Cada crate cabe folgadamente abaixo do teto, então medir por crate e
+    /// compor elimina a janela deslizante **por construção** — e escala com o
+    /// repositório, em vez de recriar o problema no próximo crescimento.
+    ///
+    /// Aplica-se apenas a dimensões cujo sinal vem de **fonte concatenada** e
+    /// cuja semântica é intra-crate. Dimensões de manifesto/artefato de
+    /// repositório (dep-CVEs, pkg-mgmt, CI/CD, IaC…) continuam `ScopeNative`:
+    /// para elas, medir por crate seria pior que o teto.
+    PerCrateNative,
     /// Plain mean — durable fallback.
     Mean,
 }
@@ -39,6 +59,7 @@ impl AggKind {
             AggKind::WeightedLoc => "weighted-loc",
             AggKind::CoverageRatio => "coverage-ratio",
             AggKind::ScopeNative => "scope-native",
+            AggKind::PerCrateNative => "per-crate-native",
             AggKind::Mean => "mean",
         }
     }
@@ -59,15 +80,24 @@ pub(crate) const AGG_TABLE: [AggKind; 50] = [
     // the dominant real defect, was invisible). ScopeNative runs the Type-1
     // detector once over the scope corpus, so a block duplicated across files
     // surfaces as ≥2 occurrences. (Per-language corpus grouping → W6 refinement.)
-    AggKind::ScopeNative, // F1.3 duplication (cross-file)
-    AggKind::WeightedLoc, // F1.4 solid
-    AggKind::WeightedLoc, // F1.5 tech-debt
-    AggKind::WeightedLoc, // F1.6 error-handling
-    AggKind::WeightedLoc, // F1.7 boundaries
-    AggKind::ScopeNative, // F1.8 dep-cycles (cross-file graph)
-    AggKind::WeightedLoc, // F1.9 api-design
-    AggKind::WeightedLoc, // F1.10 data-model
-    AggKind::WeightedLoc, // F1.11 patterns
+    // 2026-08-07: ScopeNative → PerCrateNative. A concatenação do escopo era
+    // truncada em 16 MiB (69% de `crates/`, 62% da raiz) e, por cortar em BYTES,
+    // devolvia um score IMÓVEL diante de dedup real. Por crate, cada corpus cabe
+    // sob o teto e a cross-file continua sendo detectada onde ela importa —
+    // dentro do crate. Ver `AggKind::PerCrateNative`.
+    AggKind::PerCrateNative, // F1.3 duplication (cross-file, por crate)
+    AggKind::WeightedLoc,    // F1.4 solid
+    AggKind::WeightedLoc,    // F1.5 tech-debt
+    AggKind::WeightedLoc,    // F1.6 error-handling
+    AggKind::WeightedLoc,    // F1.7 boundaries
+    // 2026-08-07: ScopeNative → PerCrateNative, aqui por CORREÇÃO antes de teto.
+    // O verificador monta o grafo de `use crate::<top-level>` do PRÓPRIO crate;
+    // rodá-lo uma vez sobre vários crates concatenados mistura módulos de crates
+    // distintos num grafo só, o que não é o que a dimensão mede.
+    AggKind::PerCrateNative, // F1.8 dep-cycles (grafo intra-crate)
+    AggKind::WeightedLoc,    // F1.9 api-design
+    AggKind::WeightedLoc,    // F1.10 data-model
+    AggKind::WeightedLoc,    // F1.11 patterns
     // F1.12 arch-consistency: per-file intra-file mix heuristic (W1 2026-07-02:
     // was ScopeNative → ran on the concatenated multi-language blob analysed as
     // Rust, guaranteeing spurious co-occurrence; the docstring always said
@@ -162,7 +192,9 @@ pub(crate) const AGG_TABLE: [AggKind; 50] = [
     AggKind::ScopeNative, // F4.9 iac
     AggKind::WeightedLoc, // F4.10 monitoring
     AggKind::ScopeNative, // F4.11 incident
-    AggKind::ScopeNative, // F4.12 env
+    // 2026-08-07: ScopeNative → PerCrateNative — sinal 100% de fonte
+    // concatenada (zero artefato), logo sujeito ao mesmo truncamento do F1.3.
+    AggKind::PerCrateNative, // F4.12 env
 ];
 
 const _: () = assert!(AGG_TABLE.len() == 50);
@@ -172,15 +204,16 @@ pub type FileScore<'a> = (&'a Path, f32, usize);
 
 /// Aggregate per-file scores for ONE dimension into a scope-level [`DimScore`].
 ///
-/// `ScopeNative` is *not* aggregated here — the caller computes it once on the
-/// scope root. If called with `ScopeNative`, this falls back to `WorstOf`
-/// (safe: surfaces the weakest file) so the function is total.
+/// `ScopeNative` e `PerCrateNative` *não* são agregados aqui — o chamador os
+/// computa (uma vez na raiz do escopo; uma vez por crate, respectivamente). Se
+/// chamados assim mesmo, caem em `WorstOf` (seguro: expõe o arquivo mais fraco),
+/// mantendo a função total.
 pub fn aggregate(kind: AggKind, per_file: &[FileScore<'_>]) -> DimScore {
     if per_file.is_empty() {
         return DimScore::from_value(1.0, "0 files in scope (vacuously satisfied)");
     }
     match kind {
-        AggKind::WorstOf | AggKind::ScopeNative => agg_worst_of(per_file),
+        AggKind::WorstOf | AggKind::ScopeNative | AggKind::PerCrateNative => agg_worst_of(per_file),
         AggKind::WeightedLoc => agg_weighted(per_file, "LOC-weighted"),
         AggKind::CoverageRatio => agg_weighted(per_file, "coverage-ratio≈LOC-weighted"),
         AggKind::Mean => agg_mean(per_file),
@@ -286,8 +319,30 @@ mod tests {
         // ran them on the concatenated multi-language blob). 17→15.
         // W2 (2026-07-02): F2.6 config WorstOf → ScopeNative. 15→16.
         // W4 (2026-07-02): F1.3 duplication CoverageRatio → ScopeNative. 16→17.
-        assert_eq!(count(AggKind::ScopeNative), 17, "17 scope-native");
+        // 2026-08-07: F1.3, F1.8 e F4.12 ScopeNative → PerCrateNative. 17→14.
+        // As TRÊS eram as únicas ScopeNative cujo sinal vem 100% de fonte
+        // concatenada (zero artefato), logo as únicas sujeitas ao truncamento de
+        // 16 MiB; as 14 restantes leem manifesto/artefato de repositório, onde
+        // medir por crate seria pior que o teto.
+        assert_eq!(count(AggKind::ScopeNative), 14, "14 scope-native");
+        assert_eq!(
+            count(AggKind::PerCrateNative),
+            3,
+            "3 per-crate-native (F1.3 + F1.8 + F4.12)"
+        );
         assert_eq!(count(AggKind::WeightedLoc), 27, "27 weighted-loc");
+        // A soma tem de fechar os 50 — guarda contra uma migração futura que
+        // mova uma dimensão de categoria e esqueça de atualizar as contagens.
+        assert_eq!(
+            count(AggKind::WorstOf)
+                + count(AggKind::CoverageRatio)
+                + count(AggKind::ScopeNative)
+                + count(AggKind::PerCrateNative)
+                + count(AggKind::WeightedLoc)
+                + count(AggKind::Mean),
+            50,
+            "toda dimensão tem exatamente uma categoria"
+        );
     }
 
     #[test]

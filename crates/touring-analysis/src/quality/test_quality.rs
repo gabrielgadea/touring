@@ -61,27 +61,7 @@ const PYTHON_TEST_DEF: &[u8] = b"def test_";
 
 /// Findings of a single test-quality analysis pass: the canonical
 /// "value-blind assertion / no-assert test" smell rolled up per file.
-#[derive(Debug, Clone, Default)]
-pub struct TestQualityReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl TestQualityReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type TestQualityReport = crate::quality::SmellReport;
 
 /// Count occurrences of `needle` in `bytes` outside non-executable regions.
 fn count_executable(bytes: &[u8], regions: &[(usize, usize)], needle: &[u8]) -> usize {

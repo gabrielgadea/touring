@@ -339,12 +339,36 @@ pub(crate) struct AstFindParams {
     /// File paths to search in (structured format)
     pub files: Option<Vec<AstFindFileParam>>,
     /// Single file path (flat alias)
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub file_path: Option<String>,
     /// Alias for file_path
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub path: Option<String>,
     /// File content (flat alias)
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub content: Option<String>,
     /// Alias for content
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub source: Option<String>,
     /// Language for flat mode
     pub language: Option<String>,
@@ -438,14 +462,32 @@ pub(crate) struct MemoryStoreParams {
     /// Unique key for the memory entry
     pub key: Option<String>,
     /// Alias for key
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub title: Option<String>,
     /// Memory tier: ephemeral, working, reference, core (aliases: reflexive→ephemeral, session→working, project→reference)
     pub tier: Option<String>,
     /// Alias for tier
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub memory_type: Option<String>,
     /// Memory content to store
     pub value: Option<String>,
     /// Alias for value
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub content: Option<String>,
     /// Optional entry type tag
     pub entry_type: Option<String>,
@@ -465,6 +507,12 @@ pub(crate) struct MemoryRecallParams {
     /// Max results (default: 10)
     pub limit: Option<u64>,
     /// Alias for limit
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub top_k: Option<u64>,
     /// File path for graph-neighborhood expansion: returns files that import/are imported by this file
     pub file_path: Option<String>,
@@ -485,6 +533,12 @@ pub(crate) struct LearnPatternParams {
     /// Action: update, get_q, best_action, reset_traces
     pub action: Option<String>,
     /// Alias for action (backwards compat)
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub operation: Option<String>,
     /// State ID
     pub state: Option<u64>,
@@ -508,6 +562,12 @@ pub(crate) struct ClusterSkillsParams {
     /// Action: record, cluster, find_similar, get_clusters
     pub action: Option<String>,
     /// Alias for action (backwards compat)
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub operation: Option<String>,
     /// Skill identifier (for record/find_similar)
     pub skill_id: Option<String>,
@@ -694,6 +754,12 @@ pub(crate) struct FileOpsParams {
     ///            mkdir, copy, move, rename, glob, tree, list
     pub operation: Option<String>,
     /// Alias for operation (backwards compat)
+    // C1 (2026-08-07): compatibility alias — hidden from the JSON Schema,
+    // still accepted by serde. Announcing every legacy spelling costs bytes
+    // in EVERY session's tools/list while teaching nothing: the canonical
+    // field above is what a caller should learn. Discover hidden fields with
+    // `touring_capabilities`.
+    #[schemars(skip)]
     pub action: Option<String>,
     /// Source file/directory path (required for all operations)
     pub path: String,
@@ -789,26 +855,82 @@ pub(crate) struct DecomposeParams {
     /// Task ID (for add_subtask, update_status, get_plan, validate_order)
     pub task_id: Option<String>,
     /// Task type: refactor, debug, feature, analysis, pipeline (for "create")
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub task_type: Option<String>,
     /// Description (for "create" and "add_subtask")
     pub description: Option<String>,
     /// Subtask ID (for "update_status")
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub subtask_id: Option<String>,
     /// Dependency subtask IDs (for "add_subtask")
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub depends_on: Option<Vec<String>>,
     /// Priority 0-255 (for "add_subtask", default: 0)
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub priority: Option<u8>,
     /// New status: pending, in_progress, completed, blocked (for "update_status")
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub status: Option<String>,
     /// CILA level 0-6 (for "create", default: 3)
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub cila_level: Option<u8>,
     /// Minimum quality threshold 0.0-1.0 (for "validate_completion", "finalize")
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub quality_threshold: Option<f64>,
     /// Output verbosity: minimal, standard (default), full
     #[serde(default)]
     pub detail_level: Option<DetailLevel>,
     /// Wave C3-D3: auto-scaffold subtasks from GranularityBandit hint (L3+ only).
     #[serde(default)]
+    // C1 (2026-08-07): rare, action-specific field — hidden from the JSON
+    // Schema, still accepted by serde. High-frequency fields stay typed at
+    // the tool level; the rest are discovered via `touring mcp-capabilities`.
+    // Same trade gortex documents for its `options` object, achieved without
+    // a breaking change because hiding is a schema decision, not a
+    // deserialisation one.
+    #[schemars(skip)]
     pub auto_decompose: Option<bool>,
 }
 
@@ -1777,6 +1899,16 @@ pub struct FindCodeResponse {
     pub detected_intent: String,
     /// Confidence score of the intent detection.
     pub confidence: f32,
+    /// Which retrieval legs had a corpus behind them.
+    ///
+    /// Present so an empty `results` is legible: "searched and found nothing"
+    /// versus "no corpus was wired". Until 2026-08-08 this tool returned five
+    /// fabricated `doc_sem_*` ids for every query, which made the difference
+    /// invisible.
+    pub backends: touring_storage::hybrid_search::BackendStatus,
+    /// Human-readable caveat when the answer cannot be trusted as complete.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 /// A single search result from `find_code`.
@@ -2016,4 +2148,141 @@ pub(crate) struct QualityFederationAggregateParams {
 
 pub(crate) fn default_true() -> bool {
     true
+}
+
+// ── C1: hidden-alias registry (2026-08-07) ───────────────────────────────────
+
+/// Every compatibility alias hidden from the JSON Schema, and what it aliases.
+///
+/// Hiding a field cuts the `tools/list` payload every session pays for, but
+/// hiding without a registry is the failure mode this codebase already
+/// criticises in `apply_curation`: *"call_tool is unfiltered, so hidden tools
+/// stay callable"* — 151 tools that exist, work, and are undiscoverable.
+/// Grouping preserves discovery; hiding destroys it. This registry is what
+/// keeps the trade honest: the bytes leave the handshake, the knowledge stays
+/// reachable on demand.
+pub(crate) const HIDDEN_ALIAS_FIELDS: &[(&str, &str, &str)] = &[
+    ("AstFindParams", "filePath", "flat alias for files[].path"),
+    ("AstFindParams", "path", "alias for filePath"),
+    ("AstFindParams", "content", "flat alias for files[].content"),
+    ("AstFindParams", "source", "alias for content"),
+    ("MemoryStoreParams", "title", "alias for key"),
+    ("MemoryStoreParams", "memoryType", "alias for tier"),
+    ("MemoryStoreParams", "content", "alias for value"),
+    ("MemoryRecallParams", "topK", "alias for limit"),
+    ("LearnPatternParams", "operation", "alias for action"),
+    ("ClusterSkillsParams", "operation", "alias for action"),
+    ("FileOpsParams", "action", "alias for operation"),
+    // Rare, action-specific fields of touring_decompose. `action`, `taskId` and
+    // `description` stay typed at the tool level because every call uses them;
+    // these eight are each used by one action and cost bytes in every session.
+    ("DecomposeParams", "taskType", "for action=create: refactor|debug|feature|analysis|pipeline"),
+    ("DecomposeParams", "subtaskId", "for action=update_status"),
+    ("DecomposeParams", "dependsOn", "for action=add_subtask: string[] of subtask ids"),
+    ("DecomposeParams", "priority", "for action=add_subtask: 0-255"),
+    ("DecomposeParams", "status", "for action=update_status: pending|in_progress|completed|blocked"),
+    ("DecomposeParams", "cilaLevel", "for action=create: 0-6, default 3"),
+    ("DecomposeParams", "qualityThreshold", "for validate_completion|finalize: 0.0-1.0"),
+    ("DecomposeParams", "autoDecompose", "for action=create at L3+: scaffold subtasks from the bandit hint"),
+];
+
+/// Render the hidden-alias registry as JSON for `touring mcp-capabilities`.
+pub(crate) fn hidden_alias_capabilities() -> serde_json::Value {
+    let mut by_struct: std::collections::BTreeMap<&str, Vec<serde_json::Value>> =
+        std::collections::BTreeMap::new();
+    for (owner, field, note) in HIDDEN_ALIAS_FIELDS {
+        by_struct
+            .entry(owner)
+            .or_default()
+            .push(serde_json::json!({ "field": field, "note": note }));
+    }
+    serde_json::json!({
+        "hidden_alias_fields": by_struct,
+        "contract": "accepted by the tool, omitted from tools/list to keep the \
+                     handshake small; the canonical field is the one to learn",
+    })
+}
+
+#[cfg(test)]
+mod hidden_alias_tests {
+    use super::{HIDDEN_ALIAS_FIELDS, hidden_alias_capabilities};
+
+    /// Anti-drift: every `#[schemars(skip)]` in this file must be registered.
+    ///
+    /// Without this, the next hidden field is invisible twice over — absent
+    /// from the schema AND absent from the capabilities listing — which is
+    /// exactly the undiscoverable-surface defect the registry exists to
+    /// prevent. Counting is done against this file's own source, so the guard
+    /// cannot rot away from what it guards.
+    #[test]
+    fn every_hidden_field_is_registered() {
+        let src = include_str!("params.rs");
+        // Count only lines that ARE the attribute — the doc comments and this
+        // test mention the token too, and a guard that counts its own prose is
+        // a guard that fails for the wrong reason.
+        let hidden_in_source = src
+            .lines()
+            .filter(|l| l.trim() == "#[schemars(skip)]")
+            .count();
+        assert_eq!(
+            hidden_in_source,
+            HIDDEN_ALIAS_FIELDS.len(),
+            "found {hidden_in_source} #[schemars(skip)] fields but {} registered — \
+             a hidden field that is not in HIDDEN_ALIAS_FIELDS is undiscoverable",
+            HIDDEN_ALIAS_FIELDS.len()
+        );
+    }
+
+    #[test]
+    fn capabilities_groups_by_owning_struct() {
+        let caps = hidden_alias_capabilities();
+        let groups = caps["hidden_alias_fields"]
+            .as_object()
+            .expect("object")
+            .len();
+        assert!(groups >= 5, "aliases span several params structs");
+        assert_eq!(
+            caps["hidden_alias_fields"]["MemoryStoreParams"]
+                .as_array()
+                .map(Vec::len),
+            Some(3),
+            "memory store hides key/tier/value aliases"
+        );
+    }
+
+    /// A hidden field must still be accepted — hiding is a schema decision,
+    /// never a deserialisation one. This is the whole reason `schemars(skip)`
+    /// was chosen over removing the field.
+    #[test]
+    fn hidden_aliases_still_deserialize() {
+        let p: super::MemoryStoreParams = serde_json::from_value(serde_json::json!({
+            "title": "k", "memoryType": "semantic", "content": "v"
+        }))
+        .expect("legacy spelling must still parse");
+        assert_eq!(p.title.as_deref(), Some("k"));
+        assert_eq!(p.memory_type.as_deref(), Some("semantic"));
+        assert_eq!(p.content.as_deref(), Some("v"));
+    }
+
+    /// And the hidden fields must NOT appear in the generated schema — the
+    /// byte saving is the point.
+    #[test]
+    fn hidden_aliases_are_absent_from_the_schema() {
+        let schema = serde_json::to_value(schemars::schema_for!(super::MemoryStoreParams))
+            .expect("schema");
+        // Look inside `properties` only. `title` is also a JSON-Schema keyword,
+        // so a whole-document substring search reports a hit that has nothing
+        // to do with the field — the homonymy trap VP-Scout chain 4 names.
+        let props = schema
+            .get("properties")
+            .and_then(serde_json::Value::as_object)
+            .expect("properties");
+        assert!(props.contains_key("key"), "canonical field stays");
+        for hidden in ["title", "memoryType", "content"] {
+            assert!(
+                !props.contains_key(hidden),
+                "{hidden} must not cost bytes in every session's tools/list"
+            );
+        }
+    }
 }

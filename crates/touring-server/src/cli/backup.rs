@@ -262,17 +262,164 @@ fn cmd_restore(args: &[String]) -> anyhow::Result<()> {
     restore_one(&src, &dst, domain, flags.json)
 }
 
+// ── Conditional compaction (A7b, 2026-08-07) ─────────────────────────────────
+
+/// Share of dead pages above which compaction is worth its cost.
+const COMPACT_MIN_DEAD_RATIO: f64 = 0.25;
+
+/// Bytes reclaimable below which compaction is not worth its cost.
+///
+/// Gortex uses 1 GiB against a 6,8 GB store; the Touring DBs are two orders of
+/// magnitude smaller (`symbols.db` ≈ 186 MB), so the absolute floor is scaled
+/// to 16 MiB. Both thresholds must hold — a high ratio over a tiny file buys
+/// nothing, and a large absolute figure inside a healthy file is normal slack.
+const COMPACT_MIN_RECLAIMABLE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Free-list census of one SQLite file.
+#[derive(Debug, Clone, Copy)]
+struct DbSpace {
+    page_count: u64,
+    freelist_count: u64,
+    page_size: u64,
+}
+
+impl DbSpace {
+    fn reclaimable_bytes(self) -> u64 {
+        self.freelist_count.saturating_mul(self.page_size)
+    }
+
+    fn dead_ratio(self) -> f64 {
+        if self.page_count == 0 {
+            return 0.0;
+        }
+        #[allow(clippy::cast_precision_loss)] // page counts stay well inside f64
+        {
+            self.freelist_count as f64 / self.page_count as f64
+        }
+    }
+
+    /// Both thresholds must hold — see the constants for why either alone lies.
+    fn worth_compacting(self) -> bool {
+        self.dead_ratio() > COMPACT_MIN_DEAD_RATIO
+            && self.reclaimable_bytes() > COMPACT_MIN_RECLAIMABLE_BYTES
+    }
+}
+
+fn read_db_space(path: &Path) -> anyhow::Result<DbSpace> {
+    let conn = rusqlite::Connection::open(path)
+        .map_err(|e| anyhow::anyhow!("cannot open {}: {e}", path.display()))?;
+    let pragma = |name: &str| -> anyhow::Result<u64> {
+        conn.query_row(&format!("PRAGMA {name}"), [], |r| r.get::<_, i64>(0))
+            .map(|v| u64::try_from(v).unwrap_or(0))
+            .map_err(|e| anyhow::anyhow!("PRAGMA {name} failed on {}: {e}", path.display()))
+    };
+    Ok(DbSpace {
+        page_count: pragma("page_count")?,
+        freelist_count: pragma("freelist_count")?,
+        page_size: pragma("page_size")?,
+    })
+}
+
+/// `touring compact [<domain>|all] [--force] [--dry-run]`.
+///
+/// A7b: `VACUUM` rewrites the whole file, so running it unconditionally on
+/// every boot is expensive and running it never lets dead pages accumulate
+/// silently — which is what happened to `wiring_map`, whose phantom rows had to
+/// be purged by hand. Two explicit thresholds decide, and the decision plus the
+/// numbers behind it are always reported, including when the answer is "no".
+fn cmd_compact(args: &[String]) -> anyhow::Result<()> {
+    let (flags, args) = parse_global_flags(args);
+    let target = args.get(2).map(|s| s.as_str()).unwrap_or("all");
+    let force = args.iter().any(|a| a == "--force");
+    let dry_run = args.iter().any(|a| a == "--dry-run");
+
+    let db_dir = find_db_dir().ok_or_else(|| {
+        anyhow::anyhow!(
+            "could not locate .claude/touring/ — run from a Touring project root \
+             or set TOURING_PROJECT_ROOT"
+        )
+    })?;
+    let domains: Vec<&str> = if target == "all" {
+        DOMAINS.to_vec()
+    } else if DOMAINS.contains(&target) {
+        vec![target]
+    } else {
+        anyhow::bail!("unknown domain '{target}' — must be one of: knowledge, memory, graph, all");
+    };
+
+    let mut results = Vec::with_capacity(domains.len());
+    for domain in domains {
+        let path = db_path(&db_dir, domain);
+        if !path.exists() {
+            results.push(serde_json::json!({
+                "domain": domain, "status": "skipped", "reason": "not found"
+            }));
+            continue;
+        }
+        let space = read_db_space(&path)?;
+        let before = path.metadata().map(|m| m.len()).unwrap_or(0);
+        let eligible = space.worth_compacting();
+        if !eligible && !force {
+            results.push(serde_json::json!({
+                "domain": domain,
+                "status": "below_threshold",
+                "dead_ratio": space.dead_ratio(),
+                "reclaimable_bytes": space.reclaimable_bytes(),
+                "size_bytes": before,
+            }));
+            continue;
+        }
+        if dry_run {
+            results.push(serde_json::json!({
+                "domain": domain,
+                "status": "would_compact",
+                "dead_ratio": space.dead_ratio(),
+                "reclaimable_bytes": space.reclaimable_bytes(),
+                "size_bytes": before,
+                "forced": force && !eligible,
+            }));
+            continue;
+        }
+        let conn = rusqlite::Connection::open(&path)
+            .map_err(|e| anyhow::anyhow!("cannot open {}: {e}", path.display()))?;
+        conn.execute_batch("VACUUM")
+            .map_err(|e| anyhow::anyhow!("VACUUM failed for {}: {e}", path.display()))?;
+        drop(conn);
+        let after = path.metadata().map(|m| m.len()).unwrap_or(before);
+        results.push(serde_json::json!({
+            "domain": domain,
+            "status": "compacted",
+            "dead_ratio_before": space.dead_ratio(),
+            "size_bytes_before": before,
+            "size_bytes_after": after,
+            "freed_bytes": before.saturating_sub(after),
+            "forced": force && !eligible,
+        }));
+    }
+
+    if flags.json {
+        println!("{}", serde_json::json!({ "results": results }));
+    } else {
+        for r in &results {
+            println!("{r}");
+        }
+    }
+    Ok(())
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────────
 
-/// Dispatch `touring backup` and `touring restore` subcommands.
+/// Dispatch `touring backup`, `touring restore` and `touring compact`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
     match args.get(1).map(|s| s.as_str()) {
         Some("backup") => cmd_backup(args),
         Some("restore") => cmd_restore(args),
+        Some("compact") => cmd_compact(args),
         _ => {
             eprintln!("Usage:");
             eprintln!("  touring backup <domain|all> [--output <path>]");
             eprintln!("  touring restore <domain> --input <path>");
+            eprintln!("  touring compact [<domain>|all] [--force] [--dry-run]");
             Ok(())
         }
     }
@@ -418,5 +565,90 @@ mod tests {
         unsafe { std::env::remove_var("TOURING_PROJECT_ROOT") };
 
         assert_eq!(found, Some(db_dir));
+    }
+}
+
+/// A7b (2026-08-07) — compaction runs on evidence, not on a schedule.
+#[cfg(test)]
+mod compaction_threshold_tests {
+    use super::{COMPACT_MIN_RECLAIMABLE_BYTES, DbSpace, read_db_space};
+    use tempfile::tempdir;
+
+    fn space(page_count: u64, freelist_count: u64, page_size: u64) -> DbSpace {
+        DbSpace {
+            page_count,
+            freelist_count,
+            page_size,
+        }
+    }
+
+    #[test]
+    fn both_thresholds_must_hold() {
+        let page = 4096;
+        let big_enough = COMPACT_MIN_RECLAIMABLE_BYTES / page + 1;
+
+        // Half the pages dead AND well past the byte floor → compact.
+        assert!(space(big_enough * 2, big_enough, page).worth_compacting());
+
+        // A tiny file that is 90% free list: high ratio, nothing to reclaim.
+        // Vacuuming it would cost a full rewrite to save kilobytes.
+        assert!(
+            !space(100, 90, page).worth_compacting(),
+            "ratio alone must not trigger a full rewrite"
+        );
+
+        // A large file with a large absolute free list that is still a small
+        // fraction of it — ordinary slack in a healthy DB.
+        assert!(
+            !space(big_enough * 100, big_enough + 1, page).worth_compacting(),
+            "absolute bytes alone must not trigger"
+        );
+    }
+
+    #[test]
+    fn an_empty_db_has_no_dead_ratio_and_never_divides_by_zero() {
+        let s = space(0, 0, 4096);
+        assert!((s.dead_ratio() - 0.0).abs() < f64::EPSILON);
+        assert!(!s.worth_compacting());
+        assert_eq!(s.reclaimable_bytes(), 0);
+    }
+
+    #[test]
+    fn reclaimable_bytes_is_freelist_times_page_size() {
+        assert_eq!(space(1000, 250, 4096).reclaimable_bytes(), 250 * 4096);
+        assert!((space(1000, 250, 4096).dead_ratio() - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_real_sqlite_file_reports_its_page_census() {
+        // Reads the same PRAGMAs the command reads, against a real file — the
+        // thresholds are only meaningful if the census behind them is real.
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("census.db");
+        let conn = rusqlite::Connection::open(&path).expect("open");
+        conn.execute_batch(
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, blob TEXT);
+             INSERT INTO t (blob) SELECT hex(randomblob(400))
+               FROM (WITH RECURSIVE c(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM c LIMIT 500) SELECT i FROM c);",
+        )
+        .expect("seed");
+        drop(conn);
+
+        let before = read_db_space(&path).expect("census");
+        assert!(before.page_count > 0, "a seeded db has pages");
+        assert!(before.page_size >= 512, "page_size is a real pragma value");
+
+        // Deleting the rows moves pages onto the free list — the exact signal
+        // the thresholds read.
+        let conn = rusqlite::Connection::open(&path).expect("reopen");
+        conn.execute_batch("DELETE FROM t;").expect("delete");
+        drop(conn);
+        let after = read_db_space(&path).expect("census");
+        assert!(
+            after.freelist_count > before.freelist_count,
+            "deleted rows must show up as dead pages ({} -> {})",
+            before.freelist_count,
+            after.freelist_count
+        );
     }
 }

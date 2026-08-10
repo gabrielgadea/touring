@@ -236,4 +236,11 @@ pub mod daemon_client;
 /// `touring search-tools` (CLI) and the `touring_search` MCP tool.
 pub mod tool_catalog;
 
+/// Shared BM25 ranking math — re-exported from `touring-foundation`.
+pub use touring_foundation::text_rank;
+
+/// Capability Portfolio — prior-art discovery keyed by purpose.
+pub mod portfolio;
+
+
 pub mod cli;

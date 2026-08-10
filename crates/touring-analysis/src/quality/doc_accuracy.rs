@@ -60,27 +60,7 @@ const MARKDOWN_CODE_FENCE: &[u8] = b"```";
 
 /// Findings of a single documentation-accuracy analysis pass: the
 /// canonical "doc drift / no executable examples" smell rolled up per file.
-#[derive(Debug, Clone, Default)]
-pub struct DocAccuracyReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl DocAccuracyReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type DocAccuracyReport = crate::quality::SmellReport;
 
 /// `true` if `line` is a `///` or `//!` doc-comment line (the rustdoc marker).
 fn is_doc_comment_line(line: &[u8]) -> bool {

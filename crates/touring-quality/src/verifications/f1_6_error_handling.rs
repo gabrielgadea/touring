@@ -26,8 +26,8 @@
 //!
 //! **Scope**: per-file (`AggKind::WeightedLoc`).
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -40,14 +40,8 @@ impl Verification for F1_6_ErrorHandling {
         DimId::F1_6
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_error_handling_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_error_handling_dim(target)
     }
 }
 

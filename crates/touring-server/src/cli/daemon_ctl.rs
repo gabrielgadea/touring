@@ -150,7 +150,7 @@ fn pid_for_socket(socket: &Path) -> Option<u32> {
 /// konverter's daemon died on every `update-touring` restart of the global).
 fn orphan_daemon_pids(target: &Path) -> Vec<u32> {
     use touring_foundation::config::TouringConfig;
-    let mut owned_elsewhere = std::collections::HashSet::new();
+    let mut registry = Vec::new();
     if let Ok(entries) = fs::read_dir(TouringConfig::daemon_registry_dir()) {
         for e in entries.flatten() {
             if let Some(v) = fs::read_to_string(e.path())
@@ -162,16 +162,34 @@ fn orphan_daemon_pids(target: &Path) -> Vec<u32> {
                     .get("pid")
                     .and_then(serde_json::Value::as_u64)
                     .map(|p| p as u32);
-                if let (Some(sock), Some(pid)) = (sock, pid)
-                    && Path::new(sock) != target
-                {
-                    owned_elsewhere.insert(pid);
+                if let (Some(sock), Some(pid)) = (sock, pid) {
+                    registry.push((sock.to_string(), pid));
                 }
             }
         }
     }
-    all_daemon_pids()
-        .into_iter()
+    orphans_not_owned_elsewhere(&registry, target, all_daemon_pids())
+}
+
+/// Pure core of [`orphan_daemon_pids`] — the registry dir is a fixed path, so
+/// the decision is separated from the IO to stay testable.
+///
+/// A PID registered to a DIFFERENT socket belongs to that daemon and is never a
+/// candidate here. That exclusion is the whole safety property: whatever this
+/// returns may be signalled (`stop`/`restart`) or reported to a human who will
+/// signal it (`status`) — and signalling another project's daemon is the
+/// cascading kill REGRA #19 exists to prevent.
+fn orphans_not_owned_elsewhere(
+    registry: &[(String, u32)],
+    target: &Path,
+    live: Vec<u32>,
+) -> Vec<u32> {
+    let owned_elsewhere: std::collections::HashSet<u32> = registry
+        .iter()
+        .filter(|(sock, _)| Path::new(sock) != target)
+        .map(|(_, pid)| *pid)
+        .collect();
+    live.into_iter()
         .filter(|p| !owned_elsewhere.contains(p))
         .collect()
 }
@@ -224,7 +242,16 @@ fn cmd_status(json: bool, target: &Path) -> anyhow::Result<()> {
     let socket_alive = std::os::unix::net::UnixStream::connect(&socket_path).is_ok();
     // W12.5: targeted PID via the per-socket lock; the comm-scan stays as a
     // back-compat fallback for a pre-upgrade global daemon without a lock PID.
-    let daemon_pid = pid_for_socket(&socket_path).or_else(find_daemon_pid);
+    //
+    // The fallback MUST stay scoped (09/08/2026). It used to be the unscoped
+    // `find_daemon_pid`, which returns the first `touring-daemon` in /proc — so
+    // `status --socket <analise>` on a DEAD socket reported the PID of the
+    // *transferegov* daemon. `stop`/`restart` already used `orphan_daemon_pids`,
+    // which excludes PIDs registered to another socket; only the report was
+    // unscoped, and a report is exactly what a human acts on with `kill`
+    // (REGRA #19). A dead per-project socket now says `(none)`, which is true.
+    let daemon_pid = pid_for_socket(&socket_path)
+        .or_else(|| orphan_daemon_pids(&socket_path).first().copied());
     let daemon_exe = daemon_pid.and_then(read_proc_exe);
     let daemon_exe_deleted = daemon_exe
         .as_deref()
@@ -1024,6 +1051,41 @@ mod tests {
         let bogus = PathBuf::from("/tmp/test-touring-daemon-ctl-never-exists.sock");
         let _ = fs::remove_file(&bogus);
         assert!(!wait_socket_alive(&bogus, Duration::from_millis(200)));
+    }
+
+    /// A PID owned by ANOTHER socket is never a candidate for this one.
+    ///
+    /// Measured 09/08/2026: `daemon-ctl status --socket <analise>` on a dead
+    /// socket printed the PID of the *transferegov* daemon, because the status
+    /// path fell back to an unscoped /proc scan. A human acting on that number
+    /// with `kill` would take down a different project's daemon.
+    #[test]
+    fn a_pid_registered_to_another_socket_is_never_offered() {
+        let target = PathBuf::from("/home/u/projects/analise/.touring/daemon.sock");
+        let registry = vec![
+            ("/home/u/projects/transferegov/.touring/daemon.sock".to_string(), 2_898_535),
+            ("/home/u/projects/konverter/.touring/daemon.sock".to_string(), 2_898_635),
+        ];
+        assert_eq!(
+            orphans_not_owned_elsewhere(&registry, &target, vec![2_898_535, 2_898_635]),
+            Vec::<u32>::new(),
+            "a dead socket must report no PID, never a neighbour's"
+        );
+    }
+
+    #[test]
+    fn a_pid_registered_to_this_socket_or_to_nobody_stays_a_candidate() {
+        let target = PathBuf::from("/home/u/projects/analise/.touring/daemon.sock");
+        let registry = vec![
+            (target.display().to_string(), 100),
+            ("/home/u/projects/other/.touring/daemon.sock".to_string(), 200),
+        ];
+        // 100 is ours; 300 is unregistered (pre-upgrade daemon — the back-compat
+        // case the fallback exists for); 200 belongs to someone else.
+        assert_eq!(
+            orphans_not_owned_elsewhere(&registry, &target, vec![100, 200, 300]),
+            vec![100, 300]
+        );
     }
 
     #[test]

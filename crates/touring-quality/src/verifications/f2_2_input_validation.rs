@@ -23,8 +23,8 @@
 //! is the score — one unvalidated boundary is a vulnerability), so the engine
 //! is high-precision (a false positive would drag the whole scope).
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -37,14 +37,8 @@ impl Verification for F2_2_InputValidation {
         DimId::F2_2
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_input_validation_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_input_validation_dim(target)
     }
 }
 
@@ -69,11 +63,7 @@ fn analyze_input_validation_dim(target: &Path) -> Result<(f32, String)> {
     let r = analyze_input_validation(&raw, lang);
 
     let value = score_input_validation(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F2.2: {} input-validation anti-pattern(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_input_validation: blocklist / CWE-502 deser / CWE-242 unbounded / XSS-bypass){top}",

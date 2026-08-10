@@ -17,8 +17,8 @@
 //!
 //! **Scope**: per-file (`AggKind::WeightedLoc`).
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore, DimStatus};
 use anyhow::Result;
 use std::path::Path;
 
@@ -31,7 +31,7 @@ impl Verification for F1_5_TechDebt {
         DimId::F1_5
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
         // Detector-own-source: the tech-debt engine, the antipattern engine, and
         // this verifier embed the marker/needle vocabulary (`TODO`/`FIXME`, the
         // `todo!(` / `allow(dead_code` needles) as *detection logic* and prose
@@ -41,23 +41,15 @@ impl Verification for F1_5_TechDebt {
         // dirs is not flagged by F1.5 — they are heavily reviewed anyway.
         if is_detector_own_source(target) {
             let value = 1.0;
-            return Ok(DimScore {
+            return Ok((
                 value,
-                status: DimStatus::from_score(value),
-                evidence: "F1.5: detector-own-source (embeds debt-marker vocabulary as \
-                           detection logic) — allowlisted"
+                "F1.5: detector-own-source (embeds debt-marker vocabulary as \
+                 detection logic) — allowlisted"
                     .to_string(),
-                suggestions: vec![],
-                latency_ms: 0,
-            });
+            ));
         }
         let (value, evidence) = analyze_tech_debt_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+        Ok((value, evidence))
     }
 }
 

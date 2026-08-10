@@ -304,6 +304,13 @@ fn daemon_commands() -> Vec<CommandDescriptor> {
             handler: |args| super::ast::run(args),
         },
         // C3 (coupling backlog) — intent-ranked tool discovery (progressive disclosure).
+        // Capability Portfolio — prior-art by purpose (explore before creating).
+        CommandDescriptor {
+            name: "portfolio",
+            description: "Prior-art by purpose: query | refresh | status | verdict — explore what already solves an intent before creating",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::portfolio::run(args),
+        },
         CommandDescriptor {
             name: "search-tools",
             description: "Discover the right Touring tool/command for a natural-language intent",
@@ -372,6 +379,28 @@ fn daemon_commands() -> Vec<CommandDescriptor> {
         CommandDescriptor {
             name: "restore",
             description: "Restore a domain DB from a backup file",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::backup::run(args),
+        },
+        CommandDescriptor {
+            name: "mcp-capabilities",
+            description: "C1 — fields accepted by MCP tools but omitted from tools/list (compat aliases)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |_args| {
+                // Restores the discovery that `#[schemars(skip)]` takes away.
+                // Hiding a field to save handshake bytes is only honest if the
+                // knowledge stays reachable — otherwise it repeats the
+                // `apply_curation` defect: callable, working, undiscoverable.
+                println!(
+                    "{}",
+                    crate::server::params::hidden_alias_capabilities()
+                );
+                Ok(())
+            },
+        },
+        CommandDescriptor {
+            name: "compact",
+            description: "VACUUM a domain DB only when dead pages AND reclaimable bytes both pass threshold (--force, --dry-run)",
             error_policy: ErrorPolicy::ExitOnError,
             handler: |args| super::backup::run(args),
         },

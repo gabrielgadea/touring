@@ -1075,8 +1075,7 @@ impl Default for LinUCBBandit {
 /// Stores the `A_inv` matrix as a flattened `Vec<f64>` (d*d elements, row-major)
 /// and the `b` vector as `Vec<f64>` (d elements).
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
-#[archive_attr(derive(Debug))]
+#[rkyv(derive(Debug))]
 pub struct LinUCBArmSnapshot {
     /// Flattened A_inv matrix (d*d elements, row-major).
     pub a_inv_flat: Vec<f64>,
@@ -1090,8 +1089,7 @@ pub struct LinUCBArmSnapshot {
 
 /// Snapshot of LinUCB bandit state for rkyv zero-copy serialization.
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
-#[archive_attr(derive(Debug))]
+#[rkyv(derive(Debug))]
 pub struct LinUCBSnapshot {
     /// Per-arm snapshots.
     pub arms: Vec<LinUCBArmSnapshot>,
@@ -1182,7 +1180,7 @@ impl LinUCBBandit {
     pub fn save_rkyv(&self, path: &Path) -> Result<(), LinUcbError> {
         let snapshot = self.to_snapshot();
         // 8 arms * (19*19 + 19) * 8 bytes ≈ 24KB — 32768 buffer is sufficient
-        let bytes = rkyv::to_bytes::<_, 32768>(&snapshot)
+        let bytes = touring_rkyv::to_bytes::<_, 32768>(&snapshot)
             .map_err(|e| LinUcbError::Serialize(e.to_string()))?;
         std::fs::write(path, &bytes).map_err(LinUcbError::Write)
     }
@@ -1190,11 +1188,10 @@ impl LinUCBBandit {
     /// Load LinUCB state from an rkyv file with validation.
     pub fn load_rkyv(path: &Path) -> Result<Self, LinUcbError> {
         let bytes = std::fs::read(path).map_err(LinUcbError::Read)?;
-        let archived = rkyv::check_archived_root::<LinUCBSnapshot>(&bytes)
+        let archived = touring_rkyv::check_archived_root::<LinUCBSnapshot>(&bytes)
             .map_err(|e| LinUcbError::Validate(e.to_string()))?;
-        let snapshot: LinUCBSnapshot =
-            rkyv::Deserialize::deserialize(archived, &mut rkyv::Infallible)
-                .map_err(|e| LinUcbError::Deserialize(e.to_string()))?;
+        let snapshot: LinUCBSnapshot = touring_rkyv::deserialize(archived)
+            .map_err(|e| LinUcbError::Deserialize(e.to_string()))?;
         Self::from_snapshot(&snapshot)
     }
 }

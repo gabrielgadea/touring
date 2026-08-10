@@ -27,9 +27,10 @@ tracing-attributes = { workspace = true }
 miette = { workspace = true }
 moka = { workspace = true } # moka_policies: generic cache builders (relocated from hooks-shared, A5 step-2)
 reqwest = { workspace = true }
-rkyv = { workspace = true, features = ["validation", "std"] }
+rkyv = { workspace = true, features = ["std", "bytecheck"] }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
+home = { workspace = true }  # portfolio index lives in $HOME/.touring
 futures = { workspace = true }
 hdrhistogram = { workspace = true, default-features = false }
 memory-stats.workspace = true

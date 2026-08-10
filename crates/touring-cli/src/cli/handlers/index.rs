@@ -245,6 +245,31 @@ pub fn cli_index_files(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
 /// Bug 4 fix (2026-05-02): re-entrance guard for index rebuild.
 /// Concurrent rebuild attempts are rejected with a structured error instead of
 /// causing daemon-level lock contention / crash on large workspaces.
+/// Canonical path of `path` when it resolves **inside** `root`; `None` otherwise.
+///
+/// Every recursive walker in the indexing path routes its descent decision through
+/// this one predicate, which closes three failure modes that `Path::is_dir()` leaves
+/// open (it calls `fs::metadata`, so it *resolves* symlinks):
+///
+/// 1. **Escape** — `ln -s /etc project/x` would otherwise be walked and its contents
+///    indexed into the project's `symbols.db`, then surfaced by search. Comparing the
+///    *canonical* path against the canonical root refuses that, and also covers `..`
+///    traversal, not just symlinks.
+/// 2. **Cycle** — `a/link -> a` recursed until the stack overflowed. Callers feed the
+///    returned canonical path to a `visited` set, so the second encounter terminates.
+/// 3. **Broken link** — `canonicalize` returns `Err`, so a dangling entry is skipped
+///    instead of producing a read error mid-walk.
+///
+/// A symlink that stays **inside** the root is still followed: this removes the escape,
+/// never the capability (REGRA #0).
+///
+/// `root` is canonicalized by the caller once, outside the recursion — canonicalizing
+/// it per entry would be a syscall per file for a value that cannot change.
+fn inside_root(path: &Path, root: &Path) -> Option<std::path::PathBuf> {
+    let canonical = std::fs::canonicalize(path).ok()?;
+    canonical.starts_with(root).then_some(canonical)
+}
+
 static REBUILD_IN_PROGRESS: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
@@ -432,6 +457,8 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
 
     fn walk(
         dir: &std::path::Path,
+        root: &std::path::Path,
+        visited: &mut std::collections::HashSet<std::path::PathBuf>,
         skip_dirs: &[&str],
         skip_subprojects: &[&str],
         supported_exts: &[&str],
@@ -447,12 +474,32 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 if !should_skip_dir(name, skip_dirs) {
                     // Skip entire non-touring subproject directories
                     if !skip_subprojects.contains(&name) {
-                        walk(&path, skip_dirs, skip_subprojects, supported_exts, acc);
+                        // Containment gate: `is_dir()` resolves symlinks, so a link
+                        // pointing outside the project would otherwise be walked and
+                        // indexed into the project DB. `inside_root` refuses that, and
+                        // `visited` breaks `a/link -> a` cycles that recursed until the
+                        // stack blew. Links that stay inside the root still descend —
+                        // the guard removes the escape, not the capability.
+                        if let Some(canonical) = inside_root(&path, root)
+                            && visited.insert(canonical)
+                        {
+                            walk(
+                                &path,
+                                root,
+                                visited,
+                                skip_dirs,
+                                skip_subprojects,
+                                supported_exts,
+                                acc,
+                            );
+                        }
                     }
                 }
             } else {
                 let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                if supported_exts.contains(&ext) {
+                // A symlinked *file* escapes just as effectively as a directory —
+                // `ln -s /etc/shadow x.rs` would land foreign bytes in symbols.db.
+                if supported_exts.contains(&ext) && inside_root(&path, root).is_some() {
                     acc.push(path);
                 }
             }
@@ -460,8 +507,17 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     }
 
     let mut paths: Vec<std::path::PathBuf> = Vec::new();
+    // Canonicalize once: `inside_root` compares against this on every entry, and a
+    // non-canonical root would make `starts_with` reject legitimate children whenever
+    // any ancestor of the project is itself a symlink (a `/home -> /mnt/home` layout).
+    let canonical_root = std::fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
+    let mut visited: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::new();
+    visited.insert(canonical_root.clone());
     walk(
         &root,
+        &canonical_root,
+        &mut visited,
         SKIP_DIRS,
         SKIP_SUBPROJECTS,
         SUPPORTED_EXTS,
@@ -577,31 +633,95 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                         for sym in &symbols {
                             if sym.is_public {
                                 let kind_str = sym.kind.as_str();
+                                // A visibilidade REAL, não "public" fixo. O extrator já
+                                // distingue `pub` de `pub(crate)` (`detect_visibility` →
+                                // `Visibility::Crate`), e este call site descartava o
+                                // resultado — então TODA a superfície `pub(crate)` era
+                                // gravada como API pública. Como as 5 queries de órfão
+                                // filtram `visibility = 'public'`, um helper crate-interno
+                                // sem consumidor externo era contado como órfão de API
+                                // pública, e reduzir sua visibilidade (a correção que a
+                                // REGRA #0 pede) não mudava o número — o medidor não
+                                // enxergava a correção. Verificado 07/08/2026 em
+                                // `auto_remediation`, `is_under_generated_tree` e
+                                // `DEFAULT_DAEMON_READ_TIMEOUT_SECS`: os três são
+                                // `pub(crate)` na fonte e `visibility='public'` no banco.
+                                let vis = sym
+                                    .visibility
+                                    .as_ref()
+                                    .map_or("public", touring_code::ast::Visibility::as_str);
                                 let _ = rt
                                     .ctx
                                     .knowledge
-                                    .register_pub_symbol(&rel_path, &sym.name, kind_str, "public");
+                                    .register_pub_symbol(&rel_path, &sym.name, kind_str, vis);
                                 wiring_entries += 1;
                             }
                         }
 
                         let imports =
                             crate::ast_bridge::extract_file_imports(&content, abs_path_str);
+                        // S1 (2026-08-07): a re-scan of this file re-derives every
+                        // unresolved import below, so the previous run's failures
+                        // are dropped first. Without this the resolver-debt count
+                        // could only grow, and a number that cannot improve is a
+                        // number nobody acts on.
+                        let _ = rt.ctx.knowledge.clear_unresolved_for_consumer(&rel_path);
                         for (module_path, imported_symbols) in &imports {
-                            if let Some(module_file) =
-                                touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
-                                    module_path,
-                                    language,
-                                    Some(abs_path_str),
-                                )
-                            {
-                                for symbol_name in imported_symbols {
-                                    let _ = rt.ctx.knowledge.record_consumer(
-                                        &module_file,
-                                        symbol_name,
-                                        &rel_path,
-                                        None,
-                                    );
+                            match touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
+                                module_path,
+                                language,
+                                Some(abs_path_str),
+                            ) {
+                                Some(module_file) => {
+                                    for symbol_name in imported_symbols {
+                                        // The import resolved to a MODULE; the
+                                        // producer row lives wherever the symbol
+                                        // is DEFINED. Following the intra-crate
+                                        // `pub use` here is what keeps a facade
+                                        // from being credited with a consumer it
+                                        // only forwards (08/08/2026: 960 consumer
+                                        // rows pointed at a module with no
+                                        // producer for the symbol).
+                                        let definer =
+                                            touring_hooks_core::symbol_extractors::definer_module(
+                                                &module_file,
+                                                symbol_name,
+                                            );
+                                        let _ = rt.ctx.knowledge.record_consumer(
+                                            &definer,
+                                            symbol_name,
+                                            &rel_path,
+                                            None,
+                                        );
+                                    }
+                                }
+                                // S1: the branch that used to be silent. When the
+                                // resolver cannot map the module path, the call
+                                // site simply disappeared — and the producer it
+                                // would have wired became indistinguishable from
+                                // dead code. Recording the failure is what splits
+                                // the orphan count into code debt vs resolver debt.
+                                None => {
+                                    // Classified at the call site, using the same
+                                    // crate map the resolution attempt used — so
+                                    // the verdict can never drift from the attempt.
+                                    let class =
+                                        touring_hooks_core::symbol_extractors::classify_unresolved(
+                                            module_path,
+                                        );
+                                    for symbol_name in imported_symbols {
+                                        let _ = rt
+                                            .ctx
+                                            .knowledge
+                                            .record_unresolved_import_classified(
+                                                module_path,
+                                                symbol_name,
+                                                &rel_path,
+                                                None,
+                                                language,
+                                                class.as_str(),
+                                            );
+                                    }
                                 }
                             }
                         }
@@ -623,11 +743,17 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                                 .find_producer_modules_for_methods(&method_names, 4)
                         {
                             for (module_file, symbol_name) in &producers {
-                                let _ = rt.ctx.knowledge.record_consumer(
+                                // S1: this pass matches a BARE NAME and caps
+                                // fan-out at 4 producers — a deliberately lossy
+                                // guess. Recording it with the same provenance as
+                                // a resolved `use` made a guess silence a symbol
+                                // that may well be dead. It now says what it is.
+                                let _ = rt.ctx.knowledge.record_consumer_with_origin(
                                     module_file,
                                     symbol_name,
                                     &rel_path,
                                     None,
+                                    touring_hooks_core::knowledge_wiring::WiringOrigin::AstInferred,
                                 );
                             }
                         }
@@ -705,6 +831,39 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         }
     }
 
+    // 2026-08-07: the sweep above is driven by the SYMBOLS table, so it can only
+    // retire a path some symbol row once carried. `wiring_map` accepts a
+    // `module_file` from the IMPORT RESOLVER, which for years could name a file
+    // that never existed (a facade import resolved to
+    // `crates/touring-hooks/src/tantivy_index.rs`, a module that lives in
+    // touring-hooks-core). Those keys are invisible to `get_indexed_files`, so
+    // they accumulated: 301 of 1711 distinct values, 17.6%.
+    //
+    // The damage is not merely a dead row. A consumer edge parked on a phantom
+    // key leaves the REAL producer at `consumer_file IS NULL`, i.e. reported as
+    // an orphan while its consumers are on record — against a file that is not
+    // there. Retire them on the same full-walk condition the symbol sweep uses.
+    let mut phantom_modules_purged: u32 = 0;
+    if !aborted_memory_pressure && let Ok(modules) = rt.ctx.knowledge.distinct_module_files() {
+        for module_file in &modules {
+            // Only file-keyed rows under this project: `go:<import-path>` package
+            // keys and `touring-daemon://…` pseudo-consumers are not paths and
+            // must survive.
+            if module_file.contains("://") || module_file.starts_with("go:") {
+                continue;
+            }
+            let abs = project_root.join(module_file);
+            if abs.exists() {
+                continue;
+            }
+            if let Ok(n) = rt.ctx.knowledge.purge_module_rows(module_file)
+                && n > 0
+            {
+                phantom_modules_purged += 1;
+            }
+        }
+    }
+
     // Wave H+1 (2026-06-11): re-resolve consumer rows frozen at
     // symbol_kind='unknown' — walk-order races (consumer indexed before its
     // producer) and facade re-export imports both leave recoverable rows;
@@ -755,6 +914,10 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         // CI to assert the workspace is "clean" after a refactor.
         "stale_files_purged": stale_files_purged,
         "stale_paths_sample": stale_paths_sample,
+        // 2026-08-07: wiring keys naming files that are not on disk. Separate
+        // from `stale_files_purged` because the two find different things — that
+        // one follows the symbols table, this one the wiring keys.
+        "phantom_modules_purged": phantom_modules_purged,
     })
     .to_string()
 }
@@ -1182,15 +1345,28 @@ pub fn cli_ast_modules(_rt: &mut HookRuntime, payload: &serde_json::Value) -> St
 
     let mut module_nodes: Vec<serde_json::Value> = Vec::new();
 
-    fn walk_dir(dir: &Path, acc: &mut Vec<serde_json::Value>) {
+    // Same containment gate as `cli_index_rebuild::walk` — this is the second
+    // recursive walker in the indexing path, and a guard applied to only one of two
+    // symmetric call sites is the asymmetry-bug shape the decision matrix calls C08.
+    fn walk_dir(
+        dir: &Path,
+        root: &Path,
+        visited: &mut std::collections::HashSet<std::path::PathBuf>,
+        acc: &mut Vec<serde_json::Value>,
+    ) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
         };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                walk_dir(&path, acc);
+                if let Some(canonical) = inside_root(&path, root)
+                    && visited.insert(canonical)
+                {
+                    walk_dir(&path, root, visited, acc);
+                }
             } else if path.extension().map(|e| e == "rs").unwrap_or(false)
+                && inside_root(&path, root).is_some()
                 && let Ok(content) = std::fs::read_to_string(&path)
             {
                 let filename = path.file_name().unwrap_or_default().to_string_lossy();
@@ -1205,7 +1381,11 @@ pub fn cli_ast_modules(_rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         }
     }
 
-    walk_dir(root_path, &mut module_nodes);
+    let canonical_root = std::fs::canonicalize(root_path).unwrap_or_else(|_| root_path.to_path_buf());
+    let mut visited: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::new();
+    visited.insert(canonical_root.clone());
+    walk_dir(root_path, &canonical_root, &mut visited, &mut module_nodes);
 
     serde_json::json!({
         "dir": dir,
@@ -1409,6 +1589,201 @@ pub fn cli_index_ingest(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
                 "error": e.to_string(),
             })
             .to_string()
+        }
+    }
+}
+
+#[cfg(test)]
+mod containment_tests {
+    use super::inside_root;
+    use std::fs;
+
+    /// A symlink pointing outside the project is refused.
+    ///
+    /// This is the escape that let `ln -s /etc project/x` land foreign bytes in the
+    /// project's `symbols.db`, because `Path::is_dir()` resolves links.
+    #[test]
+    fn a_symlink_escaping_the_root_is_refused() {
+        let tmp = std::env::temp_dir().join(format!("touring-esc-{}", std::process::id()));
+        let root = tmp.join("project");
+        let outside = tmp.join("outside");
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.rs"), "fn leaked() {}").unwrap();
+
+        let canonical_root = fs::canonicalize(&root).unwrap();
+        let link = root.join("escape");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+
+        assert!(
+            inside_root(&link, &canonical_root).is_none(),
+            "a link resolving outside the root must be refused"
+        );
+        // and the file behind it too — a symlinked *file* escapes just as well
+        #[cfg(unix)]
+        {
+            let file_link = root.join("leak.rs");
+            std::os::unix::fs::symlink(outside.join("secret.rs"), &file_link).unwrap();
+            assert!(
+                inside_root(&file_link, &canonical_root).is_none(),
+                "a symlinked file resolving outside the root must be refused"
+            );
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// A symlink that stays inside the root is still followed.
+    ///
+    /// The guard removes the escape, never the capability (REGRA #0) — a repo that
+    /// symlinks one of its own directories keeps working.
+    #[test]
+    fn a_symlink_staying_inside_the_root_is_still_followed() {
+        let tmp = std::env::temp_dir().join(format!("touring-in-{}", std::process::id()));
+        let root = tmp.join("project");
+        fs::create_dir_all(root.join("real")).unwrap();
+        fs::write(root.join("real/lib.rs"), "pub fn kept() {}").unwrap();
+        let canonical_root = fs::canonicalize(&root).unwrap();
+
+        #[cfg(unix)]
+        {
+            let link = root.join("alias");
+            std::os::unix::fs::symlink(root.join("real"), &link).unwrap();
+            assert!(
+                inside_root(&link, &canonical_root).is_some(),
+                "an internal symlink must still be walkable"
+            );
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// The canonical path is what the caller feeds its `visited` set, so a cycle
+    /// resolves to an already-seen entry and terminates instead of overflowing.
+    #[test]
+    fn a_cycle_resolves_to_one_canonical_entry() {
+        let tmp = std::env::temp_dir().join(format!("touring-cyc-{}", std::process::id()));
+        let root = tmp.join("project");
+        fs::create_dir_all(root.join("a")).unwrap();
+        let canonical_root = fs::canonicalize(&root).unwrap();
+
+        #[cfg(unix)]
+        {
+            // a/loop -> a  — the shape that recursed until the stack blew
+            std::os::unix::fs::symlink(root.join("a"), root.join("a/loop")).unwrap();
+            let mut visited = std::collections::HashSet::new();
+            let first = inside_root(&root.join("a"), &canonical_root).unwrap();
+            assert!(visited.insert(first), "first visit is new");
+            let through_loop = inside_root(&root.join("a/loop"), &canonical_root).unwrap();
+            assert!(
+                !visited.insert(through_loop),
+                "the cycle must resolve to an already-visited canonical path"
+            );
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// A dangling link canonicalizes to Err and is skipped rather than erroring mid-walk.
+    #[test]
+    fn a_broken_link_is_skipped_not_fatal() {
+        let tmp = std::env::temp_dir().join(format!("touring-brk-{}", std::process::id()));
+        let root = tmp.join("project");
+        fs::create_dir_all(&root).unwrap();
+        let canonical_root = fs::canonicalize(&root).unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(root.join("nowhere"), root.join("dangling")).unwrap();
+            assert!(inside_root(&root.join("dangling"), &canonical_root).is_none());
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// A real child of the root passes — the guard must not reject ordinary files.
+    #[test]
+    fn ordinary_children_pass() {
+        let tmp = std::env::temp_dir().join(format!("touring-ok-{}", std::process::id()));
+        let root = tmp.join("project");
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(root.join("src/main.rs"), "fn main() {}").unwrap();
+        let canonical_root = fs::canonicalize(&root).unwrap();
+        assert!(inside_root(&root.join("src"), &canonical_root).is_some());
+        assert!(inside_root(&root.join("src/main.rs"), &canonical_root).is_some());
+        let _ = fs::remove_dir_all(&tmp);
+    }
+}
+
+#[cfg(test)]
+mod rebuild_containment_e2e {
+    use super::cli_index_rebuild;
+    use crate::runtime::HookRuntime;
+
+    /// End-to-end over the REAL `cli_index_rebuild`: a symlink escaping the project
+    /// contributes nothing to the index, an internal one still works, and a cycle
+    /// terminates.
+    ///
+    /// This runs **in-process**. The `touring index rebuild` CLI verb dispatches to
+    /// the daemon, so a CLI-level test would exercise whatever binary the daemon was
+    /// started from — i.e. it would silently test the *previous* build. (Observed
+    /// 2026-08-07: the stale daemon hung for 120 s on the cycle below, which is the
+    /// defect this guard closes.)
+    #[test]
+    #[cfg(unix)]
+    fn rebuild_indexes_inside_the_root_only_and_terminates_on_a_cycle() {
+        let outside = tempfile::tempdir().expect("outside tmpdir");
+        std::fs::write(
+            outside.path().join("leaked.rs"),
+            "pub fn canary_must_not_be_indexed_9f3a() {}",
+        )
+        .expect("write leaked");
+
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let root = proj.path();
+        std::fs::create_dir_all(root.join("src/cyc")).expect("mkdir src/cyc");
+        std::fs::write(root.join("src/lib.rs"), "pub fn legit_inside_9f3a() {}").expect("lib.rs");
+        std::fs::write(
+            root.join("src/cyc/deep.rs"),
+            "pub fn legit_nested_9f3a() {}",
+        )
+        .expect("deep.rs");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname=\"probe\"\nversion=\"0.0.0\"\nedition=\"2021\"\n",
+        )
+        .expect("Cargo.toml");
+
+        // (1) escape, (2) cycle, (3) an internal alias that must keep working
+        std::os::unix::fs::symlink(outside.path(), root.join("escape_hatch")).expect("escape");
+        std::os::unix::fs::symlink(root.join("src/cyc"), root.join("src/cyc/loop")).expect("cycle");
+        std::os::unix::fs::symlink(root.join("src"), root.join("src/cyc/alias")).expect("alias");
+
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        // No timeout wrapper is needed: an unguarded walker never returns from here,
+        // so the test harness hanging IS the failure signal.
+        let out = cli_index_rebuild(&mut rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        let v: serde_json::Value = serde_json::from_str(&out).expect("rebuild returns json");
+        assert_eq!(v["errors"], 0, "rebuild reported errors: {out}");
+
+        let store = rt
+            .infra
+            .symbol_store
+            .as_ref()
+            .expect("symbol_store initialised by HookRuntime::new");
+
+        let leaked = store
+            .find_symbol("canary_must_not_be_indexed_9f3a")
+            .expect("find_symbol");
+        assert!(
+            leaked.is_empty(),
+            "a symlink escaping the root leaked {} symbol(s) into the project index",
+            leaked.len()
+        );
+
+        // Capability preserved: real files inside the root are still indexed.
+        for sym in ["legit_inside_9f3a", "legit_nested_9f3a"] {
+            assert!(
+                !store.find_symbol(sym).expect("find_symbol").is_empty(),
+                "{sym} inside the root must still be indexed — the guard removes the \
+                 escape, not the capability"
+            );
         }
     }
 }

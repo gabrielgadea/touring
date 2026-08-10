@@ -630,7 +630,11 @@ fn record_reexport_consumer(db: &FileKnowledgeDB, consumer_file: &str, submod: &
     } else {
         format!("{parent_dir}/{stem}/{submod}.rs")
     };
-    let _ = db.record_consumer(&nested, symbol, consumer_file, None);
+    // The nested submodule is the definer by construction *unless* it in turn
+    // re-exports the symbol from deeper — following the chain costs one cached
+    // scan and keeps the attribution on whoever actually defines it.
+    let definer = crate::symbol_extractors::definer_module(&nested, symbol);
+    let _ = db.record_consumer(&definer, symbol, consumer_file, None);
 }
 
 /// Resolve a path like `crate::module::symbol` or `super::submod::Type` into
@@ -653,29 +657,42 @@ fn record_consumer_from_path(db: &FileKnowledgeDB, import_path: &str, consumer_f
         .map(|(m, _)| m)
         .unwrap_or(import_path);
 
-    // Resolve `crate::` and `super::` relative to the *consumer's* crate root.
-    // Workspace paths look like `crates/<name>/src/<...>.rs` — we take the
-    // prefix up to and including `src/` as the crate root. For non-workspace
-    // files (e.g. `src/lib.rs` top-level crates), we fall back to `src/`.
-    let crate_root_prefix: String = consumer_file
-        .rfind("/src/")
-        .map(|idx| consumer_file[..idx + 5].to_string()) // include "/src/"
-        .unwrap_or_else(|| "src/".to_string());
-
-    let module_file = if let Some(rest) = module_hint.strip_prefix("crate::") {
-        format!("{crate_root_prefix}{}.rs", rest.replace("::", "/"))
-    } else if let Some(rest) = module_hint.strip_prefix("super::") {
-        // `super::` resolves to the parent module of the consumer. Best-effort:
-        // take consumer's directory and go up one level, then join `rest`.
-        let consumer_dir = std::path::Path::new(consumer_file)
-            .parent()
-            .and_then(|p| p.parent())
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "src".to_string());
-        format!("{consumer_dir}/{}.rs", rest.replace("::", "/"))
-    } else {
+    // Resolve with the SAME resolver the full rebuild uses (2026-08-08).
+    //
+    // This used to build the path by string substitution:
+    // `format!("{crate_root}/{}.rs", rest.replace("::", "/"))`. Three failures,
+    // each already solved in `resolve_import_path_with_source` and each
+    // re-introduced here because the two paths were written separately:
+    //
+    // 1. **No filesystem probe** — the path was recorded whether or not it
+    //    existed, so every miss became a consumer row pointing at a phantom
+    //    file. Those rows wire nothing (no producer can share a module_file
+    //    that does not exist) while looking like coverage.
+    // 2. **No directory layout** — `foo/mod.rs` was never tried, only `foo.rs`.
+    // 3. **No re-export following** — `crate::shared::feature_flags::f()` in
+    //    touring-hooks-core became `…/src/shared/feature_flags.rs`, which does
+    //    not exist: `shared/mod.rs` re-exports it from touring-hooks-shared.
+    //    The real producer therefore kept ZERO consumers and read as an orphan.
+    //
+    // Measured consequence (08/08/2026): a full rebuild wired these symbols via
+    // its bare-name pass, then editing any consumer file re-ran THIS path,
+    // which replaced the good edge with a phantom — so `orphans_base` reported
+    // "new orphans" for symbols with obvious live callers, and a rebuild
+    // "fixed" them until the next edit. Sharing one resolver is what stops the
+    // two paths from disagreeing again (decision matrix C08).
+    let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
+        module_hint,
+        "rust",
+        Some(consumer_file),
+    ) else {
         return;
     };
+    // Attribute the producer to the module that DEFINES the symbol, not to one
+    // that merely re-exports it. Measured 2026-08-08: `KeywordSearch` landed on
+    // `hybrid_search/mod.rs`, which only carries a `pub use`; with no definition
+    // there the kind extractor produced `symbol_kind='unknown'` — the single
+    // such row in a 76.942-row map, and enough to degrade `touring doctor`.
+    let module_file = crate::symbol_extractors::definer_module(&module_file, symbol_name);
     let _ = db.record_consumer(&module_file, symbol_name, consumer_file, None);
 }
 

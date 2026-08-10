@@ -31,8 +31,8 @@
 //!
 //! **Scope**: per-file; rolls up as `AggKind::WeightedLoc`. ADVISORY-tier.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -44,14 +44,8 @@ impl Verification for F1_12_ArchConsistency {
     fn id(&self) -> DimId {
         DimId::F1_12
     }
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_arch_consistency_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_arch_consistency_dim(target)
     }
 }
 
@@ -70,11 +64,7 @@ fn analyze_arch_consistency_dim(target: &Path) -> Result<(f32, String)> {
     let lang = crate::verifications::lang_from_ext(target);
     let r = analyze_arch_consistency(&raw, lang);
     let value = score_arch_consistency(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F1.12: {} arch-consistency drift(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_arch_consistency: mixed-error-styles / \

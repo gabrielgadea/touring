@@ -64,27 +64,7 @@ fn canonical_lang(lang: &str) -> Lang {
 }
 
 /// Concurrency findings for one file.
-#[derive(Debug, Clone, Default)]
-pub struct ConcurrencyReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl ConcurrencyReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type ConcurrencyReport = crate::quality::SmellReport;
 
 /// Sync lock calls in `std::sync::*` (the kind that is `!Send` and deadlocks
 /// the runtime if held across `.await`). Three needle families cover the

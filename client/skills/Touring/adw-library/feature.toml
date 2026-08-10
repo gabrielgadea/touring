@@ -12,7 +12,7 @@ budget_tokens = 0
 
 [node.recall]
 type = "code"
-command = ["bash", "-c", "touring memory recall '{{vars.feature}}' 2>/dev/null | head -c 1500; echo; touring gotcha match '{{vars.target}}' 2>/dev/null | head -c 500; true"]
+command = ["bash", "-c", "touring memory recall \"$1\" 2>/dev/null | head -c 1200; echo; touring gotcha match \"$2\" 2>/dev/null | head -c 400; echo; echo '--- PRIOR ART (portfolio, por propósito) ---'; touring portfolio \"$1\" --top 5 2>/dev/null | head -c 2500; true", "--", "{{vars.feature}}", "{{vars.target}}"]
 timeout_ms = 30000
 idempotent = true
 on_pass = "scout"
@@ -22,7 +22,7 @@ on_fail = "scout"
 type = "agent"
 driver = "claude"
 tier = "sota"
-prompt = "Scout the codebase for implementing: {{vars.feature}} (area: {{vars.target}}). Institutional memory: {{nodes.recall.summary}}. Map integration points, risks, existing patterns to follow. End with NEW_FINDINGS=<n>."
+prompt = "Scout the codebase for implementing: {{vars.feature}} (area: {{vars.target}}). Institutional memory + PRIOR ART: {{nodes.recall.summary}}. The prior-art block lists artifacts that already serve this purpose, with their gaps and an external lens to consult — treat it as evidence, NOT as a constraint: you must reach a verdict (reuse | extend | supersede | create_new) and justify it. Consult the named external lens via Context7 before deciding to supersede or create new. Map integration points, risks, existing patterns to follow. State the verdict explicitly. End with NEW_FINDINGS=<n>."
 allowed_tools = ["Read", "Grep", "Glob", "Bash"]
 session = "fresh"
 timeout_ms = 900000
@@ -44,7 +44,7 @@ on_fail = "__fail__"
 # conflict-check so concurrent implementers serialize instead of colliding.
 [node.conflict_check]
 type = "gate"
-command = ["bash", "-c", "touring conflict-check {{vars.write_set}}"]
+command = ["bash", "-c", "touring conflict-check $1", "--", "{{vars.write_set}}"]
 timeout_ms = 60000
 idempotent = true
 on_pass = "implement"

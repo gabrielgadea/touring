@@ -36,6 +36,16 @@ pub const TABLE_FILE_RISK_SCORES: &str = "file_risk_scores";
 /// Structural wiring: pub symbols and their consumers.
 pub const TABLE_WIRING_MAP: &str = "wiring_map";
 
+/// Imports the resolver could NOT map to a producer file (S1, 2026-08-07).
+///
+/// Deliberately a separate table rather than a synthetic row in
+/// [`TABLE_WIRING_MAP`]: an unresolved import is the *absence* of an edge, and
+/// storing it alongside real edges risks it being read as a consumer — which
+/// would erase true orphans and invert the very metric it exists to explain.
+/// A separate table makes that contamination structurally impossible instead of
+/// merely unlikely.
+pub const TABLE_WIRING_UNRESOLVED: &str = "wiring_unresolved";
+
 /// Per-module aggregates: integration score, role, pub count.
 pub const TABLE_MODULE_ECOSYSTEM: &str = "module_ecosystem";
 
@@ -146,6 +156,7 @@ pub fn validate_knowledge_tables(conn: &rusqlite::Connection) -> Vec<&'static st
             TABLE_EDIT_HISTORY,
             TABLE_GOTCHAS,
             TABLE_WIRING_MAP,
+            TABLE_WIRING_UNRESOLVED,
             TABLE_MODULE_ECOSYSTEM,
             TABLE_FUNCTIONAL_SIGNATURES,
             TABLE_FUNCTIONAL_CHAINS,
@@ -195,8 +206,12 @@ mod tests {
         let missing = validate_knowledge_tables(&conn);
         assert_eq!(
             missing.len(),
-            13,
-            "empty DB should miss all 13 knowledge tables"
+            14,
+            "empty DB should miss all 14 knowledge tables"
+        );
+        assert!(
+            missing.contains(&TABLE_WIRING_UNRESOLVED),
+            "the S1 resolver-debt table is part of the guarded set"
         );
     }
     #[test]

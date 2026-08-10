@@ -20,8 +20,8 @@
 //! **Scope**: `AggKind::ScopeNative` — the cycle graph is computed once on the
 //! crate, never folded per-file.
 
+use crate::DimId;
 use crate::verifications::{Verification, strip_rust_comments_and_strings};
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -34,14 +34,8 @@ impl Verification for F1_8_DepCycles {
         DimId::F1_8
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_dep_cycles(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_dep_cycles(target)
     }
 }
 

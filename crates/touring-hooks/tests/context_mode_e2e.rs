@@ -156,20 +156,59 @@ fn audit_sandbox_timeout_propagates_when_fallback_disabled() {
     );
 }
 
+// ─── 3b. The compression profiles must REACH production ─────────────────────
+
+/// Until 08/08/2026 `derive_summary_with_tool` passed `Value::Null` as the tool
+/// args, and every built-in profile dispatches on `args["command"]` — so not one
+/// of the 30 profiles could fire at the only production call site. The bug was
+/// invisible because nothing counted bytes; A2's ledger made it measurable
+/// (`compression_profile_applied_count` stayed 0 through an 8.172-byte output).
+///
+/// This asserts the WIRING, not a compression ratio: the counter must move when
+/// a routed command matches a profile, and the args must be the real ones.
+#[test]
+#[serial]
+fn audit_compression_profiles_are_reachable_from_the_sandbox_path() {
+    use touring_hooks::shared::gate_metrics as gm;
+    let _home = isolate_home("profiles_reachable");
+
+    // `cargo test`-shaped output through a command CargoTestProfile matches.
+    let args = json!({"command": "cargo test --lib"});
+    let res = execute_in_sandbox_blocking(
+        "Bash",
+        json!({"command": "printf 'running 2 tests\\ntest a ... ok\\ntest b ... FAILED\\ntest result: FAILED. 1 passed; 1 failed\\n'"}),
+        SandboxConfig::default(),
+    )
+    .expect("subprocess");
+
+    let before = gm::GateMetricsSnapshot::capture();
+    let doc = sandbox_result_to_doc(&res, "Bash", &args);
+    let after = gm::GateMetricsSnapshot::capture();
+
+    assert!(
+        after.compression_profile_applied_count > before.compression_profile_applied_count,
+        "a matching profile MUST fire — passing Value::Null here made all 30 unreachable"
+    );
+    assert!(
+        after.compression_bytes_in_total > before.compression_bytes_in_total,
+        "the ledger must see the bytes the profile actually handled"
+    );
+    // And the compression must be the real thing: chatter dropped, verdict kept.
+    assert!(doc.summary.contains("FAILED"), "got: {}", doc.summary);
+    assert!(!doc.summary.contains("test a ... ok"), "got: {}", doc.summary);
+}
+
 // ─── 3. SandboxResult → ToolOutputDoc roundtrip ─────────────────────────────
 
 #[test]
 #[serial]
 fn audit_sandbox_to_doc_carries_all_fields() {
     let _home = isolate_home("sandbox_to_doc");
-    let res = execute_in_sandbox_blocking(
-        "Bash",
-        json!({"command": "printf 'doc-conversion-test'"}),
-        SandboxConfig::default(),
-    )
-    .expect("subprocess");
+    let args = json!({"command": "printf 'doc-conversion-test'"});
+    let res = execute_in_sandbox_blocking("Bash", args.clone(), SandboxConfig::default())
+        .expect("subprocess");
 
-    let doc = sandbox_result_to_doc(&res, "Bash");
+    let doc = sandbox_result_to_doc(&res, "Bash", &args);
     assert_eq!(doc.content_hash, res.content_hash);
     assert_eq!(doc.tool_name, "Bash");
     assert_eq!(doc.exit_code, 0);

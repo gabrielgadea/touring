@@ -68,27 +68,7 @@ const PY_RANDOM: &[u8] = b"random.";
 const JS_MATH_RANDOM: &[u8] = b"Math.random";
 
 /// Findings of a single test-maintainability analysis pass.
-#[derive(Debug, Clone, Default)]
-pub struct TestMaintReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl TestMaintReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type TestMaintReport = crate::quality::SmellReport;
 
 /// Count occurrences of `needle` in `bytes` outside non-executable regions.
 fn count_executable(bytes: &[u8], regions: &[(usize, usize)], needle: &[u8]) -> usize {

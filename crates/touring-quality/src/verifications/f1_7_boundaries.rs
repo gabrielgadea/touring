@@ -18,8 +18,8 @@
 //! cross-module "pub symbol with zero consumers" is a wiring concern (F1.8 /
 //! `touring wiring impact`).
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -32,14 +32,8 @@ impl Verification for F1_7_Boundaries {
         DimId::F1_7
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_boundaries_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_boundaries_dim(target)
     }
 }
 

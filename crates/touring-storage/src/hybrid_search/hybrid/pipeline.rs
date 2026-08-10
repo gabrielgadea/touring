@@ -80,6 +80,41 @@ pub struct SearchResult {
     pub confidence: ConfidenceTier,
 }
 
+/// A real BM25/keyword backend supplied by the caller.
+///
+/// The pipeline lives in `touring-storage`, which has no index of its own; the
+/// crates that *do* (the daemon's tantivy index) inject one here. Before
+/// 2026-08-08 the absence of this seam was papered over by
+/// `synthetic_keyword_search`, which returned five hardcoded `doc_kw_*` ids for
+/// every query — fabricated output presented as search results.
+pub trait KeywordSearch: Send + Sync {
+    /// Ranked `(doc_id, score)` pairs for `query`, best first, at most `limit`.
+    fn search(&self, query: &str, limit: usize) -> Vec<(String, f32)>;
+}
+
+/// Which retrieval legs actually had a corpus behind them.
+///
+/// Exposed so a caller can distinguish "searched and found nothing" from
+/// "never had anything to search" — the distinction the fabricated placeholders
+/// destroyed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct BackendStatus {
+    /// A keyword backend was wired in.
+    pub keyword_backend: bool,
+    /// An embedding provider was wired in.
+    pub embedding_provider: bool,
+    /// A vector store was wired in.
+    pub vector_store: bool,
+}
+
+impl BackendStatus {
+    /// True when no leg has a corpus — every result set is necessarily empty.
+    #[must_use]
+    pub fn is_unwired(self) -> bool {
+        !self.keyword_backend && !self.vector_store
+    }
+}
+
 /// Search pipeline state and statistics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchStats {
@@ -93,6 +128,8 @@ pub struct SearchStats {
     pub reranked_candidates: usize,
     /// Number of results actually returned to the caller after limiting.
     pub final_results: usize,
+    /// Which retrieval legs had a corpus behind them.
+    pub backends: BackendStatus,
 }
 
 /// Confidence tier for blast/impact scores — reflects reliability of numeric scores
@@ -154,12 +191,15 @@ pub struct SearchPipeline {
     /// Resource governor for execution window tracking.
     /// The guard is acquired per-call in search() via `gov.enter()`.
     gov: ResourceGovernor,
-    /// Optional embedding provider for real semantic search.
-    /// When None, falls back to synthetic placeholder data.
+    /// Optional embedding provider for semantic search.
+    /// When None the semantic leg returns nothing — never placeholder data.
     embedding_provider: Option<Arc<dyn EmbeddingProvider>>,
     /// Optional vector store backend for real ANN search.
     #[cfg(feature = "vector-store")]
     vector_store: Option<Arc<dyn VectorStore>>,
+    /// Optional keyword backend, injected by a crate that owns an index.
+    /// When None the keyword leg returns nothing — never placeholder data.
+    keyword_backend: Option<Arc<dyn KeywordSearch>>,
 }
 
 impl SearchPipeline {
@@ -183,6 +223,7 @@ impl SearchPipeline {
             embedding_provider: None,
             #[cfg(feature = "vector-store")]
             vector_store: None,
+            keyword_backend: None,
         }
     }
 
@@ -203,6 +244,7 @@ impl SearchPipeline {
             embedding_provider: None,
             #[cfg(feature = "vector-store")]
             vector_store: None,
+            keyword_backend: None,
         }
     }
 
@@ -226,6 +268,7 @@ impl SearchPipeline {
             embedding_provider: Some(provider),
             #[cfg(feature = "vector-store")]
             vector_store: None,
+            keyword_backend: None,
         }
     }
 
@@ -250,6 +293,7 @@ impl SearchPipeline {
             gov: ResourceGovernor::default(),
             embedding_provider: Some(provider),
             vector_store: Some(vector_store),
+            keyword_backend: None,
         }
     }
 
@@ -350,26 +394,56 @@ impl SearchPipeline {
         &self.config
     }
 
+    /// Attach a real keyword backend (builder style).
+    ///
+    /// Without one the keyword leg returns nothing — by design. See
+    /// [`KeywordSearch`] for why the seam exists.
+    #[must_use]
+    pub fn with_keyword_backend(mut self, backend: Arc<dyn KeywordSearch>) -> Self {
+        self.keyword_backend = Some(backend);
+        self
+    }
+
+    /// Which retrieval legs currently have a corpus behind them.
+    #[must_use]
+    pub fn backend_status(&self) -> BackendStatus {
+        BackendStatus {
+            keyword_backend: self.keyword_backend.is_some(),
+            embedding_provider: self.embedding_provider.is_some(),
+            #[cfg(feature = "vector-store")]
+            vector_store: self.vector_store.is_some(),
+            #[cfg(not(feature = "vector-store"))]
+            vector_store: false,
+        }
+    }
+
     /// Executes a hybrid search for the given query.
     ///
-    /// When an embedding provider is configured, uses real embeddings for semantic search.
-    /// Otherwise falls back to synthetic placeholder data.
+    /// Each leg produces hits only when it has a corpus behind it: the keyword
+    /// leg needs an injected [`KeywordSearch`], the semantic leg needs an
+    /// embedding provider *and* a populated vector store. With neither wired
+    /// the result is empty and [`SearchStats::backends`] says why — the
+    /// pipeline never invents documents to fill the gap.
     pub async fn search(&self, query: HybridQuery) -> (Vec<SearchResult>, SearchStats) {
         // ResourceGovernor guard — tracks execution window for adaptive quality
         let _guard = self.gov.enter();
 
         let top_k = query.top_k;
 
-        // Keyword search produces ranked list from query terms
-        // Real implementation would call touring-tantivy for BM25
-        let keyword_results = self.synthetic_keyword_search(&query.query, top_k);
+        // Keyword leg: only a real injected backend produces hits. With none
+        // wired the honest answer is nothing — see `KeywordSearch`.
+        let keyword_results = self
+            .keyword_backend
+            .as_ref()
+            .map(|b| b.search(&query.query, top_k))
+            .unwrap_or_default();
 
-        // Semantic search: use real embeddings if provider is available, else synthetic
+        // Semantic leg: needs BOTH an embedding provider and a populated store.
         let semantic_results = if let Some(ref provider) = self.embedding_provider {
             self.embedding_semantic_search(provider, &query.query, top_k)
                 .await
         } else {
-            self.synthetic_semantic_search(&query.query, top_k)
+            Vec::new()
         };
 
         let keyword_hits = keyword_results.len();
@@ -439,6 +513,7 @@ impl SearchPipeline {
             fused_candidates,
             reranked_candidates: reranked_count,
             final_results: final_results.len(),
+            backends: self.backend_status(),
         };
 
         (final_results, stats)
@@ -491,41 +566,6 @@ impl SearchPipeline {
         results
     }
 
-    /// Placeholder: synthetic keyword search based on query terms.
-    fn synthetic_keyword_search(&self, query: &str, limit: usize) -> Vec<(String, f32)> {
-        let terms: Vec<&str> = query.split_whitespace().collect();
-        if terms.is_empty() {
-            return Vec::new();
-        }
-
-        // Simple hash-based scoring: each term in doc title contributes
-        let docs = &[
-            ("doc_kw_1", 0.95),
-            ("doc_kw_2", 0.85),
-            ("doc_kw_3", 0.72),
-            ("doc_kw_4", 0.65),
-            ("doc_kw_5", 0.55),
-        ];
-
-        let mut scored: Vec<(String, f32)> = docs
-            .iter()
-            .filter(|(doc_id, _)| terms.iter().any(|t| doc_id.contains(t)))
-            .map(|(d, s)| (d.to_string(), *s))
-            .collect();
-
-        if scored.is_empty() {
-            // Fallback: return top docs with some score
-            scored = docs
-                .iter()
-                .take(limit)
-                .map(|(d, s)| (d.to_string(), *s))
-                .collect();
-        }
-
-        scored.truncate(limit);
-        scored
-    }
-
     /// Real semantic search using embedding provider + vector store.
     async fn embedding_semantic_search(
         &self,
@@ -562,40 +602,11 @@ impl SearchPipeline {
                 return hits.into_iter().map(|h| (h.id, h.score)).collect();
             }
         }
-        match provider.embed_query(query.to_string()).await {
-            Ok(embedding_result) => {
-                // Return dummy doc IDs ranked by embedding quality score
-                let _dimension = embedding_result.dimension;
-                let docs = &[
-                    ("doc_sem_1", 0.98),
-                    ("doc_sem_2", 0.89),
-                    ("doc_sem_3", 0.75),
-                    ("doc_sem_4", 0.61),
-                    ("doc_sem_5", 0.50),
-                ];
-                docs.iter()
-                    .take(limit)
-                    .map(|(d, s)| (d.to_string(), *s))
-                    .collect()
-            }
-            Err(_) => self.synthetic_semantic_search(query, limit),
-        }
-    }
-
-    /// Placeholder: synthetic semantic search based on embedding similarity.
-    fn synthetic_semantic_search(&self, _query: &str, limit: usize) -> Vec<(String, f32)> {
-        let docs = &[
-            ("doc_sem_1", 0.98),
-            ("doc_sem_2", 0.89),
-            ("doc_sem_3", 0.75),
-            ("doc_sem_4", 0.61),
-            ("doc_sem_5", 0.50),
-        ];
-
-        docs.iter()
-            .take(limit)
-            .map(|(d, s)| (d.to_string(), *s))
-            .collect()
+        // No vector store, or the store could not answer: an embedding with
+        // nowhere to search is not a result. Returning fabricated ids here is
+        // what made this command lie for every query.
+        let _ = limit;
+        Vec::new()
     }
 }
 
@@ -627,8 +638,34 @@ mod tests {
         assert_eq!(pipeline.config().rrf_k, 60.0);
     }
 
+    /// A keyword backend over a fixed in-test corpus.
+    struct FakeCorpus(Vec<(String, f32)>);
+
+    impl KeywordSearch for FakeCorpus {
+        fn search(&self, query: &str, limit: usize) -> Vec<(String, f32)> {
+            self.0
+                .iter()
+                .filter(|(id, _)| query.split_whitespace().any(|t| id.contains(t)))
+                .take(limit)
+                .cloned()
+                .collect()
+        }
+    }
+
+    fn corpus_backend() -> Arc<dyn KeywordSearch> {
+        Arc::new(FakeCorpus(vec![
+            ("async_runtime.rs".to_string(), 0.95),
+            ("trait_registry.rs".to_string(), 0.80),
+            ("unrelated_config.rs".to_string(), 0.60),
+        ]))
+    }
+
     #[tokio::test]
-    async fn test_search_no_rerank() {
+    async fn unwired_pipeline_returns_nothing_and_says_why() {
+        // Before 2026-08-08 this returned five fabricated `doc_kw_*`/`doc_sem_*`
+        // ids for ANY query, and the previous version of this test asserted
+        // exactly that — the test encoded the bug. An unwired pipeline has no
+        // corpus; the only honest answer is empty, plus a status saying so.
         let config = crate::hybrid_search::hybrid::HybridConfig {
             rerank_enabled: false,
             ..Default::default()
@@ -643,22 +680,65 @@ mod tests {
         };
 
         let (results, stats) = pipeline.search(query).await;
-        assert!(!results.is_empty());
-        assert_eq!(stats.keyword_hits, 5);
-        assert_eq!(stats.semantic_hits, 5);
+        assert!(results.is_empty(), "no corpus must mean no results: {results:?}");
+        assert_eq!(stats.keyword_hits, 0);
+        assert_eq!(stats.semantic_hits, 0);
+        assert!(stats.backends.is_unwired(), "the caller must be able to tell why");
+        assert!(!stats.backends.keyword_backend);
+    }
+
+    #[tokio::test]
+    async fn a_wired_keyword_backend_produces_real_hits() {
+        let config = crate::hybrid_search::hybrid::HybridConfig {
+            rerank_enabled: false,
+            ..Default::default()
+        };
+        let pipeline = SearchPipeline::with_config(config).with_keyword_backend(corpus_backend());
+
+        let query = HybridQuery {
+            query: "async trait".to_string(),
+            intent: QueryIntent::Understand,
+            top_k: 5,
+            rerank: false,
+        };
+
+        let (results, stats) = pipeline.search(query).await;
+        assert_eq!(stats.keyword_hits, 2, "only the two matching docs");
+        assert!(stats.backends.keyword_backend);
+        assert!(!stats.backends.is_unwired());
+        assert!(
+            results.iter().all(|r| r.doc_id.ends_with(".rs")),
+            "ids must come from the corpus, not a placeholder: {results:?}"
+        );
         assert_eq!(stats.reranked_candidates, 0);
     }
 
     #[tokio::test]
-    async fn test_search_with_rerank() {
+    async fn a_query_matching_nothing_is_empty_but_not_unwired() {
+        // The distinction the fabricated placeholders destroyed: "searched and
+        // found nothing" is not "never had anything to search".
+        let pipeline = SearchPipeline::new().with_keyword_backend(corpus_backend());
+        let query = HybridQuery {
+            query: "quantum".to_string(),
+            intent: QueryIntent::Lookup,
+            top_k: 5,
+            rerank: false,
+        };
+        let (results, stats) = pipeline.search(query).await;
+        assert!(results.is_empty());
+        assert!(!stats.backends.is_unwired(), "a corpus WAS searched");
+    }
+
+    #[tokio::test]
+    async fn rerank_applies_to_real_hits() {
         let config = crate::hybrid_search::hybrid::HybridConfig {
             rerank_enabled: true,
             ..Default::default()
         };
-        let pipeline = SearchPipeline::with_config(config);
+        let pipeline = SearchPipeline::with_config(config).with_keyword_backend(corpus_backend());
 
         let query = HybridQuery {
-            query: "async fn trait".to_string(),
+            query: "async trait".to_string(),
             intent: QueryIntent::Understand,
             top_k: 5,
             rerank: true,

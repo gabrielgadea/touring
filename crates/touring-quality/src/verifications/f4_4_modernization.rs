@@ -26,8 +26,8 @@
 //! replace `cargo fix --edition` / a codemod, so it is honest about catching a
 //! subset.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -40,14 +40,8 @@ impl Verification for F4_4_Modernization {
         DimId::F4_4
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_modernization_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_modernization_dim(target)
     }
 }
 
@@ -72,11 +66,7 @@ fn analyze_modernization_dim(target: &Path) -> Result<(f32, String)> {
     let r = analyze_modernization(&raw, lang);
 
     let value = score_modernization(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F4.4: {} modernization opportunit(ies) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_modernization: edition/version migrations){top}",

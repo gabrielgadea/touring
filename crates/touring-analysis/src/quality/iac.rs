@@ -31,28 +31,8 @@ use super::code_regions::{non_executable_regions, offset_suppressed};
 
 const SCALE: f32 = 6.0;
 
-#[derive(Debug, Clone, Default)]
 /// Infrastructure-as-Code findings for one IaC file.
-pub struct IacReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl IacReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type IacReport = crate::quality::SmellReport;
 
 // Use the string value alone (Terraform HCL often has irregular whitespace
 // between `acl` and `=`; matching the bare string value catches all).

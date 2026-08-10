@@ -3,6 +3,59 @@
 //! Combines antipattern detection, complexity metrics, unwrap auditing,
 //! error handling coverage, and test proxy scoring into a unified pipeline.
 
+/// Forma de saída canônica de um analisador de *smells*.
+///
+/// **Por que existe.** 35 analisadores deste módulo declaravam este mesmo struct
+/// byte a byte — mesmos quatro campos, mesmos tipos, mesmos doc comments —
+/// diferindo apenas no nome. Além da duplicação Type-1 que a dimensão F1.3 mede,
+/// isso era um risco de manutenção concreto: acrescentar um campo custava 35
+/// edições. É o mesmo motivo que levou `touring-quality` a consolidar as 42
+/// cópias de `lang_from_ext` em 02/07/2026.
+///
+/// Os nomes históricos (`IoReport`, `CachingReport`, …) seguem existindo como
+/// **aliases**, então nenhum chamador muda e a sintaxe de literal de struct
+/// continua valendo. A contrapartida honesta: aliases não são tipos distintos,
+/// então o compilador deixa de impedir trocar um `IoReport` por um
+/// `CachingReport`. Isso é aceitável porque os pares `analyze_X`/`score_X` são
+/// usados sempre em conjunto, dentro de um único verificador — os tipos nunca
+/// carregaram semântica própria, só nome.
+///
+/// Analisadores com forma REALMENTE distinta (`TdgReport`, `SecurityReport`,
+/// `DepHealthReport`, `BoundaryReport`, …) permanecem structs próprios: unificar
+/// aquilo seria forçar uma abstração falsa.
+#[derive(Debug, Clone, Default)]
+pub struct SmellReport {
+    /// Total raw violation count across all detectors.
+    pub violations: usize,
+    /// Weighted violation total (per-smell weights applied).
+    pub weighted_total: f32,
+    /// Lines scanned (denominator for density).
+    pub total_lines: usize,
+    /// `(message, count)` per fired detector, sorted by count desc.
+    pub findings: Vec<(String, usize)>,
+}
+
+impl SmellReport {
+    /// Registra `count` ocorrências de um *smell* com o peso dado.
+    /// Contagem zero é no-op — mantém a lista de achados sem entradas vazias.
+    ///
+    /// Consolida 35 implementações que os analisadores traziam separadas. Eram
+    /// **equivalentes**, não apenas parecidas: divergiam só entre
+    /// `if count > 0 { … }` e `if count == 0 { return; }`, e entre
+    /// `count as f32 * weight` e `weight * count as f32` (multiplicação f32 é
+    /// comutativa exata). A colisão `E0592` que expôs isso foi útil — provou que
+    /// os tipos carregavam comportamento, e que o comportamento também estava
+    /// duplicado.
+    pub(crate) fn push(&mut self, message: &'static str, count: usize, weight: f32) {
+        if count == 0 {
+            return;
+        }
+        self.violations += count;
+        self.weighted_total += weight * count as f32;
+        self.findings.push((message.to_string(), count));
+    }
+}
+
 pub mod antipatterns;
 /// Polyglot public-API **contract** design analysis (D09): typed errors
 /// (`Result<_, String>`), getter naming (C-GETTER / Effective Go), `into_`/`as_`

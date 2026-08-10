@@ -18,8 +18,8 @@
 //!
 //! **Scope**: per-file; rolls up as `AggKind::WeightedLoc`. ADVISORY-tier.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -31,14 +31,8 @@ impl Verification for F4_12_Env {
     fn id(&self) -> DimId {
         DimId::F4_12
     }
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_f4_12_env_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_f4_12_env_dim(target)
     }
 }
 
@@ -57,11 +51,7 @@ fn analyze_f4_12_env_dim(target: &Path) -> Result<(f32, String)> {
     let lang = crate::verifications::lang_from_ext(target);
     let r = analyze_env(&raw, lang);
     let value = score_env(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {} ({}x)", m, c))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "FF4_12: {} Environment Management smell(s) over {} lines ({lang}) -- score={value:.3}          (touring-analysis analyze_env: see header for detector catalog){top}",
         r.violations, r.total_lines

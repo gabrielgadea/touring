@@ -11,8 +11,8 @@
 //! Without the feature, a clearly-labelled substring fallback remains so the
 //! crate stays standalone-buildable.
 
-use crate::verifications::{Verification, auto_remediation};
-use crate::{DimId, DimScore, DimStatus};
+use crate::DimId;
+use crate::verifications::Verification;
 use anyhow::Result;
 use std::path::Path;
 
@@ -128,27 +128,17 @@ impl Verification for F2_1_Owasp {
         DimId::F2_1
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
         if is_detector_own_source(target) {
-            return Ok(DimScore {
-                value: 1.0,
-                status: DimStatus::Pass,
-                evidence:
-                    "OWASP Top 10: detector own source — markers are detection patterns, allowlisted (score=1.000)"
-                        .to_string(),
-                suggestions: vec![auto_remediation(self.id(), target, DimStatus::Pass)],
-                latency_ms: 0,
-            });
+            return Ok((
+                1.0,
+                "OWASP Top 10: detector own source — markers are detection patterns, allowlisted (score=1.000)"
+                    .to_string(),
+            ));
         }
         let raw = crate::verifications::read_target_source(target)?;
         let (value, evidence) = analyze_owasp(&raw, target);
-
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+        Ok((value, evidence))
     }
 }
 

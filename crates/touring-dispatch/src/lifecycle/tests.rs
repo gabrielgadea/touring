@@ -7,6 +7,25 @@
 use super::*;
 use tempfile::TempDir;
 
+/// Cria uma task `intent` a partir de `description` e devolve o id resolvido.
+///
+/// As mesmas oito linhas — montar o payload, chamar `cli_decompose_create`,
+/// escavar `task_id` do JSON e cair num literal — estavam copiadas em 30 testes.
+/// `fallback` preserva o comportamento original de cada um quando o runtime sem
+/// daemon não devolve id.
+fn create_intent_task(rt: &mut HookRuntime, description: &str, fallback: &str) -> String {
+    let payload = serde_json::json!({"task_type": "intent", "description": description});
+    let created = super::super::cli_handlers::cli_decompose_create(rt, &payload);
+    serde_json::from_str::<serde_json::Value>(&created)
+        .ok()
+        .and_then(|v| {
+            v.get("task_id")
+                .and_then(|id| id.as_str())
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| fallback.to_string())
+}
+
 fn make_runtime() -> (TempDir, HookRuntime) {
     let tmp = TempDir::new().expect("tempdir");
     let rt = HookRuntime::new(tmp.path()).expect("runtime");
@@ -11484,16 +11503,11 @@ fn changelog_task_get_hint_integration_task_get() {
     // R71-S1 integration: handle_task_sync_post_get with semver dag → surfaces changelog hint
     let (_tmp, mut rt) = make_runtime();
     // Inject a decompose entry mentioning "version bump" into the DB so dag_state is non-empty
-    let create_payload = serde_json::json!({"task_type":"intent","description":"prepare semver version bump for release"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "version-bump-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "prepare semver version bump for release",
+        "version-bump-task",
+    );
     let input = serde_json::json!({"task_id": task_id});
     let result = super::handle_task_sync_post_get(&mut rt, &input);
     // Result must contain the base touring-sync prefix
@@ -11536,16 +11550,11 @@ fn k8s_task_get_hint_some_for_k8s_dag() {
 fn k8s_task_get_hint_integration_task_get() {
     // R71-S2 integration: handle_task_sync_post_get with helm dag → surfaces k8s hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"configure helm chart for k8s deployment"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "k8s-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "configure helm chart for k8s deployment",
+        "k8s-task",
+    );
     let input = serde_json::json!({"task_id": task_id});
     let result = super::handle_task_sync_post_get(&mut rt, &input);
     assert!(
@@ -11590,16 +11599,11 @@ fn consumer_task_get_hint_some_for_consumer_dag() {
 fn consumer_task_get_hint_integration_task_get() {
     // R71-S3 integration: handle_task_sync_post_get with consumer wiring dag → surfaces hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"generate consumer integration bridge for orphan module"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "consumer-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "generate consumer integration bridge for orphan module",
+        "consumer-task",
+    );
     let input = serde_json::json!({"task_id": task_id});
     let result = super::handle_task_sync_post_get(&mut rt, &input);
     assert!(
@@ -11644,16 +11648,11 @@ fn rust_module_task_get_hint_some_for_rust_module_dag() {
 fn rust_module_task_get_hint_integration_task_get() {
     // R76-S1 integration: handle_task_sync_post_get with rust module DAG → surfaces rust hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"implement new rust module for lifecycle hooks"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "rust-mod-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "implement new rust module for lifecycle hooks",
+        "rust-mod-task",
+    );
     let input = serde_json::json!({"task_id": task_id});
     let result = super::handle_task_sync_post_get(&mut rt, &input);
     assert!(
@@ -11698,16 +11697,11 @@ fn mcp_tool_task_get_hint_some_for_mcp_tool_dag() {
 fn mcp_tool_task_get_hint_integration_task_get() {
     // R76-S2 integration: handle_task_sync_post_get with mcp server DAG → surfaces mcp hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"implement rmcp mcp server tool for touring diagnostics"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "mcp-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "implement rmcp mcp server tool for touring diagnostics",
+        "mcp-task",
+    );
     let input = serde_json::json!({"task_id": task_id});
     let result = super::handle_task_sync_post_get(&mut rt, &input);
     assert!(
@@ -11749,16 +11743,11 @@ fn schema_task_get_hint_some_for_schema_dag() {
 fn schema_task_get_hint_integration_task_get() {
     // R76-S3 integration: handle_task_sync_post_get with validation schema DAG → surfaces schema hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"create serde schema for api validation schema"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "schema-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "create serde schema for api validation schema",
+        "schema-task",
+    );
     let input = serde_json::json!({"task_id": task_id});
     let result = super::handle_task_sync_post_get(&mut rt, &input);
     assert!(
@@ -11801,16 +11790,11 @@ fn openapi_task_get_hint_some_for_openapi_dag() {
 fn openapi_task_get_hint_integration_task_get() {
     // R87-S1 integration: handle_task_sync_post_get with swagger DAG → surfaces openapi hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"design swagger rest api specification for payments endpoint"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "openapi-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "design swagger rest api specification for payments endpoint",
+        "openapi-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -11850,16 +11834,11 @@ fn adr_task_get_hint_some_for_adr_dag() {
 fn adr_task_get_hint_integration_task_get() {
     // R87-S2 integration: handle_task_sync_post_get with design decision DAG → surfaces adr hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"write design decision record for daemon architecture migration"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "adr-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "write design decision record for daemon architecture migration",
+        "adr-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -11902,16 +11881,11 @@ fn changelog_entry_task_get_hint_some_for_release_entry_dag() {
 fn changelog_entry_task_get_hint_integration_task_get() {
     // R87-S3 integration: handle_task_sync_post_get with release note DAG → surfaces changelog_entry hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"document release note for breaking change in hook registry api"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "changelog-entry-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "document release note for breaking change in hook registry api",
+        "changelog-entry-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -11954,16 +11928,11 @@ fn terraform_task_get_hint_some_for_terraform_dag() {
 fn terraform_task_get_hint_integration_task_get() {
     // R88-S1 integration: handle_task_sync_post_get with IaC DAG → surfaces terraform hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"write opentofu iac module for vpc network infrastructure"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "terraform-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "write opentofu iac module for vpc network infrastructure",
+        "terraform-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12006,16 +11975,11 @@ fn ci_workflow_task_get_hint_some_for_ci_dag() {
 fn ci_workflow_task_get_hint_integration_task_get() {
     // R88-S2 integration: handle_task_sync_post_get with CI/CD DAG → surfaces ci_workflow hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"set up ci pipeline for continuous integration with automated tests"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "ci-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "set up ci pipeline for continuous integration with automated tests",
+        "ci-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12058,16 +12022,11 @@ fn dockerfile_task_get_hint_some_for_docker_dag() {
 fn dockerfile_task_get_hint_integration_task_get() {
     // R88-S3 integration: handle_task_sync_post_get with container DAG → surfaces dockerfile hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"containerize touring daemon with docker container image for deployment"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "docker-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "containerize touring daemon with docker container image for deployment",
+        "docker-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12107,16 +12066,11 @@ fn benchmark_task_get_hint_some_for_benchmark_dag() {
 fn benchmark_task_get_hint_integration_task_get() {
     // R89-S1 integration: handle_task_sync_post_get with perf benchmark DAG → surfaces benchmark hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"microbenchmark vgp engine symbol verification throughput"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "bench-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "microbenchmark vgp engine symbol verification throughput",
+        "bench-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12159,16 +12113,11 @@ fn fuzz_target_task_get_hint_some_for_fuzz_dag() {
 fn fuzz_target_task_get_hint_integration_task_get() {
     // R89-S2 integration: handle_task_sync_post_get with fuzzing DAG → surfaces fuzz_target hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"create libfuzzer fuzz test for hook payload deserialization"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "fuzz-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "create libfuzzer fuzz test for hook payload deserialization",
+        "fuzz-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12208,16 +12157,11 @@ fn derive_macro_task_get_hint_some_for_proc_macro_dag() {
 fn derive_macro_task_get_hint_integration_task_get() {
     // R89-S3 integration: handle_task_sync_post_get with custom derive DAG → surfaces derive_macro hint
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"write custom derive macro for telemetry sink auto-implementation"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "macro-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "write custom derive macro for telemetry sink auto-implementation",
+        "macro-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12256,16 +12200,11 @@ fn cli_handler_task_get_hint_some_for_cli_dag() {
 #[test]
 fn cli_handler_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"implement cli handler for tantivy reindex command dispatch"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "cli-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "implement cli handler for tantivy reindex command dispatch",
+        "cli-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12305,16 +12244,11 @@ fn hook_handler_task_get_hint_some_for_hook_dag() {
 #[test]
 fn hook_handler_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"wire hook integration for claude hook event system"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "hook-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "wire hook integration for claude hook event system",
+        "hook-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12351,16 +12285,11 @@ fn plan_md_task_get_hint_some_for_plan_dag() {
 #[test]
 fn plan_md_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"create planning document for touring generator integration strategy"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "plan-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "create planning document for touring generator integration strategy",
+        "plan-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12397,16 +12326,11 @@ fn test_task_get_hint_some_for_test_dag() {
 #[test]
 fn test_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"add integration test coverage for decompose finalize handler"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "test-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "add integration test coverage for decompose finalize handler",
+        "test-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12446,16 +12370,11 @@ fn python_script_task_get_hint_some_for_python_dag() {
 #[test]
 fn python_script_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"create python automation script for touring daemon health monitoring"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "py-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "create python automation script for touring daemon health monitoring",
+        "py-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12495,16 +12414,11 @@ fn shell_completion_task_get_hint_some_for_completion_dag() {
 #[test]
 fn shell_completion_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"add zsh completion autocomplete script for all touring subcommands"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "completion-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "add zsh completion autocomplete script for all touring subcommands",
+        "completion-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12543,16 +12457,11 @@ fn man_page_task_get_hint_some_for_man_dag() {
 #[test]
 fn man_page_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"generate linux man page for touring daemon documentation"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "man-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "generate linux man page for touring daemon documentation",
+        "man-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12592,16 +12501,11 @@ fn error_catalog_task_get_hint_some_for_error_dag() {
 #[test]
 fn error_catalog_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"build error registry taxonomy for all hook handler failures"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "errcatalog-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "build error registry taxonomy for all hook handler failures",
+        "errcatalog-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12641,16 +12545,11 @@ fn incremental_patch_task_get_hint_some_for_patch_dag() {
 #[test]
 fn incremental_patch_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"generate incremental patch strategy for schema upgrade rollout"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "patch-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "generate incremental patch strategy for schema upgrade rollout",
+        "patch-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12690,16 +12589,11 @@ fn skill_document_task_get_hint_some_for_skill_dag() {
 #[test]
 fn skill_document_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"scaffold skill definition for TACO agent skill file"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "skill-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "scaffold skill definition for TACO agent skill file",
+        "skill-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12739,16 +12633,11 @@ fn diary_entry_task_get_hint_some_for_diary_dag() {
 #[test]
 fn diary_entry_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"scaffold diary record for session agent memory diary write"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "diary-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "scaffold diary record for session agent memory diary write",
+        "diary-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12787,16 +12676,11 @@ fn asyncapi_spec_task_get_hint_some_for_async_dag() {
 #[test]
 fn asyncapi_spec_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"scaffold pubsub spec for event schema amqp broker integration"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "asyncapi-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "scaffold pubsub spec for event schema amqp broker integration",
+        "asyncapi-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12836,16 +12720,11 @@ fn ffi_binding_task_get_hint_some_for_ffi_dag() {
 #[test]
 fn ffi_binding_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"generate native binding c bindings for librocksdb ffi wrapper"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "ffi-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "generate native binding c bindings for librocksdb ffi wrapper",
+        "ffi-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12885,16 +12764,11 @@ fn protobuf_schema_task_get_hint_some_for_proto_dag() {
 #[test]
 fn protobuf_schema_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"create protocol buffer grpc schema for touring telemetry service"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "proto-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "create protocol buffer grpc schema for touring telemetry service",
+        "proto-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(
@@ -12935,16 +12809,11 @@ fn task_scaffold_task_get_hint_some_for_scaffold_dag() {
 #[test]
 fn task_scaffold_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
-    let create_payload = serde_json::json!({"task_type":"intent","description":"generate task template scaffold for subtask framework boilerplate"});
-    let created = super::super::cli_handlers::cli_decompose_create(&mut rt, &create_payload);
-    let task_id = serde_json::from_str::<serde_json::Value>(&created)
-        .ok()
-        .and_then(|v| {
-            v.get("task_id")
-                .and_then(|id| id.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "scaffold-task".to_string());
+    let task_id = create_intent_task(
+        &mut rt,
+        "generate task template scaffold for subtask framework boilerplate",
+        "scaffold-task",
+    );
     let result =
         super::handle_task_sync_post_get(&mut rt, &serde_json::json!({"task_id": task_id}));
     assert!(

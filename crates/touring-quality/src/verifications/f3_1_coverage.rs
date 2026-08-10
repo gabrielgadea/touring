@@ -19,8 +19,8 @@
 //!
 //! **Scope**: `AggKind::CoverageRatio` — LOC-weighted Σcovered/Σtotal.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -33,14 +33,8 @@ impl Verification for F3_1_Coverage {
         DimId::F3_1
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_coverage(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_coverage(target)
     }
 }
 

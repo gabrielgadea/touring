@@ -46,28 +46,8 @@ fn canonical_lang(lang: &str) -> Lang {
     }
 }
 
-#[derive(Debug, Clone, Default)]
 /// Monitoring & observability findings for one file.
-pub struct MonitoringReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl MonitoringReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type MonitoringReport = crate::quality::SmellReport;
 
 const PRINTLN: &[u8] = b"println!";
 const EPRINTLN: &[u8] = b"eprintln!";

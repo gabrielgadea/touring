@@ -30,28 +30,8 @@ use super::code_regions::{non_executable_regions, offset_suppressed};
 
 const SCALE: f32 = 6.0;
 
-#[derive(Debug, Clone, Default)]
 /// Incident-response findings for one file (or aggregate across the workspace).
-pub struct IncidentReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Total lines (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl IncidentReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type IncidentReport = crate::quality::SmellReport;
 
 const RUNBOOK_DIR_1: &[u8] = b"docs/runbooks";
 const RUNBOOK_DIR_2: &[u8] = b"runbook/";
