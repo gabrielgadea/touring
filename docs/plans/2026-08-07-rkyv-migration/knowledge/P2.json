@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "Salto 0.7\u21920.8 conclu\u00eddo. 9 erros internos da fachada zerados; 21 atributos de derive migrados em 6 arquivos (#[archive]\u2192#[rkyv], check_bytes agora autom\u00e1tico); 4 adaptadores (check_archived_root/archived_root/to_bytes/from_bytes) + fn deserialize preservam a forma 0.7 de chamada, ent\u00e3o NENHUM dos 40 call sites mudou \u2014 s\u00f3 os 5 de Infallible, que n\u00e3o tem contraparte no 0.8. Bound HighSerializer extra\u00eddo para o trait Serializable (alias por blanket impl): o 0.9 muda uma linha, n\u00e3o cada where. 3 defeitos UPSTREAM verificados na fonte: (a) resolver de ENUM sem doc quebra deny(missing_docs) \u2014 resolvido por VISIBILIDADE (subm\u00f3dulo privado), zero allow; (b) RelPtr::emplace fixa rancor::Panic e transforma payload gigante em panic do processo \u2014 guardado por MAX_ARCHIVE_BYTES antes de chamar rkyv; (c) from_bytes como pub use cru vazava o 2o gen\u00e9rico para todo consumidor. Gates: check/clippy -D warnings/fmt/rustdoc -D warnings todos exit 0; touring-rkyv 47/47."
+    }
+  ],
+  "relations": []
+}

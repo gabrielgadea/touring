@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "FUNIL conclu\u00eddo: 71 substitui\u00e7\u00f5es em 11 arquivos, zero rkyv:: direto fora de crates/touring-rkyv. Fachada alargada com Infallible e from_bytes (os dois s\u00edmbolos que faltavam para cobrir a superf\u00edcie real). touring-storage passou a declarar a fachada. DESCOBERTA POR EXECU\u00c7\u00c3O que refina o P2: derives N\u00c3O podem passar pela fachada \u2014 os atributos auxiliares #[archive(...)]/#[archive_attr(...)] s\u00f3 ficam em escopo quando o derive vem do crate original; 15 derives + 1 import revertidos e o motivo documentado no Cargo.toml do touring-storage. Corrigido tamb\u00e9m o bloqueador pr\u00e9-existente build_sandbox_wrapper_args (tool_output_router.rs:170): a variante #[cfg(not(feature=tantivy-fts))] tinha 2 par\u00e2metros contra 3 da ativa, quebrando a pr\u00f3pria promessa de 'API shape feature-agnostic' \u2014 mascarado pela unifica\u00e7\u00e3o de features (cargo check --workspace passa, subconjunto de 3 crates quebra com E0061). Gates: check --workspace --all-targets exit 0; clippy -D warnings 0 erros; fmt limpo; 15086/15087 na su\u00edte, com a \u00fanica falha (pre_task_scout_returns_pretooluse_envelope) passando isolada em 10.17s \u2014 conten\u00e7\u00e3o de daemon sob carga, classe j\u00e1 conhecida, n\u00e3o regress\u00e3o."
+    }
+  ],
+  "relations": []
+}
