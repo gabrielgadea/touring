@@ -180,7 +180,7 @@ sha2 = "0.10"
 # Concurrency
 rayon = "1.10"
 dashmap = "6.1"
-pollster = "0.3"
+pollster = "0.4"
 tokio = { version = "1.40", features = ["full"] }
 
 # Collections
