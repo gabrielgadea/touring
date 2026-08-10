@@ -388,17 +388,7 @@ fn has_loose_equality(lang: &str) -> bool {
 }
 
 /// Per-file idiom analysis.
-#[derive(Debug, Clone, Default)]
-pub struct IdiomReport {
-    /// Total non-idiomatic constructs found in production code.
-    pub violations: usize,
-    /// Weighted sum (each violation scaled by its rule weight).
-    pub weighted_total: f32,
-    /// Production lines considered (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired rule, for evidence (highest weight*count first).
-    pub findings: Vec<(String, usize)>,
-}
+pub type IdiomReport = crate::quality::SmellReport;
 
 /// Count loose-equality (`==` / `!=`) occurrences that are **not** strict
 /// (`===` / `!==`), skipping comment/test regions. Char-aware: a `==` whose

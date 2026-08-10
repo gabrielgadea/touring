@@ -20,8 +20,8 @@
 //! on a code-only projection (string literals + comments blanked), so a keyword appearing only in
 //! prose — a single- or multi-line string literal, or a comment — never fires it. Nothing → Pass (1.0).
 
-use crate::verifications::{Verification, auto_remediation};
-use crate::{DimId, DimScore, DimStatus};
+use crate::DimId;
+use crate::verifications::Verification;
 use anyhow::Result;
 use std::path::Path;
 
@@ -761,17 +761,13 @@ impl Verification for F2_4_Secrets {
         DimId::F2_4
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
         if is_detector_own_source(target) {
-            return Ok(DimScore {
-                value: 1.0,
-                status: DimStatus::Pass,
-                evidence:
-                    "Cryptographic Issues: detector own source — markers are definitions, allowlisted (score=1.000)"
-                        .to_string(),
-                suggestions: vec![auto_remediation(self.id(), target, DimStatus::Pass)],
-                latency_ms: 0,
-            });
+            return Ok((
+                1.0,
+                "Cryptographic Issues: detector own source — markers are definitions, allowlisted (score=1.000)"
+                    .to_string(),
+            ));
         }
         let raw = crate::verifications::read_target_source(target)?;
 
@@ -781,15 +777,12 @@ impl Verification for F2_4_Secrets {
         // blanket `/tests/` allowlist. A real secret in a test file WITHOUT this
         // marker is now correctly flagged.
         if raw.contains("touring-quality:allow-secrets") {
-            return Ok(DimScore {
-                value: 1.0,
-                status: DimStatus::Pass,
-                evidence: "Cryptographic Issues: file carries `touring-quality:allow-secrets` \
-                           pragma (sample-secret fixture, explicitly allowlisted) — score=1.000"
+            return Ok((
+                1.0,
+                "Cryptographic Issues: file carries `touring-quality:allow-secrets` \
+                 pragma (sample-secret fixture, explicitly allowlisted) — score=1.000"
                     .to_string(),
-                suggestions: vec![auto_remediation(self.id(), target, DimStatus::Pass)],
-                latency_ms: 0,
-            });
+            ));
         }
 
         let (strong, weak) = scan(&raw);
@@ -815,18 +808,16 @@ impl Verification for F2_4_Secrets {
             .map(|line| format!(" at line {line}"))
             .unwrap_or_default();
         let evidence = format!("Cryptographic Issues: {category}{location} — score={value:.3}");
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+        Ok((value, evidence))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `check` (the trait's default) is what the tests exercise, so they still
+    // need the wrapper type the verifier itself no longer names.
+    use crate::DimScore;
     use std::io::Write;
     use tempfile::NamedTempFile;
 

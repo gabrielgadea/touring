@@ -5,14 +5,23 @@
 [adw]
 name = "chore"
 description = "Single-agent light-tier chore with one verification gate"
-entry = "do_chore"
+entry = "prior_art"
 budget_tokens = 0
+
+# Prior-art first: even a chore should not re-create what exists (REGRA #0).
+[node.prior_art]
+type = "code"
+command = ["bash", "-c", "touring portfolio \"$1\" --top 3 2>/dev/null | head -c 1500; true", "--", "{{vars.task}}"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "do_chore"
+on_fail = "do_chore"
 
 [node.do_chore]
 type = "agent"
 driver = "claude"
 tier = "light"
-prompt = "Small chore, do exactly this and nothing more: {{vars.task}}"
+prompt = "Small chore, do exactly this and nothing more: {{vars.task}}. Prior art already in the portfolio (evidence, not a constraint — reuse only if it genuinely fits): {{nodes.prior_art.summary}}"
 allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write"]
 session = "resume_on_fail"
 timeout_ms = 600000

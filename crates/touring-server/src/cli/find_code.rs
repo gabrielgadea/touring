@@ -10,7 +10,6 @@ use touring_storage::hybrid_search::{
     HybridConfig, HybridQuery, HybridQueryIntent, SearchPipeline,
     SearchResult as FusionSearchResult, detect_intent,
 };
-use touring_storage::vec::InMemoryVectorStore;
 
 /// Entry point for the `touring find-code search` CLI handler — runs hybrid
 /// semantic + keyword fusion search over the same `SearchPipeline` the
@@ -92,10 +91,18 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
             let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {}", e))?;
             let provider = FastEmbedProvider::with_model(FastEmbedModel::BgeSmall);
-            let store = Arc::new(InMemoryVectorStore::default());
             let config = HybridConfig::default();
-            let pipeline =
-                SearchPipeline::with_provider_and_store(config, Arc::new(provider), store);
+            // No store is wired on purpose: an EMPTY InMemoryVectorStore would
+            // report `vector_store: true` and make "consulted, no match" the
+            // reported reason for an answer that never had a corpus. Wire a
+            // store here only once one is actually populated.
+            let mut pipeline = SearchPipeline::with_provider(config, Arc::new(provider));
+            // Real keyword corpus: the capability portfolio (in-process, ~11k
+            // artifacts + documented symbols). Absent until `touring portfolio
+            // refresh` runs, and its absence is reported rather than papered over.
+            if let Some(backend) = crate::portfolio::keyword::PortfolioKeyword::arc_if_available() {
+                pipeline = pipeline.with_keyword_backend(backend);
+            }
             let hybrid_query = HybridQuery {
                 query: query.clone(),
                 intent: hybrid_intent,
@@ -103,7 +110,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 rerank: false,
             };
 
-            let results = rt.block_on(pipeline.search(hybrid_query)).0;
+            let (results, stats) = rt.block_on(pipeline.search(hybrid_query));
 
             let mapped: Vec<FindCodeResult> = results
                 .into_iter()
@@ -135,10 +142,32 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 })
                 .collect();
 
+            // Empty means one of two very different things — say which.
+            let note = if stats.backends.is_unwired() {
+                Some(
+                    "nenhum corpus wirado: o portfólio de capacidades está vazio (rode \
+                     `touring portfolio refresh`) e a perna semântica não tem vector store \
+                     populado. Vazio NÃO significa ausência no código — use \
+                     `touring tantivy search` para busca por identificador."
+                        .to_string(),
+                )
+            } else if mapped.is_empty() {
+                Some(
+                    "corpus consultado: portfólio de capacidades (propósito). Sem \
+             correspondência — para busca por IDENTIFICADOR use `touring tantivy \
+             search`, que cobre os ~270k símbolos do índice"
+                        .to_string(),
+                )
+            } else {
+                None
+            };
+
             let response = FindCodeResponse {
                 results: mapped,
                 detected_intent: format!("{:?}", intent_result.intent),
                 confidence: 0.85,
+                backends: stats.backends,
+                note,
             };
             serde_json::to_string(&response).map_err(|e| format!("json: {}", e))
         }

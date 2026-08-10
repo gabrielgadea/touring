@@ -11,6 +11,7 @@
 mod cosine;
 pub mod distance;
 mod jaccard;
+pub mod minhash;
 pub mod topk;
 mod traits;
 
@@ -22,6 +23,7 @@ mod traits;
 pub use cosine::*;
 pub use distance::*;
 pub use jaccard::*;
+pub use minhash::{BANDS, MinHasher, ROWS, SIGNATURE_LEN, Signature, band_keys};
 pub use topk::*;
 pub use traits::*;
 

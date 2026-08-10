@@ -20,7 +20,82 @@ pub struct ImportInfo {
 /// Falls back to regex-based extraction if the tree-sitter query fails
 /// (e.g., due to grammar version mismatch).
 pub fn extract_imports(source: &str, lang: Lang) -> Vec<ImportInfo> {
-    extract_imports_treesitter(source, lang).unwrap_or_else(|| extract_imports_regex(source, lang))
+    let mut imports = extract_imports_treesitter(source, lang)
+        .unwrap_or_else(|| extract_imports_regex(source, lang));
+    // Aliases de tipo consomem seu alvo como um import consome — e nenhum dos
+    // dois extratores acima os vê, porque nenhum é um `use`.
+    if matches!(lang, Lang::Rust) {
+        imports.extend(extract_rust_type_alias_targets(source));
+    }
+    imports
+}
+
+/// `type X = a::b::Target;` — um alias de tipo **consome** seu alvo exatamente
+/// como um import, mas não é um `use`, então um raspador de `use` nunca registra
+/// a aresta.
+///
+/// Medido em 07/08/2026: `SmellReport` era reportado órfão enquanto **35**
+/// arquivos o aliasavam (`pub type TestPyramidReport = crate::quality::SmellReport;`).
+/// O alias existe justamente porque essas 35 structs byte-idênticas foram
+/// unificadas — ou seja, a dedup melhorou o código e, por esta lacuna do modelo,
+/// *piorou* o número de órfãos. Um medidor que pune a correção é pior que um
+/// medidor ausente.
+///
+/// Conservador por construção: só emite alvos que contenham `::`, então
+/// `type Meters = f64;` e `type Buf = Vec<u8>;` não geram nada; e como o
+/// resolvedor de imports sonda o filesystem, um alvo externo
+/// (`std::collections::HashMap`) devolve `None` em vez de um caminho fantasma.
+/// Só formas de UMA linha são reconhecidas — adivinhar continuação produziria
+/// alvos truncados, que é exatamente como nascem os fantasmas.
+fn extract_rust_type_alias_targets(source: &str) -> Vec<ImportInfo> {
+    let mut out = Vec::new();
+    for line in source.lines() {
+        // Um alias de tipo real nunca carrega aspas. Sem este guard, um alias
+        // ESCRITO DENTRO de um literal de string — como os fixtures dos testes
+        // logo abaixo, ou um exemplo em prosa — é raspado como código e produz
+        // aresta para um módulo que não existe (`crates/touring-code/src/a.rs`
+        // apareceu no grafo exatamente assim, 07/08/2026).
+        if line.contains('"') {
+            continue;
+        }
+        let mut s = line.trim();
+        // Visibilidade opcional: `pub`, `pub(crate)`, `pub(super)`, `pub(in …)`.
+        if let Some(rest) = s.strip_prefix("pub") {
+            let rest = rest.trim_start();
+            s = match rest.strip_prefix('(') {
+                Some(paren) => match paren.find(')') {
+                    Some(i) => paren[i + 1..].trim_start(),
+                    None => continue,
+                },
+                None => rest,
+            };
+        }
+        let Some(rest) = s.strip_prefix("type ") else {
+            continue;
+        };
+        let Some((_name, rhs)) = rest.split_once('=') else {
+            continue;
+        };
+        let Some(rhs) = rhs.trim().strip_suffix(';') else {
+            continue; // multi-linha / where-clause: fora do escopo, por segurança
+        };
+        // Corta genéricos: `crate::a::B<T>` → `crate::a::B`.
+        let target = rhs.split('<').next().unwrap_or(rhs).trim();
+        let Some((module, symbol)) = target.rsplit_once("::") else {
+            continue; // sem caminho: `f64`, `Vec` — nada a consumir
+        };
+        if module.is_empty()
+            || symbol.is_empty()
+            || !symbol.chars().all(|c| c.is_alphanumeric() || c == '_')
+        {
+            continue;
+        }
+        out.push(ImportInfo {
+            module_path: module.to_string(),
+            symbols: vec![symbol.to_string()],
+        });
+    }
+    out
 }
 
 /// Tree-sitter-powered import extraction — precise and multi-line-safe.
@@ -472,6 +547,60 @@ import type { User } from './types';
         assert!(expand_brace_inner("").is_empty());
         assert!(expand_brace_inner(",,,").is_empty());
         assert!(expand_brace_inner("{nested, group}").is_empty());
+    }
+
+    /// A lacuna que fazia um refactor legítimo PIORAR o número de órfãos:
+    /// `SmellReport` aparecia sem consumidor enquanto 35 arquivos o aliasavam.
+    #[test]
+    fn type_alias_records_a_consumer_edge_on_its_target() {
+        let src = "pub type TestPyramidReport = crate::quality::SmellReport;\n";
+        let imports = extract_rust_type_alias_targets(src);
+        assert_eq!(imports.len(), 1);
+        assert_eq!(imports[0].module_path, "crate::quality");
+        assert_eq!(imports[0].symbols, vec!["SmellReport"]);
+    }
+
+    #[test]
+    fn type_alias_handles_visibility_and_generics() {
+        let src = "pub(crate) type Cache = crate::store::Lru<String, u64>;\n\
+                   pub(super) type Inner = super::detail::Node;\n\
+                   type Private = crate::a::B;\n";
+        let imports = extract_rust_type_alias_targets(src);
+        assert_eq!(imports.len(), 3);
+        assert_eq!(imports[0].symbols, vec!["Lru"]);
+        assert_eq!(imports[1].module_path, "super::detail");
+        assert_eq!(imports[2].symbols, vec!["B"]);
+    }
+
+    /// Um alias sem caminho não consome símbolo algum — emitir aqui fabricaria
+    /// arestas para nomes que não são módulos.
+    #[test]
+    fn type_alias_without_a_path_emits_nothing() {
+        let src = "type Meters = f64;\ntype Buf = Vec<u8>;\ntype R<T> = Result<T>;\n";
+        assert!(extract_rust_type_alias_targets(src).is_empty());
+    }
+
+    /// Formas multi-linha ficam de fora de propósito: adivinhar a continuação
+    /// produziria alvos truncados, que é como nascem caminhos fantasma.
+    #[test]
+    fn multiline_type_alias_is_skipped_rather_than_guessed() {
+        let src = "type Long =\n    crate::a::B;\n";
+        assert!(extract_rust_type_alias_targets(src).is_empty());
+    }
+
+    /// O alias entra pelo caminho público, não só pelo helper — se `extract_imports`
+    /// não compuser o pós-passo, a correção não chega ao indexador.
+    #[test]
+    fn extract_imports_surfaces_alias_targets_alongside_use_statements() {
+        let src = "use crate::a::Thing;\npub type Alias = crate::b::Other;\n";
+        let imports = extract_imports(src, Lang::Rust);
+        assert!(
+            imports
+                .iter()
+                .any(|i| i.module_path == "crate::b" && i.symbols == vec!["Other"]),
+            "alias target ausente: {imports:?}"
+        );
+        assert!(imports.iter().any(|i| i.module_path == "crate::a"));
     }
 
     #[test]

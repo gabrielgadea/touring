@@ -18,8 +18,8 @@
 //! manifest/lockfile. This keeps a per-file BLOCK hook from gating every source
 //! edit on a project-level CVE.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -32,14 +32,8 @@ impl Verification for F2_5_DepCves {
         DimId::F2_5
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_dep_cves(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_dep_cves(target)
     }
 }
 

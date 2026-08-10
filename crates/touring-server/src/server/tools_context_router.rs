@@ -18,6 +18,36 @@
 
 use super::*;
 
+/// A2 (2026-08-08) — build the ROI envelope from the **daemon's** counters.
+///
+/// `ctx_roi` reads process-local atomics, and this is the MCP bridge: it never
+/// compresses or routes anything, so its own counters are structurally zero.
+/// Reporting them was reporting the wrong process — the same observability
+/// boundary the `cli-gate-event` bridge exists to close for CEG counters.
+///
+/// The daemon is asked for its `gate-metrics` snapshot; when that is
+/// unavailable the local snapshot is used and the envelope's `source` field
+/// says so, so a reader always knows which process produced the numbers.
+fn roi_from_daemon(model: &str) -> serde_json::Value {
+    let snapshot = crate::daemon_client::daemon_query("gate-metrics", serde_json::json!({}))
+        .ok()
+        .and_then(|raw| {
+            serde_json::from_str::<touring_hooks::shared::gate_metrics::GateMetricsSnapshot>(&raw)
+                .ok()
+        });
+    match snapshot {
+        Some(snap) => touring_hooks::wave3_extended::ctx_roi_from_snapshot(&snap, model, "daemon"),
+        None => {
+            let mut v = touring_hooks::wave3_extended::ctx_roi(model);
+            v["source_note"] = serde_json::json!(
+                "daemon gate-metrics unavailable — these are the MCP bridge's own \
+                 counters, which never see compression or routing events"
+            );
+            v
+        }
+    }
+}
+
 #[tool_router(router = router_context_router, vis = "pub(crate)")]
 impl TouringServer {
     /// NEW-3: token-savings dashboard.
@@ -570,7 +600,7 @@ impl TouringServer {
         params: Parameters<Wave3StringParams>,
     ) -> Result<CallToolResult, McpError> {
         let s = params.0.value.clone();
-        let r = tokio::task::spawn_blocking(move || touring_hooks::wave3_extended::ctx_roi(&s))
+        let r = tokio::task::spawn_blocking(move || roi_from_daemon(&s))
             .await
             .unwrap_or_else(|e| serde_json::json!({"error": format!("{e}")}));
         Ok(CallToolResult::success(vec![Content::text(

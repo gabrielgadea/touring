@@ -164,11 +164,34 @@ pub fn run_benchmark(file_count: usize) -> BenchResult {
 mod tests {
     use super::*;
 
+    /// Best-of-`runs`, field by field.
+    ///
+    /// One wall-clock sample is not a measurement on a shared machine: on
+    /// 09/08/2026 this test failed inside a full `cargo test --workspace`
+    /// (topology 20.3ms vs full 16.1ms) and passed 3/3 isolated (1.1ms vs
+    /// 5.3ms) — contention inflated one sample, the code was unchanged. The
+    /// minimum is the right estimator because scheduling noise only ever ADDS
+    /// time: a descheduled sample can no longer invert the verdict, while a
+    /// structural regression (incremental genuinely slower) still fails every
+    /// run and therefore still fails the minimum.
+    fn best_of(runs: usize, file_count: usize) -> BenchResult {
+        (0..runs)
+            .map(|_| run_benchmark(file_count))
+            .reduce(|a, b| BenchResult {
+                file_count: a.file_count,
+                full_rebuild: a.full_rebuild.min(b.full_rebuild),
+                incremental_localized: a.incremental_localized.min(b.incremental_localized),
+                incremental_topology: a.incremental_topology.min(b.incremental_topology),
+                dep_count: a.dep_count,
+            })
+            .expect("runs >= 1")
+    }
+
     #[test]
     fn incremental_beats_full_and_meets_50ms_target() {
         // 2_000-file chain: large enough that full construction is non-trivial,
         // while an incremental update touches only the affected memo entries.
-        let result = run_benchmark(2_000);
+        let result = best_of(5, 2_000);
 
         // Sanity: the blast actually traversed the whole chain.
         assert_eq!(

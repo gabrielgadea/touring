@@ -25,8 +25,8 @@
 //! "missing abstraction" / "over-abstraction", so it is honest about catching a
 //! high-confidence subset.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -39,14 +39,8 @@ impl Verification for F1_11_Patterns {
         DimId::F1_11
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_patterns_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_patterns_dim(target)
     }
 }
 
@@ -71,11 +65,7 @@ fn analyze_patterns_dim(target: &Path) -> Result<(f32, String)> {
     let r = analyze_design_patterns(&raw, lang);
 
     let value = score_design_patterns(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F1.11: {} design anti-pattern(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_design_patterns: GoF transplants / ownership / type-erasure){top}",

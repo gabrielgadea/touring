@@ -23,8 +23,8 @@
 //! **Scope**: per-file (`AggKind::WeightedLoc`). A per-file scanner cannot
 //! replace a type-aware API linter, so it is honest about catching a subset.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -37,14 +37,8 @@ impl Verification for F1_9_ApiDesign {
         DimId::F1_9
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_api_design_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_api_design_dim(target)
     }
 }
 
@@ -69,11 +63,7 @@ fn analyze_api_design_dim(target: &Path) -> Result<(f32, String)> {
     let r = analyze_api_design(&raw, lang);
 
     let value = score_api_design(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F1.9: {} public-API contract smell(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_api_design: C-* / Effective Go / PEP 8 / Effective C++){top}",

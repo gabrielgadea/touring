@@ -848,8 +848,23 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
             .to_string();
         }
     };
+    // S4 (2026-08-07): the three weight columns join the projection, resolved
+    // per-connection because a federated / older memory.db may not have them.
+    let reward_col = crate::cli::shared::optional_column_select(&conn, "", "outcome_reward");
+    let importance_col = crate::cli::shared::optional_column_select(&conn, "", "importance");
+    let pinned_col = crate::cli::shared::optional_column_select(&conn, "", "pinned");
+    let superseded_col = crate::cli::shared::optional_column_select(&conn, "", "superseded_by");
+    // An ORDER BY naming a column this DB lacks would fail to prepare and empty
+    // the listing — the silent-empty failure mode the recall path already
+    // learned the hard way. Fall back to the default ordering instead.
+    let order = match order {
+        "ORDER BY outcome_reward DESC" if reward_col == "NULL" => "ORDER BY access_count DESC",
+        "ORDER BY importance DESC" if importance_col == "NULL" => "ORDER BY access_count DESC",
+        other => other,
+    };
     let query = format!(
-        "SELECT key, value, tier, entry_type, access_count, COALESCE(last_accessed_at, '')
+        "SELECT key, value, tier, entry_type, access_count, COALESCE(last_accessed_at, ''),
+                {reward_col}, {importance_col}, {pinned_col}, {superseded_col}
          FROM memory_entries {order} LIMIT ?1"
     );
     let mut stmt = match conn.prepare(&query) {
@@ -863,19 +878,54 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     };
     let entries: Vec<serde_json::Value> = stmt
         .query_map(params![limit], |row| {
-            Ok(serde_json::json!({
+            let mut entry = serde_json::json!({
                 "key": row.get::<_, String>(0)?,
                 "value": row.get::<_, String>(1)?,
                 "tier": row.get::<_, String>(2)?,
                 "type": row.get::<_, String>(3)?,
                 "access_count": row.get::<_, i64>(4)?,
                 "last_accessed": row.get::<_, String>(5)?,
-            }))
+            });
+            if let Some(obj) = entry.as_object_mut() {
+                if let Some(r) = row.get::<_, Option<f64>>(6).ok().flatten() {
+                    obj.insert("outcome_reward".into(), serde_json::json!(r));
+                }
+                if let Some(i) = row.get::<_, Option<i64>>(7).ok().flatten() {
+                    obj.insert("importance".into(), serde_json::json!(i));
+                }
+                if row.get::<_, Option<i64>>(8).ok().flatten().unwrap_or(0) != 0 {
+                    obj.insert("pinned".into(), serde_json::json!(true));
+                }
+                if let Some(s) = row.get::<_, Option<String>>(9).ok().flatten() {
+                    obj.insert("superseded_by".into(), serde_json::json!(s));
+                }
+            }
+            Ok(entry)
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
         .unwrap_or_default();
     let count = entries.len();
-    serde_json::json!({ "entries" : entries, "count" : count }).to_string()
+    // The pheromone-health number, reported because it was invisible: 11 of
+    // 7360 entries carried a reward when this was written (0,15%), so the
+    // `positive`/`negative`/`unobserved` guidance recall prints was operating
+    // on a corpus that is 99,85% unobserved. A ratio nobody can see is a ratio
+    // nobody feeds.
+    let scored: i64 = conn
+        .query_row(
+            "SELECT COUNT(outcome_reward) FROM memory_entries",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let total: i64 = conn
+        .query_row("SELECT COUNT(*) FROM memory_entries", [], |r| r.get(0))
+        .unwrap_or(0);
+    serde_json::json!({
+        "entries": entries,
+        "count": count,
+        "corpus": { "total": total, "with_reward": scored },
+    })
+    .to_string()
 }
 /// Helper: determine ORDER BY clause for memory list queries.
 ///
@@ -887,6 +937,13 @@ fn memory_list_order_clause(sort_field: &str) -> &'static str {
         "last_accessed" | "last_accessed_at" | "last_read_at" => "ORDER BY last_accessed_at DESC",
         "created_at" | "recent" => "ORDER BY created_at DESC",
         "key" => "ORDER BY key ASC",
+        // S4: `outcome_reward` was written, read by `case_value`, and yet could
+        // not be sorted by — so the one column that says which lessons actually
+        // worked was unreachable from the listing that surfaces them.
+        // NULLS LAST keeps unscored entries below scored ones without claiming
+        // they failed.
+        "reward" | "outcome_reward" => "ORDER BY outcome_reward DESC NULLS LAST",
+        "importance" | "weight" => "ORDER BY importance DESC NULLS LAST",
         _ => "ORDER BY access_count DESC",
     }
 }
@@ -1484,5 +1541,197 @@ mod real_shape_regression_tests {
         assert_eq!(json_field_as_text(Some(&serde_json::json!({}))), None);
         assert_eq!(json_field_as_text(Some(&serde_json::Value::Null)), None);
         assert_eq!(json_field_as_text(None), None);
+    }
+}
+
+/// S4 (2026-08-07) — the pheromone must evaporate.
+///
+/// Covers the three mechanisms added to the memory layer: weight
+/// (`importance`), pinning, and supersession. Each test states the failure it
+/// prevents, because the value of these columns is entirely in what they stop
+/// from surfacing.
+#[cfg(test)]
+mod pheromone_decay_tests {
+    use super::memory_list_order_clause;
+    use crate::cli::shared::{memory_column_present, optional_column_select, superseded_filter};
+
+    /// A memory DB carrying the S4 columns, built the way the store builds it.
+    fn db_with_s4_columns() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE memory_entries (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                tier TEXT NOT NULL DEFAULT 'local',
+                entry_type TEXT NOT NULL DEFAULT 'insight',
+                access_count INTEGER NOT NULL DEFAULT 0,
+                outcome_reward REAL,
+                importance INTEGER,
+                pinned INTEGER NOT NULL DEFAULT 0,
+                superseded_by TEXT
+            );",
+        )
+        .expect("schema");
+        conn
+    }
+
+    /// A pre-S4 DB — the federated case: another project's store that never ran
+    /// the migration.
+    fn legacy_db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE memory_entries (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                tier TEXT NOT NULL DEFAULT 'local',
+                entry_type TEXT NOT NULL DEFAULT 'insight',
+                access_count INTEGER NOT NULL DEFAULT 0
+            );",
+        )
+        .expect("schema");
+        conn
+    }
+
+    #[test]
+    fn reward_and_importance_became_sortable() {
+        // The regression this closes: `outcome_reward` was written and read by
+        // `case_value`, yet `--sort reward` silently fell through to
+        // access_count — the column that says which lessons worked could not
+        // order the listing that surfaces them.
+        assert_eq!(
+            memory_list_order_clause("reward"),
+            "ORDER BY outcome_reward DESC NULLS LAST"
+        );
+        assert_eq!(
+            memory_list_order_clause("importance"),
+            "ORDER BY importance DESC NULLS LAST"
+        );
+        assert_eq!(
+            memory_list_order_clause("whatever"),
+            "ORDER BY access_count DESC",
+            "unknown sorts keep the historical default"
+        );
+    }
+
+    #[test]
+    fn nulls_last_keeps_unscored_entries_from_reading_as_failures() {
+        // An unscored entry must rank below a scored one WITHOUT being ordered
+        // as if it had scored badly — the distinction the whole NULL discipline
+        // rests on.
+        let conn = db_with_s4_columns();
+        conn.execute_batch(
+            "INSERT INTO memory_entries (key, value, outcome_reward) VALUES ('scored-low', 'v', -0.9);
+             INSERT INTO memory_entries (key, value, outcome_reward) VALUES ('scored-high', 'v', 0.9);
+             INSERT INTO memory_entries (key, value) VALUES ('unscored', 'v');",
+        )
+        .expect("seed");
+        let order = memory_list_order_clause("reward");
+        let keys: Vec<String> = conn
+            .prepare(&format!("SELECT key FROM memory_entries {order}"))
+            .and_then(|mut s| {
+                s.query_map([], |r| r.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(Result::ok).collect())
+            })
+            .expect("query");
+        assert_eq!(keys, vec!["scored-high", "scored-low", "unscored"]);
+    }
+
+    #[test]
+    fn superseded_entries_stop_surfacing_but_stay_for_audit() {
+        let conn = db_with_s4_columns();
+        conn.execute_batch(
+            "INSERT INTO memory_entries (key, value) VALUES ('lesson:v1', 'the wrong advice');
+             INSERT INTO memory_entries (key, value) VALUES ('lesson:v2', 'the correction');
+             UPDATE memory_entries SET superseded_by = 'lesson:v2' WHERE key = 'lesson:v1';",
+        )
+        .expect("seed");
+
+        let filter = superseded_filter(&conn, "");
+        assert!(!filter.is_empty(), "column present ⇒ filter applies");
+        let visible: Vec<String> = conn
+            .prepare(&format!(
+                "SELECT key FROM memory_entries WHERE (value LIKE '%advice%' OR value LIKE '%correction%'){filter} ORDER BY key"
+            ))
+            .and_then(|mut s| {
+                s.query_map([], |r| r.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(Result::ok).collect())
+            })
+            .expect("query");
+        assert_eq!(visible, vec!["lesson:v2"], "the retired lesson is hidden");
+
+        let still_stored: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM memory_entries WHERE key = 'lesson:v1'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(still_stored, 1, "retirement is not deletion");
+    }
+
+    #[test]
+    fn a_legacy_db_without_the_columns_still_recalls() {
+        // The failure mode this prevents is the worst kind: a federated recall
+        // that returns EMPTY because one project's DB lacks a column, with no
+        // error anywhere. Absent column ⇒ NULL projection, no filter, no crash.
+        let conn = legacy_db();
+        assert!(!memory_column_present(&conn, "importance"));
+        assert_eq!(optional_column_select(&conn, "", "importance"), "NULL");
+        assert_eq!(optional_column_select(&conn, "e.", "pinned"), "NULL");
+        assert_eq!(superseded_filter(&conn, ""), "");
+
+        conn.execute(
+            "INSERT INTO memory_entries (key, value) VALUES ('k', 'v')",
+            [],
+        )
+        .expect("seed");
+        let importance_col = optional_column_select(&conn, "", "importance");
+        let filter = superseded_filter(&conn, "");
+        let sql =
+            format!("SELECT key, {importance_col} FROM memory_entries WHERE key = 'k'{filter}");
+        let (key, importance): (String, Option<i64>) = conn
+            .query_row(&sql, [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .expect("legacy query must still prepare and run");
+        assert_eq!(key, "k");
+        assert_eq!(importance, None);
+    }
+
+    #[test]
+    fn present_columns_are_projected_not_nulled() {
+        let conn = db_with_s4_columns();
+        assert_eq!(optional_column_select(&conn, "", "importance"), "importance");
+        assert_eq!(optional_column_select(&conn, "e.", "pinned"), "e.pinned");
+        assert_eq!(
+            superseded_filter(&conn, "e."),
+            " AND e.superseded_by IS NULL"
+        );
+    }
+
+    #[test]
+    fn pinned_then_importance_then_relevance() {
+        // Ordering contract of the recall path, asserted on the same SQL shape
+        // the recall queries build.
+        let conn = db_with_s4_columns();
+        conn.execute_batch(
+            "INSERT INTO memory_entries (key, value, importance, pinned) VALUES ('c-plain', 'v', NULL, 0);
+             INSERT INTO memory_entries (key, value, importance, pinned) VALUES ('b-weighted', 'v', 4, 0);
+             INSERT INTO memory_entries (key, value, importance, pinned) VALUES ('a-pinned', 'v', 1, 1);",
+        )
+        .expect("seed");
+        let keys: Vec<String> = conn
+            .prepare(
+                "SELECT key FROM memory_entries
+                 ORDER BY COALESCE(pinned, 0) DESC, COALESCE(importance, 0) DESC, key",
+            )
+            .and_then(|mut s| {
+                s.query_map([], |r| r.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(Result::ok).collect())
+            })
+            .expect("query");
+        assert_eq!(
+            keys,
+            vec!["a-pinned", "b-weighted", "c-plain"],
+            "pin beats weight; weight beats an unweighted entry"
+        );
     }
 }

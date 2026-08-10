@@ -31,8 +31,8 @@
 //!
 //! **Scope**: per-file; rolls up as `AggKind::WeightedLoc`. ADVISORY-tier.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -44,14 +44,8 @@ impl Verification for F3_11_Readme {
     fn id(&self) -> DimId {
         DimId::F3_11
     }
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_readme_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_readme_dim(target)
     }
 }
 
@@ -80,11 +74,7 @@ fn analyze_readme_dim(target: &Path) -> Result<(f32, String)> {
     }
     let r = analyze_readme(&raw, "markdown");
     let value = score_readme(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F3.11: {} README completeness gap(s) over {} lines — score={value:.3} \
          (touring-analysis analyze_readme: missing required README section \

@@ -160,6 +160,7 @@ mod tests {
                 evidence: "secret".into(),
                 suggestions: vec![],
                 latency_ms: 0,
+                truncated: false,
             },
         );
         let composite = compute_composite(&dims, default_weights());
@@ -185,6 +186,7 @@ mod tests {
                 evidence: "cc".into(),
                 suggestions: vec![],
                 latency_ms: 0,
+                truncated: false,
             },
         );
         assert_eq!(apply_quality_gate(Tier::Diamond, &dims), Tier::Silver);

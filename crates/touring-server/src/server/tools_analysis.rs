@@ -287,7 +287,7 @@ impl TouringServer {
             title = "Decompose task into DAG"
         ),
         name = "touring_decompose",
-        description = "Decompose a task into a validated dependency DAG (create/delete plans, add subtasks with dependencies, validate execution order). Use for multi-step work. Actions: create, delete, add_subtask, update_status, get_plan, list_tasks, get_ready_subtasks, validate_order, validate_completion, finalize"
+        description = "Decompose a task into a validated dependency DAG (create/delete plans, add subtasks with dependencies, validate execution order). Use for multi-step work. Actions: create, delete, add_subtask, update_status, get_plan, list_tasks, get_ready_subtasks, validate_order, validate_completion, finalize. Action-specific fields (taskType, subtaskId, dependsOn, priority, status, cilaLevel, qualityThreshold, autoDecompose) are accepted but omitted from this schema — run `touring mcp-capabilities` for their contract."
     )]
     async fn decompose(
         &self,

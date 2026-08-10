@@ -79,13 +79,30 @@ impl PrivateDaemon {
         let pid = child.id();
         std::mem::forget(child); // colhido pelo Drop, não pelo handle pai
 
-        // Espera o socket APARECER em vez de dormir um orçamento fixo.
-        for _ in 0..100 {
-            if std::path::Path::new(&socket).exists() {
+        // Prontidão medida por IDA E VOLTA real, nunca pela existência do arquivo.
+        //
+        // Até 07/08/2026 esta espera era `Path::new(&socket).exists()`. O bind cria
+        // o arquivo MUITO antes de o daemon conseguir SERVIR (abrir DBs, montar
+        // índice), então o teste seguia cedo demais e o cliente recebia
+        // `success=false` com payload vazio — o que quebrou
+        // `b310_path_wired_when_predictive_blast_injects_symbols` na suíte completa
+        // (verde em 7,7s isolado, vermelho em 15-21s sob carga). É exatamente a
+        // corrida espúria que a REGRA #19 descreve para o daemon global: socket
+        // ligado ≠ daemon pronto.
+        //
+        // `doctor -j` é o probe canônico e barato; só o veredito `daemon_health ==
+        // ok` conta. Enquanto não vier, o daemon não está pronto — por construção,
+        // não por tempo de espera arbitrário.
+        for _ in 0..200 {
+            if std::path::Path::new(&socket).exists() && daemon_answers(&socket) {
                 return Some(Self { pid, socket });
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
+        eprintln!(
+            "PrivateDaemon({tag}): daemon não ficou pronto em 10s — teste será pulado, \
+             não reprovado (socket={socket})"
+        );
         let _ = Command::new("kill").arg(pid.to_string()).output();
         None
     }
@@ -104,6 +121,33 @@ impl Drop for PrivateDaemon {
         let _ = std::fs::remove_file(&self.socket);
         let _ = std::fs::remove_file(format!("{}.lock", self.socket));
     }
+}
+
+/// O daemon deste socket já RESPONDE? (não apenas "o socket existe")
+///
+/// Lê o veredito de `touring doctor -j`: só `daemon_health.status == "ok"` conta.
+/// Qualquer outra coisa — erro de conexão, JSON inválido, binário ausente — é
+/// "ainda não pronto", que é o que o chamador precisa saber.
+fn daemon_answers(socket: &str) -> bool {
+    let Some((stdout, _stderr, code)) =
+        run_with_stdin("touring", &["doctor", "-j"], "", Some(socket))
+    else {
+        return false;
+    };
+    if code != 0 {
+        return false;
+    }
+    serde_json::from_str::<serde_json::Value>(&stdout)
+        .ok()
+        .and_then(|v| {
+            v.as_array().map(|checks| {
+                checks.iter().any(|c| {
+                    c.get("name").and_then(serde_json::Value::as_str) == Some("daemon_health")
+                        && c.get("status").and_then(serde_json::Value::as_str) == Some("ok")
+                })
+            })
+        })
+        .unwrap_or(false)
 }
 
 /// Roda `bin_name args…` com `stdin_payload` na entrada padrão.

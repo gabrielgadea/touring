@@ -259,6 +259,102 @@ pub(crate) fn canonicalize_module_path(module_file: &str) -> Cow<'_, str> {
     }
 }
 
+/// How strong the evidence behind a wiring edge is (S1, 2026-08-07).
+///
+/// Before this enum, `wiring_map.contract_source` held the literal `'ast_read'`
+/// in **77.679 of 77.679 rows** — a provenance column with a single value is a
+/// column that does not exist. The consequence was diagnostic, not cosmetic: an
+/// edge discovered by matching a bare method name (capped at 4 producers, so
+/// deliberately lossy) was indistinguishable from an edge whose `use` statement
+/// the resolver mapped to a real file. Both read as "wired", so a heuristic
+/// hit silenced a symbol that might well be dead, and the orphan count could
+/// not be partitioned into code debt versus resolver debt.
+///
+/// The variants are ordered weakest-to-strongest evidence; [`Self::strength`]
+/// exposes that order so consumers can weigh an edge instead of merely counting
+/// it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+pub enum WiringOrigin {
+    /// A bare name matched a producer row — no import, no path resolution.
+    /// The F9 method-dispatch pass produces these and caps fan-out at 4
+    /// producers per name, so the match is explicitly best-effort.
+    AstInferred,
+    /// A regex-based extractor found the reference (languages without an AST
+    /// front-end).
+    TextMatched,
+    /// An `use` statement whose module path the resolver mapped to a real file.
+    AstResolved,
+    /// A producer row: the symbol was read straight off the declaring AST.
+    AstDeclared,
+}
+
+impl WiringOrigin {
+    /// Stable string written to `wiring_map.contract_source`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AstInferred => "ast_inferred",
+            Self::TextMatched => "text_matched",
+            Self::AstResolved => "ast_resolved",
+            Self::AstDeclared => "ast_declared",
+        }
+    }
+
+    /// Parse a `contract_source` value read back from the DB.
+    ///
+    /// The historical literal `'ast_read'` maps to [`Self::AstResolved`]: rows
+    /// written before this enum came from the `use`-resolution path, which is
+    /// exactly that tier. Anything unrecognised also degrades to
+    /// `AstResolved` rather than to the weakest tier — inventing weakness for
+    /// an unknown value would understate real edges, and this column's whole
+    /// purpose is to stop guessing.
+    #[must_use]
+    pub fn from_contract_source(raw: &str) -> Self {
+        match raw {
+            "ast_inferred" => Self::AstInferred,
+            "text_matched" => Self::TextMatched,
+            "ast_declared" => Self::AstDeclared,
+            _ => Self::AstResolved,
+        }
+    }
+
+    /// Evidence strength in `0.0..=1.0`, for provenance-attenuated ranking.
+    #[must_use]
+    pub const fn strength(self) -> f32 {
+        match self {
+            Self::AstInferred => 0.4,
+            Self::TextMatched => 0.6,
+            Self::AstResolved => 0.9,
+            Self::AstDeclared => 1.0,
+        }
+    }
+
+    /// Whether the edge rests on a resolved path rather than a name guess.
+    #[must_use]
+    pub const fn is_resolved(self) -> bool {
+        matches!(self, Self::AstResolved | Self::AstDeclared)
+    }
+}
+
+/// An import the resolver could not map to any producer file.
+///
+/// The Gortex analogue is `name_only_candidates`: the count of call sites that
+/// reference something the graph cannot locate, reported as its own number and
+/// never folded into the resolved total.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UnresolvedImport {
+    /// The module path as written in the source (`touring_foo::bar`).
+    pub module_path: String,
+    /// The symbol requested from that module.
+    pub symbol_name: String,
+    /// File that contains the unresolvable import.
+    pub consumer_file: String,
+    /// Line of the import, when the extractor knows it.
+    pub import_line: Option<i64>,
+    /// Source language of the consumer file.
+    pub language: String,
+}
+
 /// A pub symbol's wiring status.
 #[derive(Debug, Clone)]
 pub struct WiringEntry {
@@ -365,6 +461,18 @@ pub struct WiringDbDiagnostic {
     pub kind_unknown_count: i64,
     /// Rows referring to non-Rust source files.
     pub non_rust_rows: i64,
+    /// Call sites the resolver could not map to any producer file (S1).
+    ///
+    /// Lives in `wiring_unresolved`, never summed into the counters above:
+    /// "we could not look" is not the same fact as "we looked and found
+    /// nothing", and merging them is what made the orphan number unreadable.
+    ///
+    /// `None` = **not measured** (the table is absent, e.g. a DB opened before
+    /// the v9 migration). A reader must not read that as zero.
+    pub name_only_candidates: Option<i64>,
+    /// Edges wired by bare-name matching (`ast_inferred`) rather than by a
+    /// resolved import path — the tier whose evidence is weakest.
+    pub heuristic_edges: i64,
 }
 
 impl FileKnowledgeDB {
@@ -389,14 +497,43 @@ impl FileKnowledgeDB {
         symbol_kind: &str,
         visibility: &str,
     ) -> Result<(), rusqlite::Error> {
+        self.register_pub_symbol_with_origin(
+            module_file,
+            symbol_name,
+            symbol_kind,
+            visibility,
+            WiringOrigin::AstDeclared,
+        )
+    }
+
+    /// [`Self::register_pub_symbol`] with an explicit provenance tier.
+    ///
+    /// Producer rows are `AstDeclared` in every current caller — the symbol was
+    /// read off the declaring AST. The parameter exists so a future extractor
+    /// with weaker evidence (a regex pass over a language without a front-end)
+    /// records that weakness instead of borrowing the AST's credibility.
+    pub fn register_pub_symbol_with_origin(
+        &self,
+        module_file: &str,
+        symbol_name: &str,
+        symbol_kind: &str,
+        visibility: &str,
+        origin: WiringOrigin,
+    ) -> Result<(), rusqlite::Error> {
         let canonical = canonicalize_module_path(module_file);
         if !is_indexable_module_file(&canonical) {
             return Ok(());
         }
         self.conn_ref().execute(
             "INSERT OR IGNORE INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
-             VALUES (?1, ?2, ?3, ?4, 'ast_read')",
-            params![canonical.as_ref(), symbol_name, symbol_kind, visibility],
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                canonical.as_ref(),
+                symbol_name,
+                symbol_kind,
+                visibility,
+                origin.as_str()
+            ],
         )?;
         // Invalidate aggregate cache — new pub symbol changes module totals.
         Self::invalidate_wiring_modules_cache();
@@ -416,6 +553,31 @@ impl FileKnowledgeDB {
         consumer_file: &str,
         import_line: Option<i64>,
     ) -> Result<(), rusqlite::Error> {
+        self.record_consumer_with_origin(
+            module_file,
+            symbol_name,
+            consumer_file,
+            import_line,
+            WiringOrigin::AstResolved,
+        )
+    }
+
+    /// [`Self::record_consumer`] with an explicit provenance tier.
+    ///
+    /// The default of the plain method is [`WiringOrigin::AstResolved`] because
+    /// that is what its callers actually do — resolve an `use` path to a file
+    /// (77.558 of 77.679 rows are `rust_import`). The one caller whose evidence
+    /// is weaker is the F9 method-dispatch pass, which matches a bare name and
+    /// caps fan-out at 4 producers; it passes [`WiringOrigin::AstInferred`], so
+    /// a guess stops being recorded as a resolution.
+    pub fn record_consumer_with_origin(
+        &self,
+        module_file: &str,
+        symbol_name: &str,
+        consumer_file: &str,
+        import_line: Option<i64>,
+        origin: WiringOrigin,
+    ) -> Result<(), rusqlite::Error> {
         let canonical_module = canonicalize_module_path(module_file);
         let canonical_consumer = canonicalize_module_path(consumer_file);
         if !is_indexable_module_file(&canonical_module) {
@@ -433,8 +595,13 @@ impl FileKnowledgeDB {
             self.conn_ref().execute(
                 "INSERT OR REPLACE INTO wiring_map
                  (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
-                 VALUES (?1, '*', 'glob_import', 'public', ?2, ?3, 'ast_read', datetime('now'))",
-                params![canonical_module.as_ref(), canonical_consumer.as_ref(), import_line],
+                 VALUES (?1, '*', 'glob_import', 'public', ?2, ?3, ?4, datetime('now'))",
+                params![
+                    canonical_module.as_ref(),
+                    canonical_consumer.as_ref(),
+                    import_line,
+                    origin.as_str()
+                ],
             )?;
             Self::invalidate_wiring_modules_cache();
             return Ok(());
@@ -453,17 +620,248 @@ impl FileKnowledgeDB {
                     (SELECT symbol_kind FROM wiring_map WHERE symbol_name = ?2 AND consumer_file IS NULL AND symbol_kind != 'unknown' LIMIT 1),
                     'unknown'),
                 COALESCE((SELECT visibility FROM wiring_map WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file IS NULL LIMIT 1), 'public'),
-                ?3, ?4, 'ast_read', datetime('now'))",
+                ?3, ?4, ?5, datetime('now'))",
             params![
                 canonical_module.as_ref(),
                 symbol_name,
                 canonical_consumer.as_ref(),
-                import_line
+                import_line,
+                origin.as_str()
             ],
         )?;
         // Invalidate aggregate cache — consumer resolution changes wired_count.
         Self::invalidate_wiring_modules_cache();
         Ok(())
+    }
+
+    /// Record an import whose module path the resolver could not map to a file.
+    ///
+    /// This is the write path that did not exist (S1, 2026-08-07). When
+    /// resolution failed, the caller simply skipped the record — so the call
+    /// site vanished, and the producer it *would* have wired stayed
+    /// indistinguishable from genuinely dead code. Counting those failures is
+    /// what turns the orphan number into a partition: code debt on one side,
+    /// resolver debt on the other.
+    ///
+    /// Rows live in their own table, never in `wiring_map`, precisely so they
+    /// can never be mistaken for a consumer and silently erase a true orphan.
+    /// `INSERT OR IGNORE` keyed on `(module_path, symbol_name, consumer_file)`
+    /// makes a rebuild idempotent.
+    pub fn record_unresolved_import(
+        &self,
+        module_path: &str,
+        symbol_name: &str,
+        consumer_file: &str,
+        import_line: Option<i64>,
+        language: &str,
+    ) -> Result<(), rusqlite::Error> {
+        self.record_unresolved_import_classified(
+            module_path,
+            symbol_name,
+            consumer_file,
+            import_line,
+            language,
+            "workspace_unresolved",
+        )
+    }
+
+    /// [`Self::record_unresolved_import`] with the caller's classification.
+    ///
+    /// `class` separates the three facts the raw count merges (see
+    /// `symbol_extractors::UnresolvedClass`): a `super::` import and a `serde`
+    /// import are both unresolved and neither is a defect, while an unresolved
+    /// path into a workspace crate is. The classification is the caller's
+    /// because only it knows the crate map the resolution attempt used —
+    /// deriving it here would let the verdict drift from the attempt.
+    pub fn record_unresolved_import_classified(
+        &self,
+        module_path: &str,
+        symbol_name: &str,
+        consumer_file: &str,
+        import_line: Option<i64>,
+        language: &str,
+        class: &str,
+    ) -> Result<(), rusqlite::Error> {
+        let canonical_consumer = canonicalize_module_path(consumer_file);
+        self.conn_ref().execute(
+            "INSERT OR IGNORE INTO wiring_unresolved
+             (module_path, symbol_name, consumer_file, import_line, language, class)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                module_path,
+                symbol_name,
+                canonical_consumer.as_ref(),
+                import_line,
+                language,
+                class
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Unresolved call sites grouped by class — the honest breakdown.
+    ///
+    /// `None` when the table is absent (not measured). Only the
+    /// `workspace_unresolved` bucket is resolver debt; the others are expected
+    /// non-resolution and are reported so nobody has to guess which is which.
+    pub fn unresolved_by_class(&self) -> Option<Vec<(String, i64)>> {
+        if !self.unresolved_table_present() {
+            return None;
+        }
+        let mut stmt = self
+            .conn_ref()
+            .prepare(
+                "SELECT COALESCE(class, 'workspace_unresolved') AS c, COUNT(*)
+                 FROM wiring_unresolved GROUP BY c ORDER BY 2 DESC",
+            )
+            .ok()?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })
+            .ok()?
+            .filter_map(Result::ok)
+            .collect();
+        Some(rows)
+    }
+
+    /// Whether this DB carries the `wiring_unresolved` table.
+    ///
+    /// Needed because "the table is missing" and "the table is empty" are
+    /// different facts that a bare `COUNT(*)` collapses into the same `0`.
+    /// Learned the hard way on 2026-08-07: `ensure_schema` runs only when
+    /// `user_version < SCHEMA_VERSION`, so before the v9 bump the table never
+    /// materialised on existing DBs, every write failed into `let _ =`, and
+    /// this counter answered a confident, entirely fictional zero.
+    pub fn unresolved_table_present(&self) -> bool {
+        self.conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='wiring_unresolved'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .map(|c| c > 0)
+            .unwrap_or(false)
+    }
+
+    /// Count of unresolved call sites — the Gortex `name_only_candidates`.
+    ///
+    /// `None` means **not measured** (table absent); `Some(0)` means measured
+    /// and genuinely empty. Reported as its own number and never added to the
+    /// resolved total: an aggregate that mixes "we looked and found nothing"
+    /// with "we could not look" is the approximation this change exists to
+    /// remove — and it must not reappear inside its own implementation.
+    pub fn name_only_candidates(&self) -> Option<i64> {
+        if !self.unresolved_table_present() {
+            return None;
+        }
+        self.conn_ref()
+            .query_row("SELECT COUNT(*) FROM wiring_unresolved", [], |r| r.get(0))
+            .ok()
+    }
+
+    /// The distinct module paths that failed to resolve, most frequent first.
+    ///
+    /// This is the actionable half of [`Self::name_only_candidates`]: a single
+    /// unmapped crate prefix can account for thousands of phantom orphans, and
+    /// the ranking says which resolver gap to close first.
+    pub fn unresolved_module_paths(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<(String, i64)>, rusqlite::Error> {
+        // Debt only. Ranking `super` and `serde` at the top of a "fix these"
+        // list would send every reader chasing non-problems — the ranking has
+        // to point at what is actually broken.
+        let mut stmt = self.conn_ref().prepare(
+            "SELECT module_path, COUNT(*) AS n FROM wiring_unresolved
+             WHERE COALESCE(class, 'workspace_unresolved') = 'workspace_unresolved'
+             GROUP BY module_path ORDER BY n DESC, module_path ASC LIMIT ?1",
+        )?;
+        let rows = stmt
+            .query_map(params![limit as i64], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .filter_map(Result::ok)
+            .collect();
+        Ok(rows)
+    }
+
+    /// Drop unresolved rows recorded for a consumer file, before re-scanning it.
+    ///
+    /// Without this an import that later starts resolving would leave its old
+    /// failure row behind forever, and the resolver-debt number could only ever
+    /// grow — a metric that cannot improve is a metric nobody acts on.
+    pub fn clear_unresolved_for_consumer(
+        &self,
+        consumer_file: &str,
+    ) -> Result<usize, rusqlite::Error> {
+        let canonical = canonicalize_module_path(consumer_file);
+        self.conn_ref().execute(
+            "DELETE FROM wiring_unresolved WHERE consumer_file = ?1",
+            params![canonical.as_ref()],
+        )
+    }
+
+    /// The unresolved call sites themselves, newest first.
+    ///
+    /// The counts answer "how much"; this answers "which" — the form a human
+    /// needs to actually go fix a resolver gap. `class` filters to one bucket
+    /// (pass `"workspace_unresolved"` for the debt-only view).
+    pub fn unresolved_imports(
+        &self,
+        class: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<UnresolvedImport>, rusqlite::Error> {
+        if !self.unresolved_table_present() {
+            return Ok(Vec::new());
+        }
+        let where_clause = if class.is_some() {
+            "WHERE COALESCE(class, 'workspace_unresolved') = ?1"
+        } else {
+            "WHERE ?1 IS NULL OR 1 = 1"
+        };
+        let sql = format!(
+            "SELECT module_path, symbol_name, consumer_file, import_line, language
+             FROM wiring_unresolved {where_clause}
+             ORDER BY id DESC LIMIT ?2"
+        );
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let rows = stmt
+            .query_map(params![class, limit as i64], |row| {
+                Ok(UnresolvedImport {
+                    module_path: row.get(0)?,
+                    symbol_name: row.get(1)?,
+                    consumer_file: row.get(2)?,
+                    import_line: row.get(3)?,
+                    language: row.get(4)?,
+                })
+            })?
+            .filter_map(Result::ok)
+            .collect();
+        Ok(rows)
+    }
+
+    /// Row counts of `wiring_map` grouped by provenance tier.
+    ///
+    /// Sorted strongest-evidence-first so a caller printing it reads the
+    /// resolved bulk before the heuristic tail.
+    pub fn origin_breakdown(&self) -> Result<Vec<(String, i64)>, rusqlite::Error> {
+        let mut stmt = self.conn_ref().prepare(
+            "SELECT COALESCE(contract_source, 'unknown') AS src, COUNT(*)
+             FROM wiring_map GROUP BY src",
+        )?;
+        let mut rows: Vec<(String, i64)> = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .filter_map(Result::ok)
+            .collect();
+        rows.sort_by(|a, b| {
+            WiringOrigin::from_contract_source(&b.0)
+                .cmp(&WiringOrigin::from_contract_source(&a.0))
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        Ok(rows)
     }
 
     /// Re-resolve `symbol_kind = 'unknown'` consumer rows from known-kind
@@ -626,10 +1024,29 @@ impl FileKnowledgeDB {
                     distinct_pub_symbols: row.get::<_, i64>(4).unwrap_or(0),
                     kind_unknown_count: row.get::<_, Option<i64>>(5)?.unwrap_or(0),
                     non_rust_rows: row.get::<_, Option<i64>>(6)?.unwrap_or(0),
+                    name_only_candidates: None,
+                    heuristic_edges: 0,
                 })
             },
         )?;
-        Ok(row)
+        // Queried apart from the aggregate above, and deliberately so: these two
+        // are the honesty counters. Folding them into the same SUM would put
+        // "edges we are sure of" and "guesses / failures" in one number, which
+        // is the exact approximation S1 exists to remove.
+        let name_only_candidates = self.name_only_candidates();
+        let heuristic_edges = self
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map WHERE contract_source = ?1",
+                params![WiringOrigin::AstInferred.as_str()],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0);
+        Ok(WiringDbDiagnostic {
+            name_only_candidates,
+            heuristic_edges,
+            ..row
+        })
     }
 
     /// One-shot migration that canonicalizes legacy absolute paths in
@@ -912,6 +1329,44 @@ impl FileKnowledgeDB {
         Ok(())
     }
 
+    /// Every distinct `module_file` currently keyed in `wiring_map`.
+    ///
+    /// The rebuild's stale sweep is driven by the `symbols` table, which cannot
+    /// see a `module_file` that no symbol row ever carried — and a resolver that
+    /// invents a path produces exactly that. Enumerating the wiring keys
+    /// directly is the only way to find them.
+    pub fn distinct_module_files(&self) -> Result<Vec<String>, rusqlite::Error> {
+        let mut stmt = self
+            .conn_ref()
+            .prepare("SELECT DISTINCT module_file FROM wiring_map")?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(Result::ok)
+            .collect();
+        Ok(rows)
+    }
+
+    /// Delete **every** row keyed to `module_file` — producer rows and the
+    /// consumer edges that resolved to it.
+    ///
+    /// Unlike [`Self::clear_wiring`] (producer rows only, for a re-scan), this
+    /// retires a module wholesale. Used by the rebuild sweep for paths that do
+    /// not exist on disk: measured 2026-08-07, 301 of 1711 distinct
+    /// `module_file` values (17.6%) pointed at absent files — partly renamed or
+    /// merged crates (`touring-ast`, `touring-antt`), partly paths a pre-2026
+    /// resolver fabricated from facade imports. A consumer edge parked on such a
+    /// key is worse than a missing edge: the real producer stays
+    /// `consumer_file IS NULL` and is reported orphan while its consumers are on
+    /// record — against a file that is not there.
+    pub fn purge_module_rows(&self, module_file: &str) -> Result<usize, rusqlite::Error> {
+        let n = self.conn_ref().execute(
+            "DELETE FROM wiring_map WHERE module_file = ?1",
+            params![module_file],
+        )?;
+        Self::invalidate_wiring_modules_cache();
+        Ok(n)
+    }
+
     /// Remove consumer entries for a specific file (used when file is re-scanned).
     pub fn clear_consumer_entries(&self, consumer_file: &str) -> Result<(), rusqlite::Error> {
         self.conn_ref().execute(
@@ -1183,6 +1638,83 @@ mod polyglot_gate_tests {
 }
 
 #[cfg(test)]
+mod phantom_module_tests {
+    use crate::knowledge::FileKnowledgeDB;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, FileKnowledgeDB) {
+        let tmp = TempDir::new().unwrap();
+        let db = FileKnowledgeDB::new(&tmp.path().join("test.db")).unwrap();
+        (tmp, db)
+    }
+
+    /// Both keys must be enumerable — the rebuild's sweep can only retire what
+    /// it can see, and a phantom `module_file` appears in NO other table.
+    #[test]
+    fn distinct_module_files_lists_producer_and_consumer_keys() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/real.rs", "Thing", "struct", "public")
+            .unwrap();
+        db.record_consumer(
+            "crates/facade/src/real.rs", // phantom: resolver invented this path
+            "Thing",
+            "crates/b/src/uses.rs",
+            None,
+        )
+        .unwrap();
+
+        let modules = db.distinct_module_files().unwrap();
+        assert!(modules.iter().any(|m| m == "crates/a/src/real.rs"));
+        assert!(modules.iter().any(|m| m == "crates/facade/src/real.rs"));
+    }
+
+    /// Retiring a module removes its consumer edges too — `clear_wiring` deletes
+    /// only `consumer_file IS NULL` rows, which would leave the edge parked on a
+    /// key that names no file.
+    #[test]
+    fn purge_module_rows_removes_producer_and_consumer_rows() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/ghost/src/gone.rs", "Old", "struct", "public")
+            .unwrap();
+        db.record_consumer(
+            "crates/ghost/src/gone.rs",
+            "Old",
+            "crates/b/src/uses.rs",
+            None,
+        )
+        .unwrap();
+
+        let removed = db.purge_module_rows("crates/ghost/src/gone.rs").unwrap();
+        assert!(
+            removed >= 2,
+            "producer + consumer rows expected, got {removed}"
+        );
+        assert!(
+            !db.distinct_module_files()
+                .unwrap()
+                .iter()
+                .any(|m| m == "crates/ghost/src/gone.rs")
+        );
+    }
+
+    /// Purging one module must not disturb another — the sweep runs over every
+    /// key in the table, so an over-broad delete would erase live wiring.
+    #[test]
+    fn purge_is_scoped_to_the_named_module() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/keep.rs", "Keep", "struct", "public")
+            .unwrap();
+        db.register_pub_symbol("crates/a/src/drop.rs", "Drop", "struct", "public")
+            .unwrap();
+
+        db.purge_module_rows("crates/a/src/drop.rs").unwrap();
+        let modules = db.distinct_module_files().unwrap();
+        assert!(modules.iter().any(|m| m == "crates/a/src/keep.rs"));
+        assert!(!modules.iter().any(|m| m == "crates/a/src/drop.rs"));
+    }
+}
+
+#[cfg(test)]
 mod backfill_tests {
     use crate::knowledge::FileKnowledgeDB;
     use tempfile::TempDir;
@@ -1299,5 +1831,321 @@ mod backfill_tests {
             kind_of(&db, "crates/a/src/test_util.rs", "assert_eq"),
             "extern"
         );
+    }
+}
+
+#[cfg(test)]
+mod provenance_tests {
+    use super::{UnresolvedImport, WiringOrigin};
+    use crate::knowledge::FileKnowledgeDB;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, FileKnowledgeDB) {
+        let tmp = TempDir::new().expect("tempdir");
+        let db = FileKnowledgeDB::new(&tmp.path().join("prov.db")).expect("open db");
+        (tmp, db)
+    }
+
+    fn contract_source_of(db: &FileKnowledgeDB, module: &str, symbol: &str) -> String {
+        db.conn_ref()
+            .query_row(
+                "SELECT contract_source FROM wiring_map
+                 WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file IS NOT NULL",
+                rusqlite::params![module, symbol],
+                |r| r.get::<_, String>(0),
+            )
+            .expect("consumer row")
+    }
+
+    // THE containment test. Unresolved imports must never read as consumers —
+    // if they did, S1 would erase true orphans and invert the metric it exists
+    // to explain. The assertion is set equality before/after, not a count.
+    #[test]
+    fn unresolved_imports_never_change_the_orphan_set() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "struct", "public")
+            .expect("producer");
+        db.register_pub_symbol("crates/b/src/lib.rs", "Beta", "struct", "public")
+            .expect("producer");
+
+        let before: Vec<String> = db
+            .orphan_symbols()
+            .expect("orphans")
+            .into_iter()
+            .map(|e| format!("{}::{}", e.module_file, e.symbol_name))
+            .collect();
+        assert_eq!(before.len(), 2, "both producers start orphan");
+
+        // Unresolved rows naming the SAME symbols the producers declare: the
+        // adversarial case — if the write path leaked into wiring_map, these
+        // would wire both producers and the orphan set would empty out.
+        for (module, symbol) in [
+            ("mystery_crate::alpha", "Alpha"),
+            ("mystery_crate::beta", "Beta"),
+            ("crates/a/src/lib.rs", "Alpha"),
+        ] {
+            db.record_unresolved_import(module, symbol, "crates/c/src/main.rs", Some(7), "rust")
+                .expect("unresolved");
+        }
+
+        let after: Vec<String> = db
+            .orphan_symbols()
+            .expect("orphans")
+            .into_iter()
+            .map(|e| format!("{}::{}", e.module_file, e.symbol_name))
+            .collect();
+        assert_eq!(before, after, "unresolved rows must not resolve any orphan");
+        assert_eq!(db.name_only_candidates().expect("count"), 3);
+    }
+
+    #[test]
+    fn provenance_is_written_per_tier_not_as_one_constant() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "struct", "public")
+            .expect("producer");
+        db.record_consumer("crates/a/src/lib.rs", "Alpha", "crates/b/src/use.rs", None)
+            .expect("resolved consumer");
+        db.record_consumer_with_origin(
+            "crates/a/src/lib.rs",
+            "Alpha",
+            "crates/c/src/guess.rs",
+            None,
+            WiringOrigin::AstInferred,
+        )
+        .expect("inferred consumer");
+
+        // Producer keeps the strongest tier; the two consumer rows differ —
+        // which is the whole point: one column, more than one value.
+        let producer: String = db
+            .conn_ref()
+            .query_row(
+                "SELECT contract_source FROM wiring_map
+                 WHERE module_file = 'crates/a/src/lib.rs' AND consumer_file IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .expect("producer row");
+        assert_eq!(producer, WiringOrigin::AstDeclared.as_str());
+
+        let sources: Vec<String> = db
+            .conn_ref()
+            .prepare(
+                "SELECT contract_source FROM wiring_map
+                 WHERE consumer_file IS NOT NULL ORDER BY consumer_file",
+            )
+            .and_then(|mut s| {
+                s.query_map([], |r| r.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(Result::ok).collect())
+            })
+            .expect("consumer rows");
+        assert_eq!(
+            sources,
+            vec![
+                WiringOrigin::AstResolved.as_str().to_string(),
+                WiringOrigin::AstInferred.as_str().to_string()
+            ],
+            "b/ resolved, c/ inferred — the heuristic no longer borrows AST credibility"
+        );
+        assert_eq!(
+            contract_source_of(&db, "crates/a/src/lib.rs", "Alpha"),
+            WiringOrigin::AstResolved.as_str()
+        );
+    }
+
+    #[test]
+    fn diagnostic_reports_the_two_honesty_counters_apart() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "function", "public")
+            .expect("producer");
+        db.record_consumer_with_origin(
+            "crates/a/src/lib.rs",
+            "Alpha",
+            "crates/c/src/guess.rs",
+            None,
+            WiringOrigin::AstInferred,
+        )
+        .expect("inferred");
+        db.record_unresolved_import("ghost::mod", "Ghost", "crates/c/src/guess.rs", None, "rust")
+            .expect("unresolved");
+
+        let diag = db.wiring_db_diagnostic().expect("diagnostic");
+        assert_eq!(
+            diag.name_only_candidates,
+            Some(1),
+            "Some(n) = measured; None would mean the table is missing"
+        );
+        assert_eq!(diag.heuristic_edges, 1);
+        // The census counts only real rows — the unresolved one lives elsewhere
+        // and is never folded into the totals.
+        assert_eq!(diag.total_rows, 2);
+        assert_eq!(diag.non_rust_rows, 0, "unresolved must not pollute this");
+    }
+
+    /// The defect this file's own author hit on 2026-08-07.
+    ///
+    /// `ensure_schema` runs only when `user_version < SCHEMA_VERSION`, so the
+    /// new table did not materialise on the live DB; every write failed into
+    /// `let _ =`, and a bare `COUNT(*)` reported `0`. A zero produced by a
+    /// missing table is indistinguishable from a zero produced by a clean
+    /// codebase — the exact class of lie this whole change removes. `None` now
+    /// says "not measured" out loud.
+    #[test]
+    fn a_missing_table_reports_not_measured_never_zero() {
+        let tmp = TempDir::new().expect("tempdir");
+        let db = FileKnowledgeDB::new(&tmp.path().join("no_unresolved.db")).expect("open db");
+        db.conn_ref()
+            .execute_batch("DROP TABLE IF EXISTS wiring_unresolved")
+            .expect("simulate a pre-v9 database");
+
+        assert!(!db.unresolved_table_present());
+        assert_eq!(
+            db.name_only_candidates(),
+            None,
+            "absent table must read as unmeasured, not as zero"
+        );
+        let diag = db.wiring_db_diagnostic().expect("diagnostic still works");
+        assert_eq!(diag.name_only_candidates, None);
+
+        // And once the table exists, an empty one is a genuine, measured zero.
+        db.conn_ref()
+            .execute_batch(
+                "CREATE TABLE wiring_unresolved (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    module_path TEXT NOT NULL,
+                    symbol_name TEXT NOT NULL,
+                    consumer_file TEXT NOT NULL,
+                    import_line INTEGER,
+                    language TEXT NOT NULL DEFAULT 'rust',
+                    observed_at TEXT DEFAULT (datetime('now')))",
+            )
+            .expect("create");
+        assert_eq!(db.name_only_candidates(), Some(0));
+    }
+
+    #[test]
+    fn rescanning_a_consumer_drops_its_stale_unresolved_rows() {
+        let (_tmp, db) = setup();
+        db.record_unresolved_import("ghost::a", "A", "crates/c/src/m.rs", None, "rust")
+            .expect("first scan");
+        db.record_unresolved_import("ghost::b", "B", "crates/d/src/m.rs", None, "rust")
+            .expect("other file");
+        assert_eq!(db.name_only_candidates().expect("count"), 2);
+
+        let removed = db
+            .clear_unresolved_for_consumer("crates/c/src/m.rs")
+            .expect("clear");
+        assert_eq!(removed, 1);
+        assert_eq!(
+            db.name_only_candidates().expect("count"),
+            1,
+            "only the rescanned file's rows are dropped"
+        );
+    }
+
+    #[test]
+    fn unresolved_writes_are_idempotent_across_rebuilds() {
+        let (_tmp, db) = setup();
+        for _ in 0..3 {
+            db.record_unresolved_import("ghost::a", "A", "crates/c/src/m.rs", Some(3), "rust")
+                .expect("repeat");
+        }
+        assert_eq!(db.name_only_candidates().expect("count"), 1);
+    }
+
+    #[test]
+    fn top_unresolved_modules_rank_by_call_site_count() {
+        let (_tmp, db) = setup();
+        for i in 0..5 {
+            db.record_unresolved_import(
+                "hot::mod",
+                &format!("S{i}"),
+                "crates/c/src/m.rs",
+                None,
+                "rust",
+            )
+            .expect("hot");
+        }
+        db.record_unresolved_import("cold::mod", "S", "crates/c/src/m.rs", None, "rust")
+            .expect("cold");
+
+        let ranked = db.unresolved_module_paths(10).expect("ranked");
+        assert_eq!(ranked[0], ("hot::mod".to_string(), 5));
+        assert_eq!(ranked[1], ("cold::mod".to_string(), 1));
+    }
+
+    #[test]
+    fn legacy_ast_read_rows_read_back_as_resolved_not_as_weakest() {
+        // 77.679 historical rows carry the literal 'ast_read'. They came from
+        // the use-resolution path, so degrading them to the weakest tier would
+        // invent weakness that the data does not show.
+        assert_eq!(
+            WiringOrigin::from_contract_source("ast_read"),
+            WiringOrigin::AstResolved
+        );
+        assert_eq!(
+            WiringOrigin::from_contract_source("something_unheard_of"),
+            WiringOrigin::AstResolved
+        );
+    }
+
+    #[test]
+    fn origin_ordering_and_strength_agree_on_evidence() {
+        assert!(WiringOrigin::AstDeclared > WiringOrigin::AstResolved);
+        assert!(WiringOrigin::AstResolved > WiringOrigin::TextMatched);
+        assert!(WiringOrigin::TextMatched > WiringOrigin::AstInferred);
+        assert!(WiringOrigin::AstResolved.strength() > WiringOrigin::AstInferred.strength());
+        assert!(WiringOrigin::AstResolved.is_resolved());
+        assert!(!WiringOrigin::AstInferred.is_resolved());
+        // Round-trip through the DB representation must be lossless, or the
+        // breakdown would silently reclassify tiers on read.
+        for origin in [
+            WiringOrigin::AstDeclared,
+            WiringOrigin::AstResolved,
+            WiringOrigin::TextMatched,
+            WiringOrigin::AstInferred,
+        ] {
+            assert_eq!(
+                WiringOrigin::from_contract_source(origin.as_str()),
+                origin,
+                "{} must round-trip",
+                origin.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn origin_breakdown_is_ordered_strongest_first() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "function", "public")
+            .expect("declared");
+        db.record_consumer("crates/a/src/lib.rs", "Alpha", "crates/b/src/u.rs", None)
+            .expect("resolved");
+        db.record_consumer_with_origin(
+            "crates/a/src/lib.rs",
+            "Alpha",
+            "crates/c/src/g.rs",
+            None,
+            WiringOrigin::AstInferred,
+        )
+        .expect("inferred");
+
+        let breakdown = db.origin_breakdown().expect("breakdown");
+        let order: Vec<&str> = breakdown.iter().map(|(s, _)| s.as_str()).collect();
+        assert_eq!(order, vec!["ast_declared", "ast_resolved", "ast_inferred"]);
+        assert!(breakdown.iter().all(|(_, n)| *n == 1));
+    }
+
+    #[test]
+    fn unresolved_import_struct_serializes_for_reporting() {
+        let value = serde_json::to_value(UnresolvedImport {
+            module_path: "ghost::mod".into(),
+            symbol_name: "Ghost".into(),
+            consumer_file: "crates/c/src/m.rs".into(),
+            import_line: Some(12),
+            language: "rust".into(),
+        })
+        .expect("serialize");
+        assert_eq!(value["module_path"], "ghost::mod");
+        assert_eq!(value["import_line"], 12);
     }
 }

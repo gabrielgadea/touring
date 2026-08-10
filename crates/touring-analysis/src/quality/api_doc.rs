@@ -89,27 +89,7 @@ const SCHEMA_4XX: &[u8] = b"4xx";
 const SCHEMA_5XX: &[u8] = b"5xx";
 
 /// Findings of a single API-doc analysis pass.
-#[derive(Debug, Clone, Default)]
-pub struct ApiDocReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl ApiDocReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type ApiDocReport = crate::quality::SmellReport;
 
 /// Count occurrences of `needle` in `bytes` outside non-executable regions.
 fn count_executable(bytes: &[u8], regions: &[(usize, usize)], needle: &[u8]) -> usize {

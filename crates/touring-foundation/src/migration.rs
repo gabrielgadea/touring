@@ -14,7 +14,22 @@ use tracing_attributes::instrument;
 /// `use touring_foundation::migration::SCHEMA_VERSION;`.
 ///
 /// Bump only when adding a new migration block to `touring-hooks::FileKnowledgeDB`.
-pub const SCHEMA_VERSION: u32 = 8;
+///
+/// **v9 (S1, 2026-08-07)** — adds `wiring_unresolved`.
+/// **v10 (S1, 2026-08-07)** — adds `wiring_unresolved.class`: the first live
+/// measurement put 7.197 call sites under one "resolver debt" label, of which
+/// the top entries were `super` (1.298) and `serde` (531) — a scope keyword and
+/// an external crate, neither of which is anyone's debt. One number for three
+/// facts is the exact collapse this work removes.
+///
+/// The bump is what makes the table appear. `FileKnowledgeDB::new` runs
+/// `ensure_schema()` **only** when `user_version < SCHEMA_VERSION`, so a
+/// `CREATE TABLE IF NOT EXISTS` added to `ensure_schema` without a bump is a
+/// no-op on every already-migrated database — new tables silently never exist,
+/// their writes fail into `let _ =`, and the counter that reads them reports a
+/// perfectly innocent `0`. Verified live: the first S1 rebuild reported
+/// `name_only_candidates: 0` while `sqlite3` answered `no such table`.
+pub const SCHEMA_VERSION: u32 = 10;
 
 /// A single schema migration step.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -279,9 +294,15 @@ mod tests {
         assert_eq!(ver, 0);
     }
 
+    /// v9 (2026-08-07): `wiring_unresolved`, added for S1 provenance.
+    ///
+    /// The version is asserted so a bump is always a deliberate edit — and the
+    /// bump is not ceremony: `ensure_schema` is gated on
+    /// `user_version < SCHEMA_VERSION`, so a new table that ships without one
+    /// never materialises on an existing DB.
     #[test]
-    fn test_schema_version_8_is_current() {
-        assert_eq!(SCHEMA_VERSION, 8);
+    fn test_schema_version_10_is_current() {
+        assert_eq!(SCHEMA_VERSION, 10);
     }
 
     #[test]

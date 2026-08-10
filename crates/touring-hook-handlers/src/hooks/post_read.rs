@@ -294,9 +294,15 @@ fn populate_wiring_map(
                 .map(|(m, _)| m)
                 .unwrap_or(import_path);
 
-            // Check for cross-crate imports using resolve_import_path
+            // Check for cross-crate imports using resolve_import_path.
+            // The path resolves to a MODULE; the producer row lives where the
+            // symbol is DEFINED, so an intra-crate `pub use` is followed before
+            // recording — otherwise a facade is credited with a consumer it only
+            // forwards (08/08/2026, `KeywordSearch`).
             if let Some(resolved) = resolve_import_path(module_hint, "rust") {
-                let _ = db.record_consumer(&resolved, symbol_name, rel_path, None);
+                let definer =
+                    crate::symbol_extractors::definer_module(&resolved, symbol_name);
+                let _ = db.record_consumer(&definer, symbol_name, rel_path, None);
             } else if module_hint.starts_with("crate::") {
                 // Crate-relative fallback (project-root resolution).
                 // Note: `super::` was previously also handled here but
@@ -304,7 +310,8 @@ fn populate_wiring_map(
                 // resolver's keyword guard above now correctly returns
                 // None for those, and we deliberately skip them here.
                 let module_file = module_hint.replace("crate::", "src/").replace("::", "/") + ".rs";
-                let _ = db.record_consumer(&module_file, symbol_name, rel_path, None);
+                let definer = crate::symbol_extractors::definer_module(&module_file, symbol_name);
+                let _ = db.record_consumer(&definer, symbol_name, rel_path, None);
             }
         }
     }

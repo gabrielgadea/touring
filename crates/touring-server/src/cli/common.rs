@@ -77,6 +77,9 @@ pub fn parse_global_flags(args: &[String]) -> (GlobalFlags, Vec<String>) {
                     let t = val.parse().unwrap_or(10);
                     flags.timeout_secs = t;
                     super::DAEMON_READ_TIMEOUT_SECS.store(t, std::sync::atomic::Ordering::Relaxed);
+                    // Marca a ESCOLHA, não o valor: `--timeout 120` é idêntico ao
+                    // default e um piso baseado em sentinela o sobrescreveria.
+                    crate::daemon_client::mark_timeout_explicit();
                     skip_next = true;
                 }
             }

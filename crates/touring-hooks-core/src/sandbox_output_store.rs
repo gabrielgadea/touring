@@ -19,10 +19,11 @@ use serde_json::Value;
 pub fn sandbox_result_to_doc(
     result: &SandboxResult,
     tool_name: &str,
+    tool_args: &Value,
 ) -> crate::tantivy_index::ToolOutputDoc {
-    // NEW-1 — pass tool_name so derive_summary can dispatch to the right
-    // per-command compression profile.
-    let summary = derive_summary_with_tool(result, tool_name);
+    // NEW-1 — pass tool_name AND the real args so derive_summary can dispatch
+    // to the right per-command compression profile.
+    let summary = derive_summary_with_tool(result, tool_name, tool_args);
     let stored = result
         .stored_path
         .as_ref()
@@ -58,7 +59,20 @@ pub fn sandbox_result_to_doc(
 ///
 /// `sandbox_result_to_doc` invokes this with the real tool_name; tests
 /// may pass an empty string to exercise the passthrough path.
-pub fn derive_summary_with_tool(result: &SandboxResult, tool_name: &str) -> String {
+///
+/// **2026-08-08 (A2)** — `tool_args` used to be hardcoded to `Value::Null`
+/// here, and every built-in profile dispatches on
+/// `args["command"]` (`compression_profiles::detect_in_command`). With `Null`
+/// that lookup yields `""`, no needle matches, and **not one of the 30 profiles
+/// could ever fire at the only production call site**. Measured after A2 made
+/// the ledger real: an 8.172-byte routed output produced a summary with
+/// `compression_profile_applied_count` still at 0. The args exist two frames up
+/// in `execute_and_store` — they just were not passed down.
+pub fn derive_summary_with_tool(
+    result: &SandboxResult,
+    tool_name: &str,
+    tool_args: &Value,
+) -> String {
     if result.exit_code == -2 {
         return format!(
             "<sandbox_timeout fallback exit=-2 truncated={}>",
@@ -80,8 +94,7 @@ pub fn derive_summary_with_tool(result: &SandboxResult, tool_name: &str) -> Stri
     // NEW-1 — apply per-command compression profile FIRST (drops noise
     // before truncation/redaction). Composes with I-04/I-12 pipeline:
     // compress → redact → snippet → store.
-    let compressed =
-        crate::compression_profiles::compress_for(tool_name, &serde_json::Value::Null, &raw);
+    let compressed = crate::compression_profiles::compress_for(tool_name, tool_args, &raw);
     // I-12 — redact secrets before persisting summary so credentials don't
     // leak into the LLM's ctx_retrieve view.
     redact_secrets(&compressed)
@@ -99,9 +112,9 @@ pub fn execute_and_store(
     original_args: Value,
     config: SandboxConfig,
 ) -> Result<SandboxResult, SandboxError> {
-    let result = execute_in_sandbox_blocking(tool_name, original_args, config)?;
+    let result = execute_in_sandbox_blocking(tool_name, original_args.clone(), config)?;
     if let Some(idx) = crate::tantivy_index::tool_outputs_for(project_root) {
-        let doc = sandbox_result_to_doc(&result, tool_name);
+        let doc = sandbox_result_to_doc(&result, tool_name, &original_args);
         if let Err(e) = idx.store_tool_output(&doc) {
             tracing::warn!(
                 target: "touring::sandbox",

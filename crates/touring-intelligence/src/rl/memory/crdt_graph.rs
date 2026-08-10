@@ -16,9 +16,9 @@
 //! ## Zero-Copy Persistence
 //!
 //! Two zero-copy load paths are available (both use `memmap2::Mmap`):
-//! - `CrdtSemanticGraph::load_from_mmap_zero_copy` — **safe path**, uses `rkyv::check_archived_root`
+//! - `CrdtSemanticGraph::load_from_mmap_zero_copy` — **safe path**, uses `touring_rkyv::check_archived_root`
 //!   to validate bytes before returning a reference to the archived representation
-//! - `CrdtSemanticGraph::load_from_mmap_unchecked` — **unsafe path**, uses `rkyv::archived_root`
+//! - `CrdtSemanticGraph::load_from_mmap_unchecked` — **unsafe path**, uses `touring_rkyv::archived_root`
 //!   directly for maximum performance; caller must guarantee the mmap bytes come from a trusted
 //!   source (our own `save_to_mmap`)
 //!
@@ -47,7 +47,6 @@ pub type CrdtNodeId = u64;
     serde::Serialize,
     serde::Deserialize,
 )]
-#[archive(check_bytes)]
 /// Directed labeled edge between two nodes in the CRDT semantic graph.
 pub struct CrdtEdge {
     /// Source node identifier.
@@ -68,7 +67,6 @@ pub struct CrdtEdge {
     serde::Serialize,
     serde::Deserialize,
 )]
-#[archive(check_bytes)]
 /// Last-Writer-Wins register holding a node's label and score with a timestamp.
 pub struct NodeWeight {
     /// Human-readable label describing the node.
@@ -85,7 +83,6 @@ pub struct NodeWeight {
 /// but derives rkyv traits. We keep it separate so the main struct can stay
 /// derive-free and ergonomic (e.g., no `Debug` constraints from rkyv on HashMap).
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
 pub(crate) struct GraphSnapshot {
     nodes: Vec<CrdtNodeId>,
     edges: Vec<CrdtEdge>,
@@ -248,17 +245,14 @@ impl CrdtSemanticGraph {
     /// Uses rkyv zero-copy serialization. The file is written atomically
     /// (write to temp + rename) to prevent corruption on crash.
     pub fn save_to_mmap(&self, path: &Path) -> Result<(), CrdtPersistError> {
-        use touring_rkyv::ser::Serializer;
-        use touring_rkyv::ser::serializers::AllocSerializer;
-
         let snapshot = self.to_snapshot();
 
-        // Serialize with rkyv (256-byte scratch space, grows as needed)
-        let mut serializer = AllocSerializer::<256>::default();
-        serializer
-            .serialize_value(&snapshot)
+        // O 0.7 exigia montar um `AllocSerializer` à mão para chegar aos bytes;
+        // no 0.8 esse tipo deixou de existir e `to_bytes` faz exatamente o mesmo
+        // trabalho em uma chamada. O 256 (scratch inicial) continua expresso —
+        // a fachada preserva o parâmetro para não mudar nenhuma assinatura.
+        let bytes = touring_rkyv::to_bytes::<GraphSnapshot, 256>(&snapshot)
             .map_err(|e| CrdtPersistError::Validation(format!("serialize: {e}")))?;
-        let bytes = serializer.into_serializer().into_inner();
 
         // Atomic write: temp file → rename
         let parent = path.parent().unwrap_or(Path::new("."));
@@ -287,13 +281,12 @@ impl CrdtSemanticGraph {
         let mmap = unsafe { memmap2::Mmap::map(&file)? };
 
         // Validate and access the archived data
-        let archived = rkyv::check_archived_root::<GraphSnapshot>(&mmap)
+        let archived = touring_rkyv::check_archived_root::<GraphSnapshot>(&mmap)
             .map_err(|e| CrdtPersistError::Validation(format!("validation: {e}")))?;
 
         // Deserialize into owned types
-        let snapshot: GraphSnapshot =
-            rkyv::Deserialize::deserialize(archived, &mut rkyv::Infallible)
-                .map_err(|e| CrdtPersistError::Validation(format!("deserialize: {e}")))?;
+        let snapshot: GraphSnapshot = touring_rkyv::deserialize(archived)
+            .map_err(|e| CrdtPersistError::Validation(format!("deserialize: {e}")))?;
 
         Ok(Self::from_snapshot(snapshot))
     }
@@ -303,7 +296,7 @@ impl CrdtSemanticGraph {
     pub(crate) fn load_from_mmap_zero_copy(
         mmap: &memmap2::Mmap,
     ) -> Result<&ArchivedGraphSnapshot, CrdtPersistError> {
-        rkyv::check_archived_root::<GraphSnapshot>(mmap.as_ref())
+        touring_rkyv::check_archived_root::<GraphSnapshot>(mmap.as_ref())
             .map_err(|e| CrdtPersistError::Validation(format!("check_archived_root: {e}")))
     }
 
@@ -319,7 +312,7 @@ impl CrdtSemanticGraph {
         // SAFETY: per this fn's contract, the caller guarantees the mmap bytes were
         // produced by our own `save_to_mmap` (trusted) and that the mmap outlives the
         // returned reference — the exact preconditions `archived_root` requires.
-        unsafe { rkyv::archived_root::<GraphSnapshot>(mmap.as_ref()) }
+        unsafe { touring_rkyv::archived_root::<GraphSnapshot>(mmap.as_ref()) }
     }
 }
 

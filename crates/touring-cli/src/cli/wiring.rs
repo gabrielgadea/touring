@@ -154,6 +154,54 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         .unwrap_or_default();
     let symbol_names: Vec<String> = orphans.iter().map(|o| o.symbol_name.clone()).collect();
     let dead_patterns = touring_analysis::scan_dead_patterns(&symbol_names);
+    // S1 (2026-08-07): the orphan count alone cannot say whether a symbol is
+    // dead or merely invisible to the resolver. `resolution` reports the other
+    // half — call sites that resolved to nothing (`name_only_candidates`) and
+    // edges wired by bare-name guessing (`heuristic_edges`) — as SEPARATE
+    // numbers, never folded into `orphan_count`. Reading them together is what
+    // turns one opaque figure into code debt vs resolver debt.
+    let resolution = db.wiring_db_diagnostic().ok().map(|d| {
+        serde_json::json!({
+            // `null` = not measured (pre-v9 DB), never a fictional zero.
+            "name_only_candidates": d.name_only_candidates,
+            "heuristic_edges": d.heuristic_edges,
+            // The breakdown that keeps the new number from repeating the old
+            // sin: only `workspace_unresolved` is resolver debt; `super::` and
+            // third-party crates are expected non-resolution.
+            "unresolved_by_class": db
+                .unresolved_by_class()
+                .map(|rows| rows
+                    .into_iter()
+                    .map(|(class, n)| serde_json::json!({ "class": class, "call_sites": n }))
+                    .collect::<Vec<_>>()),
+            "top_unresolved_modules_debt_only": db
+                .unresolved_module_paths(10)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(path, n)| serde_json::json!({ "module_path": path, "call_sites": n }))
+                .collect::<Vec<_>>(),
+            // The rows behind the debt count — counts say how much, these say
+            // which, and only the latter can be acted on.
+            "unresolved_samples": db
+                .unresolved_imports(Some("workspace_unresolved"), 5)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|u| serde_json::json!({
+                    "module_path": u.module_path,
+                    "symbol": u.symbol_name,
+                    "consumer_file": u.consumer_file,
+                    "language": u.language,
+                    "import_line": u.import_line,
+                }))
+                .collect::<Vec<_>>(),
+            "origin_breakdown": db
+                .origin_breakdown()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(src, n)| serde_json::json!({ "origin": src, "rows": n }))
+                .collect::<Vec<_>>(),
+        })
+    });
     let want_diagnostics = payload
         .get("diagnostics")
         .and_then(|v| v.as_bool())
@@ -185,13 +233,13 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         return serde_json::json!(
             { "orphans" : orphans, "dead_patterns" : dead_patterns, "orphan_count" :
             orphans.len(), "diagnostics" : diagnostics, "diagnostic_count" : diagnostics
-            .len(), }
+            .len(), "resolution" : resolution, }
         )
         .to_string();
     }
     serde_json::json!(
         { "orphans" : orphans, "dead_patterns" : dead_patterns, "orphan_count" : orphans
-        .len(), }
+        .len(), "resolution" : resolution, }
     )
     .to_string()
 }

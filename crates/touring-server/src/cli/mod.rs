@@ -99,6 +99,7 @@ pub mod route; // C7 — RGAO task routing
 pub mod run; // R1 — touring run: code-mode via CLI over the ctx_execute sandbox
 pub mod saga;
 pub mod search_tools; // C3 — intent-ranked tool discovery
+pub mod portfolio; // prior-art discovery keyed by purpose
 pub mod search_unified;
 pub mod session;
 pub mod shadow;

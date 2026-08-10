@@ -27,8 +27,8 @@
 //!
 //! **Scope**: per-file; rolls up as `AggKind::WeightedLoc`. ADVISORY-tier.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -40,14 +40,8 @@ impl Verification for F3_3_TestPyramid {
     fn id(&self) -> DimId {
         DimId::F3_3
     }
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_test_pyramid_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_test_pyramid_dim(target)
     }
 }
 
@@ -66,11 +60,7 @@ fn analyze_test_pyramid_dim(target: &Path) -> Result<(f32, String)> {
     let lang = crate::verifications::lang_from_ext(target);
     let r = analyze_test_pyramid(&raw, lang);
     let value = score_test_pyramid(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F3.3: {} pyramid-shape gap(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_test_pyramid: large-suite-no-e2e / \

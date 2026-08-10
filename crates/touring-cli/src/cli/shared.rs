@@ -118,18 +118,48 @@ pub(crate) fn memory_recall_fts5_expr(query: &str) -> String {
 /// than letting a `no such column` error turn that project's recall into an
 /// empty result — which is precisely how `memory_recall_fts5` fails, silently.
 pub(crate) fn outcome_reward_select(conn: &rusqlite::Connection, alias: &str) -> String {
-    let present = conn
-        .query_row(
-            "SELECT COUNT(*) FROM pragma_table_info('memory_entries') WHERE name = 'outcome_reward'",
-            [],
-            |r| r.get::<_, i32>(0),
-        )
-        .map(|c| c > 0)
-        .unwrap_or(false);
-    if present {
-        format!("{alias}outcome_reward")
+    optional_column_select(conn, alias, "outcome_reward")
+}
+
+/// Whether `memory_entries` in THIS connection carries `column`.
+///
+/// Federated recall reaches other projects' `memory.db` files, which may predate
+/// any given column. One PRAGMA beats letting `no such column` turn that
+/// project's recall into a silent empty result.
+pub(crate) fn memory_column_present(conn: &rusqlite::Connection, column: &str) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('memory_entries') WHERE name = ?1",
+        params![column],
+        |r| r.get::<_, i32>(0),
+    )
+    .map(|c| c > 0)
+    .unwrap_or(false)
+}
+
+/// `alias.column` when the column exists in this DB, else the literal `NULL`.
+pub(crate) fn optional_column_select(
+    conn: &rusqlite::Connection,
+    alias: &str,
+    column: &str,
+) -> String {
+    if memory_column_present(conn, column) {
+        format!("{alias}{column}")
     } else {
         "NULL".to_string()
+    }
+}
+
+/// `AND` predicate hiding superseded entries, empty when the column is absent.
+///
+/// S4 (2026-08-07): a pheromone that never evaporates inverts its own mechanism
+/// — a corrected lesson keeps guiding with the same weight as the correction.
+/// Superseded rows stay in the table for audit and simply stop surfacing, which
+/// is retirement, not deletion.
+pub(crate) fn superseded_filter(conn: &rusqlite::Connection, alias: &str) -> String {
+    if memory_column_present(conn, "superseded_by") {
+        format!(" AND {alias}superseded_by IS NULL")
+    } else {
+        String::new()
     }
 }
 
@@ -152,6 +182,21 @@ pub(crate) fn memory_recall_row_to_json(
     if let (Some(r), Some(obj)) = (reward, out.as_object_mut()) {
         obj.insert("outcome_reward".into(), serde_json::json!(r));
     }
+    // S4: weight and pinning, emitted only when actually set — same discipline
+    // as `outcome_reward`. Defaulting an unweighted entry to some middle
+    // importance would manufacture a judgement nobody made.
+    if let (Some(importance), Some(obj)) = (
+        row.get::<_, Option<i64>>(5).ok().flatten(),
+        out.as_object_mut(),
+    ) {
+        obj.insert("importance".into(), serde_json::json!(importance));
+    }
+    if let (Some(true), Some(obj)) = (
+        row.get::<_, Option<i64>>(6).ok().flatten().map(|p| p != 0),
+        out.as_object_mut(),
+    ) {
+        obj.insert("pinned".into(), serde_json::json!(true));
+    }
     Ok(out)
 }
 
@@ -165,12 +210,19 @@ pub(crate) fn memory_recall_fts5(
     fts_expr: &str,
 ) -> Vec<serde_json::Value> {
     let reward_col = outcome_reward_select(conn, "e.");
+    let importance_col = optional_column_select(conn, "e.", "importance");
+    let pinned_col = optional_column_select(conn, "e.", "pinned");
+    let not_superseded = superseded_filter(conn, "e.");
+    // S4 ranking: pinned first, then importance, then bm25. Both weights are
+    // COALESCEd to a neutral floor so an unweighted entry is not punished for
+    // having never been judged — it simply ranks by relevance, as before.
     let sql = format!(
-        "SELECT e.key, e.value, e.tier, e.entry_type, {reward_col} \
+        "SELECT e.key, e.value, e.tier, e.entry_type, {reward_col}, {importance_col}, {pinned_col} \
          FROM memories_fts \
          JOIN memory_entries e ON e.rowid = memories_fts.rowid \
-         WHERE memories_fts MATCH ?1 \
-         ORDER BY bm25(memories_fts) LIMIT 20"
+         WHERE memories_fts MATCH ?1{not_superseded} \
+         ORDER BY COALESCE({pinned_col}, 0) DESC, COALESCE({importance_col}, 0) DESC, \
+                  bm25(memories_fts) LIMIT 20"
     );
     let Ok(mut stmt) = conn.prepare(&sql) else {
         return vec![];
@@ -202,9 +254,15 @@ pub(crate) fn memory_recall_like(
         (clause, terms.iter().map(|t| format!("%{t}%")).collect())
     };
     let reward_col = outcome_reward_select(conn, "");
+    let importance_col = optional_column_select(conn, "", "importance");
+    let pinned_col = optional_column_select(conn, "", "pinned");
+    let not_superseded = superseded_filter(conn, "");
     let sql = format!(
-        "SELECT key, value, tier, entry_type, {reward_col} FROM memory_entries \
-         WHERE {where_clause} LIMIT 20"
+        "SELECT key, value, tier, entry_type, {reward_col}, {importance_col}, {pinned_col} \
+         FROM memory_entries \
+         WHERE ({where_clause}){not_superseded} \
+         ORDER BY COALESCE({pinned_col}, 0) DESC, COALESCE({importance_col}, 0) DESC \
+         LIMIT 20"
     );
     let mut stmt = match conn.prepare(&sql) {
         Ok(s) => s,

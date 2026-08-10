@@ -207,30 +207,7 @@ fn mod_needles_for(lang: Lang) -> &'static [ModRule] {
 }
 
 /// Per-file modernization analysis (parallel shape to [`super::idioms::IdiomReport`]).
-#[derive(Debug, Clone, Default)]
-pub struct ModernizationReport {
-    /// Total modernization opportunities found in production code.
-    pub violations: usize,
-    /// Weighted sum (each opportunity scaled by its rule weight).
-    pub weighted_total: f32,
-    /// Production lines considered (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired rule, for evidence (highest count first).
-    pub findings: Vec<(String, usize)>,
-}
-
-impl ModernizationReport {
-    /// Record `count` occurrences of one modernization with the given `weight`.
-    /// A zero count is a no-op.
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count == 0 {
-            return;
-        }
-        self.violations += count;
-        self.weighted_total += weight * count as f32;
-        self.findings.push((message.to_string(), count));
-    }
-}
+pub type ModernizationReport = crate::quality::SmellReport;
 
 // ── Low-level byte helpers (UTF-8-safe: operate on &[u8]) ──────────────────────
 

@@ -27,6 +27,8 @@ pub use touring_dispatch::*;
 // reliably carried by glob re-exports — re-export explicitly.
 pub use touring_dispatch::with_validation;
 
+pub mod token_meter;
+
 // ── B.4: Dual-module feature gating ──────────────────────────────────
 //
 // This module provides a compile-time flag that external benchmarks and CI

@@ -137,11 +137,26 @@ fn run_with_stdin(
 #[test]
 fn pre_task_scout_returns_pretooluse_envelope() {
     let payload = r#"{"tool_name":"TaskCreate","tool_input":{"subject":"wave24 e2e","description":"validate scout"}}"#;
-    // No private daemon here: this asserts only the PreToolUse envelope shape,
-    // which the hook emits whether or not the daemon answers.
-    let Some((stdout, _stderr, exit)) =
-        run_with_stdin("touring", &["pre-task-scout"], payload, None)
-    else {
+    // Daemon PRIVADO desde 07/08/2026 — este era o último teste do arquivo que
+    // ainda falava com o daemon global, sob a premissa (comentada aqui) de que o
+    // envelope sai "respondendo o daemon ou não". A premissa é falsa e a causa-raiz
+    // já estava registrada em `gotcha:test-isolation:daemon-compartilhado-vs-
+    // workspace-run` (02/08): o hook é fail-open POR PROJETO, então **daemon mudo
+    // ⇒ stdout VAZIO**, e um stdout vazio não é JSON. Observado ao vivo em
+    // 07/08: panic em `from_str` enquanto o daemon global era reiniciado por
+    // outro processo. Um teste que afirma conteúdo derivado do daemon precisa de
+    // um daemon que responda — o mesmo remédio que os outros dois testes daqui
+    // já usavam.
+    let Some(daemon) = PrivateDaemon::start("pretask") else {
+        eprintln!("touring-daemon não compilado — pulando pre_task_scout");
+        return;
+    };
+    let Some((stdout, _stderr, exit)) = run_with_stdin(
+        "touring",
+        &["pre-task-scout"],
+        payload,
+        Some(&daemon.socket),
+    ) else {
         eprintln!("touring binary not built — skipping pre_task_scout test");
         return;
     };

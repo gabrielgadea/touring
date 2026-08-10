@@ -13,8 +13,8 @@
 //! TLS/CORS/debug settings at all). Without the feature a clearly-labelled
 //! substring fallback remains so the crate stays standalone-buildable.
 
-use crate::verifications::{Verification, auto_remediation};
-use crate::{DimId, DimScore, DimStatus};
+use crate::DimId;
+use crate::verifications::Verification;
 use anyhow::Result;
 use std::path::Path;
 
@@ -47,10 +47,27 @@ fn is_detector_own_source(target: &Path) -> bool {
     DETECTOR_SOURCES.iter().any(|s| p.contains(s))
 }
 
-/// Byte budget for the concatenated directory scan. Mirrors the shared
+/// Byte budget for the *source* half of the directory scan. Mirrors the shared
 /// `DIR_SCAN_BYTE_CAP` in [`crate::verifications`] (re-declared: that const is
 /// module-private), keeping F2.6's production-only blob self-contained.
 const F2_6_SCAN_BYTE_CAP: usize = 2 * 1024 * 1024;
+
+/// Separate budget for the config artifacts, so a large source tree can never
+/// spend the artifacts' share.
+///
+/// Until 2026-08-07 both halves drew on `F2_6_SCAN_BYTE_CAP` from ONE running
+/// total, and the source half ran first. On this workspace — 31.6 MB of source
+/// against a 2 MB budget — the source loop exhausted it inside the first ~6% of
+/// files and returned, so the artifact loop never executed: **94 config files,
+/// `.github/workflows/ci.yml` and `dependabot.yml` among them, were never read
+/// by the dimension whose entire subject is insecure configuration.** A BLOCK
+/// gate that structurally cannot see its own evidence reports PASS for the same
+/// reason an unplugged smoke detector stays quiet.
+///
+/// Config artifacts are small and are this dimension's PRIMARY evidence, so they
+/// are now read first and from their own budget; source smells are the secondary
+/// signal and take what is left of theirs.
+const F2_6_ARTIFACT_BYTE_CAP: usize = 8 * 1024 * 1024;
 
 /// Build the production configuration surface under `target`, EXCLUDING
 /// detector-own source and non-production corpora ([`is_detector_own_source`]).
@@ -75,20 +92,10 @@ fn read_production_config_surface(target: &Path) -> Result<String> {
         return crate::verifications::read_target_source(target);
     }
     let mut out = String::new();
-    // (1) code-embedded misconfig smells — detector-own source excluded.
-    for p in enumerate_source_files(target) {
-        if is_detector_own_source(&p) {
-            continue;
-        }
-        if let Ok(s) = std::fs::read_to_string(&p) {
-            out.push_str(&s);
-            out.push('\n');
-            if out.len() >= F2_6_SCAN_BYTE_CAP {
-                return Ok(out);
-            }
-        }
-    }
-    // (2) real config artifacts (yaml/env/ini/…) — test fixtures excluded.
+    // (1) real config artifacts (yaml/env/ini/…) — test fixtures excluded.
+    //     FIRST and on their own budget: they are the dimension's primary
+    //     evidence, and running them second let a big source tree starve them
+    //     out entirely (see `F2_6_ARTIFACT_BYTE_CAP`).
     for p in resolve_artifacts(target, ArtifactClass::Config) {
         if is_detector_own_source(&p) {
             continue;
@@ -96,7 +103,23 @@ fn read_production_config_surface(target: &Path) -> Result<String> {
         if let Ok(s) = std::fs::read_to_string(&p) {
             out.push('\n');
             out.push_str(&s);
-            if out.len() >= F2_6_SCAN_BYTE_CAP {
+            if out.len() >= F2_6_ARTIFACT_BYTE_CAP {
+                return Ok(out);
+            }
+        }
+    }
+    // (2) code-embedded misconfig smells — detector-own source excluded. The
+    //     cap applies to the SOURCE bytes alone, so the artifacts already read
+    //     neither consume this budget nor are consumed by it.
+    let artifact_bytes = out.len();
+    for p in enumerate_source_files(target) {
+        if is_detector_own_source(&p) {
+            continue;
+        }
+        if let Ok(s) = std::fs::read_to_string(&p) {
+            out.push_str(&s);
+            out.push('\n');
+            if out.len() - artifact_bytes >= F2_6_SCAN_BYTE_CAP {
                 return Ok(out);
             }
         }
@@ -161,17 +184,13 @@ impl Verification for F2_6_Config {
         DimId::F2_6
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
         if is_detector_own_source(target) {
-            return Ok(DimScore {
-                value: 1.0,
-                status: DimStatus::Pass,
-                evidence:
-                    "Config Security: detector own source / non-production corpus — allowlisted (score=1.000)"
-                        .to_string(),
-                suggestions: vec![auto_remediation(self.id(), target, DimStatus::Pass)],
-                latency_ms: 0,
-            });
+            return Ok((
+                1.0,
+                "Config Security: detector own source / non-production corpus — allowlisted (score=1.000)"
+                    .to_string(),
+            ));
         }
         // F2.6 is HYBRID: config-security smells live BOTH in code (`verify=False`,
         // `debug=True`, CORS `*` in a handler) AND in real config files
@@ -185,13 +204,7 @@ impl Verification for F2_6_Config {
         // single-FILE target.
         let raw = read_production_config_surface(target)?;
         let (value, evidence) = analyze_config(&raw, target);
-
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+        Ok((value, evidence))
     }
 }
 
@@ -208,6 +221,37 @@ mod tests {
             .expect("create temp");
         f.write_all(content.as_bytes()).expect("write");
         f
+    }
+
+    /// A source tree bigger than the source budget must NOT cost the dimension
+    /// its config artifacts.
+    ///
+    /// Before 2026-08-07 both halves shared one running total and source ran
+    /// first, so on this workspace (31.6 MB of source against a 2 MB budget)
+    /// the artifact loop was never reached and all 94 config files — CI
+    /// workflows included — went unread. The assertion is deliberately about
+    /// the artifact's CONTENT: a budget that merely "ran" proves nothing.
+    #[test]
+    fn oversized_source_tree_never_starves_the_config_artifacts() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // Comfortably past F2_6_SCAN_BYTE_CAP so the source half must stop early.
+        let filler = "pub fn f() {}\n".repeat(40_000); // ~560 KB each
+        for i in 0..8 {
+            std::fs::write(dir.path().join(format!("big{i}.rs")), &filler).expect("write source");
+        }
+        std::fs::write(
+            dir.path().join("service.yml"),
+            "server:\n  tls_verify: false\n",
+        )
+        .expect("write config");
+
+        let surface = read_production_config_surface(dir.path()).expect("surface");
+        assert!(
+            surface.contains("tls_verify: false"),
+            "config artifact must be present regardless of source-tree size \
+             (surface = {} bytes)",
+            surface.len()
+        );
     }
 
     #[test]
@@ -245,6 +289,9 @@ mod tests {
     #[cfg(feature = "workspace-integration")]
     mod real_engine {
         use super::*;
+        // The tests assert on the DimStatus that `check` derives; the verifier
+        // itself only returns (score, evidence) now.
+        use crate::DimStatus;
 
         #[test]
         fn tls_disabled_blocks() {

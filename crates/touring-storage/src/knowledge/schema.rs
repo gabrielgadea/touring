@@ -183,6 +183,21 @@ impl FileKnowledgeDB {
             CREATE INDEX IF NOT EXISTS idx_wiring_module
                 ON {wm}(module_file);
 
+            CREATE TABLE IF NOT EXISTS {wu} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                module_path TEXT NOT NULL,
+                symbol_name TEXT NOT NULL,
+                consumer_file TEXT NOT NULL,
+                import_line INTEGER,
+                language TEXT NOT NULL DEFAULT 'rust',
+                class TEXT NOT NULL DEFAULT 'workspace_unresolved',
+                observed_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_wiring_unresolved_unique
+                ON {wu}(module_path, symbol_name, consumer_file);
+            CREATE INDEX IF NOT EXISTS idx_wiring_unresolved_consumer
+                ON {wu}(consumer_file);
+
             CREATE TABLE IF NOT EXISTS {me} (
                 file_path TEXT PRIMARY KEY,
                 module_role TEXT NOT NULL DEFAULT 'internal',
@@ -196,6 +211,7 @@ impl FileKnowledgeDB {
             CREATE INDEX IF NOT EXISTS idx_ecosystem_score
                 ON {me}(integration_score);",
             wm = schema_guard::TABLE_WIRING_MAP,
+            wu = schema_guard::TABLE_WIRING_UNRESOLVED,
             me = schema_guard::TABLE_MODULE_ECOSYSTEM,
         ))?;
         self.conn
@@ -479,9 +495,26 @@ impl FileKnowledgeDB {
                 schema_guard::TABLE_WIRING_MAP
             ))?;
         }
+        // `OR IGNORE` is load-bearing (2026-08-07). This UPDATE turns producer
+        // rows (`consumer_file IS NULL`) into consumer rows all sharing the
+        // literal `touring-daemon://dispatch`, so on a DB where it already ran
+        // the new value collides with the existing row under
+        // `idx_wiring_unique(module_file, symbol_name, COALESCE(consumer_file,''))`.
+        //
+        // The collision stayed invisible for as long as `SCHEMA_VERSION` never
+        // moved — `migrate_schema` simply never ran twice. The v9 bump ran it
+        // again and the daemon refused every open with
+        // `UNIQUE constraint failed: index 'idx_wiring_unique'`, taking the
+        // whole project offline. A migration that is not idempotent is a
+        // migration that works exactly once, which is indistinguishable from a
+        // working one until the next bump.
+        //
+        // `OR IGNORE` preserves the intent (mark what can be marked) and skips
+        // rows already carrying the target value. Matches the pattern
+        // `migrate_canonicalize_paths` uses for the same index.
         let daemon_consumer_count = self.conn.execute(
             &format!(
-                "UPDATE {wm} SET \
+                "UPDATE OR IGNORE {wm} SET \
                 consumer_type = 'daemon_hook', \
                 consumer_file = 'touring-daemon://dispatch', \
                 resolved_at = datetime('now') \
@@ -500,6 +533,43 @@ impl FileKnowledgeDB {
                 " touring-hooks"
             );
         }
+        // ── v8 → v9 (S1, 2026-08-07): wiring_unresolved ──────────────────
+        //
+        // Also present in `ensure_schema`, and repeated here on purpose. The
+        // version gate in `FileKnowledgeDB::new` skips `ensure_schema` once
+        // `user_version` is current, so a table added only there never appears
+        // on an existing DB — its writes then fail into `let _ =` and the
+        // counter reading it reports an innocent `0`. Observed live before the
+        // v9 bump; the same class of drift FIX-5 (2026-04-13) patched at the
+        // read site for `wiring_suggestions`.
+        self.conn.execute_batch(&format!(
+            "CREATE TABLE IF NOT EXISTS {wu} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                module_path TEXT NOT NULL,
+                symbol_name TEXT NOT NULL,
+                consumer_file TEXT NOT NULL,
+                import_line INTEGER,
+                language TEXT NOT NULL DEFAULT 'rust',
+                class TEXT NOT NULL DEFAULT 'workspace_unresolved',
+                observed_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_wiring_unresolved_unique
+                ON {wu}(module_path, symbol_name, consumer_file);
+            CREATE INDEX IF NOT EXISTS idx_wiring_unresolved_consumer
+                ON {wu}(consumer_file);",
+            wu = schema_guard::TABLE_WIRING_UNRESOLVED,
+        ))?;
+        // v9 → v10: `class` splits expected non-resolution (scope keywords,
+        // external crates) from actual resolver debt. Idempotent ALTER — the
+        // "duplicate column" error IS the already-migrated signal, same pattern
+        // the memory store uses.
+        let _ = self.conn.execute(
+            &format!(
+                "ALTER TABLE {wu} ADD COLUMN class TEXT NOT NULL DEFAULT 'workspace_unresolved'",
+                wu = schema_guard::TABLE_WIRING_UNRESOLVED
+            ),
+            [],
+        );
         Ok(())
     }
 }

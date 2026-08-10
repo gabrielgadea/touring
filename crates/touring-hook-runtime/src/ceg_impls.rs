@@ -128,6 +128,27 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         .get("outcome_context")
         .and_then(|v| v.as_str())
         .filter(|s| !s.is_empty());
+    // S4 (2026-08-07): weight, pinning and supersession — the three mechanisms
+    // that let the ACO pheromone evaporate. Without them a corrected lesson
+    // keeps guiding with the same weight as the correction, and test junk
+    // competes with curated knowledge on equal footing (observed live: a
+    // `recall` returned `purpose-test-key-zx9` among its top hits).
+    //
+    // All three stay NULL/absent unless the caller sets them: an unweighted
+    // entry has not been judged, and inventing a default importance would be
+    // exactly the "approximation that erases the signal" this work removes.
+    let importance = payload
+        .get("importance")
+        .and_then(serde_json::Value::as_i64)
+        .map(|i| i.clamp(1, 5));
+    let pinned = payload
+        .get("pinned")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let supersedes = payload
+        .get("supersedes")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty());
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     if let Some(parent) = memory_db_path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -161,12 +182,48 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
                 [],
             )
             .ok();
+            // S4 columns — same idempotent pattern: an existing store gains them
+            // without a destructive rebuild, and the `already exists` error IS
+            // the "already migrated" signal.
+            conn.execute("ALTER TABLE memory_entries ADD COLUMN importance INTEGER", [])
+                .ok();
+            conn.execute(
+                "ALTER TABLE memory_entries ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
+                [],
+            )
+            .ok();
+            conn.execute(
+                "ALTER TABLE memory_entries ADD COLUMN superseded_by TEXT",
+                [],
+            )
+            .ok();
 
             conn.execute(
-                "INSERT OR REPLACE INTO memory_entries (key, value, tier, entry_type, access_count, last_accessed_at, outcome_reward, outcome_context)
-             VALUES (?1, ?2, ?3, ?4, COALESCE((SELECT access_count FROM memory_entries WHERE key = ?1), 0) + 1, datetime('now'), ?5, ?6)",
-                params![key, value, tier, entry_type, outcome_reward, outcome_context],
+                "INSERT OR REPLACE INTO memory_entries (key, value, tier, entry_type, access_count, last_accessed_at, outcome_reward, outcome_context, importance, pinned)
+             VALUES (?1, ?2, ?3, ?4, COALESCE((SELECT access_count FROM memory_entries WHERE key = ?1), 0) + 1, datetime('now'), ?5, ?6,
+                     COALESCE(?7, (SELECT importance FROM memory_entries WHERE key = ?1)),
+                     ?8)",
+                params![
+                    key,
+                    value,
+                    tier,
+                    entry_type,
+                    outcome_reward,
+                    outcome_context,
+                    importance,
+                    i64::from(pinned)
+                ],
             )?;
+            // Retire the superseded entry: it stays in the table for audit and
+            // stops surfacing in recall. Pointing at the NEW key (rather than
+            // deleting) keeps the correction traceable to what it corrected.
+            if let Some(old_key) = supersedes {
+                conn.execute(
+                    "UPDATE memory_entries SET superseded_by = ?1 WHERE key = ?2 AND key != ?1",
+                    params![key, old_key],
+                )
+                .ok();
+            }
             Ok(())
         });
     match result {

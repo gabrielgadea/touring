@@ -24,13 +24,13 @@ on_fail = "__fail__"
 
 [node.cycle]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py cycle --topic '{{vars.topic}}'"]
+command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py cycle --topic \"$1\"", "--", "{{vars.topic}}"]
 timeout_ms = 960000
 idempotent = true
 
 [node.present]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py status --topic '{{vars.topic}}'"]
+command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py status --topic \"$1\"", "--", "{{vars.topic}}"]
 timeout_ms = 30000
 idempotent = true
 on_pass = "act_or_wait"

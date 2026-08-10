@@ -891,6 +891,177 @@ fn build_v7_fixture() -> (TempDir, std::path::PathBuf) {
     (tmp, db_path)
 }
 
+/// Open a `FileKnowledgeDB` at full current schema, then degrade it to a
+/// faithful "V8" on-disk state: drop the table V9 adds and stamp
+/// `user_version = 8`.
+///
+/// This is the fixture the drift guard demands for the v8→v9 bump. It also
+/// reproduces the live defect that motivated the bump: a DB already stamped at
+/// the current version never re-runs `ensure_schema`, so a table added only
+/// there stays missing forever.
+fn build_v8_fixture() -> (TempDir, std::path::PathBuf) {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("v8_fixture.db");
+    {
+        let db = FileKnowledgeDB::new(&db_path).unwrap();
+        db.register_pub_symbol("crates/foo/src/lib.rs", "foo_fn", "function", "public")
+            .unwrap();
+    }
+    {
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(&format!(
+            "DROP TABLE IF EXISTS {};",
+            schema_guard::TABLE_WIRING_UNRESOLVED
+        ))
+        .unwrap();
+        conn.execute_batch("PRAGMA user_version = 8;").unwrap();
+    }
+    (tmp, db_path)
+}
+
+/// Returns true iff the named table exists.
+fn table_exists(conn: &Connection, table: &str) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+        [table],
+        |r| r.get::<_, i64>(0),
+    )
+    .map(|c| c > 0)
+    .unwrap_or(false)
+}
+
+#[test]
+fn test_migration_v8_to_v9_adds_wiring_unresolved_and_preserves_data() {
+    let (_tmp, db_path) = build_v8_fixture();
+    {
+        let conn = Connection::open(&db_path).unwrap();
+        assert_eq!(
+            conn.query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
+                .unwrap(),
+            8,
+            "fixture should start at V8"
+        );
+        assert!(
+            !table_exists(&conn, schema_guard::TABLE_WIRING_UNRESOLVED),
+            "V8 fixture must NOT have wiring_unresolved"
+        );
+    }
+
+    let db = FileKnowledgeDB::new(&db_path).unwrap();
+    assert_eq!(
+        db.conn
+            .query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
+            .unwrap(),
+        SCHEMA_VERSION,
+        "upgrade must stamp current version"
+    );
+    assert!(
+        table_exists(&db.conn, schema_guard::TABLE_WIRING_UNRESOLVED),
+        "V8->V9 migration must create wiring_unresolved"
+    );
+    // The table being there is not enough — it has to WORK, because the whole
+    // point of the bump is that the writes were failing into `let _ =`.
+    db.record_unresolved_import("ghost::mod", "Ghost", "crates/c/src/m.rs", Some(3), "rust")
+        .unwrap();
+    assert_eq!(db.name_only_candidates(), Some(1));
+
+    let producers: i64 = db
+        .conn
+        .query_row(
+            &format!(
+                "SELECT COUNT(*) FROM {} WHERE consumer_file IS NULL",
+                schema_guard::TABLE_WIRING_MAP
+            ),
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(producers, 1, "wiring_map row must survive upgrade");
+}
+
+/// The v9 bump broke the daemon; this test is why it cannot happen again.
+///
+/// `migrate_schema` rewrites touring-hooks producer rows into consumer rows
+/// that all share the literal `touring-daemon://dispatch`. Run twice over the
+/// same data, the second pass recreates a tuple that already exists and
+/// `idx_wiring_unique` rejects it — `FileKnowledgeDB::new` then returns Err and
+/// the daemon answers every request with "Cannot open knowledge DB". Observed
+/// live on 2026-08-07: the project went offline the moment SCHEMA_VERSION moved
+/// 8 → 9, on a defect that had been latent since the UPDATE was written.
+///
+/// A migration that runs exactly once looks identical to a correct one until
+/// the next bump. This asserts the second run.
+#[test]
+fn test_migrate_schema_survives_a_second_pass_over_populated_wiring() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("rerun.db");
+    {
+        let db = FileKnowledgeDB::new(&db_path).unwrap();
+        // Two producers under touring-hooks with the SAME symbol name in
+        // different modules, plus one already carrying the daemon consumer —
+        // the shape that collides on the second pass.
+        db.register_pub_symbol(
+            "crates/touring-hooks/src/a.rs",
+            "shared_fn",
+            "function",
+            "public",
+        )
+        .unwrap();
+        db.register_pub_symbol(
+            "crates/touring-hooks/src/b.rs",
+            "shared_fn",
+            "function",
+            "public",
+        )
+        .unwrap();
+        db.conn
+            .execute(
+                &format!(
+                    "INSERT INTO {} (module_file, symbol_name, symbol_kind, visibility, consumer_file, consumer_type)
+                     VALUES ('crates/touring-hooks/src/a.rs', 'shared_fn', 'function', 'public',
+                             'touring-daemon://dispatch', 'daemon_hook')",
+                    schema_guard::TABLE_WIRING_MAP
+                ),
+                [],
+            )
+            .unwrap();
+    }
+    // Force the version gate open again, exactly as a SCHEMA_VERSION bump does.
+    {
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch("PRAGMA user_version = 0;").unwrap();
+    }
+    let reopened = FileKnowledgeDB::new(&db_path);
+    assert!(
+        reopened.is_ok(),
+        "re-running migrate_schema must not fail: {:?}",
+        reopened.err()
+    );
+    let db = reopened.unwrap();
+    assert_eq!(
+        db.conn
+            .query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
+            .unwrap(),
+        SCHEMA_VERSION,
+        "a successful re-run must stamp the version"
+    );
+}
+
+#[test]
+fn test_migration_v8_to_v9_is_idempotent() {
+    let (_tmp, db_path) = build_v8_fixture();
+    for _ in 0..3 {
+        let db = FileKnowledgeDB::new(&db_path).unwrap();
+        assert_eq!(
+            db.conn
+                .query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
+                .unwrap(),
+            SCHEMA_VERSION
+        );
+        assert!(table_exists(&db.conn, schema_guard::TABLE_WIRING_UNRESOLVED));
+    }
+}
+
 /// Returns true iff the named column exists on the given table.
 fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
     conn.prepare(&format!("SELECT {column} FROM {table} LIMIT 0"))
@@ -1022,7 +1193,7 @@ fn test_migrate_schema_directly_is_idempotent() {
 #[test]
 fn test_schema_version_drift_guard() {
     assert_eq!(
-        SCHEMA_VERSION, 8,
+        SCHEMA_VERSION, 10,
         "SCHEMA_VERSION changed to {} — bump this guard AND add a fixture/migration test \
              (see Master Plan C.W2.P3.T9: build_v7_fixture + \
              test_migration_v7_to_v8_upgrades_schema_and_preserves_data)",

@@ -5,8 +5,8 @@
 //! your own item is good hygiene (D42); the real defect is *consuming* a
 //! deprecated API and silencing the compiler. We now score that instead.
 
+use crate::DimId;
 use crate::verifications::{Verification, strip_rust_comments_and_strings};
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -19,7 +19,7 @@ impl Verification for F4_3_Deprecated {
         DimId::F4_3
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
         let raw = crate::verifications::read_target_source(target)?;
 
         // F4.3 measures CONSUMPTION of deprecated APIs, not their declaration.
@@ -47,12 +47,7 @@ impl Verification for F4_3_Deprecated {
         let evidence = format!(
             "Deprecated-API suppressions={suppressions} (penalised), own deprecation declarations={declarations} (good hygiene, not penalised); score={value:.3}"
         );
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+        Ok((value, evidence))
     }
 }
 

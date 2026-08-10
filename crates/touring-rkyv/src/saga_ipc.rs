@@ -1,8 +1,10 @@
 //! Saga coordination messages for distributed 2PC via rkyv zero-copy IPC.
 //!
-//! All messages derive `#[archive(check_bytes)]` — byte validation is O(1)
-//! and prevents UB on corrupted payloads. Use `frame_saga`/`unframe_saga`
-//! for wire-format framing (`SAGA[4]` magic + u32 LE length prefix).
+//! All messages get a `CheckBytes` impl from the derive (automatic in rkyv 0.8
+//! with the `bytecheck` feature; the 0.7 `#[archive(check_bytes)]` opt-in is
+//! gone) — byte validation is O(1) and prevents UB on corrupted payloads. Use
+//! `frame_saga`/`unframe_saga` for wire-format framing (`SAGA[4]` magic + u32
+//! LE length prefix).
 //!
 //! # Protocol
 //!
@@ -24,81 +26,140 @@
 //!    │  ── Rollback { tx_id } ────────────────► │  (all agents)
 //! ```
 
-use rkyv::{Archive, Deserialize, Serialize};
-
 /// Magic bytes identifying saga protocol frames on the socket.
-/// Distinct from `RKYV[4]` (hook IPC) and preserves first-byte dispatch.
-pub const SAGA_MAGIC: [u8; 4] = *b"SAGA";
+///
+/// Distinto do magic do IPC de hooks e preserva o despacho por primeiro byte
+/// (`'S'`). O último byte carrega a **versão do fio**, pelo mesmo motivo do
+/// [`crate::ipc::IPC_MAGIC`]: **v2** = corpo produzido pelo rkyv 0.8, layout
+/// incompatível com o v1.
+pub const SAGA_MAGIC: [u8; 4] = *b"SAG2";
+
+/// Magic da versão 1 do fio saga — corpo produzido pelo rkyv 0.7.
+///
+/// Mantido para **diagnóstico** da janela de rollout (ver [`crate::ipc::IPC_MAGIC_V1`]).
+pub const SAGA_MAGIC_V1: [u8; 4] = *b"SAGA";
 
 /// Total framing overhead: magic (4) + length (4) = 8 bytes.
 pub const SAGA_FRAME_LEN: usize = 8;
 
-/// All saga coordination messages.
-///
-/// Byte sizes (archived, approximate):
-///   Register: ~50B | Prepare: ~80B | Vote: ~60B
-///   Commit: ~20B  | Rollback: ~50B | Delta: variable (body + overhead)
-#[derive(Archive, Serialize, Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
-#[archive_attr(derive(Debug))]
-pub enum SagaMessage {
-    /// Agent → Coordinator: register intent to participate.
-    /// Idempotent — re-registration with same agent_id updates step_count.
-    Register {
-        /// Unique identifier of the registering agent.
-        agent_id: String,
-        /// Number of saga steps the agent expects to participate in.
-        step_count: u32,
-    },
+// Defeito upstream do rkyv_derive 0.8.18 (verificado na fonte): para ENUMS,
+// `generate_archived_variants` emite `#[doc]` em cada campo do tipo arquivado,
+// mas `generate_resolver` NÃO — e campos de variante de enum são sempre tão
+// visíveis quanto o enum, então o `SagaMessageResolver` gerado nasce público e
+// sem doc, colidindo com o `#![deny(missing_docs)]` do crate. (Structs escapam
+// porque lá o resolver copia a `vis` do campo-fonte e sai privado.) Nenhum knob
+// do derive alcança o resolver — `attr(...)` só vai ao archived e `resolver`
+// apenas renomeia.
+//
+// A saída é de VISIBILIDADE, não de supressão: encapsular o enum aqui deixa o
+// resolver inalcançável de fora do crate, então o lint corretamente para de
+// exigir doc dele — enquanto `SagaMessage`, reexportado abaixo, continua sob o
+// `deny`. Zero `allow`, zero perda de cobertura.
+mod message {
+    use rkyv::{Archive, Deserialize, Serialize};
 
-    /// Coordinator → Agent: ask agent to evaluate whether it can commit.
-    /// `action` is an opaque JSON string scoped to the agent's domain.
-    Prepare {
-        /// Identifier of the saga transaction being prepared.
-        transaction_id: String,
-        /// Identifier of the step within the transaction.
-        step_id: String,
-        /// Opaque JSON action payload scoped to the agent's domain.
-        action: String,
-    },
+    /// All saga coordination messages.
+    ///
+    /// Byte sizes (archived, approximate):
+    ///   Register: ~50B | Prepare: ~80B | Vote: ~60B
+    ///   Commit: ~20B  | Rollback: ~50B | Delta: variable (body + overhead)
+    #[derive(Archive, Serialize, Deserialize, Debug, Clone)]
+    #[rkyv(derive(Debug))]
+    pub enum SagaMessage {
+        /// Agent → Coordinator: register intent to participate.
+        /// Idempotent — re-registration with same agent_id updates step_count.
+        Register {
+            /// Unique identifier of the registering agent.
+            agent_id: String,
+            /// Number of saga steps the agent expects to participate in.
+            step_count: u32,
+        },
 
-    /// Agent → Coordinator: vote on the transaction.
-    Vote {
-        /// Identifier of the saga transaction being voted on.
-        transaction_id: String,
-        /// Identifier of the step the vote applies to.
-        step_id: String,
-        /// `true` if the agent can commit, `false` to abort.
-        commit: bool,
-        /// Human-readable explanation for the vote (especially on abort).
-        reason: String,
-    },
+        /// Coordinator → Agent: ask agent to evaluate whether it can commit.
+        /// `action` is an opaque JSON string scoped to the agent's domain.
+        Prepare {
+            /// Identifier of the saga transaction being prepared.
+            transaction_id: String,
+            /// Identifier of the step within the transaction.
+            step_id: String,
+            /// Opaque JSON action payload scoped to the agent's domain.
+            action: String,
+        },
 
-    /// Coordinator → All Agents: all voted yes; agent should commit atomically.
-    Commit {
-        /// Identifier of the saga transaction to commit.
-        transaction_id: String,
-    },
+        /// Agent → Coordinator: vote on the transaction.
+        Vote {
+            /// Identifier of the saga transaction being voted on.
+            transaction_id: String,
+            /// Identifier of the step the vote applies to.
+            step_id: String,
+            /// `true` if the agent can commit, `false` to abort.
+            commit: bool,
+            /// Human-readable explanation for the vote (especially on abort).
+            reason: String,
+        },
 
-    /// Coordinator → All Agents: at least one voted no; full rollback required.
-    Rollback {
-        /// Identifier of the saga transaction to roll back.
-        transaction_id: String,
-        /// Human-readable reason the rollback was triggered.
-        reason: String,
-    },
+        /// Coordinator → All Agents: all voted yes; agent should commit atomically.
+        Commit {
+            /// Identifier of the saga transaction to commit.
+            transaction_id: String,
+        },
 
-    /// Agent → Coordinator: CRDT delta for state reconciliation post-commit.
-    /// `delta_bytes` is already an rkyv-serialized CrdtDelta — coordinator
-    /// stores as-is and can merge later without deserializing immediately.
-    Delta {
-        /// Identifier of the committed saga transaction.
-        transaction_id: String,
-        /// Identifier of the step producing the delta.
-        step_id: String,
-        /// rkyv-serialized `CrdtDelta` bytes for state reconciliation.
-        delta_bytes: Vec<u8>,
-    },
+        /// Coordinator → All Agents: at least one voted no; full rollback required.
+        Rollback {
+            /// Identifier of the saga transaction to roll back.
+            transaction_id: String,
+            /// Human-readable reason the rollback was triggered.
+            reason: String,
+        },
+
+        /// Agent → Coordinator: CRDT delta for state reconciliation post-commit.
+        /// `delta_bytes` is already an rkyv-serialized CrdtDelta — coordinator
+        /// stores as-is and can merge later without deserializing immediately.
+        Delta {
+            /// Identifier of the committed saga transaction.
+            transaction_id: String,
+            /// Identifier of the step producing the delta.
+            step_id: String,
+            /// rkyv-serialized `CrdtDelta` bytes for state reconciliation.
+            delta_bytes: Vec<u8>,
+        },
+    }
+}
+
+pub use message::SagaMessage;
+
+impl SagaMessage {
+    /// Soma dos bytes crus que a mensagem carrega.
+    ///
+    /// Base do teto anti-panic ([`crate::MAX_ARCHIVE_BYTES`]): o arquivo rkyv é
+    /// sempre ≥ os dados que carrega, então esta soma é um piso do tamanho
+    /// arquivado e serve para recusar cedo o que faria o rkyv entrar em pânico.
+    fn raw_bytes(&self) -> usize {
+        match self {
+            Self::Register { agent_id, .. } => agent_id.len(),
+            Self::Prepare {
+                transaction_id,
+                step_id,
+                action,
+            } => transaction_id.len() + step_id.len() + action.len(),
+            Self::Vote {
+                transaction_id,
+                step_id,
+                reason,
+                ..
+            } => transaction_id.len() + step_id.len() + reason.len(),
+            Self::Commit { transaction_id } => transaction_id.len(),
+            Self::Rollback {
+                transaction_id,
+                reason,
+            } => transaction_id.len() + reason.len(),
+            Self::Delta {
+                transaction_id,
+                step_id,
+                delta_bytes,
+            } => transaction_id.len() + step_id.len() + delta_bytes.len(),
+        }
+    }
 }
 
 // ── Error taxonomy ──────────────────────────────────────────────────────────
@@ -108,7 +169,9 @@ pub enum SagaMessage {
 pub enum SagaError {
     /// Serialization of the message body failed (rkyv error).
     Serialize(String),
-    /// Payload exceeds u32::MAX (4 GiB — always a bug if triggered).
+    /// Payload exceeds what an rkyv archive can address
+    /// ([`crate::MAX_ARCHIVE_BYTES`], 2 GiB) or what the u32 length prefix can
+    /// declare — always a bug if triggered.
     PayloadTooLarge(usize),
     /// Frame shorter than SAGA_FRAME_LEN (8 bytes).
     Truncated(usize),
@@ -144,9 +207,16 @@ impl core::fmt::Display for SagaError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Serialize(s) => write!(f, "saga serialize failed: {s}"),
-            Self::PayloadTooLarge(n) => write!(f, "payload {n} exceeds u32::MAX"),
+            Self::PayloadTooLarge(n) => {
+                write!(f, "payload {n} bytes exceeds the serializable maximum")
+            }
             Self::Truncated(n) => write!(f, "saga frame truncated: got {n}, need 8"),
-            Self::BadMagic(m) => write!(f, "bad magic {m:?}; expected SAGA"),
+            Self::BadMagic(m) if *m == SAGA_MAGIC_V1 => write!(
+                f,
+                "peer is speaking the v1 saga wire format (pre-rkyv-0.8 build); \
+                 rebuild and restart it — daemon and clients must share one build"
+            ),
+            Self::BadMagic(m) => write!(f, "bad magic {m:?}; expected {SAGA_MAGIC:?}"),
             Self::LengthMismatch { declared, actual } => {
                 write!(f, "saga length mismatch: header={declared}, body={actual}")
             }
@@ -165,13 +235,21 @@ impl core::fmt::Display for SagaError {
 impl std::error::Error for SagaError {}
 
 /// Frame a saga message into wire bytes (`SAGA[4]` + `len[4]` + body).
-pub fn frame_saga(msg: &SagaMessage) -> Result<rkyv::AlignedVec, SagaError> {
-    let body = rkyv::to_bytes::<_, 256>(msg).map_err(|e| SagaError::Serialize(e.to_string()))?;
+pub fn frame_saga(msg: &SagaMessage) -> Result<crate::AlignedVec, SagaError> {
+    // Recusa ANTES de serializar: acima deste teto o rkyv 0.8 entra em pânico em
+    // vez de devolver erro (ver `crate::MAX_ARCHIVE_BYTES`), e um daemon não pode
+    // cair por causa do tamanho de uma mensagem que chegou pelo socket.
+    let raw = msg.raw_bytes();
+    if raw >= crate::MAX_ARCHIVE_BYTES {
+        return Err(SagaError::PayloadTooLarge(raw));
+    }
+    let body = crate::to_bytes::<SagaMessage, 256>(msg)
+        .map_err(|e| SagaError::Serialize(e.to_string()))?;
     let len: u32 = body
         .len()
         .try_into()
         .map_err(|_| SagaError::PayloadTooLarge(body.len()))?;
-    let mut out = rkyv::AlignedVec::with_capacity(SAGA_FRAME_LEN + body.len());
+    let mut out = crate::AlignedVec::with_capacity(SAGA_FRAME_LEN + body.len());
     out.extend_from_slice(&SAGA_MAGIC);
     out.extend_from_slice(&len.to_le_bytes());
     out.extend_from_slice(&body);
@@ -216,7 +294,7 @@ mod tests {
         let framed = frame_saga(&msg).unwrap();
         assert!(framed.starts_with(&SAGA_MAGIC));
         let body = unframe_saga(&framed).unwrap();
-        let parsed: SagaMessage = rkyv::from_bytes(body).unwrap();
+        let parsed: SagaMessage = crate::from_bytes(body).unwrap();
         match parsed {
             SagaMessage::Register {
                 agent_id,
@@ -238,7 +316,7 @@ mod tests {
         };
         let framed = frame_saga(&msg).unwrap();
         let body = unframe_saga(&framed).unwrap();
-        let parsed: SagaMessage = rkyv::from_bytes(body).unwrap();
+        let parsed: SagaMessage = crate::from_bytes(body).unwrap();
         match parsed {
             SagaMessage::Prepare {
                 transaction_id,
@@ -263,7 +341,7 @@ mod tests {
         };
         let framed = frame_saga(&msg).unwrap();
         let body = unframe_saga(&framed).unwrap();
-        let parsed: SagaMessage = rkyv::from_bytes(body).unwrap();
+        let parsed: SagaMessage = crate::from_bytes(body).unwrap();
         match parsed {
             SagaMessage::Vote { commit, .. } => assert!(commit),
             _ => panic!("expected Vote variant"),
@@ -280,7 +358,7 @@ mod tests {
         };
         let framed = frame_saga(&msg).unwrap();
         let body = unframe_saga(&framed).unwrap();
-        let parsed: SagaMessage = rkyv::from_bytes(body).unwrap();
+        let parsed: SagaMessage = crate::from_bytes(body).unwrap();
         match parsed {
             SagaMessage::Vote { commit, reason, .. } => {
                 assert!(!commit);
@@ -297,7 +375,7 @@ mod tests {
         };
         let framed = frame_saga(&msg).unwrap();
         let body = unframe_saga(&framed).unwrap();
-        let parsed: SagaMessage = rkyv::from_bytes(body).unwrap();
+        let parsed: SagaMessage = crate::from_bytes(body).unwrap();
         match parsed {
             SagaMessage::Commit { transaction_id } => assert_eq!(transaction_id, "tx-abc"),
             _ => panic!("expected Commit variant"),
@@ -312,7 +390,7 @@ mod tests {
         };
         let framed = frame_saga(&msg).unwrap();
         let body = unframe_saga(&framed).unwrap();
-        let parsed: SagaMessage = rkyv::from_bytes(body).unwrap();
+        let parsed: SagaMessage = crate::from_bytes(body).unwrap();
         match parsed {
             SagaMessage::Rollback { reason, .. } => assert_eq!(reason, "step-2 voted no"),
             _ => panic!("expected Rollback variant"),
@@ -329,7 +407,7 @@ mod tests {
         };
         let framed = frame_saga(&msg).unwrap();
         let body = unframe_saga(&framed).unwrap();
-        let parsed: SagaMessage = rkyv::from_bytes(body).unwrap();
+        let parsed: SagaMessage = crate::from_bytes(body).unwrap();
         match parsed {
             SagaMessage::Delta { delta_bytes, .. } => assert_eq!(delta_bytes, delta),
             _ => panic!("expected Delta variant"),
@@ -350,6 +428,26 @@ mod tests {
         assert!(matches!(result, Err(SagaError::BadMagic(_))));
     }
 
+    /// Espelha `ipc::tests::legacy_v1_frame_is_diagnosed_by_name_...` — os dois
+    /// caminhos de fio precisam diagnosticar igual. Assimetria entre irmãos é
+    /// exatamente o padrão de bug que este módulo já pagou uma vez (o
+    /// duplo-unframe do handler saga no daemon).
+    #[test]
+    fn legacy_v1_saga_frame_is_diagnosed_by_name() {
+        let mut legacy = SAGA_MAGIC_V1.to_vec();
+        legacy.extend_from_slice(&0u32.to_le_bytes());
+
+        let err = unframe_saga(&legacy).expect_err("v1 saga magic must be rejected");
+        assert!(matches!(err, SagaError::BadMagic(m) if m == SAGA_MAGIC_V1));
+
+        let msg = err.to_string();
+        assert!(msg.contains("v1"), "must name the wire version: {msg}");
+        assert!(
+            msg.contains("rebuild"),
+            "must say what to do about it: {msg}"
+        );
+    }
+
     #[test]
     fn test_unframe_length_mismatch() {
         // SAGA magic + u32 declaring 100 bytes + only 3 body bytes
@@ -368,14 +466,45 @@ mod tests {
 
     #[test]
     fn test_payload_too_large() {
-        // A message that exceeds u32::MAX when serialized — this is impractical
-        // but we test the error path for completeness.
+        // Constrói EXATAMENTE no teto documentado. Isto não é zelo teórico: acima
+        // de `MAX_ARCHIVE_BYTES` o rkyv 0.8 derruba o processo (o `RelPtr::emplace`
+        // de Vec/String fixa `rancor::Panic`) em vez de devolver erro, então o
+        // guarda tem de recusar ANTES de serializar. O 0.7 errava graciosamente
+        // aqui; a versão nova só erra graciosamente porque o guarda existe.
+        //
+        // Usar o teto real (2 GiB) em vez do antigo `u32::MAX + 1` também corta
+        // pela metade a memória que o teste aloca.
         let big_msg = SagaMessage::Delta {
-            transaction_id: "x".repeat((u32::MAX as usize) + 1),
+            transaction_id: "x".repeat(crate::MAX_ARCHIVE_BYTES),
             step_id: String::new(),
             delta_bytes: Vec::new(),
         };
         let result = frame_saga(&big_msg);
         assert!(matches!(result, Err(SagaError::PayloadTooLarge(_))));
+    }
+
+    #[test]
+    fn raw_bytes_counts_every_variable_length_field() {
+        // Guarda barato contra o modo de falha real do `raw_bytes`: esquecer um
+        // campo faria o teto subestimar o payload e devolver o panic de volta.
+        assert_eq!(
+            SagaMessage::Delta {
+                transaction_id: "abc".into(), // 3
+                step_id: "de".into(),         // 2
+                delta_bytes: vec![0u8; 7],    // 7
+            }
+            .raw_bytes(),
+            12
+        );
+        assert_eq!(
+            SagaMessage::Vote {
+                transaction_id: "abcd".into(), // 4
+                step_id: "ef".into(),          // 2
+                commit: true,
+                reason: "xyz".into(), // 3
+            }
+            .raw_bytes(),
+            9
+        );
     }
 }

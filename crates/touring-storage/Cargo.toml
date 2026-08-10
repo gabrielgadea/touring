@@ -63,7 +63,13 @@ tokenizers = { workspace = true, optional = true }
 fastembed = { workspace = true, optional = true }
 notify = { workspace = true, optional = true }
 notify-debouncer-mini = { workspace = true, optional = true }
-rkyv = { workspace = true, features = ["validation", "std"] }
+# `rkyv` direto continua necessário para os DERIVES: os atributos auxiliares
+# `#[archive(...)]` / `#[archive_attr(...)]` só ficam em escopo quando o derive
+# vem do crate original — descoberto por execução no P1 da migração 0.8.
+rkyv = { workspace = true, features = ["std", "bytecheck"] }
+# Fachada: todo call site de FUNÇÃO/TIPO passa por aqui, para que o swap 0.7→0.8
+# aconteça em um crate só (P1 do plano RUSTSEC-2026-0235).
+touring-rkyv = { path = "../touring-rkyv" }
 tracing = { workspace = true }
 
 [dev-dependencies]

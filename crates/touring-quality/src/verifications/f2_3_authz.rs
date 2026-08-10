@@ -37,8 +37,8 @@
 //! (one of the 6 BLOCK-aligned dims — F2.1/F2.3/F2.4/F2.5/F2.6/F4.3/F4.5
 //! — but per-file detect; workspace-level authz cycle detection is F1.12).
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -50,14 +50,8 @@ impl Verification for F2_3_Authz {
     fn id(&self) -> DimId {
         DimId::F2_3
     }
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_authz_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_authz_dim(target)
     }
 }
 
@@ -76,11 +70,7 @@ fn analyze_authz_dim(target: &Path) -> Result<(f32, String)> {
     let lang = crate::verifications::lang_from_ext(target);
     let r = analyze_authz(&raw, lang);
     let value = score_authz(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F2.3: {} broken-access-control smell(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_authz: sensitive-no-authz / idor-pattern / \

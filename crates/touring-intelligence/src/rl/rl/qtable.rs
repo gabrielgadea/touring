@@ -670,8 +670,7 @@ pub fn djb2_hash(s: &str) -> u64 {
 
 /// Snapshot of QTable learning parameters for rkyv serialization.
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
-#[archive_attr(derive(Debug))]
+#[rkyv(derive(Debug))]
 pub struct LearningParamsSnapshot {
     /// Learning rate (step size) for Q-value updates.
     pub alpha: f64,
@@ -694,8 +693,7 @@ pub struct LearningParamsSnapshot {
 /// Converts the sparse `HashMap<StateAction, f64>` to a flat `Vec<(u64, u64, f64)>`
 /// for efficient serialization. The `state_actions` index is rebuilt on load.
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
-#[archive_attr(derive(Debug))]
+#[rkyv(derive(Debug))]
 pub struct QTableSnapshot {
     /// Q-values as (state, action, value) triples.
     pub q_values: Vec<(u64, u64, f64)>,
@@ -752,7 +750,7 @@ impl QTable {
     /// Serialize QTable state to an rkyv file.
     pub fn save_rkyv(&self, path: &Path, revision: u64) -> Result<(), QTableError> {
         let snapshot = self.to_snapshot(revision);
-        let bytes = rkyv::to_bytes::<_, 4096>(&snapshot)
+        let bytes = touring_rkyv::to_bytes::<_, 4096>(&snapshot)
             .map_err(|e| QTableError::Serialize(e.to_string()))?;
         std::fs::write(path, &bytes).map_err(QTableError::Write)
     }
@@ -762,12 +760,11 @@ impl QTable {
     /// Returns `(QTable, revision)`.
     pub fn load_rkyv(path: &Path) -> Result<(Self, u64), QTableError> {
         let bytes = std::fs::read(path).map_err(QTableError::Read)?;
-        let archived = rkyv::check_archived_root::<QTableSnapshot>(&bytes)
+        let archived = touring_rkyv::check_archived_root::<QTableSnapshot>(&bytes)
             .map_err(|e| QTableError::Validate(e.to_string()))?;
         // Deserialize from archived form
-        let snapshot: QTableSnapshot =
-            rkyv::Deserialize::deserialize(archived, &mut rkyv::Infallible)
-                .map_err(|e| QTableError::Deserialize(e.to_string()))?;
+        let snapshot: QTableSnapshot = touring_rkyv::deserialize(archived)
+            .map_err(|e| QTableError::Deserialize(e.to_string()))?;
         let revision = snapshot.revision;
         Ok((Self::from_snapshot(&snapshot), revision))
     }

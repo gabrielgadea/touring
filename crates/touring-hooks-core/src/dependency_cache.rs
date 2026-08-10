@@ -299,7 +299,7 @@ impl DependencyCache {
     /// Serialize the current graph to an rkyv snapshot file.
     ///
     /// Collects all edges as `(from, to)` string pairs and writes them with
-    /// `rkyv::to_bytes`. Uses a 64 KiB alignment buffer — adequate for typical
+    /// `touring_rkyv::to_bytes`. Uses a 64 KiB alignment buffer — adequate for typical
     /// project graphs (< 10 k edges).
     ///
     /// # Errors
@@ -323,7 +323,7 @@ impl DependencyCache {
             edges,
         };
 
-        let bytes = rkyv::to_bytes::<_, 65536>(&snapshot)
+        let bytes = touring_rkyv::to_bytes::<_, 65536>(&snapshot)
             .map_err(|e| DependencyCacheRkyvError::Serialize(e.to_string()))?;
         std::fs::write(path, &bytes).map_err(|e| DependencyCacheRkyvError::Write(e.to_string()))
     }
@@ -340,7 +340,7 @@ impl DependencyCache {
     pub fn load_rkyv(path: &Path) -> Result<Self, DependencyCacheRkyvError> {
         let bytes =
             std::fs::read(path).map_err(|e| DependencyCacheRkyvError::Read(e.to_string()))?;
-        let archived = rkyv::check_archived_root::<ArchivedIndexSnapshot>(&bytes)
+        let archived = touring_rkyv::check_archived_root::<ArchivedIndexSnapshot>(&bytes)
             .map_err(|e| DependencyCacheRkyvError::Validate(e.to_string()))?;
 
         if archived.schema_version != INDEX_SNAPSHOT_SCHEMA_VERSION {
@@ -350,9 +350,8 @@ impl DependencyCache {
             });
         }
 
-        let snapshot: ArchivedIndexSnapshot =
-            rkyv::Deserialize::deserialize(archived, &mut rkyv::Infallible)
-                .map_err(|e| DependencyCacheRkyvError::Deserialize(e.to_string()))?;
+        let snapshot: ArchivedIndexSnapshot = touring_rkyv::deserialize(archived)
+            .map_err(|e| DependencyCacheRkyvError::Deserialize(e.to_string()))?;
 
         Ok(Self::build_from_relations(snapshot.edges))
     }

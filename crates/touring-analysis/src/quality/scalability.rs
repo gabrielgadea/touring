@@ -66,27 +66,7 @@ fn canonical_lang(lang: &str) -> Lang {
 }
 
 /// Scalability findings for one file.
-#[derive(Debug, Clone, Default)]
-pub struct ScalabilityReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl ScalabilityReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type ScalabilityReport = crate::quality::SmellReport;
 
 #[inline]
 fn _ident_at_word_boundary(bytes: &[u8], idx: usize) -> bool {

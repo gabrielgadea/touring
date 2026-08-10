@@ -77,7 +77,7 @@ pub use crate::core::context_exec::McctsEvalAdapter;
 /// # Performance
 ///
 /// rkyv 0.7 produces an aligned byte buffer that deserializes via validated
-/// archive access (`rkyv::check_archived_root`). For a typical plan with
+/// archive access (`touring_rkyv::check_archived_root`). For a typical plan with
 /// 1–3 rendered files the snapshot/restore cycle is < 100 µs — versus
 /// 5–20 ms to re-render from the Tera engine.
 ///
@@ -95,7 +95,7 @@ pub use crate::core::context_exec::McctsEvalAdapter;
 /// pipeline artifact — its snapshot is not consumed by other crates and has
 /// a different lifecycle (short-lived, process-local) than IPC types
 /// (persistent, cross-process). The custom binary format in `snapshot()`
-/// and `rkyv::to_bytes` in `snapshot_rkyv` serve this internal use case
+/// and `touring_rkyv::to_bytes` in `snapshot_rkyv` serve this internal use case
 /// without coupling to the shared template system.
 // ── Execution adapters (extracted to `context_exec`, F-9 modularization) ──────
 // `RkyvFileSnapshotAdapter`, `WasmSandboxAdapter`/`WasmSandboxError`, and

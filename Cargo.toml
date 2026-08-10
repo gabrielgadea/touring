@@ -315,7 +315,7 @@ numpy = "0.29" # rust-numpy tracks pyo3 minor-for-minor; must move in lockstep w
 crdts = "7.3"
 
 # Semantic graph persistence
-rkyv = { version = "0.7", features = ["validation", "std"] }
+rkyv = { version = "0.8.17", features = ["std", "bytecheck"] }
 
 # Memory-mapped I/O
 memmap2 = "0.9"

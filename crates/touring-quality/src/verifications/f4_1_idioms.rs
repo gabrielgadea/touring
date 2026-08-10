@@ -18,8 +18,8 @@
 //! **Scope**: per-file (`AggKind::WeightedLoc`). A per-file scanner cannot
 //! replace a type-aware linter, so it is honest about catching a subset.
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -32,14 +32,8 @@ impl Verification for F4_1_Idioms {
         DimId::F4_1
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_idioms_dim(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_idioms_dim(target)
     }
 }
 
@@ -63,11 +57,7 @@ fn analyze_idioms_dim(target: &Path) -> Result<(f32, String)> {
     let r = analyze_idioms(&raw, lang);
 
     let value = score_idioms(&r);
-    let top = r
-        .findings
-        .first()
-        .map(|(m, c)| format!("; top: {m} ({c}x)"))
-        .unwrap_or_default();
+    let top = crate::verifications::top_finding(&r.findings);
     let evidence = format!(
         "F4.1: {} non-idiomatic construct(s) over {} lines ({lang}) — score={value:.3} \
          (touring-analysis analyze_idioms: clippy/ruff/ESLint/go-vet/clang-tidy idioms){top}",

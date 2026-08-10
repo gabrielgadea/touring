@@ -62,8 +62,27 @@ pub mod f4_9_iac;
 pub trait Verification: Send + Sync {
     /// The quality dimension this verification scores (e.g. `F1.6`).
     fn id(&self) -> DimId;
+
+    /// Measure `target`, returning the raw `(score, evidence)` pair.
+    ///
+    /// This is the ONLY part a verification writes. Turning that pair into a
+    /// [`DimScore`] — status, NotApplicable detection, auto-remediation
+    /// suggestion — is [`finish`]'s job and happens in [`Self::check`].
+    fn measure(&self, target: &Path) -> Result<(f32, String)>;
+
     /// Run the verification against `target`, returning its 0.0–1.0 dimension score.
-    fn check(&self, target: &Path) -> Result<DimScore>;
+    ///
+    /// Defaulted on purpose: all 50 implementations previously ended in a
+    /// byte-identical six-line tail (`Ok(finish(self.id(), value, evidence,
+    /// target))`) — 50 copies of pure glue, and 50 chances to forget it, since
+    /// nothing forced a verification through `finish`. Hoisting the tail here
+    /// deletes the duplication AND makes the invariant structural: a
+    /// verification cannot bypass status derivation, because it never builds the
+    /// `DimScore` itself.
+    fn check(&self, target: &Path) -> Result<DimScore> {
+        let (value, evidence) = self.measure(target)?;
+        Ok(finish(self.id(), value, evidence, target))
+    }
 }
 
 /// Source-file extensions the content-based verifiers understand (polyglot).
@@ -111,7 +130,54 @@ const SKIP_DIRS: &[&str] = &[
 /// in `s…`/`w…` files (they fell past the cut), and the truncation was invisible
 /// in the evidence line (a silent cap). Corpus verifiers are O(n) hash/scan
 /// passes, so 16 MiB stays sub-second; genuinely larger monorepos still bound.
-const DIR_SCAN_BYTE_CAP: usize = 16 * 1024 * 1024;
+/// Teto de bytes por varredura de diretório.
+///
+/// ⚠ **Este teto TRUNCA a medição em escopos grandes, e isso precisa aparecer.**
+/// Medido em 07/08/2026: o corpus de fontes deste workspace tem ~26,9 MB, então
+/// uma varredura da raiz cobre ~62% dele e para em
+/// `crates/touring-intelligence/src/index/incremental.rs` (ordem de path). Como
+/// o corte é por BYTES, o efeito é pior do que perder cauda: remover duplicação
+/// dentro da janela apenas **admite mais conteúdo** na borda, que traz a própria
+/// duplicação — o score fica praticamente imóvel diante de remediação real. Foi
+/// exatamente o que se observou ao deduplicar 372 linhas em `touring-analysis` +
+/// `touring-quality`: os scores POR CRATE melhoraram (0.453→0.490 e
+/// 0.171→0.265) e o score da raiz não se moveu um dígito.
+///
+/// Enquanto o teto existir, todo consumidor deve **anunciar a truncagem** em vez
+/// de apresentar um score de prefixo como se fosse do escopo inteiro — a mesma
+/// regra que já vale para os arquivos gerados excluídos ("nunca silencioso").
+/// Scores por CRATE ficam abaixo do teto e são confiáveis.
+///
+/// **128 MiB desde 07/08/2026** (era 16 MiB, que cobria 59% deste workspace).
+/// F1.3/F1.8/F4.12 saíram da truncagem por agregação per-crate, mas as 14 dims
+/// `ScopeNative` continuam medindo a raiz inteira e não têm equivalente
+/// per-crate — para elas, só um teto acima do corpus resolve. A objeção era
+/// memória: as 50 dims rodam em `par_iter`, então 14 blobs coexistem. Medido:
+/// 26,9 MB de corpus ⇒ ~378 MB de pico real, e o pior caso teórico (1,75 GB)
+/// só ocorre num workspace com 128 MiB de fonte. Verificadores de corpus são
+/// passes O(n), então o custo de tempo acompanha o corpus, não o teto.
+///
+/// Se ainda assim truncar, [`dir_scan_overflow`] deixa o fato visível na
+/// evidência — teto sem anúncio foi exatamente a falha de 02/08.
+const DIR_SCAN_BYTE_CAP: usize = 128 * 1024 * 1024;
+
+/// Bytes totais do corpus de `target` quando ele ESTOURA
+/// [`DIR_SCAN_BYTE_CAP`] — `None` quando cabe (o caso normal).
+///
+/// Só consulta metadata (`len()`), nunca lê conteúdo, então serve para anotar a
+/// evidência sem duplicar o custo da varredura. Existe para que um score de
+/// prefixo jamais se apresente como score do escopo inteiro.
+pub fn dir_scan_overflow(target: &Path) -> Option<u64> {
+    if !target.is_dir() {
+        return None;
+    }
+    let total: u64 = enumerate_source_files(target)
+        .iter()
+        .filter_map(|p| std::fs::metadata(p).ok())
+        .map(|m| m.len())
+        .sum();
+    (total > DIR_SCAN_BYTE_CAP as u64).then_some(total)
+}
 
 /// Read a verifier target into a single source string.
 ///
@@ -169,9 +235,9 @@ pub(crate) fn is_under_generated_tree(path: &Path, root: &Path) -> bool {
 /// corpus. Returns the concatenated source plus HOW MANY files were excluded, so
 /// the caller can surface the exclusion in its evidence line (a silent filter
 /// would repeat the invisible-cap failure fixed on 2026-08-02).
-pub fn read_target_source_excluding_generated(target: &Path) -> Result<(String, usize)> {
+pub fn read_target_source_excluding_generated(target: &Path) -> Result<(String, usize, bool)> {
     if !target.is_dir() {
-        return read_target_source(target).map(|s| (s, 0));
+        return read_target_source(target).map(|s| (s, 0, false));
     }
     let mut out = String::new();
     let mut excluded = 0usize;
@@ -184,11 +250,14 @@ pub fn read_target_source_excluding_generated(target: &Path) -> Result<(String, 
             out.push_str(&s);
             out.push('\n');
             if out.len() >= DIR_SCAN_BYTE_CAP {
-                return Ok((out, excluded));
+                // Terceiro campo = TRUNCADO. Ver a nota em `DIR_SCAN_BYTE_CAP`:
+                // um score de prefixo que se apresenta como score do escopo é
+                // uma medição desonesta, então quem chama tem de poder dizê-lo.
+                return Ok((out, excluded, true));
             }
         }
     }
-    Ok((out, excluded))
+    Ok((out, excluded, false))
 }
 
 /// Strip Rust line comments (`//…`) and block comments (`/* … */`) from `src`
@@ -427,7 +496,10 @@ pub fn absent_artifact_score(dim: &str, class: ArtifactClass) -> (f32, String) {
 /// this `[N/A]` sentinel so a verifier's `check()` can promote the status to
 /// [`DimStatus::NotApplicable`] (excluded from the composite) instead of a
 /// misleading `Pass`.
-pub fn evidence_marks_not_applicable(evidence: &str) -> bool {
+///
+/// `pub(crate)` desde 07/08/2026: com `check()` defaultado, [`finish`] é o único
+/// consumidor — nenhum arquivo fora deste módulo a nomeia (verificado por grep).
+pub(crate) fn evidence_marks_not_applicable(evidence: &str) -> bool {
     evidence.starts_with("[N/A]")
 }
 
@@ -771,7 +843,13 @@ fn pattern_phase4(sub: Option<u8>) -> &'static str {
 /// - Pattern 5 (manifest update):        F2.5, F4.5, F4.6
 /// - Pattern 6 (test stub):             F3.1, F3.2, F3.3, F3.4, F3.5, F3.6, F3.7
 /// - Pattern 7 (doc / infra generation): F2.12, F2.13, F3.8, F3.9, F3.10, F3.11, F3.12, F3.13, F4.7, F4.8, F4.9, F4.10, F4.11, F4.12
-pub fn auto_remediation(dim: DimId, target: &Path, status: DimStatus) -> String {
+///
+/// `pub(crate)` desde 07/08/2026: com `check()` defaultado no trait, [`finish`]
+/// é o ÚNICO chamador — os 5 verificadores que a invocavam montavam `DimScore` à
+/// mão em guards de retorno antecipado, e passaram a devolver `(score, evidence)`
+/// como todos os outros. Manter `pub` exportaria um símbolo sem consumidor
+/// externo; a visibilidade agora descreve o uso real.
+pub(crate) fn auto_remediation(dim: DimId, target: &Path, status: DimStatus) -> String {
     let pattern = match dim {
         // Pattern 1 — extract / refactor (single fn / idiomatic fix)
         DimId::F1_1
@@ -867,6 +945,7 @@ pub fn finish(id: DimId, value: f32, evidence: String, target: &Path) -> DimScor
         evidence,
         suggestions,
         latency_ms: 0,
+        truncated: false,
     }
 }
 
@@ -893,6 +972,27 @@ pub(crate) fn is_detector_own_source(target: &Path) -> bool {
         "touring-analysis/src/quality",
     ];
     DETECTOR_SOURCES.iter().any(|s| p.contains(s))
+}
+
+/// Sufixo `"; top: <smell> (<n>x)"` do achado mais frequente — vazio se não há.
+///
+/// Callers: `crate::verifications::top_finding(&r.findings)`.
+///
+/// Consolida 35 cópias byte-a-byte espalhadas por `verifications/f*.rs` (F1.3
+/// dedup, 2026-08-07), no mesmo espírito de [`lang_from_ext`] logo abaixo. As
+/// cópias vinham em DUAS grafias do mesmo `format!` — 27 com captura inline
+/// (`{m}`/`{c}`) e 8 posicionais (`{}`, m, c) —, e era justamente por isso que o
+/// detector Type-1 do F1.3 enxergava 27 e não 35: idênticas em significado,
+/// diferentes em bytes. Unificar remove a duplicação E a inconsistência.
+///
+/// Monomórfico de propósito: todos os analisadores de `touring-analysis` expõem
+/// `findings: Vec<(String, usize)>`, então genéricos não pagariam o seu custo.
+#[cfg(feature = "workspace-integration")]
+pub(crate) fn top_finding(findings: &[(String, usize)]) -> String {
+    findings
+        .first()
+        .map(|(m, c)| format!("; top: {m} ({c}x)"))
+        .unwrap_or_default()
 }
 
 /// Map a file extension to the language string the content-based verifiers understand

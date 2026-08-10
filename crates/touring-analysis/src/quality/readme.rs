@@ -48,27 +48,7 @@ const HEADING_PREFIXES: &[&[u8]] = &[b"# ", b"## ", b"### ", b"#### ", b"##### "
 
 /// Findings of a single README completeness analysis pass: the
 /// canonical "missing essential section" smell rolled up per file.
-#[derive(Debug, Clone, Default)]
-pub struct ReadmeReport {
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-section weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl ReadmeReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type ReadmeReport = crate::quality::SmellReport;
 
 /// Yield `(start, end)` byte ranges for every heading line in `bytes`.
 /// A heading line is one that starts with `# `, `## `, …, `###### ` (one

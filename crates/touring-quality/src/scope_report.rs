@@ -70,12 +70,20 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
         .map(|f| (f.clone(), file_loc(f)))
         .collect();
 
+    // Truncagem do corpus: UMA vez por escopo, não uma por dim. É o mesmo
+    // diretório e a mesma resposta para as 14 dims scope-native, e a checagem
+    // percorre a árvore inteira fazendo `metadata` de cada arquivo — 14 varreduras
+    // concorrentes (as dims rodam em `par_iter`) de ~2000 arquivos cada, onde uma
+    // basta.
+    let scan_overflow = crate::verifications::dir_scan_overflow(&scope.root);
+
     // Each dim: ScopeNative → once on the root; otherwise score-per-file → roll up.
     let dimensions: BTreeMap<DimId, DimScore> = dims_to_score
         .par_iter()
         .map(|&dim| {
             let score = match dim.agg_kind() {
-                AggKind::ScopeNative => score_scope_native(dim, scope),
+                AggKind::ScopeNative => score_scope_native(dim, scope, scan_overflow),
+                AggKind::PerCrateNative => score_per_crate_native(dim, scope),
                 kind => score_rolled_up(dim, kind, &file_loc_pairs),
             };
             (dim, score)
@@ -88,16 +96,140 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
 /// ScopeNative dim: run the verifier **once** on the scope root. At sub-repo
 /// granularity the dim is still present (inherited from the root artifact) and
 /// labelled — honouring "all 50 dims at every scope".
-fn score_scope_native(dim: DimId, scope: &Scope) -> DimScore {
+fn score_scope_native(dim: DimId, scope: &Scope, scan_overflow: Option<u64>) -> DimScore {
     match run_verification(dim, &scope.root) {
         Ok(mut s) => {
             if !scope.kind.is_repo_or_larger() {
                 s.evidence = format!("[scope-native @ {} root] {}", scope.kind, s.evidence);
             }
+            // Um score de PREFIXO jamais se apresenta como score do escopo. As
+            // 14 dims scope-native concatenam a raiz inteira e param no teto de
+            // bytes; quando isso acontece, quem lê a evidência precisa saber que
+            // a cauda do corpus não foi medida. Este é o ponto único por onde as
+            // 14 passam — anotar aqui cobre todas sem tocar 83 call sites.
+            // `scan_overflow` vem calculado UMA vez pelo chamador.
+            if let Some(total) = scan_overflow {
+                s.evidence = format!(
+                    "[TRUNCADO: corpus {:.1} MB > teto de varredura; medida parcial] {}",
+                    total as f64 / (1024.0 * 1024.0),
+                    s.evidence
+                );
+                // A prosa acima informa um humano; este campo informa uma MÁQUINA.
+                // Sem ele o gate de convergência não tinha como distinguir um score
+                // de escopo de um score de prefixo, e aceitava o segundo em silêncio.
+                s.truncated = true;
+            }
             s
         }
         Err(e) => DimScore::from_value(0.0, format!("scope-native verifier error: {e}")),
     }
+}
+
+/// Raízes de crate (diretórios com `Cargo.toml`) sob `root`, sem descer em
+/// crates aninhados — cada uma é uma unidade de medição independente.
+fn crate_roots(root: &std::path::Path) -> Vec<PathBuf> {
+    if root.join("Cargo.toml").is_file() && root.join("src").is_dir() {
+        return vec![root.to_path_buf()];
+    }
+    let mut found = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in rd.flatten() {
+            let p = entry.path();
+            if !p.is_dir() {
+                continue;
+            }
+            let skip = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with('.') || n == "target" || n == "node_modules");
+            if skip {
+                continue;
+            }
+            if p.join("Cargo.toml").is_file() {
+                found.push(p); // não empilha: crates aninhados pertencem a este
+            } else {
+                stack.push(p);
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+/// `PerCrateNative`: roda o verificador **uma vez por crate** e compõe por LOC.
+///
+/// Substitui a concatenação única do escopo, que era truncada em 16 MiB e — por
+/// cortar em bytes — devolvia um número insensível a remediação real. Cada crate
+/// cabe sob o teto, então cada medição parcial é honesta e a composição também.
+///
+/// Com 0 ou 1 crate no escopo não há o que compor: cai para o caminho
+/// `ScopeNative`, que nesse caso já é exato.
+fn score_per_crate_native(dim: DimId, scope: &Scope) -> DimScore {
+    let roots = crate_roots(&scope.root);
+    if roots.len() < 2 {
+        // Caminho de fallback (raro): mesmo escopo, mesma resposta — computar aqui
+        // não recria as 14 varreduras que a hoisting no chamador eliminou.
+        return score_scope_native(
+            dim,
+            scope,
+            crate::verifications::dir_scan_overflow(&scope.root),
+        );
+    }
+
+    let scored: Vec<(PathBuf, f32, usize)> = roots
+        .par_iter()
+        .filter_map(|cr| {
+            let value = run_verification(dim, cr).ok()?.value;
+            let loc: usize = crate::verifications::enumerate_source_files(cr)
+                .iter()
+                .map(|f| file_loc(f))
+                .sum();
+            (loc > 0).then_some((cr.clone(), value, loc))
+        })
+        .collect();
+
+    if scored.is_empty() {
+        // Caminho de fallback (raro): mesmo escopo, mesma resposta — computar aqui
+        // não recria as 14 varreduras que a hoisting no chamador eliminou.
+        return score_scope_native(
+            dim,
+            scope,
+            crate::verifications::dir_scan_overflow(&scope.root),
+        );
+    }
+
+    let total_loc: f64 = scored.iter().map(|(_, _, l)| *l as f64).sum();
+    let weighted: f64 = scored
+        .iter()
+        .map(|(_, v, l)| f64::from(*v) * (*l as f64))
+        .sum();
+    let value = (weighted / total_loc) as f32;
+
+    let mut worst = scored.iter().collect::<Vec<_>>();
+    worst.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let worst_names: Vec<String> = worst
+        .iter()
+        .take(3)
+        .map(|(p, v, _)| {
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("?");
+            format!("{name}={v:.3}")
+        })
+        .collect();
+
+    DimScore::from_value(
+        value,
+        format!(
+            "[per-crate-native] LOC-weighted over {} crate(s), {total_loc:.0} LOC \
+             — cada crate medido inteiro (sem o teto de 16 MiB que truncava a \
+             concatenação do escopo); piores: {}",
+            scored.len(),
+            worst_names.join(", ")
+        ),
+    )
 }
 
 /// Non-ScopeNative dim: score each file (parallel) then aggregate by `kind`.

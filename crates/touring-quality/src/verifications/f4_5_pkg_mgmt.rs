@@ -18,8 +18,8 @@
 //! A non-manifest target (e.g. a `.rs` file) has no dependency tree of its own
 //! and passes (1.0).
 
+use crate::DimId;
 use crate::verifications::Verification;
-use crate::{DimId, DimScore};
 use anyhow::Result;
 use std::path::Path;
 
@@ -32,14 +32,8 @@ impl Verification for F4_5_PkgMgmt {
         DimId::F4_5
     }
 
-    fn check(&self, target: &Path) -> Result<DimScore> {
-        let (value, evidence) = analyze_pkg_mgmt(target)?;
-        Ok(crate::verifications::finish(
-            self.id(),
-            value,
-            evidence,
-            target,
-        ))
+    fn measure(&self, target: &Path) -> Result<(f32, String)> {
+        analyze_pkg_mgmt(target)
     }
 }
 

@@ -50,29 +50,8 @@ fn canonical_lang(lang: &str) -> Lang {
     }
 }
 
-#[derive(Debug, Clone, Default)]
 /// Framework-pattern findings for one file.
-pub struct FrameworksReport {
-    /// Total raw violation count across all detectors.
-    /// Total raw violation count across all detectors.
-    pub violations: usize,
-    /// Weighted violation total (per-smell weights applied).
-    pub weighted_total: f32,
-    /// Lines scanned (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired detector, sorted by count desc.
-    pub findings: Vec<(String, usize)>,
-}
-
-impl FrameworksReport {
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count > 0 {
-            self.violations += count;
-            self.weighted_total += count as f32 * weight;
-            self.findings.push((message.to_string(), count));
-        }
-    }
-}
+pub type FrameworksReport = crate::quality::SmellReport;
 
 const ASYNC_FN: &[u8] = b"async fn";
 const BLOCK_ON: &[u8] = b"block_on(";

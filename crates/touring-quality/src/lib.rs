@@ -480,6 +480,23 @@ pub struct DimScore {
     pub suggestions: Vec<String>,
     /// Latency of this check in milliseconds.
     pub latency_ms: u64,
+    /// Whether this score covers only a **prefix** of its target.
+    ///
+    /// The scope-native dims concatenate the whole root and stop at
+    /// [`verifications::DIR_SCAN_BYTE_CAP`]; a score computed over the prefix is not a
+    /// score of the scope, and it is *insensitive to remediation performed past the
+    /// cut* — removing duplication inside the window only admits more content at the
+    /// edge. Until 2026-08-07 that fact reached the reader only as prose inside
+    /// [`DimScore::evidence`], so no consumer could branch on it: the convergence gate
+    /// accepted a truncated clause in silence, which is exactly how F2.6 came to score
+    /// "insecure configuration" without ever having read a configuration file.
+    ///
+    /// The invariant this field enforces: **every bounded computation announces its
+    /// own bound, and is never summed with an unbounded one without the mark.**
+    /// `#[serde(default)]` keeps reports written before this field parseable — an
+    /// absent mark reads as "not truncated", which is the pre-existing meaning.
+    #[serde(default)]
+    pub truncated: bool,
 }
 
 impl DimScore {
@@ -491,6 +508,7 @@ impl DimScore {
             evidence: evidence.into(),
             suggestions: vec![],
             latency_ms: 0,
+            truncated: false,
         }
     }
 
@@ -507,6 +525,7 @@ impl DimScore {
             evidence: evidence.into(),
             suggestions: vec![],
             latency_ms: 0,
+            truncated: false,
         }
     }
 
@@ -518,6 +537,7 @@ impl DimScore {
             evidence: evidence.into(),
             suggestions: vec![],
             latency_ms: 0,
+            truncated: false,
         }
     }
 }
@@ -543,6 +563,20 @@ pub struct QualityReport {
     pub total_latency_ms: u64,
     /// Schema version for forward-compat.
     pub schema_version: u32,
+    /// Reasons to distrust THIS report as a measurement (B7, 2026-08-07).
+    ///
+    /// Adopted from the gortex evaluation protocol, whose sharpest clause is
+    /// that **zero negative results is evidence of methodological bias, not of
+    /// excellence** — a run with no (c)-class outcome in 15 tasks is flagged
+    /// and re-judged rather than published as a win.
+    ///
+    /// Applied here: a 50-dimension sweep over a real workspace that finds
+    /// nothing, or that reaches its verdict while most dimensions were never
+    /// measured, is far more likely to be a broken measurement than a perfect
+    /// codebase. Empty vec = no reason to distrust; the field is advisory and
+    /// never changes `composite` or `tier`, because a suspicion is not a score.
+    #[serde(default)]
+    pub methodology_warnings: Vec<String>,
 }
 
 impl QualityReport {
@@ -573,6 +607,7 @@ impl QualityReport {
                 }
             }
         }
+        let methodology_warnings = detect_methodology_bias(&dimensions);
         Self {
             target,
             dimensions,
@@ -583,8 +618,77 @@ impl QualityReport {
             suggestions,
             total_latency_ms,
             schema_version: Self::SCHEMA_VERSION,
+            methodology_warnings,
         }
     }
+}
+
+/// Minimum dimensions before "found nothing" is worth suspecting.
+///
+/// Below this the target is plausibly small enough to be genuinely clean — the
+/// bias signal is about a broad sweep returning an empty hand, not about a
+/// three-dimension spot check.
+const BIAS_MIN_DIMS: usize = 10;
+
+/// Share of dimensions that may be unmeasured before the verdict is suspect.
+const BIAS_MAX_UNMEASURED_RATIO: f32 = 0.5;
+
+/// Reasons to distrust a report as a measurement (B7).
+///
+/// Three independent signals, each one a way for a number to look better than
+/// the evidence supports:
+///
+/// 1. **No negative result at all** across a broad sweep — the gortex clause.
+/// 2. **Most dimensions never measured** yet a composite was published anyway;
+///    a mean over the few that ran is not a score of the target.
+/// 3. **Truncated evidence** feeding the verdict — the S5 mark, which existed
+///    per-dimension but had no voice at report level.
+fn detect_methodology_bias(dimensions: &BTreeMap<DimId, DimScore>) -> Vec<String> {
+    let mut out = Vec::new();
+    let total = dimensions.len();
+    if total == 0 {
+        out.push("no dimension produced a score — the sweep measured nothing".to_string());
+        return out;
+    }
+    let measured = dimensions
+        .values()
+        .filter(|s| s.status != DimStatus::NotApplicable)
+        .count();
+    let negatives = dimensions
+        .values()
+        .filter(|s| matches!(s.status, DimStatus::Fail | DimStatus::Warn))
+        .count();
+    let truncated: Vec<String> = dimensions
+        .iter()
+        .filter(|(_, s)| s.truncated)
+        .map(|(id, _)| format!("{id:?}"))
+        .collect();
+
+    if measured >= BIAS_MIN_DIMS && negatives == 0 {
+        out.push(format!(
+            "zero negative results across {measured} measured dimensions — \
+             treat as a bias signal, not as excellence: verify the measurement \
+             reached the target before trusting the tier"
+        ));
+    }
+    let unmeasured = total - measured;
+    #[allow(clippy::cast_precision_loss)] // dimension counts are ≤ 50
+    let unmeasured_ratio = unmeasured as f32 / total as f32;
+    if unmeasured_ratio > BIAS_MAX_UNMEASURED_RATIO {
+        out.push(format!(
+            "{unmeasured} of {total} dimensions were not applicable — the \
+             composite summarises a minority of the harness"
+        ));
+    }
+    if !truncated.is_empty() {
+        out.push(format!(
+            "evidence truncated in {} dimension(s) ({}) — the score covers a \
+             prefix of the scope, not the scope",
+            truncated.len(),
+            truncated.join(", ")
+        ));
+    }
+    out
 }
 
 /// Output format for quality reports.
@@ -655,6 +759,7 @@ fn score_target_impl(target: &Path, dims: &[DimId]) -> Result<QualityReport> {
                 evidence: format!("verifier error: {}", e),
                 suggestions: vec![],
                 latency_ms: dim_start.elapsed().as_millis() as u64,
+                truncated: false,
             });
             let mut score = score;
             score.latency_ms = dim_start.elapsed().as_millis() as u64;
@@ -705,6 +810,13 @@ fn render_compact(report: &QualityReport) -> String {
         report.blockers.len(),
         report.warnings.len()
     ));
+    // B7: printed directly under the tier, before the per-dim list. A caveat
+    // that only reaches the JSON is a caveat the reader of a compact report
+    // never sees — and this one exists precisely to be seen next to a good
+    // number.
+    for w in &report.methodology_warnings {
+        s.push_str(&format!("  ⚑ methodology: {w}\n"));
+    }
     for (id, dim) in &report.dimensions {
         let marker = match dim.status {
             DimStatus::Pass => "✓",
@@ -901,5 +1013,141 @@ mod tests {
             OutputFormat::Compact
         );
         assert!(OutputFormat::from_str("garbage").is_err());
+    }
+}
+
+/// B7 (2026-08-07) — zero negative results is a bias signal, not excellence.
+///
+/// Adopted from the gortex evaluation protocol. These tests pin the three
+/// conditions under which this harness must caveat its own verdict.
+#[cfg(test)]
+mod methodology_bias_tests {
+    use super::{BIAS_MIN_DIMS, DimId, DimScore, DimStatus, QualityReport, detect_methodology_bias};
+    use std::collections::BTreeMap;
+    use std::path::PathBuf;
+
+    fn dims(statuses: &[(DimId, DimStatus)]) -> BTreeMap<DimId, DimScore> {
+        statuses
+            .iter()
+            .map(|(id, st)| {
+                (
+                    *id,
+                    DimScore {
+                        value: if *st == DimStatus::Pass { 1.0 } else { 0.2 },
+                        status: *st,
+                        evidence: String::new(),
+                        suggestions: vec![],
+                        latency_ms: 0,
+                        truncated: false,
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn all_pass(n: usize) -> BTreeMap<DimId, DimScore> {
+        let picks: Vec<(DimId, DimStatus)> = DimId::ALL
+            .iter()
+            .take(n)
+            .map(|id| (*id, DimStatus::Pass))
+            .collect();
+        dims(&picks)
+    }
+
+    #[test]
+    fn a_broad_sweep_that_finds_nothing_is_flagged() {
+        let warnings = detect_methodology_bias(&all_pass(BIAS_MIN_DIMS + 5));
+        assert!(
+            warnings.iter().any(|w| w.contains("zero negative results")),
+            "a clean sweep over many dims must caveat itself: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn one_negative_result_is_enough_to_clear_the_bias_flag() {
+        let mut d = all_pass(BIAS_MIN_DIMS + 5);
+        let first = *d.keys().next().expect("at least one dim");
+        if let Some(score) = d.get_mut(&first) {
+            score.status = DimStatus::Warn;
+        }
+        let warnings = detect_methodology_bias(&d);
+        assert!(
+            !warnings.iter().any(|w| w.contains("zero negative results")),
+            "a sweep that found something is not suspect: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn a_small_clean_sweep_is_not_suspect() {
+        // Below the floor, "found nothing" is plausible — the signal is about a
+        // BROAD sweep coming back empty, not a three-dim spot check.
+        let warnings = detect_methodology_bias(&all_pass(3));
+        assert!(
+            !warnings.iter().any(|w| w.contains("zero negative results")),
+            "{warnings:?}"
+        );
+    }
+
+    #[test]
+    fn a_verdict_built_mostly_on_unmeasured_dims_is_flagged() {
+        let picks: Vec<(DimId, DimStatus)> = DimId::ALL
+            .iter()
+            .take(10)
+            .enumerate()
+            .map(|(i, id)| {
+                (
+                    *id,
+                    if i < 3 {
+                        DimStatus::Fail
+                    } else {
+                        DimStatus::NotApplicable
+                    },
+                )
+            })
+            .collect();
+        let warnings = detect_methodology_bias(&dims(&picks));
+        assert!(
+            warnings.iter().any(|w| w.contains("not applicable")),
+            "a composite over 3 of 10 dims must say so: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn truncated_evidence_reaches_the_report_not_only_the_dimension() {
+        // S5 put the mark on DimScore; B7 gives it a voice at report level —
+        // otherwise a reader of the summary never learns the score covers a
+        // prefix of the scope.
+        let mut d = all_pass(3);
+        let first = *d.keys().next().expect("at least one dim");
+        if let Some(score) = d.get_mut(&first) {
+            score.truncated = true;
+        }
+        let warnings = detect_methodology_bias(&d);
+        assert!(
+            warnings.iter().any(|w| w.contains("truncated")),
+            "{warnings:?}"
+        );
+    }
+
+    #[test]
+    fn an_empty_sweep_says_it_measured_nothing() {
+        let warnings = detect_methodology_bias(&BTreeMap::new());
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("measured nothing"));
+    }
+
+    #[test]
+    fn the_warning_is_advisory_and_never_moves_the_score() {
+        // The whole point is a caveat NEXT TO a good number, not a penalty on
+        // it — a suspicion is not a measurement.
+        let d = all_pass(BIAS_MIN_DIMS + 5);
+        let clean = QualityReport::build(PathBuf::from("/tmp/x"), d.clone());
+        let composite_without_flag = super::compute_composite(&d, super::default_weights());
+        assert!(!clean.methodology_warnings.is_empty(), "flag is present");
+        assert!(
+            (clean.composite - composite_without_flag).abs() < f32::EPSILON,
+            "composite must be untouched by the caveat"
+        );
+        assert!(clean.blockers.is_empty(), "and it must not block");
     }
 }

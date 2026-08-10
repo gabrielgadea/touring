@@ -49,6 +49,7 @@ pub mod cli_handlers_session;
 #[path = "cli/handlers/wiring_repair.rs"]
 pub mod cli_handlers_wiring_repair;
 pub mod cli_suggester;
+pub mod hook_rewrite;
 // CEG Pln2 P8 Workflow Intelligence Layer (stage/antipattern/advise) — moved
 // with its single consumer (cli_suggester); its `crate::gateway` refs resolve
 // via the touring-ceg mirror below.

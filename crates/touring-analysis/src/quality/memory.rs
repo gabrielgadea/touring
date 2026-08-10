@@ -231,30 +231,7 @@ fn body_has_alloc(bytes: &[u8], regions: &[(usize, usize)], s: usize, e: usize) 
 }
 
 /// Per-file memory-management analysis (parallel shape to [`super::idioms::IdiomReport`]).
-#[derive(Debug, Clone, Default)]
-pub struct MemoryMgmtReport {
-    /// Total memory-management anti-patterns found in production code.
-    pub violations: usize,
-    /// Weighted sum (each anti-pattern scaled by its category weight).
-    pub weighted_total: f32,
-    /// Production lines considered (denominator for density).
-    pub total_lines: usize,
-    /// `(message, count)` per fired category, for evidence (highest count first).
-    pub findings: Vec<(String, usize)>,
-}
-
-impl MemoryMgmtReport {
-    /// Record `count` occurrences of one anti-pattern category with `weight`.
-    /// A zero count is a no-op.
-    fn push(&mut self, message: &'static str, count: usize, weight: f32) {
-        if count == 0 {
-            return;
-        }
-        self.violations += count;
-        self.weighted_total += weight * count as f32;
-        self.findings.push((message.to_string(), count));
-    }
-}
+pub type MemoryMgmtReport = crate::quality::SmellReport;
 
 /// Analyze memory-management anti-patterns for `lang`. Unknown / GC languages
 /// yield an empty report (no detectable manual-memory smell → score 1.0).

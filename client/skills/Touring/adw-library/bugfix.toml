@@ -13,7 +13,7 @@ budget_tokens = 0
 # lessons + pitfalls; the fix agent consumes it as {{nodes.recall.summary}}.
 [node.recall]
 type = "code"
-command = ["bash", "-c", "touring memory recall '{{vars.symptom}}' 2>/dev/null | head -c 1500; echo; touring gotcha match '{{vars.target}}' 2>/dev/null | head -c 500; true"]
+command = ["bash", "-c", "touring memory recall \"$1\" 2>/dev/null | head -c 1500; echo; touring gotcha match \"$2\" 2>/dev/null | head -c 500; true", "--", "{{vars.symptom}}", "{{vars.target}}"]
 timeout_ms = 30000
 idempotent = true
 on_pass = "diagnose"
@@ -21,7 +21,7 @@ on_fail = "diagnose"
 
 [node.diagnose]
 type = "code"
-command = ["bash", "-c", "touring investigate --brief '{{vars.symptom}}' 2>/dev/null | head -c 1800; true"]
+command = ["bash", "-c", "touring investigate --brief \"$1\" 2>/dev/null | head -c 1800; true", "--", "{{vars.symptom}}"]
 timeout_ms = 120000
 idempotent = true
 on_pass = "fix"

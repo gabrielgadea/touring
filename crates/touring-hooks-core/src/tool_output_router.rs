@@ -143,18 +143,30 @@ pub fn build_sandbox_wrapper_args(
         fallback_on_timeout: crate::shared::feature_flags::sandbox_fallback_on_timeout(),
     };
     match execute_and_store(project_root, tool_name, original_args.clone(), cfg) {
-        Ok(res) => serde_json::json!({
-            "_sandbox_routed": true,
-            "ok": true,
-            "tool_name": tool_name,
-            "content_hash": res.content_hash,
-            "exit_code": res.exit_code,
-            "output_bytes": res.output_bytes,
-            "was_truncated": res.was_truncated,
-            "stored_path": res.stored_path
-                .as_ref()
-                .map(|p| p.display().to_string()),
-        }),
+        Ok(res) => {
+            let envelope = serde_json::json!({
+                "_sandbox_routed": true,
+                "ok": true,
+                "tool_name": tool_name,
+                "content_hash": res.content_hash,
+                "exit_code": res.exit_code,
+                "output_bytes": res.output_bytes,
+                "was_truncated": res.was_truncated,
+                "stored_path": res.stored_path
+                    .as_ref()
+                    .map(|p| p.display().to_string()),
+            });
+            // A2 (2026-08-08): the saving of a routed call is exactly
+            // `captured output − the envelope the model gets instead`, and both
+            // halves are known right here. `res.output_bytes` is what the
+            // sandbox actually captured — the number `ctx_roi` used to
+            // approximate with a flat 30_000 per event.
+            crate::shared::gate_metrics::record_routing_savings(
+                res.output_bytes,
+                envelope.to_string().len() as u64,
+            );
+            envelope
+        }
         Err(e) => serde_json::json!({
             "_sandbox_routed": false,
             "ok": false,
@@ -164,10 +176,56 @@ pub fn build_sandbox_wrapper_args(
     }
 }
 
+/// Turns a routing envelope into an input the ORIGINAL tool can actually
+/// accept, or `None` when no safe conversion exists.
+///
+/// **2026-08-08 — the landmine this defuses.** `build_sandbox_wrapper_args`
+/// returns a descriptive envelope (`content_hash`, `exit_code`, `stored_path`,
+/// …) and the PreToolUse hook hands it back as `updatedInput`, which the
+/// harness documents as *"Modified tool input to use"* — the tool then RUNS
+/// with it. The envelope has no `command`, so registering this hook for `Bash`
+/// would have broken every command matching the routing heuristics (`-r `,
+/// `-l `, `--json`, `git log`, `grep -r`, `rg `, `curl `, `find .` — most of an
+/// ordinary session). The subsystem was never registered, so the defect never
+/// fired; it was a trap waiting for whoever enabled it.
+///
+/// The sandbox has ALREADY executed the command, so the replacement must not
+/// re-run it (that would double any side effect). Printing the envelope is
+/// side-effect-free, valid, and hands the model the hash it needs.
+///
+/// Returns `None` for tools whose input schema this cannot satisfy (Grep needs
+/// `pattern`, Glob needs `pattern`, …) — the caller must then fall back to an
+/// advisory-only response rather than substituting an input that cannot run.
+#[must_use]
+pub fn envelope_as_tool_input(tool_name: &str, envelope: &Value) -> Option<Value> {
+    if tool_name != "Bash" {
+        return None;
+    }
+    // Single-quote for POSIX sh: close, escape, reopen around each quote.
+    let json = envelope.to_string();
+    let quoted = json.replace('\'', r"'\''");
+    Some(serde_json::json!({
+        "command": format!("printf '%s\\n' '{quoted}'"),
+        "description": "touring: cached sandbox result (command already executed)",
+    }))
+}
+
 /// Fallback when the `tantivy-fts` feature is disabled — preserves the
 /// original API shape so call-sites stay feature-agnostic.
+///
+/// 2026-08-07: essa promessa estava quebrada. Quando `project_root` entrou na
+/// variante com a feature ligada, esta ficou com dois parâmetros, então todo
+/// call site (3 argumentos) só compilava COM `tantivy-fts`. O workspace inteiro
+/// mascarava a falha por unificação de features — `cargo check --workspace`
+/// passa, e um `cargo nextest -p touring-intelligence -p touring-storage -p
+/// touring-hooks-core` quebra com E0061. Manter as duas assinaturas idênticas é
+/// a razão de existir deste par gated.
 #[cfg(not(feature = "tantivy-fts"))]
-pub fn build_sandbox_wrapper_args(_tool_name: &str, original_args: Value) -> Value {
+pub fn build_sandbox_wrapper_args(
+    _project_root: Option<&std::path::Path>,
+    _tool_name: &str,
+    original_args: Value,
+) -> Value {
     serde_json::json!({
         "_sandbox_routed": false,
         "ok": false,
@@ -180,6 +238,69 @@ pub fn build_sandbox_wrapper_args(_tool_name: &str, original_args: Value) -> Val
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // ── envelope_as_tool_input: a mina desarmada (2026-08-08) ───────────────
+
+    /// O envelope NUNCA pode ser devolvido como input da Bash: ele não tem
+    /// `command`, e o harness roda a tool com o que o hook devolver.
+    #[test]
+    fn the_raw_envelope_is_never_a_valid_bash_input() {
+        let envelope = json!({
+            "_sandbox_routed": true, "ok": true, "tool_name": "Bash",
+            "content_hash": "abc", "exit_code": 0, "output_bytes": 8172,
+            "was_truncated": false, "stored_path": "/tmp/abc.bin",
+        });
+        assert!(
+            envelope.get("command").is_none(),
+            "premissa do teste: o envelope não é um input de Bash"
+        );
+        let input = envelope_as_tool_input("Bash", &envelope).expect("Bash tem conversão");
+        let cmd = input["command"].as_str().expect("command obrigatório");
+        assert!(!cmd.is_empty());
+        // Não pode RE-executar nada: o sandbox já rodou o comando original.
+        assert!(cmd.starts_with("printf "), "got: {cmd}");
+        assert!(cmd.contains("abc"), "o hash tem de chegar ao modelo: {cmd}");
+    }
+
+    /// Aspas simples no envelope não podem quebrar o quoting POSIX.
+    ///
+    /// Verificado EXECUTANDO o comando gerado: contar barras invertidas prova
+    /// nada sobre quoting (a primeira versão deste teste fazia isso e reprovou
+    /// por aritmética, não por defeito). O contrato é observável — o comando
+    /// tem de imprimir o envelope de volta, byte a byte.
+    #[test]
+    fn single_quotes_in_the_envelope_survive_a_real_shell() {
+        let envelope = json!({"stored_path": "/tmp/it's here.bin", "content_hash": "x'y"});
+        let cmd = envelope_as_tool_input("Bash", &envelope).expect("conversão")["command"]
+            .as_str()
+            .expect("command")
+            .to_string();
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(&cmd)
+            .output()
+            .expect("sh");
+        assert!(out.status.success(), "comando gerado não roda: {cmd}");
+        let printed = String::from_utf8_lossy(&out.stdout);
+        assert_eq!(
+            printed.trim_end(),
+            envelope.to_string(),
+            "o shell tem de devolver o envelope intacto"
+        );
+    }
+
+    /// Ferramentas cujo schema não sabemos satisfazer ficam SEM substituição —
+    /// advisory é seguro, um input inválido não é.
+    #[test]
+    fn tools_without_a_known_input_schema_get_no_substitution() {
+        let envelope = json!({"content_hash": "abc"});
+        for tool in ["Grep", "Glob", "WebFetch", "Read"] {
+            assert!(
+                envelope_as_tool_input(tool, &envelope).is_none(),
+                "{tool} não tem conversão conhecida — tem de ficar advisory"
+            );
+        }
+    }
 
     #[test]
     fn test_pass_through_small_bash() {

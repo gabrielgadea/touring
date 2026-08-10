@@ -11,16 +11,23 @@ description = "Cap'n Proto RPC server shim — implementation in touring-binding
 # module included via `#[path]`, not compiled as a standalone binary.
 autoexamples = false
 
+# Names are crate-qualified because `touring-bindings` ships examples with the
+# same three basenames, and cargo writes every example of the workspace into a
+# single `target/<profile>/examples/` directory. That collision was reported as
+# debt on 07/08/2026 and left alone; on 09/08/2026 it stopped being cosmetic —
+# two build jobs raced on the same output path and the workspace build died with
+# `failed to remove file .../examples/bench_d34: No such file or directory`.
+# The `path` keys keep the files where they are; only the artifact names change.
 [[example]]
-name = "bench_d34"
+name = "capnp_bench_d34"
 path = "examples/bench_d34.rs"
 
 [[example]]
-name = "bench_generator_health"
+name = "capnp_bench_generator_health"
 path = "examples/bench_generator_health.rs"
 
 [[example]]
-name = "client_demo"
+name = "capnp_client_demo"
 path = "examples/client_demo.rs"
 
 [lib]

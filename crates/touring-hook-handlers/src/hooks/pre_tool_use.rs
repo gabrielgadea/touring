@@ -214,15 +214,30 @@ fn check_tool_output_routing(
                 "tool output routed to sandbox + stored"
             );
 
-            Some(HookResponse::ContextWithUpdatedInput {
-                context: format!(
-                    "Tool output routed to sandbox for context efficiency \
-                     (D2.4, turn={turn}, hash={content_hash}). \
-                     Retrieve full output via ctx_retrieve(content_hash)."
-                ),
-                event_name: Some("pre_tool_use".into()),
-                updated_input: modified,
-            })
+            let context = format!(
+                "Tool output routed to sandbox for context efficiency \
+                 (D2.4, turn={turn}, hash={content_hash}). \
+                 Retrieve full output via ctx_retrieve(content_hash)."
+            );
+            // The envelope describes the result; it is NOT a tool input. Only
+            // substitute an input the tool can actually run — otherwise stay
+            // advisory. Handing Bash an input with no `command` (which is what
+            // this did until 2026-08-08) breaks the call outright.
+            match crate::tool_output_router::envelope_as_tool_input(tool_name, &modified) {
+                Some(updated_input) => Some(HookResponse::ContextWithUpdatedInput {
+                    context,
+                    event_name: Some("pre_tool_use".into()),
+                    updated_input,
+                }),
+                None => {
+                    // No safe substitution for this tool's schema: let the
+                    // original call proceed and only add the hash to context.
+                    Some(HookResponse::Context {
+                        context,
+                        event_name: Some("pre_tool_use".into()),
+                    })
+                }
+            }
         }
     }
 }

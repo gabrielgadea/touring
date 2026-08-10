@@ -299,6 +299,22 @@ pub fn entry_count() -> u64 {
 mod tests {
     use super::*;
 
+    /// Serialises the tests that depend on GLOBAL cache state.
+    ///
+    /// `clear_all()` wipes the process-wide cache, so it can land between
+    /// another test's `put` and its `get` — turning an expected hit into a miss
+    /// and failing the metrics assertion. Observed 2026-08-07: the metrics test
+    /// passed in isolation and failed under the full parallel run, which is the
+    /// signature of shared mutable state, not of a broken cache. Distinct keys
+    /// are not enough when one test's operation is "erase everything".
+    static GLOBAL_CACHE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Take the lock, ignoring poisoning: a panic in one test must not cascade
+    /// into spurious failures in the others.
+    fn global_cache_guard() -> std::sync::MutexGuard<'static, ()> {
+        GLOBAL_CACHE_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn make_key_concatenates_kind_and_payload() {
         assert_eq!(make_key("index_find", "Foo"), "index_find::Foo");
@@ -394,6 +410,7 @@ mod tests {
 
     #[test]
     fn clear_all_drops_everything() {
+        let _guard = global_cache_guard();
         put("wave17::clear_a".to_string(), "a".to_string());
         put("wave17::clear_b".to_string(), "b".to_string());
         clear_all();
@@ -456,6 +473,10 @@ mod tests {
     #[test]
     fn cache_metrics_advance_on_hit_and_miss() {
         use std::sync::atomic::Ordering;
+        // Held across the whole hit/miss sequence: a concurrent `clear_all()`
+        // between the `put` and the second `get` turns the expected hit into a
+        // miss.
+        let _guard = global_cache_guard();
         let key = "wave17::metrics_test";
         invalidate(key);
 

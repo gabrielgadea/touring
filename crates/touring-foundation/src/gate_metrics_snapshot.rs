@@ -361,6 +361,31 @@ pub struct GateMetricsSnapshot {
     /// NEW-1 — Per-command compression profile applications (any profile).
     #[serde(default)]
     pub compression_profile_applied_count: u64,
+    // ── A2 (2026-08-08) — MEASURED context savings (exact `len()` at the site)
+    /// Raw bytes handed to a compression profile.
+    #[serde(default)]
+    pub compression_bytes_in_total: u64,
+    /// Bytes that same profile emitted.
+    #[serde(default)]
+    pub compression_bytes_out_total: u64,
+    /// Bytes a routed tool would have put in-band.
+    #[serde(default)]
+    pub routed_bytes_in_total: u64,
+    /// Bytes of the envelope the model receives instead.
+    #[serde(default)]
+    pub routed_bytes_out_total: u64,
+    /// Tokens entering — non-zero only where a real tokenizer was installed.
+    #[serde(default)]
+    pub measured_tokens_in_total: u64,
+    /// Tokens leaving — same condition.
+    #[serde(default)]
+    pub measured_tokens_out_total: u64,
+    /// Savings events whose tokens were actually counted.
+    #[serde(default)]
+    pub token_measured_event_count: u64,
+    /// Savings events recorded at all.
+    #[serde(default)]
+    pub savings_event_count: u64,
     // ── Wave 3 INTELLIGENCE — 19 T1 snapshot fields ────────────────────────
     /// Snapshot of `ctx_replay` invocations.
     #[serde(default)]
@@ -775,6 +800,14 @@ impl GateMetricsSnapshot {
             compression_profile_applied_count: m
                 .compression_profile_applied_count
                 .load(Ordering::Relaxed),
+            compression_bytes_in_total: m.compression_bytes_in_total.load(Ordering::Relaxed),
+            compression_bytes_out_total: m.compression_bytes_out_total.load(Ordering::Relaxed),
+            routed_bytes_in_total: m.routed_bytes_in_total.load(Ordering::Relaxed),
+            routed_bytes_out_total: m.routed_bytes_out_total.load(Ordering::Relaxed),
+            measured_tokens_in_total: m.measured_tokens_in_total.load(Ordering::Relaxed),
+            measured_tokens_out_total: m.measured_tokens_out_total.load(Ordering::Relaxed),
+            token_measured_event_count: m.token_measured_event_count.load(Ordering::Relaxed),
+            savings_event_count: m.savings_event_count.load(Ordering::Relaxed),
             // Wave 3 T1 — 19 snapshot reads
             ctx_replay_count: m.ctx_replay_count.load(Ordering::Relaxed),
             ctx_purge_count: m.ctx_purge_count.load(Ordering::Relaxed),

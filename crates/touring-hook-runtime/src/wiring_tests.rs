@@ -890,7 +890,7 @@ fn record_consumer_from_path_supports_lowercase_function_symbols() {
     // that `crate::` resolves relative to the consumer's crate root.
     let (_tmp, db) = test_db();
     db.register_pub_symbol(
-        "crates/touring-hooks/src/lifecycle.rs",
+        "crates/touring-dispatch/src/lifecycle.rs",
         "handle_file_changed",
         "function",
         "public",
@@ -900,7 +900,7 @@ fn record_consumer_from_path_supports_lowercase_function_symbols() {
     record_consumer_from_path(
         &db,
         "crate::lifecycle::handle_file_changed",
-        "crates/touring-hooks/src/hook_registry.rs",
+        "crates/touring-dispatch/src/hook_registry.rs",
     );
 
     let orphans = db.orphan_symbols().unwrap();
@@ -915,12 +915,18 @@ fn record_consumer_from_path_supports_lowercase_function_symbols() {
 
 #[test]
 fn record_consumer_from_path_resolves_workspace_crate_root() {
-    // `crate::lifecycle::X` from `crates/touring-hooks/src/hook_registry.rs`
-    // MUST resolve to `crates/touring-hooks/src/lifecycle.rs` — not
+    // NOTA (2026-08-08): os caminhos deste fixture eram
+    // `crates/touring-hooks/src/{lifecycle,hook_registry}.rs`, que migraram
+    // para touring-dispatch no carve Fase C/D. O teste continuou passando
+    // porque o resolvedor não sondava o filesystem — ele afirmava uma aresta
+    // para um arquivo AUSENTE. Com a sonda, o fixture precisa citar arquivos
+    // reais, e só então ele de fato prova a resolução pela raiz do crate.
+    // `crate::lifecycle::X` from `crates/touring-dispatch/src/hook_registry.rs`
+    // MUST resolve to `crates/touring-dispatch/src/lifecycle.rs` — not
     // the workspace-relative `src/lifecycle.rs` the legacy code emitted.
     let (_tmp, db) = test_db();
     db.register_pub_symbol(
-        "crates/touring-hooks/src/lifecycle.rs",
+        "crates/touring-dispatch/src/lifecycle.rs",
         "handle_x",
         "function",
         "public",
@@ -930,11 +936,11 @@ fn record_consumer_from_path_resolves_workspace_crate_root() {
     record_consumer_from_path(
         &db,
         "crate::lifecycle::handle_x",
-        "crates/touring-hooks/src/hook_registry.rs",
+        "crates/touring-dispatch/src/hook_registry.rs",
     );
 
     let status = db
-        .module_wiring_status("crates/touring-hooks/src/lifecycle.rs")
+        .module_wiring_status("crates/touring-dispatch/src/lifecycle.rs")
         .unwrap();
     assert!(
         status.symbols_with_consumers >= 1,
@@ -996,8 +1002,12 @@ fn record_reexport_consumer_registers_edge_to_colocated_submod() {
     // When `lifecycle.rs` re-exports `handle_x` from `subagent`, the
     // consumer edge should resolve to `lifecycle/subagent.rs`.
     let (_tmp, db) = test_db();
+    // Produtor e consumidor têm de concordar no MESMO crate: a função deriva
+    // `<parent>/<stem>/<submod>.rs` a partir do consumidor. (A migração de
+    // fixtures de 08/08 trocou o consumidor e deixou o produtor no crate
+    // antigo — os dois lados precisam apontar para o mesmo lugar.)
     db.register_pub_symbol(
-        "crates/touring-hooks/src/lifecycle/subagent.rs",
+        "crates/touring-dispatch/src/lifecycle/pre_compact.rs",
         "handle_x",
         "function",
         "public",
@@ -1006,8 +1016,8 @@ fn record_reexport_consumer_registers_edge_to_colocated_submod() {
 
     record_reexport_consumer(
         &db,
-        "crates/touring-hooks/src/lifecycle.rs",
-        "subagent",
+        "crates/touring-dispatch/src/lifecycle.rs",
+        "pre_compact",
         "handle_x",
     );
 
@@ -1120,4 +1130,87 @@ fn test_wiring_modules_aggregate_multiple_modules() {
     assert_eq!(a.wired_count, 0);
     assert_eq!(b.total_pub, 2);
     assert_eq!(b.wired_count, 1);
+}
+
+// ── record_consumer_from_path: um só resolvedor (2026-08-08) ────────────────
+//
+// Estes testes usam caminhos REAIS do workspace de propósito: o resolvedor
+// sonda o filesystem, então um tempdir não exercitaria nada do que se quer
+// provar. O que se afirma é o contrato de resolução, não conteúdo de arquivo.
+
+/// A regressão exata: `crate::shared::feature_flags` NÃO é um arquivo em
+/// touring-hooks-core — `shared/mod.rs` o re-exporta de touring-hooks-shared.
+/// A substituição de string gravava o fantasma
+/// `…/touring-hooks-core/src/shared/feature_flags.rs` e o produtor real ficava
+/// com zero consumidores, isto é, órfão.
+#[test]
+fn a_reexported_path_wires_the_real_producer_not_a_phantom() {
+    let (_tmp, db) = test_db();
+    let producer = "crates/touring-hooks-shared/src/feature_flags.rs";
+    let phantom = "crates/touring-hooks-core/src/shared/feature_flags.rs";
+    db.register_pub_symbol(producer, "compression_profiles_enabled", "function", "public")
+        .unwrap();
+    assert_eq!(db.orphan_symbols().unwrap().len(), 1, "órfão antes de wirar");
+
+    record_consumer_from_path(
+        &db,
+        "crate::shared::feature_flags::compression_profiles_enabled",
+        "crates/touring-hooks-core/src/compression_profiles.rs",
+    );
+
+    assert!(
+        db.orphan_symbols().unwrap().is_empty(),
+        "o produtor real tem de ficar wirado; ainda órfão => a aresta foi para {phantom}"
+    );
+}
+
+/// Um caminho que não existe não pode virar aresta. Antes, todo miss gravava
+/// uma linha apontando para um arquivo inexistente — cobertura aparente que
+/// não wira nada (nenhum produtor pode compartilhar um module_file fantasma).
+#[test]
+fn an_unresolvable_path_records_no_edge_instead_of_a_phantom() {
+    let (_tmp, db) = test_db();
+    db.register_pub_symbol(
+        "crates/touring-hooks-core/src/nao_existe_mesmo.rs",
+        "ghost_fn",
+        "function",
+        "public",
+    )
+    .unwrap();
+
+    record_consumer_from_path(
+        &db,
+        "crate::nao_existe_mesmo::ghost_fn",
+        "crates/touring-hooks-core/src/compression_profiles.rs",
+    );
+
+    assert_eq!(
+        db.orphan_symbols().unwrap().len(),
+        1,
+        "um caminho inexistente não pode produzir aresta"
+    );
+}
+
+/// Layout de diretório (`foo/mod.rs`) tem de resolver como `foo.rs` resolve —
+/// a substituição de string só tentava a forma de arquivo.
+#[test]
+fn directory_style_modules_resolve_like_file_style_ones() {
+    let (_tmp, db) = test_db();
+    // `crates/touring-hook-runtime/src/wiring/hypergraph.rs` existe, e
+    // `wiring` é um módulo em forma de ARQUIVO (wiring.rs) com subdiretório —
+    // o caso misto que a substituição ingênua também errava.
+    let producer = "crates/touring-hook-runtime/src/wiring/hypergraph.rs";
+    db.register_pub_symbol(producer, "build_multi_import_hypergraph", "function", "public")
+        .unwrap();
+
+    record_consumer_from_path(
+        &db,
+        "crate::wiring::hypergraph::build_multi_import_hypergraph",
+        "crates/touring-hook-runtime/src/reindex.rs",
+    );
+
+    assert!(
+        db.orphan_symbols().unwrap().is_empty(),
+        "submódulo em subdiretório tem de resolver"
+    );
 }
