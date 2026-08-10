@@ -1,0 +1,96 @@
+{
+  "schema": "hyper-extract/knowledge-abstract@1",
+  "phase": "P5",
+  "plan": "/plan.md",
+  "timestamp": "2026-08-07",
+  "nodes": [
+    {
+      "entity_id": "defect:crate-map-literal",
+      "type": "gotcha",
+      "label": "TOURING_CRATE_MAP era lista literal e apodreceu",
+      "body": "11 entradas hardcoded, 5 apontando para diretórios mortos após renomeações; cobria 6 dos 41 crates vivos. Todo import de crate não mapeado resolvia None e a aresta de consumo se perdia. Corrigido derivando de crates/*/Cargo.toml.",
+      "symbol": "TOURING_CRATE_MAP",
+      "file": "crates/touring-hooks-core/src/symbol_extractors.rs"
+    },
+    {
+      "entity_id": "defect:reexport-nao-seguida",
+      "type": "gotcha",
+      "label": "Reexportação de fachada não era seguida",
+      "body": "use touring_hooks::tantivy_index::X percorre 2 saltos (pub use touring_dispatch::* → pub use touring_hooks_core::tantivy_index) antes de chegar ao arquivo real. Sem seguir, a aresta some e o produtor vira órfão com 39 referências reais.",
+      "symbol": "resolve_reexport",
+      "file": "crates/touring-hooks-core/src/symbol_extractors.rs"
+    },
+    {
+      "entity_id": "defect:off-by-one-segmento",
+      "type": "gotcha",
+      "label": "rsplit_once descartava um nível de módulo real",
+      "body": "O ramo cross-crate tratava o último segmento como símbolo, mas extract_file_imports já devolve (module_path, symbols) separados. Como knowledge.rs e knowledge/models.rs coexistem, a aresta pousava num arquivo real e ERRADO em vez de falhar.",
+      "file": "crates/touring-hooks-core/src/symbol_extractors.rs"
+    },
+    {
+      "entity_id": "defect:f2_6-orcamento-compartilhado",
+      "type": "gotcha",
+      "label": "F2.6 pontuava configuração sem ler nenhuma configuração",
+      "body": "Duas fases sobre um orçamento de 2 MiB, fonte primeiro. Com 31,6 MB de fonte o return disparava antes do laço de artefatos: 94 arquivos de config nunca lidos pela dimensão BLOCK cujo objeto é configuração insegura.",
+      "symbol": "read_production_config_surface",
+      "file": "crates/touring-quality/src/verifications/f2_6_config.rs"
+    },
+    {
+      "entity_id": "defect:eagain-e-timeout",
+      "type": "gotcha",
+      "label": "EAGAIN cru escondia um timeout de socket",
+      "body": "ErrorKind::WouldBlock tem Display 'Resource temporarily unavailable (os error 11)'. Propagado sem contexto, mandou a investigação atrás de file descriptor e memória quando o fato era o rebuild passar de 120s. O tempo denunciava: 2m0,058s.",
+      "symbol": "read_failure",
+      "file": "crates/touring-server/src/daemon_client.rs"
+    },
+    {
+      "entity_id": "class:orfao-tipo-de-erro",
+      "type": "learning",
+      "label": "Tipos de erro de API pública são invisíveis a um modelo baseado em use",
+      "body": "TantivyIndexError tem 32 referências, todas no próprio arquivo: ele aparece no TIPO DE RETORNO, nunca num use, porque o chamador usa ? e inferência. Mesma classe: LinUcbError, QTableError, CrdtPersistError, DependencyCacheRkyvError."
+    },
+    {
+      "entity_id": "class:orfao-alias-de-tipo",
+      "type": "learning",
+      "label": "pub type A = B não vira aresta para B",
+      "body": "Expôs SmellReport (alvo de 35 aliases) como órfão. O modelo não trata alias como consumo."
+    },
+    {
+      "entity_id": "class:orfao-caminho-qualificado",
+      "type": "learning",
+      "label": "Chamada por caminho qualificado escapa dos dois coletores",
+      "body": "tantivy_index::global_tantivy() não é import nem method-call. O fallback F9 (find_producer_modules_for_methods) ainda filtra symbol_kind IN (method,function,async_function), ignorando struct/enum/const/trait por construção."
+    },
+    {
+      "entity_id": "decision:nao-regravar-baseline",
+      "type": "decision",
+      "label": "Corrigir o medidor antes de julgar a medida",
+      "body": "Com 42% de órfãos, o contador media a falha do resolvedor, não dívida. Regravar a baseline faria o gate passar sem mudar a realidade. A ação correta foi corrigir os três defeitos e remedir: 5031 → 4763."
+    },
+    {
+      "entity_id": "decision:trait-metodo-default",
+      "type": "decision",
+      "label": "check() default torna o invariante estrutural",
+      "body": "50 impls terminavam com a mesma cauda de 6 linhas. Exigir measure() e defaultar check() elimina a cola E impede que um verificador construa DimScore por fora — o refactor expôs 5 que faziam exatamente isso, um deles com suggestions vazio."
+    },
+    {
+      "entity_id": "decision:scaffolding-nao-se-maquia",
+      "type": "decision",
+      "label": "O bloco repetido 48x de mod tests fica como está",
+      "body": "É scaffolding, falso-positivo estrutural. Deduplicá-lo mexeria no score sem melhorar o código — o que a REGRA #0 proíbe."
+    }
+  ],
+  "edges": [
+    { "relation_id": "defect:crate-map-literal|causes|class:orfao-tipo-de-erro", "source": "defect:crate-map-literal", "type": "causes", "target": "class:orfao-tipo-de-erro" },
+    { "relation_id": "defect:reexport-nao-seguida|siblings-with|defect:off-by-one-segmento", "source": "defect:reexport-nao-seguida", "type": "siblings-with", "target": "defect:off-by-one-segmento" },
+    { "relation_id": "decision:nao-regravar-baseline|motivated-by|defect:crate-map-literal", "source": "decision:nao-regravar-baseline", "type": "motivated-by", "target": "defect:crate-map-literal" },
+    { "relation_id": "decision:trait-metodo-default|revealed|defect:f2_6-orcamento-compartilhado", "source": "decision:trait-metodo-default", "type": "revealed", "target": "defect:f2_6-orcamento-compartilhado" }
+  ],
+  "wikilinks": [
+    "[[wiring-resolver-3-defeitos-2026-08-07]]",
+    "[[f2_6-config-sem-ler-config-2026-08-07]]",
+    "[[eagain-e-timeout-de-socket-2026-08-07]]",
+    "[[orfaos-classes-estruturais-do-modelo-2026-08-07]]",
+    "[[verification-trait-metodo-default-2026-08-07]]"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "Fecho. CARGO DENY VERDE POR CORRE\u00c7\u00c3O: 'advisories ok, bans ok, licenses ok, sources ok' exit 0, e deny.toml N\u00c3O cont\u00e9m nenhuma entrada para RUSTSEC-2026-0235 nem para rkyv \u2014 a vulnerabilidade saiu, n\u00e3o foi silenciada. Cargo.lock com uma \u00fanica linha de rkyv (0.8.18); zero res\u00edduo 0.7 na \u00e1rvore. SU\u00cdTE COMPLETA: 15107/15107 passed (2 flaky), exit 0. DOCS CO-EVOLU\u00cdDAS: README do touring-rkyv (o Usage inteiro ensinava API 0.7 e teria sido copiado por qualquer novo consumidor), lib.rs, templates.rs, ipc.rs, saga_ipc.rs; docs hist\u00f3ricos versionados (ARCHITECTURE.v29.5.0, plan-v20) preservados de prop\u00f3sito por descreverem estados passados. LI\u00c7\u00c3O PERSISTIDA: memory key 'rkyv-0.8-upstream-gotchas'. ACHADO COLATERAL CORRIGIDO: PrivateDaemon media prontid\u00e3o por exist\u00eancia do arquivo de socket, n\u00e3o por resposta \u2014 trocado por ida-e-volta (doctor -j at\u00e9 daemon_health ok). MELHOROU MAS N\u00c3O CUROU: b310 antes falhava as 3 tentativas (falha dura), agora falha a 1a e passa na 2a em 10.3s vs 19.8s; segue flaky sob satura\u00e7\u00e3o. D\u00c9BITO REPORTADO, N\u00c3O TOCADO (decis\u00e3o humana): 3 ignores mortos no deny.toml; colis\u00e3o de nome dos exemplos client_demo; E2E que faz shell-out exercita o bin\u00e1rio release VELHO (04/08), logo n\u00e3o cobre esta migra\u00e7\u00e3o \u2014 quem cobre s\u00e3o os testes que linkam as libs."
+    }
+  ],
+  "relations": []
+}

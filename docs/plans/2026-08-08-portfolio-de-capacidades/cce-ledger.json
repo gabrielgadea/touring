@@ -1,0 +1,267 @@
+{
+ "version": 2,
+ "topic": "portfolio de capacidades — descoberta de prior-art por proposito",
+ "scope": "/home/gabrielgadea/projects/touring",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 12,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 12,
+     "truncated": 11
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-08T12:07:07-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 2,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 2,
+     "truncated": 21
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-08T12:08:05-0300"
+  }
+ ],
+ "findings": {
+  "f_241931de6d54": {
+   "id": "f_241931de6d54",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/crates/touring-hooks/docs/EXCELLENCE_PLAN.md:9",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "Transformar touring-hooks no crate de hooks mais robusto, melhor integrado e mais auto-consciente do ecossistema Rust, e",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_65e231081090": {
+   "id": "f_65e231081090",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/Crates-para-Melhorar-Codigo-Touring.md:164",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "* **proc-macro2** (v1.0.106, 62.7M de downloads): A ponte isoladora arquitetural fundamental.46 Esta dependência liberta",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_6b87dba4c917": {
+   "id": "f_6b87dba4c917",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/Crates-Para-Melhorar-Geracao-de-Codigo.md:69",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "O gerenciamento da memória RAM é igualmente prioritário. Sendo o touring-daemon um servidor persistente e multi-thread a",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_31f1df03e3d2": {
+   "id": "f_31f1df03e3d2",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-26-coupling-backlog.md:3",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "> **Carteira priorizada** de itens de trabalho para tornar as capacidades do Touring **alcançáveis** pela",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_a9f9f7e005d4": {
+   "id": "f_a9f9f7e005d4",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-26-coupling-backlog.md:306",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "**Sem gap** (VGP): touring cobre 100% das capacidades de gitnexus/serena (in-process <10ms vs MCP ~200ms) — nada a const",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_48c72e0b5503": {
+   "id": "f_48c72e0b5503",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/graphviz-integration-plan.md:10",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "**Objetivo**: Integrar capacidades de visualização Graphviz/DOT no Touring para transformar grafos internos (call graphs",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_926af10bf4c4": {
+   "id": "f_926af10bf4c4",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/touring-pro.md:618",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "A incorporação do RLM requer a integração estrita das seguintes capacidades já atestadas pelo ambiente:",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_c811d6f3d7cc": {
+   "id": "f_c811d6f3d7cc",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-26-touring-capability-map.md:13",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "`[FACT]` **48 crates, 636.937 LOC.** ~50 capacidades expostas por **5 modos de acesso** — cada modo com",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_a172cea0d66f": {
+   "id": "f_a172cea0d66f",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-26-touring-capability-map.md:97",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "## 2. As capacidades de maior **valor de acoplamento** (o que a LLM deveria usar e não usa)",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_91a31533382d": {
+   "id": "f_91a31533382d",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-26-harness-architecture-insights.md:337",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "(context7 `/modelcontextprotocol/modelcontextprotocol`). **Mapa de capacidades**: `2026-06-26-touring-capability-map.md`",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_7dd511e33958": {
+   "id": "f_7dd511e33958",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-26-harness-architecture-insights.md:343",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "são ativações de capacidades que o Touring já possui, na direção que Gabriel apontou: afordância",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_bd0009fb0945": {
+   "id": "f_bd0009fb0945",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-04-touring-diagnostico-elite-mercado.md:12",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "O Touring é um **paradoxo de engenharia verificado**: carrega **capacidades funcionais raras no mercado** — índice local",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_9a2f18ddbe05": {
+   "id": "f_9a2f18ddbe05",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/code-diagnostic.md:105",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "Focando no estado da arte da orquestração sistêmica: Conformidade com Model Context Protocol (MCP):O código que atua com",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_a83eb4537201": {
+   "id": "f_a83eb4537201",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/2026-06-04-touring-diagnostico-elite-mercado.md:320",
+   "evidence": "rg '\\bcapacidades\\b' /home/gabrielgadea/projects/touring",
+   "detail": "**O caminho para \"Premium de Elite de Mercado\" não exige novas capacidades — exige aplicar o rigor que o Touring já preg",
+   "depth": "D0",
+   "round": 2
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 2,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 2,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 2,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 2,
+   "max_depth": "D0",
+   "truncated_total": 32
+  },
+  "quality": {
+   "visits": 2,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 1,
+   "max_depth": null,
+   "truncated_total": 0,
+   "state": "visited",
+   "note": "Context7 /websites/rs_tantivy_tantivy — QueryParser::set_field_boost para ponderar campo de propósito acima de nome/caminho; tokenizer en_stem no campo purpose, raw_ids no id"
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": false,
+  "statement": "exploration incomplete",
+  "clauses": {
+   "rounds_run": 2,
+   "dry_tail": false,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [
+   "need 2 consecutive dry rounds (last round new=2)"
+  ],
+  "next_action": "need 2 consecutive dry rounds (last round new=2)",
+  "at": "2026-08-08T12:08:05-0300"
+ }
+}

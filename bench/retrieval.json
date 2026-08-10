@@ -1,0 +1,665 @@
+{
+ "schema": "touring-retrieval-v1",
+ "note": "Ground truth verificado contra symbols.db: todo `expected` e uma definicao UNICA em codigo de producao (zero homonimos). tier exact = nome do simbolo (BM25 deve dominar); concept = parafrase em linguagem natural que NUNCA contem o nome do simbolo; multi_hop = relacional, semantica any-hit (acerta se qualquer expected aparece no top-k).",
+ "cases": [
+  {
+   "id": "exact-tdg_grade_distribution",
+   "tier": "exact",
+   "query": "tdg_grade_distribution",
+   "expected": [
+    "crates/inferlets/src/lib.rs::tdg_grade_distribution"
+   ]
+  },
+  {
+   "id": "exact-get_samples",
+   "tier": "exact",
+   "query": "get_samples",
+   "expected": [
+    "crates/inferlets/src/composite_health_trend.rs::get_samples"
+   ]
+  },
+  {
+   "id": "exact-MetricViolation",
+   "tier": "exact",
+   "query": "MetricViolation",
+   "expected": [
+    "crates/touring-analysis/src/rules/types.rs::MetricViolation"
+   ]
+  },
+  {
+   "id": "exact-score_arch_doc",
+   "tier": "exact",
+   "query": "score_arch_doc",
+   "expected": [
+    "crates/touring-analysis/src/quality/arch_doc.rs::score_arch_doc"
+   ]
+  },
+  {
+   "id": "exact-parse_struct_with_fields",
+   "tier": "exact",
+   "query": "parse_struct_with_fields",
+   "expected": [
+    "crates/touring-assists/src/handlers/generate_impl.rs::parse_struct_with_fields"
+   ]
+  },
+  {
+   "id": "exact-make_replace",
+   "tier": "exact",
+   "query": "make_replace",
+   "expected": [
+    "crates/touring-assists/src/handlers/mod.rs::make_replace"
+   ]
+  },
+  {
+   "id": "exact-ErrorBoundary",
+   "tier": "exact",
+   "query": "ErrorBoundary",
+   "expected": [
+    "crates/touring-bindings/src/web/components/error_boundary.rs::ErrorBoundary"
+   ]
+  },
+  {
+   "id": "exact-ws_quality",
+   "tier": "exact",
+   "query": "ws_quality",
+   "expected": [
+    "crates/touring-bindings/src/web/server/socket.rs::ws_quality"
+   ]
+  },
+  {
+   "id": "exact-session_dir",
+   "tier": "exact",
+   "query": "session_dir",
+   "expected": [
+    "crates/touring-ceg/src/gateway/staging.rs::session_dir"
+   ]
+  },
+  {
+   "id": "exact-staging_area_stage_creates_session_dir",
+   "tier": "exact",
+   "query": "staging_area_stage_creates_session_dir",
+   "expected": [
+    "crates/touring-ceg/src/gateway/staging.rs::staging_area_stage_creates_session_dir"
+   ]
+  },
+  {
+   "id": "exact-write_atomic",
+   "tier": "exact",
+   "query": "write_atomic",
+   "expected": [
+    "crates/touring-cli/src/cli/repo_health.rs::write_atomic"
+   ]
+  },
+  {
+   "id": "exact-ReferenceResponse",
+   "tier": "exact",
+   "query": "ReferenceResponse",
+   "expected": [
+    "crates/touring-cli/src/cli/handlers/semantics.rs::ReferenceResponse"
+   ]
+  },
+  {
+   "id": "exact-extract_ts_details",
+   "tier": "exact",
+   "query": "extract_ts_details",
+   "expected": [
+    "crates/touring-code/src/ast/symbol_detail.rs::extract_ts_details"
+   ]
+  },
+  {
+   "id": "exact-f6_regex_fallback_expands_brace_group",
+   "tier": "exact",
+   "query": "f6_regex_fallback_expands_brace_group",
+   "expected": [
+    "crates/touring-code/src/ast/graph/imports.rs::f6_regex_fallback_expands_brace_group"
+   ]
+  },
+  {
+   "id": "exact-LearnRuntime",
+   "tier": "exact",
+   "query": "LearnRuntime",
+   "expected": [
+    "crates/touring-contracts/src/lib.rs::LearnRuntime"
+   ]
+  },
+  {
+   "id": "exact-learn_runtime_methods_return_json_string",
+   "tier": "exact",
+   "query": "learn_runtime_methods_return_json_string",
+   "expected": [
+    "crates/touring-contracts/src/lib.rs::learn_runtime_methods_return_json_string"
+   ]
+  },
+  {
+   "id": "exact-invariant_estimate_bounded",
+   "tier": "exact",
+   "query": "invariant_estimate_bounded",
+   "expected": [
+    "crates/touring-cortex/src/cross_audit.rs::invariant_estimate_bounded"
+   ]
+  },
+  {
+   "id": "exact-stable_context_sorts_enforcement_rules",
+   "tier": "exact",
+   "query": "stable_context_sorts_enforcement_rules",
+   "expected": [
+    "crates/touring-cortex/src/cache_strategy.rs::stable_context_sorts_enforcement_rules"
+   ]
+  },
+  {
+   "id": "exact-shell_completion_task_create_hint_integration_task_create",
+   "tier": "exact",
+   "query": "shell_completion_task_create_hint_integration_task_create",
+   "expected": [
+    "crates/touring-dispatch/src/lifecycle/tests.rs::shell_completion_task_create_hint_integration_task_create"
+   ]
+  },
+  {
+   "id": "exact-r124_low_quality_task_metrics_emits_test_and_benchmark_hints",
+   "tier": "exact",
+   "query": "r124_low_quality_task_metrics_emits_test_and_benchmark_hints",
+   "expected": [
+    "crates/touring-dispatch/src/lifecycle/tests.rs::r124_low_quality_task_metrics_emits_test_and_benchmark_hints"
+   ]
+  },
+  {
+   "id": "exact-failed_checks",
+   "tier": "exact",
+   "query": "failed_checks",
+   "expected": [
+    "crates/touring-foundation/src/migration/consolidation.rs::failed_checks"
+   ]
+  },
+  {
+   "id": "exact-normalize_project_root",
+   "tier": "exact",
+   "query": "normalize_project_root",
+   "expected": [
+    "crates/touring-foundation/src/config/paths.rs::normalize_project_root"
+   ]
+  },
+  {
+   "id": "exact-classify_results",
+   "tier": "exact",
+   "query": "classify_results",
+   "expected": [
+    "crates/touring-generator/src/vgp/engine.rs::classify_results"
+   ]
+  },
+  {
+   "id": "exact-baseline_report",
+   "tier": "exact",
+   "query": "baseline_report",
+   "expected": [
+    "crates/touring-generator/src/core/context_gates.rs::baseline_report"
+   ]
+  },
+  {
+   "id": "exact-audit_cila_budget_levels_match_documentation",
+   "tier": "exact",
+   "query": "audit_cila_budget_levels_match_documentation",
+   "expected": [
+    "crates/touring-hook-handlers/src/hooks/pre_read_tests.rs::audit_cila_budget_levels_match_documentation"
+   ]
+  },
+  {
+   "id": "exact-persist_pensieve_summary",
+   "tier": "exact",
+   "query": "persist_pensieve_summary",
+   "expected": [
+    "crates/touring-hook-handlers/src/hooks/stop.rs::persist_pensieve_summary"
+   ]
+  },
+  {
+   "id": "exact-hyperedges_for",
+   "tier": "exact",
+   "query": "hyperedges_for",
+   "expected": [
+    "crates/touring-hook-runtime/src/wiring/hypergraph.rs::hyperedges_for"
+   ]
+  },
+  {
+   "id": "exact-FailCandidate",
+   "tier": "exact",
+   "query": "FailCandidate",
+   "expected": [
+    "crates/touring-hook-runtime/src/suggesters/failure_threshold.rs::FailCandidate"
+   ]
+  },
+  {
+   "id": "exact-run_metrics",
+   "tier": "exact",
+   "query": "run_metrics",
+   "expected": [
+    "crates/touring-hooks/src/main.rs::run_metrics"
+   ]
+  },
+  {
+   "id": "exact-run_pii_scan",
+   "tier": "exact",
+   "query": "run_pii_scan",
+   "expected": [
+    "crates/touring-hooks/src/main.rs::run_pii_scan"
+   ]
+  },
+  {
+   "id": "exact-derived_map_covers_crates_the_literal_list_never_named",
+   "tier": "exact",
+   "query": "derived_map_covers_crates_the_literal_list_never_named",
+   "expected": [
+    "crates/touring-hooks-core/src/symbol_extractors.rs::derived_map_covers_crates_the_literal_list_never_named"
+   ]
+  },
+  {
+   "id": "exact-search_rrf",
+   "tier": "exact",
+   "query": "search_rrf",
+   "expected": [
+    "crates/touring-hooks-core/src/tantivy_index.rs::search_rrf"
+   ]
+  },
+  {
+   "id": "exact-build_index_assigns_idf_to_every_term",
+   "tier": "exact",
+   "query": "build_index_assigns_idf_to_every_term",
+   "expected": [
+    "crates/touring-hooks-prediction/src/tfidf_retriever.rs::build_index_assigns_idf_to_every_term"
+   ]
+  },
+  {
+   "id": "exact-prediction_confidence",
+   "tier": "exact",
+   "query": "prediction_confidence",
+   "expected": [
+    "crates/touring-hooks-prediction/src/layer7_prediction.rs::prediction_confidence"
+   ]
+  },
+  {
+   "id": "exact-advantages",
+   "tier": "exact",
+   "query": "advantages",
+   "expected": [
+    "crates/touring-hooks-rl/src/lib.rs::advantages"
+   ]
+  },
+  {
+   "id": "exact-AgenticRLStateView",
+   "tier": "exact",
+   "query": "AgenticRLStateView",
+   "expected": [
+    "crates/touring-hooks-rl/src/lib.rs::AgenticRLStateView"
+   ]
+  },
+  {
+   "id": "exact-record_vote",
+   "tier": "exact",
+   "query": "record_vote",
+   "expected": [
+    "crates/touring-hooks-saga/src/distributed.rs::record_vote"
+   ]
+  },
+  {
+   "id": "exact-broadcast_rollback",
+   "tier": "exact",
+   "query": "broadcast_rollback",
+   "expected": [
+    "crates/touring-hooks-saga/src/distributed.rs::broadcast_rollback"
+   ]
+  },
+  {
+   "id": "exact-rrf_k_constant",
+   "tier": "exact",
+   "query": "rrf_k_constant",
+   "expected": [
+    "crates/touring-hooks-shared/src/feature_flags.rs::rrf_k_constant"
+   ]
+  },
+  {
+   "id": "exact-shell_clean_no_false_positive",
+   "tier": "exact",
+   "query": "shell_clean_no_false_positive",
+   "expected": [
+    "crates/touring-hooks-shared/src/forbidden_patterns.rs::shell_clean_no_false_positive"
+   ]
+  },
+  {
+   "id": "exact-confirm_and_get_unconfirmed",
+   "tier": "exact",
+   "query": "confirm_and_get_unconfirmed",
+   "expected": [
+    "crates/touring-identity/src/registry.rs::confirm_and_get_unconfirmed"
+   ]
+  },
+  {
+   "id": "exact-entity_new_and_with",
+   "tier": "exact",
+   "query": "entity_new_and_with",
+   "expected": [
+    "crates/touring-identity/src/types.rs::entity_new_and_with"
+   ]
+  },
+  {
+   "id": "exact-BoundaryPatterns",
+   "tier": "exact",
+   "query": "BoundaryPatterns",
+   "expected": [
+    "crates/touring-intelligence/src/ann/semantic_chunker.rs::BoundaryPatterns"
+   ]
+  },
+  {
+   "id": "exact-as_rl_reward",
+   "tier": "exact",
+   "query": "as_rl_reward",
+   "expected": [
+    "crates/touring-intelligence/src/rl/aco/tracker.rs::as_rl_reward"
+   ]
+  },
+  {
+   "id": "exact-tier_ordering_is_monotonic",
+   "tier": "exact",
+   "query": "tier_ordering_is_monotonic",
+   "expected": [
+    "crates/touring-license/src/lib.rs::tier_ordering_is_monotonic"
+   ]
+  },
+  {
+   "id": "exact-at_least_is_monotonic",
+   "tier": "exact",
+   "query": "at_least_is_monotonic",
+   "expected": [
+    "crates/touring-license/src/lib.rs::at_least_is_monotonic"
+   ]
+  },
+  {
+   "id": "exact-p1_fail_yields_warning_not_error",
+   "tier": "exact",
+   "query": "p1_fail_yields_warning_not_error",
+   "expected": [
+    "crates/touring-lsp/src/quality_diagnostics.rs::p1_fail_yields_warning_not_error"
+   ]
+  },
+  {
+   "id": "exact-url_to_path",
+   "tier": "exact",
+   "query": "url_to_path",
+   "expected": [
+    "crates/touring-lsp/src/server.rs::url_to_path"
+   ]
+  },
+  {
+   "id": "exact-bug_bounty",
+   "tier": "exact",
+   "query": "bug_bounty",
+   "expected": [
+    "crates/touring-offensive/src/lib.rs::bug_bounty"
+   ]
+  },
+  {
+   "id": "exact-cvc5_translate_arrayselect_arraystore_load_fallback",
+   "tier": "exact",
+   "query": "cvc5_translate_arrayselect_arraystore_load_fallback",
+   "expected": [
+    "crates/touring-offensive/src/solver/cvc5_backend_tests.rs::cvc5_translate_arrayselect_arraystore_load_fallback"
+   ]
+  },
+  {
+   "id": "exact-RetryPolicyDef",
+   "tier": "exact",
+   "query": "RetryPolicyDef",
+   "expected": [
+    "crates/touring-orchestration/src/tasks/schema.rs::RetryPolicyDef"
+   ]
+  },
+  {
+   "id": "exact-default_filter",
+   "tier": "exact",
+   "query": "default_filter",
+   "expected": [
+    "crates/touring-orchestration/src/tasks/template_engine.rs::default_filter"
+   ]
+  },
+  {
+   "id": "exact-small_file_passes",
+   "tier": "exact",
+   "query": "small_file_passes",
+   "expected": [
+    "crates/touring-quality/src/builtins/modularization.rs::small_file_passes"
+   ]
+  },
+  {
+   "id": "exact-load_advisories_ignore_walks_up_to_workspace_root",
+   "tier": "exact",
+   "query": "load_advisories_ignore_walks_up_to_workspace_root",
+   "expected": [
+    "crates/touring-quality/src/verifications/f2_5_dep_cves.rs::load_advisories_ignore_walks_up_to_workspace_root"
+   ]
+  },
+  {
+   "id": "exact-log_status",
+   "tier": "exact",
+   "query": "log_status",
+   "expected": [
+    "crates/touring-resilience/src/bin/touring_resource_monitor.rs::log_status"
+   ]
+  },
+  {
+   "id": "exact-ArchivedNodeWeight",
+   "tier": "exact",
+   "query": "ArchivedNodeWeight",
+   "expected": [
+    "crates/touring-rkyv/src/templates.rs::ArchivedNodeWeight"
+   ]
+  },
+  {
+   "id": "exact-ArchivedQTableSnapshot",
+   "tier": "exact",
+   "query": "ArchivedQTableSnapshot",
+   "expected": [
+    "crates/touring-rkyv/src/templates.rs::ArchivedQTableSnapshot"
+   ]
+  },
+  {
+   "id": "exact-parses_overlay_with_explicit_args",
+   "tier": "exact",
+   "query": "parses_overlay_with_explicit_args",
+   "expected": [
+    "crates/touring-server/src/cli/search_unified.rs::parses_overlay_with_explicit_args"
+   ]
+  },
+  {
+   "id": "exact-bare_mcts_defaults_to_search_empty",
+   "tier": "exact",
+   "query": "bare_mcts_defaults_to_search_empty",
+   "expected": [
+    "crates/touring-server/src/cli/mcts.rs::bare_mcts_defaults_to_search_empty"
+   ]
+  },
+  {
+   "id": "exact-infer_dependencies",
+   "tier": "exact",
+   "query": "infer_dependencies",
+   "expected": [
+    "crates/touring-server-reasoning/src/reasoning/decomposer.rs::infer_dependencies"
+   ]
+  },
+  {
+   "id": "exact-take_pending_aco_events",
+   "tier": "exact",
+   "query": "take_pending_aco_events",
+   "expected": [
+    "crates/touring-server-reasoning/src/reasoning/decomposer.rs::take_pending_aco_events"
+   ]
+  },
+  {
+   "id": "exact-get_session",
+   "tier": "exact",
+   "query": "get_session",
+   "expected": [
+    "crates/touring-server-session/src/session/manager.rs::get_session"
+   ]
+  },
+  {
+   "id": "exact-mgr_with_session",
+   "tier": "exact",
+   "query": "mgr_with_session",
+   "expected": [
+    "crates/touring-server-session/src/session/manager.rs::mgr_with_session"
+   ]
+  },
+  {
+   "id": "exact-border_style",
+   "tier": "exact",
+   "query": "border_style",
+   "expected": [
+    "crates/touring-server-visual/src/visual/encoding.rs::border_style"
+   ]
+  },
+  {
+   "id": "exact-include_orphans",
+   "tier": "exact",
+   "query": "include_orphans",
+   "expected": [
+    "crates/touring-server-visual/src/visual/mod.rs::include_orphans"
+   ]
+  },
+  {
+   "id": "exact-bench_accuracy_vs_f32_64",
+   "tier": "exact",
+   "query": "bench_accuracy_vs_f32_64",
+   "expected": [
+    "crates/touring-simd/src/quantization.rs::bench_accuracy_vs_f32_64"
+   ]
+  },
+  {
+   "id": "exact-add_bias_flat",
+   "tier": "exact",
+   "query": "add_bias_flat",
+   "expected": [
+    "crates/touring-simd/src/simd_utils/matrix.rs::add_bias_flat"
+   ]
+  },
+  {
+   "id": "exact-abs_path_accepts_absolute",
+   "tier": "exact",
+   "query": "abs_path_accepts_absolute",
+   "expected": [
+    "crates/touring-storage/src/vfs/abs_path.rs::abs_path_accepts_absolute"
+   ]
+  },
+  {
+   "id": "exact-common_tests",
+   "tier": "exact",
+   "query": "common_tests",
+   "expected": [
+    "crates/touring-storage/src/embedding/client.rs::common_tests"
+   ]
+  },
+  {
+   "id": "concept-analyze_duplication",
+   "tier": "concept",
+   "query": "detect duplicated code blocks",
+   "expected": [
+    "crates/touring-analysis/src/quality/duplication.rs::analyze_duplication"
+   ]
+  },
+  {
+   "id": "concept-dir_scan_overflow",
+   "tier": "concept",
+   "query": "report that the scan exceeded its byte cap",
+   "expected": [
+    "crates/touring-quality/src/verifications/mod.rs::dir_scan_overflow"
+   ]
+  },
+  {
+   "id": "concept-inside_root",
+   "tier": "concept",
+   "query": "keep the walker from leaving the project root",
+   "expected": [
+    "crates/touring-cli/src/cli/handlers/index.rs::inside_root"
+   ]
+  },
+  {
+   "id": "concept-extract_rust_type_alias_targets",
+   "tier": "concept",
+   "query": "extract rust type alias targets",
+   "expected": [
+    "crates/touring-code/src/ast/graph/imports.rs::extract_rust_type_alias_targets"
+   ]
+  },
+  {
+   "id": "concept-raise_timeout_floor",
+   "tier": "concept",
+   "query": "raise the daemon socket read timeout floor",
+   "expected": [
+    "crates/touring-server/src/daemon_client.rs::raise_timeout_floor"
+   ]
+  },
+  {
+   "id": "concept-resolve_reexport",
+   "tier": "concept",
+   "query": "follow pub use reexports to their origin",
+   "expected": [
+    "crates/touring-hooks-core/src/symbol_extractors.rs::resolve_reexport"
+   ]
+  },
+  {
+   "id": "concept-count_tokens",
+   "tier": "concept",
+   "query": "count tokens with tiktoken encoding",
+   "expected": [
+    "crates/touring-cortex/src/enrichment.rs::count_tokens"
+   ]
+  },
+  {
+   "id": "concept-cli_index_rebuild",
+   "tier": "concept",
+   "query": "rebuild the project symbol index",
+   "expected": [
+    "crates/touring-cli/src/cli/handlers/index.rs::cli_index_rebuild"
+   ]
+  },
+  {
+   "id": "concept-score_scope_native",
+   "tier": "concept",
+   "query": "score one dimension over the whole scope",
+   "expected": [
+    "crates/touring-quality/src/scope_report.rs::score_scope_native"
+   ]
+  },
+  {
+   "id": "concept-build_crate_map",
+   "tier": "concept",
+   "query": "derive the workspace crate map",
+   "expected": [
+    "crates/touring-hooks-core/src/symbol_extractors.rs::build_crate_map"
+   ]
+  },
+  {
+   "id": "multi-raise_timeout_floor",
+   "tier": "multi_hop",
+   "query": "where the daemon read timeout is decided",
+   "expected": [
+    "crates/touring-server/src/daemon_client.rs::raise_timeout_floor",
+    "crates/touring-server/src/daemon_client.rs::mark_timeout_explicit"
+   ]
+  },
+  {
+   "id": "multi-resolve_reexport",
+   "tier": "multi_hop",
+   "query": "how wiring resolves an import to its producer",
+   "expected": [
+    "crates/touring-hooks-core/src/symbol_extractors.rs::resolve_reexport",
+    "crates/touring-hooks-core/src/symbol_extractors.rs::build_crate_map"
+   ]
+  },
+  {
+   "id": "multi-dir_scan_overflow",
+   "tier": "multi_hop",
+   "query": "what stops a partial score from passing as complete",
+   "expected": [
+    "crates/touring-quality/src/verifications/mod.rs::dir_scan_overflow",
+    "crates/touring-quality/src/scope_report.rs::score_scope_native"
+   ]
+  }
+ ]
+}

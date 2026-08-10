@@ -1,0 +1,11 @@
+{
+  "phase": "P0",
+  "entities": [
+    {
+      "entity_id": "phase:P0",
+      "type": "phase",
+      "description": "SPIKE provou por execu\u00e7\u00e3o que rkyv 0.8.17 RECUSA arquivos escritos pelo 0.7 com erro de valida\u00e7\u00e3o ('invalid UTF-8'), nunca mis-parse \u2014 falha segura. Dois crates m\u00ednimos: writer 0.7 (68 bytes, valida o pr\u00f3prio) e reader 0.8 (access::<ArchivedSnapshot, rancor::Error>). Mapa de risco fechado: (a) dependency_cache usa check_archived_root + guarda INDEX_SNAPSHOT_SCHEMA_VERSION -> Err -> regenera; (b) IPC valida por contrato documentado em ipc.rs; (c) os \u00fanicos archived_root n\u00e3o-validados s\u00e3o um helper #[cfg(test)] em crdt_graph.rs e um pub unsafe fn read_unchecked em esaa.rs com ZERO chamadores. Conclus\u00e3o: N\u00c3O existe rota de corrup\u00e7\u00e3o silenciosa no swap de vers\u00e3o. Achado extra p/ P2: read_unchecked \u00e9 \u00f3rf\u00e3 (REGRA #0) \u2014 remover em vez de migrar."
+    }
+  ],
+  "relations": []
+}

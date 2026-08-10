@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "Fio versionado + 2 defeitos que o plano n\u00e3o previa. (1) ENVELOPE: IPC_MAGIC RKYV\u2192RKY2 e SAGA_MAGIC SAGA\u2192SAG2, com IPC_MAGIC_V1/SAGA_MAGIC_V1 guardados s\u00f3 para diagn\u00f3stico; d\u00edgito de vers\u00e3o no \u00daLTIMO byte para n\u00e3o quebrar o despacho por primeiro byte do daemon (R/S). Sem isso a incompatibilidade j\u00e1 falhava alto (bytecheck recusa, o P0 provou), mas com erro 'invalid UTF-8' que aponta corrup\u00e7\u00e3o em vez da causa; agora FrameError::BadMagic NOMEIA o peer defasado. Provado por teste, n\u00e3o por asser\u00e7\u00e3o: legacy_v1_frame_is_diagnosed_by_name + contraprova unknown_magic_is_not_blamed_on_the_rollout (magic aleat\u00f3rio N\u00c3O pode ser atribu\u00eddo ao rollout). (2) DUPLO-UNFRAME: handle_saga_request_async lia o header e passava s\u00f3 o CORPO para unframe_saga, que espera o frame INTEIRO \u2014 rejeitava TODA mensagem saga. Invis\u00edvel porque frame_saga n\u00e3o tem cliente de produ\u00e7\u00e3o. Corrigido espelhando o irm\u00e3o rkyv (from_bytes direto). (3) ASSIMETRIA C08: daemon.rs comparava magic saga com literal b\\\"SAGA\\\" enquanto o irm\u00e3o rkyv usava a constante \u2014 o versionamento teria passado batido ali. CACHES EM DISCO: verificado que TODOS os chamadores de produ\u00e7\u00e3o de load_rkyv/load_from_mmap degradam graciosamente (if let Ok / match / .ok()); custo do deploy \u00e9 estado RL/CRDT frio, n\u00e3o quebra."
+    }
+  ],
+  "relations": []
+}
