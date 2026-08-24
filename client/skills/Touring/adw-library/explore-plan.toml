@@ -56,12 +56,14 @@ on_fail = "__fail__"
 
 [node.explore_round]
 type = "code"
+sandbox = true
 command = ["bash", "-c", "touring explore \"$1\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}"]
 timeout_ms = 900000
 idempotent = true
 
 [node.refine_plan]
 type = "code"
+sandbox = true
 command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/plan_refine.py --topic \"$1\" 2>&1 | tail -c 1800 || true", "--", "{{vars.topic}}"]
 timeout_ms = 900000
 idempotent = true

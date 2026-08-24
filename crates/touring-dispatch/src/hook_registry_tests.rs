@@ -122,10 +122,16 @@ fn registry_has_expected_count() {
     //   expiring lease: `ready` only READS, so two sessions polling it received the
     //   SAME subtask) and cli-decompose-ticket / cli-decompose-frontier (Wayfinder:
     //   decision tickets gate the implementation frontier): 234->238 / 236->240.
+    // 2026-08-24 (code-mode máximo): +1 cli-code-mode-run — o `touring run` é um
+    //   CLI efêmero, então o `record_code_mode_run` do executor incrementava um
+    //   counter que morria com o processo; o `gate-metrics` lê do daemon, e por
+    //   isso o canal SEM MCP contava zero (163 runs no journal contra
+    //   `code_mode_runs_count = 0`) enquanto a rota MCP contava tudo. Este hook
+    //   é o relay que o CLI usa para o daemon contabilizar: 238->239 / 240->241.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 240;
+    const EXPECTED_NAMES: usize = 241;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 238;
+    const EXPECTED_NAMES: usize = 239;
     assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205
@@ -145,7 +151,8 @@ fn registry_has_expected_count() {
     // 2026-08-12 (hashtag library F1-F6): +10 memory facet commands = 229.
     // 2026-08-12 (H2 SCIP type-aware wiring): +1 cli-wiring-scip-ingest = 230.
     // 2026-08-18 (C2+C3): +4 cli-decompose-{claim,release,ticket,frontier} = 234.
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 234);
+    // 2026-08-24 (code-mode máximo): +1 cli-code-mode-run = 235.
+    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 235);
 }
 
 /// The tripwire literal is duplicated across four files; this asserts they agree.

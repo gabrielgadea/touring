@@ -311,6 +311,23 @@ pub fn run(args: &[String]) -> Result<()> {
     ))
     .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
+    // O executor já chamou `record_code_mode_run`, mas esse counter vive na
+    // memória do PROCESSO — e este é o CLI, que morre em seguida. O
+    // `gate-metrics` lê do daemon, então sem este relay o canal principal do
+    // code mode (`touring run`, o que dispensa MCP) contava ZERO enquanto a
+    // rota MCP contava tudo: o KPI de economia media exatamente a via que o
+    // programa existe para substituir. Medido em 24/08/2026 — 163 execuções no
+    // journal, `code_mode_runs_count = 0`.
+    //
+    // Espelha o que a C2-W0 faz com as sub-chamadas do `--orchestrate`, que o
+    // daemon contabiliza quando chegam pelo socket. Fail-open por construção:
+    // o resultado é ignorado, porque perder um counter jamais pode custar a
+    // execução do usuário (invariante do CEG).
+    let _ = crate::daemon_client::daemon_query(
+        "cli-code-mode-run",
+        serde_json::json!({ "bytes_elided": out.bytes_elided }),
+    );
+
     // W3 d2/S-3.3 — offer harvest on the USER's code (never the injected SDK).
     let harvest = harvest_hint(
         &user_code,

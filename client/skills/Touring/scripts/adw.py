@@ -91,6 +91,9 @@ def branch_fail_policy_error(policy: str) -> str | None:
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 SUMMARY_LIMIT = 2000  # bytes of dense inline summary (Law L4)
 DEFAULT_TIMEOUT_MS = 120_000
+#: Teto de wall-clock do `touring run` (o sandbox recusa acima disso). Um nó
+#: com `sandbox = true` e timeout maior é limitado a este valor, com aviso.
+SANDBOX_MAX_TIMEOUT_MS = 120_000
 ACTIVITY_TIMEOUT_S = 5
 # F3: tier → model mapping. The library's tiers.toml (central, swappable) wins;
 # these are the fallback when no library mapping exists.
@@ -1464,19 +1467,77 @@ def parse_verdict(output: str, exit_code: int) -> str:
     return PASS if exit_code == 0 else DEFAULT_VERDICT
 
 
+def _unwrap_sandbox_output(raw_stdout: str, raw_stderr: str) -> str:
+    """Devolve o stdout/stderr do PROGRAMA, não o envelope do `touring run`.
+
+    Sob `sandbox = true` o comando do nó vira `touring run --code ...`, cuja
+    saída é um JSON. Isso quebrava, em silêncio, os três contratos de marcador
+    do runner: `NEW_FINDINGS_RE`, `METRIC_RE` e `VERDICT_RE` casam
+    `^MARCADOR=` com MULTILINE, e dentro do JSON a linha vira
+    `  "stdout": "NEW_FINDINGS=5\n",` — nenhum casa. O efeito seria pior que um
+    erro: um loop nunca contaria achados (marcador ausente é *unknown*, então
+    ele exauriria `max_iters` em vez de convergir) e todo gate sob contrato
+    leria "unparseable" = REJECT. Nenhuma spec usava sandbox, então nada disso
+    tinha sido exercido (medido 24/08/2026: 0 de 24 nós `code`).
+
+    O `retrieval_hint` da W1 é anexado quando houve spill: o nó passa a saber
+    onde está a saída completa, em vez de recebê-la cortada — que é justamente
+    o ganho que o `head -c` das specs jogava fora.
+
+    Fail-open: envelope ilegível devolve o texto cru, porque perder a saída de
+    um nó é pior do que exibi-la com ruído.
+    """
+    try:
+        payload = json.loads(raw_stdout)
+    except (json.JSONDecodeError, TypeError):
+        return raw_stdout + (("\n" + raw_stderr) if raw_stderr.strip() else "")
+    if not isinstance(payload, dict):
+        return raw_stdout
+    stdout = payload.get("stdout", "") or ""
+    stderr = payload.get("stderr", "") or ""
+    partes = [stdout]
+    if stderr.strip():
+        partes.append(stderr)
+    hint = payload.get("retrieval_hint")
+    if hint:
+        partes.append(f"[adw] saída completa: {hint}")
+    return "\n".join(p for p in partes if p)
+
+
 def run_code_node(node: Node, results: dict, variables: dict,
                   cwd: Path | None = None) -> ExecResult:
     command = [render_template(str(part), results, variables) for part in node.raw["command"]]
+    node_timeout_ms = int(node.raw.get("timeout_ms", DEFAULT_TIMEOUT_MS))
+    sandbox_note = ""
     if node.raw.get("sandbox", False):
-        command = ["touring", "run", "--lang", "bash", "--code", " ".join(shlex.quote(c) for c in command)]
-    timeout_s = int(node.raw.get("timeout_ms", DEFAULT_TIMEOUT_MS)) / 1000
+        # O `touring run` tem orçamento PRÓPRIO: 30s de default e 120s de teto.
+        # Sem propagar o timeout do nó, um nó que declara 300_000 abortava em 30s
+        # ao ligar `sandbox = true` — a afordância existia mas quebrava quem a
+        # usasse, o que explica os 0/24 nós que a adotaram (medido 24/08/2026).
+        sandbox_ms = min(node_timeout_ms, SANDBOX_MAX_TIMEOUT_MS)
+        if node_timeout_ms > SANDBOX_MAX_TIMEOUT_MS:
+            # Nunca silenciosamente: o nó pediu mais do que o sandbox concede, e
+            # quem lê o resultado precisa saber por que ele pode expirar antes.
+            sandbox_note = (
+                f"[adw] sandbox: timeout do nó {node_timeout_ms}ms excede o teto do "
+                f"`touring run` ({SANDBOX_MAX_TIMEOUT_MS}ms) — limitado ao teto\n"
+            )
+        command = [
+            "touring", "run", "--lang", "bash",
+            "--timeout-ms", str(sandbox_ms),
+            "--code", " ".join(shlex.quote(c) for c in command),
+        ]
+    timeout_s = node_timeout_ms / 1000
     retries = int(node.raw.get("retries", 0))
     attempt = 0
     while True:
         try:
             proc = subprocess.run(command, capture_output=True, text=True,
                                   timeout=timeout_s, cwd=cwd)
-            output = proc.stdout + (("\n" + proc.stderr) if proc.stderr.strip() else "")
+            if node.raw.get("sandbox", False):
+                output = sandbox_note + _unwrap_sandbox_output(proc.stdout, proc.stderr)
+            else:
+                output = proc.stdout + (("\n" + proc.stderr) if proc.stderr.strip() else "")
             result = ExecResult(exit_code=proc.returncode, output=output)
         except subprocess.TimeoutExpired:
             result = ExecResult(exit_code=124, output=f"timeout after {timeout_s:.0f}s")

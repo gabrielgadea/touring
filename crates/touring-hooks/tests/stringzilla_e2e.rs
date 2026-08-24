@@ -450,8 +450,8 @@ fn test_all_workflow_hooks_in_registry() {
 fn test_hook_registry_counts_match_the_dispatch_registry() {
     assert_eq!(
         ALL_DAEMON_HOOK_NAMES.len(),
-        234,
-        "ALL_DAEMON_HOOK_NAMES must have exactly 234 entries (sync with touring-dispatch hook_registry test; 2026-08-12: +10 memory facet commands F1-F6, +1 cli-wiring-scip-ingest H2; 2026-08-18: +4 decompose verbs — claim, release, ticket, frontier)"
+        235,
+        "ALL_DAEMON_HOOK_NAMES must have exactly 235 entries (sync with touring-dispatch hook_registry test; 2026-08-12: +10 memory facet commands F1-F6, +1 cli-wiring-scip-ingest H2; 2026-08-18: +4 decompose verbs — claim, release, ticket, frontier; 2026-08-24: +1 cli-code-mode-run, o relay que faz o daemon contar as execuções do `touring run`)"
     );
     // NOTE: all_daemon_hook_names() and ALL_DAEMON_HOOK_NAMES differ by feature-gated entries
     // and 'stop' which is in constant but not in function.
@@ -461,9 +461,9 @@ fn test_hook_registry_counts_match_the_dispatch_registry() {
     // contribui 2 nomes, então um literal único não pode ser verdade nos dois perfis.
     // 2026-08-18: +4 decompose verbs (C2 atomic claim + C3 Wayfinder).
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 240;
+    const EXPECTED_NAMES: usize = 241;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 238;
+    const EXPECTED_NAMES: usize = 239;
     assert_eq!(
         all_daemon_hook_names().len(),
         EXPECTED_NAMES,

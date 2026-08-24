@@ -43,7 +43,8 @@ prior_art_verdict = "create_new"
 # Prior-art first: even a chore should not re-create what exists (REGRA #0).
 [node.prior_art]
 type = "code"
-command = ["bash", "-c", "touring portfolio \"$1\" --top 3 2>/dev/null | head -c 1500; true", "--", "{{vars.task}}"]
+sandbox = true
+command = ["bash", "-c", "touring portfolio \"$1\" --top 3 2>/dev/null; true", "--", "{{vars.task}}"]
 timeout_ms = 30000
 idempotent = true
 on_pass = "do_chore"

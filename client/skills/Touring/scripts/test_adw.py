@@ -3498,3 +3498,58 @@ on_fail = "__fail__"
     assert rc == 1
     assert out["status"] == "flow_failed"
     assert out["rounds"] == 1
+
+
+# ── sandbox: o envelope do `touring run` não pode engolir os marcadores ──────
+
+def test_sandbox_output_is_unwrapped_so_loop_markers_still_match():
+    """Sob `sandbox = true` o comando vira `touring run`, cuja saída é um JSON.
+
+    Os três contratos do runner (`NEW_FINDINGS_RE`, `METRIC_RE`, `VERDICT_RE`)
+    casam `^MARCADOR=` com MULTILINE. Dentro do envelope a linha vira
+    `  "stdout": "NEW_FINDINGS=5\\n",` e nenhum casa — falha que não levanta
+    erro nenhum: marcador ausente é *unknown*, então o loop exauriria
+    `max_iters` em vez de convergir, e o gate leria REJECT. Medido em
+    24/08/2026, quando 0 de 24 nós usavam sandbox e o caminho nunca fora
+    exercido.
+    """
+    envelope = json.dumps({
+        "stdout": "trabalhando\nNEW_FINDINGS=5\n",
+        "stderr": "",
+        "exit_code": 0,
+    })
+    # O envelope cru NÃO casa — é este o defeito que o desembrulho remove.
+    assert not adw.NEW_FINDINGS_RE.search(envelope)
+
+    desembrulhado = adw._unwrap_sandbox_output(envelope, "")
+    achado = adw.NEW_FINDINGS_RE.search(desembrulhado)
+    assert achado is not None, f"marcador perdido no desembrulho: {desembrulhado!r}"
+    assert achado.group(1) == "5"
+
+
+def test_sandbox_unwrap_carries_the_spill_locator():
+    """Houve spill? O nó recebe ONDE está a saída completa, não um corte.
+
+    É o ganho da W1 que o `head -c` das specs jogava fora: cortar cega perde o
+    resto, enquanto o locator o mantém alcançável.
+    """
+    envelope = json.dumps({
+        "stdout": "inicio da saida",
+        "stderr": "",
+        "exit_code": 0,
+        "retrieval_hint": "Read /tmp/spill-abc.txt --offset 0 --limit 200",
+    })
+    saida = adw._unwrap_sandbox_output(envelope, "")
+    assert "/tmp/spill-abc.txt" in saida
+    assert "inicio da saida" in saida
+    # Sem esta asserção o teste passa por ACIDENTE: devolver o envelope cru
+    # também contém o path, então ele sobreviveria à remoção do desembrulho —
+    # exatamente o falso-verde que a asserção genérica produz.
+    assert '"stdout"' not in saida, f"o envelope JSON vazou para o nó: {saida!r}"
+
+
+def test_sandbox_unwrap_is_fail_open_on_a_broken_envelope():
+    """Envelope ilegível devolve o texto cru — perder a saída é pior que ruído."""
+    saida = adw._unwrap_sandbox_output("isto nao e json", "aviso no stderr")
+    assert "isto nao e json" in saida
+    assert "aviso no stderr" in saida

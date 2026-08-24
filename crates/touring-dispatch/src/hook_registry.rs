@@ -246,6 +246,8 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
     names.push("cli-gate-metrics");
     // R5/OP1: unified 6-dimension harness-quality metric
     names.push("cli-harness-metric");
+    // Code mode: o CLI efêmero retransmite a execução para o daemon contar
+    names.push("cli-code-mode-run");
     // S-09/R8: formal change-contract gating self-mutation
     names.push("cli-change-contract");
     // B-5/R10: distill historical bash-outcome substrate into an action predictor
@@ -571,6 +573,8 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-gate-metrics",
     // R5/OP1: unified 6-dimension harness-quality metric
     "cli-harness-metric",
+    // Code mode: contagem de execução retransmitida pelo CLI
+    "cli-code-mode-run",
     // S-09/R8: formal change-contract gating self-mutation
     "cli-change-contract",
     // B-5/R10: distill historical bash-outcome substrate into an action predictor
@@ -1485,6 +1489,10 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     // R5/OP1: unified 6-dimension harness-quality metric handler
     m.insert("cli-harness-metric", |rt, v| {
         crate::cli_handlers::cli_harness_metric(rt, v)
+    });
+    // Code mode: sem este relay o counter só contava a rota MCP
+    m.insert("cli-code-mode-run", |rt, v| {
+        crate::cli_handlers::cli_code_mode_run(rt, v)
     });
     // S-09/R8: formal change-contract gating self-mutation handler
     m.insert("cli-change-contract", |rt, v| {
