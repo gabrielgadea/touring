@@ -980,7 +980,24 @@ mod tests {
             false,
         )
         .expect_err("must fail — no tarball");
-        assert!(format!("{err}").contains("tarball not found"));
+        // Assert the PROPERTIES the message must carry, not its exact wording:
+        // it names the tarball that is missing, and it teaches a next step
+        // (the W8b teach-ratio campaign). Pinning the literal string is what
+        // made this test fail on a pure rewording — the message improved and
+        // the assertion, frozen to "tarball not found", called it a regression.
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("tarball"),
+            "message must name what is missing; got: {msg}"
+        );
+        assert!(
+            msg.contains("nonexistent-touring-tarball-xyz"),
+            "message must carry the REAL path, never a placeholder; got: {msg}"
+        );
+        assert!(
+            msg.contains("touring toolchain install") || msg.contains("ls -l"),
+            "message must teach a next step (W8b); got: {msg}"
+        );
     }
 
     #[test]

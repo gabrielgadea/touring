@@ -234,6 +234,13 @@ struct RunCli {
     /// the full contract for reading; nudges carry the 1-line form (P23)
     #[arg(long, conflicts_with_all = ["code", "file", "stdin"])]
     sdk_stub: bool,
+
+    /// W3b — harvest THIS program as a reusable `#kind:snippet` memory under
+    /// `<slug>`, and enrol it in the measured trust ladder. The executor does
+    /// the persisting, so the library populates from use instead of from the
+    /// caller remembering to run a second command.
+    #[arg(long, value_name = "SLUG")]
+    harvest: Option<String>,
 }
 
 /// Bridge the synchronous CLI dispatch to the async engine. `main.rs` builds a
@@ -297,8 +304,17 @@ pub fn run(args: &[String]) -> Result<()> {
     .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
     // W3 d2/S-3.3 — offer harvest on the USER's code (never the injected SDK).
-    let harvest = harvest_hint(&user_code, &cli.lang, out.exit_code);
-    emit_output(&out, cli.brief, harvest.as_deref())?;
+    let harvest = harvest_hint(
+        &user_code,
+        &cli.lang,
+        out.exit_code,
+        cli.harvest.is_some(),
+    );
+    // W3b — the executor settles the ladder itself: harvesting when asked, and
+    // otherwise recognising a re-run of an already-harvested body. Both operate
+    // on the USER's code, never the injected SDK (same rule as the hint).
+    let trust = settle_snippet_ladder(&user_code, &cli.lang, out.exit_code, cli.harvest.as_deref());
+    emit_output(&out, cli.brief, harvest.as_deref(), trust.as_deref())?;
 
     // Propagate the sandboxed program's exit code as the CLI exit code so callers (and
     // code-mode orchestration) see a faithful success/failure signal, not just rc=0.
@@ -398,7 +414,12 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool) -> Result<()> {
 
 /// Render the sandbox result to stdout: a C5 summary digest under `--brief`, otherwise
 /// the full JSON payload (mirrors the MCP adapter's field set in `tools_ctx_execute.rs`).
-fn emit_output(out: &CtxExecuteOutput, brief: bool, harvest: Option<&str>) -> Result<()> {
+fn emit_output(
+    out: &CtxExecuteOutput,
+    brief: bool,
+    harvest: Option<&str>,
+    snippet_trust: Option<&str>,
+) -> Result<()> {
     if brief {
         let summary = touring_ceg::gateway::summarize_output(
             &out.stdout,
@@ -436,9 +457,81 @@ fn emit_output(out: &CtxExecuteOutput, brief: bool, harvest: Option<&str>) -> Re
         if let Some(h) = harvest {
             payload["harvest_hint"] = serde_json::json!(h);
         }
+        // W3b — the MEASURED standing of a snippet that was just harvested or
+        // re-run. The badge is shown TO the model (the TanStack detail worth
+        // copying): a snippet that keeps failing visibly loses its ✓.
+        if let Some(t) = snippet_trust {
+            payload["snippet_trust"] = serde_json::json!(t);
+        }
         println!("{}", serde_json::to_string_pretty(&payload)?);
     }
     Ok(())
+}
+
+/// W3b — close the loop the harvest hint could only *ask* for.
+///
+/// The W3 ladder had two breaks, both measured on 2026-08-24: nothing ever
+/// called `record_execution` outside a hand-typed `learning reward`, and the
+/// hint told the model to store the snippet under a FREE slug while the
+/// bridge only recognised `snippet:`-prefixed keys — so the code-mode path
+/// could never reach the ladder even if someone did emit the reward.
+///
+/// This is the affordance version: the executor persists (`--harvest`) and
+/// recognises (by body digest) on its own, so the library populates and
+/// grades itself from ordinary use. Returns the trust badge to show the model.
+///
+/// Fail-open throughout — a snippet-bookkeeping failure must never change the
+/// outcome of the program the user actually ran.
+fn settle_snippet_ladder(
+    user_code: &str,
+    lang: &str,
+    exit_code: i32,
+    harvest_slug: Option<&str>,
+) -> Option<String> {
+    use touring_intelligence::rl::memory::snippet_stats;
+
+    let sig = snippet_stats::code_sig(user_code);
+    let root = std::env::current_dir().ok()?;
+    let db_path = touring_foundation::TouringConfig::memory_db_canonical(&root);
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    let conn = rusqlite::Connection::open(&db_path).ok()?;
+
+    let entry_key = match harvest_slug {
+        // Explicit harvest: mint the canonical key and persist the body as a
+        // `#kind:snippet` memory through the same daemon hook `touring memory
+        // store` uses — one command, no second step to forget.
+        Some(slug) => {
+            let key = snippet_stats::harvest_key(slug);
+            let stored = crate::daemon_client::daemon_query(
+                "cli-memory-store",
+                serde_json::json!({
+                    "key": key,
+                    "value": user_code,
+                    "tier": "semantic",
+                    "entry_type": "snippet",
+                    "reward": null,
+                    "tags": [
+                        "#kind:snippet",
+                        format!("#lang:{lang}"),
+                        "#process:code-mode",
+                    ],
+                }),
+            );
+            if stored.is_err() {
+                // The memory did not persist; enrolling it in the ladder would
+                // leave a graded key pointing at nothing.
+                return None;
+            }
+            key
+        }
+        // No explicit harvest: is this body one we already know?
+        None => snippet_stats::by_sig(&conn, &sig).ok().flatten()?,
+    };
+
+    let trust = snippet_stats::record_execution(&conn, &entry_key, exit_code == 0, &sig).ok()?;
+    Some(format!("{} {}", trust.badge(), trust.as_str()))
 }
 
 /// W3 d2/S-3.3 — offer to harvest a successful, GENERALIZABLE program as a
@@ -447,8 +540,8 @@ fn emit_output(out: &CtxExecuteOutput, brief: bool, harvest: Option<&str>) -> Re
 /// "≥5 lines OR has def" offered for 77% of one-off programs; requiring
 /// parametrization AND no ephemeral identifiers lands at ~26% with the
 /// genuine candidates captured. NEVER automatic — an offer the caller runs.
-fn harvest_hint(code: &str, lang: &str, exit_code: i32) -> Option<String> {
-    if exit_code != 0 {
+fn harvest_hint(code: &str, lang: &str, exit_code: i32, already_harvested: bool) -> Option<String> {
+    if exit_code != 0 || already_harvested {
         return None;
     }
     let lines = code.lines().filter(|l| !l.trim().is_empty()).count();
@@ -467,10 +560,16 @@ fn harvest_hint(code: &str, lang: &str, exit_code: i32) -> Option<String> {
     if ephemeral {
         return None;
     }
+    // W3b — the offer teaches the form that ENTERS the measured ladder. The
+    // earlier wording ("touring memory store <slug> …") minted a free slug the
+    // trust bridge did not recognise, so a snippet harvested this way could
+    // never be graded — the hint taught a dead end. Re-running `--harvest`
+    // both persists the memory and enrols it, in one command.
     Some(format!(
-        "reusable pattern detected ({lines} lines, parametrized): persist it with \
-         touring memory store <slug> '<the code>' --tag \"#kind:snippet\" --tag \
-         \"#lang:{lang}\" --tag \"#purpose:<what it does>\" — recall later via \
+        "reusable pattern detected ({lines} lines, parametrized): re-run it with \
+         --harvest <slug> to persist it as a #kind:snippet memory AND enrol it in \
+         the measured trust ladder (the executor tags #lang:{lang} itself, and every \
+         later run of the same body updates its badge) — recall via \
          touring memory query '#kind:snippet #lang:{lang}'"
     ))
 }
@@ -525,23 +624,65 @@ mod tests {
     #[test]
     fn successful_run_emits_harvest_hint_with_real_values() {
         let code = "import sys\ndef clean(path):\n    return path.strip()\nfor a in sys.argv[1:]:\n    print(clean(a))";
-        let hint = super::harvest_hint(code, "python", 0).expect("parametrized multi-line code is offerable");
+        let hint = super::harvest_hint(code, "python", 0, false)
+            .expect("parametrized multi-line code is offerable");
         assert!(hint.contains("#kind:snippet"), "offer carries the facet tag");
         assert!(hint.contains("#lang:python"), "offer carries the real lang");
+        // W3b — the offer must teach the form that ENTERS the ladder. Teaching
+        // a bare `memory store <slug>` minted a key the trust bridge could not
+        // recognise: a hint that leads nowhere is worse than no hint.
+        assert!(
+            hint.contains("--harvest"),
+            "offer must teach the executor-side harvest, not a dead-end slug"
+        );
+        assert!(
+            !hint.contains("memory store"),
+            "the superseded wording must not survive alongside the new one"
+        );
+    }
+
+    #[test]
+    fn an_already_harvested_run_does_not_re_offer_itself() {
+        // The executor just persisted and enrolled this body; repeating the
+        // offer would ask the caller to do what already happened.
+        let code = "import sys\ndef clean(path):\n    return path.strip()\nfor a in sys.argv[1:]:\n    print(clean(a))";
+        assert!(super::harvest_hint(code, "python", 0, true).is_none());
+        assert!(super::harvest_hint(code, "python", 0, false).is_some());
+    }
+
+    #[test]
+    fn harvest_flag_carries_the_slug_and_is_off_by_default() {
+        // W3b — harvesting mutates the library, so it stays an explicit act;
+        // what the executor does WITHOUT the flag is only recognise a body it
+        // already knows (no new state from a plain run).
+        let cli = RunCli::try_parse_from([
+            "run",
+            "--lang",
+            "python",
+            "--code",
+            "print(1)",
+            "--harvest",
+            "scan-crates",
+        ])
+        .expect("parse");
+        assert_eq!(cli.harvest.as_deref(), Some("scan-crates"));
+
+        let plain = RunCli::try_parse_from(["run", "--lang", "python", "--code", "print(1)"])
+            .expect("parse");
+        assert_eq!(plain.harvest, None);
     }
 
     #[test]
     fn harvest_hint_skips_one_offs_and_failures() {
         // too short
-        assert!(super::harvest_hint("print(1)", "python", 0).is_none());
+        assert!(super::harvest_hint("print(1)", "python", 0, false).is_none());
         // not parametrized
-        assert!(super::harvest_hint("a=1\nb=2\nc=3\nd=4\nprint(a+b+c+d)", "python", 0).is_none());
+        assert!(super::harvest_hint("a=1\nb=2\nc=3\nd=4\nprint(a+b+c+d)", "python", 0, false).is_none());
         // ephemeral identifiers (session path / absolute date)
         assert!(super::harvest_hint(
-            "def f(x):\n    return x\nopen('/tmp/claude-1000/x')\nf(1)\nf(2)", "python", 0
-        ).is_none());
+            "def f(x):\n    return x\nopen('/tmp/claude-1000/x')\nf(1)\nf(2)", "python", 0, false).is_none());
         // failed execution
-        assert!(super::harvest_hint("def f(x):\n    return x\nf(1)\nf(2)\nf(3)", "python", 3).is_none());
+        assert!(super::harvest_hint("def f(x):\n    return x\nf(1)\nf(2)\nf(3)", "python", 3, false).is_none());
     }
 
     #[test]

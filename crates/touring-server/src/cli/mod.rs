@@ -24,6 +24,17 @@ pub(crate) use crate::daemon_client::libc_getuid;
 /// a thread pool, so "single-threaded" is only true when every accessor of
 /// the shared vars holds this guard. AUDITED 2026-08-12 (follow-up F-5):
 /// the audit these TODOs asked for is this lock + the call-site discipline.
+///
+/// **This must remain the ONLY lock over these variables.** `cli/migrate.rs`
+/// once kept a second, module-local `ENV_MUTEX` for the very same purpose
+/// ("parallel tests can observe each other's temp paths, causing disk I/O
+/// error panics") — but `cli/backup.rs` mutates `TOURING_PROJECT_ROOT` under
+/// THIS lock, which that one did not exclude. Two mutexes over one
+/// process-global resource do not double the protection; they partition the
+/// callers into two groups that race each other, while each group's comment
+/// reads as if it were safe. Removed 2026-08-24; a residual flake in
+/// `cmd_run_no_sources_creates_domain_dbs_with_schema_v8` (~1 in 5 full-suite
+/// runs, never single-threaded) is the symptom this consolidation targets.
 #[cfg(test)]
 pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 

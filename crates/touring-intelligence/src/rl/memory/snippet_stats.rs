@@ -217,6 +217,76 @@ pub fn record_execution(
     Ok(trust)
 }
 
+/// The canonical prefix of a snippet's `entry_key`.
+///
+/// SINGLE SOURCE for the pair (writer, predicate). The W3 harvest hint told
+/// the model to store the snippet under a FREE slug, while the reward bridge
+/// only recognised keys starting with `snippet:` — so a snippet harvested by
+/// the code-mode path could never reach this ladder. Both sides now derive
+/// from here: whoever mints a key calls [`harvest_key`], whoever recognises
+/// one calls [`is_snippet_key`].
+pub const SNIPPET_KEY_PREFIX: &str = "snippet:";
+
+/// Mint the `entry_key` of a snippet harvested from an executed program.
+///
+/// Idempotent: a slug that already carries the prefix is returned unchanged,
+/// so re-harvesting the same snippet cannot fork the ladder into two rows.
+pub fn harvest_key(slug: &str) -> String {
+    let slug = slug.trim();
+    if slug.starts_with(SNIPPET_KEY_PREFIX) {
+        slug.to_string()
+    } else {
+        format!("{SNIPPET_KEY_PREFIX}{slug}")
+    }
+}
+
+/// The predicate that recognises a snippet key — the mirror of [`harvest_key`].
+pub fn is_snippet_key(entry_key: &str) -> bool {
+    entry_key.starts_with(SNIPPET_KEY_PREFIX)
+}
+
+/// Digest of a snippet's BODY, used both as the ladder's `sig_hash` (so an
+/// edited snippet is invalidated rather than inheriting its predecessor's
+/// trust) and as the re-identification key of [`by_sig`].
+///
+/// Normalisation is deliberately shallow — trailing whitespace and blank
+/// lines only. Anything deeper (comment stripping, formatting) would make two
+/// programs that behave differently share one ladder.
+pub fn code_sig(code: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    for line in code.lines() {
+        let line = line.trim_end();
+        if line.is_empty() {
+            continue;
+        }
+        hasher.update(line.as_bytes());
+        hasher.update(b"\n");
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+/// Re-identify a snippet from the body being executed: the ladder's own
+/// `sig_hash` column IS the index, so recognising a re-run costs one indexed
+/// lookup and needs no second table to drift out of sync.
+///
+/// Returns the `entry_key` of the matching snippet, or `None` when the body
+/// was never harvested. Ties (two snippets with an identical body) resolve to
+/// the most recently updated one — they are the same program either way.
+pub fn by_sig(conn: &Connection, sig_hash: &str) -> Result<Option<String>> {
+    ensure_schema(conn)?;
+    if sig_hash.is_empty() {
+        return Ok(None);
+    }
+    conn.query_row(
+        "SELECT entry_key FROM snippet_stats
+         WHERE sig_hash = ?1 ORDER BY updated_at DESC LIMIT 1",
+        params![sig_hash],
+        |r| r.get::<_, String>(0),
+    )
+    .optional()
+}
+
 /// Read a snippet's measured state; `None` when never recorded.
 pub fn trust_of(conn: &Connection, entry_key: &str) -> Result<Option<SnippetStats>> {
     ensure_schema(conn)?;
@@ -312,5 +382,91 @@ mod tests {
         assert_eq!(TrustLevel::Trusted.badge(), "✓");
         assert_eq!(TrustLevel::Provisional.badge(), "◐");
         assert_eq!(TrustLevel::Untrusted.badge(), "○");
+    }
+
+    // ---- W3b: the harvest path reaches the ladder -------------------------
+
+    #[test]
+    fn every_minted_key_is_recognised_by_the_predicate() {
+        // THE contract that was broken: the W3 hint minted a free slug while
+        // the bridge only accepted `snippet:`-prefixed keys, so a code-mode
+        // harvest could never be graded. Whatever `harvest_key` mints,
+        // `is_snippet_key` MUST accept — asserted over the shapes a slug
+        // actually takes, so a future minting rule cannot silently drift.
+        for slug in [
+            "scan-crates",
+            "snippet:scan-crates",
+            "  padded-slug  ",
+            "with/slash#and-hash",
+            "acentuação-e-hífen",
+        ] {
+            let key = harvest_key(slug);
+            assert!(
+                is_snippet_key(&key),
+                "minted key {key:?} escapes its own predicate"
+            );
+        }
+    }
+
+    #[test]
+    fn harvest_key_is_idempotent() {
+        // Re-harvesting the same snippet must not fork the ladder into
+        // `snippet:x` and `snippet:snippet:x` — two rows, two half-histories.
+        let once = harvest_key("scan-crates");
+        assert_eq!(once, "snippet:scan-crates");
+        assert_eq!(harvest_key(&once), once);
+    }
+
+    #[test]
+    fn code_sig_ignores_only_cosmetic_difference() {
+        let a = "def f(x):\n    return x\nf(1)\n";
+        // Trailing whitespace and blank lines are cosmetic: same program.
+        let b = "def f(x):   \n\n    return x\nf(1)\n\n";
+        assert_eq!(code_sig(a), code_sig(b));
+        // A changed body is a DIFFERENT program — it must not inherit trust.
+        assert_ne!(code_sig(a), code_sig("def f(x):\n    return x + 1\nf(1)\n"));
+    }
+
+    #[test]
+    fn by_sig_reidentifies_a_rerun_and_ignores_unknown_bodies() {
+        let conn = mem();
+        let sig = code_sig("def f(x):\n    return x\nf(1)\n");
+        record_execution(&conn, "snippet:scan", true, &sig).expect("record");
+
+        assert_eq!(
+            by_sig(&conn, &sig).expect("lookup"),
+            Some("snippet:scan".to_string()),
+            "a re-run of a harvested body must be recognised — this is what \
+             lets the library grade itself from ordinary use"
+        );
+        assert_eq!(
+            by_sig(&conn, &code_sig("print(1)")).expect("lookup"),
+            None,
+            "an unknown body must NOT be attributed to some existing snippet"
+        );
+        assert_eq!(
+            by_sig(&conn, "").expect("lookup"),
+            None,
+            "an empty signature must never match the default-empty column"
+        );
+    }
+
+    #[test]
+    fn reruns_of_a_recognised_snippet_climb_the_ladder() {
+        // The end-to-end property the whole elo exists for: executing the same
+        // body repeatedly, with no hand-typed reward anywhere, promotes it.
+        let conn = mem();
+        let body = "def f(x):\n    return x\nf(1)\n";
+        let sig = code_sig(body);
+        let key = harvest_key("scan");
+        for _ in 0..10 {
+            let found = by_sig(&conn, &sig)
+                .expect("lookup")
+                .unwrap_or_else(|| key.clone());
+            record_execution(&conn, &found, true, &sig).expect("record");
+        }
+        let stats = trust_of(&conn, &key).expect("read").expect("recorded");
+        assert_eq!(stats.executions, 10);
+        assert_eq!(stats.trust, TrustLevel::Provisional);
     }
 }
