@@ -1,0 +1,11 @@
+{
+  "phase": "W3",
+  "entities": [
+    {
+      "entity_id": "phase:W3",
+      "type": "phase",
+      "description": "P1-P4 instanciados onde cada um pertence, texto distinto por skill: TACO-cross-audit (P3 quinta forma de errar veredito = auditor julgando o proprio trabalho -> critic-panel com lentes distintas e quorum contado por codigo; P2 veredito e exit code do loop_converged, judge_intact primeiro), subagent-driven-development (P3 review so vale se o revisor for cego -> worker-critic-pair), TACO-skilling (P1 se o procedimento ja e fragment, cite; prosa que restata e segunda implementacao), taco-planning (P4 DAG Mermaid e o grafo plano; fase parallel declara on_branch_fail; when_not_to_use permite DESCARTAR)."
+    }
+  ],
+  "relations": []
+}

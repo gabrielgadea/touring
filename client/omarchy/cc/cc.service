@@ -1,0 +1,19 @@
+[Unit]
+Description=Omarchy Command Centre builder
+After=network-online.target
+
+[Service]
+Type=oneshot
+# systemd --user PATH omits ~/.local/bin (where routines_gen.py/omarchy-skill-run
+# live); append: needs the directory to exist — systemd creates neither.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/usr/bin/mkdir -p %h/Work/logs %h/Work/cc %h/Work/state %h/Work/artifacts
+# O config vive FORA da raiz servida. `cc-serve.service` publica %h/Work/cc, e
+# um arquivo ali e' servido por HTTP — medido 2026-08-23: um cc.json colocado em
+# %h/Work/cc responde em 127.0.0.1:7777/cc.json com o layout de caminhos da
+# maquina. Nao e' segredo, mas e' exposicao gratuita, e a pagina do CC roda em
+# contexto de navegador na mesma origem. XDG (~/.config/omarchy) e' o lugar.
+ExecStart=/usr/bin/env python3 %h/.local/lib/omarchy/cc_build.py --config %h/.config/omarchy/cc.json --out %h/Work/cc/index.html
+WorkingDirectory=%h/Work
+StandardOutput=append:%h/Work/logs/cc-build.log
+StandardError=inherit

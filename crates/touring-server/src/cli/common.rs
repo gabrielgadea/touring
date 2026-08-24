@@ -148,16 +148,16 @@ pub fn human_to_stderr(msg: &str) {
 /// Only the YAML string belongs in the file.
 pub fn write_yaml_export(output: &str, field: &str, path: &std::path::Path) -> anyhow::Result<()> {
     let parsed: serde_json::Value = serde_json::from_str(output)
-        .map_err(|e| anyhow::anyhow!("export returned malformed JSON: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("export returned malformed JSON: {e} — run `touring status -j` to check daemon health"))?;
     if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
-        anyhow::bail!("export failed: {err}");
+        anyhow::bail!("export API error: {err} — run `touring status -j` and `touring doctor -j` to diagnose");
     }
     let yaml = parsed
         .get(field)
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("export response carries no '{field}' field"))?;
+        .ok_or_else(|| anyhow::anyhow!("export response lacks '{field}' field — check API version with `touring status`"))?;
     std::fs::write(path, yaml)
-        .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", path.display(), e))
+        .map_err(|e| anyhow::anyhow!("failed to write '{}': {} — run `df -h .` to check disk space", path.display(), e))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

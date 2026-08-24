@@ -14,14 +14,40 @@
 
 use std::process::Command;
 
-const TOURING_BIN: &str = "/home/gabrielgadea/.claude/rust/target/release/touring";
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
+/// The product binary: prefer `release` when it exists, else `debug`.
+///
+/// Release-only resolution made this file's tests pass on a developer box (where
+/// `update-touring` leaves a release build behind) and fail on every clean CI
+/// runner with `spawn touring: NotFound`. Mirrors the convention already used by
+/// `graph_service_e2e.rs`.
+fn touring_bin() -> std::path::PathBuf {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let workspace = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root");
+    let release = workspace.join("target/release/touring");
+    if release.exists() {
+        release
+    } else {
+        workspace.join("target/debug/touring")
+    }
+}
 
 fn binary_available() -> bool {
-    std::path::Path::new(TOURING_BIN).exists()
+    touring_bin().exists()
 }
 
 fn entity_define(id: &str, name: &str, kind: &str, crate_name: &str) -> serde_json::Value {
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(["entity", "define", id, name, kind, crate_name])
         .output()
         .expect("spawn touring entity define");
@@ -47,7 +73,7 @@ fn entity_resolve(
     if exact_only {
         args.push("--exact-only".to_string());
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(&args)
         .output()
         .expect("spawn touring entity resolve");
@@ -57,7 +83,7 @@ fn entity_resolve(
 }
 
 fn entity_relate(from: &str, kind: &str, to: &str) -> serde_json::Value {
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(["entity", "relate", from, kind, to])
         .output()
         .expect("spawn touring entity relate");
@@ -84,7 +110,7 @@ fn entity_list(
         args.push("--limit".to_string());
         args.push(l.to_string());
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(&args)
         .output()
         .expect("spawn touring entity list");
@@ -94,7 +120,7 @@ fn entity_list(
 }
 
 fn entity_delete(id: &str) -> serde_json::Value {
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(["entity", "delete", id])
         .output()
         .expect("spawn touring entity delete");
@@ -108,7 +134,7 @@ fn entity_delete(id: &str) -> serde_json::Value {
 #[test]
 fn test_entity_define_happy_path() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     let result = entity_define(
@@ -132,7 +158,7 @@ fn test_entity_define_happy_path() {
 #[test]
 fn test_entity_define_duplicate_id() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     // First call — may succeed or fail if entity already exists from prior run
@@ -176,7 +202,7 @@ fn test_entity_define_duplicate_id() {
 #[test]
 fn test_entity_resolve_exact_match() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     // Define entity
@@ -202,7 +228,7 @@ fn test_entity_resolve_exact_match() {
 #[test]
 fn test_entity_resolve_fuzzy_match() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     // Define entity
@@ -222,7 +248,7 @@ fn test_entity_resolve_fuzzy_match() {
 #[test]
 fn test_entity_resolve_not_found() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     let result = entity_resolve("NonExistentEntityXYZ123", Some(0), true);
@@ -245,7 +271,7 @@ fn test_entity_resolve_not_found() {
 #[test]
 fn test_entity_resolve_exact_only_filter() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     let _ = entity_define("test::ExactOnly", "ExactOnly", "Module", "test_crate");
@@ -278,7 +304,7 @@ fn test_entity_resolve_exact_only_filter() {
 #[test]
 fn test_entity_relate_bidirectional() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     // Define two entities
@@ -313,7 +339,7 @@ fn test_entity_relate_bidirectional() {
 #[test]
 fn test_entity_relate_self_relation_allowed() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     let _ = entity_define(
@@ -338,7 +364,7 @@ fn test_entity_relate_self_relation_allowed() {
 #[test]
 fn test_entity_list_no_filter() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     let result = entity_list(None, None, None);
@@ -357,7 +383,7 @@ fn test_entity_list_no_filter() {
 #[test]
 fn test_entity_list_by_crate_filter() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     let result = entity_list(Some("test_crate"), None, Some(10));
@@ -375,7 +401,7 @@ fn test_entity_list_by_crate_filter() {
 #[test]
 fn test_entity_delete_exists() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     // Define then delete
@@ -398,7 +424,7 @@ fn test_entity_delete_exists() {
 #[test]
 fn test_entity_delete_not_found() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     let result = entity_delete("test::NonExistentDeleteXYZ");

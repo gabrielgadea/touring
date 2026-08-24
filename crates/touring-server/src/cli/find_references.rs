@@ -27,15 +27,15 @@ struct FindReferencesCli {
 fn parse_position(s: &str) -> anyhow::Result<(String, usize, usize)> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 3 {
-        anyhow::bail!("Position must be <file>:<line>:<col>, got: {}", s);
+        anyhow::bail!("position must be <file>:<line>:<col> (e.g., src/lib.rs:42:5), got: {} — run `touring help` for details", s);
     }
     let file = parts[0].to_string();
     let line = parts[1]
         .parse::<usize>()
-        .map_err(|_| anyhow::anyhow!("Invalid line: {}", parts[1]))?;
+        .map_err(|_| anyhow::anyhow!("line number '{}' is not numeric; use format <file>:<line>:<col> (e.g., src/lib.rs:42:5)", parts[1]))?;
     let col = parts[2]
         .parse::<usize>()
-        .map_err(|_| anyhow::anyhow!("Invalid column: {}", parts[2]))?;
+        .map_err(|_| anyhow::anyhow!("column number '{}' is not numeric; use format <file>:<line>:<col> (e.g., src/lib.rs:42:5)", parts[2]))?;
     Ok((file, line, col))
 }
 /// Entry point for the `touring find-references` CLI handler — parses the

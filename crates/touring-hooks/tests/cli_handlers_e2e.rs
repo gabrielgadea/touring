@@ -27,7 +27,10 @@ use touring_hooks::cli_handlers::*;
 // verde sobre código que nunca roda em produção. Agora `cli_decompose_*` vem
 // todo do glob `cli_handlers::*` = o que o daemon executa de fato.
 // `cli_tasksfile_*` seguem aqui porque só existem neste módulo.
-use touring_hooks::cli_handlers_decompose::{cli_tasksfile_export, cli_tasksfile_validate};
+use touring_hooks::cli_handlers_decompose::{
+    cli_decompose_claim, cli_decompose_frontier, cli_decompose_release, cli_decompose_ticket,
+    cli_tasksfile_export, cli_tasksfile_validate,
+};
 use touring_hooks::cli_handlers_index::{cli_ast_blast, cli_ast_find, cli_ast_overview};
 use touring_hooks::runtime::HookRuntime;
 
@@ -1713,6 +1716,424 @@ fn test_decompose_ready_filters_pending_with_completed_deps() {
         ready["ready_subtasks"].is_array(),
         "ready_subtasks array expected"
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// C2: ATOMIC CLAIM — two sessions must never receive the same subtask
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Create a task with `n` independent, immediately-ready subtasks.
+fn seed_ready_task(rt: &mut HookRuntime, n: usize) -> String {
+    let create = parse_json(&cli_decompose_create(
+        rt,
+        &serde_json::json!({"task_type": "intent", "description": "claim test"}),
+    ));
+    let task_id = create["task_id"].as_str().unwrap().to_string();
+    for i in 0..n {
+        cli_decompose_add(
+            rt,
+            &serde_json::json!({
+                "task_id": task_id,
+                "subtask_id": format!("S-{i:02}"),
+                "description": format!("subtask {i}"),
+                "depends_on": []
+            }),
+        );
+    }
+    task_id
+}
+
+/// THE C2 GATE. `ready` only reads, so two sessions polling it are handed the
+/// same subtask and both start it. Claiming is a conditional write, so of two
+/// racing claimers each gets a DIFFERENT subtask.
+#[test]
+fn two_sessions_claiming_never_receive_the_same_subtask() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    // Both sessions see the same thing through the read-only view...
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        ready["ready_subtasks"].as_array().map(Vec::len),
+        Some(2),
+        "both subtasks are ready — which is exactly why reading cannot allocate work"
+    );
+
+    // ...but only one of them can CLAIM any given subtask.
+    let a = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "session-a"}),
+    ));
+    let b = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "session-b"}),
+    ));
+    assert_eq!(a["claimed"], serde_json::json!(true), "{a}");
+    assert_eq!(b["claimed"], serde_json::json!(true), "{b}");
+    assert_ne!(
+        a["subtask_id"], b["subtask_id"],
+        "two sessions received the SAME subtask: {a} vs {b}"
+    );
+}
+
+#[test]
+fn a_third_claimer_finds_nothing_left_rather_than_duplicating_work() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    for owner in ["a", "b"] {
+        let got = parse_json(&cli_decompose_claim(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "owner": owner}),
+        ));
+        assert_eq!(got["claimed"], serde_json::json!(true));
+    }
+    let third = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "c"}),
+    ));
+    assert_eq!(third["claimed"], serde_json::json!(false), "{third}");
+    assert!(third["reason"].as_str().unwrap().contains("no unblocked"));
+}
+
+#[test]
+fn a_claim_is_refused_without_an_owner_to_attribute_it_to() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let got = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(got["claimed"], serde_json::json!(false));
+    assert!(got["error"].as_str().unwrap().contains("owner"));
+}
+
+#[test]
+fn claiming_respects_dependencies() {
+    let (_tmp, mut rt) = setup_runtime();
+    let create = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "dep test"}),
+    ));
+    let task_id = create["task_id"].as_str().unwrap().to_string();
+    cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "first",
+                            "description": "first", "depends_on": []}),
+    );
+    cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "second",
+                            "description": "second", "depends_on": ["first"]}),
+    );
+    let first = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "a"}),
+    ));
+    assert!(
+        first["subtask_id"].as_str().unwrap().ends_with("first"),
+        "{first}"
+    );
+    let blocked = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "b"}),
+    ));
+    assert_eq!(
+        blocked["claimed"],
+        serde_json::json!(false),
+        "`second` depends on an unfinished `first` — it is not claimable: {blocked}"
+    );
+}
+
+#[test]
+fn releasing_returns_the_subtask_to_the_pool_for_someone_else() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "a"}),
+    ));
+    let subtask_id = claim["subtask_id"].as_str().unwrap().to_string();
+
+    let released = parse_json(&cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": subtask_id, "owner": "a"}),
+    ));
+    assert_eq!(released["released"], serde_json::json!(true), "{released}");
+
+    let next = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "b"}),
+    ));
+    assert_eq!(next["claimed"], serde_json::json!(true), "{next}");
+    assert_eq!(next["subtask_id"].as_str().unwrap(), subtask_id);
+}
+
+#[test]
+fn only_the_owner_may_release_its_own_claim() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "a"}),
+    ));
+    let stolen = parse_json(&cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id,
+            "subtask_id": claim["subtask_id"].as_str().unwrap(),
+            "owner": "an-impostor"
+        }),
+    ));
+    assert_eq!(stolen["released"], serde_json::json!(false), "{stolen}");
+    assert!(
+        stolen["reason"]
+            .as_str()
+            .unwrap()
+            .contains("not held by this owner")
+    );
+}
+
+/// A session killed mid-work must not strand its subtask forever — but the lease
+/// is the FALLBACK, not the normal path, so it only frees work after it expires.
+#[test]
+fn an_expired_lease_frees_the_subtask_for_another_session() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "died", "lease_secs": 1}),
+    ));
+    assert_eq!(claim["claimed"], serde_json::json!(true));
+
+    // Still held while the lease is live.
+    let too_soon = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next"}),
+    ));
+    assert_eq!(too_soon["claimed"], serde_json::json!(false), "{too_soon}");
+
+    // Expire it by hand rather than sleeping — the clock is not what is under test.
+    let expired = chrono::Utc::now().timestamp() - 60;
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![expired, task_id],
+        )
+        .expect("expire the lease");
+
+    let reclaimed = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next"}),
+    ));
+    assert_eq!(reclaimed["claimed"], serde_json::json!(true), "{reclaimed}");
+    assert_eq!(reclaimed["owner"].as_str(), Some("next"));
+}
+
+/// A subtask a human moved to in_progress carries no claim, and no lease of ours
+/// expires it — someone said they are on it.
+#[test]
+fn a_manually_started_subtask_is_never_stolen_by_the_claimer() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00", "status": "in_progress"
+        }),
+    );
+    let got = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "opportunist"}),
+    ));
+    assert_eq!(got["claimed"], serde_json::json!(false), "{got}");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
+// ═══════════════════════════════════════════════════════════════════════
+
+/// THE C3 GATE. An objective under fog produces DECISION tickets, and while any
+/// is open the frontier says so — implementation planned past an unmade decision
+/// is a plan resting on a guess.
+#[test]
+fn open_decisions_gate_the_implementation_frontier() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let ticketed = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00",
+            "kind": "decision", "subtype": "research", "autonomy": "hitl", "fog": "unknown"
+        }),
+    ));
+    assert_eq!(ticketed["updated"], serde_json::json!(true), "{ticketed}");
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["gated_by_open_decisions"],
+        serde_json::json!(true),
+        "{frontier}"
+    );
+    assert_eq!(frontier["decisions"].as_array().map(Vec::len), Some(1));
+    assert!(
+        frontier["next_action"]
+            .as_str()
+            .unwrap()
+            .contains("resolve the decision tickets first")
+    );
+
+    // Resolve the decision → the gate lifts.
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+    let cleared = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        cleared["gated_by_open_decisions"],
+        serde_json::json!(false),
+        "{cleared}"
+    );
+    assert!(
+        cleared["next_action"]
+            .as_str()
+            .unwrap()
+            .contains("may be claimed")
+    );
+}
+
+/// Map-as-index: the reasoning lives in the ticket; the map keeps a pointer. Work
+/// that points at no decision, while decisions are open, is untraceable.
+#[test]
+fn implementation_without_an_origin_decision_is_reported_as_untraceable() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 3);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "grilling", "autonomy": "hitl", "fog": "hazy"}),
+    );
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01",
+                            "kind": "implementation", "origin_ticket": "S-00"}),
+    );
+    // S-02 is left with no origin on purpose.
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let untraceable: Vec<String> = frontier["untraceable_implementation"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(untraceable.len(), 1, "{frontier}");
+    assert!(untraceable[0].ends_with("S-02"), "{untraceable:?}");
+}
+
+/// Gathering evidence can run unattended; reaching a verdict cannot.
+#[test]
+fn only_research_decisions_may_run_unattended() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let refused = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "grilling", "autonomy": "afk"}),
+    ));
+    assert_eq!(refused["updated"], serde_json::json!(false), "{refused}");
+    assert!(
+        refused["errors"][0]
+            .as_str()
+            .unwrap()
+            .contains("reaching a verdict cannot")
+    );
+
+    let allowed = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "research", "autonomy": "afk"}),
+    ));
+    assert_eq!(allowed["updated"], serde_json::json!(true), "{allowed}");
+}
+
+#[test]
+fn ticket_enums_are_validated_rather_than_stored_as_typos() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let got = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "desicion", "fog": "foggy"}),
+    ));
+    assert_eq!(got["updated"], serde_json::json!(false));
+    let errors = got["errors"].as_array().unwrap();
+    assert_eq!(errors.len(), 2, "{got}");
+}
+
+/// Refining one facet must not blank the others — a ticket is filled in over time.
+#[test]
+fn refining_a_ticket_preserves_the_facets_it_does_not_mention() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "research", "autonomy": "hitl", "fog": "unknown"}),
+    );
+    // The fog lifts; nothing else was restated.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "fog": "clear"}),
+    );
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let ticket = &frontier["decisions"][0];
+    assert_eq!(ticket["fog"], serde_json::json!("clear"), "{frontier}");
+    assert_eq!(
+        ticket["subtype"],
+        serde_json::json!("research"),
+        "{frontier}"
+    );
+    assert_eq!(ticket["autonomy"], serde_json::json!("hitl"), "{frontier}");
+}
+
+/// An un-ticketed DAG must keep meaning exactly what it meant before Wayfinder.
+#[test]
+fn an_unlabelled_dag_reads_as_ungated_implementation() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["gated_by_open_decisions"],
+        serde_json::json!(false)
+    );
+    assert_eq!(frontier["implementation"].as_array().map(Vec::len), Some(2));
+    // Unlabelled work is implementation — a DAG meant that before Wayfinder
+    // existed. Its FOG is a different question: nobody measured it, so it reads
+    // `unknown`. This line asserted `clear` and was encoding the defect it was
+    // meant to guard, which is why the frontier once reported an all-clear over
+    // a plan nobody had assessed. See `unassessed_fog_reports_as_unknown_not_clear`.
+    assert_eq!(frontier["fog"]["unknown"], serde_json::json!(2));
+    assert!(frontier["fog"].get("clear").is_none(), "{frontier}");
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -3609,4 +4030,222 @@ tasks:
         &serde_json::json!({"task_id": task_id}),
     ));
     assert_eq!(stored["subtasks"][0]["description"], "KEY=inline_wins");
+}
+
+/// Fog nobody measured is `unknown`, never `clear`.
+///
+/// The frontier exists to show where the fog is. A subtask that was never
+/// ticketed has no fog assessment at all, and reporting it as `clear` made the
+/// histogram answer "nothing uncertain here" about work nobody had looked at —
+/// the reassuring lie the Wayfinder is built to prevent. `kind` still defaults,
+/// because an unlabelled ticket genuinely was implementation work before this
+/// feature existed; unmeasured fog has no such prior meaning.
+#[test]
+fn unassessed_fog_reports_as_unknown_not_clear() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let fog = &frontier["fog"];
+    assert!(
+        fog.get("clear").is_none(),
+        "no subtask was ever assessed, so none may be reported clear: {frontier}"
+    );
+    assert_eq!(
+        fog["unknown"],
+        serde_json::json!(2),
+        "both untouched subtasks must read as unknown fog: {frontier}"
+    );
+
+    // And a fog level that WAS declared is reported as declared, not overridden.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00", "fog": "clear"
+        }),
+    );
+    let refined = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(refined["fog"]["clear"], serde_json::json!(1), "{refined}");
+    assert_eq!(refined["fog"]["unknown"], serde_json::json!(1), "{refined}");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// T3.1 / T3.2 — the map ages with the work, and names its own waterfall risk
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Mark one subtask as a decision ticket and close it.
+fn decide_and_close(rt: &mut HookRuntime, task_id: &str, subtask: &str, kind: &str) {
+    cli_decompose_ticket(
+        rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": subtask, "kind": kind}),
+    );
+    cli_decompose_update(
+        rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": subtask, "status": "completed"}),
+    );
+}
+
+#[test]
+fn a_resolved_decision_is_written_back_up_to_the_map() {
+    // Pocock: "that resolution also gets written back up to the parent map."
+    // Without this the decisions live in the children while the parent keeps
+    // describing the world as it was before any of them were made — and the next
+    // session reads the parent first.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    decide_and_close(&mut rt, &task_id, "S-00", "decision");
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let resolutions = frontier["resolutions"]
+        .as_array()
+        .expect("resolutions array");
+    assert_eq!(
+        resolutions.len(),
+        1,
+        "the map must record the decision: {frontier}"
+    );
+    assert!(
+        resolutions[0]["subtask_id"]
+            .as_str()
+            .unwrap_or_default()
+            .ends_with("S-00"),
+        "{frontier}"
+    );
+    assert!(resolutions[0]["resolved_at"].is_string(), "{frontier}");
+}
+
+#[test]
+fn only_decisions_travel_up_to_the_map() {
+    // Implementation tickets close constantly; logging them would drown the map
+    // in exactly the noise a summary exists to avoid.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    decide_and_close(&mut rt, &task_id, "S-00", "implementation");
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["resolutions"].as_array().map(|a| a.len()),
+        Some(0),
+        "an implementation ticket is not a decision: {frontier}"
+    );
+}
+
+#[test]
+fn replaying_a_close_does_not_grow_the_map() {
+    // Retries and resumes re-issue the same close. A map that grew each time
+    // would report the same decision as several.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    decide_and_close(&mut rt, &task_id, "S-00", "decision");
+    let second = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    ));
+    assert_eq!(
+        second["resolution_logged"],
+        serde_json::json!(false),
+        "the replay must be a no-op: {second}"
+    );
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(frontier["resolutions"].as_array().map(|a| a.len()), Some(1));
+}
+
+#[test]
+fn fog_without_any_prototype_reads_as_waterfall_risk() {
+    // "Doesn't that look like waterfall?" — it does, when the uncertainty will
+    // only be tested after the planning is over.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let risk = &frontier["waterfall_risk"];
+    assert_eq!(risk["at_risk"], serde_json::json!(true), "{frontier}");
+    assert_eq!(
+        risk["foggy_open_tickets"],
+        serde_json::json!(2),
+        "{frontier}"
+    );
+    assert_eq!(
+        risk["prototype_tickets"],
+        serde_json::json!(0),
+        "{frontier}"
+    );
+}
+
+#[test]
+fn one_prototype_ticket_answers_the_waterfall_risk() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00",
+            "kind": "decision", "subtype": "prototype", "fog": "hazy"
+        }),
+    );
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let risk = &frontier["waterfall_risk"];
+    assert_eq!(risk["at_risk"], serde_json::json!(false), "{frontier}");
+    assert_eq!(
+        risk["prototype_tickets"],
+        serde_json::json!(1),
+        "{frontier}"
+    );
+}
+
+#[test]
+fn a_closed_prototype_still_answers_the_risk() {
+    // A prototype that already ran did its job of lifting fog; demanding a fresh
+    // one would punish the map for having worked.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00",
+            "kind": "decision", "subtype": "prototype", "fog": "hazy"
+        }),
+    );
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["waterfall_risk"]["at_risk"],
+        serde_json::json!(false),
+        "{frontier}"
+    );
 }

@@ -181,7 +181,7 @@ pub fn run(args: &[String]) -> Result<()> {
     }
 
     if !failures.is_empty() {
-        return Err(anyhow!("{} project(s) failed to update", failures.len()));
+        return Err(anyhow!("{} project(s) failed to update — run `touring help` for details", failures.len()));
     }
     Ok(())
 }

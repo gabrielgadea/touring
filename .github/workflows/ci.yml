@@ -217,6 +217,83 @@ jobs:
           done
           echo "::error::Could not push the metrics sync after 3 attempts."
           exit 1
+      - name: client mirror — integridade do espelho contra seu próprio manifesto
+        # O CI NÃO consegue comparar client/ com ~/.claude (o lado vivo só existe na
+        # máquina do operador), e um passo verde que não verifica nada é justamente a
+        # armadilha que criou este problema: o guard anti-injeção varria dois espelhos
+        # e nunca a biblioteca implantada. O que dá para provar aqui é o outro erro —
+        # alguém editar client/ diretamente, edição que o próximo --apply desfaz em
+        # silêncio. A comparação completa roda em propagate-release.sh.
+        run: python3 -m pytest scripts/test_sync_client_skills.py -q
+      - name: client/omarchy — fonte do OmarchyOS Agêntico (plano 2026-08-23)
+        # Ao contrário do espelho acima, client/omarchy/ é ORIGEM: a máquina Omarchy
+        # é provisionada a partir dele, então o que se prova aqui é o contrato dos
+        # scripts (fail-closed, --json, shellcheck limpo) e o manifesto do plugin
+        # contra o validador oficial vendorizado (bash+jq, roda sem o shell Quickshell).
+        # `systemd-analyze --user verify` e `touring adw lint` só existem no Pop/Omarchy,
+        # por isso os testes que dependem deles fazem pytest.skip quando ausentes.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"   # the mirror-hygiene test above walks client/ for __pycache__
+        run: |
+          sudo apt-get install -y shellcheck jq
+          bash -n client/omarchy/bin/*.sh client/omarchy/hooks/*/*
+          shellcheck -S warning client/omarchy/bin/*.sh client/omarchy/hooks/*/*
+          client/omarchy/vendor/omarchy-plugin-validate client/omarchy/skills-deck
+          python3 -m pytest client/omarchy/tests -q
+      - name: mutants config — 19 minutos rendendo zero, lidos como aprovação
+        # `additional_cargo_args = ["--all-targets"]` ficava sob um comentário que
+        # dizia "Skip bench/doctest targets". --all-targets faz o contrário: INCLUI
+        # benches. `nextest list` então tentava enumerar o harness iai-callgrind,
+        # falhava sem iai-callgrind-runner no PATH, e o baseline do cargo-mutants
+        # morria — 0 mutantes, que o CLI reportava como ok:true e o repo-score
+        # consumia como a categoria "testing". O exclude_glob **/benches/** não
+        # cobria isso: ele pula a GERAÇÃO de mutantes, nunca a lista de testes.
+        run: python3 -m pytest scripts/test_mutants_config.py -q
+      - name: skill pins — uma skill é uma AFIRMAÇÃO sobre algo que muda sem ela
+        # O espelho garante que client/ == o lado vivo, byte a byte. Não garante
+        # que o conteúdo ainda seja VERDADEIRO: uma skill que ficou obsoleta é
+        # espelhada fielmente como uma skill obsoleta. Este gate mede o outro eixo.
+        #
+        # Duas classes, com forças distintas:
+        #   · comando ENSINADO que não existe em `touring --help` → BLOQUEIA.
+        #     A skill manda o leitor a um erro; é dano ativo, não desatualização.
+        #   · fonte pinada cujo sha256 mudou → BLOQUEIA (alguém precisa reler a
+        #     skill contra a fonte e re-pinar deliberadamente com --update).
+        #
+        # Uma fonte simplesmente AUSENTE deste checkout (o ~/.claude/CLAUDE.md
+        # global não é espelhado) é reportada e NÃO bloqueia: um gate que falha
+        # em toda execução é um gate que todos aprendem a pular.
+        run: |
+          python3 client/skills/TACO-skilling/scripts/skill_pin_gate.py \
+            --root client/skills --claude-root client --repo-root . --check
+      - name: skill principles — um papel implica uma obrigação
+        # O pin gate mede se uma skill ainda é VERDADEIRA. Este mede se ela é
+        # COERENTE com o papel que declara: quem decompõe ou despacha trabalho
+        # tem de reivindicar atomicamente (`decompose claim` — `ready` só LÊ, e
+        # duas sessões que o consultam recebem o MESMO subtask), e quem delega
+        # um veredito a um agente tem de passá-lo por um painel cego
+        # (`critic-panel`), porque auditor que assistiu à obra não é cego.
+        #
+        # A população é MEDIDA (skills que invocam o CLI do Touring), nunca uma
+        # lista chumbada — assim uma skill NOVA já nasce coberta. As regras são
+        # por SINAL, não por vocabulário: casar a palavra "cross-audit" no corpo
+        # acusou uma skill de redação de documentos (10 achados → 3 reais).
+        run: python3 client/skills/TACO-skilling/scripts/skill_principle_gate.py --root client/skills
+      - name: skill gates — o instrumento também regride em silêncio
+        # Os dois gates acima subiram sem suíte, e os DOIS já haviam regredido
+        # sem ninguém notar: o pin gate comparava só o primeiro nível (então
+        # `touring search symbols`, inexistente, passava enquanto `touring search`
+        # existisse — o regex já capturava o segundo nível e nenhum sítio o usava),
+        # e o principle gate acusava por vocabulário (10 achados, 7 falsos).
+        run: python3 -m pytest client/skills/TACO-skilling/scripts/test_skill_gates.py -q
+      - name: update-touring — a ferramenta de deploy é versionada e escopada
+        # O script que faz TODO deploy viveu até 18/08/2026 só em
+        # ~/.local/bin/, fora do controle de versão. Aqui não há
+        # ~/.local/bin para comparar, mas as invariantes de CONTEÚDO são
+        # verificáveis: raiz do workspace nunca apontando para a árvore
+        # congelada, e nenhum check de processo largo o bastante para
+        # matar o daemon de outro projeto (REGRA #19).
+        run: python3 -m pytest scripts/test_update_touring.py -q
       - name: file_size_gate — no .rs file bloat (>5k LOC)
         run: python3 docs/file_size_gate.py --check
       - name: gen_reference — docs/reference/ anti-drift
@@ -309,6 +386,15 @@ jobs:
       - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
         with:
           tool: nextest
+      # The e2e tier SPAWNS the product: `touring`, `touring-daemon`,
+      # `touring-hook`. `cargo nextest` compiles TEST targets only, so on a clean
+      # runner those binaries never exist and 13 tests died with
+      # `spawn touring: NotFound` / `daemon_socket missing` — every CI run on
+      # main since 02/08/2026. They passed locally only because a developer's
+      # `update-touring` had left `target/release/touring` behind, which is the
+      # definition of a test that verifies the machine instead of the commit.
+      - name: build product binaries (the e2e tier spawns them)
+        run: cargo build --workspace --bins
       - name: cargo nextest (ci profile, full suite)
         run: cargo nextest run --workspace --profile ci
 

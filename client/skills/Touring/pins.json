@@ -1,0 +1,225 @@
+{
+  "note": "Sources this skill makes claims about. Regenerate with skill_pin_gate.py --update AFTER reviewing the skill against the changed source — never before.",
+  "pins": [
+    {
+      "kind": "cli",
+      "ref": "adw",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "assist",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "ast",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "cortex",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "decompose",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "diary",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "doctor",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "e2e",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "evolution",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "factory",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "file-knowledge",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "gate-metrics",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "generate",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "gotcha",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "health-delta",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "index",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "inferlets",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "jobs",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "kpi",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "learning",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "memory",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "portfolio",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "pre-edit",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "pre-read",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "pre-write",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "profile",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "run",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "scout",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "search",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "serve",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "session",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "shadow",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "skip",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "source-change",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "ssr",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "status",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "synergy",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "tantivy",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "wiring",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/elite-50-quality.md",
+      "fingerprint": "11084fb5ee028005df1b753b34eacb99ddbee9fbdca1063da7ab725eedb9f873"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/touring-4-pillars.md",
+      "fingerprint": "68f3ed58212be854bba13e31ba0b40b103691a22291d987f14dbad891e868dee"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/touring-cli-index.md",
+      "fingerprint": "af91f643cd16089e6932a92d4add1d30926a52084cfc8dbeb7b238b430885deb"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/touring-decision-matrix.md",
+      "fingerprint": "e435711bc268d571d6009ae5f46f1d503e2a8aeb17714148bb20c9402512d3c9"
+    },
+    {
+      "kind": "file",
+      "ref": "skills/Touring/references/context-enrichment.md",
+      "fingerprint": "5a13c0c352b7f993fe3417d6d109c368494b8abbd165554e41da4f423b5c896c"
+    }
+  ]
+}

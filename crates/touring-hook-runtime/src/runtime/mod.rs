@@ -17,4 +17,6 @@ mod impls_symbols;
 pub use traits::*;
 
 // Re-export concrete types from hook_runtime for backward compatibility
-pub use crate::hook_runtime::{HookResponse, HookRuntime, HookTimer, hash_str, make_relative};
+pub use crate::hook_runtime::{
+    HookResponse, HookRuntime, HookTimer, hash_str, make_relative, sync_codetag_anchors,
+};

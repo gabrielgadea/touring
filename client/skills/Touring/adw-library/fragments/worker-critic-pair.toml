@@ -1,0 +1,94 @@
+# Fragment `worker-critic-pair` — ONE worker with ITS OWN dedicated critic, looping to a bar.
+#
+# The third parallelism shape in the sources, and the one the kit was missing:
+#   · sectioning  — N lenses over one target, concatenated          → `fanout-lenses`
+#   · voting      — the SAME target judged N times, tallied         → `critic-panel`
+#   · pairing     — N workers, each with its OWN critic partner     → this fragment
+#
+# Jay E's gauntlet loop is pairing: "fan out sub agents … each of them having a
+# critic partner in order to make sure that the parts they are creating are up to
+# spec to the standard that you set". The atomic unit is one pair, because that is
+# what composes: `[[use]]` this N times under N aliases and you have the fleet,
+# each pair iterating independently against its own bar.
+#
+# The bar is an INPUT, not a default. Jay E's own example compares against a named
+# exemplar ("utterly wowed when compared with the actual Call of Duty game"); a
+# vague bar makes the loop expensive and endless rather than demanding.
+#
+# Use this to POLISH, never to create. Without a brief the pair optimises hard
+# toward a direction nobody chose — the `critique_without_brief` lint says so.
+[fragment]
+description = "One worker paired with its own blind critic, iterating until a named bar is met"
+inputs = ["task", "artifact", "bar"]
+entry = "work"
+
+[node.work]
+type = "agent"
+driver = "claude"
+tier = "sota"
+# Reads the judge's verdict: without this the retry re-runs byte-identical and the
+# only thing that reliably changes is the bill.
+prompt = "Work on: {{inputs.task}}\n\nThe bar to hit: {{inputs.bar}}\n\nPrevious verdict on your work (empty on the first attempt): {{nodes.judge.summary}}"
+allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+# Headless: without this the worker stops to ask a human who is not there and
+# reports `pass` for asking — the failure that burned four real invocations in
+# chore-1784540624. The lint caught this fragment an hour after it shipped.
+permission_mode = "acceptEdits"
+session = "resume_on_fail"
+timeout_ms = 1800000
+on_pass = "critic"
+on_fail = "__exit_fail__"
+
+[node.work.persona]
+role = "builder"
+description = "Builds the artifact and hands it to a critic who never saw the reasoning"
+stance = "build_to_the_stated_bar"
+lens = "does this artifact meet the bar as written"
+scope = "{{inputs.artifact}}"
+bar = "{{inputs.bar}}"
+burden = "The bar is the contract. Meeting your own idea of good is not meeting it."
+refuses = ["declaring done because effort was spent", "changing the bar to fit the work"]
+forbids = ["reporting success without producing the artifact", "editing the critic or its gate"]
+blind_to = ["how the critic will phrase its verdict"]
+escalate_when = "the bar is unreachable as stated, or contradicts itself"
+emits = "a one-line statement of what changed, then the path of the artifact"
+
+[node.critic]
+type = "agent"
+driver = "claude"
+tier = "sota"
+# Judges the ARTIFACT, never the worker's account of it. A critic that reads the
+# worker's summary grades the story instead of the thing.
+prompt = "Judge this artifact against the bar. Examine it directly; you have not seen how it was made.\n\nArtifact: {{inputs.artifact}}\nBar: {{inputs.bar}}"
+allowed_tools = ["Read", "Grep", "Glob"]
+session = "fresh"
+timeout_ms = 900000
+on_pass = "judge"
+on_fail = "judge"
+
+[node.critic.persona]
+role = "paired-critic"
+description = "The one critic assigned to this worker; sees the artifact, never the reasoning"
+stance = "reject_by_default"
+lens = "the stated bar, taken literally"
+scope = "{{inputs.artifact}}"
+bar = "{{inputs.bar}}"
+burden = "Passing is the claim that needs evidence. Name what you checked."
+refuses = ["passing on effort", "inventing a bar the brief never set"]
+forbids = ["reading how the artifact was produced", "editing the artifact"]
+blind_to = ["the worker's session, reasoning and self-assessment"]
+escalate_when = "the artifact is missing, or the bar cannot be checked from here"
+emits = "VERDICT=PASS|REJECT|ESCALATE followed by REASON=<one line naming what was checked>"
+
+[node.judge]
+type = "gate"
+# The verdict arrives as a positional argument: a critic cannot inject shell by
+# writing one.
+command = ["bash", "-c", "v=$(printf '%s' \"$1\" | grep -m1 '^VERDICT=' || true); case \"$v\" in VERDICT=PASS*) echo \"$v\"; exit 0;; VERDICT=ESCALATE*) echo \"$v\"; exit 1;; VERDICT=REJECT*) echo \"$v\"; exit 1;; *) echo 'VERDICT=ESCALATE + REASON=no parseable verdict from the paired critic'; exit 1;; esac", "--", "{{nodes.critic.summary}}"]
+timeout_ms = 60000
+idempotent = true
+readonly = true
+verdict_contract = true
+on_pass = "__exit__"
+on_fail = "work"
+on_escalate = "__exit_fail__"

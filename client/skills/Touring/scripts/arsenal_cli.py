@@ -6,9 +6,55 @@ workspace_arch_diag.py so the whole arsenal parses flags + resolves a crate
 name/path identically — no per-script drift. Sibling module, imported the same
 way as report_contract (after each script's `sys.path.insert(parent)`).
 """
+import os
+import shutil
 from pathlib import Path
 
-RUST_ROOT = Path.home() / ".claude/rust"  # workspace root for bare crate-name lookup
+# Workspace root for bare crate-name lookup. The canonical source moved from
+# `~/.claude/rust` to `~/projects/touring` (per-project toolchain topology); the
+# legacy path is kept as a fallback so an older layout still resolves.
+_RUST_ROOT_CANDIDATES = (
+    Path.home() / "projects/touring",
+    Path.home() / ".claude/rust",
+)
+RUST_ROOT = next(
+    (p for p in _RUST_ROOT_CANDIDATES if (p / "crates").is_dir()),
+    _RUST_ROOT_CANDIDATES[0],
+)
+
+
+def resolve_quality_bin() -> str | None:
+    """Resolve the `touring-quality` binary, or None when it is not installed.
+
+    Resolution order: the `TOURING_QUALITY_BIN` override, then `PATH` (where
+    `update-touring` puts the `~/.local/bin` symlink), then the release target of
+    each known workspace root. Returning None instead of a stale absolute path
+    lets callers fail loud with an actionable message rather than silently
+    scoring nothing — the failure mode when `~/.claude/rust` went away.
+    """
+    override = os.environ.get("TOURING_QUALITY_BIN")
+    if override and Path(override).is_file():
+        return override
+    on_path = shutil.which("touring-quality")
+    if on_path:
+        return on_path
+    for root in _RUST_ROOT_CANDIDATES:
+        candidate = root / "target/release/touring-quality"
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def require_quality_bin() -> str:
+    """`resolve_quality_bin()` or exit with the remediation command."""
+    found = resolve_quality_bin()
+    if not found:
+        raise SystemExit(
+            "touring-quality binary not found (checked $TOURING_QUALITY_BIN, PATH, "
+            f"{', '.join(str(p / 'target/release') for p in _RUST_ROOT_CANDIDATES)}); "
+            "run `update-touring` first"
+        )
+    return found
 
 
 def resolve_crate(token: str) -> str | None:

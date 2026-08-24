@@ -63,7 +63,11 @@ def evaluate(marker: dict, manifests: dict) -> dict:
         return {"applicable": False, "flow": flow, "reason": "unknown flow — fail-open"}
     scope = marker.get("scope") or marker.get("cwd") or "."
     bundle = marker.get("bundle")
-    floor = float(marker.get("created_at") or 0) - MTIME_SLACK_SECONDS
+    # `flow_armed_at` when present (when THIS flow started); `created_at` only as
+    # fallback for markers written before 20/08/2026. Using `created_at` let the
+    # floor age with the marker instead of with the work.
+    floor = float(marker.get("flow_armed_at")
+                  or marker.get("created_at") or 0) - MTIME_SLACK_SECONDS
     missing, present = [], []
     for art in manifest.get("artifacts", []):
         pattern = _resolve_glob(str(art.get("glob", "")), scope, bundle)
@@ -97,6 +101,10 @@ def emit_compliance(marker: dict, report: dict) -> None:
         record = {
             "ts": time.time(),
             "cwd": marker.get("cwd"),
+            # Without this, concurrent sessions on one project were
+            # indistinguishable in the KPI and their records read as one
+            # erratic flow (defect #4, loop_marker.py).
+            "session_id": marker.get("session_id"),
             "flow": report.get("flow"),
             "complete": bool(report.get("complete")),
             "expected": report.get("expected", 0),

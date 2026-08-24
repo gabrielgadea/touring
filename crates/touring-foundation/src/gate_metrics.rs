@@ -578,7 +578,6 @@ pub struct GateMetrics {
     /// so emitted == followed by construction.
     pub hook_rewrite_applied_count: AtomicU64,
 
-
     /// Total sandbox executions that fell back to original tool execution
     /// due to timeout.
     ///
@@ -599,6 +598,22 @@ pub struct GateMetrics {
     pub tool_outputs_cleanup_deleted_count: AtomicU64,
     /// NEW-2 — Sandbox failures persisted via tee mode (exit_code != 0).
     pub sandbox_tee_persisted_count: AtomicU64,
+    /// W4 d4 — total `ctx_execute`/`touring run` executions journaled.
+    pub code_mode_runs_count: AtomicU64,
+    /// W4 d4 — MEASURED context savings of the spill: bytes produced by the
+    /// program minus bytes delivered inline (the counterfactual the model
+    /// would otherwise have paid in context).
+    pub code_mode_bytes_elided_total: AtomicU64,
+    /// C2-W0 d4/S-5.2 — daemon sub-calls made from inside a `touring run
+    /// --orchestrate` sandbox (requests carrying an `origin` of the form
+    /// `<run_id>:code:<n>`). Each one is exactly one MCP tool call that did
+    /// NOT round-trip through the model's context.
+    pub code_mode_subcalls_count: AtomicU64,
+    /// C2-W0 d4 — counterfactual bytes of those sub-calls: `len(payload)` +
+    /// `len(output)` summed at the dispatch site — the tool-parts that tool
+    /// calling WOULD have injected into the context (they died in the
+    /// sandbox instead). Exact sums, never estimates (A2 discipline).
+    pub code_mode_subcall_bytes_total: AtomicU64,
     /// NEW-1 — Per-command compression profile applications (any profile).
     pub compression_profile_applied_count: AtomicU64,
     // ── A2 (2026-08-08) — MEASURED context savings ─────────────────────────
@@ -921,6 +936,10 @@ impl Default for GateMetrics {
             tool_outputs_ttl_skip_count: AtomicU64::new(0),
             tool_outputs_cleanup_deleted_count: AtomicU64::new(0),
             sandbox_tee_persisted_count: AtomicU64::new(0),
+            code_mode_runs_count: AtomicU64::new(0),
+            code_mode_bytes_elided_total: AtomicU64::new(0),
+            code_mode_subcalls_count: AtomicU64::new(0),
+            code_mode_subcall_bytes_total: AtomicU64::new(0),
             compression_profile_applied_count: AtomicU64::new(0),
             compression_bytes_in_total: AtomicU64::new(0),
             compression_bytes_out_total: AtomicU64::new(0),
@@ -1284,6 +1303,29 @@ pub fn record_sandbox_tee_persisted() {
         .fetch_add(1, Ordering::Relaxed);
 }
 
+/// W4 d4 — record one code-mode execution and its measured context savings
+/// (`bytes_elided` = full output bytes − inline bytes delivered; 0 when the
+/// whole output fit inline).
+pub fn record_code_mode_run(bytes_elided: u64) {
+    let g = global();
+    g.code_mode_runs_count.fetch_add(1, Ordering::Relaxed);
+    g.code_mode_bytes_elided_total
+        .fetch_add(bytes_elided, Ordering::Relaxed);
+}
+
+/// C2-W0 d4/S-5.2 — record one orchestrate sub-call (a request carrying an
+/// `origin` of the form `<run_id>:code:<n>`). `payload_bytes + output_bytes`
+/// is the exact size of the tool-part that tool calling WOULD have injected
+/// into the model's context — it died in the sandbox instead. The exact-sum
+/// discipline mirrors A2: sums taken at the site that does the work, never
+/// multiplied estimates.
+pub fn record_code_mode_subcall(payload_bytes: u64, output_bytes: u64) {
+    let g = global();
+    g.code_mode_subcalls_count.fetch_add(1, Ordering::Relaxed);
+    g.code_mode_subcall_bytes_total
+        .fetch_add(payload_bytes.saturating_add(output_bytes), Ordering::Relaxed);
+}
+
 /// NEW-1 — record a compression profile application.
 pub fn record_compression_profile_applied() {
     global()
@@ -1341,8 +1383,7 @@ pub fn record_compression_savings(before: &str, after: &str) {
             .fetch_add(tin as u64, Ordering::Relaxed);
         m.measured_tokens_out_total
             .fetch_add(tout as u64, Ordering::Relaxed);
-        m.token_measured_event_count
-            .fetch_add(1, Ordering::Relaxed);
+        m.token_measured_event_count.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -1353,7 +1394,8 @@ pub fn record_compression_savings(before: &str, after: &str) {
 /// reported next to the totals instead of being assumed complete.
 pub fn record_routing_savings(bytes_in: u64, bytes_out: u64) {
     let m = global();
-    m.routed_bytes_in_total.fetch_add(bytes_in, Ordering::Relaxed);
+    m.routed_bytes_in_total
+        .fetch_add(bytes_in, Ordering::Relaxed);
     m.routed_bytes_out_total
         .fetch_add(bytes_out, Ordering::Relaxed);
     m.savings_event_count.fetch_add(1, Ordering::Relaxed);

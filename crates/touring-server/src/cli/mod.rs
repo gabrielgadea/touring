@@ -18,6 +18,15 @@ pub use crate::daemon_client::{DAEMON_READ_TIMEOUT_SECS, daemon_query};
 // build their own per-user paths keep resolving `super::libc_getuid`.
 pub(crate) use crate::daemon_client::libc_getuid;
 
+/// Serializes every env-mutating test in this crate: `std::env::set_var` /
+/// `remove_var` are `unsafe` in Rust 2024 because any other thread may be
+/// reading the process environment concurrently. Test binaries run cases on
+/// a thread pool, so "single-threaded" is only true when every accessor of
+/// the shared vars holds this guard. AUDITED 2026-08-12 (follow-up F-5):
+/// the audit these TODOs asked for is this lock + the call-site discipline.
+#[cfg(test)]
+pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub mod activity;
 pub mod assist;
 pub mod ast;
@@ -86,6 +95,7 @@ pub mod neural;
 pub mod overlay;
 pub mod pii;
 pub mod plugin;
+pub mod portfolio; // prior-art discovery keyed by purpose
 pub mod profile;
 pub mod project_toolchain; // F3 — channel ↔ lockfile ↔ .touring/bin state machine
 pub mod projects;
@@ -99,7 +109,6 @@ pub mod route; // C7 — RGAO task routing
 pub mod run; // R1 — touring run: code-mode via CLI over the ctx_execute sandbox
 pub mod saga;
 pub mod search_tools; // C3 — intent-ranked tool discovery
-pub mod portfolio; // prior-art discovery keyed by purpose
 pub mod search_unified;
 pub mod session;
 pub mod shadow;

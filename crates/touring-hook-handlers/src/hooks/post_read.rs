@@ -124,7 +124,7 @@ pub fn run(
         && let Ok(producers) = runtime
             .ctx
             .knowledge
-            .find_producer_modules_for_methods(&method_names, 4)
+            .find_producer_modules_for_methods(&method_names, 4, Some(&rel_path))
     {
         for (module_file, symbol_name) in &producers {
             let _ =
@@ -300,8 +300,7 @@ fn populate_wiring_map(
             // recording — otherwise a facade is credited with a consumer it only
             // forwards (08/08/2026, `KeywordSearch`).
             if let Some(resolved) = resolve_import_path(module_hint, "rust") {
-                let definer =
-                    crate::symbol_extractors::definer_module(&resolved, symbol_name);
+                let definer = crate::symbol_extractors::definer_module(&resolved, symbol_name);
                 let _ = db.record_consumer(&definer, symbol_name, rel_path, None);
             } else if module_hint.starts_with("crate::") {
                 // Crate-relative fallback (project-root resolution).
@@ -571,10 +570,43 @@ const x = require('lodash');"#;
         assert_eq!(hash.len(), 16); // 8 bytes = 16 hex chars
     }
 
+    /// A dotted Python module resolves to a file that EXISTS, or to nothing.
+    ///
+    /// This used to assert `Some("packages/kazuba_core/models.py")` for a path
+    /// that need not exist anywhere — the assertion pinned the defect in place.
+    /// Under it, `import pathlib` produced a producer row for `pathlib.py`:
+    /// 88 such phantoms measured in `analise` on 2026-08-19, 76 of them with
+    /// `symbol_kind='unknown'`, none reachable by any JOIN. The Rust arm two
+    /// tests down has probed the filesystem since the phantom-`super.rs` fix;
+    /// the Python arm never did.
     #[test]
     fn test_resolve_import_python() {
-        let path = resolve_import_path("packages.kazuba_core.models", "python");
-        assert_eq!(path, Some("packages/kazuba_core/models.py".to_string()));
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let pkg = tmp.path().join("packages").join("kazuba_core");
+        std::fs::create_dir_all(&pkg).expect("mkdir");
+        std::fs::write(pkg.join("models.py"), "class User: pass\n").expect("write");
+        let importer = tmp.path().join("app.py");
+        std::fs::write(&importer, "from packages.kazuba_core.models import User\n")
+            .expect("write");
+
+        let path = touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
+            "packages.kazuba_core.models",
+            "python",
+            importer.to_str(),
+        );
+        assert_eq!(
+            path.as_deref(),
+            Some(pkg.join("models.py").to_string_lossy().as_ref()),
+            "an existing module resolves to its file"
+        );
+
+        // And a stdlib import, which is a file in nobody's project, resolves to
+        // nothing rather than to a producer row for a file that is not there.
+        assert_eq!(
+            resolve_import_path("pathlib", "python"),
+            None,
+            "a stdlib import must not become a phantom producer"
+        );
     }
 
     #[test]

@@ -457,12 +457,22 @@ mod tests {
         use std::sync::atomic::Ordering;
         let path = "/wave18/counter_test.rs";
         let key = make_key("cli_ast_meta", &format!("{path}|skeleton"));
-        put(key, "v".to_string());
 
         let before = crate::gate_metrics::global()
             .query_cache_invalidate_count
             .load(Ordering::Relaxed);
-        let removed = invalidate_by_path(path);
+        // The cache is process-global: a concurrent test can evict the entry
+        // between the put and the invalidate (observed flaking 2026-08-23).
+        // Bounded retries — the put→invalidate window is nanoseconds, and one
+        // successful round is all the counter contract needs.
+        let mut removed = 0u64;
+        for _ in 0..10 {
+            put(key.clone(), "v".to_string());
+            removed = invalidate_by_path(path);
+            if removed >= 1 {
+                break;
+            }
+        }
         assert!(removed >= 1);
         let after = crate::gate_metrics::global()
             .query_cache_invalidate_count

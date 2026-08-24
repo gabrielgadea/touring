@@ -1,0 +1,502 @@
+#!/usr/bin/env bash
+# update-touring — atomic rebuild + dual-target install + daemon restart
+#
+# CANONICAL LOCATION: <workspace>/scripts/update-touring, reached on PATH through
+# ~/.local/bin/update-touring, a symlink — the same shape already used for the
+# touring/touring-hook/touring-daemon binaries. Until 2026-08-18 this file lived
+# ONLY in ~/.local/bin: the tool that performs every deploy was itself outside
+# version control, unreviewable and unable to survive a new machine.
+#
+# Single source of truth: <workspace>/target/release/{touring,touring-hook,touring-daemon}
+# where <workspace> is derived from THIS FILE's location (see RUST_WORKSPACE).
+# Symlink targets:
+#   - ~/.local/bin/{touring,touring-hook,touring-daemon}      (shell PATH)
+#   - ~/.claude/hooks/{touring,touring-hook,touring-daemon}   (Claude Code hooks)
+#
+# Usage:
+#   update-touring                       # full pipeline (kill → build → install → restart → verify)
+#   update-touring --clean               # cargo clean before build
+#   update-touring --no-build            # only refresh symlinks (no rebuild)
+#   update-touring --no-kill             # skip daemon shutdown (rebuild while daemon runs — risky)
+#   update-touring --no-restart          # build + install but do not auto-restart daemon
+#   update-touring --verify-only         # only run health checks (no build, no install, no restart)
+#
+# Exit codes:
+#   0  success
+#   1  argument error
+#   2  build failed
+#   3  install failed (symlinks)
+#   4  daemon restart/health failed
+#
+# Wave 2026-04-26 fixes (relative to v1):
+#   P1: dual install — ~/.claude/hooks/ now updated alongside ~/.local/bin/
+#   P2: removed libclaude_learning_kernel.so symlink (deprecated, file no longer built)
+#   P3: socket/lockfile cleanup + auto-restart daemon (was: "auto-start on next CLI call")
+#   P4: backup of old binary symlink target captured to .old siblings
+#   P5: post-update verification — /proc/<pid>/exe mtime ≥ build mtime confirms hot binary
+
+set -euo pipefail
+
+# ── Config ─────────────────────────────────────────────────────────────
+# Canonical source root. Overridable via TOURING_WORKSPACE_ROOT (Pln2 F4:
+# the source is moving to ~/projects/touring; the env var is the transition
+# switch and the fallback keeps the legacy root working until cutover).
+# The workspace is derived from where THIS script lives — the whole point of
+# versioning it: the tool and the tree it builds can no longer disagree.
+# TOURING_WORKSPACE_ROOT still overrides (transition + tests). What is gone is
+# the old DEFAULT of ~/.claude/rust, the FROZEN pre-move root: from any shell
+# that did not export the env var — i.e. any ordinary terminal — this script
+# rebuilt and installed the frozen tree, silently shipping stale binaries.
+__update_touring_self="$(readlink -f "${BASH_SOURCE[0]}")"
+readonly RUST_WORKSPACE="${TOURING_WORKSPACE_ROOT:-$(cd "$(dirname "${__update_touring_self}")/.." && pwd)}"
+if [[ ! -f "${RUST_WORKSPACE}/Cargo.toml" ]]; then
+    echo "[update-touring] FATAL: ${RUST_WORKSPACE} is not a cargo workspace" >&2
+    exit 1
+fi
+# Propagate the resolved root to every child (daemon spawn included): the
+# runtime fallbacks (workspace_root_marker etc.) still point at the FROZEN
+# legacy root, so a daemon spawned without this env silently operates on the
+# wrong tree (cross-audit finding F-A, 2026-07-24).
+export TOURING_WORKSPACE_ROOT="${RUST_WORKSPACE}"
+readonly RELEASE_DIR="${RUST_WORKSPACE}/target/release"
+readonly BIN_TARGETS=(
+    "${HOME}/.local/bin"
+    "${HOME}/.claude/hooks"
+)
+readonly BINARIES=(touring touring-hook touring-daemon)
+# UID derived, never hardcoded (cross-audit 2026-08-23): a literal `-1000`
+# breaks every socket/lock/PID resolution on any machine whose uid differs —
+# global_daemon_pid would never find the socket and the kill/verify paths
+# would silently act on nothing (the exact drift class §2.2 exists to close).
+DAEMON_SOCKET="/tmp/touring-daemon-$(id -u).sock"
+DAEMON_LOCK="/tmp/touring-daemon-$(id -u).lock"
+readonly DAEMON_SOCKET DAEMON_LOCK
+readonly LOG_FILE="${HOME}/.claude/touring/update.log"
+# Sprint 4.5 (2026-05-23): dedicated stderr capture for daemon — separate
+# from LOG_FILE so panics + RUST_BACKTRACE land in a clean, isolated stream
+# that survives across restarts and is easy to grep without script noise.
+readonly DAEMON_STDERR="${HOME}/.claude/touring/daemon-stderr.log"
+readonly DAEMON_CRASH_LOG="${HOME}/.claude/touring/daemon-crash.jsonl"
+# Stderr rotation threshold — 10 MiB. Anything bigger gets renamed to .old
+# at the start of each daemon spawn (one generation kept).
+readonly DAEMON_STDERR_MAX_BYTES=10485760
+
+# ── Args ───────────────────────────────────────────────────────────────
+CLEAN=false
+NO_KILL=false
+NO_BUILD=false
+NO_RESTART=false
+VERIFY_ONLY=false
+
+for arg in "$@"; do
+    case "${arg}" in
+        --clean)        CLEAN=true ;;
+        --no-kill)      NO_KILL=true ;;
+        --no-build)     NO_BUILD=true ;;
+        --no-restart)   NO_RESTART=true ;;
+        --verify-only)  VERIFY_ONLY=true ;;
+        -h|--help)
+            sed -n '2,30p' "$0"
+            exit 0
+            ;;
+        *)
+            echo "[update-touring] Unknown arg: ${arg}" >&2
+            exit 1
+            ;;
+    esac
+done
+
+mkdir -p "$(dirname "${LOG_FILE}")"
+
+# ── Helpers ────────────────────────────────────────────────────────────
+log() {
+    local msg="[update-touring] $*"
+    echo "${msg}"
+    echo "$(date -Iseconds) ${msg}" >> "${LOG_FILE}"
+}
+
+err() {
+    log "ERROR: $*" >&2
+}
+
+# Resolve the PID of the GLOBAL daemon — the one that owns ${DAEMON_SOCKET}.
+#
+# Every process check in this script used to ask `pgrep -f "touring-daemon$"`,
+# i.e. "does ANY process named touring-daemon exist?". That was true when the
+# daemon was a singleton. Since the per-project topology (Pln2), each pinned
+# project runs its OWN daemon on its OWN socket, so the broad question answers
+# "yes" for reasons that have nothing to do with this machine's global daemon —
+# and every caller drew a wrong conclusion from it (see the call sites).
+#
+# REGRA #19: identify the OWNER of the resource; never pattern-match a name.
+# Prints the pid and returns 0 when a live global daemon exists; returns 1
+# otherwise (and prints nothing).
+global_daemon_pid() {
+    local pid pidfile
+    if command -v lsof >/dev/null 2>&1 && [[ -S "${DAEMON_SOCKET}" ]]; then
+        pid="$(lsof -t "${DAEMON_SOCKET}" 2>/dev/null | head -1 || true)"
+        if [[ -n "${pid}" && -d "/proc/${pid}" ]]; then
+            printf '%s' "${pid}"
+            return 0
+        fi
+    fi
+    # No lsof (or a stale socket file): fall back to the canonical PID file,
+    # verified through /proc so a recycled pid can never be mistaken for ours.
+    for pidfile in "/run/user/$(id -u)/touring-daemon.pid" "/tmp/touring-daemon-$(id -u).pid"; do
+        [[ -r "${pidfile}" ]] || continue
+        pid="$(cat "${pidfile}" 2>/dev/null || true)"
+        [[ -n "${pid}" && -d "/proc/${pid}" ]] || continue
+        [[ "$(cat "/proc/${pid}/comm" 2>/dev/null || true)" == "touring-daemon" ]] || continue
+        printf '%s' "${pid}"
+        return 0
+    done
+    return 1
+}
+
+# Kill daemon gracefully. REGRA #19: prefer the canonical `daemon-ctl stop`,
+# which SIGTERMs ONLY the singleton (sibling MCP bridges / hook handlers stay
+# alive). The fallback below covers an installed `touring` that predates
+# daemon-ctl. It used to kill every pid matching `touring-daemon$` — reasoning
+# written when the daemon WAS a singleton, and left unrevised when the
+# per-project topology made that pattern match the daemons of other projects.
+# It now stops exactly one pid: the owner of this machine's global socket.
+kill_daemon() {
+    if "${HOME}/.local/bin/touring" daemon-ctl stop >/dev/null 2>&1; then
+        log "daemon stopped via daemon-ctl (siblings untouched)"
+        return 0
+    fi
+    log "daemon-ctl unavailable — legacy fallback (GLOBAL daemon only)"
+    local pid
+    pid="$(global_daemon_pid || true)"
+    if [[ -z "${pid}" ]]; then
+        log "no running global touring daemon"
+        return 0
+    fi
+    log "stopping global touring daemon: ${pid}"
+    kill -TERM "${pid}" 2>/dev/null || true
+    for _ in $(seq 1 10); do
+        if ! global_daemon_pid >/dev/null; then
+            log "daemon stopped gracefully"
+            return 0
+        fi
+        sleep 0.5
+    done
+    log "graceful shutdown timed out — force killing ${pid}"
+    kill -9 "${pid}" 2>/dev/null || true
+    sleep 0.5
+}
+
+# Remove stale socket + lockfile (must run with daemon stopped).
+cleanup_runtime_state() {
+    # The guard is scoped to the socket we are about to delete. Asking "is ANY
+    # touring-daemon running?" also matched the per-project daemons of OTHER
+    # projects (analise/konverter/transferegov), which own DIFFERENT sockets — so
+    # on any machine with a pinned project this function refused to run at all
+    # and the cleanup it exists to perform silently never happened, while the log
+    # carried an ERROR that was nothing of the sort. REGRA #19: identify the
+    # OWNER of the resource, never pattern-match a process name.
+    local owner
+    owner="$(global_daemon_pid || true)"
+    if [[ -n "${owner}" ]]; then
+        # Informational, deliberately NOT an error: a live daemon holding its own
+        # socket means there is nothing STALE to clean, which is the only thing
+        # this function is for. It logged at ERROR before and fired on every
+        # healthy run — and an ERROR that is routine teaches the reader to skim
+        # past the ones that are not. Both callers ignore the return value.
+        log "socket held by live daemon PID ${owner} — nothing stale to clean"
+        return 1
+    fi
+    [[ -e "${DAEMON_SOCKET}" ]] && { rm -f "${DAEMON_SOCKET}" && log "removed stale socket"; }
+    [[ -e "${DAEMON_LOCK}" ]]   && { rm -f "${DAEMON_LOCK}"   && log "removed stale lock"; }
+    return 0
+}
+
+# Cargo build (release, workspace).
+do_build() {
+    cd "${RUST_WORKSPACE}"
+    if [[ "${CLEAN}" == true ]]; then
+        log "cargo clean (full)"
+        cargo clean
+    fi
+    log "cargo build --release --workspace"
+    if ! cargo build --release --workspace 2>&1 | tee -a "${LOG_FILE}"; then
+        err "cargo build failed — aborting"
+        return 2
+    fi
+}
+
+# Backup current symlink target (if it exists) to a .old sibling.
+backup_symlink() {
+    local link="$1"
+    if [[ -L "${link}" ]]; then
+        local current_target
+        current_target=$(readlink "${link}")
+        if [[ -e "${current_target}" ]]; then
+            cp -f "${current_target}" "${link}.old" 2>/dev/null || true
+        fi
+    fi
+}
+
+# Re-create symlinks in every target directory (idempotent).
+#
+# F2 (2026-07-24, W12.6): `~/.claude/hooks/touring-hook` is NOT a symlink
+# anymore — it gets the walk-up SHIM (per-project bin → user toolchain → dev
+# fallback), so opted-in projects run THEIR OWN toolchain's hook binary while
+# everyone else falls through to the dev channel exactly as before. The shim's
+# dev fallback is `~/.local/bin/touring-hook`, which this function still
+# symlinks — so the shim always resolves after an update.
+install_symlinks() {
+    log "installing symlinks across ${#BIN_TARGETS[@]} target dirs"
+    local shim_src="${RUST_WORKSPACE}/scripts/hooks/touring-hook-shim.sh"
+    for target_dir in "${BIN_TARGETS[@]}"; do
+        if [[ ! -d "${target_dir}" ]]; then
+            log "  [SKIP] ${target_dir} does not exist"
+            continue
+        fi
+        for bin in "${BINARIES[@]}"; do
+            local src="${RELEASE_DIR}/${bin}"
+            local dst="${target_dir}/${bin}"
+            if [[ "${bin}" == "touring-hook" && "${target_dir}" == "${HOME}/.claude/hooks" && -f "${shim_src}" ]]; then
+                backup_symlink "${dst}"
+                rm -f "${dst}"
+                cp "${shim_src}" "${dst}"
+                chmod +x "${dst}"
+                log "  ${dst} = walk-up shim (from ${shim_src})"
+                continue
+            fi
+            if [[ ! -f "${src}" ]]; then
+                err "  ${src} not built — symlink not created"
+                continue
+            fi
+            backup_symlink "${dst}"
+            ln -sf "${src}" "${dst}"
+            log "  ${dst} -> ${src}"
+        done
+    done
+}
+
+# Start touring daemon detached.
+#
+# Sprint 4.5 (2026-05-23) instrumentation — every daemon spawn now sets:
+#   - RUST_BACKTRACE=full           (humans-readable backtrace on panic)
+#   - RUST_LOG (overridable)        (info,touring_hooks::daemon=debug by default)
+#   - stderr → DAEMON_STDERR        (isolated from script log; panic msgs +
+#                                    backtrace go here unbuffered)
+#   - stdout → LOG_FILE             (operational messages; unchanged)
+#   - setsid + </dev/null           (robust detach; no controlling terminal,
+#                                    so the parent shell exiting won't SIGHUP
+#                                    the daemon — eliminates a known cause of
+#                                    silent death under multi-session CC load)
+#
+# Stderr is rotated on each spawn if it exceeds DAEMON_STDERR_MAX_BYTES; one
+# generation kept as .old (similar pattern to logrotate copytruncate=false).
+start_daemon() {
+    # Scoped to the global socket: a per-project daemon being up is not a reason
+    # to skip starting ours. With the broad check, a machine with any pinned
+    # project would report "already running" and leave the global daemon down.
+    if global_daemon_pid >/dev/null; then
+        log "daemon already running — skip start"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "${DAEMON_STDERR}")"
+    # Rotate stderr if it's grown unwieldy (one generation kept).
+    if [[ -f "${DAEMON_STDERR}" ]]; then
+        local sz
+        sz=$(stat -c%s "${DAEMON_STDERR}" 2>/dev/null || echo 0)
+        if (( sz > DAEMON_STDERR_MAX_BYTES )); then
+            mv -f "${DAEMON_STDERR}" "${DAEMON_STDERR}.old"
+            log "rotated daemon-stderr.log (was ${sz} bytes)"
+        fi
+    fi
+
+    log "starting touring daemon (dedicated binary, Sprint 4.5 instrumented)"
+    log "  stderr → ${DAEMON_STDERR}"
+    log "  crash log → ${DAEMON_CRASH_LOG}"
+
+    # Sprint 4.6 Etapa G: opt-in strace wrapper for OS-level death forensics.
+    # Activated when TOURING_DAEMON_STRACE=1 in env. The wrapper:
+    #   - traces signal, exit, exit_group, abort, kill, tgkill, tkill syscalls
+    #   - captures forensics that Rust panic_log cannot see (SIGKILL, libc abort)
+    #   - logs to ~/.claude/touring/daemon-strace.log
+    # Adds ~20-30% CPU overhead — use only for diagnostic runs.
+    local daemon_launcher
+    if [[ "${TOURING_DAEMON_STRACE:-0}" == "1" ]]; then
+        if [[ -x "${HOME}/.local/bin/touring-daemon-strace" ]]; then
+            daemon_launcher="${HOME}/.local/bin/touring-daemon-strace"
+            log "  STRACE WRAPPED → ${HOME}/.claude/touring/daemon-strace.log"
+        else
+            err "TOURING_DAEMON_STRACE=1 but wrapper missing — falling back to direct spawn"
+            daemon_launcher="${HOME}/.local/bin/touring-daemon"
+        fi
+    else
+        daemon_launcher="${HOME}/.local/bin/touring-daemon"
+    fi
+
+    # setsid: new session → daemon survives parent SIGHUP / shell exit.
+    # </dev/null: explicit stdin close.
+    # 2>>: append stderr to dedicated file (unbuffered when daemon flushes).
+    # RUST_BACKTRACE=full: full panic backtrace (Rust profile keeps line-tables-only,
+    #   which is sufficient for file:line — full traces still resolve to readable text).
+    # RUST_LOG: per-call override via TOURING_DAEMON_LOG; default = info + daemon=debug.
+    setsid env \
+        RUST_BACKTRACE=full \
+        RUST_LOG="${TOURING_DAEMON_LOG:-info,touring_hooks::daemon=debug}" \
+        TOURING_CRASH_LOG_PATH="${DAEMON_CRASH_LOG}" \
+        nohup "${daemon_launcher}" \
+        </dev/null \
+        >>"${LOG_FILE}" \
+        2>>"${DAEMON_STDERR}" &
+    disown
+    # Wait up to 5s for socket to appear (daemon boot).
+    for _ in $(seq 1 10); do
+        if [[ -S "${DAEMON_SOCKET}" ]]; then
+            log "daemon socket ready"
+            return 0
+        fi
+        sleep 0.5
+    done
+    err "daemon socket did not appear within 5s — check ${DAEMON_STDERR}"
+    return 4
+}
+
+# Verify daemon health + binary mtime sync.
+verify_health() {
+    log "running touring doctor"
+    local doctor_json
+    if ! doctor_json=$("${HOME}/.local/bin/touring" doctor -j 2>/dev/null); then
+        err "touring doctor failed (daemon not responding)"
+        return 4
+    fi
+
+    local failed
+    failed=$(echo "${doctor_json}" | python3 -c '
+import json, sys
+try:
+    checks = json.load(sys.stdin)
+    fails = [c for c in checks if c.get("status") != "ok"]
+    if fails:
+        print(",".join(c["name"] for c in fails))
+except Exception:
+    print("parse_error")
+' 2>/dev/null || echo "parse_error")
+
+    if [[ -n "${failed}" ]] && [[ "${failed}" != "parse_error" ]]; then
+        log "WARN: degraded checks: ${failed}"
+    elif [[ "${failed}" == "parse_error" ]]; then
+        log "WARN: could not parse doctor output"
+    else
+        log "doctor: 5/5 OK"
+    fi
+
+    # Verify the GLOBAL daemon runs the fresh binary (not a deleted-from-disk
+    # one). Scoped deliberately: this pipeline replaces the dev binaries, not the
+    # per-project toolchain snapshots, so a sibling daemon's exe is none of its
+    # business — reporting on those turned an unrelated process into a failure.
+    local pid
+    pid="$(global_daemon_pid || true)"
+    if [[ -n "${pid}" ]]; then
+        local exe
+        exe=$(readlink -f "/proc/${pid}/exe" 2>/dev/null || echo "?")
+        if [[ "${exe}" == *"(deleted)"* ]]; then
+            err "  PID ${pid}: running deleted binary — restart needed"
+            return 4
+        fi
+        log "  PID ${pid}: ${exe}"
+    fi
+    return 0
+}
+
+# Force a full daemon restart cycle (kill → cleanup → start → verify).
+#
+# Used by `verify_or_restart` when the running daemon is detected to be
+# holding a deleted-on-disk binary (post-rebuild scenario where another
+# CLI call auto-spawned the daemon before the install_symlinks step
+# completed). Idempotent and bounded: caps at MAX_RESTART_ATTEMPTS to
+# prevent infinite loops if the new binary is broken.
+force_daemon_restart() {
+    log "force_daemon_restart: cycling daemon to pick up fresh binary"
+    kill_daemon
+    cleanup_runtime_state || true
+    if ! start_daemon; then
+        err "force_daemon_restart: start_daemon failed"
+        return 4
+    fi
+    return 0
+}
+
+# verify_or_restart: like verify_health but triggers force_daemon_restart()
+# on the first detection of a deleted-binary daemon, then re-verifies.
+# Returns 0 on success, 4 on persistent failure.
+#
+# This is the recommended entry point from the main pipeline — it makes
+# the pipeline self-healing instead of leaving the operator to manually
+# restart on a "WARN: health check failed" message.
+verify_or_restart() {
+    local max_attempts=2
+    local attempt=1
+    while (( attempt <= max_attempts )); do
+        if verify_health; then
+            return 0
+        fi
+        local rc=$?
+        if (( rc == 4 )) && (( attempt < max_attempts )); then
+            log "verify_or_restart: attempt ${attempt}/${max_attempts} failed — restarting daemon"
+            force_daemon_restart || return 4
+            sleep 1
+            attempt=$((attempt + 1))
+            continue
+        fi
+        return ${rc}
+    done
+    return 4
+}
+
+# ── Pipeline ───────────────────────────────────────────────────────────
+log "================================================================="
+log "update-touring start  CLEAN=${CLEAN} NO_BUILD=${NO_BUILD} NO_KILL=${NO_KILL} NO_RESTART=${NO_RESTART} VERIFY_ONLY=${VERIFY_ONLY}"
+
+if [[ "${VERIFY_ONLY}" == true ]]; then
+    verify_health
+    exit $?
+fi
+
+if [[ "${NO_KILL}" == false ]]; then
+    kill_daemon
+    cleanup_runtime_state || true
+fi
+
+if [[ "${NO_BUILD}" == false ]]; then
+    do_build || exit 2
+fi
+
+install_symlinks || exit 3
+
+if [[ "${NO_RESTART}" == false ]] && [[ "${NO_KILL}" == false ]]; then
+    # REGRA #19 canonical restart. `daemon-ctl restart` SIGTERMs the singleton
+    # (whether it holds a fresh OR a deleted-on-disk binary), force-kills only
+    # that PID if it won't drain, then respawns the FRESH touring-daemon — and
+    # never touches sibling MCP bridges. Fixes the prior bug: a hook auto-spawned
+    # a daemon during the multi-minute build, so `start_daemon` saw a live
+    # process and logged "skip start", leaving the STALE (deleted) daemon in
+    # place (operator had to `daemon-ctl restart` by hand). `start_daemon` is now
+    # scoped to the global socket, which closes the same hole from the other end.
+    if "${HOME}/.local/bin/touring" daemon-ctl restart >/dev/null 2>&1; then
+        log "daemon restarted via daemon-ctl (fresh binary, siblings untouched)"
+    else
+        log "daemon-ctl restart unavailable — legacy start_daemon fallback"
+        start_daemon || exit 4
+        sleep 1
+    fi
+    # Belt-and-suspenders: verify_or_restart re-checks doctor + deleted-inode and
+    # self-heals via force_daemon_restart() if anything is somehow still stale.
+    if ! verify_or_restart; then
+        err "verify_or_restart failed after rebuild — operator intervention required"
+        exit 4
+    fi
+fi
+
+log "done"
+log "  - Reconnect MCP via /mcp dialog if Claude Code session is open"
+log "  - Logs: ${LOG_FILE}"
+exit 0

@@ -1244,7 +1244,7 @@ fn check_rust_antipatterns(new_string: &str) -> Vec<String> {
     let mut warnings: Vec<String> = Vec::new();
 
     // Pattern 1: Unsafe UTF-8 string slicing — &s[..N] or &s[..expr.min(N)]
-    // Matches: &foo[..100], &s[..s.len().min(N)], &bar[..bar.len().min(200)]
+    // Matches: &foo[..100], &s[..s.len().min(N)], truncate_str(&bar, 200)
     if new_string.contains("[..") && !new_string.contains("truncate_str") {
         // Check if it looks like string slicing (not array/vec slicing)
         let lines: Vec<&str> = new_string.lines().collect();

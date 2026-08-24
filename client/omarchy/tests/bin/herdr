@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Mock herdr CLI for testing herdr_branch.sh.
+# Records all invocations in $HERDR_MOCK_LOG (default /tmp/herdr_mock.log).
+# Behaviour:
+#   agent wait  → prints $HERDR_MOCK_STATE (default: "done")
+#   pane read   → prints "mock pane output"
+#   workspace create → prints "mock-ws-id-$$"
+#   everything else → exit 0
+
+set -euo pipefail
+
+HERDR_MOCK_LOG="${HERDR_MOCK_LOG:-/tmp/herdr_mock.log}"
+HERDR_MOCK_STATE="${HERDR_MOCK_STATE:-done}"
+
+# Record argv
+printf '%s\n' "$*" >> "${HERDR_MOCK_LOG}"
+
+# Dispatch based on subcommand.
+CMD="${1:-}"
+SUB="${2:-}"
+
+case "${CMD}" in
+    workspace)
+        case "${SUB}" in
+            create)
+                # Mirror the real herdr 0.8.0 response shape — the runner reads
+                # .result.root_pane.pane_id out of it, because the pane id is NOT
+                # always w1:p1 (the second workspace of a server is w2:p1).
+                # HERDR_MOCK_PANE lets a test drive the unhappy path.
+                if [[ "${HERDR_MOCK_PANE:-w1:p1}" == "none" ]]; then
+                    printf '{"id":"cli:workspace:create","result":{"type":"workspace_created"}}\n'
+                else
+                    printf '{"id":"cli:workspace:create","result":{"root_pane":{"pane_id":"%s"},"workspace":{"workspace_id":"w1"},"type":"workspace_created"}}\n' \
+                        "${HERDR_MOCK_PANE:-w1:p1}"
+                fi
+                ;;
+            *)
+                ;;
+        esac
+        ;;
+    agent)
+        case "${SUB}" in
+            wait)
+                # Print the configured state so herdr_branch.sh can parse it.
+                echo "${HERDR_MOCK_STATE}"
+                ;;
+            read)
+                # herdr 0.8.0 exposes BOTH `agent read` and `pane read`; the
+                # runner uses `agent read` because it names the agent it created
+                # and never learns a pane id.
+                echo "mock pane output"
+                ;;
+            start|prompt|explain)
+                # No-op: exit 0.
+                ;;
+            *)
+                ;;
+        esac
+        ;;
+    pane)
+        case "${SUB}" in
+            read)
+                echo "mock pane output"
+                ;;
+            *)
+                ;;
+        esac
+        ;;
+    *)
+        ;;
+esac
+
+exit 0

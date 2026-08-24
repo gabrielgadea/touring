@@ -1,0 +1,11 @@
+{
+  "phase": "W6",
+  "entities": [
+    {
+      "entity_id": "phase:W6",
+      "type": "phase",
+      "description": "D9 CODE-COMPLETE: scripts/kv_cache_audit.py \u2014 roda cada hook SessionStart/UserPromptSubmit 2x com payload congelado e diffa (metodo do postmortem dsh); MEDIDO: 10 hooks, 1 instavel (session_startup_intelligence.py); estabilizado (timestamps bucketizados recente/hoje/Nd, composite 4->2 casas, rodape sem ms exato) -> re-auditado 10/10 ESTAVEIS. --assert-stable e o gate de CI. Pendencia de decisao Gabriel: timestamp-por-prompt [HH:MM] do UserPromptSubmit (varia por minuto; util p/ humano \u2014 trade-off UX vs cache)"
+    }
+  ],
+  "relations": []
+}

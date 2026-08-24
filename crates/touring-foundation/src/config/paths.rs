@@ -314,6 +314,100 @@ impl TouringConfig {
         }
     }
 
+    /// The project root a canonical knowledge/symbols DB path belongs to —
+    /// the inverse of [`Self::knowledge_db_canonical`].
+    ///
+    /// It lives beside its mirror image on purpose: whoever changes the layout
+    /// `<root>/.claude/touring/<name>.db` has to change both, and having them
+    /// in two crates is how they drift.
+    ///
+    /// Used to canonicalize wiring paths against the root of the DATABASE
+    /// rather than of the process. Until 2026-08-19 that root came from
+    /// `TOURING_WORKSPACE_ROOT`, which every per-project daemon inherits from
+    /// the session that spawned it — so one project's paths were normalized
+    /// against another's root, and a DELETE keyed to the same marker was aimed
+    /// at the wrong project's rows.
+    ///
+    /// Both directory names are CHECKED rather than assumed: three components
+    /// up from an arbitrary path is meaningless, and for a shallow path it is
+    /// `/`, which would make every absolute path "relative". A relative input
+    /// resolves against the current directory, because that is the shape the
+    /// daemon actually opens (`.claude/touring/knowledge.db` with its cwd
+    /// pinned to the project). `$HOME` is refused: `~/.claude/touring/*.db` is
+    /// the GLOBAL store, whose rows span projects and have no single root.
+    ///
+    /// Returns the root WITH a trailing separator, ready for `strip_prefix`,
+    /// or `None` when no root can be derived.
+    #[must_use]
+    pub fn project_root_for_db(db_path: &std::path::Path) -> Option<String> {
+        let resolved;
+        let db_path = if db_path.is_absolute() {
+            db_path
+        } else {
+            resolved = std::env::current_dir().ok()?.join(db_path);
+            resolved.as_path()
+        };
+        let touring_dir = db_path.parent()?;
+        if touring_dir.file_name()? != "touring" {
+            return None;
+        }
+        let claude_dir = touring_dir.parent()?;
+        if claude_dir.file_name()? != ".claude" {
+            return None;
+        }
+        let root = claude_dir.parent()?;
+        if root.as_os_str().is_empty() {
+            return None;
+        }
+        if std::env::var_os("HOME").is_some_and(|home| root == std::path::Path::new(&home)) {
+            return None;
+        }
+        let mut root = root.to_string_lossy().into_owned();
+        if !root.ends_with('/') {
+            root.push('/');
+        }
+        Some(root)
+    }
+
+    /// Whether non-Rust source participates in the wiring graph **for one
+    /// project root**.
+    ///
+    /// The flag was a process-global `OnceLock` over `TOURING_POLYGLOT_WIRING`,
+    /// which forced an all-or-nothing answer: a Python codebase either got
+    /// Rust-only wiring, or every project served by the machine flipped at
+    /// once. But whether Python counts as wiring is a property of the PROJECT,
+    /// exactly as its canonical root is — so it is resolved from the project,
+    /// per database.
+    ///
+    /// Order: `TOURING_POLYGLOT_WIRING` (the historical escape hatch — an
+    /// explicit env override still wins, which is what keeps the polyglot PoC
+    /// tests and CI deterministic) → `polyglot_wiring` in the Project layer
+    /// (`<root>/.touring/touring.toml`) → User layer → `false`.
+    ///
+    /// `None` root (in-memory DB, non-canonical layout) resolves to the env
+    /// alone, then `false`. Reading up to three TOML files is fine because
+    /// callers resolve this ONCE per database open and keep the `bool` — the
+    /// write gate runs per symbol and must stay a field read.
+    #[must_use]
+    pub fn polyglot_wiring_for_root(project_root: Option<&std::path::Path>) -> bool {
+        if let Ok(raw) = std::env::var("TOURING_POLYGLOT_WIRING") {
+            return raw == "1" || raw.eq_ignore_ascii_case("true");
+        }
+        let Some(root) = project_root else {
+            return false;
+        };
+        let system = Some(PathBuf::from("/etc/touring/config.toml"));
+        let user = std::env::var("HOME")
+            .ok()
+            .map(|h| PathBuf::from(h).join(".touring").join("config.toml"));
+        let project = Some(root.join(".touring").join("touring.toml"));
+        // Layer reads fail OPEN (missing/malformed contributes nothing), so a
+        // broken toml can never turn wiring on by accident.
+        TouringConfig::detect_layered_from(system, user, project)
+            .map(|c| c.polyglot_wiring)
+            .unwrap_or(false)
+    }
+
     /// Canonical path for the consolidated memory DB.
     ///
     /// Always resolves to `<project_root>/.claude/touring/memory.db`.
@@ -606,5 +700,137 @@ mod normalize_project_root_tests {
             relative, home,
             "relative cwd must resolve to the global (home)"
         );
+    }
+}
+
+#[cfg(test)]
+mod project_root_for_db_tests {
+    use super::TouringConfig;
+    use std::path::Path;
+
+    #[test]
+    fn inverts_knowledge_db_canonical() {
+        // The property that matters: build a path from a root, get the root back.
+        let root = Path::new("/home/u/projects/app");
+        let db = TouringConfig::knowledge_db_canonical(root);
+        assert_eq!(
+            TouringConfig::project_root_for_db(&db),
+            Some("/home/u/projects/app/".to_string())
+        );
+    }
+
+    #[test]
+    fn resolves_a_relative_db_path_against_the_current_directory() {
+        // The daemon opens `.claude/touring/knowledge.db` with its cwd pinned to
+        // the project root — the only shape production uses, and the one the
+        // first cut of this rule rejected (three components up from a relative
+        // path is the empty path), so the migration silently did nothing.
+        let cwd = std::env::current_dir().expect("cwd");
+        assert_eq!(
+            TouringConfig::project_root_for_db(Path::new(".claude/touring/knowledge.db")),
+            Some(format!("{}/", cwd.display()))
+        );
+    }
+
+    #[test]
+    fn refuses_the_global_store_under_home() {
+        let home = std::env::var("HOME").expect("HOME");
+        let global = format!("{home}/.claude/touring/knowledge.db");
+        assert_eq!(TouringConfig::project_root_for_db(Path::new(&global)), None);
+    }
+
+    #[test]
+    fn refuses_layouts_that_are_not_dot_claude_touring() {
+        assert_eq!(TouringConfig::project_root_for_db(Path::new("/tmp/scratch.db")), None);
+        assert_eq!(TouringConfig::project_root_for_db(Path::new("/a/b/c/knowledge.db")), None);
+        assert_eq!(
+            TouringConfig::project_root_for_db(Path::new("/home/u/app/config/touring/knowledge.db")),
+            None,
+            "the parent of `touring/` must be `.claude/`"
+        );
+    }
+}
+
+#[cfg(test)]
+mod polyglot_wiring_opt_in_tests {
+    use super::TouringConfig;
+
+    /// Writes `<root>/.touring/touring.toml` with the given body.
+    fn project_with(body: &str) -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let dir = tmp.path().join(".touring");
+        std::fs::create_dir_all(&dir).expect("mkdir .touring");
+        std::fs::write(dir.join("touring.toml"), body).expect("write toml");
+        tmp
+    }
+
+    // These tests read the process env, so they assert only what holds under
+    // BOTH states of `TOURING_POLYGLOT_WIRING` — mutating it would be a
+    // process-global side effect on a parallel test runner. When the override
+    // is set, it wins by design and the project layer is not consulted; that
+    // branch is asserted directly below.
+    fn env_override() -> Option<bool> {
+        std::env::var("TOURING_POLYGLOT_WIRING")
+            .ok()
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+    }
+
+    #[test]
+    fn a_project_can_say_yes_on_its_own() {
+        let tmp = project_with("polyglot_wiring = true\n");
+        let expected = env_override().unwrap_or(true);
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(Some(tmp.path())),
+            expected,
+            "the project layer is what turns polyglot wiring on for ONE project"
+        );
+    }
+
+    #[test]
+    fn a_project_that_says_nothing_stays_rust_only() {
+        let tmp = project_with("cache_size = 10000\n");
+        let expected = env_override().unwrap_or(false);
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(Some(tmp.path())),
+            expected,
+            "silence means Rust-only — the 258-false-positive default"
+        );
+    }
+
+    #[test]
+    fn no_root_resolves_to_the_env_alone() {
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(None),
+            env_override().unwrap_or(false)
+        );
+    }
+
+    #[test]
+    fn a_malformed_project_toml_never_turns_it_on() {
+        // Layer reads fail OPEN. Failing open must mean OFF here: a broken
+        // config that silently enabled polyglot wiring would change what the
+        // whole graph answers, which is the opposite of a safe default.
+        let tmp = project_with("polyglot_wiring = tru\n[[[");
+        let expected = env_override().unwrap_or(false);
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(Some(tmp.path())),
+            expected
+        );
+    }
+
+    #[test]
+    fn two_projects_disagree_without_touching_each_other() {
+        // The whole point of the per-project opt-in: one yes, one no, same
+        // process, same instant.
+        let yes = project_with("polyglot_wiring = true\n");
+        let no = project_with("polyglot_wiring = false\n");
+        let a = TouringConfig::polyglot_wiring_for_root(Some(yes.path()));
+        let b = TouringConfig::polyglot_wiring_for_root(Some(no.path()));
+        match env_override() {
+            Some(forced) => {
+                assert_eq!((a, b), (forced, forced), "an explicit env override applies to both");
+            }
+            None => assert!(a && !b, "each project answers for itself: got ({a}, {b})"),
+        }
     }
 }

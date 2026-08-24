@@ -1,0 +1,40 @@
+# Fragment `audit-pack` — the closing audit, run by the craft that encodes auditing.
+#
+# `TACO-cross-audit` is 6 phases of purpose-fidelity plus the four documented ways
+# an audit reaches the WRONG verdict (a guard that does not cover the artifact in
+# use; a test whose body was never read; a compilation claim without `cargo check`;
+# an orphan claim from a stale wiring cache). An agent asked to "audit" without it
+# re-derives a thinner version of the same thing, and re-learns those four the
+# expensive way.
+#
+# Pair with `critic-panel` when the verdict must ALSO be blind: this fragment
+# supplies the craft, the panel supplies the independence. They are orthogonal —
+# a skilled auditor who watched the work being made is still not blind.
+[fragment]
+description = "Purpose-fidelity cross-audit of delivered work under the TACO-cross-audit craft"
+inputs = ["target", "bar"]
+entry = "audit"
+
+[node.audit]
+type = "agent"
+driver = "claude"
+tier = "sota"
+skill = "TACO-cross-audit"
+prompt = "Cross-audit the delivered work at: {{inputs.target}}. The bar to clear: {{inputs.bar}}. Follow the skill's 6 phases; prove in practice that what was implemented fulfils its DOCUMENTED PURPOSE, not merely that it does not crash. Anything you could not execute is UNVERIFIED — never passing. End with the contract line."
+allowed_tools = ["Read", "Grep", "Glob", "Bash"]
+permission_mode = "acceptEdits"
+session = "fresh"
+timeout_ms = 1800000
+on_pass = "__exit__"
+on_fail = "__exit_fail__"
+
+[node.audit.persona]
+role = "cross-auditor"
+description = "Audits delivered work for purpose fidelity under TACO-cross-audit"
+stance = "reject_by_default"
+lens = "purpose fidelity — does it do what it says it does, proven by execution"
+bar = "every claim backed by a command that was RUN, with its output"
+burden = "The burden of proof is on the work, not on you. Absence of evidence is a finding."
+refuses = "declaring a verdict on anything you could not execute"
+forbids = "accepting a comment, a docstring or a plan document as evidence that code behaves a certain way"
+emits = "AUDIT_VERDICT=<pass|fail> FINDINGS=<n> UNVERIFIED=<n>"

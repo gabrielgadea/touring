@@ -65,7 +65,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         Some(DevrcfileCmd::Import { file }) => {
             #[allow(clippy::needless_borrow)]
             let yaml_content = std::fs::read_to_string(expand_path(&file))
-                .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", file, e))?;
+                .map_err(|e| anyhow::anyhow!("failed to read '{}': {} — run `ls -la` on that path to check existence and read permissions", file, e))?;
             let payload = serde_json::json!(
                 { "hook" : "cli-devrcfile-import", "devrcfile_yaml" : yaml_content,
                 "file_path" : file, }

@@ -16,14 +16,40 @@
 use std::process::Command;
 
 use touring_hooks::health_delta::{
+
+
     STREAK_ALERT_THRESHOLD, compute_signals_delta, discard_pre_health, record_pre_signals,
     regression_streak, reset_streak, status_json,
 };
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
 
-const TOURING_BIN: &str = "/home/gabrielgadea/.claude/rust/target/release/touring";
+/// The product binary: prefer `release` when it exists, else `debug`.
+///
+/// Release-only resolution made this file's tests pass on a developer box (where
+/// `update-touring` leaves a release build behind) and fail on every clean CI
+/// runner with `spawn touring: NotFound`. Mirrors the convention already used by
+/// `graph_service_e2e.rs`.
+fn touring_bin() -> std::path::PathBuf {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let workspace = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root");
+    let release = workspace.join("target/release/touring");
+    if release.exists() {
+        release
+    } else {
+        workspace.join("target/debug/touring")
+    }
+}
 
 fn binary_available() -> bool {
-    std::path::Path::new(TOURING_BIN).exists()
+    touring_bin().exists()
 }
 
 fn drive_regressions(path: &str, n: u32) {
@@ -83,10 +109,10 @@ fn axis2_status_json_per_path_matches_state() {
 #[test]
 fn axis3_touring_status_includes_health_delta_key() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(["status", "-j"])
         .output()
         .expect("spawn touring status");
@@ -157,10 +183,10 @@ fn axis6_single_source_of_truth_invariant() {
     let path = "/wave16e2e/axis6.rs";
     let pure = status_json(Some(path));
     if !binary_available() {
-        eprintln!("skipping CLI half: {TOURING_BIN} not built");
+        eprintln!("skipping CLI half: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(["health-delta", "status", path])
         .output()
         .expect("spawn touring");
@@ -196,10 +222,10 @@ fn axis6_single_source_of_truth_invariant() {
 #[test]
 fn axis7_touring_status_parses_full_dashboard() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(["status", "-j"])
         .output()
         .expect("spawn");

@@ -376,7 +376,7 @@ fn init_memory_store(project_root: &Path) -> anyhow::Result<MemoryStore> {
     }
 
     MemoryStore::new(&memory_db, &semantic_db)
-        .map_err(|e| anyhow::anyhow!("MemoryStore init failed: {}. Note: Run 'touring session-start' first to initialize the memory database.", e))
+        .map_err(|e| anyhow::anyhow!("memory store init failed — run `touring session-start` first to initialize the database: {}", e))
 }
 
 /// Extract a flag value from args (e.g., `--topic <value>`).

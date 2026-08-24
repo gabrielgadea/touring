@@ -9,6 +9,7 @@ use std::path::Path;
 use thiserror::Error;
 
 use super::palace::PalaceHierarchy;
+use super::tags;
 
 /// Errors that can occur in RLM memory operations.
 #[derive(Error, Debug)]
@@ -110,6 +111,93 @@ pub struct RlmMemory {
 /// Safe mmap_size default: 4 GB. Clamped to avoid exceeding system limits.
 const SAFE_MMAP_SIZE: u64 = 4_294_967_296; // 4 GB
 
+/// Canonical DDL for `memory_entries` — the single source of truth for BOTH
+/// write paths (H1 unification, 2026-08-12).
+///
+/// Design decisions (risk analysis in `docs/plans/2026-08-12-followups-l3/`):
+/// - **`key` alone is the PRIMARY KEY**: identity is the canonical name
+///   (REGRA #17); `tier` is an attribute, not part of identity. Every
+///   production DB (touring + 3 pinned projects, 29,190 rows probed
+///   2026-08-12) is key-only, and `memory_tags`/`memory_links` are keyed on
+///   the entry key alone — a composite (key, tier) PK would split tag/link
+///   identity across tiers.
+/// - **Timestamps are TEXT datetime** (`created_at`, `last_accessed_at`) with
+///   `accessed_at` kept as INTEGER epoch for the recall hot path; readers go
+///   through `cell_to_epoch`, which accepts both shapes.
+/// - Columns added to existing DBs via ALTER arrive NULLABLE (SQLite forbids
+///   NOT NULL with a non-constant DEFAULT in ADD COLUMN); the constraint
+///   difference is inert because every writer sets values explicitly.
+pub const MEMORY_ENTRIES_DDL: &str = "CREATE TABLE IF NOT EXISTS memory_entries (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    tier TEXT NOT NULL DEFAULT 'local',
+    entry_type TEXT NOT NULL DEFAULT 'insight',
+    access_count INTEGER NOT NULL DEFAULT 0,
+    last_accessed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    accessed_at INTEGER NOT NULL DEFAULT 0,
+    file_path TEXT,
+    graph_blast_radius INTEGER,
+    palace_path TEXT,
+    embedding BLOB,
+    outcome_reward REAL,
+    outcome_context TEXT,
+    importance INTEGER,
+    pinned INTEGER NOT NULL DEFAULT 0,
+    superseded_by TEXT
+)";
+
+/// The full write-path record (H1): every field the canonical store path can
+/// persist, including the S4 ACO-pheromone fields (reward/importance/pinning/
+/// supersession). Construct with [`RichMemoryEntry::new`] and set the optional
+/// fields you actually have — absent means NULL (an unobserved outcome is not
+/// a failed one), except where the conflict semantics say otherwise.
+#[derive(Debug, Clone, Default)]
+pub struct RichMemoryEntry<'a> {
+    /// Entry key — THE identity (canonical name, REGRA #17).
+    pub key: &'a str,
+    /// Tier attribute (free text: `local`/`semantic`/`working`/…).
+    pub tier: &'a str,
+    /// Entry content.
+    pub value: &'a str,
+    /// Type discriminator (`lesson`, `strategy`, …); caller-level default applies when None.
+    pub entry_type: Option<&'a str>,
+    /// Optional embedding vector (persisted as little-endian bytes).
+    pub embedding: Option<&'a [f32]>,
+    /// Source file path, when the entry is anchored to code.
+    pub file_path: Option<&'a str>,
+    /// Blast radius captured at store time.
+    pub graph_blast_radius: Option<i64>,
+    /// Palace hierarchy path (`PalaceHierarchy::to_storage`).
+    pub palace_path: Option<&'a str>,
+    /// Measured outcome in [-1, 1]; None = unobserved (stays NULL).
+    pub outcome_reward: Option<f64>,
+    /// Context in which the outcome was measured.
+    pub outcome_context: Option<&'a str>,
+    /// Curator importance in [1, 5]; sticky on conflict (a re-store without
+    /// importance keeps the previous judgement).
+    pub importance: Option<i64>,
+    /// Pinned entries are immune to eviction/decay.
+    pub pinned: bool,
+    /// Key of the entry this one supersedes (the old entry is retired, not deleted).
+    pub supersedes: Option<&'a str>,
+    /// Explicit hashtags from the caller (`--tag`); applied with
+    /// `TagSource::Explicit` after the automatic derivation.
+    pub explicit_tags: &'a [String],
+}
+
+impl<'a> RichMemoryEntry<'a> {
+    /// Minimal constructor: key + tier + value, everything else absent.
+    pub fn new(key: &'a str, tier: &'a str, value: &'a str) -> Self {
+        Self {
+            key,
+            tier,
+            value,
+            ..Self::default()
+        }
+    }
+}
+
 impl RlmMemory {
     /// Opens (or creates) the RLM memory database at `db_path`.
     pub fn new(db_path: &Path) -> Result<Self> {
@@ -147,20 +235,11 @@ impl RlmMemory {
     }
 
     fn ensure_schema(&self) -> Result<()> {
-        self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS memory_entries (
-                key TEXT NOT NULL,
-                tier TEXT NOT NULL,
-                value TEXT NOT NULL,
-                entry_type TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                accessed_at INTEGER NOT NULL,
-                access_count INTEGER NOT NULL,
-                embedding BLOB,
-                PRIMARY KEY (key, tier)
-            )",
-            [],
-        )?;
+        // H1 (2026-08-12): canonical key-only PK. A legacy table built with
+        // `PRIMARY KEY (key, tier)` is rebuilt in place (rows preserved) so
+        // the unified write path can rely on `ON CONFLICT(key)`.
+        self.migrate_composite_pk()?;
+        self.conn.execute(MEMORY_ENTRIES_DDL, [])?;
 
         // Idempotent column migrations. Legacy DBs predate later columns, and
         // `CREATE TABLE IF NOT EXISTS` never backfills them, so each absent
@@ -168,52 +247,129 @@ impl RlmMemory {
         // floods `store_insight` with "no column named embedding" warns and
         // eventually crashes the daemon if left unmigrated.) Columns are added
         // before `ensure_indexes` so every index has its column present.
-        self.add_column_if_missing(
-            "accessed_at",
-            "ALTER TABLE memory_entries ADD COLUMN accessed_at INTEGER NOT NULL DEFAULT 0",
-        )?;
-        self.add_column_if_missing(
-            "embedding",
-            "ALTER TABLE memory_entries ADD COLUMN embedding BLOB",
-        )?;
-        self.add_column_if_missing(
-            "file_path",
-            "ALTER TABLE memory_entries ADD COLUMN file_path TEXT",
-        )?;
-        self.add_column_if_missing(
-            "graph_blast_radius",
-            "ALTER TABLE memory_entries ADD COLUMN graph_blast_radius INTEGER",
-        )?;
-        self.add_column_if_missing(
-            "palace_path",
-            "ALTER TABLE memory_entries ADD COLUMN palace_path TEXT",
-        )?;
-
-        // The `r` of a case `(s, a, r)`.
         //
-        // Memento (arXiv 2508.16153, Eq. 12) writes every case to the bank as a
-        // (state, action, reward) triple, and its optimal retrieval policy is a
-        // softmax over the value of those cases (Eq. 7) — not over similarity.
-        // Touring's bank stored only (key, value): entries carried no notion of
-        // whether the lesson they hold ever WORKED, so recall could rank by
-        // resemblance alone. These two columns are what a value-ranked recall
-        // needs to exist at all (04/08/2026).
+        // SQLite forbids NOT NULL with a non-constant DEFAULT in ADD COLUMN, so
+        // NOT NULL columns arrive with a constant default and the datetime
+        // columns arrive NULLABLE + a backfill UPDATE — every writer sets the
+        // values explicitly, so the constraint difference is inert (G2).
         //
-        // Nullable on purpose: an entry whose outcome was never observed is
-        // NOT the same as one that scored zero, and collapsing the two would
-        // teach the ranker that unmeasured means bad.
-        self.add_column_if_missing(
-            "outcome_reward",
-            "ALTER TABLE memory_entries ADD COLUMN outcome_reward REAL",
-        )?;
-        self.add_column_if_missing(
-            "outcome_context",
-            "ALTER TABLE memory_entries ADD COLUMN outcome_context TEXT",
-        )?;
+        // The `outcome_*` pair is the `r` of a case `(s, a, r)` (Memento,
+        // arXiv 2508.16153): nullable on purpose — an entry whose outcome was
+        // never observed is NOT the same as one that scored zero (04/08/2026).
+        const COLUMN_MIGRATIONS: &[(&str, &str)] = &[
+            ("tier", "ALTER TABLE memory_entries ADD COLUMN tier TEXT NOT NULL DEFAULT 'local'"),
+            ("entry_type", "ALTER TABLE memory_entries ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'insight'"),
+            ("access_count", "ALTER TABLE memory_entries ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0"),
+            ("accessed_at", "ALTER TABLE memory_entries ADD COLUMN accessed_at INTEGER NOT NULL DEFAULT 0"),
+            ("last_accessed_at", "ALTER TABLE memory_entries ADD COLUMN last_accessed_at TEXT"),
+            ("created_at", "ALTER TABLE memory_entries ADD COLUMN created_at TEXT"),
+            ("embedding", "ALTER TABLE memory_entries ADD COLUMN embedding BLOB"),
+            ("file_path", "ALTER TABLE memory_entries ADD COLUMN file_path TEXT"),
+            ("graph_blast_radius", "ALTER TABLE memory_entries ADD COLUMN graph_blast_radius INTEGER"),
+            ("palace_path", "ALTER TABLE memory_entries ADD COLUMN palace_path TEXT"),
+            ("outcome_reward", "ALTER TABLE memory_entries ADD COLUMN outcome_reward REAL"),
+            ("outcome_context", "ALTER TABLE memory_entries ADD COLUMN outcome_context TEXT"),
+            ("importance", "ALTER TABLE memory_entries ADD COLUMN importance INTEGER"),
+            ("pinned", "ALTER TABLE memory_entries ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"),
+            ("superseded_by", "ALTER TABLE memory_entries ADD COLUMN superseded_by TEXT"),
+        ];
+        for (column, ddl) in COLUMN_MIGRATIONS {
+            if self.add_column_if_missing(column, ddl)? {
+                // Backfills for the NULLABLE datetime pair (see note above).
+                if *column == "last_accessed_at" {
+                    self.conn.execute(
+                        "UPDATE memory_entries SET last_accessed_at = created_at WHERE last_accessed_at IS NULL",
+                        [],
+                    )?;
+                } else if *column == "created_at" {
+                    self.conn.execute(
+                        "UPDATE memory_entries SET created_at = datetime('now') WHERE created_at IS NULL",
+                        [],
+                    )?;
+                }
+            }
+        }
 
         self.ensure_indexes()?;
         self.ensure_fts()?;
+        self.ensure_tag_tables()?;
         Ok(())
+    }
+
+    /// Rebuilds a legacy `PRIMARY KEY (key, tier)` table into the canonical
+    /// key-only shape, preserving every row (H1, 2026-08-12). No-op on
+    /// canonical or absent tables. Returns whether a migration happened.
+    ///
+    /// Deterministic dedupe (REGRA #17): when the same key exists in several
+    /// tiers, the most recently accessed row wins (ties broken by higher
+    /// access_count), because the copy runs `INSERT OR REPLACE` over rows
+    /// ordered oldest-first. Timestamps are converted to the canonical TEXT
+    /// datetime shape; `last_accessed_at` derives from `accessed_at`.
+    fn migrate_composite_pk(&self) -> Result<bool> {
+        if !self.table_exists("memory_entries")? || !self.has_composite_pk()? {
+            return Ok(false);
+        }
+        let extra_cols = self.existing_optional_cols()?;
+        let extra_select = if extra_cols.is_empty() {
+            String::new()
+        } else {
+            format!(", {}", extra_cols.join(", "))
+        };
+
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute_batch("ALTER TABLE memory_entries RENAME TO memory_entries_pk_migration")?;
+        tx.execute(MEMORY_ENTRIES_DDL, [])?;
+        tx.execute_batch(&format!(
+            "INSERT OR REPLACE INTO memory_entries
+             (key, value, tier, entry_type, access_count, last_accessed_at, created_at, accessed_at{extra_select})
+             SELECT key, value, tier, entry_type, access_count,
+                    datetime(accessed_at, 'unixepoch'),
+                    CASE WHEN typeof(created_at) = 'integer'
+                         THEN datetime(created_at, 'unixepoch')
+                         ELSE created_at END,
+                    accessed_at{extra_select}
+             FROM memory_entries_pk_migration
+             ORDER BY accessed_at ASC, access_count ASC;
+             DROP TABLE memory_entries_pk_migration;"
+        ))?;
+        tx.commit()?;
+        tracing::info!("memory_entries: legacy composite (key, tier) PK rebuilt into canonical key-only shape");
+        Ok(true)
+    }
+
+    /// Returns whether `memory_entries` carries the legacy composite
+    /// `PRIMARY KEY (key, tier)` (both columns flagged in `pragma_table_info`).
+    fn has_composite_pk(&self) -> Result<bool> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT name FROM pragma_table_info('memory_entries') WHERE pk > 0 ORDER BY pk")?;
+        let pk_cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<_, _>>()?;
+        Ok(pk_cols.len() == 2 && pk_cols[0] == "key" && pk_cols[1] == "tier")
+    }
+
+    /// Lists the canonical optional columns a legacy table already carries
+    /// (older add_column migrations may have added some of them).
+    fn existing_optional_cols(&self) -> Result<Vec<&'static str>> {
+        const OPTIONAL: &[&str] = &[
+            "file_path",
+            "graph_blast_radius",
+            "palace_path",
+            "embedding",
+            "outcome_reward",
+            "outcome_context",
+            "importance",
+            "pinned",
+            "superseded_by",
+        ];
+        let mut present = Vec::new();
+        for col in OPTIONAL {
+            if self.column_exists(col)? {
+                present.push(*col);
+            }
+        }
+        Ok(present)
     }
 
     /// Returns whether `column` exists on the `memory_entries` table.
@@ -241,11 +397,13 @@ impl RlmMemory {
     /// Idempotently applies `ddl` (an `ALTER TABLE … ADD COLUMN …` statement)
     /// when `column` is absent from `memory_entries`. Collapses the five legacy
     /// column migrations into one reusable step (no per-column copy-paste).
-    fn add_column_if_missing(&self, column: &str, ddl: &str) -> Result<()> {
+    /// Returns whether the column was actually added (drives backfills).
+    fn add_column_if_missing(&self, column: &str, ddl: &str) -> Result<bool> {
         if !self.column_exists(column)? {
             self.conn.execute(ddl, [])?;
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 
     /// Creates the secondary indexes `memory_entries` relies on, idempotently.
@@ -316,6 +474,40 @@ impl RlmMemory {
         Ok(())
     }
 
+    /// Creates the hashtag-library tables and their FTS index, idempotently.
+    ///
+    /// Schema of the faceted memory library (bundle
+    /// `docs/plans/2026-08-11-memory-hashtag-library`, decision D2):
+    ///
+    /// * `memory_tags` — the tag↔item bipartite graph (L1). One row per
+    ///   (entry, tag); `facet`/`value` are the namespaced parts of
+    ///   `#facet:value` (see `tags.rs`), `full_tag` the canonical render.
+    ///   `source` records provenance (`explicit` > `code_sync` > `auto` >
+    ///   `backfill`) so trust ordering survives merges.
+    /// * `memory_links` — typed memory↔memory relations (L3; A-MEM link
+    ///   generation). `id = {src}|{rel}|{dst}` is deterministic by
+    ///   construction (REGRA #17): re-deriving the same edge never duplicates.
+    /// * `tags_fts` — external-content FTS5 over `memory_tags`, same
+    ///   sync-trigger pattern as `memories_fts`, so facet filters can fuse
+    ///   exact tag matches with full-text ranking without a second store.
+    ///
+    /// The DDL itself lives in `tags::{TAG_TABLES_DDL, TAG_FTS_DDL}` — the
+    /// RPC write path (`touring-hook-runtime`) consumes the same constants,
+    /// so there is exactly one textual copy of the schema.
+    fn ensure_tag_tables(&self) -> Result<()> {
+        self.conn.execute_batch(tags::TAG_TABLES_DDL)?;
+        self.conn.execute_batch(tags::TAG_FTS_DDL)?;
+        // Backfill rows written before the FTS/triggers existed (legacy paths
+        // or a crashed first run): the NOT IN makes this a no-op whenever the
+        // triggers are already keeping the index in sync.
+        self.conn.execute_batch(
+            "INSERT INTO tags_fts(rowid, full_tag, facet, value)
+             SELECT rowid, full_tag, facet, value FROM memory_tags
+             WHERE rowid NOT IN (SELECT rowid FROM tags_fts);",
+        )?;
+        Ok(())
+    }
+
     /// Build an FTS5 MATCH query from arbitrary user input.
     /// Each whitespace-separated token is double-quoted to prevent FTS5 operator
     /// injection. Multiple tokens are implicitly ANDed (FTS5 default).
@@ -326,6 +518,94 @@ impl RlmMemory {
             .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
             .collect::<Vec<_>>()
             .join(" ")
+    }
+
+    /// The unified write path (H1, 2026-08-12): every store — RLM API or RPC
+    /// handler — lands here. One INSERT, one conflict semantics, one schema.
+    ///
+    /// Conflict semantics on `ON CONFLICT(key)` (documented in
+    /// `docs/plans/2026-08-12-followups-l3/strategy-…md`):
+    /// - `created_at` is first-write-wins (a re-store never rewrites birth).
+    /// - `access_count` increments by 1 per store (production RPC behavior).
+    /// - `importance` is sticky: `COALESCE(new, existing)`.
+    /// - `outcome_*`/embedding/graph/palace take the new value (NULL when the
+    ///   caller has none — re-storing content without a measured outcome does
+    ///   not inherit the old measurement).
+    /// - `accessed_at` (epoch) and `last_accessed_at` (TEXT) both move to now.
+    /// - `supersedes` retires the old entry (`superseded_by`), never deletes.
+    /// - Automatic facet derivation + explicit tags apply after the row lands.
+    pub fn store_rich(&self, entry: &RichMemoryEntry<'_>) -> Result<()> {
+        let now = Utc::now().timestamp();
+        let entry_type = entry.entry_type.unwrap_or("insight");
+        let embedding_bytes: Option<Vec<u8>> = entry
+            .embedding
+            .map(|emb| emb.iter().flat_map(|f| f.to_le_bytes()).collect());
+
+        self.conn.execute(
+            "INSERT INTO memory_entries
+             (key, tier, value, entry_type, created_at, accessed_at, last_accessed_at, access_count,
+              embedding, file_path, graph_blast_radius, palace_path,
+              outcome_reward, outcome_context, importance, pinned)
+             VALUES (?1, ?2, ?3, ?4, datetime('now'), ?5, datetime('now'), 1,
+                     ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+             ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                tier = excluded.tier,
+                entry_type = excluded.entry_type,
+                accessed_at = excluded.accessed_at,
+                last_accessed_at = excluded.last_accessed_at,
+                access_count = memory_entries.access_count + 1,
+                embedding = excluded.embedding,
+                file_path = excluded.file_path,
+                graph_blast_radius = excluded.graph_blast_radius,
+                palace_path = excluded.palace_path,
+                outcome_reward = excluded.outcome_reward,
+                outcome_context = excluded.outcome_context,
+                importance = COALESCE(excluded.importance, memory_entries.importance),
+                pinned = excluded.pinned",
+            params![
+                entry.key,
+                entry.tier,
+                entry.value,
+                entry_type,
+                now,
+                embedding_bytes,
+                entry.file_path,
+                entry.graph_blast_radius,
+                entry.palace_path,
+                entry.outcome_reward,
+                entry.outcome_context,
+                entry.importance,
+                i64::from(entry.pinned),
+            ],
+        )?;
+
+        // Retire the superseded entry: it stays in the table for audit and
+        // stops surfacing in recall. Pointing at the NEW key (rather than
+        // deleting) keeps the correction traceable to what it corrected.
+        if let Some(old_key) = entry.supersedes {
+            self.conn
+                .execute(
+                    "UPDATE memory_entries SET superseded_by = ?1 WHERE key = ?2 AND key != ?1",
+                    params![entry.key, old_key],
+                )
+                .ok();
+        }
+
+        self.auto_tag_entry(entry.key, entry_type, entry.file_path);
+        for raw in entry.explicit_tags {
+            match tags::parse_tag(raw) {
+                Ok(tag) => {
+                    if let Err(e) = self.tag_entry(entry.key, &tag, tags::TagSource::Explicit) {
+                        tracing::warn!(error = %e, key = entry.key, tag = raw, "explicit tag failed, continuing");
+                    }
+                }
+                Err(errs) => {
+                    tracing::warn!(key = entry.key, tag = raw, "invalid explicit tag skipped: {errs:?}");
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Stores a memory entry in the given tier with an optional embedding.
@@ -397,22 +677,12 @@ impl RlmMemory {
         palace: &PalaceHierarchy,
         entry_type: &str,
     ) -> Result<()> {
-        let now = Utc::now().timestamp();
-        let tier_str = tier.as_str();
+        // H1 (2026-08-12): delegates to the unified write path.
         let palace_path = palace.to_storage();
-
-        self.conn.execute(
-            "INSERT INTO memory_entries
-             (key, tier, value, entry_type, created_at, accessed_at, access_count, palace_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)
-             ON CONFLICT(key, tier) DO UPDATE SET
-                value = excluded.value,
-                entry_type = excluded.entry_type,
-                accessed_at = excluded.accessed_at,
-                palace_path = excluded.palace_path",
-            params![key, tier_str, value, entry_type, now, now, palace_path],
-        )?;
-        Ok(())
+        let mut entry = RichMemoryEntry::new(key, tier.as_str(), value);
+        entry.entry_type = Some(entry_type);
+        entry.palace_path = Some(&palace_path);
+        self.store_rich(&entry)
     }
 
     /// Query entries by palace path prefix (e.g., "gabriel.memory.*").
@@ -488,54 +758,86 @@ impl RlmMemory {
         embedding: Option<&[f32]>,
         graph: Option<&GraphMeta<'_>>,
     ) -> Result<()> {
-        let now = Utc::now().timestamp();
-        let tier_str = tier.as_str();
-        let entry_type = entry_type.unwrap_or("text");
-        let embedding_bytes: Option<Vec<u8>> =
-            embedding.map(|emb| emb.iter().flat_map(|f| f.to_le_bytes()).collect());
+        // H1 (2026-08-12): delegates to the unified write path. The RLM-API
+        // caller-level default for entry_type stays "text" (the RPC surface
+        // defaults "insight"); storage semantics are identical for both.
+        let mut entry = RichMemoryEntry::new(key, tier.as_str(), value);
+        entry.entry_type = Some(entry_type.unwrap_or("text"));
+        entry.embedding = embedding;
+        if let Some(g) = graph {
+            entry.file_path = g.file_path;
+            entry.graph_blast_radius = g.blast_radius;
+        }
+        self.store_rich(&entry)
+    }
 
-        match graph {
-            None => {
-                self.conn.execute(
-                    "INSERT INTO memory_entries
-                     (key, tier, value, entry_type, created_at, accessed_at, access_count, embedding)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)
-                     ON CONFLICT(key, tier) DO UPDATE SET
-                        value = excluded.value,
-                        entry_type = excluded.entry_type,
-                        accessed_at = excluded.accessed_at,
-                        embedding = excluded.embedding",
-                    params![key, tier_str, value, entry_type, now, now, embedding_bytes],
-                )?;
-            }
-            Some(g) => {
-                self.conn.execute(
-                    "INSERT INTO memory_entries
-                     (key, tier, value, entry_type, created_at, accessed_at, access_count,
-                      embedding, file_path, graph_blast_radius)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, ?9)
-                     ON CONFLICT(key, tier) DO UPDATE SET
-                        value = excluded.value,
-                        entry_type = excluded.entry_type,
-                        accessed_at = excluded.accessed_at,
-                        embedding = excluded.embedding,
-                        file_path = excluded.file_path,
-                        graph_blast_radius = excluded.graph_blast_radius",
-                    params![
-                        key,
-                        tier_str,
-                        value,
-                        entry_type,
-                        now,
-                        now,
-                        embedding_bytes,
-                        g.file_path,
-                        g.blast_radius
-                    ],
-                )?;
+    /// Derives and persists the automatic facets of an entry (F1 auto-tagging
+    /// of the hashtag library). Runs on every store path via `store_internal`.
+    /// A tagging failure must never lose the memory itself: warn and continue,
+    /// same discipline as the `PRAGMA optimize` fire-and-forget above.
+    fn auto_tag_entry(&self, key: &str, entry_type: &str, file_path: Option<&str>) {
+        for tag in tags::derive_tags(key, entry_type, file_path) {
+            if let Err(e) = self.tag_entry(key, &tag, tags::TagSource::Auto) {
+                tracing::warn!(error = %e, key, "auto-tag failed, continuing");
             }
         }
+    }
+
+    /// Attaches one parsed tag to an entry, idempotently (PK is
+    /// `(entry_key, full_tag)`; a re-attach only refreshes provenance when the
+    /// new source is more trustworthy — explicit > code_sync > auto > backfill).
+    pub fn tag_entry(
+        &self,
+        key: &str,
+        tag: &tags::ParsedTag,
+        source: tags::TagSource,
+    ) -> Result<()> {
+        tags::upsert_tag(&self.conn, key, tag, source)?;
         Ok(())
+    }
+
+    /// Lists every tag attached to an entry, in citation order of the facets.
+    pub fn tags_of(&self, key: &str) -> Result<Vec<tags::ParsedTag>> {
+        Ok(tags::fetch_tags(&self.conn, key)?)
+    }
+
+    /// Detaches one tag from an entry (the code-sync tombstone path: a codetag
+    /// removed from the source is removed here, not hard-deleted elsewhere).
+    /// Returns the number of rows removed.
+    pub fn remove_tag(&self, key: &str, full_tag: &str) -> Result<usize> {
+        Ok(tags::delete_tag(&self.conn, key, full_tag)?)
+    }
+
+    /// Returns entries carrying ALL the required tags (conjunctive facet
+    /// filter — the L1 bipartite lookup of the hashtag library), most recently
+    /// accessed first. Text ranking fuses on top in F3; this is the exact
+    /// half of the hybrid.
+    pub fn query_tags(&self, required: &[tags::ParsedTag], limit: usize) -> Result<Vec<MemoryMatch>> {
+        let keys = tags::entry_keys_with_all_tags(&self.conn, required, limit)?;
+        let mut out = Vec::with_capacity(keys.len());
+        for key in keys {
+            let row = self.conn.query_row(
+                "SELECT tier, value, entry_type, access_count, created_at, accessed_at
+                 FROM memory_entries WHERE key = ?1",
+                params![key],
+                |row| {
+                    Ok(MemoryMatch {
+                        key: key.clone(),
+                        tier: row.get(0)?,
+                        value: row.get(1)?,
+                        entry_type: row.get(2)?,
+                        access_count: row.get(3)?,
+                        created_at: Self::cell_to_epoch(row.get_ref(4)?),
+                        accessed_at: Self::cell_to_epoch(row.get_ref(5)?),
+                        score: 1.0,
+                    })
+                },
+            );
+            if let Ok(m) = row {
+                out.push(m);
+            }
+        }
+        Ok(out)
     }
 
     /// Retrieves an entry's value by key and tier, bumping its access count.
@@ -594,8 +896,8 @@ impl RlmMemory {
                     tier: row.get(1)?,
                     value: row.get(2)?,
                     entry_type: row.get(3)?,
-                    created_at: row.get(4)?,
-                    accessed_at: row.get(5)?,
+                    created_at: Self::cell_to_epoch(row.get_ref(4)?),
+                    accessed_at: Self::cell_to_epoch(row.get_ref(5)?),
                     access_count: row.get(6)?,
                     score: row.get(7)?,
                 })
@@ -817,7 +1119,7 @@ impl RlmMemory {
             "UPDATE memory_entries SET tier = 'working'
              WHERE tier = 'ephemeral'
              AND access_count >= ?1
-             AND (?2 - created_at) <= ?3",
+             AND (?2 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) <= ?3",
             params![
                 policy.ephemeral_promote_accesses,
                 now,
@@ -830,7 +1132,7 @@ impl RlmMemory {
             "UPDATE memory_entries SET tier = 'reference'
              WHERE tier = 'working'
              AND access_count >= ?1
-             AND (?2 - created_at) <= ?3",
+             AND (?2 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) <= ?3",
             params![
                 policy.working_promote_accesses,
                 now,
@@ -858,7 +1160,7 @@ impl RlmMemory {
         report.gc_ephemeral = self.conn.execute(
             "DELETE FROM memory_entries
              WHERE tier = 'ephemeral'
-             AND (?1 - created_at) > ?2",
+             AND (?1 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) > ?2",
             params![now, policy.ephemeral_ttl_secs],
         )?;
 
@@ -871,6 +1173,239 @@ mod tests {
     use super::*;
     use rusqlite::types::ValueRef;
     use tempfile::TempDir;
+
+    /// Full row snapshot for parity assertions (all 16 canonical columns).
+    #[derive(Debug, PartialEq)]
+    struct RowSnapshot {
+        key: String,
+        value: String,
+        tier: String,
+        entry_type: String,
+        access_count: i64,
+        last_accessed_at: Option<String>,
+        created_at: Option<String>,
+        accessed_at: i64,
+        file_path: Option<String>,
+        graph_blast_radius: Option<i64>,
+        palace_path: Option<String>,
+        embedding: Option<Vec<u8>>,
+        outcome_reward: Option<f64>,
+        outcome_context: Option<String>,
+        importance: Option<i64>,
+        pinned: i64,
+        superseded_by: Option<String>,
+    }
+
+    fn snapshot(conn: &Connection, key: &str) -> RowSnapshot {
+        conn.query_row(
+            "SELECT key, value, tier, entry_type, access_count, last_accessed_at, created_at,
+                    accessed_at, file_path, graph_blast_radius, palace_path, embedding,
+                    outcome_reward, outcome_context, importance, pinned, superseded_by
+             FROM memory_entries WHERE key = ?1",
+            params![key],
+            |row| {
+                Ok(RowSnapshot {
+                    key: row.get(0)?,
+                    value: row.get(1)?,
+                    tier: row.get(2)?,
+                    entry_type: row.get(3)?,
+                    access_count: row.get(4)?,
+                    last_accessed_at: row.get(5)?,
+                    created_at: row.get(6)?,
+                    accessed_at: row.get(7)?,
+                    file_path: row.get(8)?,
+                    graph_blast_radius: row.get(9)?,
+                    palace_path: row.get(10)?,
+                    embedding: row.get(11)?,
+                    outcome_reward: row.get(12)?,
+                    outcome_context: row.get(13)?,
+                    importance: row.get(14)?,
+                    pinned: row.get(15)?,
+                    superseded_by: row.get(16)?,
+                })
+            },
+        )
+        .expect("snapshot row")
+    }
+
+    #[test]
+    fn store_rich_first_insert_has_canonical_shape() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
+        let mut entry = RichMemoryEntry::new("k1", "semantic", "the lesson");
+        entry.entry_type = Some("lesson");
+        entry.importance = Some(4);
+        entry.pinned = true;
+        mem.store_rich(&entry).unwrap();
+
+        let row = snapshot(&mem.conn, "k1");
+        assert_eq!(row.key, "k1");
+        assert_eq!(row.tier, "semantic");
+        assert_eq!(row.entry_type, "lesson");
+        assert_eq!(row.access_count, 1, "first store counts one access");
+        assert_eq!(row.importance, Some(4));
+        assert_eq!(row.pinned, 1);
+        // Canonical timestamp shapes: TEXT datetimes + INTEGER epoch.
+        assert!(
+            row.created_at.as_deref().unwrap().contains('-'),
+            "created_at must be TEXT datetime, got {:?}",
+            row.created_at
+        );
+        assert!(row.last_accessed_at.as_deref().unwrap().contains('-'));
+        assert!(row.accessed_at > 1_000_000_000, "accessed_at is epoch");
+        assert!(row.outcome_reward.is_none(), "unobserved outcome stays NULL");
+    }
+
+    #[test]
+    fn store_rich_conflict_semantics_are_pinned() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
+        let mut first = RichMemoryEntry::new("k", "local", "v1");
+        first.importance = Some(5);
+        first.outcome_reward = Some(0.7);
+        mem.store_rich(&first).unwrap();
+        let born = snapshot(&mem.conn, "k").created_at;
+
+        // Re-store with new content and NO importance/outcome.
+        let second = RichMemoryEntry::new("k", "semantic", "v2");
+        mem.store_rich(&second).unwrap();
+        let row = snapshot(&mem.conn, "k");
+        assert_eq!(row.value, "v2");
+        assert_eq!(row.tier, "semantic", "tier is an attribute: latest wins");
+        assert_eq!(row.access_count, 2, "re-store increments");
+        assert_eq!(row.created_at, born, "created_at is first-write-wins");
+        assert_eq!(row.importance, Some(5), "importance is sticky");
+        assert!(
+            row.outcome_reward.is_none(),
+            "outcome is per-write: re-store without measurement resets to NULL"
+        );
+
+        // An explicit new importance overrides the sticky one.
+        let mut third = RichMemoryEntry::new("k", "semantic", "v3");
+        third.importance = Some(2);
+        mem.store_rich(&third).unwrap();
+        assert_eq!(snapshot(&mem.conn, "k").importance, Some(2));
+    }
+
+    #[test]
+    fn store_rich_supersedes_retires_old_entry() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
+        mem.store_rich(&RichMemoryEntry::new("old", "local", "stale")).unwrap();
+        let mut new_entry = RichMemoryEntry::new("new", "local", "corrected");
+        new_entry.supersedes = Some("old");
+        mem.store_rich(&new_entry).unwrap();
+        assert_eq!(
+            snapshot(&mem.conn, "old").superseded_by.as_deref(),
+            Some("new"),
+            "old entry retired, not deleted"
+        );
+        assert!(snapshot(&mem.conn, "new").superseded_by.is_none());
+    }
+
+    #[test]
+    fn store_rich_parity_with_legacy_rpc_insert() {
+        // G6 parity: a first insert through store_rich produces the SAME row
+        // the legacy RPC INSERT OR REPLACE produced (the production-dominant
+        // writer, 29k rows across 4 projects). The reference SQL below is the
+        // pre-unification handler statement, kept here as the contract.
+        let dir = TempDir::new().unwrap();
+        let legacy_db = dir.path().join("legacy.db");
+        let unified_db = dir.path().join("unified.db");
+
+        let legacy = Connection::open(&legacy_db).unwrap();
+        legacy.execute(MEMORY_ENTRIES_DDL, []).unwrap();
+        legacy
+            .execute(
+                "INSERT OR REPLACE INTO memory_entries (key, value, tier, entry_type, access_count, last_accessed_at, outcome_reward, outcome_context, importance, pinned)
+                 VALUES (?1, ?2, ?3, ?4, COALESCE((SELECT access_count FROM memory_entries WHERE key = ?1), 0) + 1, datetime('now'), ?5, ?6,
+                         COALESCE(?7, (SELECT importance FROM memory_entries WHERE key = ?1)), ?8)",
+                params!["k", "v", "semantic", "lesson", 0.5f64, "ctx", 3i64, 1i64],
+            )
+            .unwrap();
+
+        let mem = RlmMemory::new(&unified_db).unwrap();
+        let mut entry = RichMemoryEntry::new("k", "semantic", "v");
+        entry.entry_type = Some("lesson");
+        entry.outcome_reward = Some(0.5);
+        entry.outcome_context = Some("ctx");
+        entry.importance = Some(3);
+        entry.pinned = true;
+        mem.store_rich(&entry).unwrap();
+
+        let a = snapshot(&legacy, "k");
+        let b = snapshot(&mem.conn, "k");
+        // Field-by-field parity on everything the legacy writer set; the
+        // columns it never wrote take the canonical defaults in both.
+        assert_eq!(a.key, b.key);
+        assert_eq!(a.value, b.value);
+        assert_eq!(a.tier, b.tier);
+        assert_eq!(a.entry_type, b.entry_type);
+        assert_eq!(a.access_count, b.access_count);
+        assert_eq!(a.outcome_reward, b.outcome_reward);
+        assert_eq!(a.outcome_context, b.outcome_context);
+        assert_eq!(a.importance, b.importance);
+        assert_eq!(a.pinned, b.pinned);
+        assert!(a.created_at.is_some() && b.created_at.is_some());
+        assert_eq!(a.file_path, b.file_path);
+        assert_eq!(a.embedding, b.embedding);
+        assert_eq!(a.superseded_by, b.superseded_by);
+    }
+
+    #[test]
+    fn composite_pk_db_is_rebuilt_rows_preserved() {
+        let dir = TempDir::new().unwrap();
+        let db = dir.path().join("legacy.db");
+        {
+            let conn = Connection::open(&db).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE memory_entries (
+                    key TEXT NOT NULL, tier TEXT NOT NULL, value TEXT NOT NULL,
+                    entry_type TEXT NOT NULL, created_at INTEGER NOT NULL,
+                    accessed_at INTEGER NOT NULL, access_count INTEGER NOT NULL,
+                    embedding BLOB, PRIMARY KEY (key, tier)
+                );
+                INSERT INTO memory_entries VALUES ('dup', 'local', 'old-val', 'text', 1700000000, 1700000000, 2, NULL);
+                INSERT INTO memory_entries VALUES ('dup', 'semantic', 'new-val', 'lesson', 1700000100, 1700000100, 5, NULL);
+                INSERT INTO memory_entries VALUES ('solo', 'working', 'solo-val', 'text', 1700000200, 1700000200, 1, NULL);",
+            )
+            .unwrap();
+        }
+        let mem = RlmMemory::new(&db).unwrap();
+
+        // PK is now key-only.
+        let pk_count: i64 = mem
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('memory_entries') WHERE name = 'key' AND pk = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(pk_count, 1, "key is the sole PK column");
+
+        // Dedupe: latest 'dup' row wins (highest accessed_at), 'solo' intact.
+        let dup = snapshot(&mem.conn, "dup");
+        assert_eq!(dup.value, "new-val");
+        assert_eq!(dup.access_count, 5);
+        assert_eq!(
+            dup.created_at.as_deref(),
+            Some("2023-11-14 22:15:00"),
+            "epoch created_at converted to TEXT datetime"
+        );
+        assert_eq!(dup.last_accessed_at.as_deref(), Some("2023-11-14 22:15:00"));
+        assert_eq!(snapshot(&mem.conn, "solo").value, "solo-val");
+        let total: i64 = mem
+            .conn
+            .query_row("SELECT COUNT(*) FROM memory_entries", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(total, 2, "two distinct keys survive the dedupe");
+
+        // And the unified write path works on the migrated table.
+        mem.store_rich(&RichMemoryEntry::new("dup", "local", "v3"))
+            .unwrap();
+        assert_eq!(snapshot(&mem.conn, "dup").access_count, 6);
+    }
 
     #[test]
     fn cell_to_epoch_handles_all_storage_classes() {
@@ -1106,5 +1641,167 @@ mod tests {
 
         let results = memory.search("apple", None, 10).unwrap();
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_tag_tables_created_and_idempotent() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test_tags.db");
+        // Second open re-runs ensure_schema over the same DB: the migration
+        // must be a no-op (CREATE … IF NOT EXISTS + table_exists guards).
+        let memory = RlmMemory::new(&db_path).unwrap();
+        drop(memory);
+        let memory = RlmMemory::new(&db_path).unwrap();
+
+        for table in ["memory_tags", "memory_links", "tags_fts"] {
+            assert!(
+                memory.table_exists(table).unwrap(),
+                "expected table {table} after ensure_tag_tables"
+            );
+        }
+
+        // The bipartite tag edge round-trips and the FTS trigger keeps
+        // tags_fts in sync without any code path opting in.
+        memory
+            .conn
+            .execute(
+                "INSERT INTO memory_tags(entry_key, facet, value, full_tag, source)
+                 VALUES ('mem:x', 'kind', 'snippet', 'kind:snippet', 'explicit')",
+                [],
+            )
+            .unwrap();
+        let hits: i64 = memory
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM tags_fts WHERE tags_fts MATCH '\"kind:snippet\"'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(hits, 1, "tags_fts trigger should have indexed the row");
+
+        // Deterministic link id (REGRA #17): re-inserting the same edge is a
+        // PK conflict, proving dedupe falls out of the schema itself.
+        memory
+            .conn
+            .execute(
+                "INSERT INTO memory_links(id, src, dst, rel)
+                 VALUES ('mem:x|extends|mem:y', 'mem:x', 'mem:y', 'extends')",
+                [],
+            )
+            .unwrap();
+        let dup = memory.conn.execute(
+            "INSERT INTO memory_links(id, src, dst, rel)
+             VALUES ('mem:x|extends|mem:y', 'mem:x', 'mem:y', 'extends')",
+            [],
+        );
+        assert!(dup.is_err(), "duplicate deterministic link id must conflict");
+    }
+
+    #[test]
+    fn test_store_auto_tags_from_file_path() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test_autotag.db");
+        let memory = RlmMemory::new(&db_path).unwrap();
+
+        let graph = GraphMeta {
+            file_path: Some("crates/touring-intelligence/src/rl/memory/rlm.rs"),
+            blast_radius: Some(3),
+        };
+        memory
+            .store_with_file_path(
+                "lesson:rlm:schema",
+                MemoryTier::Working,
+                "schema lessons",
+                Some("lesson"),
+                None,
+                &graph,
+            )
+            .unwrap();
+
+        let tags = memory.tags_of("lesson:rlm:schema").unwrap();
+        let full: Vec<&str> = tags.iter().map(|t| t.full_tag.as_str()).collect();
+        assert!(full.contains(&"lang:rust"), "lang from .rs, got {full:?}");
+        assert!(full.contains(&"kind:lesson"), "kind from entry_type");
+        assert!(full.contains(&"domain:memory"), "domain from path segments");
+        assert!(full.contains(&"status:stable"), "default maturity");
+    }
+
+    #[test]
+    fn test_explicit_tag_overrides_auto_source() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test_override.db");
+        let memory = RlmMemory::new(&db_path).unwrap();
+
+        memory
+            .store("k", MemoryTier::Working, "v", None, None)
+            .unwrap();
+        let tag = tags::parse_tag("#purpose:map-rendering").unwrap();
+        memory.tag_entry("k", &tag, tags::TagSource::Auto).unwrap();
+        memory
+            .tag_entry("k", &tag, tags::TagSource::Explicit)
+            .unwrap();
+        let source: String = memory
+            .conn
+            .query_row(
+                "SELECT source FROM memory_tags WHERE entry_key='k' AND full_tag='purpose:map-rendering'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(source, "explicit", "higher-trust source must win");
+    }
+
+    #[test]
+    fn test_query_tags_is_conjunctive() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test_conj.db");
+        let memory = RlmMemory::new(&db_path).unwrap();
+
+        for (key, et) in [("a.rs-lesson", "lesson"), ("b.md-note", "doc")] {
+            memory
+                .store(key, MemoryTier::Working, "v", Some(et), None)
+                .unwrap();
+        }
+        let rust = tags::parse_tag("#lang:rust").unwrap();
+        let lesson = tags::parse_tag("#kind:lesson").unwrap();
+        memory.tag_entry("a.rs-lesson", &rust, tags::TagSource::Explicit).unwrap();
+        memory.tag_entry("a.rs-lesson", &lesson, tags::TagSource::Explicit).unwrap();
+        memory.tag_entry("b.md-note", &rust, tags::TagSource::Explicit).unwrap();
+
+        let both = memory.query_tags(&[rust.clone(), lesson.clone()], 10).unwrap();
+        assert_eq!(both.len(), 1, "only the entry with BOTH tags matches");
+        assert_eq!(both[0].key, "a.rs-lesson");
+
+        let any_rust = memory.query_tags(&[rust], 10).unwrap();
+        assert_eq!(any_rust.len(), 2);
+    }
+
+    #[test]
+    fn test_remove_tag_tombstones() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test_remove.db");
+        let memory = RlmMemory::new(&db_path).unwrap();
+
+        memory
+            .store("k", MemoryTier::Working, "v", Some("lesson"), None)
+            .unwrap();
+        assert!(!memory.tags_of("k").unwrap().is_empty());
+        let removed = memory.remove_tag("k", "kind:lesson").unwrap();
+        assert_eq!(removed, 1);
+        assert!(
+            memory.tags_of("k").unwrap().iter().all(|t| t.full_tag != "kind:lesson"),
+            "removed tag must be gone"
+        );
+        // And the FTS trigger dropped it too (tombstone propagates).
+        let fts_hits: i64 = memory
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM tags_fts WHERE tags_fts MATCH '\"kind:lesson\"'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(fts_hits, 0);
     }
 }

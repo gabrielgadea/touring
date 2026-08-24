@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "tanstack/ai code mode incorporado (secao 2.5): createCodeMode como 1 tool + bindings external_ + type stubs de JSON Schema, lazy tools + discover_tools (disclosure dupla), warnIfBindingsExposeSecrets, 4 perdas silenciosas MCP->code-mode, e pacote ai-code-mode-snippets: snippets cross-sessao com trust progression por outcome (untrusted->provisional 10+/90% ->trusted 100+/95%), selecao por modelo barato (haiku) com cap 5 no contexto, snippetsToTools/snippetsToBindings, management tools. Praticas P11-P12 + trust-by-stats destiladas"
+    }
+  ],
+  "relations": []
+}

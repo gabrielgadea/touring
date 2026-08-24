@@ -140,6 +140,27 @@ pub enum MutationError {
     /// Filesystem error (cache I/O, dir creation, etc.).
     #[error("filesystem error: {0}")]
     Io(#[from] std::io::Error),
+    /// The artifact records no viable mutant, so nothing was measured.
+    ///
+    /// A run that generates zero testable mutants is a FAILED run, not a
+    /// passing one: `compute_kill_rate` yields 0.0 for an empty denominator,
+    /// and returning that as a report lets a dead harness read as a measured
+    /// score. Origin (2026-08-20): the workspace baseline died on the
+    /// iai-callgrind bench target for months, emitting `total_mutants: 0`
+    /// while the CLI answered `ok: true` and `repo-score` scored its "testing"
+    /// category from that zero.
+    #[error(
+        "no viable mutants at {path} (total={total}, unviable={unviable}) — \
+         the run produced nothing to measure; check the cargo-mutants baseline"
+    )]
+    NoViableMutants {
+        /// Path to the `outcomes.json` that carried no viable mutant.
+        path: PathBuf,
+        /// Total mutants the artifact reports (may be 0 or all-unviable).
+        total: u32,
+        /// Mutants that failed to compile, hence never testable.
+        unviable: u32,
+    },
 }
 
 /// Convenience alias matching the rest of the touring codebase.
@@ -212,6 +233,24 @@ pub fn parse_outcomes_json(
             path: path.to_path_buf(),
             source: e,
         })?;
+
+    // A zero denominator is the absence of a measurement, never a score of
+    // zero — fail loudly instead of handing back a report the caller cannot
+    // distinguish from a real one. The same rule is applied to the CACHE path
+    // in `cache_load`; both call `has_measurement` so a third caller cannot
+    // diverge from the definition.
+    if artifact
+        .caught
+        .saturating_add(artifact.timeout)
+        .saturating_add(artifact.missed)
+        == 0
+    {
+        return Err(MutationError::NoViableMutants {
+            path: path.to_path_buf(),
+            total: artifact.total_mutants,
+            unviable: artifact.unviable,
+        });
+    }
 
     let kill_rate = compute_kill_rate(artifact.caught, artifact.missed, artifact.timeout);
     let passed_threshold = kill_rate >= threshold;
@@ -306,6 +345,25 @@ pub fn cache_path(cache_root: &Path, package: Option<&str>) -> PathBuf {
         .join(format!("{leaf}.json"))
 }
 
+impl MutationReport {
+    /// Whether this report represents an actual measurement.
+    ///
+    /// False when no mutant was testable: `caught + timeout + survived == 0`.
+    /// `unviable` is excluded — a mutant that never compiled was never a test.
+    ///
+    /// 2026-08-20: `parse_outcomes_json` rejected this case and the CACHE path
+    /// did not, so a stored report with `mutants_total: 0` was served straight
+    /// back as `ok: true` — and the cache is consulted FIRST, which made the
+    /// unguarded path the one that actually ran.
+    #[must_use]
+    pub fn has_measurement(&self) -> bool {
+        self.mutants_killed
+            .saturating_add(self.mutants_timeout)
+            .saturating_add(self.mutants_survived)
+            > 0
+    }
+}
+
 /// Load a cached [`MutationReport`] when present and fresh (≤ 7 days).
 ///
 /// Returns `Ok(None)` for missing or stale entries (caller re-runs).
@@ -332,6 +390,12 @@ pub fn cache_load(cache_root: &Path, package: Option<&str>) -> Result<Option<Mut
             path: path.clone(),
             source: e,
         })?;
+    // A cached non-measurement is still a non-measurement. Treated as a MISS
+    // rather than an error: a stale useless entry should make the caller
+    // re-run, not fail. Serving it as `ok: true` is what this guards.
+    if !report.has_measurement() {
+        return Ok(None);
+    }
     Ok(Some(report))
 }
 
@@ -398,7 +462,159 @@ fn physical_cores() -> u32 {
 
 #[cfg(test)]
 mod tests {
+
+    /// A CACHED non-measurement must read as a miss, not as a passing report.
+    ///
+    /// 2026-08-20, second half of the same defect: `parse_outcomes_json` was
+    /// taught to reject `caught + timeout + survived == 0`, and the cache path
+    /// was not — so `.touring-cache/mutation-test/_workspace.json` holding
+    /// `mutants_total: 0` came straight back as `ok: true, kill_rate: 0.0`.
+    /// The cache is consulted FIRST, which made the unguarded path the live
+    /// one. Fixing the cold site and leaving the hot one is how the original
+    /// zero survived being "fixed".
+    #[test]
+    fn a_cached_non_measurement_reads_as_a_miss() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let empty = MutationReport {
+            mutants_total: 0,
+            mutants_killed: 0,
+            mutants_survived: 0,
+            mutants_timeout: 0,
+            mutants_unviable: 0,
+            kill_rate: 0.0,
+            elapsed_secs: 1160,
+            passed_threshold: false,
+            threshold: 80.0,
+            package: None,
+            cargo_mutants_version: "26.1.2".to_owned(),
+        };
+        cache_store(dir.path(), None, &empty).unwrap();
+        assert!(
+            cache_load(dir.path(), None).unwrap().is_none(),
+            "a stored report that measured nothing must not be served back"
+        );
+
+        // A report with a real measurement still loads.
+        let real = MutationReport {
+            mutants_total: 134,
+            mutants_killed: 105,
+            mutants_survived: 1,
+            mutants_timeout: 2,
+            mutants_unviable: 26,
+            kill_rate: 99.1,
+            ..empty
+        };
+        cache_store(dir.path(), None, &real).unwrap();
+        assert!(
+            cache_load(dir.path(), None).unwrap().is_some(),
+            "a real measurement must still be served from cache"
+        );
+    }
+
+    /// A cache entry older than the TTL must read as a miss.
+    ///
+    /// `cache_load` has enforced `CACHE_STALE_SECS` (7 days) since it was
+    /// written, and until 2026-08-20 nothing tested it — the guard could be
+    /// deleted in an edit and every suite would stay green while a months-old
+    /// kill-rate was served as current.
+    #[test]
+    fn cache_load_treats_an_expired_entry_as_a_miss() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let report = MutationReport {
+            mutants_total: 19,
+            mutants_killed: 3,
+            mutants_survived: 2,
+            mutants_timeout: 9,
+            mutants_unviable: 5,
+            kill_rate: 85.7,
+            elapsed_secs: 1160,
+            passed_threshold: true,
+            threshold: 80.0,
+            package: Some("touring-identity".to_owned()),
+            cargo_mutants_version: "26.1.2".to_owned(),
+        };
+        cache_store(dir.path(), Some("touring-identity"), &report).unwrap();
+
+        // Fresh: the entry is served.
+        let fresh = cache_load(dir.path(), Some("touring-identity")).unwrap();
+        assert!(fresh.is_some(), "a just-written entry must load");
+
+        // Age it one second past the TTL.
+        let path = cache_path(dir.path(), Some("touring-identity"));
+        let expired =
+            std::time::SystemTime::now() - std::time::Duration::from_secs(CACHE_STALE_SECS + 1);
+        let f = fs::File::options().write(true).open(&path).unwrap();
+        f.set_modified(expired).unwrap();
+        drop(f);
+
+        let stale = cache_load(dir.path(), Some("touring-identity")).unwrap();
+        assert!(
+            stale.is_none(),
+            "an entry past CACHE_STALE_SECS must read as a miss, not as a result"
+        );
+    }
     use super::*;
+
+    /// A run with zero viable mutants is a FAILED run, never a 0% score.
+    ///
+    /// Mutation-proof for the defect of 2026-08-20: `parse_outcomes_json`
+    /// used to return `Ok` here, so a dead baseline reached the caller as a
+    /// well-formed report with `kill_rate: 0.0` — indistinguishable from a
+    /// suite that genuinely killed nothing.
+    #[test]
+    fn zero_viable_mutants_is_an_error_not_a_zero_score() {
+        let dir =
+            std::env::temp_dir().join(format!("touring-mutants-empty-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let path = dir.join("outcomes.json");
+        std::fs::write(
+            &path,
+            br#"{"outcomes":[],"total_mutants":0,"missed":0,"caught":0,
+                "timeout":0,"unviable":0,"success":0}"#,
+        )
+        .expect("write artifact");
+
+        let err = parse_outcomes_json(&path, 80.0, None, 1160)
+            .expect_err("an empty artifact must not parse into a report");
+        assert!(
+            matches!(err, MutationError::NoViableMutants { total: 0, .. }),
+            "expected NoViableMutants, got {err:?}"
+        );
+
+        std::fs::remove_file(&path).ok();
+        std::fs::remove_dir(&dir).ok();
+    }
+
+    /// All-unviable is the same absence: nothing compiled, nothing was tested.
+    #[test]
+    fn all_unviable_is_also_an_error() {
+        let dir =
+            std::env::temp_dir().join(format!("touring-mutants-unviable-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let path = dir.join("outcomes.json");
+        std::fs::write(
+            &path,
+            br#"{"outcomes":[],"total_mutants":7,"missed":0,"caught":0,
+                "timeout":0,"unviable":7,"success":0}"#,
+        )
+        .expect("write artifact");
+
+        let err = parse_outcomes_json(&path, 80.0, None, 42)
+            .expect_err("all-unviable must not parse into a report");
+        assert!(matches!(
+            err,
+            MutationError::NoViableMutants {
+                total: 7,
+                unviable: 7,
+                ..
+            }
+        ));
+
+        std::fs::remove_file(&path).ok();
+        std::fs::remove_dir(&dir).ok();
+    }
+
+    use serial_test::serial;
     use std::io::Write;
     use tempfile::TempDir;
 
@@ -556,6 +772,7 @@ mod tests {
     /// Mock CI test: when cargo-mutants is absent, `run_mutation_test`
     /// returns `BinaryNotFound` (graceful degradation, no panic).
     /// Simulated by setting PATH to an empty dir.
+    #[serial]
     #[test]
     fn ci_mock_no_cargo_mutants_returns_binary_not_found() {
         let dir = TempDir::new().unwrap();

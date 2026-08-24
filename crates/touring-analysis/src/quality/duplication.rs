@@ -33,7 +33,9 @@
 
 use std::collections::HashMap;
 
-use touring_simd::similarity::{JaccardComputer, JaccardSimilarity, MinHasher, Signature, band_keys};
+use touring_simd::similarity::{
+    JaccardComputer, JaccardSimilarity, MinHasher, Signature, band_keys,
+};
 
 use super::code_regions::{non_executable_regions, offset_suppressed};
 
@@ -79,11 +81,9 @@ pub struct DuplicationReport {
     pub near_pass_skipped: Option<&'static str>,
 }
 
-/// A meaningful production line: its normalized text and original 0-based index.
+/// A meaningful production line: its normalized text.
 struct Line {
     norm: String,
-    #[allow(dead_code)]
-    index: usize,
 }
 
 /// Collect meaningful production lines, tracking byte offsets correctly (so
@@ -91,7 +91,7 @@ struct Line {
 fn collect_meaningful_lines(source: &str, regions: &[(usize, usize)]) -> Vec<Line> {
     let mut out = Vec::new();
     let mut line_start = 0usize;
-    for (index, raw_line) in source.split_inclusive('\n').enumerate() {
+    for raw_line in source.split_inclusive('\n') {
         let content = raw_line.trim_end_matches('\n').trim_end_matches('\r');
         let trimmed = content.trim();
         let advance = raw_line.len();
@@ -110,7 +110,7 @@ fn collect_meaningful_lines(source: &str, regions: &[(usize, usize)]) -> Vec<Lin
         if keep {
             // Normalize: collapse internal whitespace runs to a single space.
             let norm = trimmed.split_whitespace().collect::<Vec<_>>().join(" ");
-            out.push(Line { norm, index });
+            out.push(Line { norm });
         }
         line_start += advance;
     }
@@ -180,13 +180,78 @@ const MAX_BUCKET_MEMBERS: usize = 64;
 /// keeping a word verbatim can only ever *reduce* the number of reported
 /// clones, so a Go keyword surviving in Rust costs recall, never precision.
 const KEYWORDS: &[&str] = &[
-    "as", "async", "await", "break", "case", "catch", "chan", "class", "const", "continue",
-    "def", "default", "defer", "del", "do", "elif", "else", "enum", "except", "extends", "false",
-    "final", "finally", "fn", "for", "from", "func", "function", "go", "if", "impl", "import",
-    "in", "interface", "is", "lambda", "let", "loop", "map", "match", "mod", "move", "mut", "new",
-    "nil", "none", "not", "or", "package", "pass", "pub", "range", "raise", "ref", "return",
-    "select", "self", "static", "struct", "super", "switch", "trait", "true", "try", "type",
-    "unsafe", "use", "var", "where", "while", "with", "yield",
+    "as",
+    "async",
+    "await",
+    "break",
+    "case",
+    "catch",
+    "chan",
+    "class",
+    "const",
+    "continue",
+    "def",
+    "default",
+    "defer",
+    "del",
+    "do",
+    "elif",
+    "else",
+    "enum",
+    "except",
+    "extends",
+    "false",
+    "final",
+    "finally",
+    "fn",
+    "for",
+    "from",
+    "func",
+    "function",
+    "go",
+    "if",
+    "impl",
+    "import",
+    "in",
+    "interface",
+    "is",
+    "lambda",
+    "let",
+    "loop",
+    "map",
+    "match",
+    "mod",
+    "move",
+    "mut",
+    "new",
+    "nil",
+    "none",
+    "not",
+    "or",
+    "package",
+    "pass",
+    "pub",
+    "range",
+    "raise",
+    "ref",
+    "return",
+    "select",
+    "self",
+    "static",
+    "struct",
+    "super",
+    "switch",
+    "trait",
+    "true",
+    "try",
+    "type",
+    "unsafe",
+    "use",
+    "var",
+    "where",
+    "while",
+    "with",
+    "yield",
 ];
 
 /// Rewrites one line into its Type-2 canonical token stream.
@@ -315,7 +380,11 @@ fn analyze_type2(lines: &[Line]) -> Type2Outcome {
     let n = lines.len();
     let mut covered = vec![false; n];
     if n < MIN_BLOCK_LINES {
-        return Type2Outcome { any: false, covered, skipped: None };
+        return Type2Outcome {
+            any: false,
+            covered,
+            skipped: None,
+        };
     }
 
     // Token-normalize once per line; windows reuse the slices.
@@ -382,7 +451,11 @@ fn analyze_type2(lines: &[Line]) -> Type2Outcome {
     // representative per distinct normalized form, since identical forms were
     // already settled by stage 1 and deduping is what keeps buckets small.
     if n < NEAR_BLOCK_LINES {
-        return Type2Outcome { any: found, covered, skipped: None };
+        return Type2Outcome {
+            any: found,
+            covered,
+            skipped: None,
+        };
     }
     let near_tokens = |start: usize| -> Vec<u32> {
         per_line
@@ -409,7 +482,9 @@ fn analyze_type2(lines: &[Line]) -> Type2Outcome {
         return Type2Outcome {
             any: found,
             covered,
-            skipped: Some("near-duplicate pass skipped: distinct windows exceed the 50k budget — score by crate for gapped-clone coverage"),
+            skipped: Some(
+                "near-duplicate pass skipped: distinct windows exceed the 50k budget — score by crate for gapped-clone coverage",
+            ),
         };
     }
 
@@ -698,7 +773,6 @@ mod tests {
         )
     }
 
-
     #[test]
     fn renamed_copy_paste_is_invisible_to_type1_and_caught_by_type2() {
         // The exact gap A1 exists to close: same block, every identifier
@@ -753,8 +827,12 @@ mod tests {
     fn literals_of_different_shape_still_normalize_together() {
         // Type-2 abstracts literals but keeps their KIND: two different numbers
         // are both `$N` and must match…
-        let a = varied_block("first").replace("* 3", "* 7").replace("> 4", "> 9");
-        let b = varied_block("second").replace("* 3", "* 11").replace("> 4", "> 2");
+        let a = varied_block("first")
+            .replace("* 3", "* 7")
+            .replace("> 4", "> 9");
+        let b = varied_block("second")
+            .replace("* 3", "* 11")
+            .replace("> 4", "> 2");
         let r = analyze_duplication(&format!("fn f() {{\n{a}}}\nfn g() {{\n{b}}}\n"), "rust");
         assert!(r.type2_clone_regions >= 1, "different numbers are both $N");
 
@@ -801,9 +879,15 @@ mod tests {
                    match spread { 0 => total, 1..=3 => total / spread, _ => total.saturating_sub(spread) }\n\
                    }\n";
         let r = analyze_duplication(src, "rust");
-        assert_eq!(r.type2_only_lines, 0, "varied code is not a clone of itself");
+        assert_eq!(
+            r.type2_only_lines, 0,
+            "varied code is not a clone of itself"
+        );
         assert_eq!(r.combined_ratio, 0.0);
-        assert!(r.near_pass_skipped.is_none(), "a small file must be fully measured");
+        assert!(
+            r.near_pass_skipped.is_none(),
+            "a small file must be fully measured"
+        );
     }
 
     #[test]
@@ -837,7 +921,10 @@ mod tests {
             "fn prod() {{ ok() }}\n#[cfg(test)]\nmod tests {{\nfn t1() {{\n{a}}}\nfn t2() {{\n{b}}}\n}}\n"
         );
         let r = analyze_duplication(&src, "rust");
-        assert_eq!(r.type2_only_lines, 0, "test-region clones are not production debt");
+        assert_eq!(
+            r.type2_only_lines, 0,
+            "test-region clones are not production debt"
+        );
     }
 
     #[test]

@@ -1,6 +1,7 @@
 [package]
 name = "touring-quality"
 version.workspace = true
+rust-version.workspace = true
 edition.workspace = true
 description = "50-dimension quality scoring engine for Touring — makes any LLM produce elite-grade code via auto-scoring, BLOCK enforcement, and auto-remediation generators"
 license.workspace = true

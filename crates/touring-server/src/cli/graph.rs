@@ -378,7 +378,7 @@ fn handle_format(
 /// Dispatch to visual::dot_pipe_svg for DOT→SVG conversion.
 fn run_dot_to_svg(dot_input: &str) -> anyhow::Result<String> {
     visual::dot_pipe_svg(dot_input)
-        .ok_or_else(|| anyhow::anyhow!("dot (graphviz) unavailable or produced empty output"))
+        .ok_or_else(|| anyhow::anyhow!("dot (graphviz) unavailable or produced empty output — run `apt install graphviz` (or `brew install graphviz`) to install it"))
 }
 
 /// Dispatch graph query based on subcommand and parsed CLI args.

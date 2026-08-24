@@ -1022,7 +1022,9 @@ mod tests {
 /// conditions under which this harness must caveat its own verdict.
 #[cfg(test)]
 mod methodology_bias_tests {
-    use super::{BIAS_MIN_DIMS, DimId, DimScore, DimStatus, QualityReport, detect_methodology_bias};
+    use super::{
+        BIAS_MIN_DIMS, DimId, DimScore, DimStatus, QualityReport, detect_methodology_bias,
+    };
     use std::collections::BTreeMap;
     use std::path::PathBuf;
 

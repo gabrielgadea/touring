@@ -9,6 +9,39 @@ name = "feature"
 description = "Full feature pipeline: expert memory, SOTA scout, plan, conflict-check, verified build"
 entry = "recall"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Build a new capability end to end: prior art, SOTA scout, plan, conflict check, then a verified implementation"
+when_to_use = [
+  "a capability that does not exist yet and spans more than one file",
+  "other sessions may be writing nearby and the write-set must be checked",
+]
+when_not_to_use = [
+  "a one-line change — the pipeline costs more than the work; use chore",
+  "an active incident, where the scout and plan steps are time you do not have — use hotfix",
+]
+inputs = [
+  "feature",
+  "target",
+  "write_set",
+  "verify_cmd",
+]
+produces = [
+  "an implementation carrying its prior art, plan, conflict check and gate verdict",
+]
+tags = [
+  "#kind:flow",
+  "#domain:feature",
+  "#process:build",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Capacidade nova ponta a ponta. Reusa peças de bugfix (guard, q50, close) via
+# fragmento — que é exatamente o que o kit existe para permitir.
+prior_art_verdict = "create_new"
+
 
 [node.recall]
 type = "code"
@@ -20,10 +53,20 @@ on_fail = "scout"
 
 [node.scout]
 type = "agent"
+# Bound to the master skill because scouting IS code intelligence: `touring scout
+# <Symbol>` fuses index find + ast find + wiring impact + search into one call, and
+# the skill is what tells the agent that the master exists. Chaining the atomics is
+# the antipattern the masters were built to remove.
+skill = "Touring"
 driver = "claude"
 tier = "sota"
 prompt = "Scout the codebase for implementing: {{vars.feature}} (area: {{vars.target}}). Institutional memory + PRIOR ART: {{nodes.recall.summary}}. The prior-art block lists artifacts that already serve this purpose, with their gaps and an external lens to consult — treat it as evidence, NOT as a constraint: you must reach a verdict (reuse | extend | supersede | create_new) and justify it. Consult the named external lens via Context7 before deciding to supersede or create new. Map integration points, risks, existing patterns to follow. State the verdict explicitly. End with NEW_FINDINGS=<n>."
 allowed_tools = ["Read", "Grep", "Glob", "Bash"]
+# Headless: without this the agent stops to ask a human who is not there,
+# and reports `pass` for having asked (chore-1784540624 burned four real
+# invocations and three minutes doing exactly that). `acceptEdits` accepts
+# file edits without prompting; it is not `bypassPermissions`.
+permission_mode = "acceptEdits"
 session = "fresh"
 timeout_ms = 900000
 on_pass = "plan"
@@ -31,31 +74,57 @@ on_fail = "__fail__"
 
 [node.plan]
 type = "agent"
+# `taco-planning` is the craft: 9 scored dimensions, VGP-verified ground truth,
+# gap detection and confidence tags on every claim. A planning agent without it
+# re-derives all of that, worse, on every run.
+skill = "taco-planning"
 driver = "claude"
 tier = "sota"
 prompt = "Write the implementation plan for: {{vars.feature}}. Scout findings: {{nodes.scout.summary}}. Concrete steps, files to touch, test strategy. Declare the exact write-set (files) the implementer needs."
 allowed_tools = ["Read", "Grep", "Glob"]
 session = "fresh"
 timeout_ms = 600000
-on_pass = "conflict_check"
+on_pass = "conflict.conflict_check"
 on_fail = "__fail__"
 
 # Parallel-engineer safety (F3.4): declared write-sets go through the CEG
 # conflict-check so concurrent implementers serialize instead of colliding.
-[node.conflict_check]
-type = "gate"
-command = ["bash", "-c", "touring conflict-check $1", "--", "{{vars.write_set}}"]
-timeout_ms = 60000
-idempotent = true
-on_pass = "implement"
-on_fail = "implement"
+#
+# This was a COPY of `conflict-guard.conflict_check`, byte-identical but for the
+# variable it bound (measured 2026-08-23, `portfolio_graph.py reimplemented`).
+#
+# The copy also carried an asymmetry the fragment does not have: `on_fail` went
+# straight to `implement`, so a DETECTED conflict skipped the pre-edit guard that
+# the success path crosses. A failure path must never be more permissive than the
+# success path — that is how "caller A does X, caller B forgot" becomes a bug.
+# Both seams now cross the guard.
+[[use]]
+module  = "conflict-guard"
+as      = "conflict"
+with    = { write_set = "{{vars.write_set}}" }
+on_pass = "pre.pre_edit"
+on_fail = "pre.pre_edit"
 
 [node.implement]
 type = "agent"
+# The master skill's declared purpose is literally "before editing code": it
+# carries blast-before-edit, the pre-edit score gate and VGP symbol verification
+# (REGRA #5). An implementer without it edits blind.
+skill = "Touring"
 driver = "claude"
 tier = "workhorse"
-prompt = "Implement the plan: {{nodes.plan.summary}}. Feature: {{vars.feature}}. Follow surrounding conventions; tests included."
+# The runner has enforced a per-agent dollar cap since it was written
+# (`--max-budget-usd`), and no library spec declared one — measured
+# 2026-08-20, `budget_usd` appeared in 0 of 9. An implementation agent is
+# the most expensive node in the portfolio and the one worth bounding.
+budget_usd = 2.0
+prompt = "Implement the plan: {{nodes.plan.summary}}. Feature: {{vars.feature}}. Follow surrounding conventions; tests included. WRITE-SET CONFLICT CHECK: {{nodes.conflict.conflict_check.summary}} — a conflict here means another worker holds those files; narrow your write-set instead of racing it. VERIFICATION VERDICT of the previous attempt (empty on the first pass — if it carries text, THAT is what rejected you; address it before anything else): {{nodes.verify.summary}} If the 50-dim quality gate rejected the previous attempt, its verdict is: {{nodes.q50.quality_gate.summary}} — fix what it names before anything else."
 allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+# Headless: without this the agent stops to ask a human who is not there,
+# and reports `pass` for having asked (chore-1784540624 burned four real
+# invocations and three minutes doing exactly that). `acceptEdits` accepts
+# file edits without prompting; it is not `bypassPermissions`.
+permission_mode = "acceptEdits"
 session = "resume_on_fail"
 timeout_ms = 1800000
 on_pass = "verify"
@@ -66,5 +135,38 @@ type = "gate"
 command = ["bash", "-c", "{{vars.verify_cmd}}"]
 timeout_ms = 900000
 idempotent = true
-on_pass = "__end__"
+on_pass = "q50.quality_gate"
 on_fail = "implement"
+
+# Functional green is not the bar. The 50-dim harness scores the target on the
+# quality dimensions with per-dim evidence, and the flow only ends when BOTH
+# gates pass. Measured 2026-08-20: no library spec reached this harness by any
+# path, so every flow shipped on "the tests passed" alone.
+[[use]]
+module  = "gate-quality50"
+as      = "q50"
+with    = { target = "{{vars.target}}", floor = "0.80" }
+on_pass = "close.persist"
+on_fail = "implement"
+
+# The pheromone deposit. `touring learning reward` appeared in exactly two
+# places on 2026-08-20 — the orphan `phase-close` fragment and the loop's own
+# Python script — and in ZERO library specs. A flow completed and wrote nothing
+# back to the RL that routes the next one: the ACO loop consumed and never fed.
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:feature:{{vars.feature}}", summary = "{{nodes.implement.summary}}", domain = "feature" }
+on_pass = "__end__"
+on_fail = "__end__"
+
+# The pre-edit master, on the one edge where it belongs: the step before an
+# agent writes. `touring guard` fuses blast + TDG + gotcha + memory into a
+# single GO / CAUTION / NO_GO. Measured 2026-08-20 it was reached by ZERO
+# files anywhere — the master built for exactly this moment, used by nothing.
+[[use]]
+module  = "gate-guard"
+as      = "pre"
+with    = { target = "{{vars.target}}" }
+on_pass = "implement"
+on_fail = "__fail__"

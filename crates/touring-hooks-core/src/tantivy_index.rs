@@ -1411,10 +1411,12 @@ pub fn tantivy_for(root: Option<&Path>) -> Option<&'static TantivyIndex> {
 /// O caminho legado **continua acessível** por `tantivy_for(None)` — o que
 /// desapareceu foi o atalho que o tornava o default implícito. Quem quiser o
 /// índice compartilhado agora tem de pedi-lo por extenso.
-// `since` acompanha a versão REAL do workspace (30.3.0). Eu havia escrito
-// "30.4.0" antecipando um bump que não vai acontecer aqui: o `Cargo.toml`
-// amarra a versão à constituição/docs e adia o rebrand SemVer para a Fase 5.
-// Anunciar uma versão inexistente seria pior que não anunciar nenhuma.
+// `since` registra QUANDO a depreciação começou (30.3.0) — não a versão
+// corrente. O workspace já passou por 30.4.0 e 30.4.1 desde então, e este
+// atributo continua correto justamente por não acompanhá-las: quem lê um
+// `deprecated` quer saber a partir de quando, para decidir se seu código é
+// afetado. A nota original dizia que o bump "não vai acontecer"; aconteceu
+// duas vezes, e não mudou nada aqui — que é o ponto.
 #[deprecated(
     since = "30.3.0",
     note = "use `tantivy_for(Some(&project_root))`; para o índice legado compartilhado, \

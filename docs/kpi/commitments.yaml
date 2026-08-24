@@ -244,3 +244,11 @@ commitments:
     advisory: true
     source: "derived:memory_never_recalled_ratio"
     rationale: "Dead weight in the store: written once, never read. 0.200 at 2026-08-02. Rising means either the corpus is drifting again (see corpus_coverage) or entries are being written in a shape recall cannot match."
+
+  - id: touring.memory.tag_coverage
+    name: "Memory entries carrying faceted hashtags (hashtag library)"
+    threshold: 0.9
+    direction: gte
+    advisory: false
+    source: "daemon:cli-memory-stats:/tag_coverage"
+    rationale: "The hashtag library only compounds when entries are faceted — an untagged entry is invisible to `#facet:value` filters and MOC communities. Backfilled to 1.0 on 2026-08-12 (7.393/7.393); every store path auto-tags since F1, so a fall below 0.9 means a write path is bypassing derivation (or the codetag sync silently broke)."

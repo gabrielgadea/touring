@@ -71,7 +71,7 @@ impl Handler for PreCompactHandler {
              RULES: CODE-FIRST UNIVERSAL (DISCOVER\u{2192}CREATE\u{2192}EXECUTE) | \
              CILA routing active | Zero-hallucination (verify before assert) | \
              Hooks inviolable (NEVER bypass) | ACTIVE: touring_mask_context(summarize large observations) + touring_checkpoint(auto-saved) + touring_incremental_status(index current)",
-            &ctx.session_id[..ctx.session_id.len().min(8)],
+            truncate_str(&ctx.session_id, 8),
             parts.join(" "),
         );
 
@@ -692,7 +692,7 @@ impl Handler for SessionEndHandler {
             .record_bash_outcome(&touring_hooks::knowledge::BashOutcome {
                 command: format!(
                     "session_end:{} tools={} errors={} duration={:.0}s",
-                    &ctx.session_id[..ctx.session_id.len().min(12)],
+                    truncate_str(&ctx.session_id, 12),
                     tool_count,
                     error_count,
                     duration_secs,
@@ -714,7 +714,7 @@ impl Handler for SessionEndHandler {
         let _ = ctx.knowledge.record_access(
             &format!(
                 "__session_end:{}__",
-                &ctx.session_id[..ctx.session_id.len().min(12)]
+                truncate_str(&ctx.session_id, 12)
             ),
             &ctx.session_id,
         );
@@ -723,7 +723,7 @@ impl Handler for SessionEndHandler {
         let stats = ctx.knowledge.stats().ok();
 
         tracing::info!(
-            session_id = %&ctx.session_id[..ctx.session_id.len().min(12)],
+            session_id = %truncate_str(&ctx.session_id, 12),
             tool_count = tool_count,
             error_count = error_count,
             duration_secs = duration_secs,
@@ -821,7 +821,7 @@ impl Handler for PostCompactHandler {
              CODE-FIRST (DISCOVER\u{2192}CREATE\u{2192}EXECUTE) | \
              CILA routing active | Zero-hallucination (verify before assert) | \
              Hooks inviolable (NEVER bypass) | Touring v9.0 active",
-            &ctx.session_id[..ctx.session_id.len().min(8)],
+            truncate_str(&ctx.session_id, 8),
         );
         if tier1.len() <= budget_remaining {
             output.push_str(&tier1);

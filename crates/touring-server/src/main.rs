@@ -66,7 +66,7 @@ async fn run_serve() -> anyhow::Result<()> {
 
     let server = touring_server::server::TouringServer::new().map_err(|e| {
         error!("Failed to initialize Touring server: {}", e);
-        anyhow::anyhow!("Server init failed: {}", e)
+        anyhow::anyhow!("Touring server init failed: {} — check `touring doctor -j` for subsystem status", e)
     })?;
 
     server.spawn_background_tasks();

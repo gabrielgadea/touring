@@ -2,7 +2,7 @@
 name = "touring-simd"
 version = "0.2.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "SIMD-accelerated vector ops via pulp (AVX-512/AVX2+FMA/NEON), similarity, statistics, quantization, ANN"
 license.workspace = true
 

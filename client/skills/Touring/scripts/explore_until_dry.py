@@ -54,7 +54,8 @@ from lib_touring import (  # noqa: E402
 )
 
 LEDGER_DIRNAME = ".touring-explore"
-AUTOMATED_LENSES = ("lexical", "structural", "institutional", "antistaleness", "quality")
+AUTOMATED_LENSES = ("lexical", "structural", "institutional", "antistaleness",
+                    "quality", "portfolio")
 MANUAL_LENSES = ("external",)          # requires --mark-lens visited|waived
 ALL_LENSES = AUTOMATED_LENSES + MANUAL_LENSES
 DEFAULT_DRY_ROUNDS = 2
@@ -205,6 +206,42 @@ def lens_antistaleness(topic: str, scope: Path, run: Runner, timeout: float) -> 
     return sweep
 
 
+def lens_portfolio(topic: str, scope: Path, run: Runner, timeout: float) -> LensSweep:
+    """Prior-art by PURPOSE — what already solves this intent (cross-project).
+
+    The other lenses are keyed by symbol name; this one is keyed by the purpose
+    prose artifacts carry (docstrings, `//!` headers, SKILL.md frontmatter). It
+    is the lens that answers "has someone already built this?" before anything
+    new is written, and it spans every project, not just the current scope.
+
+    Gaps are recorded as findings on purpose: "nothing covers X" is exactly the
+    kind of endogenous target that should keep the exploration from drying.
+    """
+    sweep = LensSweep("portfolio")
+    res = run(["portfolio", topic, "-j"], timeout=timeout)
+    sweep.degraded |= res.daemon_degraded
+    ans = res.parsed if isinstance(res.parsed, dict) else {}
+    hits = [h for h in ans.get("prior_art", []) if isinstance(h, dict)]
+    for h in sweep.take_head(hits, "portfolio prior-art"):
+        entry = h.get("entry", {}) if isinstance(h.get("entry"), dict) else {}
+        key = str(entry.get("display_path", entry.get("id", "?")))
+        sweep.add("prior-art", key, f"touring portfolio {topic}",
+                  str(entry.get("purpose", ""))[:200], depth="D1")
+    for gap in ans.get("gaps", [])[:TOP_HITS_PER_LENS]:
+        sweep.add("gap", str(gap)[:120], f"touring portfolio {topic}", str(gap))
+    corpus = ans.get("corpus_size")
+    if corpus == 0:
+        sweep.notes.append("portfolio vazio — rode `touring portfolio refresh`")
+    elif not hits:
+        sweep.notes.append(f"portfolio: 0 candidatos em {corpus} artefatos indexados")
+    for lens_ref in ans.get("external", [])[:3]:
+        if isinstance(lens_ref, dict):
+            sweep.notes.append(
+                f"lente externa sugerida: [{lens_ref.get('source')}] "
+                f"{lens_ref.get('subject')} — {lens_ref.get('question')}")
+    return sweep
+
+
 def lens_quality(topic: str, scope: Path, run: Runner, timeout: float,
                  ledger: dict[str, Any] | None = None) -> LensSweep:
     """Open ast-meta on the top distinct files other lenses surfaced (D1)."""
@@ -226,6 +263,7 @@ def lens_quality(topic: str, scope: Path, run: Runner, timeout: float,
 
 
 LENS_FNS: dict[str, Callable[..., LensSweep]] = {
+    "portfolio": lens_portfolio,
     "lexical": lens_lexical,
     "structural": lens_structural,
     "institutional": lens_institutional,
@@ -291,20 +329,34 @@ def promote_corroborated(ledger: dict[str, Any]) -> int:
 
 
 def _unmet_clauses(rounds: list, dry_rounds: int, dry_tail: bool,
-                   manual_pending: list[str], open_qs: list[dict]) -> list[str]:
+                   manual_pending: list[str], open_qs: list[dict],
+                   max_rounds: int | None = None) -> list[str]:
     unmet: list[str] = []
     if not dry_tail:
         last = rounds[-1]["new_findings"] if rounds else None
-        unmet.append(f"need {dry_rounds} consecutive dry rounds "
-                     f"(last round new={last})")
+        # "ainda há o que achar" e "o teto me interrompeu" são causas OPOSTAS que produziam a
+        # mesma frase — e a segunda se lê como a primeira, levando a encerrar uma exploração
+        # que apenas bateu no cap. Medido em 07/08/2026: parada em 12 rodadas soava "incompleto";
+        # elevando o teto, as rodadas 13-21 renderam mais 18 achados e SÓ ENTÃO secou.
+        if max_rounds is not None and len(rounds) >= max_rounds:
+            unmet.append(f"parou no TETO de {max_rounds} rodadas, não por secar "
+                         f"(última rodada new={last}) — repita com --max-rounds maior")
+        else:
+            unmet.append(f"need {dry_rounds} consecutive dry rounds "
+                         f"(last round new={last})")
     unmet += [f"lens '{m}' pending — mark visited/waived (--mark-lens)"
               for m in manual_pending]
     unmet += [f"open question {q['id']}: {q['text'][:60]}" for q in open_qs[:5]]
     return unmet
 
 
-def convergence(ledger: dict[str, Any], dry_rounds: int) -> dict[str, Any]:
-    """The CCE verdict — honest, conditioned, computed by code (Lei L2)."""
+def convergence(ledger: dict[str, Any], dry_rounds: int,
+                max_rounds: int | None = None) -> dict[str, Any]:
+    """The CCE verdict — honest, conditioned, computed by code (Lei L2).
+
+    ``max_rounds`` só entra no texto do ``unmet``: com ele o veredito distingue
+    "não secou" de "bateu no teto", que são causas opostas com a mesma aparência.
+    """
     rounds = ledger["rounds"]
     open_qs = [q for q in ledger["questions"] if q["status"] == "open"]
     manual_pending = [lens for lens in MANUAL_LENSES
@@ -312,7 +364,7 @@ def convergence(ledger: dict[str, Any], dry_rounds: int) -> dict[str, Any]:
     tail = rounds[-dry_rounds:] if len(rounds) >= dry_rounds else []
     dry_tail = bool(tail) and all(r["new_findings"] == 0 for r in tail)
     converged = dry_tail and not manual_pending and not open_qs
-    unmet = _unmet_clauses(rounds, dry_rounds, dry_tail, manual_pending, open_qs)
+    unmet = _unmet_clauses(rounds, dry_rounds, dry_tail, manual_pending, open_qs, max_rounds)
     verdict = {
         "converged": converged,
         "statement": ("no new findings under current questions/lenses after "
@@ -428,6 +480,26 @@ def human_report(ledger: dict[str, Any], verdict: dict[str, Any]) -> None:
         print(f"  ✗ {u}")
 
 
+def emit_dry_signal(ledger: dict[str, Any], rounds_before: int) -> None:
+    """Emit the ADW loop-node dryness signal (``adw.py`` Law L2 protocol).
+
+    The RUNNER owns loop termination, so the producer — never the agent — must
+    state how many findings a round actually added. Three deliberate choices:
+
+    * **stderr**, so ``--json`` stdout stays strict JSON for programmatic callers
+      while the ADW specs (which all merge with ``2>&1``) still see it;
+    * **last line**, so a ``tail -c <n>`` in the spec's command cannot eat it;
+    * **silence when no round ran** (``--status``, or a spent round budget) —
+      absence means *unknown*, and ``adw.py`` treats unknown as NOT dry
+      (fail-closed). Emitting ``0`` here would let a read-only status call
+      masquerade as a dry round and terminate the loop.
+    """
+    fresh = ledger["rounds"][rounds_before:]
+    if not fresh:
+        return
+    print(f"NEW_FINDINGS={sum(r['new_findings'] for r in fresh)}", file=sys.stderr)
+
+
 # === main ==================================================================
 
 def build_parser() -> argparse.ArgumentParser:
@@ -515,11 +587,12 @@ def main(argv: list[str] | None = None, run: Runner = touring_run) -> int:
         return 2
 
     degraded_any = False
+    rounds_before = len(ledger["rounds"])
     if not args.status:
         ran, degraded_any = execute_rounds(ledger, scope, args, run)
         mutated = mutated or ran
 
-    verdict = convergence(ledger, args.dry_rounds)
+    verdict = convergence(ledger, args.dry_rounds, args.max_rounds)
     if mutated:
         save_ledger(ledger, lpath)
 
@@ -534,6 +607,7 @@ def main(argv: list[str] | None = None, run: Runner = touring_run) -> int:
     }, degraded_any, "daemon degraded during ≥1 lens — grep fallback used")
     if not emit_result(payload, args):
         human_report(ledger, verdict)
+    emit_dry_signal(ledger, rounds_before)
     if degraded_any:
         return 3
     return 0 if verdict["converged"] else 1

@@ -82,9 +82,9 @@ impl ToolchainLock {
         body.push_str(&format!("reason = \"{}\"\n", self.reason.replace('"', "'")));
         let path = dot_touring.join(LOCK_FILE);
         let tmp = dot_touring.join(format!("{LOCK_FILE}.tmp"));
-        std::fs::write(&tmp, body).map_err(|e| anyhow!("write {}: {e}", tmp.display()))?;
+        std::fs::write(&tmp, body).map_err(|e| anyhow!("write {}: {e} — run `df -h .` to check disk space", tmp.display()))?;
         std::fs::rename(&tmp, &path)
-            .map_err(|e| anyhow!("rename {} -> {}: {e}", tmp.display(), path.display()))?;
+            .map_err(|e| anyhow!("rename {} -> {}: {e} — run `ls -la` on the parent directory to check write permissions", tmp.display(), path.display()))?;
         Ok(())
     }
 }

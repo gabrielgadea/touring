@@ -258,7 +258,7 @@ pub fn run(args: &[String]) -> Result<()> {
             println!("    touring toolchain install --from-source <workspace> <version> [--force]");
             println!("    touring toolchain install --from-url <url> <version> [--force]");
             println!("    touring toolchain remove <version>");
-            return Err(anyhow!("missing or unknown subcommand"));
+            return Err(anyhow!("unknown toolchain subcommand; run `touring toolchain --help` or use: init, list, default, install, remove"));
         }
     }
     Ok(())
@@ -292,10 +292,10 @@ fn install_toolchain_from_tarball_labeled(
     source_label: &str,
 ) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty"));
+        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
     }
     if !tarball.is_file() {
-        return Err(anyhow!("tarball not found: {}", tarball.display()));
+        return Err(anyhow!("tarball {} does not exist or is not readable; verify path with `ls -l` or download with `touring toolchain install --from-url`", tarball.display()));
     }
     let dest = prepare_toolchain_dest(home, version, force)?;
 
@@ -307,12 +307,12 @@ fn install_toolchain_from_tarball_labeled(
         .arg("-C")
         .arg(&dest)
         .status()
-        .map_err(|e| anyhow!("spawn tar: {e}"))?;
+        .map_err(|e| anyhow!("spawn tar: {e} — run `touring help` for details"))?;
     if !status.success() {
         // Clean up partial extraction on failure
         let _ = std::fs::remove_dir_all(&dest);
         return Err(anyhow!(
-            "tar -xzf {} -C {} failed with status {}",
+            "tar extraction failed for {} → {} (status: {}); verify tarball with `tar -tzf` and check destination permissions",
             tarball.display(),
             dest.display(),
             status
@@ -321,11 +321,11 @@ fn install_toolchain_from_tarball_labeled(
 
     // Sanity check: extracted at least one entry
     let entries = std::fs::read_dir(&dest)
-        .map_err(|e| anyhow!("read_dir {}: {e}", dest.display()))?
+        .map_err(|e| anyhow!("read_dir {}: {e} — run `touring help` for details", dest.display()))?
         .count();
     if entries == 0 {
         let _ = std::fs::remove_dir_all(&dest);
-        return Err(anyhow!("tarball extracted but produced no entries"));
+        return Err(anyhow!("tarball is empty or corrupt; run `tar -tzf <tarball>` to verify contents or download a new version with `touring toolchain install --from-url`"));
     }
 
     write_toolchain_meta(&dest, version, source_label)
@@ -350,7 +350,7 @@ pub fn install_toolchain_from_source(
     force: bool,
 ) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty"));
+        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
     }
     let release = source_dir.join("target").join("release");
     if !release.is_dir() {
@@ -367,14 +367,14 @@ pub fn install_toolchain_from_source(
         .collect();
     if !missing.is_empty() {
         return Err(anyhow!(
-            "core binaries missing from {}: {} — a partial toolchain would break pinned projects",
+            "core binaries missing from {}: {}; ensure tarball contains all required binaries or download a complete release",
             release.display(),
             missing.join(", ")
         ));
     }
     let dest = prepare_toolchain_dest(home, version, force)?;
     let bin = dest.join("bin");
-    std::fs::create_dir_all(&bin).map_err(|e| anyhow!("create_dir_all {}: {e}", bin.display()))?;
+    std::fs::create_dir_all(&bin).map_err(|e| anyhow!("create_dir_all {}: {e} — run `touring help` for details", bin.display()))?;
     let optionals = OPTIONAL_SOURCE_BINARIES
         .iter()
         .filter(|b| release.join(b).is_file());
@@ -383,7 +383,7 @@ pub fn install_toolchain_from_source(
         let to = bin.join(name);
         // fs::copy preserves the executable bit on Unix.
         std::fs::copy(&from, &to)
-            .map_err(|e| anyhow!("copy {} -> {}: {e}", from.display(), to.display()))?;
+            .map_err(|e| anyhow!("copy {} -> {}: {e} — run `touring help` for details", from.display(), to.display()))?;
     }
     write_toolchain_meta(
         &dest,
@@ -403,7 +403,7 @@ pub fn install_toolchain_from_url(
     force: bool,
 ) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty"));
+        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
     }
     let tmp = std::env::temp_dir().join(format!(
         "touring-toolchain-{version}-{}.tar.gz",
@@ -414,10 +414,10 @@ pub fn install_toolchain_from_url(
         .arg(&tmp)
         .arg(url)
         .status()
-        .map_err(|e| anyhow!("spawn curl: {e}"))?;
+        .map_err(|e| anyhow!("spawn curl: {e} — run `touring help` for details"))?;
     if !status.success() {
         let _ = std::fs::remove_file(&tmp);
-        return Err(anyhow!("curl -fsSL {url} failed with status {status}"));
+        return Err(anyhow!("download failed from {url} (status {status}) — verify URL is correct and accessible"));
     }
     let result =
         install_toolchain_from_tarball_labeled(home, version, &tmp, force, &format!("url:{url}"));
@@ -444,10 +444,10 @@ fn prepare_toolchain_dest(home: &Path, version: &str, force: bool) -> Result<Pat
             ));
         }
         std::fs::remove_dir_all(&dest)
-            .map_err(|e| anyhow!("remove existing {}: {e}", dest.display()))?;
+            .map_err(|e| anyhow!("remove existing {}: {e} — run `touring help` for details", dest.display()))?;
     }
     std::fs::create_dir_all(&dest)
-        .map_err(|e| anyhow!("create_dir_all {}: {e}", dest.display()))?;
+        .map_err(|e| anyhow!("create_dir_all {}: {e} — run `touring help` for details", dest.display()))?;
     Ok(dest)
 }
 
@@ -462,7 +462,7 @@ fn write_toolchain_meta(dest: &Path, version: &str, source_label: &str) -> Resul
             .unwrap_or(0),
         source_label,
     );
-    std::fs::write(dest.join("meta.toml"), meta).map_err(|e| anyhow!("write meta.toml: {e}"))
+    std::fs::write(dest.join("meta.toml"), meta).map_err(|e| anyhow!("write meta.toml: {e} — run `touring help` for details"))
 }
 
 /// Remove an installed toolchain. Refuses to remove the currently-active
@@ -470,7 +470,7 @@ fn write_toolchain_meta(dest: &Path, version: &str, source_label: &str) -> Resul
 /// first, or rerun this with the default-clearing follow-up).
 pub fn remove_toolchain(home: &Path, version: &str) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty"));
+        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
     }
     let toolchain = home.join(TOOLCHAINS_DIR).join(version);
     if !toolchain.exists() {
@@ -489,7 +489,7 @@ pub fn remove_toolchain(home: &Path, version: &str) -> Result<()> {
         ));
     }
     std::fs::remove_dir_all(&toolchain)
-        .map_err(|e| anyhow!("remove_dir_all {}: {e}", toolchain.display()))?;
+        .map_err(|e| anyhow!("remove_dir_all {}: {e} — run `touring help` for details", toolchain.display()))?;
     Ok(())
 }
 
@@ -506,7 +506,7 @@ pub fn init_toolchain_root(home: &Path, force: bool) -> Result<()> {
             ));
         }
         std::fs::remove_dir_all(home)
-            .map_err(|e| anyhow!("remove_dir_all {}: {e}", home.display()))?;
+            .map_err(|e| anyhow!("remove_dir_all {}: {e} — run `touring help` for details", home.display()))?;
     }
     std::fs::create_dir_all(home.join(TOOLCHAINS_DIR)).map_err(|e| {
         anyhow!(
@@ -516,7 +516,7 @@ pub fn init_toolchain_root(home: &Path, force: bool) -> Result<()> {
     })?;
     let cfg = home.join(CONFIG_FILE);
     std::fs::write(&cfg, DEFAULT_USER_CONFIG)
-        .map_err(|e| anyhow!("write {}: {e}", cfg.display()))?;
+        .map_err(|e| anyhow!("write {}: {e} — run `touring help` for details", cfg.display()))?;
     Ok(())
 }
 
@@ -530,7 +530,7 @@ pub fn list_installed_toolchains(home: &Path) -> Result<Vec<String>> {
         return Ok(Vec::new());
     }
     let mut versions: Vec<String> = std::fs::read_dir(&dir)
-        .map_err(|e| anyhow!("read_dir {}: {e}", dir.display()))?
+        .map_err(|e| anyhow!("read_dir {}: {e} — run `touring help` for details", dir.display()))?
         .filter_map(|entry| {
             let entry = entry.ok()?;
             if entry.file_type().ok()?.is_dir() {
@@ -552,7 +552,7 @@ pub fn current_default(home: &Path) -> Result<Option<String>> {
         return Ok(None);
     }
     let content =
-        std::fs::read_to_string(&path).map_err(|e| anyhow!("read {}: {e}", path.display()))?;
+        std::fs::read_to_string(&path).map_err(|e| anyhow!("read {}: {e} — run `touring help` for details", path.display()))?;
     let trimmed = content.trim();
     if trimmed.is_empty() {
         Ok(None)
@@ -568,7 +568,7 @@ pub fn current_default(home: &Path) -> Result<Option<String>> {
 /// cause the shim to silently fall through to the global fallback.
 pub fn set_default(home: &Path, version: &str) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty"));
+        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
     }
     let installed = home.join(TOOLCHAINS_DIR).join(version);
     if !installed.is_dir() {
@@ -579,7 +579,7 @@ pub fn set_default(home: &Path, version: &str) -> Result<()> {
         ));
     }
     std::fs::write(home.join(DEFAULT_FILE), format!("{}\n", version))
-        .map_err(|e| anyhow!("write default: {e}"))?;
+        .map_err(|e| anyhow!("write default: {e} — run `touring help` for details"))?;
     Ok(())
 }
 
@@ -750,14 +750,17 @@ mod tests {
 
     #[test]
     fn toolchain_home_honors_env_override() {
+        // AUDITED 2026-08-12 (F-5): env access serialized crate-wide via
+        // cli::ENV_LOCK — every mutation AND the read under test happen with
+        // the guard held, so no parallel test thread can observe a torn env.
+        let _guard = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let prev = std::env::var("TOURING_HOME").ok();
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("TOURING_HOME", "/custom/path") };
         assert_eq!(toolchain_home(), PathBuf::from("/custom/path"));
         match prev {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(v) => unsafe { std::env::set_var("TOURING_HOME", v) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var("TOURING_HOME") },
         }
     }

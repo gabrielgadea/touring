@@ -14,6 +14,42 @@ name = "strategy-loop"
 description = "Deterministic OUTER of loop-engineering: marker + recall + diagnose + CCE explore + evidence report"
 entry = "arm_marker"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Run the deterministic OUTER prefix of loop-engineering: arm the marker, recall, diagnose, explore until dry, report the evidence"
+when_to_use = [
+  "starting substantive work that owes a diagnostic doc and a CCE ledger on disk",
+  "you want the OUTER artifacts produced by code rather than by narration",
+]
+when_not_to_use = [
+  "as a substitute for the strategy synthesis — the doc is written by the session, and this run deliberately does not produce it",
+  "a conversational question, where the whole OUTER is overhead",
+]
+inputs = [
+  "topic",
+  "scope",
+  "bundle",
+]
+produces = [
+  "an armed outer marker",
+  "an OKF diagnostic",
+  "a CCE ledger",
+  "an evidence manifest",
+]
+tags = [
+  "#kind:flow",
+  "#domain:loop-engineering",
+  "#process:outer",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# O prefixo OUTER determinístico da loop-engineering. Não estende `explore-plan`:
+# aquele explora um tema, este arma o marcador e produz os artefatos que o Stop
+# hook cobra em disco.
+prior_art_verdict = "create_new"
+
 
 [node.arm_marker]
 type = "code"
@@ -31,9 +67,13 @@ idempotent = true
 on_pass = "diagnose"
 on_fail = "diagnose"        # empty recall is a valid result, never a blocker
 
+# ⚠ pipefail (23/08/2026): o comando termina em `| tail`, e sem pipefail o exit
+# era SEMPRE o do tail — o `on_fail = "__fail__"` declarado abaixo ficou
+# inalcançável por 105 runs (medido por flow_redundancy.py: nenhum nó separou
+# caso algum). O pipefail devolve ao nó o veredito que o spec sempre prometeu.
 [node.diagnose]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope \"$1\" --topic \"$2\" --bundle \"$3\" --json 2>&1 | tail -c 1800", "--", "{{vars.scope}}", "{{vars.topic}}", "{{vars.bundle}}"]
+command = ["bash", "-c", "set -o pipefail; python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope \"$1\" --topic \"$2\" --bundle \"$3\" --json 2>&1 | tail -c 1800", "--", "{{vars.scope}}", "{{vars.topic}}", "{{vars.bundle}}"]
 timeout_ms = 900000
 idempotent = true
 on_pass = "explore_loop"
@@ -53,7 +93,7 @@ on_fail = "__fail__"
 
 [node.explore_round]
 type = "code"
-command = ["bash", "-c", "touring explore \"$1\" --scope \"$2\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}", "{{vars.scope}}"]
+command = ["bash", "-c", "set -o pipefail; touring explore \"$1\" --scope \"$2\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}", "{{vars.scope}}"]
 timeout_ms = 900000
 idempotent = true
 

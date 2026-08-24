@@ -2,7 +2,7 @@
 name = "touring-hooks"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Compatibility façade over touring-dispatch + touring-hooks-core, plus the touring-hook / touring-daemon binaries (daemon-lib-rearch Phases C+D)"
 license.workspace = true
 
@@ -67,6 +67,10 @@ tracing-subscriber = { workspace = true }
 # depends on THIS crate, so the daemon cannot borrow it without a cycle.
 tiktoken-rs = { workspace = true }
 
+# Promovido de dev-dependencies em 19/08/2026: o binário `touring-hook` usa
+# `truncate_str` no truncamento de contexto. Já estava no grafo por via
+# transitiva (touring-analysis, touring-code), então o custo de build é zero.
+touring-foundation = { path = "../touring-foundation" }
 [dev-dependencies]
 # The 57 integration suites referenced these crates directly when they were
 # production deps of the monolith — they remain available to tests only.
@@ -82,7 +86,6 @@ touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gp
 touring-code = { path = "../touring-code" }
 touring-intelligence = { path = "../touring-intelligence" }
 touring-capnp-server = { path = "../touring-capnp-server" }
-touring-foundation = { path = "../touring-foundation" }
 uuid = { workspace = true, features = ["v4"] }
 serial_test = { workspace = true }
 criterion = { workspace = true }

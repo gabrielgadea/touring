@@ -173,3 +173,49 @@ fn caller<T>(v: &Vec<T>) {
         assert!(names.contains(&"collect".to_string()));
     }
 }
+
+/// Type-position and const/variant reference extraction — the complement of
+/// [`extract_method_calls`] for the wiring resolver's other blind spot
+/// (follow-up G3, cross-audit 2026-08-12): a symbol used AS a type or const
+/// (`&ParsedTag`, `tags::TAG_TABLES_DDL`, `Option<Facet>`) generates no call
+/// expression, so the F9 method-dispatch pass never wires its consumers and
+/// every type/const producer read as a false orphan.
+///
+/// Returns bare identifier names (deduplicated), same contract as
+/// [`extract_method_calls`]: callers match them by name against producer
+/// rows. `scoped_identifier` captures also fire on call paths
+/// (`tags::derive_tags(...)`) — harmless: the consumer edge they would add
+/// already exists from the call pass, and consumer recording is idempotent.
+pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
+    const TYPE_REF_QUERY: &str = r"
+        (type_identifier) @ref
+        (scoped_type_identifier name: (type_identifier) @ref)
+        (scoped_identifier name: (identifier) @ref)
+    ";
+    if lang != Lang::Rust {
+        return Vec::new();
+    }
+    let Some(names) = extract_method_calls_inner(source, lang, TYPE_REF_QUERY) else {
+        return Vec::new();
+    };
+    names.into_iter().collect()
+}
+
+#[cfg(test)]
+mod type_ref_tests {
+    use super::*;
+
+    #[test]
+    fn extracts_type_and_const_refs() {
+        let src = "use super::tags::{Facet, ParsedTag};\nconst D: &str = tags::TAG_TABLES_DDL;\nfn f(x: &ParsedTag) -> Option<Facet> { let v = tags::Facet::Kind; None }\n";
+        let names = extract_type_and_const_refs(src, Lang::Rust);
+        for want in ["ParsedTag", "Facet", "TAG_TABLES_DDL"] {
+            assert!(names.iter().any(|n| n == want), "{want} missing: {names:?}");
+        }
+    }
+
+    #[test]
+    fn non_rust_yields_empty() {
+        assert!(extract_type_and_const_refs("x = 1", Lang::Python).is_empty());
+    }
+}

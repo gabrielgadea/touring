@@ -159,6 +159,9 @@ pub fn rewrite_response(rw: &Rewrite, context: &str) -> Value {
 }
 
 #[cfg(test)]
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -210,6 +213,7 @@ mod tests {
 
     #[test]
     fn an_unknown_mode_degrades_to_enrich_never_to_rewrite() {
+        let _env = crate::hook_rewrite::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // A mode nobody recognises must not be handed the power to change
         // commands — fail-safe, not fail-open.
         for raw in ["deny", "suppress", "REWRITE", "yes", "1"] {
@@ -247,7 +251,11 @@ mod tests {
     fn an_empty_context_is_omitted_not_emitted_blank() {
         let rw = rewrite_for(Mode::Rewrite, "Bash", &bash("cat src/lib.rs")).expect("rewrite");
         let body = rewrite_response(&rw, "");
-        assert!(body["hookSpecificOutput"].get("additionalContext").is_none());
+        assert!(
+            body["hookSpecificOutput"]
+                .get("additionalContext")
+                .is_none()
+        );
     }
 
     #[test]

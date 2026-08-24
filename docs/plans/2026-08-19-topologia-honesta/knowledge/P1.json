@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "Topologia Honesta: 11 entregas em 5 trilhas. Grafo de dados extraido do spec (flow_dataflow) e comparado com o grafo de controle, produzindo os lints fake_waiting e dead_node; adw explain --cost; lint critique_without_brief (a ressalva do gauntlet virou estrutura); fragmentos worker-critic-pair e graph-pack; resolucao de decisao propaga ao mapa pai e frontier nomeia risco de waterfall (Rust+migracao); ledger de promocao expondo que so 2 dos 8 fluxos embarcados completaram execucao real; arquivo de variantes com selecao ponderada w=s*h conectado ao fecho de fase."
+    }
+  ],
+  "relations": []
+}

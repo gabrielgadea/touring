@@ -143,9 +143,10 @@ exclude_re = "(?i)(log|trace|debug|tracing|metric)"
 [workspace.package]
 # Single source of truth for the product version (Productization Fase 0):
 # member crates inherit via `version.workspace = true`; the binary derives it
-# through `env!("CARGO_PKG_VERSION")`. 30.3.0 matches the daemon's public
-# version (constitution/docs); the GA SemVer rebrand is a Fase 5 decision.
-version = "30.3.1"
+# through `env!("CARGO_PKG_VERSION")`. Bump it HERE and nowhere else, then
+# propagate with `scripts/propagate-release.sh <versão>`; the GA SemVer rebrand
+# is a Fase 5 decision.
+version = "30.4.13"
 license = "MIT OR Apache-2.0"
 edition = "2024"
 rust-version = "1.95"

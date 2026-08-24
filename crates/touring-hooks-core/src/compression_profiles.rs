@@ -849,13 +849,13 @@ mod tests {
     // compression fns directly and are immune.
     #[serial_test::serial]
     fn test_compress_for_returns_borrowed_when_disabled() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_COMPRESSION_PROFILES", "0") };
         let raw = "any output";
         let out = compress_for("Bash", &json!({"command": "cargo test"}), raw);
         assert!(matches!(out, Cow::Borrowed(_)));
         assert_eq!(&*out, raw);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_COMPRESSION_PROFILES") };
     }
 
@@ -867,7 +867,7 @@ mod tests {
     // compression fns directly and are immune.
     #[serial_test::serial]
     fn test_compress_for_unknown_tool_falls_through() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_COMPRESSION_PROFILES") };
         let raw = "some output";
         let out = compress_for(
@@ -886,7 +886,7 @@ mod tests {
     // compression fns directly and are immune.
     #[serial_test::serial]
     fn test_compress_for_increments_counter_on_match() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_COMPRESSION_PROFILES") };
         let before = crate::shared::gate_metrics::global()
             .compression_profile_applied_count

@@ -1,0 +1,440 @@
+<title>Topologia Honesta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+/* Mesma família visual dos dois documentos anteriores do programa. Aqui o
+   tratamento é operacional, não editorial: isto é lido para decidir e executar,
+   então a densidade vai para as fichas de entrega, não para a tipografia. */
+:root{
+  --paper:#F2F4F1; --surface:#FFFFFF; --surface-2:#E9EDE9;
+  --ink:#10201F; --ink-2:#3A4B48; --muted:#6B7A76; --line:#CFD8D3;
+  --chart:#1F4B4A; --chart-soft:#DCE7E4;
+  --route:#C25A22; --route-soft:#F6E3D8;
+  --ok:#2E6B4F; --warn:#8A6A18; --crit:#A33A22; --crit-soft:#F7DED6;
+  --f-display:"Fraunces",Georgia,"Times New Roman",serif;
+  --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --col:70ch; --wide:min(1240px,94vw);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0C1615; --surface:#111E1D; --surface-2:#162523;
+    --ink:#DFE8E4; --ink-2:#B3C2BD; --muted:#869893; --line:#263936;
+    --chart:#6FB3AA; --chart-soft:#172E2C; --route:#E8823E; --route-soft:#2C1D13;
+    --ok:#66B58C; --warn:#C9A84C; --crit:#E0785C; --crit-soft:#2E1712;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C1615; --surface:#111E1D; --surface-2:#162523;
+  --ink:#DFE8E4; --ink-2:#B3C2BD; --muted:#869893; --line:#263936;
+  --chart:#6FB3AA; --chart-soft:#172E2C; --route:#E8823E; --route-soft:#2C1D13;
+  --ok:#66B58C; --warn:#C9A84C; --crit:#E0785C; --crit-soft:#2E1712;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);
+     font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{width:var(--wide);margin:0 auto;padding:0 4px}
+.col{max-width:var(--col);margin-inline:auto}
+.masthead{border-bottom:1px solid var(--line);padding:clamp(40px,7vw,84px) 0 clamp(28px,4vw,46px);
+          margin-bottom:clamp(34px,5vw,60px)}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+         color:var(--route);margin:0 0 18px}
+h1{font-family:var(--f-display);font-optical-sizing:auto;font-weight:600;
+   font-size:clamp(38px,7vw,70px);line-height:1.03;letter-spacing:-.022em;margin:0 0 20px;text-wrap:balance}
+.standfirst{font-size:clamp(18px,2.2vw,21px);line-height:1.55;color:var(--ink-2);max-width:62ch;margin:0}
+h2{font-family:var(--f-display);font-weight:600;font-size:clamp(25px,3.4vw,36px);line-height:1.12;
+   letter-spacing:-.015em;margin:clamp(46px,6vw,78px) 0 16px;text-wrap:balance}
+h3{font-family:var(--f-body);font-weight:600;font-size:18.5px;margin:34px 0 9px;text-wrap:balance}
+p{margin:0 0 16px}
+a{color:var(--route);text-underline-offset:3px}
+code{font-family:var(--f-mono);font-size:.87em;background:var(--surface-2);padding:.1em .34em;border-radius:2px}
+b,strong{font-weight:600}
+ul,ol{margin:0 0 16px;padding-left:1.25em} li{margin-bottom:6px}
+.sec-n{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+       color:var(--muted);display:block;margin-bottom:7px}
+figure{margin:32px 0} figcaption{font-size:14px;color:var(--muted);margin-top:11px;line-height:1.5;max-width:64ch}
+
+.tw{overflow-x:auto;margin:26px 0;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+   color:var(--muted);font-weight:500;background:var(--surface-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.mono{font-family:var(--f-mono);font-size:12.5px;white-space:nowrap}
+
+.tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+     padding:.16em .5em;border-radius:2px;white-space:nowrap;font-weight:500}
+.t-s{background:var(--chart-soft);color:var(--chart)}
+.t-m{background:var(--route-soft);color:var(--route)}
+.t-l{background:var(--crit-soft);color:var(--crit)}
+.t-gap{background:var(--crit-soft);color:var(--crit)}
+.t-have{background:var(--chart-soft);color:var(--chart)}
+
+/* fichas de entrega */
+.del{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:20px 22px;margin:16px 0}
+.del-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.del-id{font-family:var(--f-mono);font-size:13px;font-weight:500;color:var(--route);flex:none}
+.del-t{font-weight:600;font-size:17.5px;flex:1;min-width:14ch}
+.del p{margin:0 0 11px;font-size:15.5px;line-height:1.6;color:var(--ink-2)}
+.del p:last-child{margin-bottom:0}
+.del .gate{font-family:var(--f-mono);font-size:12.5px;background:var(--surface-2);border-left:2px solid var(--chart);
+           padding:9px 12px;margin-top:12px;color:var(--ink-2);overflow-x:auto}
+.del .gate b{color:var(--ink);font-weight:500}
+
+.callout{border-left:3px solid var(--route);background:var(--surface);padding:18px 22px;margin:26px 0;border-radius:0 3px 3px 0}
+.callout.crit{border-left-color:var(--crit)} .callout.ok{border-left-color:var(--ok)}
+.callout p:last-child{margin-bottom:0}
+.callout .k{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;
+            color:var(--muted);display:block;margin-bottom:8px}
+
+pre{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:15px 17px;overflow-x:auto;
+    margin:22px 0;font-family:var(--f-mono);font-size:13px;line-height:1.6;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:500} pre .g{color:var(--ok)} pre .r{color:var(--crit)} pre .m{color:var(--muted)}
+
+/* diagrama dos dois grafos */
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;margin:26px 0}
+.gbox{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:20px}
+.gbox h4{margin:0 0 4px;font-size:15px;font-weight:600;font-family:var(--f-body)}
+.gbox .sub{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin-bottom:16px}
+.chain{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-bottom:9px}
+.gn{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;flex:none;
+    font-family:var(--f-mono);font-size:12px;border:1.5px solid var(--line);background:var(--surface-2);color:var(--ink-2)}
+.gn.hot{border-color:var(--crit);background:var(--crit-soft);color:var(--crit)}
+.ga{width:26px;height:1.5px;background:var(--line);flex:none;position:relative}
+.ga::after{content:"";position:absolute;right:0;top:-2.5px;border-left:5px solid var(--line);
+           border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
+.ga.none{background:repeating-linear-gradient(90deg,var(--line) 0 3px,transparent 3px 6px)}
+.ga.none::after{border-left-color:transparent}
+.gcap{font-size:13.5px;color:var(--muted);line-height:1.45;margin-top:12px}
+
+/* trilhas */
+.lanes{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:26px 0}
+.lane{background:var(--surface);padding:15px 18px;display:flex;gap:14px;align-items:flex-start}
+.lane-id{font-family:var(--f-mono);font-size:12px;color:var(--route);width:4ch;flex:none;padding-top:2px;font-weight:500}
+.lane-b{flex:1}
+.lane-t{font-weight:600;font-size:15.5px;margin-bottom:3px}
+.lane-d{font-size:14px;color:var(--muted);line-height:1.5}
+
+hr{border:0;border-top:1px solid var(--line);margin:clamp(44px,6vw,72px) 0}
+footer{border-top:1px solid var(--line);margin-top:clamp(44px,6vw,76px);padding:28px 0 56px;font-size:14px;color:var(--muted)}
+:focus-visible{outline:2px solid var(--route);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="col">
+    <p class="eyebrow">Plano · rodada 3 · 19 ago 2026</p>
+    <h1>Topologia Honesta</h1>
+    <p class="standfirst">Onze entregas em cinco trilhas, extraídas de uma releitura integral das quatro
+    fontes. O eixo: hoje um fluxo ADW declara uma topologia e executa outra, e ninguém compara as duas.</p>
+  </div>
+</header>
+
+<main class="col">
+
+<div class="callout ok">
+  <span class="k">Estado — implementado em 19/08/2026</span>
+  <p><b>11/11 entregas construídas</b>, todas as três decisões aprovadas. Gate de convergência
+  <code>loop_converged.py</code> <b>exit 0</b> (8 cláusulas, Platinum 0,9361) · 156 testes ADW
+  (de 136) · 1.402 testes Rust · clippy <code>-D warnings</code> exit 0 · espelho limpo.</p>
+  <p>Três achados que a implementação produziu e o plano não previa: <code>cli_decompose_update</code>
+  e <code>ensure_decompose_tables</code> existem <b>duplicados</b> e o gêmeo vivo não era o que eu
+  editei primeiro; uma fixture declarava um nó <code>build</code> com <code>allowed_tools = ["Read"]</code>,
+  pega pelo <code>dead_node</code>; e <code>append_log</code> escrevia um log <b>sem frontmatter OKF</b>
+  que o próprio gate da skill rejeita — sobreviveu porque cada bundle novo era consertado à mão,
+  apagando a evidência. O risco R5 estava certo em espírito, mas errou o alvo: o perigo não era
+  lacuna imaginária, era <b>gêmeo errado</b>.</p>
+</div>
+
+<h2><span class="sec-n">01</span>Objetivo</h2>
+
+<p>As duas rodadas anteriores entregaram o <b>agent graph</b> (11 entregas: fragmentos, fan-out
+dinâmico, persona, painel de críticos) e a <b>integridade do juiz</b> (o ledger de atestação).
+Esta rodada voltou às quatro fontes primárias com uma pergunta diferente — <i>o que ainda não foi
+implementado?</i> — e encontrou sete lacunas verificadas por <code>grep</code>, não por memória.</p>
+
+<p>O objetivo desta fase é fazer o grafo <b>dizer a verdade sobre si mesmo</b>: detectar espera
+falsa, nó morto, crítica sem brief e mapa sem protótipo — tudo por análise estática, tudo
+determinístico, tudo provável por execução. E decidir, com número na mesa, se vale construir o
+arquivo de variantes.</p>
+
+<div class="callout crit">
+  <span class="k">Risco declarado antes de tudo</span>
+  <p>Nesta sessão eu apontei duas “lacunas” que não existiam: os quatro subtipos de ticket do
+  Wayfinder <b>já estavam</b> implementados, e o <code>compliance.jsonl</code> <b>é</b> consumido.
+  Por isso cada entrega abaixo carrega o comando exato que provou a lacuna, e a primeira ação de
+  cada fase é <b>rodar esse comando de novo</b>. Um plano construído sobre lacuna imaginária custa
+  mais que um plano tímido.</p>
+</div>
+
+<h2><span class="sec-n">02</span>O que a releitura encontrou</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Achado</th><th>Fonte</th><th>Prova da lacuna</th><th>Estado</th></tr></thead>
+<tbody>
+<tr><td class="mono">G1</td><td><b>Espera falsa</b> — nós em sequência sem dependência de dados</td><td>Isenberg</td><td class="mono">grep -c fake_waiting adw.py → 0</td><td><span class="tag t-gap">lacuna</span></td></tr>
+<tr><td class="mono">G2</td><td><b>Nó morto</b> / tamanho do grafo — “o menor grafo que melhora”</td><td>Isenberg</td><td class="mono">grep -c dead_node adw.py → 0</td><td><span class="tag t-gap">lacuna</span></td></tr>
+<tr><td class="mono">G3</td><td>Resolução não sobe para o mapa pai</td><td>Pocock</td><td class="mono">grep -c write_back decompose.rs → 0</td><td><span class="tag t-gap">lacuna</span></td></tr>
+<tr><td class="mono">G4</td><td>Protótipo é rotulável, não exigido sob névoa</td><td>Pocock</td><td class="mono">só vocabulário em TICKET_SUBTYPES</td><td><span class="tag t-gap">lacuna</span></td></tr>
+<tr><td class="mono">G5</td><td>Crítica não é gated por brief aprovado</td><td>Jay E</td><td class="mono">critic-panel.toml sem nó a montante</td><td><span class="tag t-gap">lacuna</span></td></tr>
+<tr><td class="mono">G6</td><td>Knowledge graph não alimenta o agent graph</td><td>Isenberg</td><td class="mono">0 fragmentos graph-pack</td><td><span class="tag t-gap">lacuna</span></td></tr>
+<tr><td class="mono">G7</td><td>Arquivo de variantes / stepping stones</td><td>DGM</td><td class="mono">proposto na rodada 2</td><td><span class="tag t-gap">lacuna</span></td></tr>
+<tr><td class="mono">—</td><td>4 subtipos Wayfinder + autonomia hitl/afk</td><td>Pocock</td><td class="mono">TICKET_SUBTYPES, AUTONOMY_MODES</td><td><span class="tag t-have">já existe</span></td></tr>
+<tr><td class="mono">—</td><td>Crítico cego + quorum + <code>bar</code> na persona</td><td>Jay E</td><td class="mono">critic-panel.toml, 11× bar</td><td><span class="tag t-have">já existe</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>G1 e G2 são o mesmo instrumento</h3>
+
+<p>Um spec ADW carrega <b>duas topologias sobrepostas</b>, e só uma delas existe hoje como objeto.</p>
+
+<figure>
+<div class="two">
+  <div class="gbox">
+    <h4>Grafo de controle — declarado</h4>
+    <div class="sub">on_pass · on_fail · branches</div>
+    <div class="chain">
+      <span class="gn">A</span><span class="ga"></span>
+      <span class="gn">B</span><span class="ga"></span>
+      <span class="gn">C</span>
+    </div>
+    <div class="gcap">Quem roda depois de quem. É o que o lint enxerga hoje, e é o que o autor
+    escreveu de propósito.</div>
+  </div>
+  <div class="gbox">
+    <h4>Grafo de dados — real</h4>
+    <div class="sub">{{nodes.X.summary}} interpolado</div>
+    <div class="chain">
+      <span class="gn hot">A</span><span class="ga none"></span>
+      <span class="gn hot">B</span><span class="ga"></span>
+      <span class="gn">C</span>
+    </div>
+    <div class="gcap">Quem de fato <b>lê</b> o resultado de quem. Está implícito nas strings dos
+    prompts, e ninguém o extrai.</div>
+  </div>
+</div>
+<figcaption>Onde há aresta de controle <b>sem</b> aresta de dados, B espera A por nada — a
+<i>espera falsa</i> do Isenberg. Onde um nó não tem aresta de dados <b>de saída</b>, ninguém lê o
+que ele produziu — o nó morto. Os dois achados caem da mesma análise, e é por isso que a fundação
+(T1.0) vem antes dos dois lints.</figcaption>
+</figure>
+
+<h2><span class="sec-n">03</span>O que eu não vou construir</h2>
+
+<p>Um plano que só acumula é um plano sem julgamento. Três ideias das fontes foram examinadas e
+recusadas:</p>
+
+<ul>
+<li><b>Spec não-persistente</b> (Pocock apaga o spec depois que ele vira código). Para ele o ticket
+é a fonte primária; para nós o bundle OKF <b>é</b> a base que compõe entre execuções — o feromônio.
+Apagar destruiria o ativo. O grão de verdade — o plano virar segunda fonte que deriva do código —
+já é coberto pelos gates de drift documental.</li>
+<li><b>“Desenhe manualmente antes de automatizar”</b> como cerimônia obrigatória. Vira burocracia;
+<code>adw new</code> já exige veredito de prior-art e <code>adw test</code> já anda o grafo. O que
+sobrevive dessa ideia é outra coisa, barata, e virou T5.1: um fluxo não entra na library sem uma
+execução real <b>com o resultado registrado</b>.</li>
+<li><b>Substituir o painel por pares worker↔crítico</b> (a topologia literal do Jay E). Não é
+lacuna, é topologia alternativa — vira fragmento novo (T2.2), nunca substituição.</li>
+</ul>
+
+<h2><span class="sec-n">04</span>As entregas</h2>
+
+<h3>Trilha T1 — Topologia honesta</h3>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T1.0</span><span class="del-t">Extrator do grafo de dados</span><span class="tag t-m">M</span></div>
+  <p><code>flow_dataflow(spec) → {node: {reads:[…], writes:[…], readonly:bool}}</code>. Varre todo
+  campo interpolável de cada nó (<code>prompt</code>, <code>command</code>, <code>vars</code>) atrás
+  de <code>{{nodes.X.*}}</code> e monta as arestas reais. Fundação das duas entregas seguintes e,
+  depois, da comparação estrutural entre variantes (T6.1).</p>
+  <p>O campo <code>readonly</code> é o que torna T1.1 seguro: um nó <code>agent</code> é read-only
+  quando suas <code>allowed_tools</code> não contêm ferramenta de escrita; um nó <code>code</code>,
+  quando seu comando não redireciona nem invoca escrita conhecida. <b>Quando não dá para provar,
+  o nó é tratado como escritor</b> — o lado seguro.</p>
+  <div class="gate"><b>gate:</b> testes de unidade sobre os 8 specs da library + 11 fragmentos; toda aresta de dados extraída confere com leitura manual em 3 specs escolhidos</div>
+</div>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T1.1</span><span class="del-t">Lint <code>fake_waiting</code></span><span class="tag t-m">M</span></div>
+  <p>Aresta de controle A→B sem aresta de dados A→B, <b>e ambos comprovadamente read-only</b> →
+  aviso nomeando o par e sugerindo o bloco <code>parallel</code>. Fora dessa condição o lint fica
+  <b>calado</b>: dependência por efeito colateral (A escreve um arquivo que B lê) é invisível ao
+  interpolador, e um falso positivo aqui faz alguém paralelizar e quebrar o fluxo.</p>
+  <div class="gate"><b>gate:</b> mutação — introduzir espera falsa num spec de teste e exigir que o lint aponte; introduzir dependência por efeito colateral e exigir <b>silêncio</b></div>
+</div>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T1.2</span><span class="del-t">Lint <code>dead_node</code></span><span class="tag t-s">S</span></div>
+  <p>Nó cuja saída nenhum nó posterior lê e que não é terminal nem <code>gate</code> → aviso.
+  É a metade construtiva do “menor grafo que melhora a qualidade”: em vez de limitar tamanho por
+  decreto, aponta o peso morto concreto.</p>
+  <div class="gate"><b>gate:</b> rodar sobre os 8 specs da library; qualquer achado é defeito real a corrigir ou exceção a documentar no spec</div>
+</div>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T1.3</span><span class="del-t"><code>adw explain --cost</code></span><span class="tag t-s">S</span></div>
+  <p>O grafo plano ganha o preço: nós × tier × <code>timeout_ms</code> × ramos máximos, com o
+  fan-out dinâmico contado pelo teto. Dá ao autor o número que a frase “mais agentes às vezes
+  significa mais ruído” exige para virar decisão em vez de intuição.</p>
+  <div class="gate"><b>gate:</b> o custo declarado de <code>critic-panel</code> bate com a contagem manual de seus nós</div>
+</div>
+
+<h3>Trilha T2 — Crítica gated</h3>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T2.1</span><span class="del-t">Lint <code>critique_without_brief</code></span><span class="tag t-s">S</span></div>
+  <p>A ressalva central da fonte 3, hoje só em prosa: <i>“se você não começa com um MVP realmente
+  bom, o gauntlet loop vai otimizar na direção provavelmente errada… não use como prompt inicial,
+  use como warp drive de polimento.”</i> O lint: um nó de crítica sem, à montante, nenhum nó que
+  produza ou aprove o brief (<code>human-approve</code>, ou um agente que escreve o artefato
+  criticado) → aviso. Um painel que julga o que ninguém definiu é caro e confiante.</p>
+  <div class="gate"><b>gate:</b> um spec de teste com critic-panel como primeiro nó dispara o aviso; os 8 specs da library passam limpos ou ganham correção</div>
+</div>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T2.2</span><span class="del-t">Fragmento <code>worker-critic-pair</code></span><span class="tag t-s">S</span></div>
+  <p>A topologia literal do gauntlet: N trabalhadores, <b>cada um com seu crítico dedicado</b>,
+  iterando até a barra. Distinta do <code>critic-panel</code> (N críticos sobre <b>um</b> artefato)
+  e do <code>fanout-lenses</code> (N lentes, sem crítico). Completa o kit com o terceiro modo de
+  paralelismo das fontes.</p>
+  <div class="gate"><b>gate:</b> <code>adw lint</code> 0/0 · <code>adw test</code> anda o grafo · aparece em <code>adw fragments</code></div>
+</div>
+
+<h3>Trilha T3 — Névoa e mapa <span class="tag t-m">toca Rust + DB</span></h3>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T3.1</span><span class="del-t">Resolução sobe para o mapa pai</span><span class="tag t-s">S</span></div>
+  <p>Pocock: <i>“that resolution also gets written back up to the parent map.”</i> Ao finalizar um
+  subtask com <code>kind=decision</code>, gravar a resolução resumida no pai. Sem isso o mapa
+  envelhece: as decisões existem nos filhos e o pai continua descrevendo o mundo de antes.</p>
+  <div class="gate"><b>gate:</b> teste e2e em <code>cli_handlers_e2e.rs</code> — resolver 2 decisões e ler o pai · <code>cargo test -p touring-cli</code> · migração aditiva</div>
+</div>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T3.2</span><span class="del-t"><code>frontier</code> nomeia o protótipo ausente</span><span class="tag t-s">S</span></div>
+  <p>Pocock é explícito que os protótipos são o <b>antídoto contra waterfall</b> — “um monte de
+  planejamento de baixa fidelidade” versus “uma forma de alta fidelidade de obter feedback”. Um mapa
+  com <code>fog</code> alto e <b>zero</b> tickets <code>subtype=prototype</code> é waterfall com
+  outro nome. O <code>frontier</code> passa a dizer isso. Não bloqueia — nomeia.</p>
+  <div class="gate"><b>gate:</b> teste com mapa 100% hazy/unknown sem protótipo → campo presente na saída; mapa com protótipo → ausente</div>
+</div>
+
+<h3>Trilha T4 — Os dois grafos</h3>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T4.1</span><span class="del-t">Fragmento <code>graph-pack</code></span><span class="tag t-s">S</span></div>
+  <p>Isenberg separa knowledge graph (“como a informação se conecta”) de agent graph (“como o
+  trabalho se move”) e diz que <b>os melhores sistemas usam os dois</b>. Temos o knowledge graph —
+  índice de símbolos, wiring, MOCs — e nenhum fragmento o consulta: o <code>recall-pack</code> busca
+  <i>texto</i>, não <i>relações</i>. O <code>graph-pack</code> compõe
+  <code>wiring impact</code> + <code>index find</code> + <code>memory moc</code> e entrega a
+  vizinhança estrutural do alvo.</p>
+  <div class="gate"><b>gate:</b> <code>adw lint</code> 0/0 · os 3 comandos verificados por execução antes de entrarem no TOML (anti-alucinação) · usado por 1 fluxo real</div>
+</div>
+
+<h3>Trilha T5 — Promoção medida</h3>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T5.1</span><span class="del-t">Nenhum fluxo entra na library sem execução registrada</span><span class="tag t-m">M</span></div>
+  <p>O que sobra, aplicável, do <i>“se a versão manual não produz trabalho muito melhor, automatizar
+  só produz trabalho medíocre mais rápido”</i>. Promover um fluxo passa a exigir <b>uma execução real
+  com o veredito dos gates anexado</b> — a library carrega evidência, não intenção. E é a ponte para
+  T6: o veredito registrado <b>é</b> a nota que o arquivo de variantes precisa.</p>
+  <div class="gate"><b>gate:</b> guard estrutural — todo spec da library tem execução registrada, ou uma isenção declarada com motivo</div>
+</div>
+
+<h3>Trilha T6 — O arquivo <span class="tag t-l">precisa da sua decisão</span></h3>
+
+<div class="del">
+  <div class="del-h"><span class="del-id">T6.1</span><span class="del-t">Arquivo de variantes + seleção ponderada</span><span class="tag t-l">L</span></div>
+  <p>A ablação do paper: <b>DGM 50,0% × DGM Greedy 39,7%</b> em SWE-bench. A diferença é guardar o
+  que falhou. Hoje descartamos a variante e ficamos com a lição em prosa. Proposta: arquivo indexado
+  por <code>(alvo, hash da variante)</code> guardando o veredito completo de
+  <code>loop_converged.py</code> e o composite do <code>touring-quality</code>; e o ponto de partida
+  passando a ser amostrado do arquivo com o peso do paper — <code>w = s·h</code>, sigmoide do
+  desempenho vezes o bônus de novidade <code>1/(1+filhos)</code> — em vez de sempre partir do estado
+  atual.</p>
+  <p><b>Objeção econômica honesta:</b> o DGM gasta ~2 semanas e custo de API significativo por run
+  porque tem benchmark numérico barato e repetível. Nosso gate é caro e binário. A versão fiel é
+  inviável aqui. A versão degradada — <b>arquivar em vez de descartar</b> — é barata e captura a
+  maior das três ablações. É essa que proponho.</p>
+  <div class="gate"><b>gate:</b> 20 variantes arquivadas com nota · seleção reproduzível (mesma semente → mesma amostra) · teto de tamanho com poda por idade e nota</div>
+</div>
+
+<h2><span class="sec-n">05</span>Sequenciamento</h2>
+
+<p>Quatro trilhas independentes mais uma fase gated. Seria irônico entregar em fila única um plano
+cuja tese é remover espera falsa — então as trilhas T2, T3, T4 e T5 <b>não dependem</b> de T1 nem
+entre si, e podem correr em paralelo.</p>
+
+<div class="lanes">
+  <div class="lane"><span class="lane-id">T1</span><div class="lane-b"><div class="lane-t">T1.0 → T1.1 · T1.2 · T1.3</div><div class="lane-d">única cadeia com dependência real: os três lints precisam do extrator. <b>M+M+S+S</b></div></div></div>
+  <div class="lane"><span class="lane-id">T2</span><div class="lane-b"><div class="lane-t">T2.1 ‖ T2.2</div><div class="lane-d">só dependem de reachability, que já existe. <b>S+S</b></div></div></div>
+  <div class="lane"><span class="lane-id">T3</span><div class="lane-b"><div class="lane-t">T3.1 ‖ T3.2</div><div class="lane-d">trilha Rust/DB — isolada das demais; migração aditiva. <b>S+S</b></div></div></div>
+  <div class="lane"><span class="lane-id">T4</span><div class="lane-b"><div class="lane-t">T4.1</div><div class="lane-d">um TOML sobre comandos existentes. <b>S</b></div></div></div>
+  <div class="lane"><span class="lane-id">T5</span><div class="lane-b"><div class="lane-t">T5.1</div><div class="lane-d">política + guard; produz o sinal que T6 consome. <b>M</b></div></div></div>
+  <div class="lane"><span class="lane-id">T6</span><div class="lane-b"><div class="lane-t">T6.1 — após T1.0 e T5.1, e após você aprovar</div><div class="lane-d">única entrega que muda arquitetura. <b>L</b></div></div></div>
+</div>
+
+<h2><span class="sec-n">06</span>Riscos</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Risco</th><th>P/I</th><th>Mitigação — estrutural, não “tomar cuidado”</th></tr></thead>
+<tbody>
+<tr><td class="mono">R1</td><td>Falso positivo de espera falsa por dependência via efeito colateral</td><td class="mono">ALTA / MÉDIO</td><td>o lint só fala quando <b>ambos</b> os nós são provadamente read-only; sem prova, silêncio</td></tr>
+<tr><td class="mono">R2</td><td>Cegueira a avisos: 3 lints novos de uma vez</td><td class="mono">MÉDIA / MÉDIO</td><td>precedente do <code>_lint_purpose</code>: calado quando não pode provar seu caso. Nenhum lint novo avisa por suspeita</td></tr>
+<tr><td class="mono">R3</td><td>T3 toca Rust + esquema do DB</td><td class="mono">MÉDIA / ALTO</td><td>só colunas/ops aditivas; e2e existente como rede; <code>cargo test -p touring-cli</code> antes de fechar</td></tr>
+<tr><td class="mono">R4</td><td>Arquivo de variantes cresce sem limite</td><td class="mono">BAIXA / ALTO</td><td>teto declarado + poda por idade e nota, decididos antes da primeira gravação</td></tr>
+<tr><td class="mono">R5</td><td><b>Construir sobre lacuna imaginária</b> — aconteceu 2× hoje</td><td class="mono">MÉDIA / ALTO</td><td>cada entrega carrega o comando que provou a lacuna; primeira ação de cada fase é re-executá-lo</td></tr>
+<tr><td class="mono">R6</td><td>T6 otimiza a métrica em vez do trabalho (Goodhart)</td><td class="mono">MÉDIA / ALTO</td><td>o ledger de integridade da rodada 2 já vigia o juiz; o arquivo nunca reescreve <code>judge.attest.json</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="sec-n">07</span>Gate de aceitação da fase</h2>
+
+<pre><span class="m"># o veredito é o exit code, não a leitura da lista</span>
+python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py \
+    --task task_1787118866702163488 --scope /home/gabrielgadea/projects/touring --rust-full
+<span class="m"># + os gates da casa</span>
+judge_attest.py                       <span class="m"># juiz de registro intacto</span>
+pytest test_adw.py                    <span class="m"># 136 → 136+N</span>
+touring adw lint &lt;cada spec&gt;          <span class="m"># 0/0 nos 8 da library e nos instanciados</span>
+cargo test -p touring-cli             <span class="m"># só se T3 for executada</span>
+sync-client-skills.py --check         <span class="m"># espelho versionado</span>
+touring e2e -j                        <span class="m"># baseline 0,8700</span></pre>
+
+<h2><span class="sec-n">08</span>O que precisa de você</h2>
+
+<div class="callout">
+  <span class="k">Três decisões</span>
+  <p><b>1 · Aprovar as trilhas T1-T5</b> (nove entregas, S/M, sem mudança arquitetural). São
+  correções e instrumentos; nenhuma altera como o sistema decide.</p>
+  <p><b>2 · Decidir sobre T6</b>, o arquivo de variantes. É a única entrega <b>L</b> e a única que
+  muda arquitetura. O argumento a favor é uma ablação medida (39,7 → 50,0); o argumento contra é que
+  nosso sinal de qualidade é caro e binário, diferente do benchmark do paper.</p>
+  <p><b>3 · Decidir sobre T3</b> separadamente, se preferir: é a única trilha que toca Rust e o
+  esquema do banco, e portanto a única com risco de migração.</p>
+</div>
+
+</main>
+
+<footer>
+  <div class="col">
+    <p>Bundle <code>2026-08-19-topologia-honesta</code> · rodada 3 do programa iniciado em
+    <code>2026-08-18-graph-engineering-flow-portfolio</code> · DAG <code>task_1787118866702163488</code> (11 subtarefas, 7 prontas)</p>
+    <p>Fontes: Isenberg, <i>Why Graph Engineering will 10x your Claude/Codex</i> · Pocock,
+    <i>/wayfinder</i> · Jay E, <i>gauntlet loop</i> · Zhang et al., <i>Darwin Gödel Machine</i>
+    (ICLR 2026, arXiv:2505.22954). Transcrições e PDF em
+    <code>../2026-08-18-graph-engineering-flow-portfolio/sources/</code>.</p>
+  </div>
+</footer>
+
+</div>

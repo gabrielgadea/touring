@@ -119,11 +119,15 @@ impl Evidence {
             Some(false) => "sem teste conhecido",
             None => "cobertura não avaliada",
         };
-        let age = self
-            .modified_days_ago
-            .map_or_else(|| "idade desconhecida".to_string(), |d| format!("modificado há {d}d"));
+        let age = self.modified_days_ago.map_or_else(
+            || "idade desconhecida".to_string(),
+            |d| format!("modificado há {d}d"),
+        );
         match (&self.prior_verdict, self.reward) {
-            (Some(v), Some(r)) => format!("{tests}; {age}; veredito anterior: {} (reward {r:.2})", v.tag()),
+            (Some(v), Some(r)) => format!(
+                "{tests}; {age}; veredito anterior: {} (reward {r:.2})",
+                v.tag()
+            ),
             (Some(v), None) => format!("{tests}; {age}; veredito anterior: {}", v.tag()),
             _ => format!("{tests}; {age}; nunca escolhido antes"),
         }

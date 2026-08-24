@@ -6,6 +6,7 @@
 
 use super::*;
 use tempfile::TempDir;
+use touring_foundation::truncate_str;
 
 /// Cria uma task `intent` a partir de `description` e devolve o id resolvido.
 ///
@@ -16307,7 +16308,7 @@ fn r130_artifact_memory_value_contains_task_id_and_subject() {
     let task_id = "T-r130-value";
     let subject = "add RustModule for touring-generator context adapter";
     let finalize_status = "archived";
-    let truncated = &subject[..subject.len().min(200)];
+    let truncated = truncate_str(&subject, 200);
     let value = format!("Task {task_id} artifact: {truncated} — finalize={finalize_status}");
     assert!(
         value.contains(task_id),
@@ -16352,7 +16353,7 @@ fn r130_artifact_memory_stored_for_long_subject() {
 fn r131_failure_recovery_format_contains_error_catalog_hint() {
     // R131: failure branch must surface ErrorCatalog generator to document failure pattern.
     let task_id = "T-r131-fail";
-    let truncated_id = &task_id[..task_id.len().min(40)];
+    let truncated_id = truncate_str(&task_id, 40);
     let recovery_hints = format!(
         " | error-catalog: run `touring generate render ErrorCatalog \
             --vars '{{\"crate_name\":\"{truncated_id}\",\"error_codes\":[]}}'` \
@@ -16375,7 +16376,7 @@ fn r131_failure_recovery_format_contains_error_catalog_hint() {
 fn r131_failure_recovery_contains_plan_suggest_for_recovery() {
     // R131: failure branch must surface plan-suggest with recovery intent.
     let task_id = "T-r131-recover";
-    let truncated_id = &task_id[..task_id.len().min(40)];
+    let truncated_id = truncate_str(&task_id, 40);
     let recovery_hints = format!(
         " | error-catalog: run `touring generate render ErrorCatalog \
             --vars '{{\"crate_name\":\"{truncated_id}\",\"error_codes\":[]}}'` \
@@ -16402,7 +16403,7 @@ fn r131_failure_recovery_contains_plan_suggest_for_recovery() {
 fn r131_failure_recovery_contains_evolution_drift_check() {
     // R131: failure branch must surface evolution drift check for systemic degradation.
     let task_id = "T-r131-drift";
-    let truncated_id = &task_id[..task_id.len().min(40)];
+    let truncated_id = truncate_str(&task_id, 40);
     let recovery_hints = format!(
         " | error-catalog: run `touring generate render ErrorCatalog \
             --vars '{{\"crate_name\":\"{truncated_id}\",\"error_codes\":[]}}'` \
@@ -16427,7 +16428,7 @@ fn r131_failure_recovery_contains_evolution_drift_check() {
 fn r132_edit_error_surfaces_incremental_patch_hint() {
     // R132: When Edit tool fails, post-tool-rl must surface IncrementalPatch generator.
     let tool_name = "Edit";
-    let truncated_tool = &tool_name[..tool_name.len().min(30)];
+    let truncated_tool = truncate_str(&tool_name, 30);
     // Replicate the match arm logic from hook_registry.rs
     let hint = format!(
         " | rl-edit-error: {truncated_tool} failed — \
@@ -16456,7 +16457,7 @@ fn r132_edit_error_surfaces_incremental_patch_hint() {
 fn r132_bash_error_surfaces_test_generator_hint() {
     // R132: When Bash tool fails, post-tool-rl must surface Test generator.
     let tool_name = "Bash";
-    let truncated_tool = &tool_name[..tool_name.len().min(30)];
+    let truncated_tool = truncate_str(&tool_name, 30);
     let hint = format!(
         " | rl-bash-error: command failed — \
             run `touring generate render Test \
@@ -16589,7 +16590,7 @@ fn r134_plan_replay_hint_contains_plan_recall_command() {
     // R134: The plan_replay_hint must surface `touring generate plan-recall` so Claude Code
     // can immediately find and replay the same generator plan on a new subject after success.
     let subject_at_completion = "add rust module for session lifecycle";
-    let short_subject = &subject_at_completion[..subject_at_completion.len().min(60)];
+    let short_subject = truncate_str(&subject_at_completion, 60);
     let plan_replay_hint = if subject_at_completion.len() > 3 {
         format!(
             " | replay: run `touring generate plan-recall --query \"{short_subject}\"` \
@@ -16617,7 +16618,7 @@ fn r134_plan_replay_hint_truncates_long_subject() {
     // R134: Subject is capped at 60 chars to prevent oversized CLI commands.
     // A 100-char subject must produce a replay hint with ≤60 chars in the query.
     let long_subject = "a".repeat(100);
-    let short_subject = &long_subject[..long_subject.len().min(60)];
+    let short_subject = truncate_str(&long_subject, 60);
     let plan_replay_hint = if long_subject.len() > 3 {
         format!(
             " | replay: run `touring generate plan-recall --query \"{short_subject}\"` \
@@ -16666,7 +16667,7 @@ fn r135_consumer_gen_hint_fires_when_wiring_check_non_empty() {
     let wiring_check =
         " | wiring: run `touring wiring orphans -j` — new pub symbols may need consumers";
     let consumer_gen_hint = if !wiring_check.is_empty() {
-        let truncated_id = &task_id[..task_id.len().min(40)];
+        let truncated_id = truncate_str(&task_id, 40);
         format!(
             " | consumer-wire: run `touring generate render ConsumerGenerator \
                 --vars '{{\"source_module\":\"{truncated_id}\",\"event\":\"task:{truncated_id}:completed\"}}'` \
@@ -16711,7 +16712,7 @@ fn r135_subject_plan_replay_in_completed_branch() {
     // must use plan-recall with the subject query — complements task_id-based recall (R46-S3).
     // Mirrors R134 (hook_registry::task-completed) for the TaskUpdate path.
     let subject = "add rust module for session lifecycle management";
-    let short_subject = &subject[..subject.len().min(60)];
+    let short_subject = truncate_str(&subject, 60);
     let subject_plan_replay = if subject.len() > 3 {
         format!(
             " | replay: run `touring generate plan-recall --query \"{short_subject}\"` \
@@ -16790,7 +16791,7 @@ fn r137_task_create_plan_recall_fires_for_non_trivial_subject() {
     // R137: Plan-recall hint must fire for task subjects with more than 3 characters.
     // TaskCreate(subject) → plan-recall → cross-session plan reuse before coding starts.
     let task_subject = "add rust module for session lifecycle tracking";
-    let short_subject = &task_subject[..task_subject.len().min(60)];
+    let short_subject = truncate_str(&task_subject, 60);
     let plan_reuse_hint = if task_subject.len() > 3 {
         format!(
             "plan-reuse: run `touring generate plan-recall --query \"{short_subject}\"` \
@@ -16834,7 +16835,7 @@ fn r137_task_create_plan_recall_truncates_long_subject() {
     // R137: Long subjects must be truncated to 60 chars in plan-recall query
     // to avoid excessively long CLI commands that confuse shell parsers.
     let task_subject = "implement comprehensive session lifecycle management with automatic checkpoint, assessment, and DAG finalization across all touring crate hooks";
-    let short_subject = &task_subject[..task_subject.len().min(60)];
+    let short_subject = truncate_str(&task_subject, 60);
     assert_eq!(
         short_subject.len(),
         60,
@@ -16853,7 +16854,7 @@ fn r138_inprogress_lesson_recall_fires_for_in_progress_with_subject() {
     // Bridges TaskUpdate(in_progress) → memory recall → cross-session knowledge before coding.
     let status = "in_progress";
     let subject = "implement rust module for hook handler lifecycle";
-    let short_subject = &subject[..subject.len().min(60)];
+    let short_subject = truncate_str(&subject, 60);
     let lesson_recall_hint = if status == "in_progress" && subject.len() > 3 {
         format!(
             " | recall-lessons: run `touring memory recall \"{short_subject}\"` to surface past lessons before starting"
@@ -16993,7 +16994,7 @@ fn r140_task_stop_gotcha_add_hint_included_in_output() {
     // R140: When a task is stopped, a gotcha-add hint must be surfaced so future tasks
     // can avoid the same cancellation pattern via R139 gotcha-check at creation time.
     let task_id = "task-abc-123";
-    let truncated_id = &task_id[..task_id.len().min(40)];
+    let truncated_id = truncate_str(&task_id, 40);
     let gotcha_add_hint = format!(
         " | gotcha-auto: run `touring gotcha add \"task-stopped:{truncated_id}\" \
             \"Task {truncated_id} was stopped — investigate root cause before restarting\" \
@@ -17022,7 +17023,7 @@ fn r140_task_stop_gotcha_add_task_id_truncated_to_40() {
     // R140: Long task IDs must be truncated to 40 chars in the gotcha-add pattern
     // to avoid shell argument length issues.
     let task_id = "very-long-task-id-that-exceeds-forty-characters-in-length";
-    let truncated_id = &task_id[..task_id.len().min(40)];
+    let truncated_id = truncate_str(&task_id, 40);
     assert_eq!(
         truncated_id.len(),
         40,
@@ -17049,7 +17050,7 @@ fn r141_task_get_dag_snapshot_fires_when_status_present() {
         dag_state.contains("\"status\""),
         "R141: dag_state with status field must trigger snapshot guard"
     );
-    let dag_snippet = &dag_state[..dag_state.len().min(300)];
+    let dag_snippet = truncate_str(&dag_state, 300);
     let memory_key = format!("dag_state:{task_id}");
     let memory_value = format!("DAG state for {task_id}: {dag_snippet}");
     assert_eq!(
@@ -17097,7 +17098,7 @@ fn r141_task_get_dag_snapshot_truncates_long_dag_state_to_300_chars() {
         "R141: test dag_state must exceed 300 chars for truncation test: len={}",
         long_dag.len()
     );
-    let dag_snippet = &long_dag[..long_dag.len().min(300)];
+    let dag_snippet = truncate_str(&long_dag, 300);
     assert_eq!(
         dag_snippet.len(),
         300,
@@ -17113,7 +17114,7 @@ fn r142_exit_plan_mode_stores_intent_snippet_when_non_empty() {
     // R142: When intent is non-empty, memory key must be "last_plan_intent" and
     // value must contain the intent text. Validates key format and value content.
     let intent = "implement Rust lifecycle hook handlers for CC task events";
-    let intent_snippet = &intent[..intent.len().min(200)];
+    let intent_snippet = truncate_str(&intent, 200);
     let memory_key = "last_plan_intent";
     let memory_value = format!("Plan intent on exit: {intent_snippet}");
     assert_eq!(
@@ -17157,7 +17158,7 @@ fn r142_exit_plan_mode_truncates_long_intent_to_200_chars() {
         "R142: test intent must exceed 200 chars for truncation test: len={}",
         long_intent.len()
     );
-    let intent_snippet = &long_intent[..long_intent.len().min(200)];
+    let intent_snippet = truncate_str(&long_intent, 200);
     assert_eq!(
         intent_snippet.len(),
         200,
@@ -17219,7 +17220,7 @@ fn r143_task_output_memory_truncates_to_400_chars() {
         "R143: test output must exceed 400 chars for truncation test: len={}",
         long_output.len()
     );
-    let output_snippet = &long_output[..long_output.len().min(400)];
+    let output_snippet = truncate_str(&long_output, 400);
     assert_eq!(
         output_snippet.len(),
         400,
@@ -17243,7 +17244,7 @@ fn r144_task_create_rl_reward_fires_for_non_trivial_subject() {
         "R144: non-trivial subject must have len > 3: len={}",
         task_subject.len()
     );
-    let expected_context = format!("task:create:{}", &task_id[..task_id.len().min(20)]);
+    let expected_context = format!("task:create:{}", truncate_str(&task_id, 20));
     assert_eq!(
         expected_context, "task:create:task-abc-001",
         "R144: RL context must be 'task:create:<first_20_chars_of_task_id>'"
@@ -17279,7 +17280,7 @@ fn r144_task_create_rl_context_truncates_task_id_to_20_chars() {
     // R144: The RL context derives a truncated task_id (first 20 chars) to keep
     // context strings short in the RL engine. Long task IDs must be truncated.
     let long_task_id = "task-very-long-identifier-that-exceeds-twenty-characters";
-    let truncated = &long_task_id[..long_task_id.len().min(20)];
+    let truncated = truncate_str(&long_task_id, 20);
     assert_eq!(
         truncated.len(),
         20,
@@ -17369,7 +17370,7 @@ fn r146_task_get_wiring_chains_fires_when_dag_has_subtasks() {
         dag_state.contains("\"subtasks\""),
         "R146: dag_state with subtasks array must trigger wiring chains hint"
     );
-    let task_stem = &task_id[..task_id.len().min(30)];
+    let task_stem = truncate_str(&task_id, 30);
     let chains_hint = format!(
         " | chains: run `touring wiring chains` to map functional chains relevant to task {task_stem}"
     );
@@ -17403,7 +17404,7 @@ fn r146_task_get_wiring_chains_silent_when_no_subtasks() {
 fn r146_task_get_wiring_chains_truncates_task_id_to_30_chars() {
     // R146: task_stem is capped at 30 chars to keep the chains hint concise.
     let long_task_id = "task-very-long-identifier-that-exceeds-thirty-characters-in-length";
-    let task_stem = &long_task_id[..long_task_id.len().min(30)];
+    let task_stem = truncate_str(&long_task_id, 30);
     assert_eq!(
         task_stem.len(),
         30,
@@ -17430,7 +17431,7 @@ fn r147_file_changed_rl_reward_fires_when_has_dependents() {
         has_dependents,
         "R147: test must have has_dependents=true to validate reward trigger"
     );
-    let context = format!("file_changed:{}", &rel_path[..rel_path.len().min(40)]);
+    let context = format!("file_changed:{}", truncate_str(&rel_path, 40));
     assert!(
         context.starts_with("file_changed:"),
         "R147: RL context must start with 'file_changed:': '{context}'"
@@ -17464,7 +17465,7 @@ fn r147_file_changed_rl_context_truncates_rel_path_to_40_chars() {
     // context strings short in the RL engine.
     let long_rel_path =
         "crates/touring-hooks/src/very-long-module-path/that-exceeds-forty-chars.rs";
-    let truncated = &long_rel_path[..long_rel_path.len().min(40)];
+    let truncated = truncate_str(&long_rel_path, 40);
     assert_eq!(
         truncated.len(),
         40,
@@ -17552,7 +17553,7 @@ fn r149_task_get_plan_recall_fires_on_in_progress_dag() {
         fires,
         "R149: in_progress dag_state must trigger plan-recall guard: '{dag_state}'"
     );
-    let task_stem = &task_id[..task_id.len().min(40)];
+    let task_stem = truncate_str(&task_id, 40);
     let hint = format!(
         " | plan-recall: run `touring generate plan-recall --query \"task:{task_stem}\"` \
             to find historical GeneratorPlans for this task"
@@ -17604,8 +17605,8 @@ fn r150_enter_plan_mode_rl_reward_fires_for_non_empty_intent() {
     //   context   = "enter_plan_mode:<truncated_intent>".
     // Reinforces the "plan before code" principle in the RL engine.
     let intent = "implement new touring generator hook for FileChanged events";
-    let truncated = &intent[..intent.len().min(100)]; // truncated for hint building
-    let reward_context_base = &truncated[..truncated.len().min(40)];
+    let truncated = truncate_str(&intent, 100); // truncated for hint building
+    let reward_context_base = truncate_str(&truncated, 40);
     let context = format!("enter_plan_mode:{reward_context_base}");
     let reward_value: f64 = 0.15;
     assert!(
@@ -17640,8 +17641,8 @@ fn r150_enter_plan_mode_rl_context_truncates_intent_to_40_chars() {
     // computed from min(100) then min(40)) to keep context strings short in the RL engine.
     let long_intent =
         "implement a comprehensive end-to-end touring generator pipeline with session lifecycle";
-    let truncated_hint = &long_intent[..long_intent.len().min(100)]; // as in handle_enter_plan_mode
-    let context_base = &truncated_hint[..truncated_hint.len().min(40)];
+    let truncated_hint = truncate_str(&long_intent, 100); // as in handle_enter_plan_mode
+    let context_base = truncate_str(&truncated_hint, 40);
     assert_eq!(
         context_base.len(),
         40,
@@ -17666,7 +17667,7 @@ fn r167_enter_plan_mode_session_payload_correct_fields() {
     let payload = serde_json::json!({
         "session_id": plan_task_id,
         "task_type": "plan_session",
-        "objective": &intent[..intent.len().min(200)],
+        "objective": truncate_str(&intent, 200),
     });
     assert_eq!(
         payload["session_id"], plan_task_id,
@@ -17811,7 +17812,7 @@ fn r169_task_get_failed_dag_injects_rl_penalty() {
     let _tool_name = "orchestrate";
     let context_prefix = "task_get:failed_dag:";
     let task_id = "T-abc-123";
-    let context = format!("{context_prefix}{}", &task_id[..task_id.len().min(30)]);
+    let context = format!("{context_prefix}{}", truncate_str(&task_id, 30));
     assert!(
         context.starts_with(context_prefix),
         "R169: context must start with '{context_prefix}': got '{context}'"
@@ -17894,7 +17895,7 @@ fn r151_task_update_tantivy_hint_fires_on_in_progress_with_subject() {
         fires,
         "R151: in_progress + non-empty subject must trigger tantivy hint"
     );
-    let query = &subject[..subject.len().min(50)];
+    let query = truncate_str(&subject, 50);
     let hint = format!(
         " | code-intel: run `touring tantivy search \"{query}\"` to find \
             existing symbols before implementing"
@@ -17908,7 +17909,7 @@ fn r151_task_update_tantivy_hint_fires_on_in_progress_with_subject() {
         "R151: hint must contain 'tantivy search' command: '{hint}'"
     );
     assert!(
-        hint.contains(&subject[..subject.len().min(50)]),
+        hint.contains(truncate_str(&subject, 50)),
         "R151: hint must contain the subject query: '{hint}'"
     );
 }
@@ -17935,7 +17936,7 @@ fn r151_task_update_tantivy_hint_query_truncates_to_50_chars() {
     let status = "in_progress";
     let fires = status == "in_progress" && long_subject.len() > 3;
     assert!(fires, "R151: test must fire for in_progress + long subject");
-    let query = &long_subject[..long_subject.len().min(50)];
+    let query = truncate_str(&long_subject, 50);
     assert_eq!(
         query.len(),
         50,
@@ -18701,14 +18702,14 @@ fn r163_task_create_session_id_derived_from_task_id() {
     // R163: session_id is derived as cc-<task_id[..min(20)]>, ensuring deterministic derivation.
     // This means the session_id is recoverable from the task_id alone — no extra state needed.
     let task_id = "T-9900-very-long-identifier";
-    let expected_session_id = format!("cc-{}", &task_id[..task_id.len().min(20)]);
+    let expected_session_id = format!("cc-{}", truncate_str(&task_id, 20));
     assert!(
         expected_session_id.starts_with("cc-"),
         "R163: session_id must start with 'cc-'"
     );
     // Short task_id uses full string — no panic.
     let short_id = "T-1";
-    let short_session = format!("cc-{}", &short_id[..short_id.len().min(20)]);
+    let short_session = format!("cc-{}", truncate_str(&short_id, 20));
     assert_eq!(
         short_session, "cc-T-1",
         "R163: short task_id uses full string"
@@ -19002,10 +19003,7 @@ fn r154_task_get_rl_reward_fires_for_in_progress_task() {
         "R154: RL reward_value must be 0.05, got {reward_value}"
     );
     let task_id = "T-123";
-    let context = format!(
-        "task_get:active_monitoring:{}",
-        &task_id[..task_id.len().min(30)]
-    );
+    let context = format!("task_get:active_monitoring:{}", truncate_str(&task_id, 30));
     assert!(
         context.starts_with("task_get:active_monitoring:"),
         "R154: RL context must start with 'task_get:active_monitoring:': '{context}'"

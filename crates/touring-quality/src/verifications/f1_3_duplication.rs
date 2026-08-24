@@ -338,7 +338,10 @@ mod tests {
     fn test_score_duplication_bands() {
         // O Type-1 mantém EXATAMENTE a calibração histórica (combined=0 isola).
         assert!((score_duplication(0.0, 0.0) - 1.0).abs() < 1e-6);
-        assert!((score_duplication(0.02, 0.0) - 1.0).abs() < 1e-6, "< 3% é saudável");
+        assert!(
+            (score_duplication(0.02, 0.0) - 1.0).abs() < 1e-6,
+            "< 3% é saudável"
+        );
         assert!(score_duplication(0.05, 0.0) < 1.0 && score_duplication(0.05, 0.0) >= 0.5);
         assert!(score_duplication(0.15, 0.0) < 0.5, "> 8% tem de reprovar");
         // Monotone non-increasing em cada eixo.
@@ -388,6 +391,9 @@ mod tests {
             "a banda tem de separar os crates observados, deu spread {}: {scores:?}",
             hi - lo
         );
-        assert!(lo > 0.1, "nenhum crate real deveria saturar no piso: {scores:?}");
+        assert!(
+            lo > 0.1,
+            "nenhum crate real deveria saturar no piso: {scores:?}"
+        );
     }
 }

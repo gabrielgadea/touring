@@ -519,6 +519,28 @@ pub fn truncate_str(s: &str, max_bytes: usize) -> &str {
     &s[..end]
 }
 
+/// Execution budget for a HEAVY daemon operation (`index rebuild`,
+/// `tantivy reindex`, deep MCTS), in seconds — read by BOTH sides of the
+/// socket so they cannot disagree.
+///
+/// They did disagree, and it cost a whole evening on 19/08/2026. The CLIENT
+/// had already learned that a full rebuild outlives the 120 s default and
+/// raises its own floor to 1800 s (`cli/index.rs`, whose comment records that
+/// "the client used to give up on a rebuild that was progressing normally").
+/// The SERVER kept an independently calibrated `Duration::from_secs(300)`,
+/// justified by a measurement — *"Python direct reindex of 1.1M symbols =
+/// ~90s"* — that the `analise` project refuted by simply being bigger.
+///
+/// So the client waited 30 minutes for a server that quit after 5, and the
+/// operator was told the rebuild had FAILED while the actor was still writing
+/// to `symbols.db`. Two numbers, calibrated apart, that had to agree: the same
+/// defect shape as the reader-vs-writer split in the wiring gate and the
+/// resolver arms that never learned each other's lesson.
+///
+/// One constant removes the possibility rather than re-synchronising the two
+/// values. [`heavy_op_budget_is_never_below_the_client_floor`] holds the line.
+pub const HEAVY_OP_BUDGET_SECS: u64 = 1800;
+
 #[cfg(test)]
 mod tests_truncate {
     use super::truncate_str;

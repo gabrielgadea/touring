@@ -28,9 +28,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_contract import print_contract  # noqa: E402 — sibling module, path set above
-from arsenal_cli import RUST_ROOT, resolve_crate, split_flags  # noqa: E402 — sibling, path set above
+from arsenal_cli import (  # noqa: E402 — sibling, path set above
+    RUST_ROOT,
+    require_quality_bin,
+    resolve_crate,
+    split_flags,
+)
 
-BIN = str(Path.home() / ".claude/rust/target/release/touring-quality")
+BIN = require_quality_bin()
 # Artifacts land in the invocation dir (or DIAG_OUT) — a permanent, relocatable
 # tool must not write next to itself in the skill directory.
 OUT = os.environ.get("DIAG_OUT") or os.getcwd()

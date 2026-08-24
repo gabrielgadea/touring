@@ -109,14 +109,14 @@ fn parse_pipeline_config(yaml_content: &str) -> anyhow::Result<TouringFlowBuilde
 /// Validate a pipeline configuration file without running it.
 fn validate_config(config_path: &str) -> anyhow::Result<()> {
     let path = PathBuf::from_str(config_path)
-        .map_err(|e| anyhow::anyhow!("invalid path '{}': {}", config_path, e))?;
+        .map_err(|e| anyhow::anyhow!("invalid path '{}': {} — run `ls -la .` to find the correct filename", config_path, e))?;
 
     if !path.exists() {
-        anyhow::bail!("config file not found: {}", config_path);
+        anyhow::bail!("config file not found: {} — run `ls -la .` to list available configs", config_path);
     }
 
     let content = std::fs::read_to_string(&path)
-        .map_err(|e| anyhow::anyhow!("failed to read {}: {}", config_path, e))?;
+        .map_err(|e| anyhow::anyhow!("failed to read {}: {} — run `ls -la` on that path to check permissions", config_path, e))?;
 
     let builder = parse_pipeline_config(&content)?;
 
@@ -128,14 +128,14 @@ fn validate_config(config_path: &str) -> anyhow::Result<()> {
 /// Run a pipeline from a YAML configuration file.
 fn run_pipeline(config_path: &str) -> anyhow::Result<()> {
     let path = PathBuf::from_str(config_path)
-        .map_err(|_| anyhow::anyhow!("invalid path: {}", config_path))?;
+        .map_err(|_| anyhow::anyhow!("invalid path: {} — run `ls -la .` to find the correct filename", config_path))?;
 
     if !path.exists() {
-        anyhow::bail!("config file not found: {}", config_path);
+        anyhow::bail!("config file not found: {} — run `ls -la .` to list available configs", config_path);
     }
 
     let content = std::fs::read_to_string(&path)
-        .map_err(|e| anyhow::anyhow!("failed to read {}: {}", config_path, e))?;
+        .map_err(|e| anyhow::anyhow!("failed to read {} — run `ls -la` on that path to check permissions: {}", config_path, e))?;
 
     let builder = parse_pipeline_config(&content)?;
     let pipeline = builder.build();
@@ -151,7 +151,7 @@ fn run_pipeline(config_path: &str) -> anyhow::Result<()> {
             result.item.id, result.item.label
         );
     } else {
-        anyhow::bail!("pipeline error: {:?}", result.stage_outcomes);
+        anyhow::bail!("pipeline execution failed: {:?} — run `touring flow validate` on the config to diagnose stage errors", result.stage_outcomes);
     }
 
     Ok(())
@@ -198,7 +198,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "unknown flow subcommand: '{}'. Use 'touring flow --help' for usage.",
                 subcommand
             );
-            Err(anyhow::anyhow!("unknown subcommand: {}", subcommand))
+            Err(anyhow::anyhow!("unknown subcommand: '{}'; run `touring flow --help` to see available subcommands", subcommand))
         }
     }
 }

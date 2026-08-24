@@ -1,6 +1,6 @@
 ---
 name: touring
-description: Master integration skill for the Touring code intelligence stack (CLI + daemon + 22 curated MCP tools (with 102 legacy tools available via `--features mcp-legacy` during 30-day migration)). Use ALWAYS before editing code, creating modules, refactoring, code review, writing tests, or planning architecture in projects under ~/projects/touring/. Invoke when the user mentions Touring, TACO orchestration, file metadata, blast radius, VGP verification, wiring orphans, code generation, MCTS planning, RFC-100 diagnostics, or any of the touring-* subagents (scouter, architect, engineer, auditor, scriber). Provides pre-edit safety gates, symbol verification, RL-backed suggestions, and 120+ CLI commands for code intelligence and quality tracking.
+description: Master integration skill for the Touring code intelligence stack (CLI + daemon + 23 MCP tools in the `tools/list` handshake; ~119 more are catalogued and invocable by name via `tools/call`). Use ALWAYS before editing code, creating modules, refactoring, code review, writing tests, or planning architecture in projects under ~/projects/touring/. Invoke when the user mentions Touring, TACO orchestration, file metadata, blast radius, VGP verification, wiring orphans, code generation, MCTS planning, RFC-100 diagnostics, or any of the touring-* subagents (scouter, architect, engineer, auditor, scriber). Provides pre-edit safety gates, symbol verification, RL-backed suggestions, and 120+ CLI commands for code intelligence and quality tracking.
 ---
 
 # Touring — Master Integration Skill
@@ -152,9 +152,21 @@ Tests: `scripts/test_<name>.py` (`python3 -m unittest`, cargo/touring-quality mo
 
 A single-lever or top-N summary that **replaces** the full breakdown is a contract violation — the lever is synthesis layered *on top of* the complete matrix, never a substitute. Enforced by `test_report_contract.py` + a contract-presence test in each of the 5 script suites.
 
+**Os cinco princípios operacionais desta família** (compor-não-copiar · convergência medida · gauntlet cego · grafo plano · Wayfinder) têm um enunciado canônico único, com o comando real de cada um: `references/skill-operating-principles.md`. Uma skill DERIVA a própria instância de lá e liga de volta — jamais repete um banner (`rules/touring-4-pillars.md`: *"A generic banner does not induce — it is debt"*). Os masters abaixo são o P1 aplicado à descoberta: um comando funde as N buscas atômicas que a pergunta exigiria.
+
 **Native master commands (R3/R5/F1/F0 — code-mode without MCP)**: `touring scout/read/health/guard/map/blast/investigate/explore/adw` are CLI wrappers (`touring-server cli/master.rs`) that forward to these scripts — one memorable command instead of a script path, dispatched through the same `touring` binary (no MCP). `explore` (F1) is the loop-until-dry multi-lens exploration with the CCE convergence contract; `adw` (F0) is the durable declarative agent-workflow runner (spec TOML, fsync'd journal + `--resume-run` replay, Class-D narrative-vs-verdict detection, `lint`/`test`/`from-template`). The R6 gate `scripts/harness_gate.py` holds the whole surface to 50-dim Gold (≥0.80). Opt-in SessionStart topic map via `TOURING_INVESTIGATE_ON_START=1`.
 
-**ADW — Software Factory (F0-F6, plan 2026-07-19)**: declarative durable agent workflows. Specs live in `.touring/adw/<name>.toml` (typed nodes `code`/`agent`/`gate`/`loop`/`human`; edges `on_pass`/`on_fail`/`on_dry`); the runner (`touring adw run`) owns loop termination (Law L2), decides node success by gates + Class-D narrative-vs-verdict detection (Law L3), and persists a fsync'd journal with `--resume-run` replay (kill -9 safe). Library templates: `touring adw from-template bugfix|chore|feature|hotfix|audit|explore-plan|scout-perpetuo` (central `adw-library/` + `tiers.toml`). Router: `touring factory route|start "<ticket>"` — deterministic-first, RL-fed. Perpetual scout: `scout_perpetuo.py cycle|status` (yield-adaptive cadence, tickets, act-vs-wait gate). ZTE: human nodes with `zte = true` bypass via conformal `calibrate-confidence` + warm-up, audited in the journal. Racing: `touring adw race <name> --lanes N` (first-to-pass wins, losers canceled, winner-only merge). KPIs: `touring.adw.*` in `touring kpi -j`. Restriction (proven A/B): headless agents cannot write under `~/.claude/` — point agent-editing ADWs at projects outside it.
+**ADW — Software Factory (F0-F6, plan 2026-07-19)**: declarative durable agent workflows. Specs live in `.touring/adw/<name>.toml` (typed nodes `code`/`agent`/`gate`/`loop`/`human`/`parallel`; edges `on_pass`/`on_fail`/`on_dry`/`on_escalate`); the runner (`touring adw run`) owns loop termination (Law L2), decides node success by gates + Class-D narrative-vs-verdict detection (Law L3), and persists a fsync'd journal with `--resume-run` replay (kill -9 safe). Library templates: `touring adw from-template bugfix|chore|feature|hotfix|audit|explore-plan|scout-perpetuo` (central `adw-library/` + `tiers.toml`). Router: `touring factory route|start "<ticket>"` — deterministic-first, RL-fed. Perpetual scout: `scout_perpetuo.py cycle|status` (yield-adaptive cadence, tickets, act-vs-wait gate). ZTE: human nodes with `zte = true` bypass via conformal `calibrate-confidence` + warm-up, audited in the journal. Racing: `touring adw race <name> --lanes N` (first-to-pass wins, losers canceled, winner-only merge). KPIs: `touring.adw.*` in `touring kpi -j`. Restriction (proven A/B): headless agents cannot write under `~/.claude/` — point agent-editing ADWs at projects outside it.
+
+**ADW — flow portfolio (plan 2026-08-18)**: flows are now composed, not copied. `[[use]] module/as/with` inlines a **fragment** under a namespace (`recall.memory`) — resolution happens in the loader, so the engine, journal, resume and lint keep operating on a flat spec. Fragments declare `[fragment] inputs/entry` and leave through the seams `__exit__`/`__exit_fail__`, which the host wires; the kit ships `recall-pack · prior-art · diagnose-pack · fanout-lenses · gate-rust · gate-quality50 · conflict-guard · human-approve · phase-close · converge · critic-panel`. Every shipped flow declares `[purpose]` (`intent · when_to_use · when_not_to_use · inputs · produces · tags`) — `when_not_to_use` is what lets the portfolio rule a flow OUT instead of pitching the closest candidate, and the miner indexes that block BEFORE the header comment so the 600-char cap falls on boilerplate. New surface: `touring adw fragments` (what is composable), `touring adw explain <name>` (the FLAT resolved graph — composition is never the only representation), `touring adw new <name> --intent … --verdict reuse|extend|supersede|create_new --use <frag>[:as] --job <name>[:type] --bind as.input=… --when-not-to-use …` (prior art with an explicit verdict is mandatory; the flow is born lint-clean with its gate feedback already wired).
+
+**Per-node persona (B3)**: `[node.X.persona]` declares posture INLINE — `role · stance · lens · scope · bar · burden · refuses[] · forbids[] · blind_to[] · escalate_when · emits` — compiled to `--agents '{…}' --agent <role>`. No global agent catalogue, so a flow stays portable. A persona with `stance = "reject_by_default"` is a critic and the lint holds it to a critic's structure: a parseable `emits`, never `session = "resume_on_fail"`, and declared blindness that the prompt actually honours.
+
+**Read-only fan-out (B4)**: `type = "parallel"` with a **mandatory** `merge` (`collect|tally|concat` — no default, because N branches sharing one result slot is last-write-wins), `on_branch_fail` (`all` fail-closed | `any` | `ignore`/`best_effort` | `quorum:N`) and `max_branches`. Branches come in two shapes: **static** `branches = ["a","b"]`, or **dynamic** `branches = "{{vars.lenses}}"` + `template = "<node>"` — the template is cloned once per runtime value, bound to `{{branch.value}}`/`{{branch.index}}` (LangGraph's `Send`; the only expression of the canonical orchestrator-workers pattern). `max_branches` is checked BEFORE any branch runs, so exceeding it refuses the block instead of truncating the work. A dynamic template whose persona has a FIXED `lens` is rejected — N clones of one lens buy one opinion N times. Every branch journals as an ordinary node, so `kill -9` mid-fan-out resumes without re-running the ones that finished; `tally` re-emits an aggregate `NEW_FINDINGS=` so a loop can wrap a whole fan-out. Branches that can write are rejected by the lint. `touring adw test` walks a graph that never ran: an agent with no recording is stood in for by a stub **named in the report** (`synthesized`), and a human gate is auto-approved — a spec that DECLARES `driver = "mock"` still demands its recording, so synthesis never leaks into a real run.
+
+**Verification contract (B6)**: a gate with `verdict_contract = true` speaks `VERDICT=PASS|REJECT|ESCALATE` and must declare `on_escalate`. An unparseable verdict reads as REJECT (silence never clears a gate). ESCALATE routes aside **without spending a retry** — a check that could not run is not something more agent attempts will fix. Plus opt-in `stagnation_rounds = N` (identical consecutive rejections stop the loop), a per-run kill switch (a `STOP` file in the run dir), and `[adw] budget_usd` checked against measured spend at node boundaries.
+
+**Wayfinder over the DAG (C3)**: `touring decompose ticket <task> <subtask> --kind decision|implementation --subtype research|prototype|grilling|task --autonomy hitl|afk --fog clear|hazy|unknown --origin-ticket <id>` and `touring decompose frontier <task>` — open decisions **gate** the implementation frontier, and implementation carrying no `origin_ticket` is reported as untraceable (map-as-index: the reasoning lives in the ticket, the map keeps a pointer). Only `research` decisions may run `afk`. **Atomic claim (C2)**: `touring decompose claim <task> --owner <id> [--lease-secs N]` / `release` — `ready` only READS, so two sessions polling it receive the same subtask; claiming is a conditional UPDATE, so exactly one wins.
 
 **The 4 Pillars — first reflex** (task #6 compounding; full rule `~/.claude/rules/touring-4-pillars.md`): for code work, reach for the differential *before* the atomic/raw tool — **Code Mode** (`touring run`, no MCP) over shell loops/scans · **Master CLI** (`scout/read/map/blast/investigate/guard/audit`) over chained `index find` + `ast blast` + `wiring` atomics · **Learning Memory** (`touring memory recall "<topic>"`) before researching from scratch · **Intelligence** (`touring ast/index/wiring`) over guessing structure. The active hook layer (`cli_suggester` pillar induction, **default-OFF** via `TOURING_PILLAR_INDUCTION_ARMED`) nudges the two under-used (Master CLI, Learning Memory); adoption is measured via `touring.coupling.pillar_induction_ratio` (`touring kpi -j`). **Injection-density invariant**: every nudge and every answer is dense, specific (real argument, no `<placeholder>` when derivable), and grounded in a named best-practice.
 
@@ -218,6 +230,16 @@ A single-lever or top-N summary that **replaces** the full breakdown is a contra
 
 ### TIER 5 — Code Generation (touring-generator)
 
+> Export SCIP: a API Rust (`ScipEmitter`/`ScipDocument`) existe e é usada; o
+> comando `touring scip emit` NÃO existe. Detalhe em
+> `references/scip-export.md` (skill `touring-scip` removida 20/08/2026).
+
+> Comandos de `generate` e de evolução/flywheel que só as skills removidas
+> `touring-generator` / `touring-evolve` documentavam foram preservados em
+> `references/generate-and-evolution.md` (20/08/2026). As skills saíram por
+> colisão de ativação + comandos inexistentes; os 18 comandos reais, não.
+
+
 | ★★★★☆ | Command | Pipeline stage |
 |--------|---------|----------------|
 | `touring generate list-kinds -j` | Discovery (36 kinds — drift fix + Wave TRM crate-scaffolding kinds) |
@@ -241,8 +263,8 @@ A single-lever or top-N summary that **replaces** the full breakdown is a contra
 | `touring serve` | Daemon startup (idle watchdog OPT-IN via `TOURING_IDLE_TIMEOUT_SECS>0`) |
 | `touring pre-read` / `post-read` | Read enrichment + co-edit graph update |
 | `touring pre-write` / `post-edit` | Speculative validation + quality tracking |
-| `touring pre-grep` / `pre-glob` | Symbol enrichment for Grep/Glob (D43, P99=2ms; disable: `TOURING_DISABLE_PREGREP=1`) |
-| `touring instructions-loaded` | Session-start context injection |
+| `touring-hook pre-grep` / `pre-glob` | Symbol enrichment for Grep/Glob (D43, P99=2ms; disable: `TOURING_DISABLE_PREGREP=1`) |
+| `touring-hook instructions-loaded` | Session-start context injection |
 | `touring cortex <event>` | Unified fascicles dispatcher |
 
 ### TIER 8 — Search / Index (read-only, <10ms)
@@ -253,7 +275,11 @@ A single-lever or top-N summary that **replaces** the full breakdown is a contra
 | `touring index search <prefix>` | Prefix lookup |
 | `touring tantivy fuzzy "<query>" [dist]` | Levenshtein fuzzy |
 | `touring tantivy suggest "<prefix>"` | Autocomplete |
-| `touring search symbols "<query>"` | BM25 rank |
+| `touring search unified "<query>"` | Busca multi-backend fundida por RRF (o default) |
+| `touring search exact "<query>"` | Símbolo exato (daemon `cli-search-symbols`) |
+| `touring search bm25 "<query>"` | Documentos por BM25 (daemon `cli-search-docs`); `fuzzy` p/ aproximado |
+| `touring search tools "<intenção>"` | Achar o comando pelo que você QUER fazer |
+| `touring portfolio "<intento>"` | **Prior-art por PROPÓSITO** (não por nome) — 3 seções: candidatos com evidência, lacunas, lente externa; exige veredito `reuse\|extend\|supersede\|create_new`. Subcomandos: `refresh` (minera ~4k artefatos em ~190ms) · `status` · `verdict`. Bilíngue pt/en. Consultar **antes de criar** qualquer artefato novo (REGRA #0) |
 
 ### TIER 9 — Utility
 
@@ -326,6 +352,35 @@ touring ast workspace-info                   # cargo_metadata
 
 ---
 
+
+## Context Enrichment — the doctrine (2026-08-08)
+
+Everything that puts information in front of the agent unasked — hook
+`additionalContext`, an ADW node summary, a CCE lens, a prior-art block before a
+`Write`. Highest leverage in the stack (it reaches the decision before it is
+made) and the most dangerous (the agent cannot tell a fabricated enrichment from
+a measured one). Nine strategies, each with a measurement behind it — canonical
+body: `~/.claude/skills/Touring/references/context-enrichment.md`.
+
+| # | Strategy | The measurement that produced it |
+|---|---|---|
+| **E1** | Index the field that states **purpose**, not the one that names things | `tantivy search "prior art"` → `art_root` (fuzz shell); yet 96% of 3.881 scripts carry purpose prose nobody read |
+| **E2** | Enrichment must be **structurally inescapable**, not persuasive | master commands built and still unused; MUST nudges at conf 0.95 ignored in the emitting session |
+| **E3** | **Three sections**, never a ranked list: `prior_art` + `gaps` + `external`, plus a required verdict | a bare list anchors on rank 1; naming the gap is what invites superseding |
+| **E4** | **Absence is displayed**, never hidden — and a thin answer reports the corpus size | worst outcome is reusing something broken because it merely ranked well |
+| **E5** | **Never fabricate to fill a gap**; expose which corpus answered | `find-code` returned hardcoded `doc_kw_1..5` for every query, in any language |
+| **E6** | A **gap claim is an assertion about absence** — compare by word family, never exact | "no candidate mentions professional" while one said "professionally formatted" |
+| **E7** | Meet the operator's language **symmetrically** (normalize corpus *and* query) | `search-tools "gerar PDF profissional"` → `No matching tool`; English ranked |
+| **E8** | **Derived values, never placeholders** — and boilerplate/stubs are not purpose | a licence banner and `"Command-line interface."` both outranked real artifacts |
+| **E9** | Enrichment that **ages silently** is worse than none — invalidate on mtime | a `OnceLock` in a long-lived daemon never sees `portfolio refresh` |
+
+```bash
+touring portfolio "<intento>"                     # prior-art por PROPÓSITO (E1+E3)
+touring portfolio inspect <arquivo>               # o que o minerador extrai (E4)
+touring portfolio verdict "<intento>" --choice extend --why "<razão>"   # o feromônio
+touring portfolio history                         # decisões acumuladas
+```
+
 ## Subagent Pool (TACO)
 
 Six specialized agents. Invoke via `Agent` tool. All return raw JSON. **Subagents inherit the orchestrator's permission mode — spawn with the SAME permissions (omit `mode` in the `Agent` call); NEVER force a narrower `acceptEdits`, which makes the subagent prompt for every Bash command when the session is on `auto`/`bypassPermissions`.** Ensure the orchestrator is on `acceptEdits`+ before spawning engineers so edits are enabled by inheritance.
@@ -386,6 +441,32 @@ For the token-efficient MCP workflow (`touring_minimal_context` → `detail_leve
 
 ---
 
+## ADW — o grafo diz a verdade sobre si (2026-08-19)
+
+Um spec carrega **duas topologias**: a de **controle**, que você declara
+(`on_pass`/`branches`), e a de **dados**, que existe de fato (quem interpola
+`{{nodes.X.summary}}` de quem). `flow_dataflow()` extrai a segunda; a divergência é o
+achado.
+
+| Comando / lint | O que responde |
+|---|---|
+| `touring adw explain <n> --cost` | o **teto declarado**: chamadas de agente no fan-out cheio, largura máxima, orçamento de timeout |
+| lint `fake_waiting` | B roda depois de A, nunca lê A, e **ambos são provadamente read-only** — a espera compra latência, não ordem |
+| lint `dead_node` | ninguém lê a saída de um nó cujo produto **é** a saída |
+| lint `critique_without_brief` | um painel ligado à entrada julga o que nada produziu ou aprovou |
+| `touring adw promote <n> --run <id>` | a library carrega **evidência**, não intenção (`--exempt "<motivo>"` declara a falta) |
+
+Três invariantes que economizam retrabalho: um nó `gate` relê o agente anterior por
+`ctx.last_agent`, logo **nunca** é espera falsa; um ramo de `parallel` entrega ao *merge*,
+logo nunca é peso morto; e onde o read-only não é **provável** os lints ficam **calados** —
+acoplamento por efeito colateral é invisível ao interpolador, e mandar paralelizar esse par
+quebraria o fluxo. Declare `readonly = true` num nó `code` para torná-lo analisável.
+
+Kit: 13 fragmentos. Os três modos de paralelismo — `fanout-lenses` (N lentes, concatenado),
+`critic-panel` (N críticos sobre 1 alvo, apurado), `worker-critic-pair` (N trabalhadores,
+cada um com **seu** crítico). `graph-pack` traz **relações** (`wiring impact` + `index find`
++ `memory moc`), onde `recall-pack` traz texto.
+
 ## Reference Map
 
 Operational depth (consult on demand):
@@ -402,11 +483,12 @@ Operational depth (consult on demand):
 | 3-layer CLI architecture, daemon actor, dispatch table | [references/architecture.md](references/architecture.md) |
 | Code generator (31 kinds, typestate pipeline) | [references/code_generator.md](references/code_generator.md) |
 | **Touring-native tooling** (deterministic codegen wrapper for Rust/Python/TS — consumes touring-generator) | `~/.claude/skills/Touring-native tooling/SKILL.md` + `~/.claude/skills/Touring-native tooling/references/touring-integration.md` |
-| MCP tools catalog (22 curated, 102 legacy) | [references/mcp_tools.md](references/mcp_tools.md) |
+| MCP tools catalog (23 in `tools/list`; ~119 catalogued, invocable by name) | [references/mcp_tools.md](references/mcp_tools.md) |
 | **Code Mode recipes** (Reflex #8 cookbook — 5 patterns for `touring_ctx_execute` programmatic tool-calling, 80-96% token savings) | [references/code_mode_recipes.md](references/code_mode_recipes.md) |
 | Touring CLI by cluster (7 modules) | [references/touring-cli-overview.md](references/touring-cli-overview.md), [hooks](references/touring-cli-hooks.md), [intelligence](references/touring-cli-intelligence.md), [tasks](references/touring-cli-tasks.md), [rl-quality](references/touring-cli-rl-quality.md), [generate](references/touring-cli-generate.md), [meta](references/touring-cli-meta.md), [assists](references/touring-cli-assists.md) |
 | RL stack comparison (Touring vs rsrl) | [references/touring-cli-rl-stack.md](references/touring-cli-rl-stack.md) |
 | BugStalker debugging integration | [references/touring-cli-debugging-bugstalker.md](references/touring-cli-debugging-bugstalker.md) |
+| Memory hashtag library (facet tags, codetags, MOCs) | [references/memory-hashtags.md](references/memory-hashtags.md) |
 | Auto-loaded CLI ranks (constitutional) | `~/.claude/rules/touring-cli-index.md` |
 | **Constitution v8.0** (S9 — H3.3) | `~/projects/touring/docs/CONSTITUTION-v8.md` (master, 416L) |
 | RFC index (001-005) | `~/projects/touring/docs/RFC-001*.md` · `RFC-002*.md` · `RFC-003*.md` · `RFC-004*.md` · `RFC-005*.md` |

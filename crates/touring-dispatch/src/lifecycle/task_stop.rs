@@ -7,6 +7,7 @@
 //! Extracted from `lifecycle.rs` as part of FIX-3 D1.
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use crate::runtime::HookRuntime;
 
@@ -69,7 +70,7 @@ pub(crate) fn handle_task_sync_post_stop(rt: &mut HookRuntime, input: &Value) ->
     let merged = serde_json::json!({
         "task_id": task_id,
         "success": false,
-        "session_id": format!("cc-{}", &task_id[..task_id.len().min(20)]),
+        "session_id": format!("cc-{}", truncate_str(task_id, 20)),
         "result_summary": format!("TaskStop: {task_id} stopped/cancelled via Claude Code"),
     });
     if let Err(e) = crate::team_hooks::run_task_completed(rt, &merged) {
@@ -100,7 +101,7 @@ pub(crate) fn handle_task_sync_post_stop(rt: &mut HookRuntime, input: &Value) ->
     // R127: Capture interrupted work as generator artifacts so no progress is lost.
     // DiaryEntry: records AAAK-format lesson from the cancelled task (partial progress + why it stopped).
     // IncrementalPatch: captures partial implementation as a reusable patch for future resumption.
-    let truncated_id = &task_id[..task_id.len().min(40)];
+    let truncated_id = truncate_str(task_id, 40);
     let capture_hint = format!(
         " | capture-partial: run `touring generate render DiaryEntry \
         --vars '{{\"agent\":\"claude_code\",\"task_id\":\"{truncated_id}\",\"phase\":\"stopped\"}}'` \

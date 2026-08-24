@@ -37,14 +37,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_contract import print_contract  # noqa: E402 — sibling module, path set above
+from arsenal_cli import require_quality_bin  # noqa: E402 — sibling, path set above
 
 ROOT = Path(".").resolve()
 # Artifacts land in the invocation dir (or DIAG_OUT) — a permanent, relocatable
 # tool must not write next to itself in the skill directory.
 OUT = os.environ.get("DIAG_OUT") or os.getcwd()
-QBIN = str(Path.home() / ".claude/rust/target/release/touring-quality")
-if not Path(QBIN).is_file():
-    raise SystemExit(f"touring-quality binary not found at {QBIN}; run `update-touring` first")
+QBIN = require_quality_bin()
 
 BLOCK = {"F2_1", "F2_4", "F2_5", "F2_6", "F4_3", "F4_5"}
 WARN = {"F1_1", "F1_2", "F1_3", "F1_4", "F1_5", "F1_6",

@@ -1,0 +1,35 @@
+{
+  "captured_at": "2026-08-20T11:02:44.609219",
+  "files": {
+    "README.md": {
+      "size_bytes": 10436,
+      "lines": 240,
+      "sha256": "ae8f131fe8136bff3a2cc29fc27b6eabcf6fc962e8c41c23660a8d37c2deb06a",
+      "mtime": "2026-08-19T02:04:32.989592"
+    },
+    "CLAUDE.md": {
+      "size_bytes": 8129,
+      "lines": 112,
+      "sha256": "3eb2c5c77c4a253945113e9fb5087e0876726a846b860704098433066d58a007",
+      "mtime": "2026-08-19T01:31:27.378256"
+    },
+    "ARCHITECTURE.md": {
+      "size_bytes": 42970,
+      "lines": 782,
+      "sha256": "f1d1c535ba9293cb74984ccb8a85b6a9808e62d4bb0d3236ca96a4495def5cbd",
+      "mtime": "2026-08-19T06:54:16.966087"
+    },
+    "ARCHITECTURE.v29.5.0.md": {
+      "size_bytes": 142152,
+      "lines": 1865,
+      "sha256": "fd764c3705b324c888b4f3d706310d3316b30e8d591ac2d072d98629014d2e13",
+      "mtime": "2026-04-09T19:40:44.463513"
+    },
+    "ARCHITECTURE_PLAN.md": {
+      "size_bytes": 4041,
+      "lines": 106,
+      "sha256": "9750d208debca9e42c6e71b1ca6af1269771004b503ec19a6682d5caab5510a4",
+      "mtime": "2026-03-30T20:56:03.805629"
+    }
+  }
+}

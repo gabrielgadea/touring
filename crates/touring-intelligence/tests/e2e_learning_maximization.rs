@@ -391,11 +391,31 @@ mod memory_tests {
         let db_path = dir.path().join("rlm_tier.db");
         let mem = RlmMemory::new(db_path.as_path())?;
 
+        // H1 canonical semantics (2026-08-12): `key` is THE identity (REGRA
+        // #17) and `tier` is an attribute of the single row — re-storing the
+        // same key in another tier MOVES it, never duplicates it. (The
+        // pre-unification composite (key, tier) PK let two rows share a key,
+        // which split tag/link identity — this test pins the current truth.)
         mem.store("shared", MemoryTier::Working, "working_val", None, None)?;
         mem.store("shared", MemoryTier::Reference, "reference_val", None, None)?;
 
-        let val = mem.get("shared", MemoryTier::Working)?;
-        assert!(val.is_some(), "should recall something");
+        let val = mem.get("shared", MemoryTier::Reference)?;
+        assert_eq!(
+            val.as_deref(),
+            Some("reference_val"),
+            "latest store wins: the entry lives in its most recent tier"
+        );
+        assert!(
+            mem.get("shared", MemoryTier::Working)?.is_none(),
+            "no ghost row remains in the previous tier — isolation is by current attribute"
+        );
+
+        // Tier isolation that IS promised: distinct keys live independently
+        // per tier and both recall.
+        mem.store("wk", MemoryTier::Working, "w", None, None)?;
+        mem.store("rk", MemoryTier::Reference, "r", None, None)?;
+        assert_eq!(mem.get("wk", MemoryTier::Working)?.as_deref(), Some("w"));
+        assert_eq!(mem.get("rk", MemoryTier::Reference)?.as_deref(), Some("r"));
         Ok(())
     }
 }

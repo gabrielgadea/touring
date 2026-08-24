@@ -111,10 +111,21 @@ fn registry_has_expected_count() {
     //   2 ao literal consertaria `--all-features` e quebraria o default.
     // 2026-08-04: +1 cli-memory-credit (case attribution — closes the
     //   recall->outcome loop the case bank never had): 222->223 / 224->225.
+    // 2026-08-12 (hashtag library F1-F6): +10 memory facet commands —
+    //   cli-memory-tag-add / tags / query (F1), cli-memory-sync-tags (F2),
+    //   cli-memory-link / links (F3), cli-memory-backfill-tags (F4),
+    //   cli-memory-moc / communities / unlink (F5-F6): 223->233 / 225->235.
+    // 2026-08-12 (H2 SCIP type-aware wiring): +1 cli-wiring-scip-ingest:
+    //   233->234 / 235->236.
+    // 2026-08-18 (plano graph-engineering-flow-portfolio, C2+C3): +4 decompose
+    //   verbs — cli-decompose-claim / cli-decompose-release (atomic claim with an
+    //   expiring lease: `ready` only READS, so two sessions polling it received the
+    //   SAME subtask) and cli-decompose-ticket / cli-decompose-frontier (Wayfinder:
+    //   decision tickets gate the implementation frontier): 234->238 / 236->240.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 225;
+    const EXPECTED_NAMES: usize = 240;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 223;
+    const EXPECTED_NAMES: usize = 238;
     assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205
@@ -131,7 +142,63 @@ fn registry_has_expected_count() {
     // 2026-05-30 (ES2 P2): +1 cli-attest-contract = 217.
     // 2026-06-01 (ES1 P4): +1 cli-prove-claim = 218.
     // 2026-08-04: +1 cli-memory-credit = 219.
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 219);
+    // 2026-08-12 (hashtag library F1-F6): +10 memory facet commands = 229.
+    // 2026-08-12 (H2 SCIP type-aware wiring): +1 cli-wiring-scip-ingest = 230.
+    // 2026-08-18 (C2+C3): +4 cli-decompose-{claim,release,ticket,frontier} = 234.
+    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 234);
+}
+
+/// The tripwire literal is duplicated across four files; this asserts they agree.
+///
+/// The count guard exists in `touring-dispatch/src/hook_registry_tests.rs` and in
+/// three `touring-hooks` integration tests. Updating a SUBSET is how
+/// `cli-memory-credit` reached CI with three red tests — and, on 2026-08-18, how
+/// adding four decompose verbs turned up as three separate failures discovered one
+/// run at a time. Per the injection-density lesson, a quality invariant has to be
+/// enforced over ALL its instances at once or it recurs in the next uncovered one.
+///
+/// This does not weaken the tripwire: a new hook still requires a human to change
+/// the number deliberately. It only makes the four copies unable to drift apart.
+#[test]
+fn every_hook_count_tripwire_agrees_with_the_others() {
+    use std::path::Path as StdPath;
+
+    // The workspace root, from this file's location at compile time.
+    let root = StdPath::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(StdPath::parent)
+        .expect("workspace root");
+    let sites = [
+        "crates/touring-dispatch/src/hook_registry_tests.rs",
+        "crates/touring-hooks/tests/stringzilla_e2e.rs",
+        "crates/touring-hooks/tests/wave2_4_e2e.rs",
+        "crates/touring-hooks/tests/wave_c_e2e.rs",
+    ];
+    let mut found: Vec<(&str, Vec<String>)> = Vec::new();
+    for site in sites {
+        let path = root.join(site);
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("tripwire site {site} unreadable: {e}"));
+        let counts: Vec<String> = text
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("const EXPECTED_NAMES: usize = "))
+            .map(|v| v.trim_end_matches(';').to_string())
+            .collect();
+        assert!(
+            !counts.is_empty(),
+            "{site} no longer declares EXPECTED_NAMES — either the tripwire was \
+             removed or this guard's site list is stale"
+        );
+        found.push((site, counts));
+    }
+    let (first_site, first) = &found[0];
+    for (site, counts) in &found[1..] {
+        assert_eq!(
+            counts, first,
+            "hook-count tripwires disagree: {site} has {counts:?} while \
+             {first_site} has {first:?} — update every site together"
+        );
+    }
 }
 
 /// Sprint 4.6 regression guard (2026-05-23).

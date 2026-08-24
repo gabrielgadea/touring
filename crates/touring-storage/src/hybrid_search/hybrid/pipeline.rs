@@ -680,10 +680,16 @@ mod tests {
         };
 
         let (results, stats) = pipeline.search(query).await;
-        assert!(results.is_empty(), "no corpus must mean no results: {results:?}");
+        assert!(
+            results.is_empty(),
+            "no corpus must mean no results: {results:?}"
+        );
         assert_eq!(stats.keyword_hits, 0);
         assert_eq!(stats.semantic_hits, 0);
-        assert!(stats.backends.is_unwired(), "the caller must be able to tell why");
+        assert!(
+            stats.backends.is_unwired(),
+            "the caller must be able to tell why"
+        );
         assert!(!stats.backends.keyword_backend);
     }
 

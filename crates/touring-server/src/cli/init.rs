@@ -272,12 +272,12 @@ fn load_profiles() -> Result<Vec<(String, Profile)>> {
         return Ok(profiles);
     }
 
-    for entry in std::fs::read_dir(&dir).map_err(|e| anyhow::anyhow!("read_dir failed: {}", e))? {
-        let entry = entry.map_err(|e| anyhow::anyhow!("entry failed: {}", e))?;
+    for entry in std::fs::read_dir(&dir).map_err(|e| anyhow::anyhow!("failed to list profiles in {} — run `ls -la {}` to check directory: {}", dir.display(), dir.display(), e))? {
+        let entry = entry.map_err(|e| anyhow::anyhow!("failed to read directory entry: {} — run `df -h .` to check disk space", e))?;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("toml") {
             let content = std::fs::read_to_string(&path)
-                .map_err(|e| anyhow::anyhow!("read failed: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("failed to read profile file {} — run `ls -la` on that path to check permissions: {}", path.display(), e))?;
             let filename = path
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -359,7 +359,7 @@ fn apply_profile(name: &str) -> Result<()> {
 
     // Validate it has name and description
     if extract_toml_value(&content, "name").is_none() {
-        bail!("profile '{}' is missing a `name` field", name);
+        bail!("profile '{}' is missing a `name` field; ensure [description] table has `name` key", name);
     }
 
     let config = config_path();
@@ -368,16 +368,16 @@ fn apply_profile(name: &str) -> Result<()> {
     if config.exists() {
         let backup_path = config.with_extension("toml.bak");
         std::fs::copy(&config, &backup_path)
-            .map_err(|e| anyhow::anyhow!("backup failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("backup failed: {} — run `df -h .` to check disk space", e))?;
         eprintln!("backed up existing config to {}", backup_path.display());
     }
 
     // Ensure parent directory exists
     if let Some(parent) = config.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| anyhow::anyhow!("create dir failed: {}", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| anyhow::anyhow!("failed to create config directory {} — run `ls -la` on parent to check permissions: {}", parent.display(), e))?;
     }
 
-    std::fs::write(&config, &content).map_err(|e| anyhow::anyhow!("write config failed: {}", e))?;
+    std::fs::write(&config, &content).map_err(|e| anyhow::anyhow!("failed to write config file {} — run `df -h .` to check disk space: {}", config.display(), e))?;
 
     println!(
         "{}",
@@ -432,7 +432,7 @@ fn apply_agent_init(agent: &str, dry_run: bool) -> Result<()> {
     let agents: Vec<&'static str> = supported_agents().iter().map(|(n, _)| *n).collect();
     if !agents.contains(&agent) {
         anyhow::bail!(
-            "Unknown agent: {agent}. Available: {}\nRun `touring init --list-agents` for paths.",
+            "unknown agent '{agent}' — use one of: {} or run `touring init --list-agents`",
             agents.join(", ")
         );
     }
@@ -559,7 +559,7 @@ fn merge_settings_json() -> Result<String> {
     }
 
     let user_settings = std::fs::read_to_string(&settings_path)
-        .map_err(|e| anyhow::anyhow!("failed to read settings: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("failed to read settings file — run `ls -la` on that path to check permissions: {}", e))?;
     let merged = deep_merge_json(&user_settings, r#"{"source":"cc"}"#)?;
     std::fs::create_dir_all(cc_path.parent().expect("cc-settings parent dir"))?;
     std::fs::write(&cc_path, &merged)?;
@@ -569,12 +569,12 @@ fn merge_settings_json() -> Result<String> {
 /// Deep merge two JSON values — overlay takes precedence on conflicts.
 fn deep_merge_json(base: &str, overlay: &str) -> Result<String> {
     let base_val: serde_json::Value = serde_json::from_str(base)
-        .map_err(|e| anyhow::anyhow!("failed to parse settings: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("invalid settings JSON — run `touring doctor -j` to check daemon configuration: {}", e))?;
     let overlay_val: serde_json::Value = serde_json::from_str(overlay)
-        .map_err(|e| anyhow::anyhow!("failed to parse overlay: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("invalid overlay JSON — run `touring doctor -j` to check daemon configuration: {}", e))?;
     let merged = deep_merge_value(&base_val, &overlay_val);
     serde_json::to_string_pretty(&merged)
-        .map_err(|e| anyhow::anyhow!("failed to serialize merged: {}", e))
+        .map_err(|e| anyhow::anyhow!("failed to serialize settings — run `touring doctor -j` to check configuration health: {}", e))
 }
 
 fn deep_merge_value(base: &serde_json::Value, overlay: &serde_json::Value) -> serde_json::Value {
@@ -620,7 +620,7 @@ pub fn install_cc_hooks() -> Result<Vec<String>> {
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
-                .map_err(|e| anyhow::anyhow!("failed to set permissions: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("failed to set permissions: {} — run `chmod 755` on the hook file manually", e))?;
         }
         installed.push(path.to_string_lossy().to_string());
     }
@@ -654,7 +654,7 @@ pub fn run_cc_setup() -> Result<()> {
             paths.len()
         }
         Err(e) => {
-            bail!("hook installation failed: {}", e);
+            bail!("hook installation failed: {} — run `touring init --cc-setup` to retry or `ls -la ~/.claude/hooks/` to diagnose", e);
         }
     };
 

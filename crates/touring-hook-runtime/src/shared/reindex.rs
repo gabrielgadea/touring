@@ -75,6 +75,37 @@ fn compute_edit_offsets(old: &str, new: &str) -> (usize, usize) {
 /// Fix: when a `symbol_store` is available, mirror `cli_index_rebuild`'s
 /// behaviour and atomically replace the file's symbol rows with
 /// `result.symbols_added` immediately after the pipeline succeeds.
+/// Mirrors `cli_index_rebuild`'s references branch (B 2026-06-21) on the
+/// INCREMENTAL path: appends call-sites as `is_definition=false, kind="call"`
+/// rows so find-references and wiring learn consumers from edits/ingest, not
+/// only from full rebuilds. Root cause closed (cross-audit 2026-08-12): any
+/// file only ever *edited* — never rebuilt — recorded zero references, so a
+/// symbol used cross-crate via `module::symbol(...)` (e.g. `tags::derive_tags`)
+/// read as 0 consumers and surfaced as a false wiring orphan.
+/// Same kill-switch as the rebuild: `TOURING_INDEX_REFERENCES=0` disables.
+fn with_call_sites(
+    rel_path: &str,
+    content: &str,
+    mut symbols: Vec<touring_code::ast::SymbolLocation>,
+) -> Vec<touring_code::ast::SymbolLocation> {
+    let references_on = std::env::var("TOURING_INDEX_REFERENCES")
+        .map(|v| v != "0" && v != "false")
+        .unwrap_or(true);
+    if !references_on {
+        return symbols;
+    }
+    let Some(lang) = touring_code::ast::Lang::from_path(Path::new(rel_path)) else {
+        return symbols;
+    };
+    for cs in touring_code::ast::build_call_graph(content, lang).sites {
+        symbols.push(
+            touring_code::ast::SymbolLocation::new(rel_path, cs.callee, cs.line, 0, false)
+                .with_kind(Some("call".to_string())),
+        );
+    }
+    symbols
+}
+
 fn extract_symbols_via_pipeline(
     pipeline: &touring_code::ast::incremental_pipeline::SharedPipeline,
     symbol_store: Option<&touring_code::ast::store::SymbolStore>,
@@ -82,7 +113,6 @@ fn extract_symbols_via_pipeline(
     content: &str,
     old_content: Option<&str>,
     full_path: &str,
-    language: &str,
 ) -> (String, i64) {
     // Try process_edit first when we have cached tree + old content.
     if let Some(old) = old_content
@@ -124,7 +154,10 @@ fn extract_symbols_via_pipeline(
                 pipeline.with_write(|p| p.process_edit(rel_path, start_byte, old_end_byte, content))
             {
                 if let Some(store) = symbol_store
-                    && let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added)
+                    && let Err(e) = store.replace_file_symbols(
+                        rel_path,
+                        &with_call_sites(rel_path, content, result.symbols_added.clone()),
+                    )
                 {
                     tracing::warn!(
                         target: "touring::reindex",
@@ -145,7 +178,10 @@ fn extract_symbols_via_pipeline(
     match pipeline.with_write(|p| p.process_file(rel_path, content)) {
         Ok(result) => {
             if let Some(store) = symbol_store
-                && let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added)
+                && let Err(e) = store.replace_file_symbols(
+                    rel_path,
+                    &with_call_sites(rel_path, content, result.symbols_added.clone()),
+                )
             {
                 tracing::warn!(
                     target: "touring::reindex",
@@ -161,29 +197,75 @@ fn extract_symbols_via_pipeline(
         }
         Err(e) => {
             tracing::debug!("pipeline failed for {rel_path}: {e}, using fallback");
-            extract_symbols_fallback(content, full_path, language)
+            extract_symbols_fallback(symbol_store, rel_path, content, full_path)
         }
     }
 }
 
 /// Fallback symbol extraction when pipeline is unavailable or fails.
-/// Uses ast_bridge first, then falls back to regex-based extraction.
-#[cfg(feature = "post-hooks")]
-fn extract_symbols_fallback(content: &str, full_path: &str, language: &str) -> (String, i64) {
-    crate::ast_bridge::enrich_file_knowledge(content, full_path)
-        .map(|(json, count)| (json, count as i64))
-        .unwrap_or_else(|| {
-            let syms = crate::symbol_extractors::extract_symbols_fast(content, language);
-            let count = syms.len() as i64;
-            (serde_json::to_string(&syms).unwrap_or_default(), count)
+///
+/// Follow-up F-1 (cross-audit 2026-08-12): the old fallback returned
+/// `(json, count)` for the knowledge DB but never wrote to the symbol
+/// store — a file indexed through this path had NO rows in symbols.db at
+/// all (not even definitions), so it was invisible to find-references and
+/// its consumers never appeared in the wiring map. Now the fallback parses
+/// once via `touring_code::ast::extract_symbols` and persists definitions +
+/// call-sites through the same `replace_file_symbols` + `with_call_sites`
+/// pair the pipeline paths use — all three reindex paths keep the index.
+fn extract_symbols_fallback(
+    symbol_store: Option<&touring_code::ast::store::SymbolStore>,
+    rel_path: &str,
+    content: &str,
+    full_path: &str,
+) -> (String, i64) {
+    let Some(lang) = touring_code::ast::Lang::from_path(Path::new(full_path)) else {
+        return (String::new(), 0);
+    };
+    let symbols = match touring_code::ast::extract_symbols(content, lang) {
+        Ok(v) => v,
+        Err(_) => return (String::new(), 0),
+    };
+    let count = symbols.len();
+    // Same compact shape `enrich_file_knowledge` always produced — the
+    // knowledge.symbols_json contract is unchanged.
+    let compact: Vec<serde_json::Value> = symbols
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "name": s.name,
+                "kind": s.kind.as_str(),
+                "is_public": s.is_public,
+                "line": s.line,
+            })
         })
-}
+        .collect();
+    let json = serde_json::to_string(&compact).unwrap_or_else(|_| "[]".to_string());
 
-#[cfg(not(feature = "post-hooks"))]
-fn extract_symbols_fallback(content: &str, full_path: &str, _language: &str) -> (String, i64) {
-    crate::ast_bridge::enrich_file_knowledge(content, full_path)
-        .map(|(json, count)| (json, count as i64))
-        .unwrap_or((String::new(), 0i64))
+    if let Some(store) = symbol_store {
+        let locations: Vec<touring_code::ast::SymbolLocation> = symbols
+            .iter()
+            .map(|s| {
+                touring_code::ast::SymbolLocation::new(
+                    rel_path,
+                    s.name.clone(),
+                    s.line,
+                    s.column,
+                    true,
+                )
+                .with_kind(Some(s.kind.as_str().to_string()))
+            })
+            .collect();
+        let with_refs = with_call_sites(rel_path, content, locations);
+        if let Err(e) = store.replace_file_symbols(rel_path, &with_refs) {
+            tracing::warn!(
+                target: "touring::reindex",
+                file = %rel_path,
+                error = %e,
+                "fallback replace_file_symbols failed — symbols.db will drift;                  try `touring index rebuild`",
+            );
+        }
+    }
+    (json, count as i64)
 }
 
 /// Re-index a file after edit/write (update knowledge DB with current content).
@@ -255,10 +337,14 @@ pub fn reindex_file_with_old(
             &content,
             old_content,
             &full_path,
-            &language,
         )
     } else {
-        extract_symbols_fallback(&content, &full_path, &language)
+        extract_symbols_fallback(
+            runtime.infra.symbol_store.as_ref(),
+            rel_path,
+            &content,
+            &full_path,
+        )
     };
 
     let knowledge = crate::knowledge::FileKnowledge {
@@ -393,4 +479,74 @@ pub fn reindex_file_with_old(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod fallback_store_tests {
+    /// F-1 (cross-audit 2026-08-12): the fallback path must persist
+    /// definitions AND call-sites to the symbol store — a file indexed
+    /// through the fallback is no longer invisible to symbols.db.
+    #[test]
+    fn fallback_writes_defs_and_calls_to_store() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db = tmp.path().join("sym.db");
+        let store = touring_code::ast::store::SymbolStore::new(&db).unwrap();
+        let src = "pub fn producer() {}\nfn caller() {\n    producer();\n    tags::derive_tags();\n}\n";
+        let (json, count) = super::extract_symbols_fallback(
+            Some(&store),
+            "src/demo.rs",
+            src,
+            "/abs/proj/src/demo.rs",
+        );
+        assert!(count >= 2, "defs extracted: {json}");
+        let defs = store.find_symbol("producer").unwrap();
+        assert!(defs.iter().any(|l| l.is_definition), "def row persisted");
+        let refs = store.find_references("derive_tags").unwrap();
+        assert!(
+            refs.iter().any(|l| !l.is_definition && l.kind.as_deref() == Some("call")),
+            "call-site row persisted: {refs:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod call_site_tests {
+    use super::with_call_sites;
+
+    /// Cross-audit 2026-08-12 regression guard: the incremental path must
+    /// append call-site rows (kind="call", is_definition=false) for scoped
+    /// calls — the gap that made cross-crate consumers read as orphans.
+    #[test]
+    fn with_call_sites_appends_scoped_calls() {
+        let src = "fn f() {\n    tags::derive_tags(k);\n    plain_call();\n}\n";
+        let out = with_call_sites("src/rlm.rs", src, Vec::new());
+        let names: Vec<&str> = out.iter().map(|s| s.symbol_name.as_str()).collect();
+        assert!(names.contains(&"derive_tags"), "scoped call: {names:?}");
+        assert!(names.contains(&"plain_call"), "direct call: {names:?}");
+        assert!(out.iter().all(|s| s.kind.as_deref() == Some("call")));
+        assert!(out.iter().all(|s| !s.is_definition));
+    }
+
+    /// The kill-switch mirrors the rebuild: TOURING_INDEX_REFERENCES=0 keeps
+    /// the incremental path definitions-only. Env access serialized (the
+    /// Rust-2024 discipline, same as the crate-wide locks elsewhere).
+    #[test]
+    fn with_call_sites_respects_kill_switch() {
+        static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        unsafe { std::env::set_var("TOURING_INDEX_REFERENCES", "0") };
+        let out = with_call_sites("src/a.rs", "fn f() { g::h(); }", Vec::new());
+        unsafe { std::env::remove_var("TOURING_INDEX_REFERENCES") };
+        drop(_guard);
+        assert!(out.is_empty());
+    }
+
+    /// Non-source files yield no call rows (Lang::from_path → None).
+    #[test]
+    fn with_call_sites_skips_unknown_languages() {
+        let out = with_call_sites("docs/guide.txt", "anything()", Vec::new());
+        assert!(out.is_empty());
+    }
 }

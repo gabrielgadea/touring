@@ -1,0 +1,41 @@
+# ADW `polir` — created by `touring adw new` on prior-art verdict `create_new`.
+# Run: touring adw run polir --var <k>=<v> ...
+
+[adw]
+name = "polir"
+description = "Levar um artefato que já existe a uma barra NOMEADA, por um crítico cego que nunca viu como ele foi feito"
+entry = "prior"
+budget_tokens = 0
+
+[purpose]
+intent = "Levar um artefato que já existe a uma barra NOMEADA, por um crítico cego que nunca viu como ele foi feito"
+when_to_use = ["há um artefato pronto e uma barra externa a perseguir (exemplar, referência, peça paradigma)", "a qualidade ainda não é a desejada e o que falta é polimento, não direção"]
+when_not_to_use = ["criar do zero — sem briefing o par otimiza forte na direção que ninguém escolheu", "a barra não tem procedência: sem exemplar o crítico INVENTA o padrão e o loop fica caro e infinito"]
+produces = ["o artefato levado à barra, e o veredito do crítico que o aprovou"]
+tags = ["#kind:flow", "#domain:qualidade", "#process:polish"]
+prior_art_verdict = "create_new"
+
+[[use]]
+module = "prior-art"
+as = "prior"
+with = { intent = "{{vars.task}}" }
+on_pass = "par"
+on_fail = "__fail__"
+
+# A barra é INPUT e precisa nomear um exemplar externo ("como o voto DICOL
+# 2024/0331", "como a peça paradigma X"). Sem procedência o crítico inventa o
+# próprio padrão — o Apêndice H pelo avesso: lá o produtor burla o gate, aqui
+# o gate se inventa.
+[[use]]
+module = "worker-critic-pair"
+as = "par"
+with = { task = "{{vars.task}}", artifact = "{{vars.artifact}}", bar = "{{vars.bar}}" }
+on_pass = "fecho"
+on_fail = "__fail__"
+
+[[use]]
+module = "phase-close"
+as = "fecho"
+with = { key = "polir:{{vars.artifact}}", summary = "{{nodes.par.judge.summary}}", domain = "qualidade" }
+on_pass = "__end__"
+on_fail = "__fail__"

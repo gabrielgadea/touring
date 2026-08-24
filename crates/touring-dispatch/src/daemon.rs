@@ -555,6 +555,22 @@ fn is_heavy_hook(hook_name: &str) -> bool {
 /// Per-request timeout — prevents a hung request from blocking forever.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Human-readable sender for the `heavy op:` log line: `pid=<n> comm=<name>`
+/// from `/proc/<pid>/comm` (best effort — the client may already be gone),
+/// or `unknown` when the transport gave no credentials. The line existed
+/// before 21/08/2026; what it lacked was exactly this.
+fn peer_label(pid: Option<i32>) -> String {
+    match pid {
+        None => "unknown".to_string(),
+        Some(p) => {
+            let comm = std::fs::read_to_string(format!("/proc/{p}/comm"))
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|_| "?".to_string());
+            format!("pid={p} comm={comm}")
+        }
+    }
+}
+
 /// Run the async daemon server loop.
 pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let socket_path = daemon_socket_path();
@@ -966,6 +982,9 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
 /// The peek is done via `BufReader::fill_buf` so the byte is replayed to
 /// the reader; no custom unread buffer needed.
 async fn handle_connection_async(stream: tokio::net::UnixStream, runtime: &RuntimeMap) {
+    // Who is talking? Read before `split` consumes the stream. Linux fills the
+    // pid (SO_PEERCRED); elsewhere it is None and the log says so.
+    let peer_pid: Option<i32> = stream.peer_cred().ok().and_then(|c| c.pid());
     let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = tokio::io::BufReader::new(reader);
 
@@ -980,21 +999,21 @@ async fn handle_connection_async(stream: tokio::net::UnixStream, runtime: &Runti
         #[cfg(feature = "rkyv-ipc")]
         b'S' => handle_saga_request_async(&mut reader, runtime).await,
         #[cfg(feature = "rkyv-ipc")]
-        b'R' => handle_rkyv_request_async(&mut reader, runtime).await,
+        b'R' => handle_rkyv_request_async(&mut reader, runtime, peer_pid).await,
         #[cfg(feature = "acp-protocol")]
         b'{' => {
             let mut line = String::new();
             let _ = reader.read_line(&mut line).await;
             if crate::protocol::acp::detect_acp_payload(line.as_bytes()) {
-                handle_acp_request_async(&mut reader, runtime, line).await
+                handle_acp_request_async(&mut reader, runtime, line, peer_pid).await
             } else {
-                handle_json_request_async_stored_line(&mut reader, runtime, line).await
+                handle_json_request_async_stored_line(&mut reader, runtime, line, peer_pid).await
             }
         }
         #[cfg(not(feature = "acp-protocol"))]
-        _ => handle_json_request_async(&mut reader, runtime).await,
+        _ => handle_json_request_async(&mut reader, runtime, peer_pid).await,
         #[cfg(feature = "acp-protocol")]
-        _ => handle_json_request_async(&mut reader, runtime).await,
+        _ => handle_json_request_async(&mut reader, runtime, peer_pid).await,
     };
 
     // Wave 3 D4: Mirror the inbound protocol on the response side.
@@ -1058,6 +1077,7 @@ fn protocol_failure(reason: impl std::fmt::Display) -> DaemonResponse {
 async fn handle_json_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
@@ -1068,17 +1088,72 @@ where
             return protocol_failure("client closed the connection before sending a request");
         }
         Err(e) => {
-            return protocol_failure(format_args!("reading the request line: {e} ({:?})", e.kind()));
+            return protocol_failure(format_args!(
+                "reading the request line: {e} ({:?})",
+                e.kind()
+            ));
         }
         Ok(_) => {}
     }
 
     match serde_json::from_str::<DaemonRequest>(line.trim()) {
-        Ok(req) => dispatch_request_async(req, runtime).await,
+        Ok(mut req) => {
+            req.peer_pid = peer_pid;
+            // C2-W0 d4/S-5.2 — an orchestrate sub-call announces itself via
+            // `origin: <run_id>:code:<n>`. Capture identity + payload size
+            // BEFORE dispatch consumes the request; the common path (no
+            // origin) pays nothing — `payload.to_string()` only runs for
+            // sub-calls. The JSON path is the only wire the SDK speaks.
+            let subcall = req
+                .origin
+                .as_ref()
+                .map(|o| (o.clone(), req.hook.clone(), req.payload.to_string().len() as u64));
+            let resp = dispatch_request_async(req, runtime).await;
+            if let Some((origin, hook, payload_bytes)) = subcall {
+                let output_bytes = resp.output.len() as u64;
+                crate::shared::gate_metrics::record_code_mode_subcall(payload_bytes, output_bytes);
+                journal_subcall(&origin, &hook, payload_bytes, output_bytes);
+            }
+            resp
+        }
         Err(e) => protocol_failure(format_args!(
             "malformed DaemonRequest JSON: {e} (received {} bytes)",
             line.len()
         )),
+    }
+}
+
+/// C2-W0 d4 — append one JSONL record per orchestrate sub-call to
+/// `~/.claude/touring/run_subcalls.jsonl`. Together with `run_journal.jsonl`
+/// (keyed by the same `run_id` prefix) it reconstructs the counterfactual
+/// tool-parts per run: sizes + hook name only — never the content (volume +
+/// secret risk; the KPI needs the bytes, not the data). Fail-open: I/O errors
+/// are swallowed — observability never blocks a dispatch.
+fn journal_subcall(origin: &str, hook: &str, payload_bytes: u64, output_bytes: u64) {
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let dir = std::path::Path::new(&home).join(".claude/touring");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let record = serde_json::json!({
+        "ts": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+        "origin": origin,
+        "hook": hook,
+        "payload_bytes": payload_bytes,
+        "output_bytes": output_bytes,
+    });
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("run_subcalls.jsonl"))
+    {
+        let _ = writeln!(f, "{record}");
     }
 }
 
@@ -1088,12 +1163,16 @@ async fn handle_json_request_async_stored_line<R>(
     _reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
     line: String,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
 {
     match serde_json::from_str::<DaemonRequest>(line.trim()) {
-        Ok(req) => dispatch_request_async(req, runtime).await,
+        Ok(mut req) => {
+            req.peer_pid = peer_pid;
+            dispatch_request_async(req, runtime).await
+        }
         Err(e) => protocol_failure(format_args!(
             "malformed DaemonRequest JSON (pre-read line): {e} (received {} bytes)",
             line.len()
@@ -1110,6 +1189,7 @@ where
 async fn handle_rkyv_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
@@ -1189,11 +1269,14 @@ where
     };
 
     let req = DaemonRequest {
+        peer_pid,
         hook: archived.hook.to_string(),
         payload: payload_value,
         project_root: archived.project_root.to_string(),
         session_id,
         priority: archived.priority,
+        // rkyv wire predates S-5.2 and the SDK speaks JSON only.
+        origin: None,
     };
 
     let resp = dispatch_request_async(req, runtime).await;
@@ -1360,6 +1443,7 @@ async fn handle_acp_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
     _first_line: String,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
@@ -1369,7 +1453,10 @@ where
     // Read the full ACP message (already consumed first line in detection)
     let mut line = String::new();
     if let Err(e) = reader.read_line(&mut line).await {
-        return protocol_failure(format_args!("reading the ACP message: {e} ({:?})", e.kind()));
+        return protocol_failure(format_args!(
+            "reading the ACP message: {e} ({:?})",
+            e.kind()
+        ));
     }
 
     let msg = match acp::parse_message(line.trim()) {
@@ -1432,11 +1519,13 @@ where
 
     // Build a DaemonRequest and dispatch through the actor
     let req = DaemonRequest {
+        peer_pid,
         hook: hook_name.to_string(),
         project_root: String::new(),
         payload: msg.params,
         priority: 0,
         session_id: None,
+        origin: None,
     };
 
     dispatch_request_async(req, runtime).await
@@ -1648,14 +1737,19 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     let is_heavy = is_heavy_hook(&hook_name);
     if is_heavy {
         eprintln!(
-            "[touring-daemon] heavy op: {} (priority={}, session={:?})",
+            "[touring-daemon] heavy op: {} (priority={}, session={:?}, peer={})",
             hook_name,
             priority,
-            req.session_id.as_deref()
+            req.session_id.as_deref(),
+            peer_label(req.peer_pid)
         );
     }
 
     let (resp_tx, resp_rx) = oneshot::channel::<String>();
+    // Kept for the failure messages below: `hook_name` moves into the command,
+    // and a failure that cannot name the operation it belongs to is the very
+    // ambiguity these branches exist to remove.
+    let hook_for_diag = hook_name.clone();
     let cmd = ProjectCommand::RunHook {
         hook_name,
         payload,
@@ -1672,19 +1766,32 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
         Ok(Err(_)) => {
             // Receiver dropped — actor thread exited (should not happen during
             // normal operation; indicates a prior panic or LRU eviction race).
+            //
+            // Named for the same reason the semaphore branch above is: a mute
+            // failure here is indistinguishable from a failure in the WORK the
+            // caller asked for. Observed 19/08/2026 on `analise` — a dead actor
+            // answered `index rebuild` AND a trivial `gate-metrics` with the
+            // identical "empty response payload", and two rounds went into
+            // suspecting the reindex before `gate-metrics` (which cannot take
+            // 5 minutes) exposed the daemon as the sick party. The cure is a
+            // daemon restart, so the message names it.
             tracing::warn!("[touring-daemon] project actor channel closed — dropping request");
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+            return protocol_failure(
+                "project actor is not running (it exited from a prior panic or an LRU eviction); \
+                 every request to this project will fail until the daemon is restarted: \
+                 `touring daemon-ctl restart` (add `--socket <proj>/.touring/daemon.sock` for a \
+                 per-project daemon)",
+            );
         }
         Err(_) => {
             crate::shared::gate_metrics::record_actor_send_timeout();
             tracing::debug!("[touring-daemon] actor send timeout — queue full");
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+            return protocol_failure(format_args!(
+                "project actor queue still full after {}s — the actor is busy with earlier work \
+                 (a heavy op such as `index rebuild` serializes the queue). Retry, or wait for \
+                 the in-flight operation to finish",
+                REQUEST_TIMEOUT.as_secs()
+            ));
         }
     }
 
@@ -1697,7 +1804,11 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     // in production: Python direct reindex of 1.1M symbols = ~90s; full
     // blast-radius over a large file = ~30s; MCTS deep search = ~60s.
     let handler_budget = if is_heavy {
-        Duration::from_secs(300)
+        // Shared with the CLIENT (`cli/index.rs` raises its read floor to the
+        // same value). Two independently calibrated numbers here is what let a
+        // 300 s server quit under a client willing to wait 1800 s — see
+        // `HEAVY_OP_BUDGET_SECS`.
+        Duration::from_secs(touring_foundation::HEAVY_OP_BUDGET_SECS)
     } else {
         Duration::from_secs(15)
     };
@@ -1710,11 +1821,16 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
         Ok(Err(_)) => {
             // oneshot sender was dropped before sending — actor likely panicked
             // mid-handler. Return failure; client can retry.
+            //
+            // This is the branch a panicking handler reaches, so it is the one
+            // whose message must send the reader to the panic itself: the
+            // backtrace is in the daemon's stderr, nowhere near the client.
             tracing::warn!("[touring-daemon] oneshot dropped — handler did not respond");
-            DaemonResponse {
-                output: String::new(),
-                success: false,
-            }
+            protocol_failure(format_args!(
+                "handler `{hook_for_diag}` did not respond — it most likely panicked mid-flight. \
+                 The backtrace is in the daemon stderr (~/.claude/touring/daemon.stderr.log); \
+                 the actor may need `touring daemon-ctl restart`"
+            ))
         }
         Err(_) => {
             // Handler exceeded its execution budget. Actor is still alive (and
@@ -1725,10 +1841,15 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
                 "[touring-daemon] handler exceeded {}s budget",
                 handler_budget.as_secs()
             );
-            DaemonResponse {
-                output: String::new(),
-                success: false,
-            }
+            // The distinction that matters to the caller: the WORK may still be
+            // completing. Only this client gave up, so re-running the same
+            // command can race the in-flight one.
+            protocol_failure(format_args!(
+                "handler `{hook_for_diag}` exceeded its {}s budget and this client gave up — the \
+                 actor may still be finishing the work, so check the result before re-running \
+                 (a large project can legitimately exceed the budget for `index rebuild`)",
+                handler_budget.as_secs()
+            ))
         }
     }
 }
@@ -1749,11 +1870,13 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
 /// live runtime.
 fn kpi_snapshot_request(project_root: String) -> DaemonRequest {
     DaemonRequest {
+        peer_pid: None,
         hook: "cli-kpi".to_string(),
         payload: serde_json::json!({ "snapshot": true }),
         project_root,
         session_id: None,
         priority: 0,
+        origin: None,
     }
 }
 

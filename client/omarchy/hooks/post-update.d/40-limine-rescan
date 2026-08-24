@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# 40-limine-rescan — rescan Limine boot entries after an Omarchy update.
+# Part of OmarchyOS Agêntico (S-0.7, P0).
+#
+# Only runs when Limine is the active bootloader (not systemd-boot / Pop!_OS).
+# Uses pkexec (never sudo) for privilege escalation, per Quattro convention.
+# Exit 0 always — notifies on success or failure, never blocks the update.
+
+set -euo pipefail
+
+LIMINE_CONF="/boot/limine.conf"
+
+# Only act when Limine is the active bootloader.
+# If the conf file contains "pop" or "systemd-boot" markers, skip.
+if [ ! -f "${LIMINE_CONF}" ]; then
+    exit 0
+fi
+
+if grep -qiE 'pop|systemd-boot' "${LIMINE_CONF}" 2>/dev/null; then
+    exit 0
+fi
+
+if ! command -v limine-entry-tool >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Run the rescan with pkexec (Quattro: no sudo in background scripts).
+# pkexec may wait on a polkit prompt that nobody answers (headless update,
+# locked screen); bound it so the update sequence never hangs here.
+if timeout 120 pkexec limine-entry-tool --scan 2>/dev/null; then
+    MSG="Limine: entradas de boot atualizadas"
+else
+    MSG="Limine: limine-entry-tool --scan falhou (verifique manualmente)"
+fi
+
+command -v omarchy-notification-send >/dev/null 2>&1 && \
+    omarchy-notification-send "${MSG}" || true
+
+exit 0

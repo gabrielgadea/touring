@@ -148,17 +148,17 @@ pub fn migrate_from_global_in(
 ) -> Result<MigrationReport> {
     if !source.exists() {
         return Err(anyhow!(
-            "source {} does not exist — nothing to migrate",
+            "source {} does not exist — check path and rerun, or use `--source <dir>`",
             source.display()
         ));
     }
     if !source.is_dir() {
-        return Err(anyhow!("source {} is not a directory", source.display()));
+        return Err(anyhow!("source {} is not a directory — verify path or use `ls -la {}`", source.display(), source.display()));
     }
 
     if !dry_run {
         std::fs::create_dir_all(destination)
-            .map_err(|e| anyhow!("create_dir_all {}: {e}", destination.display()))?;
+            .map_err(|e| anyhow!("create_dir_all {} failed: {e} — run `df -h .` to check disk space", destination.display()))?;
     }
 
     let ts_suffix = SystemTime::now()
@@ -181,7 +181,7 @@ pub fn migrate_from_global_in(
             if force {
                 if !dry_run {
                     std::fs::remove_file(&dst_file)
-                        .map_err(|e| anyhow!("remove existing {}: {e}", dst_file.display()))?;
+                        .map_err(|e| anyhow!("remove existing {} failed: {e} — run `ls -la` on that path to check permissions", dst_file.display()))?;
                 }
                 // No backup recorded; --force overwrote.
             } else {
@@ -205,7 +205,7 @@ pub fn migrate_from_global_in(
         }
         if !dry_run {
             std::fs::copy(&src_file, &dst_file).map_err(|e| {
-                anyhow!("copy {} → {}: {e}", src_file.display(), dst_file.display())
+                anyhow!("copy {} → {} failed: {e} — run `df -h .` to check disk space", src_file.display(), dst_file.display())
             })?;
         }
         copied.push((*name).to_string());

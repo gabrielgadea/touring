@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "deepseek-harness code-runtime incorporado na strategy doc (secao 2.4): seam ctx.codeRuntime vs consumer run_code, worker fresh-per-run, SDK tipado KV-cache-estavel, pipeline completo p/ sub-chamadas com id deterministica, colapso de modo predicado-unico, 2 budgets, OutputLedger 64MiB + spill assimetrico, erro-como-campo 6 kinds, mode native|code|both opt-in. 8 novas praticas P13-P20 destiladas"
+    }
+  ],
+  "relations": []
+}

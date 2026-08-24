@@ -1,0 +1,11 @@
+{
+  "phase": "W1",
+  "entities": [
+    {
+      "entity_id": "phase:W1",
+      "type": "phase",
+      "description": "Reference canonico dos 5 principios: skills/Touring/references/skill-operating-principles.md (154L). P1 compor-nao-copiar (13 fragments medidos, nao os 11 da constituicao), P2 convergencia medida (8 clausulas lidas por AST + a licao do timeout 20s<24s), P3 gauntlet cego (quorum contado por codigo), P4 grafo plano (adw explain + when_not_to_use + on_branch_fail), P5 Wayfinder (claim/ticket/frontier). Todo comando citado foi executado antes de ser escrito. Regra anti-banner: instancia derivada por skill, nunca texto identico."
+    }
+  ],
+  "relations": []
+}

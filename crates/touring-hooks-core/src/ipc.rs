@@ -72,6 +72,21 @@ pub struct DaemonRequest {
     /// over heavy ops (e.g., index-find > mcts-search).
     #[serde(default)]
     pub priority: u8,
+    /// C2-W0 S-5.2 — identity of an orchestrate sub-call, `<run_id>:code:<n>`.
+    /// Set only by the in-sandbox SDK (`touring run --orchestrate`); `None`
+    /// on every other request. Wire-compatible both ways: serde fills the
+    /// default on old clients and ignores the unknown field on old daemons.
+    /// The dispatch site uses it to count the counterfactual tool-part
+    /// (d4: the context bytes tool calling would have cost).
+    #[serde(default)]
+    pub origin: Option<String>,
+    /// PID of the connecting client (`SO_PEERCRED` via `UnixStream::peer_cred`),
+    /// stamped by the daemon at accept time — never on the wire. It is what lets
+    /// the `heavy op:` log line name its sender: until 21/08/2026 six
+    /// `cli-index-rebuild` receipts in a row were unattributable, and the
+    /// emitter (generator S-4) took a night of bisection to find.
+    #[serde(skip)]
+    pub peer_pid: Option<i32>,
 }
 
 /// A response returned by the daemon to the thin client.
@@ -87,3 +102,28 @@ pub struct DaemonResponse {
 }
 
 // NOTE: getuid FFI consolidated in crate::current_uid()
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// C2-W0 S-5.2 — the `origin` field is wire-compatible in BOTH
+    /// directions: a request without it parses (old SDK → new daemon), and
+    /// one carrying it round-trips intact (new SDK → new daemon). An old
+    /// daemon ignores the unknown field (serde's default), so no combination
+    /// of versions breaks the socket.
+    #[test]
+    fn daemon_request_origin_roundtrip_and_backcompat() {
+        let legacy = r#"{"hook":"cli-index-find","payload":{},"project_root":"/tmp"}"#;
+        let req: DaemonRequest = serde_json::from_str(legacy).expect("legacy request parses");
+        assert_eq!(req.origin, None, "absent field defaults to None");
+
+        let stamped = r#"{"hook":"cli-index-find","payload":{"symbol_name":"X"},"project_root":"/tmp","origin":"run-1-2:code:3"}"#;
+        let req: DaemonRequest = serde_json::from_str(stamped).expect("stamped request parses");
+        assert_eq!(req.origin.as_deref(), Some("run-1-2:code:3"));
+
+        let wire = serde_json::to_string(&req).expect("serialize");
+        let back: DaemonRequest = serde_json::from_str(&wire).expect("round-trip");
+        assert_eq!(back.origin.as_deref(), Some("run-1-2:code:3"));
+    }
+}

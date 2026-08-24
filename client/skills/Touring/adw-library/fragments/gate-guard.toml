@@ -1,0 +1,28 @@
+# Fragment `gate-guard` — the pre-edit master, before an agent touches the file.
+#
+# `touring guard` fuses blast radius + TDG + gotcha + memory recall into one
+# GO / CAUTION / NO_GO verdict. Measured 2026-08-20: it appeared in ZERO files
+# across the harness, the library and the project instances — the one master
+# built precisely for the moment before an edit, reached by nothing.
+#
+# Only NO_GO blocks. CAUTION is advisory by construction and passes with its
+# reasoning attached, so the editing agent reads the risk instead of being
+# stopped by it. The exit code is not trusted here: `guard` answers 0 on GO and
+# the NO_GO exit was not verifiable at authoring time, so the verdict is read
+# from the output, which is the field the command actually promises.
+[fragment]
+description = "Pre-edit gate: blast + TDG + gotcha + memory in one verdict; NO_GO blocks"
+inputs = ["target"]
+entry = "pre_edit"
+
+[node.pre_edit]
+type = "gate"
+command = [
+  "bash", "-c",
+  "out=$(touring guard \"$1\" 2>&1); printf '%s' \"$out\" | head -c 1200; printf '%s' \"$out\" | grep -q 'NO_GO' && exit 1; exit 0",
+  "--", "{{inputs.target}}",
+]
+timeout_ms = 120000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit_fail__"

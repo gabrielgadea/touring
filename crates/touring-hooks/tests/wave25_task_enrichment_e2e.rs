@@ -20,6 +20,14 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
 /// Locate the `touring` release / debug binary, skipping if absent.
 fn touring_binary() -> Option<PathBuf> {
     let target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -41,7 +49,7 @@ fn touring_binary() -> Option<PathBuf> {
 /// infrastructure is missing — CI-safe).
 fn scout(payload: &serde_json::Value) -> Option<serde_json::Value> {
     let bin = touring_binary()?;
-    let mut child = Command::new(&bin)
+    let mut child = Command::new(&bin).envs(private_daemon_env())
         .arg("pre-task-scout")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

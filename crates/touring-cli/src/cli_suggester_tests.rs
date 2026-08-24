@@ -1477,8 +1477,8 @@ fn intent_comes_from_the_rust_module_header_being_written() {
 
 #[test]
 fn intent_falls_back_to_the_file_stem_split_into_words() {
-    let intent = intent_for_new_file("/tmp/x/generate_pdf_report.py", None)
-        .expect("stem yields an intent");
+    let intent =
+        intent_for_new_file("/tmp/x/generate_pdf_report.py", None).expect("stem yields an intent");
     assert_eq!(intent, "generate pdf report");
 }
 
@@ -1488,10 +1488,16 @@ fn intent_is_never_a_placeholder() {
     for (path, body) in [
         ("/tmp/x/generate_pdf.py", None),
         ("/tmp/x/a_b.rs", Some("//! Something short.\n")),
-        ("/tmp/x/render_map.py", Some("\"\"\"Render the dependency map as SVG output.\"\"\"\n")),
+        (
+            "/tmp/x/render_map.py",
+            Some("\"\"\"Render the dependency map as SVG output.\"\"\"\n"),
+        ),
     ] {
         if let Some(intent) = intent_for_new_file(path, body) {
-            assert!(!intent.contains('<'), "placeholder leaked for {path}: {intent}");
+            assert!(
+                !intent.contains('<'),
+                "placeholder leaked for {path}: {intent}"
+            );
             assert!(!intent.trim().is_empty(), "empty intent for {path}");
         }
     }
@@ -1501,7 +1507,12 @@ fn intent_is_never_a_placeholder() {
 fn uninformative_stems_yield_no_intent_rather_than_noise() {
     // Querying the portfolio for "mod" or "lib" would return noise; better to
     // stay silent than to inject a meaningless nudge.
-    for path in ["/tmp/x/mod.rs", "/tmp/x/lib.rs", "/tmp/x/main.rs", "/tmp/x/a.py"] {
+    for path in [
+        "/tmp/x/mod.rs",
+        "/tmp/x/lib.rs",
+        "/tmp/x/main.rs",
+        "/tmp/x/a.py",
+    ] {
         assert!(
             intent_for_new_file(path, None).is_none(),
             "should not derive an intent from {path}"
@@ -1588,4 +1599,57 @@ fn portfolio_cache_reloads_when_the_index_file_changes() {
     }
     // And the mtime probe must never panic when the index is absent.
     let _ = portfolio_mtime();
+}
+
+/// The hook that fires on every session must feed its own counters.
+///
+/// Origin 2026-08-20: `cli_suggester` called ten recorders and ran
+/// `advise_next_step` / `detect_antipattern` three times without recording
+/// either. `workflow_advice_emitted_count` and
+/// `workflow_antipattern_detected_count` read 0 while advice was demonstrably
+/// injected ~10× in a 25-minute window — the counters were incremented only
+/// from `touring-ceg/gateway/metrics.rs` and the manual `touring gate` verb,
+/// neither of which is the path that actually fires.
+#[test]
+fn workflow_enrichment_feeds_its_own_counters() {
+    use std::sync::atomic::Ordering;
+
+    let m = touring_foundation::gate_metrics::global();
+    let advice_before = m.workflow_advice_emitted_count.load(Ordering::Relaxed);
+
+    // A Bash classifier output is the shape that reaches the workflow builder.
+    let classifier = ClassifierOutput {
+        cluster: "file-enumeration".to_owned(),
+        ..Default::default()
+    };
+    let _ = workflow_enrichment_hint(&classifier);
+
+    let advice_after = m.workflow_advice_emitted_count.load(Ordering::Relaxed);
+    assert!(
+        advice_after > advice_before,
+        "workflow_advice_emitted_count must rise when advice is built \
+         ({advice_before} → {advice_after})"
+    );
+}
+
+// ── E4 (2026-08-24) — a hand-written adw-run loop is a campaign ─────────────
+
+#[test]
+fn adw_run_loop_nudges_the_campaign_layer_with_the_real_flow() {
+    let cmd = "for i in 2 3 4; do touring adw run error-teach --var batch=30; done";
+    let out = super::campaign_code_mode_command(cmd).expect("adw-run loop must specialize");
+    assert!(
+        out.contains("touring adw campaign error-teach"),
+        "the REAL flow name travels (injection-density), got: {out}"
+    );
+    assert!(out.contains("--until"), "the predicate contract is taught");
+}
+
+#[test]
+fn ordinary_loops_do_not_nudge_campaign() {
+    assert!(super::campaign_code_mode_command("for f in *.rs; do wc -l $f; done").is_none());
+    // and the flow name never comes from a flag
+    let out = super::campaign_code_mode_command("while true; do touring adw run --mock x; done")
+        .expect("still a campaign");
+    assert!(out.contains("<flow>"), "flag is not a flow name, got: {out}");
 }

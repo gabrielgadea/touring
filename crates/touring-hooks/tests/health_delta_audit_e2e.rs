@@ -51,6 +51,7 @@ fn sample(path: &str, delta: f32, ts: u64, outcome: DeltaOutcome) -> HealthDelta
 
 #[test]
 fn wave_i_full_pipeline() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     init_once();
 
     // ---- env override wired
@@ -157,3 +158,6 @@ fn wave_i_full_pipeline() {
     );
     assert!(parsed.get("events").and_then(|v| v.as_array()).is_some());
 }
+
+// Serializes env-var-mutating tests in this integration binary (edition-2024: set_var/remove_var are unsafe under concurrency).
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

@@ -11,6 +11,7 @@ Run: python3 -m unittest test_systemic_diag_v2 -v
 """
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -120,11 +121,34 @@ class TestDimHealth(unittest.TestCase):
 
 class TestImportGuard(unittest.TestCase):
     def test_missing_binary_aborts_import_with_clear_message(self):
-        with mock.patch("pathlib.Path.is_file", return_value=False):
+        # "Genuinely unavailable" now means all three resolution routes fail:
+        # the $TOURING_QUALITY_BIN override, PATH, and every workspace release
+        # target. Patching only `is_file` left PATH resolving the real binary,
+        # so the guard never fired and the test passed for the wrong reason.
+        with (
+            mock.patch.dict(os.environ, {}, clear=False),
+            mock.patch("pathlib.Path.is_file", return_value=False),
+            mock.patch("shutil.which", return_value=None),
+        ):
+            os.environ.pop("TOURING_QUALITY_BIN", None)
             spec = importlib.util.spec_from_file_location("sdv2_noqbin", MODPATH)
             fresh = importlib.util.module_from_spec(spec)
             with self.assertRaises(SystemExit):
                 spec.loader.exec_module(fresh)
+
+    def test_resolver_prefers_path_over_workspace_target(self):
+        # The migration defect: a stale absolute default silently won over the
+        # installed binary. PATH (where `update-touring` symlinks) must win.
+        import arsenal_cli
+
+        with (
+            mock.patch.dict(os.environ, {}, clear=False),
+            mock.patch("shutil.which", return_value="/usr/local/bin/touring-quality"),
+        ):
+            os.environ.pop("TOURING_QUALITY_BIN", None)
+            self.assertEqual(
+                arsenal_cli.resolve_quality_bin(), "/usr/local/bin/touring-quality"
+            )
 
 
 # ── UNIT: fused risk (effectiveness — the core value proposition) ────────────

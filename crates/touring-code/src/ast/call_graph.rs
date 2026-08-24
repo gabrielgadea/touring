@@ -616,3 +616,29 @@ def odd(n):
         assert_eq!(cycles.len(), 1, "Python mutual recursion: {:?}", cycles);
     }
 }
+
+#[cfg(test)]
+mod audit_probe_tests {
+    use super::*;
+
+    #[test]
+    fn probe_scoped_call_extraction() {
+        let src = r#"
+use super::tags;
+
+fn auto_tag_entry(key: &str) {
+    for tag in tags::derive_tags(key) {
+        println!("{tag}");
+    }
+    let now = Utc::now();
+    let x = compute(1);
+}
+"#;
+        let graph = build_call_graph(src, Lang::Rust);
+        let callees: Vec<&str> = graph.sites.iter().map(|s| s.callee.as_str()).collect();
+        println!("CALLEES: {callees:?}");
+        assert!(callees.contains(&"derive_tags"), "scoped call missing: {callees:?}");
+        assert!(callees.contains(&"now"), "Utc::now missing: {callees:?}");
+        assert!(callees.contains(&"compute"), "direct call missing: {callees:?}");
+    }
+}

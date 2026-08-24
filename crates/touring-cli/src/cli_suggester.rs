@@ -1505,9 +1505,21 @@ fn workflow_enrichment_hint(classifier: &ClassifierOutput) -> Option<String> {
     we.stage_label = Some(stage.label().to_owned());
     let advice = advise_next_step(stage, None);
     we.next_step_hint = Some(advice.next_step.to_owned());
+    // The counter that measures this path. Until 2026-08-20 it was incremented
+    // only from `touring-ceg/gateway/metrics.rs` and the manual `touring gate`
+    // verb — never from here, the hook that fires on every session. Result:
+    // `workflow_advice_emitted_count` read 0 while advice was being injected
+    // ~10x in a 25-minute window, and `workflow_antipattern_detected_count`
+    // read 0 next to a non-zero `adoption_antipattern_count`: two counters for
+    // the same phenomenon, one fed from a cold path and one from none.
+    crate::shared::gate_metrics::record_workflow_advice_emitted();
 
     // Antipattern conversion hint (Bash only) — advisory Warn, never Deny.
     if let Some(ap) = detect_antipattern(&sig, &state) {
+        // Counted on DETECTION, which is what the counter's name says —
+        // surfacing is a separate decision (`should_surface`) and would
+        // undercount the detector by however often it stays quiet.
+        crate::shared::gate_metrics::record_workflow_antipattern_detected();
         let cv = conversion_for(ap.kind);
         if cv.should_surface() {
             we.antipattern_hint = Some(cv.as_hint());
@@ -2167,6 +2179,30 @@ fn loop_glob(command: &str) -> Option<String> {
     (first.contains('*') || first.contains('/')).then(|| first.to_string())
 }
 
+/// E4 (2026-08-24) — a shell loop whose body invokes `touring adw run` is a
+/// CAMPAIGN written by hand: no predicate, no curve, no fail-closed signal,
+/// invisible to the journal. The runner owns flow iteration
+/// (`adw.py::cmd_campaign`); the nudge carries the real flow name when it is
+/// derivable. Measured origin: this session's own `for i in 2 3 4; do touring
+/// adw run error-teach …` — the anti-pattern the layer exists to replace.
+fn campaign_code_mode_command(command: &str) -> Option<String> {
+    if !command.contains("touring adw run") {
+        return None;
+    }
+    let flow = command
+        .split("touring adw run")
+        .nth(1)?
+        .split_whitespace()
+        .next()
+        .filter(|w| !w.starts_with('-'))
+        .unwrap_or("<flow>")
+        .to_string();
+    Some(format!(
+        "touring adw campaign {flow} --until '<CODE predicate; exit 0 = converged; \
+         may print METRIC=<float>>' --max-rounds 8"
+    ))
+}
+
 /// Specialize a loop into a concrete `touring run` carrying the real glob (so the
 /// nudge shows the actual file set, per the injection-density invariant); the
 /// per-file op is the one marked placeholder. `None` when no glob is derivable —
@@ -2209,7 +2245,10 @@ fn specialized_command(kind: &CodeModeKind, tool_name: &str, tool_input: &Value)
     match kind {
         CodeModeKind::Scan => code_mode_command(tool_name, tool_input),
         CodeModeKind::Loop => {
-            loop_code_mode_command(tool_input.get("command").and_then(Value::as_str)?)
+            let command = tool_input.get("command").and_then(Value::as_str)?;
+            // E4 precedence: a loop over `touring adw run` is a hand-written
+            // campaign — the runner owns flow iteration, not the shell.
+            campaign_code_mode_command(command).or_else(|| loop_code_mode_command(command))
         }
     }
 }
@@ -2370,11 +2409,20 @@ fn code_mode_output(kind: &CodeModeKind, tool_name: &str, tool_input: &Value) ->
             )]
         })
         .unwrap_or_default();
+    // W2 d1/S-2.4 — the 1-line SDK signature form (P23: ~53 tok, calibrated);
+    // the full byte-stable contract stays on demand behind `--sdk-stub`.
+    let may = vec![cmd(
+        "touring run --lang python --orchestrate --code '<uses touring.index_find(sym) | \
+         ast_blast(f) | ast_overview(f) | wiring_status() | wiring_impact(sym,d) | \
+         memory_recall(q) | tantivy_search(q) | search(q)>'",
+        "orchestrate: the script queries the daemon in-sandbox (full typed contract: \
+         touring run --sdk-stub)",
+    )];
     ClassifierOutput {
         cluster: cluster.into(),
         must,
         should,
-        may: vec![],
+        may,
         reason: reason.into(),
         confidence: 0.95,
         symbol_hint: None,

@@ -221,7 +221,7 @@ fn load_groups() -> anyhow::Result<Vec<CloneGroup>> {
     }
     let content = fs::read_to_string(&path)?;
     let groups: Vec<CloneGroup> = serde_json::from_str(&content)
-        .map_err(|e| anyhow::anyhow!("failed to parse clones: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("failed to parse clones: {e} — run `touring clones detect` to regenerate"))?;
     Ok(groups)
 }
 

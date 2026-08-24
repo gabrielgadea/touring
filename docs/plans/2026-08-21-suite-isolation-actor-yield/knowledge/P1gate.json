@@ -1,0 +1,11 @@
+{
+  "phase": "P1gate",
+  "entities": [
+    {
+      "entity_id": "phase:P1gate",
+      "type": "phase",
+      "description": "P1 gate: 6/6 testes unit\u00e1rios + clippy -D warnings (dispatch/server/hooks/hooks-core, com e sem acp-protocol); update-touring 2\u00d7 (UPDATE_RC=0, doctor 5/5); prova viva: 'heavy op: cli-ast-blast (peer=pid=161077 comm=touring-cli)' no log do daemon global; index ingest medido em 97ms vs rebuild 10-40min"
+    }
+  ],
+  "relations": []
+}

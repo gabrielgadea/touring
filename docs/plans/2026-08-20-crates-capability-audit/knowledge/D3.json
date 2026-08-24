@@ -1,0 +1,11 @@
+{
+  "phase": "D3",
+  "entities": [
+    {
+      "entity_id": "phase:D3",
+      "type": "phase",
+      "description": "D3: a premissa era ligar predict-action a gates caros. RECUSEI ligar e consertei o preditor - ele era uma CONSTANTE. Seis comandos radicalmente diferentes (ls, cargo build --release, python3 -c sys.exit(1), false, grep -r xyz /nonexistent, sleep 1) devolviam TODOS p=0.990312, confidence High, matched_observations igual ao corpus inteiro, distinct_features=1. Era a taxa-base do corpus (1839/1856) vestida de previsao por comando. CAUSA-RAIZ: features_of em cli/predict.rs passava o envelope {tool_name,tool_input:{command}} onde from_pre_tool espera o OBJETO tool_input; o comando nunca chegava ao extrator, intent_class caia no default constante e o modelo treinado colapsava em UM bucket - toda consulta casava com ele. Corrigido para json!({command: cmd}), uma linha. DUAS guardas: distinct_commands_yield_distinct_feature_classes exige classes distintas para cargo/python/ls; the_double_wrapped_envelope_is_what_collapses_the_classes FIXA o envelope como o modo de falha para que o refactor que o reintroduza seja pego pelo primeiro teste. Ambas passam, clippy -D warnings limpo. CORRIGI A RODADA 1, que citava predict-action como capacidade verificada funcionando - eu o executei com UM comando e li 0.990 como prova; uma execucao com uma entrada nao distingue funcao de constante. LIMITE HONESTO: a verificacao viva exige update-touring (rebuild + restart do daemon, compartilhado com outras sessoes) e NAO a fiz - a prova aqui e unitaria, nao de runtime."
+    }
+  ],
+  "relations": []
+}

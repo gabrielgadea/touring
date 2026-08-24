@@ -1,0 +1,11 @@
+{
+  "phase": "W9",
+  "entities": [
+    {
+      "entity_id": "phase:W9",
+      "type": "phase",
+      "description": "CLOSE: docs/code-mode.md (manual completo: run/orchestrate/snippets/budgets/taxonomia/observabilidade/MCP code-first/KV-hygiene); client/ sync aplicado; DEPLOY UNICO via update-touring (2x: fix advisory-deny p/ bash \u2014 CEG negava echo sob sandboxed, taxava caso comum P20; shell Deny vira advisory logado, code langs mantem gate duro). SONDAS EM PRODUCAO: stderr python/bash capturado com failure taxonomy, timeout rotulado, harvest_hint vivo, nudge MAY com assinaturas SDK vivo. Gates: e2e 0.8584 pass (=baseline), orphans 2516 (=baseline REGRA 0), journal vivo (10+ registros). Nota conhecida: counters code_mode_* sao per-process (CLI efemero) \u2014 journal e a persistencia; counters agregam no daemon via MCP. D5/D8 doutrina: redacao apresentada a Gabriel no relatorio (decisao dele 22:23 = so apresentar)"
+    }
+  ],
+  "relations": []
+}

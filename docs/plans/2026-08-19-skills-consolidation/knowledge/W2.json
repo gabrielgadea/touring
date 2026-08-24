@@ -1,0 +1,11 @@
+{
+  "phase": "W2",
+  "entities": [
+    {
+      "entity_id": "phase:W2",
+      "type": "phase",
+      "description": "Wayfinder instanciado em 5 skills que decompoem/despacham trabalho, cada uma com instancia DERIVADA distinta: loop-engineering (INNER next: ready->claim --owner), TACO-subagent (claim antes de spawnar engineer na FASE 5), subagent-driven-development (claim antes do dispatch, lease devolve se o subagent morre), TACO-skilling (claim no design do DAG de skill), taco-planning (ticket --kind/--fog na autoria + frontier separando decisoes abertas). Medido: so 3 skills citavam decompose; nenhuma citava claim."
+    }
+  ],
+  "relations": []
+}

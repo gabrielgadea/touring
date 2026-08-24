@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# 05-count-boot — append a boot record to ~/Work/state/boots.log on every boot.
+# Part of OmarchyOS Agêntico (S-0.7, P0).
+#
+# One file, one line per boot, from BOTH systems: the Omarchy runs this hook;
+# the Pop!_OS runs the same script from @reboot cron (`ln -s` it — it has no
+# Omarchy dependency) against the same ~/Work/state when that home is mounted,
+# or its own copy merged at CLOSE. `os=` is read from /etc/os-release, never
+# hardcoded, so the same file is correct on either side. The 30-day decision
+# D6 ("does the Pop still get booted by need?") is counted from this log.
+# Format: ts=<ISO8601> os=<ID from os-release> host=<hostname> boot=<boot_id>
+
+set -euo pipefail
+
+STATE_DIR="${HOME}/Work/state"
+BOOTS_LOG="${STATE_DIR}/boots.log"
+
+os_id="unknown"
+if [[ -r /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    os_id="$(. /etc/os-release && printf '%s' "${ID:-unknown}")"
+fi
+boot_id="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || printf '-')"
+
+mkdir -p "${STATE_DIR}"
+printf 'ts=%s os=%s host=%s boot=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${os_id}" "$(hostname)" "${boot_id}" >> "${BOOTS_LOG}"

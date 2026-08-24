@@ -85,6 +85,95 @@ enum MemoryCmd {
         /// for audit and stops surfacing — retirement, not deletion.
         #[arg(long)]
         supersedes: Option<String>,
+        /// Faceted hashtag to attach (`#facet:value`; repeatable). Explicit
+        /// tags are the highest-trust source and override auto-derivation.
+        #[arg(long = "tag")]
+        tags: Vec<String>,
+    },
+    /// Attach a faceted hashtag (`#facet:value`) to an existing entry.
+    Tag {
+        /// Memory key.
+        key: String,
+        /// The tag, e.g. `#kind:snippet` or `purpose:map-rendering`.
+        tag: String,
+    },
+    /// List the faceted hashtags attached to an entry.
+    Tags {
+        /// Memory key.
+        key: String,
+    },
+    /// Conjunctive facet search: `#facet:value` tokens filter exactly, the
+    /// remaining words rank by BM25 — e.g. `touring memory query "mapa
+    /// #kind:snippet #lang:python"`.
+    Query {
+        /// Query words and/or `#facet:value` tokens (joined).
+        query: Vec<String>,
+        /// Maximum number of results (default: 10).
+        #[arg(long, default_value_t = 10u64)]
+        limit: u64,
+    },
+    /// Re-harvest `#tags:` codetag anchors from source files into
+    /// snippet-level memories (value = the anchored block). `--file` syncs one
+    /// file (incremental); `--dir` walks a tree (batch). Anchors removed from
+    /// the source tombstone their snippet entries — code is source of truth.
+    SyncTags {
+        /// Single file to sync (project-relative or absolute).
+        #[arg(long, conflicts_with = "dir")]
+        file: Option<String>,
+        /// Directory tree to scan (default: project root).
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Create a typed link between two memories (A-MEM link generation):
+    /// `touring memory link <src> <dst> --rel extends`. The edge id is
+    /// deterministic (`{src}|{rel}|{dst}`) — re-linking is a no-op.
+    Link {
+        /// Source memory key.
+        src: String,
+        /// Target memory key.
+        dst: String,
+        /// Relation: relates-to, supersedes, extends, exemplifies, generated-by.
+        #[arg(long)]
+        rel: String,
+    },
+    /// List the 1-hop link neighbourhood of a memory.
+    Links {
+        /// Memory key.
+        key: String,
+    },
+    /// Conservative backfill: derive faceted tags for entries that have NONE
+    /// (never second-guesses explicit/auto/code-sync tags; written rows are
+    /// marked `source='backfill'`). Bounded per call — re-run while the
+    /// response reports `remaining > 0`.
+    BackfillTags {
+        /// Maximum entries processed in this call (default: 2000).
+        #[arg(long, default_value_t = 2_000u64)]
+        limit: u64,
+        /// Measure what would be tagged without writing anything.
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    /// Generate a Map of Content for a topic: emergent communities over the
+    /// topic's corpus (label propagation over tags+links) rendered as an OKF
+    /// markdown document with `[[key]]` links.
+    Moc {
+        /// The topic (a `domain:<value>` tag or a free-text term).
+        topic: String,
+        /// Write the document to this path instead of returning it inline.
+        #[arg(long)]
+        out: Option<String>,
+    },
+    /// List the emergent communities of the whole store (or one
+    /// `--domain <d>` slice) — the global structural view behind `moc`.
+    Communities {
+        /// Restrict to one domain value.
+        #[arg(long)]
+        domain: Option<String>,
+    },
+    /// Remove one typed link by its deterministic id (`<src>|<rel>|<dst>`).
+    Unlink {
+        /// The link id, as shown by `memory links <key>`.
+        id: String,
     },
     /// List entries with optional pagination and sort control.
     List {
@@ -160,10 +249,11 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             importance,
             pinned,
             supersedes,
+            tags,
         } => {
             if key.is_empty() {
                 anyhow::bail!(
-                    "Usage: touring memory store <key> <value...> [--tier <tier>] [--type <type>]"
+                    "memory store requires a key and value — run `touring memory store <key> <value...> [--tier <tier>]`"
                 );
             }
             // clap has already stripped --tier/--type from `value` (they are named args).
@@ -171,7 +261,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             let value_text = value.join(" ");
             if value_text.is_empty() {
                 anyhow::bail!(
-                    "Usage: touring memory store <key> <value...> [--tier <tier>] [--type <type>]"
+                    "memory store requires both key and value — provide both or use --help for examples"
                 );
             }
             let payload = serde_json::json!({
@@ -189,9 +279,23 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "importance": importance,
                 "pinned": pinned,
                 "supersedes": supersedes,
+                // F1: explicit `#facet:value` hashtags (highest-trust source).
+                "tags": tags,
             });
             let output = daemon_query("cli-memory-store", payload)?;
             println!("{output}");
+        }
+        cmd @ (MemoryCmd::Tag { .. }
+        | MemoryCmd::Tags { .. }
+        | MemoryCmd::Query { .. }
+        | MemoryCmd::SyncTags { .. }
+        | MemoryCmd::Link { .. }
+        | MemoryCmd::Links { .. }
+        | MemoryCmd::BackfillTags { .. }
+        | MemoryCmd::Moc { .. }
+        | MemoryCmd::Communities { .. }
+        | MemoryCmd::Unlink { .. }) => {
+            run_tag_query(cmd)?;
         }
         MemoryCmd::List { limit, sort } => {
             // Key is "sort", not "sort_by": the handler reads `payload["sort"]`,
@@ -236,6 +340,49 @@ pub(super) fn command() -> clap::Command {
 
 #[cfg(test)]
 const KNOWN_FLAGS: &[&str] = &["--tier", "--type", "--limit", "--sort"];
+
+/// Routes the F1 hashtag subcommands (`tag`, `tags`, `query`) to their
+/// `cli-memory-*` daemon queries — kept out of the main `run` match so the
+/// dispatcher stays a thin routing table.
+fn run_tag_query(cmd: MemoryCmd) -> anyhow::Result<()> {
+    let (name, payload) = match cmd {
+        MemoryCmd::Tag { key, tag } => (
+            "cli-memory-tag-add",
+            serde_json::json!({ "key": key, "tag": tag }),
+        ),
+        MemoryCmd::Tags { key } => ("cli-memory-tags", serde_json::json!({ "key": key })),
+        MemoryCmd::Query { query, limit } => (
+            "cli-memory-query",
+            serde_json::json!({ "query": query.join(" "), "limit": limit }),
+        ),
+        MemoryCmd::SyncTags { file, dir } => (
+            "cli-memory-sync-tags",
+            serde_json::json!({ "file": file, "dir": dir }),
+        ),
+        MemoryCmd::Link { src, dst, rel } => (
+            "cli-memory-link",
+            serde_json::json!({ "src": src, "dst": dst, "rel": rel }),
+        ),
+        MemoryCmd::Links { key } => ("cli-memory-links", serde_json::json!({ "key": key })),
+        MemoryCmd::BackfillTags { limit, dry_run } => (
+            "cli-memory-backfill-tags",
+            serde_json::json!({ "limit": limit, "dry_run": dry_run }),
+        ),
+        MemoryCmd::Moc { topic, out } => (
+            "cli-memory-moc",
+            serde_json::json!({ "topic": topic, "out": out }),
+        ),
+        MemoryCmd::Communities { domain } => (
+            "cli-memory-communities",
+            serde_json::json!({ "domain": domain }),
+        ),
+        MemoryCmd::Unlink { id } => ("cli-memory-unlink", serde_json::json!({ "id": id })),
+        other => anyhow::bail!("internal: unhandled memory subcommand {other:?}; run `touring memory --help` or file a bug report"),
+    };
+    let output = daemon_query(name, payload)?;
+    println!("{output}");
+    Ok(())
+}
 
 /// Collect positional value args from `start`, stripping out known `--flag value` pairs.
 /// Preserved for backwards-compat with existing unit tests.

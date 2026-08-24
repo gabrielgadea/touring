@@ -1,0 +1,13 @@
+# Fragment `gate-quality50` — the 50-dimension quality harness at a declared bar.
+[fragment]
+description = "50-dim quality gate at a declared tier floor (default Gold 0.80)"
+inputs = ["target", "floor"]
+entry = "quality_gate"
+
+[node.quality_gate]
+type = "gate"
+command = ["bash", "-c", "touring-quality score \"$1\" --fail-below \"$2\"", "--", "{{inputs.target}}", "{{inputs.floor}}"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit_fail__"

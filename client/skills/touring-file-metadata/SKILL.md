@@ -18,6 +18,15 @@ description: Query and manage file metadata via touring CLI. Use when needing fi
 | `touring ast features <file>` | Feature flags in file |
 | `touring ast skeleton <file>` | Pub symbols skeleton |
 
+## Três linhas desta tabela são uma chamada só
+
+`touring read <file>` funde `ast meta` + `ast overview` + semântica; `touring blast
+<file>` funde `ast blast` + ciclos. Encadear `meta` → `overview` → `blast` à mão
+paga três round-trips pelo que o master devolve em um — e é o mesmo ganho
+`U(a)=P·V−C(tokens)` do Code Mode, aplicado à descoberta. Use os atômicos abaixo
+quando quiser **um campo específico** que já sabe nomear; use o master quando a
+pergunta ainda é "o que é este arquivo". Ref: `Touring/references/skill-operating-principles.md` (P1).
+
 ## When to Use
 - Before editing a file: check blast radius and quality score
 - When exploring: use skeleton depth for quick overview

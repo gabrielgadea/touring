@@ -102,3 +102,44 @@ fn check_contracts_in_tantivy_result_has_functional_signature_field() {
         "functional_signature must be null when symbol not found"
     );
 }
+
+// ── S-4 ingest_targets (21/08/2026) ───────────────────────────────────────
+
+#[test]
+fn ingest_targets_keeps_files_not_parent_dirs_dedups_in_order_and_drops_blanks() {
+    let got = ingest_targets(
+        [
+            "crates/a/src/x.rs",
+            "",
+            "crates/a/src/y.rs",
+            "crates/a/src/x.rs",
+            "  ",
+        ]
+        .into_iter(),
+    );
+    assert_eq!(got, vec!["crates/a/src/x.rs", "crates/a/src/y.rs"]);
+    // The old S-4 reduced these to their parent `crates/a/src` and rebuilt it.
+    assert!(
+        got.iter().all(|p| p.ends_with(".rs")),
+        "must stay files: {got:?}"
+    );
+}
+
+#[test]
+fn ingest_targets_caps_at_ingest_max_files() {
+    let many: Vec<String> = (0..INGEST_MAX_FILES + 17)
+        .map(|i| format!("f{i}.rs"))
+        .collect();
+    let got = ingest_targets(many.iter().map(String::as_str));
+    assert_eq!(got.len(), INGEST_MAX_FILES);
+    assert_eq!(
+        got.first().map(String::as_str),
+        Some("f0.rs"),
+        "first-seen order kept"
+    );
+}
+
+#[test]
+fn ingest_targets_empty_input_yields_nothing_to_spawn() {
+    assert!(ingest_targets(std::iter::empty()).is_empty());
+}

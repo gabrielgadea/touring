@@ -1,4 +1,5 @@
 #![allow(clippy::indexing_slicing)]
+use touring_foundation::truncate_str;
 use super::*;
 
 #[test]
@@ -313,7 +314,7 @@ fn test_golden_prompt_parity() {
         if result.intent != *expected {
             failures.push(format!(
                 "FAIL: '{}' expected={:?} got={:?} (confidence={:.1})",
-                &prompt[..prompt.len().min(60)],
+                truncate_str(&prompt, 60),
                 expected,
                 result.intent,
                 result.confidence,

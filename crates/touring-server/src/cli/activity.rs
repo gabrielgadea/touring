@@ -37,8 +37,7 @@ pub fn run(args: &[String]) -> Result<()> {
         "status" => activity_status(args),
         other => {
             bail!(
-                "unknown activity subcommand `{other}` — expected \
-                 `append`, `replay`, `verify`, `projection`, or `status`"
+                "unknown activity subcommand `{other}`; run `touring activity --help` or use: append, replay, verify, projection, status"
             )
         }
     }
@@ -58,7 +57,7 @@ fn parse_action(s: &str) -> Result<touring_foundation::activity::event::EventAct
         "wire_integrated" => Ok(touring_foundation::activity::event::EventAction::WireIntegrated),
         "index_rebuilt" => Ok(touring_foundation::activity::event::EventAction::IndexRebuilt),
         "daemon_health" => Ok(touring_foundation::activity::event::EventAction::DaemonHealth),
-        other => anyhow::bail!("unknown action: {other}"),
+        other => anyhow::bail!("unknown action: {other} — expected one of: task_started, task_completed, code_change, decision_made, learning_signal, memory_stored, error_occurred, wire_integrated, index_rebuilt, daemon_health"),
     }
 }
 
@@ -67,11 +66,11 @@ fn parse_action(s: &str) -> Result<touring_foundation::activity::event::EventAct
 fn activity_append(args: &[String]) -> Result<()> {
     let action = args
         .get(3)
-        .ok_or_else(|| anyhow::anyhow!("action required (e.g. task_started, vgp_verify)"))?;
+        .ok_or_else(|| anyhow::anyhow!("action required; use format: touring activity append --actor <name> (e.g., task_started, vgp_verify)"))?;
     let actor = flag_value(args, "--actor").unwrap_or("Orchestrator");
     let payload_str = flag_value(args, "--payload").unwrap_or("{}");
     let payload: serde_json::Value = serde_json::from_str(payload_str)
-        .map_err(|e| anyhow::anyhow!("invalid JSON payload: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("invalid JSON payload: {e} — use `--payload '{{}}'` for valid JSON string"))?;
 
     let store = open_store()?;
     store
@@ -80,7 +79,7 @@ fn activity_append(args: &[String]) -> Result<()> {
             touring_foundation::activity::event::Actor::Agent(actor.to_string()),
             Some(payload),
         )
-        .map_err(|e| anyhow::anyhow!("append failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("append failed: {e} — run `touring activity status` to check store health"))?;
 
     println!(
         "{}",
@@ -101,7 +100,7 @@ fn activity_replay(args: &[String]) -> Result<()> {
     let store = open_store()?;
     let projection = store
         .replay()
-        .map_err(|e| anyhow::anyhow!("replay failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("replay failed: {e} — event store may be corrupted; try verifying: `touring activity verify`"))?;
 
     let total = projection.len();
     let displayed = match limit {
@@ -128,7 +127,7 @@ fn activity_verify(_args: &[String]) -> Result<()> {
     let store = open_store()?;
     let results = store
         .verify()
-        .map_err(|e| anyhow::anyhow!("verify failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("verify failed: {e} — run `touring activity status` for store location and check file permissions"))?;
 
     let total = results.len();
     let failures: Vec<_> = results.iter().filter(|(_, r)| r.is_err()).collect();
@@ -165,7 +164,7 @@ fn compute_store_hash(store: &touring_foundation::activity::store::EventStore) -
     use touring_foundation::activity::verify::Verifier;
     let events = store
         .replay()
-        .map_err(|e| anyhow::anyhow!("replay failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("replay failed: {e} — event store may be corrupted; try verifying: `touring activity verify`"))?;
     if events.is_empty() {
         return Ok("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string());
     }
@@ -175,7 +174,7 @@ fn compute_store_hash(store: &touring_foundation::activity::store::EventStore) -
     let verifier = Verifier::new();
     verifier
         .verify_batch(&events)
-        .map_err(|e| anyhow::anyhow!("activity store integrity check failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("activity store integrity check failed: {e} — corrupted event; export events with `touring activity replay` and rebuild the store"))?;
     let mut hasher = sha2::Sha256::new();
     for event in &events {
         hasher.update(event.id.as_str().as_bytes());
@@ -190,7 +189,7 @@ fn activity_projection(_args: &[String]) -> Result<()> {
     let store = open_store()?;
     let projection = store
         .replay()
-        .map_err(|e| anyhow::anyhow!("replay failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("replay failed: {e} — event store may be corrupted; try verifying: `touring activity verify`"))?;
     let hash = compute_store_hash(&store)?;
 
     println!(
@@ -211,7 +210,7 @@ fn activity_status(_args: &[String]) -> Result<()> {
     let store = open_store()?;
     let events = store
         .replay()
-        .map_err(|e| anyhow::anyhow!("read failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("read failed: {e} — event store may be corrupted; try verifying: `touring activity verify`"))?;
     let last_seq = events.last().map(|e| e.seq).unwrap_or(0);
     let path = store_path()?;
 
@@ -235,12 +234,13 @@ fn open_store() -> Result<touring_foundation::activity::store::EventStore> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
+    let path_str = path.display().to_string();
     touring_foundation::activity::store::EventStore::open(path)
-        .map_err(|e| anyhow::anyhow!("cannot open event store: {e}"))
+        .map_err(|e| anyhow::anyhow!("cannot open event store: {e} — run `touring activity status` or check {} exists", path_str))
 }
 
 fn store_path() -> Result<PathBuf> {
     let cwd = std::env::current_dir()
-        .map_err(|_| anyhow::anyhow!("cannot determine current directory"))?;
+        .map_err(|_| anyhow::anyhow!("cannot determine current directory — working directory may be deleted or inaccessible; try `cd` to a valid directory"))?;
     Ok(cwd.join(ACTIVITY_DIR).join(ACTIVITY_FILE))
 }

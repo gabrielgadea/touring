@@ -35,6 +35,20 @@ enum WiringCmd {
         /// Include structured W-100/W-103 diagnostic codes (Wave Q4 RFC-100).
         #[arg(long)]
         diagnostics: bool,
+        /// Trusted edges only (H2): a symbol consumed solely by name-matching
+        /// (`ast_inferred`) reports as orphan — the honest "provably unused".
+        #[arg(long)]
+        trusted: bool,
+    },
+    /// Ingest compiler-resolved edges from `rust-analyzer scip` (H2).
+    ///
+    /// Writes `scip_resolved` rows into wiring_map (method calls, generic
+    /// dispatch, re-export identity — the edges name-matching cannot see).
+    /// Explicit command by design: the SCIP build takes seconds to minutes.
+    ScipIngest {
+        /// Read a pre-generated SCIP index instead of running rust-analyzer.
+        #[arg(long)]
+        file: Option<std::path::PathBuf>,
     },
     /// List all module wiring integration scores.
     Modules,
@@ -100,6 +114,10 @@ enum WiringCmd {
         /// Render as termtree tree.
         #[arg(long)]
         tree: bool,
+        /// Trusted edges only (H2): excludes `ast_inferred` name-matching —
+        /// the source of every phantom SCC (measured 2026-08-12: 7→0).
+        #[arg(long)]
+        trusted: bool,
     },
     /// Repair wiring consumer tracking (backfill missing entries).
     Repair {
@@ -136,15 +154,25 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     match cli.cmd.unwrap_or(WiringCmd::Status) {
         WiringCmd::Status => query_and_print("cli-wiring-status", serde_json::json!({})),
 
-        WiringCmd::Orphans { diagnostics } => {
+        WiringCmd::Orphans {
+            diagnostics,
+            trusted,
+        } => {
             // Wave Q4 (RFC-100): `--diagnostics` flag opts into structured
             // W-100/W-103 diagnostic codes alongside the legacy orphan list.
-            let payload = if diagnostics {
-                serde_json::json!({"diagnostics": true})
-            } else {
-                serde_json::json!({})
-            };
+            let payload = serde_json::json!({
+                "diagnostics": diagnostics,
+                "trusted": trusted,
+            });
             query_and_print("cli-wiring-orphans", payload)
+        }
+
+        WiringCmd::ScipIngest { file } => {
+            let payload = match file {
+                Some(f) => serde_json::json!({ "file": f.to_string_lossy() }),
+                None => serde_json::json!({}),
+            };
+            query_and_print("cli-wiring-scip-ingest", payload)
         }
 
         WiringCmd::Modules => query_and_print("cli-wiring-modules", serde_json::json!({})),
@@ -165,7 +193,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         } => {
             if let Some(syms) = symbols {
                 if syms.is_empty() {
-                    anyhow::bail!("--symbols=<csv> requires at least one symbol");
+                    anyhow::bail!("--symbols=<csv> requires at least one symbol — run `touring help` for details");
                 }
                 let payload = serde_json::json!({ "orphan_symbols": syms });
                 query_and_print("cli-wiring-suggest", payload)
@@ -236,10 +264,12 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             min_depth,
             format,
             tree,
+            trusted,
         } => {
             let payload = serde_json::json!({
                 "min_depth": min_depth,
-                "format": format
+                "format": format,
+                "trusted": trusted
             });
             let output = daemon_query("cli-wiring-cycles", payload)?;
             if tree {
@@ -521,7 +551,7 @@ mod tests {
     #[test]
     fn parses_orphans_without_flag() {
         let cli = WiringCli::try_parse_from(["wiring", "orphans"]).unwrap();
-        let WiringCmd::Orphans { diagnostics } = cli.cmd.unwrap() else {
+        let WiringCmd::Orphans { diagnostics, .. } = cli.cmd.unwrap() else {
             panic!("expected Orphans")
         };
         assert!(!diagnostics);
@@ -530,7 +560,7 @@ mod tests {
     #[test]
     fn parses_orphans_with_diagnostics_flag() {
         let cli = WiringCli::try_parse_from(["wiring", "orphans", "--diagnostics"]).unwrap();
-        let WiringCmd::Orphans { diagnostics } = cli.cmd.unwrap() else {
+        let WiringCmd::Orphans { diagnostics, .. } = cli.cmd.unwrap() else {
             panic!("expected Orphans")
         };
         assert!(diagnostics);
@@ -686,6 +716,7 @@ mod tests {
             min_depth,
             format,
             tree,
+            ..
         } = cli.cmd.unwrap()
         else {
             panic!("expected Cycles")

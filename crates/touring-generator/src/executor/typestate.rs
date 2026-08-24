@@ -222,8 +222,13 @@ impl PlanExecutor<Draft> {
     /// Emits RL reward +0.3 on pass.
     ///
     /// # Errors
-    /// Returns `ReplanRequest` when VGP symbol verification fails.
-    pub async fn verify(self, vgp: &VgpEngine) -> Result<PlanExecutor<Verified>, ReplanRequest> {
+    /// Returns `ReplanRequest` when VGP symbol verification fails. Boxed: the
+    /// request carries the full replan context (~936 bytes) and the happy
+    /// path must not pay its size on every return (`clippy::result_large_err`).
+    pub async fn verify(
+        self,
+        vgp: &VgpEngine,
+    ) -> Result<PlanExecutor<Verified>, Box<ReplanRequest>> {
         let plan_id = self.plan.plan_id;
 
         let report = vgp
@@ -309,12 +314,12 @@ impl PlanExecutor<Draft> {
                     "VGP failed — triggering replan"
                 );
             }
-            Err(ReplanRequest {
+            Err(Box::new(ReplanRequest {
                 plan: self.plan,
                 iteration: self.iteration + 1,
                 reason: FailureReason::VgpFailed,
                 failure_history: Vec::new(),
-            })
+            }))
         }
     }
 }
@@ -456,7 +461,7 @@ impl PlanExecutor<Rendered> {
     pub async fn speculate(
         self,
         bridge: &SpeculateBridge,
-    ) -> Result<PlanExecutor<Speculated>, ReplanRequest> {
+    ) -> Result<PlanExecutor<Speculated>, Box<ReplanRequest>> {
         let plan_id = self.plan.plan_id;
         let threshold = self.ctx.capacity.speculate_threshold;
 
@@ -693,7 +698,7 @@ impl PlanExecutor<Rendered> {
                     "speculate below threshold — triggering replan"
                 );
             }
-            Err(ReplanRequest {
+            Err(Box::new(ReplanRequest {
                 plan: self.plan,
                 iteration: self.iteration + 1,
                 reason: FailureReason::SpeculateFailed {
@@ -701,7 +706,7 @@ impl PlanExecutor<Rendered> {
                     threshold,
                 },
                 failure_history: Vec::new(),
-            })
+            }))
         }
     }
 }

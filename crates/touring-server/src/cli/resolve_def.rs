@@ -34,7 +34,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     let (file, line, col) = parse_position(pos_arg)?;
     let source = std::fs::read_to_string(&file)
-        .map_err(|e| anyhow::anyhow!("Cannot read file '{}': {}", file, e))?;
+        .map_err(|e| anyhow::anyhow!("Cannot read file '{}': {} — run `ls -la` on that path to check existence and permissions", file, e))?;
 
     let payload = serde_json::json!({
         "file": file,
@@ -70,18 +70,18 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 pub fn parse_position(s: &str) -> anyhow::Result<(String, usize, usize)> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 3 {
-        anyhow::bail!("Position must be <file>:<line>:<col>, got: {}", s);
+        anyhow::bail!("position {} is invalid; use format like src/lib.rs:42:5", s);
     }
     if parts[0].is_empty() || parts[1].is_empty() || parts[2].is_empty() {
-        anyhow::bail!("Position must be <file>:<line>:<col>, got: {}", s);
+        anyhow::bail!("position {} is invalid; use format like src/lib.rs:42:5", s);
     }
     let file = parts[0].to_string();
     let line = parts[1]
         .parse::<usize>()
-        .map_err(|_| anyhow::anyhow!("Invalid line number: {}", parts[1]))?;
+        .map_err(|_| anyhow::anyhow!("Invalid line number: {} — expected numeric value", parts[1]))?;
     let col = parts[2]
         .parse::<usize>()
-        .map_err(|_| anyhow::anyhow!("Invalid column: {}", parts[2]))?;
+        .map_err(|_| anyhow::anyhow!("Invalid column: {} — expected a numeric value, e.g. touring resolve-def src/lib.rs:42:5", parts[2]))?;
     Ok((file, line, col))
 }
 

@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "Sintese v1.0 consolidada: 20 praticas P1-P20 (5 fontes com evidencia de codigo), 13 oportunidades Touring T1-T13 em 3 ondas priorizadas (Onda1 T3+T13 skill-harvest+trust; Onda2 T1+T12 bindings sandbox gated CEG; Onda3 hardening runner), mapeamento Claude Code secao 4. Apresentado a Gabriel para human gate"
+    }
+  ],
+  "relations": []
+}

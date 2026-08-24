@@ -547,6 +547,192 @@ mod tests {
         assert_eq!(candidates[0].confidence, 1.0);
     }
 
+    /// Tier-2 confidence must distinguish same-crate from foreign matches.
+    ///
+    /// Kills the 2026-08-20 survivor `registry.rs:253 replace || with &&`.
+    /// `mycrate::Bar` resolving to `mycrate::foo::Bar` satisfies the FIRST
+    /// disjunct (`starts_with("mycrate::")`) and NOT the second
+    /// (`contains("::mycrate::")`), so `&&` collapses 0.98 to 0.95. Asserting
+    /// the exact confidence is what separates the two — and confidence is the
+    /// sort key, so this branch decides candidate ORDER (REGRA #17).
+    #[test]
+    fn context_scoped_confidence_distinguishes_same_crate() {
+        let mut reg = make_registry();
+
+        let same = Entity::new(
+            EntityId::from_str("mycrate::foo::Bar"),
+            "mycrate::foo::Bar",
+            EntityKind::Type,
+            "mycrate",
+        );
+        reg.define(&same).unwrap();
+
+        // max_edit_distance = 0 keeps Tier 3 out of the result set.
+        let candidates = reg.resolve("mycrate::Bar", 0).unwrap();
+        assert_eq!(candidates.len(), 1, "expected the context-scoped match only");
+        assert_eq!(candidates[0].match_kind, MatchKind::ContextScoped);
+        assert!(
+            (candidates[0].confidence - 0.98).abs() < f64::EPSILON,
+            "same-crate must score 0.98, got {}",
+            candidates[0].confidence
+        );
+    }
+
+    /// A foreign crate scores the lower Tier-2 confidence.
+    ///
+    /// The companion to the test above: with neither disjunct satisfied both
+    /// `||` and `&&` yield 0.95, so this one does not kill the mutant — it
+    /// pins the OTHER side of the branch so a future edit cannot collapse the
+    /// two confidences into one value and still pass.
+    #[test]
+    fn context_scoped_confidence_drops_for_a_foreign_crate() {
+        let mut reg = make_registry();
+
+        let foreign = Entity::new(
+            EntityId::from_str("othercrate::baz::Bar"),
+            "othercrate::baz::Bar",
+            EntityKind::Type,
+            "othercrate",
+        );
+        reg.define(&foreign).unwrap();
+
+        let candidates = reg.resolve("mycrate::Bar", 0).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert!(
+            (candidates[0].confidence - 0.95).abs() < f64::EPSILON,
+            "foreign crate must score 0.95, got {}",
+            candidates[0].confidence
+        );
+    }
+
+    /// The fuzzy confidence formula is pinned exactly, operator by operator.
+    ///
+    /// Kills the four 2026-08-20 survivors at `registry.rs:283`
+    /// (`-`→`+`, `-`→`/`, `*`→`/`, `/`→`*`). With `dist = 1` and
+    /// `max_edit_distance = 2` the contract is
+    /// `0.85 - (1.0 * 0.15 / 2.0) = 0.775`; each mutated operator lands on a
+    /// different value (0.925, 11.33, -2.48, 0.55), so an exact assertion
+    /// separates all four at once.
+    #[test]
+    fn fuzzy_confidence_formula_is_exact() {
+        let mut reg = make_registry();
+
+        let e = Entity::new(
+            EntityId::from_str("touring::FooBar"),
+            "touring::FooBar",
+            EntityKind::Function,
+            "touring",
+        );
+        reg.define(&e).unwrap();
+
+        // "FooBaz" vs "FooBar" is one substitution → dist = 1.
+        let candidates = reg.resolve("touring::FooBaz", 2).unwrap();
+        let fuzzy = candidates
+            .iter()
+            .find(|c| c.match_kind == MatchKind::Fuzzy)
+            .expect("a fuzzy candidate at distance 1");
+        assert!(
+            (fuzzy.confidence - 0.775).abs() < 1e-9,
+            "0.85 - (1 * 0.15 / 2) = 0.775, got {}",
+            fuzzy.confidence
+        );
+    }
+
+    /// `max_edit_distance = 0` yields no fuzzy candidate.
+    ///
+    /// NOTE — this test does NOT kill the survivor `registry.rs:266 replace >
+    /// with >=`, and no test can: with `>= 0` (always true for `u8`) the block
+    /// is entered, but the inner guard `dist > 0 && dist as u8 <= 0` is
+    /// unsatisfiable in both directions, so the output is identical. The outer
+    /// `if` is a short-circuit that saves a query, not a behavioural branch —
+    /// an EQUIVALENT mutant. The test stands to pin the contract; the survivor
+    /// stands as a known-equivalent, not as missing coverage.
+    #[test]
+    fn max_edit_distance_zero_yields_no_fuzzy_candidate() {
+        let mut reg = make_registry();
+
+        let e = Entity::new(
+            EntityId::from_str("touring::FooBar"),
+            "touring::FooBar",
+            EntityKind::Function,
+            "touring",
+        );
+        reg.define(&e).unwrap();
+
+        let candidates = reg.resolve("touring::FooBaz", 0).unwrap();
+        assert!(
+            candidates.iter().all(|c| c.match_kind != MatchKind::Fuzzy),
+            "distance 0 must not admit fuzzy candidates"
+        );
+    }
+
+    /// Every documented kind string maps to its variant.
+    ///
+    /// Kills the eight 2026-08-20 survivors `delete match arm "<kind>" in
+    /// parse_kind`: a deleted arm falls through to `Unknown`, which no test
+    /// distinguished. The kind is persisted and read back on every resolve,
+    /// so a silent collapse to `Unknown` also changes `exact_confidence`.
+    #[test]
+    fn parse_kind_maps_every_documented_kind() {
+        let cases = [
+            ("function", EntityKind::Function),
+            ("type", EntityKind::Type),
+            ("module", EntityKind::Module),
+            ("constant", EntityKind::Constant),
+            ("trait", EntityKind::Trait),
+            ("macro", EntityKind::Macro),
+            ("file", EntityKind::File),
+            ("config", EntityKind::Config),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(
+                parse_kind(input),
+                expected,
+                "\"{input}\" must not fall through to Unknown"
+            );
+        }
+        assert_eq!(parse_kind("something-else"), EntityKind::Unknown);
+        assert_eq!(parse_kind(""), EntityKind::Unknown);
+    }
+
+    /// Levenshtein distance pinned over the whole matrix, not just the diagonal.
+    ///
+    /// Kills the six 2026-08-20 arithmetic survivors (`+`→`-`, `+`→`*` at the
+    /// `take(m + 1)` / `take(n + 1)` row-and-column seeds and at the three
+    /// `matrix[..] + cost` / `+ 1` recurrences). Asymmetric lengths matter:
+    /// a mutated seed only shows up when the answer depends on the last row or
+    /// column, which equal-length pairs never reach.
+    #[test]
+    fn levenshtein_distance_table() {
+        let cases: &[(&str, &str, usize)] = &[
+            ("", "", 0),
+            ("", "abc", 3),
+            ("abc", "", 3),
+            ("a", "", 1),
+            ("abc", "abc", 0),
+            ("FooBar", "FooBaz", 1),
+            ("kitten", "sitting", 3),
+            ("flaw", "lawn", 2),
+            ("ab", "ba", 2),
+            ("abcdef", "abc", 3),
+            ("abc", "abcdef", 3),
+            ("sunday", "saturday", 3),
+            // Strongly asymmetric pairs: the answer here depends on the LAST
+            // row / column seed, which is the only state the `take(m + 1)` /
+            // `take(n + 1)` mutants corrupt. Balanced pairs never reach it —
+            // the first version of this table had none and both survived.
+            ("abcdef", "a", 5),
+            ("a", "abcdef", 5),
+        ];
+        for (a, b, expected) in cases {
+            assert_eq!(
+                levenshtein_distance(a, b),
+                *expected,
+                "levenshtein({a:?}, {b:?})"
+            );
+        }
+    }
+
     #[test]
     fn resolve_not_found() {
         let mut reg = make_registry();

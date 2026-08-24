@@ -28,6 +28,7 @@
 //!   --daemon-health (direct socket probe, bypasses circuit breaker)
 
 use std::process;
+use touring_foundation::truncate_str;
 
 use serde_json::Value;
 use touring_hooks::ipc::{DaemonRequest, DaemonResponse, daemon_socket_path};
@@ -129,11 +130,13 @@ fn main() {
             .map(|s| s.to_string());
 
         let req = DaemonRequest {
+            peer_pid: None,
             hook: subcommand.to_string(),
             payload: input.clone(),
             project_root,
             session_id,
             priority: 128,
+            origin: None,
         };
 
         if let Some(resp) = try_daemon_request(&req) {
@@ -581,7 +584,7 @@ fn run_lifecycle_event(
             .ctx
             .knowledge
             .record_bash_outcome(&touring_hooks::knowledge::BashOutcome {
-                command: format!("{}:{}", event_name, &summary[..summary.len().min(200)]),
+                command: format!("{}:{}", event_name, truncate_str(summary, 200)),
                 command_short: event_name.to_string(),
                 exit_code: 0,
                 success: true,
@@ -616,6 +619,7 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
     }
 
     let req = DaemonRequest {
+        peer_pid: None,
         hook: "__health__".to_string(),
         payload: serde_json::Value::Null,
         project_root: std::env::current_dir()
@@ -623,6 +627,7 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
             .to_string_lossy()
             .into_owned(),
         session_id: None,
+        origin: None,
         priority: 0,
     };
 
@@ -938,6 +943,9 @@ fn try_autostart_daemon() {
     {
         cmd.env("CLAUDE_PROJECT_DIR", root);
         cmd.env("TOURING_PROJECT_ROOT", root);
+        // C08 — mirrors daemon_ctl::spawn_daemon_with_bin: `TOURING_WORKSPACE_ROOT`
+        // is NOT pinned, because it names the touring source tree (asset
+        // lookups), not this daemon's project. See the long note there.
         cmd.current_dir(root);
     }
     // SAFETY: pre_exec runs in the forked child before exec; setsid(2) is

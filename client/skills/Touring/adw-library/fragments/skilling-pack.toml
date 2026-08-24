@@ -1,0 +1,47 @@
+# Fragment `skilling-pack` — when the work produced a PROCEDURE, capture it.
+#
+# A flow that solves a recurring problem twice has produced procedural knowledge
+# and usually discards it. `TACO-skilling` is the craft for turning it into a
+# skill: prior-art first (extend or compose before creating), VGP verification of
+# every symbol the skill names, hygiene limits, and the pin/purpose/principle
+# gates that keep a skill TRUE after it ships.
+#
+# Deliberately gated on a condition rather than run every phase: creating a skill
+# for a one-off is how a corpus fills with skills nobody activates. `should_skill`
+# is a code node so the decision is arithmetic, never enthusiasm.
+[fragment]
+description = "Capture a repeatable procedure as a skill under the TACO-skilling craft"
+inputs = ["procedure", "recurrence"]
+entry = "should_skill"
+
+[node.should_skill]
+type = "code"
+# Exit 0 (the procedure recurred) → skill it. Non-zero → this was a one-off.
+command = ["bash", "-c", "test \"${RECURRENCE:-0}\" -ge 2"]
+env = { RECURRENCE = "{{inputs.recurrence}}" }
+readonly = true
+on_pass = "skilling"
+on_fail = "__exit__"   # one-off: nothing to capture, hand control back
+
+[node.skilling]
+type = "agent"
+driver = "claude"
+tier = "sota"
+skill = "TACO-skilling"
+prompt = "This procedure recurred and should become reusable: {{inputs.procedure}}. Follow the skill: search prior art FIRST and reach an explicit verdict (reuse | extend | compose | create_new) — a new skill is the LAST option, not the first. If you create or extend one, verify every symbol and command it names actually exists, and leave the pin, purpose and principle gates green."
+allowed_tools = ["Read", "Grep", "Glob", "Bash", "Edit", "Write"]
+permission_mode = "acceptEdits"
+session = "fresh"
+timeout_ms = 1800000
+on_pass = "__exit__"
+on_fail = "__exit_fail__"
+
+[node.skilling.persona]
+role = "skill-author"
+description = "Turns a recurring procedure into a skill under TACO-skilling"
+stance = "prior_art_first"
+scope = "one skill and its gates — not the work the skill describes"
+bar = "the skill names only commands and symbols that were verified to exist, and every gate is green"
+refuses = "creating a new skill when an existing one can be extended"
+forbids = "documenting a command without running it"
+emits = "SKILL_VERDICT=<reuse|extend|compose|create_new> GATES_GREEN=<yes|no>"

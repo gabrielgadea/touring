@@ -6,6 +6,7 @@
 //! Extracted from `lifecycle.rs` as part of FIX-3 D1.
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use crate::runtime::HookRuntime;
 
@@ -52,7 +53,7 @@ pub(crate) fn handle_task_sync_post_delete(rt: &mut HookRuntime, input: &Value) 
     // R127: Suggest DiaryEntry on task deletion — captures the postmortem rationale.
     // A deleted task should produce an institutional memory entry explaining why it was removed,
     // so future planning avoids repeating the same dead-end approach.
-    let truncated_id = &task_id[..task_id.len().min(40)];
+    let truncated_id = truncate_str(task_id, 40);
     let diary_hint = format!(
         " | postmortem: run `touring generate render DiaryEntry \
         --vars '{{\"agent\":\"claude_code\",\"task_id\":\"{truncated_id}\",\"phase\":\"deleted\"}}'` \

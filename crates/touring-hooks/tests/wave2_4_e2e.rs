@@ -268,10 +268,12 @@ fn hook_registry_count_matches_the_dispatch_registry() {
     // doc de `test_hook_registry_counts_match_the_dispatch_registry`
     // (touring-hooks/tests/stringzilla_e2e.rs). Atualizar um subconjunto foi
     // como `cli-memory-credit` chegou ao CI com três testes vermelhos.
+    // 2026-08-18: +4 decompose verbs — claim, release (C2 atomic claim) and
+    //   ticket, frontier (C3 Wayfinder): 234->238 / 236->240.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 225;
+    const EXPECTED_NAMES: usize = 240;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 223;
+    const EXPECTED_NAMES: usize = 238;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

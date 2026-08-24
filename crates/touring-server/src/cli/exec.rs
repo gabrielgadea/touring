@@ -111,13 +111,13 @@ fn parse_exec_args(rest: &[String]) -> anyhow::Result<ExecArgs> {
             "--profile" => {
                 profile = iter
                     .next()
-                    .ok_or_else(|| anyhow!("--profile requires a value"))?
+                    .ok_or_else(|| anyhow!("--profile requires a value — use `touring exec --help` to see valid profiles"))?
                     .clone();
             }
             "--intent" => {
                 intent = Some(
                     iter.next()
-                        .ok_or_else(|| anyhow!("--intent requires a value"))?
+                        .ok_or_else(|| anyhow!("--intent requires a value — use `touring exec --help` for examples"))?
                         .clone(),
                 );
             }
@@ -154,7 +154,7 @@ fn resolve_profile(name: &str) -> anyhow::Result<CapabilityProfile> {
         "sandboxed" => Ok(builtins::sandboxed(&cwd)),
         "readonly" => Ok(builtins::read_only(&cwd)),
         "trusted" => Ok(builtins::trusted()),
-        other => Err(anyhow!("unknown profile '{other}'")),
+        other => Err(anyhow!("unknown profile '{other}' — run `touring exec --profile sandboxed|readonly|trusted <cmd>`")),
     }
 }
 
@@ -231,7 +231,7 @@ fn real_exec_with_locks(command: &str, _parsed: &ExecArgs) -> anyhow::Result<i32
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
-        .map_err(|e| anyhow!("tokio runtime build: {e}"))?;
+        .map_err(|e| anyhow!("tokio runtime build failed: {e} — run `free -m` to check available memory"))?;
     let outcome = rt
         .block_on(run_supervised_with_locks(
             command,
@@ -250,10 +250,10 @@ fn real_exec_with_locks(command: &str, _parsed: &ExecArgs) -> anyhow::Result<i32
                     format!(" on {resource}")
                 };
                 anyhow!(
-                    "concurrent write conflict{where_text} (held by execution {conflicting_execution_id})"
+                    "concurrent write conflict{where_text} (held by execution {conflicting_execution_id}) — retry the command"
                 )
             }
-            other => anyhow!("supervised exec: {other}"),
+            other => anyhow!("supervised execution failed: {other} — run `touring exec --help` for usage"),
         })?;
 
     Ok(outcome.result.exit_code)
@@ -381,7 +381,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     // `main.rs`). We surface the marker as part of the
                     // error message so a caller can grep for it.
                     if e.to_string().contains("concurrent write conflict") {
-                        anyhow!("{e} [exit 75 EX_TEMPFAIL]")
+                        anyhow!("{e} [exit 75 EX_TEMPFAIL] — run `touring exec --help` for usage")
                     } else {
                         e
                     }
@@ -392,7 +392,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             }
             Ok(())
         }
-        Verdict::Deny => Err(anyhow!("gateway verdict: Deny")),
+        Verdict::Deny => Err(anyhow!("gateway verdict: Deny — check `touring status -j` for access policy")),
     }
 }
 
@@ -430,11 +430,11 @@ fn parse_speculative_args(rest: &[String]) -> anyhow::Result<SpeculativeArgs> {
             "--profile" => {
                 let name = it
                     .next()
-                    .ok_or_else(|| anyhow!("--profile needs a value"))?;
+                    .ok_or_else(|| anyhow!("--profile needs a value — run `touring exec --help` for usage"))?;
                 if !KNOWN_PROFILES.contains(&name.as_str()) {
                     return Err(anyhow!(
-                        "unknown profile '{name}'; known: {}",
-                        KNOWN_PROFILES.join(", ")
+                        "unknown profile '{name}' — use: {}",
+                        KNOWN_PROFILES.join("|")
                     ));
                 }
                 profile = name.clone();
@@ -446,7 +446,7 @@ fn parse_speculative_args(rest: &[String]) -> anyhow::Result<SpeculativeArgs> {
     }
     if candidates.is_empty() {
         return Err(anyhow!(
-            "exec-speculative needs at least one candidate command"
+            "exec-speculative needs at least one command — usage: touring exec-speculative [--profile P] COMMAND [COMMAND...]"
         ));
     }
     Ok(SpeculativeArgs {
@@ -873,7 +873,7 @@ pub fn run_verified_depth(args: &[String]) -> anyhow::Result<()> {
     let parsed = parse_speculative_args(&filtered)?;
     if parsed.candidates.is_empty() {
         return Err(anyhow!(
-            "plan-verified-depth needs an ordered action chain, e.g. 'echo a' 'rm -rf /'"
+            "plan-verified-depth needs ≥1 ordered action: touring exec plan-verified-depth COMMAND [COMMAND...]"
         ));
     }
 
@@ -964,7 +964,7 @@ pub fn run_verified_depth(args: &[String]) -> anyhow::Result<()> {
 fn parse_conflict_args(rest: &[String]) -> anyhow::Result<Vec<(String, AccessDeclaration)>> {
     if rest.is_empty() {
         return Err(anyhow!(
-            "conflict-check needs at least one '<write-path>:<label>' entry"
+            "conflict-check needs ≥1 entry: touring exec conflict-check <path>:<label> [<path>:<label>...]"
         ));
     }
     let mut out = Vec::new();
@@ -974,7 +974,7 @@ fn parse_conflict_args(rest: &[String]) -> anyhow::Result<Vec<(String, AccessDec
             None => (entry.clone(), String::new()),
         };
         if path.is_empty() {
-            return Err(anyhow!("empty write-path in entry '{entry}'"));
+            return Err(anyhow!("empty write-path in entry '{entry}' — use format 'path:label', e.g. touring exec conflict-check 'src/a.rs:fix-a'"));
         }
         let decl = AccessDeclaration::new().writing(AccessPath::Path(path.clone()));
         let display = if label.is_empty() {
@@ -1064,7 +1064,7 @@ pub fn run_conflict_check(args: &[String]) -> anyhow::Result<()> {
 fn parse_txn_args(rest: &[String]) -> anyhow::Result<Vec<(String, AccessDeclaration)>> {
     if rest.is_empty() {
         return Err(anyhow!(
-            "txn-acquire needs at least one '<r|w>:<path>[:<label>]' entry"
+            "txn-acquire needs ≥1 entry: touring exec txn-acquire r|w:path[:label] [r|w:path[:label]...]"
         ));
     }
     let mut out = Vec::new();
@@ -1081,7 +1081,7 @@ fn parse_txn_args(rest: &[String]) -> anyhow::Result<Vec<(String, AccessDeclarat
             },
         };
         if path.is_empty() {
-            return Err(anyhow!("empty path in entry '{entry}'"));
+            return Err(anyhow!("empty path in entry '{entry}' — use format 'r|w:path[:label]', e.g. touring exec txn-acquire w:src/a.rs:fix"));
         }
         let ap = AccessPath::Path(path.clone());
         let decl = if mode == "r" {
@@ -1279,7 +1279,7 @@ pub fn run_evidence(args: &[String]) -> anyhow::Result<()> {
     };
 
     let outcome =
-        run_gateway("Bash", &command, None, &deps).map_err(|e| anyhow!("gateway error: {e}"))?;
+        run_gateway("Bash", &command, None, &deps).map_err(|e| anyhow!("gateway error: {e} — check `touring doctor` and retry"))?;
     let d = &outcome.decision;
     let ev = &d.evidence;
 
@@ -1357,7 +1357,7 @@ pub fn run_predict_action(args: &[String]) -> anyhow::Result<()> {
             _ => i += 1,
         }
     }
-    let command = command.ok_or_else(|| anyhow!("predict-action needs --command \"<cmd>\""))?;
+    let command = command.ok_or_else(|| anyhow!("predict-action needs --command '<cmd>' — run `touring exec --help` for details"))?;
 
     let mut payload = serde_json::json!({ "command": command });
     if let Some(l) = limit {

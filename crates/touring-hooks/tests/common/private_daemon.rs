@@ -65,17 +65,37 @@ impl PrivateDaemon {
     /// binário não foi compilado — um skip, não uma falha.
     #[must_use]
     pub fn start(tag: &str) -> Option<Self> {
+        Self::start_in(tag, None, None)
+    }
+
+    /// Como [`Self::start`], mas pinando a raiz do projeto que o daemon serve
+    /// (`TOURING_PROJECT_ROOT`) e, opcionalmente, um watchdog de ociosidade
+    /// (`TOURING_IDLE_TIMEOUT_SECS`) para o daemon se encerrar sozinho — o que
+    /// permite um daemon por PROCESSO de teste guardado num `OnceLock` (cujo
+    /// `Drop` nunca roda) sem vazar processos (REGRA #19).
+    #[must_use]
+    pub fn start_in(
+        tag: &str,
+        project_root: Option<&std::path::Path>,
+        idle_secs: Option<u64>,
+    ) -> Option<Self> {
         let bin = locate_binary("touring-daemon")?;
         let socket = format!("/tmp/touring-e2e-{tag}-{}.sock", std::process::id());
         let _ = std::fs::remove_file(&socket);
         let _ = std::fs::remove_file(format!("{socket}.lock"));
 
-        let child = Command::new(&bin)
-            .env("TOURING_DAEMON_SOCKET", &socket)
+        let mut cmd = Command::new(&bin);
+        cmd.env("TOURING_DAEMON_SOCKET", &socket)
+            .env("TOURING_DAEMON_SOCK", &socket)
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .ok()?;
+            .stderr(Stdio::null());
+        if let Some(root) = project_root {
+            cmd.env("TOURING_PROJECT_ROOT", root).current_dir(root);
+        }
+        if let Some(secs) = idle_secs {
+            cmd.env("TOURING_IDLE_TIMEOUT_SECS", secs.to_string());
+        }
+        let child = cmd.spawn().ok()?;
         let pid = child.id();
         std::mem::forget(child); // colhido pelo Drop, não pelo handle pai
 
@@ -182,4 +202,52 @@ pub fn run_with_stdin(
         String::from_utf8_lossy(&out.stderr).into_owned(),
         out.status.code().unwrap_or(-1),
     ))
+}
+
+
+// ── Daemon compartilhado por PROCESSO de teste (21/08/2026) ──────────────────
+//
+// Os testes e2e que spawnam `touring <cmd>` herdavam `TOURING_DAEMON_SOCKET` da
+// sessão e, em suíte, disputavam o ator single-thread do daemon global com tudo
+// o que mais estivesse enfileirado nele (um `index rebuild` de 10-40 min bastava
+// para estourar todo probe de 15s). Um daemon por binário de teste, com a raiz
+// do workspace pinada e watchdog de ociosidade, remove a disputa por construção.
+
+static SHARED: std::sync::OnceLock<Option<PrivateDaemon>> = std::sync::OnceLock::new();
+
+/// Raiz do workspace (`crates/<este>/` → dois níveis acima).
+#[must_use]
+pub fn workspace_root() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .map_or_else(
+            || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+            std::path::Path::to_path_buf,
+        )
+}
+
+/// O daemon privado deste processo (um por binário de teste), servindo o
+/// workspace real; `None` quando o binário não foi compilado.
+#[must_use]
+pub fn shared() -> Option<&'static PrivateDaemon> {
+    SHARED
+        .get_or_init(|| {
+            PrivateDaemon::start_in(env!("CARGO_CRATE_NAME"), Some(&workspace_root()), Some(90))
+        })
+        .as_ref()
+}
+
+/// Variáveis de ambiente que apontam um `touring` spawnado para o daemon
+/// privado deste processo — `Command::envs(private_daemon_env())`. Vazio
+/// (fail-open, comportamento anterior) se o daemon não subiu.
+#[must_use]
+pub fn private_daemon_env() -> Vec<(&'static str, String)> {
+    match shared() {
+        Some(d) => vec![
+            ("TOURING_DAEMON_SOCKET", d.socket().to_string()),
+            ("TOURING_DAEMON_SOCK", d.socket().to_string()),
+        ],
+        None => Vec::new(),
+    }
 }

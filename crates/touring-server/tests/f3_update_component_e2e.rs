@@ -15,10 +15,29 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use tempfile::TempDir;
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
+/// The product binary: prefer `release` when it exists, else `debug`.
+///
+/// Release-only resolution made these tests pass on a developer box (where
+/// `update-touring` leaves a release build behind) and fail on every clean CI
+/// runner with `spawn touring: NotFound` — 5 of the 13 CI failures standing on
+/// main since 02/08/2026.
 fn touring_bin() -> PathBuf {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let workspace = Path::new(manifest_dir).parent().unwrap().parent().unwrap();
-    workspace.join("target/release/touring")
+    let release = workspace.join("target/release/touring");
+    if release.exists() {
+        release
+    } else {
+        workspace.join("target/debug/touring")
+    }
 }
 
 /// Scaffold a fake toolchain `<home>/toolchains/<version>/bin/` with stub
@@ -53,7 +72,7 @@ fn make_project(root: &Path, channel: &str) {
 
 /// Run `touring <args>` with HOME/TOURING_HOME pinned to the sandbox.
 fn run_touring(home: &Path, touring_home: &Path, args: &[&str]) -> Output {
-    Command::new(touring_bin())
+    Command::new(touring_bin()).envs(private_daemon_env())
         .args(args)
         .env("HOME", home)
         .env("TOURING_HOME", touring_home)

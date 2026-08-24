@@ -492,6 +492,27 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     } else {
         task_affected
     };
+
+    // T3.1: a resolved DECISION also travels up to the map. Computed HERE rather
+    // than inside the event block below, because that block returns early for any
+    // status outside {in_progress, completed, failed} — and `done`, which
+    // `loop_phase_close.py` emits, is one of those.
+    let resolution_logged = if has_subtask_id {
+        let raw = payload
+            .get("subtask_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(task_id);
+        let scoped = if raw.contains("::") {
+            raw.to_string()
+        } else {
+            format!("{}::{}", task_id, raw)
+        };
+        crate::cli_handlers_decompose::propagate_resolution_to_map(
+            db, task_id, &scoped, status, &now,
+        )
+    } else {
+        false
+    };
     if subtask_affected > 0 {
         let raw_subtask_id = payload
             .get("subtask_id")
@@ -510,7 +531,8 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
                 return serde_json::json!(
                     { "task_id" : task_id, "status" : status, "updated" : task_affected >
                     0, "subtask_updated" : subtask_affected > 0, "priority" : priority,
-                    "quality_score" : quality_score }
+                    "quality_score" : quality_score, "resolution_logged" :
+                    resolution_logged }
                 )
                 .to_string();
             }
@@ -529,7 +551,7 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     serde_json::json!(
         { "task_id" : task_id, "status" : status, "updated" : task_affected > 0,
         "subtask_updated" : subtask_affected > 0, "priority" : priority, "quality_score"
-        : quality_score }
+        : quality_score, "resolution_logged" : resolution_logged }
     )
     .to_string()
 }

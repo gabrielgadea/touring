@@ -162,7 +162,7 @@ fn send_daemon_request(
             priority: 0,
         };
         let frame =
-            touring_rkyv::frame_request(&req).map_err(|e| anyhow::anyhow!("rkyv frame: {e}"))?;
+            touring_rkyv::frame_request(&req).map_err(|e| anyhow::anyhow!("rkyv IPC encoding failed: {e} — enable 'rkyv-ipc' feature or set TOURING_RKYV_IPC=0"))?;
         stream.write_all(&frame)?;
         stream.flush()?;
     }
@@ -179,7 +179,7 @@ fn send_daemon_request(
         return Err(read_failure(hook, &e, read_timeout));
     }
     let response: DaemonResponse = parse_daemon_response(&response_bytes)
-        .map_err(|e| anyhow::anyhow!("Failed to parse daemon response: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse daemon response: {} — run `touring doctor -j` to verify daemon health", e))?;
     if !response.success {
         anyhow::bail!("{}", daemon_failure_message(&response.output));
     }
@@ -206,7 +206,7 @@ fn read_failure(hook: &str, err: &std::io::Error, timeout_secs: u64) -> anyhow::
              budget: `touring --timeout <secs> …`."
         );
     }
-    anyhow::anyhow!("reading the daemon response for `{hook}`: {err}")
+    anyhow::anyhow!("reading the daemon response for `{hook}`: {err} — verify daemon is running with `touring daemon-ctl status`")
 }
 
 /// Build a *diagnosable* failure message from the daemon's response payload.
@@ -377,7 +377,10 @@ struct DaemonResponse {
 /// * Buffer is empty (daemon hung up before sending anything).
 fn parse_daemon_response(bytes: &[u8]) -> anyhow::Result<DaemonResponse> {
     if bytes.is_empty() {
-        anyhow::bail!("daemon closed connection without responding");
+        anyhow::bail!(
+            "daemon closed connection without responding — check `touring daemon-ctl status` \
+             (a restarting daemon auto-spawns on the next call; rerun the command)"
+        );
     }
     #[cfg(feature = "rkyv-ipc")]
     {
@@ -385,9 +388,9 @@ fn parse_daemon_response(bytes: &[u8]) -> anyhow::Result<DaemonResponse> {
             && bytes.get(..4) == Some(&touring_rkyv::IPC_MAGIC[..])
         {
             let body = touring_rkyv::unframe(bytes)
-                .map_err(|e| anyhow::anyhow!("rkyv unframe response: {e}"))?;
+                .map_err(|e| anyhow::anyhow!("rkyv unframe response: {e} — daemon and client version mismatch, try `touring daemon-ctl restart`"))?;
             let archived = touring_rkyv::check_archived_root::<touring_rkyv::IpcResponse>(body)
-                .map_err(|e| anyhow::anyhow!("rkyv bytecheck response: {e:?}"))?;
+                .map_err(|e| anyhow::anyhow!("rkyv bytecheck response: {e:?} — restart daemon: `touring daemon-ctl restart`"))?;
             return Ok(DaemonResponse {
                 output: archived.output.to_string(),
                 success: archived.success,
@@ -396,7 +399,7 @@ fn parse_daemon_response(bytes: &[u8]) -> anyhow::Result<DaemonResponse> {
     }
     let trimmed = trim_trailing_newline(bytes);
     serde_json::from_slice::<DaemonResponse>(trimmed)
-        .map_err(|e| anyhow::anyhow!("json parse: {e}"))
+        .map_err(|e| anyhow::anyhow!("json parse: {e} — daemon response malformed, restart: `touring daemon-ctl restart`"))
 }
 
 /// Strip a single trailing `\n` (and optional `\r`) from a byte slice

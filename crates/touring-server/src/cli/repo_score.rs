@@ -52,7 +52,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             .unwrap_or(0) as u32;
         if score < min {
             anyhow::bail!(
-                "repo-score {score} below threshold {min} (grade={})",
+                "repo quality grade {} ({score} < {min}); run `touring doctor -j` to identify and fix issues",
                 parsed
                     .get("grade")
                     .and_then(serde_json::Value::as_str)

@@ -9,6 +9,38 @@ name = "explore-plan"
 description = "Exploration loop (F1 CCE) into plan refinement (F2) with an act-vs-wait human gate"
 entry = "explore_loop"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Explore a foggy topic until the round comes back dry, refine a plan to plateau, then let a human decide act or wait"
+when_to_use = [
+  "the goal is too uncertain to plan directly",
+  "you need a CCE ledger on disk proving every lens was consulted",
+]
+when_not_to_use = [
+  "the work is already specified — planning a decided thing burns rounds for nothing",
+  "unattended runs: it pauses at a human gate by design",
+]
+inputs = [
+  "topic",
+]
+produces = [
+  "a CCE exploration ledger",
+  "a refined plan",
+  "an act-or-wait decision",
+]
+tags = [
+  "#kind:flow",
+  "#domain:planning",
+  "#process:outer",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Explorar até a rodada voltar seca e refinar plano até o platô é o par
+# explore↔plan do OUTER; nenhum fluxo anterior fazia convergência de exploração.
+prior_art_verdict = "create_new"
+
 
 # `touring explore` already loops-until-dry internally (CCE v2); the outer loop
 # node re-drives it so late findings (living memory) still count — the runner,

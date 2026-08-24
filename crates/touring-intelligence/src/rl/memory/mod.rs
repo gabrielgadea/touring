@@ -9,14 +9,18 @@
 //! - [`pattern_cluster`] — HNSW-based lazy clustering (ALT-B1): SIMD KNN, EMA centroid drift, threshold filtering
 
 pub mod async_rlm;
+pub mod codetag;
 pub mod crdt_graph;
 #[cfg(feature = "u4-quantization")]
 pub mod embedding_u4;
+pub mod moc;
 pub mod palace;
 pub mod pattern_cluster;
 pub mod recall;
 pub mod recall_cache;
 pub mod rlm;
+pub mod snippet_stats;
+pub mod tags;
 pub mod tier_manager;
 pub mod working;
 
@@ -26,7 +30,11 @@ pub mod rle;
 
 // Re-exports for convenience
 pub use async_rlm::AsyncRlmMemory;
+pub use codetag::{
+    CODETAG_EXTENSIONS, CodetagHit, SyncReport, has_snippet_entries, sync_file, sync_tree,
+};
 pub use crdt_graph::{ActorId, CrdtDelta, CrdtEdge, CrdtNodeId, CrdtSemanticGraph, NodeWeight};
+pub use moc::{Community, detect_communities, render_moc};
 #[cfg(feature = "async-memory")]
 pub use pattern_cluster::AsyncPatternClusterer;
 pub use pattern_cluster::{
@@ -37,7 +45,14 @@ pub use recall::{ChunkMatch, RecallStats, SemanticRecall, rrf_fuse};
 pub use recall_cache::{
     CacheStats as RecallCacheStats, RecallCache, RecallEntry as CachedRecallEntry,
 };
-pub use rlm::{GraphMeta, MemoryMatch, MemoryStats, MemoryTier, RlmMemory};
+pub use rlm::{
+    GraphMeta, MEMORY_ENTRIES_DDL, MemoryMatch, MemoryStats, MemoryTier, RichMemoryEntry,
+    RlmMemory,
+};
+pub use tags::{
+    Facet, LinkEdge, LinkRel, ParsedTag, TagSource, TagViolation, delete_link, fetch_links,
+    make_link_id, parse_tag, suggest_facet, upsert_link, validate_tag,
+};
 pub use working::{LruWorkingMemory, WorkingMemory};
 
 pub use palace::{

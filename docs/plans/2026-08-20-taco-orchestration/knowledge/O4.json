@@ -1,0 +1,11 @@
+{
+  "phase": "O4",
+  "entities": [
+    {
+      "entity_id": "phase:O4",
+      "type": "phase",
+      "description": "5 dos 7 nos agent da library ligados ao oficio: audit.synthesize->TACO-cross-audit, feature.plan->taco-planning, feature.scout->Touring (masters), feature.implement->Touring, bugfix.fix->Touring. DOIS deliberadamente NAO ligados com motivo escrito no arquivo: hotfix.fix (existe para ser rapido; carregar master skill compra disciplina ao custo da latencia que da nome ao fluxo) e chore.do_chore (trivial por definicao; ligar seria simetria, nao necessidade). Propagado library->projeto apos medir que a divergencia era exclusivamente minha (zero remocoes). Todas as 10 specs lintam valid com 0 erros."
+    }
+  ],
+  "relations": []
+}

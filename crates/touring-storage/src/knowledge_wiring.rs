@@ -14,56 +14,72 @@ use rusqlite::params;
 
 use crate::knowledge::FileKnowledgeDB;
 
-/// Workspace root marker — the substring stripped from absolute paths to
-/// produce canonical relative paths in the wiring_map.
+/// Producer kinds that can be CALLED (the F9 method-dispatch pass filter).
+const CALLABLE_KINDS: &[&str] = &["method", "function", "async_function"];
+
+/// Producer kinds usable as a type or const reference (the G3 pass filter —
+/// 2026-08-12). `module` stays out: a module path match is provenance noise,
+/// not a use of a named symbol.
+const TYPE_KINDS: &[&str] = &[
+    "struct", "enum", "const", "static", "type_alias", "trait", "union",
+];
+
+/// The root this database's paths are canonical against, **derived from the
+/// database's own location** — never from the process environment.
 ///
-/// Centralizing this constant prevents path-homonimia: the same file MUST
-/// have exactly one canonical representation across producer and consumer
-/// rows, otherwise orphan detection produces 100% false positives for that
-/// row (producer at path A, consumer at path B → no JOIN match).
+/// Centralizing the root prevents path-homonimia: the same file MUST have
+/// exactly one canonical representation across producer and consumer rows,
+/// otherwise orphan detection produces 100% false positives for that row
+/// (producer at path A, consumer at path B → no JOIN match).
 ///
-/// Resolution: `TOURING_WORKSPACE_ROOT` env override (Productization Fase 0 —
-/// lets the canonical workspace live anywhere, e.g. `~/projects/touring`) →
-/// compiled default (the historical global workspace). Always ends with `/`
-/// so `strip_prefix` yields a clean relative path. Cached per process.
-pub(crate) fn workspace_root_marker() -> &'static str {
-    static MARKER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    MARKER.get_or_init(|| {
-        let mut root = std::env::var("TOURING_WORKSPACE_ROOT")
-            .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring".to_string());
-        if !root.ends_with('/') {
-            root.push('/');
-        }
-        root
-    })
+/// # Why the location and not the environment
+///
+/// A per-process constant is the wrong SHAPE for this value. One daemon serves
+/// the project whose socket it was spawned on, and the global daemon can hold
+/// several projects at once — so the root that makes a path canonical is a
+/// property of the DATABASE being written, never of whoever started the
+/// process. Until 2026-08-19 it was `TOURING_WORKSPACE_ROOT` with a personal
+/// path compiled in as the fallback, and both halves misfired:
+///
+/// - every per-project daemon **inherits** that variable from the session that
+///   spawned it (`~/.claude/settings.json` exports it), so `analise`'s daemon
+///   normalized `analise`'s paths against `touring`'s root. Nothing matched:
+///   4.306 rows in `analise` and 7.893 in `konverter` stayed absolute, **none
+///   of them under their own root** — every single one a foreign project's
+///   file, which is what `doctor`'s `abs_paths` warning had been reporting;
+/// - `migrate_canonicalize_paths` runs on every DB open and DELETEs rows that
+///   start with the marker. Pointed at another project's root, that is a
+///   deletion primitive aimed at the wrong data.
+///
+/// The canonical layout is `<root>/.claude/touring/<name>.db`, so the root is
+/// three components up — and the two directory names are checked rather than
+/// assumed, because stripping three components off an arbitrary path yields
+/// `/` and would make every absolute path "relative". `$HOME` is refused:
+/// `~/.claude/touring/knowledge.db` is the GLOBAL store, whose rows span
+/// projects and therefore have no single root to strip.
+///
+/// Returns `None` when no root can be derived (in-memory DBs, non-canonical
+/// layouts). `None` disables canonicalization — paths are stored as given,
+/// which is exactly the previous behaviour for a non-matching prefix.
+#[must_use]
+pub(crate) fn derive_workspace_root(db_path: &std::path::Path) -> Option<String> {
+    // Single source of truth: the inverse of `knowledge_db_canonical`, living
+    // beside it so the layout cannot be changed on one side only.
+    touring_foundation::config::TouringConfig::project_root_for_db(db_path)
 }
 
-/// Polyglot-wiring opt-in — reads `TOURING_POLYGLOT_WIRING` once per process.
+/// Legacy resolution for databases with no derivable location (`:memory:`).
 ///
-/// Default **OFF** (unset or `"0"`): the wiring graph is Rust-only, byte-identical
-/// to pre-polyglot behavior — `non_rust` diagnostic rows stay 0 and the 258
-/// historical false-positive orphans from `docs/*.py` / `scripts/*.py` never
-/// resurface. Set to `"1"` (or `"true"`) to let per-language sources (PoC scope:
-/// Python) populate producer/consumer rows via the already-polyglot indexing
-/// feeder (`cli_index_rebuild` → `extract_file_imports` →
-/// `resolve_import_path_with_source` → `record_consumer`).
-///
-/// Cached in a `OnceLock` because the wiring gate is on the hot indexing path
-/// (`register_pub_symbol` / `record_consumer` run once per symbol / import).
-///
-/// `pub` so the polyglot feeders (e.g. the Go package-aware pass in
-/// `cli_index_rebuild`, P-H) can early-return when the flag is off and skip the
-/// extraction work entirely — the single source of truth for the opt-in, shared
-/// via the same process `OnceLock`.
-///
-/// See `docs/2026-07-03-polyglot-parity-plan.md` §5 (keystone P-A).
+/// Kept as a fallback ONLY: it reads the environment, which is precisely what
+/// cannot be trusted once more than one project is in play. There is no
+/// compiled-in path — a developer's home directory is not a default.
 #[must_use]
-pub fn polyglot_wiring_enabled() -> bool {
-    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ENABLED.get_or_init(|| {
-        std::env::var("TOURING_POLYGLOT_WIRING")
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false)
+pub(crate) fn env_workspace_root() -> Option<String> {
+    std::env::var("TOURING_WORKSPACE_ROOT").ok().map(|mut r| {
+        if !r.ends_with('/') {
+            r.push('/');
+        }
+        r
     })
 }
 
@@ -128,7 +144,22 @@ fn wireable_ext_sql(col: &str, polyglot: bool) -> String {
 fn is_non_rust_non_wireable(module_file: &str) -> bool {
     // Vendored / generated trees (Python venv/site-packages; JS/TS
     // node_modules + build output).
-    let vendored = module_file.contains("/site-packages/")
+    is_vendored_or_generated(module_file) || is_first_party_non_source(module_file)
+}
+
+/// Third-party or machine-generated trees — never first-party source, in ANY
+/// language.
+///
+/// Split out of [`is_non_rust_non_wireable`] on 2026-08-19 because the two
+/// halves answer different questions and only this one is safe on the CONSUMER
+/// side of an edge. A consumer inside `node_modules/` or `target/doc/` is an
+/// artifact and its edge is noise; a consumer inside `tests/` is the project
+/// using its own code, which is exactly what a wiring graph is for. Judging
+/// both halves on the consumer removed 13.621 legitimate edges from this
+/// workspace before the count gave it away.
+#[must_use]
+fn is_vendored_or_generated(module_file: &str) -> bool {
+    module_file.contains("/site-packages/")
         || module_file.contains("/node_modules/")
         || module_file.starts_with("node_modules/")
         || module_file.contains("/__pycache__/")
@@ -139,7 +170,33 @@ fn is_non_rust_non_wireable(module_file: &str) -> bool {
         || module_file.contains("/dist/")
         || module_file.starts_with("dist/")
         || module_file.contains("/.next/")
-        || module_file.contains("/coverage/");
+        || module_file.contains("/coverage/")
+        // Build OUTPUT (2026-08-19). The list above covered dependency trees
+        // and one build dir (`dist/`) but not the compiler's own. Measured
+        // before turning the polyglot opt-in on for this very workspace:
+        // 1.087 of the 1.128 files that would have entered the graph were
+        // `target/doc/**.js` — rustdoc's JavaScript. A generated artifact is
+        // not a producer, and wiring it is how a feature earns a bad name on
+        // the day it is switched on.
+        || module_file.starts_with("target/")
+        || module_file.contains("/target/")
+        || module_file.starts_with("build/")
+        || module_file.contains("/build/")
+        || module_file.starts_with("out/")
+        || module_file.contains("/out/")
+        || module_file.contains("/.gradle/")
+        || module_file.contains("/.tox/")
+        || module_file.contains("/.mypy_cache/")
+        || module_file.contains("/.pytest_cache/")
+        || module_file.contains("/htmlcov/")
+}
+
+/// First-party paths that are not the project's own API surface: docs,
+/// scripts and tests. They must not be PRODUCERS (the 258 historical false
+/// positives were `docs/*.py` and `scripts/*.py` registering as public
+/// symbols), but they are perfectly good CONSUMERS.
+#[must_use]
+fn is_first_party_non_source(module_file: &str) -> bool {
     // Non-source subtrees — the exact source of the 258 historical false
     // positives (docs/*.py, scripts/*.py).
     let non_source = module_file.starts_with("docs/")
@@ -159,7 +216,7 @@ fn is_non_rust_non_wireable(module_file: &str) -> bool {
     let java_test = base.ends_with("Test.java")
         || base.ends_with("Tests.java")
         || module_file.contains("/src/test/");
-    vendored || non_source || py_test || js_test || java_test
+    non_source || py_test || js_test || java_test
 }
 
 /// Whether a Go package-aware key (`"go:<import-path>"`) is eligible for wiring.
@@ -186,9 +243,13 @@ fn is_go_package_wireable(go_key: &str) -> bool {
 /// tests/ subtree, and (for polyglot files) not a vendored / docs / scripts /
 /// test path.
 ///
-/// Used as the gate for `register_pub_symbol` / `record_consumer`. Default mode
-/// is Rust-only; `TOURING_POLYGLOT_WIRING=1` also admits Python (see
-/// [`polyglot_wiring_enabled`]).
+/// The policy core of the write gate
+/// ([`FileKnowledgeDB::is_indexable_module_file`]), taking `polyglot`
+/// explicitly so both modes are unit-testable and so the caller supplies the
+/// PROJECT's answer instead of a process-global one. Default mode is Rust-only;
+/// a project opts in via `polyglot_wiring` in `.touring/touring.toml` (or the
+/// `TOURING_POLYGLOT_WIRING` override), which also admits Python, TS/JS, Java
+/// and Go package keys.
 ///
 /// # Audit reference
 ///
@@ -197,14 +258,7 @@ fn is_go_package_wireable(go_key: &str) -> bool {
 ///   `LIKE '%/benches/%'` did not match leading `benches/` (no slash prefix).
 /// - 258 false positives from `docs/*.py` and `scripts/*.py` because
 ///   `register_pub_symbol` accepted any extension. Under the polyglot opt-in
-///   these stay blocked via [`is_python_non_wireable`].
-#[must_use]
-pub(crate) fn is_indexable_module_file(module_file: &str) -> bool {
-    is_indexable_module_file_polyglot(module_file, polyglot_wiring_enabled())
-}
-
-/// Pure policy core of [`is_indexable_module_file`], split out so the gate can
-/// be unit-tested in both modes without touching the process-global env flag.
+///   these stay blocked via [`is_non_rust_non_wireable`].
 #[must_use]
 fn is_indexable_module_file_polyglot(module_file: &str, polyglot: bool) -> bool {
     // Go package-aware keys ("go:<import-path>") are synthetic PACKAGE
@@ -241,21 +295,75 @@ fn is_indexable_module_file_polyglot(module_file: &str, polyglot: bool) -> bool 
     true
 }
 
-/// Canonicalize `module_file` to a workspace-relative path.
+
+/// The writer's admission vocabulary, exposed so a DIAGNOSTIC can CONSULT it
+/// instead of approximating it.
 ///
-/// If `module_file` starts with `workspace_root_marker()`, the prefix is
-/// stripped. Otherwise the path is returned unchanged (borrowed).
+/// `touring doctor`'s wiring census used to ask `module_file NOT LIKE '%.rs'`
+/// — a different question from the one the writer asks, and one that erred in
+/// both directions at once (measured 2026-08-19): it flagged 192.997 legitimate
+/// rows in a Python project as pollution while calling 102 rows of
+/// `benches/src/*.rs` clean, in the flagship workspace, because they end in
+/// `.rs`. A diagnostic that disagrees with the thing it diagnoses reports on a
+/// system that does not exist.
 ///
-/// This is the single source of truth for path normalization in
-/// wiring_map. Calling it on the producer and the consumer sides ensures
-/// the JOIN matches even when one side was reported via absolute path
-/// (`/home/...`) and the other via relative path (`crates/...`).
+/// Pass `polyglot = true` to ask the mode-INDEPENDENT question — "could any
+/// read admit this file?" — which is what "non-wireable" must mean: a vendored
+/// tree or a `.json` is not wiring under any mode, whereas a `.py` in a Python
+/// project is merely unread while the opt-in is off.
 #[must_use]
-pub(crate) fn canonicalize_module_path(module_file: &str) -> Cow<'_, str> {
-    if let Some(stripped) = module_file.strip_prefix(workspace_root_marker()) {
-        Cow::Borrowed(stripped)
-    } else {
-        Cow::Borrowed(module_file)
+pub fn is_wireable_source(module_file: &str, polyglot: bool) -> bool {
+    is_indexable_module_file_polyglot(module_file, polyglot)
+}
+
+impl FileKnowledgeDB {
+    /// The root this database's paths are canonical against, if one could be
+    /// derived. See [`derive_workspace_root`] for why it comes from the DB's
+    /// own location rather than the environment.
+    #[must_use]
+    pub fn workspace_root(&self) -> Option<&str> {
+        self.workspace_root_ref()
+    }
+
+    /// Whether NON-Rust source participates in THIS database's wiring graph.
+    ///
+    /// Resolved once per open from the project's own config, never from a
+    /// process-global: one daemon serves one project, the global daemon can
+    /// serve several, and whether Python counts as wiring is a property of the
+    /// project — the same argument as [`Self::workspace_root`].
+    #[must_use]
+    pub fn polyglot(&self) -> bool {
+        self.polyglot_ref()
+    }
+
+    /// Whether `module_file` may enter this database's `wiring_map`.
+    ///
+    /// The write gate and the read filters must agree on the vocabulary, or a
+    /// row is admitted that no query can ever see (or the reverse). Both now
+    /// read the same per-database flag.
+    #[must_use]
+    pub(crate) fn is_indexable_module_file(&self, module_file: &str) -> bool {
+        is_indexable_module_file_polyglot(module_file, self.polyglot())
+    }
+
+    /// Canonicalize `module_file` to a root-relative path.
+    ///
+    /// If `module_file` starts with this database's root, the prefix is
+    /// stripped; otherwise the path is returned unchanged (borrowed).
+    ///
+    /// This is the single source of truth for path normalization in
+    /// wiring_map. Calling it on the producer and the consumer sides ensures
+    /// the JOIN matches even when one side was reported via absolute path
+    /// (`/home/...`) and the other via relative path (`crates/...`).
+    #[must_use]
+    pub(crate) fn canonicalize_module_path<'a>(&self, module_file: &'a str) -> Cow<'a, str> {
+        match self
+            .workspace_root_ref()
+            .and_then(|root| module_file.strip_prefix(root))
+        {
+            Some(stripped) => Cow::Borrowed(stripped),
+            None => Cow::Borrowed(module_file),
+        }
     }
 }
 
@@ -286,6 +394,11 @@ pub enum WiringOrigin {
     AstResolved,
     /// A producer row: the symbol was read straight off the declaring AST.
     AstDeclared,
+    /// A consumer edge resolved by the compiler itself (`rust-analyzer scip`
+    /// ingest, H2 2026-08-12): rustc type resolution — method dispatch,
+    /// generics, re-export identity. The only origin carrying the
+    /// type-checker's own answer, so it ranks above every AST origin.
+    ScipResolved,
 }
 
 impl WiringOrigin {
@@ -297,6 +410,7 @@ impl WiringOrigin {
             Self::TextMatched => "text_matched",
             Self::AstResolved => "ast_resolved",
             Self::AstDeclared => "ast_declared",
+            Self::ScipResolved => "scip_resolved",
         }
     }
 
@@ -314,6 +428,7 @@ impl WiringOrigin {
             "ast_inferred" => Self::AstInferred,
             "text_matched" => Self::TextMatched,
             "ast_declared" => Self::AstDeclared,
+            "scip_resolved" => Self::ScipResolved,
             _ => Self::AstResolved,
         }
     }
@@ -326,13 +441,14 @@ impl WiringOrigin {
             Self::TextMatched => 0.6,
             Self::AstResolved => 0.9,
             Self::AstDeclared => 1.0,
+            Self::ScipResolved => 1.0,
         }
     }
 
     /// Whether the edge rests on a resolved path rather than a name guess.
     #[must_use]
     pub const fn is_resolved(self) -> bool {
-        matches!(self, Self::AstResolved | Self::AstDeclared)
+        matches!(self, Self::AstResolved | Self::AstDeclared | Self::ScipResolved)
     }
 }
 
@@ -459,8 +575,22 @@ pub struct WiringDbDiagnostic {
     pub distinct_pub_symbols: i64,
     /// Rows whose symbol kind could not be determined.
     pub kind_unknown_count: i64,
-    /// Rows referring to non-Rust source files.
-    pub non_rust_rows: i64,
+    /// Rows no read admits under ANY mode — vendored trees, `docs/`,
+    /// `scripts/`, `tests/`, `benches/`, test files, extensions outside the
+    /// vocabulary. This is the counter that JUDGES: non-zero means the census
+    /// beside it is biased.
+    ///
+    /// It replaced `non_rust_rows` on 2026-08-19. "Not Rust" was a different
+    /// question from "not wiring", and it answered wrong in both directions:
+    /// 192.997 legitimate Python rows flagged in `analise`, 102 rows of
+    /// `benches/src/*.rs` absolved in `touring` itself.
+    pub non_wireable_rows: i64,
+    /// Supported-language sources the CURRENT mode filters out of every query.
+    ///
+    /// Informative, never a defect: it is the answer to "why is my Python
+    /// project's wiring thin?" — turn on `polyglot_wiring` and these rows
+    /// become readable.
+    pub unread_rows: i64,
     /// Call sites the resolver could not map to any producer file (S1).
     ///
     /// Lives in `wiring_unresolved`, never summed into the counters above:
@@ -520,8 +650,8 @@ impl FileKnowledgeDB {
         visibility: &str,
         origin: WiringOrigin,
     ) -> Result<(), rusqlite::Error> {
-        let canonical = canonicalize_module_path(module_file);
-        if !is_indexable_module_file(&canonical) {
+        let canonical = self.canonicalize_module_path(module_file);
+        if !self.is_indexable_module_file(&canonical) {
             return Ok(());
         }
         self.conn_ref().execute(
@@ -578,9 +708,9 @@ impl FileKnowledgeDB {
         import_line: Option<i64>,
         origin: WiringOrigin,
     ) -> Result<(), rusqlite::Error> {
-        let canonical_module = canonicalize_module_path(module_file);
-        let canonical_consumer = canonicalize_module_path(consumer_file);
-        if !is_indexable_module_file(&canonical_module) {
+        let canonical_module = self.canonicalize_module_path(module_file);
+        let canonical_consumer = self.canonicalize_module_path(consumer_file);
+        if !self.is_indexable_module_file(&canonical_module) {
             return Ok(());
         }
         // Wave H+1 (2026-06-11): normalize the import form before keying.
@@ -682,7 +812,7 @@ impl FileKnowledgeDB {
         language: &str,
         class: &str,
     ) -> Result<(), rusqlite::Error> {
-        let canonical_consumer = canonicalize_module_path(consumer_file);
+        let canonical_consumer = self.canonicalize_module_path(consumer_file);
         self.conn_ref().execute(
             "INSERT OR IGNORE INTO wiring_unresolved
              (module_path, symbol_name, consumer_file, import_line, language, class)
@@ -795,7 +925,7 @@ impl FileKnowledgeDB {
         &self,
         consumer_file: &str,
     ) -> Result<usize, rusqlite::Error> {
-        let canonical = canonicalize_module_path(consumer_file);
+        let canonical = self.canonicalize_module_path(consumer_file);
         self.conn_ref().execute(
             "DELETE FROM wiring_unresolved WHERE consumer_file = ?1",
             params![canonical.as_ref()],
@@ -874,7 +1004,23 @@ impl FileKnowledgeDB {
     /// COALESCE saw an empty table and froze 'unknown'). Both are fixable
     /// after the fact: the kind of a symbol name is recoverable from any
     /// producer row. Returns the number of rows repaired.
-    pub fn backfill_unknown_consumer_kinds(&self) -> Result<usize, rusqlite::Error> {
+    /// `mark_extern` gates the SECOND pass only. Pass 1 (inherit the kind from a
+    /// known producer) adds information that is correct regardless of how much of
+    /// the tree was walked. Pass 2 concludes "no producer exists anywhere,
+    /// therefore this symbol is defined OUTSIDE the workspace" — a conclusion that
+    /// is only sound over a COMPLETE walk. Called with `false` after a partial
+    /// walk, it leaves those rows `unknown` so a later complete rebuild can still
+    /// resolve them; `extern` is terminal, and a wrong `extern` never gets a
+    /// second look.
+    ///
+    /// Observed 20/08/2026 on `analise`: a rebuild that aborted at 22.994/37.295
+    /// files under memory pressure marked 2.401 rows `extern` — with 38% of the
+    /// producers never read. The sweep and the phantom purge already skip on
+    /// `aborted_memory_pressure` for exactly this reason; this pass did not.
+    pub fn backfill_unknown_consumer_kinds(
+        &self,
+        mark_extern: bool,
+    ) -> Result<usize, rusqlite::Error> {
         let n = self.conn_ref().execute(
             "UPDATE wiring_map AS w
              SET symbol_kind = (
@@ -895,6 +1041,13 @@ impl FileKnowledgeDB {
         // the index are wiring to symbols defined OUTSIDE the workspace (e.g.
         // `pub use pretty_assertions::assert_eq` facades) — structurally
         // unrecoverable, and not schema degradation. Mark them 'extern'.
+        // Sound ONLY over a complete walk (see `mark_extern` above).
+        if !mark_extern {
+            if n > 0 {
+                Self::invalidate_wiring_modules_cache();
+            }
+            return Ok(n);
+        }
         let m = self.conn_ref().execute(
             "UPDATE wiring_map AS w
              SET symbol_kind = 'extern'
@@ -935,6 +1088,40 @@ impl FileKnowledgeDB {
         &self,
         names: &[String],
         cap_per_name: usize,
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        self.find_producer_modules_with_kinds(names, cap_per_name, CALLABLE_KINDS, consumer_hint)
+    }
+
+    /// Type/const producers (`struct`/`enum`/`const`/`static`/`type_alias`/
+    /// `trait`) — the lookup the G3 type/const-ref pass needs (2026-08-12):
+    /// a symbol used AS a type or const never appears in a call expression,
+    /// so the callable-only lookup above structurally cannot wire its
+    /// consumers and every such producer read as a false orphan.
+    pub fn find_producer_modules_for_types(
+        &self,
+        names: &[String],
+        cap_per_name: usize,
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        self.find_producer_modules_with_kinds(names, cap_per_name, TYPE_KINDS, consumer_hint)
+    }
+
+    /// Shared producer lookup: public producer rows whose `symbol_kind` is in
+    /// `kinds` and whose name is in `names`, capped per name.
+    ///
+    /// `consumer_hint` (the consuming file) ranks same-crate producers first
+    /// before the per-name cap (2026-08-12, G3): bare-name matching otherwise
+    /// wires a call to a same-named symbol in ANOTHER crate — the mechanism
+    /// behind the homonym-fork false cycles (foundation↔resilience
+    /// `meminfo.rs` linking to each other without any import) and behind
+    /// generic names (`new`, `as_str`) losing their real producer to the cap.
+    pub fn find_producer_modules_with_kinds(
+        &self,
+        names: &[String],
+        cap_per_name: usize,
+        kinds: &[&str],
+        consumer_hint: Option<&str>,
     ) -> Result<Vec<(String, String)>, rusqlite::Error> {
         if names.is_empty() {
             return Ok(Vec::new());
@@ -945,14 +1132,32 @@ impl FileKnowledgeDB {
             .map(|i| format!("?{}", i + 1))
             .collect::<Vec<_>>()
             .join(",");
-        let ext_pred = wireable_ext_sql("module_file", polyglot_wiring_enabled());
+        let kind_list = kinds
+            .iter()
+            .map(|k| format!("'{k}'"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let ext_pred = wireable_ext_sql("module_file", self.polyglot());
+        // Same-crate producers sort first: `crates/touring-x/…` prefix match.
+        let crate_prefix = consumer_hint
+            .and_then(|f| {
+                let mut it = f.split('/');
+                match (it.next(), it.next()) {
+                    (Some("crates"), Some(b)) => Some(format!("crates/{b}/%")),
+                    _ => None,
+                }
+            })
+            .unwrap_or_default();
         let sql = format!(
             "SELECT DISTINCT module_file, symbol_name FROM wiring_map
              WHERE consumer_file IS NULL
                AND visibility = 'public'
-               AND symbol_kind IN ('method', 'function', 'async_function')
+               AND symbol_kind IN ({kind_list})
                AND {ext_pred}
-               AND symbol_name IN ({placeholders})"
+               AND symbol_name IN ({placeholders})
+             ORDER BY (CASE WHEN '{crate_prefix}' != '' AND module_file LIKE '{crate_prefix}'
+                            THEN 0 ELSE 1 END),
+                      module_file"
         );
         let mut stmt = self.conn_ref().prepare(&sql)?;
         let params_vec: Vec<&dyn rusqlite::ToSql> =
@@ -987,8 +1192,8 @@ impl FileKnowledgeDB {
     ///
     /// Returns a row census so operators can spot pollution (e.g., many
     /// `kind_unknown` rows indicate consumer entries inserted before their
-    /// producer — race condition; many `non_rust_rows` indicate a regression
-    /// in the entry gate).
+    /// producer — race condition; many `non_wireable_rows` indicate a
+    /// regression in the entry gate).
     ///
     /// Fields:
     /// - `total_rows`: every row in wiring_map (producer + consumer mixed).
@@ -997,38 +1202,79 @@ impl FileKnowledgeDB {
     /// - `pub_producers`: producer rows with visibility='public'.
     /// - `distinct_pub_symbols`: deduped (module_file, symbol_name) producer count.
     /// - `kind_unknown_count`: rows with symbol_kind='unknown' (schema-degraded).
-    /// - `non_rust_rows`: rows whose module_file does NOT end in `.rs`. Should
-    ///   be 0 in the default (Rust-only) mode — a non-zero count there signals
-    ///   a regression in the entry gate. Under `TOURING_POLYGLOT_WIRING=1`
-    ///   (opt-in, [`polyglot_wiring_enabled`]) it is EXPECTED to be non-zero:
-    ///   Python producer/consumer rows are first-party wiring, not pollution.
+    /// - `non_wireable_rows`: rows inadmissible under the MAXIMUM vocabulary
+    ///   (`polyglot = true`) — the only counter here that judges. Mode-
+    ///   independent by design: a virtualenv or a `.json` is not wiring under
+    ///   any read.
+    /// - `unread_rows`: supported-language sources the CURRENT mode filters
+    ///   out. Expected to be large in a Python project with the opt-in off,
+    ///   and zero once `polyglot_wiring` is on — information, not a defect.
+    ///
+    /// The census fields above cover ONLY the rows the mode actually reads, so
+    /// they describe the graph the answers come from. Classification calls
+    /// [`is_wireable_source`], the writer's own vocabulary, so this diagnostic
+    /// cannot disagree with the thing it diagnoses.
     pub fn wiring_db_diagnostic(&self) -> Result<WiringDbDiagnostic, rusqlite::Error> {
-        let row = self.conn_ref().query_row(
+        // GROUP BY module_file, not a flat SUM: the classification is Rust
+        // logic (this crate's own write gate), which SQL cannot express.
+        // Grouping keeps the cost at O(distinct files) instead of O(rows), and
+        // because the group key IS `module_file`, per-group DISTINCT counts sum
+        // to the global DISTINCT without a second pass.
+        let polyglot = self.polyglot();
+        let mut stmt = self.conn_ref().prepare(
             "SELECT
-                COUNT(*) AS total_rows,
-                SUM(CASE WHEN consumer_file IS NULL THEN 1 ELSE 0 END) AS producer_rows,
-                SUM(CASE WHEN consumer_file IS NOT NULL THEN 1 ELSE 0 END) AS consumer_rows,
-                SUM(CASE WHEN consumer_file IS NULL AND visibility = 'public' THEN 1 ELSE 0 END) AS pub_producers,
+                module_file,
+                COUNT(*),
+                SUM(CASE WHEN consumer_file IS NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN consumer_file IS NOT NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN consumer_file IS NULL AND visibility = 'public' THEN 1 ELSE 0 END),
                 COUNT(DISTINCT CASE WHEN consumer_file IS NULL AND visibility = 'public'
-                                    THEN module_file || ':' || symbol_name END) AS distinct_pub_symbols,
-                SUM(CASE WHEN symbol_kind = 'unknown' THEN 1 ELSE 0 END) AS kind_unknown_count,
-                SUM(CASE WHEN module_file NOT LIKE '%.rs' THEN 1 ELSE 0 END) AS non_rust_rows
-             FROM wiring_map",
-            [],
-            |row| {
-                Ok(WiringDbDiagnostic {
-                    total_rows: row.get::<_, i64>(0).unwrap_or(0),
-                    producer_rows: row.get::<_, Option<i64>>(1)?.unwrap_or(0),
-                    consumer_rows: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
-                    pub_producers: row.get::<_, Option<i64>>(3)?.unwrap_or(0),
-                    distinct_pub_symbols: row.get::<_, i64>(4).unwrap_or(0),
-                    kind_unknown_count: row.get::<_, Option<i64>>(5)?.unwrap_or(0),
-                    non_rust_rows: row.get::<_, Option<i64>>(6)?.unwrap_or(0),
-                    name_only_candidates: None,
-                    heuristic_edges: 0,
-                })
-            },
+                                    THEN symbol_name END),
+                SUM(CASE WHEN symbol_kind = 'unknown' THEN 1 ELSE 0 END)
+             FROM wiring_map
+             GROUP BY module_file",
         )?;
+        let mut row = WiringDbDiagnostic {
+            total_rows: 0,
+            producer_rows: 0,
+            consumer_rows: 0,
+            pub_producers: 0,
+            distinct_pub_symbols: 0,
+            kind_unknown_count: 0,
+            non_wireable_rows: 0,
+            unread_rows: 0,
+            name_only_candidates: None,
+            heuristic_edges: 0,
+        };
+        let groups = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, Option<String>>(0)?.unwrap_or_default(),
+                r.get::<_, i64>(1).unwrap_or(0),
+                r.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                r.get::<_, Option<i64>>(3)?.unwrap_or(0),
+                r.get::<_, Option<i64>>(4)?.unwrap_or(0),
+                r.get::<_, i64>(5).unwrap_or(0),
+                r.get::<_, Option<i64>>(6)?.unwrap_or(0),
+            ))
+        })?;
+        for group in groups {
+            let (module_file, n, prod, cons, pubp, distinct_pub, unknown) = group?;
+            if !is_wireable_source(&module_file, true) {
+                row.non_wireable_rows += n;
+                continue;
+            }
+            if !is_wireable_source(&module_file, polyglot) {
+                row.unread_rows += n;
+                continue;
+            }
+            row.total_rows += n;
+            row.producer_rows += prod;
+            row.consumer_rows += cons;
+            row.pub_producers += pubp;
+            row.distinct_pub_symbols += distinct_pub;
+            row.kind_unknown_count += unknown;
+        }
+        drop(stmt);
         // Queried apart from the aggregate above, and deliberately so: these two
         // are the honesty counters. Folding them into the same SUM would put
         // "edges we are sure of" and "guesses / failures" in one number, which
@@ -1050,35 +1296,164 @@ impl FileKnowledgeDB {
     }
 
     /// One-shot migration that canonicalizes legacy absolute paths in
-    /// wiring_map to workspace-relative form. Idempotent: safe to run on
-    /// every daemon startup. Returns the number of rows updated.
+    /// wiring_map to root-relative form **and evicts rows that describe
+    /// another project's files**. Idempotent: safe to run on every daemon
+    /// startup. Returns the number of rows touched.
     ///
-    /// Without this migration, the same file recorded under both
+    /// Without the canonicalization, the same file recorded under both
     /// `crates/foo.rs` and `/home/.../crates/foo.rs` looks like two
     /// independent rows, causing every producer in the absolute form to
     /// appear orphan even when consumers under the relative form import it.
+    ///
+    /// The eviction closes a different hole. A wiring row whose file lives
+    /// outside this database's root is not this project's code, and it is not
+    /// harmless: it inflates the orphan count, and it manufactures dependency
+    /// cycles between modules that never met — the 136-module false-positive
+    /// SCC of 2026-06-02 was `analise` rows read through `konverter`'s graph.
+    /// The mitigation then was to filter cycles by `workspace_root`, a column
+    /// that is NULL on every row ever written, so it filtered nothing. Rows
+    /// from a foreign project are removed at the source instead. Measured on
+    /// the two projects that carried them: 4.306 rows in `analise`, 7.893 in
+    /// `konverter`, and **zero** absolute rows under their own root.
+    ///
+    /// Runs only when a root could be derived from the DB's own location. With
+    /// no root there is nothing to strip and, more importantly, nothing that
+    /// could tell a foreign row from a local one — so it does nothing at all
+    /// rather than guess with a deletion.
     pub fn migrate_canonicalize_paths(&self) -> Result<u64, rusqlite::Error> {
+        let Some(root) = self.workspace_root_ref().map(str::to_owned) else {
+            return Ok(0);
+        };
         let updated_modules = self.conn_ref().execute(
             "UPDATE OR IGNORE wiring_map
              SET module_file = SUBSTR(module_file, LENGTH(?1) + 1)
              WHERE module_file LIKE ?1 || '%'",
-            params![workspace_root_marker()],
+            params![&root],
         )?;
         let updated_consumers = self.conn_ref().execute(
             "UPDATE OR IGNORE wiring_map
              SET consumer_file = SUBSTR(consumer_file, LENGTH(?1) + 1)
              WHERE consumer_file LIKE ?1 || '%'",
-            params![workspace_root_marker()],
+            params![&root],
         )?;
         // Collisions (OR IGNORE above) — delete rows that could not be merged.
         let deleted = self.conn_ref().execute(
             "DELETE FROM wiring_map WHERE module_file LIKE ?1 || '%'",
-            params![workspace_root_marker()],
+            params![&root],
         )?;
-        if updated_modules + updated_consumers + deleted > 0 {
+        // Foreign rows: an absolute path that is NOT under this root belongs to
+        // some other project. Only absolute paths are judged — a relative path
+        // is already root-relative by construction and has no other reading.
+        let foreign = self.conn_ref().execute(
+            "DELETE FROM wiring_map
+             WHERE (module_file LIKE '/%' AND module_file NOT LIKE ?1 || '%')
+                OR (consumer_file LIKE '/%' AND consumer_file NOT LIKE ?1 || '%')",
+            params![&root],
+        )?;
+        let touched = updated_modules + updated_consumers + deleted + foreign;
+        if touched > 0 {
             Self::invalidate_wiring_modules_cache();
         }
-        Ok((updated_modules + updated_consumers + deleted) as u64)
+        Ok(touched as u64)
+    }
+
+    /// Evict rows the write gate would refuse today.
+    ///
+    /// The read filters admit by EXTENSION; the write gate admits by extension
+    /// **and path** (vendored trees, `docs/`, `scripts/`, tests, build output).
+    /// The reader therefore disagrees with the writer, and any row written
+    /// before a gate rule existed stays readable forever. Turning the polyglot
+    /// opt-in on for `analise` made the gap unmissable: readable producers went
+    /// from 8.224 to 184.343, of which **72,4% were a virtualenv**
+    /// (`/site-packages/`), 13,3% tests and 4,9% docs — 4,9% first-party
+    /// source. An orphan report of 142.689 entries answers no question anyone
+    /// has.
+    ///
+    /// Running it on every open makes the gate an INVARIANT over the data
+    /// rather than a rule applied at one moment: a row written by an older
+    /// binary is removed at the next open, and the read filters stay a cheap
+    /// extension check instead of carrying twenty `NOT LIKE` clauses per query.
+    ///
+    /// Judged under the MAXIMAL vocabulary (`polyglot = true`), never the
+    /// project's current mode: a project that flips the opt-in later must find
+    /// its Python still there. Only what NO mode could ever read is removed.
+    ///
+    /// Returns the number of rows removed.
+    pub fn migrate_evict_ungated_rows(&self) -> Result<u64, rusqlite::Error> {
+        // BOTH columns. A path that appears only as a consumer is still a
+        // path the gate refuses, and reading only `module_file` let a
+        // virtualenv file keep an edge into first-party code — caught by
+        // `a_bogus_consumer_takes_only_its_own_edge`, which failed against the
+        // first version of this query.
+        // The two sides are judged by DIFFERENT rules, because the write gate
+        // judges only the producer (`record_consumer_with_origin` checks
+        // `canonical_module`, never `canonical_consumer`).
+        //
+        // Producer: the gate's own predicate — a row it would refuse to write.
+        // Consumer: only third-party or generated trees. A consumer inside
+        // `tests/` is the project using its own code, which is what the graph
+        // exists to record; evicting on the full predicate deleted 13.621 such
+        // edges from this workspace, and the orphan count moving from 4.232 to
+        // 2.498 is what gave it away.
+        let refused_producers: Vec<String> = {
+            let mut stmt = self
+                .conn_ref()
+                .prepare("SELECT DISTINCT module_file FROM wiring_map")?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            rows.filter_map(Result::ok)
+                .filter(|f| !is_indexable_module_file_polyglot(f, true))
+                .collect()
+        };
+        let refused_consumers: Vec<String> = {
+            let mut stmt = self.conn_ref().prepare(
+                "SELECT DISTINCT consumer_file FROM wiring_map WHERE consumer_file IS NOT NULL",
+            )?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            rows.filter_map(Result::ok)
+                .filter(|f| is_vendored_or_generated(f))
+                .collect()
+        };
+        let files: Vec<String> = refused_producers;
+        if files.is_empty() && refused_consumers.is_empty() {
+            return Ok(0);
+        }
+        // A temp table instead of an `IN (?,?,…)` list: the refused set is
+        // thousands of paths on a real project, well past SQLite's parameter
+        // ceiling, and batching would make the DELETE non-atomic.
+        self.conn_ref().execute_batch(
+            "CREATE TEMP TABLE IF NOT EXISTS _ungated(f TEXT PRIMARY KEY);
+             DELETE FROM _ungated;",
+        )?;
+        self.conn_ref().execute_batch(
+            "CREATE TEMP TABLE IF NOT EXISTS _ungated_c(f TEXT PRIMARY KEY);
+             DELETE FROM _ungated_c;",
+        )?;
+        {
+            let mut ins = self
+                .conn_ref()
+                .prepare("INSERT OR IGNORE INTO _ungated(f) VALUES (?1)")?;
+            for f in &files {
+                ins.execute(params![f])?;
+            }
+            let mut ins_c = self
+                .conn_ref()
+                .prepare("INSERT OR IGNORE INTO _ungated_c(f) VALUES (?1)")?;
+            for f in &refused_consumers {
+                ins_c.execute(params![f])?;
+            }
+        }
+        let removed = self.conn_ref().execute(
+            "DELETE FROM wiring_map
+             WHERE module_file IN (SELECT f FROM _ungated)
+                OR consumer_file IN (SELECT f FROM _ungated_c)",
+            [],
+        )?;
+        self.conn_ref()
+            .execute_batch("DROP TABLE IF EXISTS _ungated; DROP TABLE IF EXISTS _ungated_c;")?;
+        if removed > 0 {
+            Self::invalidate_wiring_modules_cache();
+        }
+        Ok(removed as u64)
     }
 
     /// Get all orphan symbols (pub symbols with no consumer anywhere).
@@ -1108,7 +1483,25 @@ impl FileKnowledgeDB {
     /// `register_pub_symbol` blocks ineligible rows from entering, and
     /// this SQL guard masks any legacy rows that pre-date the gate.
     pub fn orphan_symbols(&self) -> Result<Vec<WiringEntry>, rusqlite::Error> {
-        let ext_pred = wireable_ext_sql("w.module_file", polyglot_wiring_enabled());
+        self.orphan_symbols_with_trust(false)
+    }
+
+    /// Orphan symbols with an optional trust filter (H2, 2026-08-12).
+    ///
+    /// `trusted = true` counts a symbol as consumed only by a NON-heuristic
+    /// edge (`contract_source != 'ast_inferred'`): a symbol whose only
+    /// consumers come from bare-name matching reports as orphan in this mode,
+    /// which is the honest answer to "does anything provably use this?".
+    pub fn orphan_symbols_with_trust(
+        &self,
+        trusted: bool,
+    ) -> Result<Vec<WiringEntry>, rusqlite::Error> {
+        let ext_pred = wireable_ext_sql("w.module_file", self.polyglot());
+        let trust_pred = if trusted {
+            "AND w2.contract_source != 'ast_inferred'"
+        } else {
+            ""
+        };
         let sql = format!(
             "SELECT w.module_file, w.symbol_name, w.symbol_kind, w.visibility,
                     w.consumer_file, w.import_line, w.contract_source
@@ -1128,6 +1521,7 @@ impl FileKnowledgeDB {
                    WHERE w2.module_file = w.module_file
                      AND w2.symbol_name = w.symbol_name
                      AND w2.consumer_file IS NOT NULL
+                     {trust_pred}
                )
              ORDER BY w.module_file, w.symbol_name"
         );
@@ -1179,8 +1573,8 @@ impl FileKnowledgeDB {
         &self,
         module_file: &str,
     ) -> Result<Vec<WiringEntry>, rusqlite::Error> {
-        let canonical = canonicalize_module_path(module_file);
-        let ext_pred = wireable_ext_sql("w.module_file", polyglot_wiring_enabled());
+        let canonical = self.canonicalize_module_path(module_file);
+        let ext_pred = wireable_ext_sql("w.module_file", self.polyglot());
         let sql = format!(
             "SELECT w.module_file, w.symbol_name, w.symbol_kind, w.visibility,
                     w.consumer_file, w.import_line, w.contract_source
@@ -1384,19 +1778,21 @@ impl FileKnowledgeDB {
 #[cfg(test)]
 mod polyglot_gate_tests {
     use super::{
-        is_go_package_wireable, is_indexable_module_file, is_indexable_module_file_polyglot,
-        is_non_rust_non_wireable, wireable_ext_sql, wireable_extensions,
+        is_go_package_wireable, is_indexable_module_file_polyglot, is_non_rust_non_wireable,
+        wireable_ext_sql, wireable_extensions,
     };
 
     // ── Default mode (flag OFF) — byte-identical Rust-only behavior ─────────
 
     #[test]
     fn default_mode_is_rust_only() {
-        // The public gate reads TOURING_POLYGLOT_WIRING, unset in this test
-        // binary → OFF. Python/Markdown rejected; Rust accepted.
-        assert!(is_indexable_module_file("crates/a/src/foo.rs"));
-        assert!(!is_indexable_module_file("pkg/models.py"));
-        assert!(!is_indexable_module_file("docs/plan.md"));
+        // The gate is now asked with the PROJECT's answer rather than reading a
+        // process-global, so the default mode is expressed by passing `false`
+        // — which is also what makes this assertion independent of whatever
+        // `TOURING_POLYGLOT_WIRING` happens to hold in the runner's env.
+        assert!(is_indexable_module_file_polyglot("crates/a/src/foo.rs", false));
+        assert!(!is_indexable_module_file_polyglot("pkg/models.py", false));
+        assert!(!is_indexable_module_file_polyglot("docs/plan.md", false));
     }
 
     #[test]
@@ -1779,11 +2175,11 @@ mod backfill_tests {
         assert_eq!(kind_of(&db, "crates/a/src/engine.rs", "Engine"), "unknown");
         db.register_pub_symbol("crates/a/src/engine.rs", "Engine", "struct", "public")
             .unwrap();
-        let repaired = db.backfill_unknown_consumer_kinds().unwrap();
+        let repaired = db.backfill_unknown_consumer_kinds(true).unwrap();
         assert_eq!(repaired, 1, "exactly the frozen row must be repaired");
         assert_eq!(kind_of(&db, "crates/a/src/engine.rs", "Engine"), "struct");
         // Idempotent: a second pass has nothing left to do.
-        assert_eq!(db.backfill_unknown_consumer_kinds().unwrap(), 0);
+        assert_eq!(db.backfill_unknown_consumer_kinds(true).unwrap(), 0);
     }
 
     // Wave H+1 normalization: `use m::{X as Y}` keys the row by the ORIGINAL
@@ -1812,6 +2208,37 @@ mod backfill_tests {
 
     // Wave H+1 second backfill pass: a consumer of a symbol with NO producer
     // anywhere (external-crate re-export) is 'extern', not schema degradation.
+    /// The behavioural half of the partial-walk guard: after an INCOMPLETE walk
+    /// the same row must stay `unknown`, because "no producer anywhere" is not a
+    /// conclusion a 62%-complete index is entitled to draw. `extern` is terminal
+    /// — nothing revisits it — so a wrong one is permanent.
+    #[test]
+    fn a_partial_walk_leaves_producerless_consumers_unknown_not_extern() {
+        let (_tmp, db) = setup();
+        db.record_consumer(
+            "crates/a/src/uses_unseen.rs",
+            "NotYetWalked", // its producer lives in the part of the tree never read
+            "crates/a/src/error.rs",
+            None,
+        )
+        .unwrap();
+
+        // mark_extern = false → pass 1 only; nothing to inherit, so zero repairs.
+        assert_eq!(db.backfill_unknown_consumer_kinds(false).unwrap(), 0);
+        assert_eq!(
+            kind_of(&db, "crates/a/src/uses_unseen.rs", "NotYetWalked"),
+            "unknown",
+            "a partial walk must not brand an unseen producer as external"
+        );
+
+        // A later COMPLETE walk is still free to conclude `extern`.
+        assert_eq!(db.backfill_unknown_consumer_kinds(true).unwrap(), 1);
+        assert_eq!(
+            kind_of(&db, "crates/a/src/uses_unseen.rs", "NotYetWalked"),
+            "extern"
+        );
+    }
+
     #[test]
     fn backfill_marks_external_reexport_consumers_as_extern() {
         let (_tmp, db) = setup();
@@ -1826,7 +2253,7 @@ mod backfill_tests {
             kind_of(&db, "crates/a/src/test_util.rs", "assert_eq"),
             "unknown"
         );
-        assert_eq!(db.backfill_unknown_consumer_kinds().unwrap(), 1);
+        assert_eq!(db.backfill_unknown_consumer_kinds(true).unwrap(), 1);
         assert_eq!(
             kind_of(&db, "crates/a/src/test_util.rs", "assert_eq"),
             "extern"
@@ -1978,7 +2405,7 @@ mod provenance_tests {
         // The census counts only real rows — the unresolved one lives elsewhere
         // and is never folded into the totals.
         assert_eq!(diag.total_rows, 2);
-        assert_eq!(diag.non_rust_rows, 0, "unresolved must not pollute this");
+        assert_eq!(diag.non_wireable_rows, 0, "unresolved must not pollute this");
     }
 
     /// The defect this file's own author hit on 2026-08-07.
@@ -2147,5 +2574,357 @@ mod provenance_tests {
         .expect("serialize");
         assert_eq!(value["module_path"], "ghost::mod");
         assert_eq!(value["import_line"], 12);
+    }
+}
+
+#[cfg(test)]
+mod workspace_root_derivation_tests {
+    use super::derive_workspace_root;
+    use std::path::Path;
+
+    #[test]
+    fn derives_the_project_root_from_the_canonical_db_layout() {
+        assert_eq!(
+            derive_workspace_root(Path::new("/home/u/projects/app/.claude/touring/knowledge.db")),
+            Some("/home/u/projects/app/".to_string()),
+            "the root is three components up, with a trailing slash for strip_prefix"
+        );
+    }
+
+    #[test]
+    fn refuses_the_global_store_under_home() {
+        // `$HOME/.claude/touring/knowledge.db` is the GLOBAL store: its rows
+        // span every project the daemon has seen, so no prefix is canonical
+        // for all of them. Deriving `$HOME` here would make every path under
+        // the home directory "relative" — and hand the migration a DELETE
+        // whose predicate matches almost everything.
+        let home = std::env::var("HOME").expect("HOME set in test env");
+        let global = format!("{home}/.claude/touring/knowledge.db");
+        assert_eq!(derive_workspace_root(Path::new(&global)), None);
+    }
+
+    #[test]
+    fn resolves_a_relative_db_path_against_the_current_directory() {
+        // The daemon opens `.claude/touring/knowledge.db` with its cwd pinned
+        // to the project root. Refusing that shape is refusing the ONLY shape
+        // production actually uses: the first cut of this function rejected it
+        // (three components up from a relative path is the empty path), so the
+        // migration silently did nothing on every project it was meant to fix.
+        let cwd = std::env::current_dir().expect("cwd");
+        assert_eq!(
+            derive_workspace_root(Path::new(".claude/touring/knowledge.db")),
+            Some(format!("{}/", cwd.display())),
+        );
+    }
+
+    #[test]
+    fn refuses_a_layout_that_is_not_dot_claude_touring() {
+        // Three components up from an arbitrary path is meaningless — and for
+        // a shallow path it is `/`, which would strip the leading slash off
+        // every absolute path in the table.
+        assert_eq!(derive_workspace_root(Path::new("/tmp/scratch.db")), None);
+        assert_eq!(derive_workspace_root(Path::new("/a/b/c/knowledge.db")), None);
+        assert_eq!(derive_workspace_root(Path::new(":memory:")), None);
+    }
+
+    #[test]
+    fn refuses_touring_dir_that_is_not_under_dot_claude() {
+        assert_eq!(
+            derive_workspace_root(Path::new("/home/u/app/config/touring/knowledge.db")),
+            None,
+            "the parent of `touring/` must be `.claude/` — not any directory"
+        );
+    }
+}
+
+#[cfg(test)]
+mod per_project_polyglot_tests {
+    use crate::knowledge::FileKnowledgeDB;
+
+    /// A project at the canonical layout, optionally opting into polyglot
+    /// wiring, with its knowledge DB open.
+    fn project(opt_in: bool) -> (tempfile::TempDir, FileKnowledgeDB) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let cfg_dir = tmp.path().join(".touring");
+        std::fs::create_dir_all(&cfg_dir).expect("mkdir .touring");
+        std::fs::write(
+            cfg_dir.join("touring.toml"),
+            format!("polyglot_wiring = {opt_in}\n"),
+        )
+        .expect("write toml");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("mkdir .claude/touring");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        (tmp, db)
+    }
+
+    /// An explicit env override outranks the project layer by design, so these
+    /// assertions state what holds under BOTH states of the variable rather
+    /// than mutating a process-global under a parallel runner.
+    fn env_forced() -> Option<bool> {
+        std::env::var("TOURING_POLYGLOT_WIRING")
+            .ok()
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+    }
+
+    #[test]
+    fn two_databases_in_one_process_hold_different_modes() {
+        let (_a, yes) = project(true);
+        let (_b, no) = project(false);
+        match env_forced() {
+            Some(f) => assert_eq!((yes.polyglot(), no.polyglot()), (f, f)),
+            None => assert!(
+                yes.polyglot() && !no.polyglot(),
+                "the whole point of the opt-in: one project says yes, its \
+                 neighbour says no, same process, same instant"
+            ),
+        }
+    }
+
+    #[test]
+    fn the_write_gate_follows_the_projects_answer() {
+        // Behaviour, not configuration: a first-party Python producer is
+        // admitted by the project that opted in and refused by the one that
+        // did not — the same call, in the same process.
+        let (_a, yes) = project(true);
+        let (_b, no) = project(false);
+        for db in [&yes, &no] {
+            db.register_pub_symbol("pkg/models.py", "Order", "class", "public")
+                .expect("call succeeds either way — the gate is silent");
+        }
+        let count = |db: &FileKnowledgeDB| -> i64 {
+            db.conn_ref()
+                .query_row(
+                    "SELECT COUNT(*) FROM wiring_map WHERE module_file = 'pkg/models.py'",
+                    [],
+                    |r| r.get(0),
+                )
+                .expect("count")
+        };
+        match env_forced() {
+            Some(true) => assert_eq!((count(&yes), count(&no)), (1, 1)),
+            Some(false) => assert_eq!((count(&yes), count(&no)), (0, 0)),
+            None => {
+                assert_eq!(count(&yes), 1, "the opted-in project wires its Python");
+                assert_eq!(count(&no), 0, "the other stays Rust-only");
+            }
+        }
+    }
+
+    #[test]
+    fn rust_is_wired_in_both_modes() {
+        // The opt-in ADDS languages; it never takes Rust away.
+        let (_a, yes) = project(true);
+        let (_b, no) = project(false);
+        for db in [&yes, &no] {
+            db.register_pub_symbol("crates/a/src/lib.rs", "Thing", "struct", "public")
+                .expect("ok");
+            let n: i64 = db
+                .conn_ref()
+                .query_row(
+                    "SELECT COUNT(*) FROM wiring_map WHERE module_file = 'crates/a/src/lib.rs'",
+                    [],
+                    |r| r.get(0),
+                )
+                .expect("count");
+            assert_eq!(n, 1);
+        }
+    }
+
+    #[test]
+    fn the_258_defence_survives_the_opt_in() {
+        // Opting in must not re-open the false-positive class the Rust-only
+        // default was protecting: docs/, scripts/, tests and vendored trees
+        // stay out even for a project that said yes.
+        let (_a, yes) = project(true);
+        for path in [
+            "docs/plan.py",
+            "scripts/build.py",
+            "pkg/test_models.py",
+            "app/.venv/lib/python3.12/site-packages/x.py",
+            "web/node_modules/left-pad/index.js",
+        ] {
+            yes.register_pub_symbol(path, "X", "class", "public").expect("ok");
+        }
+        let n: i64 = yes
+            .conn_ref()
+            .query_row("SELECT COUNT(*) FROM wiring_map", [], |r| r.get(0))
+            .expect("count");
+        assert_eq!(n, 0, "none of the 258-FP shapes may enter, opt-in or not");
+    }
+}
+
+#[cfg(test)]
+mod build_output_exclusion_tests {
+    use super::is_indexable_module_file_polyglot;
+
+    #[test]
+    fn rustdoc_javascript_is_not_wiring() {
+        // The evidence that motivated the rule: 1.087 of the 1.128 non-Rust
+        // files that would have entered THIS workspace's graph on the day the
+        // opt-in was switched on were rustdoc output.
+        for f in [
+            "target/doc/crates.js",
+            "target/doc/search.index/0036dee5f75b.js",
+            "holon-wasm-components/target/doc/crates.js",
+        ] {
+            assert!(!is_indexable_module_file_polyglot(f, true), "{f}");
+        }
+    }
+
+    #[test]
+    fn other_build_and_cache_trees_are_not_wiring_either() {
+        for f in [
+            "build/gen/app.js",
+            "web/build/bundle.js",
+            "out/index.js",
+            "svc/.tox/py312/lib/x.py",
+            "svc/.mypy_cache/3.12/x.py",
+            "svc/.pytest_cache/v/x.py",
+            "cov/htmlcov/index.js",
+            "app/.gradle/caches/X.java",
+        ] {
+            assert!(!is_indexable_module_file_polyglot(f, true), "{f}");
+        }
+    }
+
+    #[test]
+    fn first_party_source_still_passes() {
+        // The rule must exclude OUTPUT, not anything whose path happens to
+        // contain a word: a package named `outbound` or `building` is source.
+        for f in [
+            "packages/api/src/models.py",
+            "apps/web/src/outbound/client.ts",
+            "apps/web/src/building/plan.ts",
+            "services/target_practice/aim.py",
+        ] {
+            assert!(is_indexable_module_file_polyglot(f, true), "{f}");
+        }
+    }
+
+    #[test]
+    fn rust_source_under_no_circumstances_regresses() {
+        assert!(is_indexable_module_file_polyglot("crates/a/src/lib.rs", false));
+        assert!(is_indexable_module_file_polyglot("crates/a/src/lib.rs", true));
+    }
+}
+
+#[cfg(test)]
+mod ungated_eviction_tests {
+    use crate::knowledge::FileKnowledgeDB;
+
+    fn db_at_root() -> (tempfile::TempDir, FileKnowledgeDB) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let d = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&d).expect("mkdir");
+        let db = FileKnowledgeDB::new(&d.join("knowledge.db")).expect("open");
+        (tmp, db)
+    }
+
+    /// Rows are inserted RAW, bypassing the gate, because that is exactly how
+    /// they got there: written by a binary whose gate did not yet know the rule.
+    fn raw_producer(db: &FileKnowledgeDB, module: &str) {
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+                 VALUES (?1, 'X', 'class', 'public', 'legacy')",
+                [module],
+            )
+            .expect("raw insert");
+    }
+
+    fn count(db: &FileKnowledgeDB) -> i64 {
+        db.conn_ref()
+            .query_row("SELECT COUNT(*) FROM wiring_map", [], |r| r.get(0))
+            .expect("count")
+    }
+
+    #[test]
+    fn evicts_what_the_write_gate_would_refuse() {
+        let (_t, db) = db_at_root();
+        for f in [
+            "apps/api/.venv/lib/python3.12/site-packages/pytest/x.py",
+            "web/node_modules/left-pad/index.js",
+            "docs/plan.py",
+            "scripts/build.py",
+            "pkg/test_models.py",
+            "target/doc/crates.js",
+            "crates/a/tests/it.rs",
+            "benches/src/b.rs",
+            ".cipher/agent_outputs/out.json",
+        ] {
+            raw_producer(&db, f);
+        }
+        assert_eq!(count(&db), 9);
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 9);
+        assert_eq!(count(&db), 0);
+    }
+
+    #[test]
+    fn keeps_every_language_the_maximal_vocabulary_admits() {
+        // Judged under polyglot = true even though THIS project has not opted
+        // in: a project that flips the switch tomorrow must find its Python
+        // still there. Only what no mode could ever read is removed.
+        let (_t, db) = db_at_root();
+        assert!(!db.polyglot(), "this fixture project did not opt in");
+        for f in [
+            "crates/a/src/lib.rs",
+            "packages/api/models.py",
+            "apps/web/src/client.ts",
+            "apps/web/src/view.tsx",
+            "svc/Handler.java",
+        ] {
+            raw_producer(&db, f);
+        }
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 0);
+        assert_eq!(count(&db), 5);
+    }
+
+    #[test]
+    fn a_bogus_consumer_takes_only_its_own_edge() {
+        let (_t, db) = db_at_root();
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file)
+                 VALUES ('crates/a/src/lib.rs', 'Thing', 'struct', 'public', ?1)",
+                ["app/.venv/lib/python3.12/site-packages/x.py"],
+            )
+            .expect("insert");
+        raw_producer(&db, "crates/a/src/lib.rs");
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 1);
+        assert_eq!(count(&db), 1, "the producer row survives; only the bogus edge goes");
+    }
+
+    #[test]
+    fn a_test_file_consuming_first_party_code_keeps_its_edge() {
+        // The correction to the rule above. The write gate judges the PRODUCER
+        // only; a test consuming the crate's own API is real usage and the
+        // graph exists to record it. Judging the consumer by the full
+        // predicate deleted 13.621 of these from the touring workspace.
+        let (_t, db) = db_at_root();
+        for consumer in [
+            "crates/a/tests/it.rs",
+            "benches/src/bench.rs",
+            "docs/example.py",
+            "scripts/demo.py",
+        ] {
+            db.conn_ref()
+                .execute(
+                    "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file)
+                     VALUES ('crates/a/src/lib.rs', 'Thing', 'struct', 'public', ?1)",
+                    [consumer],
+                )
+                .expect("insert");
+        }
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 0);
+        assert_eq!(count(&db), 4, "first-party consumers all survive");
+    }
+
+    #[test]
+    fn is_idempotent() {
+        let (_t, db) = db_at_root();
+        raw_producer(&db, "docs/plan.py");
+        assert_eq!(db.migrate_evict_ungated_rows().expect("first"), 1);
+        assert_eq!(db.migrate_evict_ungated_rows().expect("second"), 0);
     }
 }

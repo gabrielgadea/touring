@@ -73,7 +73,7 @@ fn cmd_status(args: &[String]) -> anyhow::Result<()> {
 
     let root = find_project_root().ok_or_else(|| {
         anyhow::anyhow!(
-            "could not locate project root — run from a Touring project or set TOURING_PROJECT_ROOT"
+            "cannot find project root — run from inside a Touring project or set TOURING_PROJECT_ROOT"
         )
     })?;
 
@@ -153,7 +153,7 @@ fn cmd_status(args: &[String]) -> anyhow::Result<()> {
 fn cmd_plan(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
     let root =
-        find_project_root().ok_or_else(|| anyhow::anyhow!("could not locate project root"))?;
+        find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
 
     let plan = [
         (
@@ -209,7 +209,7 @@ fn cmd_plan(args: &[String]) -> anyhow::Result<()> {
 fn cmd_validate(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
     let root =
-        find_project_root().ok_or_else(|| anyhow::anyhow!("could not locate project root"))?;
+        find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
 
     let report = ConsolidationMigration::new(&root).validate()?;
 
@@ -247,7 +247,7 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
 
     let (flags, _) = parse_global_flags(args);
     let root = find_project_root()
-        .ok_or_else(|| anyhow::anyhow!("project root not found — set TOURING_PROJECT_ROOT"))?;
+        .ok_or_else(|| anyhow::anyhow!("project root not found; set TOURING_PROJECT_ROOT to a valid project directory"))?;
     let touring = root.join(".claude").join("touring");
     let data = root.join(".claude").join("data");
     std::fs::create_dir_all(&touring)?;
@@ -265,15 +265,15 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
     // Open / create the 3 target domain DBs.  Schemas are idempotent via
     // CREATE TABLE IF NOT EXISTS, so repeated runs are safe.
     let k = rusqlite::Connection::open(touring.join("knowledge.db"))
-        .map_err(|e| anyhow::anyhow!("open knowledge.db: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("cannot open knowledge.db — run `touring doctor -j` to check database health: {e}"))?;
     k.execute_batch(KNOWLEDGE_SCHEMA_V8)?;
 
     let m = rusqlite::Connection::open(touring.join("memory.db"))
-        .map_err(|e| anyhow::anyhow!("open memory.db: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("cannot open memory.db — run `touring doctor -j` to check database health: {e}"))?;
     m.execute_batch(MEMORY_SCHEMA_V8)?;
 
     let g = rusqlite::Connection::open(touring.join("graph.db"))
-        .map_err(|e| anyhow::anyhow!("open graph.db: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("cannot open graph.db — run `touring doctor -j` to check database health: {e}"))?;
     // Pre-migrate legacy columns before CREATE TABLE IF NOT EXISTS becomes a no-op.
     // Sprint 4.8 schema drift fix — adds touring_hook_events.hook_name/file_path/etc.
     for col_decl in &[
@@ -284,12 +284,11 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
         "context_json TEXT",
         "session_id TEXT",
     ] {
-        let col = col_decl.split_whitespace().next().unwrap_or("");
         let sql = format!("ALTER TABLE touring_hook_events ADD COLUMN {col_decl}");
         if let Err(e) = g.execute(&sql, []) {
             let msg = e.to_string();
             if !msg.contains("duplicate column name") && !msg.contains("no such table") {
-                return Err(anyhow::anyhow!("alter touring_hook_events.{col}: {e}"));
+                return Err(anyhow::anyhow!("cannot add column to touring_hook_events — run `touring doctor -j` to check schema version: {e}"));
             }
         }
     }
@@ -389,7 +388,7 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
                      FROM mig_src.memory_entries",
                     [],
                 )
-                .map_err(|e| anyhow::anyhow!("migrate memory_entries→rlm_entries: {e}"))?;
+                .map_err(|e| anyhow::anyhow!("failed to migrate memory entries — run `touring doctor -j` to check schema version: {e}"))?;
             Ok(rows as u64)
         }) {
             Ok(rows) => {
@@ -421,7 +420,7 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
                      FROM mig_src.memory_entries",
                     [],
                 )
-                .map_err(|e| anyhow::anyhow!("migrate memory_entries→rlm_entries (merge): {e}"))?;
+                .map_err(|e| anyhow::anyhow!("failed to merge memory entries — run `touring doctor -j` to check DB compatibility: {e}"))?;
             Ok(rows as u64)
         }) {
             Ok(rows) => {
@@ -471,7 +470,7 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
                          FROM mig_src.chunks",
                         [],
                     )
-                    .map_err(|e| anyhow::anyhow!("chunks→recall_embeddings: {e}"))?;
+                    .map_err(|e| anyhow::anyhow!("failed to migrate chunk embeddings — run `touring doctor -j` to check schema: {e}"))?;
                 Ok(rows as u64)
             } else {
                 Ok(0) // No matching source table — skip.
@@ -559,7 +558,7 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
                          SELECT state_action, q_value FROM mig_src.learning_qtable",
                         [],
                     )
-                    .map_err(|e| anyhow::anyhow!("migrate learning_qtable: {e}"))?;
+                    .map_err(|e| anyhow::anyhow!("failed to migrate learning table — run `touring doctor -j` to check DB state: {e}"))?;
                 rows += r as u64;
             }
             Ok(rows)
@@ -622,14 +621,13 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
 /// Safe to re-run (already-archived DBs are skipped).
 fn cmd_cleanup(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
-    let root = find_project_root().ok_or_else(|| anyhow::anyhow!("project root not found"))?;
+    let root = find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
 
     // First verify migration was completed successfully.
     let report = ConsolidationMigration::new(&root).validate()?;
     if !report.passed {
         anyhow::bail!(
-            "migration validation failed — run `touring migrate run` and \
-             `touring migrate validate` before cleanup"
+            "migration incomplete — run `touring migrate run` then `touring migrate validate` before cleanup"
         );
     }
 
@@ -660,7 +658,7 @@ fn cmd_cleanup(args: &[String]) -> anyhow::Result<()> {
             skipped += 1;
             continue;
         }
-        std::fs::rename(src, &dst).map_err(|e| anyhow::anyhow!("archive {name}: {e}"))?;
+        std::fs::rename(src, &dst).map_err(|e| anyhow::anyhow!("cannot archive {name} — run `ls -la` on that path to check permissions: {e}"))?;
         archived += 1;
         if flags.json {
             println!(
@@ -690,7 +688,7 @@ fn cmd_cleanup(args: &[String]) -> anyhow::Result<()> {
 
 fn cmd_rollback(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
-    let root = find_project_root().ok_or_else(|| anyhow::anyhow!("project root not found"))?;
+    let root = find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
     let touring = root.join(".claude").join("touring");
 
     let mut renamed = 0u32;
@@ -698,7 +696,7 @@ fn cmd_rollback(args: &[String]) -> anyhow::Result<()> {
         let src = touring.join(format!("{domain}.db"));
         if src.exists() {
             let dst = touring.join(format!("{domain}.db.rollback"));
-            std::fs::rename(&src, &dst).map_err(|e| anyhow::anyhow!("rename {domain}.db: {e}"))?;
+            std::fs::rename(&src, &dst).map_err(|e| anyhow::anyhow!("cannot rename {domain}.db — run `ls -la` on the touring directory to check permissions: {e}"))?;
             renamed += 1;
             if flags.json {
                 println!(
@@ -782,6 +780,9 @@ mod tests {
 
     #[test]
     fn find_project_root_uses_env_var() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let touring = dir.path().join(".claude").join("touring");
         std::fs::create_dir_all(&touring).expect("create dirs");
@@ -886,6 +887,9 @@ mod tests {
 
     #[test]
     fn cmd_run_no_sources_creates_domain_dbs_with_schema_v8() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let touring = dir.path().join(".claude").join("touring");
         std::fs::create_dir_all(&touring).expect("create dirs");
@@ -915,6 +919,9 @@ mod tests {
 
     #[test]
     fn cmd_rollback_renames_consolidated_dbs() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let touring = dir.path().join(".claude").join("touring");
         std::fs::create_dir_all(&touring).expect("create dirs");
@@ -1003,6 +1010,9 @@ mod tests {
     /// and converts INTEGER Unix timestamps → ISO TEXT in the destination.
     #[test]
     fn rlm_memory_migrated_with_correct_table_and_datetime_conversion() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let data = dir.path().join(".claude").join("data");
         let touring = dir.path().join(".claude").join("touring");
@@ -1086,6 +1096,9 @@ mod tests {
     /// migration skips it gracefully with 0 rows — no crash, no data loss.
     #[test]
     fn rlm_memory_skipped_gracefully_when_source_table_absent() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let data = dir.path().join(".claude").join("data");
         let touring = dir.path().join(".claude").join("touring");
@@ -1163,6 +1176,9 @@ mod tests {
     /// using explicit column mapping (SELECT state_action, q_value FROM source).
     #[test]
     fn learning_qtable_migrated_from_pipeline_db() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let data = dir.path().join(".claude").join("data");
         let touring = dir.path().join(".claude").join("touring");
@@ -1213,6 +1229,9 @@ mod tests {
     /// Proves migration is complete, non-destructive, and idempotent.
     #[test]
     fn cmd_run_e2e_rlm_entries_and_qtable_both_migrated() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let data = dir.path().join(".claude").join("data");
         let touring = dir.path().join(".claude").join("touring");
@@ -1287,6 +1306,9 @@ mod tests {
 
     #[test]
     fn cmd_cleanup_archives_legacy_dbs() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = tempdir().expect("tempdir");
         let data = dir.path().join(".claude").join("data");
         let touring = dir.path().join(".claude").join("touring");
@@ -1339,6 +1361,9 @@ mod tests {
 
     #[test]
     fn cmd_cleanup_is_idempotent() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // Second cleanup run must not error when DBs are already archived.
         let dir = tempdir().expect("tempdir");
         let data = dir.path().join(".claude").join("data");

@@ -15,20 +15,27 @@
 # manuais, logo não-reprodutíveis. Aqui a cadeia inteira vira um comando.
 #
 # USO:
-#   scripts/propagate-release.sh 30.4.0                # pipeline completo
-#   scripts/propagate-release.sh 30.4.0 --dry-run      # mostra sem aplicar
-#   scripts/propagate-release.sh 30.4.0 --skip-build   # binário já instalado
-#   scripts/propagate-release.sh 30.4.0 --skip-gates   # pula cargo check/clippy
-#   scripts/propagate-release.sh 30.4.0 --skip-freeze  # toolchain já instalada
-#   scripts/propagate-release.sh 30.4.0 --no-default   # não muda canal default
+#   scripts/propagate-release.sh <versão>              # pipeline completo
+#   scripts/propagate-release.sh <versão> --dry-run    # mostra sem aplicar
+#   scripts/propagate-release.sh <versão> --skip-build # binário já instalado
+#   scripts/propagate-release.sh <versão> --skip-gates # pula cargo check/clippy/espelho
+#   scripts/propagate-release.sh <versão> --skip-freeze# toolchain já instalada
+#   scripts/propagate-release.sh <versão> --no-default # não muda canal default
+#
+# <versão> é um ARGUMENTO, nunca um exemplo a copiar: estes exemplos citavam
+# 30.4.0 por escrito, e depois do release seguinte copiá-los REBAIXARIA todos os
+# projetos consumidores para a versão antiga. A versão corrente do workspace
+# está em Cargo.toml [workspace.package].
 #   scripts/propagate-release.sh --rollback            # reverte todos os projetos
 #
 # ETAPAS:
-#   1. gates      cargo check + clippy -D warnings (REGRA #21 — 0 falhas)
+#   1. gates      cargo check + clippy -D warnings + espelho client/
+#                 + update-touring versionado/escopado (REGRA #21)
 #   2. build      update-touring  (L1 → dev: build + install dual-target + restart)
 #   3. freeze     touring toolchain install --from-source . <v> --force  (L2)
 #   4. default    touring toolchain default <v>                          (L2)
-#   5. propagate  touring update --all-projects                          (L4)
+#   5. propagate  touring update <v> --project <p>, projeto a projeto      (L4)
+#                 (NAO --all-projects: ver o GOTCHA no corpo do passo 5)
 #   6. verify     cada projeto reporta a versão resolvida
 #
 # ROLLBACK: `--rollback` chama `touring update --all-projects --rollback`, que
@@ -105,7 +112,9 @@ if [ "$ROLLBACK" -eq 1 ]; then
     exit 0
 fi
 
-[ -n "$VERSION" ] || die "versão obrigatória. Ex: $(basename "$0") 30.4.0  (--help para detalhes)"
+# A sugestão vem do Cargo.toml, nunca de um literal: um exemplo escrito à mão
+# envelhece para uma versão ANTERIOR, e copiá-lo rebaixa a frota.
+[ -n "$VERSION" ] || die "versão obrigatória. Ex: $(basename "$0") $(grep -m1 '^version = ' "$WORKSPACE/Cargo.toml" 2>/dev/null | cut -d'"' -f2)  (--help para detalhes)"
 [ -f "$WORKSPACE/Cargo.toml" ] || die "não parece a fonte canônica: $WORKSPACE/Cargo.toml ausente"
 
 log "workspace : $WORKSPACE"
@@ -116,14 +125,34 @@ log "versão    : $VERSION"
 if [ "$SKIP_GATES" -eq 1 ]; then
     warn "gates pulados (--skip-gates)"
 else
-    step "1/6 GATES — cargo check + clippy"
+    step "1/6 GATES — cargo check + clippy + espelho client/ + update-touring"
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "  ${YELLOW}[dry-run]${RESET} cargo check --workspace && cargo clippy --workspace -- -D warnings"
+        echo "  ${YELLOW}[dry-run]${RESET} python3 scripts/sync-client-skills.py --check"
+        echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_update_touring.py -q"
     else
         ( cd "$WORKSPACE" && cargo check --workspace ) \
             || die "cargo check falhou — não se propaga build quebrada"
         ( cd "$WORKSPACE" && cargo clippy --workspace -- -D warnings ) \
             || die "clippy falhou (-D warnings) — corrija antes de propagar"
+        # O espelho client/ é a cópia versionada das skills que rodam em
+        # ~/.claude/. Nada o mantinha em dia: nascido de uma cópia em massa em
+        # 25/07/2026, divergiu por três semanas — e foi assim que a correção de
+        # shell injection chegou ao espelho e às instanciações mas nunca à
+        # biblioteca IMPLANTADA, de onde `adw from-template` copia. Um release
+        # que publica um espelho velho publica código que ninguém está rodando.
+        ( cd "$WORKSPACE" && python3 scripts/sync-client-skills.py --check ) \
+            || die "espelho client/ fora de sincronia — rode: python3 scripts/sync-client-skills.py --apply"
+        # A ferramenta de deploy também é código. Ela viveu até 18/08/2026 apenas
+        # em ~/.local/bin/, e o passo 2/6 abaixo a invoca pelo PATH: se lá houver
+        # uma cópia solta em vez do symlink para scripts/update-touring, este
+        # release roda um deploy que ninguém revisou. Aqui, diferente do CI, o
+        # lado vivo existe — então o teste verifica o symlink de verdade.
+        # UPDATE_TOURING_REQUIRE_SYMLINK=1: no release o teste do symlink não
+        # pode virar skip silencioso — se ~/.local/bin/update-touring não
+        # existe, o passo 2/6 executaria pelo PATH uma cópia não revisada.
+        ( cd "$WORKSPACE" && UPDATE_TOURING_REQUIRE_SYMLINK=1 python3 -m pytest scripts/test_update_touring.py -q ) \
+            || die "update-touring divergiu do repo — rode: ln -sfn $WORKSPACE/scripts/update-touring ~/.local/bin/update-touring"
         log "${GREEN}gates OK${RESET}"
     fi
 fi
@@ -217,7 +246,7 @@ else
             # A correção de campo veio no binário (SIG_DFL para CLI), mas o
             # script não depende dela: lê tudo e corta a primeira linha em
             # bash puro, sem pipe para fechar cedo.
-            ver="$($bin --version 2>&1)"
+            ver="$("$bin" --version 2>&1)"
             ver="${ver%%$'\n'*}"
             [ -n "$ver" ] || ver="ERRO (sem saída de --version)"
         else

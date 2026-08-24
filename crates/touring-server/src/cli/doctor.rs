@@ -132,8 +132,38 @@ fn check_project_db() -> Check {
 /// Wiring-map row census — surfaces pollution that distorts `orphan_count`.
 ///
 /// Reads knowledge.db directly (read-only) so the diagnostic works even
-/// when the daemon is unhealthy. Status:
-/// - `ok`: clean (no non-Rust rows, no kind_unknown rows, no abs paths)
+/// when the daemon is unhealthy.
+///
+/// # What counts as pollution
+///
+/// The question is NOT "is this Rust?" but "is this a source file the wiring
+/// graph can resolve?". Measured across four projects on 2026-08-19, asking
+/// the first errs in BOTH directions at once:
+///
+/// - **false positive** — `analise` is a Python project; 192.997 rows earned a
+///   permanent warning for the offence of not ending in `.rs`.
+/// - **false negative** — `touring` itself carries 102 rows of
+///   `benches/src/*.rs`. They end in `.rs`, so the flagship project read
+///   `ok` — while the write gate rejects `benches/` and the read filter,
+///   being extension-only, lets them inflate the orphan count. Exactly the
+///   unreliability the warning exists to signal, invisible to it.
+///
+/// So three counters, and only ONE of them judges:
+///
+/// | counter | meaning | effect |
+/// |---|---|---|
+/// | `non_wireable` | inadmissible under the MAXIMUM vocabulary (`polyglot=true`): vendored trees, `docs/`, `scripts/`, `tests/`, `benches/`, test files, extensions outside the vocabulary | **warning** |
+/// | `unread` | a supported-language source the CURRENT mode does not read | informative — the answer to "why is my Python project's wiring thin?" |
+/// | census | `rows`/`producers`/`consumers`/`pub` over the set the answers actually use | describes what is read |
+///
+/// `non_wireable` is mode-INDEPENDENT by design: a `.json` or a virtualenv is
+/// not wiring under any read. `unread` depends on the mode, and is information,
+/// not a defect. The classification calls [`is_wireable_source`] — the writer's
+/// own vocabulary — so the diagnostic cannot disagree with the thing it
+/// diagnoses, the same principle that put `root=` here in 30.4.6.
+///
+/// Status:
+/// - `ok`: clean (nothing non-wireable, no kind_unknown rows, no abs paths)
 /// - `warning`: pollution detected; orphan_count is biased — operators should
 ///   run `touring index rebuild` to repopulate the wiring_map with the new
 ///   eligibility gate. The detail string surfaces which class of pollution.
@@ -162,45 +192,106 @@ fn check_wiring_diagnostic() -> Check {
             };
         }
     };
-    let row = conn.query_row(
+    // GROUP BY module_file, not a flat SUM: the classification below is Rust
+    // logic (the writer's own predicate), which SQL cannot express. Grouping
+    // makes the cost O(distinct files) rather than O(rows) — 1.832 vs 24.026 in
+    // `analise` — and each group carries its own census contribution.
+    let mut stmt = match conn.prepare(
         "SELECT
+            module_file,
             COUNT(*),
             SUM(CASE WHEN consumer_file IS NULL THEN 1 ELSE 0 END),
             SUM(CASE WHEN consumer_file IS NOT NULL THEN 1 ELSE 0 END),
             SUM(CASE WHEN consumer_file IS NULL AND visibility = 'public' THEN 1 ELSE 0 END),
-            SUM(CASE WHEN symbol_kind = 'unknown' THEN 1 ELSE 0 END),
-            SUM(CASE WHEN module_file NOT LIKE '%.rs' THEN 1 ELSE 0 END),
-            SUM(CASE WHEN module_file LIKE '/home/%' THEN 1 ELSE 0 END)
-         FROM wiring_map",
-        [],
-        |r| {
-            Ok((
-                r.get::<_, i64>(0).unwrap_or(0),
-                r.get::<_, Option<i64>>(1)?.unwrap_or(0),
-                r.get::<_, Option<i64>>(2)?.unwrap_or(0),
-                r.get::<_, Option<i64>>(3)?.unwrap_or(0),
-                r.get::<_, Option<i64>>(4)?.unwrap_or(0),
-                r.get::<_, Option<i64>>(5)?.unwrap_or(0),
-                r.get::<_, Option<i64>>(6)?.unwrap_or(0),
-            ))
-        },
-    );
-    match row {
-        Ok((total, producers, consumers, pub_prod, kind_unknown, non_rust, abs_paths)) => {
-            let polluted = non_rust > 0 || kind_unknown > 0 || abs_paths > 0;
-            Check {
+            SUM(CASE WHEN symbol_kind = 'unknown' THEN 1 ELSE 0 END)
+         FROM wiring_map
+         GROUP BY module_file",
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            return Check {
                 name: "wiring_diagnostic",
-                status: if polluted { "warning" } else { "ok" },
-                detail: format!(
-                    "rows={total} producers={producers} consumers={consumers} pub={pub_prod} kind_unknown={kind_unknown} non_rust={non_rust} abs_paths={abs_paths}"
-                ),
-            }
+                status: "error",
+                detail: format!("prepare: {e}"),
+            };
         }
-        Err(e) => Check {
-            name: "wiring_diagnostic",
-            status: "error",
-            detail: format!("query: {e}"),
-        },
+    };
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, Option<String>>(0)?.unwrap_or_default(),
+            r.get::<_, i64>(1).unwrap_or(0),
+            r.get::<_, Option<i64>>(2)?.unwrap_or(0),
+            r.get::<_, Option<i64>>(3)?.unwrap_or(0),
+            r.get::<_, Option<i64>>(4)?.unwrap_or(0),
+            r.get::<_, Option<i64>>(5)?.unwrap_or(0),
+        ))
+    });
+    let rows = match rows {
+        Ok(r) => r,
+        Err(e) => {
+            return Check {
+                name: "wiring_diagnostic",
+                status: "error",
+                detail: format!("query: {e}"),
+            };
+        }
+    };
+
+    let root = touring_foundation::config::TouringConfig::project_root_for_db(&db_path);
+    // The mode decides WHICH rows any wiring query can see, so the census is
+    // unreadable without it: the same 200k rows mean "a wired Python project"
+    // under `on` and "dead weight" under `off`.
+    let polyglot = touring_foundation::config::TouringConfig::polyglot_wiring_for_root(
+        root.as_deref().map(std::path::Path::new),
+    );
+
+    let (mut total, mut producers, mut consumers, mut pub_prod) = (0i64, 0i64, 0i64, 0i64);
+    let (mut kind_unknown, mut non_wireable, mut unread, mut abs_paths) = (0i64, 0i64, 0i64, 0i64);
+    for row in rows {
+        let Ok((module_file, n, prod, cons, pubp, unknown)) = row else {
+            continue;
+        };
+        // Absolute means absolute: this counted `/home/%` until 2026-08-19, so
+        // a polluted row under `/tmp`, `/opt` or `/Users` read as clean and the
+        // diagnostic under-reported exactly where the developer's own layout
+        // differed from the machine being diagnosed.
+        if module_file.starts_with('/') {
+            abs_paths += n;
+        }
+        if !touring_storage::knowledge_wiring::is_wireable_source(&module_file, true) {
+            // Judged: no read admits this file, in any mode.
+            non_wireable += n;
+            continue;
+        }
+        if !touring_storage::knowledge_wiring::is_wireable_source(&module_file, polyglot) {
+            // Merely unread: a supported-language source this mode filters out.
+            unread += n;
+            continue;
+        }
+        // The census covers ONLY what the answers use.
+        total += n;
+        producers += prod;
+        consumers += cons;
+        pub_prod += pubp;
+        kind_unknown += unknown;
+    }
+
+    let polluted = non_wireable > 0 || kind_unknown > 0 || abs_paths > 0;
+    Check {
+        name: "wiring_diagnostic",
+        status: if polluted { "warning" } else { "ok" },
+        // `root` first: it is the field whose ABSENCE hid a defect for two
+        // months. The wiring paths of one project were being canonicalized
+        // against ANOTHER project's root (inherited env), and every number
+        // below is relative to that root — a census of rows means nothing until
+        // you know what the rows are relative to. Same function that derives it
+        // for the writer, so the diagnostic cannot disagree with the thing it
+        // diagnoses.
+        detail: format!(
+            "root={} polyglot={} rows={total} producers={producers} consumers={consumers} pub={pub_prod} kind_unknown={kind_unknown} non_wireable={non_wireable} unread={unread} abs_paths={abs_paths}",
+            root.unwrap_or_else(|| "<não derivável>".to_string()),
+            if polyglot { "on" } else { "off" },
+        ),
     }
 }
 
@@ -251,6 +342,51 @@ fn check_binary_version() -> Check {
 
 /// Entry point for the `touring doctor` CLI handler — runs the diagnostic
 /// suite (binary version, daemon socket, daemon health, circuit breaker,
+/// Probe the PROJECT ACTOR, not just the daemon process.
+///
+/// `check_daemon_health` asks the daemon's `__health__` handler, which does not
+/// pass through the per-project actor queue. On 2026-08-20 a single
+/// `touring mutation-test` (a 19-minute job dispatched to a handler with a 15s
+/// budget) serialized that queue: `status`, `index status`, `memory recall` and
+/// `e2e` all timed out for the whole run while `doctor` reported 6/6 ok. The
+/// handlers that died are exactly the ones `loop_diagnose.py` and
+/// `loop_converged.py` consume — a loop would have read "healthy" and then
+/// failed every clause on timeout, with nothing explaining why.
+///
+/// A health gate that cannot see the queue it depends on is not a health gate.
+fn check_project_actor() -> Check {
+    const SLOW_MS: u128 = 5_000;
+
+    let started = std::time::Instant::now();
+    let outcome = super::daemon_query("cli-index-status", serde_json::json!({}));
+    let elapsed_ms = started.elapsed().as_millis();
+
+    match outcome {
+        Ok(_) if elapsed_ms > SLOW_MS => Check {
+            name: "project_actor",
+            status: "degraded",
+            detail: format!(
+                "responsive but slow ({elapsed_ms} ms) — a long-running handler \
+                 may be serializing the queue"
+            ),
+        },
+        Ok(_) => Check {
+            name: "project_actor",
+            status: "ok",
+            detail: format!("responsive ({elapsed_ms} ms)"),
+        },
+        Err(e) => Check {
+            name: "project_actor",
+            status: "error",
+            detail: format!(
+                "no answer after {elapsed_ms} ms: {e} — the actor is likely busy \
+                 with an earlier heavy op (index rebuild, mutation-test); \
+                 project-scoped commands will time out until it drains"
+            ),
+        },
+    }
+}
+
 /// project DB, wiring-map pollution census) and reports the results either as
 /// pretty JSON (with `-j`/`--json`) or a human-readable check list to stderr.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
@@ -262,6 +398,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         check_daemon_health(),
         check_circuit_breaker(),
         check_project_db(),
+        check_project_actor(),
         check_wiring_diagnostic(),
     ];
 

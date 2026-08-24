@@ -613,6 +613,15 @@ pub(crate) fn ensure_decompose_tables(db: &crate::knowledge::FileKnowledgeDB) {
         "ALTER TABLE task_decompositions ADD COLUMN mirrored_to_cc INTEGER NOT NULL DEFAULT 1",
         [],
     );
+    // T3.1 (2026-08-19): resolved DECISION tickets are written back up to the map
+    // they belong to, so the parent stops describing a world its children already
+    // changed. Added here AND in `cli_handlers_decompose::ensure_decompose_tables`
+    // because both are live schema owners for the same database — whichever runs
+    // first must leave the column in place.
+    let _ = db.conn_ref().execute(
+        "ALTER TABLE task_decompositions ADD COLUMN resolutions TEXT",
+        [],
+    );
     let _ = db
         .conn_ref()
         .execute(

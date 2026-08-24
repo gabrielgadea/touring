@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "gabriel.skills-deck",
+  "name": "Skills deck",
+  "version": "0.1.0",
+  "author": "Gabriel Gadea",
+  "description": "Bar widget that renders a deck of Claude Code skill shortcuts. Click a tile to run the skill; click the icon with right-button to tail the run log.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Skills",
+    "description": "Quick-launch Claude Code skills from the bar",
+    "category": "Agents",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

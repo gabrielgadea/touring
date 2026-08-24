@@ -81,7 +81,48 @@ complete when a command was *run* and its output shown.
 - "exit 0 always" is an invariant — prove it by running the entry points and
   showing the exit code, including on edge-case input.
 - An E2E test written but not run proves nothing. Run it; show the run.
+- **Validators live in the bundle and are re-run on every later change** — the
+  2026-08-12 audit's own validators (`validate_f{1,2,3}_e2e.sh`) caught the
+  A-3 regression (tag-corpus capped at the output limit) that every unit test
+  missed. An E2E validator that only runs once decays into a false certificate.
 - Mark anything you could not execute `UNVERIFIED` — never as passing.
+
+### Four ways an audit reaches the wrong verdict (2026-08-18/19, all observed)
+
+Each of these produced a confident, wrong conclusion in a single audit. They are
+listed because none is caught by running more commands — only by distrusting the
+instrument as much as the system.
+
+There is a fifth, and it is structural rather than observed: **the auditor grading
+its own work**. An audit whose verdict is written by whoever produced the artifact
+has no independent evidence in it. The `critic-panel` fragment is the remedy —
+N critics, each with a DISTINCT lens (correctness · security · does-it-reproduce),
+each in a fresh session (`session = "fresh"`: a critic that watched the work being
+made is not blind), and a **quorum counted by code**, never a narrative synthesis.
+N identical critics find one failure mode N times. Compose it, do not restate it:
+`touring adw new --use critic-panel:panel`. Ref: `Touring/references/skill-operating-principles.md` (P3).
+
+1. **A guard that does not cover the artifact in use is not a guard.** The
+   structural check for shell injection scanned the repo mirror and the
+   instantiations, never `library_dir()` — the copy `from-template` actually
+   reads. The payload shipped for ten days with the guard green. **Ask which
+   artifact the check opens, not which one the fix touched.**
+2. **A test with a synthetic fixture does not exercise the real condition.** The
+   mirror's noise filter classified every live file as noise because the live
+   root IS `~/.claude` and `.claude` is on its ignore list; the unit test passed
+   because its fake root was a bare `tmp_path`. Same shape: a truncation cap was
+   never met because the fixture's header was one line. **Build the fixture to
+   the production condition, or the green means nothing.**
+3. **A test can encode the defect it should guard.** One asserted
+   `fog.clear == 2` for subtasks nobody had assessed — the exact fail-open the
+   feature existed to prevent. When a fix breaks a test, decide which of the two
+   is wrong before touching either.
+4. **Prove the instrument before accusing the system.** Three progress signals
+   lied in one session — `pgrep -f "<cmd>"` matching the watcher's own cmdline,
+   `$?` after a pipeline reporting `tail` instead of `cargo`, and `grep`'s block
+   buffering making a running suite look hung. Each produced a plausible defect
+   report about code that was fine. **Wait on an artifact, never on the absence
+   of a process; use `${PIPESTATUS[0]}`; and never run `cargo` beside `cargo`.**
 
 ## Elite 50-dimension quality gate (PURPOSE + HARMONY)
 
@@ -110,6 +151,13 @@ touring-quality list                                   # 50 dims + enforcement g
 | 🥉/⚪ 0.60–0.79 | finding: remediate (potentialize) before "in harmony" |
 | ⚫ <0.60 OR any P0 FAIL | audit FAIL — fix via `Edit tool`, re-score |
 
+**The verdict is an exit code.** The table above is the human-readable rubric; the
+judge of record is `loop_converged.py --task <id> --scope <path>`, whose
+`cross_audit` clause consumes this audit's result. Marking the rubric by
+self-assessment is precisely the failure Law L3 exists to eliminate, and its
+`judge_intact` clause runs FIRST because a grader the graded party can rewrite is
+worth nothing (arXiv:2505.22954 App. H). Ref: `Touring/references/skill-operating-principles.md` (P2).
+
 ⚠ Real commands only: `touring-quality {score,check,list}` (hyphen, standalone). **NOT** `touring quality`, `score --gate`, `--enforce`, nor `generator de qualidade dedicado (inexistente)` (PLANNED W7 → use `Edit tool`). Per-dim → agent-owner mapping in the keystone; per-dim rules in `~/.claude/skills/touring-elite/references/quality/D01..D52.md`.
 
 ## Touring integration
@@ -126,6 +174,8 @@ touring-quality list                                   # 50 dims + enforcement g
 | PURPOSE | symbol exists / signature | `touring index find` · `touring ast find` |
 | PURPOSE | **6 BLOCK dims (P0)** | `touring-quality check --gate F2.1\|F2.4\|F2.5\|F2.6\|F4.3\|F4.5 --target <FILE>` |
 | E2E PROOF | composite system health | `touring e2e -j` |
+| MAP | scope discovery by facet (hashtag library v30.4) | `touring memory query "#domain:<d>"` · `touring memory moc <domain>` (emergent map of the audited domain) |
+| PURPOSE | prior audits/lessons by facet | `touring memory recall "<scope> #kind:lesson #process:cross-audit"` |
 | FIX | apply corrections | `Edit tool` |
 | REPORT | persist the audit | `touring memory store` · `touring diary write` |
 
@@ -155,6 +205,39 @@ re-done by hand varies; the script does not.
 | **4/6 HARMONY + PROOF** | `systemic_diag_v2.py <t>` · `crate_50dim_matrix.py <crate>` | **50-dim × architecture × security fused** risk (the 6 P0 BLOCK dims + CVE + cycle, blast-amplified) — the harmony verdict, lossless per-dim |
 
 These make "prove it in practice" literal for the architecture + security + quality axes at once, not one lens at a time. **Reporting Contract (MANDATORY)**: the audit report MUST relay each arsenal diagnostic in full — the 7 elite sections (VERDICT · SCORECARD · FINDINGS all-breadth · FUSED RISK · ROOT-CAUSE · PROVENANCE · ACTIONS); a single-lever summary replacing the full breakdown is a violation. Spec + enforcement: `~/.claude/skills/Touring/scripts/report_contract.py` (footer printed by every diagnostic).
+
+
+## Auditing context enrichment (2026-08-08)
+
+Enrichment surfaces — hook `additionalContext`, ADW node summaries, CCE lenses,
+prior-art blocks — are **in scope for purpose-fidelity**, and they fail in ways
+unit tests never catch: a payload can be perfectly typed, fully green, and still
+assert something false. Doctrine + measured evidence: `~/.claude/skills/Touring/references/context-enrichment.md`.
+
+Six honesty axes, each an audit finding when violated, each provable by running
+the surface and showing its output:
+
+| Axis | The audit question | How it fails in practice |
+|---|---|---|
+| **E4** absence displayed | does a `None` render as "unknown", or vanish? | a missing test reads as a passing one |
+| **E5** no fabrication | is every returned item from a real corpus? | `doc_kw_1..5` hardcoded, identical for every query |
+| **E5b** corpus declared | can the caller tell "found nothing" from "no corpus"? | an **empty** backend reports `wired: true` |
+| **E6** honest gaps | does an absence claim survive a morphological variant? | "no candidate mentions professional" vs "professionally formatted" |
+| **E8** derived values | does the payload carry the real value or a `<placeholder>`? | boilerplate or a stub docstring becomes the "purpose" |
+| **E9** freshness | is a cached corpus invalidated when its source changes? | a `OnceLock` in a daemon asserts stale prior art forever |
+
+**Tests that encode the bug are themselves a finding.** Two tests asserted
+`!results.is_empty()` against the fabricated corpus — they passed *because* the
+defect existed. When a defect is found, check whether a test was defending it,
+and rewrite that test to the real contract (REGRA #0: the contract expands).
+
+```bash
+# Prove an enrichment surface rather than reading it
+echo '{"tool_name":"Write","tool_input":{"file_path":"…","content":"…"}}' \
+  | touring-hook cli-suggest | python3 -m json.tool
+touring portfolio inspect <arquivo>     # what the miner really extracted
+touring find-code search "<query>" -j   # must report `backends`, never invent hits
+```
 
 ## Hard rules
 

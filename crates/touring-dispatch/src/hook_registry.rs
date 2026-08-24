@@ -12,6 +12,7 @@
 //!   used by the daemon to dispatch requests via O(1) lookup.
 
 use std::collections::HashMap;
+use touring_foundation::truncate_str;
 
 use crate::daemon::HookHandler;
 
@@ -132,6 +133,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-wiring-suggest",
         "cli-wiring-impact",
         "cli-wiring-cycles",
+        "cli-wiring-scip-ingest",
         "cli-cognitive-metrics",
         "cli-cognitive-engines",
         "cli-flywheel-status",
@@ -144,6 +146,16 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-memory-recall",
         "cli-memory-credit",
         "cli-memory-store",
+        "cli-memory-tag-add",
+        "cli-memory-tags",
+        "cli-memory-query",
+        "cli-memory-sync-tags",
+        "cli-memory-link",
+        "cli-memory-links",
+        "cli-memory-backfill-tags",
+        "cli-memory-moc",
+        "cli-memory-communities",
+        "cli-memory-unlink",
         "cli-memory-list",
         "cli-memory-reindex",
         "cli-evolution-drift",
@@ -175,6 +187,10 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-decompose-event",
         "cli-decompose-finalize",
         "cli-decompose-ready",
+        "cli-decompose-claim",
+        "cli-decompose-release",
+        "cli-decompose-ticket",
+        "cli-decompose-frontier",
     ]);
     // CLI mcts handlers
     names.push("cli-mcts-search");
@@ -456,6 +472,7 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-wiring-suggest",
     "cli-wiring-impact",
     "cli-wiring-cycles",
+    "cli-wiring-scip-ingest",
     "cli-cognitive-metrics",
     "cli-cognitive-engines",
     "cli-flywheel-status",
@@ -468,6 +485,16 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-memory-recall",
     "cli-memory-credit",
     "cli-memory-store",
+    "cli-memory-tag-add",
+    "cli-memory-tags",
+    "cli-memory-query",
+    "cli-memory-sync-tags",
+    "cli-memory-link",
+    "cli-memory-links",
+    "cli-memory-backfill-tags",
+    "cli-memory-moc",
+    "cli-memory-communities",
+    "cli-memory-unlink",
     "cli-memory-list",
     "cli-memory-reindex",
     "cli-evolution-drift",
@@ -494,6 +521,10 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-decompose-event",
     "cli-decompose-finalize",
     "cli-decompose-ready",
+    "cli-decompose-claim",
+    "cli-decompose-release",
+    "cli-decompose-ticket",
+    "cli-decompose-frontier",
     // CLI mcts handlers
     "cli-mcts-search",
     // CLI shadow handlers
@@ -760,7 +791,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
                         .unwrap_or(false)
                 });
             if has_error && !tool_name.is_empty() {
-                let truncated_tool = &tool_name[..tool_name.len().min(30)];
+                let truncated_tool = truncate_str(tool_name, 30);
                 let hint = match tool_name {
                     "Edit" | "Write" | "MultiEdit" => serde_json::json!({
                         "type": "rl_edit_error",
@@ -888,7 +919,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         // and ConsumerGenerator scaffold hint so Claude Code can immediately wire new artifacts.
         let wiring_orphan_hint = crate::lifecycle::maybe_wiring_orphan_hint_on_complete(task_id);
         let consumer_gen_hint = if !wiring_orphan_hint.is_empty() {
-            let truncated_id = &task_id[..task_id.len().min(40)];
+            let truncated_id = truncate_str(task_id, 40);
             format!(
                 " | consumer-wire: run `touring generate render ConsumerGenerator \
                 --vars '{{\"source_module\":\"{truncated_id}\",\"event\":\"task:{truncated_id}:completed\"}}'` \
@@ -910,7 +941,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             // Closes the gap: completed task subject → memory graph → cross-session retrieval.
             // Future sessions can `touring memory recall "artifact:<task_id>"` to find the artifact.
             if subject_at_completion.len() > 3 {
-                let truncated_subject = &subject_at_completion[..subject_at_completion.len().min(200)];
+                let truncated_subject = truncate_str(subject_at_completion, 200);
                 let _ = crate::cli_handlers::cli_memory_store(rt, &serde_json::json!({
                     "key": format!("artifact:{task_id}"),
                     "value": format!("Task {task_id} artifact: {truncated_subject} — finalize={finalize_status}"),
@@ -924,7 +955,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             // the task-completed → plan-replay → next-iteration loop that allows automation
             // of repeated artifact generation without re-planning from scratch each time.
             let plan_replay_hint = if subject_at_completion.len() > 3 {
-                let short_subject = &subject_at_completion[..subject_at_completion.len().min(60)];
+                let short_subject = truncate_str(subject_at_completion, 60);
                 format!(
                     " | replay: run `touring generate plan-recall --query \"{short_subject}\"` \
                     to find and replay generator plan on a new subject"
@@ -960,7 +991,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             // R131: Recovery generator hints for task failure — symmetric with R126 (task-escalation).
             // Surfaces ErrorCatalog (document failure pattern), recovery plan-suggest, and evolution
             // drift check so Claude Code can immediately scaffold a recovery path after failure.
-            let truncated_id = &task_id[..task_id.len().min(40)];
+            let truncated_id = truncate_str(task_id, 40);
             let recovery_hints = format!(
                 " | error-catalog: run `touring generate render ErrorCatalog \
                 --vars '{{\"crate_name\":\"{truncated_id}\",\"error_codes\":[]}}'` \
@@ -1015,7 +1046,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             let sess_payload = serde_json::json!({
                 "session_id": task_id,
                 "task_type": "task",
-                "objective": &subject[..subject.len().min(200)],
+                "objective": truncate_str(subject, 200),
             });
             let result = crate::cli_handlers::cli_session_start(rt, &sess_payload);
             result.contains("started") || result.contains("session_id")
@@ -1042,13 +1073,13 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
                 format!(" | {}", hints.join(" | "))
             } else {
                 format!(" | generator: `touring generate plan-suggest --intent \"{}\"` to scaffold artifacts",
-                    &subject[..subject.len().min(80)])
+                    truncate_str(subject, 80))
             }
         } else { String::new() };
         // R33-S3: Recall past plans for the same subject — surfaces related generator plans
         // from memory so the engineer can resume or adapt prior work instead of starting fresh.
         let recall_hint = if subject.len() > 3 {
-            let short_subject = &subject[..subject.len().min(60)];
+            let short_subject = truncate_str(subject, 60);
             let recall_payload = serde_json::json!({"query": short_subject, "limit": 1});
             let recall_result = crate::cli_handlers::cli_memory_recall(rt, &recall_payload);
             if recall_result.contains("\"entries\"") && recall_result.contains("\"value\"") {
@@ -1145,7 +1176,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             if !hints.is_empty() {
                 format!(" | scaffold-next: {}", hints.join(" | "))
             } else {
-                let truncated = &task_id[..task_id.len().min(60)];
+                let truncated = truncate_str(task_id, 60);
                 format!(" | scaffold-next: run `touring generate plan-suggest --intent \"{truncated}\"` to choose generator")
             }
         } else {
@@ -1273,7 +1304,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         } else {
             "recover from task failure"
         };
-        let truncated_id = &task_id[..task_id.len().min(40)];
+        let truncated_id = truncate_str(task_id, 40);
         let recovery_hint = format!(
             " | recovery: run `touring generate plan-suggest --intent \"{recovery_kind}: {truncated_id}\"` \
             to scaffold a recovery plan \
@@ -1348,6 +1379,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     m.insert("cli-wiring-cycles", |rt, v| {
         crate::cli_handlers::cli_wiring_cycles(rt, v)
     });
+    m.insert("cli-wiring-scip-ingest", |rt, v| {
+        crate::cli_handlers::cli_wiring_scip_ingest(rt, v)
+    });
     // ACP (Agent Client Protocol) handlers — bridges CLI dispatch to ACP socket protocol
     #[cfg(feature = "acp-protocol")]
     {
@@ -1393,6 +1427,42 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-memory-store", |rt, v| {
         crate::cli_handlers::cli_memory_store(rt, v)
+    });
+    // F1 (hashtag library, 2026-08-11): faceted memory tagging — add a tag,
+    // list a memory's tags, and conjunctive #facet:value search.
+    m.insert("cli-memory-tag-add", |rt, v| {
+        crate::cli_handlers::cli_memory_tag_add(rt, v)
+    });
+    m.insert("cli-memory-tags", |rt, v| {
+        crate::cli_handlers::cli_memory_tags(rt, v)
+    });
+    m.insert("cli-memory-query", |rt, v| {
+        crate::cli_handlers::cli_memory_query(rt, v)
+    });
+    // F2 (hashtag library, 2026-08-11): codetag #tags: harvest into snippet memories.
+    m.insert("cli-memory-sync-tags", |rt, v| {
+        crate::cli_handlers::cli_memory_sync_tags(rt, v)
+    });
+    // F3: typed memory<->memory link graph (relates-to/supersedes/extends/...).
+    m.insert("cli-memory-link", |rt, v| {
+        crate::cli_handlers::cli_memory_link(rt, v)
+    });
+    m.insert("cli-memory-links", |rt, v| {
+        crate::cli_handlers::cli_memory_links(rt, v)
+    });
+    // F4: conservative backfill of faceted tags over pre-existing entries.
+    m.insert("cli-memory-backfill-tags", |rt, v| {
+        crate::cli_handlers::cli_memory_backfill_tags(rt, v)
+    });
+    // F5: emergent communities + Map of Content generation.
+    m.insert("cli-memory-moc", |rt, v| {
+        crate::cli_handlers::cli_memory_moc(rt, v)
+    });
+    m.insert("cli-memory-communities", |rt, v| {
+        crate::cli_handlers::cli_memory_communities(rt, v)
+    });
+    m.insert("cli-memory-unlink", |rt, v| {
+        crate::cli_handlers::cli_memory_unlink(rt, v)
     });
     m.insert("cli-memory-list", |rt, v| {
         crate::cli_handlers::cli_memory_list(rt, v)
@@ -1582,6 +1652,18 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-decompose-ready", |rt, v| {
         crate::cli_handlers::cli_decompose_ready(rt, v)
+    });
+    m.insert("cli-decompose-claim", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_claim(rt, v)
+    });
+    m.insert("cli-decompose-release", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_release(rt, v)
+    });
+    m.insert("cli-decompose-ticket", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_ticket(rt, v)
+    });
+    m.insert("cli-decompose-frontier", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_frontier(rt, v)
     });
     m.insert("cli-tasksfile-validate", |rt, v| {
         crate::cli_handlers_decompose::cli_tasksfile_validate(rt, v)

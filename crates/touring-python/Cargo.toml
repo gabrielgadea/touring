@@ -2,7 +2,7 @@
 name = "touring-python"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "PyO3 bindings shim — implementation in touring-bindings/bind-python"
 license.workspace = true
 

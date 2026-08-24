@@ -145,24 +145,24 @@ pub fn init_project_in(root: &Path, args: &InitProjectArgs) -> Result<()> {
         }
         std::fs::remove_dir_all(&dot_touring).map_err(|e| {
             anyhow!(
-                "failed to remove existing .touring/ at {}: {e}",
+                "cannot remove existing .touring/ at {} — run `ls -la` on that path to check permissions: {e}",
                 dot_touring.display()
             )
         })?;
     }
 
     std::fs::create_dir_all(&dot_touring)
-        .map_err(|e| anyhow!("create_dir_all {}: {e}", dot_touring.display()))?;
+        .map_err(|e| anyhow!("failed to create .touring/ at {} — run `df -h .` to check disk space: {e}", dot_touring.display()))?;
 
     for sub in SUBDIRS {
         let p = dot_touring.join(sub);
-        std::fs::create_dir_all(&p).map_err(|e| anyhow!("create_dir_all {}: {e}", p.display()))?;
+        std::fs::create_dir_all(&p).map_err(|e| anyhow!("failed to create .touring/{} — run `df -h .` to check disk space: {e}", sub))?;
     }
 
     if !args.bare {
         let toml_path = dot_touring.join("touring.toml");
         std::fs::write(&toml_path, DEFAULT_TOURING_TOML)
-            .map_err(|e| anyhow!("write {}: {e}", toml_path.display()))?;
+            .map_err(|e| anyhow!("failed to write touring.toml — run `df -h .` to check disk space: {e}"))?;
     }
 
     // F2 (2.1, 2026-07-24): populate `.touring/bin/` — the dir was scaffolded

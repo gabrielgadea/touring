@@ -1,4 +1,4 @@
-//! `touring decompose create|add|get|update|validate|status|finalize|ready|templates|template`
+//! `touring decompose create|add|get|update|validate|status|finalize|ready|claim|release|ticket|frontier|templates|template`
 //! — DAG task decomposition.
 //!
 //! Manages hierarchical task decomposition for multi-step workflows.
@@ -104,6 +104,51 @@ enum DecomposeCmd {
         #[arg(long)]
         by_priority: bool,
     },
+    /// Atomically take the next ready subtask for one owner. Unlike `ready`,
+    /// which only reads (so two sessions polling it receive the SAME subtask),
+    /// this claims exclusively via a conditional write, with an expiring lease
+    /// so a session that dies mid-work frees its subtask.
+    Claim {
+        task_id: String,
+        /// Who is taking the work — required, so a claim can be released or expired.
+        #[arg(long)]
+        owner: String,
+        /// Lease length in seconds (default 3600).
+        #[arg(long)]
+        lease_secs: Option<i64>,
+    },
+    /// Hand a claimed subtask back to the pool. Only its own owner may.
+    Release {
+        task_id: String,
+        subtask_id: String,
+        #[arg(long)]
+        owner: String,
+    },
+    /// Annotate a subtask as a Wayfinder ticket: is it here to DECIDE something
+    /// or to BUILD it, how much fog surrounds it, and whether a human must be
+    /// present. Every field is optional so a ticket is refined as fog lifts.
+    Ticket {
+        task_id: String,
+        subtask_id: String,
+        /// decision | implementation
+        #[arg(long)]
+        kind: Option<String>,
+        /// research | prototype | grilling | task
+        #[arg(long)]
+        subtype: Option<String>,
+        /// hitl | afk
+        #[arg(long)]
+        autonomy: Option<String>,
+        /// clear | hazy | unknown
+        #[arg(long)]
+        fog: Option<String>,
+        /// The decision ticket this work came out of (map-as-index).
+        #[arg(long)]
+        origin_ticket: Option<String>,
+    },
+    /// The frontier: unblocked work partitioned into open DECISIONS and the
+    /// implementation they gate, with the map's traceability reported.
+    Frontier { task_id: String },
     /// List the 10 reusable workflow templates W1-W10 (TR-5). Emits JSON
     /// `{count, templates: [...]}` — consumed by touring-web `/plans`.
     Templates,
@@ -291,6 +336,58 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "by_priority": by_priority,
             });
             let output = daemon_query("cli-decompose-ready", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Claim {
+            task_id,
+            owner,
+            lease_secs,
+        } => {
+            let mut payload = serde_json::json!({ "task_id": task_id, "owner": owner });
+            if let Some(secs) = lease_secs {
+                payload["lease_secs"] = serde_json::json!(secs);
+            }
+            let output = daemon_query("cli-decompose-claim", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Release {
+            task_id,
+            subtask_id,
+            owner,
+        } => {
+            let payload = serde_json::json!({
+                "task_id": task_id, "subtask_id": subtask_id, "owner": owner,
+            });
+            let output = daemon_query("cli-decompose-release", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Ticket {
+            task_id,
+            subtask_id,
+            kind,
+            subtype,
+            autonomy,
+            fog,
+            origin_ticket,
+        } => {
+            let mut payload = serde_json::json!({ "task_id": task_id, "subtask_id": subtask_id });
+            for (key, value) in [
+                ("kind", kind),
+                ("subtype", subtype),
+                ("autonomy", autonomy),
+                ("fog", fog),
+                ("origin_ticket", origin_ticket),
+            ] {
+                if let Some(v) = value {
+                    payload[key] = serde_json::json!(v);
+                }
+            }
+            let output = daemon_query("cli-decompose-ticket", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Frontier { task_id } => {
+            let payload = serde_json::json!({ "task_id": task_id });
+            let output = daemon_query("cli-decompose-frontier", payload)?;
             println!("{output}");
         }
         DecomposeCmd::Templates => {

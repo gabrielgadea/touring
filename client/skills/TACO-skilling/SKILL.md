@@ -168,7 +168,7 @@ The intelligence layer the bare skill-creator has no access to:
 | Discover | past lessons | `touring memory recall "<intent>"` |
 | Discover | symbol / pattern search | `touring tantivy search "<query>"` |
 | Discover | known pitfalls | `touring gotcha match <file>` |
-| Design | task DAG for complex skills | `touring decompose create` |
+| Design | task DAG for complex skills | `touring decompose create`, then take each unit with `touring decompose claim <task> --owner skilling-<n>` — two sessions must never re-derive the same skill |
 | Enrich | VGP — does the symbol exist? | `touring index find <symbol>` |
 | Enrich | generate scripts | `Write tool (script Python)` |
 | Persist | store the lesson | `touring memory store --tier semantic` |
@@ -201,7 +201,13 @@ over re-deriving the same analysis by hand (Rule #2).
 ## Hard rules
 
 1. **Discover before creating.** Never create a skill that duplicates an existing
-   one — `discover.py` Phase 1 is mandatory. Overlap → extend or compose instead.
+   one — `discover.py` Phase 1 is mandatory. Overlap → extend or compose instead. The same
+   test applies BELOW the skill: if the procedure being written is already a
+   fragment (`touring adw fragments` — 13 live), the skill CITES it and never
+   restates it. Prose restating a fragment is a second implementation, and no
+   correction to the fragment will ever reach it — measured 25/07/2026, when a
+   shell-injection fix reached the mirror and the instantiations but never the
+   deployed library `adw from-template` copies from. Ref: `Touring/references/skill-operating-principles.md` (P1).
 2. **Generate code through `Touring-native tooling`.** edição-com-gate: `.py`/`.sh` and other code
    are created via `Write tool*`, never the Write tool.
 3. **Refine prunes.** Every REFINE that adds content runs the hygiene gate; over

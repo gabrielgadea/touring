@@ -71,6 +71,7 @@ touring synergy -j                           # wired_pairs + opportunities
 touring gate-metrics -j                     # L7-B metrics
 
 # MASTERS (Layer-3)
+touring portfolio "<intento>"                # prior-art por PROPÓSITO + lacunas + lente externa (veredito obrigatório)
 touring explore <topic>                      # loop-until-dry exploration (CCE)
 touring adw run <name>                       # durable agent workflow (spec+journal)
 
@@ -85,6 +86,17 @@ touring wiring cycles --min-depth 2          # Tarjan SCC
 touring ast rust-semantic <file.rs>          # syn semantics
 touring ast workspace-info                   # cargo_metadata
 touring ast grep <file> <pattern> --rewrite <r>  # polyglot rewrite
+
+# MEMORY HASHTAGS (biblioteca facetada v30.4 — guide: docs/memory-hashtag-library.md)
+touring memory store <k> <v> --tag "#kind:lesson" --tag "#domain:wiring"   # store c/ facetas (auto-derive sempre roda)
+touring memory query "#kind:snippet #lang:python"      # conjuntivo exato por faceta
+touring memory recall "diorama #artifact:map"          # recall c/ filtro de tag pré-RRF
+touring memory sync-tags --file|--dir <path>           # codetags `#tags:` -> snippet memories (post_write/edit já sincroniza)
+touring memory link <src> <dst> --rel extends          # aresta tipada (id determinístico) · links <key> · unlink <id>
+touring memory moc <tópico> [--out path]               # Mapa de Conteúdo emergente (comunidades)
+touring memory communities [--domain d]                # visão global das comunidades
+touring memory backfill-tags [--dry-run]               # retroativo conservador
+touring portfolio "<intento> #kind:script #lang:py"    # portfólio facetado (filtra corpus antes do BM25)
 ```
 
 **TIER 4-9 commands** (session/decompose/memory/generate/tantivy/evolution/inferlets/jobs): see `~/.claude/skills/Touring/references/touring-cli-tiers-4-9.md`.
