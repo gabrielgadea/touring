@@ -273,6 +273,14 @@ pub fn run(args: &[String]) -> Result<()> {
 
     let user_code = resolve_code(&cli)?;
     let code = maybe_inject_sdk(user_code.clone(), &cli.lang, cli.orchestrate)?;
+    // W3b/S-3.4 — a biblioteca de snippets vira bindings `snippet_*` DEPOIS do
+    // SDK (um snippet pode usar `touring.*`) e ANTES do corpo do usuário.
+    let (snippet_pre, snippet_report) = snippet_preamble(cli.orchestrate, &cli.lang);
+    let code = if snippet_pre.is_empty() {
+        code
+    } else {
+        format!("{snippet_pre}\n{code}")
+    };
 
     // W5 T12/S-5.1 — `touring run` now traverses the CEG X0..X7 gateway before
     // execution (before 2026-08-23 only the `touring exec` family exercised
@@ -314,7 +322,13 @@ pub fn run(args: &[String]) -> Result<()> {
     // otherwise recognising a re-run of an already-harvested body. Both operate
     // on the USER's code, never the injected SDK (same rule as the hint).
     let trust = settle_snippet_ladder(&user_code, &cli.lang, out.exit_code, cli.harvest.as_deref());
-    emit_output(&out, cli.brief, harvest.as_deref(), trust.as_deref())?;
+    emit_output(
+        &out,
+        cli.brief,
+        harvest.as_deref(),
+        trust.as_deref(),
+        &snippet_report,
+    )?;
 
     // Propagate the sandboxed program's exit code as the CLI exit code so callers (and
     // code-mode orchestration) see a faithful success/failure signal, not just rc=0.
@@ -419,6 +433,7 @@ fn emit_output(
     brief: bool,
     harvest: Option<&str>,
     snippet_trust: Option<&str>,
+    snippet_report: &serde_json::Value,
 ) -> Result<()> {
     if brief {
         let summary = touring_ceg::gateway::summarize_output(
@@ -462,6 +477,11 @@ fn emit_output(
         // copying): a snippet that keeps failing visibly loses its ✓.
         if let Some(t) = snippet_trust {
             payload["snippet_trust"] = serde_json::json!(t);
+        }
+        // W3b/S-3.4 — quais bindings `snippet_*` o programa tinha à disposição,
+        // o que o teto cortou, e o erro quando a biblioteca está inconsistente.
+        if !snippet_report.is_null() {
+            payload["snippet_bindings"] = snippet_report.clone();
         }
         println!("{}", serde_json::to_string_pretty(&payload)?);
     }
@@ -615,6 +635,53 @@ fn maybe_inject_sdk(code: String, lang: &str, orchestrate: bool) -> Result<Strin
     Ok(format!("{TOURING_PY_SDK}\n{code}"))
 }
 
+/// W3b/S-3.4 — o preâmbulo de bindings `snippet_*` para este run.
+///
+/// Devolve `(preâmbulo, relatório)`. O relatório é o que aparece no payload:
+/// quais bindings ficaram disponíveis, o que o teto cortou e — quando a
+/// biblioteca está inconsistente (ciclo, colisão, credencial embutida) — o erro
+/// que ensina a consertá-la.
+///
+/// **Fail-open por desenho**: uma biblioteca inconsistente NÃO aborta o run.
+/// O programa do usuário pode nem usar snippets, e derrubá-lo por causa de um
+/// snippet alheio seria o gate bricando a sessão (a invariante do CEG). Sem
+/// bindings, um programa que dependia deles falha com `NameError` — e o
+/// `snippet_bindings_error` no payload diz exatamente por quê.
+fn snippet_preamble(orchestrate: bool, lang: &str) -> (String, serde_json::Value) {
+    use touring_intelligence::rl::memory::{snippet_bindings, snippet_stats::TrustLevel};
+
+    let canon = lang.trim().to_ascii_lowercase();
+    if !orchestrate || (canon != "python" && canon != "py") {
+        return (String::new(), serde_json::Value::Null);
+    }
+    let Ok(root) = std::env::current_dir() else {
+        return (String::new(), serde_json::Value::Null);
+    };
+    let db_path = touring_foundation::TouringConfig::memory_db_canonical(&root);
+    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+        return (String::new(), serde_json::Value::Null);
+    };
+    // Doutrina do módulo de trust: só `>= Provisional` é oferecido sozinho.
+    let eligible = match snippet_bindings::load_eligible(&conn, TrustLevel::Provisional) {
+        Ok(v) if !v.is_empty() => v,
+        _ => return (String::new(), serde_json::Value::Null),
+    };
+    match snippet_bindings::render_preamble(&eligible) {
+        Ok(r) => {
+            let mut report = serde_json::json!({ "available": r.exposed });
+            if !r.omitted.is_empty() {
+                // Corte declarado — nunca silencioso.
+                report["omitted_over_cap"] = serde_json::json!(r.omitted);
+            }
+            (r.preamble, report)
+        }
+        Err(e) => (
+            String::new(),
+            serde_json::json!({ "available": [], "error": e.to_string() }),
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // ── W2 d1 — SDK stub + allowlist contract ─────────────────────────────
@@ -639,6 +706,18 @@ mod tests {
             !hint.contains("memory store"),
             "the superseded wording must not survive alongside the new one"
         );
+    }
+
+    #[test]
+    fn snippet_bindings_are_scoped_to_orchestrated_python() {
+        // O preâmbulo É Python e injeta funções no programa: um run comum não
+        // deve ganhar bindings que não pediu, e uma linguagem não-Python não
+        // pode receber corpo Python (SyntaxError na primeira linha).
+        let (pre, report) = super::snippet_preamble(false, "python");
+        assert!(pre.is_empty() && report.is_null(), "run sem --orchestrate");
+
+        let (pre, report) = super::snippet_preamble(true, "bash");
+        assert!(pre.is_empty() && report.is_null(), "--orchestrate + bash");
     }
 
     #[test]

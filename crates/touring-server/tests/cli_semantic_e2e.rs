@@ -49,10 +49,21 @@ fn parse_position_rejects_only_two_parts() {
     let result = parse_position("src/foo.rs:42");
     assert!(result.is_err(), "must reject two-part position");
     let err = result.unwrap_err().to_string();
-    // Error contains position format description — check for <file> or file:line:col variant
+    // Assert the PROPERTIES, not one of three hand-listed wordings: the message
+    // must echo the REJECTED input and must SHOW a well-formed position (a path
+    // with both a line and a column). Pinning phrasings is what broke this test
+    // when the W8b teach-ratio campaign rewrote the message — it improved, and a
+    // list of old spellings called that a regression.
     assert!(
-        err.contains("<file>") || err.contains("file:line") || err.contains("Position must"),
-        "error must mention position format: {err}"
+        err.contains("src/foo.rs:42"),
+        "message must echo the input it rejected: {err}"
+    );
+    let teaches_shape = err
+        .split_whitespace()
+        .any(|w| w.matches(':').count() >= 2 && w.contains('.'));
+    assert!(
+        teaches_shape || err.contains("<file>"),
+        "message must SHOW the expected file:line:col shape: {err}"
     );
 }
 
@@ -264,10 +275,10 @@ fn resolve_def_rejects_malformed_position() {
         .args(["resolve-def", "src/lib.rs:10"])
         .assert()
         .failure()
+        // Same property as the unit test above: echo the input, show the shape.
         .stderr(
-            predicate::str::contains("<file>")
-                .or(predicate::str::contains("file:line:col"))
-                .or(predicate::str::contains("Position must")),
+            predicate::str::contains("src/lib.rs:10")
+                .and(predicate::str::contains(":42:5").or(predicate::str::contains("<file>"))),
         );
 }
 

@@ -34,6 +34,7 @@ touring run --sdk-stub                               # imprime o contrato tipado
 | `stdout_truncated`/`stderr_truncated` | honestos nas DUAS fronteiras (cap do sandbox E cap inline) |
 | `harvest_hint` | quando o programa é generalizável (≥5 linhas, parametrizado, sem identificadores efêmeros): oferece re-rodá-lo com `--harvest <slug>`. Some quando o run já colheu |
 | `snippet_trust` | badge + nível da escada (`○ untrusted` · `◐ provisional` · `✓ trusted`) quando o corpo executado é um snippet colhido — presente tanto na colheita quanto em todo reuso |
+| `snippet_bindings` | sob `--orchestrate`: `available` (funções `snippet_*` que o programa tinha), `omitted_over_cap` (o que o teto cortou, nomeado) e `error` quando a biblioteca está inconsistente |
 
 ### Budgets (dois, independentes)
 
@@ -86,6 +87,33 @@ sem invalidação):
   quando o corpo muda. `touring learning reward "snippet:<key>" <valor>` segue valendo como
   a via manual. Implementação: `touring-intelligence/src/rl/memory/snippet_stats.rs`.
 - **Consultar**: `touring memory query "#kind:snippet #lang:python"`.
+- **Compor** — sob `--orchestrate`, todo snippet Python **≥ provisional** vira uma função
+  `snippet_<slug>(*args)` do programa, que devolve o stdout do snippet (os `*args` chegam
+  como `sys.argv`). O payload lista o que ficou disponível em `snippet_bindings.available`.
+  Um snippet pode chamar outro — a composição funciona.
+
+### Bindings `snippet_*` — as quatro recusas (W3b)
+
+Antes de injetar qualquer coisa, o conjunto é validado. Uma biblioteca inconsistente
+**não derruba o run** (o programa pode nem usar snippets): os bindings simplesmente não
+entram, e `snippet_bindings.error` diz o que consertar.
+
+| Recusa | Quando | Por quê |
+|---|---|---|
+| `Cycle` | `a` chama `b` que chama `a` | em runtime isso recorre até estourar a pilha; o erro traz o **caminho** do ciclo |
+| `NameCollision` | `foo-bar` e `foo.bar` | sanitizam para o mesmo identificador; deixar o último vencer é o bug silencioso |
+| `EmbeddedSecret` | `client_secret = "<literal>"` no corpo | um binding viaja em **toda** execução orquestrada; ler do ambiente nunca é acusado |
+| `MultilineLiteral` | literal de string cruzando linhas | virar binding é ser indentado numa função, e indentar mudaria o texto do literal |
+
+Teto de `MAX_BINDINGS = 20`, ordenado por confiança e uso; o que sobra é **nomeado** em
+`snippet_bindings.omitted_over_cap`, nunca cortado em silêncio.
+
+> **Sem primitiva de avaliação dinâmica**: cada snippet é emitido como função Python real.
+> O scanner de forbidden calls do sandbox lê o preâmbulo como leria código do usuário — um
+> `exec` ali dispararia `[CEG WARNING] … code injection` em **todo** run orquestrado (e sob
+> `TOURING_CEG_FORBIDDEN_ENFORCE=1` bloquearia o run). Um aviso que aparece sempre é um
+> aviso que ninguém lê. Como bônus, um corpo real enxerga os globais do módulo — que é
+> justamente o que faz a composição funcionar.
 
 > **Por que o executor e não o hint (W3b, 24/08/2026)**: até aqui o `harvest_hint`
 > *pedia* ao modelo que rodasse um `memory store` com um slug livre — e o predicado que

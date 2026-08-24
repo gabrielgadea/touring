@@ -19,6 +19,7 @@ pub mod pattern_cluster;
 pub mod recall;
 pub mod recall_cache;
 pub mod rlm;
+pub mod snippet_bindings;
 pub mod snippet_stats;
 pub mod tags;
 pub mod tier_manager;
