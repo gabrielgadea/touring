@@ -126,3 +126,31 @@ CLOSE: docs/code-mode.md (manual completo: run/orchestrate/snippets/budgets/taxo
 - **A sonda pós-deploy pegou 4 lacunas invisíveis aos unit tests**: (1) `gate-metrics -j` nunca expôs `code_mode_*` — nem os da W4 (snapshot ≠ sites MCP); (2) o CEG rejeitava todo run não-shell desde a W5 (X0 não conhecia `Sandbox*`); (3) `run_id` ausente do emit CLI; (4) fechado o (2), o X6 passou a negar o SDK do orchestrate (socket by design) → o gate agora mira o código do USUÁRIO, nunca o SDK injetado (teste trava o contrato). Ciclo sonda→fix→redeploy ×3.
 - **Gates**: 6 testes novos; suítes foundation 483 · hooks-core 485 · dispatch 1321 · ceg 537 — 0 falhas; clippy `-D warnings` 0 nos 7 crates; 3 warnings pré-existentes corrigidos (REGRA #21). d4 **completed** no DAG canônico da analise; memória `impl:c2-w0-subcall-identity-2026-08-24`.
 - **Próximo do backlog aprovado**: w3b (bindings `snippet_*` dinâmicos no orchestrate, fecha d2) → d6/d7 (lado analise).
+
+## 2026-08-24T14:05 — C2-W1: o elo que populava a biblioteca de snippets (pré-condição de w3b)
+
+- **Achado na retomada**: a ordem aprovada punha w3b como próximo, mas a pré-condição que a
+  própria W3 registrou ("dependente de biblioteca populada — não half-baked") estava em
+  **zero**: a tabela `snippet_stats` NUNCA existira em nenhum DB (0 execuções em produção).
+  Duas rupturas com uma causa só — (B1) nada chamava `record_execution` fora de um
+  `learning reward` digitado à mão; (B2) o `harvest_hint` ensinava `memory store <slug>`
+  (slug livre) enquanto o predicado exigia prefixo `snippet:` — extrator e verificador de
+  fontes diferentes, o padrão `verificador-usa-menos-que-o-extrator`.
+- **Entregue** (afordância, D8 — o executor aplica, o anúncio só ensina): par único
+  `harvest_key`/`is_snippet_key` (a ponte em `ceg_impls.rs` passou a derivar dali) ·
+  `code_sig` + `by_sig` (a coluna `sig_hash` da própria escada vira o índice de
+  reidentificação — zero schema novo) · `touring run --harvest <slug>` persiste E matricula
+  em um comando · todo run reidentifica o corpo e registra o próprio outcome, devolvendo
+  `snippet_trust` ao modelo · o hint passou a ensinar `--harvest` e some quando já colheu.
+- **Sonda em produção (4 caminhos)**: colheita OK com hint ausente; **10 reusos sem nenhum
+  reward manual levaram `○ untrusted` → `◐ provisional`**; hint novo ensina `--harvest` e
+  não `memory store`; corpo desconhecido não é atribuído. Biblioteca hoje:
+  `sonda-normaliza 12/12 provisional`, `sonda-somar 4/4 untrusted`.
+- **Gates**: 8 testes novos (incl. `every_minted_key_is_recognised_by_the_predicate`, que
+  trava o contrato sobre as FORMAS de slug, não sobre um caso); clippy `-D warnings` 0 nos 3
+  crates; e2e 0.8576 pass (Δ −0.0008 vs baseline, 0 fases falhas); orphans 2450 < 2516
+  baseline com 0 órfãos da wave; client CLEAN; deploy ×2 (ciclo sonda→fix→redeploy).
+- **Lição de método (repetida 2×)**: a sonda errou antes do código — log INFO do CEG
+  misturado no pipe e filtro contra um `query` com limite 10. Provar o instrumento antes de
+  acusar o sistema.
+- **Próximo**: w3b agora tem a pré-condição satisfeita → depois d6/d7 (lado analise).

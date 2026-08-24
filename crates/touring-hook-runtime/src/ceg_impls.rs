@@ -48,7 +48,7 @@ pub fn cli_learning_reward(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // trust ladder (`snippet_stats`): success = clamped > 0; `sig_hash` (the
     // dependency-surface digest) rides in the payload when the caller has one.
     // Fail-open: a stats failure never blocks the reward path.
-    let snippet_trust = if tool.starts_with("snippet:") {
+    let snippet_trust = if touring_intelligence::rl::memory::snippet_stats::is_snippet_key(tool) {
         use touring_intelligence::rl::memory::snippet_stats;
         let sig = payload
             .get("sig_hash")

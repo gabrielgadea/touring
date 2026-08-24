@@ -756,15 +756,19 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
-    // Serialise all tests that mutate process-level TOURING_PROJECT_ROOT.
-    // std::env::set_var is not thread-safe; without a lock, parallel tests
-    // can observe each other's temp paths, causing "disk I/O error" panics.
-    static ENV_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
     /// Set TOURING_PROJECT_ROOT for the duration of `f`, then remove it.
+    /// Run `f` with `TOURING_PROJECT_ROOT` pointing at `root`.
+    ///
+    /// **The caller MUST hold `crate::cli::ENV_LOCK`** (all 9 callers do).
+    /// This helper used to take a second, module-local `ENV_MUTEX` and claim
+    /// in a SAFETY comment that "no other test mutates this var concurrently"
+    /// — which was false: `cli/backup.rs` mutates the SAME variable under
+    /// `ENV_LOCK`, a lock `ENV_MUTEX` does not exclude. Two mutexes over one
+    /// process-global resource is not two guards, it is none — and the comment
+    /// asserting the symmetry was the only thing that made it look safe.
     fn with_project_root<F: FnOnce()>(root: &std::path::Path, f: F) {
-        let _guard = ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
-        // SAFETY: guarded by ENV_MUTEX — no other test mutates this var concurrently.
+        // SAFETY: the caller holds `crate::cli::ENV_LOCK`, the single lock
+        // every mutation of this variable is taken under, crate-wide.
         unsafe { std::env::set_var("TOURING_PROJECT_ROOT", root) };
         f();
         unsafe { std::env::remove_var("TOURING_PROJECT_ROOT") };

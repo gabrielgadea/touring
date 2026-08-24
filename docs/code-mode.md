@@ -32,7 +32,8 @@ touring run --sdk-stub                               # imprime o contrato tipado
 | `failure` | `{kind, phase, message}` — taxonomia ortogonal: `exception \| timeout \| abort \| proc-exit \| invalid-output \| output-limit`; a `message` ensina a correção |
 | `stored_path` + `retrieval_hint` | quando a visão inline foi cortada, o output COMPLETO está em disco: `Read <path> --offset/--limit` ou `grep <pattern> <path>` |
 | `stdout_truncated`/`stderr_truncated` | honestos nas DUAS fronteiras (cap do sandbox E cap inline) |
-| `harvest_hint` | quando o programa é generalizável (≥5 linhas, parametrizado, sem identificadores efêmeros): o comando pronto para persisti-lo como `#kind:snippet` |
+| `harvest_hint` | quando o programa é generalizável (≥5 linhas, parametrizado, sem identificadores efêmeros): oferece re-rodá-lo com `--harvest <slug>`. Some quando o run já colheu |
+| `snippet_trust` | badge + nível da escada (`○ untrusted` · `◐ provisional` · `✓ trusted`) quando o corpo executado é um snippet colhido — presente tanto na colheita quanto em todo reuso |
 
 ### Budgets (dois, independentes)
 
@@ -75,13 +76,24 @@ Código que funcionou vira memória reutilizável — e a confiança é conquist
 nunca declarada (fecha os buracos do TanStack: lá o trust é decorativo, sem rebaixamento e
 sem invalidação):
 
-- **Registrar** (o `harvest_hint` oferece o comando): `touring memory store <slug> '<code>'
-  --tag "#kind:snippet" --tag "#lang:python" --tag "#purpose:…"`.
-- **Medir**: `touring learning reward "snippet:<key>" <valor> [payload sig_hash]` alimenta a
-  escada `untrusted ○ → provisional ◐ (10+ exec, ≥90%) → trusted ✓ (100+, ≥95%)` com
-  **rebaixamento** (≥5 falhas nas últimas 10) e **invalidação** quando `sig_hash` muda
-  (padrão judge_attest). Implementação: `touring-intelligence/src/rl/memory/snippet_stats.rs`.
+- **Registrar** — `touring run … --harvest <slug>`: o **executor** persiste o corpo como
+  memória `#kind:snippet` (tags `#lang:<lang>` e `#process:code-mode` derivadas dele) sob a
+  chave canônica `snippet:<slug>` e o matricula na escada, em um comando só.
+- **Medir** — a partir daí é automático: **todo run do mesmo corpo** é reidentificado pelo
+  digest (`code_sig`) e registra seu próprio outcome; o resultado devolve `snippet_trust`
+  (badge + nível) ao modelo. A escada é `untrusted ○ → provisional ◐ (10+ exec, ≥90%) →
+  trusted ✓ (100+, ≥95%)` com **rebaixamento** (≥5 falhas nas últimas 10) e **invalidação**
+  quando o corpo muda. `touring learning reward "snippet:<key>" <valor>` segue valendo como
+  a via manual. Implementação: `touring-intelligence/src/rl/memory/snippet_stats.rs`.
 - **Consultar**: `touring memory query "#kind:snippet #lang:python"`.
+
+> **Por que o executor e não o hint (W3b, 24/08/2026)**: até aqui o `harvest_hint`
+> *pedia* ao modelo que rodasse um `memory store` com um slug livre — e o predicado que
+> alimenta a escada só reconhecia chaves `snippet:*`. Resultado medido: a tabela
+> `snippet_stats` **nunca havia sido criada**, com zero execuções em produção. Duas
+> rupturas, uma só causa: o extrator e o verificador não vinham da mesma fonte. Hoje
+> `harvest_key`/`is_snippet_key` são esse par único, e quem popula é o executor — a
+> afordância, não o pedido (`rules/touring-4-pillars.md`, D8).
 
 ## Observabilidade
 
