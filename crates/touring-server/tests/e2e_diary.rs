@@ -389,11 +389,25 @@ fn test_diary_no_diary_status() {
 /// - isolar o `HOME` foi tentado e piora: aí TODA chamada de `cli-memory-recall`
 ///   estoura o orçamento de 15s do cliente (um warm-up descartado não resolveu).
 ///
-/// O PRODUTO está certo no uso real: num projeto com corpus, `touring diary
-/// write <nonce>` seguido de `touring memory recall <nonce>` dá
-/// `RRF fusion from 3 sources` e traz a entrada em primeiro lugar (verificado no
-/// binário vivo na mesma data). O que falha é a memória em projeto novo/vazio —
-/// escopo próprio, registrado como pendência em vez de mascarado aqui.
+/// CAUSA RAIZ, medida em disco em 24/08/2026 (o parágrafo acima descreve o
+/// SINTOMA e aponta para o motor de recall, que está CERTO):
+///
+/// `touring diary write` e `touring memory recall` resolvem a raiz do projeto de
+/// formas diferentes. No mesmo diretório, com o mesmo binário:
+///   - `diary write`   grava em `<cwd>/.claude/touring/memory.db`   (raiz = cwd)
+///   - `memory store`  grava em `~/.claude/touring/memory.db`       (raiz = HOME)
+///   - `memory recall` lê primary(HOME) + tudo sob `~/.claude/**`
+///
+/// `discover_canonical_dbs` (`touring-cli/src/cli/shared.rs`) federa `primary`
+/// mais as raízes sob `~/.claude`; uma DB em `/tmp/…/proj/.claude/` não está em
+/// nenhuma das duas. O diário cai numa DB que o recall nunca abre — daí a fonte
+/// lexical muda. O tell é o campo `source_db`: `null` em TODAS as entradas
+/// significa que nada veio da federação lexical.
+///
+/// Num projeto real funciona porque cwd e fallback-HOME coincidem com a raiz do
+/// daemon, e é por isso que o defeito se lia como "coisa de projeto vazio".
+/// Corrigir exige escolher quem muda de raiz (o writer ou o reader) — decisão de
+/// arquitetura que toca todos os projetos pinados, registrada em vez de chutada.
 #[ignore = "expõe deficiência real da memória em projeto vazio (1 fonte no RRF, budget estourado ao isolar HOME) — ver forense acima; NÃO reverter para a asserção genérica, que passava por acidente"]
 #[test]
 fn test_diary_fts5_searchable() {

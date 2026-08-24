@@ -54,10 +54,19 @@ prior_art_verdict = "create_new"
 [node.arm_marker]
 type = "code"
 # SEM sandbox de propósito: este nó ESCREVE o marcador do flow guard
-# (`loop_marker.py write`). A escrita não aparece na sintaxe do shell — está
-# dentro do programa — então um detector que procura `>`/`rm`/`sed -i` não a
-# enxerga. Sandboxar o nó que arma a própria guarda seria trocar uma garantia
-# por observabilidade.
+# (`loop_marker.py write`), e armar a guarda é o passo do qual todo o resto do
+# turno depende — mantê-lo no caminho mais curto é uma escolha de robustez, não
+# uma restrição técnica.
+#
+# ⚠ O que estava escrito aqui antes — que sandboxar o nó "trocaria a garantia
+# por observabilidade" — foi MEDIDO em 24/08/2026 e é falso: sob `touring run`
+# a escrita passa (a aplicação do CEG para shell é advisory, e o landlock vigente
+# permite estes caminhos). A afirmação nunca tinha sido exercida.
+#
+# A escrita, essa sim, não aparece na sintaxe do shell — está dentro do programa.
+# Era a cegueira do detector antigo; hoje `command_writes` a enxerga pelo VERBO
+# em posição de subcomando (`loop_marker.py write`), e é o único nó da biblioteca
+# classificado como escrita.
 command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
 timeout_ms = 30000
 idempotent = true
