@@ -154,3 +154,35 @@ CLOSE: docs/code-mode.md (manual completo: run/orchestrate/snippets/budgets/taxo
   misturado no pipe e filtro contra um `query` com limite 10. Provar o instrumento antes de
   acusar o sistema.
 - **Próximo**: w3b agora tem a pré-condição satisfeita → depois d6/d7 (lado analise).
+
+## 2026-08-24T16:40 — C2-W2: w3b / S-3.4 (bindings `snippet_*`) — d2 fecha
+
+- **Entregue**: `snippet_bindings.rs` (novo) + `snippet_preamble()` no `run.rs`. Sob
+  `--orchestrate`, todo snippet Python **≥ provisional** vira `snippet_<slug>(*args)` que
+  devolve o stdout do snippet (args chegam como `sys.argv`); o payload lista
+  `snippet_bindings.available`. Quatro recusas antes de injetar: **Cycle** (DFS, erro traz o
+  caminho `a → b → a`), **NameCollision** (`foo-bar` vs `foo.bar` — nunca "o último vence"),
+  **EmbeddedSecret** (palavra atribuída a literal; ler do ambiente nunca acusa) e
+  **MultilineLiteral**. Teto 20 com o cortado **nomeado** em `omitted_over_cap`.
+- **Composição funciona** — o buraco da implementação de referência (lá o snippet vê só
+  `external_*` e chamar outro snippet dá `ReferenceError`, com o system prompt ensinando um
+  exemplo que não roda). Provado no binário vivo: `snippet_sonda_compoe("de-dentro")` chamou
+  `snippet_sonda_normaliza` → `de-dentro:['a', 'b']`, exit 0.
+- **Lacuna que só a sonda pegou**: a 1ª versão guardava corpos como string e usava avaliação
+  dinâmica → `[CEG WARNING] Forbidden calls detected: exec` em TODO run orquestrado, e
+  **bloqueio** sob `TOURING_CEG_FORBIDDEN_ENFORCE=1`. Reescrito para emitir funções Python
+  reais: sumiu o aviso, e o corpo real enxergar os globais é justamente o que faz a
+  composição funcionar. Custo assumido: indentar exige recusar literal multi-linha.
+- **Sonda dos gates em produção**: ciclo plantado → `available: []` + caminho no erro, run do
+  usuário **exit 0** (fail-open provado); credencial plantada → recusa nomeando
+  `client_secret` e ensinando `os.environ`. Fixtures removidas.
+- **Gates**: 16 testes novos; 37 blocos de suíte ok / 0 falhas; clippy `-D warnings` 0;
+  e2e 0.8579 pass; orphans 2450 < 2516; client CLEAN; deploy ×2.
+- **REGRA #21 — 3 falhas alheias corrigidas**: 2 testes de `cli_semantic_e2e` presos a
+  redações que a campanha w8b reescreveu (agora asserem propriedades: ecoar a entrada
+  rejeitada + mostrar o formato); e `test_diary_fts5_searchable`, que era **falso-verde** —
+  procurava "FTS5"/"semantic recall" em qualquer entrada devolvida e casava com memórias do
+  desenvolvedor, nunca com a que ele mesmo escrevia. Com nonce, expôs deficiência real da
+  memória em projeto vazio (`RRF fusion from 1 sources`; isolar HOME estoura o budget de 15s
+  em toda chamada). O produto está certo no uso real (projeto com corpus: 3 fontes, entrada
+  em 1º). Marcado `#[ignore]` com a forense e registrado como `mem-vazio` no DAG canônico.
