@@ -1620,9 +1620,18 @@ pub fn cli_decompose_release(rt: &mut HookRuntime, payload: &serde_json::Value) 
 
     let db = &rt.ctx.knowledge;
     ensure_decompose_tables(db);
+    // Releasing gives up the LEASE, not the WORK. Setting `pending`
+    // unconditionally meant the ordinary sequence — claim → work → mark
+    // completed → release — silently un-completed the subtask, and the next
+    // `claim` handed the finished work to someone else (observed 2026-08-24 on
+    // `w3b`, which returned to the ready set minutes after being closed with
+    // evidence). A terminal status is a fact about the work; only a
+    // non-terminal one describes a lease still being held.
     let changed = db.conn_ref().execute(
         "UPDATE decomposition_subtasks \
-            SET status = 'pending', claimed_by = NULL, claim_expires_at = NULL, updated_at = ?1 \
+            SET status = CASE WHEN status IN ('completed', 'failed', 'skipped') \
+                              THEN status ELSE 'pending' END, \
+                claimed_by = NULL, claim_expires_at = NULL, updated_at = ?1 \
           WHERE task_id = ?2 \
             AND (subtask_id = ?3 OR subtask_id = ?2 || '::' || ?3) \
             AND claimed_by = ?4",

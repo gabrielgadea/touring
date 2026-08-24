@@ -1953,6 +1953,80 @@ fn a_manually_started_subtask_is_never_stolen_by_the_claimer() {
     assert_eq!(got["claimed"], serde_json::json!(false), "{got}");
 }
 
+#[test]
+fn releasing_finished_work_gives_up_the_lease_not_the_completion() {
+    // O fluxo ORDINÁRIO: reivindicar → trabalhar → marcar completed → liberar.
+    // O release setava `pending` incondicionalmente, então esse último passo
+    // DESFAZIA a conclusão e o próximo claim entregava o trabalho pronto a
+    // outra sessão (visto em 2026-08-24 com `w3b`, fechado com evidência e de
+    // volta ao conjunto ready minutos depois).
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claimed = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "worker"}),
+    ));
+    assert_eq!(claimed["claimed"], serde_json::json!(true), "{claimed}");
+
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00", "status": "completed"
+        }),
+    );
+    let released = parse_json(&cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "worker"}),
+    ));
+    assert_eq!(released["released"], serde_json::json!(true), "{released}");
+
+    // A conclusão sobrevive à liberação...
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let still_ready = ready["ready_subtasks"]
+        .as_array()
+        .map(|a| a.iter().any(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-00")))
+        .unwrap_or(false);
+    assert!(
+        !still_ready,
+        "completed work must NOT return to the ready set after release: {ready}"
+    );
+
+    // ...e ninguém mais consegue reivindicá-la.
+    let stolen = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next-session"}),
+    ));
+    assert_eq!(
+        stolen["claimed"],
+        serde_json::json!(false),
+        "finished work must not be handed to the next claimer: {stolen}"
+    );
+}
+
+#[test]
+fn releasing_unfinished_work_does_return_it_to_the_pool() {
+    // O outro lado do mesmo contrato: quem larga sem terminar devolve o
+    // trabalho — senão uma sessão que desiste bloquearia o subtask.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "quitter"}),
+    );
+    cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "quitter"}),
+    );
+    let retaken = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next-session"}),
+    ));
+    assert_eq!(retaken["claimed"], serde_json::json!(true), "{retaken}");
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════
