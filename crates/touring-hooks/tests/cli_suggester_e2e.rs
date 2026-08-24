@@ -37,9 +37,30 @@ use touring_hooks::runtime::HookRuntime;
 fn make_runtime() -> (TempDir, HookRuntime) {
     let tmp = TempDir::new().expect("tempdir");
     std::fs::create_dir_all(tmp.path().join(".claude/data")).expect("mkdir");
+    let _build = RUNTIME_BUILD.lock().unwrap_or_else(|e| e.into_inner());
     let rt = HookRuntime::new(tmp.path()).expect("hook runtime init");
     (tmp, rt)
 }
+
+/// Serializa a CONSTRUÇÃO do runtime — e só ela.
+///
+/// Capturado sob gdb em 24/08/2026: com as 13 threads de teste construindo
+/// runtimes ao mesmo tempo, todas paravam em `pthread_mutex_lock` dentro de
+/// `findReusableFd` → `unixOpen`, o mutex global do VFS unix do SQLite, na
+/// abertura de `RlmMemory::new` (`rl/memory/rlm.rs:204`) sob
+/// `build_evolution_analyzer`. Cada `HookRuntime::new` abre vários bancos; treze
+/// aberturas simultâneas empilhavam nesse mutex e o processo não saía mais.
+///
+/// Serializar aqui NÃO mascara defeito de produção: fora de teste,
+/// `HookRuntime::new` é chamado uma vez por processo (o único sítio produtivo é
+/// um comando CLI single-shot), então "N runtimes ao mesmo tempo" é uma forma
+/// que só o harness produz. O que estes testes exercitam é `cli_suggester::run`,
+/// e o lock é solto antes dele — a concorrência que importa continua valendo.
+///
+/// Distinto do outro travamento desta suíte, esse sim de produção: o `Drop` de
+/// conexão de escrita pedindo lock exclusivo em `sqlite3WalClose`, corrigido no
+/// lado do produto por `open_lessons_db_readonly`.
+static RUNTIME_BUILD: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Parse the raw JSON string returned by `cli_suggester::run`, returning the
 /// `additionalContext` text when present (None for the `"{}"` empty case).
@@ -66,8 +87,17 @@ fn classifier_grep_pascalcase_emits_symbol_lookup() {
     let out = cli_suggester::run(&rt, &payload);
     let ctx = additional_context(&out).expect("non-empty");
     assert!(ctx.contains("symbol-lookup"), "cluster missing: {ctx}");
-    assert!(ctx.contains("touring index find DomainCircuitBreaker"));
-    assert!(ctx.contains("touring wiring impact"));
+    // Uma asserção sem diagnóstico só diz que algo mudou, nunca o quê — e foi
+    // exatamente isso que atrasou o diagnóstico do flaky de 24/08/2026: a falha
+    // apontava para a linha e escondia o contexto que a explicava.
+    assert!(
+        ctx.contains("touring index find DomainCircuitBreaker"),
+        "MUST sem `index find` do símbolo: {ctx}"
+    );
+    assert!(
+        ctx.contains("touring wiring impact"),
+        "MUST sem `wiring impact`: {ctx}"
+    );
 }
 
 #[test]
@@ -282,26 +312,54 @@ fn hook_registry_dispatch_table_routes_session_handlers() {
 
 // ── (5) Disable-via-env contract ─────────────────────────────────────────────
 
+/// A env de desligamento é exercitada num SUBPROCESSO, nunca neste.
+///
+/// MEDIDO em 24/08/2026: esta suíte era flaky (6 falhas em 15 execuções), e a
+/// vítima trocava a cada rodada — ora `classifier_bash_cargo_routes_to_doctor`,
+/// ora `classifier_grep_pascalcase_emits_symbol_lookup`, sempre com a saída
+/// vazia. A causa era esta função: ela fazia `set_var` e, **variável de ambiente
+/// é global ao processo, não à thread**, todo teste que rodasse dentro dessa
+/// janela via o suggester desligado e recebia `"{}"`.
+///
+/// O `ENV_LOCK` que existia aqui não podia cobrir isso: ele serializava apenas
+/// os testes que MUTAVAM a env, e os 16 que apenas a LEEM nunca o pegavam. O
+/// comentário de segurança anterior declarava a premissa "requires
+/// single-threaded execution" — que `cargo test` não garante e a suíte não
+/// pedia; o texto afirmava um isolamento que o ambiente não dava. Rodar com
+/// `--test-threads=1` passava 20/20 e era exatamente essa a pista.
+///
+/// Reexecutar o próprio binário preserva o e2e real (a env é lida pelo código
+/// de produção, não simulada) e devolve a mutação para um processo onde ela é a
+/// única coisa acontecendo.
 #[test]
 fn classifier_respects_disable_env_var() {
-    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let (_tmp, rt) = make_runtime();
+    let exe = std::env::current_exe().expect("caminho do binário de teste");
+    let status = std::process::Command::new(exe)
+        .args(["--exact", "disable_env_var_worker", "--test-threads=1"])
+        .env("TOURING_SUGGESTER_DISABLED", "1")
+        .status()
+        .expect("spawn do worker");
+    assert!(
+        status.success(),
+        "com TOURING_SUGGESTER_DISABLED=1 o worker deveria observar o classificador silenciado"
+    );
+}
 
-    // Set the env var, then call — output must be "{}" even on a clean
-    // symbol-lookup input that would otherwise emit C03.
-    // SAFETY: test serial via env var requires single-threaded execution
-    // (cargo test runs each test fn on its own task — set_var here is OK
-    // because we unset before returning).
-    unsafe {
-        std::env::set_var("TOURING_SUGGESTER_DISABLED", "1");
+/// Metade executora de [`classifier_respects_disable_env_var`].
+///
+/// Só tem o que provar quando o pai o invoca com a env armada; na varredura
+/// normal da suíte ele não encontra a env e retorna sem asserção — de propósito,
+/// já que armá-la aqui reintroduziria exatamente a corrida descrita acima.
+#[test]
+fn disable_env_var_worker() {
+    if std::env::var("TOURING_SUGGESTER_DISABLED").as_deref() != Ok("1") {
+        return;
     }
+    let (_tmp, rt) = make_runtime();
     let out = cli_suggester::run(
         &rt,
         &json!({"tool_name": "Grep", "tool_input": {"pattern": "DomainCircuitBreaker"}}),
     );
-    unsafe {
-        std::env::remove_var("TOURING_SUGGESTER_DISABLED");
-    }
     assert_eq!(out, "{}", "DISABLED env var must silence the classifier");
 }
 
@@ -332,5 +390,3 @@ fn classifier_ttl_cache_suppresses_duplicate_input_in_same_process() {
     assert_ne!(different, "{}", "different input must NOT hit the cache");
 }
 
-// Serializes env-var-mutating tests in this integration binary (edition-2024: set_var/remove_var are unsafe under concurrency).
-static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

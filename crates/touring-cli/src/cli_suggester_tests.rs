@@ -233,15 +233,15 @@ fn render_includes_enrichment_when_present() {
 
 #[test]
 fn input_hash_stable_for_same_input() {
-    let a = input_hash("Grep", &json!({"pattern": "Foo"}));
-    let b = input_hash("Grep", &json!({"pattern": "Foo"}));
+    let a = input_hash(Path::new("/t/ih"), "Grep", &json!({"pattern": "Foo"}));
+    let b = input_hash(Path::new("/t/ih"), "Grep", &json!({"pattern": "Foo"}));
     assert_eq!(a, b);
 }
 
 #[test]
 fn input_hash_different_for_different_inputs() {
-    let a = input_hash("Grep", &json!({"pattern": "Foo"}));
-    let b = input_hash("Grep", &json!({"pattern": "Bar"}));
+    let a = input_hash(Path::new("/t/ih"), "Grep", &json!({"pattern": "Foo"}));
+    let b = input_hash(Path::new("/t/ih"), "Grep", &json!({"pattern": "Bar"}));
     assert_ne!(a, b);
 }
 
@@ -917,13 +917,66 @@ fn p8_7_workflow_stage_hint_populated_in_enrich_output() {
 fn cluster_dedupe_key_is_stable_and_distinct() {
     // Same cluster name → same key (stable across calls).
     assert_eq!(
-        cluster_dedupe_key("system-health-precheck"),
-        cluster_dedupe_key("system-health-precheck")
+        cluster_dedupe_key(Path::new("/t/a"), "system-health-precheck"),
+        cluster_dedupe_key(Path::new("/t/a"), "system-health-precheck")
     );
     // Different cluster names → different keys.
     assert_ne!(
-        cluster_dedupe_key("system-health-precheck"),
-        cluster_dedupe_key("regra-11-git-prohibited")
+        cluster_dedupe_key(Path::new("/t/a"), "system-health-precheck"),
+        cluster_dedupe_key(Path::new("/t/a"), "regra-11-git-prohibited")
+    );
+}
+
+/// O dedupe de banner é por PROJETO, não por processo.
+///
+/// [`cache`] é um `static` do processo e o daemon que avalia este hook é
+/// longo-vivo, atendendo mais de um projeto. Sem o escopo por raiz, o banner
+/// emitido enquanto se trabalhava no projeto A calava o mesmo banner no projeto
+/// B — para um leitor que nunca o tinha visto. "Uma vez por janela" é
+/// propriedade do leitor de um projeto, não do processo.
+///
+/// A asserção é escrita sobre o par (mesmo cluster, raízes distintas) porque é
+/// exatamente esse par que a versão anterior colapsava.
+#[test]
+fn a_generic_banner_is_deduped_per_project_not_per_process() {
+    let generic = ClassifierOutput {
+        cluster: "test-unique-banner-c4-per-project".to_owned(),
+        symbol_hint: None,
+        file_hint: None,
+        ..Default::default()
+    };
+    // O projeto A gasta a janela do cluster…
+    assert!(matches!(
+        cluster_dedupe_gate(Path::new("/t/projeto-a"), &generic),
+        ClusterDecision::Proceed
+    ));
+    assert!(matches!(
+        cluster_dedupe_gate(Path::new("/t/projeto-a"), &generic),
+        ClusterDecision::Suppress
+    ));
+    // …e o projeto B continua recebendo o banner, porque seu leitor não o viu.
+    assert!(
+        matches!(
+            cluster_dedupe_gate(Path::new("/t/projeto-b"), &generic),
+            ClusterDecision::Proceed
+        ),
+        "banner calado num projeto que nunca o recebeu — o dedupe vazou entre projetos"
+    );
+}
+
+/// A chave carrega a raiz: mesmo cluster em projetos distintos são chaves
+/// distintas, e a mesma raiz é estável entre chamadas.
+#[test]
+fn cluster_dedupe_key_separates_projects() {
+    assert_eq!(
+        cluster_dedupe_key(Path::new("/t/a"), "system-health-precheck"),
+        cluster_dedupe_key(Path::new("/t/a"), "system-health-precheck"),
+        "a chave deve ser estável para (raiz, cluster) idênticos"
+    );
+    assert_ne!(
+        cluster_dedupe_key(Path::new("/t/a"), "system-health-precheck"),
+        cluster_dedupe_key(Path::new("/t/b"), "system-health-precheck"),
+        "projetos distintos devem ocupar chaves distintas"
     );
 }
 
@@ -937,12 +990,12 @@ fn cluster_dedupe_gate_specific_suggestion_always_proceeds() {
         ..Default::default()
     };
     assert!(matches!(
-        cluster_dedupe_gate(&specific),
+        cluster_dedupe_gate(Path::new("/t/spec"), &specific),
         ClusterDecision::Proceed
     ));
     // Repeating the same specific suggestion still proceeds (never deduped).
     assert!(matches!(
-        cluster_dedupe_gate(&specific),
+        cluster_dedupe_gate(Path::new("/t/spec"), &specific),
         ClusterDecision::Proceed
     ));
 }
@@ -960,12 +1013,12 @@ fn cluster_dedupe_gate_generic_fires_once_then_suppresses() {
     };
     // First emission clears the gate…
     assert!(matches!(
-        cluster_dedupe_gate(&generic),
+        cluster_dedupe_gate(Path::new("/t/generic"), &generic),
         ClusterDecision::Proceed
     ));
     // …and a subsequent emission within the window is deduped.
     assert!(matches!(
-        cluster_dedupe_gate(&generic),
+        cluster_dedupe_gate(Path::new("/t/generic"), &generic),
         ClusterDecision::Suppress
     ));
 }
@@ -1114,11 +1167,11 @@ fn crosses_threshold_fires_only_on_edge() {
 fn detect_code_mode_fires_on_explicit_loop() {
     // A loop fires immediately (counter-independent, deterministic).
     let loop_cmd = json!({"command": "for f in *.rs; do grep X \"$f\"; done"});
-    let out = detect_code_mode("Bash", &loop_cmd).expect("loop should fire");
+    let out = detect_code_mode(Path::new("/t/cm-loop"), "Bash", &loop_cmd).expect("loop should fire");
     assert_eq!(out.cluster, "code-mode-loop");
     // A non-scan/non-loop tool never fires.
-    assert!(detect_code_mode("Bash", &json!({"command": "cargo build"})).is_none());
-    assert!(detect_code_mode("Edit", &json!({"file_path": "x.rs"})).is_none());
+    assert!(detect_code_mode(Path::new("/t/cm-cargo"), "Bash", &json!({"command": "cargo build"})).is_none());
+    assert!(detect_code_mode(Path::new("/t/cm-edit"), "Edit", &json!({"file_path": "x.rs"})).is_none());
 }
 
 // ── Task #6: pillar induction (the active compounding layer) ──────────────────
@@ -1300,6 +1353,7 @@ fn every_derivable_nudge_carries_real_value_not_placeholder() {
     // Code-mode loop with a command-substitution iterable (no derivable glob): the real
     // command travels verbatim as `--lang bash`, never the `<your scan/loop>` template.
     let loop_sub = detect_code_mode(
+        Path::new("/t/cm-sub"),
         "Bash",
         &json!({"command": "for pid in $(pgrep -f touring); do echo $pid; done"}),
     )
@@ -1395,11 +1449,11 @@ fn code_mode_cluster_bypasses_dedupe_carrying_input_specific_signal() {
     assert!(loop_nudge.carries_input_specific_signal());
     // Both consecutive emissions proceed — never suppressed as a generic banner.
     assert!(matches!(
-        cluster_dedupe_gate(&loop_nudge),
+        cluster_dedupe_gate(Path::new("/t/loop"), &loop_nudge),
         ClusterDecision::Proceed
     ));
     assert!(matches!(
-        cluster_dedupe_gate(&loop_nudge),
+        cluster_dedupe_gate(Path::new("/t/loop"), &loop_nudge),
         ClusterDecision::Proceed
     ));
 }
@@ -1652,4 +1706,104 @@ fn ordinary_loops_do_not_nudge_campaign() {
     let out = super::campaign_code_mode_command("while true; do touring adw run --mock x; done")
         .expect("still a campaign");
     assert!(out.contains("<flow>"), "flag is not a flow name, got: {out}");
+}
+
+// ── Guard estrutural: escopo por projeto de TODO cache do suggester ──────────
+
+/// Toda chave de cache deste módulo carrega a raiz do projeto — verificado
+/// sobre o FONTE, não sobre uma lista de casos conhecidos.
+///
+/// Origem (24/08/2026): a suíte `cli_suggester_e2e` era flaky e a investigação
+/// achou o MESMO defeito em quatro caches independentes — `input_hash`,
+/// `cluster_dedupe_key`, `scan_class_key` e o τ conformal. Todos são `static`,
+/// e o daemon que os hospeda é longo-vivo e serve mais de um projeto: sem a
+/// raiz na chave, o estado de um repositório decide o que outro vê. Consertar
+/// só os dois que doíam deixaria os outros dois de pé e o quinto nasceria igual
+/// — por isso o guard é escrito sobre a FAMÍLIA, varrendo o arquivo, e não
+/// sobre as instâncias que já conheço.
+///
+/// Ficam legitimamente de fora os caches chaveados por SESSÃO
+/// (`pending_suggestion`, `pending_pillar`): uma sessão CC trabalha num projeto,
+/// então a chave de sessão já escopa por construção. O guard cobre as chaves
+/// `u64` derivadas de hasher — que são as que precisam carregar a raiz à mão.
+#[test]
+fn every_suggester_cache_key_is_scoped_by_project_root() {
+    let src = include_str!("cli_suggester.rs");
+
+    // As funções que compõem chave de cache: assinatura `fn <nome>(…) -> u64`
+    // cujo corpo instancia um hasher.
+    let mut checadas = 0;
+    for (i, linha) in src.lines().enumerate() {
+        let assinatura = linha.trim_start();
+        if !assinatura.starts_with("fn ") || !assinatura.contains("-> u64") {
+            continue;
+        }
+        let nome = assinatura
+            .trim_start_matches("fn ")
+            .split('(')
+            .next()
+            .unwrap_or("?");
+        // Corpo = da assinatura até a próxima linha que fecha no nível zero.
+        let corpo: String = src
+            .lines()
+            .skip(i)
+            .take_while(|l| !l.starts_with('}'))
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !corpo.contains("DefaultHasher") {
+            continue; // não é função de chave
+        }
+        checadas += 1;
+        assert!(
+            assinatura.contains("project_root: &Path"),
+            "`{nome}` compõe chave de cache sem receber `project_root`: o cache é \
+             um `static` de processo e o daemon serve vários projetos, então a \
+             chave sem raiz deixa um projeto decidir o que o outro vê"
+        );
+        assert!(
+            corpo.contains("project_root.hash("),
+            "`{nome}` recebe `project_root` mas não o inclui no hash — o parâmetro \
+             sozinho não escopa nada"
+        );
+    }
+
+    // Sem esta âncora o teste passaria vacuamente se o padrão de detecção
+    // deixasse de casar (renomear `DefaultHasher`, por exemplo).
+    assert!(
+        checadas >= 3,
+        "esperava encontrar as funções de chave do módulo, achei {checadas} — o \
+         detector deixou de casar e o guard virou vácuo"
+    );
+}
+
+/// Nenhum DB de lições é aberto em modo de escrita neste módulo.
+///
+/// O suggester só faz `SELECT`. Abrir para escrita traz `SQLITE_OPEN_CREATE`
+/// (fabrica banco vazio num caminho federado ausente) e faz o `Drop` da conexão
+/// pedir lock EXCLUSIVO de arquivo para o checkpoint do WAL — que foi o deadlock
+/// capturado sob gdb em 24/08/2026, com todas as threads em `pthread_mutex_lock`
+/// via `sqlite3WalClose` → `unixLock`.
+///
+/// Escrito sobre o FONTE porque o defeito estava em três sítios ao mesmo tempo:
+/// consertar os que doem e deixar o padrão de pé só adia a próxima ocorrência.
+#[test]
+fn no_lessons_db_is_opened_for_writing() {
+    let src = include_str!("cli_suggester.rs");
+    let diretas: Vec<(usize, &str)> = src
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| l.contains("Connection::open(") && !l.trim_start().starts_with("///"))
+        .map(|(i, l)| (i + 1, l.trim()))
+        .collect();
+    assert!(
+        diretas.is_empty(),
+        "abertura de DB em modo de escrita (traz CREATE e checkpoint no Drop) — \
+         use `open_lessons_db_readonly`: {diretas:?}"
+    );
+    // Âncora: o helper precisa existir e pedir READ_ONLY de fato.
+    assert!(
+        src.contains("fn open_lessons_db_readonly")
+            && src.contains("SQLITE_OPEN_READ_ONLY"),
+        "o helper read-only sumiu — o guard acima passaria por vácuo"
+    );
 }

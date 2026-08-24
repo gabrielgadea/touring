@@ -77,6 +77,11 @@ use rusqlite;
 const SUGGESTION_TTL_SECS: u64 = 300;
 const CACHE_MAX_CAPACITY: u64 = 4096;
 
+/// Teto de projetos com τ conformal memoizado simultaneamente. Um daemon atende
+/// poucos projetos por janela; o limite existe para que o cache não cresça
+/// indefinidamente num processo que vive muito mais que qualquer sessão.
+const CONFORMAL_TAU_MAX_PROJECTS: u64 = 64;
+
 fn cache() -> &'static moka::sync::Cache<u64, ()> {
     static CACHE: OnceLock<moka::sync::Cache<u64, ()>> = OnceLock::new();
     CACHE.get_or_init(|| {
@@ -87,8 +92,9 @@ fn cache() -> &'static moka::sync::Cache<u64, ()> {
     })
 }
 
-fn input_hash(tool_name: &str, tool_input: &Value) -> u64 {
+fn input_hash(project_root: &Path, tool_name: &str, tool_input: &Value) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    project_root.hash(&mut hasher);
     tool_name.hash(&mut hasher);
     // Hash the compact JSON representation — stable for identical inputs.
     tool_input.to_string().hash(&mut hasher);
@@ -101,9 +107,26 @@ fn input_hash(tool_name: &str, tool_input: &Value) -> u64 {
 /// `(tool_name, tool_input)` hash. Lets each generic banner fire at most once
 /// per TTL window (high-signal-rare), cutting banner-blindness from repeated
 /// non-specific suggestions.
-fn cluster_dedupe_key(cluster: &str) -> u64 {
+///
+/// The key is scoped by `project_root`, because [`cache`] is a process-wide
+/// `static` and the daemon that evaluates this hook is long-lived and serves
+/// **more than one project**. Keyed by cluster alone, a banner emitted while
+/// working in project A silently suppressed the same banner in project B — for
+/// a reader who had never seen it. "Once per window" is a property of one
+/// project's reader, not of the process.
+///
+/// The same scoping is what makes the e2e suite honest. Those tests exercise
+/// the REAL production clusters (`anti-pattern-bash-edit`, `system-health-
+/// precheck`), so they cannot dodge the collision by inventing a unique cluster
+/// name the way the unit tests below do; sharing one process, whichever test
+/// reached a cluster first consumed it and its neighbour asserted over an empty
+/// suggestion. Each test builds its runtime in its own tempdir, so scoping by
+/// root restores the isolation `make_runtime` already promised (found by a
+/// flaky `cli_suggester_e2e`, 24/08/2026).
+fn cluster_dedupe_key(project_root: &Path, cluster: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{1}cluster\u{1}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
     cluster.hash(&mut hasher);
     hasher.finish()
 }
@@ -134,11 +157,11 @@ fn f7_actuator_armed() -> bool {
 /// Marking happens here rather than on emit because `run` has no early-return
 /// between this gate and the point a suggestion is emitted, so the two are
 /// equivalent — and this keeps `run`'s control flow flat.
-fn cluster_dedupe_gate(classifier: &ClassifierOutput) -> ClusterDecision {
+fn cluster_dedupe_gate(project_root: &Path, classifier: &ClassifierOutput) -> ClusterDecision {
     if classifier.carries_input_specific_signal() {
         return ClusterDecision::Proceed;
     }
-    let key = cluster_dedupe_key(&classifier.cluster);
+    let key = cluster_dedupe_key(project_root, &classifier.cluster);
     if cache().get(&key).is_some() {
         return ClusterDecision::Suppress;
     }
@@ -179,9 +202,10 @@ fn scan_counter() -> &'static moka::sync::Cache<u64, u32> {
 /// [`input_hash`] and [`cluster_dedupe_key`] (a distinct `\u{2}` control-byte
 /// tag that cannot appear in a tool name or cluster id), so the counter never
 /// collides with the anti-spam or banner-dedupe caches.
-fn scan_class_key() -> u64 {
+fn scan_class_key(project_root: &Path) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}code-mode-scan\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -196,8 +220,8 @@ fn crosses_threshold(prev: u32, threshold: u32) -> bool {
 /// threshold-crossing edge (fire once, then suppress until the window expires).
 /// The get-then-insert is non-atomic, but a benign race only risks a duplicate
 /// nudge under heavy concurrency — acceptable for a fail-open advisory hook.
-fn scan_window_crosses_threshold() -> bool {
-    let key = scan_class_key();
+fn scan_window_crosses_threshold(project_root: &Path) -> bool {
+    let key = scan_class_key(project_root);
     let prev = scan_counter().get(&key).unwrap_or(0);
     scan_counter().insert(key, prev.saturating_add(1));
     crosses_threshold(prev, CODE_MODE_SCAN_THRESHOLD)
@@ -229,12 +253,22 @@ pub fn classify_confidence(tool_name: &str, tool_input: &Value) -> Option<f32> {
 fn conformal_gate_threshold(rt: &HookRuntime) -> f32 {
     use crate::conformal::{ConformalCalibrator, DEFAULT_ALPHA, LEGACY_THRESHOLD};
 
-    static CACHE: OnceLock<std::sync::Mutex<Option<(f32, std::time::Instant)>>> = OnceLock::new();
-    let cell = CACHE.get_or_init(|| std::sync::Mutex::new(None));
-    if let Ok(guard) = cell.lock()
-        && let Some((tau, at)) = *guard
-        && at.elapsed().as_secs() < SUGGESTION_TTL_SECS
-    {
+    // Memoizado POR PROJETO. O τ é destilado do substrato de `rt` — os outcomes
+    // daquele projeto — e o daemon que hospeda este cache é longo-vivo, servindo
+    // mais de um. Numa célula única, o τ do primeiro projeto a chegar governava
+    // a régua de disparo dos demais por 300 s: o gate mais consequente do hook
+    // (decide se a sugestão sai) respondia a dados de outro repositório.
+    // `moka` (o mesmo mecanismo dos demais caches deste módulo) dá teto e
+    // expiração nativos: um mapa sem limite cresceria uma entrada por projeto
+    // pela vida inteira de um daemon longo-vivo, e o TTL viraria checagem manual.
+    static CACHE: OnceLock<moka::sync::Cache<std::path::PathBuf, f32>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CONFORMAL_TAU_MAX_PROJECTS)
+            .time_to_live(Duration::from_secs(SUGGESTION_TTL_SECS))
+            .build()
+    });
+    if let Some(tau) = cache.get(&rt.project_root) {
         return tau;
     }
 
@@ -257,9 +291,7 @@ fn conformal_gate_threshold(rt: &HookRuntime) -> f32 {
         LEGACY_THRESHOLD as f32
     };
 
-    if let Ok(mut guard) = cell.lock() {
-        *guard = Some((tau, std::time::Instant::now()));
-    }
+    cache.insert(rt.project_root.clone(), tau);
     tau
 }
 
@@ -1797,7 +1829,7 @@ fn query_edit_failures(
                LIMIT ?3";
     let mut out: Vec<(String, f64)> = Vec::new();
     for db in knowledge_dbs {
-        let Ok(conn) = rusqlite::Connection::open(db) else {
+        let Ok(conn) = open_lessons_db_readonly(db) else {
             continue;
         };
         let Ok(mut stmt) = conn.prepare(sql) else {
@@ -1820,6 +1852,32 @@ fn query_edit_failures(
 /// `(command_short, error_pattern, executed_at)` tuples, at most `limit` rows
 /// per DB; the caller derives age via [`age_days_from_sqlite`]. Fail-open per
 /// DB.
+/// Abre um DB de lições para LEITURA APENAS.
+///
+/// Os três consumidores deste módulo só fazem `SELECT`, e abrir em modo de
+/// escrita custou dois defeitos, ambos observados:
+///
+/// 1. **Deadlock sob concorrência** (capturado sob gdb em 24/08/2026, 3 travas
+///    em 40 execuções): o `Drop` de uma conexão de escrita sobre um DB em WAL
+///    entra em `sqlite3WalClose` → `unixLock`, pedindo lock EXCLUSIVO de arquivo
+///    para o checkpoint. Threads que apenas liam o mesmo arquivo disputavam esse
+///    lock com quem fechava, e o processo parava com todas as threads em
+///    `pthread_mutex_lock`. Uma conexão read-only não faz checkpoint no close,
+///    então não pede o lock exclusivo. Isto NÃO é um problema só de teste: o
+///    `cli-suggest` roda in-daemon, e o daemon é multi-thread.
+/// 2. **Criação silenciosa de DB alheio**: `Connection::open` traz
+///    `SQLITE_OPEN_CREATE`, então consultar um caminho federado inexistente
+///    fabricava um banco vazio no lugar. Sem `CREATE`, o caminho ausente
+///    simplesmente falha e o chamador segue para o próximo.
+fn open_lessons_db_readonly(db: &std::path::Path) -> Result<rusqlite::Connection, rusqlite::Error> {
+    rusqlite::Connection::open_with_flags(
+        db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+    )
+}
+
 fn query_bash_failures(
     knowledge_dbs: &[std::path::PathBuf],
     command_short: &str,
@@ -1833,7 +1891,7 @@ fn query_bash_failures(
                LIMIT ?2";
     let mut out: Vec<(String, String, String)> = Vec::new();
     for db in knowledge_dbs {
-        let Ok(conn) = rusqlite::Connection::open(db) else {
+        let Ok(conn) = open_lessons_db_readonly(db) else {
             continue;
         };
         let Ok(mut stmt) = conn.prepare(sql) else {
@@ -1870,7 +1928,7 @@ fn collect_memory_lessons_one_db(
     mem_db_path: &std::path::Path,
     sig: &ActionSignature,
 ) -> Vec<LessonItem> {
-    let conn = match rusqlite::Connection::open(mem_db_path) {
+    let conn = match open_lessons_db_readonly(mem_db_path) {
         Ok(c) => c,
         Err(_) => return Vec::new(),
     };
@@ -2435,11 +2493,15 @@ fn code_mode_output(kind: &CodeModeKind, tool_name: &str, tool_input: &Value) ->
 /// the window threshold; `None` otherwise. Bypasses the conformal gate by design
 /// — detection is precise (explicit syntax or a counted burst), unlike the fuzzy
 /// regex classifier the gate guards.
-fn detect_code_mode(tool_name: &str, tool_input: &Value) -> Option<ClassifierOutput> {
+fn detect_code_mode(
+    project_root: &Path,
+    tool_name: &str,
+    tool_input: &Value,
+) -> Option<ClassifierOutput> {
     match code_mode_kind(tool_name, tool_input)? {
         CodeModeKind::Loop => Some(code_mode_output(&CodeModeKind::Loop, tool_name, tool_input)),
         CodeModeKind::Scan => {
-            if scan_window_crosses_threshold() {
+            if scan_window_crosses_threshold(project_root) {
                 Some(code_mode_output(&CodeModeKind::Scan, tool_name, tool_input))
             } else {
                 None
@@ -2456,7 +2518,7 @@ fn select_classifier(
     tool_name: &str,
     tool_input: &Value,
 ) -> Option<ClassifierOutput> {
-    if let Some(code_mode) = detect_code_mode(tool_name, tool_input) {
+    if let Some(code_mode) = detect_code_mode(&rt.project_root, tool_name, tool_input) {
         return Some(code_mode);
     }
     let gate = conformal_gate_threshold(rt);
@@ -2886,7 +2948,7 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     record_adoption(tool_name, tool_input);
 
     // TTL cache: anti-spam for identical (tool, input) pairs.
-    let h = input_hash(tool_name, tool_input);
+    let h = input_hash(&rt.project_root, tool_name, tool_input);
     if cache().get(&h).is_some() {
         return "{}".into();
     }
@@ -2905,7 +2967,10 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // carries no input-specific signal fires at most once per TTL window. The
     // input-hash cache above still anti-spams identical inputs; symbol/file-
     // specific suggestions are never deduped (each is fresh signal).
-    if matches!(cluster_dedupe_gate(&classifier), ClusterDecision::Suppress) {
+    if matches!(
+        cluster_dedupe_gate(&rt.project_root, &classifier),
+        ClusterDecision::Suppress
+    ) {
         return "{}".into();
     }
 
