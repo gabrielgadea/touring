@@ -574,3 +574,102 @@ resposta inteira.
 Passos 1–5 são baratos e não bloqueiam nada que hoje funcione. **6–8 são os que
 movem o ponteiro**, porque atacam os dois modos que somam 80% do corpus e que
 nenhuma dose de atenção resolve.
+
+---
+
+# Parte III — Rodada 2 de exploração (24/08, noite)
+
+> Três eixos que a rodada 1 não cobriu: **motifs de workflow** (trigramas e
+> quadrigramas), **os erros que as sessões realmente viram** (`tool_result
+> is_error`, não a memória curada) e — o dado que faltava para decidir — a
+> **simulação dos gates G1–G6 contra as 55 sessões**, com proxy de precisão.
+> Instrumentos: `evidence/diag_motifs.py`, `diag_erros.py`, `diag_gate_sim.py`.
+
+## §8 — Simulação dos gates: o G1 tem 90% de precisão
+
+Replay dos seis gates sobre as 55 sessões (5.816 tool calls):
+
+| gate | disparos | sessões atingidas | leitura |
+| --- | ---: | ---: | --- |
+| G4 read-sem-localizar | 365 | **27/55** | difuso — confirma o risco de FP previsto no §4.7 |
+| G3 edit-sem-read | 336 | **15/55** | **concentrado**: poucas sessões produzem quase tudo |
+| G2 exit-através-de-pipe | 65 | 13/55 | 20× o que a auto-medição de uma sessão via |
+| **G1 rajada de inspeção** | 51 | 16/55 | dispara pouco — e quase sempre certo |
+| G6 redundante | 46 | 13/55 | baixo e certeiro |
+| G5 edits-sem-validação | 42 | 21/55 | espalhado — é sintoma de hábito, não de sessão ruim |
+
+**A proxy de precisão do G1**: no momento do 4º comando de inspeção consecutivo,
+a rajada **continuaria** (havia mais inspeção nas 3 chamadas seguintes) em
+**46 de 51 casos — 90%**. Só 5 rajadas morreriam sozinhas no exato ponto do
+disparo. Tradução de projeto: *negar a 4ª inspeção da mesma classe quase nunca
+bloqueia trabalho que ia terminar ali* — o medo de falso-bloqueio que fazia o
+§4.7 hesitar no G1 está agora quantificado, e é pequeno.
+
+A concentração do G3 (336 disparos em só 15 sessões) muda seu desenho: não é um
+gate de população, é um gate de **modo de sessão** — nas sessões em que dispara,
+dispara em série. Um contador com escalada (avisa 1×, depois nega) pega o modo
+sem incomodar as outras 40 sessões.
+
+## §9 — Motifs: o "quarto" tem três paredes, não uma
+
+Trigramas mais frequentes (classes de Bash separadas):
+
+| motif | n | leitura |
+| --- | ---: | --- |
+| inspect → inspect → inspect | 346 | a rajada do §4 |
+| Read → Read → Read | 317 | a MESMA rajada, no tool nativo |
+| Edit → Edit → Edit | 278 | edição em série (o G5 mora aqui) |
+| **write → write → write** (shell) | 238 | heredoc/sed em série — construção de arquivo por Bash |
+| inspect ⇄ write alternados | ~600 somados | **o REPL**: olha, mexe, olha, mexe |
+
+Os quadrigramas confirmam: as 8 formas fixas mais comuns são todas permutações
+de `inspect`/`write` — **não há workflow de forma fixa além do REPL**. A
+consequência de projeto é importante: um gate de *sequência específica* (tipo
+"detecte grep→sed→cat→grep") não tem alvo; o alvo é o **estado** REPL, que os
+contadores de classe (G1) já capturam. Confirma a decisão do §4.3 por medição
+independente.
+
+**Re-inspeção do mesmo alvo**: 175 casos de um arquivo inspecionado ≥3× na
+mesma sessão — 16 deles ≥10×. Os campeões: `adw.py` (39×),
+`cli_suggester.rs` (32×). Um arquivo re-inspecionado 10× é um arquivo que
+deveria ter virado **uma** varredura R1 com agregado — este é o sinal mais
+direto de "programa faltando" que a rodada achou, e é barato de detectar (o
+hook já tem o `file_path`/comando em mãos).
+
+## §10 — Os erros que as sessões viram (e o que eles NÃO são)
+
+5.891 tool_results, **155 erros (2%)**:
+
+| classe | n | evitável por programa? |
+| --- | ---: | --- |
+| exit_nonzero | 63 | parcial — é o custo normal de iterar |
+| outro | 50 | — |
+| file_not_found | 12 | ✅ R6 (descoberta antes de ação) |
+| edit_string_not_found | 11 | ✅ G3 (Read antes de Edit) — é o `EditWithoutRead` vivo |
+| permission_denied · timeout · compile | 16 | não — são gates funcionando |
+
+E o dado que honra as sessões: **retry idêntico imediato = 5** em 155 erros. O
+padrão pós-erro dominante é Bash diferente (115) — diagnóstico, não repetição
+cega. O retry cego que o `adw-retry-sem-feedback` documenta nos ADWs **não é** o
+comportamento das sessões interativas.
+
+**A leitura que importa**: os erros *visíveis* são 2% e majoritariamente
+saudáveis (iteração normal + gates fazendo o trabalho). Isso confirma por
+contraste a tese do §7: o dano real desta máquina não está nos erros que o
+transcript marca — está nos **855 achados silenciosos** do corpus de memórias
+(staleness, instrumento errado, ausência-como-zero), que nenhum `is_error`
+jamais marcou. O gate certo não é o que pega o erro vermelho; é o que impede a
+afirmação verde sem procedência.
+
+## §11 — O que a rodada 2 muda na ordem do §7.5
+
+1. **G1 sobe** (de passo 9 para o bloco inicial): 90% de precisão medida elimina
+   a objeção que o segurava. Implementação: escalada no contador existente.
+2. **G3 vira gate de modo** com escalada por sessão (não por população).
+3. **Novo candidato G7 — re-inspeção do mesmo alvo**: 3ª inspeção do MESMO
+   arquivo na sessão → oferece a varredura R1 equivalente; 5ª → nega. 175 casos,
+   detecção trivial.
+4. **G4 desce**: 27/55 sessões é difusão demais; fica como telemetria até os
+   outros estabilizarem.
+5. A ordem revisada: **G2 → G6 → G1 → G3(modo) → E5/R → E4/lints → nós
+   `control`/`until_covered`/`until_fixpoint` → G7 → G5 → G4**.
