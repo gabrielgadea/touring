@@ -673,3 +673,15 @@ afirmação verde sem procedência.
    outros estabilizarem.
 5. A ordem revisada: **G2 → G6 → G1 → G3(modo) → E5/R → E4/lints → nós
    `control`/`until_covered`/`until_fixpoint` → G7 → G5 → G4**.
+
+---
+
+## O plano que esta estratégia produziu
+
+A execução está planejada em [`plan.md`](plan.md) (Pln2, 9 waves W0–W8, 38
+subtasks, DAG `task_1787614930715946363`): gates no PreToolUse com os limiares
+medidos aqui, os 4 predicados novos de loop, os nós `probe`/`control`, os fluxos
+da biblioteca, a reforma do modus operandi e — da varredura dos
+repositórios-fonte (`evidence/sweep_fontes.py`) — o colapso code-only opt-in, a
+higiene de KV-cache dos hooks, o stub tipado como remédio dos gates e o spike
+`updatedInput`. Aguarda aprovação (gate humano do passo 9).
