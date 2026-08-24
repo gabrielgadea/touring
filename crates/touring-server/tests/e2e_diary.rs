@@ -389,26 +389,33 @@ fn test_diary_no_diary_status() {
 /// - isolar o `HOME` foi tentado e piora: aí TODA chamada de `cli-memory-recall`
 ///   estoura o orçamento de 15s do cliente (um warm-up descartado não resolveu).
 ///
-/// CAUSA RAIZ, medida em disco em 24/08/2026 (o parágrafo acima descreve o
-/// SINTOMA e aponta para o motor de recall, que está CERTO):
+/// CAUSA RAIZ, medida em disco em 24/08/2026 — e CORRIGIDA no mesmo dia.
 ///
-/// `touring diary write` e `touring memory recall` resolvem a raiz do projeto de
-/// formas diferentes. No mesmo diretório, com o mesmo binário:
-///   - `diary write`   grava em `<cwd>/.claude/touring/memory.db`   (raiz = cwd)
-///   - `memory store`  grava em `~/.claude/touring/memory.db`       (raiz = HOME)
-///   - `memory recall` lê primary(HOME) + tudo sob `~/.claude/**`
+/// O parágrafo acima descreve o SINTOMA, e ele apontava para o motor de recall,
+/// que está certo. O defeito era do ESCRITOR: `touring diary write` resolvia a
+/// raiz com `std::env::current_dir()` cru, em cinco subcomandos, enquanto todo o
+/// resto do Touring usa a raiz NORMALIZADA. No mesmo diretório, com o mesmo
+/// binário:
+///   - `diary write`   gravava em `<cwd>/.claude/touring/memory.db`  (cwd cru)
+///   - `memory recall` lê primary(raiz normalizada) + raízes sob `~/.claude`
 ///
-/// `discover_canonical_dbs` (`touring-cli/src/cli/shared.rs`) federa `primary`
-/// mais as raízes sob `~/.claude`; uma DB em `/tmp/…/proj/.claude/` não está em
-/// nenhuma das duas. O diário cai numa DB que o recall nunca abre — daí a fonte
-/// lexical muda. O tell é o campo `source_db`: `null` em TODAS as entradas
-/// significa que nada veio da federação lexical.
+/// Num diretório sem marcador de projeto as duas nunca se encontravam: o diário
+/// caía numa DB que o recall jamais abre. O tell é o campo `source_db` — `null`
+/// em TODAS as entradas significa que nada veio da federação lexical, só da ANN,
+/// e a consulta devolvia N resultados confiantes sem NENHUM contendo o termo.
 ///
-/// Num projeto real funciona porque cwd e fallback-HOME coincidem com a raiz do
-/// daemon, e é por isso que o defeito se lia como "coisa de projeto vazio".
-/// Corrigir exige escolher quem muda de raiz (o writer ou o reader) — decisão de
-/// arquitetura que toca todos os projetos pinados, registrada em vez de chutada.
-#[ignore = "expõe deficiência real da memória em projeto vazio (1 fonte no RRF, budget estourado ao isolar HOME) — ver forense acima; NÃO reverter para a asserção genérica, que passava por acidente"]
+/// Num projeto real funcionava porque cwd e raiz normalizada coincidem, e foi
+/// essa coincidência que sustentou a leitura "coisa de projeto vazio" por meses.
+///
+/// A correção põe os cinco subcomandos em `diary_project_root()`
+/// (`TouringConfig::normalize_project_root`), o mesmo remédio que
+/// `daemon_client.rs` e `handlers/mcp.rs` já haviam recebido para a "classe das
+/// 29 DBs órfãs" — o diário era o membro que faltava. Guardas de regressão:
+/// `cli::diary::diary_root_tests` (estrutural sobre os 5 sítios + as duas
+/// direções: sem marcador cai no HOME, dentro de projeto continua no projeto).
+///
+/// Este teste deixou de ser `#[ignore]` porque a deficiência que o justificava
+/// não existe mais — verificado verde no binário vivo em 24/08/2026.
 #[test]
 fn test_diary_fts5_searchable() {
     // Verify diary entries are ingested into FTS5 so `touring memory recall`

@@ -110,14 +110,68 @@ fonte lexical não respondeu; tudo veio da ANN, do corpus global.
 Em `~/projects/touring` funciona porque cwd e fallback-HOME coincidem com a raiz
 do daemon. Foi essa coincidência que sustentou a leitura "coisa de projeto vazio".
 
-### Por que não corrigi
+### A correção (o dilema era falso)
 
-Mudar a resolução de raiz toca todos os projetos pinados. A escolha entre "o
-`diary` passa a enraizar como o `recall`" e "o `recall` passa a federar o cwd" é
-decisão de arquitetura, não conserto — e a ordem vigente é não causar regressão
-em nenhum projeto. Fica registrada com a evidência que a torna decidível, e o
-comentário forense do teste `e2e_diary.rs` foi corrigido para parar de apontar
-para o subsistema errado.
+Eu tinha apresentado isto como escolha de arquitetura entre mover o writer ou o
+reader. **Não era.** Ler o código desfez o dilema em uma linha:
+
+```rust
+let project_root = std::env::current_dir()?;   // diary.rs, em CINCO subcomandos
+```
+
+O diário é o **único** subsistema que enraíza no cwd cru. Todo o resto usa
+`TouringConfig::normalize_project_root`, cuja documentação nomeia exatamente
+este dano: *"every working directory spawned its own stray `.claude/touring/`
+shard — a classe das 29 DBs órfãs"*. Dois sítios já haviam recebido o remédio
+(`daemon_client.rs`, `handlers/mcp.rs`), cada um com um comentário explicando a
+lição. **O diário era o membro que nunca a recebeu.**
+
+Não havia dois candidatos legítimos: havia um outlier. A correção é adotar o
+contrato que já existe — não inventar política nova.
+
+Detalhe que decide a correção: `.claude/` **não** é marcador de projeto na
+normalização. Tratá-lo como marcador foi o que criou as órfãs — e teria feito
+este conserto recriá-las, já que a primeira escrita do diário cria o `.claude/`.
+
+Corrigido nos **cinco** sítios com uma definição só. Corrigir apenas o `write`
+faria escrita e leitura do diário discordarem entre si — pior que o defeito.
+
+### A prova
+
+| verificação | resultado |
+| --- | --- |
+| repro exato que falhava | `achou: 1`, `RRF fusion from 3 sources` (era `1 sources`, `achou: 0`) |
+| DB órfã criada no diretório sem marcador | nenhuma |
+| projeto real (não-regressão) | segue em `projects/touring/.claude/touring/memory.db` |
+| `test_diary_fts5_searchable` (estava `#[ignore]`) | **passa** — suíte 9/9, 0 ignorados |
+
+O teste estava ignorado *por causa deste defeito*. Ele voltar ao verde é a prova
+mais forte disponível, porque não fui eu que escolhi o critério.
+
+### Guardas de regressão
+
+`cli::diary::diary_root_tests`: uma guarda **estrutural** sobre os cinco sítios
+(varre o fonte, piso de 5 usos para não passar a vácuo) e as duas direções da
+propriedade — sem marcador cai no HOME, dentro de projeto continua no projeto.
+
+A guarda estrutural falhou de verdade na primeira execução, por um motivo que
+vale registrar: ela varre o arquivo que a contém, e o literal do padrão
+proibido estava **dentro dela mesma**. A agulha passou a ser montada em tempo de
+execução. Um guard auto-referente não pode carregar a própria agulha.
+
+### O que sobrou, e não estou escondendo
+
+- Uma DB órfã histórica segue no disco com 4 entradas de 28/06:
+  `~/.claude/hooks/.claude/touring/memory.db`. **Não apaguei** — é dado, e apagar
+  dado do Gabriel sem perguntar não é minha decisão. Migrar ou remover é um
+  comando; diga qual.
+- `activity.rs::store_path` pertence à mesma classe (chaveia `activity.jsonl`
+  pelo cwd cru). Varri o disco: os 5 arquivos existentes estão todos em raízes
+  legítimas, então é **latente, não observado** — registro sem corrigir, porque
+  não vou mexer num subsistema onde não medi falha.
+- `cortex/runtime.rs` e `impls_hook.rs` reimplementam `detect_project_root` com
+  só 2 dos 4 passos da cadeia canônica (sem `TOURING_PROJECT_ROOT`, sem checagem
+  de marcador, sem blacklist de `/tmp`). Drift real, fora do escopo deste turno.
 
 ## A afirmação que eu tinha escrito e estava errada
 
