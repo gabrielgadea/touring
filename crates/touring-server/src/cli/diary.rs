@@ -102,7 +102,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     match cli.cmd.unwrap_or(DiaryCmd::List) {
         DiaryCmd::List => {
-            let project_root = std::env::current_dir()?;
+            let project_root = diary_project_root()?;
             let memory_store = init_memory_store(&project_root)?;
 
             let known_agents = [
@@ -162,7 +162,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 raw_entry.clone()
             };
 
-            let project_root = std::env::current_dir()?;
+            let project_root = diary_project_root()?;
             let memory_store = init_memory_store(&project_root)?;
             let mut diary = AgentDiary::new(&agent_name);
             diary.ensure_meta(&memory_store)?;
@@ -210,7 +210,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "Usage: touring diary read <agent> [--last N] [--topic <topic>] [--project <p>] [--task <id>]"
                 );
             }
-            let project_root = std::env::current_dir()?;
+            let project_root = diary_project_root()?;
             let memory_store = init_memory_store(&project_root)?;
             let diary = AgentDiary::new(&agent_name);
 
@@ -261,7 +261,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             if agent_name.is_empty() {
                 anyhow::bail!("Usage: touring diary meta <agent>");
             }
-            let project_root = std::env::current_dir()?;
+            let project_root = diary_project_root()?;
             let memory_store = init_memory_store(&project_root)?;
             let mut diary = AgentDiary::new(&agent_name);
             diary.load_meta(&memory_store)?;
@@ -305,7 +305,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             if agent_name.is_empty() {
                 anyhow::bail!("Usage: touring diary projects <agent>");
             }
-            let project_root = std::env::current_dir()?;
+            let project_root = diary_project_root()?;
             let memory_store = init_memory_store(&project_root)?;
             let diary = AgentDiary::new(&agent_name);
             let projects = diary
@@ -359,6 +359,38 @@ fn fetch_entries(
 }
 
 /// Initialize MemoryStore for CLI use (direct file access, no daemon required).
+/// A raiz de projeto do diário — normalizada, JAMAIS o cwd cru.
+///
+/// Os cinco subcomandos do diário usavam `std::env::current_dir()` direto. Isso
+/// os deixava de fora do contrato que todo o resto do Touring já seguia, com
+/// duas consequências medidas em 24/08/2026:
+///
+/// 1. **O diário gravava onde o `memory recall` nunca lê.** Num diretório sem
+///    marcador de projeto, `diary write` criava
+///    `<cwd>/.claude/touring/memory.db`, enquanto o recall — que usa a raiz
+///    resolvida — federa `primary` mais as raízes sob `~/.claude`. A entrada
+///    recém-escrita ficava invisível para uma consulta pelo termo EXATO, e o
+///    sintoma era da pior espécie: N resultados confiantes, nenhum contendo o
+///    termo (só a fonte ANN respondia, do corpus global). Era o defeito
+///    registrado como "mem-vazio" e lido, por anos, como "memória degradada em
+///    projeto vazio" — a memória estava certa; o escritor é que enraizava
+///    noutro lugar.
+/// 2. **Fragmentação por diretório.** Rodar o comando de `crates/` e da raiz do
+///    workspace usava DBs diferentes. É a "classe das 29 DBs órfãs" que
+///    `normalize_project_root` existe para fechar (`daemon_client.rs`,
+///    `handlers/mcp.rs`) — o diário era o membro que nunca recebeu a correção.
+///    Uma delas ainda está no disco desta máquina com uma entrada encalhada:
+///    `~/.claude/hooks/.claude/touring/memory.db`.
+///
+/// A normalização sobe até `.touring/`/`.git/`/`Cargo.toml [workspace]` e cai em
+/// `$HOME` quando não há marcador — a mesma raiz que o leitor usa. `.claude/`
+/// de propósito NÃO conta como marcador: tratá-lo assim foi o que gerou as
+/// órfãs, e é o que faria este conserto recriá-las.
+fn diary_project_root() -> anyhow::Result<std::path::PathBuf> {
+    let cwd = std::env::current_dir()?;
+    Ok(touring_foundation::TouringConfig::normalize_project_root(&cwd))
+}
+
 fn init_memory_store(project_root: &Path) -> anyhow::Result<MemoryStore> {
     let memory_db = project_root
         .join(".claude")
@@ -609,5 +641,80 @@ mod tests {
         // --topic followed by another flag (no value) should return None
         let args = s(&["touring", "diary", "write", "claude", "--topic", "--aaak"]);
         assert_eq!(extract_flag(&args, "--topic"), None);
+    }
+}
+
+
+#[cfg(test)]
+mod diary_root_tests {
+    /// Guarda ESTRUTURAL sobre a família — não sobre o sítio que eu lembrei.
+    ///
+    /// O defeito vivia em CINCO subcomandos. Corrigir um só faria a escrita e a
+    /// leitura do diário discordarem entre si, o que é pior que o defeito
+    /// original. Este teste varre o próprio fonte para que um sexto subcomando
+    /// não possa nascer com o cwd cru.
+    #[test]
+    fn no_diary_subcommand_roots_on_the_raw_cwd() {
+        let fonte = include_str!("diary.rs");
+        let usos = fonte.matches("diary_project_root()?").count();
+        assert!(
+            usos >= 5,
+            "esperava a raiz normalizada nos 5 subcomandos, achei {usos} usos — \
+             a varredura não está enxergando a família"
+        );
+        // A agulha é MONTADA em tempo de execução de propósito. Este teste
+        // varre o arquivo que o contém: escrito como literal, o padrão casaria
+        // consigo mesmo e a guarda falharia para sempre sobre a própria
+        // existência — um guard auto-referente não pode carregar a própria
+        // agulha.
+        let agulha = format!("let project_root = std::env::{}()", "current_dir");
+        assert!(
+            !fonte.contains(&agulha),
+            "um subcomando do diário voltou a enraizar no cwd cru: é assim que \
+             o diário passa a gravar numa DB que o `memory recall` nunca abre"
+        );
+    }
+
+    /// A propriedade que fecha o `mem-vazio`: num diretório SEM marcador, o
+    /// escritor do diário resolve para a MESMA raiz que o leitor da memória.
+    ///
+    /// Antes, `diary write` usava o cwd literal e criava
+    /// `<cwd>/.claude/touring/memory.db`; o recall federava `primary` (raiz
+    /// resolvida, que cai em `$HOME`) mais as raízes sob `~/.claude`. As duas
+    /// nunca se encontravam.
+    #[test]
+    fn a_markerless_directory_resolves_to_the_root_the_reader_also_uses() {
+        let home = std::env::temp_dir().join("diary_root_home_test");
+        let sub = home.join("sem_marcador");
+        std::fs::create_dir_all(&sub).expect("mkdir");
+        let resolvida = touring_foundation::TouringConfig::normalize_project_root_inner(
+            &sub,
+            Some(home.as_path()),
+        );
+        assert_eq!(
+            resolvida, home,
+            "sem marcador a raiz tem de cair no HOME — é a store global que o \
+             recall lê; qualquer outra resposta recria o mem-vazio"
+        );
+    }
+
+    /// E o caso oposto: dentro de um projeto real, a raiz é o projeto — a
+    /// correção não pode empurrar tudo para o global.
+    #[test]
+    fn a_subdirectory_of_a_real_project_still_resolves_to_that_project() {
+        let home = std::env::temp_dir().join("diary_root_proj_test");
+        let projeto = home.join("proj");
+        let sub = projeto.join("crates").join("algum");
+        std::fs::create_dir_all(&sub).expect("mkdir");
+        std::fs::create_dir_all(projeto.join(".git")).expect("mkdir .git");
+        let resolvida = touring_foundation::TouringConfig::normalize_project_root_inner(
+            &sub,
+            Some(home.as_path()),
+        );
+        assert_eq!(
+            resolvida, projeto,
+            "de dentro de um projeto o diário tem de continuar no projeto — \
+             fragmentar por subdiretório era a outra metade do defeito"
+        );
     }
 }
