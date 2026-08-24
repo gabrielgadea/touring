@@ -3553,3 +3553,104 @@ def test_sandbox_unwrap_is_fail_open_on_a_broken_envelope():
     saida = adw._unwrap_sandbox_output("isto nao e json", "aviso no stderr")
     assert "isto nao e json" in saida
     assert "aviso no stderr" in saida
+
+
+# ── o detector de escrita (24/08/2026) ───────────────────────────────────────
+#
+# O detector antigo lia sintaxe de shell e, por isso, aprovava como LEITURA todo
+# comando que gravasse de dentro de um programa. Estes testes fixam as duas
+# metades: o que ele passou a enxergar, e — mais importante — o que ele nunca
+# mais pode afirmar.
+
+#: O comando REAL do nó `arm_marker` (strategy-loop.toml). Copiado verbatim
+#: porque é o caso que escapou; um paráfrase testaria outra coisa.
+ARM_MARKER_COMMAND = [
+    "bash", "-c",
+    "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write "
+    "--task OUTER --status outer --flow strategy-outer --scope \"$1\" "
+    "--bundle \"$2\" --cwd \"$1\"",
+    "--", "{{vars.scope}}", "{{vars.bundle}}",
+]
+
+
+def test_a_write_made_inside_a_program_is_seen_though_no_shell_syntax_shows_it():
+    """O caso que escapou: nem `>` nem `rm`, e ainda assim grava."""
+    assert ">" not in " ".join(ARM_MARKER_COMMAND), "o comando não tem redirecionamento"
+    assert adw.command_writes(ARM_MARKER_COMMAND) is True
+
+
+def test_absence_of_write_syntax_never_proves_read_only():
+    """A regressão de fundo: `None` (não sei) jamais pode virar `False` (leitura)."""
+    for cmd in (
+        ["bash", "-c", "python3 loop_diagnose.py --scope /x --topic t --json"],
+        ["bash", "-c", "touring explore \"$1\" --scope \"$2\"", "--", "a", "b"],
+        ["bash", "-c", "./algum-binario-desconhecido --flag"],
+    ):
+        assert adw.command_writes(cmd) is None, cmd
+
+
+def test_a_program_subcommand_that_writes_is_caught_by_its_verb():
+    assert adw.command_writes(["bash", "-c", "touring memory store k v"]) is True
+    assert adw.command_writes(["bash", "-c", "git commit -m x"]) is True
+    assert adw.command_writes(["bash", "-c", "touring memory recall q"]) is None
+
+
+def test_file_descriptor_redirection_is_not_a_write():
+    """`2>&1` abre quase todo nó da biblioteca — contá-lo tornaria o detector ruído."""
+    assert adw.command_writes(["bash", "-c", "touring memory recall q 2>&1"]) is not True
+    assert adw.command_writes(["bash", "-c", "echo oi >&2"]) is not True
+    assert adw.command_writes(["bash", "-c", "echo oi > /tmp/x"]) is True
+
+
+def test_set_o_pipefail_is_not_mistaken_for_an_output_flag():
+    """Três nós da biblioteca abrem com `set -o pipefail`; nenhum grava por isso."""
+    assert adw.command_writes(
+        ["bash", "-c", "set -o pipefail; touring explore t 2>&1 | tail -c 1800"]
+    ) is not True
+
+
+def test_dash_i_is_a_write_only_for_the_tools_that_edit_in_place():
+    assert adw.command_writes(["bash", "-c", "sed -i 's/a/b/' f"]) is True
+    assert adw.command_writes(["bash", "-c", "grep -i padrao arquivo"]) is not True
+
+
+def test_a_readonly_claim_the_command_contradicts_is_refused_by_the_lint():
+    """D8: quem aplica a regra é o executor, não o comentário no spec."""
+    node = adw.Node(name="arm", type="code",
+                    raw={"command": ARM_MARKER_COMMAND, "readonly": True})
+    errors, warnings = [], []
+    adw._lint_readonly_claim(node, errors, warnings)
+    assert any("GRAVA" in e for e in errors), errors
+
+
+def test_an_unprovable_readonly_claim_is_warned_not_silently_believed():
+    node = adw.Node(name="d", type="code",
+                    raw={"command": ["bash", "-c", "python3 x.py --scope /y"],
+                         "readonly": True})
+    errors, warnings = [], []
+    adw._lint_readonly_claim(node, errors, warnings)
+    assert not errors
+    assert any("não prova leitura" in w for w in warnings), warnings
+
+
+def test_the_shipped_library_is_classified_and_arm_marker_is_the_writer():
+    """Guarda estrutural sobre a FAMÍLIA — não sobre um caso escolhido a dedo.
+
+    Ancorado contra passar a vácuo: se a biblioteca sumir ou o parser quebrar, a
+    contagem cai a zero e o teste falha em vez de aprovar silêncio.
+    """
+    import tomllib
+    lib = Path.home() / ".claude/skills/Touring/adw-library"
+    if not lib.exists():
+        import pytest
+        pytest.skip("biblioteca central ausente nesta máquina")
+    escritores, total = [], 0
+    for f in sorted(lib.glob("*.toml")):
+        for name, node in (tomllib.loads(f.read_text()).get("node") or {}).items():
+            if node.get("type") not in ("code", "gate"):
+                continue
+            total += 1
+            if adw.command_writes(node.get("command")) is True:
+                escritores.append(f"{f.stem}:{name}")
+    assert total >= 15, f"só {total} nós examinados — a varredura não achou a biblioteca"
+    assert escritores == ["strategy-loop:arm_marker"], escritores

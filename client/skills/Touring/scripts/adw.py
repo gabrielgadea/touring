@@ -661,6 +661,200 @@ def node_readonly(node: Node) -> bool | None:
     return None
 
 
+# ── write detection (24/08/2026) ─────────────────────────────────────────────
+#
+# Um detector que lê SINTAXE DE SHELL (`>`, `rm`, `sed -i`) não enxerga a
+# escrita feita DENTRO de um programa. Foi assim que a auditoria do code mode
+# aprovou `arm_marker` como leitura: o comando é
+# `python3 .../loop_marker.py write --task OUTER ...` — nada em `python3` nem no
+# caminho do script diz que ele grava; quem diz é o VERBO `write`, na posição de
+# subcomando. O detector abaixo lê as duas metades, e sobretudo nunca conclui
+# "leitura" a partir da AUSÊNCIA de sintaxe de escrita: o que ele não consegue
+# provar vira `None`, jamais `False`.
+
+#: Palavras cujo propósito É mutar a árvore — visíveis na própria linha.
+WRITING_COMMANDS = frozenset({
+    "rm", "rmdir", "mv", "cp", "mkdir", "touch", "tee", "dd", "truncate",
+    "install", "chmod", "chown", "chgrp", "ln", "shred", "unlink", "patch",
+})
+
+#: Palavras que, SOZINHAS, não mutam nada. Pertencer a este conjunto não basta
+#: para chamar um comando de leitura: `sed` é inofensivo até `-i`, e `echo` até
+#: `>`. Os dois casos são checados à parte.
+READING_COMMANDS = frozenset({
+    "cat", "head", "tail", "grep", "rg", "echo", "printf", "ls", "wc", "sort",
+    "uniq", "cut", "sed", "awk", "jq", "true", "false", "test", "date", "diff",
+    "basename", "dirname", "realpath", "readlink", "stat", "comm", "tr", "seq",
+    "pwd", "which", "command", "env", "sleep", "id", "hostname", "df", "du",
+    "set", "cd", "export", "local", "read", "wait",
+    # Palavras-chave do shell: estrutura, não efeito.
+    "if", "then", "else", "elif", "fi", "case", "esac", "for", "while", "do",
+    "done", "exit", "return", "shift", "eval", "source", ".",
+})
+
+#: Multiplexadores cujo PRIMEIRO argumento é um subcomando — é ali que o verbo
+#: de escrita aparece quando a escrita mora dentro do programa.
+PROGRAM_MULTIPLEXERS = frozenset({
+    "touring", "git", "cargo", "npm", "pip", "pip3", "docker", "systemctl",
+    "gh", "snapper", "rustup", "uv", "poetry",
+})
+
+#: Sufixos que denunciam "isto é um programa, e o que ele faz não está aqui".
+PROGRAM_SUFFIXES = (".py", ".sh", ".pl", ".rb", ".js", ".ts", ".bash")
+
+#: Verbos que, em posição de subcomando, dizem que o programa GRAVA.
+WRITING_VERBS = frozenset({
+    "write", "store", "save", "commit", "add", "create", "update", "delete",
+    "remove", "set", "put", "push", "init", "install", "apply", "arm", "emit",
+    "rebuild", "sync", "finalize", "claim", "release", "reset", "restore",
+    "checkout", "merge", "rebase", "tag", "publish", "deploy",
+})
+
+#: Flags inequívocas de "e então grave". `-o`/`--output` ficam DE FORA de
+#: propósito: `set -o pipefail` abre três nós desta biblioteca, e um detector
+#: que os acusasse de escrita seria ruído com cara de rigor.
+WRITING_FLAGS = frozenset({
+    "--in-place", "--write", "--apply", "--fix", "--emit", "--save",
+    "--overwrite", "--force-write",
+})
+
+#: `>`/`>>` para um ARQUIVO. `2>&1` e `>&2` redirecionam descritor, não gravam,
+#: e aparecem em quase todo nó da biblioteca — contá-los tornaria o detector
+#: inútil justamente onde ele precisa discriminar.
+_REDIRECT_TO_FILE_RE = re.compile(r"(?<![0-9<>&])>>?(?!\s*&)")
+
+
+def _command_tokens(command) -> list[str]:
+    """Todo token executável do comando, inclusive os de dentro de `bash -c`.
+
+    Um `bash -c "<script>"` esconde o comando real dentro de UM token. Sem
+    reabrir esse token o detector examinaria a casca (`bash`, `-c`) e declararia
+    desconhecido tudo que importa.
+    """
+    import shlex
+    tokens: list[str] = []
+    for part in (command or []):
+        texto = str(part)
+        tokens.append(texto)
+        if any(ch in texto for ch in ";|&\n") or " " in texto:
+            try:
+                tokens.extend(shlex.split(texto))
+            except ValueError:
+                tokens.extend(texto.split())
+    return tokens
+
+
+def command_writes(command) -> bool | None:
+    """O comando muta alguma coisa? ``None`` = não dá para provar.
+
+    Três valores, e o terceiro é o ponto: ``False`` é reservado para o caso em
+    que TODA palavra executada é conhecidamente de leitura. Qualquer programa
+    cujo efeito não esteja na linha devolve ``None`` — nunca ``False``, que foi
+    exatamente o erro que deixou `arm_marker` passar por leitura.
+
+    Args:
+        command: A lista ``command`` do nó, como está no TOML.
+
+    Returns:
+        ``True`` se grava comprovadamente, ``False`` se é comprovadamente
+        leitura, ``None`` se não é possível decidir pela linha de comando.
+    """
+    if not command:
+        return None
+    tokens = _command_tokens(command)
+    bruto = " ".join(str(c) for c in command)
+
+    if _REDIRECT_TO_FILE_RE.search(bruto):
+        return True
+
+    palavras = [t for t in tokens if t]
+    for i, tok in enumerate(palavras):
+        base = tok.rsplit("/", 1)[-1]
+        if base in WRITING_COMMANDS:
+            return True
+        if tok in WRITING_FLAGS:
+            return True
+        # `-i` só é escrita para quem edita no lugar; em `grep -i` é
+        # case-insensitive, e acusá-lo seria o falso-positivo clássico.
+        if tok == "-i" and any(
+            p.rsplit("/", 1)[-1] in {"sed", "perl"} for p in palavras[:i]
+        ):
+            return True
+        # A metade que a sintaxe não mostra: o verbo em posição de subcomando.
+        if base in PROGRAM_MULTIPLEXERS or base.endswith(PROGRAM_SUFFIXES):
+            seguintes = [t for t in palavras[i + 1 : i + 6] if not t.startswith("-")]
+            if any(s in WRITING_VERBS for s in seguintes[:3]):
+                return True
+
+    # Só agora, e só se NADA no comando for um programa opaco, a resposta pode
+    # ser "leitura". Um único token desconhecido rebaixa para `None`.
+    invoca_programa = any(
+        t.rsplit("/", 1)[-1].endswith(PROGRAM_SUFFIXES)
+        or t.rsplit("/", 1)[-1] in PROGRAM_MULTIPLEXERS
+        or t.rsplit("/", 1)[-1] in {"python", "python3", "node", "ruby", "perl"}
+        for t in palavras
+    )
+    if invoca_programa:
+        return None
+    executaveis = [
+        t.rsplit("/", 1)[-1]
+        for t in palavras
+        if t and not t.startswith("-") and not t.startswith("{{")
+    ]
+    conhecidos = [e for e in executaveis if e in READING_COMMANDS]
+    if conhecidos and all(
+        e in READING_COMMANDS or e in {"bash", "sh", "--"} or not e.isalpha()
+        for e in executaveis
+    ):
+        return False
+    return None
+
+
+def _invokes_opaque_program(tokens: list[str]) -> bool:
+    """O comando chama um script ou interpretador — código que a linha não mostra.
+
+    É a fronteira exata da cegueira do detector antigo: `touring wiring impact` é
+    uma chamada documentada, `python3 loop_marker.py` é um programa arbitrário.
+    """
+    return any(
+        t.rsplit("/", 1)[-1].endswith(PROGRAM_SUFFIXES)
+        or t.rsplit("/", 1)[-1] in {"python", "python3", "node", "ruby", "perl"}
+        for t in tokens
+    )
+
+
+def _lint_readonly_claim(node: Node, errors: list[str], warnings: list[str]) -> None:
+    """Uma declaração `readonly` que o comando contradiz é recusada AQUI.
+
+    O princípio é o D8: quem aplica a regra é o executor, não o comentário. O
+    `arm_marker` documentava a própria limitação num comentário — que nada
+    verifica — e foi essa a lacuna que deixou a auditoria aprová-lo.
+    """
+    if node.type not in {"code", "gate"}:
+        return
+    declarado = node.raw.get("readonly")
+    grava = command_writes(node.raw.get("command"))
+    if declarado is True and grava is True:
+        errors.append(
+            f"node `{node.name}`: declara readonly=true mas o comando GRAVA — "
+            f"a declaração é lida por lints de fan-out e de espera falsa, que "
+            f"passariam a raciocinar sobre um grafo que o runner não executa"
+        )
+    elif declarado is True and grava is None and _invokes_opaque_program(
+        _command_tokens(node.raw.get("command"))
+    ):
+        # O aviso vale onde mora a cegueira do detector antigo: um script ou
+        # interpretador cujo código não está na linha. Um comando feito só de
+        # chamadas documentadas do CLI (`touring wiring impact`) ou de shell puro
+        # não ganha aviso — punir o spec correto é como um lint perde a atenção
+        # que ele precisa ter quando o achado é real.
+        warnings.append(
+            f"node `{node.name}`: declara readonly=true e chama um programa cujo "
+            f"efeito não está na linha de comando — a ausência de `>`/`rm` não "
+            f"prova leitura; confirme o que o programa faz"
+        )
+
+
 def flow_dataflow(spec: Spec) -> dict[str, NodeIO]:
     """The spec's DATA graph, keyed by node name."""
     return {
@@ -1316,6 +1510,7 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     for node in spec.nodes.values():
         _lint_node(node, names, errors, warnings)
         _lint_persona(node, errors, warnings)
+        _lint_readonly_claim(node, errors, warnings)
         if node.type == "parallel":
             _lint_parallel(spec, node, errors, warnings)
     _lint_reachability(spec, warnings)

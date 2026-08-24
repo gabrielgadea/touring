@@ -121,11 +121,63 @@ runner substituindo o corte da spec — e não num pedido para que o autor da
 próxima spec se lembre. A quarta instância do dia do mesmo padrão: a afordância
 existia, estava desligada, e ninguém tinha exercido o caminho que a quebrava.
 
-## O que fica aberto
+## Adendo 24/08/2026 (tarde) — os dois itens abertos, resolvidos
 
-- `mem-vazio` (recall degradado em projeto sem corpus) segue registrado, não
-  mascarado.
-- O detector de escrita da auditoria enxerga sintaxe de shell (`>`, `rm`,
-  `sed -i`) mas não escrita feita **dentro** de um programa — foi assim que ele
-  aprovou o `arm_marker`, que escreve o marcador do flow guard. Revertido e
-  documentado no ponto; o detector segue com essa limitação conhecida.
+### `mem-vazio` não era o que o nome dizia
+
+Verificado por leitura de disco, mesmo diretório e mesmo binário: o defeito não
+é "recall degradado em projeto sem corpus", é **assimetria de resolução de raiz
+entre o escritor e o leitor**.
+
+| operação | DB de destino | raiz |
+| --- | --- | --- |
+| `touring diary write` | `<cwd>/.claude/touring/memory.db` | **cwd** |
+| `touring memory store` | `~/.claude/touring/memory.db` | **HOME** |
+| `touring memory recall` | primary(HOME) + tudo sob `~/.claude/**` | **HOME** |
+
+`discover_canonical_dbs` (`crates/touring-cli/src/cli/shared.rs:368`) federa
+`primary` mais as raízes sob `~/.claude`. Uma DB em `/tmp/…/proj/.claude/` não
+está em nenhuma das duas — o diário recém-escrito é invisível ao recall que o
+procura pelo termo exato.
+
+O sintoma é da pior espécie: a consulta devolve 8 resultados confiantes e
+**nenhum contém o termo consultado** (só a fonte ANN responde, do corpus
+global). O campo `source_db` denuncia — `null` em todas as entradas significa
+que a fonte lexical não respondeu.
+
+Em `~/projects/touring` funciona porque cwd e fallback-HOME coincidem com a raiz
+do daemon. Foi por isso que o defeito passou anos lido como "coisa de projeto
+vazio", e por isso o teste `test_diary_fts5_searchable` continua `#[ignore]`
+apontando para o motor de recall, que está correto.
+
+**Não corrigido aqui de propósito**: mudar a resolução de raiz toca todos os
+projetos pinados, e a ordem vigente é não causar regressão em nenhum. A escolha
+entre "o diary passa a enraizar como o recall" e "o recall passa a federar o
+cwd" é decisão de arquitetura, não de conserto — fica registrada com a evidência
+que a torna decidível.
+
+### O detector de escrita, corrigido no executor
+
+`adw.py::command_writes` substitui a heurística de sintaxe. Três valores, e o
+terceiro é o ponto: `False` (leitura) só quando TODA palavra executada é
+conhecidamente de leitura; qualquer programa opaco devolve `None`, **nunca**
+`False`. A metade que faltava passou a ser lida — o verbo em posição de
+subcomando (`loop_marker.py write`), que é como a escrita se declara quando não
+há `>` nem `rm`.
+
+`_lint_readonly_claim` a consome: `readonly = true` contradito pelo comando é
+**erro** do lint (exit 1, verificado no binário vivo), e uma declaração apenas
+improvável vira aviso — mas só quando o comando chama um script ou
+interpretador, que é onde a cegueira morava. Um nó feito de chamadas
+documentadas do CLI (`touring wiring impact`) não ganha aviso: punir o spec
+correto é como um lint perde a atenção que precisa ter quando o achado é real.
+
+Varredura da biblioteca: **1 escritor** (`strategy-loop:arm_marker` — o caso que
+escapou), 1 leitura provada, 17 indecidíveis. Ancorado por um teste sobre a
+FAMÍLIA, com piso de 15 nós para não passar a vácuo.
+
+E o comentário do `arm_marker` afirmava que sandboxá-lo "trocaria a garantia por
+observabilidade". **Medido: falso** — sob `touring run` a escrita passa (a
+aplicação do CEG para shell é advisory e o landlock vigente permite estes
+caminhos). A afirmação nunca tinha sido exercida; o comentário foi corrigido
+para dizer o que é verdade e registrar o que foi medido.
