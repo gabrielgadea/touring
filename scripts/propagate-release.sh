@@ -21,6 +21,7 @@
 #   scripts/propagate-release.sh <versão> --skip-gates # pula cargo check/clippy/espelho
 #   scripts/propagate-release.sh <versão> --skip-freeze# toolchain já instalada
 #   scripts/propagate-release.sh <versão> --no-default # não muda canal default
+#   scripts/propagate-release.sh <versão> --allow-no-projects # aceita 0 consumidores
 #
 # <versão> é um ARGUMENTO, nunca um exemplo a copiar: estes exemplos citavam
 # 30.4.0 por escrito, e depois do release seguinte copiá-los REBAIXARIA todos os
@@ -53,6 +54,9 @@ SKIP_GATES=0
 SKIP_FREEZE=0
 NO_DEFAULT=0
 ROLLBACK=0
+# Só permite terminar com 0 projetos quando isso for uma decisão explícita
+# (ver o guard fail-closed no passo 5).
+ALLOW_NO_PROJECTS=0
 
 RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; BOLD=$'\033[1m'; RESET=$'\033[0m'
 [ -n "${NO_COLOR:-}" ] && { RED=""; GREEN=""; YELLOW=""; BOLD=""; RESET=""; }
@@ -88,6 +92,7 @@ for arg in "$@"; do
         --skip-gates)  SKIP_GATES=1 ;;
         --skip-freeze) SKIP_FREEZE=1 ;;
         --no-default) NO_DEFAULT=1 ;;
+        --allow-no-projects) ALLOW_NO_PROJECTS=1 ;;
         --rollback)   ROLLBACK=1 ;;
         -h|--help)    usage ;;
         -*)           die "flag desconhecida: $arg" ;;
@@ -220,6 +225,20 @@ while IFS= read -r proj; do
     PROPAGATED=$((PROPAGATED+1))
 done < <(list_projects)
 log "projetos alcançados: $PROPAGATED"
+# Zero projetos NÃO é sucesso — é o sinal de que o passo que dá nome a este
+# script não aconteceu. `list_projects()` lê ~/.claude/touring/projects.json e
+# engole qualquer erro (`except: pass`), então um registro ausente ou vazio
+# chegava aqui indistinguível de "nada a fazer", e o pipeline seguia para o
+# VERIFY declarando sucesso sem ter propagado para ninguém.
+#
+# Observado em 24/08/2026: o registro simplesmente não existia; `analise` e
+# `konverter` tinham `.touring/` no disco, mas `touring projects list` devolvia
+# `count: 0`. O dry-run dizia "projetos alcançados: 0" e teria terminado verde.
+# Fail-closed, como a Lei L2: sinal ausente ≠ zero.
+if [ "$PROPAGATED" -eq 0 ] && [ "$ALLOW_NO_PROJECTS" -eq 0 ]; then
+    die "nenhum projeto consumidor alcançado — registre-os com \`touring projects add <alias> <path>\` \
+(o registro vive em ~/.claude/touring/projects.json) ou passe --allow-no-projects se a ausência for intencional"
+fi
 [ "$PROP_FAILED" -eq 0 ] || die "$PROP_FAILED projeto(s) falharam na propagação — nada é declarado pronto com falha aberta (REGRA #21)"
 
 # ─── 6. VERIFY ───────────────────────────────────────────────────────────────
