@@ -45,6 +45,7 @@ prior_art_verdict = "create_new"
 
 [node.recall]
 type = "code"
+sandbox = true
 command = ["bash", "-c", "touring memory recall \"$1\" 2>/dev/null | head -c 1200; echo; touring gotcha match \"$2\" 2>/dev/null | head -c 400; echo; echo '--- PRIOR ART (portfolio, por propósito) ---'; touring portfolio \"$1\" --top 5 2>/dev/null | head -c 2500; true", "--", "{{vars.feature}}", "{{vars.target}}"]
 timeout_ms = 30000
 idempotent = true

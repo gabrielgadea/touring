@@ -260,6 +260,28 @@ pub fn cli_harness_metric(_rt: &mut HookRuntime, _payload: &serde_json::Value) -
         .unwrap_or_else(|e| format!("{{\"error\":\"serialize failed: {e}\"}}"))
 }
 
+/// `cli-code-mode-run` — contabiliza, NO DAEMON, uma execução de code mode.
+///
+/// `record_code_mode_run` incrementa um counter do PROCESSO. O executor
+/// (`ctx_execute_impl`) já o chama, mas o `touring run` é um CLI efêmero: o
+/// incremento morria com ele, enquanto o `journal_run` da linha seguinte —
+/// que escreve em disco — sobrevivia. Medido em 24/08/2026: 163 execuções no
+/// `run_journal.jsonl` contra `code_mode_runs_count = 0` no daemon, que é de
+/// onde o `gate-metrics` lê.
+///
+/// O adaptador CLI retransmite por aqui, espelhando o que a C2-W0 já fazia
+/// para as sub-chamadas do `--orchestrate` (contadas no daemon, em
+/// `daemon.rs`, quando chegam pelo socket). Fail-open no chamador: perder um
+/// counter nunca pode derrubar a execução do usuário.
+pub fn cli_code_mode_run(_rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let bytes_elided = payload
+        .get("bytes_elided")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    crate::shared::gate_metrics::record_code_mode_run(bytes_elided);
+    format!("{{\"recorded\":true,\"bytes_elided\":{bytes_elided}}}")
+}
+
 /// `cli-doctor` — health-check report mirroring the touring CLI `doctor` format.
 ///
 /// Returns a JSON array of `{name, status, detail}` rows so the web dashboard

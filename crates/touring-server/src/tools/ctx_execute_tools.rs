@@ -128,6 +128,12 @@ pub struct RunFailure {
     pub message: String,
 }
 
+/// `bytes_elided == 0` é o caso comum (nada foi cortado) — omiti-lo mantém
+/// o payload enxuto sem perder a informação quando ela existe.
+fn is_zero(v: &u64) -> bool {
+    *v == 0
+}
+
 /// Result of a sandboxed `ctx_execute` invocation.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -158,6 +164,16 @@ pub struct CtxExecuteOutput {
     /// retrieval hint, never a silent cut).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retrieval_hint: Option<String>,
+    /// Bytes que a elisão manteve FORA do contexto (saída completa − inline).
+    ///
+    /// Exposto porque o `record_code_mode_run` logo abaixo incrementa um counter
+    /// do PROCESSO, e o `touring run` é um CLI efêmero: o incremento morria com
+    /// ele enquanto o `journal_run` da linha seguinte — que escreve em disco —
+    /// sobrevivia. Medido em 24/08/2026: 163 linhas de journal contra
+    /// `code_mode_runs_count = 0` no daemon. Com o valor aqui, o adaptador CLI
+    /// retransmite ao daemon, que é quem o `gate-metrics` lê.
+    #[serde(skip_serializing_if = "is_zero", default)]
+    pub bytes_elided: u64,
     /// C2-W0 S-5.2 — this execution's identity (`run-<epoch_ms>-<pid>`).
     /// The same id keys `run_journal.jsonl`, reaches the sandbox child as
     /// `TOURING_RUN_ID`, and prefixes each orchestrate sub-call's `origin`
@@ -524,6 +540,7 @@ pub async fn ctx_execute_impl(
         _ => None,
     };
     Ok(CtxExecuteOutput {
+        bytes_elided,
         stdout: stdout_trunc,
         stderr: stderr_trunc,
         exit_code,

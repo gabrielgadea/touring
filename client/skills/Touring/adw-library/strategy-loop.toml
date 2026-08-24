@@ -53,6 +53,11 @@ prior_art_verdict = "create_new"
 
 [node.arm_marker]
 type = "code"
+# SEM sandbox de propósito: este nó ESCREVE o marcador do flow guard
+# (`loop_marker.py write`). A escrita não aparece na sintaxe do shell — está
+# dentro do programa — então um detector que procura `>`/`rm`/`sed -i` não a
+# enxerga. Sandboxar o nó que arma a própria guarda seria trocar uma garantia
+# por observabilidade.
 command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
 timeout_ms = 30000
 idempotent = true
@@ -61,7 +66,8 @@ on_fail = "recall"          # marker write is best-effort; the flow still runs
 
 [node.recall]
 type = "code"
-command = ["bash", "-c", "touring memory recall \"$1\" 2>&1 | head -c 1800", "--", "{{vars.topic}}"]
+sandbox = true
+command = ["bash", "-c", "touring memory recall \"$1\" 2>&1", "--", "{{vars.topic}}"]
 timeout_ms = 120000
 idempotent = true
 on_pass = "diagnose"
@@ -73,6 +79,7 @@ on_fail = "diagnose"        # empty recall is a valid result, never a blocker
 # caso algum). O pipefail devolve ao nó o veredito que o spec sempre prometeu.
 [node.diagnose]
 type = "code"
+sandbox = true
 command = ["bash", "-c", "set -o pipefail; python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope \"$1\" --topic \"$2\" --bundle \"$3\" --json 2>&1 | tail -c 1800", "--", "{{vars.scope}}", "{{vars.topic}}", "{{vars.bundle}}"]
 timeout_ms = 900000
 idempotent = true
@@ -93,12 +100,14 @@ on_fail = "__fail__"
 
 [node.explore_round]
 type = "code"
+sandbox = true
 command = ["bash", "-c", "set -o pipefail; touring explore \"$1\" --scope \"$2\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}", "{{vars.scope}}"]
 timeout_ms = 900000
 idempotent = true
 
 [node.evidence_report]
 type = "code"
+sandbox = true
 # Report-only (|| true): the summary carries the manifest verdict; the missing
 # strategy-doc is the orchestrator's synthesis deliverable, enforced at Stop.
 command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_outer_gate.py --json --no-emit || true"]

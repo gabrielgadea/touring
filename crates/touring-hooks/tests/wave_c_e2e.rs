@@ -100,9 +100,9 @@ fn hook_registry_has_cascade_queue_handlers() {
     // (touring-hooks/tests/stringzilla_e2e.rs).
     // 2026-08-18: +4 decompose verbs — claim, release (C2), ticket, frontier (C3).
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 240;
+    const EXPECTED_NAMES: usize = 241;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 238;
+    const EXPECTED_NAMES: usize = 239;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

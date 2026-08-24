@@ -40,7 +40,8 @@ prior_art_verdict = "create_new"
 
 [node.sec_audit]
 type = "code"
-command = ["bash", "-c", "touring audit \"$1\" 2>&1 | head -c 1800; true", "--", "{{vars.target}}"]
+sandbox = true
+command = ["bash", "-c", "touring audit \"$1\" 2>&1; true", "--", "{{vars.target}}"]
 timeout_ms = 300000
 idempotent = true
 on_pass = "blast"
@@ -48,7 +49,8 @@ on_fail = "blast"
 
 [node.blast]
 type = "code"
-command = ["bash", "-c", "touring blast \"$1\" 2>&1 | head -c 1500; true", "--", "{{vars.target}}"]
+sandbox = true
+command = ["bash", "-c", "touring blast \"$1\" 2>&1; true", "--", "{{vars.target}}"]
 timeout_ms = 300000
 idempotent = true
 on_pass = "read_quality"
@@ -56,7 +58,8 @@ on_fail = "read_quality"
 
 [node.read_quality]
 type = "code"
-command = ["bash", "-c", "touring read \"$1\" 2>&1 | head -c 1500; true", "--", "{{vars.target}}"]
+sandbox = true
+command = ["bash", "-c", "touring read \"$1\" 2>&1; true", "--", "{{vars.target}}"]
 timeout_ms = 300000
 idempotent = true
 on_pass = "q50.quality_gate"

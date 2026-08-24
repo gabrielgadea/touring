@@ -339,7 +339,7 @@ pub(crate) use crate::cli::shared::{memory_recall_fts5_expr, memory_recall_sql};
 // moved to `cli/health.rs` (Master Plan A.W2.P5). Re-exported so dispatch
 // closures `crate::cli_handlers::cli_*` (hook_registry.rs) resolve unchanged.
 pub use crate::cli::health::{
-    cli_doctor, cli_flywheel_status, cli_harness_metric, cli_incremental_status,
+    cli_code_mode_run, cli_doctor, cli_flywheel_status, cli_harness_metric, cli_incremental_status,
     cli_prompt_enhance, cli_status,
 };
 // Live `cli_pre_task_scout` (+ scout cache helpers, run_scouter_*,
