@@ -6,6 +6,7 @@
 //! - ClassifyIntent (CILA router)
 //! - ScanPii (PII detector)
 
+use touring_foundation::truncate_str;
 use crate::context::CortexContext;
 use crate::handler::Handler;
 use crate::pipeline::Pipeline;
@@ -401,7 +402,7 @@ impl Handler for SessionStartHandler {
             parts.push(format!("{} edits tracked", stats.edit_count));
         }
 
-        let session_short = &ctx.session_id[..ctx.session_id.len().min(8)];
+        let session_short = truncate_str(&ctx.session_id, 8);
         let context = format!(
             "Touring Knowledge: {} | session={}",
             parts.join(", "),

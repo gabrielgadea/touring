@@ -310,7 +310,9 @@ impl ModuleFacts {
                 .collect(),
             reexports: REEXPORT_RE
                 .captures_iter(content)
-                .filter_map(|c| Some((Box::from(c.get(1)?.as_str()), Box::from(c.get(2)?.as_str()))))
+                .filter_map(|c| {
+                    Some((Box::from(c.get(1)?.as_str()), Box::from(c.get(2)?.as_str())))
+                })
                 .collect(),
         }
     }
@@ -461,8 +463,7 @@ fn follow_intra_crate_reexport(module_file: &str, symbol: &str, depth: u8) -> Op
 /// so this can only improve attribution, never lose it.
 #[must_use]
 pub fn definer_module(module_file: &str, symbol: &str) -> String {
-    follow_intra_crate_reexport(module_file, symbol, 0)
-        .unwrap_or_else(|| module_file.to_string())
+    follow_intra_crate_reexport(module_file, symbol, 0).unwrap_or_else(|| module_file.to_string())
 }
 
 /// Why an import failed to resolve — S1 classification (2026-08-07).
@@ -525,11 +526,7 @@ impl UnresolvedClass {
 /// cannot drift from the resolution attempt that produced it.
 #[must_use]
 pub fn classify_unresolved(module_path: &str) -> UnresolvedClass {
-    let head = module_path
-        .split("::")
-        .next()
-        .unwrap_or(module_path)
-        .trim();
+    let head = module_path.split("::").next().unwrap_or(module_path).trim();
     if matches!(head, "super" | "self" | "Self" | "crate" | "") {
         return UnresolvedClass::ScopeKeyword;
     }
@@ -634,6 +631,102 @@ fn normalize_lexical(path: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
+/// How far up the directory chain a source-root search may walk. Bounded so a
+/// resolution can never wander out to `/` and match an unrelated file on the
+/// host (a Maven layout needs at most `src/main/java/<a>/<b>/<c>`).
+const MAX_SOURCE_ROOT_WALK: usize = 8;
+
+/// Candidate roots an ABSOLUTE Python import is resolved against, nearest-first.
+///
+/// Python resolves `import app.config` through `sys.path` — the source ROOT —
+/// not through the importing file's directory (that is Python 2 implicit
+/// relative import, removed in Python 3). So walk up out of the package: every
+/// directory holding an `__init__.py` is still inside the package, and the
+/// first one without it is the source root. The working directory is appended
+/// last because in a production daemon run it is the project root, the same
+/// contract the Rust arm's relative `resolve_module_layout` probes rely on.
+fn python_source_roots(source_file: Option<&str>) -> Vec<std::path::PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(src) = source_file
+        && let Some(mut dir) = std::path::Path::new(src)
+            .parent()
+            .map(std::path::Path::to_path_buf)
+    {
+        for _ in 0..MAX_SOURCE_ROOT_WALK {
+            if !dir.join("__init__.py").is_file() {
+                break;
+            }
+            match dir.parent() {
+                Some(parent) => dir = parent.to_path_buf(),
+                None => break,
+            }
+        }
+        roots.push(dir);
+    }
+    roots.push(std::path::PathBuf::from("."));
+    roots
+}
+
+/// Resolve a dotted Python module to a file that EXISTS, or `None`.
+///
+/// Two physical layouts, mirroring the Rust arm's file-style/`mod.rs` pair:
+///   1. module-style:  `<root>/<a>/<b>.py`
+///   2. package-style: `<root>/<a>/<b>/__init__.py`
+///
+/// `None` is the correct answer for stdlib and site-packages imports
+/// (`pathlib`, `PIL`, `concurrent.futures`): they name no first-party file, so
+/// there is no producer row to key. The previous version skipped the probe and
+/// returned `Some("pathlib.py")` — a producer for a file that does not exist.
+/// Measured 2026-08-19 in `analise`: 88 phantom `module_file` values, 76 of
+/// them carrying `symbol_kind='unknown'`, all of them unreachable by any JOIN.
+/// This is the identical defect the Rust arm fixed twice (phantom `super.rs`,
+/// then `blast_radius.rs` vs `blast_radius/mod.rs`) and the TS/JS arm was born
+/// with; the Python and Java arms never received it.
+fn resolve_python_import(import: &str, source_file: Option<&str>) -> Option<String> {
+    let rel = import.replace('.', "/");
+    for root in python_source_roots(source_file) {
+        let module = root.join(format!("{rel}.py"));
+        if module.is_file() {
+            return Some(module.to_string_lossy().into_owned());
+        }
+        let package = root.join(&rel).join("__init__.py");
+        if package.is_file() {
+            return Some(package.to_string_lossy().into_owned());
+        }
+    }
+    None
+}
+
+/// Resolve a Java FQN to a file that EXISTS, or `None`.
+///
+/// A fully-qualified name is rooted at a source root, which Maven and Gradle
+/// nest under `src/main/java` (or `src/test/java`) rather than at the
+/// repository root — the "known limitation" the previous comment described.
+/// Probing every ancestor of the importing file finds that root wherever it
+/// sits, and answering `None` keeps a JDK import (`java.util.List`) from
+/// becoming a producer row for `java/util/List.java`.
+fn resolve_java_import(import: &str, source_file: Option<&str>) -> Option<String> {
+    let rel = format!("{}.java", import.replace('.', "/"));
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(src) = source_file
+        && let Some(dir) = std::path::Path::new(src).parent()
+    {
+        roots.extend(
+            dir.ancestors()
+                .take(MAX_SOURCE_ROOT_WALK)
+                .map(std::path::Path::to_path_buf),
+        );
+    }
+    roots.push(std::path::PathBuf::from("."));
+    roots.push(std::path::PathBuf::from("src/main/java"));
+    roots.push(std::path::PathBuf::from("src/test/java"));
+    roots
+        .into_iter()
+        .map(|root| root.join(&rel))
+        .find(|candidate| candidate.is_file())
+        .map(|candidate| candidate.to_string_lossy().into_owned())
+}
+
 /// Resolve an import string, optionally using the source file path to resolve
 /// `crate::` imports relative to the correct workspace crate.
 pub fn resolve_import_path_with_source(
@@ -642,11 +735,7 @@ pub fn resolve_import_path_with_source(
     source_file: Option<&str>,
 ) -> Option<String> {
     match language {
-        "python" => {
-            // Convert dot-notation to path: "packages.kazuba_core.models" → "packages/kazuba_core/models.py"
-            let path = import.replace('.', "/");
-            Some(format!("{path}.py"))
-        }
+        "python" => resolve_python_import(import, source_file),
         "rust" => {
             // ─── Rust scope-keyword guard (regression: phantom super.rs) ───
             // `use super::*`, `use self::Foo`, etc. resolve relative to the
@@ -825,17 +914,7 @@ pub fn resolve_import_path_with_source(
             }
             None
         }
-        "java" => {
-            // `import com.foo.Bar;` → `com/foo/Bar.java`. Java is file-based
-            // (one public type per file), so the fully-qualified name maps
-            // directly to a path — the same pure dotted→path scheme as the
-            // Python arm (no filesystem probe). It matches when the Java source
-            // root is the workspace root; nested Maven/Gradle `src/main/java/`
-            // roots are a known limitation shared with Python (external imports
-            // like `java.util.List` resolve to a no-producer row, marked
-            // `extern` by the backfill pass). docs/2026-07-03-polyglot-parity-plan.md §6.
-            Some(format!("{}.java", import.replace('.', "/")))
-        }
+        "java" => resolve_java_import(import, source_file),
         "go" => {
             // A Go import path denotes a PACKAGE (a directory of files), not a
             // single source file, and carries no symbol — usage is `pkg.Foo()`,
@@ -926,13 +1005,18 @@ mod crate_map_and_reexport_tests {
 
     /// Defect 2 — the cross-crate arm discarded the last path segment as if it
     /// were the symbol, but `extract_file_imports` already splits symbols off.
-    /// `knowledge.rs` AND `knowledge/models.rs` both exist here, so the bug did
-    /// not merely fail: it attributed the edge to a real, wrong file.
+    ///
+    /// Post-W72 (2026-08-12): the dead fork files under
+    /// `touring-hooks-core/src/knowledge/` were deleted — the crate's
+    /// `pub use touring_storage::knowledge;` re-export is the only definition.
+    /// This assertion now pins the stronger property: the resolver FOLLOWS the
+    /// re-export and lands on the canonical storage file, never on a stale
+    /// fork copy (which is what made the original bug invisible).
     #[test]
     fn deep_module_path_keeps_every_segment() {
         assert_eq!(
             resolve_import_path_with_source("touring_hooks_core::knowledge::models", "rust", None),
-            Some("crates/touring-hooks-core/src/knowledge/models.rs".to_string())
+            Some("crates/touring-storage/src/knowledge/models.rs".to_string())
         );
     }
 
@@ -1055,12 +1139,11 @@ mod crate_map_and_reexport_tests {
     /// better at the call site than inlining the whole path into the argument.
     fn binds_from_definer(src: &str, arg: &str) -> bool {
         let name = arg.trim_start_matches('&');
-        src.match_indices(&format!("let {name} ="))
-            .any(|(i, _)| {
-                src[i..]
-                    .split_once(';')
-                    .is_some_and(|(binding, _)| binding.contains("definer_module"))
-            })
+        src.match_indices(&format!("let {name} =")).any(|(i, _)| {
+            src[i..]
+                .split_once(';')
+                .is_some_and(|(binding, _)| binding.contains("definer_module"))
+        })
     }
 
     /// The first argument of the call starting at `from`, trimmed.
@@ -1089,7 +1172,10 @@ mod crate_map_and_reexport_tests {
             let path = entry.path();
             if path.is_dir() {
                 // `src/` only: `tests/` and `benches/` build fixtures by hand.
-                if path.file_name().is_some_and(|n| n == "target" || n == "tests") {
+                if path
+                    .file_name()
+                    .is_some_and(|n| n == "target" || n == "tests")
+                {
                     continue;
                 }
                 collect_rust_sources(path, out);
@@ -1104,20 +1190,32 @@ mod crate_map_and_reexport_tests {
 
     #[test]
     fn defines_symbol_recognizes_the_item_kinds() {
-        assert!(defines_symbol("pub trait KeywordSearch: Send {}", "KeywordSearch"));
+        assert!(defines_symbol(
+            "pub trait KeywordSearch: Send {}",
+            "KeywordSearch"
+        ));
         assert!(defines_symbol("pub struct Foo;", "Foo"));
         assert!(defines_symbol("    pub(crate) fn helper() {}", "helper"));
         assert!(defines_symbol("pub async fn go() {}", "go"));
         assert!(defines_symbol("enum Private {}", "Private"));
-        assert!(!defines_symbol("pub use hybrid::pipeline::KeywordSearch;", "KeywordSearch"));
-        assert!(!defines_symbol("let KeywordSearchLike = 1;", "KeywordSearch"));
+        assert!(!defines_symbol(
+            "pub use hybrid::pipeline::KeywordSearch;",
+            "KeywordSearch"
+        ));
+        assert!(!defines_symbol(
+            "let KeywordSearchLike = 1;",
+            "KeywordSearch"
+        ));
     }
 
     #[test]
     fn intra_crate_reexport_path_reads_every_form() {
         assert_eq!(
-            intra_crate_reexport_path("pub use hybrid::pipeline::{A, KeywordSearch};", "KeywordSearch")
-                .as_deref(),
+            intra_crate_reexport_path(
+                "pub use hybrid::pipeline::{A, KeywordSearch};",
+                "KeywordSearch"
+            )
+            .as_deref(),
             Some("hybrid/pipeline")
         );
         assert_eq!(
@@ -1137,7 +1235,9 @@ mod crate_map_and_reexport_tests {
     #[test]
     fn follows_a_real_two_segment_reexport_to_its_definer() {
         // The exact row that degraded `touring doctor` on 2026-08-08.
-        let Some(root) = find_workspace_root() else { return };
+        let Some(root) = find_workspace_root() else {
+            return;
+        };
         let holder = "crates/touring-storage/src/hybrid_search/mod.rs";
         if !std::path::Path::new(&format!("{root}/{holder}")).exists() {
             return; // not in this checkout — do not fail the suite on layout
@@ -1152,7 +1252,9 @@ mod crate_map_and_reexport_tests {
 
     #[test]
     fn a_module_that_defines_the_symbol_is_left_alone() {
-        let Some(root) = find_workspace_root() else { return };
+        let Some(root) = find_workspace_root() else {
+            return;
+        };
         let definer = "crates/touring-storage/src/hybrid_search/hybrid/pipeline.rs";
         if !std::path::Path::new(&format!("{root}/{definer}")).exists() {
             return;
@@ -1166,8 +1268,14 @@ mod crate_map_and_reexport_tests {
 
     #[test]
     fn an_unresolvable_chain_yields_none_never_a_phantom() {
-        assert_eq!(follow_intra_crate_reexport("does/not/exist.rs", "Whatever", 0), None);
-        assert_eq!(follow_intra_crate_reexport("crates/touring-storage/src/lib.rs", "", 0), None);
+        assert_eq!(
+            follow_intra_crate_reexport("does/not/exist.rs", "Whatever", 0),
+            None
+        );
+        assert_eq!(
+            follow_intra_crate_reexport("crates/touring-storage/src/lib.rs", "", 0),
+            None
+        );
     }
 
     #[test]
@@ -1228,7 +1336,8 @@ mod crate_map_and_reexport_tests {
             Some("crates/touring-cli/src/cli/handlers/index.rs"),
         );
         assert!(
-            hit.as_deref().is_some_and(|p| p.ends_with("tantivy_index.rs")),
+            hit.as_deref()
+                .is_some_and(|p| p.ends_with("tantivy_index.rs")),
             "re-export de raiz regrediu: {hit:?}"
         );
     }
@@ -1258,6 +1367,181 @@ mod crate_map_and_reexport_tests {
                 Some("crates/touring-hooks-core/src/lib.rs"),
             ),
             None
+        );
+    }
+}
+
+#[cfg(test)]
+mod python_java_resolver_tests {
+    use super::resolve_import_path_with_source;
+    use std::fs;
+    use tempfile::TempDir;
+
+    /// A stdlib or site-packages import names no first-party file. The Rust and
+    /// TS/JS arms already answer `None` for these (crate map / bare specifier);
+    /// the Python arm answered `Some("pathlib.py")` — a producer row for a file
+    /// that does not exist. Measured 2026-08-19 in `analise`: 88 phantom
+    /// `module_file` values, 76 of them carrying `symbol_kind='unknown'`.
+    #[test]
+    fn stdlib_import_is_not_a_project_file() {
+        let tmp = TempDir::new().expect("tempdir");
+        let app = tmp.path().join("app.py");
+        fs::write(&app, "import pathlib\n").expect("write app.py");
+
+        for module in ["pathlib", "collections", "concurrent.futures", "PIL"] {
+            assert_eq!(
+                resolve_import_path_with_source(
+                    module,
+                    "python",
+                    Some(app.to_str().expect("utf8"))
+                ),
+                None,
+                "`{module}` has no file in the project tree — it must not become a producer row"
+            );
+        }
+    }
+
+    #[test]
+    fn python_module_resolves_when_the_file_exists() {
+        let tmp = TempDir::new().expect("tempdir");
+        let pkg = tmp.path().join("packages").join("kazuba_core");
+        fs::create_dir_all(&pkg).expect("mkdir pkg");
+        fs::write(pkg.join("models.py"), "class User:\n    pass\n").expect("write models.py");
+        let app = tmp.path().join("app.py");
+        fs::write(&app, "from packages.kazuba_core.models import User\n").expect("write app.py");
+
+        let resolved = resolve_import_path_with_source(
+            "packages.kazuba_core.models",
+            "python",
+            Some(app.to_str().expect("utf8")),
+        );
+        assert_eq!(
+            resolved.as_deref(),
+            Some(pkg.join("models.py").to_string_lossy().as_ref()),
+            "a dotted module that exists on disk must resolve to its .py file"
+        );
+    }
+
+    /// `import pkg` where `pkg/` is a package directory resolves to its
+    /// `__init__.py` — the Python analogue of the Rust arm's `mod.rs`
+    /// directory-style layout, which that arm learned to probe after ~200
+    /// phantoms.
+    #[test]
+    fn python_package_resolves_to_init_file() {
+        let tmp = TempDir::new().expect("tempdir");
+        let pkg = tmp.path().join("converter");
+        fs::create_dir_all(&pkg).expect("mkdir converter");
+        fs::write(pkg.join("__init__.py"), "").expect("write __init__.py");
+        let app = tmp.path().join("main.py");
+        fs::write(&app, "import converter\n").expect("write main.py");
+
+        let resolved = resolve_import_path_with_source(
+            "converter",
+            "python",
+            Some(app.to_str().expect("utf8")),
+        );
+        assert_eq!(
+            resolved.as_deref(),
+            Some(pkg.join("__init__.py").to_string_lossy().as_ref()),
+            "a package directory must resolve to its __init__.py"
+        );
+    }
+
+    /// The importer sits inside a package, so the module it names is rooted at
+    /// the package's PARENT (the source root) — walking up past every
+    /// `__init__.py` is how Python itself resolves an absolute import.
+    #[test]
+    fn absolute_import_resolves_from_the_source_root_not_the_importer_dir() {
+        let tmp = TempDir::new().expect("tempdir");
+        let app_pkg = tmp.path().join("app");
+        fs::create_dir_all(&app_pkg).expect("mkdir app");
+        fs::write(app_pkg.join("__init__.py"), "").expect("write app/__init__.py");
+        fs::write(app_pkg.join("config.py"), "SETTINGS = {}\n").expect("write config.py");
+        let main = app_pkg.join("main.py");
+        fs::write(&main, "from app.config import SETTINGS\n").expect("write main.py");
+
+        let resolved = resolve_import_path_with_source(
+            "app.config",
+            "python",
+            Some(main.to_str().expect("utf8")),
+        );
+        assert_eq!(
+            resolved.as_deref(),
+            Some(app_pkg.join("config.py").to_string_lossy().as_ref()),
+            "`app.config` from inside `app/` resolves at the source root, not `app/app/config.py`"
+        );
+    }
+
+    /// Java carried the same unprobed dotted→path scheme as Python, and its own
+    /// comment said so. `java.util.List` is not a file in anyone's repository.
+    #[test]
+    fn java_external_import_is_not_a_project_file() {
+        let tmp = TempDir::new().expect("tempdir");
+        let src = tmp.path().join("Main.java");
+        fs::write(&src, "import java.util.List;\n").expect("write Main.java");
+
+        assert_eq!(
+            resolve_import_path_with_source(
+                "java.util.List",
+                "java",
+                Some(src.to_str().expect("utf8"))
+            ),
+            None,
+            "a JDK import has no file in the project tree"
+        );
+    }
+
+    #[test]
+    fn java_import_resolves_when_the_file_exists() {
+        let tmp = TempDir::new().expect("tempdir");
+        let pkg = tmp.path().join("com").join("foo");
+        fs::create_dir_all(&pkg).expect("mkdir com/foo");
+        fs::write(
+            pkg.join("Bar.java"),
+            "package com.foo;\npublic class Bar {}\n",
+        )
+        .expect("write Bar.java");
+        let main = tmp.path().join("Main.java");
+        fs::write(&main, "import com.foo.Bar;\n").expect("write Main.java");
+
+        assert_eq!(
+            resolve_import_path_with_source(
+                "com.foo.Bar",
+                "java",
+                Some(main.to_str().expect("utf8"))
+            )
+            .as_deref(),
+            Some(pkg.join("Bar.java").to_string_lossy().as_ref()),
+            "a FQN whose source file exists resolves to it"
+        );
+    }
+
+    /// Maven/Gradle nest sources under `src/main/java`; the FQN is rooted there,
+    /// not at the repository root. The old comment called this a "known
+    /// limitation shared with Python" — probing makes it work instead.
+    #[test]
+    fn java_resolves_under_a_maven_source_root() {
+        let tmp = TempDir::new().expect("tempdir");
+        let root = tmp.path().join("src").join("main").join("java");
+        let pkg = root.join("com").join("acme");
+        fs::create_dir_all(&pkg).expect("mkdir pkg");
+        fs::write(
+            pkg.join("Service.java"),
+            "package com.acme;\npublic class Service {}\n",
+        )
+        .expect("write Service.java");
+        let main = root.join("com").join("acme").join("Main.java");
+        fs::write(&main, "import com.acme.Service;\n").expect("write Main.java");
+
+        assert_eq!(
+            resolve_import_path_with_source(
+                "com.acme.Service",
+                "java",
+                Some(main.to_str().expect("utf8"))
+            )
+            .as_deref(),
+            Some(pkg.join("Service.java").to_string_lossy().as_ref()),
+            "the FQN is rooted at src/main/java, not at the repository root"
         );
     }
 }
@@ -1324,15 +1608,6 @@ mod ts_js_resolver_tests {
     }
 
     #[test]
-    fn java_import_maps_dotted_name_to_source_path() {
-        assert_eq!(
-            resolve_import_path_with_source("com.foo.Bar", "java", None).as_deref(),
-            Some("com/foo/Bar.java"),
-            "Java FQN maps directly to a source path (pure dotted→path)"
-        );
-    }
-
-    #[test]
     fn go_import_is_not_file_resolvable() {
         // A Go import path denotes a package (directory), not a single file —
         // wiring flows via method-dispatch, not import resolution.
@@ -1383,7 +1658,14 @@ mod unresolved_class_tests {
         // `super` alone accounted for 1.298 of the first 7.197 unresolved call
         // sites. The resolver declines these by design (no module hierarchy),
         // so counting them as defects would send a reader chasing nothing.
-        for kw in ["super", "self", "Self", "crate", "super::foo::Bar", "crate::x"] {
+        for kw in [
+            "super",
+            "self",
+            "Self",
+            "crate",
+            "super::foo::Bar",
+            "crate::x",
+        ] {
             let c = classify_unresolved(kw);
             assert_eq!(c, UnresolvedClass::ScopeKeyword, "{kw}");
             assert!(!c.is_debt(), "{kw} must not read as debt");
@@ -1414,7 +1696,10 @@ mod unresolved_class_tests {
         // exist for the workspace to build at all.
         let c = classify_unresolved("touring_storage::no_such_module::Thing");
         assert_eq!(c, UnresolvedClass::WorkspaceUnresolved);
-        assert!(c.is_debt(), "a workspace path that did not resolve IS a defect");
+        assert!(
+            c.is_debt(),
+            "a workspace path that did not resolve IS a defect"
+        );
         // The short alias alone does NOT prove workspace membership — the
         // `touring-rkyv` / `rkyv` collision is real, so it gets its own bucket
         // rather than being asserted into either side.

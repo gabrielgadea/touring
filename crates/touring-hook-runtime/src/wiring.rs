@@ -257,6 +257,7 @@ pub fn find_all_cycles(
     db: &FileKnowledgeDB,
     workspace_root_filter: Option<&str>,
     prune_nonexistent: bool,
+    trusted_only: bool,
 ) -> Vec<Cycle> {
     // Build adjacency list from wiring_map (module_file → consumer_file)
     let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
@@ -268,11 +269,20 @@ pub fn find_all_cycles(
         Some(_) => " AND (workspace_root = ?1 OR workspace_root IS NULL)",
         None => "",
     };
+    // H2 (2026-08-12): trusted mode excludes the name-matching heuristic
+    // (`ast_inferred`, ~66% of edges) — measured: SCCs go 7 (917-module giant)
+    // → 0 when it is excluded. What remains is import-resolved + SCIP
+    // type-resolved truth.
+    let trust_predicate = if trusted_only {
+        " AND contract_source != 'ast_inferred'"
+    } else {
+        ""
+    };
     let sql = format!(
         "SELECT DISTINCT module_file, consumer_file, workspace_root FROM wiring_map
          WHERE module_file IS NOT NULL
            AND consumer_file IS NOT NULL
-           AND module_file != consumer_file{ws_predicate}",
+           AND module_file != consumer_file{ws_predicate}{trust_predicate}",
     );
 
     let rows: Vec<(String, String, Option<String>)> = {

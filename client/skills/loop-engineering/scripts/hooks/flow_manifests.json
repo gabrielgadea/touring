@@ -25,6 +25,25 @@
       }
     ]
   },
+  "work-outer": {
+    "description": "DEFAULT modus operandi (2026-08-02): the deterministic OUTER — recall + diagnostic + CCE exploration — owed by any substantive engineering turn, even without a slash command. Deliberately smaller than strategy-outer: no strategy doc, so ONE `touring adw run strategy-loop` satisfies it.",
+    "max_continuations": 2,
+    "preferred_next": "touring adw from-template strategy-loop 2>/dev/null; touring adw run strategy-loop --var topic='<the goal of this turn>' --var scope='{scope}' --var bundle='{bundle}'",
+    "artifacts": [
+      {
+        "id": "diagnostic-okf",
+        "glob": "{bundle}/diagnostics/*.md",
+        "min": 1,
+        "next_action": "python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope '{scope}' --bundle '{bundle}' --json"
+      },
+      {
+        "id": "explore-ledger",
+        "glob": "{scope}/.touring-explore/*.ledger.json",
+        "min": 1,
+        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 6"
+      }
+    ]
+  },
   "cross-audit": {
     "description": "TACO-cross-audit: 7 phases proven with executed evidence; the report file is the deterministic exit artifact",
     "max_continuations": 5,

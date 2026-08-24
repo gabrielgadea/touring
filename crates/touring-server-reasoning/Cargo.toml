@@ -2,7 +2,7 @@
 name = "touring-server-reasoning"
 version = "30.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Reasoning layer extracted from touring-server (W9 pragmatic split) — decomposer, granularity adapter, inference handlers"
 license.workspace = true
 

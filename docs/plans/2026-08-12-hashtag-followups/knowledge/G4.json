@@ -1,0 +1,11 @@
+{
+  "phase": "G4",
+  "entities": [
+    {
+      "entity_id": "phase:G4",
+      "type": "phase",
+      "description": "Unsafe-env TODOs auditados e resolvidos: ENV_LOCK crate-wide em touring-server::cli (Mutex process-wide \u2014 cargo test roda 1 processo por crate, entao crate-wide == process-wide); toolchain_home_honors_env_override envolvido (sem lock antes \u2014 race real potencial); handlers_inferlet migrado do lock local ao compartilhado (agora tambem protege contra tests de OUTROS modulos no mesmo binario); meu with_call_sites_respects_kill_switch (hook-runtime) com lock proprio. Todos os 6 TODOs substituidos por nota AUDITED com a evidencia (o TODO pedia exatamente a auditoria). FINDING NOVO registrado: 12+ arquivos no workspace mutam env em testes sem lock nem TODO (post_tool_rl_tests 32 ops, ctx_execute_tools 10, etc.) \u2014 problema sistemico de test-hygiene pre-existente, fora do escopo dos TODOs auditados; candidato a loop proprio. Testes: 42 toolchain + 12 inferlet + 3 call_site verdes."
+    }
+  ],
+  "relations": []
+}

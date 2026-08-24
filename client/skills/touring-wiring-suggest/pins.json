@@ -1,0 +1,10 @@
+{
+  "note": "Sources this skill makes claims about. Regenerate with skill_pin_gate.py --update AFTER reviewing the skill against the changed source — never before.",
+  "pins": [
+    {
+      "kind": "cli",
+      "ref": "wiring",
+      "fingerprint": "present"
+    }
+  ]
+}

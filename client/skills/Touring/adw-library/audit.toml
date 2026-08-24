@@ -7,6 +7,36 @@ name = "audit"
 description = "File audit: touring audit + blast + read masters, then a light synthesis agent"
 entry = "sec_audit"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Audit one file with deterministic evidence — security, blast radius and quality — before anyone edits it"
+when_to_use = [
+  "you are about to touch an unfamiliar file and want its risk surface first",
+  "a review needs evidence that came from commands, not from reading",
+]
+when_not_to_use = [
+  "auditing a whole crate or workspace — this is scoped to a single target",
+  "deciding whether a change is correct: that is a gate, not an audit",
+]
+inputs = [
+  "target",
+]
+produces = [
+  "a synthesis over the security, blast and quality evidence of one file",
+]
+tags = [
+  "#kind:flow",
+  "#domain:quality",
+  "#process:audit",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Auditar UM arquivo com evidência determinística não tinha prior-art: os demais
+# fluxos ou mudam código (bugfix/feature) ou não pontuam o alvo.
+prior_art_verdict = "create_new"
+
 
 [node.sec_audit]
 type = "code"
@@ -29,16 +59,46 @@ type = "code"
 command = ["bash", "-c", "touring read \"$1\" 2>&1 | head -c 1500; true", "--", "{{vars.target}}"]
 timeout_ms = 300000
 idempotent = true
+on_pass = "q50.quality_gate"
+on_fail = "q50.quality_gate"
+
+# The 50-dimension harness is the strongest instrument in the stack — 50 dims
+# with per-dim evidence, and N/A excluded from the composite rather than scored
+# as 1.0. Measured 2026-08-20: ZERO of the nine library specs reached it, by any
+# path. Both seams land on `synthesize` on purpose: a failing bar is EVIDENCE
+# for an audit, not a reason to abandon it.
+[[use]]
+module  = "gate-quality50"
+as      = "q50"
+with    = { target = "{{vars.target}}", floor = "0.80" }
 on_pass = "synthesize"
 on_fail = "synthesize"
 
 [node.synthesize]
 type = "agent"
+# The craft of auditing is a skill, not a prompt: `TACO-cross-audit` carries the
+# 6 purpose-fidelity phases AND the four documented ways an audit reaches the
+# WRONG verdict (a guard that misses the artifact in use; a test whose body was
+# never read; a compilation claim without `cargo check`; an orphan claim from a
+# stale wiring cache). Without it this node re-derives a thinner audit and
+# re-learns those four the expensive way.
+skill = "TACO-cross-audit"
 driver = "claude"
 tier = "light"
-prompt = "Synthesize this audit of {{vars.target}} into a ranked findings report (severity, evidence, action). Security: {{nodes.sec_audit.summary}} — Blast: {{nodes.blast.summary}} — Quality: {{nodes.read_quality.summary}}. Findings only; no padding."
+prompt = "Synthesize this audit of {{vars.target}} into a ranked findings report (severity, evidence, action). Security: {{nodes.sec_audit.summary}} — Blast: {{nodes.blast.summary}} — Quality: {{nodes.read_quality.summary}} — 50-dim bar: {{nodes.q50.quality_gate.summary}}. Findings only; no padding."
 allowed_tools = ["Read"]
 session = "fresh"
 timeout_ms = 300000
-on_pass = "__end__"
+on_pass = "close.persist"
 on_fail = "__fail__"
+
+# The pheromone deposit. `touring learning reward` appeared in exactly two
+# places on 2026-08-20 — the orphan `phase-close` fragment and the loop's own
+# Python script — and in ZERO library specs. A flow completed and wrote nothing
+# back to the RL that routes the next one: the ACO loop consumed and never fed.
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:audit:{{vars.target}}", summary = "{{nodes.synthesize.summary}}", domain = "audit" }
+on_pass = "__end__"
+on_fail = "__end__"

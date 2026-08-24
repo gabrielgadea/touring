@@ -16,6 +16,8 @@ use std::path::PathBuf;
 // cohesive submodules; the methods stay on `TouringConfig`, so every public
 // path is unchanged (2026-07-02 cohesion split of the 1136-LOC config.rs).
 mod detect;
+#[cfg(test)]
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 mod paths;
 
 /// Global configuration for the Touring runtime.
@@ -98,6 +100,24 @@ pub struct TouringConfig {
     #[serde(default = "default_evolution_interval")]
     pub evolution_interval_s: u64,
 
+    /// Whether NON-Rust source participates in the wiring graph (default
+    /// `false`).
+    ///
+    /// The polyglot machinery has existed since 2026-08 — Python, TS/JS, Java
+    /// by extension plus Go by package key, with `is_non_rust_non_wireable`
+    /// defending the 258 false positives that made Rust-only the safe default.
+    /// What it lacked was a way to say yes for ONE project: the switch was a
+    /// process-global env var, so a Python codebase either got Rust-only wiring
+    /// or every project on the machine changed at once. This field is the
+    /// per-project yes.
+    ///
+    /// Resolution (`polyglot_wiring_for_root`): `TOURING_POLYGLOT_WIRING`
+    /// overrides everything (the historical escape hatch, and what keeps tests
+    /// deterministic) → this field from the Project layer
+    /// (`<root>/.touring/touring.toml`) → User layer → `false`.
+    #[serde(default = "default_polyglot_wiring")]
+    pub polyglot_wiring: bool,
+
     /// W-F0.2 (Productization Fase 0) — per-project toolchain pin from the
     /// Project layer (`[toolchain]` in `.touring/touring.toml`, rustup-style).
     /// `None` when the project does not pin a toolchain (today's behaviour:
@@ -115,6 +135,10 @@ pub struct ToolchainPin {
     /// Toolchain channel (a version like `"30.3.0"` or a named channel).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channel: Option<String>,
+}
+
+fn default_polyglot_wiring() -> bool {
+    false
 }
 
 fn default_gpu_url() -> String {
@@ -183,6 +207,7 @@ impl Default for TouringConfig {
             jsonl_poll_interval_s: default_jsonl_poll_interval(),
             evolution_enabled: default_evolution_enabled(),
             evolution_interval_s: default_evolution_interval(),
+            polyglot_wiring: default_polyglot_wiring(),
             toolchain: None,
         }
     }
@@ -393,13 +418,14 @@ mod tests {
 
     #[test]
     fn test_detect_uses_env_overrides() {
+        let _env = crate::config::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Save and restore env vars
         let old_db = std::env::var("TOURING_DB_PATH").ok();
         let old_mem = std::env::var("TOURING_MEMORY_PATH").ok();
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_DB_PATH", "/tmp/test_symbols.db") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_MEMORY_PATH", "/tmp/test_memory") };
 
         let config = TouringConfig::detect();
@@ -418,15 +444,15 @@ mod tests {
 
         // Restore
         match old_db {
-            // TODO: Audit that the environment access only happens in single-threaded code.
+            // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
             Some(v) => unsafe { std::env::set_var("TOURING_DB_PATH", v) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
+            // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
             None => unsafe { std::env::remove_var("TOURING_DB_PATH") },
         }
         match old_mem {
-            // TODO: Audit that the environment access only happens in single-threaded code.
+            // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
             Some(v) => unsafe { std::env::set_var("TOURING_MEMORY_PATH", v) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
+            // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
             None => unsafe { std::env::remove_var("TOURING_MEMORY_PATH") },
         }
     }
@@ -461,14 +487,15 @@ mod tests {
 
     #[test]
     fn test_gpu_url_default() {
+        let _env = crate::config::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // When GPU_SERVICE_URL is not set, should use localhost:8200
         let old = std::env::var("GPU_SERVICE_URL").ok();
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("GPU_SERVICE_URL") };
         let url = default_gpu_url();
         assert_eq!(url, "http://localhost:8200");
         if let Some(v) = old {
-            // TODO: Audit that the environment access only happens in single-threaded code.
+            // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
             unsafe { std::env::set_var("GPU_SERVICE_URL", v) };
         }
     }

@@ -116,6 +116,7 @@ pretty_assertions = { workspace = true }
 tempfile          = { workspace = true }
 criterion         = { workspace = true }
 proptest          = { workspace = true }
+rstest            = { workspace = true }
 tracing-test      = { workspace = true }
 approx            = { workspace = true }
 tokio             = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }

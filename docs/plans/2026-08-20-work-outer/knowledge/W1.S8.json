@@ -1,0 +1,11 @@
+{
+  "phase": "W1.S8",
+  "entities": [
+    {
+      "entity_id": "phase:W1.S8",
+      "type": "phase",
+      "description": "W1.S8: index.md do bundle criado com frontmatter OKF completo (type/LoopBundle, plan_id=2026-08-20-work-outer, tags, timestamp). Conteudo: 8 fases da W1 listadas com status, veredito com 0 quebrados, 14 orfaos (era 17 - 3 diagnostics agora linkados), 6 missing type/plan que PERMANESCEM por decisao consciente - os 6 sao os proprios arquivos arquivados em W1-orig/, snapshots byte-a-byte com mtime e SHA256 preservados. Modar o frontmatter deles destruiria a prova semantica da W1.S7. A W2 pode anotar o diretorio W1-orig/ com seu proprio README.md carregando frontmatter; isso fica fora do escopo da W1. Status: links quebrados 5->0, gate 'ok' ainda False mas a metric subiu (de 5 quebrados para 0; 17 orfaos para 14; 0 contradicoes mantido)."
+    }
+  ],
+  "relations": []
+}

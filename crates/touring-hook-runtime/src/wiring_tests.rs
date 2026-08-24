@@ -56,7 +56,7 @@ fn test_find_all_cycles_workspace_root_filter() {
         ).unwrap();
 
     // (1) No filter — sees BOTH cycles (legacy behavior).
-    let all = find_all_cycles(&db, None, false);
+    let all = find_all_cycles(&db, None, false, false);
     assert_eq!(all.len(), 2, "legacy (unfiltered) must report both cycles");
 
     // (1b) Sanity: verify rows are actually in the DB with workspace_root set.
@@ -73,7 +73,7 @@ fn test_find_all_cycles_workspace_root_filter() {
     );
 
     // (2) Filter to konverter — phantom cross-tree cycle hidden.
-    let kon = find_all_cycles(&db, Some("konverter"), false);
+    let kon = find_all_cycles(&db, Some("konverter"), false, false);
     assert_eq!(
         kon.len(),
         1,
@@ -96,7 +96,7 @@ fn test_find_all_cycles_workspace_root_filter() {
     );
 
     // (3) Filter to analise — only phantom cycle surfaces.
-    let analise = find_all_cycles(&db, Some("analise"), false);
+    let analise = find_all_cycles(&db, Some("analise"), false, false);
     assert_eq!(analise.len(), 1, "analise-only must report 1 phantom cycle");
     let analise_modules: Vec<String> = analise[0]
         .modules
@@ -143,7 +143,7 @@ fn test_find_all_cycles_prune_nonexistent() {
     }
 
     // Legacy (no prune): both real + phantom cycles surface.
-    let unpruned = find_all_cycles(&db, None, false);
+    let unpruned = find_all_cycles(&db, None, false, false);
     assert_eq!(
         unpruned.len(),
         2,
@@ -151,7 +151,7 @@ fn test_find_all_cycles_prune_nonexistent() {
     );
 
     // Prune: the phantom cycle (nonexistent files) is dropped; the real survives.
-    let pruned = find_all_cycles(&db, None, true);
+    let pruned = find_all_cycles(&db, None, true, false);
     assert_eq!(
         pruned.len(),
         1,
@@ -1148,9 +1148,18 @@ fn a_reexported_path_wires_the_real_producer_not_a_phantom() {
     let (_tmp, db) = test_db();
     let producer = "crates/touring-hooks-shared/src/feature_flags.rs";
     let phantom = "crates/touring-hooks-core/src/shared/feature_flags.rs";
-    db.register_pub_symbol(producer, "compression_profiles_enabled", "function", "public")
-        .unwrap();
-    assert_eq!(db.orphan_symbols().unwrap().len(), 1, "órfão antes de wirar");
+    db.register_pub_symbol(
+        producer,
+        "compression_profiles_enabled",
+        "function",
+        "public",
+    )
+    .unwrap();
+    assert_eq!(
+        db.orphan_symbols().unwrap().len(),
+        1,
+        "órfão antes de wirar"
+    );
 
     record_consumer_from_path(
         &db,
@@ -1200,8 +1209,13 @@ fn directory_style_modules_resolve_like_file_style_ones() {
     // `wiring` é um módulo em forma de ARQUIVO (wiring.rs) com subdiretório —
     // o caso misto que a substituição ingênua também errava.
     let producer = "crates/touring-hook-runtime/src/wiring/hypergraph.rs";
-    db.register_pub_symbol(producer, "build_multi_import_hypergraph", "function", "public")
-        .unwrap();
+    db.register_pub_symbol(
+        producer,
+        "build_multi_import_hypergraph",
+        "function",
+        "public",
+    )
+    .unwrap();
 
     record_consumer_from_path(
         &db,

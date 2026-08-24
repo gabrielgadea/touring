@@ -1,0 +1,146 @@
+{
+  "audit": {
+    "run_id": "audit-1787134524-15ace7f7.744023",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 1,
+      "mock": 0
+    },
+    "started_at": 1787134524.6794252,
+    "finished_at": 1787134545.9413438,
+    "recorded_at": 1787135699.326203,
+    "evidence": "behaviour — 1 real agent session(s), every node ran for real"
+  },
+  "bugfix": {
+    "run_id": "bugfix-1787134546-15ace7f7.748304",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 1,
+      "mock": 0
+    },
+    "started_at": 1787134546.0076926,
+    "finished_at": 1787134586.9383488,
+    "recorded_at": 1787135699.3267424,
+    "evidence": "behaviour — 1 real agent session(s), every node ran for real"
+  },
+  "chore": {
+    "run_id": "chore-1787134102-15ace7f7.699678",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 1,
+      "mock": 0
+    },
+    "started_at": 1787134102.5457973,
+    "finished_at": 1787134167.823753,
+    "recorded_at": 1787135699.3270853,
+    "evidence": "behaviour — 1 real agent session(s), every node ran for real"
+  },
+  "estado-do-processo": {
+    "run_id": "estado-do-processo-1787204972-c5b475f1.2119104",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 0,
+      "mock": 0
+    },
+    "started_at": 1787204972.8662817,
+    "finished_at": 1787204972.9466114,
+    "recorded_at": 1787207740.751579,
+    "evidence": "behaviour — every node ran for real (this flow has no agent node)"
+  },
+  "evidencia-do-processo": {
+    "run_id": "evidencia-do-processo-1787206084-c5b475f1.2163480",
+    "status": "failed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 0,
+      "mock": 0
+    },
+    "started_at": 1787206084.2930608,
+    "finished_at": 1787206128.4783874,
+    "recorded_at": 1787207740.807704,
+    "evidence": "behaviour — every node ran for real (this flow has no agent node)"
+  },
+  "explore-plan": {
+    "run_id": "explore-plan-1787135578-15ace7f7.803704",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 0,
+      "mock": 0
+    },
+    "started_at": 1787135578.6910222,
+    "finished_at": 1787135607.38773,
+    "recorded_at": 1787135699.3274016,
+    "evidence": "behaviour — every node ran for real (this flow has no agent node)"
+  },
+  "feature": {
+    "run_id": "feature-1787134623-15ace7f7.759806",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 3,
+      "mock": 0
+    },
+    "started_at": 1787134623.7682443,
+    "finished_at": 1787135511.4429562,
+    "recorded_at": 1787135699.3277338,
+    "evidence": "behaviour — 3 real agent session(s), every node ran for real"
+  },
+  "hotfix": {
+    "run_id": "hotfix-1787134587-15ace7f7.754163",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 1,
+      "mock": 0
+    },
+    "started_at": 1787134587.0076785,
+    "finished_at": 1787134623.7028704,
+    "recorded_at": 1787135699.3280864,
+    "evidence": "behaviour — 1 real agent session(s), every node ran for real"
+  },
+  "polir": {
+    "exempt": "criado por adw new em 23/08/2026 (gauntlet loop, Jay E); lint limpo, spec genérico (task/artifact/bar), ainda sem run real — promovido para disponibilidade cross-projeto; primeiro run real deve substituir esta isenção",
+    "recorded_at": 1787529767.8341253
+  },
+  "scout-perpetuo": {
+    "run_id": "scout-perpetuo-1787135607-15ace7f7.807335",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 0,
+      "mock": 0
+    },
+    "started_at": 1787135607.4546154,
+    "finished_at": 1787135663.1058285,
+    "recorded_at": 1787135699.3284094,
+    "evidence": "behaviour — every node ran for real (this flow has no agent node)"
+  },
+  "strategy-loop": {
+    "run_id": "strategy-loop-1787135511-15ace7f7.798848",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 0,
+      "mock": 0
+    },
+    "started_at": 1787135511.509877,
+    "finished_at": 1787135578.6231663,
+    "recorded_at": 1787135699.328764,
+    "evidence": "behaviour — every node ran for real (this flow has no agent node)"
+  }
+}

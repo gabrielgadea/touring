@@ -127,6 +127,15 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         .flatten()
         .and_then(|fk| fk.symbols_json);
     let old_source: Option<String> = std::fs::read_to_string(file_path).ok();
+
+    // F2 (hashtag library, 2026-08-11): re-harvest `#tags:` codetag anchors
+    // from the on-disk post-edit content into snippet memories. The wrapper
+    // owns the skip decision — markerless content still syncs (to tombstone)
+    // when the file's last anchor was just removed (D1, cross-audit
+    // 2026-08-23); fail-open.
+    if let Some(content) = old_source.as_deref() {
+        super::runtime::sync_codetag_anchors(&runtime.project_root, &rel_path, content);
+    }
     let phase1_start = Instant::now();
     let had_error = match phase1_tracking(
         runtime,

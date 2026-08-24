@@ -47,13 +47,22 @@ def load_json_file(path):
 
 
 def plan_id_from_bundle(bundle: Path):
+    """plan_id do bundle: o declarado no index.md; senão, o **nome do diretório**.
+
+    O fallback importa porque a ordem real de trabalho não é a ordem ideal: fases são
+    fechadas antes de o `index.md` existir, e aí o relatório nascia com `plan_id: unknown`
+    — que o doc-link gate depois acusa como contradição contra o próprio bundle que o
+    gerou (4 fases assim em 07/08/2026). O diretório é `docs/plans/<plan_id>/` por
+    convenção, então o nome é a resposta determinística que sempre está disponível.
+    """
     idx = bundle / "index.md"
-    if not idx.exists():
-        return None
-    for line in idx.read_text(errors="ignore").splitlines():
-        if line.startswith("plan_id:"):
-            return line.split(":", 1)[1].strip()
-    return None
+    if idx.exists():
+        for line in idx.read_text(errors="ignore").splitlines():
+            if line.startswith("plan_id:"):
+                declarado = line.split(":", 1)[1].strip()
+                if declarado and declarado != "unknown":
+                    return declarado
+    return bundle.resolve().name or None
 
 
 # ── Touring side effects ─────────────────────────────────────────────────────
@@ -62,11 +71,50 @@ def update_dag(task, phase, status):
     return rc == 0 or '"subtask_updated":true' in (out + err)
 
 
-def store_memory(task, phase, status, summary):
+def store_memory(task, phase, status, summary, tags=None):
+    """Persist the phase lesson as a case, carrying the gate's verdict as its `r`.
+
+    The verdict is the strongest reward signal Touring has — `loop_converged.py`
+    plus cargo/clippy, all deterministic, where Memento's own case bank is scored
+    by an LLM judge (arXiv 2508.16153, client:565). Storing the lesson without it
+    left every curated case unscored, so value-ranked recall had nothing to rank
+    them by (04/08/2026).
+
+    `--reward` is a newer flag: on a binary that predates it clap rejects the
+    call, so the store is retried without it rather than losing the lesson.
+    """
     key = f"loop:{task}:{phase}:{status}"
-    rc, out, _ = run(["touring", "memory", "store", key, summary or f"{phase} {status}",
-                      "--tier", "semantic", "--type", "lesson"])
+    body = summary or f"{phase} {status}"
+    base = ["touring", "memory", "store", key, body, "--tier", "semantic", "--type", "lesson"]
+    # Hashtag library (v30.4): phase lessons land faceted — recall by
+    # `#process:<fase>` / the caller's domain tags becomes possible. The
+    # store auto-derive already adds kind:lesson + status:stable.
+    for tag in tags or []:
+        base += ["--tag", tag]
+    verdict = "1.0" if status == "done" else "0.0"
+    rc, out, _ = run(base + ["--reward", verdict,
+                             "--outcome-context", f"loop_phase_close:{phase}:{status}"])
+    if rc != 0 and '"status":"stored"' not in out:
+        rc, out, _ = run(base)
     return '"status":"stored"' in out or rc == 0
+
+
+def credit_recalls(task, phase, status, queries):
+    """Credit the recalls this phase relied on with the phase's own verdict.
+
+    Closes Memento's Eq. 9 loop end to end: a case served by `memory recall` is
+    only known to be useful once the work it informed has been judged. Silent
+    no-op when no query was recorded — crediting is best-effort, never a gate.
+    """
+    if not queries:
+        return 0
+    verdict = "1.0" if status == "done" else "0.0"
+    credited = 0
+    for q in queries:
+        rc, out, _ = run(["touring", "memory", "credit", q, "--reward", verdict])
+        if rc == 0 and '"credited"' in out:
+            credited += 1
+    return credited
 
 
 def reward(phase, value):
@@ -188,16 +236,55 @@ def write_abstract(bundle: Path, phase, abstract):
 
 
 def append_log(bundle: Path, phase, status, summary, ts):
+    """Append one phase to the bundle's chronological log.
+
+    The log is an OKF document like every other `.md` the loop writes, so a NEW
+    one is created with frontmatter. It was not, until 2026-08-19: this function
+    produced a file that `loop_doc_link_gate.py` — the loop's own step 17 — then
+    rejected for `missing_type` and `missing_plan_id`. Every fresh bundle started
+    its life failing that gate and was repaired by hand, which is why the defect
+    survived: the evidence of it was erased each time by the fix.
+    """
     log = bundle / "log.md"
     entry = f"\n## {ts} — {phase} {status}\n\n{summary or ''}\n"
     if log.exists():
         log.write_text(log.read_text() + entry)
     else:
-        log.write_text(entry)
+        plan_id = plan_id_from_bundle(bundle)
+        header = (
+            "---\n"
+            'okf_version: "1.0"\n'
+            "type: Log\n"
+            f'title: "Log — {plan_id}"\n'
+            f'description: "Chronological history of the phases closed in this bundle."\n'
+            f"plan_id: {plan_id}\n"
+            'tags: ["#kind:log", "#artifact:log"]\n'
+            f"timestamp: {ts}\n"
+            "---\n\n"
+            f"# Log — {plan_id}\n\n"
+            "Cada entrada é um fecho de fase registrado por `loop_phase_close.py`.\n"
+            "O plano: [`plan.md`](/plan.md)\n"
+        )
+        log.write_text(header + entry)
     return str(log)
 
 
 # ── Orchestration ────────────────────────────────────────────────────────────
+def variant_score(gates: dict | None, status: str) -> float:
+    """Reduce whatever graded this phase to a score in [0, 1].
+
+    Prefers the convergence report's clause tally over the coarse pass/fail,
+    because a phase that met five clauses of six is a materially better stepping
+    stone than one that met none — and collapsing both to 0.0 would throw away
+    exactly the gradient the archive exists to preserve.
+    """
+    clauses = ((gates or {}).get("clauses") or {})
+    scored = [c for c in clauses.values() if c.get("result") in {"PASS", "FAIL"}]
+    if scored:
+        return sum(1 for c in scored if c["result"] == "PASS") / len(scored)
+    return 1.0 if status in {"done", "completed", "complete"} else 0.0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Close a loop phase and persist its knowledge.")
     ap.add_argument("--task", required=True)
@@ -206,11 +293,23 @@ def main(argv=None):
     ap.add_argument("--status", default="done")
     ap.add_argument("--bundle", default=None, help="OKF bundle dir (writes report + abstract + log)")
     ap.add_argument("--reward", type=float, default=1.0)
+    ap.add_argument("--tag", action="append", default=None,
+                    help="Faceted hashtag `#facet:value` (repeatable) for the phase lesson")
+    ap.add_argument("--credit-query", action="append", default=None,
+                    help="a `memory recall` query this phase relied on; credited with the "
+                         "phase verdict (repeatable). Closes the recall->outcome loop.")
     ap.add_argument("--gates", default=None, help="JSON file: loop_converged report to embed")
     ap.add_argument("--abstract", default=None, help="JSON file: {entities:[],relations:[]} to enrich")
     ap.add_argument("--extractor", default=None,
                     help="optional external extractor cmd (real Hyper-Extract adapter): "
                          "reads the summary on stdin, emits {entities,relations} JSON")
+    ap.add_argument("--variant", default=None,
+                    help="archive this phase as a scored variant of --variant-target "
+                         "(a stepping stone, kept whether or not it passed)")
+    ap.add_argument("--variant-target", default=None,
+                    help="what the variant is an attempt AT (defaults to the task id)")
+    ap.add_argument("--variant-parent", default=None,
+                    help="variant_id this attempt was branched from")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
@@ -218,8 +317,11 @@ def main(argv=None):
     result = {
         "task": args.task, "phase": args.phase, "status": args.status,
         "dag_updated": update_dag(args.task, args.phase, args.status),
-        "memory_stored": store_memory(args.task, args.phase, args.status, args.summary),
+        "memory_stored": store_memory(args.task, args.phase, args.status, args.summary, tags=args.tag),
         "rewarded": reward(args.phase, args.reward),
+        "recalls_credited": credit_recalls(
+            args.task, args.phase, args.status, args.credit_query
+        ),
     }
 
     if args.bundle:
@@ -236,6 +338,27 @@ def main(argv=None):
         result["log"] = append_log(bundle, args.phase, args.status, args.summary, ts)
         result["entities"] = len(abstract["entities"])
         result["relations"] = len(abstract["relations"])
+
+    # The stepping-stone archive (T6.1). A phase close is the one moment that
+    # holds BOTH the attempt and the score that graded it, so it is where a
+    # variant can be recorded honestly. Recorded whether or not the phase passed:
+    # keeping only winners is the greedy baseline arXiv:2505.22954 beats by 10
+    # points, because the path to a good answer runs through worse ones.
+    if args.variant:
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import variant_archive
+
+            score = variant_score(load_json_file(args.gates), args.status)
+            result["variant"] = variant_archive.record(
+                target=args.variant_target or args.task,
+                variant=args.variant,
+                score=score,
+                verdict=args.status,
+                parent=args.variant_parent,
+            )
+        except Exception as exc:  # noqa: BLE001 — fail-open, like every hook here
+            result["variant_error"] = f"{exc.__class__.__name__}: {exc}"
 
     if args.json:
         print(json.dumps(result, indent=2))

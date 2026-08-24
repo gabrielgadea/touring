@@ -291,24 +291,39 @@ pub fn cli_doctor(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
     // Knowledge_db component: instead of the legacy stub "connected", emit
     // a row census of wiring_map so operators see whether the orphan-count
     // diagnostic is built on clean data. Fields surface the three failure
-    // modes the 2026-05-11 audit identified: path pollution (non_rust_rows),
-    // race condition (kind_unknown_count), and pure orphan count.
+    // modes the 2026-05-11 audit identified: path pollution
+    // (non_wireable_rows), race condition (kind_unknown_count), and pure orphan
+    // count. Kept byte-for-byte in step with `touring-server`'s
+    // `check_wiring_diagnostic` — the handler operators actually reach. This
+    // one is dispatched as `cli-doctor` but invoked only by IPC tests, which is
+    // precisely how a field added here on 2026-08-19 (`root=`) shipped without
+    // ever appearing in anyone's output.
     let (kdb_status, kdb_detail) = match rt.ctx.knowledge.wiring_db_diagnostic() {
         Ok(diag) => {
+            // `root` first, because it is the field whose ABSENCE hid a bug for
+            // two months: the wiring paths of one project were being
+            // canonicalized against another project's root, and no diagnostic
+            // said which root was in force (2026-08-19). A census of rows is
+            // only meaningful once you know what the rows are relative to.
             let detail = format!(
-                "rows={} producers={} consumers={} pub={} distinct={} unknown_kind={} non_rust={}",
+                "root={} polyglot={} rows={} producers={} consumers={} pub={} distinct={} unknown_kind={} non_wireable={} unread={}",
+                rt.ctx.knowledge.workspace_root().unwrap_or("<não derivável>"),
+                if rt.ctx.knowledge.polyglot() { "on" } else { "off" },
                 diag.total_rows,
                 diag.producer_rows,
                 diag.consumer_rows,
                 diag.pub_producers,
                 diag.distinct_pub_symbols,
                 diag.kind_unknown_count,
-                diag.non_rust_rows,
+                diag.non_wireable_rows,
+                diag.unread_rows,
             );
-            // Degrade to "warning" if the gate is leaking non-Rust rows or
-            // the schema race is contaminating kinds — those make orphan
-            // counts unreliable, even if the daemon answers fine.
-            let status = if diag.non_rust_rows > 0 || diag.kind_unknown_count > 0 {
+            // Degrade to "warning" only for rows NO read admits, or for the
+            // schema race contaminating kinds — those make orphan counts
+            // unreliable even when the daemon answers fine. `unread_rows` is
+            // deliberately absent from this condition: a Python source the
+            // current mode filters out is a mode setting, not a defect.
+            let status = if diag.non_wireable_rows > 0 || diag.kind_unknown_count > 0 {
                 "warning"
             } else {
                 "ok"

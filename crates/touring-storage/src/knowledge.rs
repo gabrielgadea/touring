@@ -59,6 +59,15 @@ pub struct FileKnowledgeDB {
     /// Query-result cache for `query_extended`. Keys are normalized
     /// `file_path` strings; values are reference-counted so clones stay O(1).
     extended_cache: Cache<String, Arc<FileKnowledgeEnriched>>,
+    /// The root that makes this database's wiring paths canonical, derived
+    /// from the DB's own location — see
+    /// [`crate::knowledge_wiring::derive_workspace_root`] for why it is a
+    /// property of the database and not of the process environment.
+    workspace_root: Option<String>,
+    /// Whether non-Rust source participates in THIS database's wiring graph —
+    /// resolved once from the project's own config. See
+    /// [`touring_foundation::config::TouringConfig::polyglot_wiring_for_root`].
+    polyglot: bool,
 }
 
 // Schema version is defined in touring-core::migration (single source of truth).
@@ -80,6 +89,18 @@ impl FileKnowledgeDB {
         let db = Self {
             conn,
             extended_cache: build_knowledge_extended_cache(),
+            // Derived from where this database LIVES; the environment is only
+            // consulted for path-less databases (`:memory:`), and never as a
+            // compiled-in default.
+            workspace_root: crate::knowledge_wiring::derive_workspace_root(db_path)
+                .or_else(crate::knowledge_wiring::env_workspace_root),
+            // Resolved ONCE per open: the write gate runs per symbol and must
+            // stay a field read, not three TOML reads.
+            polyglot: touring_foundation::config::TouringConfig::polyglot_wiring_for_root(
+                crate::knowledge_wiring::derive_workspace_root(db_path)
+                    .as_deref()
+                    .map(std::path::Path::new),
+            ),
         };
         let version: u32 = db
             .conn
@@ -91,8 +112,23 @@ impl FileKnowledgeDB {
                 .execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
         }
         let _ = db.migrate_canonicalize_paths();
+        // The write gate as an invariant over the data, not a rule applied at
+        // one moment — see `migrate_evict_ungated_rows`.
+        let _ = db.migrate_evict_ungated_rows();
         Ok(db)
     }
+    /// The derived root, borrowed. Private accessor so the wiring layer (a
+    /// separate module with inherent impls on this type) reads the field
+    /// without it becoming part of the crate's surface twice.
+    pub(crate) fn workspace_root_ref(&self) -> Option<&str> {
+        self.workspace_root.as_deref()
+    }
+
+    /// The resolved polyglot mode, read by the wiring layer's inherent impls.
+    pub(crate) fn polyglot_ref(&self) -> bool {
+        self.polyglot
+    }
+
     /// Test-only constructor — wraps an existing Connection directly.
     ///
     /// The caller must ensure `ensure_schema()` has been run (or pass a
@@ -101,6 +137,9 @@ impl FileKnowledgeDB {
         Self {
             conn,
             extended_cache: build_knowledge_extended_cache(),
+            // A bare Connection carries no location to derive from.
+            workspace_root: crate::knowledge_wiring::env_workspace_root(),
+            polyglot: touring_foundation::config::TouringConfig::polyglot_wiring_for_root(None),
         }
     }
     /// Invalidate a single file's entry in the extended-query cache.

@@ -44,7 +44,7 @@ fn touring_bin() -> PathBuf {
     resolve_bin("touring")
 }
 
-fn start_daemon() -> u32 {
+fn start_daemon() -> DaemonGuard {
     // REGRA #19: per-process socket isolation (TOURING_DAEMON_SOCKET below)
     // makes broad `pkill -9 -f touring-daemon` unnecessary AND dangerous —
     // it would also kill the daemon of any parallel test process or of
@@ -62,11 +62,29 @@ fn start_daemon() -> u32 {
     std::thread::sleep(std::time::Duration::from_secs(2));
     let pid = daemon.id();
     std::mem::forget(daemon);
-    pid
+    DaemonGuard { pid }
 }
 
 fn stop_daemon(pid: u32) {
     let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
+    // Also on the way OUT: this helper only removed the socket on the way IN,
+    // so every run left its file behind (174 stale test sockets by 09/08/2026).
+    let socket_path = format!("/tmp/touring-daemon-{}.sock", std::process::id());
+    let _ = std::fs::remove_file(&socket_path);
+    let _ = std::fs::remove_file(format!("{socket_path}.lock"));
+}
+
+/// Stops the test daemon even when the test PANICS — see the twin guard in
+/// `e2e_diary.rs`. `stop_daemon(pid)` as the last statement of a test body is
+/// skipped by a failing assertion, and the daemon then outlives the run.
+struct DaemonGuard {
+    pid: u32,
+}
+
+impl Drop for DaemonGuard {
+    fn drop(&mut self) {
+        stop_daemon(self.pid);
+    }
 }
 
 fn touring(args: &[&str], tmpdir: &TempDir) -> std::process::Output {
@@ -95,7 +113,7 @@ fn parse_json(output: &std::process::Output) -> serde_json::Value {
 #[test]
 fn test_diary_write_project_scoped() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let out = touring(
         &[
@@ -128,8 +146,6 @@ fn test_diary_write_project_scoped() {
     assert_eq!(json["task_id"], "T-001");
     assert_eq!(json["subtask_id"], "S-001");
     assert_eq!(json["project_scoped"], true);
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: read by project ─────────────────────────────────────────────────────
@@ -137,7 +153,7 @@ fn test_diary_write_project_scoped() {
 #[test]
 fn test_diary_read_by_project() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     // Write two entries for same project, one for another project
     let _ = touring(
@@ -192,8 +208,6 @@ fn test_diary_read_by_project() {
     assert!(contents.iter().any(|c| c.contains("module A")));
     assert!(contents.iter().any(|c| c.contains("module B")));
     assert!(!contents.iter().any(|c| c.contains("unrelated")));
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: read by project + task ──────────────────────────────────────────────
@@ -201,7 +215,7 @@ fn test_diary_read_by_project() {
 #[test]
 fn test_diary_read_by_task() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let _ = touring(
         &[
@@ -251,8 +265,6 @@ fn test_diary_read_by_task() {
             .unwrap()
             .contains("auth")
     );
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: diary projects subcommand ───────────────────────────────────────────
@@ -260,7 +272,7 @@ fn test_diary_read_by_task() {
 #[test]
 fn test_diary_projects_lists_known_projects() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let _ = touring(
         &[
@@ -310,8 +322,6 @@ fn test_diary_projects_lists_known_projects() {
         "proj-y missing from projects list"
     );
     assert_eq!(json["count"], 2);
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: project + topic filtering ───────────────────────────────────────────
@@ -319,7 +329,7 @@ fn test_diary_projects_lists_known_projects() {
 #[test]
 fn test_diary_write_project_with_topic() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let out = touring(
         &[
@@ -343,6 +353,4 @@ fn test_diary_write_project_with_topic() {
     let out = touring(&["diary", "read", "planner", "--project", "wave6"], &tmpdir);
     let json = parse_json(&out);
     assert!(json["count"].as_u64().unwrap_or(0) >= 1);
-
-    stop_daemon(daemon_pid);
 }

@@ -207,5 +207,44 @@ def test_until_dry_stops_at_max_rounds(scope):
     assert rc == 1                          # external still pending
 
 
+# === ADW loop-node dryness protocol (Law L2) ===============================
+
+def test_dry_signal_is_emitted_on_stderr(scope, capsys):
+    """The producer states the round's yield so the RUNNER can end the loop.
+
+    Regression for 2026-08-02: `touring explore` emitted no `NEW_FINDINGS=`
+    marker at all, and adw.py read that silence as zero — so strategy-loop and
+    explore-plan declared "dry" after exactly `dry_rounds` iterations while
+    every round was still productive (30 then 4 new findings, both counted dry).
+    stderr keeps `--json` stdout strictly parseable for programmatic callers.
+    """
+    run = make_runner(base_responses())
+    ledger_file = scope / "sig.json"
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--rounds", "2", "--json"], run=run)
+    out = capsys.readouterr()
+    data = json.loads(ledger_file.read_text(encoding="utf-8"))
+    expected = sum(r["new_findings"] for r in data["rounds"])
+    assert f"NEW_FINDINGS={expected}" in out.err
+    assert "NEW_FINDINGS" not in out.out     # stdout stays strict JSON
+    json.loads(out.out)
+
+
+def test_dry_signal_absent_when_no_round_ran(scope, capsys):
+    """`--status` runs nothing, so it must stay SILENT rather than claim zero.
+
+    Emitting `NEW_FINDINGS=0` here would let a read-only status call masquerade
+    as a dry round and terminate an outer loop on no evidence at all.
+    """
+    run = make_runner(base_responses())
+    ledger_file = scope / "sig2.json"
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--rounds", "1", "--json"], run=run)
+    capsys.readouterr()
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--status", "--json"], run=run)
+    assert "NEW_FINDINGS" not in capsys.readouterr().err
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

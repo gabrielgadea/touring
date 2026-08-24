@@ -61,7 +61,9 @@ def parse_frontmatter(text):
             continue
         if ":" in line:
             k, v = line.split(":", 1)
-            fm[k.strip()] = v.strip()
+            # o valor YAML pode vir citado: sem tirar as aspas, `plan_id: "x"` e `plan_id: x` viram
+            # dois valores diferentes e o lint acusa contradição entre strings idênticas (16/08/2026)
+            fm[k.strip()] = v.strip().strip("\"'")
     return fm
 
 

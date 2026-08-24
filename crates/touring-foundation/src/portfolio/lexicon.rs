@@ -250,7 +250,10 @@ mod tests {
 
     #[test]
     fn folds_portuguese_diacritics() {
-        assert_eq!(fold_accents("gráfico relatório versão ção"), "grafico relatorio versao cao");
+        assert_eq!(
+            fold_accents("gráfico relatório versão ção"),
+            "grafico relatorio versao cao"
+        );
     }
 
     #[test]
@@ -259,7 +262,10 @@ mod tests {
         let query = tokenize("gerar PDF profissional");
         let doc = tokenize("Generate a professional PDF report from HTML");
         for t in ["generate", "professional", "pdf"] {
-            assert!(query.contains(&t.to_string()), "query missing {t}: {query:?}");
+            assert!(
+                query.contains(&t.to_string()),
+                "query missing {t}: {query:?}"
+            );
             assert!(doc.contains(&t.to_string()), "doc missing {t}: {doc:?}");
         }
     }

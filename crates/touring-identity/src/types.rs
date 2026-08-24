@@ -389,6 +389,52 @@ impl EntityCandidate {
 mod tests {
     use super::*;
 
+    /// `EntityId`'s string projections are the identity itself.
+    ///
+    /// Kills the 2026-08-20 survivors `as_ref -> ""`, `as_ref -> "xyzzy"` and
+    /// `Display::fmt -> Ok(Default::default())`. REGRA #17 makes EntityId a
+    /// deterministic derivation; a projection that silently returns a constant
+    /// makes every downstream comparison agree for the wrong reason.
+    #[test]
+    fn entity_id_projections_are_the_identity() {
+        let id = EntityId::from_str("touring-ast::CosineComputer");
+        assert_eq!(id.as_str(), "touring-ast::CosineComputer");
+        assert_eq!(
+            AsRef::<str>::as_ref(&id),
+            "touring-ast::CosineComputer",
+            "as_ref must project the id, not a constant"
+        );
+        assert_eq!(
+            format!("{id}"),
+            "touring-ast::CosineComputer",
+            "Display must render the id, not the empty default"
+        );
+    }
+
+    /// `Unknown` is the one kind that does not reach full confidence.
+    ///
+    /// Kills `exact_confidence -> 0.0`, `-> 1.0`, and `delete match arm
+    /// EntityKind::Unknown`: each collapses the two tiers into one value.
+    #[test]
+    fn exact_confidence_singles_out_unknown() {
+        assert!((EntityKind::Unknown.exact_confidence() - 0.95).abs() < f64::EPSILON);
+        for kind in [
+            EntityKind::Function,
+            EntityKind::Type,
+            EntityKind::Module,
+            EntityKind::Constant,
+            EntityKind::Trait,
+            EntityKind::Macro,
+            EntityKind::File,
+            EntityKind::Config,
+        ] {
+            assert!(
+                (kind.exact_confidence() - 1.0).abs() < f64::EPSILON,
+                "{kind:?} must reach full confidence"
+            );
+        }
+    }
+
     #[test]
     fn entity_id_from_str() {
         let id = EntityId::from_str("touring-ast::CosineComputer");

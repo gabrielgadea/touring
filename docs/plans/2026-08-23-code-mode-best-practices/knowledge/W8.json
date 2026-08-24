@@ -1,0 +1,11 @@
+{
+  "phase": "W8",
+  "entities": [
+    {
+      "entity_id": "phase:W8",
+      "type": "phase",
+      "description": "T6+T8 CODE-COMPLETE: (S-8.1) scripts/error_message_audit.py \u2014 varre bail!/anyhow! nos 3 crates CLI, heuristica teach-markers, baseline MEDIDA teach-ratio 0.339 (259/392 nao ensinam); correcao aplicada no erro mais visivel ao code mode (daemon_client 'closed connection' agora aponta daemon-ctl status); campanha completa registrada como W8b. (S-8.2) lint _lint_agent_codegen_tier no adw.py live \u2014 no agent com prompt de codegen sem tier explicito gera warning induzindo tier barato (evidencia TanStack/haiku); 28 testes de lint verdes, ast.parse ok. Sync client/ pendente no W9 (co-evolucao)"
+    }
+  ],
+  "relations": []
+}

@@ -20,6 +20,7 @@ use touring_hooks::compression_profiles::compress_for;
 
 #[test]
 fn disabled_flag_returns_raw_passthrough() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let raw = "test result: ok 100/100\n";
     let args = json!({"command": "cargo test"});
 
@@ -39,3 +40,6 @@ fn disabled_flag_returns_raw_passthrough() {
         "profile must engage once the kill switch is cleared"
     );
 }
+
+// Serializes env-var-mutating tests in this integration binary (edition-2024: set_var/remove_var are unsafe under concurrency).
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

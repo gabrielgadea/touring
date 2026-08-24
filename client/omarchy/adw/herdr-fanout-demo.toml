@@ -1,0 +1,68 @@
+# ADW `herdr-fanout-demo` — minimal demo spec for the herdr-fanout fragment.
+# Part of OmarchyOS Agêntico (S-0.7, P7.5).
+#
+# Run:  touring adw run herdr-fanout-demo \
+#         --var branches='["audit","docs"]' \
+#         --var cwd="~/projects/touring" \
+#         --var prompt="Examine the codebase from your assigned perspective and report findings"
+#
+# The two branches ("audit" and "docs") each spawn a Herdr Claude agent in
+# the specified cwd, send the prompt with a per-branch suffix, wait up to
+# 30 min, and write a journal file to ~/Work/artifacts/adw-<branch>/.
+# The final node counts .txt files in the journal dir as proof of completion.
+
+[adw]
+name = "herdr-fanout-demo"
+description = "Demo: fan two Herdr Claude agents (audit + docs) over a codebase; journals prove completion"
+entry = "fan.fan"
+budget_tokens = 0
+
+[purpose]
+intent = "Demonstrate herdr-fanout: two parallel Claude agents produce journal artefacts"
+when_to_use = [
+  "validating the herdr-fanout fragment before using it in production specs",
+  "quickly running two independent Claude review passes and comparing their findings",
+]
+when_not_to_use = [
+  "production multi-agent work where you need more than 4 branches — the fragment caps at 4",
+  "a single-agent task — the overhead of Herdr workspace+agent per branch is only justified for parallel subtasks",
+  "when Herdr is not installed or not running",
+]
+inputs = [
+  "branches",
+  "cwd",
+  "prompt",
+]
+produces = [
+  "one <branch>.txt journal per branch in ~/Work/artifacts/adw-<branch>/",
+  "a count of completed journal files",
+]
+tags = [
+  "#kind:flow",
+  "#domain:omarchy",
+  "#process:fanout",
+]
+
+# Inline the herdr-fanout fragment under the namespace "fan".
+# `branches`, `cwd`, and `prompt` are forwarded from vars.
+[[use]]
+module  = "herdr-fanout"
+as      = "fan"
+with    = { branches = "{{vars.branches}}", cwd = "{{vars.cwd}}", prompt = "{{vars.prompt}}" }
+on_pass = "count_journals"
+on_fail = "count_journals"
+
+# Count the .txt journal files produced across all branches.
+# Uses ~/Work/artifacts as the default root when vars.journal is absent.
+[node.count_journals]
+type = "code"
+command = [
+    "bash", "-c",
+    "root=\"${1:-${HOME}/Work/artifacts}\"; count=$(find \"${root}\" -maxdepth 2 -name '*.txt' 2>/dev/null | wc -l); echo \"journal_files_found=${count}\"; [ \"${count}\" -gt 0 ]",
+    "--",
+    "{{vars.journal}}"
+]
+timeout_ms = 10000
+idempotent = true
+on_pass = "__end__"
+on_fail = "__fail__"

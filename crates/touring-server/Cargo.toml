@@ -2,7 +2,7 @@
 name = "touring-server"
 version.workspace = true
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "MCP server (26 tools) + Cortex CLI (97 handlers H1-H97) + Hooks (68 hooks) + Modular Architecture"
 license.workspace = true
 
@@ -63,6 +63,10 @@ default = [
     # with jemalloc or prod-allocator). Opt in for heap-profiling runs:
     #   cargo build --release --no-default-features \
     #     --features dhat-heap,rkyv-ipc,build-info,... -p touring-server
+    # W2 (2026-06-13, executed 2026-08-20): the curated MCP tool set is the
+    # shipped surface. Without it `touring_tdg`, `touring_cortex_classify`
+    # and `touring_hook_metrics` answer `tool not found` in every build.
+    "mcp-curated",
 ]
 
 # Tantivy FTS feature — redirects to touring-hooks. Enables BM25 search,
@@ -75,22 +79,22 @@ tantivy-fts = ["touring-hooks/tantivy-fts"]
 # `--no-default-features --features dhat-heap,<others>`.
 prod-allocator = ["touring-foundation/mimalloc-allocator"]
 
-# ─── MCP tool surface (W1, 2026-06-06) — migration gateway ──────────────
-# Two features control which MCP tool set is exposed via `touring serve`:
-#   * `mcp-legacy` (default ON) — all 102 historical tools (incl. 32
-#     wave-labeled aspirational T1/T2/T3 envelopes that are flaky).
-#   * `mcp-curated` (default OFF) — the new 19+3 curated set (~22 tools)
-#     that is the strategic target post-W4.
-#
-# Migration timeline (task_1780763041476850005):
+# ─── MCP tool surface — migration W1→W4 completed 2026-08-20 ────────────
+# The original W1 plan (2026-06-06) had three dated milestones:
 #   2026-06-06  W1: both features added; legacy default
 #   2026-06-13  W2: curated set becomes DEFAULT; legacy opt-in
 #   2026-07-13  W4: legacy feature removed (after 30d deprecation)
 #
-# To opt in to the curated set immediately (W1/W2 transition):
-#   cargo build -p touring-server --features mcp-curated
-#   cargo build -p touring-server --features "mcp-curated,mcp-legacy"  # both
-mcp-legacy = []
+# W2 and W4 were never executed. Measured 2026-08-20, 68 and 38 days past due:
+#   * `mcp-legacy` gated ZERO cfg sites anywhere in the workspace — the flag
+#     was inert, while this comment claimed it was "default ON" with 102 tools.
+#   * `mcp-curated` gated 5 sites (`server/tools_new.rs` 357L +
+#     `server/tools_status.rs` 151L + 3 in `server/mod.rs`) and was NOT in
+#     `default`, so `touring_tdg`, `touring_cortex_classify` and
+#     `touring_hook_metrics` answered `tool not found` in every shipped build.
+#
+# W4 executed: `mcp-legacy` removed (it gated nothing).
+# W2 executed: `mcp-curated` is now default, as the plan always intended.
 mcp-curated = []
 
 # ─── Optional observability / diagnostics features (off by default) ────

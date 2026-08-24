@@ -6,8 +6,9 @@ dir = "target/nextest"
 
 # Default profile — used locally by `cargo nextest run`
 [profile.default]
-# Retry flaky tests up to 2 times locally.
-retries = 2
+# retries = 0 (21/08/2026): local retries hid the same shared-daemon starvation
+# class the CI profile hid — a test that passes only on retry is a finding.
+retries = 0
 # Fail fast on first real failure after retries exhausted.
 fail-fast = false
 # Show output of failing tests immediately.
@@ -21,7 +22,11 @@ status-level = "retry"
 
 # CI profile — used with `cargo nextest run --profile ci`
 [profile.ci]
-retries = { backoff = "exponential", count = 3, delay = "1s", jitter = true, max-delay = "10s" }
+# retries REMOVED 21/08/2026: three automatic retries converted a whole class of
+# shared-daemon starvation failures into "flaky-passed" and hid it for weeks
+# (measured: `nextest --no-fail-fast` = 17 failures, all of that class; with
+# retries, zero). A test that needs a retry to pass is a finding, not noise.
+retries = 0
 fail-fast = false
 failure-output = "immediate-final"
 success-output = "never"
@@ -30,6 +35,31 @@ junit = { path = "junit.xml" }
 # Stricter slow detection in CI.
 slow-timeout = { period = "90s", terminate-after = 3 }
 status-level = "pass"
+
+# Mutants profile — used by cargo-mutants (`.cargo/mutants.toml`).
+#
+# Mutation testing inverts what a failure MEANS: a failing test is the SIGNAL
+# that the mutant was caught, not a flake to be re-run. The `ci` profile
+# retries 3× with exponential backoff (up to 10s delay) and allows 90s × 3
+# per test — so a mutant that a test correctly kills can consume minutes and
+# get recorded as a TIMEOUT instead of a KILL. That is how 16 of 109 viable
+# mutants in touring-identity became timeouts on 2026-08-20.
+#
+# Here: never retry, stop at the first failure (the mutant is already caught),
+# and bound the hang tightly.
+[profile.mutants]
+retries = 0
+fail-fast = true
+slow-timeout = { period = "20s", terminate-after = 1 }
+failure-output = "never"
+success-output = "never"
+status-level = "none"
+
+# The daemon-db serialization applies here too — a mutant must not turn a
+# shared-database race into a spurious kill.
+[[profile.mutants.overrides]]
+filter = "test(daemon) | test(hook_runtime)"
+test-group = "daemon-db"
 
 # Groups enable resource-aware scheduling. Tests touching
 # the shared touring-daemon SQLite DB serialize via `daemon-db`.

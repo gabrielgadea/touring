@@ -15,6 +15,7 @@
 //! extraction — ~960 LOC).
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use crate::runtime::HookRuntime;
 
@@ -105,7 +106,7 @@ pub(crate) fn handle_task_sync_post_create(rt: &mut HookRuntime, input: &Value) 
         let merged = serde_json::json!({
             "task_id": task_id,
             "task_subject": task_subject,
-            "session_id": format!("cc-{}", &task_id[..task_id.len().min(20)]),
+            "session_id": format!("cc-{}", truncate_str(task_id, 20)),
             "teammate_name": "claude-code",
             "team_name": "claude-code-tasks",
         });
@@ -142,7 +143,7 @@ pub(crate) fn handle_task_sync_post_create(rt: &mut HookRuntime, input: &Value) 
             parts.push(scaffold);
         }
     } else if !task_subject.is_empty() {
-        let s = &task_subject[..task_subject.len().min(80)];
+        let s = truncate_str(task_subject, 80);
         parts.push(format!(
             "generator: run `touring generate plan-suggest --intent \"{s}\"` to scaffold artifacts"
         ));
@@ -183,7 +184,7 @@ pub(crate) fn handle_task_sync_post_create(rt: &mut HookRuntime, input: &Value) 
     // Closes the cross-session plan reuse loop: new task sees past plans BEFORE coding starts.
     // Complements plan_scaffold_for_subject (generates stub) by surfacing real past plans.
     if task_subject.len() > 3 {
-        let short_subject = &task_subject[..task_subject.len().min(60)];
+        let short_subject = truncate_str(task_subject, 60);
         parts.push(format!(
             "plan-reuse: run `touring generate plan-recall --query \"{short_subject}\"` \
             to find and replay existing GeneratorPlan for this task type"
@@ -208,9 +209,9 @@ pub(crate) fn handle_task_sync_post_create(rt: &mut HookRuntime, input: &Value) 
     // CC session created the task — closing the cross-session task continuity gap.
     // Key format: task:<task_id>:session — distinct from task:<task_id>:created (R18-S1).
     {
-        let session_id = format!("cc-{}", &task_id[..task_id.len().min(20)]);
+        let session_id = format!("cc-{}", truncate_str(task_id, 20));
         let subject_snip = if task_subject.len() > 3 {
-            &task_subject[..task_subject.len().min(60)]
+            truncate_str(task_subject, 60)
         } else {
             "no-subject"
         };
@@ -232,7 +233,7 @@ pub(crate) fn handle_task_sync_post_create(rt: &mut HookRuntime, input: &Value) 
     // work into a tracked task. Reward 0.15 reinforces task-decomposition behavior in the RL engine.
     // Silent for trivially short subjects (≤3 chars) — avoids rewarding noise.
     if task_subject.len() > 3 {
-        let context = format!("task:create:{}", &task_id[..task_id.len().min(20)]);
+        let context = format!("task:create:{}", truncate_str(task_id, 20));
         let _ = crate::cli_handlers::cli_learning_reward(
             rt,
             &serde_json::json!({
@@ -372,7 +373,7 @@ pub(crate) fn jdm_routing_hint(subject: &str) -> String {
         return format!(
             "jdm-routing: [TOURING JDM] class-A (code) \u{2014} \
             run `touring generate plan-suggest --intent \"{s}\"` to scaffold artifacts",
-            s = &subject[..subject.len().min(60)]
+            s = truncate_str(subject, 60)
         );
     }
     String::new()
@@ -439,7 +440,7 @@ pub(crate) fn task_sharding_hint(task_id: &str, subject: &str) -> String {
 
     // Build shard topology: split on primary connective or by verb boundaries.
     let shard_count = (connective_count + 1).min(4); // cap at 4 shards
-    let short_subject = &subject[..subject.len().min(60)];
+    let short_subject = truncate_str(subject, 60);
     format!(
         "task-sharding: [TOURING SHARD] entropy={} compound_goals≈{} — \
          split `{short_subject}…` into {} atomic subtasks: \
@@ -488,7 +489,7 @@ pub(crate) fn task_scaffold_render_hint(task_id: &str, task_subject: &str) -> St
     if task_id.is_empty() || task_id == "unknown" || task_subject.is_empty() {
         return String::new();
     }
-    let intent = &task_subject[..task_subject.len().min(50)];
+    let intent = truncate_str(task_subject, 50);
     format!(
         "scaffold-yaml: run `touring generate render task_scaffold \
         --vars '{{\"task_id\":\"{task_id}\",\"intent\":\"{intent}\",\"phase\":\"implementation\"}}' -j` \
@@ -522,7 +523,7 @@ pub(crate) fn maybe_emit_plan_mode_suggestion(
     let evidence = serde_json::json!({
         "trigger": "realtime_task_create",
         "cila_level": cila,
-        "subject_preview": &task_subject[..task_subject.len().min(80)],
+        "subject_preview": truncate_str(task_subject, 80),
     });
     let _ = crate::cli_handlers::cli_suggest_action(
         rt,

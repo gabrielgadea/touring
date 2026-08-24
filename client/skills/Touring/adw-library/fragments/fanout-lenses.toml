@@ -1,0 +1,63 @@
+# Fragment `fanout-lenses` — sectioning: N distinct lenses over one target.
+#
+# The canonical parallelization split (Anthropic, *Building Effective Agents*)
+# has two variants that must not be confused, because their MERGE differs:
+#   · sectioning — different subtasks at once, concatenated. This fragment.
+#   · voting     — the SAME task N times, tallied. That is `critic-panel`.
+#
+# The lenses arrive at runtime, so the branch count is not known when the flow is
+# written: this is the dynamic fan-out (LangGraph's `Send`), and the only shape
+# that expresses the canonical orchestrator-workers pattern, where the subtasks
+# are decided by the run rather than by the author.
+#
+# `max_branches` is what keeps that honest. A runtime-sized fan-out with no cap
+# multiplies the per-branch cost by a number nobody declared, and the budget lint
+# would under-count the flow by exactly that factor. Eight is a ceiling, not a
+# target — the sources' own warning is that more agents is not more signal.
+[fragment]
+description = "Read-only sectioning fan-out: N runtime lenses over one target, findings concatenated"
+inputs = ["target", "lenses"]
+entry = "sweep"
+
+[node.sweep]
+type = "parallel"
+# Two-stage resolution: `{{inputs.lenses}}` is bound when the fragment is inlined
+# (usually to a `--var`), and THAT resolves to the actual list at run time.
+branches = "{{inputs.lenses}}"
+template = "lens"
+merge = "concat"
+# Fail-closed by default: a lens that could not run is missing evidence, and a
+# sweep that reports "nothing found" from a branch that never executed is the
+# silent partial the barrier exists to prevent. Change to `best_effort` only
+# where an absent lens is genuinely acceptable.
+on_branch_fail = "all"
+max_branches = 8
+on_pass = "__exit__"
+on_fail = "__exit_fail__"
+
+# Cloned once per lens. Read-only by construction — no branch may write, because
+# parallel writers race and no journal ordering can reconstruct who clobbered whom.
+[node.lens]
+type = "agent"
+driver = "claude"
+tier = "mid"
+prompt = "Examine {{inputs.target}} through ONE assigned lens. Report only what that lens sees."
+allowed_tools = ["Read", "Grep", "Glob"]
+session = "fresh"
+timeout_ms = 600000
+
+[node.lens.persona]
+role = "lens-scout"
+description = "Single-lens reader; reports findings, never conclusions about the whole"
+stance = "report_what_this_lens_sees"
+# Bound to the branch, not fixed: N clones of a FIXED lens are one opinion
+# re-derived N times at N times the price. The lint refuses that.
+lens = "{{branch.value}}"
+scope = "{{inputs.target}}, seen only through the assigned lens"
+bar = "every finding names the file and line that shows it"
+burden = "A finding you cannot point at is a hunch. Report it as one, or not at all."
+refuses = ["editing anything", "judging the target as a whole", "reporting another lens's concerns"]
+forbids = ["inventing a finding to avoid returning empty", "summarising the file instead of examining it"]
+blind_to = ["what the other lenses are looking at"]
+escalate_when = "the target is unreadable from where you are"
+emits = "FINDINGS=<n> followed by one line per finding: <file>:<line> — <what this lens sees>"

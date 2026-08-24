@@ -2,7 +2,7 @@
 name = "touring-cortex"
 version = "1.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Cortex hook execution engine — 81 handlers + pipeline (extracted from touring-server S4)"
 license.workspace = true
 

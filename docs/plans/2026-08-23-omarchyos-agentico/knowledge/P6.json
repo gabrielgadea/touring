@@ -1,0 +1,11 @@
+{
+  "phase": "P6",
+  "entities": [
+    {
+      "entity_id": "phase:P6",
+      "type": "phase",
+      "description": "P6 concluido - gate RC=0"
+    }
+  ],
+  "relations": []
+}

@@ -772,3 +772,30 @@ fn actor_queue_observability_records_and_snapshots() {
     assert!(json.contains("actor_budget_timeout_count"));
     assert!(json.contains("actor_send_timeout_count"));
 }
+
+/// C2-W0 d4/S-5.2 — one sub-call increments the counter and adds the EXACT
+/// payload+output byte sum (the counterfactual tool-part tool calling would
+/// have injected into the context).
+#[test]
+fn record_code_mode_subcall_sums_counterfactual_bytes() {
+    let baseline_count = global().code_mode_subcalls_count.load(Ordering::Relaxed);
+    let baseline_bytes = global()
+        .code_mode_subcall_bytes_total
+        .load(Ordering::Relaxed);
+
+    record_code_mode_subcall(120, 4_380);
+    record_code_mode_subcall(10, 0);
+
+    assert_eq!(
+        global().code_mode_subcalls_count.load(Ordering::Relaxed) - baseline_count,
+        2
+    );
+    assert_eq!(
+        global()
+            .code_mode_subcall_bytes_total
+            .load(Ordering::Relaxed)
+            - baseline_bytes,
+        4_510,
+        "bytes are exact sums, never estimates"
+    );
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "_note": "PROVISÓRIA (TACO, 23/08/2026). O plano pede que o Gabriel escreva estas perguntas. Escrevi-as para o gate deixar de ser um warn permanente, mas quem escreveu o router escrevendo também a prova é juiz em causa própria — troque por perguntas suas quando puder. Ancoradas em necessidades reais do programa, NÃO no texto do router: cada uma exige um salto router -> ficha de área.",
+    "q": "Onde fica registrado o histórico de execuções dos botões do skills deck nesta máquina? Responda só com o caminho.",
+    "expect": "runs.log"
+  },
+  {
+    "_note": "PROVISÓRIA (TACO, 23/08/2026) — ver nota acima.",
+    "q": "Onde está a fonte canônica do código do Touring nesta máquina? Responda só com o caminho.",
+    "expect": "projects/touring"
+  },
+  {
+    "_note": "PROVISÓRIA (TACO, 23/08/2026) — ver nota acima.",
+    "q": "Onde estão os índices BM25 e vetorial dos processos da ANTT? Responda só com o caminho.",
+    "expect": "projects/data"
+  }
+]

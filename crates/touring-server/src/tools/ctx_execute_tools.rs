@@ -82,6 +82,52 @@ pub struct CtxExecuteInput {
     pub cwd: Option<String>,
 }
 
+/// W1 d3/S-1.1 — orthogonal failure taxonomy (dsh-derived, 6 kinds): a budget
+/// expiry is not an exception, an abort is not a timeout, and a substrate
+/// death is neither. Each kind steers a DIFFERENT correction by the model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunFailureKind {
+    /// The program itself failed (non-zero exit with its own error output).
+    Exception,
+    /// A budget (wall-clock or CPU busy time) expired and the process was killed.
+    Timeout,
+    /// The execution was denied/cancelled before or during the run (e.g. lock conflict).
+    Abort,
+    /// The subprocess died abnormally or could not be launched.
+    ProcExit,
+    /// The request itself was malformed (bad args / unsupported input).
+    InvalidOutput,
+    /// Captured output hit the sandbox byte cap and was cut — data was LOST,
+    /// not merely elided; rerun producing less output or read the stored file.
+    OutputLimit,
+}
+
+/// W1 d3/S-1.1 — which pipeline stage the failure belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunPhase {
+    /// Before any process existed: language/args validation.
+    Parse,
+    /// Launching the subprocess.
+    Spawn,
+    /// While the program was running.
+    Execute,
+}
+
+/// W1 d3/S-1.1 — structured failure descriptor attached to a run result.
+/// `message` is written for the model to self-correct (P9/P15).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunFailure {
+    /// Orthogonal failure class.
+    pub kind: RunFailureKind,
+    /// Pipeline stage where it happened.
+    pub phase: RunPhase,
+    /// Human/model-readable cause naming the next action.
+    pub message: String,
+}
+
 /// Result of a sandboxed `ctx_execute` invocation.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -101,6 +147,23 @@ pub struct CtxExecuteOutput {
     pub stdout_truncated: bool,
     /// Whether `stderr` was truncated to fit the size cap.
     pub stderr_truncated: bool,
+    /// W1 d3/S-1.1 — structured failure taxonomy; `None` on a clean success.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure: Option<RunFailure>,
+    /// W1 d3/S-1.2 — full-output locator on disk when the inline view was
+    /// truncated (the complete stdout is already persisted by the sandbox).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stored_path: Option<String>,
+    /// W1 d3/S-1.2 — how to read the full output (P19: spill with a
+    /// retrieval hint, never a silent cut).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retrieval_hint: Option<String>,
+    /// C2-W0 S-5.2 — this execution's identity (`run-<epoch_ms>-<pid>`).
+    /// The same id keys `run_journal.jsonl`, reaches the sandbox child as
+    /// `TOURING_RUN_ID`, and prefixes each orchestrate sub-call's `origin`
+    /// (`<run_id>:code:<n>`) in the daemon's `run_subcalls.jsonl` — one id
+    /// correlates CLI, sandbox, and daemon.
+    pub run_id: String,
 }
 
 fn parse_language(lang: &str) -> Result<SandboxLanguage> {
@@ -144,13 +207,39 @@ fn inject_args(code: &str, args: &serde_json::Value, lang: SandboxLanguage) -> S
     }
 }
 
-fn truncate(s: &str, max_bytes: usize) -> (String, bool) {
+/// W1 d3/S-1.2 — head/tail preview: keep 3/4 of the cap from the start and
+/// 1/4 from the end with an explicit elision marker. The tail is where a
+/// program's FINAL result usually lives — a head-only cut hid exactly the
+/// bytes the model needed.
+fn truncate_head_tail(s: &str, max_bytes: usize) -> (String, bool) {
     let bytes = s.as_bytes();
     if bytes.len() <= max_bytes {
         return (s.to_string(), false);
     }
-    let truncated: String = String::from_utf8_lossy(&bytes[..max_bytes]).to_string();
-    (truncated, true)
+    let head_len = max_bytes * 3 / 4;
+    let tail_len = max_bytes - head_len;
+    let head = String::from_utf8_lossy(&bytes[..head_len]);
+    let tail = String::from_utf8_lossy(&bytes[bytes.len() - tail_len..]);
+    let elided = bytes.len() - head_len - tail_len;
+    (
+        format!("{head}\n... [{elided} bytes elided] ...\n{tail}"),
+        true,
+    )
+}
+
+/// W1 d3/S-1.2 — inline caps for the run result, env-overridable so a caller
+/// that wants the full million bytes inline can ask for it explicitly.
+fn inline_caps() -> (usize, usize) {
+    fn cap(var: &str, default: usize) -> usize {
+        std::env::var(var)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    }
+    (
+        cap("TOURING_RUN_MAX_STDOUT_BYTES", 8 * 1024),
+        cap("TOURING_RUN_MAX_STDERR_BYTES", 4 * 1024),
+    )
 }
 
 /// P1.3: Hybrid forbidden-call scanner.
@@ -167,6 +256,138 @@ fn run_forbidden_scan(lang: SandboxLanguage, code: &str) -> Vec<String> {
         );
         Vec::new()
     })
+}
+
+/// W4 d4/S-4.1 — append one JSONL record per execution to the run journal
+/// (`~/.claude/touring/run_journal.jsonl`). The journal is the durable trace
+/// the counterfactual KPI reads from; sub-call identity joins it in W5.
+/// Fail-open: any I/O error is swallowed — observability never blocks a run.
+fn journal_run(
+    run_id: &str,
+    language: &str,
+    stdout_full: &str,
+    exit_code: i32,
+    duration_ms: u64,
+    failure_kind: Option<RunFailureKind>,
+    bytes_elided: u64,
+) {
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let dir = std::path::Path::new(&home).join(".claude/touring");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let record = serde_json::json!({
+        "ts": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+        "run_id": run_id,
+        "language": language,
+        "code_hash_stdout_bytes": stdout_full.len(),
+        "exit_code": exit_code,
+        "duration_ms": duration_ms,
+        "failure_kind": failure_kind.map(|k| serde_json::to_value(k).ok()),
+        "bytes_elided": bytes_elided,
+    });
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("run_journal.jsonl"))
+    {
+        let _ = writeln!(f, "{record}");
+    }
+}
+
+/// W0 d0 + W1 d3/S-1.1 — turn the raw sandbox result into the adapter's view:
+/// `(stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure)`.
+///
+/// Propagates the REAL captured stderr (before 2026-08-23 the success arm
+/// materialized `String::new()`) and derives the structured failure with
+/// priority Timeout > OutputLimit > Exception — one failure, the one whose
+/// correction the model should attempt first.
+#[allow(clippy::type_complexity)]
+fn derive_run_outcome(
+    result: std::result::Result<touring_hooks::sandbox_executor::SandboxResult, SandboxError>,
+) -> (
+    String,
+    String,
+    i32,
+    bool,
+    Option<String>,
+    Option<RunFailure>,
+) {
+    match result {
+        Ok(r) => {
+            let stdout_bytes = if let Some(ref path) = r.stored_path {
+                std::fs::read(path).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            let stdout_str = String::from_utf8_lossy(&stdout_bytes).to_string();
+            let first_stderr_line = r
+                .stderr
+                .lines()
+                .find(|l| !l.trim().is_empty())
+                .unwrap_or("")
+                .to_string();
+            let failure = if r.exit_code == -2 {
+                Some(RunFailure {
+                    kind: RunFailureKind::Timeout,
+                    phase: RunPhase::Execute,
+                    message: first_stderr_line,
+                })
+            } else if r.was_truncated || r.stderr_truncated {
+                Some(RunFailure {
+                    kind: RunFailureKind::OutputLimit,
+                    phase: RunPhase::Execute,
+                    message: format!(
+                        "output hit the sandbox byte cap and was cut (stdout_truncated={}, \
+                         stderr_truncated={}); emit less output or read the stored file",
+                        r.was_truncated, r.stderr_truncated
+                    ),
+                })
+            } else if r.exit_code != 0 {
+                Some(RunFailure {
+                    kind: RunFailureKind::Exception,
+                    phase: RunPhase::Execute,
+                    message: if first_stderr_line.is_empty() {
+                        format!("process exited with code {}", r.exit_code)
+                    } else {
+                        first_stderr_line
+                    },
+                })
+            } else {
+                None
+            };
+            let stored = r.stored_path.as_ref().map(|p| p.display().to_string());
+            (
+                stdout_str,
+                r.stderr,
+                r.exit_code,
+                r.stderr_truncated,
+                stored,
+                failure,
+            )
+        }
+        Err(e) => {
+            let (kind, phase) = match &e {
+                SandboxError::Spawn(_) => (RunFailureKind::ProcExit, RunPhase::Spawn),
+                SandboxError::Timeout(_) => (RunFailureKind::Timeout, RunPhase::Execute),
+                SandboxError::InvalidArgs(_) => (RunFailureKind::InvalidOutput, RunPhase::Parse),
+                SandboxError::Conflict { .. } => (RunFailureKind::Abort, RunPhase::Spawn),
+                SandboxError::Io(_) => (RunFailureKind::ProcExit, RunPhase::Execute),
+            };
+            let failure = Some(RunFailure {
+                kind,
+                phase,
+                message: e.to_string(),
+            });
+            (String::new(), e.to_string(), -1, false, None, failure)
+        }
+    }
 }
 
 /// Run `code` for `language` inside the sandbox and return captured output.
@@ -210,10 +431,23 @@ pub async fn ctx_execute_impl(
         code
     };
     let timeout = timeout_ms.unwrap_or(30_000).min(120_000);
+    // C2-W0 S-5.2 — mint this execution's identity. It keys the journal,
+    // reaches the child as TOURING_RUN_ID, and prefixes every orchestrate
+    // sub-call's origin (`<run_id>:code:<n>`) at the daemon.
+    let run_id = format!(
+        "run-{}-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0),
+        std::process::id()
+    );
     let config = SandboxConfig {
         timeout_ms: timeout,
         max_output_bytes: 1_000_000,
         fallback_on_timeout: true,
+        run_id: Some(run_id.clone()),
+        ..SandboxConfig::default()
     };
     let tool_name = match lang {
         SandboxLanguage::JavaScript => "SandboxJavaScript",
@@ -247,21 +481,10 @@ pub async fn ctx_execute_impl(
     let start = Instant::now();
     let result = execute_in_sandbox(tool_name, sandbox_args, config).await;
     let duration_ms = start.elapsed().as_millis() as u64;
-    let (stdout, stderr, exit_code) = match result {
-        Ok(r) => {
-            let stdout_bytes = if let Some(ref path) = r.stored_path {
-                std::fs::read(path).unwrap_or_default()
-            } else {
-                Vec::new()
-            };
-            let stdout_str = String::from_utf8_lossy(&stdout_bytes).to_string();
-            (stdout_str, String::new(), r.exit_code)
-        }
-        Err(e) => (String::new(), e.to_string(), -1),
-    };
-    const MAX_STDOUT: usize = 8 * 1024;
-    const MAX_STDERR: usize = 4 * 1024;
-    let (stdout_trunc, stdout_truncated) = truncate(&stdout, MAX_STDOUT);
+    let (stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure) =
+        derive_run_outcome(result);
+    let (max_stdout, max_stderr) = inline_caps();
+    let (stdout_trunc, stdout_truncated) = truncate_head_tail(&stdout, max_stdout);
 
     // P1.4 Warn mode: emit warning to stderr when forbidden calls found but policy != Block.
     let final_stderr = if policy == ForbiddenCallPolicy::Warn && !forbidden.is_empty() {
@@ -275,7 +498,31 @@ pub async fn ctx_execute_impl(
         stderr
     };
 
-    let (stderr_trunc, stderr_truncated) = truncate(&final_stderr, MAX_STDERR);
+    let (stderr_trunc, adapter_stderr_truncated) = truncate_head_tail(&final_stderr, max_stderr);
+    let stderr_truncated = adapter_stderr_truncated || sandbox_stderr_truncated;
+    // W4 d4/S-4.1+S-4.2 — journal the execution and count the MEASURED
+    // context savings of the spill (full bytes − inline bytes). Fail-open:
+    // observability never blocks the run path.
+    let bytes_elided = (stdout.len() + final_stderr.len())
+        .saturating_sub(stdout_trunc.len() + stderr_trunc.len()) as u64;
+    touring_hooks::shared::gate_metrics::record_code_mode_run(bytes_elided);
+    journal_run(
+        &run_id,
+        &language,
+        &stdout,
+        exit_code,
+        duration_ms,
+        failure.as_ref().map(|f| f.kind),
+        bytes_elided,
+    );
+    // W1 d3/S-1.2 — when the inline view lost bytes and the full output is on
+    // disk, hand the model the locator + how to read it (P19).
+    let retrieval_hint = match (&stored_path, stdout_truncated || stderr_truncated) {
+        (Some(p), true) => Some(format!(
+            "full stdout on disk: Read {p} --offset N --limit M, or grep '<pattern>' {p}"
+        )),
+        _ => None,
+    };
     Ok(CtxExecuteOutput {
         stdout: stdout_trunc,
         stderr: stderr_trunc,
@@ -283,7 +530,18 @@ pub async fn ctx_execute_impl(
         duration_ms,
         forbidden_calls: forbidden,
         stdout_truncated,
+        // Honest flag: truncated at EITHER boundary (sandbox cap or the
+        // adapter's inline cap) — `stderr_truncated: false` with swallowed
+        // content was the lie that hid the d0 bug.
         stderr_truncated,
+        failure,
+        stored_path: if stdout_truncated || stderr_truncated {
+            stored_path
+        } else {
+            None
+        },
+        retrieval_hint,
+        run_id,
     })
 }
 
@@ -293,16 +551,31 @@ pub fn format_output(
     result: std::result::Result<CtxExecuteOutput, CtxExecuteError>,
 ) -> serde_json::Value {
     match result {
-        Ok(output) => serde_json::json!({
-            "success": true,
-            "stdout": output.stdout,
-            "stderr": output.stderr,
-            "exit_code": output.exit_code,
-            "duration_ms": output.duration_ms,
-            "forbidden_calls": output.forbidden_calls,
-            "stdout_truncated": output.stdout_truncated,
-            "stderr_truncated": output.stderr_truncated,
-        }),
+        Ok(output) => {
+            let mut v = serde_json::json!({
+                "success": true,
+                "stdout": output.stdout,
+                "stderr": output.stderr,
+                "exit_code": output.exit_code,
+                "duration_ms": output.duration_ms,
+                "forbidden_calls": output.forbidden_calls,
+                "stdout_truncated": output.stdout_truncated,
+                "stderr_truncated": output.stderr_truncated,
+            });
+            // W1 d3 — taxonomy + spill locator ride along when present.
+            if let Some(f) = &output.failure {
+                v["failure"] = serde_json::json!({
+                    "kind": f.kind, "phase": f.phase, "message": f.message,
+                });
+            }
+            if let Some(p) = &output.stored_path {
+                v["stored_path"] = serde_json::json!(p);
+            }
+            if let Some(h) = &output.retrieval_hint {
+                v["retrieval_hint"] = serde_json::json!(h);
+            }
+            v
+        }
         Err(e) => serde_json::json!({
             "success": false,
             "error": e.to_string(),
@@ -332,13 +605,14 @@ mod tests {
     }
 
     #[test]
-    fn test_truncate() {
+    fn test_truncate_head_tail() {
         let long = "x".repeat(100);
-        let (trunc, was_trunc) = truncate(&long, 50);
+        let (trunc, was_trunc) = truncate_head_tail(&long, 50);
         assert!(was_trunc);
-        assert_eq!(trunc.len(), 50);
+        assert!(trunc.contains("bytes elided"), "elision is explicit");
+        assert!(trunc.starts_with('x') && trunc.ends_with('x'), "head and tail kept");
         let short = "hello";
-        let (trunc, was_trunc) = truncate(short, 50);
+        let (trunc, was_trunc) = truncate_head_tail(short, 50);
         assert!(!was_trunc);
         assert_eq!(trunc, "hello");
     }
@@ -347,6 +621,29 @@ mod tests {
     fn test_code_too_large() {
         let lang = parse_language("js");
         assert!(lang.is_ok());
+    }
+
+    /// C2-W0 S-5.2 — every execution carries its minted identity: the same
+    /// `run-<epoch_ms>-<pid>` keys the journal, reaches the child as
+    /// `TOURING_RUN_ID`, and prefixes sub-call origins at the daemon.
+    #[tokio::test]
+    async fn ctx_execute_output_carries_run_id() {
+        let out = ctx_execute_impl(
+            "python".to_string(),
+            "print(1)".to_string(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("run");
+        assert!(
+            out.run_id.starts_with("run-"),
+            "run_id must be minted with the run- prefix, got {:?}",
+            out.run_id
+        );
+        assert_eq!(out.exit_code, 0);
     }
 
     // P1.3 unit tests — ast_forbidden_scan integration.
@@ -388,36 +685,39 @@ mod tests {
     // the parallel test runner (observed flaky pattern, see memory F2).
     #[test]
     fn test_policy_from_env_all_cases() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // Case 1: no env vars → Warn (the phased-rollout default).
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Warn);
 
         // Case 2: OFF=1 → Off.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_OFF", "1") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Off);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
 
         // Case 3: ENFORCE=1 → Block.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_ENFORCE", "1") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Block);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
 
         // Case 4: OFF wins over ENFORCE when both are set (off is checked first).
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_OFF", "1") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_ENFORCE", "1") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Off);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
     }
 

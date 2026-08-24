@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+# omarchy-skill-run — execute a Claude Code skill, optionally via Herdr
+#
+# Usage: omarchy-skill-run [--herdr] [--dry-run] <skill> <model> <effort> <permission-mode> <cwd> [extra…]
+#
+# Environment:
+#   OMARCHY_SKILL_RUN_LOG  Override log path (default: ~/Work/runs.log)
+#
+# Logs one line per run:
+#   ts=<ISO> skill=<s> model=<m> effort=<e> mode=<mode> cwd=<cwd> exit=<n> secs=<n>
+#   via=<direct|herdr> artifact=<path>
+# `exit` is always numeric; `via` says whether it is the exit of the claude run
+# (direct) or of the herdr dispatch (herdr). `artifact` always exists.
+#
+# bypassPermissions is explicitly refused (exit 2).
+
+set -euo pipefail
+
+HERDR=0
+DRY_RUN=0
+POSITIONAL=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --herdr)    HERDR=1;    shift ;;
+    --dry-run)  DRY_RUN=1;  shift ;;
+    --help|-h)
+      cat <<'USAGE'
+Usage: omarchy-skill-run [--herdr] [--dry-run] <skill> <model> <effort> <permission-mode> <cwd> [extra…]
+
+Arguments:
+  skill            Touring/Claude skill name (e.g. TACO-cross-audit)
+  model            One of: fable, opus, sonnet, haiku
+  effort           One of: low, medium, high, xhigh, max
+  permission-mode  One of: plan, acceptEdits, auto, default
+                   (bypassPermissions is explicitly refused — exit 2)
+  cwd              Working directory (must exist; leading ~ is expanded)
+  extra            Optional extra prompt tokens appended after /<skill>
+
+Options:
+  --herdr     Delegate to Herdr instead of running Claude directly. Runs:
+              workspace create -> agent start (model/effort/mode passed through
+              after `--`) -> agent prompt (no --wait) -> agent read (snapshot
+              saved to ~/Work/artifacts/). Requires a running herdr server:
+              with none, `herdr workspace create` exits 1 and so does this.
+  --dry-run   Print the exact command and exit 0 without executing.
+              Does NOT write to the log.
+  --help      Show this help message.
+
+Environment:
+  OMARCHY_SKILL_RUN_LOG  Override log path (default: ~/Work/runs.log)
+
+Exit codes:
+  0   Success (or --dry-run)
+  1   Runtime error (claude / herdr failure)
+  2   Invalid arguments
+USAGE
+      exit 0
+      ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+
+if [[ ${#POSITIONAL[@]} -lt 5 ]]; then
+  echo "omarchy-skill-run: requires at least 5 positional arguments: skill model effort permission-mode cwd" >&2
+  exit 2
+fi
+
+SKILL="${POSITIONAL[0]}"
+MODEL="${POSITIONAL[1]}"
+EFFORT="${POSITIONAL[2]}"
+MODE="${POSITIONAL[3]}"
+CWD="${POSITIONAL[4]}"
+EXTRA=("${POSITIONAL[@]:5}")
+
+# Expand leading ~ in cwd
+CWD="${CWD/#~/$HOME}"
+
+# Validate model
+case "$MODEL" in
+  fable|opus|sonnet|haiku) ;;
+  *)
+    echo "omarchy-skill-run: invalid model '$MODEL'; must be one of: fable, opus, sonnet, haiku" >&2
+    exit 2
+    ;;
+esac
+
+# Validate effort
+case "$EFFORT" in
+  low|medium|high|xhigh|max) ;;
+  *)
+    echo "omarchy-skill-run: invalid effort '$EFFORT'; must be one of: low, medium, high, xhigh, max" >&2
+    exit 2
+    ;;
+esac
+
+# Validate permission-mode — bypassPermissions is explicitly refused
+if [[ "$MODE" == "bypassPermissions" ]]; then
+  echo "omarchy-skill-run: bypassPermissions is not allowed; use acceptEdits or auto instead" >&2
+  exit 2
+fi
+case "$MODE" in
+  plan|acceptEdits|auto|default) ;;
+  *)
+    echo "omarchy-skill-run: invalid permission-mode '$MODE'; must be one of: plan, acceptEdits, auto, default" >&2
+    exit 2
+    ;;
+esac
+
+# Validate cwd exists
+if [[ ! -d "$CWD" ]]; then
+  echo "omarchy-skill-run: cwd does not exist: $CWD" >&2
+  exit 2
+fi
+
+LOG_FILE="${OMARCHY_SKILL_RUN_LOG:-$HOME/Work/runs.log}"
+ARTIFACTS_DIR="$HOME/Work/artifacts"
+
+# Build prompt: /<skill> [extra…]
+PROMPT="/$SKILL"
+if [[ ${#EXTRA[@]} -gt 0 ]]; then
+  PROMPT="$PROMPT ${EXTRA[*]}"
+fi
+
+# Skill names reach the filesystem as part of the artifact name; keep them tame.
+SAFE_SKILL="${SKILL//[^A-Za-z0-9._-]/_}"
+
+# herdr constrains agent names: "must start with a lowercase letter and contain
+# only lowercase letters, digits, '-' or '_' (1-32 characters)". Skill names are
+# not so constrained — `TACO-cross-audit` is rejected outright with
+# `invalid_agent_name`, which is why the --herdr button could never have worked
+# and why the plan's own validator (`herdr agent explain TACO-cross-audit`) was
+# unrunnable. Measured 2026-08-23 against herdr 0.8.0. Derive a legal name rather
+# than fail: the human-readable skill stays as the WORKSPACE label.
+herdr_agent_name() {
+  local name
+  name="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-')"
+  while [[ "$name" == [-_]* ]]; do name="${name#?}"; done
+  [[ "$name" =~ ^[a-z] ]] || name="skill-$name"
+  name="${name:0:32}"
+  while [[ "$name" == *[-_] ]]; do name="${name%?}"; done
+  printf '%s' "${name:-skill}"
+}
+AGENT="$(herdr_agent_name "$SKILL")"
+
+# `herdr agent start` requires the pane to be AT its interactive shell prompt —
+# and its own --timeout waits for AGENT readiness, not for the shell. A freshly
+# created workspace answers `agent_pane_busy: not an available shell` for the
+# first second or two while the shell boots. Measured 2026-08-23: at t+2s a
+# `pane read` already shows the prompt. Poll for it instead of guessing a sleep.
+wait_for_shell_prompt() {
+  local pane="$1" deadline=$(( SECONDS + 20 ))
+  while (( SECONDS < deadline )); do
+    if [[ -n "$(herdr pane read "$pane" --source recent 2>/dev/null | tr -d '[:space:]')" ]]; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
+# One log line per run. `exit` is ALWAYS a number — it is the exit status of what
+# this runner did. For --herdr that is the DISPATCH (create + start + prompt), not
+# the agent's eventual outcome, which is asynchronous by design (no --wait); `via`
+# is what tells the two apart. The earlier format wrote the literal `exit=herdr`,
+# which broke its own `exit=<n>` contract AND turned the P5 gate red the moment the
+# herdr button was used: validate_p5.sh asserts `tail -1 … | grep exit=0`, so a
+# successful S-5.6 made the S-5.2 check fail. Measured 2026-08-23.
+log_run() {
+  local exit_code="$1" secs="$2" via="$3" artifact="$4"
+  mkdir -p "$(dirname "$LOG_FILE")"
+  printf 'ts=%s skill=%s model=%s effort=%s mode=%s cwd=%s exit=%d secs=%d via=%s artifact=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SKILL" "$MODEL" "$EFFORT" "$MODE" "$CWD" \
+    "$exit_code" "$secs" "$via" "$artifact" >> "$LOG_FILE"
+}
+
+notify() {
+  local exit_code="$1"
+  if command -v omarchy-notification-send &>/dev/null; then
+    omarchy-notification-send "$SKILL exit=$exit_code" || true
+  elif command -v notify-send &>/dev/null; then
+    notify-send "omarchy-skill-run" "$SKILL exit=$exit_code" || true
+  fi
+}
+
+# ── Herdr path ──────────────────────────────────────────────────────────────
+if [[ "$HERDR" -eq 1 ]]; then
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf "herdr workspace create --cwd '%s' --label '%s'\n" "$CWD" "$SKILL"
+    printf "herdr agent start '%s' --kind claude --pane <root_pane.pane_id from create> -- --model %s --effort %s --permission-mode %s\n" \
+      "$AGENT" "$MODEL" "$EFFORT" "$MODE"
+    printf "herdr agent prompt '%s' '%s'\n" "$AGENT" "$PROMPT"
+    printf "herdr agent read '%s' --source recent --format text\n" "$AGENT"
+    exit 0
+  fi
+
+  mkdir -p "$ARTIFACTS_DIR"
+  START_TS="$(date +%s)"
+  ARTIFACT="$ARTIFACTS_DIR/$(date -u +%Y%m%dT%H%M%SZ)-${SAFE_SKILL}-herdr.txt"
+
+  EXIT_CODE=0
+  set +e
+  # The pane id must come FROM the create response. It used to be hardcoded as
+  # `w1:p1`, which only holds for the very first workspace of a herdr server:
+  # the second dispatch got `w2:p1` and died with `agent_pane_not_found`.
+  # Measured 2026-08-23 on the second real execution of this button.
+  ws_json="$(herdr workspace create --cwd "$CWD" --label "$SKILL" 2>&1)"
+  EXIT_CODE=$?
+  printf '%s\n' "$ws_json"
+  WORKSPACE=""
+  PANE=""
+  if [[ "$EXIT_CODE" -eq 0 ]]; then
+    WORKSPACE="$(printf '%s' "$ws_json" | jq -r '.result.workspace.workspace_id // empty' 2>/dev/null)"
+    PANE="$(printf '%s' "$ws_json" | jq -r '.result.root_pane.pane_id // empty' 2>/dev/null)"
+    if [[ -z "$PANE" ]]; then
+      echo "omarchy-skill-run: could not read root_pane.pane_id from herdr workspace create" >&2
+      EXIT_CODE=1
+    fi
+  fi
+  if [[ "$EXIT_CODE" -eq 0 ]] && ! wait_for_shell_prompt "$PANE"; then
+    echo "omarchy-skill-run: pane $PANE never reached a shell prompt" >&2
+    EXIT_CODE=1
+  fi
+  if [[ "$EXIT_CODE" -eq 0 ]]; then
+    # The `--` passthrough carries model/effort/permission-mode into the agent.
+    # Without it herdr starts a BARE `claude` and all three arguments are dropped
+    # in silence: the menu advertised "fable - high - via Herdr" while the pane
+    # ran whatever the defaults were, and — worse — the bypassPermissions refusal
+    # above was decorative on this path, because no permission mode reached the
+    # agent at all. Measured 2026-08-23 against herdr 0.8.0, whose `agent start`
+    # signature is `<NAME> --kind <KIND> --pane <ID> [-- [AGENT_ARG]...]`.
+    herdr agent start "$AGENT" --kind claude --pane "$PANE" \
+      -- --model "$MODEL" --effort "$EFFORT" --permission-mode "$MODE"
+    EXIT_CODE=$?
+  fi
+  if [[ "$EXIT_CODE" -eq 0 ]]; then
+    herdr agent prompt "$AGENT" "$PROMPT"
+    EXIT_CODE=$?
+  fi
+  # A dispatch that never reached a live agent leaves no workspace behind: without
+  # this, every failed attempt leaked one (w1, w2, w3…) and shifted the pane id
+  # for the next caller — the very drift that produced the bug above.
+  if [[ "$EXIT_CODE" -ne 0 && -n "$WORKSPACE" ]]; then
+    herdr workspace close "$WORKSPACE" >/dev/null 2>&1
+  fi
+
+  # Snapshot the agent terminal so the dispatch leaves evidence on disk. Addressed
+  # by AGENT name (`agent read`), not `pane read`: the runner names the agent it
+  # created and never learns a pane id. Best-effort — a failed snapshot must not
+  # turn a successful dispatch into a failure, but the file is always created so
+  # `artifact=` never points at nothing.
+  herdr agent read "$AGENT" --source recent --format text > "$ARTIFACT" 2>&1 \
+    || printf 'herdr agent read failed for %s\n' "$AGENT" > "$ARTIFACT"
+  set -e
+
+  printf 'herdr agent: %s   (herdr agent explain %s)\n' "$AGENT" "$AGENT"
+  log_run "$EXIT_CODE" "$(( $(date +%s) - START_TS ))" "herdr" "$ARTIFACT"
+  notify "$EXIT_CODE"
+  exit "$EXIT_CODE"
+fi
+
+# ── Direct Claude path ───────────────────────────────────────────────────────
+CLAUDE_CMD=(claude -p "$PROMPT" --model "$MODEL" --effort "$EFFORT" --permission-mode "$MODE")
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  printf "cd '%s' && %s\n" "$CWD" "${CLAUDE_CMD[*]}"
+  exit 0
+fi
+
+mkdir -p "$ARTIFACTS_DIR"
+START_TS="$(date +%s)"
+
+# The artifact is THIS run's transcript — deterministic, one per run, always
+# present. It replaces a "newest file in artifacts/ since START_TS" scan that
+# could not attribute a file to this run: two concurrent runs claimed the same
+# file, and a run that wrote nothing claimed somebody else's output.
+ARTIFACT="$ARTIFACTS_DIR/$(date -u +%Y%m%dT%H%M%SZ)-${SAFE_SKILL}.log"
+
+set +e
+(cd "$CWD" && "${CLAUDE_CMD[@]}") 2>&1 | tee "$ARTIFACT"
+EXIT_CODE=${PIPESTATUS[0]}
+set -e
+
+log_run "$EXIT_CODE" "$(( $(date +%s) - START_TS ))" "direct" "$ARTIFACT"
+notify "$EXIT_CODE"
+
+exit "$EXIT_CODE"

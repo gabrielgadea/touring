@@ -1,0 +1,11 @@
+{
+  "phase": "P2c1",
+  "entities": [
+    {
+      "entity_id": "phase:P2c1",
+      "type": "phase",
+      "description": "13 e2e (integration\u00d75, server\u00d75, generator\u00d71, hooks\u00d72) spawnam touring com TOURING_DAEMON_SOCKET de um PrivateDaemon por processo (helper compartilhado via #[path]; start_in pina TOURING_PROJECT_ROOT + TOURING_IDLE_TIMEOUT_SECS=90 \u2192 zero vazamento); 34 spawns injetados; valida\u00e7\u00e3o: 14 bin\u00e1rios, 116 testes verdes, graph_service_e2e 15/15 em 0,48s"
+    }
+  ],
+  "relations": []
+}

@@ -200,12 +200,12 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     let manifest_path = PathBuf::from(manifest_path);
     if !manifest_path.exists() {
-        anyhow::bail!("Manifest file not found: {}", manifest_path.display());
+        anyhow::bail!("manifest file not found at {}; verify path with `ls -l` or provide valid --manifest path provide a valid --manifest path", manifest_path.display());
     }
 
     // ── 1. Load manifest ────────────────────────────────────────────────
     let manifest = InferletManifest::load_from_path(&manifest_path)
-        .map_err(|e| anyhow::anyhow!("Failed to load manifest: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("failed to load manifest: {e} — run `ls -la` on that path and verify the TOML is well-formed"))?;
 
     // Override name from manifest with CLI name (CLI takes precedence)
     let name = name.trim();
@@ -229,7 +229,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     let install_dir = install_dir(name, version)?;
     std::fs::create_dir_all(&install_dir).map_err(|e| {
         anyhow::anyhow!(
-            "Failed to create install directory {}: {}",
+            "failed to create install directory {} — ensure parent dirs exist and have write permissions: {}",
             install_dir.display(),
             e
         )
@@ -238,15 +238,15 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     // ── 5. Write wasm file ──────────────────────────────────────────────
     let wasm_path = install_dir.join("inferlet.wasm");
     std::fs::write(&wasm_path, &wasm_bytes)
-        .map_err(|e| anyhow::anyhow!("Failed to write wasm file {}: {}", wasm_path.display(), e))?;
+        .map_err(|e| anyhow::anyhow!("failed to write wasm file {} — run `df -h .` to check disk space: {}", wasm_path.display(), e))?;
 
     // ── 6. Write manifest alongside ────────────────────────────────────
     let manifest_path_on_disk = install_dir.join("inferlet.manifest.toml");
     let manifest_toml = toml::to_string_pretty(&manifest)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize manifest: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("failed to serialize manifest: {e}; ensure all field values are TOML-compatible or check schema ensure all field values are TOML-compatible strings or numbers"))?;
     std::fs::write(&manifest_path_on_disk, manifest_toml).map_err(|e| {
         anyhow::anyhow!(
-            "Failed to write manifest file {}: {}",
+            "failed to write manifest file {} — run `df -h .` to check disk space: {}",
             manifest_path_on_disk.display(),
             e
         )
@@ -298,27 +298,28 @@ fn resolve_wasm(manifest: &InferletManifest) -> anyhow::Result<Vec<u8>> {
 /// Read wasm bytes from local filesystem.
 fn read_local_wasm(path: PathBuf) -> anyhow::Result<Vec<u8>> {
     if !path.exists() {
-        anyhow::bail!("Local wasm file not found: {}", path.display());
+        anyhow::bail!("wasm file not found at {} — run `ls -la` on that path to verify it exists", path.display());
     }
     std::fs::read(&path)
-        .map_err(|e| anyhow::anyhow!("Failed to read wasm file {}: {}", path.display(), e))
+        .map_err(|e| anyhow::anyhow!("failed to read wasm file {} — run `ls -la` on that path to check permissions: {}", path.display(), e))
 }
 
 /// Fetch wasm bytes from a remote URL via reqwest.
 fn fetch_remote_wasm(url: &str) -> anyhow::Result<Vec<u8>> {
     // reqwest is available via touring-server dependency
     let response = reqwest::blocking::get(url)
-        .map_err(|e| anyhow::anyhow!("Failed to fetch wasm from {}: {}", url, e))?;
+        .map_err(|e| anyhow::anyhow!("failed to fetch wasm from {} — check network and URL: {}", url, e))?;
     if !response.status().is_success() {
         anyhow::bail!(
-            "HTTP fetch failed for {}: status {}",
+            "HTTP fetch failed for {}: status {} — run `curl -I {}` to diagnose",
             url,
-            response.status()
+            response.status(),
+            url
         );
     }
     response
         .bytes()
-        .map_err(|e| anyhow::anyhow!("Failed to read bytes from {}: {}", url, e))
+        .map_err(|e| anyhow::anyhow!("failed to read bytes from {} — check network and content-type: {}", url, e))
         .map(|b| b.to_vec())
 }
 
@@ -393,10 +394,10 @@ mod tests {
         assert_eq!(extract_flag_value(&args, "manifest"), None);
     }
 
-    /// Serializes the two env-mutating tests below so they cannot race on the
-    /// shared `TOURING_INFERLET_HOME` process var under parallel execution
-    /// (fix 2026-06-29: `custom`'s `set_var` was bleeding into `default`'s read).
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// Serializes the env-mutating tests below — now an alias of the
+    /// crate-wide guard so inferlet tests also cannot race env mutations
+    /// from OTHER modules' tests in the same test binary (2026-08-12, F-5).
+    use crate::cli::ENV_LOCK;
 
     #[test]
     fn test_install_dir_default() {
@@ -416,12 +417,12 @@ mod tests {
         let _guard = ENV_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED 2026-08-12 (F-5): serialized via crate-wide ENV_LOCK.
         unsafe { std::env::set_var("TOURING_INFERLET_HOME", "/tmp/inferlets-test") };
         let dir =
             install_dir("pattern", "1.0.0").expect("install_dir should not fail with valid input");
         assert_eq!(dir.to_string_lossy(), "/tmp/inferlets-test/pattern/1.0.0");
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED 2026-08-12 (F-5): serialized via crate-wide ENV_LOCK.
         unsafe { std::env::remove_var("TOURING_INFERLET_HOME") };
     }
 }

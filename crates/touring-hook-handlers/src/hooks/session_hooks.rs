@@ -5,6 +5,7 @@
 //! session-stop: Generates final quality report and persists session summary
 //!   for cross-session intelligence.
 
+use touring_foundation::truncate_str;
 use super::error_predictor::ErrorPredictor;
 use super::runtime::HookRuntime;
 use super::session_insights::{self, SessionInsights};
@@ -282,7 +283,7 @@ pub fn run_session_start(
     let context = format!(
         "Touring Knowledge: {} | session={}",
         parts.join(", "),
-        &session_id[..session_id.len().min(8)]
+        truncate_str(&session_id, 8)
     );
 
     // ES2 P3 — re-attend HarnessContract on session start so the constitutional

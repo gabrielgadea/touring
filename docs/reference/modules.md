@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 353**
+**Count: 357**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -55,6 +55,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-cli::cli_e2e`
 - `touring-cli::cli_suggester`
 - `touring-cli::cli_suggester_tests`
+- `touring-cli::hook_rewrite`
 - `touring-cli::workflow`
 - `touring-code::ast`
 - `touring-code::error`
@@ -115,6 +116,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::moka_policies`
 - `touring-foundation::mvkl`
 - `touring-foundation::plugin`
+- `touring-foundation::portfolio`
 - `touring-foundation::profile`
 - `touring-foundation::query_cache`
 - `touring-foundation::rules`
@@ -126,6 +128,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::shared`
 - `touring-foundation::shutdown`
 - `touring-foundation::telemetry`
+- `touring-foundation::text_rank`
 - `touring-foundation::types`
 - `touring-generator::core`
 - `touring-generator::error`
@@ -160,6 +163,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hook-runtime::protocol`
 - `touring-hook-runtime::runtime`
 - `touring-hook-runtime::schemas`
+- `touring-hook-runtime::scip_ingest`
 - `touring-hook-runtime::shared`
 - `touring-hook-runtime::suggesters`
 - `touring-hook-runtime::task_digest`
@@ -167,6 +171,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hook-runtime::wiring`
 - `touring-hook-runtime::wiring_tests`
 - `touring-hooks::daemon_main`
+- `touring-hooks::token_meter`
 - `touring-hooks-core::aco_processor`
 - `touring-hooks-core::aco_wiring`
 - `touring-hooks-core::approval_store`
@@ -191,8 +196,6 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hooks-core::hook_response`
 - `touring-hooks-core::inventory_registry`
 - `touring-hooks-core::ipc`
-- `touring-hooks-core::knowledge`
-- `touring-hooks-core::knowledge_wiring`
 - `touring-hooks-core::mutation_test`
 - `touring-hooks-core::output_capture`
 - `touring-hooks-core::panic_log`
@@ -327,6 +330,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-server::observation_masker`
 - `touring-server::output`
 - `touring-server::plugins`
+- `touring-server::portfolio`
 - `touring-server::projects`
 - `touring-server::refactor`
 - `touring-server::rl_mapping`

@@ -1,0 +1,11 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "Opt-in ligado em analise/konverter/transferegov (touring fica off: ganho medido de so 45 arquivos, o resto do JS era rustdoc). O campo polyglot= do doctor pegou meu proprio erro na hora: escrevi a chave depois de [daemon], virou daemon.polyglot_wiring e foi ignorada silenciosamente. Ligar sozinho PIOROU o grafo (orfaos de analise 5.975 -> 142.689) porque o leitor discorda do escritor: filtro de leitura olha extensao, gate de escrita olha caminho. 72,4% dos produtores legiveis eram virtualenv. Corrigido em 30.4.8 (expurgo como invariante) e 30.4.9 (expurgo estava mais severo que o gate: julgava o consumidor pelo predicado completo e apagou 13.621 arestas de teste legitimas no touring). Provado: 6.077 consumidores em tests/ e 822 em benches/ sobrevivem; 0 produtores em tests/; 0 em target/."
+    }
+  ],
+  "relations": []
+}

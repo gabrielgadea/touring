@@ -64,7 +64,7 @@ fn heap_dump(args: &[String]) -> Result<()> {
 
 #[cfg(not(feature = "heap-profile"))]
 fn heap_dump(_args: &[String]) -> Result<()> {
-    bail!("heap-profile feature not active — rebuild with `--features heap-profile`")
+    bail!("heap-profile feature not active; rebuild binary with `--features heap-profile`")
 }
 
 // ── flamegraph ───────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ fn flamegraph(args: &[String]) -> Result<()> {
 
 #[cfg(not(feature = "heap-profile"))]
 fn flamegraph(_args: &[String]) -> Result<()> {
-    bail!("heap-profile feature not active — rebuild with `--features heap-profile`")
+    bail!("heap-profile feature not active; rebuild binary with `--features heap-profile`")
 }
 
 // ── profile query / status ─────────────────────────────────────────────────
@@ -168,18 +168,18 @@ fn profile_validate(args: &[String]) -> Result<()> {
 
     let profile_text = match std::fs::read_to_string(&profile_path) {
         Ok(t) => t,
-        Err(e) => bail!("cannot read PARCER profile {profile_path}: {e}"),
+        Err(e) => bail!("cannot read PARCER profile {profile_path}: {e} — check file exists and is readable"),
     };
     let profile: serde_json::Value = match serde_yaml::from_str(&profile_text) {
         Ok(v) => v,
-        Err(e) => bail!("PARCER profile {profile_path} is not valid YAML: {e}"),
+        Err(e) => bail!("PARCER profile {profile_path} is not valid YAML: {e} — verify syntax with `yamllint`"),
     };
 
     let schema_path = parcer_schema_path();
     let schema_text = std::fs::read_to_string(&schema_path)
-        .map_err(|e| anyhow::anyhow!("cannot read schema {schema_path}: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("cannot read schema {schema_path}: {e} — verify schema file exists"))?;
     let schema: serde_json::Value = serde_json::from_str(&schema_text)
-        .map_err(|e| anyhow::anyhow!("invalid JSON schema: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("invalid JSON schema: {e} — verify schema format is valid JSON"))?;
 
     // Wire `schema` into the validator: prefer the `required` array declared
     // by the JSON schema (single source of truth) over a hardcoded fallback.
@@ -212,7 +212,7 @@ fn profile_validate(args: &[String]) -> Result<()> {
         .collect();
     if !missing.is_empty() {
         bail!(
-            "PARCER profile validation FAILED for `{agent}` — missing required fields: {}",
+            "PARCER profile validation FAILED for `{agent}` — missing required fields: {} — add them to {profile_path}",
             missing.join(", ")
         );
     }
@@ -365,11 +365,11 @@ fn take_pprof_snapshot() -> Result<Vec<u8>> {
         if !guard.activated() {
             guard
                 .activate()
-                .map_err(|e| anyhow::anyhow!("activate profiler: {e}"))?;
+                .map_err(|e| anyhow::anyhow!("activate profiler: {e}; set MALLOC_CONF=prof:true is set"))?;
         }
         guard
             .dump_pprof()
-            .map_err(|e| anyhow::anyhow!("dump_pprof: {e}"))
+            .map_err(|e| anyhow::anyhow!("dump_pprof: {e} — run `df -h /tmp` to check disk space"))
     })
 }
 
@@ -399,10 +399,10 @@ fn take_flamegraph() -> Result<Vec<u8>> {
         if !guard.activated() {
             guard
                 .activate()
-                .map_err(|e| anyhow::anyhow!("activate profiler: {e}"))?;
+                .map_err(|e| anyhow::anyhow!("activate profiler: {e}; set MALLOC_CONF=prof:true is set"))?;
         }
         guard
             .dump_flamegraph()
-            .map_err(|e| anyhow::anyhow!("dump_flamegraph: {e}"))
+            .map_err(|e| anyhow::anyhow!("dump_flamegraph: {e} — run `df -h /tmp` to check disk space"))
     })
 }

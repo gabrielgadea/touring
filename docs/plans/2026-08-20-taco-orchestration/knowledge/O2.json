@@ -1,0 +1,11 @@
+{
+  "phase": "O2",
+  "entities": [
+    {
+      "entity_id": "phase:O2",
+      "type": "phase",
+      "description": "17 testes novos no test_adw.py (163->180), cobrindo normalizacao, missing/disabled/uninspectable, vocabulario real do skillOverrides, os 2 erros de lint, injecao e nao-duplicacao de Skill, determinismo do prefacio, caminho nao-ligado inalterado e node_readonly=None. Provado por mutacao: remover a injecao e o erro de lint mata exatamente os 2 testes correspondentes."
+    }
+  ],
+  "relations": []
+}

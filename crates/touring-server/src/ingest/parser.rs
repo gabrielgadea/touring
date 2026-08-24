@@ -156,7 +156,7 @@ impl JsonlParser {
         let cost = v.get("total_cost").and_then(|c| c.as_f64()).unwrap_or(0.0);
         let model = v.get("model").and_then(|m| m.as_str()).unwrap_or("unknown");
 
-        let key = format!("cost:{}:{}", ts, &session[..session.len().min(8)]);
+        let key = format!("cost:{}:{}", ts, truncate_str(session, 8));
         let value = format!(
             "session tokens={} cache_read={} cost=${:.4} model={}",
             input + output,

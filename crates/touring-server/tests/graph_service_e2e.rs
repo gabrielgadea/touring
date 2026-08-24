@@ -18,6 +18,29 @@ use touring_code::ast::graph::SymbolIndex;
 use touring_code::ast::languages::Lang;
 use touring_server::graph_service::{GraphCtxSource, GraphService};
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
+/// The workspace this test was COMPILED from.
+///
+/// These tests used to hardcode `/home/gabrielgadea/.claude/rust` — a developer's
+/// home, and since 24/07/2026 a FROZEN root that no longer receives work. On CI
+/// it does not exist at all, so `touring viz` was spawned with a cwd that isn't
+/// there and the test died with `NotFound`. `CARGO_MANIFEST_DIR` is the only
+/// answer that is true on every machine.
+fn workspace_root() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root")
+        .to_path_buf()
+}
+
 // Helper: create a temp file with content and return (temp_dir, path)
 fn create_python_file(content: &str, name: &str) -> (tempfile::TempDir, PathBuf) {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -492,9 +515,9 @@ fn test_graph_svg_output() {
 
     // Test SVG output for workspace graph - the viz command produces SVG
     // when graphviz dot is available and the DOT input is valid
-    let output = std::process::Command::new(&binary)
+    let output = std::process::Command::new(&binary).envs(private_daemon_env())
         .args(["viz", "workspace", "--format", "svg"])
-        .current_dir("/home/gabrielgadea/.claude/rust")
+        .current_dir(workspace_root())
         .output()
         .expect("touring viz workspace --format svg should execute");
 
@@ -553,9 +576,9 @@ fn run_touring(args: &[&str]) -> (i32, String, String) {
         }
     });
 
-    let output = Command::new(&binary)
+    let output = Command::new(&binary).envs(private_daemon_env())
         .args(args)
-        .current_dir("/home/gabrielgadea/.claude/rust")
+        .current_dir(workspace_root())
         .output()
         .expect("touring binary should execute");
 
@@ -711,7 +734,10 @@ async fn test_graph_file_dot_output() {
     let (code, stdout, stderr) = run_touring(&[
         "graph",
         "file",
-        "/home/gabrielgadea/.claude/rust/crates/touring-server/src/main.rs",
+        workspace_root()
+            .join("crates/touring-server/src/main.rs")
+            .to_string_lossy()
+            .as_ref(),
         "--format",
         "dot",
     ]);
@@ -730,7 +756,10 @@ async fn test_graph_file_mermaid_output() {
     let (code, stdout, stderr) = run_touring(&[
         "graph",
         "file",
-        "/home/gabrielgadea/.claude/rust/crates/touring-server/src/main.rs",
+        workspace_root()
+            .join("crates/touring-server/src/main.rs")
+            .to_string_lossy()
+            .as_ref(),
         "--format",
         "mermaid",
     ]);
@@ -749,7 +778,10 @@ async fn test_graph_file_svg_fallback_output() {
     let (code, stdout, stderr) = run_touring(&[
         "graph",
         "file",
-        "/home/gabrielgadea/.claude/rust/crates/touring-server/src/main.rs",
+        workspace_root()
+            .join("crates/touring-server/src/main.rs")
+            .to_string_lossy()
+            .as_ref(),
         "--format",
         "svg",
     ]);
@@ -768,7 +800,10 @@ async fn test_graph_blast_alias() {
     let (code, stdout, stderr) = run_touring(&[
         "graph",
         "blast",
-        "/home/gabrielgadea/.claude/rust/crates/touring-server/src/main.rs",
+        workspace_root()
+            .join("crates/touring-server/src/main.rs")
+            .to_string_lossy()
+            .as_ref(),
         "--format",
         "dot",
     ]);

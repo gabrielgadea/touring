@@ -1,0 +1,11 @@
+{
+  "phase": "E5",
+  "entities": [
+    {
+      "entity_id": "phase:E5",
+      "type": "phase",
+      "description": "E5: premissa CORRIGIDA, nenhuma mudanca de codigo necessaria. A rodada 2 registrou o fato certo (nao existe verbo 'touring mpatch' no --help) e insinuou a conclusao errada (modulo orfao). Verificado por execucao: cli-mpatch-preview esta no hook_registry.rs em 3 sitios, e invocavel via touring-hook cli-mpatch-preview, e o stub #[cfg(not(feature=\"mpatch-fuzzy\"))] responde {error: mpatch-fuzzy feature is not enabled, matched: false}. Capacidade opcional que DECLARA estar desligada e bom desenho, nao codigo morto - o oposto do mcp-legacy de E4, que fingia estar ligado. Ausencia de verbo de topo e escolha (e handler, nao verbo). Resta a decisao de produto de ligar os 25 sitios de mpatch-fuzzy, sem plano datado que a autorize como havia em E4 - NAO ligo por conta propria. Doc da rodada 2 corrigido com a correcao datada e visivel."
+    }
+  ],
+  "relations": []
+}

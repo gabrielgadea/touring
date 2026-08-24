@@ -284,6 +284,7 @@ fn hook_registry_dispatch_table_routes_session_handlers() {
 
 #[test]
 fn classifier_respects_disable_env_var() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let (_tmp, rt) = make_runtime();
 
     // Set the env var, then call — output must be "{}" even on a clean
@@ -330,3 +331,6 @@ fn classifier_ttl_cache_suppresses_duplicate_input_in_same_process() {
     );
     assert_ne!(different, "{}", "different input must NOT hit the cache");
 }
+
+// Serializes env-var-mutating tests in this integration binary (edition-2024: set_var/remove_var are unsafe under concurrency).
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

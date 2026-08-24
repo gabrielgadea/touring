@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "config polyglot_wiring + polyglot_wiring_for_root em touring-foundation (env > projeto > usuario > false); 5 testes, incl. dois projetos discordando e toml malformado nunca ligando"
+    }
+  ],
+  "relations": []
+}

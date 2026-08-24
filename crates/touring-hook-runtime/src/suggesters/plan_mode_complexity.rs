@@ -15,6 +15,7 @@
 //!
 //! Added: 2026-04-13 (Pln3-P4 — enter_plan_mode bidirectional via Suggester trait)
 
+use touring_foundation::truncate_str;
 use crate::bidirectional::{PendingSuggestion, Suggester};
 use crate::runtime::HookRuntime;
 
@@ -150,7 +151,7 @@ fn to_pending_suggestion(task: &ComplexTask, effective_level: i64) -> PendingSug
         "task_id": task.task_id,
         "cila_level": effective_level,
         "stored_cila_level": task.cila_level,
-        "description_preview": &task.description[..task.description.len().min(80)],
+        "description_preview": truncate_str(&task.description, 80),
     });
     PendingSuggestion {
         target_task_id: task.task_id.clone(),

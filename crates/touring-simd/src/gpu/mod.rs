@@ -518,13 +518,10 @@ mod http_impl {
             }
             let data: Vec<u8> = buffer_slice.get_mapped_range().to_vec();
             let result: Vec<f32> = data
-                .chunks_exact(4)
-                .map(|chunk| {
-                    let arr: [u8; 4] = chunk
-                        .try_into()
-                        .expect("chunks_exact(4) guarantees 4 bytes");
-                    f32::from_le_bytes(arr)
-                })
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|&arr| f32::from_le_bytes(arr))
                 .collect();
 
             let dot_scalar: f32 = result.iter().sum();

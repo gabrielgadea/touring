@@ -1,0 +1,11 @@
+{
+  "phase": "W0",
+  "entities": [
+    {
+      "entity_id": "phase:W0",
+      "type": "phase",
+      "description": "d0 stderr fix CODE-COMPLETE: drenagem concorrente 2 pipes (anti-deadlock 64KiB), SandboxResult.stderr, adaptador propaga stderr real, timeout ensina causa, tee 2 canais. touring-ceg full verde (42+4 novos), ctx_execute_e2e 16/16 (3 contratos), unit 10/10, clippy 0. Deploy unico ao final do lote (decisao Gabriel opcao c)"
+    }
+  ],
+  "relations": []
+}

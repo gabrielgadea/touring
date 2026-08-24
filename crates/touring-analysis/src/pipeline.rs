@@ -732,6 +732,9 @@ impl<'a> AnalysisPipeline<'a> {
 }
 
 #[cfg(test)]
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -813,8 +816,9 @@ mod tests {
 
     #[test]
     fn test_otel_config_from_env_disabled() {
+        let _env = crate::pipeline::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Ensure the env var is unset so from_env() returns disabled config.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("OTEL_EXPORTER_OTLP_ENDPOINT") };
         let config = OtelConfig::from_env();
         assert!(

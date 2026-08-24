@@ -274,6 +274,12 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    // Serializes env-var-mutating tests in this module. Disjoint domain from
+    // `cila.rs`'s ENV_LOCK by construction: that lock guards `TOURING_TEST_CILA_L0`,
+    // this one guards `TOURING_USER_FILTERS_PATH`, and neither test set reads the
+    // other's vars (2026-08-12 env-hygiene audit).
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_parse_filters_toml_basic() {
         let toml = r#"
@@ -414,13 +420,15 @@ dedupe_consecutive = true
 
     #[test]
     fn test_load_user_filters_missing_file_returns_empty() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation is serialized via ENV_LOCK for the
+        // whole test (set → exercise → remove), so no parallel-thread UB.
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         unsafe { std::env::set_var("TOURING_USER_FILTERS_PATH", "/tmp/nonexistent_xyz.toml") };
         // Force fresh re-read by reloading
         let _ = reload_user_filters();
         let filters = load_user_filters();
         assert!(filters.is_empty());
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_USER_FILTERS_PATH") };
     }
 }

@@ -154,21 +154,52 @@ mod tests {
     fn empty_corpus_has_safe_avgdl_and_scores_zero() {
         let corpus = Bm25Corpus::new(vec![]);
         assert!(corpus.is_empty());
-        assert_eq!(corpus.avgdl(), 1.0, "avgdl must never be 0 (division guard)");
+        assert_eq!(
+            corpus.avgdl(),
+            1.0,
+            "avgdl must never be 0 (division guard)"
+        );
         let terms = toks("map");
         let df = corpus.doc_freq(&terms);
         assert!(df.iter().all(|d| *d == 0.0));
-        let s = bm25_score_doc(corpus.doc(0), &terms, &df, corpus.n(), corpus.avgdl(), &|_| false, 2.0);
+        let s = bm25_score_doc(
+            corpus.doc(0),
+            &terms,
+            &df,
+            corpus.n(),
+            corpus.avgdl(),
+            &|_| false,
+            2.0,
+        );
         assert_eq!(s, 0.0);
     }
 
     #[test]
     fn matching_document_outranks_non_matching() {
-        let corpus = Bm25Corpus::new(vec![toks("generate a map of the module graph"), toks("parse a toml config file")]);
+        let corpus = Bm25Corpus::new(vec![
+            toks("generate a map of the module graph"),
+            toks("parse a toml config file"),
+        ]);
         let terms = toks("map graph");
         let df = corpus.doc_freq(&terms);
-        let a = bm25_score_doc(corpus.doc(0), &terms, &df, corpus.n(), corpus.avgdl(), &|_| false, 1.0);
-        let b = bm25_score_doc(corpus.doc(1), &terms, &df, corpus.n(), corpus.avgdl(), &|_| false, 1.0);
+        let a = bm25_score_doc(
+            corpus.doc(0),
+            &terms,
+            &df,
+            corpus.n(),
+            corpus.avgdl(),
+            &|_| false,
+            1.0,
+        );
+        let b = bm25_score_doc(
+            corpus.doc(1),
+            &terms,
+            &df,
+            corpus.n(),
+            corpus.avgdl(),
+            &|_| false,
+            1.0,
+        );
         assert!(a > b, "a={a} b={b}");
         assert_eq!(b, 0.0);
     }
@@ -178,9 +209,28 @@ mod tests {
         let corpus = Bm25Corpus::new(vec![toks("generate map"), toks("generate chart")]);
         let terms = toks("map");
         let df = corpus.doc_freq(&terms);
-        let plain = bm25_score_doc(corpus.doc(0), &terms, &df, corpus.n(), corpus.avgdl(), &|_| false, 1.0);
-        let boosted = bm25_score_doc(corpus.doc(0), &terms, &df, corpus.n(), corpus.avgdl(), &|t| t == "map", 3.0);
-        assert!((boosted - plain * 3.0).abs() < 1e-9, "plain={plain} boosted={boosted}");
+        let plain = bm25_score_doc(
+            corpus.doc(0),
+            &terms,
+            &df,
+            corpus.n(),
+            corpus.avgdl(),
+            &|_| false,
+            1.0,
+        );
+        let boosted = bm25_score_doc(
+            corpus.doc(0),
+            &terms,
+            &df,
+            corpus.n(),
+            corpus.avgdl(),
+            &|t| t == "map",
+            3.0,
+        );
+        assert!(
+            (boosted - plain * 3.0).abs() < 1e-9,
+            "plain={plain} boosted={boosted}"
+        );
     }
 
     #[test]
@@ -190,7 +240,15 @@ mod tests {
         let corpus = Bm25Corpus::new(vec![toks("generate map")]);
         let terms = toks("generate map extra");
         let df = vec![1.0];
-        let s = bm25_score_doc(corpus.doc(0), &terms, &df, corpus.n(), corpus.avgdl(), &|_| false, 1.0);
+        let s = bm25_score_doc(
+            corpus.doc(0),
+            &terms,
+            &df,
+            corpus.n(),
+            corpus.avgdl(),
+            &|_| false,
+            1.0,
+        );
         assert!(s > 0.0);
     }
 
@@ -206,8 +264,24 @@ mod tests {
         let common = toks("generate");
         let df_rare = corpus.doc_freq(&rare);
         let df_common = corpus.doc_freq(&common);
-        let s_rare = bm25_score_doc(corpus.doc(0), &rare, &df_rare, corpus.n(), corpus.avgdl(), &|_| false, 1.0);
-        let s_common = bm25_score_doc(corpus.doc(0), &common, &df_common, corpus.n(), corpus.avgdl(), &|_| false, 1.0);
+        let s_rare = bm25_score_doc(
+            corpus.doc(0),
+            &rare,
+            &df_rare,
+            corpus.n(),
+            corpus.avgdl(),
+            &|_| false,
+            1.0,
+        );
+        let s_common = bm25_score_doc(
+            corpus.doc(0),
+            &common,
+            &df_common,
+            corpus.n(),
+            corpus.avgdl(),
+            &|_| false,
+            1.0,
+        );
         assert!(s_rare > s_common, "rare={s_rare} common={s_common}");
     }
 }

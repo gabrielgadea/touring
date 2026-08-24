@@ -117,7 +117,7 @@ A LLM **NÃO** pode setar essa env var por conta própria. Bypass exige decisão
 
 | Tópico | Local |
 |---|---|
-| REGRA #11 (git proibido) + topologia legada | `~/.claude/CLAUDE.md` (TOURING NERVOUS SYSTEM section) |
+| REGRA #11 v2 (git safety protocol) + topologia legada | `~/.claude/rules/git-safety-protocol.md` + `~/.claude/CLAUDE.md` (TOURING NERVOUS SYSTEM section) |
 | REGRA #2.5 daemon spawn pattern | `~/.claude/skills/Touring/references/touring-rebuild-rule.md` |
 | touring-process-guard.sh enforcement | `~/.claude/hooks/touring-process-guard.sh` (REGRA #19 anti-pkill, standalone) |
 | Plano de implementação completo | `~/.claude/plans/touring-process-hygiene-2026-05-23/plan.md` |

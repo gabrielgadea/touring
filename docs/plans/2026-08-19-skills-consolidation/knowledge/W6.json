@@ -1,0 +1,11 @@
+{
+  "phase": "W6",
+  "entities": [
+    {
+      "entity_id": "phase:W6",
+      "type": "phase",
+      "description": "Touring master: indexa o reference canonico e declara os masters como P1 aplicado a descoberta (um comando funde as N buscas atomicas). Corrigido tambem o fantasma touring search symbols na L276 -> 4 modos reais (unified/exact/bm25/tools), preservando a sintaxe da touring-search removida."
+    }
+  ],
+  "relations": []
+}

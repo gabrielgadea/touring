@@ -1,0 +1,11 @@
+{
+  "phase": "W4",
+  "entities": [
+    {
+      "entity_id": "phase:W4",
+      "type": "phase",
+      "description": "d4 CODE-COMPLETE: counters code_mode_runs_count + code_mode_bytes_elided_total (economia MEDIDA: full bytes - inline bytes) no gate_metrics + export nos 2 sites MCP; journal_run JSONL fail-open em ~/.claude/touring/run_journal.jsonl {ts,language,exit_code,duration_ms,failure_kind,bytes_elided} \u2014 journal PROVADO vivo (testes E2E gravaram registros reais). Contrafactual de sub-chamadas junta na W5 (identidade). E2E 20/20, clippy 0"
+    }
+  ],
+  "relations": []
+}

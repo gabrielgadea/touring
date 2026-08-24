@@ -1,0 +1,11 @@
+{
+  "phase": "P8",
+  "entities": [
+    {
+      "entity_id": "phase:P8",
+      "type": "phase",
+      "description": "P8 APPS+CC fechado: gate validate_p8 6/6 RC=0. Retomada desta sess\u00e3o consertou 2 defeitos que impediam o fechamento: (1) connectors_audit.sh nunca executava \u2014 ap\u00f3strofo em coment\u00e1rio PT fechava a string bash do python3 -c (linha 54 'o: command not found'); reescrito como heredoc quoted <<PY; censo real: 5 ok, 7 needs-auth, 3 failed, 2 not-configured em ~/Work/state/connectors.json. (2) validate_p8 check 2 lia formato de JSON que o produtor n\u00e3o emite (dict name->status) e contava 0 \u2014 fam\u00edlia 'check que n\u00e3o prova nada'; agora conta da lista connectors. bootorder-guard e herdr-server units j\u00e1 estavam instaladas/ativas pela sess\u00e3o anterior (19:15). Su\u00edte 233 passed, ruff+shellcheck limpos"
+    }
+  ],
+  "relations": []
+}

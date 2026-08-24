@@ -21,6 +21,8 @@
 //! - Subject → GeneratorKind: `suggest_generator_for_task_subject`
 //!   (keyword-driven via `SUBJECT_KEYWORD_MAP`).
 
+use touring_foundation::truncate_str;
+
 // ── Path → GeneratorKind hint ────────────────────────────────────────────────
 
 /// R19-S1: Map a changed file's extension/name pattern to a relevant GeneratorKind hint.
@@ -162,7 +164,7 @@ pub(crate) fn suggest_generator_for_task_subject(subject: &str) -> String {
     let Some(kind) = find_kind_by_keywords(&lower) else {
         return String::new();
     };
-    let truncated = &subject[..subject.len().min(60)];
+    let truncated = truncate_str(subject, 60);
     format!(
         " | generator: `touring generate render {kind} --vars '{{\"module_name\":\"{truncated}\"}}'` suggested"
     )
@@ -277,7 +279,7 @@ pub(crate) fn persist_task_creation(
             let subject_snippet = if task_subject.is_empty() {
                 String::new()
             } else {
-                task_subject[..task_subject.len().min(120)].to_string()
+                truncate_str(task_subject, 120).to_string()
             };
             for (subtask_id, description) in [
                 (
@@ -330,7 +332,7 @@ pub(crate) fn persist_task_creation(
     let subject_snippet = if task_subject.is_empty() {
         String::from("(no subject)")
     } else {
-        task_subject[..task_subject.len().min(120)].to_string()
+        truncate_str(task_subject, 120).to_string()
     };
     let _ = crate::cli_handlers::cli_memory_store(
         rt,
@@ -353,7 +355,7 @@ pub(crate) fn persist_task_creation(
 pub(crate) fn plan_scaffold_for_subject(subject: &str, task_id: &str) -> Option<String> {
     let lower = subject.to_lowercase();
     let kind = find_kind_by_keywords(&lower)?;
-    let intent = &subject[..subject.len().min(80)];
+    let intent = truncate_str(subject, 80);
     let module_name = intent
         .split_whitespace()
         .next()

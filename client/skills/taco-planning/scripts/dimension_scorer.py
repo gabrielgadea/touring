@@ -202,7 +202,18 @@ def _compute_authoring_lift(
             lift = _LIFT_MAX_PER_DIM * ratio
     elif dimension == "functionality":
         orphans = ground_truth.get("wiring_orphans") or []
-        cited = sum(1 for o in orphans if str(o.get("name", "")) and str(o.get("name", "")) in plan_md)
+        # `touring wiring orphans` devolve dicts em workspaces Rust e STRINGS em
+        # projetos poliglotas (medido 20/08/2026 em ~/projects/analise: 25.778
+        # entradas, todas str) — e o dict pode vir elidido (`_elided_array_len`).
+        # Assumir uma forma quebra o scorer inteiro com AttributeError, e um
+        # scorer que morre não mede nada.
+        if isinstance(orphans, dict):
+            orphans = orphans.get("orphans") or []
+
+        def _nome(o: object) -> str:
+            return str(o.get("name", "")) if isinstance(o, dict) else str(o)
+
+        cited = sum(1 for o in orphans if _nome(o) and _nome(o) in plan_md)
         if orphans:
             ratio = cited / len(orphans)
             lift = _LIFT_MAX_PER_DIM * ratio

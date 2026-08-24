@@ -1058,7 +1058,10 @@ fn test_migration_v8_to_v9_is_idempotent() {
                 .unwrap(),
             SCHEMA_VERSION
         );
-        assert!(table_exists(&db.conn, schema_guard::TABLE_WIRING_UNRESOLVED));
+        assert!(table_exists(
+            &db.conn,
+            schema_guard::TABLE_WIRING_UNRESOLVED
+        ));
     }
 }
 

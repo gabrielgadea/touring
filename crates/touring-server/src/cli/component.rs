@@ -158,7 +158,7 @@ pub fn run(args: &[String]) -> Result<()> {
             if requested {
                 Ok(())
             } else {
-                Err(anyhow!("missing or unknown subcommand"))
+                Err(anyhow!("missing or unknown subcommand — use `touring component --help` for available commands"))
             }
         }
     }
@@ -281,7 +281,7 @@ pub(crate) fn add_component(
     dev_bin_dir: &Path,
 ) -> Result<()> {
     if name.trim().is_empty() {
-        return Err(anyhow!("component name cannot be empty"));
+        return Err(anyhow!("component name cannot be empty — use `touring component add <name>`"));
     }
     if PROJECT_BINARIES.contains(&name) {
         return Err(anyhow!(
@@ -292,18 +292,18 @@ pub(crate) fn add_component(
     let target = resolve_binary_target(name, channel.as_deref(), touring_home, dev_bin_dir)
         .ok_or_else(|| {
             anyhow!(
-                "component {name} not found in toolchain {:?} nor dev channel {} — is it installed?",
+                "component {name} not found in toolchain {:?} or channel {} — try `touring component list` to see available components",
                 channel.as_deref().unwrap_or("<unpinned>"),
                 dev_bin_dir.display()
             )
         })?;
     let bin_dir = dot_touring.join("bin");
     std::fs::create_dir_all(&bin_dir)
-        .map_err(|e| anyhow!("create_dir_all {}: {e}", bin_dir.display()))?;
+        .map_err(|e| anyhow!("failed to create {}: {e} — run `df -h .` to check disk space and directory permissions", bin_dir.display()))?;
     let link = bin_dir.join(name);
     let _ = std::fs::remove_file(&link);
     std::os::unix::fs::symlink(&target, &link)
-        .map_err(|e| anyhow!("symlink {} -> {}: {e}", link.display(), target.display()))?;
+        .map_err(|e| anyhow!("failed to symlink {} -> {}: {e} — run `ls -la` on both paths to verify target exists and permissions allow symlinking", link.display(), target.display()))?;
     Ok(())
 }
 
@@ -316,9 +316,9 @@ pub(crate) fn remove_component(dot_touring: &Path, name: &str) -> Result<()> {
     }
     let link = dot_touring.join("bin").join(name);
     if !link.is_symlink() && !link.exists() {
-        return Err(anyhow!("component {name} is not linked in this project"));
+        return Err(anyhow!("component {name} is not linked in this project — use `touring component list` to see installed components"));
     }
-    std::fs::remove_file(&link).map_err(|e| anyhow!("remove {}: {e}", link.display()))?;
+    std::fs::remove_file(&link).map_err(|e| anyhow!("failed to remove {}: {e} — run `ls -la` on the parent directory to check ownership", link.display()))?;
     Ok(())
 }
 

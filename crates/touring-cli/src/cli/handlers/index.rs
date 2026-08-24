@@ -299,8 +299,10 @@ fn feed_go_package_wiring(
     // Zero-overhead when the opt-in is off: skip extraction entirely (the
     // storage gate would reject every `go:` row anyway) so both DB state AND the
     // reported `wiring_entries` tally stay byte-identical to pre-polyglot runs.
-    // Single source of truth for the flag (same process `OnceLock`).
-    if !touring_hooks_core::knowledge_wiring::polyglot_wiring_enabled() {
+    // The flag comes from the DATABASE being written (2026-08-19) — the same
+    // answer the storage gate will give, for the project actually being
+    // indexed, instead of a process-global that a per-project daemon inherits.
+    if !rt.ctx.knowledge.polyglot() {
         return 0;
     }
     if rel_path.ends_with("_test.go") {
@@ -332,6 +334,32 @@ fn feed_go_package_wiring(
             .record_consumer(&edge.package_key, &edge.symbol, rel_path, None);
     }
     registered
+}
+
+/// A source file this large is data wearing a source extension.
+///
+/// The RSS probe above samples every `CHUNK_SIZE` files, which cannot see a
+/// spike that happens INSIDE one window — and a single file is one step.
+/// Measured 19/08/2026 in `analise`: two `.md` files of **380 MB each**
+/// (converted engineering reports), a 69 MB `.json` of geodata, and six
+/// `claims*.json` of ~40 MB, all carrying extensions in `SUPPORTED_EXTS`.
+/// `read_to_string` alone brings 380 MB in; the tree-sitter AST and the
+/// call-graph pass are multiples of that. The daemon reached **48 GB RSS**
+/// (earlyoom log, 4× SIGTERM) on a 62 GB machine, taking the project actor
+/// down with it — and the memory guard never fired, because the jump from
+/// under 3 GB to 48 GB fit between two probes.
+///
+/// The ceiling is calibrated, not guessed: across all four projects, EVERY
+/// code file above 1 MB lives in a venv or `node_modules` (already skipped),
+/// and the largest anywhere is a 2.89 MB minified bundle. 8 MB is ~3× that
+/// — no real source is refused.
+const MAX_INDEXABLE_FILE_BYTES: u64 = 8 * 1024 * 1024;
+
+/// The size gate as a pure predicate — a rule that cannot be exercised in a
+/// test is a rule nobody can trust to still be there.
+#[must_use]
+fn exceeds_index_size_ceiling(bytes: u64) -> bool {
+    bytes > MAX_INDEXABLE_FILE_BYTES
 }
 
 /// `cli-index-rebuild` — walk the project root and symbol-index all supported files.
@@ -420,6 +448,9 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     let mut files_indexed: u32 = 0;
     let mut symbols_added: u32 = 0;
     let mut wiring_entries: u32 = 0;
+    // G3: pending (consumer_file, method-call names, type/const-ref names)
+    // resolved against the COMPLETE wiring_map after the walk.
+    let mut pending_consumers: Vec<(String, Vec<String>, Vec<String>)> = Vec::new();
     let mut errors: u32 = 0;
     // Wave 2026-05-14 — root-cause fix for the "rebuild is additive only"
     // gotcha that forced manual SQL purges after every `rm -rf crates/X`.
@@ -542,6 +573,8 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     const MEMORY_HARD_MB: f64 = 3000.0;
     let mut max_rss_mb: f64 = 0.0;
     let mut aborted_memory_pressure: bool = false;
+    let mut oversized_skipped: u32 = 0;
+    let mut oversized_sample: Vec<serde_json::Value> = Vec::new();
 
     for (chunk_idx, path) in paths.iter().enumerate() {
         // RSS probe at chunk boundaries (incl. the very first iteration).
@@ -561,6 +594,22 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         }
 
         let rel_path = crate::runtime::make_relative(path.to_str().unwrap_or(""), &project_root);
+        // Size gate BEFORE the read: the read itself is the allocation that
+        // starts the spike, so checking afterwards would be checking too late.
+        if let Ok(meta) = std::fs::metadata(path)
+            && exceeds_index_size_ceiling(meta.len())
+        {
+            oversized_skipped += 1;
+            // Never a silent cap: the operator sees WHICH files were refused
+            // and how big they were, so "my file is not indexed" has an answer.
+            if oversized_sample.len() < 10 {
+                oversized_sample.push(serde_json::json!({
+                    "path": rel_path.clone(),
+                    "bytes": meta.len(),
+                }));
+            }
+            continue;
+        }
         let content = match std::fs::read_to_string(path) {
             Ok(c) => c,
             Err(_) => {
@@ -726,36 +775,23 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                             }
                         }
 
-                        // F9 (2026-05-11): record dynamic-dispatch consumers.
-                        // `.method()` and `Type::assoc_fn()` are invisible to
-                        // `use`-statement scraping above — those produced ~2925
-                        // false-positive orphans (43% of orphan_count). Walk the
-                        // AST for call expressions, look up which producer rows
-                        // match by symbol_name, and record this file as their
-                        // consumer (capped to 4 producers per name to prevent
-                        // fan-out blow-up on generic names like `clone`).
+                        // G3 (2026-08-12, cross-audit): dispatch references are
+                        // COLLECTED here and RESOLVED after the walk. The old F9
+                        // resolved inline — a file processed before its producer
+                        // (alphabetical walk: hook-runtime < intelligence) found
+                        // an empty wiring_map and recorded nothing, which is why
+                        // `tags::derive_tags` consumers read as false orphans.
+                        // Also collects type/const refs (`tags::TAG_TABLES_DDL`,
+                        // `&ParsedTag`) that no call-expression pass can see.
                         let method_names =
                             crate::ast_bridge::extract_file_method_calls(&content, abs_path_str);
-                        if !method_names.is_empty()
-                            && let Ok(producers) = rt
-                                .ctx
-                                .knowledge
-                                .find_producer_modules_for_methods(&method_names, 4)
-                        {
-                            for (module_file, symbol_name) in &producers {
-                                // S1: this pass matches a BARE NAME and caps
-                                // fan-out at 4 producers — a deliberately lossy
-                                // guess. Recording it with the same provenance as
-                                // a resolved `use` made a guess silence a symbol
-                                // that may well be dead. It now says what it is.
-                                let _ = rt.ctx.knowledge.record_consumer_with_origin(
-                                    module_file,
-                                    symbol_name,
-                                    &rel_path,
-                                    None,
-                                    touring_hooks_core::knowledge_wiring::WiringOrigin::AstInferred,
-                                );
-                            }
+                        let type_refs = touring_code::ast::Lang::from_path(Path::new(&rel_path))
+                            .map(|lang| {
+                                touring_code::ast::graph::extract_type_and_const_refs(&content, lang)
+                            })
+                            .unwrap_or_default();
+                        if !method_names.is_empty() || !type_refs.is_empty() {
+                            pending_consumers.push((rel_path.clone(), method_names, type_refs));
                         }
 
                         // P-H: Go package-aware wiring. Go producers key by the
@@ -778,6 +814,45 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             }
             Err(_) => {
                 errors += 1;
+            }
+        }
+    }
+
+    // ── G3 (2026-08-12): resolve pending dispatch consumers —──────────────
+    // The walk is over, so every producer row now exists regardless of file
+    // order. Match collected names against the complete wiring_map (cap 4 per
+    // name, origin AstInferred — the same lossy-guess provenance as before).
+    for (consumer_file, method_names, type_refs) in &pending_consumers {
+        // Callable producers for call sites; type/const producers for
+        // type-position and const refs — the two producer sets are disjoint
+        // by kind, and mixing them would wire neither correctly.
+        let lookups = [
+            (method_names.clone(), true),
+            (type_refs.clone(), false),
+        ];
+        for (names, callable) in lookups {
+            if names.is_empty() {
+                continue;
+            }
+            let producers = if callable {
+                rt.ctx
+                    .knowledge
+                    .find_producer_modules_for_methods(&names, 4, Some(consumer_file))
+            } else {
+                rt.ctx
+                    .knowledge
+                    .find_producer_modules_for_types(&names, 4, Some(consumer_file))
+            };
+            if let Ok(producers) = producers {
+                for (module_file, symbol_name) in &producers {
+                    let _ = rt.ctx.knowledge.record_consumer_with_origin(
+                        module_file,
+                        symbol_name,
+                        consumer_file,
+                        None,
+                        touring_hooks_core::knowledge_wiring::WiringOrigin::AstInferred,
+                    );
+                }
             }
         }
     }
@@ -868,14 +943,30 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // symbol_kind='unknown' — walk-order races (consumer indexed before its
     // producer) and facade re-export imports both leave recoverable rows;
     // this closes the doctor wiring_diagnostic pollution warning.
-    let kinds_backfilled = rt
-        .ctx
-        .knowledge
-        .backfill_unknown_consumer_kinds()
-        .unwrap_or(0);
-    if kinds_backfilled > 0 {
-        tracing::info!(kinds_backfilled, "wiring_map unknown-kind backfill");
-    }
+    // 2026-08-19: this used to be `.unwrap_or(0)`. A failure here leaves the
+    // wiring_map permanently polluted with `kind_unknown` rows and NOTHING
+    // records it — the rebuild still answers success. Observed on `analise`:
+    // 3.923 unknown rows survived because this pass never ran, and the only
+    // visible symptom was a doctor warning with no way back to the cause.
+    // The repair is cheap (9.6s over 39k rows, measured) and total (pass 1
+    // inherits the producer kind, pass 2 marks the rest `extern`), so a
+    // non-zero `kind_unknown` after a complete rebuild means THIS failed.
+    let (kinds_backfilled, backfill_error) =
+        match rt.ctx.knowledge.backfill_unknown_consumer_kinds(!aborted_memory_pressure) {
+            Ok(n) => {
+                if n > 0 {
+                    tracing::info!(kinds_backfilled = n, "wiring_map unknown-kind backfill");
+                }
+                (n, None)
+            }
+            Err(e) => {
+                tracing::error!(
+                    error = %e,
+                    "wiring_map unknown-kind backfill FAILED \u{2014} kind_unknown rows survive this rebuild"
+                );
+                (0, Some(e.to_string()))
+            }
+        };
 
     // Wave 22 (S-Q4b): invalidate cli_index_status cache after rebuild so
     // the next `touring index status` / `touring status` call returns fresh counts.
@@ -918,6 +1009,16 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         // from `stale_files_purged` because the two find different things — that
         // one follows the symbols table, this one the wiring keys.
         "phantom_modules_purged": phantom_modules_purged,
+        // 2026-08-19: files refused by the size ceiling. Reported, never
+        // silent — a bounded scan that reads as a complete one is the failure
+        // mode that makes "covered everything" a lie.
+        "oversized_skipped": oversized_skipped,
+        "oversized_sample": oversized_sample,
+        "max_indexable_file_bytes": MAX_INDEXABLE_FILE_BYTES,
+        // 2026-08-19: outcome of the unknown-kind repair. `backfill_error`
+        // non-null means the wiring_map is still polluted — never silent.
+        "kinds_backfilled": kinds_backfilled,
+        "backfill_error": backfill_error,
     })
     .to_string()
 }
@@ -1381,7 +1482,8 @@ pub fn cli_ast_modules(_rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         }
     }
 
-    let canonical_root = std::fs::canonicalize(root_path).unwrap_or_else(|_| root_path.to_path_buf());
+    let canonical_root =
+        std::fs::canonicalize(root_path).unwrap_or_else(|_| root_path.to_path_buf());
     let mut visited: std::collections::HashSet<std::path::PathBuf> =
         std::collections::HashSet::new();
     visited.insert(canonical_root.clone());
@@ -1590,6 +1692,130 @@ pub fn cli_index_ingest(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
             })
             .to_string()
         }
+    }
+}
+
+#[cfg(test)]
+mod wiring_repair_visibility_tests {
+    //! The `kind_unknown` repair is the ONLY thing that clears polluted
+    //! consumer rows, it runs exactly once per rebuild, and a rebuild is
+    //! long. Swallowing its error (`.unwrap_or(0)`) means a project can carry
+    //! a polluted wiring_map for days with no trace of why — which is exactly
+    //! what happened to `analise` on 2026-08-19 (3.923 rows). Structural, not
+    //! behavioural: the failure needs a running daemon and a poisoned DB to
+    //! reproduce, but the shape that hides it is readable from the source.
+
+    const SOURCE: &str = include_str!("index.rs");
+
+    /// The repair call must not discard its `Result`.
+    #[test]
+    fn the_unknown_kind_repair_never_swallows_its_error() {
+        let call = "backfill_unknown_consumer_kinds(";
+        let at = SOURCE
+            .find(call)
+            .expect("cli_index_rebuild must still run the unknown-kind repair");
+        // The handling straddles the call: `match <call> {` puts the keyword
+        // before it and the arms after. Read both sides.
+        let before = &SOURCE[at.saturating_sub(200)..at];
+        let after = {
+            let tail = &SOURCE[at + call.len()..];
+            // `&tail[..N]` panics the moment an accented character lands on the
+            // cut — and this guard reads real source, which has them.
+            touring_foundation::truncate_str(tail, 200)
+        };
+        for swallow in [".unwrap_or(", ".unwrap_or_default(", ".ok()", ".unwrap_or_else("] {
+            assert!(
+                !after.contains(swallow),
+                "the unknown-kind repair discards its error via `{swallow}` — a failed repair \
+                 leaves kind_unknown rows behind and reports success anyway"
+            );
+        }
+        assert!(
+            before.contains("match") || after.contains("?") || after.contains("Err("),
+            "the repair's Result must be handled explicitly (match / `?`)"
+        );
+    }
+
+    /// `extern` is terminal, so it may only be concluded from a COMPLETE walk.
+    #[test]
+    fn the_extern_pass_is_gated_on_a_complete_walk() {
+        let at = SOURCE
+            .find("backfill_unknown_consumer_kinds(")
+            .expect("the repair call must still exist");
+        let tail = &SOURCE[at..];
+        let args = touring_foundation::truncate_str(tail, 80);
+        assert!(
+            args.contains("!aborted_memory_pressure"),
+            "the repair must be told whether the walk completed: marking rows \
+             `extern` after a partial walk brands symbols whose producers were \
+             simply never read, and `extern` is never revisited"
+        );
+    }
+
+    /// A failed repair has to reach the caller, not just the log.
+    #[test]
+    fn a_failed_repair_is_reported_in_the_rebuild_payload() {
+        assert!(
+            SOURCE.contains("\"backfill_error\": backfill_error"),
+            "the rebuild payload must carry `backfill_error` so a caller can tell a \
+             clean rebuild from one that left the wiring_map polluted"
+        );
+    }
+}
+
+#[cfg(test)]
+mod size_ceiling_tests {
+    use super::{MAX_INDEXABLE_FILE_BYTES, exceeds_index_size_ceiling};
+
+    /// The sizes that took the daemon to 48 GB, verbatim from the 19/08/2026
+    /// measurement of `analise`. Each carries an extension in `SUPPORTED_EXTS`,
+    /// so every one of them was read in full and handed to the parser.
+    #[test]
+    fn the_files_that_exhausted_the_machine_are_refused() {
+        for (bytes, what) in [
+            (380_400_000, "converted engineering report .md (×2 in the tree)"),
+            (69_300_000, "geodata .json"),
+            (42_600_000, "claims_semantica_completa.json"),
+            (22_800_000, "scraped .html"),
+        ] {
+            assert!(
+                exceeds_index_size_ceiling(bytes),
+                "{what} ({bytes} B) must be refused — reading it is the allocation that starts \
+                 the spike the RSS probe cannot see between two chunk boundaries"
+            );
+        }
+    }
+
+    /// Calibrated against the real corpus: across all four projects, every code
+    /// file over 1 MB lives in a venv or `node_modules` (already skipped), and
+    /// the largest found anywhere is a 2.89 MB minified bundle. A ceiling that
+    /// refused real source would trade one silent failure for another.
+    #[test]
+    fn no_real_source_file_is_refused() {
+        for (bytes, what) in [
+            (2_890_000, "largest file measured anywhere (minified JS bundle)"),
+            (2_270_000, "largest generated Python client (kubernetes core_v1_api.py)"),
+            (1_150_000, "largest torch test module"),
+            (250_000, "a large hand-written Rust module"),
+            (0, "an empty file"),
+        ] {
+            assert!(
+                !exceeds_index_size_ceiling(bytes),
+                "{what} ({bytes} B) is legitimate source and must still be indexed"
+            );
+        }
+    }
+
+    #[test]
+    fn the_ceiling_sits_where_the_calibration_put_it() {
+        assert_eq!(
+            MAX_INDEXABLE_FILE_BYTES,
+            8 * 1024 * 1024,
+            "8 MB is ~3x the largest file observed across the fleet; changing it \
+             without re-measuring the corpus reopens the 48 GB failure"
+        );
+        assert!(!exceeds_index_size_ceiling(MAX_INDEXABLE_FILE_BYTES));
+        assert!(exceeds_index_size_ceiling(MAX_INDEXABLE_FILE_BYTES + 1));
     }
 }
 

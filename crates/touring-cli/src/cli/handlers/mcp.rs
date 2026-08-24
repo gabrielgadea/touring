@@ -432,6 +432,10 @@ pub fn ctx_gain() -> Value {
         "tool_output_routed_count": routed,
         "compression_profile_applied_count": compressed,
         "sandbox_tee_persisted_count": tee,
+        "code_mode_runs_count": m.code_mode_runs_count.load(Relaxed),
+        "code_mode_bytes_elided_total": m.code_mode_bytes_elided_total.load(Relaxed),
+        "code_mode_subcalls_count": m.code_mode_subcalls_count.load(Relaxed),
+        "code_mode_subcall_bytes_total": m.code_mode_subcall_bytes_total.load(Relaxed),
         "tool_outputs_ttl_skip_count": ttl_skip,
         "tantivy_trigram_query_count": trigram_q,
         "phrase_query_match_count": phrase_q,
@@ -728,6 +732,10 @@ pub fn ctx_gain_history(days: u32) -> Value {
         "tool_output_routed_count": m.tool_output_routed_count.load(Relaxed),
         "compression_profile_applied_count": m.compression_profile_applied_count.load(Relaxed),
         "sandbox_tee_persisted_count": m.sandbox_tee_persisted_count.load(Relaxed),
+        "code_mode_runs_count": m.code_mode_runs_count.load(Relaxed),
+        "code_mode_bytes_elided_total": m.code_mode_bytes_elided_total.load(Relaxed),
+        "code_mode_subcalls_count": m.code_mode_subcalls_count.load(Relaxed),
+        "code_mode_subcall_bytes_total": m.code_mode_subcall_bytes_total.load(Relaxed),
     });
     json!({
         "ok": true,
@@ -804,7 +812,12 @@ pub fn ctx_init_agent(agent: &str) -> Value {
             Some(p) => json!({
                 "config_path": p,
                 "operation": "append_or_create_idempotent",
-                "hook": format!("$HOME/.claude/rust/scripts/touring-rewrite.sh"),
+                // The hook lives in the CANONICAL workspace (the old
+                // ~/.claude/rust tree is frozen and no longer ships the
+                // script — a plan pointing there hands the agent a dead path).
+                "hook": std::env::var("TOURING_WORKSPACE_ROOT")
+                    .map(|r| format!("{r}/scripts/touring-rewrite.sh"))
+                    .unwrap_or_else(|_| "$HOME/projects/touring/scripts/touring-rewrite.sh".to_string()),
             }),
             None => json!({"error": format!("agent '{}' not supported", agent)}),
         },

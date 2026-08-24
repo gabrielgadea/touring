@@ -1,0 +1,11 @@
+{
+  "phase": "F7",
+  "entities": [
+    {
+      "entity_id": "phase:F7",
+      "type": "phase",
+      "description": "F7 remocao de touring-evolve e touring-generator (decisao do Gabriel). Antes de apagar, 18 comandos VALIDOS que so elas documentavam (8 generate + 10 evolution) foram extraidos por script para Touring/references/generate-and-evolution.md, com ponteiro no master \u2014 REGRA #0: a skill sumiu, a informacao nao. Espelho podado (296 arquivos). Resultado medido: colisoes de proposito 1 -> ZERO; corpus 180 -> 177 skills. Restam 2 comandos fantasma em touring-scip e 3 gatilhos inertes."
+    }
+  ],
+  "relations": []
+}

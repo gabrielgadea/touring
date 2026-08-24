@@ -293,9 +293,10 @@ fn test_e4_quality_trend_empty_db() {
 
 #[test]
 fn test_f1_otel_config_disabled_by_default() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // Without env vars set, OtelConfig::from_env() must be disabled
     // (clear relevant env to ensure reproducibility)
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("OTEL_EXPORTER_OTLP_ENDPOINT") };
     let cfg = OtelConfig::from_env();
     assert!(
@@ -579,3 +580,6 @@ fn test_pln2_full_pipeline_integration() {
         ctx.len()
     );
 }
+
+// Serializes env-var-mutating tests in this integration binary (edition-2024: set_var/remove_var are unsafe under concurrency).
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

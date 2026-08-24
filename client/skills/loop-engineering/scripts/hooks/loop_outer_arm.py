@@ -29,7 +29,9 @@ contract (dense + specific, per the injection-density invariant).
 """
 from __future__ import annotations
 
+import datetime as _dt
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -56,22 +58,123 @@ FLOW_PATTERNS = (
     (_invocation("TACO-cross-audit"), "cross-audit"),
 )
 
+# ── the DEFAULT flow (2026-08-02, Gabriel: "o OUTER determinístico já é um
+# exemplo de um procedimento que deve ser padrão") ────────────────────────────
+# The flows above arm only when a slash command is typed, so ordinary
+# engineering work — the overwhelming majority of turns — ran with NO
+# enforcement at all. The KPI shows the gap directly: compliance.jsonl holds
+# records exclusively for invoked flows (strategy-outer 67/97, cross-audit
+# 59/62), and none for the default path, because nothing was ever armed there.
+#
+# `work-outer` closes it with a deliberately SMALLER contract than
+# `strategy-outer`: only the two deterministic OUTER artifacts (diagnostic +
+# CCE ledger), no strategy doc — one `touring adw run strategy-loop` satisfies
+# it. Cost of a false arm is bounded by `max_continuations` (2) Stop nags, each
+# carrying its exact next_action, after which the guard releases anyway.
+#
+# Detection is a HEURISTIC over prompt text (there is no reliable pre-execution
+# signal for "this is L2+ work"), so it is tuned for precision: an imperative
+# change-verb AND enough substance that it cannot be a passing question.
+# Kill switch: TOURING_WORK_OUTER_DISABLED=1.
+DEFAULT_FLOW = "work-outer"
+MIN_WORK_WORDS = 5
+
+# Only IMPERATIVE / INFINITIVE forms — the grammatical mood of a command. Open
+# stems (`audit\w*`) are wrong: they match the noun buried inside a hyphenated
+# name, and `test_prose_never_arms` caught exactly that ("sobre o
+# TACO-cross-audit conversamos amanhã" armed on the "audit" fragment). Hence the
+# leading `(?<![\w-])`, which refuses a hyphen-joined fragment, while the
+# trailing guard still allows the PT-BR enclitic pronoun ("certifique-se").
+_WORK_VERB = re.compile(
+    r"(?<![\w-])(?:"
+    # EN imperative / infinitive. Deliberately NO `fix|audit|debug|build|add|
+    # update|complete`: English does not inflect the imperative, so those are
+    # spelled identically to the noun and this is a PT-BR-primary environment
+    # where they appear as technical nouns ("o fix do audit ficou bom" armed on
+    # them — caught by test_default_flow_stays_out_of_conversation). What
+    # remains cannot be read as a noun phrase.
+    r"implement|refactor|migrate|optimi[sz]e|integrate|rewrite|redesign|harden|"
+    r"create|apply|validate|improve|ensure|"
+    # PT-BR imperative + infinitive (+ 1st-person plural), e.g. refatore /
+    # refatorar / refatoremos
+    r"implement(?:e|ar|emos)|refator(?:e|ar|emos)|migr(?:e|ar|emos)|"
+    r"otimiz(?:e|ar|emos)|integr(?:e|ar|emos)|reescrev(?:a|er|amos)|"
+    r"corrij(?:a|amos)|corrigir|consert(?:e|ar|emos)|depur(?:e|ar|emos)|"
+    r"audit(?:e|ar|emos)|padroniz(?:e|ar|emos)|unific(?:e|ar|emos)|"
+    r"consolid(?:e|ar|emos)|resolv(?:a|er|amos)|conclu(?:a|ir|amos)|"
+    r"garant(?:a|ir|amos)|certifique|revis(?:e|ar|emos)|"
+    r"faç(?:a|amos)|fazer|cri(?:e|ar|emos)|adicion(?:e|ar|emos)|"
+    r"ajust(?:e|ar|emos)|atualiz(?:e|ar|emos)|apliqu(?:e|emos)|aplicar|"
+    r"melhor(?:e|ar|emos)|escrev(?:a|er|amos)|valid(?:e|ar|emos)|"
+    r"remov(?:a|er|amos)|deix(?:e|ar|emos)"
+    r")(?![\w])",
+    re.IGNORECASE,
+)
+
+
+def is_default_work(prompt: str) -> bool:
+    """True when the prompt reads as a substantive engineering request.
+
+    Two conjunctive conditions, both needed: a change-imperative (so "explique
+    o que faz X" never arms) and ``MIN_WORK_WORDS`` of substance (so "fix isso"
+    stays out of the gate). Errs toward NOT arming — a missed arm costs the
+    session nothing, a spurious one costs up to two nags.
+    """
+    text = prompt or ""
+    if os.environ.get("TOURING_WORK_OUTER_DISABLED") == "1":
+        return False
+    if len(text.split()) < MIN_WORK_WORDS:
+        return False
+    return bool(_WORK_VERB.search(text))
+
 
 def detect_flow(prompt: str):
-    """Return the flow key the prompt invokes, or None."""
+    """Return the flow key the prompt invokes, or the default work flow, or None."""
     for pattern, flow in FLOW_PATTERNS:
         if pattern.search(prompt or ""):
             return flow
-    return None
+    return DEFAULT_FLOW if is_default_work(prompt) else None
 
 
-def arm(cwd: str, flow: str):
-    """Write/refresh the outer marker unless a real loop is already active."""
-    _, existing = active_marker(cwd)
+def default_bundle(cwd: str) -> str:
+    """Stable per-DAY OKF bundle for the default flow.
+
+    Per day, never per prompt: a task spanning several turns must accumulate its
+    evidence in ONE bundle, otherwise every follow-up prompt would demand a fresh
+    diagnostic and the gate would never be satisfiable. Lands under ``docs/plans``
+    when the project keeps docs there, else under ``.touring/plans``.
+    """
+    root = Path(cwd)
+    parent = root / "docs" / "plans" if (root / "docs").is_dir() else root / ".touring" / "plans"
+    return str(parent / f"{_dt.date.today().isoformat()}-work-outer")
+
+
+def arm(cwd: str, flow: str, session_id=None):
+    """Write/refresh the outer marker unless a real loop is already active.
+
+    ``session_id`` comes from the hook payload — the authoritative identity —
+    so the marker this session writes is the one ITS Stop hook will later find
+    (which resolves the same id from the environment), and no concurrent session
+    on the same project can see, satisfy or archive it.
+    """
+    _, existing = active_marker(cwd, session_id)
     if existing and existing.get("status") == "active" and existing.get("task") not in (None, "", "OUTER"):
         return None  # a live loop owns this project — never clobber it
-    return write_marker(task="OUTER", scope=cwd, bundle=(existing or {}).get("bundle"),
-                        cwd=cwd, status="outer", flow=flow)
+    # Never DOWNGRADE. An explicitly-invoked flow carries a stricter manifest
+    # than the default one, so an ordinary work prompt arriving mid-flow must not
+    # replace `strategy-outer`/`cross-audit` with `work-outer` and silently drop
+    # artifacts the session already owes (here, the strategy doc).
+    if (flow == DEFAULT_FLOW and existing
+            and existing.get("status") == "outer"
+            and existing.get("flow") not in (None, DEFAULT_FLOW)
+            and not existing.get("outer_complete")):
+        return None
+    bundle = (existing or {}).get("bundle")
+    if not bundle and flow == DEFAULT_FLOW:
+        bundle = default_bundle(cwd)
+    return write_marker(task="OUTER", scope=cwd, bundle=bundle,
+                        cwd=cwd, status="outer", flow=flow,
+                        session_id=session_id)
 
 
 def main() -> int:
@@ -87,23 +190,27 @@ def main() -> int:
     # payload (finding F5). No cwd → no arming, fail-safe.
     if not cwd:
         return 0
+    session_id = str(payload.get("session_id") or "") or None
     flow = detect_flow(prompt)
     if not flow:
         return 0
     try:
-        marker = arm(cwd, flow)
+        marker = arm(cwd, flow, session_id)
     except Exception:  # noqa: BLE001 — fail-open
         return 0
     if marker is None:
         return 0
+    _, armed = active_marker(cwd, session_id)
+    bundle = (armed or {}).get("bundle") or "<plan bundle dir>"
     context = (
         f"[FLOW GUARD] flow '{flow}' armed (marker: {marker}). The Stop hook now "
         f"verifies this flow's artifact manifest (flow_manifests.json) before any "
-        f"turn may end — artifacts on disk, never narrative. For 'strategy-outer' "
-        f"run the deterministic OUTER in one command: touring adw from-template "
+        f"turn may end — artifacts on disk, never narrative (ADW Law L3). Run the "
+        f"deterministic OUTER in one command: touring adw from-template "
         f"strategy-loop 2>/dev/null; touring adw run strategy-loop "
-        f"--var topic='<topic>' --var scope='{cwd}' --var bundle='<plan bundle dir>'. "
-        f"Skipped steps will surface as Stop blocks with the exact next_action."
+        f"--var topic='<the goal of this turn>' --var scope='{cwd}' "
+        f"--var bundle='{bundle}'. Skipped steps surface as Stop blocks carrying "
+        f"the exact next_action."
     )
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "UserPromptSubmit", "additionalContext": context}}))

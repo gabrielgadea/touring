@@ -1,0 +1,1416 @@
+<title>Cartografia de Fluxos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --paper:#F2F4F1;
+  --surface:#FFFFFF;
+  --surface-2:#E9EDE9;
+  --ink:#10201F;
+  --ink-2:#3A4B48;
+  --muted:#6B7A76;
+  --line:#CFD8D3;
+  --chart:#1F4B4A;
+  --chart-soft:#DCE7E4;
+  --route:#C25A22;
+  --route-soft:#F6E3D8;
+  --ok:#2E6B4F;
+  --warn:#8A6A18;
+  --crit:#A33A22;
+  --crit-soft:#F7DED6;
+
+  --f-display:"Fraunces",Georgia,"Times New Roman",serif;
+  --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  --col:68ch;
+  --wide:min(1180px,94vw);
+}
+
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0C1615;
+    --surface:#111E1D;
+    --surface-2:#162523;
+    --ink:#DFE8E4;
+    --ink-2:#B3C2BD;
+    --muted:#869893;
+    --line:#263936;
+    --chart:#6FB3AA;
+    --chart-soft:#172E2C;
+    --route:#E8823E;
+    --route-soft:#2C1D13;
+    --ok:#66B58C;
+    --warn:#C9A84C;
+    --crit:#E0785C;
+    --crit-soft:#2E1712;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C1615;
+  --surface:#111E1D;
+  --surface-2:#162523;
+  --ink:#DFE8E4;
+  --ink-2:#B3C2BD;
+  --muted:#869893;
+  --line:#263936;
+  --chart:#6FB3AA;
+  --chart-soft:#172E2C;
+  --route:#E8823E;
+  --route-soft:#2C1D13;
+  --ok:#66B58C;
+  --warn:#C9A84C;
+  --crit:#E0785C;
+  --crit-soft:#2E1712;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:17px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+
+.wrap{width:var(--wide);margin:0 auto;padding:0 4px}
+.col{max-width:var(--col);margin-inline:auto}
+
+.masthead{
+  border-bottom:1px solid var(--line);
+  padding:clamp(44px,8vw,96px) 0 clamp(30px,5vw,52px);
+  margin-bottom:clamp(38px,6vw,68px);
+}
+.eyebrow{
+  font-family:var(--f-mono);
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--route);
+  margin:0 0 20px;
+}
+h1{
+  font-family:var(--f-display);
+  font-optical-sizing:auto;
+  font-weight:600;
+  font-size:clamp(40px,7.5vw,76px);
+  line-height:1.02;
+  letter-spacing:-.022em;
+  margin:0 0 22px;
+  text-wrap:balance;
+}
+.standfirst{
+  font-size:clamp(18px,2.2vw,21px);
+  line-height:1.55;
+  color:var(--ink-2);
+  max-width:60ch;
+  margin:0 0 34px;
+}
+.sources{
+  display:grid;
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+  border-radius:2px;
+  overflow:hidden;
+}
+.src{
+  background:var(--surface);
+  padding:12px 18px;
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:16px;
+  align-items:baseline;
+}
+.src-hd{background:var(--surface-2);font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:7px 18px}
+.src-id{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.src-t{font-size:14.5px;line-height:1.4}
+.src-t b{font-weight:600}
+.src-t span{color:var(--muted);display:block;font-size:12.5px;margin-top:2px}
+.src-d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:620px){
+  .src{grid-template-columns:auto 1fr}
+  .src-d{grid-column:2;margin-top:-4px}
+}
+
+section{margin-bottom:clamp(54px,8vw,92px)}
+.rail{
+  display:flex;
+  align-items:baseline;
+  gap:14px;
+  border-top:2px solid var(--ink);
+  padding-top:12px;
+  margin-bottom:32px;
+}
+.rail-tag{
+  font-family:var(--f-mono);
+  font-size:11px;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--muted);
+  white-space:nowrap;
+  padding-top:6px;
+}
+h2{
+  font-family:var(--f-display);
+  font-weight:600;
+  font-size:clamp(27px,4vw,38px);
+  line-height:1.12;
+  letter-spacing:-.015em;
+  margin:0;
+  text-wrap:balance;
+}
+h3{
+  font-family:var(--f-display);
+  font-weight:600;
+  font-size:clamp(20px,2.6vw,25px);
+  line-height:1.2;
+  letter-spacing:-.01em;
+  margin:42px 0 12px;
+  text-wrap:balance;
+}
+h4{font-family:var(--f-body);font-weight:600;font-size:16px;margin:28px 0 8px}
+p{margin:0 0 18px}
+a{color:var(--route);text-decoration-thickness:1px;text-underline-offset:3px}
+strong{font-weight:600}
+code{
+  font-family:var(--f-mono);
+  font-size:.88em;
+  background:var(--surface-2);
+  padding:1px 5px;
+  border-radius:2px;
+}
+ul,ol{margin:0 0 18px;padding-left:22px}
+li{margin-bottom:7px}
+li::marker{color:var(--muted)}
+.lede{font-size:19px;line-height:1.55;color:var(--ink-2)}
+
+.quote{
+  border-left:2px solid var(--route);
+  padding:2px 0 2px 22px;
+  margin:26px 0;
+  font-family:var(--f-display);
+  font-size:clamp(19px,2.6vw,24px);
+  line-height:1.35;
+  letter-spacing:-.01em;
+}
+.quote cite{
+  display:block;
+  font-family:var(--f-mono);
+  font-size:12px;
+  font-style:normal;
+  letter-spacing:.06em;
+  color:var(--muted);
+  margin-top:12px;
+}
+
+.tw{overflow-x:auto;margin:22px 0;border:1px solid var(--line);border-radius:2px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:580px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{
+  font-family:var(--f-mono);
+  font-size:11px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:500;
+  background:var(--surface-2);
+  white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td code{font-size:12.5px;background:transparent;padding:0;color:var(--ink-2)}
+.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+
+.st{font-family:var(--f-mono);font-size:12px;font-weight:500;white-space:nowrap}
+.st-ok{color:var(--ok)}
+.st-gap{color:var(--crit)}
+.st-part{color:var(--warn)}
+
+figure{margin:32px 0}
+.fig-wide{width:var(--wide);margin-inline:calc(50% - var(--wide)/2)}
+@media(max-width:1240px){.fig-wide{width:100%;margin-inline:0}}
+.fig-box{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:2px;
+  padding:24px 22px 16px;
+  overflow-x:auto;
+}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+figcaption b{color:var(--ink-2);font-weight:600}
+svg{display:block;max-width:100%;height:auto;margin-inline:auto}
+.n-lbl{font-family:var(--f-mono);font-size:11px;fill:var(--ink)}
+.n-sub{font-family:var(--f-mono);font-size:9px;fill:var(--muted)}
+.ax{font-family:var(--f-mono);font-size:10px;fill:var(--muted);letter-spacing:.08em}
+
+pre{
+  font-family:var(--f-mono);
+  font-size:13px;
+  line-height:1.6;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:2px solid var(--chart);
+  border-radius:2px;
+  padding:16px 18px;
+  overflow-x:auto;
+  margin:20px 0;
+  tab-size:2;
+}
+pre code{background:none;padding:0;font-size:inherit}
+.c-key{color:var(--chart);font-weight:500}
+.c-str{color:var(--route)}
+.c-com{color:var(--muted);font-style:italic}
+.c-bad{color:var(--crit);font-weight:500}
+
+.moves{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:2px;margin:24px 0}
+.move{background:var(--surface);padding:20px 22px}
+.move-h{display:flex;align-items:baseline;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.move-n{
+  font-family:var(--f-mono);
+  font-size:12px;
+  font-weight:500;
+  color:var(--surface);
+  background:var(--chart);
+  padding:3px 8px;
+  border-radius:2px;
+  letter-spacing:.04em;
+}
+.move-t{font-family:var(--f-display);font-weight:600;font-size:19px;letter-spacing:-.01em}
+.move-src{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-left:auto}
+.move p{margin:0;font-size:15px;line-height:1.55;color:var(--ink-2)}
+.move p+p{margin-top:10px}
+.reqs{margin:12px 0 0;padding-left:0;list-style:none;border-top:1px dotted var(--line);padding-top:10px}
+.reqs li{font-size:14px;color:var(--ink-2);margin-bottom:6px;padding-left:16px;position:relative;line-height:1.45}
+.reqs li::before{content:"›";position:absolute;left:0;color:var(--route);font-weight:600}
+
+.kit{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:2px;margin:24px 0}
+.piece{background:var(--surface);padding:15px 17px}
+.piece-n{font-family:var(--f-mono);font-size:13px;color:var(--chart);font-weight:500;margin-bottom:5px}
+.piece-d{font-size:13.5px;line-height:1.45;color:var(--ink-2)}
+.piece-io{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-top:8px}
+
+.note{
+  background:var(--route-soft);
+  border:1px solid var(--line);
+  border-left:2px solid var(--route);
+  border-radius:2px;
+  padding:16px 20px;
+  margin:24px 0;
+  font-size:15px;
+  line-height:1.55;
+}
+.note p:last-child{margin-bottom:0}
+.note.def{background:var(--crit-soft);border-left-color:var(--crit)}
+.note-h{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--crit);margin-bottom:8px;font-weight:500}
+.note.def .note-h{color:var(--crit)}
+
+.evidence{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);letter-spacing:.02em;margin-top:-8px;margin-bottom:22px}
+
+.phase{display:grid;grid-template-columns:92px 1fr;gap:20px;padding:18px 0;border-bottom:1px solid var(--line)}
+.phase:last-child{border-bottom:none}
+.phase-id{font-family:var(--f-mono);font-size:12px;color:var(--route);letter-spacing:.06em;padding-top:3px}
+.phase-t{font-weight:600;font-size:16px;margin-bottom:5px}
+.phase-b{font-size:14.5px;color:var(--ink-2);line-height:1.5}
+.phase-g{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px dotted var(--line)}
+@media(max-width:560px){.phase{grid-template-columns:1fr;gap:6px}}
+
+footer{border-top:1px solid var(--line);padding:32px 0 60px;font-size:13.5px;color:var(--muted);line-height:1.6}
+footer code{font-size:12px}
+
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="col">
+    <p class="eyebrow">Análise · Design de arquitetura · 2ª rodada, 18 ago 2026</p>
+    <h1>Cartografia de Fluxos</h1>
+    <p class="standfirst">
+      Três vídeos descrevem a mesma virada: o valor saiu do prompt e foi para o
+      <em>desenho do trabalho ao redor do agente</em>. Esta segunda rodada foi às fontes primárias
+      que eles citam, mediu o que a primeira rodada só supôs — e encontrou dois defeitos reais no
+      runner, além de refutar uma das justificativas que eu mesmo tinha usado.
+    </p>
+    <div class="sources">
+      <div class="src-hd">fontes secundárias — as transcrições</div>
+      <div class="src"><span class="src-id">01</span><span class="src-t"><b>Why Graph Engineering will 10x your Claude/Codex</b><span>Greg Isenberg · topologia do trabalho</span></span><span class="src-d">26:28</span></div>
+      <div class="src"><span class="src-id">02</span><span class="src-t"><b>/wayfinder: Nothing is too big to plan anymore</b><span>Matt Pocock · planejamento sob incerteza</span></span><span class="src-d">15:09</span></div>
+      <div class="src"><span class="src-id">03</span><span class="src-t"><b>This NEW Claude Prompting Technique (gauntlet-loop)</b><span>Jay E · qualidade por crítica adversarial</span></span><span class="src-d">13:30</span></div>
+      <div class="src-hd">fontes primárias — a lente externa desta rodada</div>
+      <div class="src"><span class="src-id">04</span><span class="src-t"><b>wayfinder/SKILL.md</b><span>mattpocock/skills · as invariantes operacionais reais</span></span><span class="src-d">MIT</span></div>
+      <div class="src"><span class="src-id">05</span><span class="src-t"><b>Building Effective Agents</b><span>Anthropic · a taxonomia canônica dos 5 padrões</span></span><span class="src-d">2024</span></div>
+      <div class="src"><span class="src-id">06</span><span class="src-t"><b>LangGraph — reducers, Send, supersteps</b><span>o que acontece quando ramos paralelos escrevem a mesma chave</span></span><span class="src-d">docs</span></div>
+      <div class="src"><span class="src-id">07</span><span class="src-t"><b>AutoGen GraphFlow</b><span>o mesmo obstáculo, admitido: "not a parallel flow"</span></span><span class="src-d">#6488</span></div>
+      <div class="src-hd">context7 — as implementações canônicas dos dois padrões</div>
+      <div class="src"><span class="src-id">08</span><span class="src-t"><b>cobusgreyling/loop-engineering</b><span>anti-padrões, orçamento, escalação, verificador com postura REJECT</span></span><span class="src-d">1.567 snip.</span></div>
+      <div class="src"><span class="src-id">09</span><span class="src-t"><b>vercel-labs/ralph-loop-agent</b><span>o gauntlet canonizado: outer loop verificador, stop conditions tipadas</span></span><span class="src-d">485 snip.</span></div>
+      <div class="src"><span class="src-id">10</span><span class="src-t"><b>langchain-ai/langgraph</b><span>subgrafo compilado como nó — composição em runtime</span></span><span class="src-d">código</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════ FONTES ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Fontes</span><h2>As três camadas, e o que as fontes primárias corrigem</h2></div>
+
+    <p class="lede">
+      As três se sobrepõem o bastante para parecerem uma ideia só, e diferem o bastante para serem
+      três camadas: <b>Isenberg</b> dá a topologia, <b>Pocock</b> dá o planejamento quando a topologia
+      ainda é névoa, <b>Jay E</b> dá o mecanismo de qualidade dentro do nó. As transcrições dão a
+      intuição; as fontes primárias dão as invariantes — e em três pontos elas mudam o desenho.
+    </p>
+
+    <h3>01 · Graph engineering — a topologia</h3>
+
+    <p>
+      Prompt engineering é <em>como você pergunta</em>; context engineering é <em>que informação você
+      entrega</em>; graph engineering é <em>como você desenha o trabalho ao redor do modelo</em>. O
+      vocabulário é deliberadamente simples: um grafo são <b>jobs conectados por setas</b>, e o
+      <b>state</b> são as notas compartilhadas que atravessam o fluxo. Isenberg separa o
+      <b>knowledge graph</b> (como a informação se conecta) do <b>agent graph</b> (como o trabalho se
+      move) e trata do segundo.
+    </p>
+
+    <p>
+      A forma canônica é o <b>diamante</b>: uma pergunta abre em caminhos paralelos, os caminhos são
+      checados, tudo funde numa resposta. O papel que ele mais defende não é o do trabalhador — é o do
+      <b>cético</b>:
+    </p>
+
+    <blockquote class="quote">
+      Muita pesquisa com IA falha porque o mesmo modelo que escreve a resposta também avalia a
+      resposta. Isso é como pedir a alguém que escreva a própria avaliação de desempenho e depois se
+      surpreender quando ela se descreve como visionária.
+      <cite>Greg Isenberg · 04:47</cite>
+    </blockquote>
+
+    <p>
+      Dois contrapesos impedem que isso vire licença para complexidade. <b>Mais agentes não significam
+      melhor resultado</b> — às vezes significam cinco trabalhadores repetindo com confiança a mesma
+      ideia errada. E a escada de maturidade: nível 1 é rodar as raias manualmente; nível 2 é o
+      repositório onde cada passo escreve um arquivo, deixando rastro em papel; nível 3 é LangGraph ou
+      n8n. A regra que amarra: <b>desenhe o grafo antes de automatizar o grafo</b>.
+    </p>
+
+    <p>
+      O ponto que ele chama de subestimado é o que mais nos interessa, porque é a tese do Learning
+      Memory: o valor composto não é uma tarefa ficar melhor — é o trabalho <b>passar a produzir
+      memória</b>. O grafo produz o resultado e produz o contexto que torna o próximo grafo melhor.
+    </p>
+
+    <h3>02 · Wayfinder — o SKILL.md diz mais que o vídeo</h3>
+
+    <p>
+      A transcrição dá a metáfora: <b>fog of war</b>, mapa, tickets, frontier. O SKILL.md dá as
+      invariantes, e três delas mudam o desenho de forma concreta.
+    </p>
+
+    <p>
+      <b>O teste de névoa é sobre articulação, não sobre resposta.</b> A regra literal: o que decide
+      se algo vira ticket é <em>se a pergunta pode ser enunciada com nitidez agora</em>, não se pode ser
+      respondida agora. Um ticket bloqueado continua sendo ticket, porque a pergunta já é nítida. Isso
+      é um predicado implementável — bem diferente do "conhecido mas não decidível" que eu havia
+      escrito na primeira rodada.
+    </p>
+
+    <p>
+      <b>O mapa indexa, não armazena.</b> A regra é explícita: nunca reescrever decisões no mapa — ele
+      é o índice, não o depósito. A resposta vive no ticket; o mapa carrega um ponteiro de contexto.
+      Isso resolve por construção o problema que o próprio Pocock aponta na spec-como-resumo: o mapa
+      nunca é a fonte, então nunca há perda.
+    </p>
+
+    <p>
+      <b>Uma sessão reivindica um ticket antes de trabalhar.</b> A frontier é o conjunto de tickets
+      <em>abertos ∩ desbloqueados ∩ não-reivindicados</em>, e só tickets não atribuídos são tomáveis.
+      Isso é controle de concorrência — e é exatamente o que falta no nosso <code>decompose</code>,
+      como se verá adiante. Somam-se duas invariantes: <b>nunca resolver mais de um ticket por
+      sessão</b> (exceto research, que dispara em paralelo) e <b>cartografar e trabalhar são sessões
+      separadas</b>.
+    </p>
+
+    <p>
+      Os quatro tipos de ticket carregam também <em>quem executa</em>: research é AFK (agente sozinho);
+      prototype e grilling são HITL (com humano); task pode ser qualquer um. A tipagem não é só
+      taxonômica — ela determina o roteamento.
+    </p>
+
+    <h3>03 · Gauntlet loop — duas precisões que a transcrição perdeu</h3>
+
+    <p>
+      A estrutura do prompt é <b>(1) tarefa</b>, <b>(2) método de construção</b> — abrir em
+      sub-agentes, cada um com um crítico parceiro — e <b>(3) a barra a atingir</b>. As fontes sobre o
+      método original acrescentam duas coisas que mudam a implementação.
+    </p>
+
+    <p>
+      O crítico é <b>fresh-context</b>, não apenas cego. Contexto novo é mais forte que esconder a
+      narrativa: elimina a ancoragem, não só a menção. E a barra é um <b>referente concreto</b> —
+      "supera o jogo comercial X" — não um adjetivo. Um critério de parada só é operacional se aponta
+      para algo externo e verificável.
+    </p>
+
+    <p>E a ressalva, que vale mais que a técnica:</p>
+
+    <blockquote class="quote">
+      Se você não parte de um produto mínimo ou de um sistema de design realmente bom, o que o
+      gauntlet loop faz é apenas otimizar na direção provavelmente errada.
+      <cite>Jay E · 06:24</cite>
+    </blockquote>
+
+    <h3>04 · A taxonomia canônica reorganiza tudo</h3>
+
+    <p>
+      O vídeo 3 cita <em>Building Effective Agents</em> de passagem. Lida na fonte, ela reorganiza o
+      design: o que eu tratava como um mecanismo com parâmetros são <b>padrões distintos</b>.
+      Parallelization tem duas variantes que não se confundem — <b>sectioning</b> (subtarefas
+      diferentes em paralelo) e <b>voting</b> (a mesma tarefa N vezes para ganhar confiança) — e
+      <b>orchestrator-workers</b> é uma terceira coisa, em que as subtarefas não são pré-definidas mas
+      determinadas em runtime pelo orquestrador.
+    </p>
+
+    <p>
+      Isso importa porque os <em>merges</em> são diferentes: sectioning concatena, voting conta votos.
+      A política de junção é parte do tipo do padrão, não um detalhe de configuração. E dá uma medida
+      honesta de cobertura:
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Padrão canônico</th><th>Mecanismo</th><th>ADW hoje</th></tr></thead>
+        <tbody>
+          <tr><td>Prompt chaining</td><td>passos sequenciais com gates entre eles</td><td class="st st-ok">coberto — arestas <code>on_pass</code></td></tr>
+          <tr><td>Routing</td><td>classifica e despacha para o caminho especializado</td><td class="st st-ok">coberto — <code>factory route</code></td></tr>
+          <tr><td>Parallelization · <b>sectioning</b></td><td>subtarefas independentes simultâneas</td><td class="st st-gap">ausente</td></tr>
+          <tr><td>Parallelization · <b>voting</b></td><td>a mesma tarefa N vezes, agregada</td><td class="st st-gap">ausente</td></tr>
+          <tr><td>Orchestrator-workers</td><td>subtarefas decididas em runtime</td><td class="st st-gap">ausente</td></tr>
+          <tr><td>Evaluator-optimizer</td><td>gerador + avaliador em laço</td><td class="st st-part">parcial — gate determinístico, não juiz</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="evidence">Dois padrões e meio de seis. Essa é a medida honesta do trabalho — mais do que "falta fan-out".</p>
+
+    <div class="note">
+      <p>A mesma fonte traz o aviso que ordena todo este documento: adicionar complexidade
+      <em>apenas</em> quando ela demonstravelmente melhora o resultado, e frameworks tornam tentador
+      adicioná-la quando algo mais simples bastaria. É a segunda fonte independente a dizer isso — a
+      primeira foi Isenberg. Duas fontes convergindo no mesmo aviso indicam que o risco real deste
+      trabalho não é subconstruir; é superconstruir.</p>
+    </div>
+
+    <h3>05 · O que o Context7 acrescenta — e o que ele prova não existir</h3>
+
+    <p>
+      Primeiro a parte honesta: <b>nem "gauntlet loop" nem "graph engineering" existem como biblioteca
+      no Context7</b>. São vocabulário, não software — o gauntlet foi batizado há semanas, e graph
+      engineering é um guarda-chuva. Buscar por eles, porém, devolveu as três implementações que
+      canonizam os padrões, e uma delas é uma referência de práticas com 1.567 trechos.
+    </p>
+
+    <p>
+      O primeiro resultado é uma <b>convergência independente</b> que vale registrar, porque valida
+      escolhas que tomamos sem conhecê-la. A referência de loop engineering descreve como principal
+      modo de falha em produção "tratar saída possível como saída provada", e nomeia o remédio de
+      <b>cut surface</b>: geração e consequência têm de permanecer separáveis; se o verificador é o
+      mesmo agente que gerou o candidato, ou se a condição de parada é auto-reportada, a superfície de
+      corte colapsa e o sistema passa a tratar ruído como garantia. É a nossa Lei L3 — narrativa nunca
+      é veredito — formulada de forma independente e com nome próprio. O mesmo vale para a arquitetura
+      do Ralph: um <em>outer loop</em> que gerencia iterações e verificação sobre um <em>inner loop</em>
+      de chamadas e ferramentas, que é exatamente a divisão OUTER/INNER da nossa loop-engineering. E o
+      limite de <em>spawns de sub-agente por run</em> aparece nos dois como parâmetro de primeira
+      classe — o <code>max_branches</code> que a rodada anterior propôs.
+    </p>
+
+    <p>
+      A parte mais valiosa, porém, são as <b>oito práticas que não temos</b>. Nenhuma delas é
+      cosmética: cada uma corresponde a um jeito conhecido de o loop mentir sobre o próprio estado.
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Prática</th><th>O que a fonte prescreve</th><th>Nosso estado</th></tr></thead>
+        <tbody>
+          <tr><td><b>Postura padrão REJECT</b></td><td>o verificador rejeita até prova em contrário; nunca aprova por omissão</td><td class="st st-gap">não declarada</td></tr>
+          <tr><td><b>Escalar ≠ falhar</b></td><td>se os testes não puderam <em>rodar</em> (problema de ambiente), escalar ao humano — não presumir pass nem fail</td><td class="st st-gap">só pass/fail</td></tr>
+          <tr><td><b>Feedback no próximo prompt</b></td><td>a razão da reprovação é injetada na iteração seguinte</td><td class="st st-gap">ausente em 4/5 specs</td></tr>
+          <tr><td><b>Detecção de estagnação</b></td><td>ledger com contagem de tentativas, verificado <em>mecanicamente antes</em> de cada retry</td><td class="st st-part">só retry budget</td></tr>
+          <tr><td><b>Parada por custo em runtime</b></td><td>condições tipadas por iteração, tokens <em>e custo</em>; a 80% do teto diário, virar somente-relatório</td><td class="st st-part">orçamento só lintado</td></tr>
+          <tr><td><b>Kill switch</b></td><td>um rótulo pausa tudo; a retomada exige liberação registrada no estado</td><td class="st st-gap">ausente por run</td></tr>
+          <tr><td><b>Escopo por run</b></td><td>uma correção por execução; nunca refatorar código não relacionado</td><td class="st st-part">só na prosa do prompt</td></tr>
+          <tr><td><b>Nunca desabilitar teste para ficar verde</b></td><td>invariante explícita do verificador</td><td class="st st-gap">não verificada</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      As três primeiras se combinam num único desenho, que vira o movimento <b>P7</b> adiante: um
+      contrato de verificação com <b>três vereditos</b> em vez de dois. Hoje o runner só sabe dizer
+      "passou" ou "falhou", e um ambiente quebrado — o teste que não pôde rodar — é indistinguível de
+      um teste que rodou e reprovou. Os dois consomem o mesmo orçamento de retry, e o segundo caso
+      gasta tentativas de agente contra um problema que nenhum agente resolve.
+    </p>
+
+    <p>
+      Por fim, uma <b>alternativa arquitetural</b> que o código do LangGraph deixa explícita e que
+      merece comparação honesta com o que propus. Lá, um subgrafo <em>compilado</em> é passado direto
+      como nó — <code>builder.add_node("subgraph", subgraph)</code> — com schema de estado próprio,
+      checkpointer próprio se quiser, e o namespace de checkpoint estendido para o escopo aninhado. É
+      <b>composição em runtime</b>; o que propus para os fragmentos é <b>inlining em tempo de
+      carregamento</b>. A escolha do LangGraph é mais poderosa: o subgrafo mantém identidade e pode ter
+      persistência própria. A nossa é mais barata: depois do inlining o spec é plano, então lint,
+      journal e resume continuam funcionando sem uma linha de mudança no motor. Dado que o nosso
+      problema declarado é <em>reuso de peças</em> e não <em>isolamento de estado</em>, o inlining
+      resolve o caso real ao custo de não suportar um fragmento com persistência própria — limite que
+      vale aceitar conscientemente, e reabrir se algum dia um fragmento precisar de checkpoint próprio.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ DIAGNÓSTICO ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Diagnóstico</span><h2>O que o ADW já é, e onde exatamente ele para</h2></div>
+
+    <p class="lede">
+      O runner implementa com rigor incomum aquilo que a maioria dos frameworks terceiriza ao modelo:
+      durabilidade, terminação por código e detecção de divergência entre narrativa e veredito. A
+      lacuna é de outra natureza — é <b>topológica</b>.
+    </p>
+  </div>
+
+  <figure class="fig-wide">
+    <div class="fig-box">
+      <svg viewBox="0 0 1040 250" role="img" aria-label="Topologia linear atual do ADW comparada ao padrão diamante com fan-out e barreira de junção">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" fill="var(--muted)"/></marker>
+          <marker id="arR" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" fill="var(--route)"/></marker>
+        </defs>
+
+        <text class="ax" x="14" y="22">HOJE — CADEIA DE ESTADOS</text>
+        <line x1="14" y1="32" x2="1026" y2="32" stroke="var(--line)"/>
+        <rect x="14" y="52" width="112" height="38" rx="3" fill="var(--chart-soft)" stroke="var(--chart)"/>
+        <text class="n-lbl" x="70" y="70" text-anchor="middle">recall</text><text class="n-sub" x="70" y="82" text-anchor="middle">code</text>
+        <line x1="126" y1="71" x2="164" y2="71" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <rect x="168" y="52" width="112" height="38" rx="3" fill="var(--chart-soft)" stroke="var(--chart)"/>
+        <text class="n-lbl" x="224" y="70" text-anchor="middle">diagnose</text><text class="n-sub" x="224" y="82" text-anchor="middle">code</text>
+        <line x1="280" y1="71" x2="318" y2="71" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <rect x="322" y="52" width="112" height="38" rx="3" fill="var(--surface)" stroke="var(--chart)" stroke-width="1.6"/>
+        <text class="n-lbl" x="378" y="70" text-anchor="middle">fix</text><text class="n-sub" x="378" y="82" text-anchor="middle">agent</text>
+        <line x1="434" y1="71" x2="472" y2="71" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <rect x="476" y="52" width="112" height="38" rx="3" fill="var(--surface)" stroke="var(--route)" stroke-width="1.6"/>
+        <text class="n-lbl" x="532" y="70" text-anchor="middle">verify</text><text class="n-sub" x="532" y="82" text-anchor="middle">gate</text>
+        <path d="M532,90 L532,108 L378,108 L378,92" fill="none" stroke="var(--route)" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arR)"/>
+        <text class="n-sub" x="455" y="122" text-anchor="middle" fill="var(--route)">on_fail — retry orçado</text>
+        <line x1="588" y1="71" x2="626" y2="71" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <text class="n-lbl" x="660" y="75" fill="var(--muted)">__end__</text>
+        <text class="n-sub" x="760" y="60" fill="var(--muted)">current: str — um nó por vez</text>
+        <text class="n-sub" x="760" y="76" fill="var(--muted)">_next_edge() → str — um sucessor</text>
+        <text class="n-sub" x="760" y="92" fill="var(--muted)">sem barreira, sem estado compartilhado</text>
+
+        <text class="ax" x="14" y="168">PROPOSTO — DIAMANTE (fan-out → barreira → cético)</text>
+        <line x1="14" y1="178" x2="1026" y2="178" stroke="var(--line)"/>
+        <rect x="14" y="198" width="96" height="34" rx="3" fill="var(--chart-soft)" stroke="var(--chart)"/>
+        <text class="n-lbl" x="62" y="219" text-anchor="middle">planner</text>
+        <path d="M110,215 L150,199" fill="none" stroke="var(--route)" stroke-width="1.2" marker-end="url(#arR)"/>
+        <path d="M110,215 L150,215" fill="none" stroke="var(--route)" stroke-width="1.2" marker-end="url(#arR)"/>
+        <path d="M110,215 L150,231" fill="none" stroke="var(--route)" stroke-width="1.2" marker-end="url(#arR)"/>
+        <rect x="156" y="184" width="128" height="28" rx="3" fill="var(--surface)" stroke="var(--chart)" stroke-width="1.4"/>
+        <text class="n-lbl" x="220" y="202" text-anchor="middle">lente: cliente</text>
+        <rect x="156" y="216" width="128" height="28" rx="3" fill="var(--surface)" stroke="var(--chart)" stroke-width="1.4"/>
+        <text class="n-lbl" x="220" y="234" text-anchor="middle">lente: concorrente</text>
+        <rect x="156" y="248" width="128" height="28" rx="3" fill="var(--surface)" stroke="var(--chart)" stroke-width="1.4"/>
+        <text class="n-lbl" x="220" y="266" text-anchor="middle">lente: distribuição</text>
+        <path d="M284,198 L324,222" fill="none" stroke="var(--route)" stroke-width="1.2" marker-end="url(#arR)"/>
+        <path d="M284,230 L324,226" fill="none" stroke="var(--route)" stroke-width="1.2" marker-end="url(#arR)"/>
+        <path d="M284,262 L324,234" fill="none" stroke="var(--route)" stroke-width="1.2" marker-end="url(#arR)"/>
+        <rect x="330" y="212" width="84" height="34" rx="3" fill="var(--route-soft)" stroke="var(--route)" stroke-width="1.6"/>
+        <text class="n-lbl" x="372" y="228" text-anchor="middle">join</text><text class="n-sub" x="372" y="240" text-anchor="middle">merge + falha</text>
+        <line x1="414" y1="229" x2="452" y2="229" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <rect x="456" y="212" width="112" height="34" rx="3" fill="var(--surface)" stroke="var(--crit)" stroke-width="1.6"/>
+        <text class="n-lbl" x="512" y="228" text-anchor="middle">cético</text><text class="n-sub" x="512" y="240" text-anchor="middle">fresh-context</text>
+        <line x1="568" y1="229" x2="606" y2="229" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <rect x="610" y="212" width="96" height="34" rx="3" fill="var(--chart-soft)" stroke="var(--chart)"/>
+        <text class="n-lbl" x="658" y="233" text-anchor="middle">merge</text>
+        <line x1="706" y1="229" x2="744" y2="229" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <rect x="748" y="212" width="112" height="34" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+        <text class="n-lbl" x="804" y="228" text-anchor="middle">aprovação</text><text class="n-sub" x="804" y="240" text-anchor="middle">human</text>
+        <line x1="860" y1="229" x2="898" y2="229" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ar)"/>
+        <text class="n-lbl" x="906" y="233" fill="var(--muted)">__end__</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>A lacuna é topológica.</b> O executor mantém <code>current</code> como <em>string</em> e avança
+      um nó por vez; <code>_next_edge()</code> devolve um único sucessor. É uma máquina de estados com
+      desvios — expressiva para pipelines e retries, estruturalmente incapaz do diamante. O
+      <code>race</code> existente não preenche a lacuna: roda N cópias do <em>mesmo</em> spec
+      competindo, o que é redundância, não decomposição. O AutoGen passou pelo mesmo obstáculo e o
+      admitiu na própria discussão de issues.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <div class="tw">
+      <table>
+        <thead><tr><th>Capacidade</th><th>Estado</th><th>Evidência em código</th></tr></thead>
+        <tbody>
+          <tr><td>Nós tipados (code · agent · gate · loop · human)</td><td class="st st-ok">presente</td><td><code>adw.py:57 NODE_TYPES</code></td></tr>
+          <tr><td>Journal append-only com fsync + <code>--resume-run</code></td><td class="st st-ok">presente</td><td><code>class Journal</code> · <code>_resume_state</code></td></tr>
+          <tr><td>Terminação decidida por código (Lei L2)</td><td class="st st-ok">presente</td><td><code>run_loop</code> + retry orçado em <code>_next_edge</code></td></tr>
+          <tr><td>Class-D — narrativa do agente ≠ veredito do gate</td><td class="st st-ok">presente</td><td><code>_track_class_d</code></td></tr>
+          <tr><td>Gate humano + bypass conformal</td><td class="st st-ok">presente</td><td><code>_human_node</code> · <code>_zte_bypass</code></td></tr>
+          <tr><td><b>Fan-out com barreira</b></td><td class="st st-gap">ausente</td><td><code>execute()</code>: <code>current: str</code></td></tr>
+          <tr><td><b>Composição — fragmentos reusáveis</b></td><td class="st st-gap">ausente</td><td><code>load_spec</code> lê um TOML; sem <code>include</code></td></tr>
+          <tr><td><b>Crítico separado do trabalhador</b></td><td class="st st-gap">ausente</td><td>nenhum spec tem nó critic; só gate determinístico</td></tr>
+          <tr><td><b>Névoa / frontier tipados</b></td><td class="st st-gap">ausente</td><td><code>decompose</code> tem deps, não incerteza</td></tr>
+          <tr><td>Portfólio de fluxos descobrível</td><td class="st st-part">quebrado</td><td>conta <code>adw 8</code>, mas a busca não os recupera</td></tr>
+          <tr><td>Criar fluxo novo</td><td class="st st-part">cópia literal</td><td><code>cmd_from_template</code> é <code>cp</code></td></tr>
+          <tr><td><b>Lint detecta todo ciclo sem saída</b></td><td class="st st-gap">defeituoso</td><td><code>_lint_cycles</code> — <code>return</code> prematuro</td></tr>
+          <tr><td><b>Reivindicação atômica de subtask</b></td><td class="st st-gap">ausente</td><td><code>ready_subtasks</code> só lê; sem claim</td></tr>
+          <tr><td><b>Feedback do gate no retry</b></td><td class="st st-gap">ausente</td><td>4 de 5 gates nunca referenciados em prompt</td></tr>
+          <tr><td><b>Veredito ESCALATE (ambiente quebrado)</b></td><td class="st st-gap">ausente</td><td>só <code>exit_code == 0</code> → pass/fail</td></tr>
+          <tr><td><b>Postura declarada por nó</b></td><td class="st st-gap">ausente</td><td><code>_claude_cmd</code> nunca usa <code>--agent</code>/<code>--agents</code>; <code>tier</code> só escolhe modelo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="evidence">Verificado por leitura direta de <code>adw.py</code> (1.092 linhas), dos 8 specs da library, de <code>miner.rs</code> e <code>decomposer.rs</code> · 18/08/2026</p>
+
+    <h3>Dois defeitos, ambos reproduzidos por execução</h3>
+
+    <div class="note def">
+      <div class="note-h">Defeito 1 — o lint deixa passar ciclo infinito</div>
+      <p><code>_lint_cycles</code> percorre os nós procurando ciclos, mas o <code>return</code> está
+      dentro do laço: ao encontrar o <em>primeiro</em> ciclo — mesmo um que tenha saída e portanto seja
+      legítimo — a função retorna e nenhum outro é examinado. Um spec com dois ciclos alcançáveis, o
+      primeiro com saída e o segundo sem, <b>passa no lint com exit 0</b>.</p>
+      <p>Reproduzido com um spec sintético de cinco nós: zero erros, zero órfãos, exit 0 — e um ciclo
+      <code>x→y→x</code> do qual o runner nunca sairia. A correção é de uma linha (<code>return</code>
+      → <code>continue</code>) mais deduplicação dos ciclos já reportados, para o mesmo ciclo não ser
+      anunciado uma vez por membro.</p>
+    </div>
+
+    <div class="note def">
+      <div class="note-h">Defeito 2 — duas sessões recebem o mesmo subtask</div>
+      <p><code>ready_subtasks</code> filtra corretamente por <code>Pending</code>, e
+      <code>cli_decompose_ready</code> apenas <em>lê</em>. Não existe operação que reivindique o
+      subtask no mesmo passo — nenhum <code>claim</code>, <code>take_next</code> ou
+      <code>acquire</code> em todo o crate. O padrão é ler-depois-escrever, com uma janela aberta entre
+      os dois: duas sessões concorrentes recebem o mesmo trabalho e ambas o marcam em progresso.</p>
+      <p>É o mesmo defeito que o marker por sessão da loop-engineering corrigiu em agosto, num lugar
+      diferente. E a correção já está desenhada por outra fonte: a frontier do Wayfinder é
+      <em>aberto ∩ desbloqueado ∩ <b>não-reivindicado</b></em>, com a reivindicação acontecendo antes
+      de qualquer trabalho.</p>
+    </div>
+
+    <div class="note def">
+      <div class="note-h">Defeito 3 — o retry re-executa o agente às cegas</div>
+      <p>Quando um gate reprova, a aresta <code>on_fail</code> devolve o controle ao agente. Mas
+      <b>o veredito do gate não chega ao prompt</b>: em 4 dos 5 gates da library — <code>bugfix</code>,
+      <code>chore</code> e os dois de <code>feature</code> — o nó do gate nunca é referenciado em
+      nenhum prompt. Só o <code>hotfix</code> faz certo. O agente tenta de novo sem saber o que
+      reprovou da primeira vez.</p>
+      <p>E <code>session = "resume_on_fail"</code> não salva: ele emite <code>claude --resume</code>,
+      preservando o contexto <em>do agente</em> — mas o gate roda num processo separado <em>depois</em>
+      dele, então esse contexto jamais conteve o veredito. O dado existe e está disponível como
+      <code>{{nodes.verify.summary}}</code>; simplesmente ninguém o consome. É o oposto exato da
+      prática do Ralph Loop, onde a razão da reprovação é injetada na iteração seguinte por
+      construção.</p>
+    </div>
+
+    <h3>A invisibilidade do portfólio tem uma causa mecânica</h3>
+
+    <p>
+      O sintoma foi reproduzido: o intento <em>"corrigir um bug com memória institucional e gate de
+      verificação"</em> descreve literalmente o <code>bugfix.toml</code> — que tem um nó
+      <code>recall</code> de memória e um gate <code>verify</code>. A busca devolveu um script de outro
+      projeto, e nenhum ADW. A causa não é o motor de busca; é o que entra no corpus:
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Tipo</th><th>Função mineradora</th><th>O que vira documento indexável</th><th>Grandeza</th></tr></thead>
+        <tbody>
+          <tr><td>script shell</td><td><code>shell_header</code></td><td>bloco de comentários inteiro do cabeçalho</td><td class="num">~50–300 palavras</td></tr>
+          <tr><td>skill</td><td><code>markdown_frontmatter</code></td><td>nome + descrição do frontmatter</td><td class="num">~30–150</td></tr>
+          <tr><td><b>ADW</b></td><td><code>adw_description</code></td><td><b>apenas <code>[adw].description</code></b></td><td class="num"><b>~10</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="evidence">FACT — <code>touring-server/src/portfolio/miner.rs:237</code></p>
+
+    <p>
+      Um fluxo entra na competição BM25 como documento de uma frase, contra scripts com centenas de
+      palavras. Ele não perde por ser pior candidato — perde por ter menos superfície textual.
+      <b>O portfólio de fluxos já existe em embrião; só não é recuperável.</b>
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ MEDIÇÃO ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Medição</span><h2>O que medir refutou</h2></div>
+
+    <p class="lede">
+      A primeira rodada apresentou o fan-out sem medir seu ganho. Medido, um dos argumentos implícitos
+      não se sustenta — e vale dizê-lo antes de propor qualquer coisa.
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Spec</th><th>Nós independentes</th><th>Sequencial</th><th>Com fan-out</th><th>Ganho</th></tr></thead>
+        <tbody>
+          <tr><td><code>audit</code></td><td>sec_audit ∥ blast ∥ read_quality</td><td class="num">0,2 s</td><td class="num">0,1 s</td><td class="num">irrelevante</td></tr>
+          <tr><td><code>strategy-loop</code></td><td>recall (5,4 s) ∥ diagnose (30,2 s)</td><td class="num">35,6 s</td><td class="num">30,2 s</td><td class="num">~15%</td></tr>
+          <tr><td><code>bugfix</code> · <code>feature</code></td><td>recall ∥ diagnose/scout</td><td class="num">—</td><td class="num">—</td><td class="num">idem</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="evidence">Medido em 25 journals de runs reais (<code>.touring/adw-runs/*/journal.jsonl</code>) e por cronometragem direta dos três comandos do <code>audit</code>.</p>
+
+    <p>
+      <b>O fan-out não é um ganho de performance nos fluxos que temos.</b> Nos três nós do
+      <code>audit</code> o ganho absoluto é de décimos de segundo; no <code>strategy-loop</code> o
+      <code>diagnose</code> domina tanto que paralelizar rende cerca de 15%. Se o argumento fosse
+      velocidade, o trabalho não se justificaria.
+    </p>
+
+    <p>
+      O argumento é outro, e é o de Isenberg: o fan-out permite <b>expressar topologias hoje
+      inexprimíveis</b> — várias lentes onde existe uma, um painel de críticos onde existe um gate
+      binário. É um ganho de <em>qualidade e de vocabulário</em>, não de relógio. E há um corolário
+      prático: como a velocidade não é o prêmio, não há motivo para correr atrás do caso difícil
+      (escrita concorrente) antes do caso fácil.
+    </p>
+
+    <p>
+      A medição também trouxe a descoberta que mais simplifica a implementação: <b>todo fan-out que as
+      três fontes pedem é de leitura</b>. Os pesquisadores de Isenberg (cliente, concorrente,
+      distribuição), os críticos do gauntlet, as lentes de exploração — nenhum escreve. Escrita
+      paralela é rara, cara, e já tem duas soluções no repositório.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ DESIGN ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Design</span><h2>Seis movimentos, em ordem de dependência real</h2></div>
+
+    <p class="lede">
+      A numeração não é decorativa. P2 precede P1 porque fragmentos são inlining puro — zero mudança
+      no motor — e destravam P4 e P6. P1 se divide, porque a segunda rodada mostrou que o caso
+      valioso e o caso arriscado são separáveis.
+    </p>
+
+    <div class="moves">
+      <div class="move">
+        <div class="move-h"><span class="move-n">P2</span><span class="move-t">Fragmentos composíveis</span><span class="move-src">pedido do Gabriel</span></div>
+        <p>Um fragmento é um mini-spec com <code>[fragment]</code> declarando <code>inputs</code>,
+        <code>entry</code> e <code>exit</code>. O carregador faz <b>inlining com prefixo de
+        namespace</b> — <code>recall.memoria</code>, <code>critic.julga</code> — resolvendo
+        <code>{{inputs.x}}</code> na inclusão. Depois do inlining o spec é plano: o motor não muda uma
+        linha, o lint enxerga o grafo completo, o journal registra nomes estáveis e o resume funciona
+        sem alteração.</p>
+        <p>É literalmente a "parte modular para personalização" pedida, ao custo de um resolvedor de
+        templates.</p>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P1a</span><span class="move-t">Fan-out de leitura</span><span class="move-src">graph · anthropic</span></div>
+        <p>Nó <code>parallel</code> restrito a ramos sem ferramentas de escrita. Cobre sectioning
+        (<code>policy = "all"</code>) e voting (<code>policy = "quorum:N"</code>), que a taxonomia
+        canônica distingue. Sem isolamento, sem worktree, sem conflito — porque nada é escrito.</p>
+        <p>Captura todo o valor que as três fontes pedem, e é o caso de risco quase nulo. Três
+        requisitos, porém, não são opcionais — cada um é um modo de falha silenciosa:</p>
+        <ul class="reqs">
+          <li><b>Política de merge declarada.</b> Hoje o resultado é gravado sob a chave do <em>nome do nó</em>. Três ramos de um mesmo template gravariam na mesma chave e dois se perderiam sem ruído — o last-write-wins que o LangGraph documenta como default. O lint deve <em>exigir</em> a política quando há colisão, nunca assumir uma.</li>
+          <li><b>Política de falha declarada</b> — <code>all</code> (padrão, falha-fechado), <code>any</code>, <code>quorum:N</code>, <code>best_effort</code>. As docs do LangGraph não especificam o comportamento quando um ramo falha; aqui a Lei L2 obriga a especificar. Só <code>best_effort</code> pode mascarar falha, então é opt-in explícito.</li>
+          <li><b>Class-D por ramo.</b> <code>_track_class_d</code> guarda o último agente num <em>slot único</em>. Com N agentes concorrentes esse slot vira corrida e a Lei L3 — a garantia mais forte do runner — degradaria justamente quando há mais agentes em jogo. Precisa virar um mapa por ramo.</li>
+        </ul>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P6</span><span class="move-t">Painel de críticos</span><span class="move-src">gauntlet loop</span></div>
+        <p>Fragmento <code>critic-panel</code>: N críticos com <b>lentes distintas</b> — nunca N
+        críticos idênticos, que é o "mais agentes = mais ruído" contra o qual Isenberg alerta — em
+        <b><code>session = "fresh"</code></b>, com <code>bar</code> apontando para um referente
+        concreto, e quorum contado por código.</p>
+        <p>O campo <code>session</code> já existe no runner, então o crítico de contexto novo é
+        implementável hoje. O lint deve rejeitar um nó de crítica com <code>resume_on_fail</code>:
+        herdar o contexto de quem produziu é exatamente o modo de falha que o padrão existe para
+        eliminar.</p>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P7</span><span class="move-t">Contrato de verificação</span><span class="move-src">context7 · loop-engineering</span></div>
+        <p>O runner só sabe dizer <em>passou</em> ou <em>falhou</em>, e isso é pouco. As práticas
+        canonizadas descrevem um contrato mais estreito, e cada peça dele fecha uma forma conhecida de
+        o loop mentir sobre o próprio estado:</p>
+        <ul class="reqs">
+          <li><b>Três vereditos, não dois.</b> <code>PASS</code> · <code>REJECT</code> · <code>ESCALATE</code>. O terceiro é para quando o teste <em>não pôde rodar</em> — ambiente quebrado, dependência ausente, rede fora. Hoje isso vira "falhou" e gasta tentativas de agente contra um problema que nenhum agente resolve.</li>
+          <li><b>Postura padrão REJECT.</b> O verificador reprova até prova em contrário, e a prova é a execução do teste — nunca a alegação de quem implementou.</li>
+          <li><b>Feedback obrigatório no retry.</b> A razão da reprovação entra no prompt da tentativa seguinte. Corrige o Defeito 3, e o lint pode exigi-lo: um <code>on_fail</code> que volta a um agente sem referenciar o gate é um aviso.</li>
+          <li><b>Estagnação ≠ retry budget.</b> O ledger conta tentativas <em>e</em> detecta repetição improdutiva antes de gastar a próxima. Um agente que passa sem progredir hoje não é detectado por nada.</li>
+          <li><b>Parada por custo em runtime.</b> <code>budget_tokens</code> hoje só é somado pelo lint; nunca é verificado durante a execução. As condições de parada canônicas são por iteração, tokens <em>e custo</em>, com degradação a somente-relatório antes do teto.</li>
+          <li><b>Kill switch por run.</b> Existe para o loop (<code>TOURING_WORK_OUTER_DISABLED</code>), não para um ADW em andamento.</li>
+        </ul>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P8</span><span class="move-t">Persona por nó</span><span class="move-src">pedido do Gabriel</span></div>
+        <p>Bloco <code>[node.X.persona]</code> declarando o terceiro eixo — postura e comportamento —
+        compilado pelo runner em <code>--agents</code> + <code>--agent</code>. Definição inline, não
+        referência a catálogo: o fluxo permanece portável e a persona é versionada junto com ele.</p>
+        <p>As dez técnicas viram campos verificáveis, e o lint ganha o que checar: um nó de crítica
+        sem <code>stance</code>, sem <code>emits</code> parseável ou com <code>resume_on_fail</code> é
+        um crítico que não critica. Personas recorrentes vivem nos fragmentos do kit.</p>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P4</span><span class="move-t"><code>touring flow new</code></span><span class="move-src">pedido do Gabriel</span></div>
+        <p>Criação guiada de um fluxo para uma funcionalidade específica: consulta obrigatória ao
+        prior-art com veredito, entrevista curta no estilo <em>grilling</em>, composição a partir de
+        fragmentos, e <code>lint</code> + <code>test</code> antes de existir.</p>
+        <p>É "desenhe o grafo antes de automatizar o grafo" transformado em afordância — o fluxo nasce
+        lintado, testado com agentes mockados e registrado no portfólio.</p>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P3</span><span class="move-t">Bloco <code>[purpose]</code></span><span class="move-src">graph · memória</span></div>
+        <p>Torna o fluxo descobrível por intento: <code>intent</code>, <code>when_to_use</code>,
+        <b><code>when_not_to_use</code></b> (obrigatório), <code>inputs</code>, <code>produces</code>,
+        <code>tags</code>. O minerador passa a compor o documento indexável com esse bloco somado ao
+        resumo dos nós, corrigindo a assimetria de superfície textual.</p>
+        <p>O critério de aceite é o teste que falha hoje: o intento do bugfix precisa recuperar o
+        <code>bugfix</code>.</p>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P5</span><span class="move-t">Wayfinder sobre <code>decompose</code></span><span class="move-src">wayfinder</span></div>
+        <p>O SKILL.md o decompõe em três peças separáveis, e a do meio conserta o Defeito 2:</p>
+        <ul class="reqs">
+          <li><b>Tipo de ticket + eixo de execução</b> — <code>decision</code> vs <code>implementation</code>, subtipos research/prototype/grilling/task, e o eixo HITL/AFK que determina o roteamento.</li>
+          <li><b>Reivindicação atômica</b> — frontier = aberto ∩ desbloqueado ∩ não-reivindicado, com claim antes do trabalho. Vale corrigir mesmo que nada mais do Wayfinder seja construído.</li>
+          <li><b>Mapa como índice</b> — a decisão vive no ticket; o mapa guarda um ponteiro. Elimina por construção a perda do resumo-de-resumo.</li>
+        </ul>
+      </div>
+
+      <div class="move">
+        <div class="move-h"><span class="move-n">P1b</span><span class="move-t">Fan-out de escrita</span><span class="move-src">adiável</span></div>
+        <p>Ramos que escrevem exigem isolamento por worktree — o precedente é o próprio
+        <code>race</code>, que já copia o repositório por lane — ou write-sets disjuntos verificados
+        pelo <code>conflict-check</code>, que o <code>feature.toml</code> já usa.</p>
+        <p>Caro, raro, e sem caso de uso nas três fontes. Fica registrado como possível, não como
+        necessário. O lint rejeita, em tempo de lint e falhando fechado, um <code>parallel</code> com
+        ferramentas de escrita sem uma dessas duas garantias.</p>
+      </div>
+    </div>
+
+    <h3>O modo de falha silenciosa, explicitamente</h3>
+
+    <p>
+      Vale mostrar o que a primeira rodada omitia, porque é o detalhe que separa um <code>parallel</code>
+      correto de um que corrompe resultados sem avisar:
+    </p>
+
+<pre><code><span class="c-com"># O QUE ACONTECERIA SEM POLÍTICA DE MERGE ─────────────────</span>
+<span class="c-com"># adw.py guarda o resultado sob a chave do NOME DO NÓ:</span>
+ctx.results[node.name] = store_result(...)
+
+<span class="c-com"># Três ramos do mesmo template `judge`:</span>
+results[<span class="c-str">"judge"</span>] = veredito_lente_correção   <span class="c-com"># ramo 0</span>
+results[<span class="c-str">"judge"</span>] = veredito_lente_segurança   <span class="c-com"># ramo 1 — sobrescreve</span>
+results[<span class="c-str">"judge"</span>] = veredito_lente_reprodução  <span class="c-com"># ramo 2 — sobrescreve</span>
+<span class="c-bad"># → 2 de 3 vereditos perdidos, exit 0, journal limpo.</span>
+<span class="c-bad"># É o last-write-wins que o LangGraph documenta como default.</span>
+
+<span class="c-com"># O QUE O NÓ DECLARA ──────────────────────────────────────</span>
+<span class="c-key">[node.fanout]</span>
+type     = <span class="c-str">"parallel"</span>
+branches = <span class="c-str">"{{inputs.lenses}}"</span>
+template = <span class="c-str">"judge"</span>
+max_branches = <span class="c-str">8</span>          <span class="c-com"># obrigatório: fan-out dinâmico sem teto</span>
+                            <span class="c-com"># é explosão de custo (e de orçamento)</span>
+merge    = <span class="c-str">"collect"</span>       <span class="c-com"># collect | tally | concat — sem default</span>
+policy   = <span class="c-str">"quorum:2"</span>      <span class="c-com"># voting; sectioning usaria "all"</span>
+on_branch_fail = <span class="c-str">"all"</span>     <span class="c-com"># falha-fechado</span>
+join     = <span class="c-str">"tally"</span>
+<span class="c-com"># resultados ficam em results["judge"][0..N], nunca colididos</span></code></pre>
+
+    <div class="note">
+      <p>O <code>max_branches</code> obrigatório vem de uma distinção que a primeira rodada não fez: o
+      fan-out <b>estático</b> (<code>branches = ["a","b","c"]</code>) é integralmente lintável, mas o
+      <b>dinâmico</b> — o equivalente ao <code>Send</code> do LangGraph, e o que o gauntlet realmente
+      faz — tem N vindo de runtime. Sem teto declarado, nem o lint de orçamento funciona: hoje
+      <code>_lint_budget</code> soma os custos dos nós uma vez, e subestimaria por um fator N.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ PERSONA ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Persona</span><h2>Cada fase declara a postura de quem a executa</h2></div>
+
+    <p class="lede">
+      Há um eixo de especialização que nem as três rodadas anteriores tocaram: <b>quem</b> executa
+      cada fase, e com que postura. Não é escolha de modelo nem de ferramenta — é o comportamento
+      declarado, e é o que separa um construtor de um cético.
+    </p>
+
+    <h3>O runner tem dois dos três eixos</h3>
+
+    <p>
+      A especialização de um nó se decompõe em três dimensões ortogonais. O ADW cobre duas:
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Eixo</th><th>O que determina</th><th>Campo</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr><td><b>Capacidade cognitiva</b></td><td>quanto o executor consegue raciocinar</td><td><code>tier</code> → modelo</td><td class="st st-ok">presente</td></tr>
+          <tr><td><b>Capacidade de ação</b></td><td>o que ele pode tocar no mundo</td><td><code>allowed_tools</code></td><td class="st st-ok">presente</td></tr>
+          <tr><td><b>Postura e comportamento</b></td><td>como ele se posiciona diante do trabalho</td><td>—</td><td class="st st-gap">ausente</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Hoje a postura vive apenas na prosa do <code>prompt</code>, misturada com a tarefa, sem contrato
+      e sem reuso. E o <code>tier</code> dá a <em>ilusão</em> de papel: são cinco nomes —
+      <code>sota</code>, <code>mid</code>, <code>fast</code>, <code>workhorse</code>,
+      <code>light</code> — que mapeiam para três modelos, com <code>workhorse</code> e <code>mid</code>
+      apontando ambos para o mesmo. Nomear um nó de "workhorse" não o torna um implementador; só
+      escolhe o modelo.
+    </p>
+
+    <p>
+      O mecanismo para o terceiro eixo já existe no CLI e o runner nunca o usa. A flag aceita a
+      definição <b>inline</b>, no ponto de uso:
+    </p>
+
+<pre><code>claude --agents '{"verifier": {"description": "...", "prompt": "..."}}' --agent verifier</code></pre>
+
+    <p>
+      Isso importa mais do que parece: significa que a persona pode <b>viajar dentro do spec do
+      fluxo</b>, sem depender de nenhum catálogo global de agentes. Um fluxo criado para uma
+      funcionalidade específica de um projeto carrega os papéis de que precisa — e continua portável.
+      É o mesmo desenho que a referência de loop engineering usa, definindo <code>implementer</code> e
+      <code>verifier</code> no config do próprio loop e invocando cada etapa com
+      <code>--agent &lt;papel&gt;</code>.
+    </p>
+
+    <h3>As dez técnicas de postura</h3>
+
+    <p>
+      Cada uma vem de uma fonte e fecha um modo de falha específico. Juntas, são o vocabulário para
+      declarar comportamento em vez de torcer por ele.
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>#</th><th>Técnica</th><th>O que a persona declara</th><th>Fecha</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><b>Postura padrão</b></td><td>rejeitar até prova em contrário; nunca aprovar por omissão</td><td>aprovação por silêncio</td></tr>
+          <tr><td class="num">2</td><td><b>Negação de capacidade</b></td><td>"não edite arquivos" — a restrição repetida na instrução, não só em <code>allowed_tools</code></td><td>crítico que "conserta" o que deveria julgar</td></tr>
+          <tr><td class="num">3</td><td><b>Escopo fechado</b></td><td>uma correção por execução; nunca refatorar o não pedido</td><td>scope creep</td></tr>
+          <tr><td class="num">4</td><td><b>Contrato de saída</b></td><td>terminar com um marcador que o runner <em>parseia</em> (<code>VERDICT=</code>, <code>NEW_FINDINGS=</code>)</td><td>veredito em prosa, ilegível por código</td></tr>
+          <tr><td class="num">5</td><td><b>Cegueira deliberada</b></td><td>recebe o artefato, nunca a narrativa de quem o produziu</td><td>ancoragem no relato do autor</td></tr>
+          <tr><td class="num">6</td><td><b>Lente atribuída</b></td><td>cada crítico do painel julga por um ângulo distinto</td><td>N críticos idênticos = redundância</td></tr>
+          <tr><td class="num">7</td><td><b>Barra concreta</b></td><td>compara com um referente externo verificável, não com um adjetivo</td><td>critério de parada não-operacional</td></tr>
+          <tr><td class="num">8</td><td><b>Ônus invertido</b></td><td>tente refutar; na dúvida, refutado</td><td>viés de confirmação</td></tr>
+          <tr><td class="num">9</td><td><b>Escalada explícita</b></td><td>se o teste não pôde <em>rodar</em>, escalar — não presumir</td><td>ambiente quebrado lido como código quebrado</td></tr>
+          <tr><td class="num">10</td><td><b>Atalho proibido</b></td><td>nunca desabilitar teste para ficar verde</td><td>o gate sabotado por quem ele julga</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Note que várias são <b>redundantes de propósito</b>. A técnica 2 repete na instrução o que
+      <code>allowed_tools</code> já impõe na capacidade — cinto e suspensório, porque a restrição de
+      ferramenta impede a ação mas não impede o executor de <em>tentar</em> e gastar a iteração
+      tropeçando. E a técnica 4 é a que costura persona e Lei L2: o marcador que o runner parseia é o
+      que faz a terminação ser decidida por código, não por leitura de prosa.
+    </p>
+
+    <h3>Como isso entra no spec</h3>
+
+<pre><code><span class="c-com"># Persona declarada no nó — viaja com o fluxo, sem catálogo global.</span>
+<span class="c-key">[node.critic]</span>
+type    = <span class="c-str">"agent"</span>
+tier    = <span class="c-str">"workhorse"</span>      <span class="c-com"># eixo 1 — capacidade cognitiva</span>
+allowed_tools = [<span class="c-str">"Read"</span>, <span class="c-str">"Bash"</span>]   <span class="c-com"># eixo 2 — capacidade de ação</span>
+session = <span class="c-str">"fresh"</span>          <span class="c-com"># técnica 5 — cegueira deliberada</span>
+
+<span class="c-key">[node.critic.persona]</span>       <span class="c-com"># eixo 3 — postura (NOVO)</span>
+role    = <span class="c-str">"verifier"</span>
+stance  = <span class="c-str">"reject_by_default"</span>              <span class="c-com"># técnica 1</span>
+refuses = [<span class="c-str">"editar arquivos"</span>, <span class="c-str">"desabilitar teste"</span>]  <span class="c-com"># técnicas 2, 10</span>
+lens    = <span class="c-str">"{{branch.lens}}"</span>               <span class="c-com"># técnica 6</span>
+bar     = <span class="c-str">"{{vars.bar}}"</span>                  <span class="c-com"># técnica 7 — referente concreto</span>
+emits   = <span class="c-str">"VERDICT=pass|fail|escalate"</span>    <span class="c-com"># técnica 4 — o runner parseia</span>
+escalate_when = <span class="c-str">"o comando de teste não pôde executar"</span>  <span class="c-com"># técnica 9</span>
+prompt  = <span class="c-str">"""Julgue o artefato pela lente atribuída. Você não viu como
+foi produzido. Tente REFUTAR; na dúvida, refutado."""</span>   <span class="c-com"># técnica 8</span>
+
+<span class="c-com"># O runner materializa isto como:</span>
+<span class="c-com">#   --agents '{"verifier": {"description": ..., "prompt": &lt;persona compilada&gt;}}'</span>
+<span class="c-com">#   --agent verifier</span></code></pre>
+
+    <div class="note">
+      <p><b>E as personas canônicas viram fragmentos.</b> Se cada fluxo redefinisse
+      <code>verifier</code> do zero, a duplicação seria pior que o problema. A resposta é a mesma do
+      P2: os papéis recorrentes vivem no kit de peças — <code>critic-panel</code> não é só uma
+      topologia, é topologia <em>mais</em> postura — e um fluxo específico os importa e sobrescreve o
+      que precisar pelo <code>with = {…}</code>. Herança de persona por composição, não por catálogo.</p>
+    </div>
+
+    <h3>O mesmo defeito dentro da própria <code>/loop-engineering</code></h3>
+
+    <p>
+      Vale dizer, porque é desconfortável e verdadeiro. No INNER do loop, o passo 12 <em>executa</em> a
+      fase e o passo 13 <em>audita</em> o que acabou de ser executado. Hoje os dois são o mesmo
+      contexto — eu, o orquestrador — com a mesma postura. É exatamente a assimetria que Isenberg
+      descreve: quem escreve a resposta também a avalia. Os gates determinísticos do passo 13 mitigam,
+      porque código não tem viés; mas tudo o que só é julgável por juízo passa hoje pelo mesmo
+      contexto que produziu o trabalho. Declarar persona por fase corrige isso no loop, não só nos
+      fluxos.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ PORTFÓLIO ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Portfólio</span><h2>O kit de peças</h2></div>
+
+    <p class="lede">
+      Um portfólio de fluxos só é modular se as peças forem menos numerosas que os fluxos que compõem.
+      Estas dez existem porque já aparecem repetidas nos specs atuais, ou porque uma das fontes as
+      nomeia como papel obrigatório.
+    </p>
+
+    <div class="kit">
+      <div class="piece"><div class="piece-n">recall-pack</div><div class="piece-d">Memória institucional: recall + gotcha + prior-art do portfólio.</div><div class="piece-io">→ tema · ← lições, armadilhas</div></div>
+      <div class="piece"><div class="piece-n">diagnose-pack</div><div class="piece-d">Mapa de evidência antes de agir: investigate + blast + read.</div><div class="piece-io">→ alvo · ← evidência</div></div>
+      <div class="piece"><div class="piece-n">fanout-lenses</div><div class="piece-d">Sectioning: N lentes distintas, barreira, merge por concatenação.</div><div class="piece-io">→ lentes · ← achados fundidos</div></div>
+      <div class="piece"><div class="piece-n">critic-panel</div><div class="piece-d">Voting: críticos fresh-context, barra concreta, quorum por código. Traz a <b>persona</b> do verificador embutida.</div><div class="piece-io">→ alvo, barra, lentes · ← veredito</div></div>
+      <div class="piece"><div class="piece-n">gate-rust</div><div class="piece-d">check + test + clippy no escopo tocado.</div><div class="piece-io">→ escopo · ← verde ou falha citada</div></div>
+      <div class="piece"><div class="piece-n">gate-quality50</div><div class="piece-d">50 dimensões, com bloqueio nas seis P0.</div><div class="piece-io">→ alvo, piso · ← score + dims falhas</div></div>
+      <div class="piece"><div class="piece-n">conflict-guard</div><div class="piece-d">Serializa write-sets declarados entre engenheiros concorrentes.</div><div class="piece-io">→ write-set · ← liberado ou enfileirado</div></div>
+      <div class="piece"><div class="piece-n">human-approve</div><div class="piece-d">Pausa durável antes do irreversível, com bypass conformal opcional.</div><div class="piece-io">→ mensagem · ← aprovação registrada</div></div>
+      <div class="piece"><div class="piece-n">phase-close</div><div class="piece-d">Persiste o feromônio: memory store + reward + relatório OKF.</div><div class="piece-io">→ fase, resumo · ← artefatos</div></div>
+      <div class="piece"><div class="piece-n">converge</div><div class="piece-d">O juiz: <code>loop_converged.py</code>, cujo exit 0 é o único "pronto".</div><div class="piece-io">→ tarefa, escopo · ← cláusulas não atendidas</div></div>
+    </div>
+
+    <p>
+      Com essas peças os oito ADWs atuais se reescrevem como composições curtas. O <code>bugfix</code>
+      vira <code>recall-pack → diagnose-pack → [agente] → gate-rust</code>; o <code>feature</code> ganha
+      <code>fanout-lenses</code> no scout e <code>critic-panel</code> antes do gate; o
+      <code>audit</code> passa a ter cético separado do relator — a assimetria que Isenberg aponta como
+      a falha mais comum.
+    </p>
+
+    <h3>Criar um fluxo para uma funcionalidade específica</h3>
+
+    <p>
+      A segunda metade do pedido. O comando não gera um TOML do nada: conduz pelas cinco perguntas que
+      Isenberg lista como receita de partida, e recusa avançar sem veredito de prior-art.
+    </p>
+
+<pre><code>$ touring flow new <span class="c-str">"validar migração de schema antes do deploy"</span>
+
+<span class="c-com">▸ 1. PRIOR ART  (obrigatório — nunca criar às cegas)</span>
+    fluxos próximos:  chore (0.41) · feature (0.38)
+    lacuna:           nenhum cobre "rollback" nem "janela de manutenção"
+    veredito exigido: reuse | extend | supersede | create_new
+    &gt; create_new — precisa de gate de rollback que nenhum fluxo tem
+
+<span class="c-com">▸ 2. DESTINO  (uma frase — o Wayfinder começa aqui)</span>
+    &gt; um relatório go/no-go com plano de rollback verificado
+
+<span class="c-com">▸ 3. JOBS  (o que um ótimo humano faria?)</span>
+    &gt; ler o diff do schema; simular em cópia; medir a janela;
+      checar rollback; revisar como DBA; aprovar
+
+<span class="c-com">▸ 4. ARESTAS  (onde há dependência REAL?)</span>
+    simular ∥ medir ∥ checar-rollback   <span class="c-com">← independentes, read-only → P1a</span>
+    revisar ← todos os três             <span class="c-com">← barreira, merge=concat</span>
+
+<span class="c-com">▸ 5. PORTÃO HUMANO  (onde o erro é caro?)</span>
+    &gt; antes do go/no-go — toca dados de produção
+
+<span class="c-com">▸ COMPOSIÇÃO</span>
+    recall-pack → diagnose-pack → fanout-lenses[3] → critic-panel[dba]
+      → human-approve → phase-close
+    lint  ✓ 0 erros   test (agentes mockados)  ✓ 6 nós
+    registrado no portfólio · #kind:flow #domain:database</code></pre>
+
+    <p>
+      O que esse fluxo produz é do tipo que Isenberg chama de rastro em papel, e que a nossa camada de
+      memória já sabe consumir: cada execução deixa um relatório, e cada relatório enriquece o recall
+      do próximo fluxo do mesmo domínio. É o composto que ele nomeia — o grafo produz o trabalho
+      <em>e</em> a memória que torna o próximo grafo melhor.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ LOOP ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Loop</span><h2>Onde cada peça entra na <code>/loop-engineering</code></h2></div>
+
+    <p class="lede">
+      O loop já tem a espinha certa — OUTER determinístico, INNER por fase, convergência medida por
+      código. As fontes não pedem reestruturação; pedem substituições cirúrgicas em cinco pontos.
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Passo</th><th>Hoje</th><th>Com as fontes</th><th>Origem</th></tr></thead>
+        <tbody>
+          <tr><td><b>OUTER 1–5</b><br>recall · diagnose · explore</td><td>ADW <code>strategy-loop</code>, sequencial</td><td>as lentes de exploração viram <code>fanout-lenses</code> — hoje já são múltiplas, mas rodam em fila</td><td>graph</td></tr>
+          <tr><td><b>OUTER 10–11</b><br>plan + decompose</td><td><code>/plan</code> → DAG</td><td>com névoa alta, o Wayfinder emite <b>decision tickets</b> antes do plano; o plano nasce da frontier resolvida, e o claim impede sessões concorrentes de colidir</td><td>wayfinder</td></tr>
+          <tr><td><b>INNER 12</b><br>executar fase</td><td>Edit/Write pelo orquestrador</td><td><code>flow find</code> pelo propósito da fase → <code>adw run</code>; escrever à mão vira o caminho de exceção</td><td>graph</td></tr>
+          <tr><td><b>INNER 13</b><br>cross-audit + 50-dim</td><td>gates determinísticos</td><td>determinísticos <b>mais</b> <code>critic-panel</code>: o que só é julgável por juízo passa a ter juiz de contexto novo</td><td>gauntlet</td></tr>
+          <tr><td><b>INNER 14</b><br>phase-close</td><td><code>loop_phase_close.py</code></td><td>inalterado — já é o fragmento <code>phase-close</code>; passa a ser reusado pelos fluxos</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Uma leitura precisa ficar explícita, porque é onde a incorporação ingênua estragaria o loop. O
+      gauntlet <b>não</b> pertence ao passo 12. Colocá-lo lá é exatamente o erro que Jay E descreve: um
+      crítico exigente aplicado antes do brief aprovado pole com competência a coisa errada. O gate
+      humano do passo 9 é o que trava o brief; o crítico entra depois dele, no passo 13. Essa ordem
+      não é preferência — é a condição para o loop não convergir com confiança para o destino errado.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ PLANO ══════════════════════ -->
+<section>
+  <div class="col">
+    <div class="rail"><span class="rail-tag">Plano</span><h2>Implementação e prova</h2></div>
+
+    <p class="lede">
+      Onze entregas, agrupadas por uma fronteira que muda o custo de tudo: <b>o runner é um script,
+      o índice e o DAG são Rust</b>. Mudar <code>adw.py</code> vale na hora e é reversível apagando a
+      linha; mudar um crate exige <code>update-touring</code>, reinício do daemon e propagação por
+      projeto. Espalhar as mudanças Rust por várias fases pagaria esse pedágio várias vezes.
+    </p>
+
+    <h3>O caminho crítico é mais curto do que o plano anterior sugeria</h3>
+
+    <p>
+      Vale corrigir uma inversão. O pedido original é <em>portfólio de fluxos modulares, mais uma
+      forma de criar um fluxo novo para uma funcionalidade específica</em>. O fan-out não serve a esse
+      pedido — serve à topologia em diamante, que é valiosa mas é outra coisa. O caminho mínimo até o
+      que foi pedido passa por três entregas apenas:
+    </p>
+
+    <figure>
+      <div class="fig-box">
+        <svg viewBox="0 0 1000 300" role="img" aria-label="Grafo de dependências do plano, com o caminho crítico destacado e as entregas paralelizáveis">
+          <defs>
+            <marker id="pa" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" fill="var(--muted)"/></marker>
+            <marker id="pc" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" fill="var(--route)"/></marker>
+          </defs>
+
+          <text class="ax" x="12" y="18">ONDA A — CORREÇÕES · script</text>
+          <rect x="12" y="28" width="120" height="34" rx="3" fill="var(--chart-soft)" stroke="var(--chart)"/>
+          <text class="n-lbl" x="72" y="44" text-anchor="middle">A1 lint ciclos</text><text class="n-sub" x="72" y="56" text-anchor="middle">XS · 19 L</text>
+          <rect x="146" y="28" width="130" height="34" rx="3" fill="var(--chart-soft)" stroke="var(--chart)"/>
+          <text class="n-lbl" x="211" y="44" text-anchor="middle">A2 feedback gate</text><text class="n-sub" x="211" y="56" text-anchor="middle">S · 4 specs</text>
+
+          <text class="ax" x="12" y="98">ONDA B — CAPACIDADES · script</text>
+          <line x1="12" y1="106" x2="988" y2="106" stroke="var(--line)"/>
+
+          <rect x="12" y="120" width="120" height="38" rx="3" fill="var(--route-soft)" stroke="var(--route)" stroke-width="1.8"/>
+          <text class="n-lbl" x="72" y="137" text-anchor="middle">B1 fragmentos</text><text class="n-sub" x="72" y="149" text-anchor="middle">M · load_spec</text>
+
+          <path d="M132,139 L176,139" fill="none" stroke="var(--route)" stroke-width="1.6" marker-end="url(#pc)"/>
+
+          <rect x="180" y="120" width="120" height="38" rx="3" fill="var(--route-soft)" stroke="var(--route)" stroke-width="1.8"/>
+          <text class="n-lbl" x="240" y="137" text-anchor="middle">B2 flow new</text><text class="n-sub" x="240" y="149" text-anchor="middle">M · criação</text>
+
+          <path d="M300,139 L344,139" fill="none" stroke="var(--route)" stroke-width="1.6" marker-end="url(#pc)"/>
+
+          <rect x="348" y="120" width="126" height="38" rx="3" fill="var(--route-soft)" stroke="var(--route)" stroke-width="1.8"/>
+          <text class="n-lbl" x="411" y="137" text-anchor="middle">C1 [purpose]</text><text class="n-sub" x="411" y="149" text-anchor="middle">S · Rust</text>
+
+          <path d="M474,139 L516,139" fill="none" stroke="var(--route)" stroke-width="1.6" marker-end="url(#pc)"/>
+          <text class="n-lbl" x="524" y="143" fill="var(--route)">◆ o pedido, atendido</text>
+
+          <rect x="12" y="176" width="120" height="34" rx="3" fill="var(--surface)" stroke="var(--chart)"/>
+          <text class="n-lbl" x="72" y="192" text-anchor="middle">B3 persona</text><text class="n-sub" x="72" y="204" text-anchor="middle">S · _claude_cmd</text>
+          <path d="M132,193 L176,160" fill="none" stroke="var(--muted)" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#pa)"/>
+
+          <rect x="180" y="176" width="120" height="34" rx="3" fill="var(--surface)" stroke="var(--chart)"/>
+          <text class="n-lbl" x="240" y="192" text-anchor="middle">B4 fan-out</text><text class="n-sub" x="240" y="204" text-anchor="middle">L · execute</text>
+
+          <rect x="348" y="176" width="126" height="34" rx="3" fill="var(--surface)" stroke="var(--chart)"/>
+          <text class="n-lbl" x="411" y="192" text-anchor="middle">B5 critic-panel</text><text class="n-sub" x="411" y="204" text-anchor="middle">S · fragmento</text>
+          <path d="M300,193 L344,193" fill="none" stroke="var(--muted)" stroke-width="1.1" marker-end="url(#pa)"/>
+          <path d="M72,210 L72,224 L400,224 L405,212" fill="none" stroke="var(--muted)" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#pa)"/>
+
+          <rect x="516" y="176" width="130" height="34" rx="3" fill="var(--surface)" stroke="var(--chart)"/>
+          <text class="n-lbl" x="581" y="192" text-anchor="middle">B6 contrato verif.</text><text class="n-sub" x="581" y="204" text-anchor="middle">M · 3 vereditos</text>
+
+          <text class="ax" x="700" y="98">ONDA C — RUST · um deploy</text>
+          <rect x="700" y="120" width="130" height="38" rx="3" fill="var(--chart-soft)" stroke="var(--chart)" stroke-width="1.4"/>
+          <text class="n-lbl" x="765" y="137" text-anchor="middle">C2 claim atômico</text><text class="n-sub" x="765" y="149" text-anchor="middle">L · 66 refs</text>
+          <path d="M765,158 L765,176" fill="none" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#pa)"/>
+          <rect x="700" y="180" width="130" height="34" rx="3" fill="var(--surface)" stroke="var(--chart)"/>
+          <text class="n-lbl" x="765" y="196" text-anchor="middle">C3 wayfinder</text><text class="n-sub" x="765" y="208" text-anchor="middle">L · fog/frontier</text>
+
+          <text class="n-sub" x="860" y="140" fill="var(--muted)">C1+C2+C3 num só</text>
+          <text class="n-sub" x="860" y="154" fill="var(--muted)">update-touring —</text>
+          <text class="n-sub" x="860" y="168" fill="var(--muted)">o pedágio se paga</text>
+          <text class="n-sub" x="860" y="182" fill="var(--muted)">uma vez</text>
+
+          <text class="ax" x="12" y="262">─── caminho crítico do pedido    ┄┄ habilita, não bloqueia</text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>B1 → B2 → C1 é o pedido inteiro.</b> Tudo o mais habilita ou aprofunda. O fan-out (B4), que
+        o plano anterior colocava em quarto lugar, não está no caminho crítico — é a entrega mais cara
+        e a que serve à topologia, não à modularidade. As três entregas Rust viajam juntas num único
+        <code>update-touring</code>.
+      </figcaption>
+    </figure>
+
+    <h3>As onze entregas</h3>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>#</th><th>Entrega</th><th>Toca</th><th>Esforço</th><th>Depende</th><th>Gate — executável</th></tr></thead>
+        <tbody>
+          <tr><td class="num"><b>A1</b></td><td>Lint de ciclos</td><td><code>_lint_cycles</code> · 19 L</td><td class="num">XS</td><td>—</td><td>spec de dois ciclos falha com exit 1</td></tr>
+          <tr><td class="num"><b>A2</b></td><td>Feedback do gate no retry</td><td>4 specs + aviso de lint</td><td class="num">S</td><td>—</td><td>prompt da 2ª tentativa contém o motivo</td></tr>
+          <tr><td class="num"><b>B1</b></td><td>Fragmentos e inlining</td><td><code>load_spec</code> · 38 L</td><td class="num">M</td><td>—</td><td>os 9 specs recompostos geram planos idênticos aos de hoje</td></tr>
+          <tr><td class="num"><b>B2</b></td><td><code>flow new</code> guiado</td><td>comando novo</td><td class="num">M</td><td>B1</td><td>fluxo criado passa <code>lint</code> + <code>test</code> sem edição manual</td></tr>
+          <tr><td class="num"><b>B3</b></td><td>Persona por nó</td><td><code>_claude_cmd</code> · 24 L</td><td class="num">S</td><td>—</td><td>só a versão com persona reprova o artefato que narra sucesso</td></tr>
+          <tr><td class="num"><b>B4</b></td><td>Fan-out de leitura</td><td><code>execute</code> 59 L · <code>_track_class_d</code> 17 L</td><td class="num">L</td><td>—</td><td><code>kill -9</code> em 3 ramos: resume não reexecuta os concluídos</td></tr>
+          <tr><td class="num"><b>B5</b></td><td>Painel de críticos</td><td>fragmento</td><td class="num">S</td><td>B1·B3·B4</td><td>quorum reprova; Class-D por ramo registrado</td></tr>
+          <tr><td class="num"><b>B6</b></td><td>Contrato de verificação</td><td><code>_next_edge</code> · <code>run_loop</code></td><td class="num">M</td><td>A2</td><td>gate que não pôde executar escala em vez de gastar retry</td></tr>
+          <tr><td class="num"><b>C1</b></td><td>Bloco <code>[purpose]</code></td><td><code>miner.rs</code> · 5 refs</td><td class="num">S</td><td>B1</td><td>intento do bugfix recupera <code>bugfix</code> no topo</td></tr>
+          <tr><td class="num"><b>C2</b></td><td>Reivindicação atômica</td><td><code>decomposer.rs</code> · <b>66 refs</b></td><td class="num">L</td><td>—</td><td>duas sessões concorrentes recebem subtasks distintos</td></tr>
+          <tr><td class="num"><b>C3</b></td><td>Wayfinder no decompose</td><td><code>decomposer.rs</code> + CLI</td><td class="num">L</td><td>C2</td><td>névoa alta gera decision tickets; cada decisão aponta à origem</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="evidence">Esforço calibrado pelo tamanho real das funções e pelo número de consumidores, não por impressão. XS ≈ uma linha e um teste; L ≈ toca invariante existente ou dezenas de call-sites.</p>
+
+    <h3>Primeiro corte — o que entregar antes de discutir o resto</h3>
+
+    <p>
+      <b>A1 + A2 + B3.</b> As duas correções mais a persona: nenhuma depende de nada, todas são
+      script, somam menos de cem linhas e cada uma fecha um modo de falha silenciosa já reproduzido.
+      A1 sozinha impede que um fluxo com laço infinito passe o gate. A2 faz o retry parar de ser cego.
+      B3 dá ao nó o eixo que faltava, e é o que transforma <code>critic-panel</code> de topologia em
+      papel. Se o trabalho parasse aí, o runner já seria mais honesto do que é hoje.
+    </p>
+
+    <p>
+      Depois disso, <b>B1 → B2 → C1</b> entrega o pedido original por inteiro, e C1 é a única peça
+      Rust necessária para ele. B4 em diante é aprofundamento deliberado, não dívida.
+    </p>
+
+    <h3>Definição de pronto — igual para as onze</h3>
+
+    <ul>
+      <li>O gate da linha executa e passa, com o comando registrado no bundle.</li>
+      <li>Os <b>41 testes</b> de <code>test_adw.py</code> continuam verdes — é o baseline de regressão que já existe.</li>
+      <li>Nenhum dos 9 specs da library nem dos 6 instanciados quebra: <code>touring adw lint</code> verde em todos.</li>
+      <li>Para as entregas Rust, ainda: <code>cargo check</code> + <code>clippy -D warnings</code> + testes do crate, e <code>touring e2e -j</code> sem regressão contra o baseline.</li>
+      <li>O que a entrega decidiu vira memória com faceta, para o próximo loop começar de onde este parou.</li>
+    </ul>
+
+    <div class="note">
+      <p><b>O plano existe como grafo, não só como texto.</b> As onze entregas e suas dependências
+      estão registradas no DAG <code>task_1787088570195129385</code> — validado, onze subtarefas, zero
+      ciclos. <code>touring decompose ready</code> devolve as <b>seis</b> que não dependem de nada
+      (A1, A2, B1, B3, B4, C2), e a topologia decide o resto conforme cada uma fecha. Convinha que um
+      plano sobre engenharia de grafos fosse ele próprio um grafo executável em vez de uma lista.</p>
+    </div>
+    <h3>Riscos assumidos</h3>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Risco</th><th>Onde</th><th>Prob.</th><th>Impacto</th><th>Mitigação estrutural</th></tr></thead>
+        <tbody>
+          <tr><td><b>Mexer em <code>ready_subtasks</code> quebra consumidor</b> — 66 referências</td><td class="st">C2</td><td class="st st-gap">alta</td><td class="st st-gap">alto</td><td>a reivindicação entra como operação <em>nova</em>, sem alterar a assinatura existente; os 66 call-sites seguem intactos e migram por escolha</td></tr>
+          <tr><td>O fan-out corrompe resultados por colisão de chave</td><td class="st">B4</td><td class="st st-part">média</td><td class="st st-gap">alto</td><td>política de merge <em>exigida</em> pelo lint quando há colisão; nunca um default silencioso</td></tr>
+          <tr><td>O fan-out degrada a Lei L3 (Class-D)</td><td class="st">B4</td><td class="st st-part">média</td><td class="st st-gap">alto</td><td><code>last_agent</code> vira mapa por ramo, com teste sintético de agente que narra sucesso sob fan-out</td></tr>
+          <tr><td>Fan-out dinâmico explode custo</td><td class="st">B4</td><td class="st st-part">média</td><td class="st st-part">médio</td><td><code>max_branches</code> obrigatório; o lint de orçamento multiplica o custo do template pelo teto</td></tr>
+          <tr><td>Rebuild Rust quebra os projetos pinados</td><td class="st">C1·C2·C3</td><td class="st st-part">média</td><td class="st st-gap">alto</td><td>as três viajam num único <code>update-touring</code>; toolchains são imutáveis até <code>--force</code>, e o rollback é <code>touring update --rollback</code></td></tr>
+          <tr><td>Fragmentos viram indireção ilegível</td><td class="st">B1</td><td class="st st-part">média</td><td class="st st-ok">baixo</td><td><code>flow explain</code> imprime o spec plano; a composição nunca é a única representação</td></tr>
+          <tr><td>Persona vira prosa decorativa que ninguém verifica</td><td class="st">B3</td><td class="st st-part">média</td><td class="st st-part">médio</td><td>os campos são lintáveis: sem <code>stance</code>, sem <code>emits</code> parseável ou com <code>resume_on_fail</code>, um nó de crítica não passa</td></tr>
+          <tr><td>Mais agentes viram mais ruído</td><td class="st">B5</td><td class="st st-part">média</td><td class="st st-part">médio</td><td>lentes obrigatoriamente distintas; N críticos idênticos é rejeitado pelo lint</td></tr>
+          <tr><td>O bloco <code>[purpose]</code> vira propaganda do fluxo</td><td class="st">C1</td><td class="st st-part">média</td><td class="st st-ok">baixo</td><td><code>when_not_to_use</code> obrigatório, e a lacuna exibida junto do resultado</td></tr>
+          <tr><td>O Wayfinder vira waterfall</td><td class="st">C3</td><td class="st st-ok">baixa</td><td class="st st-part">médio</td><td>tickets <code>prototype</code> são o antídoto que a própria fonte declara</td></tr>
+          <tr><td>O portfólio cresce sem uso</td><td class="st">C1</td><td class="st st-part">média</td><td class="st st-ok">baixo</td><td>taxa de reuso medida por KPI; fluxo nunca escolhido é candidato a remoção, não a documentação</td></tr>
+          <tr><td><b>Superconstruir</b> — o risco que duas fontes independentes nomeiam</td><td class="st">todas</td><td class="st st-gap">alta</td><td class="st st-part">médio</td><td>o primeiro corte são três entregas de menos de cem linhas; B4 em diante só começa depois que B1→B2→C1 estiver em uso real</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <blockquote class="quote">
+      O objetivo não é fazer o maior grafo possível. É fazer o menor grafo que melhora a qualidade do
+      trabalho.
+      <cite>Greg Isenberg · 08:23 — e, independentemente, o mesmo aviso da Anthropic</cite>
+    </blockquote>
+
+    <p>
+      É por isso que nenhum destes movimentos pede fluxos maiores. Eles pedem que o fluxo <em>certo</em>
+      — geralmente pequeno, com um cético e um portão humano — fique barato de expressar, de encontrar
+      e de reusar. Hoje ele é caro nas três coisas: não há como expressar paralelismo, não há como
+      reusar uma peça entre fluxos, e não há como encontrar o fluxo que já existe.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="col">
+    Bundle OKF <code>docs/plans/2026-08-18-graph-engineering-flow-portfolio/</code> · transcrições em
+    <code>sources/</code> · diagnóstico e ledger CCE gerados pelo ADW <code>strategy-loop</code>
+    (duas rodadas, exit 0).
+    <br><br>
+    Afirmações sobre o estado do código foram verificadas por leitura direta de <code>adw.py</code>,
+    <code>miner.rs</code> e <code>decomposer.rs</code>. Os três defeitos e a invisibilidade do
+    portfólio foram <b>reproduzidos por execução</b>, não inferidos. Os números de tempo vêm de 25
+    journals de runs reais e de cronometragem direta — e refutam o argumento de performance que a
+    primeira rodada deixara implícito.
+    <br><br>
+    A consulta ao Context7 confirmou que <b>nem "gauntlet loop" nem "graph engineering" existem como
+    biblioteca</b> — são vocabulário. O que existe são as implementações que canonizam os padrões, e
+    é delas que vêm as oito práticas ausentes e o movimento P7.
+    <br><br>
+    <b>Este desenho está implementado</b> (auditorias de 18 e 19/08; detalhe em
+    <a href="plan.md">plan.md § Auditoria cruzada</a>). O kit tem as 10 peças nomeadas aqui mais
+    <code>prior-art</code>; <code>on_branch_fail</code> aceita
+    <code>all|any|ignore|best_effort|quorum:N</code>; e o <b>fan-out dinâmico</b> descrito acima —
+    <code>branches</code> resolvido em runtime com um <code>template</code> clonado por valor —
+    existe, o que fecha o padrão canônico <i>orchestrator-workers</i> e dá ao
+    <code>max_branches</code> a função que este documento lhe atribui.
+    <br><br>
+    <b>Duas ressalvas honestas.</b> O campo <code>policy</code> é <b>recusado</b> pelo lint: o
+    exemplo acima o combina com <code>on_branch_fail</code> para a mesma decisão, e o próprio
+    exemplo se contradiz (<code>policy = "quorum:2"</code> com <code>on_branch_fail = "all"</code>)
+    — aceitar os dois embarcaria a contradição, então a condição de passagem vive só em
+    <code>on_branch_fail</code>. E a contagem da library é de <b>8 fluxos</b>, não 9 (o nono
+    <code>.toml</code> é <code>tiers.toml</code>, o mapa tier→modelo); nenhum dos 8 foi reescrito
+    como composição — os fragmentos chegam à produção por <code>adw new</code>, que emite
+    <code>[[use]]</code>, e não por retro-migração.
+  </div>
+</footer>
+
+</div>

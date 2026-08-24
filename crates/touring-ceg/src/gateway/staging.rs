@@ -507,10 +507,10 @@ mod tests {
     #[serial]
     fn staging_root_honors_env_override() {
         let tmp = tempfile::TempDir::new().expect("tempdir");
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_STAGING_DIR", tmp.path()) };
         let root = staging_root();
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_STAGING_DIR") };
         assert_eq!(root, tmp.path());
     }
@@ -518,13 +518,13 @@ mod tests {
     #[test]
     #[serial]
     fn staging_retention_secs_reads_env() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_STAGING_RETENTION_SECS") };
         assert_eq!(staging_retention_secs(), DEFAULT_STAGING_RETENTION_SECS);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_STAGING_RETENTION_SECS", "3600") };
         let parsed = staging_retention_secs();
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_STAGING_RETENTION_SECS") };
         assert_eq!(parsed, 3600);
     }
@@ -532,10 +532,10 @@ mod tests {
     #[test]
     #[serial]
     fn staging_area_current_uses_session_env() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_SESSION_ID", "live-session-7") };
         let area = StagingArea::current();
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_SESSION_ID") };
         assert_eq!(area.session(), "live-session-7");
     }
@@ -544,7 +544,7 @@ mod tests {
     #[serial]
     fn gc_staging_resolves_env_root() {
         let tmp = tempfile::TempDir::new().expect("tempdir");
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_STAGING_DIR", tmp.path()) };
         let area = StagingArea::for_session("env-sess");
         area.stage("s.sh", b"echo env").expect("stage");
@@ -553,7 +553,7 @@ mod tests {
         // exercises the `cleanup_tee` reuse non-destructively: at this
         // retention `cleanup_tee` removes nothing from the real tee tree.
         let report = gc_staging(u64::MAX).expect("gc");
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_STAGING_DIR") };
         assert_eq!(report.sessions_removed, 0);
         assert!(area.exists(), "env-resolved fresh session survives GC");

@@ -1,0 +1,11 @@
+{
+  "phase": "F6",
+  "entities": [
+    {
+      "entity_id": "phase:F6",
+      "type": "phase",
+      "description": "F6 colisao plan-protocol<->plan-execution eliminada. Descoberta material: plan-protocol e symlink para ~/projects/analise/.claude/skills (102 das 180 skills sao symlinks; 5 apontam para o analise). Removido o symlink, nao a skill: alvo intacto com 4 arquivos. Medido antes/depois: gatilhos inertes 13->3, pares em colisao 2->1. Efeito colateral proprio corrigido: pins.json que eu escrevera dentro do projeto analise foi removido."
+    }
+  ],
+  "relations": []
+}

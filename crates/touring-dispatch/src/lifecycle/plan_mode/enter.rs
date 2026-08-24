@@ -4,6 +4,7 @@
 //! Co-located helpers shared with exit live in `hints.rs`.
 
 use std::time::Duration;
+use touring_foundation::truncate_str;
 
 use serde_json::Value;
 
@@ -47,7 +48,7 @@ pub(crate) fn handle_enter_plan_mode(rt: &mut HookRuntime, input: &Value) -> Str
     hints.extend(task_id_session_recall_hint(rt, input));
 
     if !intent.is_empty() {
-        let truncated = &intent[..intent.len().min(100)];
+        let truncated = truncate_str(intent, 100);
 
         // R24-S2: Surface concrete GeneratorKind BEFORE the generic plan-suggest hint.
         // Keyword-matches the intent to the nearest GeneratorKind via SUBJECT_KEYWORD_MAP,
@@ -65,7 +66,7 @@ pub(crate) fn handle_enter_plan_mode(rt: &mut HookRuntime, input: &Value) -> Str
         // EnterPlanMode(intent) → cli_decompose_create → SQLite: plan session tracked from entry.
         let decompose_payload = serde_json::json!({
             "task_type": "plan_session",
-            "description": &intent[..intent.len().min(200)],
+            "description": truncate_str(intent, 200),
         });
         let decompose_result = crate::cli_handlers::cli_decompose_create(rt, &decompose_payload);
         let plan_task_id = serde_json::from_str::<serde_json::Value>(&decompose_result)
@@ -105,7 +106,7 @@ pub(crate) fn handle_enter_plan_mode(rt: &mut HookRuntime, input: &Value) -> Str
                     &serde_json::json!({
                         "session_id": &plan_task_id,
                         "task_type": "plan_session",
-                        "objective": &intent[..intent.len().min(200)],
+                        "objective": truncate_str(intent, 200),
                     }),
                 );
             }
@@ -178,7 +179,7 @@ pub(crate) fn handle_enter_plan_mode(rt: &mut HookRuntime, input: &Value) -> Str
         // Only fires for non-empty intent — empty-intent entries (accidental mode switches) get no reward.
         // Reinforces structured planning over ad-hoc coding in the orchestration reward model.
         {
-            let context = format!("enter_plan_mode:{}", &truncated[..truncated.len().min(40)]);
+            let context = format!("enter_plan_mode:{}", truncate_str(truncated, 40));
             let _ = crate::cli_handlers::cli_learning_reward(
                 rt,
                 &serde_json::json!({
@@ -327,7 +328,7 @@ pub(crate) fn maybe_diary_write_on_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
-    let truncated = &intent[..intent.len().min(60)];
+    let truncated = truncate_str(intent, 60);
     Some(format!(
         "diary: run `touring diary write claude_code \
         \"#[P:planning] #[R:0.0] #[L:{truncated}] #[W:none] #[E:none]\" --aaak` \
@@ -371,7 +372,7 @@ pub(crate) fn maybe_plan_recall_hint_for_intent(intent: &str) -> Option<String> 
     if intent.len() < 3 {
         return None;
     }
-    let query = &intent[..intent.len().min(60)];
+    let query = truncate_str(intent, 60);
     Some(format!(
         "plan-registry: run `touring generate plan-recall --query \"{query}\"` \
         to find reusable GeneratorPlans before creating a new one"

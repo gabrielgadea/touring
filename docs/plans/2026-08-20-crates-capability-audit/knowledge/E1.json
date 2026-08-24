@@ -1,0 +1,11 @@
+{
+  "phase": "E1",
+  "entities": [
+    {
+      "entity_id": "phase:E1",
+      "type": "phase",
+      "description": "E1: gate-quality50 composto em audit/feature/bugfix - de 0 de 16 fragmentos usados para 3 specs compondo. audit: entre a evidencia determinista e a sintese, ambas as costuras caem em synthesize porque para uma auditoria uma barra reprovada e EVIDENCIA, nao motivo de abortar. feature/bugfix: depois do gate funcional, so encerra quando ambos passam - antes o fluxo entregava com 'os testes passaram' apenas. GAFE PEGA POR VERIFICAR: o primeiro lint deu valid:true e nao dizia nada sobre a minha edicao - touring adw lint le a INSTANCIA em .touring/adw/, e eu tinha editado a biblioteca; o grafo plano provou (4 nos, sem q50). Propagado e relintado. O lint entao emitiu o aviso certo nos tres: o agente de retry nao lia {{nodes.q50.quality_gate.summary}}, o defeito de 'retry cego' que a memoria adw-retry-sem-feedback-do-gate registra. Veredito ligado aos prompts de synthesize/implement/fix. Os tres: valid, 0 erros, 0 avisos."
+    }
+  ],
+  "relations": []
+}

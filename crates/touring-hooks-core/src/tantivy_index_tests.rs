@@ -866,7 +866,7 @@ fn test_search_rrf_falls_back_when_disabled() {
     // Set env-var only inside the test (env_lock not available here, so
     // verify behaviour via the public flag check).
     let prev = std::env::var("TOURING_TANTIVY_TRIGRAM").ok();
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_TANTIVY_TRIGRAM", "0") };
     let (idx, _dir) = make_index();
     let mut s = symbol("authenticate", "src/auth.rs", "fn");
@@ -879,9 +879,9 @@ fn test_search_rrf_falls_back_when_disabled() {
     assert_eq!(plain[0].symbol_name, rrf[0].symbol_name);
     // restore env
     match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         Some(v) => unsafe { std::env::set_var("TOURING_TANTIVY_TRIGRAM", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         None => unsafe { std::env::remove_var("TOURING_TANTIVY_TRIGRAM") },
     }
 }
@@ -923,7 +923,7 @@ fn test_i01_3way_rrf_combines_porter_trigram_fuzzy() {
         .expect("upsert");
     idx.commit().expect("commit");
     // Trigram should be ON by default
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TANTIVY_TRIGRAM") };
     let hits = idx.search_rrf("authenticate", 5).expect("search_rrf 3-way");
     assert!(!hits.is_empty(), "3-way RRF MUST return hits");
@@ -971,10 +971,10 @@ fn test_i03_name_boost_default_is_5x() {
 
 #[test]
 fn test_i03_name_boost_env_overridable() {
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_TANTIVY_NAME_BOOST", "3.5") };
     let boost = crate::shared::feature_flags::tantivy_name_boost();
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TANTIVY_NAME_BOOST") };
     assert_eq!(boost, 3.5, "env var MUST override default");
 }

@@ -1,0 +1,130 @@
+{
+  "phase": "P0",
+  "entities": [
+    {
+      "entity_id": "phase:P0",
+      "type": "phase",
+      "description": "P0 PR\u00c9-VOO conclu\u00eddo (ver phases/P0.md)"
+    },
+    {
+      "entity_id": "artifact:client/omarchy",
+      "type": "artifact",
+      "description": "client/omarchy/ \u2014 fonte versionada (83 arquivos, 206 testes, Diamond 0.969)"
+    },
+    {
+      "entity_id": "symbol:omarchy-skill-run",
+      "type": "symbol",
+      "description": "executor \u00fanico: menu \u00b7 widget \u00b7 timers \u00b7 ADW"
+    },
+    {
+      "entity_id": "artifact:omarchy-kit",
+      "type": "artifact",
+      "description": "~/omarchy-kit: 1844 arquivos, 102 symlinks/6 abs, DBs 597 MB, ISO 4.0.0 verificado"
+    },
+    {
+      "entity_id": "learning:lesson:systemd-user-path",
+      "type": "learning",
+      "description": "systemd --user n\u00e3o tem ~/.local/bin no PATH; append: exige dir existente"
+    },
+    {
+      "entity_id": "learning:lesson:secrets-argv",
+      "type": "learning",
+      "description": "senha/passphrase/token nunca em argv \u2014 /proc/<pid>/cmdline \u00e9 leg\u00edvel"
+    },
+    {
+      "entity_id": "gotcha:lesson:pipefail-head",
+      "type": "gotcha",
+      "description": "cmd | head -1 sob pipefail \u2192 SIGPIPE \u2192 || echo unknown concatena"
+    },
+    {
+      "entity_id": "gotcha:lesson:jsonc-strip",
+      "type": "gotcha",
+      "description": "regex //.* come http:// dentro de strings; stripper precisa ser string-aware"
+    },
+    {
+      "entity_id": "decision:decision:plan-follows-measurement",
+      "type": "decision",
+      "description": "quando a medi\u00e7\u00e3o contradiz o plano (102/6 vs 100/4), corrige-se o plano; o invariante \u00e9 o allowlist"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P0|produces|artifact:client/omarchy",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "artifact:client/omarchy"
+    },
+    {
+      "relation_id": "phase:P0|produces|symbol:omarchy-skill-run",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "symbol:omarchy-skill-run"
+    },
+    {
+      "relation_id": "phase:P0|produces|artifact:omarchy-kit",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "artifact:omarchy-kit"
+    },
+    {
+      "relation_id": "phase:P0|produces|learning:lesson:systemd-user-path",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "learning:lesson:systemd-user-path"
+    },
+    {
+      "relation_id": "phase:P0|produces|learning:lesson:secrets-argv",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "learning:lesson:secrets-argv"
+    },
+    {
+      "relation_id": "phase:P0|produces|gotcha:lesson:pipefail-head",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "gotcha:lesson:pipefail-head"
+    },
+    {
+      "relation_id": "phase:P0|produces|gotcha:lesson:jsonc-strip",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "gotcha:lesson:jsonc-strip"
+    },
+    {
+      "relation_id": "phase:P0|produces|decision:decision:plan-follows-measurement",
+      "source": "phase:P0",
+      "type": "produces",
+      "target": "decision:decision:plan-follows-measurement"
+    },
+    {
+      "relation_id": "client/omarchy|contains|omarchy-skill-run",
+      "source": "client/omarchy",
+      "type": "contains",
+      "target": "omarchy-skill-run"
+    },
+    {
+      "relation_id": "client/omarchy|produces|omarchy-kit",
+      "source": "client/omarchy",
+      "type": "produces",
+      "target": "omarchy-kit"
+    },
+    {
+      "relation_id": "lesson:systemd-user-path|fixed_in|client/omarchy",
+      "source": "lesson:systemd-user-path",
+      "type": "fixed_in",
+      "target": "client/omarchy"
+    },
+    {
+      "relation_id": "lesson:secrets-argv|fixed_in|client/omarchy",
+      "source": "lesson:secrets-argv",
+      "type": "fixed_in",
+      "target": "client/omarchy"
+    },
+    {
+      "relation_id": "decision:plan-follows-measurement|applies_to|omarchy-kit",
+      "source": "decision:plan-follows-measurement",
+      "type": "applies_to",
+      "target": "omarchy-kit"
+    }
+  ]
+}

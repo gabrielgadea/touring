@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "doctor e health reportam polyglot=on|off ao lado de root=; o censo so e' legivel com o modo declarado"
+    }
+  ],
+  "relations": []
+}

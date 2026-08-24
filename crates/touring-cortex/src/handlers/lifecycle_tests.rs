@@ -5,6 +5,8 @@ use std::sync::Arc;
 use tempfile::TempDir;
 use touring_hooks::knowledge::FileKnowledgeDB;
 
+#[cfg(test)]
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[allow(clippy::arc_with_non_send_sync)] // single-threaded test context
 fn make_test_ctx(event: HookEvent, input: serde_json::Value) -> (TempDir, CortexContext) {
     let tmp = TempDir::new().unwrap();
@@ -568,13 +570,14 @@ fn test_worktree_enter_allow_without_rlm() {
 
 #[test]
 fn test_worktree_enter_env_file_written_when_exists() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     use std::io::Read;
     let tmp = tempfile::TempDir::new().expect("tmp dir");
     let env_file = tmp.path().join("claude.env");
     std::fs::write(&env_file, "").expect("create env file");
 
     // Set CLAUDE_ENV_FILE to our temp file
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("CLAUDE_ENV_FILE", env_file.to_str().expect("utf8 path")) };
 
     let input = serde_json::json!({
@@ -602,7 +605,7 @@ fn test_worktree_enter_env_file_written_when_exists() {
     );
 
     // Cleanup env var to avoid test pollution
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("CLAUDE_ENV_FILE") };
     drop(ctx_tmp);
 }

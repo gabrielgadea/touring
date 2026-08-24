@@ -43,8 +43,20 @@ const MAX_PURPOSE_LEN: usize = 600;
 
 /// Directory names never worth mining.
 const SKIP_DIRS: &[&str] = &[
-    ".venv", "venv", "site-packages", "node_modules", "__pycache__", ".git", "target",
-    ".mypy_cache", ".pytest_cache", ".ruff_cache", "dist", "build", ".tox", ".cache",
+    ".venv",
+    "venv",
+    "site-packages",
+    "node_modules",
+    "__pycache__",
+    ".git",
+    "target",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "dist",
+    "build",
+    ".tox",
+    ".cache",
 ];
 
 /// Collapse `$HOME` to `~` so records are portable and readable.
@@ -142,7 +154,9 @@ pub fn python_docstring(src: &str) -> Option<String> {
 /// Extract the string assigned to an `argparse` `description=` keyword.
 #[must_use]
 pub fn argparse_description(src: &str) -> Option<String> {
-    let idx = src.find("description=").or_else(|| src.find("description ="))?;
+    let idx = src
+        .find("description=")
+        .or_else(|| src.find("description ="))?;
     let after = &src[idx..];
     let eq = after.find('=')?;
     let value = after.get(eq + 1..)?.trim_start();
@@ -218,14 +232,131 @@ pub fn markdown_frontmatter(src: &str) -> Option<(Option<String>, String)> {
     clean_prose(&desc).map(|d| (name, d))
 }
 
-/// Extract `[adw] description` from an ADW spec.
+/// Strip `{{vars.x}}` / `{{nodes.y.summary}}` placeholders from indexable prose.
+///
+/// A template marker is machinery, not meaning: left in, every flow shares the
+/// tokens `vars` and `summary`, which is noise every one of them matches on.
+fn strip_templates(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut rest = raw;
+    while let Some(start) = rest.find("{{") {
+        out.push_str(&rest[..start]);
+        out.push(' ');
+        match rest[start..].find("}}") {
+            Some(end) => rest = &rest[start + end + 2..],
+            None => return out,
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Append the prose of a `[purpose]` block, including when NOT to use the flow.
+///
+/// The negative case is indexed deliberately (E4 honesty): a portfolio entry that
+/// only advertises cannot be ruled out by the next author reading it.
+fn push_purpose(doc: &mut String, purpose: &toml::Value) {
+    for key in [
+        "intent",
+        "when_to_use",
+        "when_not_to_use",
+        "inputs",
+        "produces",
+        "tags",
+    ] {
+        match purpose.get(key) {
+            Some(toml::Value::String(s)) => {
+                doc.push_str(s);
+                doc.push(' ');
+            }
+            Some(toml::Value::Array(items)) => {
+                for item in items.iter().filter_map(toml::Value::as_str) {
+                    doc.push_str(item);
+                    doc.push(' ');
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Append what the flow actually DOES — its steps, their kinds, the prose its
+/// agents are given, the postures its critics hold, and the fragments it is
+/// built from. A flow's purpose lives in its steps at least as much as in its
+/// one-line description.
+fn push_steps(doc: &mut String, parsed: &toml::Value) {
+    if let Some(nodes) = parsed.get("node").and_then(toml::Value::as_table) {
+        for (name, body) in nodes {
+            doc.push_str(name);
+            doc.push(' ');
+            for key in ["type", "prompt", "message"] {
+                if let Some(s) = body.get(key).and_then(toml::Value::as_str) {
+                    doc.push_str(&strip_templates(s));
+                    doc.push(' ');
+                }
+            }
+            if let Some(persona) = body.get("persona") {
+                for key in ["role", "stance", "lens", "bar", "scope"] {
+                    if let Some(s) = persona.get(key).and_then(toml::Value::as_str) {
+                        doc.push_str(&strip_templates(s));
+                        doc.push(' ');
+                    }
+                }
+            }
+        }
+    }
+    if let Some(uses) = parsed.get("use").and_then(toml::Value::as_array) {
+        for module in uses
+            .iter()
+            .filter_map(|u| u.get("module").and_then(toml::Value::as_str))
+        {
+            doc.push_str(module);
+            doc.push(' ');
+        }
+    }
+}
+
+/// Extract the indexable purpose document of an ADW spec.
+///
+/// A flow is found by INTENT, and until 2026-08-18 this returned `[adw]
+/// description` alone — one sentence, roughly ten words. Shell scripts enter the
+/// same corpus carrying their whole header comment (50-300 words), and BM25
+/// length normalisation does the rest: every ADW was unreachable. Reproduced with
+/// the query that is *literally* `bugfix.toml`'s description — it returned a
+/// Python script from an unrelated project and not one flow.
+///
+/// The spec already holds the rest of the answer: its header comment, its
+/// `[purpose]` block, and the steps themselves. The document is composed from all
+/// of it, so a flow is retrievable by what it is FOR rather than by its filename.
 #[must_use]
 pub fn adw_description(src: &str) -> Option<(Option<String>, String)> {
     let parsed: toml::Value = src.parse().ok()?;
+    // The `[adw]` table is what makes this an ADW spec rather than any other TOML
+    // in the tree (Cargo.toml, pyproject.toml, …), so it stays required.
     let adw = parsed.get("adw")?;
-    let desc = adw.get("description")?.as_str()?;
     let name = adw.get("name").and_then(|n| n.as_str()).map(str::to_string);
-    clean_prose(desc).map(|d| (name, d))
+
+    let mut doc = String::new();
+    // Order is a budget decision, not a formatting one. The document is capped at
+    // MAX_PURPOSE_LEN, and an ADW header is mostly boilerplate — "Instantiate:",
+    // "Run: --var ...". Leading with it spent the cap on invocation syntax and cut
+    // the curated block mid-sentence: `when_not_to_use`, the field that lets the
+    // portfolio rule a flow OUT, never reached the corpus at all. So when a flow
+    // states its purpose, that goes first and the header takes what is left.
+    let purpose = parsed.get("purpose");
+    if let Some(purpose) = purpose {
+        push_purpose(&mut doc, purpose);
+    }
+    if let Some(desc) = adw.get("description").and_then(toml::Value::as_str) {
+        doc.push_str(desc);
+        doc.push(' ');
+    }
+    push_steps(&mut doc, &parsed);
+    if let Some(header) = shell_header(src) {
+        doc.push_str(&header);
+        doc.push(' ');
+    }
+    clean_prose(&doc).map(|d| (name, d))
 }
 
 /// Extract the leading `#` comment block of a shell script (after the shebang).
@@ -756,7 +887,10 @@ mod tests {
 
         let folded = "---\nname: x\ndescription: >\n  Generate professional reports\n  from structured data.\n---\n";
         let (_, d2) = markdown_frontmatter(folded).expect("folded frontmatter");
-        assert!(d2.contains("professional reports") && d2.contains("structured data"), "{d2}");
+        assert!(
+            d2.contains("professional reports") && d2.contains("structured data"),
+            "{d2}"
+        );
     }
 
     #[test]
@@ -767,6 +901,116 @@ mod tests {
         assert!(desc.contains("feature pipeline"), "{desc}");
         // A non-ADW toml must not be mined as one.
         assert!(adw_description("[package]\nname = \"x\"\n").is_none());
+    }
+
+    /// The whole point of C1: a flow must be findable by the words that describe
+    /// its PURPOSE, not just the handful in its one-line description.
+    #[test]
+    fn adw_document_composes_header_purpose_and_steps() {
+        let src = r#"# ADW `bugfix` — memory-pack recall feeds a scoped fixer; a gate verifies.
+[adw]
+name = "bugfix"
+description = "Expert bugfix: institutional recall feeds a workhorse fixer"
+
+[purpose]
+intent = "corrigir um bug com memoria institucional e gate de verificacao"
+when_to_use = ["a reproducible defect in an indexed codebase"]
+when_not_to_use = ["a production incident — use hotfix instead"]
+produces = ["a verified minimal fix"]
+
+[[use]]
+module = "recall-pack"
+as = "recall"
+
+[node.fix]
+type = "agent"
+prompt = "Root-cause it; smallest correct fix. Memory: {{nodes.recall.summary}}"
+
+[node.fix.persona]
+role = "fixer"
+lens = "root cause over symptom"
+"#;
+        let (name, doc) = adw_description(src).expect("adw");
+        assert_eq!(name.as_deref(), Some("bugfix"));
+        for needle in [
+            "memory-pack recall",      // the header comment
+            "institutional recall",    // [adw] description
+            "memoria institucional",   // [purpose] intent
+            "production incident",     // when_not_to_use — the honest negative
+            "recall-pack",             // the fragment it composes
+            "smallest correct fix",    // the step's own prose
+            "root cause over symptom", // the persona's lens
+        ] {
+            assert!(doc.contains(needle), "missing {needle:?} in {doc}");
+        }
+        assert!(
+            !doc.contains("{{") && !doc.contains("nodes.recall"),
+            "template machinery must not enter the corpus: {doc}"
+        );
+    }
+
+    /// The cap must fall on boilerplate, never on the curated block.
+    ///
+    /// `adw_document_composes_header_purpose_and_steps` proved the fields are read,
+    /// but with a one-line header — so it never met MAX_PURPOSE_LEN. Every shipped
+    /// flow carries a real header ("Instantiate: …", "Run: --var …"), and leading
+    /// with it spent the whole budget on invocation syntax: the document ended
+    /// mid-sentence inside `when_to_use`, and `when_not_to_use` — the one field the
+    /// portfolio needs to rule a flow OUT — never entered the corpus at all.
+    #[test]
+    fn a_long_header_never_crowds_out_the_field_that_rules_a_flow_out() {
+        let src = r#"# ADW `scout-perpetuo` (F1.7) — exploration as a permanent background process.
+# Instantiate: touring adw from-template scout-perpetuo
+# Run:         touring adw run scout-perpetuo --var topic="<what to keep scouting>"
+#              (pauses at act_or_wait; resume with --approve act_or_wait to act now —
+#               approving does NOT stop the scout: re-run cycles any time; cadence
+#               state lives in .touring/scout-perpetuo/<slug>.json)
+[adw]
+name = "scout-perpetuo"
+description = "Perpetual scout: yield-adaptive explore cycles then tickets then an act-vs-wait gate"
+
+[purpose]
+intent = "Keep scouting one topic on a yield-adaptive cadence, turning findings into tickets"
+when_to_use = ["you want a standing demand generator instead of exploration as a one-off phase"]
+when_not_to_use = ["a single question you want answered now — use explore-plan instead"]
+
+[node.cycle]
+type = "code"
+"#;
+        let (_, doc) = adw_description(src).expect("adw");
+        assert!(
+            doc.contains("use explore-plan instead"),
+            "when_not_to_use was truncated away by the header ({} chars): {doc}",
+            doc.len()
+        );
+    }
+
+    /// Regression for the invisibility this replaced: the composed document has to
+    /// be substantially longer than the one sentence that used to represent a flow,
+    /// or BM25 length normalisation keeps burying it under shell scripts.
+    #[test]
+    fn adw_document_is_richer_than_the_bare_description() {
+        let bare = "[adw]\nname = \"x\"\ndescription = \"Expert bugfix: institutional recall feeds a workhorse fixer\"\n";
+        let rich = format!(
+            "{bare}\n[purpose]\nintent = \"corrigir um bug com memoria institucional\"\nwhen_to_use = [\"a reproducible defect\"]\n\n[node.verify]\ntype = \"gate\"\n"
+        );
+        let (_, short) = adw_description(bare).expect("bare");
+        let (_, long) = adw_description(&rich).expect("rich");
+        assert!(
+            long.len() > short.len(),
+            "the [purpose] block must widen the document: {} vs {}",
+            long.len(),
+            short.len()
+        );
+    }
+
+    #[test]
+    fn adw_document_survives_a_spec_with_no_description() {
+        // A flow whose header comment carries the prose is still indexable.
+        let src = "# scout-perpetuo — perpetual exploration that feeds the factory with tickets.\n[adw]\nname = \"scout\"\nentry = \"cycle\"\n";
+        let (name, doc) = adw_description(src).expect("adw");
+        assert_eq!(name.as_deref(), Some("scout"));
+        assert!(doc.contains("perpetual exploration"), "{doc}");
     }
 
     #[test]
@@ -802,7 +1046,10 @@ mod tests {
         let p = home.join(".claude/skills/pdf-anthropic/scripts/fill_pdf_form.py");
         let kws = keywords_for(&p, "skill:pdf-anthropic");
         for expected in ["fill", "pdf", "form", "anthropic"] {
-            assert!(kws.contains(&expected.to_string()), "missing {expected}: {kws:?}");
+            assert!(
+                kws.contains(&expected.to_string()),
+                "missing {expected}: {kws:?}"
+            );
         }
     }
 
@@ -813,14 +1060,22 @@ mod tests {
         let names: Vec<&str> = syms.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"render_map"), "{names:?}");
         assert!(names.contains(&"PdfBuilder"), "{names:?}");
-        assert!(syms[0].purpose.contains("dependency graph"), "{}", syms[0].purpose);
+        assert!(
+            syms[0].purpose.contains("dependency graph"),
+            "{}",
+            syms[0].purpose
+        );
     }
 
     #[test]
     fn undocumented_and_private_symbols_are_not_indexed() {
         // No purpose prose → nothing to rank on; a leading underscore is private.
         let src = "def helper(x):\n    return x\n\ndef _internal(y):\n    \"\"\"Does something private but well described here.\"\"\"\n    pass\n";
-        assert!(python_symbols(src).is_empty(), "{:?}", python_symbols(src).len());
+        assert!(
+            python_symbols(src).is_empty(),
+            "{:?}",
+            python_symbols(src).len()
+        );
     }
 
     #[test]
@@ -841,7 +1096,10 @@ mod tests {
         let names: Vec<&str> = syms.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"blast_radius"), "{names:?}");
         assert!(names.contains(&"ScoredThing"), "{names:?}");
-        assert!(!names.contains(&"undocumented"), "no doc → not indexed: {names:?}");
+        assert!(
+            !names.contains(&"undocumented"),
+            "no doc → not indexed: {names:?}"
+        );
     }
 
     #[test]
@@ -868,9 +1126,18 @@ mod tests {
         )
         .expect("write");
         let content = std::fs::read_to_string(&f).expect("read");
-        let names: Vec<String> = mine_symbols(&f, &content).into_iter().map(|s| s.name).collect();
-        assert!(!names.contains(&"main".to_string()), "stub indexed: {names:?}");
-        assert!(names.contains(&"render_map".to_string()), "real purpose dropped: {names:?}");
+        let names: Vec<String> = mine_symbols(&f, &content)
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
+        assert!(
+            !names.contains(&"main".to_string()),
+            "stub indexed: {names:?}"
+        );
+        assert!(
+            names.contains(&"render_map".to_string()),
+            "real purpose dropped: {names:?}"
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -880,7 +1147,10 @@ mod tests {
         let sym_id = CapabilityEntry::make_symbol_id("~/a/b.py", "render_map");
         assert_ne!(file_id, sym_id);
         assert_eq!(sym_id, "symbol:~/a/b.py::render_map");
-        assert_eq!(sym_id, CapabilityEntry::make_symbol_id("~/a/b.py", "render_map"));
+        assert_eq!(
+            sym_id,
+            CapabilityEntry::make_symbol_id("~/a/b.py", "render_map")
+        );
     }
 
     #[test]
@@ -902,7 +1172,8 @@ mod tests {
             "---\nname: pdfkit\ndescription: Toolkit for generating professional PDF documents from templates.\n---\n",
         )
         .expect("write skill");
-        std::fs::write(scripts.join("fill_form.py"), "import sys\nprint(1)\n").expect("write script");
+        std::fs::write(scripts.join("fill_form.py"), "import sys\nprint(1)\n")
+            .expect("write script");
 
         let roots = vec![dir.clone()];
         let a = mine(&roots);
@@ -914,8 +1185,18 @@ mod tests {
             .find(|e| e.display_path.ends_with("fill_form.py"))
             .expect("script mined via inheritance");
         assert!(script.purpose_inherited, "should inherit from SKILL.md");
-        assert!(script.purpose.contains("professional PDF"), "{}", script.purpose);
-        assert_eq!(script.entry_point.as_deref().map(|s| s.starts_with("python3")), Some(true));
+        assert!(
+            script.purpose.contains("professional PDF"),
+            "{}",
+            script.purpose
+        );
+        assert_eq!(
+            script
+                .entry_point
+                .as_deref()
+                .map(|s| s.starts_with("python3")),
+            Some(true)
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

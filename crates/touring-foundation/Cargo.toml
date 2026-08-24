@@ -2,7 +2,7 @@
 name = "touring-foundation"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Foundation: error types, config, shared types, embedding client (renamed from touring-core in W3.1 2026-05-12)"
 license.workspace = true
 

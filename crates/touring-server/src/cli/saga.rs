@@ -93,7 +93,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 }
             }
             if steps.is_empty() {
-                anyhow::bail!("Error: odd number of arguments — need step_id/action pairs");
+                anyhow::bail!("odd number of arguments; use format: touring saga run step_id/action pairs, e.g. touring saga run step1 complete step2 in_progress");
             }
             let payload = serde_json::json!({ "steps" : steps });
             let output = daemon_query("cli-saga-begin", payload)?;

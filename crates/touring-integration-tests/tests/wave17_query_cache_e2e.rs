@@ -33,10 +33,36 @@ use std::sync::atomic::Ordering;
 use touring_hooks::shared::gate_metrics::{GateMetricsSnapshot, global};
 use touring_hooks::shared::query_cache;
 
-const TOURING_BIN: &str = "/home/gabrielgadea/.claude/rust/target/release/touring";
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
+/// The product binary: prefer `release` when it exists, else `debug`.
+///
+/// Release-only resolution made this file's tests pass on a developer box (where
+/// `update-touring` leaves a release build behind) and fail on every clean CI
+/// runner with `spawn touring: NotFound`. Mirrors the convention already used by
+/// `graph_service_e2e.rs`.
+fn touring_bin() -> std::path::PathBuf {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let workspace = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root");
+    let release = workspace.join("target/release/touring");
+    if release.exists() {
+        release
+    } else {
+        workspace.join("target/debug/touring")
+    }
+}
 
 fn binary_available() -> bool {
-    std::path::Path::new(TOURING_BIN).exists()
+    touring_bin().exists()
 }
 
 // ── Axis 1: get_or_compute serves cached value on second call ──────────────
@@ -151,7 +177,7 @@ fn axis6_keys_are_payload_specific() {
 #[test]
 fn axis7_subprocess_index_find_benefits_from_cache() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
     // Repeatedly invoking the same lookup proves the daemon-side cache
@@ -159,7 +185,7 @@ fn axis7_subprocess_index_find_benefits_from_cache() {
     let symbol = "RustQualitySignals";
     let mut outputs = Vec::with_capacity(3);
     for _ in 0..3 {
-        let out = Command::new(TOURING_BIN)
+        let out = Command::new(touring_bin()).envs(private_daemon_env())
             .args(["index", "find", symbol])
             .output()
             .expect("spawn touring");
@@ -177,10 +203,10 @@ fn axis7_subprocess_index_find_benefits_from_cache() {
 #[test]
 fn axis8_gate_metrics_cli_exposes_query_cache() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin()).envs(private_daemon_env())
         .args(["gate-metrics", "-j"])
         .output()
         .expect("spawn touring");

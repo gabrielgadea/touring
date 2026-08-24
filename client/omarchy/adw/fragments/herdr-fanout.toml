@@ -1,0 +1,61 @@
+# Fragment `herdr-fanout` — parallel Herdr agent fan-out over N branches.
+#
+# Each branch runs a Claude agent in its own Herdr workspace.  The agent
+# receives the shared prompt with a per-branch suffix "(ramo: <branch>)".
+# Results are concatenated; the journal files in <journal_dir>/ are the
+# canonical artefacts (Law L3: artefato em disco, nunca narrativa).
+#
+# Why best_effort: a blocked or timed-out branch must not prevent the others
+# from producing their journals.  The ADW runner reports the branch failures
+# in the concat output so the caller can decide whether to escalate.
+#
+# Why max_branches = 4: Herdr agents are heavyweight (one Claude session each).
+# More than four concurrent sessions multiplies cost without multiplying signal
+# (the lenses principle, fanout-lenses.toml).  The lint rejects an undeclared
+# cap; four is the ceiling, not the default.
+#
+# Why pane read is the artefact (Law L3): the agent's last pane output is the
+# only tamper-evident record of what the agent actually produced.  The branch
+# script always writes it before exiting, even on failure, so the journal dir
+# always contains evidence rather than absence.
+[fragment]
+description = "Fan-out N branches as independent Herdr Claude agents; journals in <journal_dir>/"
+inputs = ["branches", "cwd", "prompt"]
+entry = "fan"
+
+[node.fan]
+type = "parallel"
+# Dynamic fan-out: the branch list is not known when the spec is written.
+# `branches` is a JSON array expression resolved at run time from inputs.
+branches = "{{inputs.branches}}"
+template = "run"
+merge = "concat"
+# best_effort: a blocked branch must not prevent other branches from running.
+on_branch_fail = "best_effort"
+# Hard ceiling: 4 concurrent Claude+Herdr sessions (cost × signal trade-off).
+max_branches = 4
+on_pass = "__exit__"
+on_fail = "__exit_fail__"
+
+# Cloned once per branch value.  The `command` calls herdr_branch.sh which:
+#   1. herdr workspace create --cwd <cwd> --label <branch>
+#   2. herdr agent start <branch> --kind claude --pane <addr>
+#   3. herdr agent prompt <branch> "<prompt> (ramo: <branch>)" --wait
+#   4. herdr agent wait <branch> --until done --timeout 1800
+#      → if blocked: write pane read to journal, exit 1
+#      → if done:   write pane read to journal, exit 0
+# journal_dir defaults to ~/Work/artifacts/adw-<branch> when not supplied via
+# vars.journal (see herdr-fanout-demo.toml for usage).
+[node.run]
+type = "code"
+command = [
+    "bash", "-c",
+    "JOURNAL=\"${4:-${HOME}/Work/artifacts/adw-${1}}\"; \"${HOME}/.local/bin/herdr_branch.sh\" \"$1\" \"$2\" \"$3\" \"${JOURNAL}\" 2>&1",
+    "--",
+    "{{branch.value}}",
+    "{{inputs.cwd}}",
+    "{{inputs.prompt}}",
+    "{{vars.journal}}"
+]
+timeout_ms = 1860000
+idempotent = false

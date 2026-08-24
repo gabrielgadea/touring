@@ -1,0 +1,13 @@
+# Fragment `converge` — Law L2 made concrete: code, never narrative, ends the loop.
+[fragment]
+description = "Convergence gate — exit 0 is the only 'done' (loop_converged.py)"
+inputs = ["task", "scope"]
+entry = "converged"
+
+[node.converged]
+type = "gate"
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task \"$1\" --scope \"$2\"", "--", "{{inputs.task}}", "{{inputs.scope}}"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit_fail__"

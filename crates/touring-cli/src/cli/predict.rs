@@ -34,7 +34,18 @@ pub fn cli_predict_action(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
     // Map any bash command to the same ActionFeatures space the online S-11
     // model uses, so the historical predictor and the online one are compatible.
     let features_of = |cmd: &str| -> ActionFeatures {
-        let input = serde_json::json!({ "tool_name": "Bash", "tool_input": { "command": cmd } });
+        // `from_pre_tool` takes tool_name and tool_input as SEPARATE arguments:
+        // the second is the tool_input object itself, so it must be
+        // `{"command": …}` and never the `{"tool_name":…,"tool_input":{…}}`
+        // envelope. Passing the envelope hid the command from the extractor,
+        // `intent_class` fell back to its constant default, and the model
+        // collapsed to ONE bucket — `distinct_features: 1`. Every query then
+        // matched that bucket and got the corpus base rate: measured
+        // 2026-08-20, `ls`, `cargo build --release`, `false` and
+        // `grep -r xyz /nonexistent` all returned p=0.990312 with
+        // `confidence: High` and `matched_observations` equal to the whole
+        // corpus. A constant wearing the shape of a prediction.
+        let input = serde_json::json!({ "command": cmd });
         ActionFeatures::from_signature(&ActionSignature::from_pre_tool(
             "Bash", &input, None, 0, None, None,
         ))
@@ -203,5 +214,67 @@ pub fn cli_agentic_rl_status(rt: &mut HookRuntime, _payload: &serde_json::Value)
             "note": "meta-loop has never been used (lazy init); first call to post_tool_rl agentic_rl_mut() will allocate",
         })
         .to_string()
+    }
+}
+
+#[cfg(test)]
+mod predict_feature_tests {
+    use touring_ceg::gateway::outcome_learner::ActionFeatures;
+    use touring_hooks_shared::action_signature::ActionSignature;
+
+    /// The feature tuple must vary with the command, or the model is a constant.
+    ///
+    /// Origin 2026-08-20: `features_of` passed the whole
+    /// `{"tool_name":…,"tool_input":{…}}` envelope where `from_pre_tool`
+    /// expects the tool_input object. The command never reached the extractor,
+    /// `intent_class` collapsed to its default, and the trained model reported
+    /// `distinct_features: 1`. Every query matched the single bucket and got
+    /// the corpus base rate — `ls`, `cargo build --release`, `false` and
+    /// `grep -r xyz /nonexistent` all returned p=0.990312, `confidence: High`,
+    /// `matched_observations` = the entire corpus.
+    ///
+    /// This test does not assert a probability; it asserts that DIFFERENT
+    /// commands land in DIFFERENT equivalence classes, which is the property
+    /// whose absence made every prediction identical.
+    #[test]
+    fn distinct_commands_yield_distinct_feature_classes() {
+        let features_of = |cmd: &str| -> ActionFeatures {
+            let input = serde_json::json!({ "command": cmd });
+            ActionFeatures::from_signature(&ActionSignature::from_pre_tool(
+                "Bash", &input, None, 0, None, None,
+            ))
+        };
+
+        let cargo = features_of("cargo build --release");
+        let python = features_of("python3 -c 'print(1)'");
+        let ls = features_of("ls -la");
+
+        assert_ne!(
+            cargo, python,
+            "a cargo command and a python command must not share a bucket"
+        );
+        assert_ne!(cargo, ls, "a cargo command and `ls` must not share a bucket");
+        assert_ne!(python, ls, "a python command and `ls` must not share a bucket");
+    }
+
+    /// The envelope shape — the exact defect — must produce the degenerate case.
+    ///
+    /// Pinning the failure mode means a future refactor that reintroduces the
+    /// double wrap is caught by the test above rather than by a user noticing
+    /// that every prediction is the same number.
+    #[test]
+    fn the_double_wrapped_envelope_is_what_collapses_the_classes() {
+        let enveloped = |cmd: &str| -> ActionFeatures {
+            let input = serde_json::json!({ "tool_name": "Bash", "tool_input": { "command": cmd } });
+            ActionFeatures::from_signature(&ActionSignature::from_pre_tool(
+                "Bash", &input, None, 0, None, None,
+            ))
+        };
+        assert_eq!(
+            enveloped("cargo build --release"),
+            enveloped("ls -la"),
+            "the envelope hides the command, so every command shares one class \
+             — this is the defect the fix removes, pinned so it cannot return"
+        );
     }
 }

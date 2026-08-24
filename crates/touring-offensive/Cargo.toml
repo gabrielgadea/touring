@@ -2,7 +2,7 @@
 name = "touring-offensive"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Cap II Offensive Engine: BugBounty tracking, Concolic execution, Erickson NLP"
 license.workspace = true
 

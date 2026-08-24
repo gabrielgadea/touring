@@ -7,6 +7,38 @@ name = "chore"
 description = "Single-agent light-tier chore with one verification gate"
 entry = "prior_art"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Do one small scoped task with a single light agent and exactly one verification gate"
+when_to_use = [
+  "mechanical low-risk work whose success is a single command",
+  "the pipeline of a feature would cost more than the change itself",
+]
+when_not_to_use = [
+  "work needing diagnosis, prior art or an API decision — use bugfix or feature",
+  "anything touching more files than the author can name in advance",
+]
+inputs = [
+  "task",
+  "verify_cmd",
+]
+produces = [
+  "the change and the gate output that accepted it",
+]
+tags = [
+  "#kind:flow",
+  "#domain:maintenance",
+  "#process:chore",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Tarefa pequena e escopada não é defeito (bugfix) nem capacidade nova (feature):
+# um agente leve e exatamente um gate. Manter as três separadas é o que permite
+# ao `when_not_to_use` de cada uma apontar para as outras duas.
+prior_art_verdict = "create_new"
+
 
 # Prior-art first: even a chore should not re-create what exists (REGRA #0).
 [node.prior_art]
@@ -19,10 +51,17 @@ on_fail = "do_chore"
 
 [node.do_chore]
 type = "agent"
+# NOT skill-bound on purpose: a chore is trivial by definition. Binding a craft
+# to it would be symmetry, not need — the banner reflex in another form.
 driver = "claude"
 tier = "light"
-prompt = "Small chore, do exactly this and nothing more: {{vars.task}}. Prior art already in the portfolio (evidence, not a constraint — reuse only if it genuinely fits): {{nodes.prior_art.summary}}"
+prompt = "Small chore, do exactly this and nothing more: {{vars.task}}. Prior art already in the portfolio (evidence, not a constraint — reuse only if it genuinely fits): {{nodes.prior_art.summary}}. VERIFICATION VERDICT of the previous attempt (empty on the first pass — if it carries text, THAT is what rejected you; address it before anything else): {{nodes.verify.summary}}"
 allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write"]
+# Headless: without this the agent stops to ask a human who is not there,
+# and reports `pass` for having asked (chore-1784540624 burned four real
+# invocations and three minutes doing exactly that). `acceptEdits` accepts
+# file edits without prompting; it is not `bypassPermissions`.
+permission_mode = "acceptEdits"
 session = "resume_on_fail"
 timeout_ms = 600000
 on_pass = "verify"

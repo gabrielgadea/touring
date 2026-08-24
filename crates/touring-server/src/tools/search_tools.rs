@@ -153,9 +153,12 @@ pub async fn find_code_impl(
                 .to_string(),
         )
     } else if mapped_results.is_empty() {
-        Some("corpus consultado: portfólio de capacidades (propósito). Sem \
+        Some(
+            "corpus consultado: portfólio de capacidades (propósito). Sem \
              correspondência — para busca por IDENTIFICADOR use `touring tantivy \
-             search`, que cobre os ~270k símbolos do índice".to_string())
+             search`, que cobre os ~270k símbolos do índice"
+                .to_string(),
+        )
     } else {
         None
     };

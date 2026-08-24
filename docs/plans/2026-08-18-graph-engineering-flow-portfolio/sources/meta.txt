@@ -1,0 +1,4 @@
+F3lL98Pj90o|||/wayfinder: Nothing is too big to plan anymore|||Matt Pocock|||909|||20260730
+BNjzXcEXmg4|||This NEW Claude Prompting Technique is blowing people's minds (gauntlet-loop)|||Jay E | RoboNuggets|||810|||20260805
+JWhICz1QR8M|||Why Graph Engineering will 10x your Claude/Codex|||Greg Isenberg|||1588|||20260803
+2505.22954|||Darwin Godel Machine: Open-Ended Evolution of Self-Improving Agents|||Zhang, Hu, Lu, Lange & Clune (ICLR 2026)|||16pp|||20260312

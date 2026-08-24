@@ -1771,3 +1771,35 @@ pub fn make_relative(path: &str, project_root: &Path) -> String {
         .map(|r| r.to_string_lossy().to_string())
         .unwrap_or_else(|_| path.to_string())
 }
+
+/// F2 (hashtag library, 2026-08-11): re-harvest `#tags:` codetag anchors from
+/// freshly written/edited content into snippet memories. Shared by
+/// post_write (content already in the payload) and post_edit (content read
+/// from disk). Fail-open by construction — the write already happened; a
+/// sync failure is a debug log, never a block.
+pub fn sync_codetag_anchors(project_root: &std::path::Path, rel_path: &str, content: &str) {
+    // The marker check alone is NOT a sufficient skip: a file whose *last*
+    // anchor was just removed carries no marker but still owns snippet
+    // entries that must be tombstoned (D1, cross-audit 2026-08-23). Fast
+    // paths, in order: markerless content + no memory DB on disk → nothing
+    // to do; markerless content + no surviving entries for this path → skip.
+    let has_marker = content.contains("#tags:");
+    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
+    if !has_marker && !db.exists() {
+        return;
+    }
+    let Ok(conn) = rusqlite::Connection::open(&db) else {
+        return;
+    };
+    if !has_marker
+        && !touring_intelligence::rl::memory::codetag::has_snippet_entries(&conn, rel_path)
+            .unwrap_or(false)
+    {
+        return;
+    }
+    if let Err(e) =
+        touring_intelligence::rl::memory::codetag::sync_file(&conn, rel_path, content)
+    {
+        tracing::debug!(error = %e, path = rel_path, "codetag sync failed (fail-open)");
+    }
+}

@@ -20,6 +20,7 @@
 //! Extracted from `lifecycle.rs` as part of FIX-3 D6.
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use crate::runtime::HookRuntime;
 
@@ -45,7 +46,7 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
     // R12-S3: Persist task output directly to knowledge DB — real sync bridge:
     // TaskOutput (Claude Code) → record_bash_outcome → SQLite (no hint needed from user).
     if !output_text.is_empty() {
-        let summary = &output_text[..output_text.len().min(200)];
+        let summary = truncate_str(output_text, 200);
         let _ = rt
             .ctx
             .knowledge
@@ -76,7 +77,7 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
     // This makes `touring memory recall "task:<task_id>:output"` actually work cross-session.
     // Output is capped at 400 chars — longer than R12-S3 (200) to preserve more context.
     if !output_text.is_empty() {
-        let output_snippet = &output_text[..output_text.len().min(400)];
+        let output_snippet = truncate_str(output_text, 400);
         let _ = crate::cli_handlers::cli_memory_store(
             rt,
             &serde_json::json!({
@@ -96,7 +97,7 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
         let symbols = extract_backtick_symbols(output_text);
         if !symbols.is_empty() {
             if let Some(idx) = crate::tantivy_index::tantivy_for(Some(&rt.project_root)) {
-                let docstring = output_text[..output_text.len().min(300)].to_string();
+                let docstring = truncate_str(output_text, 300).to_string();
                 for sym in &symbols {
                     let doc = crate::tantivy_index::SymbolDoc {
                         symbol_name: sym.clone(),
@@ -433,7 +434,7 @@ pub(crate) fn failure_signal_hint(rt: &mut HookRuntime, output: &str, task_id: &
     if output.is_empty() {
         return String::new();
     }
-    let window = output[..output.len().min(500)].to_lowercase();
+    let window = truncate_str(output, 500).to_lowercase();
     let is_failed = window.contains("test result: failed")
         || window.contains("panicked at")
         || window.contains("error[e")
@@ -493,7 +494,7 @@ pub(crate) fn failure_signal_hint(rt: &mut HookRuntime, output: &str, task_id: &
 ///
 /// Returns empty string when no compilation errors are detected.
 pub(crate) fn maybe_rust_error_generator_hint(output_text: &str) -> String {
-    let window = &output_text[..output_text.len().min(400)];
+    let window = truncate_str(output_text, 400);
     if !window.contains("error[E") {
         return String::new();
     }
@@ -1403,7 +1404,7 @@ pub(crate) fn maybe_diary_lesson_on_output_success(outcome_hint: &str, task_id: 
 /// from the output (up to 300 chars) and surfaces `touring generate plan-validate --plan-file`.
 /// Returns empty string when no plan artifact is detected.
 pub(crate) fn maybe_plan_validate_from_output(output_text: &str) -> String {
-    let window = &output_text[..output_text.len().min(300)];
+    let window = truncate_str(output_text, 300);
     // Detect explicit plan-submit mention
     if window.contains("plan-submit") || window.contains("plan.json") {
         // Try to extract a path token ending in .json
@@ -1450,7 +1451,7 @@ pub(crate) fn completion_signal_hint(output: &str, task_id: &str) -> String {
     if output.is_empty() {
         return String::new();
     }
-    let window = output[..output.len().min(500)].to_lowercase();
+    let window = truncate_str(output, 500).to_lowercase();
     let is_complete = window.contains("test result: ok")
         || window.contains("; 0 failed")
         || window.contains("0 failed;")

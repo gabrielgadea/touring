@@ -3,6 +3,7 @@
 //! Parses the selected match expression, inspects existing arm patterns,
 //! and emits stub arms for variants that appear to be missing.
 
+use touring_foundation::truncate_str;
 use crate::{AssistContext, AssistHandler, AssistId, Assists, LazySourceChange};
 use quote::ToTokens;
 use syn::{Expr, Pat};
@@ -89,12 +90,12 @@ pub const ADD_MISSING_MATCH_ARMS: AssistHandler = |assists: &mut Assists, ctx: &
     let label = if has_concrete_variants {
         format!(
             "Add missing match arm(s) for: {}",
-            &discriminant_str[..discriminant_str.len().min(25)]
+            truncate_str(&discriminant_str, 25)
         )
     } else {
         format!(
             "Add match arm for: {}",
-            &discriminant_str[..discriminant_str.len().min(25)]
+            truncate_str(&discriminant_str, 25)
         )
     };
 

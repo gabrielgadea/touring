@@ -158,9 +158,10 @@ impl RollbackPlan {
                     std::fs::remove_dir_all(path).ok(); // Ignore if already deleted
                 }
                 RollbackActionKind::RestoreEnv { key, old_value } => match old_value {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
+                    // AUDITED (2026-08-12): rollback executes on the CLI process's
+                    // main flow (single-threaded apply loop); env restore is
+                    // inherently process-global and ordered by the action sequence.
                     Some(v) => unsafe { std::env::set_var(key, v) },
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     None => unsafe { std::env::remove_var(key) },
                 },
                 RollbackActionKind::CustomCommand { command, args } => {

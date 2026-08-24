@@ -1,3 +1,13 @@
+---
+okf_version: "1.0"
+type: README
+title: "Touring — The agentic code harness"
+description: "Open, typed, auditable. Code intelligence, execution sandboxing, and quality gates for AI coding agents. One Rust binary. Local-first. No telemetry."
+plan_id: docs
+tags: [overview, install, usage, architecture]
+timestamp: 2026-08-20T11:10:00-03:00
+---
+
 <div align="center">
 
 # Touring
@@ -35,7 +45,7 @@ typed JSON in under 10 ms, so agents *and* humans use the same surface.
 Download the release, verify the checksum, run it:
 
 ```bash
-VERSION=v30.3.0
+VERSION=v30.4.13
 BASE="https://github.com/gabrielgadea/touring/releases/download/$VERSION"
 
 curl -fsSLO "$BASE/touring-x86_64-unknown-linux-gnu.tar.gz"
@@ -213,6 +223,9 @@ socket, which is why read-only queries answer in under 10 ms.
 | 🏛️ [Constitution v8.0](docs/CONSTITUTION-v8.md) | The master contract |
 | 🏗️ [Architecture](docs/explanation/architecture.md) | Layers, daemon, security model |
 | 🍳 [How-to guides](docs/how-to/) | Task-oriented recipes |
+| 🔀 [ADW flow portfolio](docs/explanation/adw-flow-portfolio.md) | Authoring, composing and proving agent workflows |
+| 🧭 [Decision records](docs/adr/) | Why a constraint exists, without archaeology |
+| 📜 [Changelog](CHANGELOG.md) | What changed, per release |
 | 🔒 [Security policy](SECURITY.md) | Reporting vulnerabilities |
 | 🤝 [Contributing](CONTRIBUTING.md) | Development setup and gates |
 

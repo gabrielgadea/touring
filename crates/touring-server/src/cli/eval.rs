@@ -324,7 +324,10 @@ impl RecallStats {
             return Self::default();
         }
         let at = |k: usize| {
-            hits.iter().filter(|h| matches!(h, Some(r) if *r <= k)).count() as f64 / n as f64
+            hits.iter()
+                .filter(|h| matches!(h, Some(r) if *r <= k))
+                .count() as f64
+                / n as f64
         };
         Self {
             cases: n,
@@ -513,7 +516,10 @@ fn compare_to_baseline(now: &RecallStats, update: bool) -> (String, serde_json::
         );
     };
 
-    let get = |k: &str| prev.pointer(&format!("/metrics/{k}")).and_then(|v| v.as_f64());
+    let get = |k: &str| {
+        prev.pointer(&format!("/metrics/{k}"))
+            .and_then(|v| v.as_f64())
+    };
     let mut regressions = Vec::new();
     for (key, current) in [
         ("r_at_1", now.r_at_1),
@@ -742,9 +748,15 @@ mod retrieval_metric_tests {
         let ranked = ids(&["a.rs::A", "b.rs::B", "c.rs::C"]);
         assert_eq!(first_hit_rank(&ranked, &ids(&["b.rs::B"])), Some(2));
         // second expected present, first absent → rank of whichever appears
-        assert_eq!(first_hit_rank(&ranked, &ids(&["z.rs::Z", "c.rs::C"])), Some(3));
+        assert_eq!(
+            first_hit_rank(&ranked, &ids(&["z.rs::Z", "c.rs::C"])),
+            Some(3)
+        );
         // earliest hit wins when several expected are present
-        assert_eq!(first_hit_rank(&ranked, &ids(&["c.rs::C", "a.rs::A"])), Some(1));
+        assert_eq!(
+            first_hit_rank(&ranked, &ids(&["c.rs::C", "a.rs::A"])),
+            Some(1)
+        );
     }
 
     #[test]
@@ -762,7 +774,11 @@ mod retrieval_metric_tests {
         assert_eq!(s.cases, 3);
         assert!((s.r_at_1 - 1.0 / 3.0).abs() < 1e-9, "r_at_1={}", s.r_at_1);
         assert!((s.r_at_5 - 2.0 / 3.0).abs() < 1e-9, "r_at_5={}", s.r_at_5);
-        assert!((s.mrr - (1.0 + 1.0 / 3.0) / 3.0).abs() < 1e-9, "mrr={}", s.mrr);
+        assert!(
+            (s.mrr - (1.0 + 1.0 / 3.0) / 3.0).abs() < 1e-9,
+            "mrr={}",
+            s.mrr
+        );
     }
 
     #[test]
@@ -789,13 +805,12 @@ mod retrieval_metric_tests {
     /// duplicate ids, an expected id without `::`) would make it pass on nothing.
     #[test]
     fn the_shipped_fixture_is_well_formed() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../bench/retrieval.json");
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bench/retrieval.json");
         let Ok(raw) = std::fs::read_to_string(&path) else {
             return; // fixture lives at the workspace root; skip if scoped out
         };
-        let f: super::RetrievalFixture =
-            serde_json::from_str(&raw).expect("fixture must parse");
+        let f: super::RetrievalFixture = serde_json::from_str(&raw).expect("fixture must parse");
         assert!(f.cases.len() >= 30, "too few cases: {}", f.cases.len());
         let mut seen = std::collections::HashSet::new();
         for c in &f.cases {
@@ -807,7 +822,9 @@ mod retrieval_metric_tests {
             }
             assert!(
                 ["exact", "concept", "multi_hop"].contains(&c.tier.as_str()),
-                "{}: unknown tier {}", c.id, c.tier
+                "{}: unknown tier {}",
+                c.id,
+                c.tier
             );
             // A concept query that contains the symbol name is an exact query in
             // disguise — it would inflate the concept tier with lexical hits.
@@ -816,7 +833,8 @@ mod retrieval_metric_tests {
                     let sym = e.rsplit("::").next().unwrap_or("");
                     assert!(
                         !c.query.contains(sym),
-                        "{}: concept query leaks the symbol name `{sym}`", c.id
+                        "{}: concept query leaks the symbol name `{sym}`",
+                        c.id
                     );
                 }
             }

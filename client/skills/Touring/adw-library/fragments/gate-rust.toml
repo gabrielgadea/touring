@@ -1,0 +1,14 @@
+# Fragment `gate-rust` — the Rust verification gate: check, clippy -D warnings, test.
+# One gate, three clauses: a partial pass is a fail (REGRA #21 — zero failures).
+[fragment]
+description = "Rust verification gate: cargo check + clippy -D warnings + tests"
+inputs = ["crate"]
+entry = "rust_gate"
+
+[node.rust_gate]
+type = "gate"
+command = ["bash", "-c", "set -e; cargo check -p \"$1\"; cargo clippy -p \"$1\" -- -D warnings; cargo test -p \"$1\"", "--", "{{inputs.crate}}"]
+timeout_ms = 1800000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit_fail__"

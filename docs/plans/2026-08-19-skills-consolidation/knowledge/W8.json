@@ -1,0 +1,11 @@
+{
+  "phase": "W8",
+  "entities": [
+    {
+      "entity_id": "phase:W8",
+      "type": "phase",
+      "description": "TACO-wt: P5 (forensic_runner paraleliza dentro de UMA sessao; entre sessoes nao ha exclusao, dois 'validate W12' concorrentes rodam a mesma wave -> claim --owner wt-<wave>) + P2 (os gates da wave sao clausulas locais; o veredito do plano e loop_converged exit 0)."
+    }
+  ],
+  "relations": []
+}

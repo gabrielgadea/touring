@@ -12,6 +12,14 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
 /// Locate the touring binary across every target dir a run might use.
 ///
 /// `cargo llvm-cov` redirects the build to `target/llvm-cov-target/`, so a
@@ -70,7 +78,7 @@ fn run_with_stdin(
     stdin_payload: &str,
 ) -> Option<(String, String, i32)> {
     let bin = locate_binary(bin_name)?;
-    let mut child = Command::new(&bin)
+    let mut child = Command::new(&bin).envs(private_daemon_env())
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -120,7 +128,7 @@ fn g400_emits_when_vgp_fails_for_missing_symbols() {
     let Some(bin) = touring_bin_or_skip() else {
         return;
     };
-    let out = Command::new(&bin)
+    let out = Command::new(&bin).envs(private_daemon_env())
         .args([
             "generate",
             "plan-submit",
@@ -176,7 +184,7 @@ fn g401_path_responds_to_plan_speculate_command() {
     let tmp = tempfile::NamedTempFile::with_suffix(".json").expect("create temp plan file");
     std::fs::write(tmp.path(), &plan_json).expect("write plan file");
 
-    let out = Command::new(&bin)
+    let out = Command::new(&bin).envs(private_daemon_env())
         .args([
             "generate",
             "plan-speculate",
@@ -215,7 +223,7 @@ fn generator_binary_wired_and_healthy() {
         eprintln!("touring binary not built — skipping health check");
         return;
     };
-    let out = Command::new(&bin)
+    let out = Command::new(&bin).envs(private_daemon_env())
         .args(["doctor", "-j"])
         .output()
         .expect("spawn doctor");

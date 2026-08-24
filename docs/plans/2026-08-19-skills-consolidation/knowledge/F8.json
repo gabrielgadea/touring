@@ -1,0 +1,11 @@
+{
+  "phase": "F8",
+  "entities": [
+    {
+      "entity_id": "phase:F8",
+      "type": "phase",
+      "description": "F8 remocao de touring-scip. Correcao de afirmacao propria: eu dissera que scip_emit era orfao (refs=0) \u2014 consultei o MODULO, nao os SIMBOLOS; ScipEmitter e ScipDocument tem 1 consumidor cada e 14,6KB de codigo vivo. A API Rust e real; so a CLI (touring scip emit / touring symbol index) nao existe, e a skill era a unica fonte deles no corpus \u2014 a sugestao ja escapara para o enriquecimento de prompt. Preservado em Touring/references/scip-export.md com o que existe, o que nao existe e a alternativa real (touring query). Gate de pins: exit 0, zero fantasmas. Corpus 180 -> 176 skills."
+    }
+  ],
+  "relations": []
+}

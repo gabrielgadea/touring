@@ -1,0 +1,11 @@
+{
+  "phase": "W2",
+  "entities": [
+    {
+      "entity_id": "phase:W2",
+      "type": "phase",
+      "description": "d1 CODE-COMPLETE: (S-2.1) allowlist READONLY_HOOKS client-side no SDK com erro-que-ensina (8 hooks; server-side proxy segue como follow-up documentado \u2014 containment honesto); (S-2.2) 3 bindings novos VGP-verificados: memory_recall, tantivy_search, wiring_impact (cli-portfolio NAO existe como hook \u2014 evidencia negativa, fora); (S-2.3) touring run --sdk-stub imprime stub .pyi byte-estavel blueprint dsh py-types (Protocol + docstring no metodo + STATIC STUB warning + ordem lexicografica); (S-2.4) nudge code-mode-loop/scan ganha MAY com forma 1-linha do SDK (P23: ~53 tok) apontando --sdk-stub. Testes: run.rs 12/12 (3 novos: byte-identical/lists-every-binding/allowlist-covers), touring-cli 348/348, clippy 0"
+    }
+  ],
+  "relations": []
+}

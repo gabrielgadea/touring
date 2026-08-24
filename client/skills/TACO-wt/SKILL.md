@@ -29,6 +29,10 @@ economiza 10× em retrabalho.
 
 ---
 
+## Uma wave é reivindicada, não lida
+
+`forensic_runner.py` roda waves em `ThreadPoolExecutor` — paralelismo dentro de UMA sessão. Entre sessões não há exclusão nenhuma: dois "validate W12" concorrentes executam a MESMA wave sobre os mesmos arquivos. Antes de executar, tome a unidade: `touring decompose claim <task> --owner wt-<wave>` (UPDATE condicional com lease; `ready`/`status` só LEEM). Ref: `Touring/references/skill-operating-principles.md` (P5).
+
 ## Quick-start em 4 comandos
 
 ```bash
@@ -124,6 +128,8 @@ Full lessons in [references/lessons.md](references/lessons.md). One-line digest:
 ---
 
 ## Quality gates (every wave passes these before merge)
+
+Estes gates são as cláusulas locais; o veredito de "pronto" do plano inteiro é `loop_converged.py --task <id> --scope <path>`, exit 0 — a wave passar não é o plano convergir. Ref: `Touring/references/skill-operating-principles.md` (P2).
 
 | Gate | Tool | Pass criterion |
 |------|------|----------------|

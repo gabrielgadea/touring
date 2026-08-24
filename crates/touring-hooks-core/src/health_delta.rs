@@ -741,11 +741,17 @@ mod tests {
     use super::*;
     #[test]
     fn non_rust_paths_return_none_and_do_not_mutate_cache() {
-        let before = pending_len();
         assert_eq!(record_pre_health("x.py", "def f(): pass"), None);
         assert_eq!(record_pre_health("x.ts", "export const a = 1;"), None);
         assert_eq!(compute_health_delta("x.py", "def g(): pass"), None);
-        assert_eq!(pending_len(), before);
+        // A `pending_len()` before/after equality races against every parallel
+        // test touching the process-global cache (observed flaking 2026-08-23).
+        // The contract is about THESE paths — assert membership, not size.
+        assert!(
+            !cache().contains_key("x.py"),
+            "non-rust path must not enter the cache"
+        );
+        assert!(!cache().contains_key("x.ts"));
     }
     #[test]
     fn parse_failure_is_fail_open() {

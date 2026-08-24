@@ -60,7 +60,14 @@ rustflags = [
     # gcc only resolves this symbol if pyo3 is actually in the link graph, so
     # crates without pyo3 are unaffected. Baseline issue surfaced during W0
     # of harness-consolidation-master-plan-v3.
-    "-C", "link-arg=-lpython3.12",
+    #
+    # ⚠ NÃO-PORTÁVEL ENTRE DISTROS (2026-08-23, migração Pop!_OS → Omarchy/Arch):
+    # esta flag entra em TODO link do target, inclusive build scripts que não
+    # tocam pyo3 (crossbeam-epoch, zerocopy, thiserror, getrandom...). Se a
+    # versão não bater com a libpython instalada, o workspace INTEIRO falha em
+    # ~15s com `cannot find -lpython3.X`. Pop!_OS 24.04 = 3.12; Arch = 3.14.
+    # Conferir com: ls /usr/lib/libpython3*.so
+    "-C", "link-arg=-lpython3.14",
 ]
 
 # wasm32 uses rust-lld which doesn't understand -fuse-ld=gold

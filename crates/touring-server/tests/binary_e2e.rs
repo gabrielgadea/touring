@@ -8,6 +8,14 @@
 
 use std::process::Command;
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
 /// Helper: run touring binary with stdin and capture output.
 fn run_touring(args: &[&str], stdin_data: &str) -> (i32, String, String) {
     let binary = std::env::var("TOURING_BINARY").unwrap_or_else(|_| {
@@ -28,6 +36,8 @@ fn run_touring(args: &[&str], stdin_data: &str) -> (i32, String, String) {
     });
 
     let mut cmd = Command::new(&binary);
+
+    cmd.envs(private_daemon_env());
     cmd.args(args);
     cmd.stdin(std::process::Stdio::piped());
     cmd.stdout(std::process::Stdio::piped());

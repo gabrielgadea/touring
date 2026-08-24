@@ -220,6 +220,15 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
+    // F2 (hashtag library, 2026-08-11): re-harvest `#tags:` codetag anchors
+    // from the written content into snippet memories. The wrapper owns the
+    // skip decision — markerless content still syncs (to tombstone) when the
+    // file's last anchor was just removed (D1, cross-audit 2026-08-23); the
+    // sync is fail-open — a tagging hiccup never blocks a write.
+    if let Some(content) = input_content.as_deref() {
+        super::runtime::sync_codetag_anchors(&runtime.project_root, &rel_path, content);
+    }
+
     // Step 2: Re-index the file (symbols, imports, relations).
     // BLAKE3 early-exit: skip reindex_file if content matches stored hash.
     // Content is already in input_content — no disk read needed.
@@ -746,8 +755,7 @@ fn check_block_gate(issues: &[String], rel_path: &str) -> Option<HookResponse> {
 ///
 /// Checks the block gate first — if 4+ anti-patterns are detected, the write
 /// is blocked entirely. Otherwise returns Context feedback.
-fn build_response(all_issues: Vec<String>, rel_path: &str) -> HookResponse {
-    if all_issues.is_empty() {
+fn build_response(all_issues: Vec<String>, rel_path: &str) -> HookResponse {    if all_issues.is_empty() {
         return HookResponse::Allow;
     }
 

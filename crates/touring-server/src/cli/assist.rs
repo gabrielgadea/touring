@@ -68,7 +68,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         AssistCmd::Applicable { spec } => {
             if spec.is_empty() {
                 eprintln!("usage: touring assist applicable <file>:<line>:<col>");
-                return Err(anyhow::anyhow!("missing file:line:col argument"));
+                return Err(anyhow::anyhow!("missing file:line:col argument — example: touring assist applicable main.rs:10:5"));
             }
             run_applicable(&spec, json)
         }
@@ -76,7 +76,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             if kind.is_empty() || file.is_empty() || range.is_empty() {
                 eprintln!("usage: touring assist apply <kind> <file> <range>");
                 eprintln!("  range format: start..end (e.g. 10..25)");
-                return Err(anyhow::anyhow!("missing arguments"));
+                return Err(anyhow::anyhow!("missing arguments — provide <kind> <file> <range>; use `touring assist list-kinds` for available kinds"));
             }
             run_apply(&kind, &file, &range, json)
         }
@@ -161,7 +161,7 @@ fn run_apply(kind: &str, file_path: &str, range_spec: &str, json: bool) -> anyho
         .iter()
         .find(|(id, _)| *id == kind)
         .map(|(_, h)| *h)
-        .ok_or_else(|| anyhow::anyhow!("unknown assist kind: {kind}"))?;
+        .ok_or_else(|| anyhow::anyhow!("unknown assist kind: {kind} — run `touring assist list-kinds` to see available kinds"))?;
 
     let mut assists = Assists::new();
     handler(&mut assists, &ctx);
@@ -273,13 +273,13 @@ fn parse_cursor_spec(spec: &str) -> anyhow::Result<(String, usize, usize)> {
 
     let (line, col) = pos_part
         .split_once(':')
-        .ok_or_else(|| anyhow::anyhow!("cursor spec must be file:line:col, got: {spec}"))?;
+        .ok_or_else(|| anyhow::anyhow!("cursor spec must be file:line:col, got: {spec} — expected format: path/to/file.rs:10:5"))?;
     let line: usize = line
         .parse()
-        .map_err(|_| anyhow::anyhow!("invalid line: {line}"))?;
+        .map_err(|_| anyhow::anyhow!("invalid line: {line} — expected a positive integer"))?;
     let col: usize = col
         .parse()
-        .map_err(|_| anyhow::anyhow!("invalid col: {col}"))?;
+        .map_err(|_| anyhow::anyhow!("invalid col: {col} — expected a positive integer"))?;
     Ok((
         path_part.to_string(),
         line.saturating_sub(1),
@@ -290,14 +290,14 @@ fn parse_cursor_spec(spec: &str) -> anyhow::Result<(String, usize, usize)> {
 fn parse_range(spec: &str) -> anyhow::Result<(usize, usize)> {
     let spec = spec.trim();
     let Some((start_s, end_s)) = spec.split_once("..") else {
-        return Err(anyhow::anyhow!("range must be start..end, got: {spec}"));
+        return Err(anyhow::anyhow!("range must be start..end, got: {spec} — use format start..end (e.g., 10..25)"));
     };
     let start: usize = start_s
         .parse()
-        .map_err(|_| anyhow::anyhow!("invalid range start: {start_s}"))?;
+        .map_err(|_| anyhow::anyhow!("invalid range start '{start_s}' — expected numeric value; use format start..end (e.g., 10..25)"))?;
     let end: usize = end_s
         .parse()
-        .map_err(|_| anyhow::anyhow!("invalid range end: {end_s}"))?;
+        .map_err(|_| anyhow::anyhow!("invalid range end '{end_s}' — expected numeric value; use format start..end (e.g., 10..25)"))?;
     Ok((start, end))
 }
 
@@ -320,7 +320,7 @@ fn read_file_or_stdin(path: &str) -> anyhow::Result<String> {
         return Ok(std::io::read_to_string(std::io::stdin())?);
     }
     if !Path::new(path).exists() {
-        return Err(anyhow::anyhow!("file not found: {path}"));
+        return Err(anyhow::anyhow!("file not found: {path} — provide a valid path or use stdin with no arguments"));
     }
     Ok(std::fs::read_to_string(path)?)
 }

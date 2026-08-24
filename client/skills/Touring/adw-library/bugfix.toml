@@ -6,33 +6,81 @@
 [adw]
 name = "bugfix"
 description = "Expert bugfix: institutional recall feeds a workhorse fixer; gate verifies"
-entry = "recall"
+entry = "recall.memory"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Fix a reproducible bug with institutional memory feeding the fixer and a gate that verifies the result"
+when_to_use = [
+  "a defect you can describe and a command that proves it fixed",
+  "past lessons and known pitfalls for the area are worth pulling in first",
+]
+when_not_to_use = [
+  "a production incident where speed beats thoroughness — use hotfix, then bugfix for the real cause",
+  "building something that does not exist yet — use feature",
+]
+inputs = [
+  "symptom",
+  "target",
+  "verify_cmd",
+]
+produces = [
+  "a gate-verified fix",
+  "the recall and diagnosis that informed it",
+]
+tags = [
+  "#kind:flow",
+  "#domain:debugging",
+  "#process:fix",
+]
 
-# Memory-pack (agent expert, video 16:00): the runner compiles the domain's
-# lessons + pitfalls; the fix agent consumes it as {{nodes.recall.summary}}.
-[node.recall]
-type = "code"
-command = ["bash", "-c", "touring memory recall \"$1\" 2>/dev/null | head -c 1500; echo; touring gotcha match \"$2\" 2>/dev/null | head -c 500; true", "--", "{{vars.symptom}}", "{{vars.target}}"]
-timeout_ms = 30000
-idempotent = true
-on_pass = "diagnose"
-on_fail = "diagnose"
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# O primeiro fluxo de defeito. `hotfix` veio depois e escolheu outro compromisso.
+prior_art_verdict = "create_new"
 
-[node.diagnose]
-type = "code"
-command = ["bash", "-c", "touring investigate --brief \"$1\" 2>/dev/null | head -c 1800; true", "--", "{{vars.symptom}}"]
-timeout_ms = 120000
-idempotent = true
-on_pass = "fix"
+
+# Memory-pack (the ACO pheromone): the runner compiles the domain's lessons +
+# pitfalls, and the fix agent consumes them before touching anything.
+#
+# This node USED to be a copy: its command was byte-identical to
+# `recall-pack.memory`, differing only in which variable it bound. Measured
+# 2026-08-23 by `portfolio_graph.py reimplemented` — a flow reimplementing a
+# piece the kit already carries is the same defect as a duplicated statistic:
+# two implementations of one thing diverge the day only one is corrected.
+[[use]]
+module  = "recall-pack"
+as      = "recall"
+with    = { topic = "{{vars.symptom}}", area = "{{vars.target}}" }
+on_pass = "diag.investigate"
+on_fail = "diag.investigate"
+
+# Likewise `diagnose`, which copied `diagnose-pack.investigate`. Composing it
+# also GAINS the blast step the copy had dropped — a fix agent that never saw
+# the blast radius of what it is about to edit is guessing (REGRA #0: the
+# correction expands what the flow can do, it never shrinks it).
+[[use]]
+module  = "diagnose-pack"
+as      = "diag"
+with    = { symptom = "{{vars.symptom}}", target = "{{vars.target}}" }
+on_pass = "pre.pre_edit"
 on_fail = "fix"
 
 [node.fix]
 type = "agent"
+# Same craft as feature.implement: a fix is an edit, and an edit without blast
+# radius is a guess.
+skill = "Touring"
 driver = "claude"
 tier = "workhorse"
-prompt = "Fix this bug: {{vars.symptom}} (area: {{vars.target}}). Institutional memory: {{nodes.recall.summary}} — evidence map: {{nodes.diagnose.summary}}. Root-cause it; smallest correct fix; no scope creep."
+prompt = "Fix this bug: {{vars.symptom}} (area: {{vars.target}}). Institutional memory: {{nodes.recall.memory.summary}} — evidence map: {{nodes.diag.investigate.summary}} — blast radius: {{nodes.diag.blast.summary}}. Root-cause it; smallest correct fix; no scope creep. VERIFICATION VERDICT of the previous attempt (empty on the first pass — if it carries text, THAT is what rejected you; address it before anything else): {{nodes.verify.summary}} If the 50-dim quality gate rejected the previous attempt, its verdict is: {{nodes.q50.quality_gate.summary}} — fix what it names before anything else."
 allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+# Headless: without this the agent stops to ask a human who is not there,
+# and reports `pass` for having asked (chore-1784540624 burned four real
+# invocations and three minutes doing exactly that). `acceptEdits` accepts
+# file edits without prompting; it is not `bypassPermissions`.
+permission_mode = "acceptEdits"
 session = "resume_on_fail"
 timeout_ms = 900000
 on_pass = "verify"
@@ -43,5 +91,38 @@ type = "gate"
 command = ["bash", "-c", "{{vars.verify_cmd}}"]
 timeout_ms = 600000
 idempotent = true
-on_pass = "__end__"
+on_pass = "q50.quality_gate"
 on_fail = "fix"
+
+# Functional green is not the bar. The 50-dim harness scores the target on the
+# quality dimensions with per-dim evidence, and the flow only ends when BOTH
+# gates pass. Measured 2026-08-20: no library spec reached this harness by any
+# path, so every flow shipped on "the tests passed" alone.
+[[use]]
+module  = "gate-quality50"
+as      = "q50"
+with    = { target = "{{vars.target}}", floor = "0.80" }
+on_pass = "close.persist"
+on_fail = "fix"
+
+# The pheromone deposit. `touring learning reward` appeared in exactly two
+# places on 2026-08-20 — the orphan `phase-close` fragment and the loop's own
+# Python script — and in ZERO library specs. A flow completed and wrote nothing
+# back to the RL that routes the next one: the ACO loop consumed and never fed.
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:bugfix:{{vars.symptom}}", summary = "{{nodes.fix.summary}}", domain = "bugfix" }
+on_pass = "__end__"
+on_fail = "__end__"
+
+# The pre-edit master, on the one edge where it belongs: the step before an
+# agent writes. `touring guard` fuses blast + TDG + gotcha + memory into a
+# single GO / CAUTION / NO_GO. Measured 2026-08-20 it was reached by ZERO
+# files anywhere — the master built for exactly this moment, used by nothing.
+[[use]]
+module  = "gate-guard"
+as      = "pre"
+with    = { target = "{{vars.target}}" }
+on_pass = "fix"
+on_fail = "__fail__"

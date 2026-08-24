@@ -31,10 +31,21 @@ const CLAUDE_MD_HARD_LIMIT: usize = 400;
 const CLAUDE_MD_STRUCTURAL_CEILING: usize = CLAUDE_MD_HARD_LIMIT * 2;
 
 /// The critical auto-load `rules/*.md` files whose absence is a genuine
-/// constitutional breach — each backs a HARD REGRA: canonical workflows (#14),
-/// process hygiene (#19), and the code-execution gateway.
+/// constitutional breach — each backs a HARD REGRA: process hygiene (#19) and
+/// the code-execution gateway.
+///
+/// 2026-08-20: this list carried a fourth entry,
+/// `"touring-native tooling-canonical-workflows.md"` — prose fused to a
+/// filename, with a SPACE in the middle. No such file could ever exist, it
+/// backed a "REGRA #14" that is absent from CLAUDE.md, and no rule in
+/// `rules/` covers canonical workflows at all. So `attest-contract` returned
+/// `attested: false` permanently, for a breach that was an authoring slip.
+/// A gate that can never pass is one every caller learns to ignore, which is
+/// exactly what happened: nothing consumed this attestation.
+///
+/// Entries are filenames, never prose — `every_critical_rule_is_a_filename`
+/// enforces it, because the space is what made the slip invisible.
 const CRITICAL_RULES: &[&str] = &[
-    "touring-native tooling-canonical-workflows.md",
     "touring-process-hygiene.md",
     "code-execution-gateway.md",
 ];
@@ -233,6 +244,39 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+
+    /// Every critical-rule entry must be a FILENAME, never prose.
+    ///
+    /// The 2026-08-20 defect was `"touring-native tooling-canonical-workflows.md"`:
+    /// a sentence fragment fused to a filename. It reads plausibly, it compiles,
+    /// and it can never match a real file — so the attestation stayed `false`
+    /// forever and the gate became decorative. A space is the mechanical tell.
+    #[test]
+    fn every_critical_rule_is_a_filename() {
+        for rule in CRITICAL_RULES {
+            assert!(
+                !rule.contains(' '),
+                "critical rule {rule:?} contains a space — filenames do not;                  this is prose fused to a filename and can never match"
+            );
+            assert!(
+                rule.ends_with(".md"),
+                "critical rule {rule:?} must name a markdown file"
+            );
+            assert!(
+                !rule.contains('/'),
+                "critical rule {rule:?} must be a bare filename under rules/"
+            );
+        }
+    }
+
+    /// The list must not be empty — an attestation over nothing always passes.
+    #[test]
+    fn critical_rules_is_not_empty() {
+        assert!(
+            !CRITICAL_RULES.is_empty(),
+            "an empty critical-rule list makes RuleFilePresent vacuously true"
+        );
+    }
 
     /// Build a fully-attesting constitution fixture under `root`: a CLAUDE.md
     /// containing all required REGRA markers padded to `extra_lines` total lines,

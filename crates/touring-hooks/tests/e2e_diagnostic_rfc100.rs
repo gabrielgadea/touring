@@ -274,15 +274,23 @@ fn deep_match(x: i32) -> i32 {
 fn b310_path_wired_when_predictive_blast_injects_symbols() {
     let payload = r#"{"tool_name":"TaskCreate","tool_input":{"subject":"Refactor HookRuntime to use actor pattern with mpsc channels across pre_read pre_write pre_edit post_read post_write post_edit hooks","description":"Large refactor affecting multiple hook modules"}}"#;
 
-    // Daemon exclusivo deste teste: sem ele o probe disputava o daemon global
-    // com as outras suítes e devolvia stdout vazio sob carga.
-    let Some(daemon) = common::private_daemon::PrivateDaemon::start("rfc100-b310") else {
+    // Daemon exclusivo deste PROCESSO de teste (22/08/2026): era um daemon novo
+    // só para este teste, e um daemon frio paga a montagem do índice DENTRO da
+    // primeira chamada — `cli-pre-task-scout` (blast preditivo sobre o workspace
+    // real) estourava o budget de 15s do cliente e o teste morria em
+    // "EOF while parsing a value". O daemon compartilhado já foi aquecido pelos
+    // outros testes deste binário e tem a raiz do projeto pinada.
+    let Some(daemon) = common::private_daemon::shared() else {
         eprintln!("SKIP b310: touring-daemon não compilado");
         return;
     };
+    // `--timeout 60`: este teste mede se o B-310 é EMITIDO, não se cabe em 15s.
+    // O default do cliente é uma escolha de UX para a sessão interativa; um probe
+    // que afirma "o caminho não está ligado" porque o cliente desistiu antes é um
+    // falso negativo — a assimetria que a REGRA #21 manda não deixar passar.
     let Some((stdout, stderr, exit)) = run_with_stdin(
         "touring",
-        &["pre-task-scout"],
+        &["--timeout", "60", "pre-task-scout"],
         payload,
         Some(daemon.socket()),
     ) else {

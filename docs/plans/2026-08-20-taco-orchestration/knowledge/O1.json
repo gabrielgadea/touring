@@ -1,0 +1,11 @@
+{
+  "phase": "O1",
+  "entities": [
+    {
+      "entity_id": "phase:O1",
+      "type": "phase",
+      "description": "Primitivo skill no no agent: resolver (skill_binding/disabled_skills/skill_status/skill_tools/skill_prompt_prefix), lint com os 2 modos de falha silenciosa como ERRO (skill inexistente; skill off em skillOverrides) + warning para readonly=true com skill, injecao de Skill em allowedTools, prefacio determinstico no prompt, node_readonly=None para no ligado. Caminho nao-ligado byte-identico."
+    }
+  ],
+  "relations": []
+}

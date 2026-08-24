@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "attested_at": "2026-08-23T13:13:21-03:00",
+  "attested_by": "gabrielgadea",
+  "why": "clause_cargo passou a extrair o diagnostico concreto de cada falha do cargo, em vez de guardar so a ultima linha do stderr. Medido 23/08/2026 (rustc 1.97): para 'cargo test' os nomes dos testes que reprovaram vivem no STDOUT (bloco 'failures:') e o stderr so carrega 'error: test failed, to rerun pass --lib' \u2014 o alvo, nunca o teste; para check/clippy a ultima linha e a contagem ('due to N previous errors'), que nao leva ninguem a uma linha de codigo. Consequencia real: uma regressao em kazuba-rlm --lib chegou a este gate DUAS vezes sem nome. Mudanca deliberada, pedida pelo Gabriel. A RUBRICA NAO MUDOU: as mesmas 8 clausulas, mesmos nomes, mesma condicao de PASS/FAIL \u2014 so a string 'detail' de um FAIL ja decidido ficou diagnostica. Fail-open preservado (formato desconhecido degrada para o comportamento antigo; nenhuma excecao escapa). 12 testes novos em test_cargo_diagnosis.py, com fixtures verbatim de execucoes reais e 4 mutantes provados.",
+  "files": {
+    "loop_converged.py": "460d6e5b5a555ec80c4d63791662703df61257b9d8496632c9121415a19b7f7d",
+    "hooks/loop_outer_gate.py": "69a645eac4836c324c3cd83c45c2731cd9a92819d117830c474071b757320f4c",
+    "hooks/flow_manifests.json": "6e09c38e9beb2dd8bf45f175550d5441a756bafa42ce334d881b715c12b4890a"
+  },
+  "clauses": [
+    "judge_intact",
+    "dag_done",
+    "quality_gold",
+    "no_p0_fail",
+    "measured_whole_scope",
+    "orphans_base",
+    "cargo_green",
+    "cross_audit"
+  ],
+  "_note": "The judge of record. Rewriting this is a deliberate, dated act: it declares that the graders changed on purpose. See judge_attest.py."
+}

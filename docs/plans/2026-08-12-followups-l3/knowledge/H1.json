@@ -1,0 +1,11 @@
+{
+  "phase": "H1",
+  "entities": [
+    {
+      "entity_id": "phase:H1",
+      "type": "phase",
+      "description": "Unifica\u00e7\u00e3o RPC\u2192RlmMemory COMPLETA e DEPLOYADA: (1) MEMORY_ENTRIES_DDL can\u00f4nico single-source (key-only PK \u2014 REGRA #17, 4 DBs de produ\u00e7\u00e3o 29.190 rows J\u00c1 eram key-only: migra\u00e7\u00e3o de dados em produ\u00e7\u00e3o = zero, provado por probe); (2) migrate_composite_pk: rebuild transacional de tabelas RLM-legadas com dedupe determin\u00edstico (latest accessed_at vence) + convers\u00e3o epoch\u2192TEXT datetime; (3) RlmMemory::store_rich(RichMemoryEntry) com sem\u00e2ntica de conflito pinada: created_at first-write-wins, access_count incrementa, importance sticky COALESCE, outcome per-write NULL-honest, supersedes retira sem deletar, auto-tags + explicit_tags; (4) handler RPC cli_memory_store delega (parser extra\u00eddo p/ CC), SQL inline removido, CREATE_MEMORY_ENTRIES/apply_memory_tags mortos removidos; (5) 3 readers tipados i64\u2192cell_to_epoch (InvalidColumnType silenciado virava lista vazia em query_tags \u2014 E4); (6) maintain_tiers: 3 s\u00edtios de aritm\u00e9tica created_at com coer\u00e7\u00e3o typeof\u2192epoch (r7_rlm_maintain_tiers prova). Testes: parity G6 vs SQL legado, migra\u00e7\u00e3o composite-PK, conflito pinado, supersede \u2014 178/178 rl::memory + 24/24 e2e_r1_to_r20 + e2e cli_handlers verde (os 2 testes que falhavam por NOT NULL created_at agora passam \u2014 a falha era o dual schema ao vivo). E2E live p\u00f3s-deploy: store\u2192row can\u00f4nico TEXT\u2192re-store access_count=2\u2192recall 17 hits."
+    }
+  ],
+  "relations": []
+}

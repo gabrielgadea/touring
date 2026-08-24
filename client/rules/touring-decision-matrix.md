@@ -7,7 +7,11 @@
 
 ## Princípio operacional
 
-**Comando-greedy ≠ estratégia.** Touring tem 82 CLI commands + 99 MCP tools + 198 hooks
+**Comando-greedy ≠ estratégia.** Touring tem 138 CLI commands + 23 MCP tools no
+handshake (`tools/list`) + 40 eventos de hook declarados — medidos em 20/08/2026 pelo
+binário e pelo servidor vivos, não estimados. Cerca de 119 ferramentas MCP estão
+catalogadas e são **invocáveis por nome** via `tools/call` embora ausentes do
+`tools/list`; a descoberta pelo handshake enxerga menos do que o servidor atende.
 disponíveis. A diferença entre uma resolução de 10 segundos e 40 minutos de iteração é
 saber QUAIS comandos a tarefa exige — não quais comandos eu lembrei.
 
@@ -252,6 +256,8 @@ correspondente ANTES de qualquer outra ação:
 | Edit em arquivo .rs com >100 LOC | `touring ast rust-semantic` + `touring ast tdg` | C04+ |
 | 2+ Edits no mesmo file em uma sessão | `touring health-delta status <file>` | C12 |
 | Antes de declarar "task completa" | `touring wiring orphans -j` (REGRA #0) | sempre |
+| Criar snippet/script/artefato reutilizável | ancorar `// #tags: kind:… purpose:… domain:…` + `touring portfolio "<intento> #kind:…"` antes | F-library |
+| Buscar contexto por tipo/propósito/domínio | `touring memory query "#kind:… #lang:…"` / `touring memory moc <tópico>` | F-library |
 
 ---
 
@@ -275,7 +281,7 @@ correspondente ANTES de qualquer outra ação:
 | **file-metadata-first** | Vira C01-C04 MUST primeira linha |
 | **VP-Scout (7 cadeias)** | Cadeia 7 (wiring staleness) vira MUST do C03 |
 | **REGRA #0 (potencializar)** | Reflex Trigger "antes de declarar complete" → wiring orphans |
-| **REGRA #11 (git proibido)** | Mantém — esta matriz não envolve git |
+| **REGRA #11 v2 (git safety protocol)** | Git permitido sob ritual anti-perda (`rules/git-safety-protocol.md`); esta matriz não muda |
 | **TACO-subagent Phase 0** | Reusa `touring doctor` + `touring status` como gates |
 | **Constitutional Symbol Verification Table** | C03/C07 MUST inclui `touring index find` cited_symbols |
 

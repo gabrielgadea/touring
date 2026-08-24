@@ -4,7 +4,7 @@
 
 Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 
-**Count: 219**
+**Count: 234**
 
 - `ceg-observe`
 - `cli-ast-blast`
@@ -37,12 +37,16 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-cognitive-engines`
 - `cli-cognitive-metrics`
 - `cli-decompose-add`
+- `cli-decompose-claim`
 - `cli-decompose-create`
 - `cli-decompose-event`
 - `cli-decompose-finalize`
+- `cli-decompose-frontier`
 - `cli-decompose-get`
 - `cli-decompose-ready`
+- `cli-decompose-release`
 - `cli-decompose-status`
+- `cli-decompose-ticket`
 - `cli-decompose-update`
 - `cli-decompose-validate`
 - `cli-definitions-classify`
@@ -99,12 +103,22 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-learning-reward`
 - `cli-learning-status`
 - `cli-mcts-search`
+- `cli-memory-backfill-tags`
+- `cli-memory-communities`
 - `cli-memory-credit`
+- `cli-memory-link`
+- `cli-memory-links`
 - `cli-memory-list`
+- `cli-memory-moc`
+- `cli-memory-query`
 - `cli-memory-recall`
 - `cli-memory-reindex`
 - `cli-memory-stats`
 - `cli-memory-store`
+- `cli-memory-sync-tags`
+- `cli-memory-tag-add`
+- `cli-memory-tags`
+- `cli-memory-unlink`
 - `cli-metadata-backfill`
 - `cli-mpatch-preview`
 - `cli-mutation-test`
@@ -171,6 +185,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-wiring-modules`
 - `cli-wiring-orphans`
 - `cli-wiring-purpose`
+- `cli-wiring-scip-ingest`
 - `cli-wiring-status`
 - `cli-wiring-suggest`
 - `cli-workflow-compare`

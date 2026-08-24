@@ -10,6 +10,37 @@ name = "scout-perpetuo"
 description = "Perpetual scout: yield-adaptive explore cycles → tickets → act-vs-wait gate"
 entry = "cycle_loop"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Keep scouting one topic on a yield-adaptive cadence, turning findings into tickets the factory can route"
+when_to_use = [
+  "you want a standing demand generator instead of exploration as a one-off phase",
+  "the topic keeps producing findings and nobody is watching it continuously",
+]
+when_not_to_use = [
+  "a single question you want answered now — use explore-plan",
+  "executing the tickets it files: it generates demand, it does not satisfy it",
+]
+inputs = [
+  "topic",
+]
+produces = [
+  "tickets in the DAG",
+  "cadence state for the next cycle",
+]
+tags = [
+  "#kind:flow",
+  "#domain:exploration",
+  "#process:scout",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Exploração como processo permanente com cadência adaptativa ao rendimento —
+# `explore-plan` é episódico e termina.
+prior_art_verdict = "create_new"
+
 
 # The runner counts NEW_FINDINGS printed by each cycle (Law L2); two dry cycles
 # in a row end this batch — the STATE keeps the backoff for the next batch.

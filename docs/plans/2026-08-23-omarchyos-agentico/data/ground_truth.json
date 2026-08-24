@@ -1,0 +1,841 @@
+{
+  "status": "OK",
+  "script": "ground_truth_collector",
+  "timestamp": "2026-08-23T15:58:41+00:00",
+  "intent": "OmarchyOS Agêntico: instalar Omarchy 4.0 Quattro no nvme KP102L1HDJDW, migrar ~/.claude (skills/rules/agents/hooks), update-touring, plugin skills-deck, routines.toml systemd timers, ADW fanout via herdr, search-connectors, command centre; scripts client/omarchy validate_p0..p8, routines_gen.py, propagate-release.sh, sync-client-skills.py, loop_converged.py",
+  "duration_ms": 17244,
+  "daemon_degraded": false,
+  "extracted": {
+    "symbols": [
+      "loop_converged",
+      "routines_gen",
+      "validate_p0"
+    ],
+    "paths": [
+      "loop_converged.py",
+      "routines.toml",
+      "routines_gen.py",
+      "skills.py"
+    ]
+  },
+  "summary": {
+    "verified_symbols": 0,
+    "unverified_symbols": 3,
+    "gotchas_found": 0,
+    "lessons_applied": 0,
+    "orphan_count": 0,
+    "paths_inspected": 4
+  },
+  "doctor": {
+    "components": [
+      {
+        "name": "binary_version",
+        "status": "ok",
+        "detail": "touring 30.4.13"
+      },
+      {
+        "name": "daemon_socket",
+        "status": "ok",
+        "detail": "/tmp/touring-daemon-1000.sock"
+      },
+      {
+        "name": "daemon_health",
+        "status": "ok",
+        "detail": "status=healthy, projects=1"
+      },
+      {
+        "name": "circuit_breaker",
+        "status": "ok",
+        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{},\"by_project\":{},\"by_session\":{}}"
+      },
+      {
+        "name": "project_db",
+        "status": "ok",
+        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (187482112 bytes)"
+      },
+      {
+        "name": "project_actor",
+        "status": "ok",
+        "detail": "responsive (77 ms)"
+      },
+      {
+        "name": "wiring_diagnostic",
+        "status": "ok",
+        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=77321 producers=11905 consumers=65416 pub=11096 kind_unknown=0 non_wireable=0 unread=0 abs_paths=0"
+      }
+    ]
+  },
+  "status_snapshot": {
+    "composite_health_score": 0.6634,
+    "daemon_health": {
+      "error": "Daemon returned success=false: handler `cli-flywheel-status` exceeded its 15s budget and this client gave up — the actor may still be finishing the work, so check the result before re-running (a large project can legitimately exceed the budget for `index rebuild`)"
+    },
+    "gate_metrics": {
+      "activity_instructions_loaded_count": 0,
+      "activity_post_edit_count": 0,
+      "activity_post_write_count": 0,
+      "activity_pre_compact_count": 0,
+      "activity_pre_edit_count": 0,
+      "actor_budget_timeout_count": 7,
+      "actor_queue_wait": {
+        "count": 187,
+        "max_us": 16236543,
+        "p50_us": 27,
+        "p90_us": 1875967,
+        "p999_us": 16236543,
+        "p99_us": 16195583
+      },
+      "actor_send_timeout_count": 0,
+      "adoption_antipattern_count": 0,
+      "adoption_touring_count": 7,
+      "ann_search_latency": {
+        "count": 9,
+        "max_us": 25690111,
+        "p50_us": 11321343,
+        "p90_us": 25690111,
+        "p999_us": 25690111,
+        "p99_us": 25690111
+      },
+      "antipattern_converted_count": 0,
+      "blast_inject_count": 0,
+      "blast_mutation_count": 0,
+      "blast_timeout_count": 0,
+      "cargo_test_paused_count": 0,
+      "ceg_blocked_count": 0,
+      "ceg_captured_count": 19,
+      "ceg_fast_path_count": 19,
+      "ceg_sandboxed_count": 0,
+      "compression_bytes_in_total": 0,
+      "compression_bytes_out_total": 0,
+      "compression_profile_applied_count": 0,
+      "core_pinning_e_count": 0,
+      "core_pinning_p_count": 0,
+      "ctx_batch_execute_count": 0,
+      "ctx_batch_item_count": 0,
+      "ctx_budget_alert_emitted_count": 0,
+      "ctx_budget_warning_emitted_count": 0,
+      "ctx_discover_opportunities_found": 0,
+      "ctx_discover_session_count": 0,
+      "ctx_doctor_call_count": 0,
+      "ctx_execute_file_count": 0,
+      "ctx_explain_count": 0,
+      "ctx_gain_graph_count": 0,
+      "ctx_purge_count": 0,
+      "ctx_replay_count": 0,
+      "ctx_session_adoption_query_count": 0,
+      "ctx_smart_count": 0,
+      "ctx_upgrade_count": 0,
+      "diagnostic_b302_emitted_count": 0,
+      "diagnostic_q220_nonidempotent_emitted_count": 0,
+      "diagnostic_tdg_emitted_count": 0,
+      "diagnostic_w115_skipped_region_written_count": 0,
+      "diagnostic_wiring_finding_emitted_count": 2374,
+      "enrichment_context_bytes_total": 7539,
+      "enrichment_emit_count": 10,
+      "enrichment_mean_bytes_per_emit": 753.9,
+      "gate_metrics_daily_flush_count": 0,
+      "health_delta_compute_count": 0,
+      "health_delta_improvement_count": 0,
+      "health_delta_outstanding": 0,
+      "health_delta_record_count": 0,
+      "health_delta_recovery_count": 0,
+      "health_delta_regression_count": 0,
+      "health_delta_streak_alert_count": 0,
+      "hook_dispatch_latency": {
+        "count": 186,
+        "max_us": 26771455,
+        "p50_us": 298,
+        "p90_us": 231807,
+        "p999_us": 26771455,
+        "p99_us": 25919487
+      },
+      "jdm_class_a_count": 0,
+      "jdm_class_b_count": 0,
+      "jdm_class_c_count": 0,
+      "jdm_class_d_count": 0,
+      "linucb_route_generator_count": 0,
+      "linucb_route_hint_count": 0,
+      "linucb_route_manual_count": 0,
+      "mcts_shadow_deadlock_detected_count": 0,
+      "mcts_shadow_run_count": 0,
+      "mcts_shadow_timeout_count": 0,
+      "measured_tokens_in_total": 0,
+      "measured_tokens_out_total": 0,
+      "memory_pressure_green_count": 0,
+      "memory_pressure_red_count": 0,
+      "memory_pressure_total_tick_count": 0,
+      "memory_pressure_yellow_count": 0,
+      "memory_rss_mb": 994.54296875,
+      "memory_virt_mb": 4134190.4765625,
+      "metadata_backpressure_dropped": 0,
+      "metadata_cache_hit": 0,
+      "phrase_query_match_count": 1,
+      "pillar_induction_emitted_count": 0,
+      "pillar_induction_followed_count": 0,
+      "post_tool_l4_mandatory": 0,
+      "pre_edit_fast_path": 40,
+      "pre_edit_fast_ratio": 0.8,
+      "pre_edit_full": 10,
+      "pre_grep_enrichment_count": 0,
+      "pre_grep_zero_results_count": 0,
+      "pre_write_fast_path": 40,
+      "pre_write_fast_ratio": 0.8,
+      "pre_write_full": 10,
+      "prefetch_enqueued_count": 0,
+      "prefetch_warmed_count": 0,
+      "query_cache_hit_count": 6,
+      "query_cache_hit_ratio": 0.2727272727272727,
+      "query_cache_invalidate_count": 0,
+      "query_cache_miss_count": 16,
+      "read_aggressive_chunked_count": 0,
+      "read_aggressive_passthrough_count": 0,
+      "reindex_failure_count": 0,
+      "rkyv_dispatch_bytes": 10920,
+      "rkyv_dispatch_count": 64,
+      "rkyv_dispatch_latency": {
+        "count": 63,
+        "max_us": 15007743,
+        "p50_us": 77567,
+        "p90_us": 15007743,
+        "p999_us": 15007743,
+        "p99_us": 15007743
+      },
+      "rkyv_mean_bytes": 170.625,
+      "rkyv_parse_error_count": 0,
+      "rkyv_response_count": 63,
+      "routed_bytes_in_total": 0,
+      "routed_bytes_out_total": 0,
+      "sandbox_tee_persisted_count": 0,
+      "sandbox_timeout_fallback_count": 0,
+      "savings_event_count": 0,
+      "suggestion_uptake_emitted_count": 10,
+      "suggestion_uptake_followed_count": 3,
+      "swap_thrashing_detected_count": 0,
+      "tantivy_commit_count": 0,
+      "tantivy_query_latency": {
+        "count": 0,
+        "max_us": 0,
+        "p50_us": 0,
+        "p90_us": 0,
+        "p999_us": 0,
+        "p99_us": 0
+      },
+      "tantivy_query_latency_us": 0,
+      "tantivy_stream_backpressure_drop_count": 0,
+      "tantivy_stream_enqueued_count": 0,
+      "tantivy_stream_flush_count": 0,
+      "tantivy_stream_flush_docs_count": 0,
+      "tantivy_stream_index_unavailable_drop_count": 0,
+      "tantivy_trigram_query_count": 0,
+      "tantivy_upsert_count": 0,
+      "task_sync_create_count": 0,
+      "task_sync_deduped_count": 0,
+      "task_sync_update_propagated_count": 0,
+      "token_measured_event_count": 0,
+      "tokio_injection_queue_depth": 0,
+      "tokio_num_blocking_threads": 0,
+      "tokio_num_idle_threads": 0,
+      "tokio_num_workers": 0,
+      "tool_output_routed_count": 0,
+      "tool_outputs_cleanup_deleted_count": 0,
+      "tool_outputs_ttl_skip_count": 0,
+      "total_invocations": 100,
+      "touring_init_invocation_count": 0,
+      "wave3_t201_count": 0,
+      "wave3_t202_count": 0,
+      "wave3_t203_count": 0,
+      "wave3_t204_count": 0,
+      "wave3_t205_count": 0,
+      "wave3_t206_count": 0,
+      "wave3_t207_count": 0,
+      "wave3_t208_count": 0,
+      "wave3_t209_count": 0,
+      "wave3_t210_count": 0,
+      "wave3_t211_count": 0,
+      "wave3_t212_count": 0,
+      "wave3_t213_count": 0,
+      "wave3_t214_count": 0,
+      "wave3_t215_count": 0,
+      "wave3_t301_count": 0,
+      "wave3_t302_count": 0,
+      "wave3_t303_count": 0,
+      "wave3_t304_count": 0,
+      "wave3_t305_count": 0,
+      "wave3_t306_count": 0,
+      "wave3_t307_count": 0,
+      "wave3_t308_count": 0,
+      "wave3_t309_count": 0,
+      "wave3_t310_count": 0,
+      "workflow_advice_emitted_count": 10,
+      "workflow_antipattern_detected_count": 0
+    },
+    "health_delta": {
+      "alert_threshold": 3,
+      "compute_count": 0,
+      "improvement_count": 0,
+      "outstanding": 0,
+      "record_count": 0,
+      "recovery_count": 0,
+      "regression_count": 0,
+      "streak_alert_count": 0
+    },
+    "incremental": {
+      "backing_cache": "HookResultCache (moka, 5-min TTL)",
+      "cache_hit_rate": 0.0,
+      "file_count": 4667,
+      "note": "cache_hit_rate measures HookResultCache (populated by pre_read/post_edit/etc), not parser/incremental cache. Direct CLI calls bypass it; hit_rate stays 0.0 in fresh sessions until hooks fire.",
+      "symbol_count": 282474,
+      "total_accesses": 0
+    },
+    "index": {
+      "file_count": 4667,
+      "initialized": true,
+      "symbol_count": 282474
+    },
+    "learning": {
+      "agentic_rl_state": {
+        "active": true,
+        "learning_phase_score": 0.993737096293356,
+        "update_count": 4
+      },
+      "arm_count": 8,
+      "bandit_type": "linucb",
+      "ema_reward": 0.8573414476598011,
+      "last_td_error": 0.11772490873405415,
+      "linucb_loaded": true,
+      "mean_td_error": 0.9506153846153846,
+      "update_count": 52
+    },
+    "quality_signal": {
+      "bottleneck": "acyclicity",
+      "raw": {
+        "complexity_gini": 0.4841084203187297,
+        "cycle_count": 10,
+        "max_depth": 10,
+        "modularity_q": 0.16747009484365985,
+        "redundancy_ratio": 0.0,
+        "total_edges": 2396,
+        "total_functions": 14101,
+        "total_nodes": 1349
+      },
+      "root": "/home/gabrielgadea/projects/touring",
+      "root_causes": {
+        "acyclicity": 0.09090909090909091,
+        "depth": 0.4444444444444444,
+        "equality": 0.5158915796812703,
+        "modularity": 0.44498006322910655,
+        "redundancy": 1.0
+      },
+      "signal_0_10000": 3922,
+      "signal_normalized": 0.39216132197124454
+    },
+    "resource_monitor": "",
+    "sessions": {
+      "count": 20,
+      "sessions": [
+        {
+          "created_at": "2026-05-07T03:03:17.996170012+00:00",
+          "objective": "",
+          "session_id": "wave24-test",
+          "task_type": "task",
+          "updated_at": "2026-08-22T02:52:12.454132007+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:11:27.874896257+00:00",
+          "objective": "",
+          "session_id": "7",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:57:03.205762214+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:11:14.236313802+00:00",
+          "objective": "",
+          "session_id": "6",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:36:51.959756999+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:54.946235859+00:00",
+          "objective": "",
+          "session_id": "5",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:15:13.009183997+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:40.455318494+00:00",
+          "objective": "",
+          "session_id": "4",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:11:58.042741831+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:07.620175666+00:00",
+          "objective": "",
+          "session_id": "2",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:11:01.523023796+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:26.254762708+00:00",
+          "objective": "",
+          "session_id": "3",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:09:06.147963157+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:09:53.594473086+00:00",
+          "objective": "",
+          "session_id": "1",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:05:53.093816901+00:00"
+        },
+        {
+          "created_at": "2026-07-01T02:51:12.760940430+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-6712d46d-ad63-476e-9",
+          "task_type": "generator",
+          "updated_at": "2026-07-01T02:51:13.011892254+00:00"
+        },
+        {
+          "created_at": "2026-06-27T17:20:52.247591757+00:00",
+          "objective": "objective zx9",
+          "session_id": "purpose-test-sess-zx9",
+          "task_type": "feature",
+          "updated_at": "2026-06-27T17:20:52.247591757+00:00"
+        },
+        {
+          "created_at": "2026-06-27T16:34:59.403659258+00:00",
+          "objective": "",
+          "session_id": "default",
+          "task_type": "general",
+          "updated_at": "2026-06-27T16:34:59.403659258+00:00"
+        },
+        {
+          "created_at": "2026-06-21T00:51:20.603382698+00:00",
+          "objective": "Rust Module",
+          "session_id": "gen-24f88fad-eedb-45c6-8",
+          "task_type": "generator",
+          "updated_at": "2026-06-21T00:51:20.704425630+00:00"
+        },
+        {
+          "created_at": "2026-06-13T15:28:48.302941228+00:00",
+          "objective": "Rust Module",
+          "session_id": "gen-3fc4e322-1141-452e-b",
+          "task_type": "generator",
+          "updated_at": "2026-06-13T15:28:48.414005121+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:02.904179368+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-3b5c4696-6918-469b-9",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:02.991890344+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:02.360173010+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-e137d620-44d8-4230-8",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:02.444796208+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:01.805899779+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-5d4d229c-dc11-4de0-b",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:01.893154147+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:01.253100624+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-11febd98-d24f-4ab6-b",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:01.340938433+00:00"
+        },
+        {
+          "created_at": "2026-06-04T04:04:08.328713705+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-da4bba7c-4043-43bc-8",
+          "task_type": "generator",
+          "updated_at": "2026-06-04T04:04:45.466303980+00:00"
+        },
+        {
+          "created_at": "2026-06-03T17:09:13.770561667+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-d07b6438-fa03-419a-9",
+          "task_type": "generator",
+          "updated_at": "2026-06-03T17:09:13.865996124+00:00"
+        },
+        {
+          "created_at": "2026-06-01T22:59:09.915025609+00:00",
+          "objective": "ES1 P2 z3 0.20 migration — close P1 stand-down with real native backend -j",
+          "session_id": "engineer-1780354749",
+          "task_type": "implementation",
+          "updated_at": "2026-06-01T22:59:09.915025609+00:00"
+        }
+      ]
+    },
+    "wiring": {
+      "hypergraph_cycles": {
+        "count": 1701,
+        "detail": {
+          "_elided_array_len": 898
+        }
+      },
+      "knowledge_activity": {
+        "access_count": 2122,
+        "bash_count": 2061,
+        "coedit_pairs": 3177,
+        "edit_count": 1079,
+        "gotcha_count": 13,
+        "relation_count": 11117,
+        "task_metrics_count": 235
+      },
+      "module_count": 1438,
+      "multi_import_hyperedges": {
+        "count": 0
+      },
+      "orphan_count": 2374,
+      "total_consumers": 6034,
+      "total_pub_symbols": 8461
+    }
+  },
+  "e2e": {
+    "version": "30.4.13",
+    "target": "/home/gabrielgadea/projects/touring",
+    "depth": "standard",
+    "timestamp": "1787500706",
+    "overall_score": 0.8542954916451152,
+    "overall_status": "pass",
+    "total_duration_ms": 1887,
+    "phases": [
+      {
+        "phase": "index",
+        "status": "pass",
+        "score": 1.0,
+        "weight": 2.0,
+        "duration_ms": 218,
+        "metrics": {
+          "coverage_pct": "100.0",
+          "disk_files": 3538,
+          "indexed_files": 4667,
+          "knowledge_files": 4436,
+          "relation_count": 11117,
+          "symbol_count": 282474,
+          "symbols_per_file": 60.52581958431541,
+          "tantivy_commits": 0,
+          "tantivy_docs": 84911,
+          "tantivy_pending": 0,
+          "tantivy_size_bytes": 20480,
+          "tantivy_upserts": 0
+        },
+        "issues": [],
+        "tests_run": 5,
+        "tests_passed": 5
+      },
+      {
+        "phase": "wiring",
+        "status": "warn",
+        "score": 0.6627011409744467,
+        "weight": 2.0,
+        "duration_ms": 1028,
+        "metrics": {
+          "avg_integration_score": 0.756615360496272,
+          "broken_chains": 0,
+          "churn_pattern_count": 0,
+          "consumer_coverage_pct": "63.9",
+          "functional_chains": 8,
+          "modules_below_threshold": 42,
+          "orphan_count": 4357,
+          "orphan_rate_pct": "36.1",
+          "total_consumers": 65416,
+          "total_pub_symbols": 12079,
+          "wiring_score": 0.6627011409744467
+        },
+        "issues": [
+          "High orphan rate: 4357/12079 (36.1%)"
+        ],
+        "tests_run": 4,
+        "tests_passed": 3
+      },
+      {
+        "phase": "knowledge",
+        "status": "pass",
+        "score": 0.8999999999999999,
+        "weight": 1.0,
+        "duration_ms": 10,
+        "metrics": {
+          "access_count": 2122,
+          "active_gotchas": 0,
+          "avg_line_count": 934.3775924256087,
+          "avg_symbol_density": 0.08090619337165995,
+          "bash_outcome_count": 2061,
+          "coedit_pairs": 3177,
+          "edit_history_count": 1079,
+          "file_knowledge_count": 4436,
+          "gotcha_hit_rate_pct": "2952861.5",
+          "gotcha_prevented_errors": 0,
+          "gotcha_total": 13,
+          "hot_files": 6,
+          "import_graph_health": 1.0,
+          "knowledge_activity": {
+            "access_count": 2122,
+            "bash_count": 2061,
+            "coedit_pairs": 3177,
+            "edit_count": 1079,
+            "gotcha_count": 13,
+            "relation_count": 11117,
+            "task_metrics_count": 235
+          },
+          "knowledge_score": 0.9997294860234445,
+          "language_distribution": {
+            "css": 7,
+            "html": 3,
+            "javascript": 1086,
+            "json": 231,
+            "markdown": 632,
+            "output": 25,
+            "python": 212,
+            "rust": 2070,
+            "scm": 1,
+            "shell": 38,
+            "toml": 98,
+            "txt": 4,
+            "unknown": 1,
+            "yaml": 28
+          },
+          "languages": 14,
+          "memory_entries": 7932
+        },
+        "issues": [
+          "6 hot file(s) edited 3+ times in 7d"
+        ],
+        "tests_run": 7,
+        "tests_passed": 6
+      },
+      {
+        "phase": "ast",
+        "status": "warn",
+        "score": 0.7602,
+        "weight": 2.0,
+        "duration_ms": 454,
+        "metrics": {
+          "blast_radius_sample": 1,
+          "files_parsed": 30,
+          "files_sampled": 30,
+          "high_complexity_files": 6,
+          "languages": {
+            "json": 4,
+            "markdown": 15,
+            "python": 11
+          },
+          "parse_rate_pct": "100.0",
+          "total_symbols": 602
+        },
+        "issues": [
+          "client/skills/taco-planning/scripts/ground_truth_collector.py: max CC = 24",
+          "client/skills/taco-planning/scripts/plan_scaffolder.py: max CC = 21",
+          "client/skills/taco-planning/scripts/plan_validator.py: max CC = 16"
+        ],
+        "tests_run": 31,
+        "tests_passed": 31
+      },
+      {
+        "phase": "quality",
+        "status": "pass",
+        "score": 1.0,
+        "weight": 1.5,
+        "duration_ms": 171,
+        "metrics": {
+          "antipattern_rate_pct": "0.0",
+          "avg_error_coverage": "0.050",
+          "avg_quality_score": "0.923",
+          "files_analyzed": 30,
+          "files_with_antipatterns": 0,
+          "max_complexity": 24,
+          "top_offenders": [],
+          "total_antipatterns": 0,
+          "total_unwraps": 0
+        },
+        "issues": [],
+        "tests_run": 30,
+        "tests_passed": 30
+      },
+      {
+        "phase": "learning",
+        "status": "pass",
+        "score": 0.8857142857142857,
+        "weight": 0.5,
+        "duration_ms": 3,
+        "metrics": {
+          "bandit_active": false,
+          "blast_connections": 0,
+          "cognitive_enriched": true,
+          "crdt_active": true,
+          "ema_reward": 0.8573414476598011,
+          "linucb_arms": 8,
+          "linucb_health_injected": true,
+          "predictor_active": true,
+          "update_count": 52
+        },
+        "issues": [],
+        "tests_run": 7,
+        "tests_passed": 6
+      }
+    ],
+    "summary": {
+      "total_phases": 6,
+      "phases_passed": 4,
+      "phases_warned": 2,
+      "phases_failed": 0,
+      "total_tests_run": 84,
+      "total_tests_passed": 81,
+      "total_issues": 5,
+      "top_issues": [
+        "[WIRING] High orphan rate: 4357/12079 (36.1%)",
+        "[KNOWLEDGE] 6 hot file(s) edited 3+ times in 7d",
+        "[AST] client/skills/taco-planning/scripts/ground_truth_collector.py: max CC = 24",
+        "[AST] client/skills/taco-planning/scripts/plan_scaffolder.py: max CC = 21",
+        "[AST] client/skills/taco-planning/scripts/plan_validator.py: max CC = 16"
+      ]
+    },
+    "cache_stats": {
+      "hook_result_cache": {
+        "entry_count": 0,
+        "hit_rate": 0.0,
+        "hits": 0,
+        "misses": 73
+      }
+    }
+  },
+  "wiring_audit": {
+    "cycles": {
+      "count": 7,
+      "detail": {
+        "cycle_count": 7,
+        "cycles": {
+          "_elided_array_len": 7
+        }
+      }
+    },
+    "low_score_modules": {
+      "_elided_array_len": 976
+    },
+    "orphans": {
+      "dead_patterns": [],
+      "diagnostic_count": 2374,
+      "diagnostics": {
+        "_elided_array_len": 2374
+      },
+      "orphan_count": 2374,
+      "orphans": {
+        "_elided_array_len": 2374
+      },
+      "resolution": {
+        "heuristic_edges": 63539,
+        "name_only_candidates": 8068,
+        "origin_breakdown": [
+          {
+            "origin": "ast_declared",
+            "rows": 11905
+          },
+          {
+            "origin": "ast_read",
+            "rows": 406
+          },
+          {
+            "origin": "ast_resolved",
+            "rows": 1382
+          },
+          {
+            "origin": "scip_resolved",
+            "rows": 89
+          },
+          {
+            "origin": "ast_inferred",
+            "rows": 63539
+          }
+        ],
+        "top_unresolved_modules_debt_only": {
+          "_elided_array_len": 10
+        },
+        "unresolved_by_class": [
+          {
+            "call_sites": 5308,
+            "class": "external"
+          },
+          {
+            "call_sites": 2391,
+            "class": "scope_keyword"
+          },
+          {
+            "call_sites": 355,
+            "class": "workspace_unresolved"
+          },
+          {
+            "call_sites": 14,
+            "class": "ambiguous_alias"
+          }
+        ],
+        "unresolved_samples": {
+          "_elided_array_len": 5
+        }
+      }
+    },
+    "rfc100_diagnostics": {
+      "count": 2374,
+      "findings": {
+        "_elided_array_len": 2374
+      }
+    }
+  },
+  "wiring_orphans": [],
+  "evolution_drift": {},
+  "memory_lessons": [],
+  "gotcha_per_file": {},
+  "vgp_verifications": [
+    {
+      "name": "loop_converged",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "validate_p0",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "routines_gen",
+      "verified": false,
+      "suggestion": ""
+    }
+  ],
+  "ast_overviews": {
+    "skills.py": {},
+    "routines_gen.py": {},
+    "routines.toml": {},
+    "loop_converged.py": {}
+  },
+  "ast_blasts": {
+    "skills.py": {
+      "blast_radius": 0,
+      "consumers": [],
+      "file_path": "skills.py"
+    },
+    "routines_gen.py": {
+      "blast_radius": 0,
+      "consumers": [],
+      "file_path": "routines_gen.py"
+    },
+    "routines.toml": {
+      "blast_radius": 0,
+      "consumers": [],
+      "file_path": "routines.toml"
+    },
+    "loop_converged.py": {
+      "blast_radius": 0,
+      "consumers": [],
+      "file_path": "loop_converged.py"
+    }
+  }
+}

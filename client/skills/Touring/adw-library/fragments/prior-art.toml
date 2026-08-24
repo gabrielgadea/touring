@@ -1,0 +1,14 @@
+# Fragment `prior-art` — portfolio by PURPOSE before building anything (REGRA #0).
+# Evidence, never a constraint: the consumer must still reach an explicit verdict.
+[fragment]
+description = "Prior art by purpose from the capability portfolio, with its gaps"
+inputs = ["intent"]
+entry = "portfolio"
+
+[node.portfolio]
+type = "code"
+command = ["bash", "-c", "touring portfolio \"$1\" --top 5 2>/dev/null | head -c 2500; true", "--", "{{inputs.intent}}"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit__"

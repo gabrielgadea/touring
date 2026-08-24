@@ -16,6 +16,14 @@
 use std::process::Command;
 use touring_server::tools::generator_tools::build_consumer_generator_plans;
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
 /// Helper: run the `touring` binary with given args and capture output.
 /// Mirrors the pattern in `binary_e2e.rs`.
 fn run_touring(args: &[&str], stdin_data: &str) -> (i32, String, String) {
@@ -38,6 +46,8 @@ fn run_touring(args: &[&str], stdin_data: &str) -> (i32, String, String) {
     });
 
     let mut cmd = Command::new(&binary);
+
+    cmd.envs(private_daemon_env());
     cmd.args(args);
     cmd.stdin(std::process::Stdio::piped());
     cmd.stdout(std::process::Stdio::piped());

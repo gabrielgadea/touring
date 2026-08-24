@@ -1,0 +1,11 @@
+{
+  "phase": "W1.S7",
+  "entities": [
+    {
+      "entity_id": "phase:W1.S7",
+      "type": "phase",
+      "description": "W1.S7: guarda semantica provada por comando novo. Os 5 arquivos arquivados em docs/plans/2026-08-20-work-outer/archive/2026-08-20-doc-rewriting/W1-orig/ batem SHA256 com os 5 originais capturados em W1-before.json (mesma proveniencia). Documentos preservados: README, CLAUDE, ARCHITECTURE, ARCHITECTURE.v29.5.0, ARCHITECTURE_PLAN (todos 12 caracteres iniciais do hash conferem com baseline). Se a W1 tivesse degradado por alteracao acidental do archive, esta guarda reprovariam - mas passaram. A preservacao esta provada por comparacao, nao por declaracao."
+    }
+  ],
+  "relations": []
+}

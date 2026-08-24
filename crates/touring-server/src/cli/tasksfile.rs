@@ -82,7 +82,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         } => {
             #[allow(clippy::needless_borrow)]
             let yaml_content = std::fs::read_to_string(expand_path(&file))
-                .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", file, e))?;
+                .map_err(|e| anyhow::anyhow!("cannot read tasksfile {} ({}); verify file exists and check YAML syntax", file, e))?;
             let task_id_val = match task_id {
                 Some(id) => serde_json::json!(id),
                 None => serde_json::Value::Null,
@@ -117,7 +117,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         TasksfileCmd::Validate { file } => {
             #[allow(clippy::needless_borrow)]
             let yaml_content = std::fs::read_to_string(expand_path(&file))
-                .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", file, e))?;
+                .map_err(|e| anyhow::anyhow!("cannot read tasksfile {} ({}); verify file exists and check YAML syntax", file, e))?;
             let payload = serde_json::json!({
                 "hook": "cli-tasksfile-validate",
                 "yaml": yaml_content,

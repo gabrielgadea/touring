@@ -145,19 +145,64 @@ def _slug(scope):
 
 
 def plan_id_from_bundle(bundle: Path):
+    """Resolve the bundle's plan_id: index.md frontmatter, else the dir name.
+
+    The directory-name fallback matters because the deterministic OUTER writes
+    its diagnostic BEFORE index.md exists (the ADW's `diagnose` node runs first),
+    which stamped every diagnostic `plan_id: unknown` and then made
+    loop_doc_link_gate.py report a contradiction against the bundle's own id.
+    The bundle layout IS `docs/plans/<plan_id>/`, so the dir name is the
+    authoritative answer whenever the frontmatter cannot supply one.
+    """
     idx = bundle / "index.md"
-    if not idx.exists():
-        return None
-    for line in idx.read_text(errors="ignore").splitlines():
-        if line.startswith("plan_id:"):
-            return line.split(":", 1)[1].strip()
-    return None
+    if idx.exists():
+        for line in idx.read_text(errors="ignore").splitlines():
+            if line.startswith("plan_id:"):
+                found = line.split(":", 1)[1].strip()
+                if found:
+                    return found
+    name = bundle.resolve().name
+    return name or None
+
+
+def ensure_bundle_log(bundle: Path, plan_id, ts) -> Path:
+    """Create the bundle's ``log.md`` if absent — never overwrite an existing one.
+
+    The bundle's chronological leg was dead code: ``loop_snapshot`` only appends
+    ``if log.exists()`` and NOTHING ever created the file, so every PreCompact
+    resume note was silently dropped (no bundle on disk had a log.md on
+    2026-08-02). The diagnostic is where a bundle is born — the OUTER's first
+    artifact — so that is where the log starts.
+    """
+    log = bundle / "log.md"
+    if log.exists():
+        return log
+    try:
+        bundle.mkdir(parents=True, exist_ok=True)
+        log.write_text(
+            "---\n"
+            "type: Log\n"
+            "title: Log — chronological history of this loop run\n"
+            "description: Append-only history; PreCompact resume notes and phase closes land here.\n"
+            f"plan_id: {plan_id or bundle.resolve().name}\n"
+            "tags: [loop, log]\n"
+            f"timestamp: {ts}\n"
+            'okf_version: "0.1"\n'
+            "---\n\n"
+            "# Log\n\n"
+            "Part of the [bundle](/index.md).\n",
+            encoding="utf-8",
+        )
+    except Exception:  # noqa: BLE001 — a missing log must never fail the diagnostic
+        pass
+    return log
 
 
 def write_okf_diagnostic(bundle: Path, plan_id, digest, ts):
     slug = f"{_slug(digest['scope'])}-{ts.replace(':', '').replace('-', '')[:15]}"
     path = bundle / "diagnostics" / f"{slug}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_bundle_log(bundle, plan_id, ts)
     q = digest["quality50"]
     h = digest["health"]
     fm = (

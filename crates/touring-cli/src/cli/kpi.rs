@@ -632,6 +632,7 @@ fn invoke_handler(rt: &mut HookRuntime, handler: &str) -> Option<Value> {
         "cli-learning-status" => super::super::cli_handlers::cli_learning_status(rt, &Value::Null),
         "cli-gate-metrics" => super::super::cli_handlers::cli_gate_metrics(rt, &Value::Null),
         "cli-gotcha-stats" => super::super::cli_handlers::cli_gotcha_stats(rt, &Value::Null),
+        "cli-memory-stats" => super::super::cli_handlers::cli_memory_stats(rt, &Value::Null),
         _ => return None,
     };
     serde_json::from_str(&raw).ok()

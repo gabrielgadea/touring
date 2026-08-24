@@ -1,0 +1,22 @@
+# Pin do conjunto de regras do ruff para esta árvore.
+#
+# Por que existe (2026-08-23, migração Pop!_OS → Omarchy/Arch): o gate do
+# README é `ruff check client/omarchy/bin/*.py client/omarchy/tests`, mas NÃO
+# havia config alguma — nem aqui, nem na raiz do repo, nem em ~/.config. Sem
+# pin, o ruff aplica o default da VERSÃO INSTALADA, e esse default muda entre
+# versões: no Pop o gate passava limpo; no Arch, com ruff 0.16.4, o mesmo
+# comando acusou 44 achados (PERF, DTZ, PLW, FURB, I001, RUF) em código que
+# ninguém havia tocado. "ruff limpo" media coisas diferentes em cada máquina —
+# um gate não reprodutível não é gate.
+#
+# Decisão do Gabriel: pinar no conjunto CLÁSSICO (`E4,E7,E9,F` = pycodestyle
+# errors + pyflakes), que é o que o P0 de fato validou. Ampliar o conjunto é
+# uma decisão separada e deliberada — mudar esta linha reprova código existente
+# de propósito, não por acidente de upgrade da ferramenta.
+#
+# Verificar após mexer aqui:
+#   ruff check client/omarchy/bin/*.py client/omarchy/tests   # exit 0
+target-version = "py312"
+
+[lint]
+select = ["E4", "E7", "E9", "F"]

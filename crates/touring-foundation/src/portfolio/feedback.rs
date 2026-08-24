@@ -72,8 +72,8 @@ pub fn history(dir: &Path) -> Result<Vec<VerdictRecord>> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let text = std::fs::read_to_string(&path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let text =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     Ok(text
         .lines()
         .filter(|l| !l.trim().is_empty())
@@ -115,7 +115,10 @@ pub fn apply_history(entries: &mut [CapabilityEntry], records: &[VerdictRecord])
 pub fn now_stamp() -> String {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_or_else(|_| "unknown".to_string(), |d| format!("epoch:{}", d.as_secs()))
+        .map_or_else(
+            |_| "unknown".to_string(),
+            |d| format!("epoch:{}", d.as_secs()),
+        )
 }
 
 #[cfg(test)]
@@ -128,8 +131,8 @@ mod tests {
 
     impl ScopedDir {
         fn new(tag: &str) -> Self {
-            let dir = std::env::temp_dir()
-                .join(format!("portfolio-fb-{tag}-{}", std::process::id()));
+            let dir =
+                std::env::temp_dir().join(format!("portfolio-fb-{tag}-{}", std::process::id()));
             std::fs::create_dir_all(&dir).expect("mkdir");
             Self(dir)
         }
@@ -206,7 +209,11 @@ mod tests {
     fn later_verdict_supersedes_the_earlier_one() {
         let s = ScopedDir::new("latest");
         record(s.path(), &rec("script:~/a.py", Verdict::Reuse, Some(0.9))).expect("rec 1");
-        record(s.path(), &rec("script:~/a.py", Verdict::Supersede, Some(0.1))).expect("rec 2");
+        record(
+            s.path(),
+            &rec("script:~/a.py", Verdict::Supersede, Some(0.1)),
+        )
+        .expect("rec 2");
         let latest = latest_by_artifact(&history(s.path()).expect("history"));
         let (v, r) = latest.get("script:~/a.py").expect("entry");
         assert_eq!(*v, Verdict::Supersede, "append-only, latest wins");
@@ -220,7 +227,10 @@ mod tests {
         apply_history(&mut entries, &records);
         assert_eq!(entries[0].evidence.prior_verdict, Some(Verdict::Extend));
         assert_eq!(entries[0].evidence.reward, Some(0.7));
-        assert_eq!(entries[1].evidence.prior_verdict, None, "untouched entry stays blank");
+        assert_eq!(
+            entries[1].evidence.prior_verdict, None,
+            "untouched entry stays blank"
+        );
         // And the blank one still SAYS it is blank.
         assert!(entries[1].evidence.summary().contains("nunca escolhido"));
     }
@@ -239,6 +249,9 @@ mod tests {
         record(s.path(), &r).expect("record");
         let h = history(s.path()).expect("history");
         assert_eq!(h[0].artifact_id, None);
-        assert!(latest_by_artifact(&h).is_empty(), "no artifact → no evidence stamp");
+        assert!(
+            latest_by_artifact(&h).is_empty(),
+            "no artifact → no evidence stamp"
+        );
     }
 }

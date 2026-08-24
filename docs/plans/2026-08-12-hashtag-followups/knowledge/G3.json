@@ -1,0 +1,11 @@
+{
+  "phase": "G3",
+  "entities": [
+    {
+      "entity_id": "phase:G3",
+      "type": "phase",
+      "description": "Resolvedor de wiring corrigido em 3 eixos + diagnostico de ciclos completo: (1) ORDEM \u2014 rebuild coleta refs durante o walk e resolve num pass GLOBAL pos-walk contra o wiring_map completo (F9 inline perdia arestas quando consumer vinha antes do producer; ceg_impls.rs 13->0); (2) TIPOS \u2014 extract_type_and_const_refs (type_identifier/scoped_type_identifier/scoped_identifier) + find_producer_modules_for_types (kinds struct/enum/const/static/type_alias/trait/union) \u2014 simbolo usado COMO tipo agora gera aresta (tags.rs 13->3); (3) CRATE-LOCALITY \u2014 producer same-crate ordena primeiro no cap-4 (consumer_hint), matando cross-crate phantom edges de forks homonimos. RESULTADO: orphans 4.028->2.224 (-45% workspace); 6 ciclos restantes sao provadamente heuristicos (grep=0 imports cruzados em cada par: forks foundation/resilience em consolidacao documentada); mega-ciclo 803 eliminado; o cycle 928 e o giant-SCC INERENTE ao name-matching AstInferred \u2014 a rota type-aware real e SCIP (rustc-resolved refs, feature scip-emit ja existe no workspace) \u2014 registrado como programa separado. Gates: 137 storage + 22 orphan-diagnostic + 990 analysis tests verdes, clippy workspace limpo, deploy+rebuild executados."
+    }
+  ],
+  "relations": []
+}

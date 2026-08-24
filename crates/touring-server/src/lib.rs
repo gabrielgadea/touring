@@ -242,5 +242,4 @@ pub use touring_foundation::text_rank;
 /// Capability Portfolio — prior-art discovery keyed by purpose.
 pub mod portfolio;
 
-
 pub mod cli;

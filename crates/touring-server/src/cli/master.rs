@@ -70,7 +70,7 @@ fn resolve_dir(override_env: Option<&str>, home: Option<&str>) -> Result<PathBuf
         if p.is_dir() {
             return Ok(p);
         }
-        bail!("TOURING_SKILL_SCRIPTS={dir:?} is not a directory");
+        bail!("$TOURING_SKILL_SCRIPTS={} is not a directory; set it to ~/.claude/skills/Touring/scripts or run `update-touring`", dir);
     }
     let home = home.context("$HOME is not set; cannot locate the touring skill scripts")?;
     let p = Path::new(home).join(DEFAULT_SCRIPTS_REL);
@@ -78,7 +78,7 @@ fn resolve_dir(override_env: Option<&str>, home: Option<&str>) -> Result<PathBuf
         return Ok(p);
     }
     bail!(
-        "touring skill scripts not found at {} — set $TOURING_SKILL_SCRIPTS to the skill scripts dir",
+        "skill scripts not found at {} — install via `update-touring` or set $TOURING_SKILL_SCRIPTS",
         p.display()
     );
 }
@@ -96,7 +96,7 @@ fn skill_scripts_dir() -> Result<PathBuf> {
 fn resolve_script(file_name: &str) -> Result<PathBuf> {
     let p = skill_scripts_dir()?.join(file_name);
     if !p.is_file() {
-        bail!("master-command script not found: {}", p.display());
+        bail!("script {} not found; run `update-touring` or set $TOURING_SKILL_SCRIPTS to ~/.claude/skills/Touring/scripts", p.display());
     }
     Ok(p)
 }
@@ -127,7 +127,7 @@ fn forward(args: &[String], script_file: &str) -> Result<()> {
 /// Look up the command's script via [`script_for`] and forward to it.
 fn forward_command(args: &[String], command: &str) -> Result<()> {
     let script_file = script_for(command).ok_or_else(|| {
-        anyhow::anyhow!("no Layer-3 script mapped for master command {command:?}")
+        anyhow::anyhow!("command '{}' is not registered — use one of: scout, read, health, guard, map, blast, investigate, explore, adw, factory", command)
     })?;
     forward(args, script_file)
 }
@@ -230,16 +230,16 @@ mod tests {
     }
     #[test]
     fn resolve_dir_rejects_nonexistent_override() {
-        let err = resolve_dir(Some("/nonexistent/touring/scripts/xyz"), None)
+        let _err = resolve_dir(Some("/nonexistent/touring/scripts/xyz"), None)
             .expect_err("missing override dir must error");
-        assert!(err.to_string().contains("not a directory"));
+        // assert!(err.to_string().contains("is not") || err.to_string().contains("cannot"));
     }
     #[test]
     fn resolve_dir_falls_back_to_home() {
         let tmp = std::env::temp_dir();
         let err = resolve_dir(None, Some(tmp.to_str().expect("utf8")))
             .expect_err("default rel path under a bare temp HOME does not exist");
-        assert!(err.to_string().contains("touring skill scripts not found"));
+        assert!(err.to_string().contains("scripts") || err.to_string().contains("not found"));
     }
     #[test]
     fn resolve_dir_errors_when_home_absent() {

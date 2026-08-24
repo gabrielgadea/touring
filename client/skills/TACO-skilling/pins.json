@@ -1,0 +1,50 @@
+{
+  "note": "Sources this skill makes claims about. Regenerate with skill_pin_gate.py --update AFTER reviewing the skill against the changed source — never before.",
+  "pins": [
+    {
+      "kind": "cli",
+      "ref": "decompose",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "diary",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "doctor",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "evolution",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "gotcha",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "index",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "learning",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "memory",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "tantivy",
+      "fingerprint": "present"
+    }
+  ]
+}

@@ -250,8 +250,8 @@ fn cmd_status(json: bool, target: &Path) -> anyhow::Result<()> {
     // which excludes PIDs registered to another socket; only the report was
     // unscoped, and a report is exactly what a human acts on with `kill`
     // (REGRA #19). A dead per-project socket now says `(none)`, which is true.
-    let daemon_pid = pid_for_socket(&socket_path)
-        .or_else(|| orphan_daemon_pids(&socket_path).first().copied());
+    let daemon_pid =
+        pid_for_socket(&socket_path).or_else(|| orphan_daemon_pids(&socket_path).first().copied());
     let daemon_exe = daemon_pid.and_then(read_proc_exe);
     let daemon_exe_deleted = daemon_exe
         .as_deref()
@@ -380,9 +380,8 @@ pub(crate) fn restart_socket_with_bin(
     // would report a "successful restart" that restarted nothing.
     if pids.is_empty() && std::os::unix::net::UnixStream::connect(target).is_ok() {
         anyhow::bail!(
-            "a daemon holds {} but its PID could not be identified (no lock PID, \
-             no comm match) — refusing a fake restart. Inspect with `daemon-ctl \
-             list-all` / lsof.",
+            "a daemon holds {} but its PID could not be identified — refusing restart. \
+             Use `touring daemon-ctl list-all` and `lsof` to diagnose, then retry.",
             target.display()
         );
     }
@@ -419,7 +418,7 @@ pub(crate) fn restart_socket_with_bin(
     } else if booted {
         human_to_stderr("Touring daemon restarted successfully.");
     } else {
-        anyhow::bail!("daemon respawned but socket did not become available within 15s");
+        anyhow::bail!("daemon respawned but socket did not become available within 15s — run `touring daemon-ctl status` and `touring doctor -j` to diagnose");
     }
 
     if !booted && json {
@@ -687,7 +686,7 @@ fn send_signal(pid: u32, sig: i32) -> anyhow::Result<()> {
     if err.raw_os_error() == Some(ESRCH) {
         return Ok(());
     }
-    anyhow::bail!("kill({pid}, {sig}) failed: {err}");
+    anyhow::bail!("kill({pid}, {sig}) failed: {err} — run `touring daemon-ctl status` to identify daemon ownership");
 }
 
 fn wait_socket_gone(socket: &Path, timeout: Duration) -> bool {
@@ -727,16 +726,18 @@ fn spawn_daemon_with_bin(target: &Path, bin_override: Option<&Path>) -> anyhow::
 
     // Sprint 4 PD-2: spawn the DEDICATED `touring-daemon` binary, not the
     // legacy `touring-hook --start-daemon` polymorphic mode (deprecated by
-    // S-9). Preference order: explicit override (F3 `touring update`) >
+    // S-9). Preference order: explicit override (F3 `touring update`) > the
+    // project's PINNED binary when the target is a per-project socket >
     // TOURING_DAEMON_BIN env > ~/.local/bin/touring-daemon > PATH lookup.
-    let binary = bin_override
-        .map(|p| p.display().to_string())
-        .or_else(|| std::env::var("TOURING_DAEMON_BIN").ok())
-        .or_else(|| {
-            let home = std::env::var("HOME").ok()?;
-            let candidate = PathBuf::from(format!("{home}/.local/bin/touring-daemon"));
-            candidate.exists().then(|| candidate.display().to_string())
-        });
+    //
+    // 2026-08-19: the pinned branch was missing here while
+    // `touring-hooks::main::try_autostart_daemon` had it — and the comment
+    // below claims the two sites are kept in sync (C08). They were not:
+    // `daemon-ctl restart --project <pinned>` invoked from the source
+    // workspace spawned the DEV daemon on a pinned project's socket, which is
+    // the channel violation cross-audit F-NEW-2 (2026-07-25) fixed on the
+    // other side. A pinned project runs its pin, whoever asks.
+    let binary = resolve_daemon_binary(target, bin_override);
 
     let mut cmd = match binary {
         Some(p) => Command::new(p),
@@ -788,6 +789,25 @@ fn spawn_daemon_with_bin(target: &Path, bin_override: Option<&Path>) -> anyhow::
     if let Some(root) = project_root_for_socket(target) {
         cmd.env("CLAUDE_PROJECT_DIR", &root);
         cmd.env("TOURING_PROJECT_ROOT", &root);
+        // `TOURING_WORKSPACE_ROOT` is deliberately NOT pinned here, and the
+        // reason is worth writing down because pinning it looks like the
+        // obvious completion of the list (2026-08-19: it was written, then
+        // reverted after reading every consumer).
+        //
+        // The two variables name DIFFERENT things. PROJECT_ROOT is this
+        // daemon's data root — the project it serves. WORKSPACE_ROOT is where
+        // the touring SOURCE TREE lives, and its three remaining readers are
+        // all asset lookups into that tree: the parcer profile schema
+        // (`cli/profile.rs`) and the gotcha YAML library (`cli/gotcha.rs`,
+        // `hooks/session_hooks.rs`). Pinning it to the project would send all
+        // three looking for `<project>/docs/gotchas` and
+        // `<project>/crates/touring-server/schemas/…`, which do not exist —
+        // trading a wrong wiring root for three silently missing assets.
+        //
+        // The wiring layer used to be the fourth reader, and it was the one
+        // that genuinely needed the project. It no longer reads any variable:
+        // `knowledge_wiring::derive_workspace_root` takes the root from the
+        // database's own path, so it is correct no matter who spawned whom.
         cmd.current_dir(&root);
     }
 
@@ -795,7 +815,7 @@ fn spawn_daemon_with_bin(target: &Path, bin_override: Option<&Path>) -> anyhow::
         .stdout(stdout_io)
         .stderr(stderr_io)
         .spawn()
-        .map_err(|e| anyhow::anyhow!("spawn touring-daemon: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("failed to spawn touring-daemon: {e}; run `which touring-daemon` and `touring doctor -j` to diagnose"))?;
     Ok(())
 }
 
@@ -804,6 +824,25 @@ fn spawn_daemon_with_bin(target: &Path, bin_override: Option<&Path>) -> anyhow::
 /// `/tmp` socket, ad-hoc test sockets) → `None`. Deriving from the socket —
 /// not the invoker's env — is what makes every spawn caller correct by
 /// construction (PILOT finding 2026-07-24).
+/// Which `touring-daemon` binary to spawn for `target`.
+///
+/// Split out of the spawn so the CHANNEL contract is testable without starting
+/// a process: a pinned project must run its pin, whoever asks.
+pub(crate) fn resolve_daemon_binary(target: &Path, bin_override: Option<&Path>) -> Option<String> {
+    let pinned = project_root_for_socket(target)
+        .map(|root| root.join(".touring").join("bin").join("touring-daemon"))
+        .filter(|p| p.exists());
+    bin_override
+        .map(|p| p.display().to_string())
+        .or_else(|| pinned.map(|p| p.display().to_string()))
+        .or_else(|| std::env::var("TOURING_DAEMON_BIN").ok())
+        .or_else(|| {
+            let home = std::env::var("HOME").ok()?;
+            let candidate = PathBuf::from(format!("{home}/.local/bin/touring-daemon"));
+            candidate.exists().then(|| candidate.display().to_string())
+        })
+}
+
 pub(crate) fn project_root_for_socket(socket: &Path) -> Option<PathBuf> {
     let dot_touring = socket.parent()?;
     if socket.file_name()? == "daemon.sock" && dot_touring.file_name()? == ".touring" {
@@ -884,6 +923,9 @@ mod tests {
 
     #[test]
     fn daemon_socket_path_respects_env_override() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // W12.5 unification: the CANONICAL var wins over the legacy one, and
         // the legacy one still works when the canonical is absent. The session
         // environment may carry TOURING_DAEMON_SOCKET (CC sessions export it),
@@ -1063,8 +1105,14 @@ mod tests {
     fn a_pid_registered_to_another_socket_is_never_offered() {
         let target = PathBuf::from("/home/u/projects/analise/.touring/daemon.sock");
         let registry = vec![
-            ("/home/u/projects/transferegov/.touring/daemon.sock".to_string(), 2_898_535),
-            ("/home/u/projects/konverter/.touring/daemon.sock".to_string(), 2_898_635),
+            (
+                "/home/u/projects/transferegov/.touring/daemon.sock".to_string(),
+                2_898_535,
+            ),
+            (
+                "/home/u/projects/konverter/.touring/daemon.sock".to_string(),
+                2_898_635,
+            ),
         ];
         assert_eq!(
             orphans_not_owned_elsewhere(&registry, &target, vec![2_898_535, 2_898_635]),
@@ -1078,7 +1126,10 @@ mod tests {
         let target = PathBuf::from("/home/u/projects/analise/.touring/daemon.sock");
         let registry = vec![
             (target.display().to_string(), 100),
-            ("/home/u/projects/other/.touring/daemon.sock".to_string(), 200),
+            (
+                "/home/u/projects/other/.touring/daemon.sock".to_string(),
+                200,
+            ),
         ];
         // 100 is ours; 300 is unregistered (pre-upgrade daemon — the back-compat
         // case the fallback exists for); 200 belongs to someone else.
@@ -1152,6 +1203,74 @@ mod tests {
         assert_eq!(
             project_root_for_socket(Path::new("/home/u/proj/.touring/other.sock")),
             None
+        );
+    }
+}
+
+#[cfg(test)]
+mod daemon_binary_channel_tests {
+    use super::resolve_daemon_binary;
+    use std::path::Path;
+
+    fn pinned_project() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let bin_dir = tmp.path().join(".touring").join("bin");
+        std::fs::create_dir_all(&bin_dir).expect("mkdir .touring/bin");
+        let pinned = bin_dir.join("touring-daemon");
+        std::fs::write(&pinned, b"#!/bin/true\n").expect("write pinned bin");
+        let socket = tmp.path().join(".touring").join("daemon.sock");
+        (tmp, socket, pinned)
+    }
+
+    #[test]
+    fn a_per_project_socket_spawns_the_projects_pinned_binary() {
+        let (_tmp, socket, pinned) = pinned_project();
+        assert_eq!(
+            resolve_daemon_binary(&socket, None),
+            Some(pinned.display().to_string()),
+            "a pinned project must run its pin — not the dev channel of whoever \
+             happened to invoke daemon-ctl"
+        );
+    }
+
+    #[test]
+    fn an_explicit_override_still_wins() {
+        // `touring update` passes the binary it just installed; that is a
+        // deliberate instruction and outranks the pin it is replacing.
+        let (_tmp, socket, _pinned) = pinned_project();
+        let over = Path::new("/opt/somewhere/touring-daemon");
+        assert_eq!(
+            resolve_daemon_binary(&socket, Some(over)),
+            Some(over.display().to_string())
+        );
+    }
+
+    #[test]
+    fn a_project_without_a_pinned_binary_falls_through() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(tmp.path().join(".touring")).expect("mkdir");
+        let socket = tmp.path().join(".touring").join("daemon.sock");
+        let resolved = resolve_daemon_binary(&socket, None);
+        assert_ne!(
+            resolved,
+            Some(
+                tmp.path()
+                    .join(".touring/bin/touring-daemon")
+                    .display()
+                    .to_string()
+            ),
+            "a pin that does not exist must never be selected"
+        );
+    }
+
+    #[test]
+    fn the_global_socket_has_no_pin_to_prefer() {
+        let resolved = resolve_daemon_binary(Path::new("/tmp/touring-daemon-1000.sock"), None);
+        assert!(
+            resolved
+                .as_deref()
+                .is_none_or(|p| !p.contains(".touring/bin")),
+            "the global socket derives no project, so no pinned binary: {resolved:?}"
         );
     }
 }

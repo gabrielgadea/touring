@@ -15,7 +15,7 @@
 //! - `blake3` (workspace dep) — content-addressable hashing.
 
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -39,6 +39,18 @@ pub struct SandboxConfig {
     pub max_output_bytes: u64,
     /// On timeout, return Err. If false, also returns Err but caller may bypass.
     pub fallback_on_timeout: bool,
+    /// W1 d3/S-1.3 — busy-time (CPU) budget in milliseconds, measured from the
+    /// child's own `/proc/<pid>/stat` utime+stime. Independent of `timeout_ms`:
+    /// wall clock alone cannot expire a hot loop early, and CPU alone cannot
+    /// see an eternal await. `None` disables the busy budget (non-Linux falls
+    /// back to wall-clock-only regardless).
+    pub compute_ms: Option<u64>,
+    /// C2-W0 S-5.2 — identity of this execution, exported to the child as
+    /// `TOURING_RUN_ID` so an in-sandbox orchestrate SDK can stamp each of
+    /// its daemon sub-calls `<run_id>:code:<n>`. Injected AFTER the
+    /// credential whitelist's `env_clear`, so it survives the wipe. `None`
+    /// exports nothing (every non-run caller).
+    pub run_id: Option<String>,
 }
 
 impl Default for SandboxConfig {
@@ -47,6 +59,8 @@ impl Default for SandboxConfig {
             timeout_ms: 30_000,
             max_output_bytes: 1_000_000,
             fallback_on_timeout: true,
+            compute_ms: Some(60_000),
+            run_id: None,
         }
     }
 }
@@ -67,6 +81,13 @@ pub struct SandboxResult {
     /// C5 — inline, metadata-first digest (exit code, error signatures, `file:line`
     /// refs) so callers get the failure signal without re-reading `stored_path`.
     pub summary: OutputSummary,
+    /// W0 d0 — captured standard error of the subprocess, bounded by the same
+    /// `max_output_bytes` cap as stdout. Before 2026-08-23 the stderr pipe was
+    /// opened and never drained: the channel was lost AND a chatty-stderr child
+    /// could deadlock on a full 64 KiB pipe.
+    pub stderr: String,
+    /// `true` if captured stderr hit `max_output_bytes` and was cut short.
+    pub stderr_truncated: bool,
 }
 
 /// Failure modes of a sandbox subprocess execution.
@@ -338,6 +359,13 @@ pub(crate) async fn spawn_and_capture(
         .await
         .map_err(|e| SandboxError::Spawn(format!("{e}")))?;
 
+    // C2-W0 S-5.2 — export the run identity to the child. Every execution
+    // path (interpreted, Go, Rust compile+run) funnels through here, so one
+    // site covers them all; explicit `.env` set after `env_clear` survives it.
+    if let Some(run_id) = &config.run_id {
+        cmd.env("TOURING_RUN_ID", run_id);
+    }
+
     cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
@@ -346,13 +374,21 @@ pub(crate) async fn spawn_and_capture(
         .map_err(|e| SandboxError::Spawn(format!("{e}")))?;
 
     let stdout_handle = child.stdout.take();
+    // W0 d0 — take BOTH pipes: before 2026-08-23 stderr was piped but never
+    // drained, so the channel was lost and a chatty-stderr child blocked on a
+    // full 64 KiB pipe until the timeout path killed it.
+    let stderr_handle = child.stderr.take();
     let timeout_dur = Duration::from_millis(config.timeout_ms);
     let max_bytes = config.max_output_bytes as usize;
 
-    let read_fut = async move {
+    // Shared bounded reader for either stdio pipe.
+    async fn drain_pipe<R: tokio::io::AsyncRead + Unpin>(
+        handle: Option<R>,
+        max_bytes: usize,
+    ) -> (Vec<u8>, bool) {
         let mut buf: Vec<u8> = Vec::with_capacity(8192);
         let mut truncated = false;
-        if let Some(mut out) = stdout_handle {
+        if let Some(mut out) = handle {
             let mut chunk = vec![0u8; 8192];
             loop {
                 if buf.len() >= max_bytes {
@@ -367,13 +403,47 @@ pub(crate) async fn spawn_and_capture(
             }
         }
         (buf, truncated)
+    }
+
+    // Drain the two pipes CONCURRENTLY under one wall-clock budget — reading
+    // them sequentially would reintroduce the full-pipe deadlock on whichever
+    // channel is read second.
+    let read_fut = async {
+        tokio::join!(
+            drain_pipe(stdout_handle, max_bytes),
+            drain_pipe(stderr_handle, max_bytes),
+        )
     };
 
-    let (output_bytes, was_truncated) = match timeout(timeout_dur, read_fut).await {
-        Ok(pair) => pair,
-        Err(_) => {
+    // W1 d3/S-1.3 — busy-time budget: poll the child's own utime+stime from
+    // /proc every 100ms. Measured in the SUBSTRATE, not host bookkeeping, so
+    // a hot loop expires the budget while an await-bound child accrues ~0.
+    let child_pid = child.id();
+    let busy_fut = async {
+        match (child_pid, config.compute_ms) {
+            (Some(pid), Some(limit_ms)) => loop {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                match proc_busy_ms(pid) {
+                    Some(busy) if busy > limit_ms => return busy,
+                    Some(_) => {}
+                    // /proc entry gone: the child already exited — let the
+                    // read future finish; never resolve this branch.
+                    None => std::future::pending::<()>().await,
+                }
+            },
+            _ => std::future::pending().await,
+        }
+    };
+
+    let ((output_bytes, was_truncated), (stderr_bytes, stderr_truncated)) = tokio::select! {
+        pair = read_fut => pair,
+        _ = tokio::time::sleep(timeout_dur) => {
             let _ = child.kill().await;
-            return timeout_outcome(config);
+            return timeout_outcome_with_cause(config, TimeoutCause::Wall);
+        }
+        busy = busy_fut => {
+            let _ = child.kill().await;
+            return timeout_outcome_with_cause(config, TimeoutCause::Busy(busy));
         }
     };
 
@@ -389,11 +459,19 @@ pub(crate) async fn spawn_and_capture(
     let content_hash = hash_output(&output_bytes);
     let stored_path = store_output(&content_hash, &output_bytes).ok();
 
-    // NEW-2 — Failure tee mode: persist FULL output to tee/ when subprocess
-    // returned non-zero. Skips on success path to avoid storage bloat.
-    if exit_code != 0 && !output_bytes.is_empty() && store_tee(&content_hash, &output_bytes).is_ok()
-    {
-        touring_hooks_shared::gate_metrics::record_sandbox_tee_persisted();
+    // NEW-2 + W0 d0 — Failure tee mode: persist FULL output (both channels)
+    // to tee/ when subprocess returned non-zero. Skips on success path to
+    // avoid storage bloat. stderr rides in the same tee log under a marker
+    // line so `read_tee`/`ctx_tee_retrieve` keep working unchanged.
+    if exit_code != 0 && (!output_bytes.is_empty() || !stderr_bytes.is_empty()) {
+        let mut tee_buf = output_bytes.clone();
+        if !stderr_bytes.is_empty() {
+            tee_buf.extend_from_slice(b"\n--- stderr ---\n");
+            tee_buf.extend_from_slice(&stderr_bytes);
+        }
+        if store_tee(&content_hash, &tee_buf).is_ok() {
+            touring_hooks_shared::gate_metrics::record_sandbox_tee_persisted();
+        }
     }
 
     // C5 — build the inline metadata-first digest from the captured buffer
@@ -411,7 +489,45 @@ pub(crate) async fn spawn_and_capture(
         content_hash,
         stored_path,
         summary,
+        stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
+        stderr_truncated,
     })
+}
+
+/// W1 d3/S-1.3 — which budget the subprocess exhausted.
+#[derive(Debug, Clone, Copy)]
+enum TimeoutCause {
+    /// Exceeded `timeout_ms` of wall-clock time.
+    Wall,
+    /// Exceeded `compute_ms` of CPU busy time; payload = measured busy ms.
+    Busy(u64),
+}
+
+/// W1 d3/S-1.3 — the child's accumulated CPU time (utime+stime) in ms, read
+/// from `/proc/<pid>/stat`. `None` when the entry is gone (process exited) or
+/// unparsable. Linux-only; other targets always return `None`, which disables
+/// the busy budget (wall clock still applies).
+fn proc_busy_ms(pid: u32) -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        // Fields after the comm — split at the LAST ')' because comm may
+        // itself contain spaces or parentheses.
+        let rest = stat.rsplit_once(')')?.1;
+        let fields: Vec<&str> = rest.split_whitespace().collect();
+        // In the post-comm slice: state=0 … utime=11, stime=12 (0-indexed).
+        let utime: u64 = fields.get(11)?.parse().ok()?;
+        let stime: u64 = fields.get(12)?.parse().ok()?;
+        // USER_HZ is 100 on every mainstream Linux (x86/arm); a wrong constant
+        // here skews the budget linearly, never unsafely.
+        const CLK_TCK: u64 = 100;
+        Some((utime + stime) * 1000 / CLK_TCK)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = pid;
+        None
+    }
 }
 
 /// Resolves what to return when the sandbox subprocess exceeds `timeout_ms`.
@@ -421,7 +537,36 @@ pub(crate) async fn spawn_and_capture(
 /// callers can detect the situation without an Err short-circuiting the
 /// entire hook chain. When `false`, propagate as [`SandboxError::Timeout`].
 fn timeout_outcome(config: &SandboxConfig) -> Result<SandboxResult, SandboxError> {
+    timeout_outcome_with_cause(config, TimeoutCause::Wall)
+}
+
+/// [`timeout_outcome`] with the exhausted budget named — the stderr message
+/// distinguishes a wall-clock expiry from a CPU busy-time expiry so the model
+/// can pick the right correction (less work vs. more waiting headroom).
+fn timeout_outcome_with_cause(
+    config: &SandboxConfig,
+    cause: TimeoutCause,
+) -> Result<SandboxResult, SandboxError> {
     if config.fallback_on_timeout {
+        // W0 d0/S-0.3 — the sentinel exit -2 used to arrive unlabeled; a
+        // model (or human) reading the result had no way to tell a timeout
+        // from a crash. The message teaches the correction.
+        let stderr = match cause {
+            TimeoutCause::Wall => format!(
+                "timeout: process exceeded the {}ms wall-clock budget and was killed \
+                 (exit_code -2 is the timeout sentinel). Reduce the work per run, or \
+                 raise --timeout-ms (max 120000).",
+                config.timeout_ms
+            ),
+            TimeoutCause::Busy(busy) => format!(
+                "timeout: process consumed {}ms of CPU busy time, over the {}ms compute \
+                 budget, and was killed (exit_code -2 is the timeout sentinel). A hot \
+                 loop or heavy computation — reduce the work per run; waiting on I/O \
+                 does not consume this budget.",
+                busy,
+                config.compute_ms.unwrap_or(0)
+            ),
+        };
         Ok(SandboxResult {
             exit_code: -2,
             output_bytes: 0,
@@ -429,6 +574,8 @@ fn timeout_outcome(config: &SandboxConfig) -> Result<SandboxResult, SandboxError
             content_hash: String::new(),
             stored_path: None,
             summary: OutputSummary::empty(-2),
+            stderr,
+            stderr_truncated: false,
         })
     } else {
         Err(SandboxError::Timeout(config.timeout_ms))
@@ -765,7 +912,21 @@ pub fn tee_dir() -> PathBuf {
 /// `ctx_tee_retrieve(hash)` MCP tool. Cleanup honors
 /// `TOURING_TEE_RETENTION_SECS` (default 7d).
 pub fn store_tee(content_hash: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
-    let mut path = tee_dir();
+    store_tee_in(&tee_dir(), content_hash, bytes)
+}
+
+/// [`store_tee`] with the directory injected — no env var, no shared state.
+///
+/// `TOURING_TEE_DIR` is process-global, so making its *value* unique per test
+/// does not remove the race: two tests in one binary both `set_var`, the last
+/// writer wins for both, and the loser writes into a `TempDir` the winner is
+/// about to delete. Measured 09/08/2026:
+/// `audit_new2_tee_redacts_provided_samples` failed with `store_tee: NotFound`
+/// having passed on the previous run — the directory vanished between
+/// `create_dir_all` and `write`. A caller that knows its directory should say
+/// so instead of shouting it through the environment.
+pub fn store_tee_in(dir: &Path, content_hash: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
+    let mut path = dir.to_path_buf();
     std::fs::create_dir_all(&path)?;
     path.push(format!("{content_hash}.log"));
     // Apply secret redaction before persisting (I-12 reuse) so creds
@@ -1123,12 +1284,12 @@ mod tests {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         ));
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEE_DIR", &unique) };
         f(&unique);
         // Clear the env var while still holding the lock, so no parallel test
         // can ever observe a half-updated global.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEE_DIR") };
         tmp
     }
@@ -1301,6 +1462,182 @@ mod tests {
         }
     }
 
+    // ── W0 d0 (2026-08-23) — stderr is captured, not swallowed ───────────
+
+    #[tokio::test]
+    async fn sandbox_captures_stderr_alongside_stdout() {
+        let args = json!({"command": "echo out; echo errmark >&2; exit 7"});
+        let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
+            .await
+            .expect("execute");
+        assert_eq!(res.exit_code, 7);
+        assert!(
+            res.stderr.contains("errmark"),
+            "stderr must carry the child's stderr, got: {:?}",
+            res.stderr
+        );
+        assert!(!res.stderr_truncated);
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    // ── C2-W0 S-5.2 — run identity reaches the child ─────────────────────
+
+    /// `SandboxConfig.run_id` must be exported as `TOURING_RUN_ID` and
+    /// survive the credential whitelist's `env_clear`; with no run_id the
+    /// variable must be absent (never an empty-string leak).
+    #[tokio::test]
+    async fn run_id_env_reaches_the_child() {
+        let args = json!({"command": "printf '%s' \"rid=${TOURING_RUN_ID:-unset}\""});
+        let config = SandboxConfig {
+            run_id: Some("run-test-123".to_string()),
+            ..SandboxConfig::default()
+        };
+        let res = execute_in_sandbox("Bash", args.clone(), config)
+            .await
+            .expect("execute");
+        let out = res
+            .stored_path
+            .as_ref()
+            .map(|p| std::fs::read_to_string(p).unwrap_or_default())
+            .unwrap_or_default();
+        assert!(
+            out.contains("rid=run-test-123"),
+            "child must see TOURING_RUN_ID, got: {out:?}"
+        );
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+
+        let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
+            .await
+            .expect("execute");
+        let out = res
+            .stored_path
+            .as_ref()
+            .map(|p| std::fs::read_to_string(p).unwrap_or_default())
+            .unwrap_or_default();
+        assert!(
+            out.contains("rid=unset"),
+            "no run_id → no TOURING_RUN_ID in the child, got: {out:?}"
+        );
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    /// A child that writes far more than the 64 KiB Linux pipe buffer to
+    /// stderr must still terminate: before W0 the undrained pipe filled up
+    /// and the child blocked in `write` until the timeout killed it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sandbox_stderr_full_pipe_does_not_deadlock() {
+        // 200 KiB of stderr — over 3× the pipe buffer.
+        let args =
+            json!({"command": "head -c 204800 /dev/zero | tr '\\0' 'e' >&2; printf done; exit 0"});
+        let config = SandboxConfig {
+            timeout_ms: 10_000,
+            ..SandboxConfig::default()
+        };
+        let start = std::time::Instant::now();
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("execute");
+        assert_eq!(res.exit_code, 0, "child must exit cleanly, not be killed");
+        assert!(
+            start.elapsed() < Duration::from_millis(9_000),
+            "must finish well before the timeout (no pipe deadlock)"
+        );
+        assert!(res.stderr.len() >= 200_000, "stderr fully drained");
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    // ── W1 d3/S-1.3 — dual budget: busy time measured in the substrate ────
+
+    /// A hot loop must expire the CPU busy budget long before the wall clock:
+    /// wall=10s, busy=500ms → killed in ~1s with the busy-labeled sentinel.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn busy_budget_expires_on_hot_loop_despite_io_wait() {
+        let args = json!({"command": "while :; do :; done"});
+        let config = SandboxConfig {
+            timeout_ms: 10_000,
+            compute_ms: Some(500),
+            ..SandboxConfig::default()
+        };
+        let start = std::time::Instant::now();
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("busy expiry is a fallback outcome");
+        assert_eq!(res.exit_code, -2, "timeout sentinel");
+        assert!(
+            res.stderr.contains("busy") || res.stderr.contains("compute"),
+            "busy expiry must be labeled distinctly from wall clock, got: {:?}",
+            res.stderr
+        );
+        assert!(
+            start.elapsed() < Duration::from_millis(8_000),
+            "must be killed by the busy budget, not the 10s wall clock"
+        );
+    }
+
+    /// Sleeping consumes wall clock but ~0 CPU: with busy=300ms and wall=5s,
+    /// a 1s sleep must complete normally — I/O wait never expires the busy budget.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn io_wait_does_not_consume_busy_budget() {
+        let args = json!({"command": "sleep 1; printf slept"});
+        let config = SandboxConfig {
+            timeout_ms: 5_000,
+            compute_ms: Some(300),
+            ..SandboxConfig::default()
+        };
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("execute");
+        assert_eq!(res.exit_code, 0, "sleep must not trip the busy budget");
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    #[test]
+    fn timeout_outcome_labels_cause_in_stderr() {
+        let config = SandboxConfig {
+            timeout_ms: 1234,
+            ..SandboxConfig::default()
+        };
+        let res = timeout_outcome(&config).expect("fallback_on_timeout=true yields Ok");
+        assert_eq!(res.exit_code, -2);
+        assert!(
+            res.stderr.contains("timeout") && res.stderr.contains("1234"),
+            "timeout sentinel must teach its cause, got: {:?}",
+            res.stderr
+        );
+    }
+
+    /// Sync + `with_tee_dir` (TEE_ENV_LOCK): `TOURING_TEE_DIR` is one global
+    /// slot shared by every test in the binary — an async test reading the
+    /// global tee dir races whichever test sets the var last.
+    #[test]
+    fn tee_persists_stderr_on_failure() {
+        with_tee_dir(|dir| {
+            let args = json!({"command": "echo teeout; echo teeerr >&2; exit 3"});
+            let rt = tokio::runtime::Runtime::new().expect("runtime");
+            let res = rt
+                .block_on(execute_in_sandbox("Bash", args, SandboxConfig::default()))
+                .expect("execute");
+            assert_eq!(res.exit_code, 3);
+            let tee_path = dir.join(format!("{}.log", res.content_hash));
+            let tee = std::fs::read_to_string(&tee_path).expect("tee persisted on failure");
+            assert!(tee.contains("--- stderr ---"), "tee carries the marker");
+            assert!(tee.contains("teeerr"), "tee carries the stderr bytes");
+            if let Some(p) = &res.stored_path {
+                let _ = std::fs::remove_file(p);
+            }
+        });
+    }
+
     // ── P4.4 — the X5/X8 sandbox path is bounded by the exec pool ─────────
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -1413,6 +1750,7 @@ mod tests {
             timeout_ms: 5_000,
             max_output_bytes: 64_000,
             fallback_on_timeout: true,
+            ..SandboxConfig::default()
         };
         let result = std::panic::catch_unwind(|| {
             execute_in_sandbox_blocking("Bash", json!({"command": "echo bug_p0_regression"}), cfg)
@@ -1434,6 +1772,7 @@ mod tests {
             timeout_ms: 5_000,
             max_output_bytes: 64_000,
             fallback_on_timeout: true,
+            ..SandboxConfig::default()
         };
         let _ =
             execute_in_sandbox_blocking("Bash", json!({"command": "echo standalone_path"}), cfg);

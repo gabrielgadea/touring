@@ -45,7 +45,14 @@ fn flag_values(args: &[String], flag: &str) -> Vec<String> {
 /// Positional words: everything after the subcommand that is neither a flag nor
 /// a flag's value.
 fn positional(args: &[String], skip: usize) -> String {
-    let flags_with_values = ["--root", "--choice", "--why", "--artifact", "--reward", "--top"];
+    let flags_with_values = [
+        "--root",
+        "--choice",
+        "--why",
+        "--artifact",
+        "--reward",
+        "--top",
+    ];
     let mut out: Vec<&str> = Vec::new();
     let mut i = skip;
     while i < args.len() {
@@ -160,7 +167,11 @@ fn cmd_status(json: bool) -> Result<()> {
         println!("portfólio vazio — rode: touring portfolio refresh");
         return Ok(());
     }
-    println!("portfólio: {} artefatos ({})", index.entries.len(), index.built_at);
+    println!(
+        "portfólio: {} artefatos ({})",
+        index.entries.len(),
+        index.built_at
+    );
     for (kind, n) in &by_kind {
         println!("  {kind:<8} {n}");
     }
@@ -214,7 +225,11 @@ fn cmd_verdict(args: &[String], json: bool) -> Result<()> {
         println!("veredito registrado: {} — {}", verdict.tag(), intent);
         println!(
             "  memória institucional: {} · reward RL: {}",
-            if memory_ok { "ok" } else { "indisponível (log local é canônico)" },
+            if memory_ok {
+                "ok"
+            } else {
+                "indisponível (log local é canônico)"
+            },
             if reward_ok {
                 "emitido"
             } else if rec.reward.is_some() {
@@ -241,18 +256,55 @@ fn cmd_query(args: &[String], json: bool) -> Result<()> {
         .unwrap_or(DEFAULT_TOP_K);
 
     let index = store::load().unwrap_or_else(|_| PortfolioIndex::empty());
+    // Hashtag-library facet filter (F4, 2026-08-11): `#kind:` / `#lang:` /
+    // `#domain:` tokens in the intent restrict the corpus before ranking;
+    // facets the index does not carry are reported as ignored, never silently
+    // dropped.
+    let (required_tags, text_intent) =
+        touring_intelligence::rl::memory::tags::split_query_tags(&intent);
+    let (index, tag_report) = if required_tags.is_empty() {
+        (index, None)
+    } else {
+        let pairs: Vec<(String, String)> = required_tags
+            .iter()
+            .map(|t| (t.facet.as_str().to_string(), t.value.clone()))
+            .collect();
+        let (kept, ignored) = query::filter_entries_by_tags(&index.entries, &pairs);
+        let corpus_before = index.entries.len();
+        (
+            PortfolioIndex {
+                entries: kept,
+                ..index
+            },
+            Some(serde_json::json!({
+                "applied": pairs.iter().map(|(f, v)| format!("{f}:{v}")).collect::<Vec<_>>(),
+                "ignored": ignored,
+                "corpus_before": corpus_before,
+            })),
+        )
+    };
+    let intent = if required_tags.is_empty() {
+        intent
+    } else {
+        text_intent
+    };
     // Semantic re-rank only when the human armed it (it may fetch a model).
     let scorer = crate::portfolio::semantic::FastEmbedSimilarity::if_armed();
     let ans = query::answer_with_scorer(
         &index,
         &intent,
         top_k,
-        scorer.as_ref().map(|s| s as &dyn touring_foundation::portfolio::SemanticScorer),
+        scorer
+            .as_ref()
+            .map(|s| s as &dyn touring_foundation::portfolio::SemanticScorer),
     );
 
     if json {
         println!("{}", serde_json::to_string(&ans).unwrap_or_default());
         return Ok(());
+    }
+    if let Some(report) = &tag_report {
+        println!("facet filter: {report}");
     }
     print_answer(&ans);
     Ok(())
@@ -268,7 +320,11 @@ fn print_answer(ans: &PortfolioAnswer) {
         println!("  (nenhum candidato acima do piso de ruído)");
     }
     for (i, h) in ans.prior_art.iter().enumerate() {
-        let inherited = if h.entry.purpose_inherited { "  [propósito herdado do bundle]" } else { "" };
+        let inherited = if h.entry.purpose_inherited {
+            "  [propósito herdado do bundle]"
+        } else {
+            ""
+        };
         println!(
             "  {}. {} [{}·{}] (score {:.2}){inherited}",
             i + 1,
@@ -461,9 +517,15 @@ fn cmd_history(json: bool) -> Result<()> {
         println!("nenhum veredito registrado ainda");
         return Ok(());
     }
-    println!("{} veredito(s); {} artefato(s) com decisão", records.len(), latest.len());
+    println!(
+        "{} veredito(s); {} artefato(s) com decisão",
+        records.len(),
+        latest.len()
+    );
     for r in &records {
-        let reward = r.reward.map_or_else(|| "—".to_string(), |v| format!("{v:.2}"));
+        let reward = r
+            .reward
+            .map_or_else(|| "—".to_string(), |v| format!("{v:.2}"));
         println!(
             "  [{}] {} · reward {reward}\n      intento: {}\n      porquê:  {}",
             r.verdict.tag(),
@@ -494,7 +556,14 @@ mod tests {
     #[test]
     fn positional_for_verdict_skips_the_subcommand_and_its_flags() {
         let a = argv(&[
-            "portfolio", "verdict", "gerar", "PDF", "--choice", "reuse", "--why", "serve",
+            "portfolio",
+            "verdict",
+            "gerar",
+            "PDF",
+            "--choice",
+            "reuse",
+            "--why",
+            "serve",
         ]);
         assert_eq!(positional(&a, 3), "gerar PDF");
     }
@@ -515,7 +584,10 @@ mod tests {
     #[test]
     fn repeatable_root_flag_collects_every_occurrence() {
         let a = argv(&["portfolio", "refresh", "--root", "/a", "--root", "/b"]);
-        assert_eq!(flag_values(&a, "--root"), vec!["/a".to_string(), "/b".to_string()]);
+        assert_eq!(
+            flag_values(&a, "--root"),
+            vec!["/a".to_string(), "/b".to_string()]
+        );
     }
 
     #[test]
@@ -532,7 +604,15 @@ mod tests {
 
     #[test]
     fn unknown_verdict_choice_prints_usage_and_succeeds() {
-        let a = argv(&["portfolio", "verdict", "algo", "--choice", "talvez", "--why", "x"]);
+        let a = argv(&[
+            "portfolio",
+            "verdict",
+            "algo",
+            "--choice",
+            "talvez",
+            "--why",
+            "x",
+        ]);
         assert!(run(&a).is_ok());
     }
 }

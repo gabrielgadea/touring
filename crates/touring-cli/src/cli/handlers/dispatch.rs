@@ -149,6 +149,14 @@ pub struct KnowledgeStats {
     pub gotcha_stats: GotchaStats,
     /// Number of stored memory entries.
     pub memory_entry_count: usize,
+    /// Number of memory entries carrying at least one faceted tag (F6).
+    #[serde(default)]
+    pub memory_tagged_count: usize,
+    /// `memory_tagged_count / memory_entry_count` — the hashtag-library
+    /// coverage KPI (`touring.memory.tag_coverage`). 0.0 when the store is
+    /// empty, so the ratio never divides by zero.
+    #[serde(default)]
+    pub tag_coverage: f64,
 }
 /// Status of the incremental indexing subsystem.
 #[derive(Serialize)]
@@ -236,6 +244,16 @@ pub use crate::cli::memory::cli_memory_recall;
 pub use crate::cli::memory::cli_memory_reindex;
 pub use crate::cli::memory::cli_memory_stats;
 pub use crate::cli::memory::cli_memory_store;
+pub use crate::cli::memory::cli_memory_backfill_tags;
+pub use crate::cli::memory::cli_memory_communities;
+pub use crate::cli::memory::cli_memory_moc;
+pub use crate::cli::memory::cli_memory_unlink;
+pub use crate::cli::memory::cli_memory_link;
+pub use crate::cli::memory::cli_memory_links;
+pub use crate::cli::memory::cli_memory_query;
+pub use crate::cli::memory::cli_memory_sync_tags;
+pub use crate::cli::memory::cli_memory_tag_add;
+pub use crate::cli::memory::cli_memory_tags;
 pub use crate::cli::metrics::cli_mcp_overhead;
 pub use crate::cli::metrics::cli_profile_status;
 pub use crate::cli::metrics::cli_tokio_metrics;
@@ -303,6 +321,7 @@ pub use crate::cli::wiring::cli_wiring_impact;
 pub use crate::cli::wiring::cli_wiring_modules;
 pub use crate::cli::wiring::cli_wiring_orphans;
 pub use crate::cli::wiring::cli_wiring_purpose;
+pub use crate::cli::wiring::cli_wiring_scip_ingest;
 pub use crate::cli::wiring::cli_wiring_status;
 pub use crate::cli::wiring::cli_wiring_suggest;
 pub use crate::cli::workflow::cli_workflow_compare;

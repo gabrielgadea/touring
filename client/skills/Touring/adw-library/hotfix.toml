@@ -7,13 +7,54 @@ name = "hotfix"
 description = "Surgical incident fix: workhorse agent straight in, minimal gate, report"
 entry = "fix"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Stop the bleeding during an incident: a workhorse agent straight in, the smallest gate that proves it, and a report"
+when_to_use = [
+  "production is broken and speed dominates every other consideration",
+]
+when_not_to_use = [
+  "root-causing: it deliberately skips scout and memory, so run bugfix afterwards for the real fix",
+  "planned work of any kind — the shortcuts that make it fast make it careless",
+]
+inputs = [
+  "incident",
+  "verify_cmd",
+]
+produces = [
+  "a minimal verified fix",
+  "an incident report",
+]
+tags = [
+  "#kind:flow",
+  "#domain:incident",
+  "#process:fix",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Prior-art examinada: `bugfix`. Veredito NOVO e não `extend`, porque o compromisso
+# é oposto — velocidade sob incidente contra profundidade com memória. Estender
+# bugfix produziria um fluxo lento com nome de rápido; a referência cruzada vive
+# no `when_not_to_use` de ambos.
+prior_art_verdict = "create_new"
+
 
 [node.fix]
 type = "agent"
+# NOT skill-bound on purpose: a hotfix exists to be FAST. Loading a master skill
+# buys pre-edit discipline at the cost of the latency this flow is named for.
+# The trade is the flow's identity, so it is declared here rather than defaulted.
 driver = "claude"
 tier = "workhorse"
-prompt = "PRODUCTION INCIDENT — surgical hotfix now: {{vars.incident}}. Smallest change that stops the bleeding; note any debt you knowingly take (a follow-up ticket will pay it)."
+prompt = "PRODUCTION INCIDENT — surgical hotfix now: {{vars.incident}}. Smallest change that stops the bleeding; note any debt you knowingly take (a follow-up ticket will pay it). VERIFICATION VERDICT of the previous attempt (empty on the first pass — if it carries text, THAT is what rejected you; address it before anything else): {{nodes.verify.summary}}"
 allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+# Headless: without this the agent stops to ask a human who is not there,
+# and reports `pass` for having asked (chore-1784540624 burned four real
+# invocations and three minutes doing exactly that). `acceptEdits` accepts
+# file edits without prompting; it is not `bypassPermissions`.
+permission_mode = "acceptEdits"
 session = "resume_on_fail"
 timeout_ms = 600000
 on_pass = "verify"

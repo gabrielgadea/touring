@@ -4,6 +4,14 @@
 
 use std::process::Command;
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
 // Run from the touring binary directory so we use the compiled binary
 fn touring_binary() -> String {
     // If TOURING_BINARY is set, use it. Otherwise look relative to THIS crate's manifest dir.
@@ -27,6 +35,7 @@ fn touring_binary() -> String {
 fn run_touring_lang(args: &[&str]) -> Result<String, String> {
     let binary = touring_binary();
     let mut cmd = Command::new(&binary);
+    cmd.envs(private_daemon_env());
     cmd.arg("language");
     for arg in args {
         cmd.arg(*arg);
@@ -131,7 +140,7 @@ fn language_detail_json() {
 fn language_help_flag() {
     // --help should work without daemon
     let binary = touring_binary();
-    let output = Command::new(&binary)
+    let output = Command::new(&binary).envs(private_daemon_env())
         .arg("language")
         .arg("--help")
         .env_remove("TOURING_DAEMON_SOCK")

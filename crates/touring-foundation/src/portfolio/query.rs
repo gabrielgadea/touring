@@ -34,7 +34,11 @@ const MIN_TERM_COVERAGE: f64 = 0.5;
 
 /// How many distinct query terms a candidate must match to be shown at all.
 fn required_matches(n_terms: usize) -> usize {
-    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     let need = (n_terms as f64 * MIN_TERM_COVERAGE).ceil() as usize;
     need.max(1)
 }
@@ -75,8 +79,7 @@ fn entry_tokens(e: &CapabilityEntry) -> Vec<String> {
 fn term_in_name_or_keywords(e: &CapabilityEntry, term: &str) -> bool {
     lexicon::normalize_term(&e.name).as_deref() == Some(term)
         || e.name.to_lowercase().contains(term)
-        || e
-            .keywords
+        || e.keywords
             .iter()
             .any(|kw| lexicon::normalize_term(kw).as_deref() == Some(term))
 }
@@ -192,7 +195,10 @@ fn derive_gaps(
         gaps.push(format!("nenhum candidato menciona: {list}"));
     }
 
-    if hits.iter().all(|h| h.entry.evidence.has_tests != Some(true)) {
+    if hits
+        .iter()
+        .all(|h| h.entry.evidence.has_tests != Some(true))
+    {
         gaps.push(
             "nenhum candidato tem teste conhecido — reuso não verificado por execução".to_string(),
         );
@@ -206,10 +212,12 @@ fn derive_gaps(
         );
     }
 
-    if hits
-        .iter()
-        .all(|h| h.entry.evidence.modified_days_ago.is_some_and(|d| d > STALE_DAYS))
-    {
+    if hits.iter().all(|h| {
+        h.entry
+            .evidence
+            .modified_days_ago
+            .is_some_and(|d| d > STALE_DAYS)
+    }) {
         gaps.push(format!(
             "todos os candidatos têm mais de {STALE_DAYS} dias sem modificação — podem estar defasados"
         ));
@@ -225,8 +233,63 @@ fn derive_gaps(
 /// own description. The semantic leg breaks ties and rescues synonyms.
 const SEMANTIC_WEIGHT: f64 = 0.4;
 
-/// Rank the portfolio against `intent`, optionally re-ranking with a scorer.
+/// Facet filter for the hashtag-library query grammar (`#facet:value` tokens
+/// in a portfolio intent). Maps the facets the index actually carries —
+/// `kind` → [`CapabilityKind::tag`], `lang` → `language` (with the vocabulary
+/// bridge `bash`↔`shell`, `md`↔`markdown`), `domain` → provenance and path
+/// segments — and reports the rest as `ignored`, never silently applied.
 ///
+/// Conjunctive: an entry must satisfy EVERY applicable tag to survive. Pure
+/// over the slice, so the same entries and tags always select the same subset.
+#[must_use]
+pub fn filter_entries_by_tags(
+    entries: &[super::CapabilityEntry],
+    tags: &[(String, String)],
+) -> (Vec<super::CapabilityEntry>, Vec<String>) {
+    let mut ignored: Vec<String> = Vec::new();
+    let mut applicable: Vec<&(String, String)> = Vec::new();
+    for tag in tags {
+        match tag.0.as_str() {
+            "kind" | "lang" | "domain" => applicable.push(tag),
+            _ => ignored.push(format!("{}:{}", tag.0, tag.1)),
+        }
+    }
+    if applicable.is_empty() {
+        return (entries.to_vec(), ignored);
+    }
+    let kept = entries
+        .iter()
+        .filter(|e| applicable.iter().all(|t| entry_matches_facet(e, &t.0, &t.1)))
+        .cloned()
+        .collect();
+    (kept, ignored)
+}
+
+/// One entry against one facet constraint (conjunctive partner of
+/// [`filter_entries_by_tags`]).
+fn entry_matches_facet(entry: &super::CapabilityEntry, facet: &str, value: &str) -> bool {
+    match facet {
+        "kind" => entry.kind.tag() == value,
+        "lang" => {
+            let lang = entry.language.to_ascii_lowercase();
+            lang == value
+                || (value == "bash" && lang == "shell")
+                || (value == "md" && lang == "markdown")
+        }
+        "domain" => {
+            let hay = format!(
+                "{} {}",
+                entry.provenance.to_ascii_lowercase(),
+                entry.display_path.to_ascii_lowercase()
+            )
+            .replace(['/', '-', '_', '.', ':'], " ");
+            hay.split_whitespace().any(|seg| seg == value)
+        }
+        _ => false,
+    }
+}
+
+/// Rank the portfolio against `intent`, optionally re-ranking with a scorer.
 /// With `scorer: None` this is exactly [`answer`]. With one, the surviving
 /// candidates are blended `(1-w)·lexical + w·semantic` on scores normalized to
 /// the best in the set — so a synonym match ("draw a diagram" vs "render a
@@ -248,8 +311,8 @@ pub fn answer_with_scorer(
     for hit in &mut ans.prior_art {
         let semantic = scorer.score(intent, &hit.entry.purpose).clamp(0.0, 1.0);
         let lexical = hit.score / best_lexical;
-        hit.score = best_lexical
-            * ((1.0 - SEMANTIC_WEIGHT).mul_add(lexical, SEMANTIC_WEIGHT * semantic));
+        hit.score =
+            best_lexical * ((1.0 - SEMANTIC_WEIGHT).mul_add(lexical, SEMANTIC_WEIGHT * semantic));
     }
     ans.prior_art.sort_by(|a, b| {
         b.score
@@ -367,10 +430,65 @@ mod tests {
 
     fn corpus() -> PortfolioIndex {
         index_of(vec![
-            entry("render_map", "Generate the module dependency map as an SVG diagram", &["map", "svg"]),
-            entry("html_to_pdf", "Generate a professional PDF document from an HTML template", &["pdf", "html"]),
-            entry("parse_config", "Parse and validate a TOML configuration file", &["config", "toml"]),
+            entry(
+                "render_map",
+                "Generate the module dependency map as an SVG diagram",
+                &["map", "svg"],
+            ),
+            entry(
+                "html_to_pdf",
+                "Generate a professional PDF document from an HTML template",
+                &["pdf", "html"],
+            ),
+            entry(
+                "parse_config",
+                "Parse and validate a TOML configuration file",
+                &["config", "toml"],
+            ),
         ])
+    }
+
+    #[test]
+    fn facet_filter_selects_and_reports() {
+        let corpus = corpus();
+        // kind:script keeps every fixture entry (all are scripts)…
+        let (kept, ignored) = filter_entries_by_tags(
+            &corpus.entries,
+            &[("kind".to_string(), "script".to_string())],
+        );
+        assert_eq!(kept.len(), 3);
+        assert!(ignored.is_empty());
+        // …lang:python likewise; an impossible pair empties the corpus…
+        let (kept, _) = filter_entries_by_tags(
+            &corpus.entries,
+            &[
+                ("kind".to_string(), "script".to_string()),
+                ("lang".to_string(), "rust".to_string()),
+            ],
+        );
+        assert_eq!(kept.len(), 0, "conjunctive filter");
+        // …domain matches provenance tokens…
+        let (kept, _) = filter_entries_by_tags(
+            &corpus.entries,
+            &[("domain".to_string(), "test".to_string())],
+        );
+        assert_eq!(kept.len(), 3);
+        // …and unsupported facets are reported, never silently applied.
+        let (kept, ignored) = filter_entries_by_tags(
+            &corpus.entries,
+            &[("status".to_string(), "stable".to_string())],
+        );
+        assert_eq!(kept.len(), 3, "unsupported facet must not filter");
+        assert_eq!(ignored, vec!["status:stable".to_string()]);
+    }
+
+    #[test]
+    fn facet_lang_bridges_vocabularies() {
+        let mut e = entry("x", "y", &[]);
+        e.language = "shell".to_string();
+        let (kept, _) =
+            filter_entries_by_tags(&[e], &[("lang".to_string(), "bash".to_string())]);
+        assert_eq!(kept.len(), 1, "bash == shell in the portfolio vocabulary");
     }
 
     #[test]
@@ -389,7 +507,10 @@ mod tests {
                 a.prior_art.first().map(|h| h.entry.name.as_str()),
                 Some("render_map"),
                 "intent {intent} ranked {:?}",
-                a.prior_art.iter().map(|h| &h.entry.name).collect::<Vec<_>>()
+                a.prior_art
+                    .iter()
+                    .map(|h| &h.entry.name)
+                    .collect::<Vec<_>>()
             );
         }
     }
@@ -400,7 +521,9 @@ mod tests {
         let a = answer(&corpus(), "treinar uma rede neural convolucional", 5);
         assert!(a.prior_art.is_empty(), "{:?}", a.prior_art);
         assert!(
-            a.gaps.iter().any(|g| g.contains("nenhum artefato conhecido")),
+            a.gaps
+                .iter()
+                .any(|g| g.contains("nenhum artefato conhecido")),
             "gaps must state the absence: {:?}",
             a.gaps
         );
@@ -411,7 +534,11 @@ mod tests {
     fn every_answer_demands_a_verdict() {
         let a = answer(&corpus(), "gerar mapa", 5);
         for v in Verdict::all() {
-            assert!(a.verdict_required.contains(&v.tag().to_string()), "missing {}", v.tag());
+            assert!(
+                a.verdict_required.contains(&v.tag().to_string()),
+                "missing {}",
+                v.tag()
+            );
         }
     }
 
@@ -421,8 +548,16 @@ mod tests {
         assert!(!a.external.is_empty());
         let lens = &a.external[0];
         assert_eq!(lens.subject, "WeasyPrint");
-        assert!(lens.question.contains("gerar PDF profissional"), "{}", lens.question);
-        assert!(!lens.question.contains('<'), "placeholder leaked: {}", lens.question);
+        assert!(
+            lens.question.contains("gerar PDF profissional"),
+            "{}",
+            lens.question
+        );
+        assert!(
+            !lens.question.contains('<'),
+            "placeholder leaked: {}",
+            lens.question
+        );
     }
 
     #[test]
@@ -430,8 +565,16 @@ mod tests {
         let a = answer(&corpus(), "orquestrar telemetria distribuida", 5);
         let lens = &a.external[0];
         assert!(!lens.subject.is_empty());
-        assert!(!lens.subject.contains('<'), "placeholder leaked: {}", lens.subject);
-        assert!(lens.question.contains("orquestrar telemetria"), "{}", lens.question);
+        assert!(
+            !lens.subject.contains('<'),
+            "placeholder leaked: {}",
+            lens.subject
+        );
+        assert!(
+            lens.question.contains("orquestrar telemetria"),
+            "{}",
+            lens.question
+        );
     }
 
     #[test]
@@ -457,7 +600,11 @@ mod tests {
 
     #[test]
     fn gaps_flag_inherited_descriptions() {
-        let mut e = entry("fill_form", "Toolkit for generating professional PDF documents", &["pdf"]);
+        let mut e = entry(
+            "fill_form",
+            "Toolkit for generating professional PDF documents",
+            &["pdf"],
+        );
         e.purpose_inherited = true;
         let a = answer(&index_of(vec![e]), "gerar PDF", 5);
         assert!(!a.prior_art.is_empty());
@@ -473,8 +620,14 @@ mod tests {
         let a = answer(&PortfolioIndex::empty(), "gerar mapa", 5);
         assert!(a.prior_art.is_empty());
         assert_eq!(a.corpus_size, 0);
-        assert!(!a.gaps.is_empty(), "an empty portfolio must still explain itself");
-        assert!(!a.external.is_empty(), "external lens survives an empty index");
+        assert!(
+            !a.gaps.is_empty(),
+            "an empty portfolio must still explain itself"
+        );
+        assert!(
+            !a.external.is_empty(),
+            "external lens survives an empty index"
+        );
     }
 
     #[test]
@@ -488,8 +641,16 @@ mod tests {
     #[test]
     fn field_boost_lifts_a_name_match_over_a_prose_only_match() {
         let idx = index_of(vec![
-            entry("pdf_builder", "Assemble output files for distribution", &["pdf"]),
-            entry("misc_tool", "A helper that can also produce a pdf when asked nicely", &[]),
+            entry(
+                "pdf_builder",
+                "Assemble output files for distribution",
+                &["pdf"],
+            ),
+            entry(
+                "misc_tool",
+                "A helper that can also produce a pdf when asked nicely",
+                &[],
+            ),
         ]);
         let a = answer(&idx, "pdf", 5);
         assert_eq!(
@@ -505,11 +666,20 @@ mod tests {
         // present in every doc an IDF near zero, so in a small corpus the
         // correct answers scored below any fixed threshold and vanished.
         let idx = index_of(vec![
-            entry("pdf_builder", "Assemble output files for distribution", &["pdf"]),
+            entry(
+                "pdf_builder",
+                "Assemble output files for distribution",
+                &["pdf"],
+            ),
             entry("pdf_merger", "Combine several pdf files into one", &["pdf"]),
         ]);
         let a = answer(&idx, "pdf", 5);
-        assert_eq!(a.prior_art.len(), 2, "both candidates must survive: {:?}", a.gaps);
+        assert_eq!(
+            a.prior_art.len(),
+            2,
+            "both candidates must survive: {:?}",
+            a.gaps
+        );
     }
 
     #[test]
@@ -521,7 +691,11 @@ mod tests {
             &[],
         )]);
         let a = answer(&idx, "gerar PDF profissional", 5);
-        assert!(a.prior_art.is_empty(), "1 of 3 terms must not qualify: {:?}", a.prior_art);
+        assert!(
+            a.prior_art.is_empty(),
+            "1 of 3 terms must not qualify: {:?}",
+            a.prior_art
+        );
     }
 
     #[test]
@@ -538,7 +712,9 @@ mod tests {
         let a = answer(&idx, "gerar PDF profissional", 5);
         assert!(!a.prior_art.is_empty());
         assert!(
-            !a.gaps.iter().any(|g| g.contains("menciona") && g.contains("professional")),
+            !a.gaps
+                .iter()
+                .any(|g| g.contains("menciona") && g.contains("professional")),
             "false absence claim: {:?}",
             a.gaps
         );
@@ -554,7 +730,9 @@ mod tests {
         )]);
         let a = answer(&idx, "gerar PDF com assinatura digital", 5);
         assert!(
-            a.gaps.iter().any(|g| g.contains("sign") || g.contains("digital")),
+            a.gaps
+                .iter()
+                .any(|g| g.contains("sign") || g.contains("digital")),
             "a truly uncovered term must still be named: {:?}",
             a.gaps
         );
@@ -565,7 +743,10 @@ mod tests {
         // A 3-char term must not be "covered" by any word starting with it.
         assert!(!term_is_covered("pdf", &["pdfkit".to_string()]));
         assert!(term_is_covered("pdf", &["pdf".to_string()]));
-        assert!(term_is_covered("professional", &["professionally".to_string()]));
+        assert!(term_is_covered(
+            "professional",
+            &["professionally".to_string()]
+        ));
     }
 
     #[test]
@@ -573,16 +754,27 @@ mod tests {
         // Measured 2026-08-08: without this weight, stub symbols ("Command-line
         // interface.", 23 chars) outranked the real PDF artifacts, because BM25
         // length normalization favours short documents.
-        let mut sym = entry("helper", "Generate a professional PDF from a template", &["pdf"]);
+        let mut sym = entry(
+            "helper",
+            "Generate a professional PDF from a template",
+            &["pdf"],
+        );
         sym.kind = CapabilityKind::Symbol;
         sym.id = CapabilityEntry::make_symbol_id("~/scripts/helper.py", "helper");
-        let art = entry("builder", "Generate a professional PDF from a template", &["pdf"]);
+        let art = entry(
+            "builder",
+            "Generate a professional PDF from a template",
+            &["pdf"],
+        );
         let a = answer(&index_of(vec![sym, art]), "gerar PDF profissional", 5);
         assert_eq!(
             a.prior_art.first().map(|h| h.entry.kind),
             Some(CapabilityKind::Script),
             "the runnable artifact must come first: {:?}",
-            a.prior_art.iter().map(|h| (h.entry.kind, &h.entry.name)).collect::<Vec<_>>()
+            a.prior_art
+                .iter()
+                .map(|h| (h.entry.kind, &h.entry.name))
+                .collect::<Vec<_>>()
         );
     }
 
@@ -597,13 +789,20 @@ mod tests {
         );
         sym.kind = CapabilityKind::Symbol;
         sym.id = CapabilityEntry::make_symbol_id("~/scripts/conv.py", "html_to_markdown");
-        let art = entry("unrelated_tool", "Convert spreadsheets into CSV exports", &["csv"]);
+        let art = entry(
+            "unrelated_tool",
+            "Convert spreadsheets into CSV exports",
+            &["csv"],
+        );
         let a = answer(&index_of(vec![sym, art]), "converter HTML em markdown", 5);
         assert_eq!(
             a.prior_art.first().map(|h| h.entry.name.as_str()),
             Some("html_to_markdown"),
             "{:?}",
-            a.prior_art.iter().map(|h| &h.entry.name).collect::<Vec<_>>()
+            a.prior_art
+                .iter()
+                .map(|h| &h.entry.name)
+                .collect::<Vec<_>>()
         );
     }
 

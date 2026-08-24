@@ -2,7 +2,7 @@
 name = "touring-hooks-shared"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Leaf utilities extracted from touring-hooks (W8 pragmatic split) — errors, metrics, plugin, query DSL, RFC-100 emission, idempotency"
 license.workspace = true
 

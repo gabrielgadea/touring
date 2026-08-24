@@ -44,6 +44,7 @@ moka = { workspace = true }
 once_cell = { workspace = true }
 petgraph = { workspace = true }
 rusqlite = { workspace = true }
+prost = { workspace = true }  # H2: SCIP ingest (scip_ingest.rs) — wire-compatible decode of `rust-analyzer scip`
 rustc-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

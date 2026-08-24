@@ -115,7 +115,7 @@ fn ssr_apply(args: &[String]) -> anyhow::Result<()> {
                 let mut s = String::new();
                 std::io::stdin()
                     .read_to_string(&mut s)
-                    .map_err(|e| anyhow::anyhow!("stdin read error: {e}"))?;
+                    .map_err(|e| anyhow::anyhow!("stdin read error: {e} — run `touring help` for details"))?;
                 stdin_source = Some(s);
                 i += 1;
             }
@@ -126,8 +126,8 @@ fn ssr_apply(args: &[String]) -> anyhow::Result<()> {
         }
     }
 
-    let pattern = pattern.ok_or_else(|| anyhow::anyhow!("--pattern is required"))?;
-    let replacement = replacement.ok_or_else(|| anyhow::anyhow!("--replacement is required"))?;
+    let pattern = pattern.ok_or_else(|| anyhow::anyhow!("--pattern is required — run `touring help` for details"))?;
+    let replacement = replacement.ok_or_else(|| anyhow::anyhow!("--replacement is required — run `touring help` for details"))?;
 
     let rule = SsrRule {
         id: "cli-rule".to_string(),
@@ -139,12 +139,12 @@ fn ssr_apply(args: &[String]) -> anyhow::Result<()> {
 
     let lang_str = &rule.lang;
     let ast_lang = touring_code::ast::Lang::from_str(lang_str)
-        .map_err(|_| anyhow::anyhow!("unsupported language: {}", lang_str))?;
+        .map_err(|_| anyhow::anyhow!("unsupported language: {} — run `touring help` for details", lang_str))?;
 
-    let src = stdin_source.ok_or_else(|| anyhow::anyhow!("--stdin required for apply"))?;
+    let src = stdin_source.ok_or_else(|| anyhow::anyhow!("--stdin required for apply — run `touring help` for details"))?;
 
     let result = ssr::apply_ssr_rule(&rule, &src, ast_lang)
-        .map_err(|e| anyhow::anyhow!("SSR apply failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("SSR apply failed: {e} — run `touring help` for details"))?;
 
     let out: SsrApplyOutput = result.into();
     let json = serde_json::to_string_pretty(&out).map_err(|e| anyhow::anyhow!("{e}"))?;

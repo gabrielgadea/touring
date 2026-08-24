@@ -25,6 +25,14 @@ use hdrhistogram::Histogram;
 use serde_json::json;
 use std::time::{Duration, Instant};
 
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
+
+
 // ── D2: PascalCase extraction — CLI proxy latency ────────────────────────────
 
 /// D2 guard: Pre-tool-use hook overhead via CLI binary must have P99 < 2s over 5 iterations.
@@ -416,7 +424,7 @@ fn invoke_cli_hook(binary: &std::path::Path, hook: &str, payload: &serde_json::V
     use std::io::Write;
     use std::process::{Command, Stdio};
 
-    let mut child = match Command::new(binary)
+    let mut child = match Command::new(binary).envs(private_daemon_env())
         .arg(hook)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

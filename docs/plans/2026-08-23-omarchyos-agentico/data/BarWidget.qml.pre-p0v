@@ -1,0 +1,91 @@
+// BarWidget.qml — Skills deck bar widget for Omarchy Quattro
+//
+// Left-click icon  → toggle the panel (shows skill tiles)
+// Right-click icon → root.bar.run("omarchy-launch-or-focus-tui \"tail …\"")
+//
+// Panel.qml loads deck.json (same directory as this file) via Qt.resolvedUrl +
+// XMLHttpRequest (synchronous local read). Each tile carries label/model/effort;
+// left-click on tile calls root.bar.run("omarchy-skill-run …").
+//
+// Imports qs.* generate "module not found" warnings under qmllint without the
+// Quickshell runtime — this is expected and accepted per project conventions.
+
+import QtQuick
+import qs.Commons  // TODO(P0V): validar no shell real — BarWidget, BarIconButton vêm daqui
+import qs.Ui       // TODO(P0V): Style.bar.statusSlot
+
+BarWidget {
+    id: root
+    moduleName: "gabriel.skills-deck"
+
+    // ── Panel wiring (mirrors omarchy.weather pattern) ──────────────────────
+
+    function injectPanel() {
+        var t = panelLoader.item
+        if (!t) return
+        if ("bar"        in t) t.bar        = root.bar
+        if ("settings"   in t) t.settings   = root.settings
+        if ("anchorItem" in t) t.anchorItem = button
+        if ("hostWidget" in t) t.hostWidget = root
+    }
+
+    function togglePanel() {
+        if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle()
+    }
+
+    // Shape contract required by Bar.findPanelWidget (open/close/opened).
+    readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
+
+    function open() {
+        if (panelLoader.item && panelLoader.item.open) panelLoader.item.open()
+    }
+
+    function close() {
+        if (panelLoader.item && panelLoader.item.close) panelLoader.item.close()
+    }
+
+    readonly property bool popoutSwitchClosing:
+        panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
+
+    function closeForPopoutSwitch() {
+        if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
+    }
+
+    visible: true
+    implicitWidth:  button.implicitWidth
+    implicitHeight: button.implicitHeight
+
+    onBarChanged:      injectPanel()
+    onSettingsChanged: injectPanel()
+
+    Loader {
+        id: panelLoader
+        active: true
+        source: Qt.resolvedUrl("Panel.qml")
+        visible: false
+        onLoaded: {
+            root.injectPanel()
+            Qt.callLater(root.injectPanel)
+        }
+    }
+
+    // ── Bar button ──────────────────────────────────────────────────────────
+
+    BarIconButton {
+        id: button
+        anchors.fill: parent
+        bar: root.bar
+        text: "󱁤"    // Nerd Font: nf-md-robot
+        slotSize: Style.bar.statusSlot  // TODO(P0V): validar slot size no shell real
+        tooltipText: "Skills deck"
+
+        onPressed: function(b) {
+            if (!root.bar) return
+            if (b === Qt.RightButton) {
+                root.bar.run("omarchy-launch-or-focus-tui \"tail -n 50 -f ~/Work/runs.log\"")
+            } else {
+                root.togglePanel()
+            }
+        }
+    }
+}

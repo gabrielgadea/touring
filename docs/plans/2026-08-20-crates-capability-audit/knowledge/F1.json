@@ -1,0 +1,11 @@
+{
+  "phase": "F1",
+  "entities": [
+    {
+      "entity_id": "phase:F1",
+      "type": "phase",
+      "description": "F1: cli_suggester passou a alimentar os proprios contadores. Medido em 20/08: o arquivo chamava DEZ recorders (adoption_touring, adoption_antipattern, pillar_induction_emitted/followed, suggestion_emitted/followed, enrichment_emitted, hook_rewrite_applied) e rodava advise_next_step/detect_antipattern TRES vezes sem gravar nenhuma das duas; workflow_advice_emitted_count e workflow_antipattern_detected_count liam 0 enquanto o hook me injetava advice ~10x numa janela de 25 min, e adoption_antipattern_count lia 5 - dois contadores para o mesmo fenomeno, um alimentado por caminho frio e outro por nenhum. Os recorders existiam com chamadores em touring-ceg/gateway/metrics.rs e no verbo manual touring gate; nenhum dos dois e o caminho que dispara. Ligados 2 recorders: advice na construcao do hint, antipadrao na DETECCAO (que e o que o nome do contador diz - contar so quando surfaced subestimaria o detector). O sitio 2484 ficou intocado de proposito: alimenta adoption_antipattern, que e outra metrica (razao de adocao, nao deteccao). Teste workflow_enrichment_feeds_its_own_counters provado por mutacao: remover o recorder faz reprovar. cargo check e clippy -D warnings exit 0."
+    }
+  ],
+  "relations": []
+}

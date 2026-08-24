@@ -2,7 +2,7 @@
 name = "touring-hooks-prediction"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Predictive/classification layer extracted from touring-hooks (W8 pragmatic split) — intent classifier, PII, LLM judge, ANN memory, TF-IDF, layer-7 prediction"
 license.workspace = true
 

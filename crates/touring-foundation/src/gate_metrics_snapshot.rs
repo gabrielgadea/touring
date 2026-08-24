@@ -358,6 +358,23 @@ pub struct GateMetricsSnapshot {
     /// NEW-2 — Sandbox failures persisted via tee mode (exit_code != 0).
     #[serde(default)]
     pub sandbox_tee_persisted_count: u64,
+    /// W4 d4 — `ctx_execute`/`touring run` executions journaled. Snapshot
+    /// wiring landed in C2-W0 (2026-08-24): until then these four counters
+    /// were exported only by the MCP tool sites, and the `touring
+    /// gate-metrics -j` the docs pointed to never carried them.
+    #[serde(default)]
+    pub code_mode_runs_count: u64,
+    /// W4 d4 — measured context savings of the spill (full − inline bytes).
+    #[serde(default)]
+    pub code_mode_bytes_elided_total: u64,
+    /// C2-W0 d4/S-5.2 — orchestrate sub-calls seen by the daemon (requests
+    /// stamped `origin: <run_id>:code:<n>`).
+    #[serde(default)]
+    pub code_mode_subcalls_count: u64,
+    /// C2-W0 d4 — counterfactual bytes of those sub-calls (payload + output):
+    /// the tool-parts tool calling would have injected into the context.
+    #[serde(default)]
+    pub code_mode_subcall_bytes_total: u64,
     /// NEW-1 — Per-command compression profile applications (any profile).
     #[serde(default)]
     pub compression_profile_applied_count: u64,
@@ -797,6 +814,12 @@ impl GateMetricsSnapshot {
                 .tool_outputs_cleanup_deleted_count
                 .load(Ordering::Relaxed),
             sandbox_tee_persisted_count: m.sandbox_tee_persisted_count.load(Ordering::Relaxed),
+            code_mode_runs_count: m.code_mode_runs_count.load(Ordering::Relaxed),
+            code_mode_bytes_elided_total: m.code_mode_bytes_elided_total.load(Ordering::Relaxed),
+            code_mode_subcalls_count: m.code_mode_subcalls_count.load(Ordering::Relaxed),
+            code_mode_subcall_bytes_total: m
+                .code_mode_subcall_bytes_total
+                .load(Ordering::Relaxed),
             compression_profile_applied_count: m
                 .compression_profile_applied_count
                 .load(Ordering::Relaxed),

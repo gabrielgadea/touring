@@ -108,13 +108,27 @@ fn is_curated(name: &str) -> bool {
     CURATED_TOOLS.contains(&name)
 }
 
-/// Apply the curated allowlist to a full tool list. Returns the list unchanged
-/// when `TOURING_MCP_ALL_TOOLS` is set (any value) — the runtime escape hatch;
-/// otherwise keeps only [`CURATED_TOOLS`] (input order preserved). A curated
-/// name absent from `all` is simply skipped, so the filter is rename-resilient.
+/// W7 T2 — the code-first MCP surface: the Cloudflare search+execute pair plus
+/// memory. Every other registered tool stays invocable by NAME via
+/// `tools/call`; only the handshake advertisement shrinks (progressive
+/// disclosure at its floor — 3 tools ≈ the −99.9% shape of the pattern).
+const CODE_MODE_TOOLS: &[&str] = &["touring_search", "touring_ctx_execute", "touring_memory_recall"];
+
+/// Apply the curated allowlist to a full tool list. Precedence:
+/// `TOURING_MCP_ALL_TOOLS` (any value) returns everything — the runtime
+/// escape hatch; `TOURING_MCP_CODE_MODE=1` keeps only [`CODE_MODE_TOOLS`]
+/// (W7 T2 — the search+execute façade); otherwise keeps [`CURATED_TOOLS`]
+/// (input order preserved). A listed name absent from `all` is simply
+/// skipped, so the filter is rename-resilient.
 fn apply_curation(all: Vec<rmcp::model::Tool>) -> Vec<rmcp::model::Tool> {
     if std::env::var_os("TOURING_MCP_ALL_TOOLS").is_some() {
         return all;
+    }
+    if std::env::var("TOURING_MCP_CODE_MODE").as_deref() == Ok("1") {
+        return all
+            .into_iter()
+            .filter(|t| CODE_MODE_TOOLS.contains(&t.name.as_ref()))
+            .collect();
     }
     all.into_iter()
         .filter(|t| is_curated(t.name.as_ref()))
@@ -123,7 +137,21 @@ fn apply_curation(all: Vec<rmcp::model::Tool>) -> Vec<rmcp::model::Tool> {
 
 #[cfg(test)]
 mod curation_tests {
-    use super::{CURATED_TOOLS, is_curated};
+    use super::{CODE_MODE_TOOLS, CURATED_TOOLS, is_curated};
+
+    /// W7 T2 — the code-first surface is exactly the search+execute pair plus
+    /// memory, and every one of them is also in the default curated set (the
+    /// façade narrows, never invents).
+    #[test]
+    fn code_mode_curation_exposes_three_tools() {
+        assert_eq!(CODE_MODE_TOOLS.len(), 3);
+        for t in CODE_MODE_TOOLS {
+            assert!(is_curated(t), "{t} must also be in the curated default");
+        }
+        assert!(CODE_MODE_TOOLS.contains(&"touring_search"));
+        assert!(CODE_MODE_TOOLS.contains(&"touring_ctx_execute"));
+        assert!(CODE_MODE_TOOLS.contains(&"touring_memory_recall"));
+    }
 
     #[test]
     fn curated_surface_is_lean_with_entry_points() {

@@ -172,12 +172,12 @@ mod tests {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Valid numeric env-var override must be respected for L0/L1.
         // Remove first to ensure test isolation.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L0") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L0", "9999") };
         let budget_l0 = cila_budget(0, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L0") };
         assert_eq!(budget_l0, 9999);
     }
@@ -189,12 +189,12 @@ mod tests {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Valid numeric env-var override must be respected for L2/L3.
         // Remove first to ensure test isolation.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L2") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L2", "5555") };
         let budget_l2 = cila_budget(2, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L2") };
         assert_eq!(budget_l2, 5555);
     }
@@ -205,10 +205,10 @@ mod tests {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Valid numeric env-var override must be respected for L4+.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L4", "7777") };
         let budget_l4 = cila_budget(4, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L4") };
         assert_eq!(budget_l4, 7777);
     }
@@ -219,10 +219,10 @@ mod tests {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Non-numeric env value must fall back to the hardcoded default.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L0", "not_a_number") };
         let budget_fallback = cila_budget(0, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L0") };
         assert_eq!(
             budget_fallback, 800,

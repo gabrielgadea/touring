@@ -1,0 +1,11 @@
+{
+  "phase": "W3",
+  "entities": [
+    {
+      "entity_id": "phase:W3",
+      "type": "phase",
+      "description": "d2 CORE CODE-COMPLETE: (S-3.1) snippet_stats.rs novo modulo \u2014 trust ladder untrusted->provisional(10/90%)->trusted(100/95%) + REBAIXAMENTO por janela (5 falhas nas ultimas 10 -> demote; fecha buraco TanStack) + INVALIDACAO por sig_hash (judge_attest p/ codigo aprendido) + badges visiveis ao modelo, 5/5 testes; (S-3.2) ponte cli_learning_reward: tool prefixo snippet: alimenta stats (success=reward>0, sig_hash no payload, fail-open) e retorna snippet_trust; (S-3.3) harvest_hint no touring run com threshold P33 (exit 0 + >=5 linhas + parametrizado + sem efemeros, ~26% oferta) + emit_output agora expoe failure/stored_path/retrieval_hint da W1 no CLI. S-3.4 (bindings snippet_* dinamicos + ciclo + segredos) registrado como W3b dependente de biblioteca populada \u2014 nao half-baked. Testes: intelligence 5/5, run 14/14, clippy 0"
+    }
+  ],
+  "relations": []
+}

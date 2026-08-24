@@ -186,6 +186,8 @@ fn failure_envelope(e: &MutationError) -> String {
         MutationError::OutcomesMissing(_) => "outcomes_missing",
         MutationError::OutcomesParse { .. } => "outcomes_parse",
         MutationError::Io(_) => "io",
+        // A run that measured nothing must never leave here as ok:true.
+        MutationError::NoViableMutants { .. } => "no_viable_mutants",
     };
     json!({
         "ok": false,
@@ -198,6 +200,28 @@ fn failure_envelope(e: &MutationError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The envelope for "nothing was measured" must be a FAILURE.
+    ///
+    /// Origin 2026-08-20: a dead baseline produced `total_mutants: 0` and this
+    /// handler answered `ok: true, kill_rate: 0.0` — a shape no caller could
+    /// tell apart from a suite that killed nothing. `repo-score` consumed it.
+    #[test]
+    fn no_viable_mutants_is_reported_as_a_failure() {
+        let s = failure_envelope(&MutationError::NoViableMutants {
+            path: std::path::PathBuf::from("/tmp/outcomes.json"),
+            total: 0,
+            unviable: 0,
+        });
+        let v: Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["ok"], false, "a run that measured nothing is not ok");
+        assert_eq!(v["kind"], "no_viable_mutants");
+        assert!(
+            v["error"].as_str().unwrap().contains("no viable mutants"),
+            "the message must name the cause: {}",
+            v["error"]
+        );
+    }
 
     #[test]
     fn failure_envelope_binary_not_found_shape() {

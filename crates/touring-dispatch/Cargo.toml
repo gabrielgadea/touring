@@ -2,7 +2,7 @@
 name = "touring-dispatch"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "touring-hooks dispatch layer — HookRuntime, hook_registry, daemon actor, pre/post lifecycle hooks, cli/ handlers (daemon-lib-rearch Phase D)"
 license.workspace = true
 

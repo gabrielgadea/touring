@@ -1,10 +1,10 @@
 ---
 name: TACO-subagent
 description: >
-  TACO — Touring Agentic Code Orchestrator v6.0. Orchestration sequencial por fases,
+  TACO — Touring Agentic Code Orchestrator v6.3. Orchestration sequencial por fases,
   spawns pure subagents (no Agent Teams), valida resultados, e persiste padrões aprendidos.
   MANDATORY: Every subagent must be bound to the TACO rule.
-version: 6.0
+version: 6.3
 author: Gabriel Gadea
 category: meta-orchestration
 tags:
@@ -15,23 +15,65 @@ tags:
   - taco
 triggers:
   - taco
-  - touring-orchestrator
   - orchestrator
-  - decompor em DAG
-  - spawning subagents
 mcp_servers:
   - touring
 rules:
   - taco-orchestrator
 ---
 
-# TACO — Touring Agentic Code Orchestrator v6.0
+# TACO — Touring Agentic Code Orchestrator v6.3
 
 **MANDATORY**: Every subagent MUST be bound to the TACO rule.
 
+## Fonte canônica e divisão de trabalho (20/08/2026)
+
+> `~/.claude/skills/Touring/references/TACO-subagent-rule.md` (v6.3) **é a fonte
+> canônica do protocolo**. Esta skill é a camada operacional sobre ele; onde as
+> duas divergirem, **o reference vence**.
+
+A divisão foi medida, não estipulada: dos 63 blocos desta skill, 57 não existem
+no reference, e 47 dos 54 blocos do reference não existem aqui — **6 blocos
+compartilhados**. Não eram cópias, eram dois documentos com metades diferentes
+do mesmo protocolo e nenhuma relação declarada. Por isso:
+
+| Camada | Dono de | Onde |
+|---|---|---|
+| **Reference (canônico)** | constraints do subagent · roteamento CILA por nível · Symbol Verification Table · anti-padrões que zeram o composite | `references/TACO-subagent-rule.md` |
+| **Skill (operacional)** | fluxo de fases desenhado · PHASE 0 perception · `classify_intent` · templates de prompt | este arquivo |
+
+Todo prompt de subagent começa com a linha de binding — é o mecanismo que faz o
+reference chegar ao executor sem esta skill precisar reproduzi-lo:
+
+```
+@/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md
+```
+
+## ██ REGRA #15 — SYMBOL VERIFICATION (CONSTITUTIONAL) ██
+
+Esta skill esteve em v6.0 com **zero** menções a `symbol_verification` enquanto a
+regra vigente o exige — quem a seguisse produzia output que a constituição
+rejeita. O campo é obrigatório em **toda fase que cita símbolos**. **Output sem ele =
+checkpoint REJECT, composite 0.0**; símbolo citado sem `touring index find` nem
+justificativa `to_be_created` = `BLOCKED_INVENTED_SYMBOL`.
+
+A tabela por agente (campo exigido × verdicts aceitos × campos de cada entry) é
+do reference — §"CONSTITUTIONAL — MANDATORY SYMBOL VERIFICATION TABLE" — e chega
+ao executor pelo binding acima. Reproduzi-la aqui foi a primeira coisa que a
+medição de blocos acusou como duplicação nesta própria correção (sim=0.76), o
+que é o argumento do princípio funcionando contra quem o aplica.
+
+## ██ PERMISSÕES — subagents herdam a mode do orquestrador ██
+
+Spawnar **omitindo** `mode` no `Agent`. NUNCA forçar override mais estreito
+(`acceptEdits` faz o subagent pedir Bash a cada comando quando a sessão está em
+`auto`/`bypassPermissions`). Garantir estar em `acceptEdits`+ antes de spawnar
+engineers. Origem: regressão 03/07/2026 — regra que existia só no CLAUDE.md e
+não alcançava nem esta skill nem o reference.
+
 ---
 
-## SEQUENTIAL PHASE PROTOCOL v6.0 (OBRIGATÓRIO)
+## SEQUENTIAL PHASE PROTOCOL v6.3 (OBRIGATÓRIO)
 
 **Fases são SEQUENCIAIS. Dentro de cada fase, agentes podem ser paralelos.**
 
@@ -224,6 +266,8 @@ mcp__sequential-thinking__sequentialthinking(
 
 ### PHASE 5 — ENGINEERS (paralelo/sequencial conforme DAG)
 
+**Claim antes de spawnar**: cada fase despachada a um engineer é tomada atomicamente — `touring decompose claim <task> --owner engineer-<n>` — ANTES do `Agent`. `ready` só LÊ: dois orquestradores concorrentes despacham o MESMO subtask e dois engineers editam o mesmo arquivo. Ref: `Touring/references/skill-operating-principles.md#p5`.
+
 ```bash
 # Engineers executam conforme DAG:
 # - Subtasks sem dependências: podem executar em PARALELO
@@ -253,6 +297,8 @@ result_engineer_3 = Agent(
 ```
 
 ### PHASE 6 — CROSS-AUDIT (paralelo)
+
+**O auditor tem de ser cego**: o `touring-auditor` desta fase NÃO pode ser o mesmo contexto que executou a FASE 5 — um crítico que assistiu à implementação confirma as premissas do implementador. Despachar em sessão nova, com lentes DISTINTAS (correção · segurança · reproduz?) e quórum contado por código, é o fragmento `critic-panel` (`touring adw new --use critic-panel:panel`); N críticos idênticos encontram o mesmo modo de falha N vezes. Ref: `Touring/references/skill-operating-principles.md` (P3).
 
 ```bash
 # Auditors podem executar em paralelo para cobrir mais código
@@ -403,32 +449,14 @@ Your response MUST be ONLY valid JSON. The orchestrator parses your response as 
 
 ## Touring CLI Commands
 
-```bash
-# VGP (before code gen)
-touring index find <symbol>
-touring ast blast <file>
+O catálogo é de `~/.claude/rules/touring-cli-index.md` (**auto-load** — já está no
+contexto de toda sessão) e do master `skills/Touring/SKILL.md`. Estava reproduzido
+aqui em terceira cópia, que é como um comando renomeado passa a existir com dois
+nomes: o certo na rule, o velho na skill.
 
-# Session
-touring session start <id> type "<objective>"
-touring session assess <id>
-
-# Decompose
-touring decompose create <type> <desc>
-touring decompose add <task_id> <subtask_id> [deps]
-touring decompose validate <task_id>
-
-# Memory
-touring memory recall "<query>"
-touring memory store "<key>" "<value>" --tier semantic --type lesson
-
-# Wiring
-touring wiring status
-touring wiring orphans
-
-# Evolution
-touring evolution insights
-touring learning reward <tool> <value>
-```
+Os quatro que esta skill de fato exige por fase — `touring index find` (VGP),
+`ast blast` (pré-edit), `memory recall`/`store` (feromônio) e `learning reward`
+(outcome) — estão citados em linha nas fases correspondentes.
 
 ---
 
@@ -460,4 +488,4 @@ touring learning reward <tool> <value>
 
 ---
 
-*TACO v6.0 — Sequential Phase Protocol | 7 FASES OBRIGATÓRIAS | CILA-adaptive routing | ACO pheromone patterns*
+*TACO v6.3 — Sequential Phase Protocol | 7 FASES OBRIGATÓRIAS | CILA-adaptive routing | ACO pheromone patterns*

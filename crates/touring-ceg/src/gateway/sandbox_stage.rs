@@ -244,6 +244,8 @@ mod tests {
             content_hash: "deadbeef".to_owned(),
             stored_path: None,
             summary: OutputSummary::empty(0),
+            stderr: String::new(),
+            stderr_truncated: false,
         };
         let o = SandboxOutcome::from_result(&result, "readonly");
         assert_eq!(o.exit_code, 0);

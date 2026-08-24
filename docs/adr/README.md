@@ -28,3 +28,7 @@ subsystem-level decisions.
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0001](0001-web-dashboard-loopback-default.md) | touring-web dashboard binds loopback by default | accepted |
+| [0002](0002-adw-fragment-composition-by-inlining.md) | ADW fragments compose by load-time inlining, not runtime subgraphs | accepted |
+| [0003](0003-adw-read-only-fanout-explicit-policies.md) | Fan-out is read-only, and its merge and failure policies are declared | accepted |
+| [0004](0004-adw-three-verdict-verification-contract.md) | A gate speaks three verdicts, and silence is REJECT | accepted |
+| [0005](0005-decompose-atomic-subtask-claim.md) | Taking a subtask is a conditional UPDATE, not a read | accepted |

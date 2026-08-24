@@ -1,0 +1,11 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "Fusao TOTAL com investigacao paralela da sessao analise (bundle 2026-08-23-code-mode: M1-M12, D0-D9, rodada 2) + relatorio final do explore-tanstack. Novos: D0 bug stderr engolido (pre-req, priority high), trust DECORATIVO no TanStack (corrigido na doc), composicao snippet->snippet quebrada, sem gate needsApproval, KV-cache hygiene D9, contrafactual medido, replay deterministico, 8 alternativas rejeitadas dsh, SDK Python blueprint. P21-P25 + T14-T15; backlog unificado ao DAG task_1787534694944647530 (analise). Clones+transcripts copiados p/ ~/references/code-mode-2026-08-23"
+    }
+  ],
+  "relations": []
+}

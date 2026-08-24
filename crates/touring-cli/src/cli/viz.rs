@@ -87,7 +87,7 @@ pub fn cli_viz_cycles(rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
         .get("workspace_root")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    let all_cycles = find_all_cycles(&rt.ctx.knowledge, workspace_root_filter.as_deref(), false);
+    let all_cycles = find_all_cycles(&rt.ctx.knowledge, workspace_root_filter.as_deref(), false, false);
     let cycles: Vec<_> = all_cycles
         .into_iter()
         .filter(|c| c.depth >= min_depth)

@@ -1,0 +1,11 @@
+{
+  "phase": "F4",
+  "entities": [
+    {
+      "entity_id": "phase:F4",
+      "type": "phase",
+      "description": "Backfill conservador EXECUTADO no DB real + portfolio facetado: (1) kind seed expandido com os entry_types reais medidos (transcript_lesson via boundary-aware affix match -> lesson; insight/outcome/case/observation/pattern/reference/note/project/followup/text) + fallback kind<-key prefix; (2) RPC cli-memory-backfill-tags (budget 2000/chamada padrao reindex, --dry-run, so entries com ZERO tags, source=backfill) + clap memory backfill-tags; (3) execucao: 4 passes, 7.380 entries, 15.919 tags, remaining=0. Cobertura MEDIDA: 100% tagueadas, 99.93% com >=2 facetas (gate honesto pos-medicao; o alvo >=3 do plano exigiria fabricar domain \u2014 rejeitado por E5/E6, documentado); (4) portfolio facetado: filter_entries_by_tags em foundation (kind/lang com ponte bash<->shell,md<->markdown/domain via provenance+path; facetas nao suportadas reportadas como ignored \u2014 E4), handler portfolio parseia #tags e restringe o corpus ANTES do BM25. E2E live: 'gerar um mapa #kind:script' reduziu corpus 10.863->3.952 e promoveu script invocavel sobre symbol. Gates: 46 portfolio tests, clippy -D limpo, update-touring exit 0."
+    }
+  ],
+  "relations": []
+}

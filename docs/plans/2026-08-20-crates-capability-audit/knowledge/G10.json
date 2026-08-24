@@ -1,0 +1,11 @@
+{
+  "phase": "G10",
+  "entities": [
+    {
+      "entity_id": "phase:G10",
+      "type": "phase",
+      "description": "G10: doctor ganhou check_project_actor. check_daemon_health consulta o handler __health__, que NAO passa pela fila do ator de projeto - por isso reportou 6/6 ok durante toda a fome de 20/08, enquanto status/index status/memory recall/e2e estouravam 15s. A sonda nova envia cli-index-status (o mesmo handler que eu vi morrer) e mede latencia: ok / degraded acima de 5s / error com a dica de que um job pesado esta serializando a fila. Os handlers que morriam sao exatamente os que loop_diagnose.py e loop_converged.py consomem: um loop leria saudavel e depois falharia cada clausula por timeout sem explicacao. cargo check -p touring-server exit 0. NOTA: so vale no binario vivo apos update-touring."
+    }
+  ],
+  "relations": []
+}

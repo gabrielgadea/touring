@@ -55,7 +55,7 @@ fn isolate_home(prefix: &str) -> TempDir {
     // Reset the global singleton so it re-reads HOME from the new value.
     touring_hooks::tantivy_index::reset_tool_outputs_global();
     let tmp = TempDir::new().expect("tempdir");
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("HOME", tmp.path()) };
     let _ = std::fs::create_dir_all(tmp.path().join(format!(".claude/touring/{prefix}")));
     tmp
@@ -123,6 +123,7 @@ fn audit_sandbox_timeout_fallback_returns_sentinel_when_enabled() {
         timeout_ms: 1,
         max_output_bytes: 1024,
         fallback_on_timeout: true,
+        ..SandboxConfig::default()
     };
     let res = execute_in_sandbox_blocking("Bash", json!({"command": "sleep 5"}), cfg)
         .expect("fallback should produce sentinel Ok, not Err");
@@ -146,6 +147,7 @@ fn audit_sandbox_timeout_propagates_when_fallback_disabled() {
         timeout_ms: 1,
         max_output_bytes: 1024,
         fallback_on_timeout: false,
+        ..SandboxConfig::default()
     };
     let err = execute_in_sandbox_blocking("Bash", json!({"command": "sleep 5"}), cfg)
         .expect_err("non-fallback timeout MUST return Err");
@@ -195,7 +197,11 @@ fn audit_compression_profiles_are_reachable_from_the_sandbox_path() {
     );
     // And the compression must be the real thing: chatter dropped, verdict kept.
     assert!(doc.summary.contains("FAILED"), "got: {}", doc.summary);
-    assert!(!doc.summary.contains("test a ... ok"), "got: {}", doc.summary);
+    assert!(
+        !doc.summary.contains("test a ... ok"),
+        "got: {}",
+        doc.summary
+    );
 }
 
 // ─── 3. SandboxResult → ToolOutputDoc roundtrip ─────────────────────────────
@@ -360,14 +366,14 @@ fn audit_rrf_constants_match_documented_default() {
 #[test]
 #[serial]
 fn audit_rrf_search_falls_back_when_disabled() {
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_TANTIVY_TRIGRAM", "0") };
     assert!(!tantivy_trigram_enabled(), "flag setter must take effect");
     let (router, _d1, _d2) = fresh_router();
     // search must return Ok envelope even when trigram disabled
     let v = ctx_search(&router, "nothing", 5);
     assert_eq!(v["ok"], json!(true));
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TANTIVY_TRIGRAM") };
 }
 

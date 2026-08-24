@@ -56,8 +56,15 @@ fn py_func_name() -> impl Strategy<Value = String> {
 }
 
 /// Generate a valid Python class name (CamelCase).
+///
+/// `[A-Z][a-z]+` can spell exactly three Python keywords — `None`, `True`,
+/// `False` — and `class None:` is a syntax error, so the extractor rightly
+/// emits nothing for it (minimal failing input found by proptest: "None").
+/// `py_func_name` always had the keyword filter; this strategy lacked it.
 fn py_class_name() -> impl Strategy<Value = String> {
-    "[A-Z][a-z]{1,10}".prop_map(|s| s)
+    "[A-Z][a-z]{1,10}".prop_filter("must not be a keyword", |name| {
+        !matches!(name.as_str(), "None" | "True" | "False")
+    })
 }
 
 /// Generate a simple Python function definition.

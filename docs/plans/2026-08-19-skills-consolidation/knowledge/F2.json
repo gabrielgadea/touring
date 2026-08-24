@@ -1,0 +1,11 @@
+{
+  "phase": "F2",
+  "entities": [
+    {
+      "entity_id": "phase:F2",
+      "type": "phase",
+      "description": "F2 divergencia constitucional TACO-subagent: skill v6.0 -> v6.3, REGRA #15 symbol_verification exigida (era zero), binding ao reference canonico como fonte de verdade, regra de permissoes propagada do CLAUDE.md. 3 copias removidas (tabela + catalogo CLI) por composicao. 515L -> 490L dentro do limite REGRA #13. Instrumentos: skill_overlap.py + skill_pin_gate.py, ambos provados por mutacao; 28 skills pinadas; extrator estendido a references de skills apos lacuna encontrada."
+    }
+  ],
+  "relations": []
+}

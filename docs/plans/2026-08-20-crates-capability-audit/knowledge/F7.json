@@ -1,0 +1,11 @@
+{
+  "phase": "F7",
+  "entities": [
+    {
+      "entity_id": "phase:F7",
+      "type": "phase",
+      "description": "F7: budget_usd = 2.0 declarado em feature.implement. O runner suporta o teto por agente desde que foi escrito (compila para --max-budget-usd na linha 1493 de adw.py) e nenhuma spec da library declarava um - medido 0 de 9 em 20/08. O no de implementacao e o mais caro do portfolio e o que vale limitar. Confirmado no grafo plano (budget_usd=2.0), lint valid."
+    }
+  ],
+  "relations": []
+}

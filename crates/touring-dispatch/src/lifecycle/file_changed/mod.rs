@@ -40,6 +40,7 @@ pub(crate) use hints::{
 
 use crate::runtime::HookRuntime;
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 // Bring shared helpers into scope via the grandparent re-export in lifecycle.rs.
 // `super::` resolves to `lifecycle` module which re-exports all of shared.rs.
@@ -140,7 +141,7 @@ pub(crate) fn handle_file_changed(rt: &mut HookRuntime, input: &Value) -> String
     // impactful coding patterns in the RL engine, closing the FileChanged → RL feedback loop.
     // Silent for isolated files (no dependents) — avoids rewarding trivial/leaf changes.
     if has_dependents {
-        let context = format!("file_changed:{}", &rel_path[..rel_path.len().min(40)]);
+        let context = format!("file_changed:{}", truncate_str(&rel_path, 40));
         let _ = crate::cli_handlers::cli_learning_reward(
             rt,
             &serde_json::json!({

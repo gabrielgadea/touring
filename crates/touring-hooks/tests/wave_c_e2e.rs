@@ -98,10 +98,11 @@ fn hook_registry_has_cascade_queue_handlers() {
     // ⚠ Sincronizar JUNTO com os outros quatro tripwires — a lista está no
     // doc de `test_hook_registry_counts_match_the_dispatch_registry`
     // (touring-hooks/tests/stringzilla_e2e.rs).
+    // 2026-08-18: +4 decompose verbs — claim, release (C2), ticket, frontier (C3).
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 225;
+    const EXPECTED_NAMES: usize = 240;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 223;
+    const EXPECTED_NAMES: usize = 238;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

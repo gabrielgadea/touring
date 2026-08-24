@@ -164,7 +164,7 @@ fn skip_list(args: &[String]) -> anyhow::Result<()> {
     });
 
     let source = fs::read_to_string(file_path)
-        .map_err(|e| anyhow::anyhow!("read error {}: {}", file_path.display(), e))?;
+        .map_err(|e| anyhow::anyhow!("read error {}: {} — run `ls -la` on that path to check existence and permissions", file_path.display(), e))?;
 
     let fp_str = file_path.to_string_lossy().to_string();
     let mut regions = parse_skip_regions(&source);

@@ -37,6 +37,7 @@ pub mod auto_save_hook;
 pub mod bidirectional;
 pub mod ceg_adapter;
 pub mod ceg_impls;
+pub mod scip_ingest;
 pub mod daemon_protocol;
 pub mod embeddings;
 pub mod gotcha_loader;
@@ -67,7 +68,7 @@ pub use classifier::{
     CILALevel, CILAResult, CachedIntentClassifier, CognitiveTechnique, IntentClassifier,
 };
 pub use pii::{PIIFinding, PIIScanner, PIIType};
-pub use runtime::{HookResponse, HookRuntime, HookTimer, make_relative};
+pub use runtime::{HookResponse, HookRuntime, HookTimer, make_relative, sync_codetag_anchors};
 pub use touring_ceg::capability; // Wave H: ceg_adapter consumes crate::capability
 pub use touring_ceg::gateway;
 pub use touring_hooks_core::aco_bridge;

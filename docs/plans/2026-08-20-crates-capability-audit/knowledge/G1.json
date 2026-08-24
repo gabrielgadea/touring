@@ -1,0 +1,11 @@
+{
+  "phase": "G1",
+  "entities": [
+    {
+      "entity_id": "phase:G1",
+      "type": "phase",
+      "description": "G1: .cargo/mutants.toml tinha additional_cargo_args=['--all-targets'] sob um comentario que dizia 'Skip bench/doctest targets' - --all-targets faz o OPOSTO, inclui benches. nextest list tentava enumerar o harness iai-callgrind, falhava sem iai-callgrind-runner no PATH, baseline do cargo-mutants morria com 0 mutantes reportados como ok:true, e repo-score consumia esse zero como a categoria testing. O exclude_glob **/benches/** nao cobria: ele pula a GERACAO de mutantes, nunca a lista de testes. Corrigido para ['--lib','--bins','--tests']. Provado por execucao: nextest list -p touring-analysis falha com --all-targets e passa com os alvos nomeados. Guarda: scripts/test_mutants_config.py (4 testes, provada por mutacao - 3 reprovam com o valor antigo), ligada ao CI."
+    }
+  ],
+  "relations": []
+}

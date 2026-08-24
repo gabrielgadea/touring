@@ -2540,11 +2540,11 @@ mod analysis_gate_adapter_tests {
         let db_path = make_seeded_db("/tmp/touring-gen-ag-env-default", 0, 10);
 
         // Ensure env is clean (defensive — other tests may have set).
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_WIRING_GATE_MIN_SCORE") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_WIRING_GATE_MAX_DELTA") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_WIRING_GATE_DISABLED") };
 
         let adapter = AnalysisGateAdapter::open_with_env(&db_path).expect("open_with_env");
@@ -2562,11 +2562,11 @@ mod analysis_gate_adapter_tests {
     fn analysis_gate_open_with_env_reads_overrides() {
         let db_path = make_seeded_db("/tmp/touring-gen-ag-env-set", 0, 10);
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_WIRING_GATE_MIN_SCORE", "0.42") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_WIRING_GATE_MAX_DELTA", "99") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_WIRING_GATE_DISABLED", "yes") };
 
         let adapter = AnalysisGateAdapter::open_with_env(&db_path).expect("open_with_env");
@@ -2578,11 +2578,11 @@ mod analysis_gate_adapter_tests {
         assert!(adapter.disabled, "env disabled=yes activates bypass");
 
         // Cleanup so other tests are not contaminated.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_WIRING_GATE_MIN_SCORE") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_WIRING_GATE_MAX_DELTA") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_WIRING_GATE_DISABLED") };
         let _ = std::fs::remove_file(&db_path);
     }

@@ -1,0 +1,11 @@
+{
+  "phase": "F4",
+  "entities": [
+    {
+      "entity_id": "phase:F4",
+      "type": "phase",
+      "description": "F4: phase-close composto em audit/feature/bugfix - o feromonio passa a ser depositado pelos FLUXOS. Medido em 20/08: touring learning reward aparecia em exatamente dois lugares (o fragmento phase-close orfao e loop_phase_close.py) e em ZERO specs; um adw run completava e nao escrevia nada no RL que roteia o proximo - a alca ACO consumia e nunca alimentava. Provado no grafo plano, nao so pelo lint: close.persist e agora o UNICO terminal dos tres fluxos (audit 6 nos, feature 8, bugfix 6), entao nenhum encerra sem depositar. Chave por dominio (adw:audit:<target>, adw:feature:<feature>, adw:bugfix:<symptom>), sumario vindo do no de trabalho, tag #kind:lesson + #domain. Os tres lintam valid, 0 erros, 0 avisos."
+    }
+  ],
+  "relations": []
+}

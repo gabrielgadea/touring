@@ -71,7 +71,7 @@ fn socket_path() -> String {
     format!("/tmp/touring-daemon-{}-{}.sock", std::process::id(), test)
 }
 
-fn start_daemon() -> u32 {
+fn start_daemon() -> DaemonGuard {
     let socket_path = socket_path();
     let _ = std::fs::remove_file(&socket_path);
     let _ = std::fs::remove_file(format!("{socket_path}.lock"));
@@ -94,7 +94,7 @@ fn start_daemon() -> u32 {
     std::thread::sleep(std::time::Duration::from_secs(2));
     let pid = daemon.id();
     std::mem::forget(daemon);
-    pid
+    DaemonGuard { pid }
 }
 
 /// Run touring CLI in a temp directory
@@ -111,6 +111,29 @@ fn touring(args: &[&str], tmpdir: &TempDir) -> std::process::Output {
 
 fn stop_daemon(pid: u32) {
     let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
+    // Clean the socket on the way OUT too. `start_daemon` only removed it on
+    // the way IN, so every run left its socket file behind: 174 stale
+    // `/tmp/touring-daemon-*-test_*.sock` had accumulated by 09/08/2026.
+    let socket_path = socket_path();
+    let _ = std::fs::remove_file(&socket_path);
+    let _ = std::fs::remove_file(format!("{socket_path}.lock"));
+}
+
+/// Stops the test daemon even when the test PANICS.
+///
+/// `stop_daemon(pid)` used to be the last statement of each test body, so a
+/// failing assertion skipped it and the daemon outlived the run — found
+/// 09/08/2026 with a leaked `touring-daemon` still alive after
+/// `test_diary_fts5_searchable` failed. Cleanup that only happens on the happy
+/// path is not cleanup; `Drop` runs during unwinding, so this one always does.
+struct DaemonGuard {
+    pid: u32,
+}
+
+impl Drop for DaemonGuard {
+    fn drop(&mut self) {
+        stop_daemon(self.pid);
+    }
 }
 
 fn parse_json(output: &std::process::Output) -> serde_json::Value {
@@ -130,7 +153,7 @@ fn parse_json_opt(output: &std::process::Output) -> serde_json::Value {
 #[test]
 fn test_diary_write_and_read() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let out = touring(
         &[
@@ -167,14 +190,12 @@ fn test_diary_write_and_read() {
             .unwrap()
             .contains("primeira entrada")
     );
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
 fn test_diary_aaak_markers() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let out = touring(
         &[
@@ -215,14 +236,12 @@ fn test_diary_aaak_markers() {
         markers.iter().any(|(k, v)| k == "result" && v == "0.95"),
         "result marker missing"
     );
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
 fn test_diary_topic_filter() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     touring(
         &[
@@ -265,14 +284,12 @@ fn test_diary_topic_filter() {
     let json = parse_json(&out);
     assert_eq!(json["count"], 2);
     assert_eq!(json["topic_filter"], "alpha");
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
 fn test_diary_last_n() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     for i in 0..5 {
         touring(
@@ -285,14 +302,12 @@ fn test_diary_last_n() {
     let json = parse_json(&out);
     assert_eq!(json["count"], 2);
     assert_eq!(json["last_n"], 2);
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
 fn test_diary_meta_after_write() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     touring(&["diary", "write", "agent_a", "entrada A"], &tmpdir);
 
@@ -301,25 +316,21 @@ fn test_diary_meta_after_write() {
     assert_eq!(json["status"], "ok");
     assert_eq!(json["agent"], "agent_a");
     assert!(json["entry_count"].as_i64().unwrap_or(0) >= 1);
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
 fn test_diary_write_exit_code() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let out = touring(&["diary", "write", "exit_test", "test content"], &tmpdir);
     assert_eq!(out.status.code(), Some(0), "valid write must exit 0");
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
 fn test_diary_multiple_entries_ordered() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     touring(&["diary", "write", "order_agent", "primeira"], &tmpdir);
     std::thread::sleep(std::time::Duration::from_millis(50));
@@ -339,21 +350,17 @@ fn test_diary_multiple_entries_ordered() {
     assert_eq!(contents[0], "terceira");
     assert_eq!(contents[1], "segunda");
     assert_eq!(contents[2], "primeira");
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
 fn test_diary_no_diary_status() {
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     let out = touring(&["diary", "meta", "nonexistent_agent"], &tmpdir);
     let json = parse_json_opt(&out);
     // Status depends on whether diary was found — use raw output
     assert!(out.status.code() == Some(0) || json.get("status").is_some());
-
-    stop_daemon(daemon_pid);
 }
 
 #[test]
@@ -361,7 +368,7 @@ fn test_diary_fts5_searchable() {
     // Verify diary entries are ingested into FTS5 so `touring memory recall`
     // can find them via text search.
     let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let _daemon = start_daemon();
 
     // Write a unique entry with a rare search term
     touring(
@@ -406,6 +413,4 @@ fn test_diary_fts5_searchable() {
         "diary entry should appear in recall output. Got: {}",
         String::from_utf8_lossy(&out.stdout)
     );
-
-    stop_daemon(daemon_pid);
 }

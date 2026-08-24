@@ -118,6 +118,55 @@ def test_status_act_with_caveats_when_questions_open(root, fake_explore, fake_ti
     assert status["open_questions"]
 
 
+def test_yielding_cycle_routes_ticket_through_factory(root, fake_explore, fake_ticket,
+                                                      monkeypatch, capsys):
+    """Sugestão-2 intake: the scout's ticket reaches the factory router and the
+    recommended ADW travels with it (state + cycle output + status queue)."""
+    import sys as _sys
+    import types
+    calls = {"routed": [], "recorded": []}
+    fake_factory = types.ModuleType("factory")
+    fake_factory.route_ticket = lambda desc, r: (calls["routed"].append(desc)
+                                                or {"adw": "audit", "router": "deterministic"})
+    fake_factory.record_route = lambda r, adw: calls["recorded"].append(adw)
+    monkeypatch.setitem(_sys.modules, "factory", fake_factory)
+
+    fake_explore["growth"] = [3]
+    assert sp.cmd_cycle(root, "meu topico") == 0
+    result = json.loads(capsys.readouterr().out.splitlines()[0])
+    assert result["routed_adw"] == "audit"
+    assert calls["recorded"] == ["audit"]
+    assert "meu topico" in calls["routed"][0]
+
+    entry = sp.load_state(root, "meu topico")["history"][-1]
+    assert entry["adw"] == "audit"
+    assert entry["start_hint"].startswith("touring factory start ")
+
+    sp.cmd_status(root, "meu topico")
+    status = json.loads(capsys.readouterr().out)
+    assert status["queue"] == [{"ticket": "task_fake_1", "adw": "audit",
+                                "start_hint": entry["start_hint"]}]
+
+
+def test_factory_failure_never_blocks_scout_cycle(root, fake_explore, fake_ticket,
+                                                  monkeypatch, capsys):
+    import sys as _sys
+    import types
+    broken = types.ModuleType("factory")
+
+    def _boom(desc, r):
+        raise RuntimeError("router down")
+
+    broken.route_ticket = _boom
+    monkeypatch.setitem(_sys.modules, "factory", broken)
+
+    fake_explore["growth"] = [2]
+    assert sp.cmd_cycle(root, "t") == 0  # fail-open: routing enriches, never blocks
+    result = json.loads(capsys.readouterr().out.splitlines()[0])
+    assert result["ticket"] == "task_fake_1" and result["routed_adw"] is None
+    assert sp.load_state(root, "t")["history"][-1]["adw"] is None
+
+
 def test_slug_matches_explore_convention():
     assert sp.slugify("run_gateway") == "run-gateway"
     assert sp.ledger_path(Path("/x"), "run_gateway") == Path("/x/.touring-explore/run-gateway.ledger.json")

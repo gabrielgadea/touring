@@ -1,0 +1,11 @@
+{
+  "phase": "W1.S5",
+  "entities": [
+    {
+      "entity_id": "phase:W1.S5",
+      "type": "phase",
+      "description": "W1.S5: CLAUDE.md recebeu frontmatter OKF completo (type/CLAUDE, title, description, plan_id, tags, timestamp). Prosa intacta: 9 regras numeradas com datas e contexto preservadas. CLAUDE.md \u00e9 o arquivo que o harness CC carrega ao abrir sess\u00e3o neste diret\u00f3rio, ent\u00e3o frontmatter e tipo declaram a inten\u00e7\u00e3o. Gate doc-link mantem 5 links quebrados (baseline). Zero regressao."
+    }
+  ],
+  "relations": []
+}

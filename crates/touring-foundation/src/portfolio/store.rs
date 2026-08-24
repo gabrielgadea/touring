@@ -114,8 +114,8 @@ pub fn load_from(dir: &std::path::Path) -> Result<PortfolioIndex> {
     if !path.exists() {
         return Ok(PortfolioIndex::empty());
     }
-    let bytes =
-        std::fs::read(&path).with_context(|| format!("reading portfolio index {}", path.display()))?;
+    let bytes = std::fs::read(&path)
+        .with_context(|| format!("reading portfolio index {}", path.display()))?;
     match serde_json::from_slice::<PortfolioIndex>(&bytes) {
         Ok(idx) if idx.version == INDEX_VERSION => Ok(idx),
         _ => Ok(PortfolioIndex::empty()),
@@ -135,7 +135,10 @@ pub fn load() -> Result<PortfolioIndex> {
 pub fn now_stamp() -> String {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_or_else(|_| "unknown".to_string(), |d| format!("epoch:{}", d.as_secs()))
+        .map_or_else(
+            |_| "unknown".to_string(),
+            |d| format!("epoch:{}", d.as_secs()),
+        )
 }
 
 #[cfg(test)]
@@ -149,8 +152,8 @@ mod tests {
 
     impl ScopedDir {
         fn new(tag: &str) -> Self {
-            let dir = std::env::temp_dir()
-                .join(format!("portfolio-store-{tag}-{}", std::process::id()));
+            let dir =
+                std::env::temp_dir().join(format!("portfolio-store-{tag}-{}", std::process::id()));
             std::fs::create_dir_all(&dir).expect("mkdir");
             Self(dir)
         }

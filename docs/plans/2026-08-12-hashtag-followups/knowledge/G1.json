@@ -1,0 +1,11 @@
+{
+  "phase": "G1",
+  "entities": [
+    {
+      "entity_id": "phase:G1",
+      "type": "phase",
+      "description": "extract_symbols_fallback agora persiste definitions+call-sites no symbol_store via extract_symbols + replace_file_symbols + with_call_sites \u2014 os 3 caminhos de reindex (process_edit, process_file, fallback) mantem o indice; antes o fallback so alimentava knowledge.symbols_json e o arquivo sumia do symbols.db. Assinatura limpa (language removido, Lang via path). Teste fallback_writes_defs_and_calls_to_store prova def+ref persistidas. 377+1 hook-runtime tests verdes, clippy limpo."
+    }
+  ],
+  "relations": []
+}

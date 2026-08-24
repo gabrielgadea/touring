@@ -1,0 +1,117 @@
+# Fragment `critic-panel` — N blind critics with DISTINCT lenses; code counts the quorum.
+#
+# Three properties make this a panel rather than an echo chamber:
+#   · distinct lenses — N identical critics add cost and no information (the lint
+#     rejects a panel whose personas share one lens);
+#   · fresh sessions — a critic that resumed the worker's session inherits the
+#     context it exists to distrust;
+#   · a code-counted quorum — the verdict is arithmetic over parseable outputs,
+#     never a model's summary of what the others said.
+#
+# The gauntlet only pays off AFTER the brief is right: run this at cross-audit,
+# never in place of getting the target correct. Optimising hard toward a wrong bar
+# is the documented failure mode, and a panel makes it faster, not safer.
+[fragment]
+description = "Blind adversarial critic panel with distinct lenses and a code-counted quorum"
+inputs = ["artifact", "bar", "quorum"]
+entry = "panel"
+
+[node.panel]
+type = "parallel"
+branches = ["correctness", "security", "reproducibility"]
+merge = "concat"
+# A critic that REJECTS is doing its job — that is a verdict, not a branch failure.
+# The quorum node, not the fan-out, decides what the panel concluded.
+on_branch_fail = "ignore"
+max_branches = 3
+on_pass = "quorum"
+on_fail = "quorum"
+
+[node.correctness]
+type = "agent"
+driver = "claude"
+tier = "mid"
+prompt = "Review this artifact against the bar. Artifact: {{inputs.artifact}}"
+allowed_tools = ["Read", "Grep", "Glob"]
+session = "fresh"
+timeout_ms = 600000
+
+[node.correctness.persona]
+role = "critic-correctness"
+description = "Adversarial reviewer, correctness lens"
+stance = "reject_by_default"
+lens = "correctness — does it do what it claims, on the inputs it claims"
+scope = "the artifact under review and the bar it must clear"
+bar = "{{inputs.bar}}"
+burden = "The author must prove it works. You never assume it does, and 'it looks right' is not proof."
+refuses = ["editing the artifact", "fixing what you find", "grading on effort"]
+forbids = ["approving on a summary alone", "accepting a claim with no runnable evidence"]
+blind_to = ["the author's own account of whether it works"]
+escalate_when = "you cannot obtain the evidence needed to decide either way"
+emits = "VERDICT=PASS|REJECT|ESCALATE followed by REASON=<one line>"
+
+[node.security]
+type = "agent"
+driver = "claude"
+tier = "mid"
+prompt = "Review this artifact against the bar. Artifact: {{inputs.artifact}}"
+allowed_tools = ["Read", "Grep", "Glob"]
+session = "fresh"
+timeout_ms = 600000
+
+[node.security.persona]
+role = "critic-security"
+description = "Adversarial reviewer, security lens"
+stance = "reject_by_default"
+lens = "security — untrusted input, injection, secrets, privilege, and what an attacker controls"
+scope = "the artifact under review and the bar it must clear"
+bar = "{{inputs.bar}}"
+burden = "Assume every input is hostile until the artifact shows where it is bounded."
+refuses = ["editing the artifact", "fixing what you find"]
+forbids = ["waving through a shell string built from a variable", "trusting a comment over the code"]
+blind_to = ["the author's own account of whether it works"]
+escalate_when = "the artifact's trust boundary is not discoverable from what you can read"
+emits = "VERDICT=PASS|REJECT|ESCALATE followed by REASON=<one line>"
+
+[node.reproducibility]
+type = "agent"
+driver = "claude"
+tier = "mid"
+prompt = "Review this artifact against the bar. Artifact: {{inputs.artifact}}"
+allowed_tools = ["Read", "Grep", "Glob"]
+session = "fresh"
+timeout_ms = 600000
+
+[node.reproducibility.persona]
+role = "critic-reproducibility"
+description = "Adversarial reviewer, reproducibility lens"
+stance = "reject_by_default"
+lens = "reproducibility — can a third party re-run this and observe the same result"
+scope = "the artifact under review and the bar it must clear"
+bar = "{{inputs.bar}}"
+burden = "A result nobody else can reproduce has not been demonstrated, however plausible it reads."
+refuses = ["editing the artifact", "running the fix yourself"]
+forbids = ["accepting an outcome with no command that produces it"]
+blind_to = ["the author's own account of whether it works"]
+escalate_when = "the environment needed to reproduce it is unavailable to you"
+emits = "VERDICT=PASS|REJECT|ESCALATE followed by REASON=<one line>"
+
+# The quorum is arithmetic over parseable verdicts — never a model summarising
+# what the others said. The panel output arrives as a positional argument, so a
+# critic cannot inject shell by writing one.
+#
+# It counts over the FULL output, not the inline summary. Measured 2026-08-20: with
+# `{{nodes.panel.summary}}` the quorum saw the first 2 000 bytes of the concatenation
+# (14 718 omitted) while every critic emits `VERDICT=` at the END of its report — three
+# REJECTs arrived and the quorum reported "no critic returned a parseable verdict". A
+# panel that can never count is not a panel. `full_ref` is empty when nothing was
+# truncated, and then the summary IS the whole output — hence the fallback.
+[node.quorum]
+type = "gate"
+command = ["bash", "-c", "if [ -n \"$3\" ] && [ -r \"$3\" ]; then t=$(cat \"$3\"); else t=$1; fi; p=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); r=$(printf '%s' \"$t\" | grep -c '^VERDICT=REJECT' || true); e=$(printf '%s' \"$t\" | grep -c '^VERDICT=ESCALATE' || true); q=$2; if [ \"$e\" -gt 0 ]; then echo \"VERDICT=ESCALATE + REASON=$e critic(s) could not decide\"; exit 1; fi; if [ \"$r\" -ge \"$q\" ]; then echo \"VERDICT=REJECT + REASON=$r critic(s) rejected, quorum is $q\"; exit 1; fi; if [ \"$p\" -eq 0 ]; then echo 'VERDICT=ESCALATE + REASON=no critic returned a parseable verdict'; exit 1; fi; echo \"VERDICT=PASS + REASON=$p passed, $r rejected, quorum $q\"", "--", "{{nodes.panel.summary}}", "{{inputs.quorum}}", "{{nodes.panel.full_ref}}"]
+timeout_ms = 60000
+idempotent = true
+verdict_contract = true
+on_pass = "__exit__"
+on_fail = "__exit_fail__"
+on_escalate = "__exit_fail__"

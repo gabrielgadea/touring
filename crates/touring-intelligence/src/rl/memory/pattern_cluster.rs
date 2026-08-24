@@ -528,13 +528,10 @@ impl PatternClusterer {
 /// Decode a stored embedding blob back to `Vec<f32>`.
 fn decode_embedding_bytes(bytes: &[u8]) -> Vec<f32> {
     bytes
-        .chunks_exact(4)
-        .map(|b| {
-            let arr: [u8; 4] = b
-                .try_into()
-                .expect("chunks_exact(4) guarantees 4-byte slices");
-            f32::from_le_bytes(arr)
-        })
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|&arr| f32::from_le_bytes(arr))
         .collect()
 }
 

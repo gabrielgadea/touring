@@ -104,8 +104,16 @@ mod tests {
             built_at: "epoch:0".to_string(),
             roots: vec![],
             entries: vec![
-                entry("html_to_pdf", "Generate a professional PDF from an HTML template", &["pdf", "html"]),
-                entry("parse_config", "Parse and validate a TOML configuration file", &["config", "toml"]),
+                entry(
+                    "html_to_pdf",
+                    "Generate a professional PDF from an HTML template",
+                    &["pdf", "html"],
+                ),
+                entry(
+                    "parse_config",
+                    "Parse and validate a TOML configuration file",
+                    &["config", "toml"],
+                ),
             ],
         })
     }
@@ -124,7 +132,11 @@ mod tests {
 
     #[test]
     fn a_query_matching_nothing_returns_empty() {
-        assert!(backend().search("treinar rede neural convolucional", 5).is_empty());
+        assert!(
+            backend()
+                .search("treinar rede neural convolucional", 5)
+                .is_empty()
+        );
     }
 
     #[test]

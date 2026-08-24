@@ -17,6 +17,7 @@
 //! `super::<helper>` (all `pub(crate)`).
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use crate::runtime::HookRuntime;
 
@@ -99,7 +100,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
         let merged = serde_json::json!({
             "task_id": task_id,
             "success": true,
-            "session_id": format!("cc-{}", &task_id[..task_id.len().min(20)]),
+            "session_id": format!("cc-{}", truncate_str(task_id, 20)),
             "result_summary": format!("TaskUpdate: {task_id} marked completed via Claude Code"),
         });
         if let Err(e) = crate::team_hooks::run_task_completed(rt, &merged) {
@@ -152,7 +153,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
         let plan_recall_hint = maybe_plan_recall_on_task_complete(task_id);
         // R135: ConsumerGenerator scaffold when wiring orphan check fires.
         let consumer_gen_hint = if !wiring_check.is_empty() {
-            let truncated_id = &task_id[..task_id.len().min(40)];
+            let truncated_id = truncate_str(task_id, 40);
             format!(
                 " | consumer-wire: run `touring generate render ConsumerGenerator \
                 --vars '{{\"source_module\":\"{truncated_id}\",\"event\":\"task:{truncated_id}:completed\"}}'` \
@@ -163,7 +164,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
         };
         // R135: Artifact memory mapping.
         if subject.len() > 3 {
-            let truncated_subject = &subject[..subject.len().min(200)];
+            let truncated_subject = truncate_str(subject, 200);
             let _ = crate::cli_handlers::cli_memory_store(
                 rt,
                 &serde_json::json!({
@@ -176,7 +177,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
         }
         // R135: Subject-based plan-replay hint.
         let subject_plan_replay = if subject.len() > 3 {
-            let short_subject = &subject[..subject.len().min(60)];
+            let short_subject = truncate_str(subject, 60);
             format!(
                 " | replay: run `touring generate plan-recall --query \"{short_subject}\"` \
                 to find and replay generator plan on a new subject"
@@ -208,7 +209,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
         };
         // R138
         let lesson_recall_hint = if status == "in_progress" && subject.len() > 3 {
-            let short_subject = &subject[..subject.len().min(60)];
+            let short_subject = truncate_str(subject, 60);
             format!(
                 " | recall-lessons: run `touring memory recall \"{short_subject}\"` to surface past lessons before starting"
             )
@@ -217,7 +218,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
         };
         // R151
         let tantivy_inprogress_hint = if status == "in_progress" && subject.len() > 3 {
-            let query = &subject[..subject.len().min(50)];
+            let query = truncate_str(subject, 50);
             format!(
                 " | code-intel: run `touring tantivy search \"{query}\"` to find \
                 existing symbols before implementing"
@@ -268,7 +269,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
 /// Returns a hint confirming the checkpoint, or empty string when the call fails.
 pub(crate) fn auto_checkpoint_on_task_complete(rt: &mut HookRuntime, task_id: &str) -> String {
     let checkpoint_payload = serde_json::json!({
-        "session_id": format!("cc-{}", &task_id[..task_id.len().min(20)]),
+        "session_id": format!("cc-{}", truncate_str(task_id, 20)),
         "data": format!("{{\"task_id\":\"{task_id}\",\"status\":\"completed\"}}"),
     });
     let result = crate::cli_handlers::cli_session_checkpoint(rt, &checkpoint_payload);
@@ -372,7 +373,7 @@ pub(crate) fn maybe_start_session_on_in_progress(
     let sess_payload = serde_json::json!({
         "session_id": task_id,
         "task_type": "task",
-        "objective": &subject[..subject.len().min(200)],
+        "objective": truncate_str(subject, 200),
     });
     let result = crate::cli_handlers::cli_session_start(rt, &sess_payload);
     if result.contains("session_id") {
@@ -579,7 +580,7 @@ pub(crate) fn maybe_rust_module_hint_on_task_update(subject: &str) -> Option<Str
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "rust-module: update {s} — run `touring generate render RustModule` to scaffold via touring-generator"
     ))
@@ -604,7 +605,7 @@ pub(crate) fn maybe_cli_handler_hint_on_task_update(subject: &str) -> Option<Str
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "cli-handler: update {s} — run `touring generate render CliHandler` to scaffold via touring-generator"
     ))
@@ -629,7 +630,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_task_update(subject: &str) -> Option<String
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "mcp-tool: update {s} — run `touring generate render McpTool` to scaffold via touring-generator"
     ))
@@ -654,7 +655,7 @@ pub(crate) fn maybe_hook_handler_hint_on_task_update(subject: &str) -> Option<St
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "hook-handler: update {s} — run `touring generate render HookHandler` to scaffold via touring-generator"
     ))
@@ -679,7 +680,7 @@ pub(crate) fn maybe_plan_md_hint_on_task_update(subject: &str) -> Option<String>
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "plan-md: update {s} — run `touring generate render PlanMd` to scaffold via touring-generator"
     ))
@@ -704,7 +705,7 @@ pub(crate) fn maybe_test_hint_on_task_update(subject: &str) -> Option<String> {
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "test: update {s} — run `touring generate render Test` to scaffold via touring-generator"
     ))
@@ -729,7 +730,7 @@ pub(crate) fn maybe_python_script_hint_on_task_update(subject: &str) -> Option<S
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "python-script: update {s} — run `touring generate render PythonScript` to scaffold via touring-generator"
     ))
@@ -754,7 +755,7 @@ pub(crate) fn maybe_schema_hint_on_task_update(subject: &str) -> Option<String> 
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "schema: update {s} — run `touring generate render Schema` to scaffold via touring-generator"
     ))
@@ -779,7 +780,7 @@ pub(crate) fn maybe_benchmark_hint_on_task_update(subject: &str) -> Option<Strin
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "benchmark: update {s} — run `touring generate render Benchmark` to scaffold via touring-generator"
     ))
@@ -804,7 +805,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_task_update(subject: &str) -> Option<Str
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "fuzz-target: update {s} — run `touring generate render FuzzTarget` to scaffold via touring-generator"
     ))
@@ -831,7 +832,7 @@ pub(crate) fn maybe_derive_macro_hint_on_task_update(subject: &str) -> Option<St
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "derive-macro: update {s} — run `touring generate render DeriveMacro` to scaffold via touring-generator"
     ))
@@ -856,7 +857,7 @@ pub(crate) fn maybe_migration_hint_on_task_update(subject: &str) -> Option<Strin
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "migration: update {s} — run `touring generate render Migration` to scaffold via touring-generator"
     ))
@@ -881,7 +882,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_task_update(subject: &str) -> Option<Str
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "ffi-binding: update {s} — run `touring generate render FfiBinding` to scaffold via touring-generator"
     ))
@@ -906,7 +907,7 @@ pub(crate) fn maybe_protobuf_hint_on_task_update(subject: &str) -> Option<String
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "protobuf-schema: update {s} — run `touring generate render ProtobufSchema` to scaffold via touring-generator"
     ))
@@ -931,7 +932,7 @@ pub(crate) fn maybe_openapi_hint_on_task_update(subject: &str) -> Option<String>
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "openapi-spec: update {s} — run `touring generate render OpenApiSpec` to scaffold via touring-generator"
     ))
@@ -956,7 +957,7 @@ pub(crate) fn maybe_shell_completion_hint_on_task_update(subject: &str) -> Optio
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "shell-completion: update {s} — run `touring generate render ShellCompletion` to scaffold via touring-generator"
     ))
@@ -981,7 +982,7 @@ pub(crate) fn maybe_man_page_hint_on_task_update(subject: &str) -> Option<String
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "man-page: update {s} — run `touring generate render ManPage` to scaffold via touring-generator"
     ))
@@ -1006,7 +1007,7 @@ pub(crate) fn maybe_error_catalog_hint_on_task_update(subject: &str) -> Option<S
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "error-catalog: update {s} — run `touring generate render ErrorCatalog` to scaffold via touring-generator"
     ))
@@ -1031,7 +1032,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_task_update(subject: &str) -> Opti
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "incremental-patch: update {s} — run `touring generate render IncrementalPatch` to scaffold via touring-generator"
     ))
@@ -1056,7 +1057,7 @@ pub(crate) fn maybe_skill_document_hint_on_task_update(subject: &str) -> Option<
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "skill-document: update {s} — run `touring generate render SkillDocument` to scaffold via touring-generator"
     ))
@@ -1083,7 +1084,7 @@ pub(crate) fn maybe_diary_entry_hint_on_task_update(subject: &str) -> Option<Str
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "diary-entry: update {s} — run `touring generate render DiaryEntry` to scaffold via touring-generator"
     ))
@@ -1108,7 +1109,7 @@ pub(crate) fn maybe_dockerfile_hint_on_task_update(subject: &str) -> Option<Stri
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "dockerfile: update {s} — run `touring generate render Dockerfile` to scaffold via touring-generator"
     ))
@@ -1133,7 +1134,7 @@ pub(crate) fn maybe_k8s_manifest_hint_on_task_update(subject: &str) -> Option<St
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "k8s-manifest: update {s} — run `touring generate render K8sManifest` to scaffold via touring-generator"
     ))
@@ -1158,7 +1159,7 @@ pub(crate) fn maybe_terraform_hint_on_task_update(subject: &str) -> Option<Strin
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "terraform-module: update {s} — run `touring generate render TerraformModule` to scaffold via touring-generator"
     ))
@@ -1183,7 +1184,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_task_update(subject: &str) -> Option<Str
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "ci-workflow: update {s} — run `touring generate render CiWorkflow` to scaffold via touring-generator"
     ))
@@ -1208,7 +1209,7 @@ pub(crate) fn maybe_changelog_hint_on_task_update(subject: &str) -> Option<Strin
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "changelog-entry: update {s} — run `touring generate render ChangelogEntry` to scaffold via touring-generator"
     ))
@@ -1233,7 +1234,7 @@ pub(crate) fn maybe_adr_hint_on_task_update(subject: &str) -> Option<String> {
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "adr: update {s} — run `touring generate render Adr` to scaffold via touring-generator"
     ))
@@ -1258,7 +1259,7 @@ pub(crate) fn maybe_asyncapi_hint_on_task_update(subject: &str) -> Option<String
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "asyncapi-spec: update {s} — run `touring generate render AsyncApiSpec` to scaffold via touring-generator"
     ))
@@ -1283,7 +1284,7 @@ pub(crate) fn maybe_consumer_generator_hint_on_task_update(subject: &str) -> Opt
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "consumer-generator: update {s} — run `touring generate render ConsumerGenerator` to scaffold via touring-generator"
     ))
@@ -1308,7 +1309,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_task_update(subject: &str) -> Option<S
     if !KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let s = &subject[..subject.len().min(40)];
+    let s = truncate_str(subject, 40);
     Some(format!(
         "task-scaffold: update {s} — run `touring generate render TaskScaffold` to scaffold via touring-generator"
     ))

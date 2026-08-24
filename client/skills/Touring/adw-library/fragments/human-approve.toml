@@ -1,0 +1,11 @@
+# Fragment `human-approve` — the durable pause. Irreversible work waits here.
+[fragment]
+description = "Durable human approval gate before irreversible or outward action"
+inputs = ["message"]
+entry = "approve"
+
+[node.approve]
+type = "human"
+message = "{{inputs.message}}"
+on_pass = "__exit__"
+on_fail = "__exit_fail__"

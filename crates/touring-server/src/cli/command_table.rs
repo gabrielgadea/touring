@@ -30,7 +30,7 @@ fn hook_commands() -> Vec<CommandDescriptor> {
                         json_to_stdout(&json);
                         Ok(())
                     }
-                    Err(e) => Err(anyhow::anyhow!("prompt-enhance serialization failed: {e}")),
+                    Err(e) => Err(anyhow::anyhow!("prompt-enhance JSON serialization failed: {e} — run `touring doctor` to verify system health")),
                 }
             },
         },
@@ -391,10 +391,7 @@ fn daemon_commands() -> Vec<CommandDescriptor> {
                 // Hiding a field to save handshake bytes is only honest if the
                 // knowledge stays reachable — otherwise it repeats the
                 // `apply_curation` defect: callable, working, undiscoverable.
-                println!(
-                    "{}",
-                    crate::server::params::hidden_alias_capabilities()
-                );
+                println!("{}", crate::server::params::hidden_alias_capabilities());
                 Ok(())
             },
         },

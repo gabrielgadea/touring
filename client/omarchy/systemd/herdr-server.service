@@ -1,0 +1,37 @@
+# herdr-server.service — USER unit: mantém o servidor headless do Herdr no ar.
+#
+# Instalar:
+#   install -m644 client/omarchy/systemd/herdr-server.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now herdr-server.service
+#
+# Por que existe: o botão `--herdr` do skills deck e o fan-out `omarchy-audit-2`
+# (P7.5) exigem um servidor herdr vivo — sem ele `herdr workspace create` sai 1 e
+# o dispatch inteiro falha. Até 23/08/2026 nada subia esse servidor: ele foi
+# levantado à mão com `nohup` e morreria no primeiro reboot.
+#
+# `herdr` (sem argumento) abre a TUI; `herdr server` é o modo headless — é este
+# que a unit roda.
+#
+# Type=simple: `herdr server` fica em primeiro plano (não faz fork).
+# Restart=on-failure, não always: uma parada deliberada (`systemctl --user stop`,
+# `herdr server stop`) deve permanecer parada. O default de StartLimitBurst=5 em
+# 10s impede laço infinito se o socket já estiver tomado por um servidor avulso —
+# nesse caso a unit desiste e o journal diz por quê, em vez de girar para sempre.
+#
+# WantedBy=default.target: é o alvo dos user units (o mesmo que o cc-serve usa) e
+# sobe no login. Para que o servidor exista mesmo SEM login — por exemplo se uma
+# rotina com `--herdr` disparar por timer numa máquina recém-ligada — habilite
+# linger uma vez: `loginctl enable-linger $USER`. Não habilitamos por padrão:
+# agentes rodando sem ninguém na frente da tela é decisão do humano, não default.
+[Unit]
+Description=Herdr headless server (terminal workspace manager for AI agents)
+Documentation=https://github.com/herdr-dev/herdr
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/herdr server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -7,8 +7,9 @@ asserts the invariants that make the engine safe:
   - convergence is FAIL-CLOSED (never "converged" without DAG evidence);
   - phase-close writes valid OKF report + Hyper-Extract abstract;
   - the doc-link gate validates the bundle;
-  - both hooks are FAIL-OPEN (exit 0) when inert, and the Stop hook blocks
-    (decision:block) when a loop is active and unconverged.
+  - both hooks are FAIL-OPEN (exit 0) when inert; the Stop hook RELEASES an
+    orphaned/vanished DAG and BLOCKS (decision:block) when a flow's artifact
+    manifest is still unmet.
 
 Exit 0 ⟺ every assertion passed. Usage: `e2e_test.py [--verbose]`.
 """
@@ -55,6 +56,20 @@ def test_diagnose():
     dg = json.loads(p.stdout)
     check("diagnose_digest_shape", all(k in dg for k in ("health", "quality50", "wiring", "memory", "structure")))
     check("diagnose_structure_never_empty", dg["structure"]["available"] is True, "ref-c")
+    # The bundle's chronological leg must EXIST from birth: loop_snapshot only
+    # appends `if log.exists()`, and until 2026-08-02 nothing ever created the
+    # file, so every PreCompact resume note was silently dropped.
+    with tempfile.TemporaryDirectory() as td:
+        bundle = Path(td) / "b"
+        run([str(HERE / "loop_diagnose.py"), "--scope", str(HERE),
+             "--bundle", str(bundle), "--json"])
+        log = bundle / "log.md"
+        check("diagnose_creates_bundle_log", log.is_file(), "PreCompact notes need it")
+        if log.is_file():
+            before = log.read_text()
+            run([str(HERE / "loop_diagnose.py"), "--scope", str(HERE),
+                 "--bundle", str(bundle), "--json"])
+            check("diagnose_never_overwrites_log", log.read_text() == before)
 
 
 def test_converged_fail_closed():
@@ -94,17 +109,47 @@ def test_hooks_fail_open():
 
 
 def test_stop_guard_blocks_active():
+    """Both halves of the Stop contract: release an orphan, block an unmet one.
+
+    Corrected 2026-08-02. The old single assertion pointed the guard at
+    ``FAKE_TASK`` — a task that by construction does not exist — and demanded a
+    *block*. That is the ORPHANED-DAG case, which `loop_stop_guard` was
+    deliberately hardened on 2026-07-02 to fail OPEN (release + archive) so a
+    dead DAG can never hold a session hostage; SKILL.md states it and
+    `test_flow_guard.py` asserts it. The e2e was therefore encoding
+    pre-hardening semantics and failing against correct code.
+    """
     with tempfile.TemporaryDirectory() as td:
-        marker = Path(td) / "active.json"
-        marker.write_text(json.dumps({"task": FAKE_TASK, "scope": str(HERE)}))
-        p = run([str(HOOKS / "loop_stop_guard.py"), "--marker", str(marker)], stdin=subprocess.DEVNULL)
+        # (a) gone DAG → must RELEASE.
+        orphan = Path(td) / "orphan.json"
+        orphan.write_text(json.dumps({"task": FAKE_TASK, "scope": str(HERE),
+                                      "status": "active"}))
+        p = run([str(HOOKS / "loop_stop_guard.py"), "--marker", str(orphan)],
+                stdin=subprocess.DEVNULL)
         check("stop_guard_exit0_always", p.returncode == 0, "fail-open invariant")
-        blocked = False
+        check("stop_guard_orphan_dag_fails_open", p.stdout.strip() == "",
+              "a vanished DAG must release the turn, never block it")
+
+        # (b) OUTER marker with an unmet artifact manifest → must BLOCK.
+        # The verdict comes from files on disk (ADW Law L3), so this needs no
+        # daemon and no live DAG — it is deterministic anywhere.
+        scope, bundle = Path(td) / "scope", Path(td) / "bundle"
+        scope.mkdir()
+        bundle.mkdir()
+        outer = Path(td) / "outer.json"
+        outer.write_text(json.dumps({
+            "task": "OUTER", "status": "outer", "flow": "strategy-outer",
+            "scope": str(scope), "bundle": str(bundle), "cwd": str(scope),
+            "continuations": 0,
+        }))
+        q = run([str(HOOKS / "loop_stop_guard.py"), "--marker", str(outer)],
+                stdin=subprocess.DEVNULL)
         try:
-            blocked = json.loads(p.stdout).get("decision") == "block"
+            blocked = json.loads(q.stdout).get("decision") == "block"
         except Exception:  # noqa: BLE001
             blocked = False
-        check("stop_guard_blocks_when_active_unconverged", blocked)
+        check("stop_guard_blocks_when_manifest_unmet", blocked,
+              "missing OUTER artifacts must block the turn")
 
 
 def main(argv=None):

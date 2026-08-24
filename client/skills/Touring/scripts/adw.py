@@ -13,14 +13,26 @@ Subcommands:
   run <name> [--resume-run ID] [--approve NODE] [--record] [--var k=v ...]
   test <name>                   — run with agent nodes mocked from recordings (edge test)
   from-template <name>          — scaffold a spec skeleton (G1-seed)
+  explain <name>                — print the FLAT resolved spec ([[use]] inlined)
+  fragments                     — list the composable pieces a flow can be built from
+  new <name>                    — build a flow from fragments, guided (prior-art first)
 
 Spec: .touring/adw/<name>.toml — [adw] name/entry/budget_tokens, [node.X] typed
   code  : command[] + timeout_ms + retries + idempotent + sandbox
-  agent : driver(claude|mock) + prompt + tier + allowed_tools + budget_usd +
+  agent : driver(claude|mock) + prompt + tier + allowed_tools + skill + budget_usd +
           max_turns(reserved) + session(fresh|resume_on_fail)
-  gate  : same as code; a FAIL right after a success-narrating agent → Class-D
-  loop  : body + max_iters + dry_rounds (body prints NEW_FINDINGS=<n>; runner counts)
+  gate  : same as code; a FAIL right after a success-narrating agent → Class-D.
+          With `verdict_contract = true` the gate speaks PASS|REJECT|ESCALATE and
+          MUST declare `on_escalate`; an unparseable verdict reads as REJECT.
+  loop  : body + max_iters + dry_rounds. The body MUST print `NEW_FINDINGS=<n>`
+          (stdout or stderr, own line, last is safest against `tail -c`); the
+          RUNNER counts and owns termination (Law L2). An ABSENT marker is
+          *unknown*, never zero: it can never start a dry streak, so a body that
+          stays silent exhausts max_iters instead of faking convergence.
   human : message; passes only with --approve <node> on (re)run
+  parallel: branches[] + merge(collect|tally|concat) + on_branch_fail(all|any|ignore)
+          + max_branches. Read-only fan-out with a real barrier: every branch
+          journals as an ordinary node, so resume skips the ones that finished.
 Edges: on_pass / on_fail / on_dry → node name | "__end__" | "__fail__".
 
 Durability: append-only journal (.touring/adw-runs/<run_id>/journal.jsonl, fsync'd)
@@ -40,6 +52,7 @@ import re
 import shlex
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 import time
 import tomllib
 from dataclasses import dataclass, field
@@ -50,7 +63,32 @@ from pathlib import Path
 END = "__end__"
 FAIL = "__fail__"
 TERMINALS = {END, FAIL}
-NODE_TYPES = {"code", "agent", "gate", "loop", "human"}
+NODE_TYPES = {"code", "agent", "gate", "loop", "human", "parallel"}
+# B4 fan-out. `merge` has NO default on purpose: without a declared join, N
+# branches racing into one result slot is last-write-wins — the silent default
+# LangGraph documents for a state key with no reducer. Here it fails the lint.
+MERGE_STRATEGIES = {"collect", "tally", "concat"}
+# Fail-CLOSED default: the branch-failure policy must be declared, and `all`
+# (every branch must pass) is what an undeclared one resolves to.
+#: `quorum:N` completes the set: "the block passes if at least N branches did".
+#: `all`/`any` cannot express it, and the downstream verdict gate answers a
+#: different question (what the critics CONCLUDED, not how many ran clean).
+#: `best_effort` is the name the sources use for `ignore`; both are accepted so a
+#: spec written from either vocabulary runs.
+BRANCH_FAIL_POLICIES = {"all", "any", "ignore", "best_effort"}
+QUORUM_POLICY_RE = re.compile(r"^quorum:([1-9][0-9]*)$")
+
+
+def branch_fail_policy_error(policy: str) -> str | None:
+    """None when well-formed, else why not. `quorum:N` is parameterised, so a
+    plain set-membership test cannot validate the vocabulary on its own."""
+    if policy in BRANCH_FAIL_POLICIES or QUORUM_POLICY_RE.match(policy):
+        return None
+    return (f"must be one of {sorted(BRANCH_FAIL_POLICIES)} or `quorum:N` "
+            f"(got `{policy}`)")
+# Fan-out is for READING. A branch that can mutate the tree turns a parallel
+# block into a write race the journal cannot linearise.
+WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 SUMMARY_LIMIT = 2000  # bytes of dense inline summary (Law L4)
 DEFAULT_TIMEOUT_MS = 120_000
 ACTIVITY_TIMEOUT_S = 5
@@ -65,6 +103,84 @@ SUCCESS_NARRATIVE = re.compile(
     re.IGNORECASE,
 )
 NEW_FINDINGS_RE = re.compile(r"^NEW_FINDINGS=(\d+)\s*$", re.MULTILINE)
+# E4 campaign contract: the --until predicate may emit `METRIC=<float>` — the
+# campaign's progress signal. Absent means UNKNOWN (fail-closed, the same
+# reading the loop node applies to NEW_FINDINGS), never zero and never
+# stagnation.
+METRIC_RE = re.compile(r"^METRIC=([0-9]+(?:\.[0-9]+)?)\s*$", re.MULTILINE)
+# B6 verification contract. Three verdicts, because two cannot express the case
+# that costs the most: a check that COULD NOT RUN. Under a boolean gate a broken
+# environment is indistinguishable from a real rejection, so the runner spends
+# its whole retry budget re-invoking an agent against something no agent can fix.
+VERDICT_RE = re.compile(r"^VERDICT=(PASS|REJECT|ESCALATE)\b", re.MULTILINE)
+PASS, REJECT, ESCALATE = "PASS", "REJECT", "ESCALATE"
+# Default stance is REJECT: an unparseable verdict is not a pass. Silence never
+# clears a gate — the same fail-closed reading the loop applies to NEW_FINDINGS.
+DEFAULT_VERDICT = REJECT
+#: A run aborts when this file appears in its run dir — the per-run kill switch.
+KILL_SWITCH = "STOP"
+
+
+# ── persona (B3): posture declared in the flow, compiled to `--agents` ────────
+# A node says WHAT to do; a persona says WHO does it and under which refusals.
+# Declared INLINE in the spec — never a reference to a global agent catalogue —
+# so a flow stays portable: copying the .toml carries its personas with it.
+# Each entry below is one prompt technique; the section order is fixed so the
+# same persona always compiles to the same bytes (stable for caching + tests).
+PERSONA_SECTIONS: tuple[tuple[str, str, str], ...] = (
+    ("stance", "STANCE",
+     "Your default posture is: {v}. You hold it until evidence moves you — not until you are asked to."),
+    ("lens", "LENS",
+     "You judge through exactly one lens: {v}. Findings outside that lens are not yours to raise."),
+    ("scope", "SCOPE",
+     "Your scope is closed: {v}. Anything outside it you decline; you do not 'briefly also' do it."),
+    ("bar", "BAR",
+     "The bar to clear is concrete: {v}. Not 'looks good' — that, and nothing looser."),
+    ("burden", "BURDEN", "{v}"),
+    ("refuses", "CANNOT",
+     "You do not have the capability to: {v}. Asked for it, you say so plainly instead of improvising."),
+    ("forbids", "FORBIDDEN",
+     "These shortcuts are forbidden even when they would be faster: {v}."),
+    ("blind_to", "BLIND",
+     "You have deliberately NOT been shown: {v}. Do not ask for it and do not assume its content."),
+    ("escalate_when", "ESCALATE",
+     "Escalate instead of deciding when: {v}. Escalation is a valid outcome, never a failure."),
+    ("emits", "OUTPUT",
+     "Your final line MUST match this contract exactly, with nothing after it: {v}"),
+)
+PERSONA_FIELDS = {name for name, _, _ in PERSONA_SECTIONS} | {"role", "description", "prompt"}
+# A persona holding this stance IS a critic, and the lint holds it to a critic's
+# structure: a parseable verdict, and a context it did not help build.
+CRITIC_STANCE = "reject_by_default"
+
+
+def compile_persona(persona: dict) -> str:
+    """Render a persona into its system prompt — deterministic, section-ordered."""
+    parts: list[str] = []
+    for key, label, template in PERSONA_SECTIONS:
+        value = persona.get(key)
+        if not value:
+            continue
+        rendered = ", ".join(str(v) for v in value) if isinstance(value, (list, tuple)) else str(value)
+        parts.append(f"{label}: {template.format(v=rendered)}")
+    extra = str(persona.get("prompt", "")).strip()
+    if extra:
+        parts.append(extra)
+    return "\n\n".join(parts)
+
+
+def compile_agent_definition(persona: dict, results: dict,
+                             variables: dict) -> tuple[str, dict[str, str]]:
+    """(role, definition) for `--agents` — persona fields resolve {{vars}}/{{nodes}} too."""
+    resolved = {
+        k: ([render_template(str(x), results, variables) for x in v]
+            if isinstance(v, (list, tuple)) else render_template(str(v), results, variables))
+        for k, v in persona.items()
+    }
+    role = str(resolved["role"]).strip()
+    description = str(resolved.get("description", "")).strip() or (
+        f"{role} — {resolved.get('stance', 'declared in-flow')}")
+    return role, {"description": description, "prompt": compile_persona(resolved)}
 
 
 # ── spec model ────────────────────────────────────────────────────────────────
@@ -91,7 +207,11 @@ class Spec:
     path: Path
     nodes: dict[str, Node]
     budget_tokens: int = 0
+    budget_usd: float = 0.0
     description: str = ""
+    #: The [purpose] block: what this flow is FOR, so the portfolio can retrieve
+    #: it by intent instead of by filename.
+    purpose: dict = field(default_factory=dict)
 
     def node(self, name: str) -> Node:
         return self.nodes[name]
@@ -130,11 +250,211 @@ def tier_models() -> dict[str, str]:
     return mapping
 
 
+# ── fragments (B1): composable pieces, resolved by inlining ───────────────────
+# A fragment is a reusable sub-graph. `[[use]]` inlines one under a namespace, so
+# after resolution the spec is FLAT: the runner, journal, resume, Class-D and lint
+# all keep operating on the same shape they always did. Composition is a loader
+# concern and never reaches the engine — which is why it costs no durability risk.
+#
+#   [[use]]
+#   module  = "recall-pack"                  # fragments/<module>.toml
+#   as      = "recall"                       # namespace → nodes become recall.<n>
+#   with    = { topic = "{{vars.symptom}}" } # binds the fragment's declared inputs
+#   on_pass = "diagnose"                     # where the fragment's __exit__ lands
+#   on_fail = "diagnose"                     # where its __exit_fail__ lands
+#
+# Inside a fragment, `__exit__`/`__exit_fail__` are the seams: the fragment never
+# names a host node, which is exactly what makes it reusable across flows.
+EXIT = "__exit__"
+EXIT_FAIL = "__exit_fail__"
+FRAGMENT_SEAMS = {EXIT, EXIT_FAIL}
+NAMESPACE_SEP = "."
+#: Every field that carries an edge. Kept in one place because the inliner and the
+#: namespace deref must agree: a field missing here is one a fragment cannot use.
+EDGE_FIELDS = ("on_pass", "on_fail", "on_dry", "on_escalate")
+
+
+def fragment_dirs(root: Path) -> list[Path]:
+    """Project fragments shadow library ones — a flow may override a shared piece."""
+    return [adw_dir(root) / "fragments", library_dir() / "fragments"]
+
+
+def find_fragment(root: Path, module: str) -> Path:
+    for directory in fragment_dirs(root):
+        candidate = directory / f"{module}.toml"
+        if candidate.is_file():
+            return candidate
+    searched = ", ".join(str(d) for d in fragment_dirs(root))
+    raise SpecError(f"fragment `{module}` not found (searched: {searched})")
+
+
+def _substitute(value, mapping: dict[str, str]):
+    """Deep {{inputs.k}} substitution over a node body (str | list | dict)."""
+    if isinstance(value, str):
+        def sub(match: re.Match) -> str:
+            key = match.group(1)
+            if key not in mapping:
+                raise SpecError(f"fragment references undeclared input `{key}`")
+            return mapping[key]
+        return re.sub(r"\{\{inputs\.([\w.-]+?)\}\}", sub, value)
+    if isinstance(value, list):
+        return [_substitute(v, mapping) for v in value]
+    if isinstance(value, dict):
+        return {k: _substitute(v, mapping) for k, v in value.items()}
+    return value
+
+
+def _rewrite_edge(target: str, namespace: str, local_names: set[str],
+                  on_pass: str, on_fail: str) -> str:
+    """Fragment-local → namespaced; seams → the host's wiring; terminals unchanged."""
+    if target == EXIT:
+        return on_pass
+    if target == EXIT_FAIL:
+        return on_fail
+    if target in TERMINALS:
+        return target
+    if target in local_names:
+        return f"{namespace}{NAMESPACE_SEP}{target}"
+    raise SpecError(
+        f"fragment node edge → `{target}`, which is neither a fragment node nor a seam "
+        f"({sorted(FRAGMENT_SEAMS)}) nor a terminal — a fragment may not name a host node")
+
+
+def _namespace_node_refs(value, namespace: str, local_names: set[str]):
+    """`{{nodes.<local>.summary}}` → `{{nodes.<ns>.<local>.summary}}` inside a fragment."""
+    if isinstance(value, str):
+        def sub(match: re.Match) -> str:
+            key = match.group(1)
+            tail = match.group(2) or ""
+            head = key.split(NAMESPACE_SEP)[0]
+            if head in local_names:
+                return f"{{{{nodes.{namespace}{NAMESPACE_SEP}{key}{tail}}}}}"
+            return match.group(0)
+        return re.sub(r"\{\{nodes\.([\w.-]+?)(\.summary)?\}\}", sub, value)
+    if isinstance(value, list):
+        return [_namespace_node_refs(v, namespace, local_names) for v in value]
+    if isinstance(value, dict):
+        return {k: _namespace_node_refs(v, namespace, local_names) for k, v in value.items()}
+    return value
+
+
+def _inline_one(use: dict, root: Path, host_nodes: dict, index: int) -> tuple[str, dict]:
+    """Resolve one [[use]] into (namespace, {namespaced node name: body})."""
+    module = str(use.get("module", "")).strip()
+    if not module:
+        raise SpecError(f"[[use]] #{index}: missing `module`")
+    namespace = str(use.get("as", module)).strip()
+    if NAMESPACE_SEP in namespace:
+        raise SpecError(f"[[use]] `{module}`: namespace `{namespace}` may not contain `{NAMESPACE_SEP}`")
+
+    data = tomllib.loads(find_fragment(root, module).read_text(encoding="utf-8"))
+    meta = data.get("fragment") or {}
+    frag_nodes = data.get("node") or {}
+    if not frag_nodes:
+        raise SpecError(f"fragment `{module}` has no [node.*] tables")
+
+    declared = list(meta.get("inputs") or [])
+    bound = dict(use.get("with") or {})
+    missing = [k for k in declared if k not in bound]
+    if missing:
+        raise SpecError(f"[[use]] `{module}` as `{namespace}`: unbound input(s) {missing}")
+    extra = [k for k in bound if k not in declared]
+    if extra:
+        raise SpecError(f"[[use]] `{module}` as `{namespace}`: input(s) {extra} not declared "
+                        f"by the fragment (declares {declared})")
+
+    entry = str(meta.get("entry", "")).strip()
+    if entry not in frag_nodes:
+        raise SpecError(f"fragment `{module}`: entry `{entry}` is not one of its nodes")
+
+    local_names = set(frag_nodes)
+    on_pass = str(use.get("on_pass", END))
+    on_fail = str(use.get("on_fail", FAIL))
+    mapping = {k: str(v) for k, v in bound.items()}
+
+    resolved: dict[str, dict] = {}
+    for local, body in frag_nodes.items():
+        qualified = f"{namespace}{NAMESPACE_SEP}{local}"
+        if qualified in host_nodes:
+            raise SpecError(f"[[use]] `{module}` as `{namespace}`: node `{qualified}` "
+                            f"collides with an existing node")
+        new_body = _namespace_node_refs(_substitute(dict(body), mapping), namespace, local_names)
+        for edge in EDGE_FIELDS:
+            if edge in new_body:
+                new_body[edge] = _rewrite_edge(str(new_body[edge]), namespace, local_names,
+                                               on_pass, on_fail)
+        if new_body.get("type") == "loop" and new_body.get("body") in local_names:
+            new_body["body"] = f"{namespace}{NAMESPACE_SEP}{new_body['body']}"
+        # A fan-out inside a fragment names its branches locally; without this they
+        # resolve against the HOST's node table and the whole panel reads as orphans.
+        if new_body.get("type") == "parallel":
+            raw = new_body.get("branches")
+            if isinstance(raw, list):
+                new_body["branches"] = [
+                    f"{namespace}{NAMESPACE_SEP}{b}" if b in local_names else b
+                    for b in raw
+                ]
+            # A DYNAMIC fan-out carries a template string in `branches`, which must
+            # be left alone — iterating it namespaces one CHARACTER per branch. The
+            # node it names is `template`, and that one does need qualifying.
+            if new_body.get("template") in local_names:
+                new_body["template"] = f"{namespace}{NAMESPACE_SEP}{new_body['template']}"
+        resolved[qualified] = new_body
+    return namespace, resolved
+
+
+def resolve_uses(data: dict, root: Path) -> dict:
+    """Inline every [[use]] into `data['node']`; returns the flat spec data.
+
+    Edges that name a bare namespace (`on_pass = "critic"`) are rewired to that
+    fragment's entry, so a composed piece is referenced exactly like one node —
+    the compound-node shape LangGraph gets from compiling a subgraph."""
+    uses = data.get("use") or []
+    if not uses:
+        return data
+    nodes = dict(data.get("node") or {})
+    entries: dict[str, str] = {}
+    for index, use in enumerate(uses):
+        namespace, resolved = _inline_one(use, root, nodes, index)
+        if namespace in entries:
+            raise SpecError(f"[[use]]: namespace `{namespace}` used twice")
+        if namespace in nodes:
+            raise SpecError(f"[[use]]: namespace `{namespace}` collides with a node of that name")
+        entries[namespace] = f"{namespace}{NAMESPACE_SEP}" + str(
+            (tomllib.loads(find_fragment(root, str(use['module'])).read_text(encoding='utf-8'))
+             .get('fragment') or {}).get('entry'))
+        nodes.update(resolved)
+
+    def deref(target: str) -> str:
+        return entries.get(target, target)
+
+    for body in nodes.values():
+        for edge in EDGE_FIELDS:
+            if edge in body:
+                body[edge] = deref(str(body[edge]))
+        if body.get("type") == "loop" and "body" in body:
+            body["body"] = deref(str(body["body"]))
+        if body.get("type") == "parallel":
+            raw = body.get("branches")
+            if isinstance(raw, list):
+                body["branches"] = [deref(str(b)) for b in raw]
+            if body.get("template"):
+                body["template"] = deref(str(body["template"]))
+    flat = dict(data)
+    flat["node"] = nodes
+    meta = dict(flat.get("adw") or {})
+    if meta.get("entry"):
+        meta["entry"] = deref(str(meta["entry"]))
+    flat["adw"] = meta
+    flat.pop("use", None)
+    return flat
+
+
 def load_spec(root: Path, name: str) -> Spec:
     path = adw_dir(root) / f"{name}.toml"
     if not path.is_file():
         raise SpecError(f"spec not found: {path}")
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data = resolve_uses(tomllib.loads(path.read_text(encoding="utf-8")), root)
     meta = data.get("adw") or {}
     nodes_raw = data.get("node") or {}
     if not nodes_raw:
@@ -161,11 +481,483 @@ def load_spec(root: Path, name: str) -> Spec:
         path=path,
         nodes=nodes,
         budget_tokens=int(meta.get("budget_tokens", 0)),
+        budget_usd=float(meta.get("budget_usd", 0.0)),
         description=meta.get("description", ""),
+        purpose=data.get("purpose") or {},
     )
 
 
 # ── lint (G19 + budget-verify) ────────────────────────────────────────────────
+
+
+# ── the two topologies (T1.0) ─────────────────────────────────────────────────
+#
+# A spec carries two overlapping graphs, and until 2026-08-19 only one of them
+# existed as an object:
+#
+#   · the CONTROL graph, declared — `on_pass`/`on_fail`/`branches`: who runs after whom.
+#   · the DATA graph, real — who actually INTERPOLATES `{{nodes.X.summary}}` from whom.
+#
+# Their divergence is the finding. A control edge with no data edge is Isenberg's
+# "fake waiting" (*Why Graph Engineering will 10x your Claude/Codex*): B waits on
+# A for nothing. A node with no outgoing data edge is dead weight — the
+# constructive half of "the goal is the SMALLEST graph that improves the quality
+# of the work", which beats capping node counts by decree.
+
+#: Mirrors the runtime resolver in `render_template`, minus `vars`. Kept adjacent
+#: on purpose: if one accepts a form the other does not, the lint reasons about a
+#: graph the runner never executes.
+NODE_REF_RE = re.compile(r"\{\{nodes\.([\w.-]+?)(?:\.summary)?\}\}")
+
+#: Tools that cannot mutate anything. `Bash` is deliberately absent — it is a
+#: general-purpose writer wearing a read-only-looking name.
+READ_ONLY_TOOLS = frozenset({"Read", "Grep", "Glob", "WebFetch", "WebSearch", "NotebookRead", "LS"})
+
+# ── skill binding (B4, 2026-08-20): the "O" of TACO ──────────────────────────
+#
+# An `agent` node compiles to a headless `claude -p` with a persona. The persona
+# says WHO acts and under which refusals; nothing said which CRAFT to apply, so
+# every planning agent re-derived what `taco-planning` already encodes and every
+# auditing agent re-derived `TACO-cross-audit`. Measured 20/08/2026: `Skill`
+# appeared ZERO times in this runner and zero times across the ten library specs,
+# while `claude -p --allowedTools Skill` was proven to load a skill successfully.
+# The mechanism existed and no flow reached for it.
+#
+# `skill = "taco-planning"` (or a list) binds the craft. Both ways it can fail
+# SILENTLY — a skill that does not exist, and a skill switched `off` in
+# `skillOverrides` (28 are) — so both are lint verdicts, never runtime surprises,
+# and `Skill` is injected into `allowed_tools` because naming a tool the agent
+# cannot call is the same silent no-op wearing a different hat.
+SKILLS_ROOT = Path.home() / ".claude" / "skills"
+SKILL_TOOL = "Skill"
+SKILL_PREAMBLE = (
+    "SKILL: before anything else, invoke the Skill tool with skill='{name}' and follow "
+    "the procedure it returns. It is the canonical procedure for this step — do not "
+    "re-derive it, and do not substitute your own method for it.")
+
+
+def skill_binding(node: "Node") -> list[str]:
+    """Skills this node binds, normalised to a list (empty when none)."""
+    raw = node.raw.get("skill")
+    if not raw:
+        return []
+    if isinstance(raw, str):
+        return [raw.strip()] if raw.strip() else []
+    return [str(x).strip() for x in raw if str(x).strip()]
+
+
+def disabled_skills() -> frozenset[str]:
+    """Skills `skillOverrides` switched off — a bound one would be a silent no-op.
+
+    Unreadable settings mean UNKNOWN, so an empty set is returned and nothing is
+    accused: this gate must never invent a disabled skill."""
+    try:
+        data = json.loads((Path.home() / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return frozenset()
+    overrides = data.get("skillOverrides")
+    if not isinstance(overrides, dict):
+        return frozenset()
+    return frozenset(k for k, v in overrides.items() if str(v).lower() in {"off", "false", "disabled"})
+
+
+def skill_status(name: str) -> str:
+    """`ok` · `missing` · `disabled` — and `ok` whenever it cannot be told."""
+    if not SKILLS_ROOT.is_dir():
+        return "ok"  # cannot inspect the corpus → never accuse
+    if not (SKILLS_ROOT / name / "SKILL.md").is_file():
+        return "missing"
+    return "disabled" if name in disabled_skills() else "ok"
+
+
+def skill_tools(node: "Node") -> list[str]:
+    """`allowed_tools` with `Skill` present whenever the node binds one."""
+    tools = [str(t) for t in (node.raw.get("allowed_tools") or [])]
+    if skill_binding(node) and SKILL_TOOL not in tools:
+        tools.append(SKILL_TOOL)
+    return tools
+
+
+def skill_prompt_prefix(node: "Node") -> str:
+    """Deterministic preamble — same node, same bytes (stable for tests/caching)."""
+    names = skill_binding(node)
+    if not names:
+        return ""
+    return "\n\n".join(SKILL_PREAMBLE.format(name=n) for n in names) + "\n\n"
+
+
+@dataclass
+class NodeIO:
+    """One node's place in the DATA graph.
+
+    ``readonly`` is deliberately tri-state. ``None`` means *unprovable*, not
+    *false*: a `code` node runs an arbitrary command and nothing in the spec says
+    whether it writes. Every consumer treats ``None`` as "stay silent", because
+    the expensive mistake here is telling someone to parallelise two nodes that
+    are coupled through a file the interpolator cannot see.
+    """
+
+    reads: set[str] = field(default_factory=set)
+    readonly: bool | None = None
+
+
+def _interpolable_strings(node: Node) -> list[str]:
+    """Every string in a node that the runner passes through `render_template`.
+
+    Derived from the call sites of `render_template`, not guessed: `prompt`
+    (agent), `command` parts (code/gate), the dynamic `branches` expression, and
+    every persona field.
+    """
+    out: list[str] = []
+    raw = node.raw
+    out.append(str(raw.get("prompt", "")))
+    out.append(str(raw.get("branches", "")))
+    command = raw.get("command")
+    if isinstance(command, (list, tuple)):
+        out.extend(str(part) for part in command)
+    persona = raw.get("persona")
+    if isinstance(persona, dict):
+        for value in persona.values():
+            if isinstance(value, (list, tuple)):
+                out.extend(str(v) for v in value)
+            else:
+                out.append(str(value))
+    return out
+
+
+def node_data_reads(node: Node) -> set[str]:
+    """The node names whose output this node interpolates."""
+    found: set[str] = set()
+    for text in _interpolable_strings(node):
+        found.update(NODE_REF_RE.findall(text))
+    return found
+
+
+def node_readonly(node: Node) -> bool | None:
+    """Can this node be proven not to mutate anything? None = cannot tell.
+
+    An `agent` proves it through `allowed_tools`: every tool in the read-only
+    allowlist. Absent `allowed_tools` means the agent may reach for anything, so
+    the answer is ``None`` rather than ``True`` — an omission is not a promise.
+    Any node may state `readonly = true` explicitly, which is how a `code` node
+    says what its command does; the declaration is visible in the spec and
+    reviewable, which guessing from a shell string is not.
+    """
+    declared = node.raw.get("readonly")
+    if isinstance(declared, bool):
+        return declared
+    if node.type == "agent":
+        if skill_binding(node):
+            return None  # a skill may do anything the session can — unknowable here
+        tools = node.raw.get("allowed_tools")
+        if isinstance(tools, (list, tuple)) and tools:
+            return all(str(t) in READ_ONLY_TOOLS for t in tools)
+        return None
+    if node.type == "human":
+        return True  # it asks a person; it changes nothing itself
+    return None
+
+
+def flow_dataflow(spec: Spec) -> dict[str, NodeIO]:
+    """The spec's DATA graph, keyed by node name."""
+    return {
+        name: NodeIO(reads=node_data_reads(node), readonly=node_readonly(node))
+        for name, node in spec.nodes.items()
+    }
+
+
+def control_successors(spec: Spec, node: Node) -> list[str]:
+    """Every node the CONTROL graph can reach from ``node`` in one step.
+
+    Single source of truth for graph walks: reachability, fake-waiting and the
+    cost estimate must agree about what an edge is, or one of them reasons about
+    a graph the others do not have.
+    """
+    out = [t for t in (node.on_pass, node.on_fail, node.on_dry) if t not in TERMINALS]
+    if node.type == "loop" and node.raw.get("body") in spec.nodes:
+        out.append(str(node.raw["body"]))
+    if node.type == "parallel":
+        raw = node.raw.get("branches")
+        if isinstance(raw, str):
+            # Dynamic fan-out: the clones do not exist yet, but the node they are
+            # cloned FROM is reached by this block — without this it reads as an
+            # orphan on every dynamic spec.
+            template = str(node.raw.get("template", ""))
+            if template in spec.nodes:
+                out.append(template)
+        else:
+            out.extend(b for b in (raw or []) if b in spec.nodes)
+    escalate = node.raw.get("on_escalate")
+    if escalate in spec.nodes:
+        out.append(str(escalate))
+    return out
+
+
+def _lint_fake_waiting(spec: Spec, warnings: list[str]) -> None:
+    """A control edge with no data edge, between two provably read-only nodes.
+
+    Isenberg's "delete the fake waiting": B is scheduled after A, never reads A,
+    and neither can touch the world — so the sequence buys nothing but latency.
+
+    The `readonly` requirement is the whole safety of this lint, not a nicety.
+    Coupling through a side effect (A writes a file B reads) is invisible to the
+    interpolator, so flagging it would send someone to parallelise two nodes that
+    genuinely depend on each other. Where the proof is missing the lint says
+    NOTHING — the same fail-quiet posture `_lint_purpose` takes, for the same
+    reason: a lint that cries wolf is a lint people learn to skip.
+    """
+    flow = flow_dataflow(spec)
+    seen: set[tuple[str, str]] = set()
+    for node in spec.nodes.values():
+        src = flow[node.name]
+        if src.readonly is not True:
+            continue
+        for succ in control_successors(spec, node):
+            target = spec.nodes.get(succ)
+            if target is None or (node.name, succ) in seen:
+                continue
+            seen.add((node.name, succ))
+            # A gate re-reads the preceding agent through `ctx.last_agent` (the
+            # Class-D check), so its dependency is real even with no `{{nodes.}}`
+            # reference anywhere in its command.
+            if target.type == "gate":
+                continue
+            dst = flow[succ]
+            if dst.readonly is not True or node.name in dst.reads:
+                continue
+            warnings.append(
+                f"fake waiting: `{succ}` runs after `{node.name}` but never reads "
+                f"`{{{{nodes.{node.name}.summary}}}}`, and both are read-only — the wait "
+                f"buys latency, not order. Consider one `parallel` block."
+            )
+
+
+def _lint_dead_node(spec: Spec, warnings: list[str]) -> None:
+    """A node whose output nobody reads.
+
+    The constructive half of "the smallest graph that improves the quality of the
+    work": rather than capping how many nodes a flow may have, name the ones
+    carrying no weight. Terminals, gates and `human` nodes are exempt — a gate's
+    product is the routing decision and a human node's is the approval, neither of
+    which travels as an interpolated summary.
+    """
+    flow = flow_dataflow(spec)
+    read_by_someone: set[str] = set()
+    for io in flow.values():
+        read_by_someone |= io.reads
+    # A branch's product is consumed by its block's `merge`, never by an
+    # interpolation — the critics in `critic-panel` are read by the tally, and no
+    # prompt anywhere quotes `{{nodes.judge.correctness.summary}}`. They escaped
+    # this lint only because their `on_pass` happened to be terminal; a branch
+    # that routed somewhere would have been called dead weight while doing the
+    # block's entire work.
+    branch_members: set[str] = set()
+    for node in spec.nodes.values():
+        if node.type != "parallel":
+            continue
+        raw = node.raw.get("branches")
+        if isinstance(raw, str):
+            branch_members.add(str(node.raw.get("template", "")))
+        elif isinstance(raw, (list, tuple)):
+            branch_members.update(str(b) for b in raw)
+    for name, node in spec.nodes.items():
+        if name in read_by_someone or name in branch_members or node.type in {"gate", "human"}:
+            continue
+        # Only a provably read-only node can be judged by whether its summary is
+        # read, because for such a node the summary is the ENTIRE product. A node
+        # that may write delivers through the filesystem: an `edit` step whose
+        # text nobody quotes still did the work, and calling it dead weight would
+        # be the same class of error as flagging side-effect coupling as fake
+        # waiting. Caught by the shipped library on the first run — `fix` and
+        # `recall.memory` both reported, both wrong.
+        if flow[name].readonly is not True:
+            continue
+        # A node that ends the flow IS the output; nothing downstream exists to
+        # read it.
+        if node.on_pass in TERMINALS:
+            continue
+        warnings.append(
+            f"node `{name}`: nothing downstream reads `{{{{nodes.{name}.summary}}}}` and it does "
+            f"not end the flow — either wire its result in, or drop the node"
+        )
+
+
+def _node_invocations(spec: Spec, name: str) -> int:
+    """How many times one node can run in a single pass of the flow.
+
+    A loop body runs up to `max_iters`; a dynamic fan-out template is cloned up
+    to `max_branches`. Both ceilings are declared, so the number is the spec's
+    own promise rather than an estimate.
+    """
+    for node in spec.nodes.values():
+        if node.type == "loop" and str(node.raw.get("body", "")) == name:
+            return max(1, int(node.raw.get("max_iters", 1)))
+        if node.type == "parallel" and isinstance(node.raw.get("branches"), str) \
+                and str(node.raw.get("template", "")) == name:
+            return max(1, int(node.raw.get("max_branches", 1)))
+    return 1
+
+
+def flow_cost(spec: Spec) -> dict:
+    """What this graph costs at its ceiling (T1.3).
+
+    Isenberg's warning — "more agents don't automatically mean better output …
+    sometimes it means five AI workers confidently repeating the same wrong idea"
+    — only becomes a decision when the author can see the number. Everything here
+    is a declared maximum, never a guess: agent calls at full fan-out, and the
+    wall-clock the timeouts already permit.
+    """
+    tiers: dict[str, int] = {}
+    agent_calls = 0
+    timeout_s = 0.0
+    widest = {"node": None, "branches": 0}
+    for name, node in spec.nodes.items():
+        runs = _node_invocations(spec, name)
+        if node.type == "agent":
+            agent_calls += runs
+            tier = str(node.raw.get("tier", "unspecified"))
+            tiers[tier] = tiers.get(tier, 0) + runs
+        timeout_s += runs * int(node.raw.get("timeout_ms", 0)) / 1000.0
+        if node.type == "parallel":
+            raw = node.raw.get("branches")
+            count = (int(node.raw.get("max_branches", 0)) if isinstance(raw, str)
+                     else len(raw or []))
+            if count > widest["branches"]:
+                widest = {"node": name, "branches": count}
+    return {
+        "nodes": len(spec.nodes),
+        "agent_nodes": sum(1 for n in spec.nodes.values() if n.type == "agent"),
+        "max_agent_calls": agent_calls,
+        "serial_timeout_budget_s": round(timeout_s, 1),
+        "calls_by_tier": dict(sorted(tiers.items())),
+        "widest_fanout": widest,
+    }
+
+
+def _is_critic(node: Node) -> bool:
+    """A node that judges: its persona promises a VERDICT.
+
+    That contract — not a name, not a stance — is what makes the runner treat the
+    output as a verdict, so it is the honest signature to match on.
+    """
+    persona = node.raw.get("persona")
+    return isinstance(persona, dict) and "VERDICT=" in str(persona.get("emits", ""))
+
+
+def _lint_critique_without_brief(spec: Spec, warnings: list[str]) -> None:
+    """A critic reachable from entry without anything having produced or approved
+    what it judges.
+
+    Jay E's caveat about the gauntlet loop, the part that is easiest to lose:
+    *"if you don't start with a really good minimum viable design or product, then
+    what the gauntlet loop will do is just optimize towards probably the wrong
+    thing … the way I would use them is probably not to start with them as your
+    initial prompt"*. A panel is a polishing instrument. Pointed at nothing, it
+    spends hours and tokens converging confidently on a direction nobody chose.
+
+    "Produced or approved" is read structurally: some upstream node may write (it
+    made the artifact) or is a `human` node (someone signed off). Neither present
+    means the flow opens by grading a thing it never established.
+    """
+    flow = flow_dataflow(spec)
+    critics = [n for n in spec.nodes.values() if _is_critic(n)]
+    if not critics:
+        return
+    # Reverse the control graph once; each critic then asks who can reach it.
+    parents: dict[str, set[str]] = {name: set() for name in spec.nodes}
+    for node in spec.nodes.values():
+        for succ in control_successors(spec, node):
+            if succ in parents:
+                parents[succ].add(node.name)
+    for critic in critics:
+        seen: set[str] = set()
+        stack = list(parents[critic.name])
+        grounded = False
+        while stack and not grounded:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            node = spec.nodes.get(cur)
+            if node is None:
+                continue
+            # `parallel`, `loop` and `gate` route; they never produce. Letting a
+            # fan-out block ground a critic made this lint silent on exactly the
+            # shape it exists to catch — a panel wired straight to the entry —
+            # because `node_readonly` cannot prove a control construct read-only
+            # and "unprovable" was being read as "may have produced something".
+            if node.type == "human":
+                grounded = True
+                break
+            if node.type in {"agent", "code"} and flow[cur].readonly is not True:
+                grounded = True
+                break
+            stack.extend(parents[cur])
+        if not grounded:
+            warnings.append(
+                f"critique without brief: `{critic.name}` judges before anything in this flow "
+                f"produced or approved what it judges — a panel is a polishing instrument, and "
+                f"pointed at nothing it optimises towards a direction nobody chose"
+            )
+
+
+def _lint_agent_needs_permission(spec: Spec, warnings: list[str]) -> None:
+    """An agent that can write, run headless with no permission mode, asks a human
+    who is not there — and reports `pass` for having asked.
+
+    Observed, not theorised. `chore-1784540624` invoked a real Claude agent four
+    times over three minutes; each invocation returned exit 0 with a verdict of
+    `pass` and a summary that reads "Permissão necessária para editar o arquivo.
+    Você aprova …?". Nothing was ever written, the `verify` gate rejected each
+    attempt, and the run died on `retry_limit_exceeded`. FIVE of the shipped
+    library's write-capable agent nodes were in that state — which is to say every
+    flow that changes anything.
+
+    `--permission-mode` already existed in `_claude_cmd`; it was simply optional,
+    and optional is indistinguishable from absent when nobody is at the terminal.
+    """
+    for node in spec.nodes.values():
+        if node.type != "agent" or str(node.raw.get("driver", "claude")) != "claude":
+            continue
+        if node_readonly(node) is not False:
+            continue  # read-only, or unprovable — nothing to approve
+        if node.raw.get("permission_mode"):
+            continue
+        warnings.append(
+            f"agent `{node.name}`: has write tools but no `permission_mode`, so a headless "
+            f"run will stop and ask a human who is not there — and report `pass` for asking. "
+            f"Set `permission_mode = \"acceptEdits\"` (or another mode) on the node."
+        )
+
+
+def _lint_agent_codegen_tier(spec: Spec, warnings: list[str]) -> None:
+    """W8 T8 (2026-08-23) — a codegen agent node without an explicit `tier`
+    silently inherits the session's (expensive) default model.
+
+    Measured externally: TanStack runs its entire code mode on Haiku because
+    *generating code is an easier task than orchestrating tools* — the model
+    writes TS "extremely fast" and the eval (models-eval/results.json) shows
+    haiku-4-5 at accuracy 10/10 on the multi-table join. The same economics
+    apply to ADW nodes whose whole job is mechanical code generation: the
+    warning induces an explicit cost decision, never a silent default.
+    """
+    CODEGEN_MARKERS = (
+        "gere o código", "gerar o código", "escreva o código", "generate code",
+        "write the code", "scaffold", "boilerplate", "codegen",
+    )
+    for node in spec.nodes.values():
+        if node.type != "agent" or str(node.raw.get("driver", "claude")) != "claude":
+            continue
+        if node.raw.get("tier"):
+            continue
+        prompt = str(node.raw.get("prompt", "")).lower()
+        if any(m in prompt for m in CODEGEN_MARKERS):
+            warnings.append(
+                f"agent `{node.name}`: the prompt reads as mechanical code generation but the "
+                f"node declares no `tier`, so it inherits the session's expensive default. "
+                f"Codegen runs well on a cheap tier (measured: TanStack code mode on haiku) — "
+                f"set `tier = \"haiku\"` (see tiers.toml) or declare the expensive tier on purpose."
+            )
 
 
 def _lint_node(node: Node, names: set[str], errors: list[str], warnings: list[str]) -> None:
@@ -187,6 +979,15 @@ def _lint_node(node: Node, names: set[str], errors: list[str], warnings: list[st
             errors.append(f"node `{node.name}`: missing command[]")
         if not node.raw.get("idempotent", False):
             warnings.append(f"node `{node.name}`: not marked idempotent — resume replays at-least-once")
+    if node.type == "gate" and node.raw.get("verdict_contract", False):
+        target = node.raw.get("on_escalate")
+        if target is None:
+            errors.append(f"gate `{node.name}`: verdict_contract needs `on_escalate` — "
+                          f"an escalation with nowhere to go is a rejection wearing a "
+                          f"different name, and it will burn the retry budget it exists "
+                          f"to protect")
+        elif target not in names and target not in TERMINALS:
+            errors.append(f"gate `{node.name}`: on_escalate → unknown node `{target}`")
     if node.type == "agent":
         driver = node.raw.get("driver", "claude")
         if driver not in {"claude", "mock"}:
@@ -195,6 +996,20 @@ def _lint_node(node: Node, names: set[str], errors: list[str], warnings: list[st
             errors.append(f"agent `{node.name}`: missing prompt")
         if not node.raw.get("allowed_tools"):
             warnings.append(f"agent `{node.name}`: no allowed_tools — driver runs fail-closed default")
+        for skill in skill_binding(node):
+            status = skill_status(skill)
+            if status == "missing":
+                errors.append(f"agent `{node.name}`: skill `{skill}` does not exist "
+                              f"(~/.claude/skills/{skill}/SKILL.md) — a bound skill that is "
+                              f"not there is a silent no-op at run time, so it fails HERE")
+            elif status == "disabled":
+                errors.append(f"agent `{node.name}`: skill `{skill}` is `off` in "
+                              f"skillOverrides — the agent would call Skill and receive "
+                              f"nothing, which reads exactly like success")
+        if skill_binding(node) and node.raw.get("readonly") is True:
+            warnings.append(f"agent `{node.name}`: declares readonly=true while binding a "
+                            f"skill — a skill can do anything the session can, so the "
+                            f"declaration is a promise the node cannot keep")
 
 
 def _lint_reachability(spec: Spec, warnings: list[str]) -> None:
@@ -208,30 +1023,277 @@ def _lint_reachability(spec: Spec, warnings: list[str]) -> None:
         node = spec.nodes.get(cur)
         if node is None:  # dangling edge — already reported as an error
             continue
-        stack.extend(t for t in (node.on_pass, node.on_fail, node.on_dry) if t not in TERMINALS)
-        if node.type == "loop" and node.raw.get("body") in spec.nodes:
-            stack.append(node.raw["body"])
+        stack.extend(control_successors(spec, node))
     for orphan in sorted(set(spec.nodes) - reachable):
         warnings.append(f"node `{orphan}`: unreachable from entry `{spec.entry}` (orphan)")
 
 
+def _cycle_key(cycle: list[str]) -> tuple[str, ...]:
+    """Rotation-invariant identity of a cycle: the same ring discovered from any
+    of its members yields one key, so an N-node cycle is reported once, not N times."""
+    pivot = min(range(len(cycle)), key=lambda i: cycle[i])
+    return tuple(cycle[pivot:] + cycle[:pivot])
+
+
 def _lint_cycles(spec: Spec, errors: list[str]) -> None:
-    """Pass-edge cycle where no member exits and none is a loop node → error."""
+    """Pass-edge cycle where no member exits and none is a loop node → error.
+
+    Every node is tried as a start point. Until 2026-08-18 this loop ended in a
+    `return`, so the scan stopped at the FIRST node that reached any cycle: a
+    spec whose first cycle had a legitimate exit passed lint with a second,
+    exitless cycle intact — `valid: true`, exit 0, on a graph that cannot
+    terminate. Reproduced with `start → {a↔b with exit, x↔y without}`; the only
+    thing between that spec and 10.000 node executions was the runner's step guard.
+    """
+    reported: set[tuple[str, ...]] = set()
     for node in spec.nodes.values():
         seen: list[str] = []
         cur = node.name
         while cur not in TERMINALS and cur not in seen and cur in spec.nodes:
             seen.append(cur)
             cur = spec.nodes[cur].on_pass
-        if cur in seen:
-            cycle = seen[seen.index(cur):]
-            has_exit = any(
-                spec.nodes[m].on_fail not in cycle or spec.nodes[m].type == "loop"
-                for m in cycle
-            )
-            if not has_exit:
-                errors.append(f"cycle without exit: {' → '.join(cycle)}")
+        if cur not in seen:
+            continue
+        cycle = seen[seen.index(cur):]
+        key = _cycle_key(cycle)
+        if key in reported:
+            continue
+        reported.add(key)
+        has_exit = any(
+            spec.nodes[m].on_fail not in cycle or spec.nodes[m].type == "loop"
+            for m in cycle
+        )
+        if not has_exit:
+            errors.append(f"cycle without exit: {' → '.join(cycle)}")
+
+
+BRANCH_BINDINGS = ("value", "index")
+BRANCH_REF_RE = re.compile(r"\{\{branch\.([\w.-]+?)\}\}")
+
+
+def _lint_dynamic_parallel(spec: Spec, node: Node, errors: list[str],
+                           warnings: list[str]) -> None:
+    """A fan-out whose branch COUNT is decided at runtime (LangGraph's `Send`).
+
+    Static fan-out names its branches, so the lint can check each one. Here the
+    list arrives from a var or an upstream node's summary, and only one node —
+    the `template` — is cloned per value. That is the shape the gauntlet actually
+    has (N critics from runtime input) and the only way to express the canonical
+    orchestrator-workers pattern, where the subtasks are not known in advance.
+    """
+    source = str(node.raw.get("branches", ""))
+    if "{{" not in source:
+        errors.append(f"parallel `{node.name}`: `branches` is a string with no "
+                      f"`{{{{...}}}}` reference — a literal branch list must be a TOML array")
+    template_name = str(node.raw.get("template", "")).strip()
+    if not template_name:
+        errors.append(f"parallel `{node.name}`: dynamic branches need `template` — "
+                      f"the node cloned once per runtime value")
+        return
+    template = spec.nodes.get(template_name)
+    if template is None:
+        errors.append(f"parallel `{node.name}`: template → unknown node `{template_name}`")
+        return
+    if template.type in {"parallel", "loop", "human"}:
+        errors.append(f"parallel `{node.name}`: template `{template_name}` is a "
+                      f"`{template.type}` node — only code/gate/agent may run in a fan-out")
+    writes = WRITE_TOOLS.intersection(template.raw.get("allowed_tools") or [])
+    if writes:
+        errors.append(f"parallel `{node.name}`: template `{template_name}` may use "
+                      f"{sorted(writes)} — fan-out is read-only; parallel writers race")
+    unknown = sorted({k for k in BRANCH_REF_RE.findall(json.dumps(template.raw))
+                      if k not in BRANCH_BINDINGS})
+    if unknown:
+        errors.append(f"parallel `{node.name}`: template `{template_name}` references "
+                      f"{{{{branch.{unknown[0]}}}}} — only {list(BRANCH_BINDINGS)} are bound")
+    # The distinctness rule, in its dynamic form. Every branch is a clone of ONE
+    # node, so unless the lens is parameterised by the branch value they are N
+    # identical critics — the "more agents, more noise" the sources warn about,
+    # bought at N times the price.
+    persona = template.raw.get("persona") or {}
+    if template.type == "agent" and persona:
+        lens = str(persona.get("lens", ""))
+        if lens and not BRANCH_REF_RE.search(lens):
+            errors.append(f"parallel `{node.name}`: template `{template_name}` has a fixed "
+                          f"lens `{lens}` — every clone would judge identically; bind it to "
+                          f"{{{{branch.value}}}}")
+
+
+def _lint_parallel(spec: Spec, node: Node, errors: list[str], warnings: list[str]) -> None:
+    """Fan-out has four ways to fail silently; each is an error here, not a default.
+
+    (1) No `merge`: branches collapse into one slot and all but one result is
+        lost — the last-write-wins a reducer exists to prevent.
+    (2) No `on_branch_fail`: a failed branch is indistinguishable from a passing
+        one, so the graph advances on partial evidence (Law L2 forbids it).
+    (3) A branch that can write: parallel writers race, and no journal ordering
+        can reconstruct who clobbered whom.
+    (4) No `max_branches`: with a runtime-sized fan-out the cost is a number
+        nobody declared, and the budget lint would under-count it by a factor N.
+    """
+    raw_branches = node.raw.get("branches")
+    dynamic = isinstance(raw_branches, str)
+    branches = [] if dynamic else list(raw_branches or [])
+    branch_count = len(branches)
+
+    if dynamic:
+        _lint_dynamic_parallel(spec, node, errors, warnings)
+    else:
+        if not branches:
+            errors.append(f"parallel `{node.name}`: no branches[]")
             return
+        duplicates = sorted({b for b in branches if branches.count(b) > 1})
+        if duplicates:
+            errors.append(f"parallel `{node.name}`: branch(es) {duplicates} listed twice — "
+                          f"one node cannot be two branches; its result slot would collide")
+
+    merge = str(node.raw.get("merge", "")).strip()
+    if merge not in MERGE_STRATEGIES:
+        errors.append(f"parallel `{node.name}`: `merge` must be declared as one of "
+                      f"{sorted(MERGE_STRATEGIES)} — without it the branches overwrite "
+                      f"one another in a single result slot")
+    policy = str(node.raw.get("on_branch_fail", "all")).strip()
+    policy_error = branch_fail_policy_error(policy)
+    if policy_error:
+        errors.append(f"parallel `{node.name}`: `on_branch_fail` {policy_error}")
+    # A quorum nobody can reach is a gate that always fails — declared, not silent.
+    quorum = QUORUM_POLICY_RE.match(policy)
+    if quorum and branch_count and int(quorum.group(1)) > branch_count:
+        errors.append(f"parallel `{node.name}`: `on_branch_fail = {policy}` needs more "
+                      f"passing branches than the {branch_count} declared — unsatisfiable")
+    # `policy` is the cartografia's third field for the same decision. Two fields
+    # meaning one thing is how a spec ends up contradicting itself (its own example
+    # pairs policy = "quorum:2" with on_branch_fail = "all"), so it is refused with
+    # the name that owns the semantics rather than silently ignored.
+    if node.raw.get("policy") is not None:
+        errors.append(f"parallel `{node.name}`: `policy` is not a field — the pass "
+                      f"condition is `on_branch_fail` (all|any|ignore|best_effort|quorum:N)")
+    max_branches = int(node.raw.get("max_branches", 0))
+    if max_branches <= 0:
+        errors.append(f"parallel `{node.name}`: `max_branches` must be >= 1 — an unbounded "
+                      f"fan-out multiplies the per-branch cost by a number nobody declared")
+    elif branch_count > max_branches:
+        errors.append(f"parallel `{node.name}`: {branch_count} branches exceed "
+                      f"max_branches={max_branches}")
+
+    for branch in dict.fromkeys(branches):
+        target = spec.nodes.get(branch)
+        if target is None:
+            errors.append(f"parallel `{node.name}`: branch → unknown node `{branch}`")
+            continue
+        if target.type in {"parallel", "loop", "human"}:
+            errors.append(f"parallel `{node.name}`: branch `{branch}` is a `{target.type}` node — "
+                          f"only code/gate/agent may run inside a fan-out")
+            continue
+        writes = WRITE_TOOLS.intersection(target.raw.get("allowed_tools") or [])
+        if writes:
+            errors.append(f"parallel `{node.name}`: branch `{branch}` may use {sorted(writes)} — "
+                          f"fan-out is read-only; parallel writers race")
+        if target.type == "agent" and "Bash" in (target.raw.get("allowed_tools") or []):
+            warnings.append(f"parallel `{node.name}`: branch `{branch}` has Bash, which can write — "
+                            f"the read-only guarantee is yours to keep")
+        for edge in ("on_pass", "on_fail"):
+            declared = target.raw.get(edge)
+            if declared is not None:
+                warnings.append(f"parallel `{node.name}`: branch `{branch}` declares {edge}="
+                                f"`{declared}`, which is ignored — the join owns the next edge")
+    # More agents is not more signal. N reviewers sharing one lens re-derive one
+    # opinion N times and charge N times for it; the value of a panel comes from the
+    # lenses being DIFFERENT, so a panel that lost that property fails here.
+    lenses = [str((spec.nodes[b].raw.get("persona") or {}).get("lens", "")).strip()
+              for b in dict.fromkeys(branches)
+              if b in spec.nodes and spec.nodes[b].type == "agent"
+              and spec.nodes[b].raw.get("persona")]
+    if len(lenses) > 1 and len(set(lenses)) == 1:
+        errors.append(f"parallel `{node.name}`: all {len(lenses)} critic branches share the "
+                      f"lens `{lenses[0]}` — identical critics multiply cost, not coverage")
+
+
+def _lint_persona(node: Node, errors: list[str], warnings: list[str]) -> None:
+    """A persona must be structurally enforceable, not decorative prose.
+
+    The critic rules exist because the two ways a critic silently stops being a
+    critic are both invisible in the output: a verdict no code can parse (so the
+    graph cannot branch on it), and a resumed session (so it inherits — and
+    trusts — the very context it was hired to doubt)."""
+    persona = node.raw.get("persona")
+    if persona is None:
+        return
+    if node.type != "agent":
+        errors.append(f"node `{node.name}`: [persona] only applies to an agent node (type is `{node.type}`)")
+        return
+    if not isinstance(persona, dict) or not str(persona.get("role", "")).strip():
+        errors.append(f"agent `{node.name}`: [persona] needs a `role` — it becomes `--agent <role>`")
+        return
+    unknown = set(persona) - PERSONA_FIELDS
+    if unknown:
+        errors.append(f"agent `{node.name}`: unknown persona field(s) {sorted(unknown)} "
+                      f"— want {sorted(PERSONA_FIELDS)}")
+    if str(persona.get("stance", "")).strip() != CRITIC_STANCE:
+        return
+    if not str(persona.get("emits", "")).strip():
+        errors.append(f"critic `{node.name}`: stance `{CRITIC_STANCE}` requires `emits` — "
+                      f"a verdict no code can parse is prose, not a gate")
+    if node.raw.get("session", "fresh") == "resume_on_fail":
+        errors.append(f"critic `{node.name}`: `session = \"resume_on_fail\"` contradicts stance "
+                      f"`{CRITIC_STANCE}` — a critic that resumes the session it judges "
+                      f"inherits the context it exists to distrust")
+    if not str(persona.get("bar", "")).strip():
+        warnings.append(f"critic `{node.name}`: no `bar` — 'looks good' is not a stopping criterion")
+    prompt = str(node.raw.get("prompt", ""))
+    for hidden in persona.get("blind_to") or []:
+        if f"nodes.{hidden}" in prompt:
+            errors.append(f"critic `{node.name}`: declares blindness to `{hidden}` yet its prompt "
+                          f"reads `{{{{nodes.{hidden}.summary}}}}` — the blindness is fiction")
+
+
+def _lint_gate_feedback(spec: Spec, warnings: list[str]) -> None:
+    """A gate that hands control back to an agent must tell it WHY it rejected.
+
+    Without the reference the retry re-invokes the agent with a byte-identical
+    prompt: same context, same instructions, no verdict — the second attempt is
+    blind to what rejected the first, and the only thing that reliably changes
+    is the bill. `session = "resume_on_fail"` does NOT mitigate it: the gate is a
+    separate process that runs AFTER the agent session ended, so its verdict was
+    never in that transcript to begin with.
+    """
+    for node in spec.nodes.values():
+        if node.type != "gate":
+            continue
+        target = spec.nodes.get(node.on_fail)
+        if target is None or target.type != "agent":
+            continue
+        if f"nodes.{node.name}" in str(target.raw.get("prompt", "")):
+            continue
+        warnings.append(
+            f"gate `{node.name}`: on_fail → agent `{target.name}`, whose prompt never reads "
+            f"`{{{{nodes.{node.name}.summary}}}}` — the retry re-runs the agent blind to the "
+            f"verdict that rejected it"
+        )
+
+
+def _lint_purpose(spec: Spec, warnings: list[str]) -> None:
+    """A flow nobody can find by intent is a flow nobody reuses.
+
+    Warning, not error: a private one-off flow may legitimately not care. But
+    `when_not_to_use` is called out separately because it is the field that keeps
+    a purpose block from becoming advertising — without it the portfolio can only
+    pitch the closest candidate, never show that the gap is real.
+    """
+    purpose = spec.purpose
+    if not purpose:
+        # Deliberately silent. A private one-off flow has nothing to be findable
+        # FOR, and warning on every such spec would train exactly the reflex
+        # `test_a_created_flow_wires_its_own_feedback_...` names: an author who
+        # learns to ignore lint output. Presence is enforced where it means
+        # something — the shipped library, by test — and demanded by `adw new`.
+        return
+    if not purpose.get("intent"):
+        warnings.append("[purpose]: no `intent` — the one sentence the portfolio indexes")
+    if not purpose.get("when_not_to_use"):
+        warnings.append(
+            "[purpose]: no `when_not_to_use` — without a stated boundary the portfolio "
+            "can only recommend this flow, never rule it out")
 
 
 def _lint_budget(spec: Spec, errors: list[str]) -> None:
@@ -250,9 +1312,19 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     names = set(spec.nodes)
     for node in spec.nodes.values():
         _lint_node(node, names, errors, warnings)
+        _lint_persona(node, errors, warnings)
+        if node.type == "parallel":
+            _lint_parallel(spec, node, errors, warnings)
     _lint_reachability(spec, warnings)
     _lint_cycles(spec, errors)
+    _lint_gate_feedback(spec, warnings)
+    _lint_purpose(spec, warnings)
     _lint_budget(spec, errors)
+    _lint_fake_waiting(spec, warnings)
+    _lint_dead_node(spec, warnings)
+    _lint_critique_without_brief(spec, warnings)
+    _lint_agent_needs_permission(spec, warnings)
+    _lint_agent_codegen_tier(spec, warnings)
     return errors, warnings
 
 
@@ -317,16 +1389,38 @@ def store_result(run_path: Path, exec_key: str, output: str) -> dict:
     return artifact
 
 
+#: The three fields Law L4 promises as inter-node context. Until 2026-08-20 the resolver
+#: silently DROPPED the suffix and always returned `summary`, so `{{nodes.X.full_ref}}`
+#: rendered the truncated summary instead of the path to the whole output — two thirds of
+#: the contract were unreachable from any template.
+#:
+#: Measured cost: `critic-panel`'s quorum counts `^VERDICT=` over `{{nodes.panel.summary}}`,
+#: and a critic emits its verdict at the END of its report. With SUMMARY_LIMIT at 2000
+#: bytes and 14 718 omitted, the quorum saw ZERO verdicts and escalated — while all three
+#: critics had returned REJECT. A panel that can never count is not a panel.
+RESULT_FIELDS = ("summary", "full_ref", "omitted_bytes")
+
+
 def render_template(text: str, results: dict[str, dict], variables: dict[str, str]) -> str:
-    """Resolve {{nodes.X.summary}} / {{vars.k}} references (inter-node context)."""
+    """Resolve {{nodes.X.<field>}} / {{vars.k}} references (inter-node context).
+
+    `<field>` is one of :data:`RESULT_FIELDS`; omitted, it is `summary` — the dense
+    inline default of Law L4. An unknown suffix is part of the node NAME, not a field,
+    so a node called `a.b` keeps resolving as before.
+    """
 
     def sub(match: re.Match) -> str:
         kind, key = match.group(1), match.group(2)
-        if kind == "nodes":
-            return results.get(key, {}).get("summary", "")
-        return variables.get(key, "")
+        if kind != "nodes":
+            return variables.get(key, "")
+        campo = "summary"
+        for f in RESULT_FIELDS:
+            if key.endswith(f".{f}"):
+                key, campo = key[: -len(f) - 1], f
+                break
+        return str(results.get(key, {}).get(campo, ""))
 
-    return re.sub(r"\{\{(nodes|vars)\.([\w.-]+?)(?:\.summary)?\}\}", sub, text)
+    return re.sub(r"\{\{(nodes|vars)\.([\w.-]+?)\}\}", sub, text)
 
 
 # ── activity mirror (best-effort) ─────────────────────────────────────────────
@@ -352,6 +1446,22 @@ class ExecResult:
     output: str
     session_id: str | None = None
     narrated_success: bool = False
+    cost_usd: float = 0.0
+    #: `adw test` walked this node with no recording to replay. Reported by name,
+    #: never silent: a synthesized walk is not evidence that the agent behaves.
+    synthesized: bool = False
+
+
+def parse_verdict(output: str, exit_code: int) -> str:
+    """Read the gate's declared verdict; fall back to the exit code, then to REJECT.
+
+    A gate under contract speaks the three-verdict vocabulary. One that does not
+    still works: a clean exit is PASS, anything else REJECT. What never happens is
+    a missing signal reading as success."""
+    found = VERDICT_RE.findall(output or "")
+    if found:
+        return found[-1]
+    return PASS if exit_code == 0 else DEFAULT_VERDICT
 
 
 def run_code_node(node: Node, results: dict, variables: dict,
@@ -380,10 +1490,38 @@ def mock_recording_path(spec: Spec, node: str) -> Path:
     return spec.path.parent / f"{spec.name}.recordings" / f"{node}.json"
 
 
-def _agent_mock(spec: Spec, node: Node) -> ExecResult:
+def _synthesized_mock(node: Node) -> ExecResult:
+    """Stand in for an agent with no recording so `adw test` can walk the graph.
+
+    `adw test` exists to prove the GRAPH holds: every edge resolves, every gate
+    parses what the step before it emits. A flow that never ran has no
+    recordings, so demanding one turned that graph check into an agent check and
+    failed every freshly created flow — `adw new` promises a flow born
+    lint-clean and testable, and that promise could not be kept.
+
+    The stub is reported by name (`synthesized`), because a synthesized walk must
+    never read as a replayed one — the same fail-closed reading the verdict
+    contract gives to silence. The text avoids every success word deliberately: a
+    stub that narrated success would forge the Class-D divergence Law L3 exists
+    to detect.
+    """
+    emits = str((node.raw.get("persona") or {}).get("emits", ""))
+    lines = [f"SYNTHESIZED MOCK for agent `{node.name}` — no recording to replay; "
+             f"the graph was walked, this agent's behaviour was NOT exercised."]
+    if "VERDICT=" in emits:
+        # The node's own contract says a downstream gate parses a verdict here.
+        # Emitting nothing would stall every panel behind an ESCALATE and hide
+        # the rest of the graph — the part `adw test` is here to check.
+        lines += ["VERDICT=PASS", "REASON=synthesized stub, nothing was replayed"]
+    return ExecResult(exit_code=0, output="\n".join(lines), synthesized=True)
+
+
+def _agent_mock(spec: Spec, node: Node, synthesize: bool = False) -> ExecResult:
     rec_path = mock_recording_path(spec, node.name)
     if not rec_path.is_file():
-        return ExecResult(exit_code=1, output=f"no recording for agent `{node.name}` at {rec_path}")
+        if not synthesize:
+            return ExecResult(exit_code=1, output=f"no recording for agent `{node.name}` at {rec_path}")
+        return _synthesized_mock(node)
     rec = json.loads(rec_path.read_text(encoding="utf-8"))
     output = rec.get("result", "")
     return ExecResult(
@@ -394,13 +1532,18 @@ def _agent_mock(spec: Spec, node: Node) -> ExecResult:
     )
 
 
-def _claude_cmd(node: Node, journal: Journal, prompt: str) -> list[str]:
+def _claude_cmd(node: Node, journal: Journal, prompt: str,
+                results: dict | None = None, variables: dict | None = None) -> list[str]:
     """Assemble the fail-closed headless invocation from the node spec."""
-    cmd = ["claude", "-p", prompt, "--output-format", "json"]
+    cmd = ["claude", "-p", skill_prompt_prefix(node) + prompt, "--output-format", "json"]
+    persona = node.raw.get("persona")
+    if persona:
+        role, definition = compile_agent_definition(persona, results or {}, variables or {})
+        cmd += ["--agents", json.dumps({role: definition}, ensure_ascii=False), "--agent", role]
     tier = node.raw.get("tier", "")
     if tier:
         cmd += ["--model", tier_models().get(tier, tier)]
-    tools = node.raw.get("allowed_tools") or []
+    tools = skill_tools(node)
     if tools:
         cmd += ["--allowedTools", *tools]
     budget_usd = node.raw.get("budget_usd")
@@ -419,8 +1562,9 @@ def _claude_cmd(node: Node, journal: Journal, prompt: str) -> list[str]:
 
 
 def _agent_claude(spec: Spec, node: Node, journal: Journal, prompt: str, record: bool,
-                  cwd: Path | None = None) -> ExecResult:
-    cmd = _claude_cmd(node, journal, prompt)
+                  cwd: Path | None = None, results: dict | None = None,
+                  variables: dict | None = None) -> ExecResult:
+    cmd = _claude_cmd(node, journal, prompt, results, variables)
     timeout_s = int(node.raw.get("timeout_ms", 600_000)) / 1000
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, cwd=cwd)
@@ -428,17 +1572,20 @@ def _agent_claude(spec: Spec, node: Node, journal: Journal, prompt: str, record:
         return ExecResult(exit_code=124, output=f"agent timeout after {timeout_s:.0f}s")
     session_id = None
     output = proc.stdout
+    cost = 0.0
     try:
         parsed = json.loads(proc.stdout)
         session_id = parsed.get("session_id")
         output = parsed.get("result", proc.stdout)
-    except (json.JSONDecodeError, AttributeError):
+        cost = float(parsed.get("total_cost_usd") or 0.0)
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         pass
     result = ExecResult(
         exit_code=proc.returncode,
         output=output,
         session_id=session_id,
         narrated_success=bool(SUCCESS_NARRATIVE.search(output or "")),
+        cost_usd=cost,
     )
     if record and result.exit_code == 0:
         rec_path = mock_recording_path(spec, node.name)
@@ -456,8 +1603,12 @@ def run_agent_node(
     driver = "mock" if force_mock else node.raw.get("driver", "claude")
     prompt = render_template(node.raw.get("prompt", ""), results, variables)
     if driver == "mock":
-        return _agent_mock(spec, node)
-    return _agent_claude(spec, node, journal, prompt, record, cwd=cwd)
+        # Synthesis belongs to `adw test` alone. A spec that DECLARES
+        # driver = "mock" is asking for one specific recording, and inventing it
+        # would turn an explicit contract into a guess.
+        return _agent_mock(spec, node, synthesize=force_mock)
+    return _agent_claude(spec, node, journal, prompt, record, cwd=cwd,
+                         results=results, variables=variables)
 
 
 # ── runner ────────────────────────────────────────────────────────────────────
@@ -469,6 +1620,26 @@ class RunOutcome:
     run_id: str
     steps: list[dict] = field(default_factory=list)
     class_d: bool = False
+    #: Nodes walked without a recording. A synthesized walk proves the graph
+    #: connects — never that the agent behaves — so it is always named.
+    synthesized: list[str] = field(default_factory=list)
+
+
+def new_run_id(name: str) -> str:
+    """Collision-proof run id: ``<adw>-<epoch>-<session8>.<pid>``.
+
+    The epoch alone has 1-second granularity, so two Claude Code sessions
+    starting the same ADW in the same project within the same second derived the
+    SAME run dir: the loser died on the flock, and had it taken the lock later it
+    would have replayed the OTHER session's journal as its own resume state.
+    Negligible while ADWs were hand-invoked; material now that the deterministic
+    OUTER is the default and every session fires `strategy-loop`. The session
+    prefix keeps the dir attributable; the pid guarantees uniqueness even for two
+    runs of one session inside the same second.
+    """
+    session = (os.environ.get("CLAUDE_CODE_SESSION_ID")
+               or os.environ.get("TOURING_SESSION_ID") or "local")
+    return f"{name}-{int(time.time())}-{str(session)[:8]}.{os.getpid()}"
 
 
 def acquire_lock(run_path: Path):
@@ -507,7 +1678,7 @@ def execute(
 ) -> RunOutcome:
     approve = approve or set()
     variables = variables or {}
-    run_id = resume_run or f"{spec.name}-{int(time.time())}"
+    run_id = resume_run or new_run_id(spec.name)
     run_path = runs_dir(root) / run_id
     run_path.mkdir(parents=True, exist_ok=True)
     lock = acquire_lock(run_path)
@@ -531,6 +1702,21 @@ def execute(
             if guard > 10_000:
                 journal.append("run_aborted", reason="step guard exceeded")
                 break
+            # Kill switch: a human (or a supervising script) drops a STOP file into
+            # the run dir and the runner stands down at the next node boundary —
+            # never mid-node, so the journal stays replayable.
+            if (run_path / KILL_SWITCH).exists():
+                journal.append("run_aborted", reason="kill switch", switch=str(run_path / KILL_SWITCH))
+                outcome.status = "aborted"
+                break
+            # Cost stop, measured rather than estimated: the driver reports what it
+            # actually spent, and the ceiling is checked BEFORE committing to another
+            # node — a budget verified only after the fact is an epitaph, not a budget.
+            if spec.budget_usd > 0 and ctx.spent_usd >= spec.budget_usd:
+                journal.append("run_aborted", reason="budget exhausted",
+                               spent_usd=round(ctx.spent_usd, 4), budget_usd=spec.budget_usd)
+                outcome.status = "aborted"
+                break
             node = spec.node(current)
 
             if node.type == "loop":
@@ -552,7 +1738,8 @@ def execute(
             current = nxt
 
         outcome.status = "completed" if current == END else outcome.status
-        journal.append("run_finished", status=outcome.status, class_d=outcome.class_d)
+        journal.append("run_finished", status=outcome.status, class_d=outcome.class_d,
+                       synthesized=outcome.synthesized)
         activity_append("task_completed", {"adw": spec.name, "run": run_id, "status": outcome.status})
     finally:
         lock.close()
@@ -578,6 +1765,10 @@ class _RunCtx:
     root: Path | None = None  # code/agent nodes run anchored here, not in the caller cwd
     last_agent: dict | None = None  # {exec_key, narrated_success} for Class-D
     fail_counts: dict[str, int] = field(default_factory=dict)  # Law L2 retry shutoff
+    #: node → the outputs its gate produced, newest last. Identical consecutive
+    #: outputs mean the retry changed nothing the gate can see: stagnation.
+    gate_history: dict[str, list[str]] = field(default_factory=dict)
+    spent_usd: float = 0.0  # measured, not estimated — from the driver's own accounting
 
 
 def _run_single_node(ctx: _RunCtx, node: Node, exec_key: str) -> str | None:
@@ -592,26 +1783,234 @@ def _run_single_node(ctx: _RunCtx, node: Node, exec_key: str) -> str | None:
     elif node.type == "agent":
         result = run_agent_node(node, ctx.spec, ctx.journal, ctx.results, ctx.variables,
                                 ctx.force_mock, ctx.record, cwd=ctx.root)
+    elif node.type == "parallel":
+        result = run_parallel_node(ctx, node, exec_key)
     else:  # code | gate
         result = run_code_node(node, ctx.results, ctx.variables, cwd=ctx.root)
 
     ctx.results[node.name] = store_result(ctx.run_path, exec_key, result.output)
-    passed = result.exit_code == 0
+    if result.synthesized:
+        ctx.outcome.synthesized.append(node.name)
+    ctx.spent_usd += result.cost_usd
+    verdict = None
+    if node.type == "gate" and node.raw.get("verdict_contract", False):
+        verdict = parse_verdict(result.output, result.exit_code)
+    passed = verdict == PASS if verdict is not None else result.exit_code == 0
     class_d = _track_class_d(ctx, node, exec_key, result, passed)
-    nxt = _next_edge(ctx, node, exec_key, passed)
+    nxt = _next_edge(ctx, node, exec_key, passed, verdict)
     ctx.journal.append(
         "node_completed", node=node.name, exec_key=exec_key,
         exit_code=result.exit_code, verdict="pass" if passed else "fail",
+        contract_verdict=verdict, cost_usd=round(result.cost_usd, 6),
         next=nxt, session_id=result.session_id, class_d=class_d,
     )
     activity_append(
         "task_completed" if passed else "error_occurred",
         {"adw": ctx.spec.name, "run": ctx.run_id, "node": node.name, "exit": result.exit_code},
     )
-    ctx.outcome.steps.append({"node": node.name, "exec_key": exec_key,
-                              "exit_code": result.exit_code,
-                              "verdict": "pass" if passed else "fail"})
+    step = {"node": node.name, "exec_key": exec_key, "exit_code": result.exit_code,
+            "verdict": "pass" if passed else "fail"}
+    if verdict is not None:
+        step["contract_verdict"] = verdict
+    ctx.outcome.steps.append(step)
     return nxt
+
+
+def merge_branches(strategy: str, outcomes: list[tuple[str, ExecResult]]) -> str:
+    """Join N branch results into one artifact — the reducer the fan-out declared.
+
+    `tally` re-emits an aggregate `NEW_FINDINGS=` so a loop node can wrap a whole
+    fan-out and still own its own termination (Law L2) — without it, a parallel
+    body would leave the loop's dry-streak signal permanently absent."""
+    if strategy == "concat":
+        return "\n\n".join(f"── {name} (exit {r.exit_code}) ──\n{r.output}" for name, r in outcomes)
+    if strategy == "tally":
+        passed = [n for n, r in outcomes if r.exit_code == 0]
+        failed = [n for n, r in outcomes if r.exit_code != 0]
+        total = 0
+        for _, r in outcomes:
+            found = NEW_FINDINGS_RE.search(r.output or "")
+            if found:
+                total += int(found.group(1))
+        lines = [f"branches={len(outcomes)} passed={len(passed)} failed={len(failed)}",
+                 f"passed: {', '.join(passed) or '—'}",
+                 f"failed: {', '.join(failed) or '—'}"]
+        return "\n".join(lines) + f"\nNEW_FINDINGS={total}"
+    digest = []
+    for name, r in outcomes:  # collect: dense per-branch verdict first (Law L4)
+        head = (r.output or "").strip().splitlines()
+        digest.append(f"{name}: {'pass' if r.exit_code == 0 else 'FAIL'} :: "
+                      f"{head[0][:200] if head else '(no output)'}")
+    body = "\n\n".join(f"── {name} ──\n{r.output}" for name, r in outcomes)
+    return "\n".join(digest) + "\n\n" + body
+
+
+def _branch_passed(policy: str, outcomes: list[tuple[str, ExecResult]]) -> bool:
+    if policy in {"ignore", "best_effort"}:
+        return True
+    if policy == "any":
+        return any(r.exit_code == 0 for _, r in outcomes)
+    quorum = QUORUM_POLICY_RE.match(policy)
+    if quorum:
+        return sum(1 for _, r in outcomes if r.exit_code == 0) >= int(quorum.group(1))
+    return all(r.exit_code == 0 for _, r in outcomes)  # `all` — fail-closed default
+
+
+def _substitute_branch(value, mapping: dict[str, str]):
+    """Deep {{branch.k}} substitution — the per-clone binding of a dynamic fan-out."""
+    if isinstance(value, str):
+        return BRANCH_REF_RE.sub(lambda m: mapping.get(m.group(1), ""), value)
+    if isinstance(value, list):
+        return [_substitute_branch(v, mapping) for v in value]
+    if isinstance(value, dict):
+        return {k: _substitute_branch(v, mapping) for k, v in value.items()}
+    return value
+
+
+def dynamic_branch_values(rendered: str) -> list[str]:
+    """Parse a rendered branch source into values: a JSON array, else newline/comma
+    separated. Both shapes occur in practice — a `--var` is typed by a human as a
+    comma list, while an upstream node's summary is usually JSON."""
+    text = rendered.strip()
+    if text.startswith("["):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(v).strip() for v in parsed if str(v).strip()]
+    return [part.strip() for part in re.split(r"[\n,]", text) if part.strip()]
+
+
+def _branch_slug(value: str) -> str:
+    slug = re.sub(r"[^\w.-]+", "-", value.strip()).strip("-")
+    return slug[:40] or "branch"
+
+
+def dynamic_branch_nodes(ctx: _RunCtx, node: Node) -> list[Node]:
+    """Clone `template` once per runtime value (LangGraph's `Send`, declaratively).
+
+    Raises SpecError when the resolved count exceeds `max_branches`: the cap is the
+    only thing standing between a runtime-sized fan-out and an unbounded bill, so
+    exceeding it fails the block rather than silently truncating the work."""
+    template_name = str(node.raw.get("template", ""))
+    template = ctx.spec.node(template_name)
+    rendered = render_template(str(node.raw.get("branches", "")), ctx.results, ctx.variables)
+    values = dynamic_branch_values(rendered)
+    cap = int(node.raw.get("max_branches", 0))
+    if len(values) > cap:
+        raise SpecError(f"dynamic fan-out resolved {len(values)} branches, "
+                        f"max_branches={cap}")
+    out: list[Node] = []
+    seen: dict[str, int] = {}
+    for index, value in enumerate(values):
+        slug = _branch_slug(value)
+        seen[slug] = seen.get(slug, 0) + 1
+        if seen[slug] > 1:  # two values slugging alike must not share a result slot
+            slug = f"{slug}-{seen[slug]}"
+        body = _substitute_branch(dict(template.raw),
+                                  {"value": value, "index": str(index)})
+        out.append(Node(name=f"{template_name}:{slug}", type=template.type, raw=body,
+                        on_pass=END, on_fail=FAIL, on_dry=END))
+    return out
+
+
+def _run_branch(ctx: _RunCtx, node: Node) -> ExecResult:
+    """One branch, in its own thread. Reads shared state; writes nothing."""
+    if node.type == "agent":
+        return run_agent_node(node, ctx.spec, ctx.journal, ctx.results, ctx.variables,
+                              ctx.force_mock, record=False, cwd=ctx.root)
+    return run_code_node(node, ctx.results, ctx.variables, cwd=ctx.root)
+
+
+def run_parallel_node(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult:
+    """Fan out to read-only branches, then join at a real barrier.
+
+    Durability: every branch journals as an ordinary node (`node_started` /
+    `node_completed`) under its own exec_key, so the existing replay machinery
+    skips branches that already finished — a `kill -9` mid-fan-out resumes
+    without re-running (or re-billing) the ones that completed. Journal writes
+    stay on the main thread in declared branch order, so the event stream is
+    deterministic no matter which branch finishes first."""
+    merge = str(node.raw.get("merge", "collect"))
+    policy = str(node.raw.get("on_branch_fail", "all"))
+    raw_branches = node.raw.get("branches")
+    if isinstance(raw_branches, str):
+        try:
+            resolved = dynamic_branch_nodes(ctx, node)
+        except SpecError as err:
+            ctx.journal.append("parallel_unresolved", node=node.name,
+                               exec_key=exec_key, reason=str(err))
+            return ExecResult(exit_code=1, output=f"dynamic fan-out refused: {err}")
+    else:
+        resolved = [ctx.spec.node(b) for b in (raw_branches or [])]
+    branches = [b.name for b in resolved]
+    ctx.journal.append("parallel_started", node=node.name, exec_key=exec_key,
+                       branches=branches, merge=merge, on_branch_fail=policy,
+                       dynamic=isinstance(raw_branches, str))
+
+    plan: list[tuple[Node, str]] = []
+    for b_node in resolved:
+        branch = b_node.name
+        b_key = f"{branch}#{ctx.visits.get(branch, 0)}"
+        ctx.visits[branch] = ctx.visits.get(branch, 0) + 1
+        plan.append((b_node, b_key))
+
+    pending = [(n, k) for n, k in plan if k not in ctx.completed]
+    for b_node, b_key in pending:
+        ctx.journal.append("node_started", node=b_node.name, exec_key=b_key,
+                           type=b_node.type, parallel=node.name)
+
+    computed: dict[str, ExecResult] = {}
+    if pending:
+        with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+            futures = {pool.submit(_run_branch, ctx, b_node): b_key for b_node, b_key in pending}
+            for future, b_key in futures.items():
+                try:
+                    computed[b_key] = future.result()
+                except Exception as err:  # a branch that dies is a failed branch, not a dead run
+                    computed[b_key] = ExecResult(exit_code=1, output=f"branch raised: {err!r}")
+
+    outcomes: list[tuple[str, ExecResult]] = []
+    narrated: list[str] = []
+    for b_node, b_key in plan:  # declared order — deterministic journal + merge
+        if b_key in computed:
+            result = computed[b_key]
+            ctx.results[b_node.name] = store_result(ctx.run_path, b_key, result.output)
+            if result.synthesized:
+                ctx.outcome.synthesized.append(b_node.name)
+            ctx.journal.append("node_completed", node=b_node.name, exec_key=b_key,
+                               exit_code=result.exit_code,
+                               verdict="pass" if result.exit_code == 0 else "fail",
+                               next=node.name, session_id=result.session_id,
+                               class_d=False, parallel=node.name)
+            ctx.outcome.steps.append({"node": b_node.name, "exec_key": b_key,
+                                      "exit_code": result.exit_code, "parallel": node.name,
+                                      "verdict": "pass" if result.exit_code == 0 else "fail"})
+        else:  # durable replay: this branch already completed in an earlier attempt
+            recorded = ctx.completed[b_key]
+            artifact = ctx.results.get(b_node.name, {})
+            result = ExecResult(exit_code=int(recorded.get("exit_code", 0)),
+                                output=artifact.get("summary", ""))
+            ctx.outcome.steps.append({"node": b_node.name, "exec_key": b_key,
+                                      "parallel": node.name, "replayed": True})
+        if b_node.type == "agent" and result.narrated_success:
+            narrated.append(b_node.name)
+        outcomes.append((b_node.name, result))
+
+    passed = _branch_passed(policy, outcomes)
+    ctx.journal.append("parallel_joined", node=node.name, exec_key=exec_key, merge=merge,
+                       passed=passed, narrated_success=narrated,
+                       verdicts={n: r.exit_code for n, r in outcomes})
+    return ExecResult(
+        exit_code=0 if passed else 1,
+        output=merge_branches(merge, outcomes),
+        # Law L3 under fan-out: the single `last_agent` slot held whichever branch
+        # happened to finish last, so a downstream Class-D pointed at an arbitrary
+        # agent. The parallel node reports narration for the whole block and the
+        # journal names every branch that claimed success.
+        narrated_success=bool(narrated),
+    )
 
 
 def _track_class_d(ctx: _RunCtx, node: Node, exec_key: str, result: ExecResult,
@@ -626,15 +2025,56 @@ def _track_class_d(ctx: _RunCtx, node: Node, exec_key: str, result: ExecResult,
                            gate_exec=exec_key)
     if node.type == "agent":
         ctx.last_agent = {"exec_key": exec_key, "narrated_success": result.narrated_success}
+    elif node.type == "parallel":
+        # A parallel block replaces the standing claim only if it MADE one. A panel
+        # of critics narrates nothing about the work it is judging, so treating it
+        # like an agent silently erased the worker's "all done ✅" — and the gate
+        # failure that followed stopped counting as a divergence. Observed with
+        # critic-panel: build narrated success, two critics rejected, class_d=false.
+        if result.narrated_success:
+            ctx.last_agent = {"exec_key": exec_key, "narrated_success": True}
     elif node.type == "gate":
         ctx.last_agent = None
     return class_d
 
 
-def _next_edge(ctx: _RunCtx, node: Node, exec_key: str, passed: bool) -> str:
+def _is_stagnant(ctx: _RunCtx, node: Node, output: str) -> bool:
+    """Has this gate produced the same rejection N times running?
+
+    A retry budget alone counts attempts; it cannot tell an agent that is closing
+    in from one that is resubmitting the same work. Identical consecutive gate
+    output means the last attempt changed nothing the gate can observe — spending
+    the rest of the budget on it buys nothing but tokens.
+
+    OPT-IN (`stagnation_rounds = N`), and deliberately so. Plenty of gates fail
+    silently — `exit 1` with no output — and for those every rejection is trivially
+    identical. Defaulting this on would cut such a spec off at 2 attempts while its
+    author had written `max_retries = 5`: a silent default overriding an explicit
+    declaration, which is the exact failure class this whole contract exists to
+    remove. An author who wants the stronger stop asks for it."""
+    rounds = int(node.raw.get("stagnation_rounds", 0))
+    if rounds <= 0:
+        return False
+    history = ctx.gate_history.setdefault(node.name, [])
+    history.append((output or "").strip())
+    recent = history[-rounds:]
+    return len(recent) == rounds and len(set(recent)) == 1
+
+
+def _next_edge(ctx: _RunCtx, node: Node, exec_key: str, passed: bool,
+               verdict: str | None = None) -> str:
     """Law L2 — the runner, not the graph, terminates feedback loops: a node that
     keeps failing exhausts its retry budget and the run fails loud instead of
-    re-invoking (and re-billing) agents forever."""
+    re-invoking (and re-billing) agents forever.
+
+    Under the B6 contract there are three outcomes, not two. ESCALATE routes to
+    `on_escalate` and deliberately does NOT consume a retry: the check could not
+    run, so no number of further agent attempts is the answer."""
+    if verdict == ESCALATE:
+        target = str(node.raw.get("on_escalate", FAIL))
+        ctx.journal.append("escalated", node=node.name, exec_key=exec_key, next=target,
+                           reason="gate reported ESCALATE — the check could not decide")
+        return target
     if passed:
         return node.on_pass
     nxt = node.on_fail
@@ -644,7 +2084,14 @@ def _next_edge(ctx: _RunCtx, node: Node, exec_key: str, passed: bool) -> str:
         ctx.journal.append("retry_limit_exceeded", node=node.name,
                            exec_key=exec_key, failures=ctx.fail_counts[node.name],
                            max_retries=max_retries)
-        nxt = FAIL
+        return FAIL
+    if nxt not in TERMINALS and node.type == "gate" and _is_stagnant(
+            ctx, node, ctx.results.get(node.name, {}).get("summary", "")):
+        ctx.journal.append("stagnation_detected", node=node.name, exec_key=exec_key,
+                           rounds=int(node.raw.get("stagnation_rounds", 0)),
+                           reason="the gate reported an identical rejection — the retry "
+                                  "changed nothing it can see")
+        return FAIL
     return nxt
 
 
@@ -659,6 +2106,15 @@ def _human_node(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult | None:
     """
     if node.name in ctx.approve:
         return ExecResult(exit_code=0, output=f"approved via --approve {node.name}")
+    if ctx.force_mock:
+        # `adw test` is a mocked edge test: it walks the graph, it does not run it.
+        # Pausing here made every flow with a human gate untestable — and the kit
+        # ships `human-approve` as a standard piece, so that was most of them.
+        ctx.journal.append("human_auto_approved", node=node.name, exec_key=exec_key,
+                           reason="mocked edge test")
+        return ExecResult(exit_code=0, synthesized=True, output=(
+            f"auto-approved under `adw test`, which walks the graph. "
+            f"A real run of `{node.name}` still pauses for a human."))
     if node.raw.get("zte", False):
         bypass = _zte_bypass(ctx, node, exec_key)
         if bypass is not None:
@@ -768,10 +2224,21 @@ def run_loop(
                 return node.on_fail
             output = result.output
         found = NEW_FINDINGS_RE.search(output or "")
-        new_findings = int(found.group(1)) if found else 0
+        # FAIL-CLOSED (2026-08-02): an absent marker means *unknown*, never zero.
+        # Reading it as 0 made silence indistinguishable from a dry round, so a
+        # body that never emits the signal — or whose output was truncated by a
+        # `tail -c` in the spec — terminated the loop after exactly `dry_rounds`
+        # iterations while still finding new material every round. Observed on
+        # strategy-loop: rounds of 30 and 4 new findings both counted as dry.
+        # Same defect class as loop_converged.py's dag_done (fail-open → closed).
+        new_findings = int(found.group(1)) if found else None
         dry = dry + 1 if new_findings == 0 else 0
         journal.append("loop_round", loop=node.name, body_exec=exec_key,
-                       new_findings=new_findings, dry_streak=dry)
+                       new_findings=new_findings, dry_streak=dry,
+                       dry_signal="present" if found else "absent")
+        outcome.steps.append({"node": node.name, "loop_round": exec_key,
+                              "new_findings": new_findings,
+                              "dry_signal": "present" if found else "absent"})
         if dry >= dry_rounds:
             return node.on_dry
     return node.on_pass
@@ -831,6 +2298,133 @@ def cmd_list(root: Path) -> int:
     return 0
 
 
+# ── promotion: the library carries evidence, not intent (T5.1) ───────────────
+#
+# Isenberg's warning about automating too early — "if the manual version doesn't
+# produce way better work, automating it will just produce mediocre work way
+# faster" — is not enforceable as a ceremony, and demanding one would just be
+# process. What IS enforceable: a flow may not join the shipped library on the
+# strength of having been written. It joins on the strength of having RUN, with
+# the outcome attached.
+#
+# A synthesized walk does not count. `adw test` proves the graph connects; it
+# says nothing about whether the agents behave, so a record whose `synthesized`
+# list is non-empty is evidence of wiring and is stored as such.
+#
+# The record is also the bridge to the variant archive: a promotion IS a scored
+# observation of a flow, which is exactly what a stepping-stone archive needs.
+
+PROMOTIONS_FILENAME = "promotions.json"
+
+
+def promotions_path() -> Path:
+    return library_dir() / PROMOTIONS_FILENAME
+
+
+def load_promotions() -> dict:
+    """The promotion ledger, or an empty one. Never raises: a corrupt ledger must
+    not stop a run, only fail the guard that reads it."""
+    try:
+        return json.loads(promotions_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def read_run_outcome(root: Path, run_id: str) -> dict | None:
+    """The recorded outcome of one run, read from its journal.
+
+    The journal is the source of truth for resume, so it is the source of truth
+    here too — a promotion derived from anything else could disagree with what
+    the runner actually did.
+    """
+    journal = runs_dir(root) / run_id / "journal.jsonl"
+    if not journal.is_file():
+        return None
+    finished = None
+    started = None
+    # Agent sessions are counted from the journal rather than trusted from a
+    # field, because "the run completed" and "an agent was actually invoked" are
+    # different claims and a ledger that conflates them answers the wrong
+    # question. A mock session id is prefixed `mock`; a real one is the driver's
+    # own UUID.
+    real_agents = mock_agents = 0
+    try:
+        for line in journal.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            if rec.get("event") == "run_started":
+                started = rec
+            elif rec.get("event") == "run_finished":
+                finished = rec
+            elif rec.get("event") == "node_completed" and rec.get("session_id"):
+                if str(rec["session_id"]).startswith("mock"):
+                    mock_agents += 1
+                else:
+                    real_agents += 1
+    except (OSError, ValueError):
+        return None
+    if finished is None:
+        return None
+    # `synthesized` was only journaled from 2026-08-19. A journal written before
+    # that carries no such key, and `... or []` read that silence as "nothing was
+    # mocked" — which promoted a fully MOCKED run of `feature` as evidence of
+    # behaviour on the ledger's first day. Absence of a reading is not a reading
+    # of absence; `None` here means unknown, and the caller must say so.
+    synthesized = finished.get("synthesized")
+    return {
+        "run_id": run_id,
+        "status": finished.get("status", "unknown"),
+        "class_d": bool(finished.get("class_d", False)),
+        "synthesized": list(synthesized) if synthesized is not None else None,
+        "agent_sessions": {"real": real_agents, "mock": mock_agents},
+        "started_at": (started or {}).get("ts"),
+        "finished_at": finished.get("ts"),
+    }
+
+
+def cmd_promote(root: Path, name: str, run_id: str | None, exempt: str | None) -> int:
+    """Record the evidence that lets a flow ship, or declare why there is none."""
+    ledger = load_promotions()
+    if exempt:
+        ledger[name] = {"exempt": exempt, "recorded_at": time.time()}
+    else:
+        if not run_id:
+            print(json.dumps({"error": "either --run <run_id> or --exempt <reason> is required"}))
+            return 2
+        outcome = read_run_outcome(root, run_id)
+        if outcome is None:
+            print(json.dumps({"error": f"no finished run `{run_id}` under {runs_dir(root)}"}))
+            return 1
+        outcome["recorded_at"] = time.time()
+        sessions = outcome["agent_sessions"]
+        if outcome["synthesized"] is None:
+            outcome["evidence"] = (
+                "unknown — this journal predates the synthesized field; re-run to claim behaviour"
+            )
+        elif outcome["synthesized"] or sessions["mock"]:
+            outcome["evidence"] = "wiring only — the walk synthesized agents"
+        elif sessions["real"]:
+            outcome["evidence"] = (
+                f"behaviour — {sessions['real']} real agent session(s), every node ran for real"
+            )
+        else:
+            # Completing a flow that HAS no agent node says nothing about agent
+            # invocation. Reporting it as behaviour would answer a question
+            # nobody asked with evidence nobody has.
+            outcome["evidence"] = "behaviour — every node ran for real (this flow has no agent node)"
+        ledger[name] = outcome
+    try:
+        promotions_path().write_text(
+            json.dumps(dict(sorted(ledger.items())), indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8")
+    except OSError as err:
+        print(json.dumps({"error": f"cannot write the ledger: {err}"}))
+        return 1
+    print(json.dumps({"promoted": name, **ledger[name]}, ensure_ascii=False, indent=1))
+    return 0
+
+
 def cmd_lint(root: Path, name: str) -> int:
     try:
         spec = load_spec(root, name)
@@ -841,6 +2435,161 @@ def cmd_lint(root: Path, name: str) -> int:
     print(json.dumps({"valid": not errors, "errors": errors, "warnings": warnings},
                      ensure_ascii=False, indent=1))
     return 1 if errors else 0
+
+
+def flat_graph(spec: Spec) -> dict:
+    """The resolved graph, normalised — what the runner actually walks.
+
+    Composition must never be the only representation of a flow: a spec built
+    from fragments has to be readable as the flat thing it becomes, or the
+    indirection is a cost with no counterweight. Two specs that resolve to the
+    same graph produce byte-identical output here, which is how a composed spec
+    is proven equivalent to the monolith it replaces.
+
+    A skill-bound node reports its EFFECTIVE `allowed_tools` — the ones the runner
+    will pass, `Skill` included. Rendering the declared list while the invocation
+    adds a tool would make this graph lie by omission about the one thing it
+    promises: what actually runs. Unbound nodes are byte-identical to before."""
+    def body(node: Node) -> dict:
+        out = {
+            "type": node.type,
+            "on_pass": node.on_pass,
+            "on_fail": node.on_fail,
+            "on_dry": node.on_dry,
+            **{k: v for k, v in sorted(node.raw.items())
+               if k not in {"on_pass", "on_fail", "on_dry", "type"}},
+        }
+        if node.type == "agent" and skill_binding(node):
+            out["allowed_tools"] = skill_tools(node)
+        return out
+
+    return {
+        "name": spec.name,
+        "entry": spec.entry,
+        "budget_tokens": spec.budget_tokens,
+        "nodes": {name: body(node) for name, node in sorted(spec.nodes.items())},
+    }
+
+
+def flow_mermaid(spec: Spec) -> str:
+    """The ONE flow drawn — Isenberg's level 1 ("draw the graph before you
+    automate it") applied to the individual spec, not just the portfolio.
+
+    Measured 2026-08-23: the system had a mermaid for the process registry and
+    one for the portfolio (`portfolio_graph.py mermaid`), and NONE for a single
+    ADW flow — the level the sources start from. Shapes carry the node type
+    (code `[ ]` · gate `{ }` · agent `[/ /]` · human `([ ])` · loop `[[ ]]`);
+    solid edges are pass, dashed are fail, `dry` is labelled.
+    """
+    def mid(nome: str) -> str:
+        return re.sub(r"[^A-Za-z0-9]", "_", nome)
+
+    shape = {"code": ("[", "]"), "gate": ("{", "}"), "agent": ("[/", "/]"),
+             "human": ("([", "])"), "loop": ("[[", "]]"),
+             "parallel": ("{{", "}}")}
+    L = ["graph TD",
+         "  classDef code fill:#eef6ff,stroke:#4a7fb5,stroke-width:1px;",
+         "  classDef gate fill:#fff8e1,stroke:#b58a00,stroke-width:1px;",
+         "  classDef agent fill:#f3e8ff,stroke:#7c4dbe,stroke-width:1px;",
+         "  classDef human fill:#ffe8ee,stroke:#c0506e,stroke-width:1px;",
+         "  classDef loop fill:#e8fff1,stroke:#3d9960,stroke-width:1px;",
+         "  classDef parallel fill:#fff0f8,stroke:#b0508e,stroke-width:1px;",
+         "  classDef fim fill:#eafaea,stroke:#2f7d3b,stroke-width:2px;",
+         "  classDef falha fill:#fdeaea,stroke:#c0504d,stroke-width:2px;",
+         f"  START(((entry))) --> N_{mid(spec.entry)}"]
+    terminais: set[str] = set()
+
+    def alvo(dest: str) -> str:
+        if dest == END:
+            terminais.add("END"); return "FIM"
+        if dest == FAIL:
+            terminais.add("FAIL"); return "FALHA"
+        return f"N_{mid(dest)}"
+
+    for nome, node in sorted(spec.nodes.items()):
+        a, b = shape.get(node.type, ("[", "]"))
+        L.append(f'  N_{mid(nome)}{a}"{nome}<br/><small>{node.type}</small>"{b}'
+                 f":::{node.type}")
+    for nome, node in sorted(spec.nodes.items()):
+        de = f"N_{mid(nome)}"
+        if node.type == "loop":
+            corpo = node.raw.get("body")
+            if corpo:
+                L.append(f"  {de} -->|body| N_{mid(str(corpo))}")
+            if node.on_dry:
+                L.append(f"  {de} -->|dry| {alvo(node.on_dry)}")
+        if node.type == "parallel":
+            # The fan-out IS the point of a parallel node — a drawing that omits
+            # it shows the critics floating free of the block that dispatches
+            # them (cross-audit probe, 2026-08-23). `branches` is either a
+            # literal node list (static) or a template string (dynamic, resolved
+            # at runtime against the `template` node).
+            ramos = node.raw.get("branches")
+            if isinstance(ramos, list):
+                for ramo in ramos:
+                    L.append(f"  {de} -->|branch| N_{mid(str(ramo))}")
+            elif ramos:
+                molde = node.raw.get("template")
+                if molde:
+                    L.append(f'  {de} -.->|"branches: {ramos}"| N_{mid(str(molde))}')
+        if node.on_pass:
+            L.append(f"  {de} --> {alvo(node.on_pass)}")
+        if node.on_fail and node.on_fail != node.on_pass:
+            L.append(f"  {de} -.-> {alvo(node.on_fail)}")
+    if "END" in terminais:
+        L.append("  FIM(((__end__))):::fim")
+    if "FAIL" in terminais:
+        L.append("  FALHA(((__fail__))):::falha")
+    return "\n".join(L)
+
+
+def cmd_explain(root: Path, name: str, cost: bool = False,
+                mermaid: bool = False) -> int:
+    """Print the flat resolved spec — every [[use]] inlined; `--cost` adds the
+    ceiling; `--mermaid` draws the resolved graph instead of printing JSON."""
+    try:
+        spec = load_spec(root, name)
+    except SpecError as err:
+        print(json.dumps({"error": str(err)}, ensure_ascii=False))
+        return 1
+    if mermaid:
+        print(flow_mermaid(spec))
+        return 0
+    errors, warnings = lint_spec(spec)
+    out = {**flat_graph(spec), "lint": {"errors": errors, "warnings": warnings}}
+    if cost:
+        out["cost"] = flow_cost(spec)
+    print(json.dumps(out, ensure_ascii=False, indent=1, sort_keys=False))
+    return 0
+
+
+def cmd_fragments(root: Path) -> int:
+    """List the composable pieces available to build a flow from."""
+    out = []
+    seen: set[str] = set()
+    for directory in fragment_dirs(root):
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.toml")):
+            if path.stem in seen:
+                continue  # a project fragment shadows the library one
+            seen.add(path.stem)
+            try:
+                data = tomllib.loads(path.read_text(encoding="utf-8"))
+            except tomllib.TOMLDecodeError as err:
+                out.append({"module": path.stem, "error": str(err)})
+                continue
+            meta = data.get("fragment") or {}
+            out.append({
+                "module": path.stem,
+                "description": meta.get("description", ""),
+                "inputs": list(meta.get("inputs") or []),
+                "entry": meta.get("entry", ""),
+                "nodes": sorted(data.get("node") or {}),
+                "source": "project" if directory == fragment_dirs(root)[0] else "library",
+            })
+    print(json.dumps({"fragments": out}, ensure_ascii=False, indent=1))
+    return 0
 
 
 def cmd_run(root: Path, args: argparse.Namespace) -> int:
@@ -867,6 +2616,99 @@ def cmd_run(root: Path, args: argparse.Namespace) -> int:
     return 0 if outcome.status == "completed" else (3 if outcome.status == "waiting_human" else 1)
 
 
+def cmd_campaign(root: Path, args: argparse.Namespace) -> int:
+    """E4 (2026-08-24) — repeat a WHOLE flow until a CODE predicate converges.
+
+    The loop node (E2) iterates one node until NEW_FINDINGS runs dry; a campaign
+    iterates one FLOW until `--until CMD` exits 0. Both obey L2 — the runner owns
+    termination, never the model — and both read their signal fail-closed:
+    `METRIC=<float>` on the predicate's stdout feeds the curve and the stagnation
+    check; an ABSENT metric is unknown, never zero and never stagnation.
+
+    Born from a measured anti-pattern (2026-08-24): the error-teach campaign ran
+    as a hand-written `for i in 2 3 4; do touring adw run …` — no predicate, no
+    curve, no fail-closed reading, invisible to the journal. This subcommand is
+    the affordance that replaces it (enforcement-by-affordance, D8).
+
+    Stops on: converged | flow_failed | stagnation | max_rounds. Persists the
+    curve as a memory (`campaign:<flow>:<runid>`) and deposits a delta-based
+    reward per round (the ACO pheromone), both fail-open.
+    """
+    try:
+        spec = load_spec(root, args.name)
+    except SpecError as err:
+        print(json.dumps({"status": "failed", "error": str(err)}, ensure_ascii=False))
+        return 1
+    errors, _ = lint_spec(spec)
+    if errors:
+        print(json.dumps({"status": "failed", "error": "lint failed", "errors": errors},
+                         ensure_ascii=False))
+        return 1
+    variables = dict(kv.split("=", 1) for kv in (args.var or []))
+    max_rounds = max(1, int(args.max_rounds))
+    stagnation_rounds = max(0, int(args.stagnation_rounds))
+    curve: list[dict] = []
+    status = "max_rounds"
+    prev_metric: float | None = None
+    stagnant = 0
+    for round_no in range(1, max_rounds + 1):
+        outcome = execute(spec, root, force_mock=args.mock, record=False,
+                          variables=variables)
+        if outcome.status != "completed":
+            curve.append({"round": round_no, "run_id": outcome.run_id,
+                          "flow_status": outcome.status, "metric": None,
+                          "predicate_exit": None})
+            status = "flow_failed"
+            break
+        try:
+            pred = subprocess.run(
+                ["bash", "-c", args.until], capture_output=True, text=True,
+                timeout=600, cwd=str(root), check=False,
+            )
+            pred_exit: int | None = pred.returncode
+            found = METRIC_RE.search(pred.stdout or "")
+            metric = float(found.group(1)) if found else None
+        except (subprocess.TimeoutExpired, OSError):
+            pred_exit, metric = None, None
+        curve.append({"round": round_no, "run_id": outcome.run_id,
+                      "flow_status": "completed", "metric": metric,
+                      "predicate_exit": pred_exit,
+                      "metric_signal": "present" if metric is not None else "absent"})
+        # Pheromone: reward the ROUND by its measured delta (fail-open).
+        if metric is not None and prev_metric is not None:
+            delta = metric - prev_metric
+            reward = max(-1.0, min(1.0, delta * 10))
+            subprocess.run(
+                ["touring", "learning", "reward", f"adw:campaign:{spec.name}",
+                 f"{reward:.3f}"],
+                capture_output=True, timeout=30, check=False,
+            )
+        if pred_exit == 0:
+            status = "converged"
+            break
+        # Stagnation: only a PRESENT, repeated metric counts (fail-closed).
+        if stagnation_rounds > 0 and metric is not None:
+            stagnant = stagnant + 1 if metric == prev_metric else 0
+            if stagnant >= stagnation_rounds:
+                status = "stagnation"
+                break
+        prev_metric = metric if metric is not None else prev_metric
+    result = {
+        "status": status, "flow": spec.name, "rounds": len(curve),
+        "max_rounds": max_rounds, "until": args.until, "curve": curve,
+    }
+    # Persist the curve (fail-open): the next campaign recalls this one.
+    last_run = curve[-1]["run_id"] if curve else "none"
+    subprocess.run(
+        ["touring", "memory", "store", f"campaign:{spec.name}:{last_run}",
+         json.dumps(result, ensure_ascii=False), "--tier", "semantic",
+         "--tag", "#kind:campaign", "--tag", "#domain:adw"],
+        capture_output=True, timeout=30, check=False,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=1))
+    return 0 if status == "converged" else 1
+
+
 def cmd_test(root: Path, name: str, variables: dict[str, str] | None = None) -> int:
     """Edge test: run the full workflow with agent nodes replayed from recordings."""
     try:
@@ -877,7 +2719,10 @@ def cmd_test(root: Path, name: str, variables: dict[str, str] | None = None) -> 
     outcome = execute(spec, root, force_mock=True, variables=variables or {})
     print(json.dumps({
         "status": outcome.status, "run_id": outcome.run_id, "mocked": True,
-        "class_d_divergence": outcome.class_d, "steps": outcome.steps,
+        "class_d_divergence": outcome.class_d,
+        # Named, not counted: "3 synthesized" tells a reader nothing about WHICH
+        # part of the flow is still unproven.
+        "synthesized": outcome.synthesized, "steps": outcome.steps,
     }, ensure_ascii=False, indent=1))
     return 0 if outcome.status == "completed" else 1
 
@@ -898,6 +2743,261 @@ def cmd_from_template(root: Path, name: str) -> int:
         target.write_text(TEMPLATE.format(name=name), encoding="utf-8")
         source = "scaffold"
     print(json.dumps({"created": True, "path": str(target), "source": source}, ensure_ascii=False))
+    return 0
+
+
+# ── B2: `adw new` — guided creation from fragments ───────────────────────────
+# Creating a flow is where a portfolio is won or lost. Left to `cp`, every new flow
+# is a fork of the nearest one and the shared pieces drift apart. This path makes
+# the disciplined route the cheap one: prior art with an explicit verdict, a stated
+# destination, composition from the kit, and a flow that lints and runs before it is
+# ever handed over — the author never edits TOML to reach a working baseline.
+VERDICTS = ("reuse", "extend", "supersede", "create_new")
+
+
+class OrderedStep(argparse.Action):
+    """Record --use/--job in the order they were typed.
+
+    argparse hands each option its own list, which loses the interleaving — and a
+    flow's step order IS the flow. `--use recall --job fix --use gate` silently
+    became recall → gate → fix, so the verification ran before the work it verifies."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        steps = getattr(namespace, "steps", None) or []
+        steps.append(("use" if option_string == "--use" else "job", values))
+        setattr(namespace, "steps", steps)
+        setattr(namespace, self.dest, [v for k, v in steps if k == self.dest[:3]])
+
+
+def _toml_value(value) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(_toml_value(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{ " + ", ".join(f"{k} = {_toml_value(v)}" for k, v in value.items()) + " }"
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def _toml_table(header: str, body: dict) -> str:
+    lines = [f"[{header}]"]
+    lines += [f"{k} = {_toml_value(v)}" for k, v in body.items() if v is not None]
+    return "\n".join(lines)
+
+
+def _parse_step(raw: str, kind: str) -> tuple[str, str]:
+    """`module:as` or `name:type`; the second half defaults sensibly when omitted."""
+    head, _, tail = raw.partition(":")
+    head = head.strip()
+    if not head:
+        raise SpecError(f"--{kind} `{raw}`: empty name")
+    return head, (tail.strip() or ("agent" if kind == "job" else head))
+
+
+def prior_art(intent: str) -> str:
+    """Consult the capability portfolio by PURPOSE. Evidence, never a constraint."""
+    try:
+        probe = subprocess.run(["touring", "portfolio", intent, "--top", "5"],
+                               capture_output=True, text=True, timeout=90)
+        return (probe.stdout or probe.stderr or "").strip()[:2000]
+    except Exception as err:
+        return f"(portfolio unavailable: {err!r})"
+
+
+def _fragment_exit_node(module: str, root: Path) -> str | None:
+    """The node a fragment leaves through — the one whose verdict the host can read."""
+    data = tomllib.loads(find_fragment(root, module).read_text(encoding="utf-8"))
+    for local, body in (data.get("node") or {}).items():
+        if str(body.get("on_pass", "")) == EXIT:
+            return local
+    return None
+
+
+def _verdict_reference(rest: list[str], by_name: dict, root: Path) -> str:
+    """Point an agent at the verdict of whatever verifies it next.
+
+    Generated flows must satisfy the blind-retry rule by construction — a creation
+    path that emits specs the lint then complains about has taught the author
+    nothing except to ignore warnings."""
+    for later in rest:
+        kind, a, b = by_name[later]
+        target = None
+        if kind == "job" and b == "gate":
+            target = a
+        elif kind == "use":
+            exit_node = _fragment_exit_node(a, root)
+            target = f"{b}{NAMESPACE_SEP}{exit_node}" if exit_node else None
+        if target:
+            return (f" Verification verdict of the previous attempt (empty on the first "
+                    f"pass): {{{{nodes.{target}.summary}}}}")
+    return ""
+
+
+def _new_flow_source(name: str, args: argparse.Namespace, root: Path) -> str:
+    """Assemble the spec text: [adw] + [purpose] + an ordered chain of steps."""
+    steps: list[tuple[str, str, str]] = []  # (kind, a, b) in the order the user typed
+    for kind, raw in getattr(args, "steps", None) or []:
+        a, b = _parse_step(raw, kind)
+        steps.append((kind, a, b))
+    if not steps:
+        raise SpecError("a flow needs at least one --use or --job")
+    order = list(args.order or []) or [b if k == "job" else c for k, b, c in steps]
+    by_name = {(c if k == "use" else b): (k, b, c) for k, b, c in steps}
+    unknown = [n for n in order if n not in by_name]
+    if unknown:
+        raise SpecError(f"--order names unknown step(s) {unknown}; known: {sorted(by_name)}")
+    if len(order) != len(by_name):
+        raise SpecError(f"--order must list every step exactly once "
+                        f"(got {len(order)} for {len(by_name)} steps)")
+
+    binds: dict[str, str] = {}
+    for raw in args.bind or []:
+        key, _, value = raw.partition("=")
+        binds[key.strip()] = value.strip()
+
+    # Feedback wiring: a verifying step hands control back to the nearest preceding
+    # agent, and that agent's prompt is generated already reading the verdict — so a
+    # flow born here can never be one of the blind retries the lint warns about.
+    def previous_agent(index: int) -> str | None:
+        for earlier in reversed(order[:index]):
+            kind, a, b = by_name[earlier]
+            if kind == "job" and b == "agent":
+                return a
+        return None
+
+    chunks: list[str] = []
+    for index, step_name in enumerate(order):
+        kind, a, b = by_name[step_name]
+        nxt = order[index + 1] if index + 1 < len(order) else END
+        back = previous_agent(index) or FAIL
+        if kind == "use":
+            module, alias = a, b
+            frag = tomllib.loads(find_fragment(root, module).read_text(encoding="utf-8"))
+            declared = list((frag.get("fragment") or {}).get("inputs") or [])
+            with_block = {inp: binds.get(f"{alias}.{inp}", f"{{{{vars.{inp}}}}}")
+                          for inp in declared}
+            body = {"module": module, "as": alias}
+            if with_block:
+                body["with"] = with_block
+            body["on_pass"] = nxt
+            body["on_fail"] = back
+            chunks.append(_toml_table("[use]", body))
+        elif b == "agent":
+            gate_ref = _verdict_reference(order[index + 1:], by_name, root)
+            chunks.append(_toml_table(f"node.{a}", {
+                "type": "agent", "driver": "claude", "tier": args.tier,
+                # A generated agent that can write must be able to write: without
+                # this a headless run asks a human who is not there.
+                "permission_mode": "acceptEdits",
+                "prompt": f"{args.intent}. Step `{a}`.{gate_ref}",
+                "allowed_tools": ["Read", "Grep", "Glob", "Edit", "Write", "Bash"],
+                "session": "resume_on_fail", "timeout_ms": 900000,
+                "on_pass": nxt, "on_fail": FAIL,
+            }))
+        elif b == "gate":
+            chunks.append(_toml_table(f"node.{a}", {
+                "type": "gate",
+                "command": ["bash", "-c", "$1", "--", f"{{{{vars.{a}_cmd}}}}"],
+                "timeout_ms": 900000, "idempotent": True,
+                "on_pass": nxt, "on_fail": back,
+            }))
+        else:
+            chunks.append(_toml_table(f"node.{a}", {
+                "type": "code",
+                "command": ["bash", "-c", "echo \"$1\"", "--", f"{{{{vars.{a}_input}}}}"],
+                "timeout_ms": 120000, "idempotent": True,
+                "on_pass": nxt, "on_fail": nxt,
+            }))
+
+    header = _toml_table("adw", {
+        "name": name,
+        "description": args.intent,
+        # `order[0]` is the step's own handle: a namespace for a [[use]] (which the
+        # loader derefs to that fragment's entry) or the node name for a job.
+        "entry": order[0],
+        "budget_tokens": 0,
+    })
+    # [purpose] is what makes a flow findable by INTENT rather than by filename.
+    # `when_not_to_use` is required by construction: a portfolio entry that only
+    # advertises is a sales pitch, and the next author cannot rule it out.
+    purpose = _toml_table("purpose", {
+        "intent": args.intent,
+        "when_to_use": args.when_to_use or [args.intent],
+        "when_not_to_use": args.when_not_to_use,
+        "produces": args.produces or ["a verified change"],
+        "tags": args.tag or [],
+        "prior_art_verdict": args.verdict,
+    })
+    banner = (f"# ADW `{name}` — created by `touring adw new` on prior-art verdict "
+              f"`{args.verdict}`.\n# Run: touring adw run {name} --var <k>=<v> ...\n")
+    return banner + "\n" + header + "\n\n" + purpose + "\n\n" + "\n\n".join(chunks) + "\n"
+
+
+def cmd_new(root: Path, args: argparse.Namespace) -> int:
+    target = adw_dir(root) / f"{args.name}.toml"
+    if target.exists():
+        print(json.dumps({"created": False, "error": f"already exists: {target}"},
+                         ensure_ascii=False))
+        return 1
+    if not (args.intent or "").strip():
+        print(json.dumps({"created": False,
+                          "error": "--intent is required: state the destination in one sentence "
+                                   "before building a route to it"}, ensure_ascii=False))
+        return 1
+    if not args.when_not_to_use:
+        print(json.dumps({"created": False,
+                          "error": "--when-not-to-use is required: a flow that never says when it "
+                                   "is the wrong tool cannot be ruled out by the next author"},
+                         ensure_ascii=False))
+        return 1
+
+    evidence = prior_art(args.intent)
+    if args.verdict not in VERDICTS:
+        print(json.dumps({
+            "created": False,
+            "error": f"--verdict must be one of {list(VERDICTS)}",
+            "prior_art": evidence,
+            "next_action": "read the prior art above, then re-run with an explicit --verdict",
+        }, ensure_ascii=False, indent=1))
+        return 1
+    if args.verdict == "reuse":
+        print(json.dumps({
+            "created": False, "verdict": "reuse", "prior_art": evidence,
+            "reason": "the verdict says something already serves this purpose — "
+                      "reuse it instead of adding a near-duplicate to the portfolio",
+        }, ensure_ascii=False, indent=1))
+        return 1
+
+    try:
+        source = _new_flow_source(args.name, args, root)
+    except SpecError as err:
+        print(json.dumps({"created": False, "error": str(err)}, ensure_ascii=False))
+        return 1
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source, encoding="utf-8")
+
+    # Born verified: a flow that does not lint was never created, it was drafted.
+    try:
+        spec = load_spec(root, args.name)
+        errors, warnings = lint_spec(spec)
+    except SpecError as err:
+        target.unlink()
+        print(json.dumps({"created": False, "error": f"generated spec does not load: {err}"},
+                         ensure_ascii=False))
+        return 1
+    if errors:
+        target.unlink()
+        print(json.dumps({"created": False, "error": "generated spec failed lint",
+                          "errors": errors}, ensure_ascii=False, indent=1))
+        return 1
+    print(json.dumps({
+        "created": True, "path": str(target), "verdict": args.verdict,
+        "entry": spec.entry, "nodes": sorted(spec.nodes), "lint_warnings": warnings,
+        "prior_art": evidence,
+        "next_action": f"touring adw explain {args.name}  # then: touring adw run {args.name}",
+    }, ensure_ascii=False, indent=1))
     return 0
 
 
@@ -1033,6 +3133,45 @@ def main(argv: list[str] | None = None) -> int:
     p_test.add_argument("--var", action="append", default=[])
     p_tpl = sub.add_parser("from-template")
     p_tpl.add_argument("name")
+    p_exp = sub.add_parser("explain")
+    p_exp.add_argument("--mermaid", action="store_true",
+                       help="draw the resolved flow graph (Isenberg level 1) "
+                            "instead of printing the flat JSON")
+    p_exp.add_argument("name")
+    p_exp.add_argument("--cost", action="store_true",
+                       help="add the declared ceiling: agent calls, fan-out width, timeout budget")
+    p_prom = sub.add_parser("promote")
+    p_prom.add_argument("name")
+    p_prom.add_argument("--run", default=None, help="run_id whose outcome is the evidence")
+    p_prom.add_argument("--exempt", default=None, help="declare why this flow ships without a run")
+    sub.add_parser("fragments")
+    p_new = sub.add_parser("new")
+    p_new.add_argument("name")
+    p_new.add_argument("--intent", default="", help="the destination, in one sentence")
+    p_new.add_argument("--verdict", default="", help=f"prior-art verdict: {'|'.join(VERDICTS)}")
+    p_new.add_argument("--use", action=OrderedStep, default=[], metavar="MODULE[:AS]",
+                       help="compose a fragment into the flow (order is significant)")
+    p_new.add_argument("--job", action=OrderedStep, default=[], metavar="NAME[:TYPE]",
+                       help="a step of your own (agent|gate|code); default agent")
+    p_new.add_argument("--bind", action="append", default=[], metavar="AS.INPUT=VALUE",
+                       help="bind a fragment input (default: {{vars.<input>}})")
+    p_new.add_argument("--order", action="append", default=[],
+                       help="explicit step order; default is the order given")
+    p_new.add_argument("--tier", default="workhorse")
+    p_new.add_argument("--when-to-use", action="append", default=[])
+    p_new.add_argument("--when-not-to-use", action="append", default=[])
+    p_new.add_argument("--produces", action="append", default=[])
+    p_new.add_argument("--tag", action="append", default=[])
+    p_camp = sub.add_parser("campaign")
+    p_camp.add_argument("name")
+    p_camp.add_argument("--until", required=True,
+                        help="CODE predicate run after each round; exit 0 = converged; "
+                             "stdout may carry METRIC=<float> (curve + stagnation signal)")
+    p_camp.add_argument("--max-rounds", default=10)
+    p_camp.add_argument("--stagnation-rounds", default=0,
+                        help="stop after N consecutive rounds with the SAME present metric (0 = off)")
+    p_camp.add_argument("--mock", action="store_true")
+    p_camp.add_argument("--var", action="append", default=[])
     p_race = sub.add_parser("race")
     p_race.add_argument("name")
     p_race.add_argument("--lanes", type=int, default=2)
@@ -1050,6 +3189,16 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_test(root, args.name, dict(kv.split("=", 1) for kv in (args.var or [])))
     if args.sub == "from-template":
         return cmd_from_template(root, args.name)
+    if args.sub == "explain":
+        return cmd_explain(root, args.name, cost=args.cost, mermaid=args.mermaid)
+    if args.sub == "promote":
+        return cmd_promote(root, args.name, args.run, args.exempt)
+    if args.sub == "fragments":
+        return cmd_fragments(root)
+    if args.sub == "new":
+        return cmd_new(root, args)
+    if args.sub == "campaign":
+        return cmd_campaign(root, args)
     if args.sub == "race":
         return cmd_race(root, args.name, args.lanes,
                         dict(kv.split("=", 1) for kv in (args.var or [])))

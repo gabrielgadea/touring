@@ -1,0 +1,11 @@
+{
+  "phase": "E4",
+  "entities": [
+    {
+      "entity_id": "phase:E4",
+      "type": "phase",
+      "description": "E4: o Cargo.toml do touring-server documentava uma migracao com TRES marcos datados (W1 06/06 ambas as features; W2 13/06 curated vira default; W4 13/07 legacy removida) e W2/W4 nunca foram executados - 68 e 38 dias vencidos em 20/08. Medido: mcp-legacy gateava ZERO sitios cfg no workspace inteiro enquanto o comentario a chamava de 'default ON com 102 tools'; mcp-curated gateava 5 sitios (tools_new.rs 357L + tools_status.rs 151L + 3 em mod.rs) e nao estava no default, entao touring_tdg/touring_cortex_classify/touring_hook_metrics respondiam 'tool not found' em todo build - verificado por tools/call ao vivo. NAO decidi por conta propria: executei a migracao que o proprio arquivo especifica. W4: mcp-legacy removida. W2: mcp-curated no default. Comentario reescrito com a medicao. cargo check exit 0. GAFE MINHA: o primeiro regex \\[(.*?)\\] casou ate o ] de um #[cfg(...)] dentro de um comentario da lista default e inseriu texto la; linha 58 restaurada byte a byte do backup."
+    }
+  ],
+  "relations": []
+}

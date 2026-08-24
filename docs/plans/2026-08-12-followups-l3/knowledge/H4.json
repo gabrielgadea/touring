@@ -1,0 +1,11 @@
+{
+  "phase": "H4",
+  "entities": [
+    {
+      "entity_id": "phase:H4",
+      "type": "phase",
+      "description": "Fork knowledge/ hooks-core\u2194storage CONSOLIDADO: a consolida\u00e7\u00e3o j\u00e1 estava 90% feita (W72: hooks-core lib.rs tem 'pub use touring_storage::knowledge' desde ent\u00e3o) \u2014 os 11 arquivos em hooks-core/src/knowledge{,.rs/} eram MORTOS em disco (fora da module tree), ferramenta de an\u00e1lise lia o fork stale (schema sem wiring_unresolved, sem fix OR IGNORE 2026-08-07, sem fixture V8\u2192V9) como se fosse vivo. Censo de diverg\u00eancia: 6 arquivos byte-id\u00eanticos (analytics/bash/core/edits/metadata/query), 4 divergentes com storage SEMPRE mais novo (gotchas let-chains, schema +wiring_unresolved, tests +fixture drift V8\u2192V9, models doc-link), pub surface storage \u2283 hooks-core (\u00fanico delta: top_error_patterns pub vs pub(crate) \u2014 widened, harmless). A\u00e7\u00e3o: 11 arquivos mortos deletados (knowledge.rs + knowledge/ inteiro); \u00fanico teste afetado (deep_module_path_keeps_every_segment) agora pinna comportamento MELHOR: resolver segue o re-export W72 e aterrissa em touring-storage/src/knowledge/models.rs can\u00f4nico (antes: aterrissava no fork morto \u2014 o bug invis\u00edvel). 474/474 hooks-core verde. Li\u00e7\u00e3o: 'fork' era na verdade d\u00e9bito de arquivo-morto p\u00f3s-consolida\u00e7\u00e3o \u2014 o risco real era edi\u00e7\u00e3o/an\u00e1lise do arquivo errado; sweep de arquivos-\u00f3rf\u00e3os-de-mod-tree fica como follow-up."
+    }
+  ],
+  "relations": []
+}

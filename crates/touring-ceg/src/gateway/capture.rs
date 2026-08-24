@@ -43,6 +43,12 @@ impl ExecSurface {
         match leaf {
             "Bash" => Self::BashCommand,
             "ctx_execute" | "ctx_batch_execute" => Self::CtxExecute,
+            // C2-W0 fix — `gate_run` (W5) names the run path by its real
+            // runtime (`SandboxPython`, `SandboxJavaScript`, …). Until
+            // 2026-08-24 these fell through to NonExec, so X0 rejected every
+            // non-shell `touring run` and the gateway never gated it (the
+            // fail-open WARN was the only trace).
+            other if other.starts_with("Sandbox") => Self::CtxExecute,
             other if other.contains("inferlet") => Self::Inferlet,
             _ => Self::NonExec,
         }
@@ -132,6 +138,27 @@ mod tests {
         assert!(ExecSurface::BashCommand.is_code_bearing());
         assert!(ExecSurface::CtxExecute.is_code_bearing());
         assert!(ExecSurface::Inferlet.is_code_bearing());
+    }
+
+    /// C2-W0 — the run path's runtime names (`gate_run`, W5) are admitted:
+    /// a non-shell `touring run` must be gated, not rejected at X0.
+    #[test]
+    fn detect_sandbox_runtimes_as_ctx_execute() {
+        for tool in [
+            "SandboxPython",
+            "SandboxJavaScript",
+            "SandboxTypeScript",
+            "SandboxRuby",
+            "SandboxGo",
+            "SandboxRust",
+        ] {
+            assert_eq!(
+                ExecSurface::detect(tool),
+                ExecSurface::CtxExecute,
+                "{tool} must be code-bearing"
+            );
+        }
+        assert!(capture_tool_call("SandboxPython", "print(1)", None).is_some());
     }
 
     #[test]

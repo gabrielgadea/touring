@@ -41,9 +41,9 @@ use touring_hooks::user_filters::{UserFilter, apply_user_filter, parse_filters_t
 /// Does NOT set TOURING_COMPRESSION_PROFILES=1 — compression is ON by default;
 /// tests that need OFF call set_var("TOURING_COMPRESSION_PROFILES", "0") themselves.
 fn reset_compression_tee_env() {
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_COMPRESSION_PROFILES") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TEE_DIR") };
     // Reset the counter to 0 so each test measures from a known baseline.
     gate_metrics::global()
@@ -62,7 +62,7 @@ fn unique_tee_dir(prefix: &str) -> (tempfile::TempDir, std::path::PathBuf) {
             .unwrap_or(0)
     ));
     std::fs::create_dir_all(&unique).expect("mkdir unique tee");
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_TEE_DIR", &unique) };
     (tmp, unique)
 }
@@ -150,7 +150,7 @@ fn cross_audit_new1_disabled_flag_short_circuits_compression() {
     // Contract: TOURING_COMPRESSION_PROFILES=0 → raw passthrough (no compress).
     // This is the operator-side bypass when a profile misbehaves in prod.
     reset_compression_tee_env();
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_COMPRESSION_PROFILES", "0") };
     let raw = "test foo ... ok\n";
     let out = compress_for("Bash", &json!({"command": "cargo test"}), raw);
@@ -178,7 +178,7 @@ fn cross_audit_new2_failure_tee_round_trip() {
         "tee preserves error context"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TEE_DIR") };
 }
 
@@ -203,7 +203,7 @@ fn cross_audit_new2_tee_redacts_secrets_before_disk() {
         "tee MUST preserve the meaningful error context"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TEE_DIR") };
 }
 
@@ -228,7 +228,7 @@ fn cross_audit_new2_cleanup_respects_retention() {
     let after = read_tee(&hash);
     assert!(after.is_none(), "after cleanup, read_tee MUST return None");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TEE_DIR") };
 }
 
@@ -402,7 +402,7 @@ fn cross_audit_full_pipeline_user_filter_to_tee() {
         "pipeline tee preserves error context"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TEE_DIR") };
 }
 
@@ -434,7 +434,7 @@ fn cross_audit_full_pipeline_no_pii_leak_via_tee() {
         );
     }
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TEE_DIR") };
 }
 

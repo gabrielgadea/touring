@@ -446,18 +446,30 @@ mod tests {
 
     /// S-01 — fail-open: a malformed hook input (no `tool_input`) must not
     /// panic, must return Allow, and must not touch the counter.
+    ///
+    /// The counter is a process-global shared with every other test that
+    /// drives the pipeline, so a single-call `assert_eq!(after, before)` is a
+    /// race (observed flaking 2026-08-23: one stray concurrent capture).
+    /// N calls + `delta < N` is deterministic in practice: if malformed input
+    /// incremented, the delta would be ≥ N; a false failure would need N
+    /// unrelated captures inside this microsecond loop.
     #[test]
     fn observe_only_fails_open_on_malformed_input() {
         use crate::shared::gate_metrics::global;
         use std::sync::atomic::Ordering;
+        const CALLS: u64 = 25;
         let before = global().ceg_captured_count.load(Ordering::Relaxed);
-        let response = run_observe_only(&json!({ "tool_name": "Bash" }));
+        let mut last = run_observe_only(&json!({ "tool_name": "Bash" }));
+        for _ in 1..CALLS {
+            last = run_observe_only(&json!({ "tool_name": "Bash" }));
+        }
         let after = global().ceg_captured_count.load(Ordering::Relaxed);
-        assert_eq!(
-            after, before,
-            "malformed input must not increment the counter"
+        assert!(
+            after - before < CALLS,
+            "malformed input must not increment the counter \
+             (before={before}, after={after}, calls={CALLS})"
         );
-        assert!(matches!(response, HookResponse::Allow));
+        assert!(matches!(last, HookResponse::Allow));
     }
 
     // ── ES3 P2 (2026-06-02) — S-01 observe hook + write-paths counter ───

@@ -1,0 +1,11 @@
+{
+  "phase": "G5",
+  "entities": [
+    {
+      "entity_id": "phase:G5",
+      "type": "phase",
+      "description": "prova de integracao ADW<->hashtag library"
+    }
+  ],
+  "relations": []
+}

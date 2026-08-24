@@ -233,6 +233,105 @@ fn a_protocol_failure_never_echoes_an_unbounded_payload() {
     assert!(err.ends_with('…'), "truncation must be visible, not silent");
 }
 
+// ── client/server budget symmetry (19/08/2026) ───────────────────────────
+//
+// The client had learned that a full rebuild outlives the default read timeout
+// and raised its floor to 1800 s. The server kept its own `300`. So the client
+// waited 30 minutes under a server that quit after 5, and the operator was told
+// the rebuild FAILED while the actor was still writing to `symbols.db`.
+//
+// Both sides now read `HEAVY_OP_BUDGET_SECS`. These tests hold the invariant
+// that made the constant necessary — a shared constant that one side quietly
+// stops using is back to two numbers.
+
+/// A heavy handler must never be cut off before the client stops waiting.
+/// Anything else reports "failed" for work that is still progressing.
+#[test]
+fn heavy_op_budget_is_never_below_the_client_floor() {
+    // The floor `cli/index.rs` raises for `index rebuild`, and the budget
+    // `dispatch_request_async` grants a heavy hook — the same value, by
+    // construction rather than by two people remembering.
+    let client_floor = touring_foundation::HEAVY_OP_BUDGET_SECS;
+    let server_budget = touring_foundation::HEAVY_OP_BUDGET_SECS;
+    assert!(
+        server_budget >= client_floor,
+        "server budget {server_budget}s < client floor {client_floor}s — the server would \
+         abandon work the client is still waiting for, and report it as a failure"
+    );
+    assert!(
+        server_budget >= 300,
+        "the budget must not regress below the old hard-coded 300s, which `analise` \
+         already exceeded on a healthy rebuild"
+    );
+}
+
+/// The one call site that decides the server's heavy budget must read the
+/// shared constant. A literal here is how the two numbers drifted apart the
+/// first time — and a grep is the only thing that notices a re-introduced one.
+#[test]
+fn the_server_budget_reads_the_shared_constant_not_a_literal() {
+    let source = include_str!("daemon.rs");
+    assert!(
+        source.contains("Duration::from_secs(touring_foundation::HEAVY_OP_BUDGET_SECS)"),
+        "the heavy-op budget must come from the shared constant"
+    );
+    assert!(
+        !source.contains("Duration::from_secs(300)"),
+        "a bare 300s budget is the literal that disagreed with the client's 1800s floor"
+    );
+}
+
+/// The three tests above prove the HELPER carries a reason. None of them proved
+/// that the failure BRANCHES call it — and on 09/08/2026 only the saturation
+/// branch was converted, while four others kept returning the empty payload.
+///
+/// That gap cost two diagnostic rounds on 19/08/2026: a dead project actor in
+/// the `analise` daemon answered `index rebuild` AND a trivial `gate-metrics`
+/// with the same "empty response payload", so the reindex looked guilty for
+/// four minutes of wall-clock and two restarts. `gate-metrics` cannot take five
+/// minutes; had the message named the actor, the first response would have
+/// pointed at the daemon.
+///
+/// So the invariant is enforced over the WHOLE file, not one branch: a quality
+/// rule tested on a single instance recurs in the next uncovered one.
+#[test]
+fn no_dispatch_branch_answers_with_the_empty_payload() {
+    let source = include_str!("daemon.rs");
+    let mut offenders = Vec::new();
+    // `DaemonResponse { output: String::new(), success: false }` in any spelling
+    // the formatter may produce — the pair is what makes it undiagnosable.
+    let normalized: String = source.split_whitespace().collect::<Vec<_>>().join(" ");
+    let needle = "DaemonResponse { output: String::new(), success: false }";
+    if normalized.contains(needle) {
+        for (lineno, line) in source.lines().enumerate() {
+            if line.contains("output: String::new()") {
+                offenders.push(format!("{}: {}", lineno + 1, line.trim()));
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "{} dispatch branch(es) still answer with an empty payload, which reaches the operator \
+         as \"Daemon returned success=false (empty response payload)\" — indistinguishable from \
+         a failure in the work they asked for. Use `protocol_failure(<what happened and what to \
+         do>)`:\n{}",
+        offenders.len(),
+        offenders.join("\n")
+    );
+}
+
+/// A guard that stopped matching would report a clean file forever. Prove the
+/// detector still sees the shape it forbids.
+#[test]
+fn the_empty_payload_detector_still_recognizes_the_shape() {
+    let offending = "return DaemonResponse { output: String::new(), success: false };";
+    let normalized: String = offending.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        normalized.contains("DaemonResponse { output: String::new(), success: false }"),
+        "the detector must still match the exact shape the guard forbids"
+    );
+}
+
 #[test]
 fn a_protocol_failure_is_never_the_empty_payload_it_replaced() {
     for reason in ["", "   "] {
@@ -244,4 +343,29 @@ fn a_protocol_failure_is_never_the_empty_payload_it_replaced() {
              back to the (empty response payload) dead end"
         );
     }
+}
+
+// ── peer_label (21/08/2026 — the heavy-op line now names its sender) ──────
+
+#[test]
+fn peer_label_names_own_pid_and_comm_from_proc() {
+    let me = std::process::id() as i32;
+    let label = super::peer_label(Some(me));
+    let comm = std::fs::read_to_string("/proc/self/comm")
+        .map(|s| s.trim().to_string())
+        .expect("/proc/self/comm readable on Linux");
+    assert_eq!(label, format!("pid={me} comm={comm}"));
+    assert!(!comm.is_empty(), "comm must be non-empty: {label}");
+}
+
+#[test]
+fn peer_label_without_credentials_says_unknown_not_a_fake_pid() {
+    assert_eq!(super::peer_label(None), "unknown");
+}
+
+#[test]
+fn peer_label_for_a_dead_pid_keeps_the_pid_and_marks_comm_unknown() {
+    // pid 2^22+1 is above the default pid_max; no such process exists.
+    let label = super::peer_label(Some(4_194_305));
+    assert_eq!(label, "pid=4194305 comm=?");
 }

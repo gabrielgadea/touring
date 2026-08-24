@@ -1,0 +1,25 @@
+{
+  "note": "Sources this skill makes claims about. Regenerate with skill_pin_gate.py --update AFTER reviewing the skill against the changed source — never before.",
+  "pins": [
+    {
+      "kind": "cli",
+      "ref": "decompose",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "file",
+      "ref": "CLAUDE.md",
+      "fingerprint": "e34668246bfb6b8a00c1c60dbed955fe2b6d4a566b394af2049ccd6f5e52cbf9"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/elite-50-quality.md",
+      "fingerprint": "11084fb5ee028005df1b753b34eacb99ddbee9fbdca1063da7ab725eedb9f873"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/touring-decision-matrix.md",
+      "fingerprint": "e435711bc268d571d6009ae5f46f1d503e2a8aeb17714148bb20c9402512d3c9"
+    }
+  ]
+}

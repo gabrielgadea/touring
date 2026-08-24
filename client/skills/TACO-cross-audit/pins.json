@@ -1,0 +1,55 @@
+{
+  "note": "Sources this skill makes claims about. Regenerate with skill_pin_gate.py --update AFTER reviewing the skill against the changed source — never before.",
+  "pins": [
+    {
+      "kind": "cli",
+      "ref": "ast",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "diary",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "e2e",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "find-code",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "index",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "memory",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "portfolio",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "wiring",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/elite-50-quality.md",
+      "fingerprint": "11084fb5ee028005df1b753b34eacb99ddbee9fbdca1063da7ab725eedb9f873"
+    },
+    {
+      "kind": "file",
+      "ref": "skills/Touring/references/context-enrichment.md",
+      "fingerprint": "5a13c0c352b7f993fe3417d6d109c368494b8abbd165554e41da4f423b5c896c"
+    }
+  ]
+}

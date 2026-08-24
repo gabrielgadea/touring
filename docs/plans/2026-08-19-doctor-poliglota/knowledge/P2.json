@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "FileKnowledgeDB.polyglot resolvido 1x por abertura; 5 leitores migrados do OnceLock global (3 SQL de leitura + gate de escrita + gate Go em index.rs); polyglot_wiring_enabled REMOVIDA; 4 testes de comportamento provam gate por projeto e a defesa dos 258 FP intacta"
+    }
+  ],
+  "relations": []
+}

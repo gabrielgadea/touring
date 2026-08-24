@@ -169,7 +169,10 @@ mod tests {
         // Determinism is the contract: two processes must agree, so two
         // independently constructed hashers must too.
         let a = set(7..97);
-        assert_eq!(MinHasher::new().signature(&a), MinHasher::new().signature(&a));
+        assert_eq!(
+            MinHasher::new().signature(&a),
+            MinHasher::new().signature(&a)
+        );
     }
 
     #[test]
@@ -180,7 +183,10 @@ mod tests {
         let (a, b) = (set(0..1000), set(150..1000));
         let truth = jac.jaccard(&a, &b);
         let est = MinHasher::estimate(&h.signature(&a), &h.signature(&b));
-        assert!((truth - 0.85).abs() < 1e-9, "fixture must be J=0.85, got {truth}");
+        assert!(
+            (truth - 0.85).abs() < 1e-9,
+            "fixture must be J=0.85, got {truth}"
+        );
         // 3 standard errors at 32 permutations ≈ 0.19.
         assert!(
             (est - truth).abs() < 0.19,

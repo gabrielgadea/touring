@@ -170,6 +170,667 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [30.4.13] - 2026-08-20 — `extern` é terminal, e a varredura tinha visto 62%
+
+> O reparo que 30.4.12 fez rodar começou a rodar também onde não devia.
+
+### Fixed
+
+- **A passada `extern` do backfill concluía de uma varredura incompleta.**
+  `backfill_unknown_consumer_kinds` tem duas passadas: a 1ª herda o kind de um
+  produtor conhecido — correta sob qualquer cobertura; a 2ª conclui *"não existe
+  produtor em lugar nenhum, logo o símbolo é externo ao workspace"* — sonora
+  **apenas** sobre uma varredura completa. A função não distinguia as duas.
+
+  Observado no `analise` em 20/08: o rebuild abortou por pressão de memória em
+  **22.994 de 37.295 arquivos** e ainda assim marcou **2.401 linhas** como
+  `extern`, com 38% dos produtores nunca lidos. `extern` é terminal — nada o
+  revisita, porque a linha deixa de ser `unknown` — então cada marcação errada
+  seria permanente.
+
+  O sweep de símbolos e o purge de módulos-fantasma já pulavam sob
+  `aborted_memory_pressure`, e o comentário de um deles até enuncia a razão
+  (*"Without a complete walk…"*). Esta terceira passada não pulava: a mesma
+  lição aprendida em dois sítios e não no terceiro — a forma de defeito que esta
+  série vinha corrigindo o dia inteiro. Era inofensiva enquanto o backfill nunca
+  chegava a executar; passou a causar dano no instante em que 30.4.12 o fez
+  executar.
+
+  Agora a passada 2 é gatada por `mark_extern`, e o chamador passa
+  `!aborted_memory_pressure`. Sob varredura parcial as linhas permanecem
+  `unknown`, e um rebuild completo posterior ainda pode resolvê-las.
+
+### Added
+
+- **Guarda comportamental** `a_partial_walk_leaves_producerless_consumers_unknown_not_extern`
+  — prova que a linha fica `unknown` após varredura parcial e que uma varredura
+  completa posterior ainda conclui `extern`. E **guarda estrutural**
+  `the_extern_pass_is_gated_on_a_complete_walk`, que recusa a chamada sem o
+  argumento de completude.
+
+### Registro de honestidade
+
+Ao rodar o teste novo isoladamente eu o vi como "0 tests" e concluí que o módulo
+não compilava; o teste **vizinho, pré-existente, também não rodava**.
+`knowledge_wiring` está atrás da feature `knowledge`, e
+`cargo test -p touring-storage --lib` executa 138 dos 246 testes do crate — 56%.
+Quase reportei um buraco no CI: a unificação de features do Cargo liga
+`knowledge` via `touring-hooks-core`, e o `cargo test --workspace` do CI cobre
+os 246. O buraco era do meu comando, não da esteira.
+
+## [30.4.12] - 2026-08-19 — Cliente e servidor discordavam sobre quanto esperar
+
+> O cliente esperava 30 minutos por um `index rebuild`. O servidor desistia aos
+> 5. O operador era informado de que o rebuild **falhou** enquanto o actor ainda
+> escrevia em `symbols.db`.
+
+### Fixed
+
+- **Budget de heavy op: dois números calibrados em separado que precisavam
+  concordar** — `cli/index.rs` já elevava o piso de leitura do cliente para
+  1800 s, e o comentário dessa linha registra a lição que a motivou: *"the
+  client used to give up on a rebuild that was progressing normally"*. O
+  servidor mantinha `Duration::from_secs(300)`, justificado por uma medição
+  própria — *"Python direct reindex of 1.1M symbols = ~90s"* — que o projeto
+  `analise` refutou por simplesmente ser maior.
+
+  O resultado observado em 19/08/2026: o cliente reportava falha aos 300 s
+  enquanto o `symbols.db` continuava a ser escrito — verificado por `mtime`
+  avançando segundo a segundo, com o daemon estável em 0,63 GB. Trabalho
+  saudável, relatado como falha.
+
+  É a mesma forma de defeito que esta série vinha corrigindo o dia todo — o
+  leitor que discorda do escritor no gate de wiring, os braços do resolvedor
+  que não aprenderam a lição um do outro — só que atravessando um socket.
+  A correção também é a mesma: **uma** constante,
+  `touring_foundation::HEAVY_OP_BUDGET_SECS`, lida pelos **dois** lados, em vez
+  de dois valores que alguém precisa lembrar de sincronizar.
+
+### Added
+
+- **Dois testes de simetria** — `heavy_op_budget_is_never_below_the_client_floor`
+  (o servidor jamais corta antes de o cliente parar de esperar; e nunca regride
+  abaixo dos 300 s que o `analise` já excedia num rebuild saudável) e
+  `the_server_budget_reads_the_shared_constant_not_a_literal`, que recusa a
+  reintrodução de um literal no sítio que decide o budget. Uma constante
+  compartilhada que um dos lados silenciosamente deixa de usar volta a ser dois
+  números — e é exatamente assim que a divergência nasceu.
+
+### Fixed (2)
+
+- **O único reparo do `kind_unknown` tinha o erro engolido** — `wiring_map`
+  guarda arestas de import; um consumidor gravado antes do seu produtor congela
+  em `symbol_kind='unknown'`. `backfill_unknown_consumer_kinds()` existe desde
+  11/06/2026 para desfazer isso e é **total**: a passada 1 herda o kind de
+  qualquer produtor do mesmo símbolo, a passada 2 marca `extern` o que não tem
+  produtor nenhum. Juntas cobrem o universo — medido na cópia do banco do
+  `analise`: 1.522 + 2.401 = **3.923 → 0 em 9,6 s**.
+
+  Ela roda uma única vez, no fim do `cli_index_rebuild`, e o resultado era
+  `.unwrap_or(0)`. Duas consequências, ambas observadas em 19/08/2026: o
+  `analise` ficou com **3.923 linhas poluídas** porque o daemon saiu entre o
+  fim da varredura (`symbols.db` parou às 23:23:54) e este ponto (o daemon
+  seguinte subiu às 23:24:53); e o rebuild teria respondido sucesso mesmo se a
+  query tivesse falhado, sem deixar rastro em lugar nenhum. O sintoma visível
+  seria apenas um aviso do `doctor`, sem caminho de volta até a causa.
+
+  Agora a falha é registrada (`tracing::error!`) e viaja no payload
+  (`kinds_backfilled`, `backfill_error`), de modo que um rebuild limpo se
+  distingue de um que deixou o banco poluído. É a mesma correção aplicada às
+  4 saídas mudas do dispatcher em 30.4.11 — aqui, num reparo que só tem uma
+  chance por rebuild.
+
+- **Guard estrutural** — `wiring_repair_visibility_tests` lê o próprio
+  `index.rs` e recusa `.unwrap_or(` / `.ok()` / `.unwrap_or_default(` /
+  `.unwrap_or_else(` no sítio da chamada, e exige `backfill_error` no payload.
+  Provado por mutação: reintroduzido o `.ok()`, o guard falha com a mensagem
+  certa; removido, volta a passar. O defeito real precisa de daemon vivo e
+  banco poluído para reproduzir — a forma que o esconde é legível na fonte.
+
+## [30.4.11] - 2026-08-19 — A falha que não diz o que falhou
+
+> Um daemon com o project-actor morto respondia `index rebuild` **e**
+> `gate-metrics` com a mesma mensagem vazia. Duas rodadas de diagnóstico foram
+> gastas suspeitando do reindex antes de a operação trivial denunciar o daemon.
+
+### Fixed
+
+- **Quatro ramos de despacho falhavam mudos** — `dispatch_request_async`
+  devolvia `DaemonResponse { output: String::new(), success: false }` em quatro
+  situações distintas: actor morto, fila do actor cheia, handler que panicou
+  no meio, e handler que estourou o budget. O cliente imprime, para todos,
+  `Daemon returned success=false (empty response payload)` — que é
+  indistinguível de uma falha no **trabalho pedido**.
+
+  O arquivo já continha a lição, aplicada em **um** ramo (o do semáforo, em
+  09/08/2026): *"Shedding the request is correct; shedding it SILENTLY was not
+  (…) the operator saw only 'empty response payload' — no way to tell
+  saturation from a wedged memory subsystem. It now names itself."* Os outros
+  quatro, na mesma função, a até 30 linhas de distância, continuaram mudos —
+  e três testes provavam que o **helper** `protocol_failure` carrega razão,
+  nenhum provava que os **ramos** o chamam.
+
+  Custo medido (19/08/2026, projeto `analise`): o actor morrera sem panic no
+  log; `index rebuild` falhava com a mensagem vazia após ~4 min e `gate-metrics`
+  — que não pode levar 4 min — falhava com a mesma. Foi essa segunda observação,
+  não a primeira, que apontou o daemon. Cada ramo agora nomeia o que houve **e**
+  o que fazer (`touring daemon-ctl restart`, aguardar a op em voo, ler o
+  backtrace no stderr do daemon), e carrega o nome do hook afetado.
+
+- **Um arquivo de 380 MB levava o daemon a 48 GB de RSS** — `index rebuild` no
+  `analise` matava o project-actor e, de quebra, os `rustc` da máquina. A causa
+  não era o volume do projeto: `SUPPORTED_EXTS` inclui `md`, `json` e `html`, e
+  a árvore continha **dois `.md` de 380,4 MB cada** (relatórios de engenharia
+  convertidos), um `.json` de 69,3 MB de geodata, seis `claims*.json` de ~40 MB
+  e `.html` raspados de 22,8 MB. `read_to_string` traz o arquivo inteiro; o AST
+  tree-sitter e a passada de call-graph são múltiplos disso.
+
+  O guard de OOM existia desde 2026-05-12 e **não disparou**: ele amostra o RSS
+  a cada `CHUNK_SIZE = 100` arquivos, e o salto de <3 GB para 48 GB cabe dentro
+  de uma janela — um único arquivo é um passo só. Evidência: log do `earlyoom`,
+  `sending SIGTERM to "touring-daemon": VmRSS 45812 MiB … 47956 … 48134`, quatro
+  vezes, numa máquina de 62 GB; e `sending SIGTERM to "rustc"` no mesmo segundo,
+  que é a origem do `rc=-15` que reprovou o gate de convergência (não havia
+  falha de teste alguma: `cargo test --workspace` passa, 271 suítes).
+
+  Agora há um teto por arquivo (`MAX_INDEXABLE_FILE_BYTES = 8 MB`), verificado
+  **antes** do `read_to_string` — depois já seria tarde, porque a leitura é a
+  alocação que inicia o pico. O teto é **calibrado, não chutado**: medindo os
+  quatro projetos, todo arquivo de código acima de 1 MB vive em venv ou
+  `node_modules` (já pulados) e o maior de todos é um bundle minificado de
+  2,89 MB — 8 MB é ~3× isso. Os arquivos recusados são **contados e
+  amostrados** no resultado (`oversized_skipped`, `oversized_sample`), nunca
+  descartados em silêncio: uma varredura limitada que se lê como completa é a
+  falha que faz "cobri tudo" virar mentira.
+
+  Registro de honestidade: acusei antes o filtro de `venv` de deixar passar
+  18.137 arquivos, porque a lista `SKIP_DIRS` só tem `.venv`/`venv` exatos.
+  Estava errado — `should_skip_dir` faz *prefix match* de `.venv*`/`venv*` e
+  ainda pula todo diretório oculto. Li a lista sem ler a função.
+
+### Added
+
+- **Guard estrutural `no_dispatch_branch_answers_with_the_empty_payload`** —
+  varre `daemon.rs` inteiro e recusa o par `output: String::new()` +
+  `success: false`, com o teste-companheiro que prova que o detector ainda
+  enxerga a forma proibida. O invariante passa a valer sobre **todas** as
+  instâncias de uma vez: uma regra de qualidade testada numa instância só
+  reaparece na próxima não coberta — foi exatamente o que aconteceu aqui.
+
+- **Três testes do teto de tamanho** — `the_files_that_exhausted_the_machine_are_refused`
+  (os tamanhos reais medidos em `analise`), `no_real_source_file_is_refused`
+  (os maiores arquivos legítimos da frota) e
+  `the_ceiling_sits_where_the_calibration_put_it`, que amarra a constante à
+  medição que a justifica.
+
+## [30.4.10] - 2026-08-19 — Ligar o poliglota mostrou quem nunca aprendeu a lição
+
+> Com `polyglot_wiring` ligado nos três projetos pinados, a infraestrutura
+> poliglota passou a ser exercida de verdade — e o primeiro efeito foi expor
+> dois braços do resolvedor de imports e um predicado de diagnóstico que
+> nunca receberam correções que os seus irmãos receberam duas vezes.
+
+### Fixed
+
+- **Resolvedor de imports Python e Java fabricava arquivos** — o braço `python`
+  era `import.replace('.', "/") + ".py"`, sem tocar o disco, e o `java` era o
+  mesmo esquema (o próprio comentário dizia: *"the same pure dotted→path scheme
+  as the Python arm (no filesystem probe)"*). Então `import pathlib` gravava um
+  produtor para `pathlib.py`, um arquivo que não existe em projeto nenhum.
+  Medido em `analise`: **88 `module_file` fantasmas**, 76 deles carregando
+  `symbol_kind='unknown'`, nenhum alcançável por JOIN algum. Os braços `rust` e
+  `typescript/javascript` provam existência no disco desde sempre — o `rust`
+  aprendeu isso **duas vezes** (fantasma `super.rs`, depois `blast_radius.rs`
+  vs `blast_radius/mod.rs`, ~200 fantasmas), e os comentários dessas correções
+  descrevem exatamente este defeito. Agora os quatro braços fazem a mesma
+  pergunta: Python prova `<raiz>/<a>/<b>.py` e `<raiz>/<a>/<b>/__init__.py`
+  subindo até a source root (fora do último `__init__.py`, como o Python
+  resolve imports absolutos); Java prova a FQN contra os ancestrais do
+  importador, o que faz raízes Maven/Gradle (`src/main/java`) funcionarem —
+  a "known limitation" que o comentário antigo declarava. Import externo
+  resolve para `None`, sem linha de produtor.
+
+- **Dois testes asseguravam esse bug** — `java_import_maps_dotted_name_to_source_path`
+  exigia que `com.foo.Bar` virasse caminho sem que arquivo algum existisse, e
+  `test_resolve_import_python` fazia o mesmo. Ambos substituídos por testes que
+  provam o comportamento correto nas duas direções (existe → resolve; stdlib →
+  `None`).
+
+- **`&s[..s.len().min(N)]` derrubava o project-actor** — 5 mortes do
+  `touring-project-actor` do daemon do `analise` com `end byte index 60 is not
+  a char boundary; it is inside 'ê'`. O truncamento por índice de byte só é
+  seguro enquanto a string é ASCII, e todo projeto desta frota escreve em
+  português. Varredura: **242 sítios** da mesma forma em 31 arquivos — e, em
+  paralelo, **seis** implementações corretas de truncamento seguro já viviam na
+  árvore, nenhuma alcançada por esses 242. Um dos sítios encontrados é a
+  mensagem do próprio hook `pre_edit`: *"RUST ANTIPATTERN: &s[..s.len().min(N)]
+  can panic on multi-byte UTF-8. Use touring_foundation::truncate_str(s, N)"* —
+  o produto avisava os outros do que ele mesmo fazia. Todos migrados para
+  `touring_foundation::truncate_str`, que já existia, é `&str -> &str`
+  (drop-in) e recua até a fronteira de caractere.
+
+### Changed
+
+- **O doctor deixou de perguntar "é Rust?"** — `wiring_diagnostic` decidia
+  `warning` por `module_file NOT LIKE '%.rs'`, pergunta diferente da que o
+  escritor faz, e errada nas **duas** direções ao mesmo tempo (medido nos
+  quatro projetos): `analise`, um projeto Python, ganhava warning permanente
+  por 192.997 linhas legítimas; e o próprio `touring` era declarado `ok`
+  carregando 102 linhas de `benches/src/*.rs` — que o gate de escrita rejeita,
+  que o filtro de leitura (só por extensão) deixa entrar nas consultas de
+  órfão, e que portanto inflam exatamente a contagem que o warning existe para
+  proteger. Agora são três contadores e **só um julga**:
+
+  | contador | significado | efeito |
+  |---|---|---|
+  | `non_wireable` | inadmissível sob o vocabulário **máximo** (`polyglot=true`) | **warning** |
+  | `unread` | fonte de linguagem suportada que o modo atual não lê | informativo |
+  | censo | `rows/producers/consumers/pub` sobre o conjunto que as respostas usam | descreve |
+
+  A classificação chama `is_wireable_source` — o vocabulário do **escritor**,
+  agora exposto — em vez de reimplementar uma aproximação. Mesmo princípio que
+  colocou `root=` aqui no 30.4.6: o diagnóstico não pode discordar da coisa que
+  diagnostica. Aplicado nos **três** sítios (C08): `touring-server` (o que se
+  roda), `touring-cli` (alcançado só por testes de IPC) e o SQL de
+  `wiring_db_diagnostic`, cujo campo `non_rust_rows` virou
+  `non_wireable_rows` + `unread_rows`.
+
+- **`touring-foundation` promovida a dependência normal de `touring-hooks`** —
+  estava em `dev-dependencies`, então o binário `touring-hook` não a alcançava
+  embora já a carregasse por via transitiva. Custo de build zero.
+
+### Added
+
+- **Guard estrutural `utf8_truncation_guard`** — varre a árvore e recusa
+  qualquer truncamento por índice de byte, com um segundo teste que prova que o
+  detector **ainda enxerga** o padrão (um detector que parou de casar reporta
+  árvore limpa para sempre — pior que não ter guard, porque também remove a
+  suspeita). Foi ele que achou 11 sítios que a varredura por regex perdeu, por
+  não terem `&` inicial: 6 defeitos reais em arquivos que ninguém varreu.
+
+- **Três testes de semântica do diagnóstico** — um por direção do erro antigo
+  (`a_rust_file_the_gate_rejects_is_still_pollution`,
+  `a_first_party_python_source_is_wiring_not_pollution`) e um de partição
+  (`every_row_is_counted_exactly_once`: censo + julgadas + filtradas = total).
+
+- **7 testes do resolvedor poliglota** — stdlib não vira arquivo, módulo
+  existente resolve, pacote resolve por `__init__.py`, import absoluto resolve
+  na source root, e os três equivalentes de Java.
+
+## [30.4.9] - 2026-08-19 — O expurgo estava mais severo que o gate
+
+> Correção do 30.4.8. O expurgo julgava as duas pontas de uma aresta pelo mesmo
+> predicado, mas o gate de escrita julga **só o produtor** —
+> `record_consumer_with_origin` verifica `canonical_module` e nunca
+> `canonical_consumer`. O que eu chamei de "tornar o gate um invariante" era,
+> na ponta do consumidor, uma regra nova.
+
+### Fixed
+
+- **Arestas legítimas de teste eram apagadas** — um teste que consome a API do
+  próprio crate é uso real, e é para registrar isso que o grafo existe. Julgar o
+  consumidor pelo predicado completo removeu **13.621** dessas arestas deste
+  workspace; a contagem de órfãos caindo de 4.232 para 2.498 foi o que
+  entregou. Agora: produtor pelo predicado do gate, consumidor **apenas** por
+  árvore de terceiros ou gerada (`node_modules/`, `site-packages/`, `target/`,
+  `dist/`…). Um consumidor dentro de `tests/`, `benches/`, `docs/` ou
+  `scripts/` sobrevive.
+- `is_non_rust_non_wireable` foi partida em `is_vendored_or_generated` (agnóstica
+  de linguagem, segura na ponta do consumidor) e `is_first_party_non_source`
+  (docs/scripts/testes — desqualifica produtor, nunca consumidor). As duas
+  metades respondiam perguntas diferentes dentro de uma função só.
+
+## [30.4.8] - 2026-08-19 — O gate de escrita vira invariante, não um momento
+
+> Ligar o poliglota em `analise` tornou o buraco impossível de ignorar: os
+> produtores legíveis foram de 8.224 para **184.343**, dos quais **72,4% eram um
+> virtualenv**, 13,3% testes e 4,9% docs — 4,9% de fonte de primeira parte. Um
+> relatório de 142.689 órfãos não responde pergunta que alguém tenha.
+
+### Fixed
+
+- **O leitor discordava do escritor** — os filtros de leitura admitem por
+  EXTENSÃO; o gate de escrita admite por extensão **e caminho** (vendorizados,
+  `docs/`, `scripts/`, testes, saída de build). Toda linha escrita antes de uma
+  regra do gate existir seguia legível para sempre, e com o poliglota ligado
+  passava a ser lida em massa. `migrate_evict_ungated_rows` roda a cada abertura
+  do banco e remove o que o gate recusaria hoje — o gate deixa de ser uma regra
+  aplicada num momento e vira **invariante sobre os dados**. Os filtros seguem
+  sendo uma checagem barata de extensão, em vez de carregar vinte `NOT LIKE` por
+  consulta.
+- Julgado sob o vocabulário **máximo** (`polyglot = true`), nunca o modo atual do
+  projeto: quem ligar o opt-in amanhã precisa encontrar seu Python ainda lá. Só
+  sai o que modo nenhum poderia ler.
+- A consulta do conjunto recusado lê **as duas** colunas. A primeira versão lia
+  só `module_file`, e um arquivo de virtualenv que aparecia apenas como
+  consumidor mantinha uma aresta para dentro do código de primeira parte — furo
+  achado pelo teste `a_bogus_consumer_takes_only_its_own_edge`, que falhou contra
+  ela.
+
+### Notes
+
+- Medido contra uma **cópia do banco real** de `analise` antes de tocar no
+  original: 216.306 → 22.944 linhas (193.362 removidas); órfãos legíveis sob
+  poliglota 142.689 → **15.020**.
+
+## [30.4.7] - 2026-08-19 — O poliglota deixa de ser tudo-ou-nada
+
+> A infraestrutura poliglota existia desde 08/2026 — Python, TS/JS, Java por
+> extensão, Go por chave de pacote, com `is_non_rust_non_wireable` defendendo os
+> 258 falsos-positivos que fizeram Rust-only ser o default seguro. Faltava poder
+> dizer sim para **um** projeto: o interruptor era uma env var global, então um
+> código Python ou recebia wiring só de Rust, ou toda máquina virava de uma vez.
+
+### Added
+
+- **`polyglot_wiring` em `.touring/touring.toml`** — o sim por projeto.
+  Resolução: `TOURING_POLYGLOT_WIRING` (a válvula histórica, que segue vencendo
+  e é o que mantém os testes determinísticos) → camada Project → camada User →
+  `false`. Leitura de camada falha ABERTA, e falhar aberta aqui significa
+  **desligado**: um toml quebrado nunca liga sozinho o que muda o que o grafo
+  inteiro responde.
+- **`doctor` e `health` reportam `polyglot=on|off`** ao lado de `root=`. O censo
+  de linhas é ilegível sem o modo: as mesmas 200 mil linhas significam "projeto
+  Python cabeado" sob `on` e "peso morto" sob `off`.
+
+### Changed
+
+- **O modo é propriedade do BANCO, não do processo** — `FileKnowledgeDB.polyglot`
+  é resolvido uma vez por abertura, a partir da config do próprio projeto. Os
+  cinco leitores do `OnceLock` global migraram (três filtros SQL de leitura, o
+  gate de escrita e o gate do pacote Go em `index.rs`), e
+  `polyglot_wiring_enabled` foi **removida** — deixar um leitor process-global
+  vivo é convidar o próximo a usá-lo. Mesmo argumento da raiz do wiring no
+  30.4.3: um daemon serve um projeto, o daemon global serve vários, e se Python
+  conta como wiring é pergunta do projeto.
+
+### Fixed
+
+- **Saída de build entrava no grafo** — a lista de não-wireable cobria árvores de
+  dependência e um diretório de build (`dist/`), mas não a do compilador.
+  Medido **antes** de ligar o opt-in neste próprio workspace: **1.087 dos 1.128**
+  arquivos que entrariam eram `target/doc/**.js` — JavaScript do rustdoc. Um
+  artefato gerado não é produtor, e cabeá-lo é como uma funcionalidade ganha má
+  fama no dia em que é ligada. Agora `target/`, `build/`, `out/`, `.gradle/`,
+  `.tox/`, `.mypy_cache/`, `.pytest_cache/` e `htmlcov/` ficam de fora — e um
+  teste garante que `outbound/`, `building/` e `target_practice/` seguem sendo
+  fonte, porque a regra exclui SAÍDA, não qualquer caminho que contenha a
+  palavra.
+
+### Notes
+
+- Ganho real por projeto, medido no índice depois da regra de saída de build:
+  `analise` 1.743 arquivos Python · `konverter` 350 · `transferegov_pipeline`
+  206 (TS/TSX) · `touring` **45** — o JS deste workspace era essencialmente
+  rustdoc.
+
+## [30.4.6] - 2026-08-19 — O campo `root=` no diagnóstico que se roda de verdade
+
+> Correção do 30.4.5: o `root=` daquela versão foi parar em `cli_doctor`
+> (`touring-cli`), um handler despachado mas que **nenhum comando alcança** —
+> só os testes de IPC o invocam. Quem responde `touring doctor` é o caminho
+> cliente, em `touring-server`. Quarta vez no dia que edito a gêmea errada; a
+> diferença é que desta vez a checagem foi feita antes de declarar pronto.
+
+### Added
+
+- **`doctor` reporta `root=` em `wiring_diagnostic`** — a raiz contra a qual os
+  caminhos são canonicalizados, primeiro campo do censo. Um censo de linhas não
+  significa nada até se saber em relação a quê elas são; foi a ausência desse
+  campo que manteve o defeito invisível por dois meses.
+- **`TouringConfig::project_root_for_db`** — a inversa de
+  `knowledge_db_canonical`, nascida **ao lado dela** em `touring-foundation`.
+  Quem mudar o layout `<raiz>/.claude/touring/<nome>.db` mexe nas duas; mantê-las
+  em crates diferentes é como elas divergem. `touring-storage` passa a delegar,
+  então escritor e diagnóstico não podem discordar sobre qual é a raiz. 4 testes,
+  um deles a propriedade de ida-e-volta.
+
+## [30.4.5] - 2026-08-19 — A raiz em vigor vira um campo observável
+
+### Added
+
+- **`touring health` reporta `root=`** — a raiz contra a qual os caminhos do
+  wiring são canonicalizados aparece primeiro no censo do `knowledge_db`. É o
+  campo cuja ausência escondeu o defeito das versões anteriores por dois meses:
+  os caminhos de um projeto vinham sendo normalizados contra a raiz de outro e
+  nenhum diagnóstico dizia qual raiz estava em vigor. Um censo de linhas só
+  significa alguma coisa depois que se sabe em relação a quê elas são.
+  `FileKnowledgeDB::workspace_root()` deixa de ser lida apenas por testes
+  (REGRA #0).
+
+## [30.4.4] - 2026-08-19 — Três assimetrias que o 30.4.3 revelou
+
+> Consertar a raiz do wiring expôs mais três lugares onde um lado do par estava
+> certo e o outro não — e, nos três, um comentário afirmava a simetria.
+
+### Fixed
+
+- **A raiz não era derivada quando o banco é aberto por caminho relativo** — o
+  daemon abre `.claude/touring/knowledge.db` com o cwd fixado na raiz do
+  projeto; subir três componentes de um caminho relativo dá o caminho vazio, que
+  a derivação recusava. Ou seja: a única forma que a produção usa era a única que
+  não funcionava, e a migração do 30.4.3 não fez nada nos projetos que ela
+  existia para consertar. Um teste que falha antes e passa depois marca a
+  correção.
+- **`doctor` só contava caminho absoluto sob `/home/`** — o contador `abs_paths`
+  casava `module_file LIKE '/home/%'`. Uma linha poluída sob `/tmp`, `/opt` ou
+  `/Users` lia como limpa: o instrumento que reporta o problema trazia o layout
+  pessoal do desenvolvedor embutido no predicado. Agora absoluto quer dizer
+  absoluto (`LIKE '/%'`) — e foi assim que uma linha `/tmp/wasm_conn_mod/...` em
+  `transferegov_pipeline` apareceu, invisível ao contador anterior.
+- **`daemon-ctl` subia o daemon do canal DEV num socket de projeto pinado** —
+  a cadeia de resolução do binário era `override > TOURING_DAEMON_BIN >
+  ~/.local/bin > PATH`, sem o ramo do pin. `touring-hooks::try_autostart_daemon`
+  tinha esse ramo desde a cross-audit F-NEW-2 (25/07) e o comentário aqui
+  afirmava que os dois sítios eram mantidos em sincronia. Não eram: um
+  `daemon-ctl restart --project <pinado>` rodado do workspace-fonte subia o
+  binário de desenvolvimento — reproduzido nesta sessão em `konverter` e
+  `transferegov_pipeline`. A escolha virou `resolve_daemon_binary`, uma função
+  pura com 4 testes, porque um contrato de canal que só existe dentro de um
+  spawn não é verificável.
+
+## [30.4.3] - 2026-08-19 — A raiz vem do banco, não do ambiente
+
+> `doctor` vinha avisando `abs_paths` em dois projetos. A causa não era o
+> índice: o canonicalizador de caminhos lia a raiz de uma variável de ambiente
+> que **todo** daemon per-project herda da sessão que o abriu — apontando para
+> outro projeto. A raiz que torna um caminho canônico é propriedade do BANCO,
+> nunca de quem iniciou o processo.
+
+### Fixed
+
+- **Canonicalização de wiring usava a raiz errada** — `workspace_root_marker()`
+  resolvia `TOURING_WORKSPACE_ROOT` (exportada em `~/.claude/settings.json`
+  apontando para o workspace do touring) com o caminho pessoal do desenvolvedor
+  compilado como fallback. O daemon de `analise` normalizava os caminhos de
+  `analise` contra a raiz de `touring`: nada casava, 4.306 linhas ficavam
+  absolutas — e **nenhuma** delas sob a própria raiz. Agora
+  `derive_workspace_root` deriva do próprio caminho do banco
+  (`<raiz>/.claude/touring/*.db`), verificando os dois nomes de diretório em vez
+  de supor, e **recusando `$HOME`** (o store global não tem raiz única). Sem raiz
+  derivável não há canonicalização — em vez de um caminho pessoal compilado.
+- **`migrate_canonicalize_paths` era um DELETE apontado para o projeto errado** —
+  roda a cada abertura do banco e apaga linhas que começam com o marcador; com o
+  marcador de outro projeto, mirava dados alheios. Agora usa a raiz do próprio
+  banco e **não faz nada** quando não há raiz derivável.
+- **Linhas de projetos estrangeiros são expurgadas** — a mesma migração remove
+  linhas cujo caminho absoluto não está sob a raiz do banco. Elas inflam a
+  contagem de órfãos e fabricam ciclos entre módulos que nunca se encontraram: o
+  SCC falso-positivo de 136 módulos de 02/06 eram linhas de `analise` lidas pelo
+  grafo de `konverter`. A mitigação da época filtrava ciclos por
+  `workspace_root` — coluna que é NULL em 100% das linhas já escritas, então não
+  filtrava nada. Medido: 4.306 linhas em `analise`, 7.893 em `konverter`.
+
+### Changed
+
+- **`FileKnowledgeDB::workspace_root()`** — a raiz derivada agora é observável.
+- Os três testes F2 deixaram de depender de `TOURING_WORKSPACE_ROOT`: rodam
+  sobre uma raiz temporária própria. Enquanto liam a mesma variável que a
+  produção, os dois lados concordavam enquanto ambos erravam — e o teste não
+  tinha como pegar um daemon canonicalizando um projeto contra a raiz de outro.
+
+### Notes
+
+- `TOURING_WORKSPACE_ROOT` **não** é fixada no spawn do daemon per-project, e a
+  razão está comentada nos dois sítios de spawn (C08): ela nomeia a árvore-fonte
+  do touring, de onde saem o schema do parcer e a biblioteca de gotchas. Fixá-la
+  no projeto trocaria uma raiz errada de wiring por três assets silenciosamente
+  ausentes. O wiring era o único leitor que precisava do projeto — e não lê mais
+  variável nenhuma.
+
+## [30.4.2] - 2026-08-19 — Topologia honesta: o juiz, o grafo real e a evidência
+
+> Um fluxo declara um grafo de CONTROLE (`on_pass`/`on_fail`/`branches`) e usa
+> outro, de DADOS (`{{nodes.X.summary}}`). Onde os dois divergem nascem a espera
+> que não espera por nada e o nó cujo produto ninguém lê — agora ambos são lint.
+> Junto: os avaliadores do loop passam a ser atestados, porque uma nota vale o
+> que vale quem pode reescrever o gabarito (arXiv:2505.22954, Apêndice H).
+>
+> Registro de implementação com gates executados:
+> `docs/plans/2026-08-19-topologia-honesta/plan.md`.
+
+### Added
+
+- **`judge_attest.py`** — o juiz de registro do loop: sha256 por avaliador mais o
+  inventário de cláusulas lido por AST de `loop_converged.py::_gather_clauses`.
+  Cláusula que SOME bloqueia (o gabarito encolheu); avaliador que apenas MUDOU
+  fala sem bloquear. `judge_intact` é a cláusula #1 da convergência, avaliada
+  antes de todas — as outras valem o que vale o avaliador que as pontuou.
+- **Grafo de dados no `adw lint`** — `fake_waiting` (aresta de controle sem
+  nenhuma leitura do produto do nó anterior), `dead_node` (nó comprovadamente
+  read-only cuja saída ninguém interpola), `critique_without_brief` e
+  `agent_needs_permission`. O `readonly` é tri-estado: onde a prova não existe o
+  lint fica em SILÊNCIO, nunca acusa.
+- **`touring adw promote`** — ledger de evidência de execução (`promotions.json`)
+  com `agent_sessions {real, mock}` contados do journal: "o run completou" e "um
+  agente rodou" são afirmações diferentes, e o ledger as confundia.
+- **`flow_cost`** — custo declarado por fluxo (nós de agente × tier × fan-out),
+  com o teto de `max_branches` entrando na conta.
+- **Fragmentos `worker-critic-pair` e `graph-pack`** — kit de 11 → 13 peças.
+- **`variant_archive.py`** — arquivo de degraus (DGM): toda variante é guardada
+  com sua nota, e o pai da próxima é amostrado por `w = s·h` em vez de ser sempre
+  o melhor. Determinístico e reproduzível por seed.
+- **Wayfinder no `decompose frontier`** — `waterfall_risk` (névoa sem protótipo)
+  e o registro de `resolutions` por decisão.
+
+### Fixed
+
+- **Agente headless pedia permissão a um humano ausente** — cinco nós capazes de
+  escrever na biblioteca não declaravam `permission_mode`, então toda invocação
+  parava para pedir autorização e reportava `pass` por ter pedido. Corrigido nos
+  cinco, no gerador e no fragmento; um lint impede a regressão. Os 8 fluxos da
+  biblioteca passaram a ter execução real registrada.
+- **Duas cópias de `cli_decompose_update` e `ensure_decompose_tables`** — a rota
+  viva era `cli/decompose.rs` + `cli/shared.rs`; editar a gêmea de
+  `cli/handlers/` não mudava nada em execução. Consolidadas em helper único.
+- **`append_log` escrevia `log.md` sem frontmatter OKF** — reprovado pelo próprio
+  `loop_doc_link_gate` do loop; cada bundle vinha sendo consertado à mão.
+- **`_gather_clauses` lia as cláusulas fora de ordem** — `ast.walk` é BFS, então
+  a lista saía embaralhada e com duplicata.
+
+## [30.4.1] - 2026-08-19 — ADW flow portfolio, atomic claim, Wayfinder
+
+> Flows stop being copies and become compositions. The library's nine monolithic
+> specs gain a kit of reusable fragments, a guided creation path that refuses to
+> start without judging prior art, and a fan-out whose branch count can be decided
+> at run time. Alongside: the DAG learns to hand one subtask to exactly one
+> session, and to say which tickets are decisions still owed.
+>
+> Authoring guide: `docs/adw-flow-portfolio.md` · decisions: ADRs 0002-0005 ·
+> implementation record with executed gates:
+> `docs/plans/2026-08-18-graph-engineering-flow-portfolio/plan.md`.
+
+### Added
+
+- **Fragment composition** — `[[use]] module/as/with` inlines a mini-spec under a
+  namespace, resolved in the loader so engine/journal/resume/lint keep operating
+  on a flat graph (ADR 0002). Kit of 11: `recall-pack · prior-art · diagnose-pack ·
+  fanout-lenses · critic-panel · gate-rust · gate-quality50 · conflict-guard ·
+  human-approve · phase-close · converge`.
+- **`touring adw new`** — guided creation: prior art is consulted and an explicit
+  `--verdict reuse|extend|supersede|create_new` is mandatory; the flow is born
+  lint-clean, with `[purpose]` filled and gate→agent feedback already wired.
+- **`touring adw explain` / `touring adw fragments`** — the resolved flat graph,
+  and what is composable.
+- **`type = "parallel"`** — read-only fan-out with a real barrier: mandatory
+  `merge` (`collect|tally|concat`), `on_branch_fail`
+  (`all|any|ignore|best_effort|quorum:N`) and `max_branches`, checked before any
+  branch runs (ADR 0003). Branches journal individually, so `kill -9` mid-fan-out
+  resumes without re-running the ones that finished.
+- **Dynamic fan-out** — `branches = "{{vars.x}}"` + `template`: the node is cloned
+  once per runtime value, bound to `{{branch.value}}`/`{{branch.index}}`. Covers
+  the canonical orchestrator-workers pattern.
+- **Per-node persona** — `[node.X.persona]` declares posture inline (`stance ·
+  lens · scope · bar · burden · refuses · forbids · blind_to · escalate_when ·
+  emits`), compiled to `--agents`/`--agent`. No global catalogue; the flow stays
+  portable.
+- **Three-verdict gates** — `verdict_contract = true` yields
+  `PASS|REJECT|ESCALATE`; a check that could not run escalates without spending a
+  retry, and an unparseable verdict reads as REJECT (ADR 0004). With stagnation
+  detection (opt-in), a measured cost ceiling and a per-run kill switch.
+- **`[purpose]` on every shipped flow** — `intent · when_to_use · when_not_to_use
+  · inputs · produces · tags`, indexed ahead of the header comment so the corpus
+  cap falls on boilerplate.
+- **`touring decompose claim|release`** — conditional UPDATE with an expiring
+  lease; exactly one of N racing sessions wins (ADR 0005).
+- **`touring decompose ticket|frontier`** — Wayfinder typing: decision vs
+  implementation, fog, HITL/AFK, `origin_ticket`. Open decisions gate the
+  implementation frontier; implementation with no origin is reported untraceable.
+- **`scripts/update-touring` is versioned**, reached on PATH by symlink, with
+  `scripts/test_update_touring.py` guarding it.
+
+### Changed
+
+- Portfolio mining composes an ADW's indexable document from `[purpose]` first,
+  then description and steps, then the header comment — the 600-char cap now
+  truncates boilerplate rather than the curated prose.
+- `touring adw test` walks a graph that never ran: missing agent recordings are
+  stubbed and human gates auto-approved, both **named** in the output under
+  `synthesized`. A spec declaring `driver = "mock"` still demands its recording.
+- `update-touring` derives the workspace from its own location and scopes every
+  process check to the owner of the global socket.
+
+### Fixed
+
+- **Shell injection in the deployed ADW library** — 26 commands interpolated
+  `{{vars.*}}` inside `bash -c`. Converted to positional arguments; the structural
+  guard now covers `adw.library_dir()`, the copy `from-template` actually reads.
+- **`_lint_cycles` returned inside its loop**, so a cycle without an exit hidden
+  behind a legitimate one passed with exit 0.
+- **Blind retries** — four of five library gates never appeared in the prompt of
+  the agent they handed work back to.
+- **Class-D degraded under fan-out** — a `parallel` block took the standing
+  narrative claim even when it asserted nothing, erasing the worker's own claim.
+- **`frontier` reported unassessed fog as `clear`** — a fail-open on the axis the
+  feature exists to surface; it is now `unknown`.
+- **The `client/` mirror never adopted a new file** — the noise filter received an
+  absolute path containing `~/.claude`, whose name is on its own ignore list, so
+  every live file classified as noise. `--check` reported CLEAN with a file
+  missing.
+- Four duplicated hook-count literals across four files, now compared against each
+  other by a single structural guard.
+
+## [30.4.0] - 2026-08-12 — Faceted memory (hashtag library)
+
+> Every memory carries faceted hashtags `#facet:value` across seven orthogonal
+> axes, so recall can filter by what an entry *is* before ranking by relevance.
+> Grounded in Ranganathan-style faceted classification: free folksonomy collapses
+> under synonymy and polysemy, so each facet has a controlled vocabulary that
+> grows by governance — a value outside the seed is accepted with a warning, never
+> an error. Guide: `docs/memory-hashtag-library.md`.
+
+### Added
+- Seven facets — `kind · purpose · lang · domain · process · artifact · status`.
+- `touring memory query "#kind:… #lang:…"` (conjunctive facet filter),
+  `recall "<text> #facet"` (filter before RRF), `memory moc <topic>` (emergent map
+  of a domain), `memory communities`, `memory link/unlink` (typed edges),
+  `memory backfill-tags` (conservative retrofit).
+- **Codetags** — a `// #tags: kind:… purpose:… domain:…` anchor on a snippet's
+  first line is harvested by `post_write`/`post_edit`; removing the anchor
+  tombstones the memory, keeping code the source of truth. Batch:
+  `touring memory sync-tags --dir <path>`.
+- `touring portfolio "<intent> #kind:script"` — faceted prior art.
+
 ## [30.3.0] - 2026-07-24 — Productization GA-ready (Pln2)
 
 > First release cut of Touring as an installable, versioned, per-project

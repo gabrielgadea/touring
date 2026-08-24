@@ -1,0 +1,11 @@
+{
+  "phase": "H3",
+  "entities": [
+    {
+      "entity_id": "phase:H3",
+      "type": "phase",
+      "description": "Env-lock sist\u00eamico COMPLETO: censo 40 arquivos com set_var/remove_var \u2192 38 com fns mutantes analisadas; 24 desprotegidos \u2192 todos serializados (hooks-core via #[serial] no dom\u00ednio existente; touring-server reusando crate::cli::ENV_LOCK; 5 src files + 6 integration binaries com ENV_LOCK file-local documentado; hooks-shared user_filters com dom\u00ednio disjoint documentado); 2 s\u00edtios de PRODU\u00c7\u00c3O (recursion_guard HookGuard, rollback_plan RestoreEnv) marcados AUDITED com justificativa (process-global por design, single-threaded main path); 126 TODOs 'Audit that the environment access' \u2192 0 (todos AUDITED c/ guarda verificada); capnp_embed deixado tolerante por decis\u00e3o documentada do autor. Su\u00edte 12 crates: 3.660+ testes verdes. Achados processuais: (1) cargo check standalone deu FALSO PASS em m\u00f3dulo all(test,feature=post-hooks) \u2014 verificar com o feature set do dependente; (2) inser\u00e7\u00e3o de static ap\u00f3s bloco de doc-comments orfa a doc (deny(missing_docs) pegou); (3) ls -la|tail esconde arquivo novo (ordena\u00e7\u00e3o alfab\u00e9tica) \u2014 gate determin\u00edstico \u00e9 o verificador."
+    }
+  ],
+  "relations": []
+}

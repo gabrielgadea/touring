@@ -1,0 +1,11 @@
+{
+  "phase": "G8",
+  "entities": [
+    {
+      "entity_id": "phase:G8",
+      "type": "phase",
+      "description": "G8: removidos crates/touring-web/test_suspense.rs e test_resource.rs (22 linhas de leptos), fora de src/ e de tests/, nao referenciados por nenhum Cargo.toml - nunca compilados, nunca testados. REGRA #0."
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "W11",
+  "entities": [
+    {
+      "entity_id": "phase:W11",
+      "type": "phase",
+      "description": "touring-excellence removida a pedido do Gabriel. Medicao antes: sem frontmatter (o runtime caia no H1 como description, sem vocabulario de gatilho -> irrotavel), pinada em v28.13.0 (atual 30.4.13), sem slash command correspondente em commands/, e ensinava 'touring graph dependencies' (fantasma). Nada unico perdido: mcts search e workspace-info ja documentados no touring-cli-index e nas references."
+    }
+  ],
+  "relations": []
+}

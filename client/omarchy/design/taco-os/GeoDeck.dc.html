@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #00101f; }
+    a { color: #8cbfb8; }
+    @keyframes routepulse { 0%,100% { stroke-opacity: .55 } 50% { stroke-opacity: 1 } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; background:
+  radial-gradient(620px 420px at 24% 60%, rgba(2,131,145,0.14) 0%, rgba(2,131,145,0) 70%),
+  linear-gradient(180deg, #001d33 0%, #00121f 100%);
+  font-family: 'Space Mono', ui-monospace, monospace; color: #f6dcac;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 24px 34px 0 34px;">
+    <div>
+      <div style="font-size: 9px; letter-spacing: 0.32em; color: #8cbfb8;">MODULE &middot; GEO AI</div>
+      <div style="font-family: Michroma, system-ui, sans-serif; font-size: 20px; letter-spacing: 0.1em; color: #f6dcac; margin-top: 6px;">KAZUBA GEO ENGINE</div>
+    </div>
+    <div style="display: flex; gap: 26px; text-align: right;">
+      <div><div style="font-family: Michroma, system-ui, sans-serif; font-size: 17px; color: #faa968;">SIRGAS 2000</div><div style="font-size: 8.5px; letter-spacing: 0.2em; color: #57898a; margin-top: 3px;">DATUM</div></div>
+      <div><div style="font-family: Michroma, system-ui, sans-serif; font-size: 17px; color: #faa968;">RUST + PyO3</div><div style="font-size: 8.5px; letter-spacing: 0.2em; color: #57898a; margin-top: 3px;">FFI CORE</div></div>
+    </div>
+  </div>
+
+  <div style="position: absolute; top: 104px; left: 34px; width: 800px; height: 620px; border: 1px solid #0a3050; background: rgba(0,13,26,0.55);">
+    <span style="position: absolute; top: -1px; left: -1px; width: 14px; height: 14px; border-top: 2px solid #35a2a7; border-left: 2px solid #35a2a7;"></span>
+    <span style="position: absolute; bottom: -1px; right: -1px; width: 14px; height: 14px; border-bottom: 2px solid #35a2a7; border-right: 2px solid #35a2a7;"></span>
+    <svg width="800" height="620" viewBox="0 0 800 620" fill="none">
+      <path d="M0 470 C160 430 240 480 380 440 S640 380 800 420" stroke="#0a3050" stroke-width="26" opacity="0.5"/>
+      <path d="M60 0 C90 140 60 260 140 380 S200 560 180 620" stroke="#0a3050" stroke-width="18" opacity="0.5"/>
+      <g stroke="#12456b" stroke-width="1.1">
+        <path d="M40 90 L210 150 L390 120 L560 190 L740 160"/>
+        <path d="M210 150 L260 300 L180 430"/>
+        <path d="M390 120 L430 290 L360 470"/>
+        <path d="M560 190 L610 340 L540 520"/>
+        <path d="M260 300 L430 290 L610 340"/>
+        <path d="M180 430 L360 470 L540 520 L720 480"/>
+      </g>
+      <path d="M40 90 L210 150 L260 300 L430 290 L610 340 L540 520" stroke="#faa968" stroke-width="2.6" style="animation: routepulse 2.4s ease-in-out infinite;"/>
+      <g fill="#8cbfb8">
+        <circle cx="40" cy="90" r="4"/><circle cx="210" cy="150" r="4"/><circle cx="390" cy="120" r="4"/>
+        <circle cx="560" cy="190" r="4"/><circle cx="740" cy="160" r="4"/><circle cx="260" cy="300" r="4"/>
+        <circle cx="430" cy="290" r="4"/><circle cx="610" cy="340" r="4"/><circle cx="180" cy="430" r="4"/>
+        <circle cx="360" cy="470" r="4"/><circle cx="540" cy="520" r="4"/><circle cx="720" cy="480" r="4"/>
+      </g>
+      <circle cx="40" cy="90" r="9" stroke="#faa968" stroke-width="1.4"/>
+      <circle cx="540" cy="520" r="9" stroke="#f85525" stroke-width="1.4"/>
+      <rect x="252" y="240" width="240" height="150" stroke="#3f8f8a" stroke-width="1" stroke-dasharray="6 5"/>
+      <text x="262" y="258" fill="#3f8f8a" font-size="10" font-family="Space Mono, monospace">R-TREE QUERY WINDOW</text>
+    </svg>
+    <div style="position: absolute; left: 16px; bottom: 12px; font-size: 9px; letter-spacing: 0.22em; color: #57898a;">DIJKSTRA ROUTE &middot; ORIGIN EF-151 &#8594; TERMINAL &middot; 6 EDGES &middot; PETGRAPH</div>
+  </div>
+
+  <div style="position: absolute; top: 104px; right: 34px; width: 386px; display: flex; flex-direction: column; gap: 12px;">
+    <div style="font-size: 9px; letter-spacing: 0.28em; color: #8cbfb8; padding-bottom: 8px; border-bottom: 1px solid #0a3050;">LAYERS &middot; SOURCES</div>
+    <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,19,36,0.85); border: 1px solid #0a3050; padding: 12px 14px; min-height: 44px;">
+      <span style="width: 8px; height: 8px; background: #35a2a7; box-shadow: 0 0 9px #35a2a7;"></span>
+      <span style="flex: 1; font-size: 11px; color: #f6dcac;">Earth Engine &middot; default source</span>
+      <span style="font-size: 9px; letter-spacing: 0.16em; color: #35a2a7;">ON</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,19,36,0.85); border: 1px solid #0a3050; padding: 12px 14px; min-height: 44px;">
+      <span style="width: 8px; height: 8px; background: #35a2a7; box-shadow: 0 0 9px #35a2a7;"></span>
+      <span style="flex: 1; font-size: 11px; color: #f6dcac;">Road mesh &middot; R-Tree spatial index</span>
+      <span style="font-size: 9px; letter-spacing: 0.16em; color: #35a2a7;">ON</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,19,36,0.85); border: 1px solid #0a3050; padding: 12px 14px; min-height: 44px;">
+      <span style="width: 8px; height: 8px; background: #faa968; box-shadow: 0 0 9px #faa968;"></span>
+      <span style="flex: 1; font-size: 11px; color: #f6dcac;">HDM-4 &middot; IRI pavement progression</span>
+      <span style="font-size: 9px; letter-spacing: 0.16em; color: #faa968;">MODEL</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,19,36,0.85); border: 1px solid #0a3050; padding: 12px 14px; min-height: 44px;">
+      <span style="width: 8px; height: 8px; background: #57898a;"></span>
+      <span style="flex: 1; font-size: 11px; color: #a3ccc6;">Concession layers &middot; KML/KMZ writer</span>
+      <span style="font-size: 9px; letter-spacing: 0.16em; color: #57898a;">EXPORT</span>
+    </div>
+
+    <div style="margin-top: 10px; background: rgba(0,19,36,0.85); border: 1px solid #0a3050; padding: 16px;">
+      <div style="font-size: 9px; letter-spacing: 0.24em; color: #8cbfb8;">IRI PROGRESSION &middot; SEGMENT EF-151/KM 402</div>
+      <div style="display: flex; align-items: flex-end; gap: 5px; height: 74px; margin-top: 14px;">
+        <div style="flex:1; height: 26%; background: #028391;"></div>
+        <div style="flex:1; height: 32%; background: #028391;"></div>
+        <div style="flex:1; height: 38%; background: #35a2a7;"></div>
+        <div style="flex:1; height: 47%; background: #35a2a7;"></div>
+        <div style="flex:1; height: 58%; background: #e97b3c;"></div>
+        <div style="flex:1; height: 72%; background: #e97b3c;"></div>
+        <div style="flex:1; height: 88%; background: #f85525;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: #57898a; margin-top: 7px;"><span>2026</span><span>IRI m/km &#8594; intervention threshold</span><span>2032</span></div>
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-top: 8px;">
+      <div style="flex: 1; min-height: 46px; display: flex; align-items: center; justify-content: center; background: #faa968; color: #00172e; font-size: 10px; font-weight: 700; letter-spacing: 0.16em; cursor: pointer;">RUN ANALYSIS</div>
+      <div style="flex: 1; min-height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid #3f8f8a; color: #8cbfb8; font-size: 10px; letter-spacing: 0.16em; cursor: pointer;">EXPORT KMZ</div>
+    </div>
+    <div style="min-height: 44px; display: flex; align-items: center; justify-content: center; border: 1px solid #12456b; color: #57898a; font-size: 9.5px; letter-spacing: 0.18em; cursor: pointer;">PUBLISH LAYERS &middot; skill kazuba-geo-premium</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

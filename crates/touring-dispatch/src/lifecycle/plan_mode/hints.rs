@@ -3,6 +3,8 @@
 //! All functions are `pub(super)` — only `enter.rs` and `exit.rs` call them.
 //! Naming convention: `maybe_*_on_enter_plan` / `maybe_*_on_exit_plan`.
 
+use touring_foundation::truncate_str;
+
 /// Upsert a plan session document into Tantivy (R18-S2).
 ///
 /// Records the plan session as a searchable symbol with kind="plan_session",
@@ -24,7 +26,7 @@ pub(crate) fn upsert_plan_session_to_tantivy(
                 file_path: format!("plan_session:{plan_task_id}"),
                 symbol_kind: "plan_session".to_string(),
                 module_path: Some("plan_sessions".to_string()),
-                docstring: Some(intent[..intent.len().min(300)].to_string()),
+                docstring: Some(truncate_str(intent, 300).to_string()),
                 line_number: 0,
                 language: "plan".to_string(),
                 visibility: None,
@@ -78,7 +80,7 @@ pub(crate) fn maybe_adr_hint_on_enter_plan(intent: &str) -> Option<String> {
     if !ADR_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let title = &intent[..intent.len().min(40)];
+    let title = truncate_str(intent, 40);
     Some(format!(
         "adr: architectural decision — run `touring generate render adr \
         --vars '{{\"title\":\"{title}\",\"status\":\"proposed\"}}' -j` \
@@ -115,7 +117,7 @@ pub(crate) fn maybe_asyncapi_hint_on_enter_plan(intent: &str) -> Option<String> 
     if !ASYNC_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let title = &intent[..intent.len().min(40)];
+    let title = truncate_str(intent, 40);
     Some(format!(
         "asyncapi: async messaging intent — run `touring generate render asyncapi_spec \
         --vars '{{\"title\":\"{title}\",\"version\":\"1.0.0\"}}' -j` \
@@ -149,7 +151,7 @@ pub(crate) fn maybe_error_catalog_hint_on_enter_plan(intent: &str) -> Option<Str
     if !ERROR_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let title = &intent[..intent.len().min(40)];
+    let title = truncate_str(intent, 40);
     Some(format!(
         "error-catalog: error handling intent — run `touring generate render error_catalog \
         --vars '{{\"domain\":\"{title}\"}}' -j` \
@@ -183,7 +185,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_enter_plan(intent: &str) -> Option<Str
     if !DAG_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let task_id = &intent[..intent.len().min(30)];
+    let task_id = truncate_str(intent, 30);
     Some(format!(
         "task-scaffold: DAG planning detected — run `touring generate render task_scaffold \
         --vars '{{\"task_id\":\"{task_id}\",\"intent\":\"plan\"}}' -j` \
@@ -219,7 +221,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_enter_plan(intent: &str) -> Option<Strin
     if !CI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "ci-workflow: CI/CD intent — run `touring generate render ci_workflow \
         --vars '{{\"workflow_name\":\"{name}\",\"trigger\":\"push\"}}' -j` \
@@ -252,7 +254,7 @@ pub(crate) fn maybe_dockerfile_hint_on_enter_plan(intent: &str) -> Option<String
     if !DOCKER_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "dockerfile: container intent — run `touring generate render dockerfile \
         --vars '{{\"service_name\":\"{name}\",\"base_image\":\"rust:1.77\"}}' -j` \
@@ -288,7 +290,7 @@ pub(crate) fn maybe_terraform_hint_on_enter_plan(intent: &str) -> Option<String>
     if !TERRAFORM_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "terraform: IaC intent — run `touring generate render terraform_module \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -317,7 +319,7 @@ pub(crate) fn maybe_rust_module_hint_on_enter_plan(intent: &str) -> Option<Strin
     if !RUST_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "rust-module: Rust module intent — run `touring generate render RustModule \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -346,7 +348,7 @@ pub(crate) fn maybe_migration_hint_on_enter_plan(intent: &str) -> Option<String>
     if !MIGRATION_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "migration: database migration intent — run `touring generate render Migration \
         --vars '{{\"migration_name\":\"{name}\"}}' -j` \
@@ -375,7 +377,7 @@ pub(crate) fn maybe_protobuf_hint_on_enter_plan(intent: &str) -> Option<String> 
     if !PROTO_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "protobuf-schema: gRPC/protobuf intent — run `touring generate render ProtobufSchema \
         --vars '{{\"service_name\":\"{name}\"}}' -j` \
@@ -403,7 +405,7 @@ pub(crate) fn maybe_k8s_hint_on_enter_plan(intent: &str) -> Option<String> {
     if !K8S_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "k8s-manifest: Kubernetes intent — run `touring generate render K8sManifest \
         --vars '{{\"app_name\":\"{name}\"}}' -j` \
@@ -430,7 +432,7 @@ pub(crate) fn maybe_openapi_hint_on_enter_plan(intent: &str) -> Option<String> {
     if !OAS_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "openapi-spec: REST/OpenAPI intent — run `touring generate render OpenApiSpec \
         --vars '{{\"api_name\":\"{name}\"}}' -j` \
@@ -457,7 +459,7 @@ pub(crate) fn maybe_shell_completion_hint_on_enter_plan(intent: &str) -> Option<
     if !COMPLETION_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "shell-completion: tab completion intent — run `touring generate render ShellCompletion \
         --vars '{{\"tool_name\":\"{name}\"}}' -j` \
@@ -484,7 +486,7 @@ pub(crate) fn maybe_man_page_hint_on_enter_plan(intent: &str) -> Option<String> 
     if !MAN_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "man-page: Unix man page intent — run `touring generate render ManPage \
         --vars '{{\"command_name\":\"{name}\"}}' -j` \
@@ -511,7 +513,7 @@ pub(crate) fn maybe_changelog_hint_on_enter_plan(intent: &str) -> Option<String>
     if !CHANGELOG_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "changelog-entry: release/changelog intent — run `touring generate render ChangelogEntry \
         --vars '{{\"version\":\"{name}\"}}' -j` \
@@ -538,7 +540,7 @@ pub(crate) fn maybe_skill_document_hint_on_enter_plan(intent: &str) -> Option<St
     if !SKILL_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "skill-document: skill/guide intent — run `touring generate render SkillDocument \
         --vars '{{\"skill_name\":\"{name}\"}}' -j` \
@@ -565,7 +567,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_enter_plan(intent: &str) -> Option<Strin
     if !FFI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "ffi-binding: FFI/native intent — run `touring generate render FfiBinding \
         --vars '{{\"lib_name\":\"{name}\"}}' -j` \
@@ -592,7 +594,7 @@ pub(crate) fn maybe_python_script_hint_on_enter_plan(intent: &str) -> Option<Str
     if !PY_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "python-script: Python intent — run `touring generate render PythonScript \
         --vars '{{\"script_name\":\"{name}\"}}' -j` \
@@ -619,7 +621,7 @@ pub(crate) fn maybe_benchmark_hint_on_enter_plan(intent: &str) -> Option<String>
     if !BENCH_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "benchmark: performance benchmark intent — run `touring generate render Benchmark \
         --vars '{{\"bench_name\":\"{name}\"}}' -j` \
@@ -646,7 +648,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_enter_plan(intent: &str) -> Option<Strin
     if !FUZZ_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "fuzz-target: fuzz test intent — run `touring generate render FuzzTarget \
         --vars '{{\"target_name\":\"{name}\"}}' -j` \
@@ -673,7 +675,7 @@ pub(crate) fn maybe_derive_macro_hint_on_enter_plan(intent: &str) -> Option<Stri
     if !MACRO_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "derive-macro: proc-macro intent — run `touring generate render DeriveMacro \
         --vars '{{\"macro_name\":\"{name}\"}}' -j` \
@@ -700,7 +702,7 @@ pub(crate) fn maybe_diary_entry_hint_on_enter_plan(intent: &str) -> Option<Strin
     if !DIARY_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "diary-entry: lesson/diary intent — run `touring generate render DiaryEntry \
         --vars '{{\"agent_name\":\"{name}\"}}' -j` \
@@ -727,7 +729,7 @@ pub(crate) fn maybe_cli_handler_hint_on_enter_plan(intent: &str) -> Option<Strin
     if !CLI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "cli-handler: CLI command planning intent — run `touring generate render CliHandler \
         --vars '{{\"command_name\":\"{name}\"}}' -j` \
@@ -754,7 +756,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_enter_plan(intent: &str) -> Option<String> 
     if !MCP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "mcp-tool: MCP tool planning intent — run `touring generate render McpTool \
         --vars '{{\"tool_name\":\"{name}\"}}' -j` \
@@ -781,7 +783,7 @@ pub(crate) fn maybe_hook_handler_hint_on_enter_plan(intent: &str) -> Option<Stri
     if !HOOK_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "hook-handler: hook handler planning intent — run `touring generate render HookHandler \
         --vars '{{\"hook_name\":\"{name}\"}}' -j` \
@@ -808,7 +810,7 @@ pub(crate) fn maybe_plan_md_hint_on_enter_plan(intent: &str) -> Option<String> {
     if !PLAN_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "plan-md: project planning intent — run `touring generate render PlanMd \
         --vars '{{\"project_name\":\"{name}\"}}' -j` \
@@ -835,7 +837,7 @@ pub(crate) fn maybe_schema_hint_on_enter_plan(intent: &str) -> Option<String> {
     if !SCHEMA_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         "schema: data schema planning intent — run `touring generate render Schema \
         --vars '{{\"schema_name\":\"{name}\"}}' -j` \
@@ -870,7 +872,7 @@ pub(crate) fn maybe_error_catalog_hint_on_exit_plan(intent: &str) -> Option<Stri
     if !ERROR_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | error-catalog: error design intent detected — run `touring generate render error_catalog \
         --vars '{{\"domain\":\"{name}\"}}' -j` \
@@ -903,7 +905,7 @@ pub(crate) fn maybe_plan_md_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !PLAN_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | plan-md: project planning intent detected — run `touring generate render plan.md \
         --vars '{{\"title\":\"{name}\"}}' -j` \
@@ -937,7 +939,7 @@ pub(crate) fn maybe_asyncapi_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !ASYNC_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | asyncapi-spec: async API intent detected — run `touring generate render asyncapi_spec \
         --vars '{{\"title\":\"{name}\"}}' -j` \
@@ -971,7 +973,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_exit_plan(intent: &str) -> Option<String
     if !CI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | ci-workflow: CI/CD intent detected — run `touring generate render ci_workflow \
         --vars '{{\"workflow_name\":\"{name}\",\"trigger\":\"push\"}}' -j` \
@@ -1004,7 +1006,7 @@ pub(crate) fn maybe_dockerfile_hint_on_exit_plan(intent: &str) -> Option<String>
     if !DOCKER_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | dockerfile: container intent detected — run `touring generate render dockerfile \
         --vars '{{\"service_name\":\"{name}\",\"base_image\":\"rust:1.77\"}}' -j` \
@@ -1040,7 +1042,7 @@ pub(crate) fn maybe_k8s_manifest_hint_on_exit_plan(intent: &str) -> Option<Strin
     if !K8S_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | k8s-manifest: Kubernetes intent detected — run `touring generate render k8s_manifest \
         --vars '{{\"app_name\":\"{name}\",\"replicas\":1}}' -j` \
@@ -1072,7 +1074,7 @@ pub(crate) fn maybe_man_page_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !MAN_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | man-page: man page intent detected — run `touring generate render man_page \
         --vars '{{\"command_name\":\"{name}\"}}' -j` \
@@ -1107,7 +1109,7 @@ pub(crate) fn maybe_hook_handler_hint_on_exit_plan(intent: &str) -> Option<Strin
     if !HOOK_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | hook-handler: Touring hook planning detected — run `touring generate render hook_handler \
         --vars '{{\"hook_name\":\"{name}\"}}' -j` \
@@ -1136,7 +1138,7 @@ pub(crate) fn maybe_rust_module_hint_on_exit_plan(intent: &str) -> Option<String
     if !RUST_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | rust-module: Rust module planning — run `touring generate render RustModule \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -1165,7 +1167,7 @@ pub(crate) fn maybe_migration_hint_on_exit_plan(intent: &str) -> Option<String> 
     if !MIGRATION_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | migration: database migration planning — run `touring generate render Migration \
         --vars '{{\"migration_name\":\"{name}\"}}' -j` \
@@ -1194,7 +1196,7 @@ pub(crate) fn maybe_protobuf_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !PROTO_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | protobuf-schema: gRPC/protobuf planning — run `touring generate render ProtobufSchema \
         --vars '{{\"service_name\":\"{name}\"}}' -j` \
@@ -1221,7 +1223,7 @@ pub(crate) fn maybe_python_script_hint_on_exit_plan(intent: &str) -> Option<Stri
     if !PY_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | python-script: Python intent — run `touring generate render PythonScript \
         --vars '{{\"script_name\":\"{name}\"}}' -j` \
@@ -1248,7 +1250,7 @@ pub(crate) fn maybe_benchmark_hint_on_exit_plan(intent: &str) -> Option<String> 
     if !BENCH_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | benchmark: perf benchmark intent — run `touring generate render Benchmark \
         --vars '{{\"bench_name\":\"{name}\"}}' -j` \
@@ -1275,7 +1277,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_exit_plan(intent: &str) -> Option<
     if !PATCH_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | incremental-patch: patch intent — run `touring generate render IncrementalPatch \
         --vars '{{\"patch_name\":\"{name}\"}}' -j` \
@@ -1302,7 +1304,7 @@ pub(crate) fn maybe_cli_handler_hint_on_exit_plan(intent: &str) -> Option<String
     if !CLI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | cli-handler: CLI command intent — run `touring generate render CliHandler \
         --vars '{{\"command_name\":\"{name}\"}}' -j` \
@@ -1329,7 +1331,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !MCP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | mcp-tool: MCP tool intent — run `touring generate render McpTool \
         --vars '{{\"tool_name\":\"{name}\"}}' -j` \
@@ -1356,7 +1358,7 @@ pub(crate) fn maybe_schema_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !SCHEMA_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | schema: data schema intent — run `touring generate render Schema \
         --vars '{{\"schema_name\":\"{name}\"}}' -j` \
@@ -1391,7 +1393,7 @@ pub(crate) fn maybe_skill_document_hint_on_exit_plan(intent: &str) -> Option<Str
     if !DOC_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let title = &intent[..intent.len().min(40)];
+    let title = truncate_str(intent, 40);
     Some(format!(
         " | skill-document: documentation intent detected — run `touring generate render skill_document \
         --vars '{{\"title\":\"{title}\"}}' -j` \
@@ -1425,7 +1427,7 @@ pub(crate) fn maybe_terraform_hint_on_exit_plan(intent: &str) -> Option<String> 
     if !IAC_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | terraform-module: IaC planning detected — run `touring generate render terraform_module \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -1461,7 +1463,7 @@ pub(crate) fn maybe_shell_completion_hint_on_exit_plan(intent: &str) -> Option<S
     if !CLI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(30)];
+    let name = truncate_str(intent, 30);
     Some(format!(
         " | shell-completion: CLI planning detected — run `touring generate render shell_completion \
         --vars '{{\"program_name\":\"{name}\"}}' -j` \
@@ -1479,7 +1481,7 @@ pub(crate) fn maybe_changelog_hint_on_exit_plan(intent: &str) -> Option<String> 
     if intent.len() < 3 {
         return None;
     }
-    let summary = &intent[..intent.len().min(50)];
+    let summary = truncate_str(intent, 50);
     Some(format!(
         " | changelog-entry: run `touring generate render changelog_entry \
         --vars '{{\"version\":\"next\",\"summary\":\"{summary}\"}}' -j` \
@@ -1506,7 +1508,7 @@ pub(crate) fn maybe_adr_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !ADR_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | adr: architecture decision intent — run `touring generate render Adr \
         --vars '{{\"title\":\"{name}\"}}' -j` \
@@ -1534,7 +1536,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_exit_plan(intent: &str) -> Option<Stri
     if !TASK_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | task-scaffold: task decomposition intent — run `touring generate render TaskScaffold \
         --vars '{{\"task_id\":\"{name}\"}}' -j` \
@@ -1562,7 +1564,7 @@ pub(crate) fn maybe_test_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !TEST_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | test: test intent detected — run `touring generate render Test \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -1589,7 +1591,7 @@ pub(crate) fn maybe_openapi_hint_on_exit_plan(intent: &str) -> Option<String> {
     if !OAS_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | openapi-spec: REST/OpenAPI exit intent — run `touring generate render OpenApiSpec \
         --vars '{{\"api_name\":\"{name}\"}}' -j` \
@@ -1616,7 +1618,7 @@ pub(crate) fn maybe_consumer_generator_hint_on_exit_plan(intent: &str) -> Option
     if !CONSUMER_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | consumer-generator: consumer intent detected — run `touring generate render ConsumerGenerator \
         --vars '{{\"consumer_name\":\"{name}\"}}' -j` \
@@ -1643,7 +1645,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_exit_plan(intent: &str) -> Option<String
     if !FFI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | ffi-binding: FFI intent detected — run `touring generate render FfiBinding \
         --vars '{{\"lib_name\":\"{name}\"}}' -j` \
@@ -1670,7 +1672,7 @@ pub(crate) fn maybe_diary_entry_hint_on_exit_plan(intent: &str) -> Option<String
     if !DIARY_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | diary-entry: lesson/diary intent — run `touring generate render DiaryEntry \
         --vars '{{\"agent_name\":\"{name}\"}}' -j` \
@@ -1697,7 +1699,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_exit_plan(intent: &str) -> Option<String
     if !FUZZ_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | fuzz-target: fuzz test intent — run `touring generate render FuzzTarget \
         --vars '{{\"target_name\":\"{name}\"}}' -j` \
@@ -1724,7 +1726,7 @@ pub(crate) fn maybe_derive_macro_hint_on_exit_plan(intent: &str) -> Option<Strin
     if !MACRO_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &intent[..intent.len().min(40)];
+    let name = truncate_str(intent, 40);
     Some(format!(
         " | derive-macro: proc-macro intent — run `touring generate render DeriveMacro \
         --vars '{{\"macro_name\":\"{name}\"}}' -j` \

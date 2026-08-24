@@ -1,0 +1,59 @@
+{
+  // Skills deck — submenu with AI skill shortcuts.
+  //
+  // Usage: omarchy menu summon skills (or SUPER+SHIFT+CTRL+S via hypr/bindings.skills.lua)
+  // Runner: omarchy-skill-run [--herdr] <skill> <model> <effort> <mode> <cwd>
+  //   model    ∈ {fable, opus, sonnet, haiku}
+  //   effort   ∈ {low, medium, high, xhigh, max}
+  //   mode     ∈ {plan, acceptEdits, auto, default}  — bypass mode is not accepted
+  //
+  // To add a button: append a dotted id under "skills.*" with an action.
+
+  "skills": {
+    "icon": "󱁤",
+    "label": "Skills deck",
+    "aliases": ["skills"]
+  },
+
+  "skills.audit": {
+    "icon": "",
+    "label": "Cross-audit (touring)",
+    "description": "TACO-cross-audit · fable · high · acceptEdits",
+    "action": "omarchy-skill-run TACO-cross-audit fable high acceptEdits ~/projects/touring"
+  },
+
+  "skills.moc": {
+    "icon": "󰠶",
+    "label": "Refresh second brain",
+    "description": "brain-moc · sonnet · medium · acceptEdits",
+    "action": "omarchy-skill-run brain-moc sonnet medium acceptEdits ~/Work"
+  },
+
+  "skills.inbox": {
+    "icon": "",
+    "label": "Inbox digest",
+    "description": "inbox-digest · sonnet · medium · acceptEdits",
+    "action": "omarchy-skill-run inbox-digest sonnet medium acceptEdits ~/Work/pessoal"
+  },
+
+  "skills.herdr": {
+    "icon": "",
+    "label": "Audit in Herdr (long)",
+    "description": "TACO-cross-audit · fable · high · via Herdr (no-wait)",
+    "action": "omarchy-skill-run --herdr TACO-cross-audit fable high acceptEdits ~/projects/touring"
+  },
+
+  "skills.log": {
+    "icon": "",
+    "label": "Ver runs.log",
+    "description": "Tail the skills run log in a terminal",
+    "action": "omarchy-launch-or-focus-tui \"tail -n 50 -f ~/Work/runs.log\""
+  },
+
+  "skills.cc": {
+    "icon": "",
+    "label": "Command centre",
+    "description": "Open the Touring command centre web app",
+    "action": "omarchy-launch-webapp http://127.0.0.1:7777"
+  }
+}

@@ -5,6 +5,8 @@
 //! `cli/decompose.rs`) can consume them without an upward edge. All matchers are
 //! pure `&str -> Option<String>` — zero engine state.
 
+use touring_foundation::truncate_str;
+
 /// R49-S1: Detect API/endpoint/REST keywords in task subject and suggest `openapi_spec` generator (CC=2).
 ///
 /// When TaskCreate has a subject mentioning API, endpoint, REST, HTTP, or routes,
@@ -22,7 +24,7 @@ pub fn maybe_openapi_hint_on_task_create(task_subject: &str) -> Option<String> {
     if !API_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let title = &task_subject[..task_subject.len().min(40)];
+    let title = truncate_str(task_subject, 40);
     Some(format!(
         "openapi-spec: API task detected — run `touring generate render openapi_spec \
         --vars '{{\"title\":\"{title}\",\"version\":\"1.0.0\"}}' -j` \
@@ -47,7 +49,7 @@ pub fn maybe_protobuf_hint_on_task_create(task_subject: &str) -> Option<String> 
     if !PROTO_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let service = &task_subject[..task_subject.len().min(40)];
+    let service = truncate_str(task_subject, 40);
     Some(format!(
         "protobuf-schema: gRPC/proto task detected — run `touring generate render protobuf_schema \
         --vars '{{\"service_name\":\"{service}\"}}' -j` \
@@ -80,7 +82,7 @@ pub fn maybe_fuzz_target_hint_on_task_create(task_subject: &str) -> Option<Strin
     if !FUZZ_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let target = &task_subject[..task_subject.len().min(40)];
+    let target = truncate_str(task_subject, 40);
     Some(format!(
         "fuzz-target: security/fuzz task detected — run `touring generate render fuzz_target \
         --vars '{{\"target_name\":\"{target}\"}}' -j` \
@@ -112,7 +114,7 @@ pub fn maybe_derive_macro_hint_on_task_create(task_subject: &str) -> Option<Stri
     if !MACRO_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "derive-macro: proc-macro task detected — run `touring generate render derive_macro \
         --vars '{{\"macro_name\":\"{name}\"}}' -j` \
@@ -145,7 +147,7 @@ pub fn maybe_cli_handler_hint_on_task_create(task_subject: &str) -> Option<Strin
     if !CLI_HANDLER_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let cmd = &task_subject[..task_subject.len().min(40)];
+    let cmd = truncate_str(task_subject, 40);
     Some(format!(
         "cli-handler: CLI command task detected — run `touring generate render cli_handler \
         --vars '{{\"command_name\":\"{cmd}\"}}' -j` \
@@ -177,7 +179,7 @@ pub fn maybe_mcp_tool_hint_on_task_create(task_subject: &str) -> Option<String> 
     if !MCP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "mcp-tool: MCP tool task detected — run `touring generate render mcp_tool \
         --vars '{{\"tool_name\":\"{name}\"}}' -j` \
@@ -211,7 +213,7 @@ pub fn maybe_adr_hint_on_task_create(task_subject: &str) -> Option<String> {
     if !ADR_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let title = &task_subject[..task_subject.len().min(40)];
+    let title = truncate_str(task_subject, 40);
     Some(format!(
         "adr: architecture task detected — run `touring generate render adr \
         --vars '{{\"title\":\"{title}\",\"status\":\"proposed\"}}' -j` \
@@ -244,7 +246,7 @@ pub fn maybe_benchmark_hint_on_task_create(task_subject: &str) -> Option<String>
     if !BENCH_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let target = &task_subject[..task_subject.len().min(40)];
+    let target = truncate_str(task_subject, 40);
     Some(format!(
         "benchmark: perf task detected — run `touring generate render benchmark \
         --vars '{{\"bench_name\":\"{target}\"}}' -j` \
@@ -277,7 +279,7 @@ pub fn maybe_incremental_patch_hint_on_task_create(task_subject: &str) -> Option
     if !PATCH_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "incremental-patch: patch task detected — run `touring generate render incremental_patch \
         --vars '{{\"patch_name\":\"{name}\"}}' -j` \
@@ -312,7 +314,7 @@ pub fn maybe_task_scaffold_hint_on_task_create(task_subject: &str) -> Option<Str
     if !TASK_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "task-scaffold: DAG task detected — run `touring generate render task_scaffold \
         --vars '{{\"task_id\":\"{name}\"}}' -j` \
@@ -347,7 +349,7 @@ pub fn maybe_diary_entry_hint_on_task_create(task_subject: &str) -> Option<Strin
     if !DIARY_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "diary-entry: retrospective task detected — run `touring generate render diary_entry \
         --vars '{{\"agent\":\"claude_code\",\"topic\":\"{name}\"}}' -j` \
@@ -382,7 +384,7 @@ pub fn maybe_skill_document_hint_on_task_create(task_subject: &str) -> Option<St
     if !SKILL_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "skill-document: skill authoring task detected — run `touring generate render skill_document \
         --vars '{{\"skill_name\":\"{name}\"}}' -j` \
@@ -416,7 +418,7 @@ pub fn maybe_k8s_manifest_hint_on_task_create(task_subject: &str) -> Option<Stri
     if !K8S_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "k8s-manifest: Kubernetes task detected — run `touring generate render k8s_manifest \
         --vars '{{\"app_name\":\"{name}\"}}' -j` \
@@ -450,7 +452,7 @@ pub fn maybe_ci_workflow_hint_on_task_create(task_subject: &str) -> Option<Strin
     if !CI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "ci-workflow: CI/CD task detected — run `touring generate render ci_workflow \
         --vars '{{\"workflow_name\":\"{name}\"}}' -j` \
@@ -484,7 +486,7 @@ pub fn maybe_terraform_hint_on_task_create(task_subject: &str) -> Option<String>
     if !TERRAFORM_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "terraform-module: IaC task detected — run `touring generate render terraform_module \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -520,7 +522,7 @@ pub fn maybe_rust_module_hint_on_task_create(task_subject: &str) -> Option<Strin
     if !MODULE_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "rust-module: Rust module task detected — run `touring generate render rust_module \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -553,7 +555,7 @@ pub fn maybe_consumer_generator_hint_on_task_create(task_subject: &str) -> Optio
     if !CONSUMER_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "consumer-generator: wiring task detected — run `touring generate render consumer_generator \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -587,7 +589,7 @@ pub fn maybe_schema_hint_on_task_create(task_subject: &str) -> Option<String> {
     if !SCHEMA_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "schema: schema definition task detected — run `touring generate render schema \
         --vars '{{\"schema_name\":\"{name}\"}}' -j` \
@@ -619,7 +621,7 @@ pub fn maybe_asyncapi_hint_on_task_create(task_subject: &str) -> Option<String> 
     if !ASYNCAPI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "asyncapi: event-driven API task detected — run `touring generate render asyncapi_spec \
         --vars '{{\"title\":\"{name}\"}}' -j` \
@@ -651,7 +653,7 @@ pub fn maybe_man_page_hint_on_task_create(task_subject: &str) -> Option<String> 
     if !MAN_PAGE_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "man-page: documentation task detected — run `touring generate render man_page \
         --vars '{{\"command_name\":\"{name}\"}}' -j` \
@@ -682,7 +684,7 @@ pub fn maybe_error_catalog_hint_on_task_create(task_subject: &str) -> Option<Str
     if !ERROR_CATALOG_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "error-catalog: error-type task detected — run `touring generate render error_catalog \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -710,7 +712,7 @@ pub fn maybe_changelog_hint_on_task_create(task_subject: &str) -> Option<String>
     if !CHANGELOG_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "changelog: release task detected — run `touring generate render ChangelogEntry \
         --vars '{{\"version\":\"{name}\"}}' -j` \
@@ -738,7 +740,7 @@ pub fn maybe_dockerfile_hint_on_task_create(task_subject: &str) -> Option<String
     if !DOCKERFILE_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "dockerfile: container task detected — run `touring generate render Dockerfile \
         --vars '{{\"service_name\":\"{name}\"}}' -j` \
@@ -766,7 +768,7 @@ pub fn maybe_migration_hint_on_task_create(task_subject: &str) -> Option<String>
     if !MIGRATION_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "migration: DB migration task detected — run `touring generate render migration \
         --vars '{{\"migration_name\":\"{name}\"}}' -j` \
@@ -795,7 +797,7 @@ pub fn maybe_python_script_hint_on_task_create(task_subject: &str) -> Option<Str
     if !PYTHON_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "python: Python task detected — run `touring generate render PythonScript \
         --vars '{{\"script_name\":\"{name}\"}}' -j` \
@@ -824,7 +826,7 @@ pub fn maybe_test_hint_on_task_create(task_subject: &str) -> Option<String> {
     if !TEST_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "test: testing task detected — run `touring generate render Test \
         --vars '{{\"module_name\":\"{name}\"}}' -j` \
@@ -852,7 +854,7 @@ pub fn maybe_shell_completion_hint_on_task_create(task_subject: &str) -> Option<
     if !COMPLETION_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "shell-completion: CLI completion task detected — run `touring generate render ShellCompletion \
         --vars '{{\"cli_name\":\"{name}\"}}' -j` \
@@ -884,7 +886,7 @@ pub fn maybe_hook_handler_hint_on_task_create(task_subject: &str) -> Option<Stri
     if !HOOK_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "hook-handler: hook task detected — run `touring generate render HookHandler \
         --vars '{{\"hook_name\":\"{name}\"}}' -j` \
@@ -915,7 +917,7 @@ pub fn maybe_plan_md_hint_on_task_create(task_subject: &str) -> Option<String> {
     if !PLAN_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "plan-md: planning task detected — run `touring generate render PlanMd \
         --vars '{{\"plan_title\":\"{name}\"}}' -j` \
@@ -947,7 +949,7 @@ pub fn maybe_ffi_binding_hint_on_task_create(task_subject: &str) -> Option<Strin
     if !FFI_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
         return None;
     }
-    let name = &task_subject[..task_subject.len().min(40)];
+    let name = truncate_str(task_subject, 40);
     Some(format!(
         "ffi-binding: FFI task detected — run `touring generate render FfiBinding \
         --vars '{{\"lib_name\":\"{name}\"}}' -j` \

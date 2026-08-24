@@ -1,0 +1,29 @@
+# Fragment `graph-pack` — the KNOWLEDGE graph, fed into the AGENT graph.
+#
+# Isenberg draws the distinction and then says the part we had not acted on:
+# "knowledge graphs help AI understand how information CONNECTS, whereas agent
+# graphs help AI understand how work should MOVE … the best systems use both."
+#
+# The kit had only the second. `recall-pack` retrieves TEXT — what past runs said
+# about a topic. This retrieves RELATIONS — who calls this symbol, where it is
+# defined, and what the memory graph has clustered around its domain. Different
+# question, different failure mode: text recall answers "has anyone thought about
+# this", relations answer "what breaks if I touch it".
+#
+# Every command below was verified by execution before being written here.
+[fragment]
+description = "Structural neighbourhood of a target: consumers, definition, and the domain's emergent map"
+inputs = ["symbol", "domain"]
+entry = "relations"
+
+[node.relations]
+type = "code"
+# Positional arguments only — a value interpolated into the shell string would be
+# executed by it. Each stage is `|| true` so a cold index degrades the context
+# instead of failing the flow.
+command = ["bash", "-c", "echo '## consumers (transitive, depth 2)'; touring wiring impact \"$1\" --depth 2 2>/dev/null | head -c 1200 || true; echo; echo '## definition'; touring index find \"$1\" 2>/dev/null | head -c 600 || true; echo; echo '## domain map'; touring memory moc \"$2\" 2>/dev/null | head -c 1200 || true; true", "--", "{{inputs.symbol}}", "{{inputs.domain}}"]
+timeout_ms = 60000
+idempotent = true
+readonly = true
+on_pass = "__exit__"
+on_fail = "__exit__"

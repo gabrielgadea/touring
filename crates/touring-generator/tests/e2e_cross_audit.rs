@@ -22,6 +22,7 @@
 //! - WasmSandboxAdapter (feature `wasm-sandbox`)
 //! - Concurrent pipeline (5 parallel plan executions)
 
+use touring_foundation::truncate_str;
 use std::collections::HashMap;
 use std::sync::{
     Arc,
@@ -782,7 +783,7 @@ fn generator_plan_json_schema_contains_key_fields() {
             json_str.contains(field),
             "GeneratorPlan JSON schema must contain field '{}' — schema: {}",
             field,
-            &json_str[..json_str.len().min(300)]
+            truncate_str(&json_str, 300)
         );
     }
 }
@@ -797,7 +798,7 @@ fn generator_plan_json_schema_is_object() {
     assert!(
         json_str.starts_with('{'),
         "JSON schema must be an object (starts with '{{'), got: {}",
-        &json_str[..json_str.len().min(30)]
+        truncate_str(&json_str, 30)
     );
 }
 

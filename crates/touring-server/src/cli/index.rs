@@ -113,7 +113,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             // on a rebuild that was progressing normally — reporting the raw
             // `WouldBlock` errno as "Resource temporarily unavailable". An explicit
             // `--timeout` still wins over this floor.
-            crate::daemon_client::raise_timeout_floor(1800);
+            crate::daemon_client::raise_timeout_floor(touring_foundation::HEAVY_OP_BUDGET_SECS);
             let payload = match dir {
                 Some(d) => serde_json::json!({ "dir": d }),
                 None => serde_json::json!({}),
@@ -123,7 +123,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         IndexCmd::Ingest { path } => {
             if path.is_empty() {
-                anyhow::bail!("index ingest requires <file>: usage `touring index ingest <path>`");
+                anyhow::bail!("index ingest requires <file>: usage `touring index ingest <path>` — run `touring help` for details");
             }
             let payload = serde_json::json!({ "path": path });
             let output = daemon_query("cli-index-ingest", payload)?;

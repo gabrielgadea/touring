@@ -1,0 +1,11 @@
+{
+  "phase": "O5",
+  "entities": [
+    {
+      "entity_id": "phase:O5",
+      "type": "phase",
+      "description": "loop-engineering SKILL.md: passo 10 aponta plan-pack, passo 13 aponta audit-pack E critic-panel declarando que sao ORTOGONAIS (oficio vs cegueira), tabela de pecas ganha plan-pack e skilling-pack, e a skill passa a AFIRMAR que um no carrega oficio alem de postura. 347 linhas (REGRA #13 ok)."
+    }
+  ],
+  "relations": []
+}

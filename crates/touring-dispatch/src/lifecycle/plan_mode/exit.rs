@@ -4,6 +4,7 @@
 //! Co-located helpers shared with enter live in `hints.rs`.
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use super::super::suggest_generator_for_task_subject;
 use super::hints::{
@@ -38,10 +39,7 @@ pub(crate) fn handle_exit_plan_mode(rt: &mut HookRuntime, input: &Value) -> Stri
         if ready_json.contains("\"ready_count\":0") || !ready_json.contains("\"ready_count\"") {
             String::new()
         } else {
-            format!(
-                " | ready-subtasks: {}",
-                &ready_json[..ready_json.len().min(150)]
-            )
+            format!(" | ready-subtasks: {}", truncate_str(&ready_json, 150))
         };
 
     // R18-S3: Auto-assess the planning session to generate a quality score.
@@ -162,7 +160,7 @@ pub(crate) fn handle_exit_plan_mode(rt: &mut HookRuntime, input: &Value) -> Stri
     // Complements R30-S2 (stores plan_task_id in EnterPlanMode) by storing the intent text itself.
     // Silent on empty intent — no stale entries from plan mode exits without context.
     if !intent.is_empty() {
-        let intent_snippet = &intent[..intent.len().min(200)];
+        let intent_snippet = truncate_str(intent, 200);
         let _ = crate::cli_handlers::cli_memory_store(
             rt,
             &serde_json::json!({
@@ -209,7 +207,7 @@ pub(crate) fn maybe_tantivy_search_hint_on_exit(intent: &str) -> Option<String> 
     if intent.len() < 3 {
         return None;
     }
-    let keywords = &intent[..intent.len().min(50)];
+    let keywords = truncate_str(intent, 50);
     Some(format!(
         " | tantivy-search: run `touring tantivy search \"{keywords}\"` \
         to find existing symbols before committing new artifacts"

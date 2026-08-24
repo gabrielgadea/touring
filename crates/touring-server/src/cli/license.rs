@@ -39,7 +39,7 @@ pub fn run(args: &[String]) -> Result<()> {
         }
         _ => {
             println!("{USAGE}");
-            Err(anyhow!("missing or unknown subcommand"))
+            Err(anyhow!("unknown subcommand '{}' — use `touring license status` or run with --help", sub))
         }
     }
 }
@@ -68,7 +68,7 @@ fn status(json: bool) -> Result<()> {
     let license = match std::fs::read_to_string(&path) {
         Ok(text) => Some(
             License::parse_unverified(&text)
-                .map_err(|e| anyhow!("license file {} is malformed: {e}", path.display()))?,
+                .map_err(|e| anyhow!("license file malformed ({}); check JSON syntax at $TOURING_LICENSE_FILE or ~/.touring/license.json", e))?,
         ),
         Err(_) => None,
     };

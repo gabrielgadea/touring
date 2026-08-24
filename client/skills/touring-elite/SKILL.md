@@ -52,6 +52,10 @@ Skip for:
 
 **Missing from aggregator but present in CI**: 01 code_quality, 07 best_practices, 12 naming, 13 navigability (covered by `cargo clippy -D warnings` + `rustdoc -D warnings` + `cargo fmt` + `cognitive metrics`).
 
+## Este agregador é um JUIZ — e juízes são atestados
+
+`elite_aggregate.py` e os scripts por gate (`perf_p99_gate.py`, `ux_audit.py`, …) são **graders**: o veredito de release vale exatamente o que valem eles. E eles moram na árvore que o agente julgado pode editar. Por isso a primeira cláusula do `loop_converged.py` é `judge_intact`, avaliada ANTES de todas as outras: uma cláusula que **some** bloqueia (a rubrica encolheu, logo o veredito não é o veredito de registro), e um grader que apenas **mudou** fala sem bloquear. Alterar um destes scripts de propósito é um comando datado: `judge_attest.py --attest --why "…"`. Origem: arXiv:2505.22954 Ap. H — um agente atingiu pontuação *perfeita* apagando os marcadores que o próprio detector contava. Ref: `Touring/references/skill-operating-principles.md` (P2).
+
 ## Relationship to the 50-Dimension Engine (`touring-quality`)
 
 Two complementary motors — **do not confuse them**:

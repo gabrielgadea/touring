@@ -91,12 +91,23 @@ fn audit_t210_roi_sonnet_pricing() {
     // sign. The contract is now about provenance, not shape.
     let measured = !v["usd_saved"].is_null();
     if measured {
-        assert!(v["usd_saved"].as_str().expect("string when measured").starts_with('$'));
+        assert!(
+            v["usd_saved"]
+                .as_str()
+                .expect("string when measured")
+                .starts_with('$')
+        );
         assert!(v["tokens_saved"].is_u64());
     } else {
-        assert!(v["tokens_saved"].is_null(), "unmeasured tokens must be null");
         assert!(
-            v["usd_saved_estimate"].as_str().expect("estimate").starts_with('$'),
+            v["tokens_saved"].is_null(),
+            "unmeasured tokens must be null"
+        );
+        assert!(
+            v["usd_saved_estimate"]
+                .as_str()
+                .expect("estimate")
+                .starts_with('$'),
             "the estimate still exists — under a name that says it is one"
         );
     }

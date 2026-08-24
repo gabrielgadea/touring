@@ -140,7 +140,8 @@ fn audit_i02_phrase_query_increments_metric() {
 
 #[test]
 fn audit_i03_name_boost_default_5x() {
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_TANTIVY_NAME_BOOST") };
     assert_eq!(tantivy_name_boost(), 5.0, "I-03: default boost MUST be 5.0");
 }
@@ -337,8 +338,9 @@ fn audit_i13_lifecycle_5_tier_classification() {
 
 #[test]
 fn audit_i14_think_in_code_threshold_env_tunable() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // Default is 5 (lowered from 10 in I-14)
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_THINK_IN_CODE_THRESHOLD") };
     let parsed: u32 = std::env::var("TOURING_THINK_IN_CODE_THRESHOLD")
         .ok()
@@ -346,14 +348,14 @@ fn audit_i14_think_in_code_threshold_env_tunable() {
         .unwrap_or(5);
     assert_eq!(parsed, 5, "I-14: default threshold MUST be 5");
     // Env override
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_THINK_IN_CODE_THRESHOLD", "12") };
     let parsed: u32 = std::env::var("TOURING_THINK_IN_CODE_THRESHOLD")
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(5);
     assert_eq!(parsed, 12, "I-14: env var MUST override");
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_THINK_IN_CODE_THRESHOLD") };
 }
 
@@ -391,6 +393,7 @@ fn audit_i15_session_guide_renders_15_sections() {
 /// inside one cohesive scenario emulating a real LLM session.
 #[test]
 fn audit_full_pipeline_15_initiatives() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let (router, _d1, _d2) = fresh_router();
     let session_id = "audit_full_pipeline";
 
@@ -458,14 +461,14 @@ fn audit_full_pipeline_15_initiatives() {
     );
 
     // I-14: env-tunable Think-in-Code threshold (RAII style — set + verify).
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_THINK_IN_CODE_THRESHOLD", "7") };
     let t: u32 = std::env::var("TOURING_THINK_IN_CODE_THRESHOLD")
         .unwrap()
         .parse()
         .unwrap();
     assert_eq!(t, 7);
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_THINK_IN_CODE_THRESHOLD") };
 
     // I-15: SessionGuide builds + renders.
@@ -489,3 +492,6 @@ fn audit_full_pipeline_15_initiatives() {
     assert!(CTX_MCP_TOOL_NAMES.contains(&"ctx_tee_retrieve"));
     assert_eq!(rrf_k_constant(), 60);
 }
+
+// Serializes env-var-mutating tests in this integration binary (edition-2024: set_var/remove_var are unsafe under concurrency).
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

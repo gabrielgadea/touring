@@ -53,8 +53,6 @@ pub mod governor;
 /// Shared BM25 ranking math (one scorer for every intent-ranked corpus).
 pub mod text_rank;
 
-/// Capability Portfolio — prior-art discovery keyed by purpose.
-pub mod portfolio;
 pub mod hash;
 pub mod health;
 pub mod health_events;
@@ -77,6 +75,8 @@ pub mod migration;
 /// A5 step-2, 2026-06-15; generic infra belongs in the kernel).
 pub mod moka_policies;
 pub mod plugin;
+/// Capability Portfolio — prior-art discovery keyed by purpose.
+pub mod portfolio;
 pub mod profile;
 /// Process-wide moka-backed query result cache (string-keyed memoization +
 /// single-flight `get_with` + path-scoped invalidation). Generic cache infra
@@ -177,7 +177,7 @@ pub use shared::domain_circuit::{
     SharedDomainCircuitBreaker,
 };
 pub use shared::pool::ConnectionPool;
-pub use types::{CILALevel, MemoryTier, truncate_str};
+pub use types::{CILALevel, HEAVY_OP_BUDGET_SECS, MemoryTier, truncate_str};
 
 /// Result type alias for Touring operations.
 pub type Result<T> = std::result::Result<T, TouringError>;

@@ -1,0 +1,11 @@
+{
+  "phase": "H2",
+  "entities": [
+    {
+      "entity_id": "phase:H2",
+      "type": "phase",
+      "description": "SCIP type-aware wiring COMPLETO + LIVE: (1) scip_ingest.rs (hook-runtime, prost workspace) \u2014 decode wire-compatible real scip.proto (tags corrigidos via raw protobuf walk: Document.occurrences=2 n\u00e3o 3 \u2014 o erro 'symbol_roles invalid wire type' era mis-tag lendo SymbolInformation como occurrences; roles=varint singular); def-map first-wins determin\u00edstico (110k dup defs = re-emiss\u00e3o por target cargo \u2014 674 conflitos de 53.404 s\u00edmbolos auditados: crate-root + locals-skip, benignos); dedupe (producer,consumer,symbol) p/ idx_wiring_unique; idempotente delete+insert transacional. (2) 'touring wiring scip-ingest [--file]' + '--trusted' em cycles/orphans (contract_source != ast_inferred). (3) LIVE: 104MB index, 1.663 docs, 163.509 defs, 624.666 refs \u2192 40.032 arestas scip_resolved em 0,62s; 828 consumers que ast_resolved nunca viu. (4) Medi\u00e7\u00e3o final: default 1 mega-SCC (SCIP fundiu os 7 antigos \u2014 917-giant absorveu os pequenos); --trusted 29 SCCs REAIS: 28 intra-crate (file-level, Rust legal \u2014 informativo) + 1 cross-crate (686 arquivos, via dev-deps/test paths \u2014 nota arquitetural honesta). Phantom cycles (fork/hom\u00f4nimos) eliminados do view trusted por constru\u00e7\u00e3o. Tripwires 233\u2192234/235\u2192236 + mirror files + ALL_DAEMON_HOOK_NAMES 229\u2192230. Prova anti-circular: decode_real_rust_analyzer_index (#[ignore], bytes reais)."
+    }
+  ],
+  "relations": []
+}
