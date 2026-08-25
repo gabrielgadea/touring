@@ -257,7 +257,7 @@ pub struct SubtaskDeadlineBreach {
 /// - "Backburner" → lower priority to 220
 ///
 /// Returns the count of breached subtasks.
-pub fn check_deadlines(db: &FileKnowledgeDB, task_id: &str) -> usize {
+fn check_deadlines(db: &FileKnowledgeDB, task_id: &str) -> usize {
     let now = chrono::Utc::now();
     let now_str = now.to_rfc3339();
 
@@ -327,7 +327,7 @@ pub fn check_deadlines(db: &FileKnowledgeDB, task_id: &str) -> usize {
 ///   - reset status to "pending"
 ///
 /// Returns `true` if a retry was scheduled, `false` if the subtask should remain failed.
-pub fn evaluate_retry_policy(
+fn evaluate_retry_policy(
     db: &FileKnowledgeDB,
     subtask_id: &str,
     retry_policy_val: Option<&serde_json::Value>,
@@ -405,7 +405,7 @@ fn default_backoff_multiplier() -> f64 {
 }
 
 /// Feature C: Record execution start for a subtask.
-pub fn record_subtask_started(db: &FileKnowledgeDB, subtask_id: &str) {
+fn record_subtask_started(db: &FileKnowledgeDB, subtask_id: &str) {
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let _ = db.conn_ref().execute(
@@ -415,7 +415,7 @@ pub fn record_subtask_started(db: &FileKnowledgeDB, subtask_id: &str) {
 }
 
 /// Feature C: Record execution completion for a subtask.
-pub fn record_subtask_completed(
+fn record_subtask_completed(
     db: &FileKnowledgeDB,
     subtask_id: &str,
     status: &str,
