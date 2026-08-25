@@ -20,4 +20,13 @@ if find "$SUITE_ROOT/plugins" -type l | grep -q .; then
   find "$SUITE_ROOT/plugins" -type l
   fail=1
 fi
+# L4: zero color literals in suite QML (hue comes from qs.Commons/ColorRoles)
+if grep -rnE '"#[0-9A-Fa-f]{3,8}"' "$SUITE_ROOT/plugins" "$SUITE_ROOT/shared" --include="*.qml" 2>/dev/null; then
+  echo "FAIL color literal found in QML (L4 — derive from ColorRoles/Theme)"
+  fail=1
+fi
+# L1: vendored copies must match shared/ sources (drift check)
+if ! bash "$SUITE_ROOT/scripts/sync-taco-vendored" --check; then
+  fail=1
+fi
 exit $fail

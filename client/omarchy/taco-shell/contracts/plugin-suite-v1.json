@@ -17,13 +17,17 @@
     { "id": "taco.geo",      "kinds": ["panel"],             "phase": "P3", "status": "planned" },
     { "id": "taco.orbital",  "kinds": ["overlay"],           "phase": "P4", "status": "planned" },
     { "id": "taco.ambience", "kinds": ["overlay"],           "phase": "P4", "status": "planned" },
-    { "id": "taco.settings", "kinds": ["panel"],             "phase": "P1", "status": "planned" },
-    { "id": "taco.state",    "kinds": ["service"],           "phase": "P1", "status": "planned" }
+    { "id": "taco.settings", "kinds": ["panel"],             "phase": "P1", "status": "active" },
+    { "id": "taco.state",    "kinds": ["service"],           "phase": "P1", "status": "active" }
   ],
   "vendoring": {
     "policy": "self-contained plugins (Shibumi L1): a plugin may not import from a sibling or the repo root; shared/ is deterministically vendored into plugin dirs by scripts/sync-taco-vendored with a drift check in tests/",
     "source": "shared/",
-    "marker": ".taco-vendored.sha256"
+    "marker": ".taco-vendored.sha256",
+    "consumers": {
+      "taco.state": ["TouringService.qml"],
+      "taco.settings": ["Theme.qml", "ColorRoles.qml"]
+    }
   },
   "dependencyDirection": "panels may consume services; services do not import panels (Shibumi L2)",
   "settings": {

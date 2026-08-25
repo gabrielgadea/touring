@@ -1,0 +1,63 @@
+#!/bin/bash
+# sync-taco-vendored — deterministic vendoring of shared/ into suite plugins (L1).
+#
+# Shibumi law: a plugin may not import from a sibling or the repo root. What it
+# needs from shared/ arrives as COPIES under <plugin>/taco/, generated here from
+# contracts/plugin-suite-v1.json (.vendoring.consumers) with a qmldir for the
+# singletons, plus a sha256 marker (.taco-vendored.sha256) for drift checks.
+#
+#   sync-taco-vendored           # vendor (write copies + qmldir + marker)
+#   sync-taco-vendored --check   # drift check only (tests/validate_all.sh); exit 1 on drift
+set -euo pipefail
+
+SUITE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONTRACT="$SUITE_ROOT/contracts/plugin-suite-v1.json"
+SHARED="$SUITE_ROOT/shared"
+MODE="${1:-sync}"
+
+die() { echo "sync-taco-vendored: ERROR: $*" >&2; exit 1; }
+
+consumers=$(jq -r '.vendoring.consumers | keys[]' "$CONTRACT")
+[[ -n $consumers ]] || die "no vendoring consumers in $CONTRACT"
+
+drift=0
+
+for plugin in $consumers; do
+  dest="$SUITE_ROOT/plugins/$plugin/taco"
+  files=$(jq -r --arg p "$plugin" '.vendoring.consumers[$p][]' "$CONTRACT")
+
+  if [[ $MODE == "--check" ]]; then
+    for f in $files; do
+      [[ -f $SHARED/$f ]] || { echo "DRIFT $plugin: source missing shared/$f"; drift=1; continue; }
+      [[ -f $dest/$f ]] || { echo "DRIFT $plugin: not vendored $f"; drift=1; continue; }
+      if ! cmp -s "$SHARED/$f" "$dest/$f"; then
+        echo "DRIFT $plugin/taco/$f (stale copy — run sync-taco-vendored)"
+        drift=1
+      fi
+    done
+    [[ -f $dest/qmldir ]] || { echo "DRIFT $plugin: qmldir missing"; drift=1; }
+    continue
+  fi
+
+  # sync mode
+  mkdir -p "$dest"
+  : > "$dest/qmldir.tmp"
+  : > "$dest/.taco-vendored.sha256.tmp"
+  for f in $files; do
+    [[ -f $SHARED/$f ]] || die "source missing: shared/$f"
+    cp "$SHARED/$f" "$dest/$f"
+    if head -1 "$SHARED/$f" | grep -q "^pragma Singleton"; then
+      name="${f%.qml}"
+      echo "singleton $name 1.0 $f" >> "$dest/qmldir.tmp"
+    fi
+    echo "$(sha256sum "$SHARED/$f" | cut -d' ' -f1)  $f" >> "$dest/.taco-vendored.sha256.tmp"
+  done
+  mv "$dest/qmldir.tmp" "$dest/qmldir"
+  mv "$dest/.taco-vendored.sha256.tmp" "$dest/.taco-vendored.sha256"
+  echo "vendored → $plugin/taco ($(( $(echo "$files" | wc -l) )) files)"
+done
+
+if [[ $MODE == "--check" ]]; then
+  (( drift == 0 )) && echo "vendored drift: OK"
+  exit $drift
+fi
