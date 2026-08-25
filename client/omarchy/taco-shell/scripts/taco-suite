@@ -22,8 +22,15 @@ STATE_ROOT="$HOME/.local/state/taco-suite"
 BACKUP_ROOT="$STATE_ROOT/backups"
 LEGACY_ID="gabriel.skills-deck"
 
-# P0 inventory (idempotent, ordered)
-PLUGINS=(taco.deck)
+# Inventory from the contract (hardened/active plugins), ordered as declared.
+mapfile -t PLUGINS < <(jq -r '.plugins[] | select(.status=="hardened" or .status=="active") | .id' "$SUITE_ROOT/contracts/plugin-suite-v1.json")
+[[ ${#PLUGINS[@]} -gt 0 ]] || { echo "taco-suite: no active plugins in contract" >&2; exit 1; }
+
+# Kind lookup for enable semantics: bar-widgets are enabled by their shell.json
+# layout entry; service/panel/overlay plugins need `omarchy plugin enable`.
+plugin_kind() {
+  jq -r --arg id "$1" '.plugins[] | select(.id==$id) | .kinds[0]' "$SUITE_ROOT/contracts/plugin-suite-v1.json"
+}
 
 DRY_RUN=0
 COMMAND=""
@@ -85,6 +92,24 @@ stage_plugins() {
     fi
     log "staged $p"
   done
+  # Suite settings dir (taco.settings persists here; taco.state reads it)
+  run "mkdir -p '$HOME/.config/omarchy/taco'"
+}
+
+# Enable semantics: bar-widgets are enabled by their shell.json layout entry;
+# service/panel/overlay plugins need `omarchy plugin enable` — and the shell
+# only knows freshly staged plugins AFTER rescanPlugins, so this runs post-rescan.
+enable_plugins() {
+  local p kind
+  for p in "${PLUGINS[@]}"; do
+    kind="$(plugin_kind "$p")"
+    [[ $kind == "bar-widget" || $kind == "bar" ]] && continue
+    if run "omarchy plugin enable '$p'"; then
+      log "enabled $p (kind=$kind)"
+    else
+      log "WARN: enable failed for $p (kind=$kind)"
+    fi
+  done
 }
 
 migrate_shell_json() {
@@ -111,7 +136,7 @@ rescan() {
 
 case "$COMMAND" in
   install|update)
-    log "plan: validate → backup → stage (${PLUGINS[*]}) → migrate shell.json → rescan"
+    log "plan: validate → backup → stage (${PLUGINS[*]}) → migrate shell.json → rescan → enable"
     if (( DRY_RUN )); then
       validate_plugins
       log "[dry-run] would backup $SHELL_JSON + existing plugin dirs to $BACKUP_ROOT/<ts>/"
@@ -123,7 +148,7 @@ case "$COMMAND" in
     validate_plugins
     BACKUP_DIR="$(make_backup)"
     log "backup: $BACKUP_DIR"
-    if ! (stage_plugins && migrate_shell_json && rescan); then
+    if ! (stage_plugins && migrate_shell_json && rescan && enable_plugins); then
       log "failure mid-install — rolling back"
       restore_backup "$BACKUP_DIR"
       rescan || true

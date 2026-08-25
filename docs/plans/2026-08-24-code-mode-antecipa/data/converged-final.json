@@ -1,0 +1,69 @@
+{
+  "converged": true,
+  "judge": {
+    "attested": true,
+    "attested_at": "2026-08-23T13:13:21-03:00",
+    "clauses_enforced": [
+      "judge_intact",
+      "dag_done",
+      "quality_gold",
+      "no_p0_fail",
+      "measured_whole_scope",
+      "orphans_base",
+      "cargo_green",
+      "cross_audit"
+    ],
+    "clauses_attested": [
+      "judge_intact",
+      "dag_done",
+      "quality_gold",
+      "no_p0_fail",
+      "measured_whole_scope",
+      "orphans_base",
+      "cargo_green",
+      "cross_audit"
+    ],
+    "drift": [],
+    "blocking": false,
+    "clean": true
+  },
+  "task": "task_1787614930715946363",
+  "scope": "/home/gabrielgadea/projects/touring",
+  "rust_scope": true,
+  "clauses": {
+    "judge_intact": {
+      "result": "PASS",
+      "evidence": "judge of record intact, 8 clauses"
+    },
+    "dag_done": {
+      "result": "PASS",
+      "evidence": "9/9 subtasks done"
+    },
+    "quality_gold": {
+      "result": "PASS",
+      "evidence": "tier=Platinum composite=0.91860336"
+    },
+    "no_p0_fail": {
+      "result": "PASS",
+      "evidence": "P0 fails: none"
+    },
+    "measured_whole_scope": {
+      "result": "PASS",
+      "evidence": "no dim reported a truncated corpus"
+    },
+    "orphans_base": {
+      "result": "PASS",
+      "evidence": "scoped orphans=2375 baseline=2378"
+    },
+    "cargo_green": {
+      "result": "PASS",
+      "evidence": "cargo check + test + clippy green"
+    },
+    "cross_audit": {
+      "result": "N/A",
+      "evidence": "no audit-plan-completion.sh \u2014 skipped"
+    }
+  },
+  "unmet": [],
+  "next_action": null
+}
