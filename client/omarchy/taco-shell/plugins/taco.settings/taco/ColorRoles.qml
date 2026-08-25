@@ -11,7 +11,9 @@ QtObject {
   id: root
 
   readonly property color field:       Theme.background                 // page / deepest background
-  readonly property color void:        Theme.withAlpha(field, 0.18)     // intentional absence: insets, wells, scrims
+  // lacuna chama este papel de "void" — renomeado: void é keyword ECMAScript
+  // reservada e o QML recusa o identificador (WARN Type unavailable, 2026-08-25).
+  readonly property color hollow:      Theme.withAlpha(field, 0.18)     // intentional absence: insets, wells, scrims
   readonly property color plate:       Theme.popups.background          // raised surfaces (panel, flyout)
   readonly property color ink:         Theme.popups.text                // primary text on plate
   readonly property color whisper:     Theme.muted                      // muted/secondary text (4.5:1 target)

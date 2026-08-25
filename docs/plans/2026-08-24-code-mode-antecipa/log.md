@@ -47,3 +47,7 @@ Fontes do code mode: TOURING_CODE_ONLY opt-in (deny de Bash não-touring-run com
 ## 2026-08-24T22:37:02.174301-03:00 — W7 done
 
 Meta-loop fechado: replay do scout-perpetuo via code_mode_replay (corpus 4177→4375, NEW_FINDINGS=0), autodemote G1 por continuation-check (g1_should_deny puro, piso 0.70/100 eventos, seguir-remédio conta acerto), KPI dashboard vivo — bloco code_mode {runs,bash_calls,adoption_ratio,gates} derivado do snapshot gate_metrics do daemon em touring status -j (client-side lê daemon, nunca counters do processo efêmero) + commitment touring.code_mode.adoption_ratio. Fix G3-Write incluído: Write fora do gate G3 e valendo como Read (FP vivo de 24/08 eliminado, provado por comportamento pós-deploy)
+
+## 2026-08-25T00:19:58.999457-03:00 — CONVERGENCIA done
+
+Convergência medida do code-mode-total: loop_converged.py --rust-full exit 0, 8/8 cláusulas. O caminho até o exit 0 exigiu destravar o próprio juiz — três defeitos de isolamento na mesma família (resolvedor que cai em fallback global sem marcador): contenção de SQLite WAL entre instâncias concorrentes, testes do diary escrevendo no HOME do operador, socket keyed no nome da thread (quebra em --test-threads=1). Corrigidos + guard estrutural provado por mutação.

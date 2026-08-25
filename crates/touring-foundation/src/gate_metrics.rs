@@ -823,7 +823,7 @@ pub struct GateMetrics {
     /// `pillar_induction_*`. Promote/demote (S-7.2) reads THESE counters,
     /// never opinion: a gate whose denies are not followed gets demoted by
     /// code, not by meeting.
-    pub gate_events: [[AtomicU64; 4]; 5],
+    pub gate_events: [[AtomicU64; 4]; 6],
 
     /// **W2 S-2.3 (2026-08-24)** — G1 A/B continuation check: after a burst
     /// deny, was the session's NEXT call an inspection of the SAME class?
@@ -1376,6 +1376,8 @@ pub enum GateId {
     G6 = 3,
     /// G7 — re-inspection of the same target file (W3).
     G7 = 4,
+    /// G8 — inspection loop rewritten into one sandbox sweep (2026-08-25).
+    G8 = 5,
 }
 
 impl GateId {
@@ -1387,12 +1389,13 @@ impl GateId {
             Self::G3 => "g3_edit_sem_read",
             Self::G6 => "g6_redundant",
             Self::G7 => "g7_reinspect",
+            Self::G8 => "g8_loop_rewrite",
         }
     }
 
     /// All gates, for snapshot iteration.
     pub fn all() -> &'static [GateId] {
-        &[Self::G1, Self::G2, Self::G3, Self::G6, Self::G7]
+        &[Self::G1, Self::G2, Self::G3, Self::G6, Self::G7, Self::G8]
     }
 }
 

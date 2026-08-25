@@ -25,7 +25,7 @@
     "source": "shared/",
     "marker": ".taco-vendored.sha256",
     "consumers": {
-      "taco.state": ["TouringService.qml"],
+      "taco.state": ["TouringService.qml", "taco-cache-refresh.sh"],
       "taco.settings": ["Theme.qml", "ColorRoles.qml"]
     }
   },
