@@ -113,6 +113,22 @@ timestamp: 2026-08-20T11:15:00-03:00
    **bloqueiam** a fronteira de implementação, e névoa não avaliada reporta `unknown`,
    nunca `clear`.
 
+10. **Code mode ATIVO neste workspace (v30.4.14+, 25/08)**: `.touring/touring.toml`
+    declara `[code_mode] mode = "code"` — este workspace é o **piloto** da apresentação
+    por escopo. Efeito: inspeção `grep`/`cat`/`find` modelo-direta é **negada** com a
+    rota derivada (que executa de verdade); `cat >` heredoc é escrita e passa; `ls`/`wc`/
+    `sed-n` **isoladas** passam, mas em **rajada de turno** o T3-B funde qualquer classe
+    de inspeção (a 1ª executa intacta, as K−1 voltam como 1 programa não-escrito).
+    Resolução: prefixo `TOURING_CODE_MODE=<v>` no comando → env do hook → alias
+    `TOURING_CODE_ONLY=1` → `touring.toml` → default `both`. Relaxar por-comando:
+    prefixo `TOURING_CODE_MODE=native` (exportar no shell NÃO chega ao hook — processos
+    irmãos). Kill switches humanos: `TOURING_CODE_GATES_DISABLED=1` (todos),
+    `TOURING_T3_FUSE_DISABLED=1` (só a fusão). Estratégia por contexto completa:
+    `~/.claude/skills/Touring/references/code-mode-operational.md`. **Propagação
+    (regra 2 ampliada)**: o rótulo da toolchain NÃO prova o build — 24/08 o lock dizia
+    `30.4.14` rodando binário de 24/08. Após propagar, a prova é SEMPRE comportamental
+    (um deny T3/modo-code ao vivo no projeto alvo), nunca por versão.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

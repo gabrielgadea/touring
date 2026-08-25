@@ -223,6 +223,20 @@ over re-deriving the same analysis by hand (Rule #2).
    analyse it deterministically (`triggering_audit.py`, `mine_transcripts.py`, the
    `touring` CLI), never simulate it with paid LLM calls. The model reads the
    script's report and decides; the script does the bulk work.
+8. **Declaração e executor reconciliados por teste (guard D8 cruzado, 2026-08-25).**
+   Quando uma skill/hook DECLARA comportamento ("X passa", "Y colapsa", "Z é negado"),
+   um teste DEVE ler o predicado do executor e exigir que a declaração case com ele —
+   o texto que promete o que o executor não aplica é o anti-padrão D8
+   (`rules/touring-4-pillars.md`), e ele recorre: 25/08, a seção de sessão dizia
+   "ls/wc/sed-n passam" enquanto o T3-B os negava na 2ª do turno. Modelo:
+   `~/projects/touring/scripts/test_code_mode_sdk_section.py` — lê
+   `CODE_MODE_COLLAPSED_CLASSES` do Rust e reconcilia com o texto da seção.
+9. **Guard estrutural exige prova por mutação (0→1→0).** Um guard novo só existe se
+   remover a proteção o faz falhar e restaurá-la o faz passar — medido nos dois
+   sentidos, nunca assumido. O guard que achou o 7º sítio (depois 30) que a varredura
+   manual perdeu (`scripts/test_ceg_serial_gate_metrics.py`) é o modelo: a correção
+   pontual mascara o defeito, o guard o mantém corrigido — e a mutação prova que o
+   guard guarda.
 
 ---
 

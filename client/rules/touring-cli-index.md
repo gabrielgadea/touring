@@ -30,7 +30,7 @@ This rule keeps **TIER 1-3** (consulted every session) + Quick Cheatsheet (most-
 | `touring doctor -j` | Health check | daemon_socket, daemon_health, circuit_breaker, project_db | Antes de fases críticas |
 | `touring status -j` | Dashboard | index.symbol_count, wiring.orphan_count, learning.ema_reward, **health_delta** (W16), **composite_health_score** (W8 S3) | Session start |
 | `touring synergy [report\|wired\|opportunities] [-j] [--with-metrics]` **W8 S6 + W9 S9** | Cross-subsystem wiring observability + live counter enrichment | 43 wired_pairs ativos + 7 deferred opportunities | Auditar synergy interno + medir activity |
-| `touring gate-metrics -j` | Gate metrics | pre_edit_fast_path, rkyv_dispatch_count, tantivy_upsert_count, **health_delta_*** (W12-13), **query_cache_*** (W17-18) | L7-B observability |
+| `touring gate-metrics -j` | Gate metrics | pre_edit_fast_path, rkyv_dispatch_count, tantivy_upsert_count, **health_delta_*** (W12-13), **query_cache_*** (W17-18), **t3_turn_first_passed/t3_turn_fused** (T3-B, 25/08) | L7-B observability |
 | `touring learning status` | RL status | LinUCB arms, EMA reward, converging state | Monitorar aprendizado |
 | `touring health-delta status [path]` **W15** | Per-path streak state OR aggregate counters | regression_streak, warning_hint, alert_threshold | Inspecionar trend por arquivo |
 | `touring health-delta reset <path>` **W15** | Clear streak+pre_health | `{reset:true,file_path:<path>}` | Após refactor checkpoint |

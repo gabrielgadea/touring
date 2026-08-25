@@ -66,7 +66,7 @@ wins over Allow; an empty profile denies everything.
 | **ReadOnly** | Deny | FsRead(workspace) + Env(allowlist) | Static analysis, classification, dry-run of pure code |
 | **StagedWrite** | Deny | FsRead(workspace) + FsWrite(staging dir) + Env(allowlist) | Generated scripts that produce artifacts |
 | **Trusted** | Allow | All minus Run(rm,sudo) and Net(*) | First-party tooling: touring, cargo |
-| **Sandboxed** | Deny | FsRead(workspace) + Env(allowlist) | Default for any generic or unverified script |
+| **Sandboxed** | Deny | FsRead(workspace) + Env(allowlist) + **Run(READ_ONLY_BINARIES)** (T0.1, 25/08 — rg/grep/find/ls/cat/head/tail/wc/sort/uniq/cut/tr/jq/file/stat/readlink/basename/dirname/git: o caminho preferido não pode ser mais fraco que o Bash atômico ao lado) | Default for any generic or unverified script |
 
 `ENV_ALLOWLIST`: `PATH HOME USER LANG LC_ALL TERM TZ` — credential-bearing vars
 (`AWS_*`, `GITHUB_TOKEN`, etc.) are never in the allowlist.

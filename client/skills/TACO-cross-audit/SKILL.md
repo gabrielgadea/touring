@@ -102,6 +102,36 @@ made is not blind), and a **quorum counted by code**, never a narrative synthesi
 N identical critics find one failure mode N times. Compose it, do not restate it:
 `touring adw new --use critic-panel:panel`. Ref: `Touring/references/skill-operating-principles.md` (P3).
 
+### Proving the AUTOMATIC — affordance as an audit surface (2026-08-25)
+
+Some purposes are not "the function returns the right value" but **"the system acts
+without being asked"** — gates, induction, affordances. Auditing those by reading code
+proves nothing: the question is whether the mechanism fires over *normal work with no
+deliberate prompt*. The executed pattern (11/11 in `docs/audits/cross-audit-2026-08-25.md`):
+
+1. **Drive the real hook with a JSON payload and read the verdict.** The hook is the
+   executor — invoke it as the harness would, with workaday commands, never incantations:
+   ```bash
+   echo '{"session_id":"audit-x","cwd":"<proj>","hook_event_name":"PreToolUse",
+          "tool_name":"Bash","tool_input":{"command":"grep -rn foo src/ | head -3"}}' \
+     | $HOME/.claude/hooks/touring-hook cli-suggest | python3 -m json.tool
+   ```
+   A deny/allow/rewrite that only appears when the *audit script asks nicely* is not an
+   affordance — it is a demo.
+2. **Execute the route the verdict teaches.** A deny carries a derived command
+   (`touring run --code '…'`). Capture it and RUN it (exit 0, real output) — a remedy
+   that does not execute is decoration, and this is testable.
+3. **Read the counters before/after.** Live telemetry (`gate-metrics -j`) is evidence
+   with no narrative possible: Δ+1 first_passed, Δ+1 fused after one induced burst.
+4. **Verify the protected common case still passes.** Affordance that taxes the common
+   case is the documented failure (DeepSeek's refusal): isolated `ls`, a `cat >` heredoc
+   (write, not inspection), a single-file Read must all pass.
+5. **Text–executor reconciliation (D8).** Wherever a prompt/section/deny *declares*
+   behavior, prove the *executor* does it: the audit caught "ls/wc/sed-n pass" in the
+   text while the T3-B denied them on the 2nd of a turn. The institutional remedy is a
+   cross-guard test that reads the executor's predicate and asserts the declaration
+   matches it — never good will.
+
 1. **A guard that does not cover the artifact in use is not a guard.** The
    structural check for shell injection scanned the repo mirror and the
    instantiations, never `library_dir()` — the copy `from-template` actually

@@ -485,6 +485,7 @@ Operational depth (consult on demand):
 | **Touring-native tooling** (deterministic codegen wrapper for Rust/Python/TS — consumes touring-generator) | `~/.claude/skills/Touring-native tooling/SKILL.md` + `~/.claude/skills/Touring-native tooling/references/touring-integration.md` |
 | MCP tools catalog (23 in `tools/list`; ~119 catalogued, invocable by name) | [references/mcp_tools.md](references/mcp_tools.md) |
 | **Code Mode recipes** (Reflex #8 cookbook — 5 patterns for `touring_ctx_execute` programmatic tool-calling, 80-96% token savings) | [references/code_mode_recipes.md](references/code_mode_recipes.md) |
+| **Code Mode operacional — estratégia por contexto** (apresentação native\|code\|both por escopo, T3-B fusão de turno, classes calibradas, kill switches, efeito medido, guards D8) | [references/code-mode-operational.md](references/code-mode-operational.md) |
 | Touring CLI by cluster (7 modules) | [references/touring-cli-overview.md](references/touring-cli-overview.md), [hooks](references/touring-cli-hooks.md), [intelligence](references/touring-cli-intelligence.md), [tasks](references/touring-cli-tasks.md), [rl-quality](references/touring-cli-rl-quality.md), [generate](references/touring-cli-generate.md), [meta](references/touring-cli-meta.md), [assists](references/touring-cli-assists.md) |
 | RL stack comparison (Touring vs rsrl) | [references/touring-cli-rl-stack.md](references/touring-cli-rl-stack.md) |
 | BugStalker debugging integration | [references/touring-cli-debugging-bugstalker.md](references/touring-cli-debugging-bugstalker.md) |

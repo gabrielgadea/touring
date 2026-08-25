@@ -42,6 +42,15 @@ Evidência externa independente: postmortem dsh 2026-08-07 — *"schema omission
 nothing"* (omitir schemas do anúncio não impediu chamadas diretas; o fix foi o colapso no
 executor + a regra dita no prompt pelo MESMO predicado, `CODE_ONLY_INSTRUCTION`).
 
+> **A prova da afordância (2026-08-25, cross-audit `docs/audits/cross-audit-2026-08-25.md`)**:
+> o enforcement por executor foi provado AO VIVO sem prompt deliberado — 11/11 baterias
+> contra o hook real (payload JSON → veredito), a rota do deny **executada** (exit 0),
+> counters t3 Δ+1/+1. E o anti-padrão D8 foi pego uma vez mais: o texto dizia *"`ls`/`wc`/
+> `sed-n` passam"* enquanto o T3-B os negava na 2ª do turno — o remédio institucional é o
+> **guard D8 cruzado** (`scripts/test_code_mode_sdk_section.py`): um teste lê o predicado
+> DO EXECUTOR (`CODE_MODE_COLLAPSED_CLASSES` no Rust) e exige que a declaração (a seção de
+> sessão) case com ele. Texto e executor reconciliados por teste, não por boa vontade.
+
 ## Injection-density invariant (Gabriel, 2026-06-29) — applies to EVERY context injection AND every answer
 
 **ABSOLUTELY EVERY** context injection (hook `additionalContext`, every nudge, every answer) MUST be:
