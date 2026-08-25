@@ -1,0 +1,155 @@
+#!/bin/bash
+# taco-suite — transactional lifecycle for the TACO OS Shell Suite (Shibumi law).
+#
+# install/update: validate → backup → stage → migrate shell.json → rescan.
+#   A failure at any point restores the prior state from the backup (transactional).
+# uninstall: remove suite plugins + shell.json entries (backup kept).
+# repair: restore the most recent backup into place.
+# --dry-run: print the plan and change nothing.
+#
+# User-scoped: touches only ~/.config/omarchy/{plugins,shell.json} and
+# ~/.local/state/taco-suite — never /usr/share/omarchy, never root.
+#
+# P0 scope: plugins list = taco.deck (P1 generalizes to contracts/plugin-suite-v1.json).
+
+set -euo pipefail
+
+SUITE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGINS_SRC="$SUITE_ROOT/plugins"
+PLUGINS_DST="$HOME/.config/omarchy/plugins"
+SHELL_JSON="$HOME/.config/omarchy/shell.json"
+STATE_ROOT="$HOME/.local/state/taco-suite"
+BACKUP_ROOT="$STATE_ROOT/backups"
+LEGACY_ID="gabriel.skills-deck"
+
+# P0 inventory (idempotent, ordered)
+PLUGINS=(taco.deck)
+
+DRY_RUN=0
+COMMAND=""
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    install|update|uninstall|repair) COMMAND="$arg" ;;
+    *) echo "taco-suite: unknown argument '$arg'" >&2; exit 2 ;;
+  esac
+done
+COMMAND="${COMMAND:-install}"
+
+run() {
+  if (( DRY_RUN )); then echo "[dry-run] $*"; else eval "$@"; fi
+}
+
+log() { echo "taco-suite: $*"; }
+die() { echo "taco-suite: ERROR: $*" >&2; exit 1; }
+
+validate_plugins() {
+  local p
+  for p in "${PLUGINS[@]}"; do
+    [[ -f "$PLUGINS_SRC/$p/manifest.json" ]] || die "missing manifest: $PLUGINS_SRC/$p/manifest.json"
+    omarchy plugin validate "$PLUGINS_SRC/$p" >/dev/null || die "manifest validation failed: $p"
+    log "validated $p"
+  done
+}
+
+make_backup() {
+  local ts backup_dir p
+  ts="$(date +%Y%m%dT%H%M%S)"
+  backup_dir="$BACKUP_ROOT/$ts"
+  mkdir -p "$backup_dir"
+  [[ -f $SHELL_JSON ]] && cp "$SHELL_JSON" "$backup_dir/shell.json"
+  for p in "${PLUGINS[@]}" "$LEGACY_ID"; do
+    [[ -d "$PLUGINS_DST/$p" ]] && cp -r "$PLUGINS_DST/$p" "$backup_dir/$p"
+  done
+  echo "$backup_dir"
+}
+
+restore_backup() {
+  local backup_dir="$1" p
+  [[ -f "$backup_dir/shell.json" ]] && cp "$backup_dir/shell.json" "$SHELL_JSON"
+  for p in "${PLUGINS[@]}" "$LEGACY_ID"; do
+    rm -rf "${PLUGINS_DST:?}/$p"
+    [[ -d "$backup_dir/$p" ]] && cp -r "$backup_dir/$p" "$PLUGINS_DST/$p"
+  done
+  log "restored from $backup_dir"
+}
+
+stage_plugins() {
+  local p
+  for p in "${PLUGINS[@]}"; do
+    run "rm -rf '$PLUGINS_DST/$p'"
+    run "cp -r '$PLUGINS_SRC/$p' '$PLUGINS_DST/$p'"
+    # Self-contained payloads: no symlinks allowed inside a plugin (Shibumi law)
+    if (( ! DRY_RUN )) && find "$PLUGINS_DST/$p" -type l 2>/dev/null | grep -q .; then
+      die "symlink detected in staged payload: $p (plugins must be self-contained)"
+    fi
+    log "staged $p"
+  done
+}
+
+migrate_shell_json() {
+  # D1: gabriel.skills-deck → taco.deck (idempotent; jq walk over the layout tree)
+  [[ -f $SHELL_JSON ]] || return 0
+  if jq -e '.. | objects | select(.id? == "gabriel.skills-deck")' "$SHELL_JSON" >/dev/null 2>&1; then
+    run "jq 'walk(if type==\"object\" and .id? == \"$LEGACY_ID\" then .id = \"taco.deck\" else . end)' '$SHELL_JSON' > '$SHELL_JSON.taco-tmp' && mv '$SHELL_JSON.taco-tmp' '$SHELL_JSON'"
+    log "migrated shell.json: $LEGACY_ID → taco.deck"
+  fi
+}
+
+remove_from_shell_json() {
+  [[ -f $SHELL_JSON ]] || return 0
+  local p
+  for p in "${PLUGINS[@]}"; do
+    run "jq 'del(.. | objects | select(.id? == \"$p\"))' '$SHELL_JSON' > '$SHELL_JSON.taco-tmp' && mv '$SHELL_JSON.taco-tmp' '$SHELL_JSON'"
+  done
+  log "removed suite entries from shell.json"
+}
+
+rescan() {
+  run "omarchy-shell shell rescanPlugins" || log "WARN: rescanPlugins failed (shell not running?)"
+}
+
+case "$COMMAND" in
+  install|update)
+    log "plan: validate → backup → stage (${PLUGINS[*]}) → migrate shell.json → rescan"
+    if (( DRY_RUN )); then
+      validate_plugins
+      log "[dry-run] would backup $SHELL_JSON + existing plugin dirs to $BACKUP_ROOT/<ts>/"
+      stage_plugins
+      migrate_shell_json
+      rescan
+      exit 0
+    fi
+    validate_plugins
+    BACKUP_DIR="$(make_backup)"
+    log "backup: $BACKUP_DIR"
+    if ! (stage_plugins && migrate_shell_json && rescan); then
+      log "failure mid-install — rolling back"
+      restore_backup "$BACKUP_DIR"
+      rescan || true
+      die "install failed; prior state restored"
+    fi
+    log "install complete: ${PLUGINS[*]}"
+    ;;
+  uninstall)
+    log "plan: remove plugins + shell.json entries (backup first)"
+    if (( DRY_RUN )); then
+      log "[dry-run] would backup then rm: ${PLUGINS[*]} + shell.json entries"
+      exit 0
+    fi
+    BACKUP_DIR="$(make_backup)"
+    log "backup: $BACKUP_DIR"
+    for p in "${PLUGINS[@]}"; do run "rm -rf '$PLUGINS_DST/$p'"; done
+    remove_from_shell_json
+    rescan
+    log "uninstall complete (backup kept at $BACKUP_DIR)"
+    ;;
+  repair)
+    LATEST="$(ls -1t "$BACKUP_ROOT" 2>/dev/null | head -1 || true)"
+    [[ -n $LATEST ]] || die "no backups found at $BACKUP_ROOT"
+    log "repairing from $BACKUP_ROOT/$LATEST"
+    if (( DRY_RUN )); then log "[dry-run] would restore $BACKUP_ROOT/$LATEST"; exit 0; fi
+    restore_backup "$BACKUP_ROOT/$LATEST"
+    rescan
+    ;;
+esac

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "suite": "taco-shell",
+  "idPrefix": "taco.",
+  "version": "0.1.0",
+  "description": "TACO OS Shell Suite — the agentic Omarchy shell. Executable defaults for the suite: plugin inventory, vendoring policy, lifecycle policy.",
+  "repository": {
+    "root": "client/omarchy/taco-shell",
+    "rootHasManifest": false,
+    "note": "Repo root deliberately ships no manifest.json: a native `omarchy plugin add` must fail rather than install a partial/misleading plugin. Installation is transactional via scripts/taco-suite (Shibumi law)."
+  },
+  "plugins": [
+    { "id": "taco.deck",     "kinds": ["bar-widget"],        "phase": "P0", "status": "hardened" },
+    { "id": "taco.pulse",    "kinds": ["bar-widget"],        "phase": "P2", "status": "planned" },
+    { "id": "taco.mission",  "kinds": ["panel"],             "phase": "P2", "status": "planned" },
+    { "id": "taco.forge",    "kinds": ["panel"],             "phase": "P3", "status": "planned" },
+    { "id": "taco.geo",      "kinds": ["panel"],             "phase": "P3", "status": "planned" },
+    { "id": "taco.orbital",  "kinds": ["overlay"],           "phase": "P4", "status": "planned" },
+    { "id": "taco.ambience", "kinds": ["overlay"],           "phase": "P4", "status": "planned" },
+    { "id": "taco.settings", "kinds": ["panel"],             "phase": "P1", "status": "planned" },
+    { "id": "taco.state",    "kinds": ["service"],           "phase": "P1", "status": "planned" }
+  ],
+  "vendoring": {
+    "policy": "self-contained plugins (Shibumi L1): a plugin may not import from a sibling or the repo root; shared/ is deterministically vendored into plugin dirs by scripts/sync-taco-vendored with a drift check in tests/",
+    "source": "shared/",
+    "marker": ".taco-vendored.sha256"
+  },
+  "dependencyDirection": "panels may consume services; services do not import panels (Shibumi L2)",
+  "settings": {
+    "path": "~/.config/omarchy/taco/settings.json",
+    "pattern": "FileView + JsonAdapter (Quickshell v0.3.0 contract), writeAdapter() persistence"
+  },
+  "lifecycle": {
+    "tool": "scripts/taco-suite",
+    "userScoped": true,
+    "backupRoot": "~/.local/state/taco-suite/backups",
+    "commands": ["install", "update", "uninstall", "repair", "--dry-run"],
+    "transactional": "a failed install/update restores the prior working suite from backup"
+  }
+}
