@@ -193,7 +193,8 @@ def merge_extra(*extras):
 
 
 # ── OKF emission ─────────────────────────────────────────────────────────────
-def write_phase_report(bundle: Path, plan_id, phase, status, summary, gates, ts):
+def write_phase_report(bundle: Path, plan_id, phase, status, summary, gates, ts,
+                       facts=None):
     path = bundle / "phases" / f"{phase}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     fm = (
@@ -223,6 +224,25 @@ def write_phase_report(bundle: Path, plan_id, phase, status, summary, gates, ts)
         for name, c in (gates.get("clauses", {}) or {}).items():
             lines.append(f"| {name} | {c.get('result')} | {c.get('evidence', '')} |")
         lines.append("")
+    # W5 S-5.5 (plano code-mode-total) — claim-ledger: fatos com ENDEREÇO
+    # (run_id) entram no relatório; um relatório sem nenhum fato endereçado
+    # ganha a seção visível (não bloqueante — a fala não tem executor, mas
+    # ganha espelho: o custo da afirmação sem endereço fica legível).
+    if facts:
+        lines += ["## Fatos com endereço (claim-ledger)", "",
+                  "| Fato | Valor | run_id |", "|---|---|---|"]
+        for f in facts:
+            lines.append(
+                f"| {f.get('chave', f.get('key', '?'))} "
+                f"| {f.get('valor', f.get('value', '?'))} "
+                f"| `{f.get('run_id', '?')}` |")
+        lines.append("")
+    else:
+        lines += ["## Afirmações sem endereço", "",
+                  "_Nenhum fato com run_id foi citado neste fechamento "
+                  "(`--facts`). As afirmações do Summary acima valem o que "
+                  "vale a narrativa — um probe (FACT=) daria endereço a cada "
+                  "uma. (claim-ledger, S-5.5)_", ""]
     lines += ["## Knowledge", "", f"Typed abstract: [/knowledge/{phase}.json](/knowledge/{phase}.json)."]
     path.write_text(fm + "\n".join(lines) + "\n")
     return str(path)
@@ -298,6 +318,10 @@ def main(argv=None):
     ap.add_argument("--credit-query", action="append", default=None,
                     help="a `memory recall` query this phase relied on; credited with the "
                          "phase verdict (repeatable). Closes the recall->outcome loop.")
+    ap.add_argument("--facts", default=None,
+                    help="W5 S-5.5 claim-ledger: JSON list de fatos endereçados "
+                         '[{"chave","valor","run_id"},…] — entram no relatório OKF; '
+                         "sem --facts o relatório ganha a seção 'Afirmações sem endereço'")
     ap.add_argument("--gates", default=None, help="JSON file: loop_converged report to embed")
     ap.add_argument("--abstract", default=None, help="JSON file: {entities:[],relations:[]} to enrich")
     ap.add_argument("--extractor", default=None,
@@ -332,8 +356,9 @@ def main(argv=None):
         extra = merge_extra(load_json_file(args.abstract),
                             run_extractor(args.extractor, args.summary))
         abstract = build_abstract(args.phase, args.summary, extra)
+        facts = json.loads(args.facts) if args.facts else None
         result["phase_report"] = write_phase_report(bundle, plan_id, args.phase, args.status,
-                                                    args.summary, gates, ts)
+                                                    args.summary, gates, ts, facts=facts)
         result["abstract"] = write_abstract(bundle, args.phase, abstract)
         result["log"] = append_log(bundle, args.phase, args.status, args.summary, ts)
         result["entities"] = len(abstract["entities"])

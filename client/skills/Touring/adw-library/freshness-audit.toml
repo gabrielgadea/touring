@@ -1,0 +1,47 @@
+# freshness-audit — frescor provado por MEDIDA repetida, jamais por rótulo.
+#
+# A maior classe do corpus de memórias é staleness (42% de 703). O anti-padrão
+# canônico: 3 projetos diziam "30.3.1" rodando binário de 4 dias antes
+# (memória `propagacao-rotulo-nao-prova-build`) — o RÓTULO envelhece com o
+# artefato. A prova honesta é a leitura dupla de uma medida REAL:
+# hash, contagem, mtime, comportamento novo — nunca a versão declarada.
+#
+# vars:
+#   medida — comando cujo STDOUT é o VALOR da medida (o fluxo embute o
+#            marcador `METRIC=` — o caller não pode esquecê-lo); exemplos:
+#            sha256sum <alvo> | cut -d' ' -f1     # conteúdo
+#            stat -c %Y <alvo>                    # mtime
+#            comando-novo --que-so-existe-no-fresco | wc -l
+[adw]
+name = "freshness-audit"
+description = "until_fixpoint sobre hash/contagem REAIS: converge quando a medida repete (duas leituras); rótulo de versão nunca entra"
+entry = "medir_loop"
+budget_tokens = 0
+
+[purpose]
+intent = "provar frescor de um artefato por medida repetida (fixpoint), nunca por rótulo/versão declarada"
+when_to_use = "suspeita de artefato stale: binário antigo, cache, índice defasado, espelho divergente"
+when_not_to_use = "estado que muda legitimamente entre leituras (logs vivos, contadores) — o fixpoint jamais estabiliza"
+
+[node.medir_loop]
+type = "loop"
+body = "medir"
+max_iters = 6
+predicate = "fixpoint"
+stable_rounds = 2
+on_stable = "relatar"
+on_fail = "__fail__"
+
+[node.medir]
+type = "code"
+# O marcador mora no FLUXO (D8: texto e predicado da mesma fonte); a var só
+# fornece o valor — impossível instanciar este fluxo sem o contrato METRIC=.
+command = ["bash", "-c", "echo METRIC=$(eval \"$1\")", "--", "{{vars.medida}}"]
+timeout_ms = 300000
+idempotent = true
+
+[node.relatar]
+type = "code"
+command = ["bash", "-c", "echo 'FRESCOR PROVADO: a medida repetiu em leituras consecutivas (fixpoint) — evidência por conteúdo, não por rótulo'"]
+idempotent = true
+on_pass = "__end__"

@@ -1,0 +1,24 @@
+# Fragment `control-pack` — R4 como pré-condição: calibrar o verificador ANTES
+# do trabalho real. Um verificador que aprova tudo não sabe reprovar — a
+# constante 0.990 do predict-action (memória `uma-execucao-nao-distingue-
+# constante`); instrumento_errado é 38% do corpus de 703 memórias.
+#
+# O `verificador` é um comando com o placeholder `{input}`; o runner o executa
+# DUAS vezes (good_input e bad_input) e só passa quando aprova o bom E reprova
+# o ruim. `CONTROL=pass|fail` é emitido pelo runner, nunca pelo corpo.
+[fragment]
+description = "Calibra um verificador contra good/bad input antes do trabalho real (W4 S-4.3)"
+inputs = ["verificador", "good_input", "bad_input"]
+entry = "calibrar"
+
+[node.calibrar]
+type = "control"
+# `verificador` é COMANDO por contrato do fragmento (o caller o escreve de
+# propósito); viaja como posicional e o eval é explícito — cmd[2] nunca
+# interpola template (guard anti-injection da biblioteca).
+command = ["bash", "-c", "eval \"$1\"", "--", "{{inputs.verificador}}"]
+good_input = "{{inputs.good_input}}"
+bad_input = "{{inputs.bad_input}}"
+timeout_ms = 60000
+on_pass = "__exit__"
+on_fail = "__exit_fail__"

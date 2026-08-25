@@ -125,6 +125,20 @@ fn conversion_meta(kind: AntipatternKind) -> (&'static str, &'static str, &'stat
              A prior Read establishes the edit window and prevents accidental overwrites.",
             "touring ast meta <file> --depth summary -j && Read(<file>)  # then Edit",
         ),
+        AntipatternKind::ExitCodeThroughPipe => (
+            "`set -o pipefail; ` prefixed to the same command",
+            "`$?` after a pipe reads the LAST stage's status (tail/jq), not the measured \
+             command's. `pipefail` makes the pipeline's status the first failure — the \
+             remedy is derived from the REAL command, never a template.",
+            "set -o pipefail; <o comando verbatim>  # ou remova o pipe e leia direto",
+        ),
+        AntipatternKind::RedundantExactCall => (
+            "reuse the result already in context, vary the input, or one `touring run` sweep",
+            "A byte-identical command inside the TTL window with no Edit/Write between \
+             returns what the context already holds; re-running it is the blind-retry \
+             class (5 measured).",
+            "touring run --lang bash --code '<a familia inteira em 1 varredura>'",
+        ),
         AntipatternKind::ReadWithoutLocate => (
             "`touring index find` or Grep/Glob before Read",
             "Blind reads skip symbol discovery. Locating first gives the exact line range \

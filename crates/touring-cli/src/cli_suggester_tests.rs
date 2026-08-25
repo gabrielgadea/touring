@@ -1807,3 +1807,106 @@ fn no_lessons_db_is_opened_for_writing() {
         "o helper read-only sumiu — o guard acima passaria por vácuo"
     );
 }
+
+// ── W1 (plano code-mode-total): G2 deny + G6 escalada ─────────────────────────
+//
+// Os caches dos gates são globais de processo: cada teste usa um PROJETO único
+// (o hash e a época são por projeto) para não interferir nos vizinhos.
+
+mod code_mode_gates_w1 {
+    use super::super::code_mode_gates;
+    use serde_json::json;
+    use std::path::Path;
+
+    fn bash(cmd: &str) -> serde_json::Value {
+        json!({ "command": cmd })
+    }
+
+    #[test]
+    fn g2_nega_com_o_comando_real_no_remedio() {
+        let proj = Path::new("/tmp/w1-g2-deny");
+        let cmd = "cargo test 2>&1 | tail -3; echo EXIT=$?";
+        let resp = code_mode_gates(proj, "s1", "Bash", &bash(cmd))
+            .expect("G2 deve negar");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap();
+        // injection-density: o remédio carrega o comando REAL, não um template.
+        assert!(reason.contains(&format!("set -o pipefail; {cmd}")), "{reason}");
+    }
+
+    #[test]
+    fn g2_bypass_token_passa_e_conta() {
+        let proj = Path::new("/tmp/w1-g2-bypass");
+        let cmd = "TOURING_GATE_OK=1 cargo test | tail -1; echo $?";
+        assert!(code_mode_gates(proj, "s1", "Bash", &bash(cmd)).is_none());
+    }
+
+    #[test]
+    fn g2_heredoc_e_dado_nunca_nega() {
+        // Escrever um TESTE que contém o padrão não é cometer o padrão.
+        let proj = Path::new("/tmp/w1-g2-heredoc");
+        let cmd = "cat >> t.py <<'EOF'\nassert exit_pipe('a | b; echo $?')\nEOF";
+        assert!(code_mode_gates(proj, "s1", "Bash", &bash(cmd)).is_none());
+    }
+
+    #[test]
+    fn g6_escala_advisory_e_depois_deny() {
+        let proj = Path::new("/tmp/w1-g6-escalada");
+        let cmd = bash("rg -n 'padrao' src/lib.rs");
+        // 1ª vista: silêncio (registra).
+        assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+        // 1ª repetição: advisory (additionalContext, sem deny).
+        let advisory = code_mode_gates(proj, "s1", "Bash", &cmd).expect("advisory");
+        let v: serde_json::Value = serde_json::from_str(&advisory).unwrap();
+        assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
+        assert!(
+            v["hookSpecificOutput"]["additionalContext"]
+                .as_str()
+                .unwrap()
+                .contains("G6")
+        );
+        // 2ª repetição: deny.
+        let deny = code_mode_gates(proj, "s1", "Bash", &cmd).expect("deny");
+        let v: serde_json::Value = serde_json::from_str(&deny).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+    }
+
+    #[test]
+    fn g6_allowlist_de_estado_vivo_nunca_dispara() {
+        let proj = Path::new("/tmp/w1-g6-allow");
+        let cmd = bash("touring doctor -j");
+        for _ in 0..4 {
+            assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+        }
+    }
+
+    #[test]
+    fn g6_projeto_diferente_nao_herda_contador() {
+        // regressão do escopo por projeto (a flakiness de 24/08).
+        let a = Path::new("/tmp/w1-g6-proj-a");
+        let b = Path::new("/tmp/w1-g6-proj-b");
+        let cmd = bash("rg -n 'x' src/main.rs");
+        assert!(code_mode_gates(a, "s1", "Bash", &cmd).is_none());
+        assert!(code_mode_gates(a, "s1", "Bash", &cmd).is_some()); // advisory em A
+        // B nunca viu o comando: silêncio.
+        assert!(code_mode_gates(b, "s1", "Bash", &cmd).is_none());
+    }
+
+    #[test]
+    fn g6_mutacao_no_meio_reseta_a_repeticao() {
+        // ler-depois-de-editar NÃO é retry cego: a época avança com o Edit.
+        let proj = Path::new("/tmp/w1-g6-epoch");
+        let cmd = bash("sed -n '10,20p' src/lib.rs");
+        assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+        // Edit no projeto → época avança.
+        assert!(
+            code_mode_gates(proj, "s1", "Edit", &json!({"file_path": "src/lib.rs"}))
+                .is_none()
+        );
+        // mesma leitura: época mudou → fresh, sem advisory.
+        assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+    }
+}

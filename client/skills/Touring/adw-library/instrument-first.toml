@@ -1,0 +1,38 @@
+# instrument-first — calibrar o instrumento ANTES de medir e julgar.
+#
+# A 2ª maior classe do corpus de memórias (instrumento_errado, 38%) é medir
+# com um instrumento que não distingue: o predict-action devolvia 0.990 para
+# QUALQUER comando, inclusive `false`, e uma execução única não distingue
+# constante. Este fluxo torna a calibração uma PRÉ-CONDIÇÃO estrutural:
+# o probe de medição só roda depois que o verificador aprovou o bom E
+# reprovou o ruim.
+#
+# vars:
+#   verificador — comando com `{input}` (ex.: "meu-verificador --check '{input}'")
+#   good        — input que o verificador DEVE aprovar
+#   bad         — input que o verificador DEVE reprovar
+#   medicao     — comando de medição; DEVE emitir >= 1 `FACT=<chave>=<valor>`
+[adw]
+name = "instrument-first"
+description = "Calibra o verificador (control good/bad) antes da medição real; a medição é um probe com FACT= endereçável"
+entry = "cal"
+budget_tokens = 0
+
+[purpose]
+intent = "garantir que o verificador sabe reprovar antes de qualquer medição ou veredito"
+when_to_use = "antes de usar um verificador/gate novo ou recém-alterado; antes de medições que decidirão algo"
+when_not_to_use = "verificador já calibrado nesta sessão; julgamento humano de texto livre (control sintético não se aplica)"
+
+[[use]]
+module = "control-pack"
+as = "cal"
+with = { verificador = "{{vars.verificador}}", good_input = "{{vars.good}}", bad_input = "{{vars.bad}}" }
+on_pass = "medir"
+on_fail = "__fail__"
+
+[node.medir]
+type = "probe"
+command = ["bash", "-c", "eval \"$1\"", "--", "{{vars.medicao}}"]
+timeout_ms = 300000
+on_pass = "__end__"
+on_fail = "__fail__"

@@ -4011,3 +4011,39 @@ on_fail = "eng"
     assert "[gate feedback]" not in prompts[0]  # sem falha → prompt intocado
     assert "[gate feedback]" in prompts[1]
     assert "faltou o teste da paginacao" in prompts[1]  # verbatim
+
+
+def test_fixpoint_compara_token_cru_hash_converge(root):
+    # freshness-audit: METRIC=<sha256> — igualdade de STRING, não float
+    # (rótulo não prova build; hash repetido em duas leituras prova).
+    alvo = root / "artefato.bin"
+    alvo.write_text("conteudo estavel")
+    _loop_spec(root, 'predicate = "fixpoint"\nstable_rounds = 2\non_stable = "after"',
+               f"echo METRIC=$(sha256sum {alvo} | cut -d' ' -f1)")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "completed"
+    assert len([s for s in outcome.steps if s["node"] == "corpo"]) == 2
+
+
+def test_control_renderiza_good_e_bad_inputs_de_vars(root):
+    # regressão do exercício real 24/08: inputs vindos de {{vars.*}} chegavam
+    # literais ao verificador e reprovavam os dois lados.
+    write_spec(root, "ctlv", """
+[adw]
+name = "ctlv"
+entry = "calibra"
+[node.calibra]
+type = "control"
+command = ["bash", "-c", "test -s '{input}'"]
+good_input = "{{vars.good}}"
+bad_input = "{{vars.bad}}"
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    cheio = root / "cheio.txt"
+    cheio.write_text("conteudo")
+    vazio = root / "vazio.txt"
+    vazio.write_text("")
+    outcome = adw.execute(adw.load_spec(root, "ctlv"), root,
+                          variables={"good": str(cheio), "bad": str(vazio)})
+    assert outcome.status == "completed", outcome.steps
