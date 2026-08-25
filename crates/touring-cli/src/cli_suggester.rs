@@ -63,7 +63,7 @@ use crate::action_signature::ActionSignature;
 use crate::runtime::HookRuntime;
 use crate::workflow::{
     WorkflowEnrichment, WorkflowState, advise_next_step, conversion_for, detect_antipattern,
-    detect_stage, validate_glob_pattern,
+    detect_stage, exit_code_through_pipe, validate_glob_pattern,
 };
 
 // Needed by Slice 2 retrieval helpers (fail-open DB queries).
@@ -2615,6 +2615,194 @@ fn record_adoption(tool_name: &str, tool_input: &Value) {
     }
 }
 
+// ── W1 (plano code-mode-total) — gates de code mode com EXECUTOR ─────────────
+//
+// G2 (exit-code-through-pipe) e G6 (redundant-exact-call): os dois gates da
+// simulação com FP ~zero (68 e 46 disparos / 55 sessões). Diferem de todo o
+// resto deste arquivo num ponto: NEGAM (`permissionDecision: deny`) com o
+// remédio derivado do comando REAL — afordância, não persuasão (D8: o
+// enforcement mora no executor; nudges MUST conf 0.95 foram ignorados na
+// própria sessão que os emitiu). Orçamento: < 1ms (scan de bytes + moka).
+
+/// Token de bypass POR-COMANDO: viaja no próprio comando (o padrão
+/// `GIT_DESTRUCTIVE_OK` — cada uso é uma decisão, nunca um estado exportado).
+const GATE_BYPASS_TOKEN: &str = "TOURING_GATE_OK=1";
+
+/// Kill switch global (humano; env do DAEMON — exige `touring daemon-ctl
+/// restart` para valer, como `TOURING_PILLAR_INDUCTION_ARMED`).
+fn code_gates_disabled() -> bool {
+    std::env::var("TOURING_CODE_GATES_DISABLED").map(|v| v == "1") == Ok(true)
+}
+
+/// W1 S-1.2 — comandos de estado vivo: chamadas idênticas legitimamente
+/// retornam resultados diferentes (saúde, daemon, working tree, contadores).
+/// Allowlist EXPLÍCITA, não heurística; ampliar só com dado (S-7.2).
+const G6_LIVE_STATE_ALLOWLIST: &[&str] = &[
+    "touring doctor",
+    "touring status",
+    "touring daemon-ctl",
+    "touring gate-metrics",
+    "touring kpi",
+    "git status",
+    "git diff",
+];
+
+fn g6_allowlisted(cmd: &str) -> bool {
+    let trimmed = cmd.trim_start();
+    G6_LIVE_STATE_ALLOWLIST.iter().any(|p| trimmed.starts_with(p))
+}
+
+/// W1 S-1.2 — ledger de repetição exata: input-hash → (repetições, época de
+/// mutação do projeto na primeira vista). TTL espelha o anti-spam (300s).
+fn g6_seen() -> &'static moka::sync::Cache<u64, (u32, u64)> {
+    static C: OnceLock<moka::sync::Cache<u64, (u32, u64)>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(SUGGESTION_TTL_SECS))
+            .build()
+    })
+}
+
+/// W1 — época de mutação por projeto: todo Edit/Write a avança. Uma repetição
+/// G6 vista numa época mais velha é stale (a árvore mudou) e NUNCA dispara —
+/// mata a classe ler-depois-de-editar de falso positivo por construção.
+fn mutation_epoch() -> &'static moka::sync::Cache<String, u64> {
+    static C: OnceLock<moka::sync::Cache<String, u64>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CONFORMAL_TAU_MAX_PROJECTS)
+            .build()
+    })
+}
+
+/// W1 S-1.4 — deny de G2 pendente por sessão: a próxima chamada Bash com
+/// `pipefail` dentro de 60s conta como `followed` (o contrato pillar_induction).
+fn pending_g2() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+/// Resposta de deny do PreToolUse (contrato Claude Code): a razão carrega o
+/// remédio derivado do comando REAL (injection-density — nunca placeholder).
+fn deny_response(reason: String) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    })
+    .to_string()
+}
+
+/// W1 — G2 + G6 num só passe. `Some(resposta)` curto-circuita `run`; `None`
+/// segue para os classificadores. Corre ANTES do anti-spam: um deny repetido
+/// jamais pode ser engolido pelo cache de sugestões. Recebe `project_root`
+/// cru (não `HookRuntime`) para ser testável em unit tests.
+pub(crate) fn code_mode_gates(
+    project_root: &Path,
+    session: &str,
+    tool_name: &str,
+    tool_input: &Value,
+) -> Option<String> {
+    use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
+    let project = project_root.display().to_string();
+    // Toda mutação avança a época do projeto (G6 nunca dispara através dela).
+    if matches!(tool_name, "Edit" | "Write" | "NotebookEdit") {
+        let epoch = mutation_epoch().get(&project).unwrap_or(0);
+        mutation_epoch().insert(project, epoch + 1);
+        return None;
+    }
+    if tool_name != "Bash" {
+        return None;
+    }
+    let cmd = tool_input.get("command").and_then(Value::as_str)?;
+    // followed (S-1.4): houve deny de G2 nesta sessão e o comando agora traz
+    // pipefail — a conversão canônica foi adotada.
+    if pending_g2().remove(session).is_some() && cmd.contains("pipefail") {
+        record_gate_event(GateId::G2, GateEvent::Followed);
+    }
+    if cmd.contains(GATE_BYPASS_TOKEN) {
+        if exit_code_through_pipe(cmd) {
+            record_gate_event(GateId::G2, GateEvent::Bypassed);
+        }
+        return None;
+    }
+    // G2 — heredoc é DADO (o corpo não executa como pipeline DESTE shell);
+    // pular evita negar a escrita de um teste que apenas CONTÉM o padrão.
+    if !cmd.contains("<<") && exit_code_through_pipe(cmd) {
+        if code_gates_disabled() {
+            record_gate_event(GateId::G2, GateEvent::Bypassed);
+            return None;
+        }
+        record_gate_event(GateId::G2, GateEvent::Denied);
+        pending_g2().insert(session.to_string(), ());
+        let remedy = if cmd.len() <= 1500 {
+            format!("set -o pipefail; {cmd}")
+        } else {
+            "set -o pipefail; <o mesmo comando, verbatim>".to_string()
+        };
+        return Some(deny_response(format!(
+            "[G2 exit-code-through-pipe] `$?` depois de um pipe lê o status do ÚLTIMO \
+             estágio (tail/jq), não do programa medido — 68 casos na simulação de 55 \
+             sessões; 3 cometidos pela própria sessão que desenhou este gate. \
+             Reexecute exatamente:\n  {remedy}\nOu remova o pipe e leia o exit \
+             direto. Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
+        )));
+    }
+    // G6 — repetição byte-idêntica dentro da janela TTL, sem mutação no meio.
+    if !g6_allowlisted(cmd) {
+        let h = input_hash(project_root, tool_name, tool_input);
+        let epoch = mutation_epoch().get(&project).unwrap_or(0);
+        match g6_seen().get(&h) {
+            None => g6_seen().insert(h, (0, epoch)),
+            Some((repeats, seen_epoch)) if seen_epoch == epoch => {
+                if code_gates_disabled() {
+                    record_gate_event(GateId::G6, GateEvent::Bypassed);
+                    return None;
+                }
+                g6_seen().insert(h, (repeats + 1, epoch));
+                if repeats == 0 {
+                    record_gate_event(GateId::G6, GateEvent::Emitted);
+                    return Some(
+                        serde_json::json!({
+                            "hookSpecificOutput": {
+                                "hookEventName": "PreToolUse",
+                                "additionalContext": format!(
+                                    "[G6 redundant-exact-call] comando byte-idêntico há \
+                                     <{SUGGESTION_TTL_SECS}s sem nenhuma mutação no meio — o \
+                                     resultado já está no seu contexto. Reuse-o, varie o \
+                                     input, ou funda a família em 1 `touring run`. A PRÓXIMA \
+                                     repetição idêntica será negada."
+                                ),
+                            }
+                        })
+                        .to_string(),
+                    );
+                }
+                record_gate_event(GateId::G6, GateEvent::Denied);
+                let inicio: String = cmd.chars().take(200).collect();
+                return Some(deny_response(format!(
+                    "[G6 redundant-exact-call] repetição byte-idêntica em \
+                     {SUGGESTION_TTL_SECS}s sem mutação no meio — retry cego (5 casos \
+                     medidos). O resultado já está no contexto; reuse-o ou varie o \
+                     input. Comando: {inicio}\nBypass por-comando: prefixe \
+                     {GATE_BYPASS_TOKEN}."
+                )));
+            }
+            // época mudou: a árvore mutou desde a primeira vista — fresh.
+            Some((_, _)) => g6_seen().insert(h, (0, epoch)),
+        }
+    }
+    None
+}
+
 // ── Task #6 — pillar induction (the active layer of the compounding structure) ──
 //
 // rule + skill + CLAUDE.md-pointer are the passive layers (knowledge); the
@@ -2952,6 +3140,12 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // cache below would otherwise drop repeated identical antipatterns from the
     // count). Fail-open: pure classification + Relaxed atomics, no error path.
     record_adoption(tool_name, tool_input);
+
+    // W1 — gates com executor (G2 deny + G6 escalada): decididos ANTES do
+    // anti-spam, porque um deny repetido nunca pode ser engolido pelo cache.
+    if let Some(resp) = code_mode_gates(&rt.project_root, &session, tool_name, tool_input) {
+        return resp;
+    }
 
     // TTL cache: anti-spam for identical (tool, input) pairs.
     let h = input_hash(&rt.project_root, tool_name, tool_input);

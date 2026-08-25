@@ -83,6 +83,10 @@
     "recorded_at": 1787135699.3274016,
     "evidence": "behaviour — every node ran for real (this flow has no agent node)"
   },
+  "family-fix": {
+    "exempt": "corpo é agent (exige sessão claude headless); a semântica covered/probe está provada por 5 testes pytest e o grafo por adw lint+explain",
+    "recorded_at": 1787617980.481768
+  },
   "feature": {
     "run_id": "feature-1787134623-15ace7f7.759806",
     "status": "completed",
@@ -97,6 +101,20 @@
     "recorded_at": 1787135699.3277338,
     "evidence": "behaviour — 3 real agent session(s), every node ran for real"
   },
+  "freshness-audit": {
+    "run_id": "freshness-audit-1787617971-2f2d716c.199731",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 0,
+      "mock": 0
+    },
+    "started_at": 1787617971.54745,
+    "finished_at": 1787617971.7264695,
+    "recorded_at": 1787617980.3290334,
+    "evidence": "behaviour — every node ran for real (this flow has no agent node)"
+  },
   "hotfix": {
     "run_id": "hotfix-1787134587-15ace7f7.754163",
     "status": "completed",
@@ -110,6 +128,20 @@
     "finished_at": 1787134623.7028704,
     "recorded_at": 1787135699.3280864,
     "evidence": "behaviour — 1 real agent session(s), every node ran for real"
+  },
+  "instrument-first": {
+    "run_id": "instrument-first-1787617971-2f2d716c.199955",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 0,
+      "mock": 0
+    },
+    "started_at": 1787617971.8177266,
+    "finished_at": 1787617971.9077623,
+    "recorded_at": 1787617980.4072397,
+    "evidence": "behaviour — every node ran for real (this flow has no agent node)"
   },
   "polir": {
     "exempt": "criado por adw new em 23/08/2026 (gauntlet loop, Jay E); lint limpo, spec genérico (task/artifact/bar), ainda sem run real — promovido para disponibilidade cross-projeto; primeiro run real deve substituir esta isenção",

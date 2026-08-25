@@ -51,6 +51,7 @@ pub use touring_hooks_shared::workflow::{antipattern, baseline, stage};
 pub use advise::{WorkflowAdvice, WorkflowPattern, advise_next_step};
 pub use antipattern::{
     CombinationAntipattern, antipattern_finding, antipattern_severity, detect_antipattern,
+    exit_code_through_pipe,
 };
 pub use baseline::{
     ANTIPATTERN_BASELINE, AntipatternEntry, AntipatternKind, GoodPatternEntry, GoodPatternKind,

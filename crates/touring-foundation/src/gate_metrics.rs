@@ -817,6 +817,14 @@ pub struct GateMetrics {
     /// not have, so the name states the real scope.
     pub bash_calls_total_count: AtomicU64,
 
+    /// **W1 S-1.4 (2026-08-24)** — unified per-gate telemetry for the
+    /// code-mode gates: `[gate][event]` with gates G1/G2/G3/G6/G7 and events
+    /// emitted/followed/denied/bypassed — the same contract as
+    /// `pillar_induction_*`. Promote/demote (S-7.2) reads THESE counters,
+    /// never opinion: a gate whose denies are not followed gets demoted by
+    /// code, not by meeting.
+    pub gate_events: [[AtomicU64; 4]; 5],
+
     /// **Task #6 (2026-06-29)** — pillar-induction denominator: armed pillar nudges
     /// emitted by `cli_suggester` (master-cli / learning-memory — the differentials
     /// the upstream classifiers miss). Paired with `pillar_induction_followed_count`
@@ -1019,6 +1027,7 @@ impl Default for GateMetrics {
             adoption_touring_count: AtomicU64::new(0),
             adoption_antipattern_count: AtomicU64::new(0),
             bash_calls_total_count: AtomicU64::new(0),
+            gate_events: std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))),
             pillar_induction_emitted_count: AtomicU64::new(0),
             pillar_induction_followed_count: AtomicU64::new(0),
             ceg_write_paths_observed_count: AtomicU64::new(0),
@@ -1321,6 +1330,77 @@ pub fn record_bash_call() {
     global()
         .bash_calls_total_count
         .fetch_add(1, Ordering::Relaxed);
+}
+
+/// W1 S-1.4 — the code-mode gates whose events the unified telemetry tracks.
+/// `as usize` is the row index into `GateMetrics::gate_events`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GateId {
+    /// G1 — burst of atomic inspections of the same class (W2 teeth).
+    G1 = 0,
+    /// G2 — `$?` read through a pipe without pipefail (W1 deny).
+    G2 = 1,
+    /// G3 — edit without a prior read, session-mode gate (W3).
+    G3 = 2,
+    /// G6 — byte-identical repeat inside the TTL window (W1).
+    G6 = 3,
+    /// G7 — re-inspection of the same target file (W3).
+    G7 = 4,
+}
+
+impl GateId {
+    /// Stable snapshot key (`gate_events.<label>.<event>`).
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::G1 => "g1_burst",
+            Self::G2 => "g2_pipe_exit",
+            Self::G3 => "g3_edit_sem_read",
+            Self::G6 => "g6_redundant",
+            Self::G7 => "g7_reinspect",
+        }
+    }
+
+    /// All gates, for snapshot iteration.
+    pub fn all() -> &'static [GateId] {
+        &[Self::G1, Self::G2, Self::G3, Self::G6, Self::G7]
+    }
+}
+
+/// W1 S-1.4 — the four events of the per-gate contract. `as usize` is the
+/// column index into `GateMetrics::gate_events`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GateEvent {
+    /// An advisory was shown (the gate spoke without denying).
+    Emitted = 0,
+    /// The next call adopted the canonical conversion (60s window).
+    Followed = 1,
+    /// The gate denied the call, carrying the derived remedy.
+    Denied = 2,
+    /// A human bypass token / kill switch let the call through.
+    Bypassed = 3,
+}
+
+impl GateEvent {
+    /// Stable snapshot key.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Emitted => "emitted",
+            Self::Followed => "followed",
+            Self::Denied => "denied",
+            Self::Bypassed => "bypassed",
+        }
+    }
+
+    /// All events, for snapshot iteration.
+    pub fn all() -> &'static [GateEvent] {
+        &[Self::Emitted, Self::Followed, Self::Denied, Self::Bypassed]
+    }
+}
+
+/// W1 S-1.4 — record one gate event. Consumed by `cli_suggester` (the gates)
+/// and read back by `touring kpi` / S-7.2 promote-demote.
+pub fn record_gate_event(gate: GateId, event: GateEvent) {
+    global().gate_events[gate as usize][event as usize].fetch_add(1, Ordering::Relaxed);
 }
 
 /// W4 d4 — record one code-mode execution and its measured context savings

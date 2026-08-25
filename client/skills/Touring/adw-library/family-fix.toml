@@ -1,0 +1,57 @@
+# family-fix — conserto de FAMÍLIA completa: descobrir os sítios por programa,
+# tratar até n==m, jamais declarar pronto com cobertura parcial.
+#
+# Molde: o caso diary (24/08/2026) — 5 sítios de `std::env::current_dir()`
+# gravando fora da raiz normalizada; consertar 1 mascarou o defeito. A classe
+# familia_parcial é 19% do corpus de 703 memórias. Com `predicate = "covered"`
+# o conserto de-4-dos-5 é ESTRUTURALMENTE impossível: exaurir com n<m é
+# `__fail__`, e um universo que encolhe entre rodadas é erro.
+#
+# vars:
+#   descoberta — comando que enumera os sítios; DEVE emitir `FACT=SITES=<n>`
+#   instrucao  — o que fazer em cada sítio (vai ao prompt do agente)
+#   verificacao — gate final (ex.: grep de confirmação + testes)
+[adw]
+name = "family-fix"
+description = "probe descobre os sítios (FACT=SITES=n) → until_covered trata (COVERAGE=n/m) → gate verifica; parcial jamais é sucesso"
+entry = "descobrir"
+budget_tokens = 0
+
+[purpose]
+intent = "tornar o conserto parcial de uma família de sítios estruturalmente impossível"
+when_to_use = "defeito com 2+ sítios da mesma família (mesma aresta gravada em N lugares, mesmo padrão copiado)"
+when_not_to_use = "defeito de sítio único (use bugfix); família cujo universo não é enumerável por programa"
+
+[node.descobrir]
+type = "probe"
+command = ["bash", "-c", "eval \"$1\"", "--", "{{vars.descoberta}}"]
+timeout_ms = 300000
+on_pass = "tratar_loop"
+on_fail = "__fail__"
+
+[node.tratar_loop]
+type = "loop"
+body = "tratar"
+max_iters = 8
+predicate = "covered"
+min_discovered = 1
+on_covered = "verificar"
+on_fail = "__fail__"
+
+[node.tratar]
+type = "agent"
+driver = "claude"
+tier = "mid"
+prompt = "Família com {{nodes.descobrir.facts.SITES}} sítios (descoberta: {{nodes.descobrir.summary}}). Trate o próximo sítio ainda não tratado. {{vars.instrucao}} Ao final, conte por PROGRAMA quantos sítios já estão tratados e termine com COVERAGE=<tratados>/<total>."
+allowed_tools = ["Read", "Edit", "Bash", "Grep", "Glob"]
+permission_mode = "acceptEdits"
+session = "resume_on_fail"
+
+[node.verificar]
+type = "gate"
+command = ["bash", "-c", "eval \"$1\"", "--", "{{vars.verificacao}}"]
+timeout_ms = 1800000
+idempotent = true
+control_waived = "verificação fornecida pelo caller; calibre-a com instrument-first quando for nova"
+on_pass = "__end__"
+on_fail = "__fail__"

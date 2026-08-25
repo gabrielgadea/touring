@@ -1,0 +1,11 @@
+{
+  "phase": "W1",
+  "entities": [
+    {
+      "entity_id": "phase:W1",
+      "type": "phase",
+      "description": "W1 completa: G2 (ExitCodeThroughPipe) e G6 (RedundantExactCall) como variantes da enum com detector puro, deny-com-rem\u00e9dio derivado do comando real no cli_suggester, \u00e9poca de muta\u00e7\u00e3o por projeto mata o FP ler-depois-de-editar, allowlist expl\u00edcita de estado vivo, bypass por-comando TOURING_GATE_OK=1 + kill switch TOURING_CODE_GATES_DISABLED, telemetria unificada gate_events {emitted,followed,denied,bypassed}. Provado vivo p\u00f3s-deploy: deny real do G2 nesta sess\u00e3o com followed=1 medido."
+    }
+  ],
+  "relations": []
+}

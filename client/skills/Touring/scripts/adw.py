@@ -120,6 +120,11 @@ METRIC_RE = re.compile(r"^METRIC=([0-9]+(?:\.[0-9]+)?)\s*$", re.MULTILINE)
 # ENCOLHE entre rodadas é erro: o universo não diminui — se diminuiu, a
 # descoberta está instável e o número não é confiável.
 COVERAGE_RE = re.compile(r"^COVERAGE=(\d+)/(\d+)\s*$", re.MULTILINE)
+# O fixpoint compara o TOKEN CRU (igualdade de string): cobre número E hash —
+# `METRIC=$(sha256sum alvo | cut -d' ' -f1)` é exatamente o caso freshness-audit
+# (rótulo não prova build; hash repetido em duas leituras prova). O METRIC_RE
+# numérico acima segue sendo o contrato dos campaigns (--until lê progresso).
+METRIC_ANY_RE = re.compile(r"^METRIC=(\S+)\s*$", re.MULTILINE)
 # W4 S-4.4 — contrato do nó `probe`: DEVE emitir >= 1 `FACT=<chave>=<valor>`;
 # os fatos ganham endereço ({{nodes.X.facts.chave}} + journal com run_id).
 FACT_RE = re.compile(r"^FACT=([A-Za-z_][A-Za-z0-9_]*)=(.+?)\s*$", re.MULTILINE)
@@ -1940,7 +1945,11 @@ def run_control_node(node: Node, results: dict, variables: dict,
     ok_all = True
     for label, chave, want_pass in (("good", "good_input", True),
                                     ("bad", "bad_input", False)):
-        valor = str(node.raw.get(chave, ""))
+        # good/bad_input também passam pelo template: num fluxo composto eles
+        # chegam como "{{vars.good}}" — sem render, o verificador testava o
+        # literal "{{vars.good}}" e reprovava os DOIS lados (medido 24/08 no
+        # exercício real do instrument-first; os testes com literais não viam).
+        valor = render_template(str(node.raw.get(chave, "")), results, variables)
         cmd = [render_template(str(p), results, variables).replace("{input}", valor)
                for p in node.raw["command"]]
         try:
@@ -2750,8 +2759,8 @@ def run_loop(
             output = result.output
 
         if predicate == "fixpoint":
-            found = METRIC_RE.search(output or "")
-            metric = float(found.group(1)) if found else None
+            found = METRIC_ANY_RE.search(output or "")
+            metric = found.group(1) if found else None
             if metric is None:
                 # UNKNOWN nunca inicia nem estende a sequência estável (Lei L2):
                 # silêncio não é estabilidade — é ausência de instrumento.

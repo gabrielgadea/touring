@@ -368,6 +368,12 @@ pub struct GateMetricsSnapshot {
     /// denominator; `touring.code_mode.adoption_ratio = runs / bash_calls`).
     #[serde(default)]
     pub bash_calls_total_count: u64,
+    /// W1 S-1.4 — per-gate telemetry `{gate: {emitted, followed, denied,
+    /// bypassed}}` for the code-mode gates (g1_burst/g2_pipe_exit/
+    /// g3_edit_sem_read/g6_redundant/g7_reinspect). KPI pointer shape:
+    /// `/gate_events/g2_pipe_exit/denied`.
+    #[serde(default)]
+    pub gate_events: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u64>>,
     /// W4 d4 — measured context savings of the spill (full − inline bytes).
     #[serde(default)]
     pub code_mode_bytes_elided_total: u64,
@@ -820,6 +826,24 @@ impl GateMetricsSnapshot {
             sandbox_tee_persisted_count: m.sandbox_tee_persisted_count.load(Ordering::Relaxed),
             code_mode_runs_count: m.code_mode_runs_count.load(Ordering::Relaxed),
             bash_calls_total_count: m.bash_calls_total_count.load(Ordering::Relaxed),
+            gate_events: crate::gate_metrics::GateId::all()
+                .iter()
+                .map(|g| {
+                    (
+                        g.label().to_string(),
+                        crate::gate_metrics::GateEvent::all()
+                            .iter()
+                            .map(|e| {
+                                (
+                                    e.label().to_string(),
+                                    m.gate_events[*g as usize][*e as usize]
+                                        .load(Ordering::Relaxed),
+                                )
+                            })
+                            .collect(),
+                    )
+                })
+                .collect(),
             code_mode_bytes_elided_total: m.code_mode_bytes_elided_total.load(Ordering::Relaxed),
             code_mode_subcalls_count: m.code_mode_subcalls_count.load(Ordering::Relaxed),
             code_mode_subcall_bytes_total: m

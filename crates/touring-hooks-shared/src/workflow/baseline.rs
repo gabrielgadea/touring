@@ -66,6 +66,17 @@ pub enum AntipatternKind {
     ///
     /// Structurally detected, no empirical baseline — count: 0.
     SerialReadNoFanout,
+    /// W1 S-1.1 (plano code-mode-total, G2) — `$?` lido depois de um pipe sem
+    /// `set -o pipefail`: o status é do ÚLTIMO estágio do pipe (`tail`/`jq`),
+    /// não do comando medido. 68 disparos na simulação sobre 55 sessões,
+    /// FP ~zero; cometido 3× pela própria sessão que desenhou o gate.
+    /// Remédio derivado do comando REAL: prefixar `set -o pipefail; `.
+    ExitCodeThroughPipe,
+    /// W1 S-1.2 (plano code-mode-total, G6) — repetição EXATA de um comando
+    /// Bash dentro da janela TTL sem nenhuma mutação (Edit/Write) no meio:
+    /// o resultado é o mesmo que já está no contexto. 46 disparos/13 sessões
+    /// na simulação; o retry cego (5 casos medidos) vive nesta classe.
+    RedundantExactCall,
 }
 
 impl AntipatternKind {
@@ -83,6 +94,8 @@ impl AntipatternKind {
             Self::ClaudeCliInBash => "claude-cli-in-bash",
             Self::BashPcre2Default => "bash-pcre2-default",
             Self::SerialReadNoFanout => "serial-read-no-fanout",
+            Self::ExitCodeThroughPipe => "exit-code-through-pipe",
+            Self::RedundantExactCall => "redundant-exact-call",
         }
     }
 
@@ -100,6 +113,8 @@ impl AntipatternKind {
             Self::ClaudeCliInBash,
             Self::BashPcre2Default,
             Self::SerialReadNoFanout,
+            Self::ExitCodeThroughPipe,
+            Self::RedundantExactCall,
         ]
     }
 }
@@ -376,6 +391,10 @@ mod tests {
             AntipatternKind::ClaudeCliInBash,
             AntipatternKind::BashPcre2Default,
             AntipatternKind::SerialReadNoFanout,
+            // W1: medidos na simulação de 55 sessões (68 e 46 disparos), mas
+            // ausentes do forense de 575k que alimenta ESTA baseline — 0 aqui.
+            AntipatternKind::ExitCodeThroughPipe,
+            AntipatternKind::RedundantExactCall,
         ];
         let b = baseline();
         for kind in AntipatternKind::all() {

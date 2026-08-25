@@ -100,7 +100,49 @@ fn static_meta(kind: AntipatternKind) -> (&'static str, &'static str) {
             "N consecutive Read calls without interleaved search/fan-out",
             "Use a parallel fan-out block (Glob + multiple Read calls in one batch) — same latency, N× throughput.",
         ),
+        AntipatternKind::ExitCodeThroughPipe => (
+            "`$?` read after a pipe without `set -o pipefail`",
+            "The status you read is the LAST pipe stage's (tail/jq), not the command you measured. Prefix `set -o pipefail; ` — or drop the pipe.",
+        ),
+        AntipatternKind::RedundantExactCall => (
+            "byte-identical Bash command repeated inside the TTL window with no mutation between",
+            "The result is already in your context — reuse it, vary the input, or fold the family into ONE `touring run` sweep.",
+        ),
     }
+}
+
+// ── W1 S-1.1 (G2) — pure detector over the RAW command ───────────────────────
+
+/// `true` when `command` pipes a stage AND later reads `$?` without
+/// `set -o pipefail`: the exit read is the last stage's, not the measured
+/// command's. Pure and allocation-free — the PreToolUse hot path budget for
+/// this gate is < 1ms.
+///
+/// The detector is deliberately positional: `$?` must appear AFTER the first
+/// real pipe (`|`, never `||`). `echo $?; a | b` reads a PRIOR status and is
+/// not this defect.
+pub fn exit_code_through_pipe(command: &str) -> bool {
+    if command.contains("pipefail") {
+        return false;
+    }
+    let bytes = command.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'|' {
+            // `||` is a logical or, not a pipe — skip the pair.
+            if i + 1 < bytes.len() && bytes[i + 1] == b'|' {
+                i += 2;
+                continue;
+            }
+            if i > 0 && bytes[i - 1] == b'|' {
+                i += 1;
+                continue;
+            }
+            return command[i..].contains("$?");
+        }
+        i += 1;
+    }
+    false
 }
 
 // ── Detector ──────────────────────────────────────────────────────────────────
@@ -373,6 +415,40 @@ mod tests {
     #[test]
     fn none_antipattern_returns_none_severity() {
         assert!(antipattern_severity(None).is_none());
+    }
+
+    // ── W1 G2: exit_code_through_pipe (3 positivos da sessão 2f2d716c + 4 negativos) ──
+
+    #[test]
+    fn g2_positives_from_the_session_that_designed_the_gate() {
+        // Os 3 cometidos verbatim pela própria sessão que desenhou o gate:
+        assert!(exit_code_through_pipe(
+            "python3 gap_detector.py plan.md --fail-on=P0 2>&1 | tail -5; echo \"GAP_EXIT=$?\""
+        ));
+        assert!(exit_code_through_pipe(
+            "touring adw lint strategy-loop | jq .valid; echo LIB_EXIT=$?"
+        ));
+        assert!(exit_code_through_pipe(
+            "python3 freeze_baseline.py 2>&1 | tail -12; echo \"FREEZE_EXIT=$?\""
+        ));
+    }
+
+    #[test]
+    fn g2_negatives_never_fire() {
+        // pipefail presente — o defeito já está tratado.
+        assert!(!exit_code_through_pipe(
+            "set -o pipefail; cargo test 2>&1 | tail -3; echo EXIT=$?"
+        ));
+        // `$?` sem pipe algum.
+        assert!(!exit_code_through_pipe("cargo test; echo EXIT=$?"));
+        // redireção 2>&1 apenas — não é pipe.
+        assert!(!exit_code_through_pipe("cargo test 2>&1; echo $?"));
+        // pipe sem leitura de `$?`.
+        assert!(!exit_code_through_pipe("cargo test 2>&1 | tail -3"));
+        // `||` é ou-lógico, não pipe; o `$?` lê o comando anterior direto.
+        assert!(!exit_code_through_pipe("cargo test || true; echo $?"));
+        // `$?` ANTES do pipe lê um status anterior — não é este defeito.
+        assert!(!exit_code_through_pipe("echo $?; cargo test | tail -1"));
     }
 
     // ── BashPcre2Default ─────────────────────────────────────────────────────
