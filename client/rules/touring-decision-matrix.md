@@ -256,6 +256,7 @@ correspondente ANTES de qualquer outra ação:
 | Edit em arquivo .rs com >100 LOC | `touring ast rust-semantic` + `touring ast tdg` | C04+ |
 | 2+ Edits no mesmo file em uma sessão | `touring health-delta status <file>` | C12 |
 | Antes de declarar "task completa" | `touring wiring orphans -j` (REGRA #0) | sempre |
+| Deny de gate G1/G2/G6 no PreToolUse (code-mode, 2026-08-24) | seguir o remédio derivado que o deny carrega; bypass consciente POR-COMANDO: prefixar `TOURING_GATE_OK=1` (contado); kill switch humano: `TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart | sempre |
 | Criar snippet/script/artefato reutilizável | ancorar `// #tags: kind:… purpose:… domain:…` + `touring portfolio "<intento> #kind:…"` antes | F-library |
 | Buscar contexto por tipo/propósito/domínio | `touring memory query "#kind:… #lang:…"` / `touring memory moc <tópico>` | F-library |
 

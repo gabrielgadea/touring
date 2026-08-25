@@ -146,6 +146,52 @@ registrar(
     "indução é o que converte disponibilidade em adoção (4-pillars)",
 )
 
+# ── H. W7 S-7.4 (plano code-mode-total): as dimensões do plano ─────────────
+gates = rg(r"ExitCodeThroughPipe|RedundantExactCall")
+registrar(
+    "plano:gates-registrados",
+    "G2/G6 existem como variantes da enum (executor, não nudge)?",
+    len({curto(l).split(":")[0] for l in gates}) >= 3,
+    f"{len(gates)} sítio(s) em {len({curto(l).split(':')[0] for l in gates})} arquivo(s)",
+    "gate que só existe em prosa é persuasão — D8 exige o executor",
+)
+teeth = rg(r"burst_gate|G1_DENY_AT", glob="cli_suggester.rs")
+registrar(
+    "plano:g1-teeth",
+    "o contador de rajada NEGA (teeth) com autodemote por dado?",
+    bool(teeth) and bool(rg(r"g1_should_deny", glob="cli_suggester.rs")),
+    f"{len(teeth)} sítio(s) + autodemote puro",
+    "a 3ª sugestão ignorada era o teto da persuasão; o deny muda U(a)",
+)
+adw_py = Path.home() / ".claude/skills/Touring/scripts/adw.py"
+adw_src = adw_py.read_text(encoding="utf-8") if adw_py.is_file() else ""
+predicados = all(m in adw_src for m in ('"fixpoint"', '"covered"', '"calibrated"', "FACT_RE", "CONTROL_PASS_RE"))
+registrar(
+    "plano:loops-e-nos",
+    "os 4 predicados de loop + nós probe/control existem no runner?",
+    predicados,
+    "fixpoint/covered/calibrated + FACT_RE/CONTROL_PASS_RE no adw.py" if predicados else "faltando no adw.py",
+    "loop com predicado errado termina CONFIANTE — cada predicado ataca uma classe medida",
+)
+lib = Path.home() / ".claude/skills/Touring/adw-library"
+fluxos_novos = [f for f in ("instrument-first", "family-fix", "freshness-audit") if (lib / f"{f}.toml").is_file()]
+registrar(
+    "plano:fluxos-novos",
+    "instrument-first/family-fix/freshness-audit estão na biblioteca?",
+    len(fluxos_novos) == 3,
+    f"{len(fluxos_novos)}/3: {fluxos_novos}",
+    "o remédio dos gates precisa de fluxo nomeado, não instrução",
+)
+kpi_yaml = Path("docs/kpi/commitments.yaml")
+kpi_ok = kpi_yaml.is_file() and "touring.code_mode.adoption_ratio" in kpi_yaml.read_text(encoding="utf-8")
+registrar(
+    "plano:kpi-vivo",
+    "touring.code_mode.adoption_ratio declarado nos commitments?",
+    kpi_ok,
+    "commitment presente" if kpi_ok else "ausente do commitments.yaml",
+    "sem o denominador, nenhuma wave do plano é julgável",
+)
+
 falhas = [a for a in achados if not a["ok"]]
 print(f"AUDIT code-mode: {len(achados) - len(falhas)}/{len(achados)} OK, {len(falhas)} defeito(s)\n")
 for a in achados:

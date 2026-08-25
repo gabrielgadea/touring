@@ -49,8 +49,8 @@ type = "loop"
 body = "cycle"
 max_iters = 4
 dry_rounds = 2
-on_dry = "present"
-on_pass = "present"
+on_dry = "code_mode_replay"
+on_pass = "code_mode_replay"
 on_fail = "__fail__"
 
 [node.cycle]
@@ -59,6 +59,18 @@ sandbox = true
 command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py cycle --topic \"$1\"", "--", "{{vars.topic}}"]
 timeout_ms = 960000
 idempotent = true
+
+# W7 S-7.1 (plano code-mode-total): o replay dos instrumentos deixa de
+# depender de alguém lembrar — cada ciclo do scout mede adoção/rajadas/P9
+# contra a baseline congelada (S-0.2) e deltas significativos viram
+# NEW_FINDINGS (= demanda que o factory roteia). Probe: sem FACT= o nó falha,
+# mas o scout segue (observabilidade jamais derruba o gerador de demanda).
+[node.code_mode_replay]
+type = "probe"
+command = ["bash", "-c", "python3 $HOME/projects/touring/docs/plans/2026-08-24-code-mode-antecipa/evidence/replay_code_mode.py"]
+timeout_ms = 600000
+on_pass = "present"
+on_fail = "present"
 
 [node.present]
 type = "code"

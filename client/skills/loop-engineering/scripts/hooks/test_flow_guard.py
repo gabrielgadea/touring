@@ -786,3 +786,50 @@ def test_dag_ready_parses_the_real_envelope():
         assert g.dag_ready("task_9") is None
     finally:
         g.subprocess.run = orig
+
+
+# ── W6 S-6.2 (plano code-mode-total): rajada sem programa bloqueia o turno ────
+
+import loop_stop_guard as g_burst
+
+
+def _transcript_sintetico(tmp_path, n_bash, n_run):
+    """Um turno: 1 prompt genuíno do usuário + N tool_use Bash."""
+    linhas = [json.dumps({"type": "user",
+                          "message": {"role": "user", "content": "faça a coisa"}})]
+    for i in range(n_bash):
+        cmd = "touring run --lang python --file x.py" if i < n_run else f"rg -n 'p{i}' f.rs"
+        linhas.append(json.dumps({
+            "type": "assistant",
+            "message": {"content": [
+                {"type": "tool_use", "name": "Bash", "input": {"command": cmd}}]}}))
+    tp = tmp_path / "transcript.jsonl"
+    tp.write_text("\n".join(linhas))
+    return tp
+
+
+def test_rajada_25_bash_sem_run_bloqueia_uma_vez(tmp_path, monkeypatch):
+    monkeypatch.delenv("TOURING_WORK_OUTER_DISABLED", raising=False)
+    tp = _transcript_sintetico(tmp_path, 25, 0)
+    razao = g_burst.code_mode_burst_block({"transcript_path": str(tp)})
+    assert razao and "25 Bash" in razao and "rg" in razao
+    # 2º Stop do MESMO turno: passa (sentinela) — nunca loop de block
+    assert g_burst.code_mode_burst_block({"transcript_path": str(tp)}) is None
+
+
+def test_rajada_com_um_touring_run_passa(tmp_path, monkeypatch):
+    monkeypatch.delenv("TOURING_WORK_OUTER_DISABLED", raising=False)
+    tp = _transcript_sintetico(tmp_path, 25, 1)
+    assert g_burst.code_mode_burst_block({"transcript_path": str(tp)}) is None
+
+
+def test_rajada_abaixo_do_piso_passa(tmp_path, monkeypatch):
+    monkeypatch.delenv("TOURING_WORK_OUTER_DISABLED", raising=False)
+    tp = _transcript_sintetico(tmp_path, 19, 0)
+    assert g_burst.code_mode_burst_block({"transcript_path": str(tp)}) is None
+
+
+def test_kill_switch_desliga_o_gate_de_rajada(tmp_path, monkeypatch):
+    monkeypatch.setenv("TOURING_WORK_OUTER_DISABLED", "1")
+    tp = _transcript_sintetico(tmp_path, 25, 0)
+    assert g_burst.code_mode_burst_block({"transcript_path": str(tp)}) is None

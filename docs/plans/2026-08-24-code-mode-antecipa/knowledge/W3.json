@@ -1,0 +1,11 @@
+{
+  "phase": "W3",
+  "entities": [
+    {
+      "entity_id": "phase:W3",
+      "type": "phase",
+      "description": "W3 completa: G3 edit-sem-read como gate de MODO por sess\u00e3o (2 advisories \u2192 deny no 3\u00ba, Read reseta, sess\u00e3o nova zera, chave escopada por project_root pelo guard estrutural); G7 re-inspe\u00e7\u00e3o do mesmo alvo (3\u00aa advisory com R1 instanciado no arquivo REAL, 5\u00aa deny, touring run citando o path reseta); G4/G5 como telemetria (G5: 1 advisory \u00fanico no FIM da rajada de edits sem valida\u00e7\u00e3o \u2014 nunca durante). Provas vivas p\u00f3s-deploy nesta sess\u00e3o: G7 advisory na 3\u00aa leitura de rust-toolchain.toml; G3 advisory 1/2 no Write sem Read; G2-rewrite corrigiu um pipe+exit transparentemente (REWRITE_PROVA=1)."
+    }
+  ],
+  "relations": []
+}

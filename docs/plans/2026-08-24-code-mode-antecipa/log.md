@@ -31,3 +31,11 @@ W5 completa: fluxos instrument-first (control→probe), family-fix (probe FACT=S
 ## 2026-08-24T21:51:45.950639-03:00 — W2 done
 
 W2 completa: G1 teeth — 4ª inspeção da MESMA classe nega com a rajada REAL acumulada como corpo do programa (burst_ledger por projeto+classe, TTL 180s); advisory legado segue dono da 3ª; bypass por-comando reseta a janela; continuation-check A/B (same/other) alimenta autodemote puro (piso 0.70 com 100+ eventos — g1_should_deny testado nas 4 bordas). Provado vivo: deny real na 4ª rg desta sessão com os 4 comandos verbatim no remédio, seguido do remédio em 1 touring run.
+
+## 2026-08-24T22:06:35.352318-03:00 — W3 done
+
+W3 completa: G3 edit-sem-read como gate de MODO por sessão (2 advisories → deny no 3º, Read reseta, sessão nova zera, chave escopada por project_root pelo guard estrutural); G7 re-inspeção do mesmo alvo (3ª advisory com R1 instanciado no arquivo REAL, 5ª deny, touring run citando o path reseta); G4/G5 como telemetria (G5: 1 advisory único no FIM da rajada de edits sem validação — nunca durante). Provas vivas pós-deploy nesta sessão: G7 advisory na 3ª leitura de rust-toolchain.toml; G3 advisory 1/2 no Write sem Read; G2-rewrite corrigiu um pipe+exit transparentemente (REWRITE_PROVA=1).
+
+## 2026-08-24T22:06:35.472520-03:00 — W6 done
+
+W6 completa: reflexo #8 do CLAUDE.md afiado (a pergunta define a unidade; R1-R8 pelo slug; hygiene: linha editada, sem seção nova); Stop hook rajada-sem-programa (≥20 Bash/0 run → 1 block por turno com sentinela por turn_id, 4 testes + fix do import os que derrubava o guard inteiro — 69/69 no test_flow_guard); E3 contrafactual como advisory no PreToolUse Edit/Write (modal sem run- na vizinhança; nunca deny) com contador e3_counterfactual_observed_count; INNER facts documentado no SKILL.md (críticos julgam contra fatos endereçados; manifesto gateia só o OUTER — decisão registrada).

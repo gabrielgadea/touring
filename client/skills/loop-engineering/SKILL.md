@@ -256,6 +256,7 @@ Reach for the piece before writing the phase by hand:
 |---|---|---|
 | INNER 12 execute | `touring adw new <name> --use <frag>…` | a flow born lint-clean, with gate feedback already wired and prior art judged (`--verdict` is mandatory) |
 | INNER 13 cross-audit | `critic-panel` fragment | N **blind** critics with distinct lenses, `session = "fresh"`, quorum counted by code — the judge that step 13 lacked, because until now the context that produced the work also graded it |
+| INNER 13 facts (W6 S-6.4) | probe `FACT=` + `loop_phase_close.py --facts` | os críticos julgam contra fatos ENDEREÇADOS (chave/valor/run_id) em vez de narrativa — a Lei L3 desce do turno para a fase; sem `--facts` o relatório da fase carrega a seção visível "Afirmações sem endereço" |
 | INNER 13 breadth | `fanout-lenses` fragment | sectioning: N lenses over one target, `branches` resolved at RUNTIME (`{{vars.lenses}}` + a cloned `template`), merged by concatenation |
 | OUTER 10 plan | `plan-pack` fragment | the planning node bound to `taco-planning` — the craft travels with the node, not just the posture |
 | any step | `skilling-pack` fragment | when a procedure RECURRED (a `code` node checks ≥2, so it is arithmetic and not enthusiasm), capture it under `TACO-skilling` |

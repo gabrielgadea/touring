@@ -408,11 +408,44 @@ pub fn cli_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
     );
     let composite_health_score =
         compute_composite_health_score(combined.as_object().expect("combined is a JSON object"));
+    // W7 S-7.3 (plano code-mode-total) — a régua de adoção no dashboard:
+    // runs / bash_calls (denominador vivo do W0) + resumo dos gate_events.
+    // Ausência de denominador = null, nunca 0 (Lei L2).
+    let gm = crate::shared::gate_metrics::global();
+    let runs = gm
+        .code_mode_runs_count
+        .load(std::sync::atomic::Ordering::Relaxed);
+    let bash_calls = gm
+        .bash_calls_total_count
+        .load(std::sync::atomic::Ordering::Relaxed);
+    let adoption_ratio = if bash_calls > 0 {
+        serde_json::json!(runs as f64 / bash_calls as f64)
+    } else {
+        serde_json::Value::Null
+    };
+    let gates: serde_json::Map<String, serde_json::Value> =
+        crate::shared::gate_metrics::GateId::all()
+            .iter()
+            .map(|g| {
+                let denied = gm.gate_events[*g as usize]
+                    [crate::shared::gate_metrics::GateEvent::Denied as usize]
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                let followed = gm.gate_events[*g as usize]
+                    [crate::shared::gate_metrics::GateEvent::Followed as usize]
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                (
+                    g.label().to_string(),
+                    serde_json::json!({ "denied": denied, "followed": followed }),
+                )
+            })
+            .collect();
     let status = serde_json::json!(
         { "index" : { "symbol_count" : symbol_count, "file_count" : file_count,
         "initialized" : rt.infra.symbol_store.is_some() }, "wiring" : { "orphan_count" :
         orphan_count }, "learning" : { "ema_reward" : ema_reward }, "daemon_health" :
-        daemon_health, "composite_health_score" : composite_health_score }
+        daemon_health, "composite_health_score" : composite_health_score,
+        "code_mode" : { "runs" : runs, "bash_calls" : bash_calls,
+        "adoption_ratio" : adoption_ratio, "gates" : gates } }
     );
     serde_json::to_string(&status)
         .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())

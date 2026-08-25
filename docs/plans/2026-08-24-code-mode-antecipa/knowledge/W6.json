@@ -1,0 +1,11 @@
+{
+  "phase": "W6",
+  "entities": [
+    {
+      "entity_id": "phase:W6",
+      "type": "phase",
+      "description": "W6 completa: reflexo #8 do CLAUDE.md afiado (a pergunta define a unidade; R1-R8 pelo slug; hygiene: linha editada, sem se\u00e7\u00e3o nova); Stop hook rajada-sem-programa (\u226520 Bash/0 run \u2192 1 block por turno com sentinela por turn_id, 4 testes + fix do import os que derrubava o guard inteiro \u2014 69/69 no test_flow_guard); E3 contrafactual como advisory no PreToolUse Edit/Write (modal sem run- na vizinhan\u00e7a; nunca deny) com contador e3_counterfactual_observed_count; INNER facts documentado no SKILL.md (cr\u00edticos julgam contra fatos endere\u00e7ados; manifesto gateia s\u00f3 o OUTER \u2014 decis\u00e3o registrada)."
+    }
+  ],
+  "relations": []
+}
