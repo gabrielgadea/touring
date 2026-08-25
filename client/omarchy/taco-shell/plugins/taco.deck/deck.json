@@ -1,0 +1,38 @@
+[
+  {
+    "label": "Cross-audit",
+    "skill": "TACO-cross-audit",
+    "model": "fable",
+    "effort": "high",
+    "mode": "acceptEdits",
+    "cwd": "~/projects/touring",
+    "herdr": false
+  },
+  {
+    "label": "Second brain",
+    "skill": "brain-moc",
+    "model": "sonnet",
+    "effort": "medium",
+    "mode": "acceptEdits",
+    "cwd": "~/Work",
+    "herdr": false
+  },
+  {
+    "label": "Inbox digest",
+    "skill": "inbox-digest",
+    "model": "sonnet",
+    "effort": "medium",
+    "mode": "acceptEdits",
+    "cwd": "~/Work/pessoal",
+    "herdr": false
+  },
+  {
+    "label": "Audit (Herdr)",
+    "skill": "TACO-cross-audit",
+    "model": "fable",
+    "effort": "high",
+    "mode": "acceptEdits",
+    "cwd": "~/projects/touring",
+    "herdr": true
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "suite": "taco-shell",
+  "description": "Backend boundary v1 — machine-readable classification of every capability the suite consumes (Shibumi pattern). Checked by tests/check-production-boundary (P1). Classes: hostIntegration (first-party qs.* contract), nativeApi (Quickshell/Qt API), omarchyBackend (omarchy CLI/binaries on PATH), omarchyAction (host-owned surfaces we delegate to, never reimplement), touringCli (touring CLI — L7 latency law applies), projectData (project-owned data sources).",
+  "capabilities": {
+    "qs.Ui.Panel":            { "class": "hostIntegration", "usedBy": ["taco.deck"] },
+    "qs.Ui.KeyboardPanel":    { "class": "hostIntegration", "usedBy": ["taco.deck"] },
+    "qs.Ui.PanelKeyCatcher":  { "class": "hostIntegration", "usedBy": ["taco.deck"] },
+    "qs.Ui.BarIconButton":    { "class": "hostIntegration", "usedBy": ["taco.deck"] },
+    "qs.Commons.Color":       { "class": "hostIntegration", "usedBy": ["taco.deck"], "note": "theme hue, transactional push on theme change (L4)" },
+    "qs.Commons.Style":       { "class": "hostIntegration", "usedBy": ["taco.deck"], "note": "font/space/radius tokens" },
+    "Quickshell.Io.FileView": { "class": "nativeApi",       "usedBy": ["taco.deck"], "note": "watched JSON (deck.json); JsonAdapter for settings (P1)" },
+    "Quickshell.Io.IpcHandler": { "class": "nativeApi",     "usedBy": ["taco.deck"] },
+    "Quickshell execDetached/Process": { "class": "nativeApi", "usedBy": ["taco.state (P1)", "TouringService (P1)"] },
+    "Quickshell.Wayland.WlrLayershell": { "class": "nativeApi", "usedBy": ["taco.orbital (P4)", "taco.ambience (P4)"] },
+    "omarchy-skill-run":      { "class": "omarchyBackend",  "usedBy": ["taco.deck"], "path": "~/.local/bin/omarchy-skill-run" },
+    "omarchy-launch-or-focus-tui": { "class": "omarchyBackend", "usedBy": ["taco.deck"], "path": "/usr/share/omarchy/bin/" },
+    "omarchy-shell shell rescanPlugins": { "class": "omarchyBackend", "usedBy": ["taco-suite"] },
+    "omarchy plugin validate": { "class": "omarchyBackend", "usedBy": ["taco-suite", "tests"] },
+    "omarchy.notifications":  { "class": "omarchyAction",   "usedBy": ["suite-wide"], "note": "host-owned provider stays authoritative (L8); we never reimplement notifications/OSD/idle" },
+    "omarchy.osd":            { "class": "omarchyAction",   "usedBy": ["suite-wide"], "note": "host-owned provider stays authoritative (L8)" },
+    "touring learning status": { "class": "touringCli", "usedBy": ["taco.pulse (P2)"], "latencyMs": 13,  "tier": "poll-direct" },
+    "touring kpi -j":          { "class": "touringCli", "usedBy": ["taco.pulse (P2)"], "latencyMs": 69,  "tier": "poll-direct" },
+    "touring gate-metrics -j": { "class": "touringCli", "usedBy": ["taco.pulse (P2)"], "latencyMs": null, "tier": "poll-direct", "note": "measure on first use; budget <100ms (L7)" },
+    "touring decompose frontier": { "class": "touringCli", "usedBy": ["taco.mission (P2)"], "tier": "poll-moderate+cache-short" },
+    "touring status -j":       { "class": "touringCli", "usedBy": ["taco.state (P1)"], "latencyMs": 28550, "tier": "background-cache-only", "note": "L7: NEVER synchronous poll — taco.state refreshes a JSON cache in background; widgets FileView the cache" },
+    "LexHub (analise/lexhub + data/lexhub_gold)": { "class": "projectData", "usedBy": ["taco.forge (P3)"] },
+    "kazuba-geo-engine (PyO3, 740 bindings)":     { "class": "projectData", "usedBy": ["taco.geo (P3)"] }
+  }
+}

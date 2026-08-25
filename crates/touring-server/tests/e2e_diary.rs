@@ -48,6 +48,23 @@ fn daemon_bin() -> PathBuf {
     resolve_bin("touring-daemon")
 }
 
+/// A temp dir that `normalize_project_root` actually RECOGNISES as a project.
+///
+/// A bare `TempDir` under `/tmp` carries no project marker, so the walk-up in
+/// `normalize_project_root` reaches `/` and falls back to `$HOME` — every test
+/// then wrote into the MACHINE'S OWN diary (`$HOME/.claude/touring`), read all
+/// the other tests' entries back, and accumulated across runs (measured
+/// 2026-08-25: expected 1, got 3 in one run and 6 in the next). The suite was
+/// both non-deterministic and polluting the operator's real diary.
+///
+/// One `.touring/` directory makes the temp dir a real root, so each test gets
+/// its own store — isolation by CONSTRUCTION, not by hope.
+fn test_project() -> TempDir {
+    let tmp = TempDir::new().expect("tempdir");
+    std::fs::create_dir_all(tmp.path().join(".touring")).expect("project marker");
+    tmp
+}
+
 /// Start a fresh daemon for test isolation.
 ///
 /// REGRA #19: per-process socket isolation (TOURING_DAEMON_SOCKET below)
@@ -60,15 +77,25 @@ fn daemon_bin() -> PathBuf {
 /// and `start_daemon` opens with `remove_file(&socket_path)` — so a test
 /// starting up deleted the endpoint a concurrently-running neighbour was
 /// already talking to, and that neighbour's next CLI call died with
-/// "No such file or directory (os error 2)" (2026-08-02). libtest names the
-/// worker thread after the test, so both `start_daemon` and `touring` derive
-/// the same value inside one test without threading any parameter through.
-fn socket_path() -> String {
-    let test = std::thread::current()
-        .name()
-        .unwrap_or("main")
+/// "No such file or directory (os error 2)" (2026-08-02).
+///
+/// The fix then keyed on the THREAD NAME, because libtest names each worker
+/// thread after the test it runs. That is true only in PARALLEL mode: under
+/// `--test-threads=1` every test runs on `main`, so all of them shared one
+/// socket, one daemon and one diary — and the three counting tests saw each
+/// other's entries (measured 2026-08-25: expected 1, got exactly 3; expected
+/// 2, got 6). The suite passed only in the mode nobody was forcing.
+///
+/// The key is now the test's own `TempDir`, which is unique per test in EVERY
+/// execution mode and already exists before the daemon starts.
+fn socket_path(tmpdir: &TempDir) -> String {
+    let key = tmpdir
+        .path()
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("notmp")
         .replace([':', '/'], "_");
-    format!("/tmp/touring-daemon-{}-{}.sock", std::process::id(), test)
+    format!("/tmp/touring-daemon-{}-{}.sock", std::process::id(), key)
 }
 
 /// NOTA sobre isolamento (medido em 2026-08-24, ao consertar este arquivo)
@@ -82,8 +109,8 @@ fn socket_path() -> String {
 /// deste teste. A saída aqui é não depender do silêncio do ambiente: a entrada
 /// carrega um nonce único e a consulta é por ele, então o ranqueamento não
 /// disputa com o que mais exista no corpus.
-fn start_daemon() -> DaemonGuard {
-    let socket_path = socket_path();
+fn start_daemon(tmpdir: &TempDir) -> DaemonGuard {
+    let socket_path = socket_path(tmpdir);
     let _ = std::fs::remove_file(&socket_path);
     let _ = std::fs::remove_file(format!("{socket_path}.lock"));
 
@@ -105,12 +132,12 @@ fn start_daemon() -> DaemonGuard {
     std::thread::sleep(std::time::Duration::from_secs(2));
     let pid = daemon.id();
     std::mem::forget(daemon);
-    DaemonGuard { pid }
+    DaemonGuard { pid, socket_path }
 }
 
 /// Run touring CLI in a temp directory
 fn touring(args: &[&str], tmpdir: &TempDir) -> std::process::Output {
-    let socket_path = socket_path();
+    let socket_path = socket_path(tmpdir);
     let mut cmd = Command::new(touring_bin());
     for arg in args {
         cmd.arg(arg);
@@ -120,13 +147,12 @@ fn touring(args: &[&str], tmpdir: &TempDir) -> std::process::Output {
     cmd.output().expect("touring CLI failed")
 }
 
-fn stop_daemon(pid: u32) {
+fn stop_daemon(pid: u32, socket_path: &str) {
     let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
     // Clean the socket on the way OUT too. `start_daemon` only removed it on
     // the way IN, so every run left its socket file behind: 174 stale
     // `/tmp/touring-daemon-*-test_*.sock` had accumulated by 09/08/2026.
-    let socket_path = socket_path();
-    let _ = std::fs::remove_file(&socket_path);
+    let _ = std::fs::remove_file(socket_path);
     let _ = std::fs::remove_file(format!("{socket_path}.lock"));
 }
 
@@ -139,11 +165,12 @@ fn stop_daemon(pid: u32) {
 /// path is not cleanup; `Drop` runs during unwinding, so this one always does.
 struct DaemonGuard {
     pid: u32,
+    socket_path: String,
 }
 
 impl Drop for DaemonGuard {
     fn drop(&mut self) {
-        stop_daemon(self.pid);
+        stop_daemon(self.pid, &self.socket_path);
     }
 }
 
@@ -163,8 +190,8 @@ fn parse_json_opt(output: &std::process::Output) -> serde_json::Value {
 
 #[test]
 fn test_diary_write_and_read() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let out = touring(
         &[
@@ -205,8 +232,8 @@ fn test_diary_write_and_read() {
 
 #[test]
 fn test_diary_aaak_markers() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let out = touring(
         &[
@@ -251,8 +278,8 @@ fn test_diary_aaak_markers() {
 
 #[test]
 fn test_diary_topic_filter() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     touring(
         &[
@@ -299,8 +326,8 @@ fn test_diary_topic_filter() {
 
 #[test]
 fn test_diary_last_n() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     for i in 0..5 {
         touring(
@@ -317,8 +344,8 @@ fn test_diary_last_n() {
 
 #[test]
 fn test_diary_meta_after_write() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     touring(&["diary", "write", "agent_a", "entrada A"], &tmpdir);
 
@@ -331,8 +358,8 @@ fn test_diary_meta_after_write() {
 
 #[test]
 fn test_diary_write_exit_code() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let out = touring(&["diary", "write", "exit_test", "test content"], &tmpdir);
     assert_eq!(out.status.code(), Some(0), "valid write must exit 0");
@@ -340,8 +367,8 @@ fn test_diary_write_exit_code() {
 
 #[test]
 fn test_diary_multiple_entries_ordered() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     touring(&["diary", "write", "order_agent", "primeira"], &tmpdir);
     std::thread::sleep(std::time::Duration::from_millis(50));
@@ -365,8 +392,8 @@ fn test_diary_multiple_entries_ordered() {
 
 #[test]
 fn test_diary_no_diary_status() {
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let out = touring(&["diary", "meta", "nonexistent_agent"], &tmpdir);
     let json = parse_json_opt(&out);
@@ -420,8 +447,8 @@ fn test_diary_no_diary_status() {
 fn test_diary_fts5_searchable() {
     // Verify diary entries are ingested into FTS5 so `touring memory recall`
     // can find them via text search.
-    let tmpdir = TempDir::new().unwrap();
-    let _daemon = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     // Um nonce por execução torna a entrada IRREPETÍVEL no corpus. Antes a
     // consulta era a frase toda ("FTS5 integração semantic recall") e o teste

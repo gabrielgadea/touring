@@ -1,0 +1,336 @@
+{
+ "version": 2,
+ "topic": "geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+ "scope": "/home/gabrielgadea/projects/touring",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 12,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 11,
+     "new": 11,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T23:28:29-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 11,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T23:28:35-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 11,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T23:28:41-0300"
+  },
+  {
+   "round": 4,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 11,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T23:29:04-0300"
+  }
+ ],
+ "findings": {
+  "f_39cf145f3f4b": {
+   "id": "f_39cf145f3f4b",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "gotcha:generate-suggest-valida-drift:2026-08-25",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "EXERCÍCIO REVELOU (3 comandos): touring generate plan-suggest emite GeneratorPlan v2.0 que o próprio plan-validate REJEITA — missing field append_mode em assembly (e o commit_policy do suggest {write_",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_1c07a99dde2a": {
+   "id": "f_1c07a99dde2a",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "backlog:garde:generator-plan-validation",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "Alternativa REAL ao darling FP (darling é para proc-macros, touring-generator não tem). garde 0.22 ou validator 0.19: derive + runtime check em GeneratorPlan. Validation points: cila_level<=6, file_pa",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_299b65afdcbb": {
+   "id": "f_299b65afdcbb",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "strategy:geracao-sem-write:2026-08-25",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "Estratégia do programa geracao-sem-write (aprovado por Gabriel 25/08): LLM emite GeneratorPlan estruturado, executor typestate materializa/prova/commita; exercitar-infra é o método. DAG task_178762421",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_9a58b020dbe4": {
+   "id": "f_9a58b020dbe4",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "loop:task_1787194917333834762:F7:done",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "F7 remocao de touring-evolve e touring-generator (decisao do Gabriel). Antes de apagar, 18 comandos VALIDOS que so elas documentavam (8 generate + 10 evolution) foram extraidos por script para Touring",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_ecadc62e0d9e": {
+   "id": "f_ecadc62e0d9e",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "strategy:graph-engineering-flow-portfolio:2026-08-18",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "Estrategia: incorporar graph engineering (fan-out/join diamante), Wayfinder (fog/frontier, decision vs implementation tickets) e Gauntlet (critic cego + bar) ao runner ADW. 6 movimentos P1-P6. FATO po",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_65de05d7e28f": {
+   "id": "f_65de05d7e28f",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "programa-candidato:geracao-sem-write:2026-08-25",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "Candidato a próximo programa (registrado por ordem do fluxo, aguarda aprovação de Gabriel): harness de geração SEM Write do LLM — inversão do CodeAct: o modelo emite DECISÃO ESTRUTURADA (JSON de parâm",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_b5b404cbcf98": {
+   "id": "f_b5b404cbcf98",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "gotcha:pin-desatualizado-regride-projetos:2026-08-18",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "RESOLVIDO 18/08 18:45. Diagnostico: a v30.4.0 JA estava propagada aos 3 projetos (analise, konverter, transferegov_pipeline) - provado por comando (5/5 da hashtag library; controle: toolchain 30.3.1 d",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_ddd4cb87b08a": {
+   "id": "f_ddd4cb87b08a",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "strategy:implementar-code-mode-total:2026-08-24",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "Estratégia do turno de implementação (doc: docs/plans/2026-08-24-work-outer/strategy-2026-08-24-implementar-code-mode-total.md): executar o plano aprovado code-mode-total (task_1787614930715946363) wa",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_26fccdef62b2": {
+   "id": "f_26fccdef62b2",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "strategy:graph-engineering-refino-rodada2:2026-08-18",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "Refino r2: (1) fan-out NAO e ganho de performance - medido: audit 3 nos a 0.0-0.1s, strategy-loop recall 5.4s vs diagnose 30.2s = ~15%. Argumento e qualidade/vocabulario topologico. (2) P1 divide em P",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_4ae53ca684b4": {
+   "id": "f_4ae53ca684b4",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "loop:task_1787365388353596293:P1a1:done",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "S-4 do generator commit: rebuild --dir por diretório (fire-and-forget, N paralelos) → uma task sequencial de index ingest por arquivo, dedup + teto 64 + timeout 10s/chamada; helper puro ingest_targets",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_004d923803fe": {
+   "id": "f_004d923803fe",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "strategy:2026-08-21-suite-isolation-actor-yield",
+   "evidence": "touring memory recall geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "Estratégia aprovada (Gabriel 23:15 'implemente tudo na sequência'): P1 (a) S-4 generator rebuild→ingest sequencial + peer_cred no heavy-op log [deploy]; P2 (c) 16 e2e com PrivateDaemon via #[path] + r",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_615ae225213d": {
+   "id": "f_615ae225213d",
+   "lens": "portfolio",
+   "kind": "gap",
+   "key": "nenhum artefato conhecido cobre \"geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar\"",
+   "evidence": "touring portfolio geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
+   "detail": "nenhum artefato conhecido cobre \"geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar\" (11502 registros varridos) — o portfólio não tem prior-art para este intento",
+   "depth": "D0",
+   "round": 1
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 4,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "quality": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "portfolio": {
+   "visits": 4,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 1,
+   "max_depth": null,
+   "truncated_total": 0,
+   "state": "visited",
+   "note": "ESAA-Core (github.com/elzobrito/ESAA-Core, arXiv:2602.23193) clonado e lido: event sourcing p/ agentes, vocabulary/maps_to, reject_codes inventory, state machine única, projetor replay — referencia:esaa-core-event-sourcing:2026-08-25. + aco/generators (analise, 64k LOC): tríade execute/validate/rollback, learning Wilson/KS por gerador"
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": true,
+  "statement": "no new findings under current questions/lenses after 2 dry rounds — NOT a claim of completeness",
+  "clauses": {
+   "rounds_run": 4,
+   "dry_tail": true,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [],
+  "next_action": null,
+  "at": "2026-08-24T23:29:04-0300"
+ }
+}
