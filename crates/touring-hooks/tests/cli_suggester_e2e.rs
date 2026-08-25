@@ -116,8 +116,12 @@ fn classifier_grep_free_text_routes_to_tantivy() {
 #[test]
 fn classifier_bash_sed_inplace_promotes_taco_forge_perfect_edit() {
     let (_tmp, rt) = make_runtime();
+    // session_id próprio: os caches de gate (G3/G5 streak) são por sessão e
+    // globais ao processo — sem ele, um Edit de OUTRO teste faz o G5 falar
+    // aqui em vez do classificador (flaky que troca de vítima).
     let payload = json!({
         "tool_name": "Bash",
+        "session_id": "e2e-sed",
         "tool_input": { "command": "sed -i 's/old/new/g' foo.rs" }
     });
     let out = cli_suggester::run(&rt, &payload);
@@ -134,6 +138,7 @@ fn classifier_bash_git_routes_to_regra11_prohibition() {
     let (_tmp, rt) = make_runtime();
     let payload = json!({
         "tool_name": "Bash",
+        "session_id": "e2e-git",
         "tool_input": { "command": "git log --oneline" }
     });
     let out = cli_suggester::run(&rt, &payload);
@@ -150,6 +155,7 @@ fn classifier_bash_cargo_routes_to_doctor() {
     let (_tmp, rt) = make_runtime();
     let payload = json!({
         "tool_name": "Bash",
+        "session_id": "e2e-cargo",
         "tool_input": { "command": "cargo build -p touring-core --release" }
     });
     let out = cli_suggester::run(&rt, &payload);
@@ -191,8 +197,18 @@ fn classifier_write_tsx_routes_to_perfect_create_tsx() {
 #[test]
 fn classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate() {
     let (_tmp, rt) = make_runtime();
+    // O pipeline tem os gates ANTES do classificador: um Edit sem Read recente
+    // leva o advisory G3 e o classificador nunca fala. O Read satisfaz o gate;
+    // o objeto deste teste é o classificador de Edit.
+    let read = json!({
+        "tool_name": "Read",
+        "session_id": "e2e-edit-rust",
+        "tool_input": { "file_path": "crates/foo/src/lib.rs" }
+    });
+    let _ = cli_suggester::run(&rt, &read);
     let payload = json!({
         "tool_name": "Edit",
+        "session_id": "e2e-edit-rust",
         "tool_input": { "file_path": "crates/foo/src/lib.rs" }
     });
     let out = cli_suggester::run(&rt, &payload);
