@@ -2597,9 +2597,15 @@ fn classify_adoption(tool_name: &str, tool_input: &Value) -> Option<AdoptionClas
     None
 }
 
-/// F3 — classify the current action and fold it into the adoption_ratio counters.
+/// F3 — classify the current action and fold it into the adoption_ratio counters;
+/// also counts EVERY `Bash` action into the code-mode adoption denominator
+/// (W0 S-0.1 — unconditional, before classification, so the denominator sees
+/// all actions, not just the classified subsets).
 /// Extracted from `run` to keep the hot path flat. Fail-open + infallible.
 fn record_adoption(tool_name: &str, tool_input: &Value) {
+    if tool_name == "Bash" {
+        crate::shared::gate_metrics::record_bash_call();
+    }
     match classify_adoption(tool_name, tool_input) {
         Some(AdoptionClass::Touring) => crate::shared::gate_metrics::record_adoption_touring(),
         Some(AdoptionClass::Antipattern) => {

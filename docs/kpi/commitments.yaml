@@ -161,6 +161,14 @@ commitments:
     source: "derived:adoption_ratio"
     rationale: "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified."
 
+  - id: touring.code_mode.adoption_ratio
+    name: "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)"
+    threshold: 0.10
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_adoption_ratio"
+    rationale: "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2)."
+
   - id: touring.coupling.pillar_induction_ratio
     name: "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)"
     threshold: 0.5

@@ -3654,3 +3654,360 @@ def test_the_shipped_library_is_classified_and_arm_marker_is_the_writer():
                 escritores.append(f"{f.stem}:{name}")
     assert total >= 15, f"só {total} nós examinados — a varredura não achou a biblioteca"
     assert escritores == ["strategy-loop:arm_marker"], escritores
+
+
+# ── W4 (plano code-mode-total 2026-08-24): predicados + probe/control ─────────
+
+
+def _loop_spec(root, predicate_lines: str, body_cmd: str, extra_nodes: str = "") -> None:
+    write_spec(root, "w4", f"""
+[adw]
+name = "w4"
+entry = "lp"
+[node.lp]
+type = "loop"
+body = "corpo"
+max_iters = 4
+{predicate_lines}
+[node.corpo]
+type = "code"
+command = ["bash", "-c", "{body_cmd}"]
+idempotent = true
+[node.after]
+type = "code"
+command = ["bash", "-c", "echo convergiu"]
+idempotent = true
+on_pass = "__end__"
+{extra_nodes}
+""")
+
+
+def _consume_first_field(counter) -> str:
+    """Corpo-de-loop padrão: lê o 1º campo do arquivo e o consome."""
+    return f"n=$(cut -d' ' -f1 {counter}); sed -i 's/^[^ ]* //' {counter}; echo "
+
+
+def test_fixpoint_converge_quando_metrica_repete(root):
+    counter = root / "m.txt"
+    counter.write_text("5 5 9")
+    _loop_spec(root, 'predicate = "fixpoint"\nstable_rounds = 2\non_stable = "after"',
+               _consume_first_field(counter) + "METRIC=$n")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "completed"
+    assert len([s for s in outcome.steps if s["node"] == "corpo"]) == 2  # o 9 nunca é lido
+    assert outcome.steps[-1]["node"] == "after"
+
+
+def test_fixpoint_converge_na_terceira_com_5_6_6(root):
+    counter = root / "m.txt"
+    counter.write_text("5 6 6 9")
+    _loop_spec(root, 'predicate = "fixpoint"\nstable_rounds = 2\non_stable = "after"',
+               _consume_first_field(counter) + "METRIC=$n")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "completed"
+    assert len([s for s in outcome.steps if s["node"] == "corpo"]) == 3
+
+
+def test_fixpoint_silencio_exaure_max_iters_nunca_converge(root):
+    # UNKNOWN nunca inicia streak (Lei L2): sem METRIC= o loop exaure e segue
+    # por on_pass — jamais por on_stable.
+    _loop_spec(root, 'predicate = "fixpoint"\nstable_rounds = 2\non_stable = "after"\non_pass = "honesto"',
+               "echo medi tudo mas sem marcador",
+               extra_nodes="""
+[node.honesto]
+type = "code"
+command = ["bash", "-c", "echo orcamento-exaurido"]
+idempotent = true
+on_pass = "__end__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "completed"
+    assert len([s for s in outcome.steps if s["node"] == "corpo"]) == 4  # max_iters
+    assert outcome.steps[-1]["node"] == "honesto"
+
+
+def test_covered_converge_apenas_com_familia_completa(root):
+    counter = root / "c.txt"
+    counter.write_text("3/5 5/5")
+    _loop_spec(root, 'predicate = "covered"\nmin_discovered = 1\non_covered = "after"',
+               _consume_first_field(counter) + "COVERAGE=$n")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "completed"
+    assert len([s for s in outcome.steps if s["node"] == "corpo"]) == 2
+
+
+def test_covered_exaurir_com_n_menor_que_m_e_fail_jamais_sucesso(root):
+    _loop_spec(root, 'predicate = "covered"\nmin_discovered = 1\non_covered = "after"',
+               "echo COVERAGE=4/5")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "failed"  # familia_parcial estruturalmente impossível
+
+
+def test_covered_universo_que_encolhe_e_erro(root):
+    counter = root / "c.txt"
+    counter.write_text("3/5 3/3 9/9")
+    _loop_spec(root, 'predicate = "covered"\nmin_discovered = 1\non_covered = "after"',
+               _consume_first_field(counter) + "COVERAGE=$n")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "failed"
+    assert len([s for s in outcome.steps if s["node"] == "corpo"]) == 2  # para no encolhimento
+
+
+def test_covered_zero_de_zero_nunca_e_cobertura(root):
+    # o 0/0 do auditor: n==m mas m < min_discovered → exaure → fail
+    _loop_spec(root, 'predicate = "covered"\nmin_discovered = 1\non_covered = "after"',
+               "echo COVERAGE=0/0")
+    outcome = adw.execute(adw.load_spec(root, "w4"), root)
+    assert outcome.status == "failed"
+
+
+def test_control_honesto_passa(root):
+    write_spec(root, "ctl", """
+[adw]
+name = "ctl"
+entry = "calibra"
+[node.calibra]
+type = "control"
+command = ["bash", "-c", "test '{input}' = 'bom'"]
+good_input = "bom"
+bad_input = "ruim"
+on_pass = "depois"
+on_fail = "__fail__"
+[node.depois]
+type = "code"
+command = ["bash", "-c", "echo calibrado"]
+idempotent = true
+on_pass = "__end__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "ctl"), root)
+    assert outcome.status == "completed"
+
+
+def test_control_que_aprova_tudo_falha(root):
+    # a constante 0.990: um verificador que aprova o ruim não sabe reprovar
+    write_spec(root, "ctl", """
+[adw]
+name = "ctl"
+entry = "calibra"
+[node.calibra]
+type = "control"
+command = ["bash", "-c", "true # {input}"]
+good_input = "bom"
+bad_input = "ruim"
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "ctl"), root)
+    assert outcome.status == "failed"
+    passo = [s for s in outcome.steps if s["node"] == "calibra"][0]
+    assert passo["exit_code"] == 1
+
+
+def test_until_calibrated_retenta_ate_o_control_passar(root):
+    # o verificador melhora entre rodadas (flag no disco): 1ª falha, 2ª calibra
+    # contador de invocações: o control roda o comando 2x por round (good+bad);
+    # só a partir da 3ª invocação (= round 2) o verificador age honestamente.
+    cnt = root / "cnt"
+    write_spec(root, "cal", """
+[adw]
+name = "cal"
+entry = "lp"
+[node.lp]
+type = "loop"
+body = "calibra"
+max_iters = 4
+predicate = "calibrated"
+on_calibrated = "after"
+[node.calibra]
+type = "control"
+command = ["bash", "-c", "c=$(cat %s 2>/dev/null || echo 0); c=$((c+1)); echo $c > %s; if [ $c -le 2 ]; then true; else test '{input}' = 'bom'; fi"]
+good_input = "bom"
+bad_input = "ruim"
+[node.after]
+type = "code"
+command = ["bash", "-c", "echo calibrado"]
+idempotent = true
+on_pass = "__end__"
+""" % (cnt, cnt))
+    outcome = adw.execute(adw.load_spec(root, "cal"), root)
+    assert outcome.status == "completed"
+    assert len([s for s in outcome.steps if s["node"] == "calibra"]) == 2
+
+
+def test_until_calibrated_exaurir_e_fail(root):
+    write_spec(root, "cal", """
+[adw]
+name = "cal"
+entry = "lp"
+[node.lp]
+type = "loop"
+body = "calibra"
+max_iters = 3
+predicate = "calibrated"
+on_calibrated = "__end__"
+[node.calibra]
+type = "control"
+command = ["bash", "-c", "true # {input}"]
+good_input = "bom"
+bad_input = "ruim"
+""")
+    outcome = adw.execute(adw.load_spec(root, "cal"), root)
+    assert outcome.status == "failed"
+
+
+def test_probe_fact_e_interpolavel_a_jusante(root):
+    write_spec(root, "pb", """
+[adw]
+name = "pb"
+entry = "sonda"
+[node.sonda]
+type = "probe"
+command = ["bash", "-c", "echo FACT=SITES=7; echo FACT=DONO=diary"]
+on_pass = "checa"
+on_fail = "__fail__"
+[node.checa]
+type = "gate"
+command = ["bash", "-c", "test '{{nodes.sonda.facts.SITES}}' = '7' && test '{{nodes.sonda.facts.DONO}}' = 'diary'"]
+idempotent = true
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "pb"), root)
+    assert outcome.status == "completed", outcome.steps
+
+
+def test_probe_sem_fact_falha(root):
+    write_spec(root, "pb", """
+[adw]
+name = "pb"
+entry = "sonda"
+[node.sonda]
+type = "probe"
+command = ["bash", "-c", "echo achei coisas mas nao registrei fato"]
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "pb"), root)
+    assert outcome.status == "failed"
+
+
+def test_probe_facts_entram_no_journal_com_run_id(root):
+    write_spec(root, "pb", """
+[adw]
+name = "pb"
+entry = "sonda"
+[node.sonda]
+type = "probe"
+command = ["bash", "-c", "echo FACT=N=3"]
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "pb"), root)
+    assert outcome.status == "completed"
+    journal = (adw.runs_dir(root) / outcome.run_id / "journal.jsonl").read_text()
+    eventos = [json.loads(l) for l in journal.splitlines() if '"probe_facts"' in l]
+    assert eventos and eventos[0]["facts"] == {"N": "3"}
+    assert eventos[0]["run_id"] == outcome.run_id
+
+
+def test_lint_loop_marker_matches_type_par(root):
+    # negativo: fixpoint sem METRIC= no corpo → erro
+    _loop_spec(root, 'predicate = "fixpoint"\non_stable = "after"', "echo sem marcador")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "w4"))
+    assert any("METRIC=" in e for e in errors), errors
+    # positivo: com o marcador → limpo
+    _loop_spec(root, 'predicate = "fixpoint"\non_stable = "after"', "echo METRIC=1")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "w4"))
+    assert not any("METRIC=" in e for e in errors), errors
+
+
+def test_lint_verdict_needs_evidence_par(root):
+    base = """
+[adw]
+name = "ev"
+entry = "juiz"
+[node.juiz]
+type = "agent"
+prompt = "julgue %s e termine com VERDICT=PASS ou VERDICT=REJECT"
+on_pass = "__end__"
+on_fail = "__fail__"
+[node.medida]
+type = "code"
+command = ["bash", "-c", "echo 42"]
+idempotent = true
+on_pass = "__end__"
+"""
+    write_spec(root, "ev", base % "no seu julgamento")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "ev"))
+    assert any("sem evidência medida" in w for w in warnings), warnings
+    write_spec(root, "ev", base % "{{nodes.medida.summary}}")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "ev"))
+    assert not any("sem evidência medida" in w for w in warnings), warnings
+
+
+def test_lint_gate_has_control_par(root):
+    base = """
+[adw]
+name = "gc"
+entry = "g"
+[node.g]
+type = "gate"
+command = ["bash", "-c", "echo VERDICT=PASS"]
+verdict_contract = true
+%s
+idempotent = true
+on_pass = "__end__"
+on_fail = "__fail__"
+on_escalate = "__fail__"
+"""
+    write_spec(root, "gc", base % "")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "gc"))
+    assert any("control_waived" in w for w in warnings), warnings
+    write_spec(root, "gc", base % 'control_waived = "gate de teste"')
+    _, warnings = adw.lint_spec(adw.load_spec(root, "gc"))
+    assert not any("control_waived" in w for w in warnings), warnings
+
+
+def test_lint_sweep_declares_floor_par(root):
+    _loop_spec(root, 'predicate = "covered"\non_covered = "after"', "echo COVERAGE=1/1")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "w4"))
+    assert any("min_discovered" in e for e in errors), errors
+    _loop_spec(root, 'predicate = "covered"\nmin_discovered = 1\non_covered = "after"',
+               "echo COVERAGE=1/1")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "w4"))
+    assert not any("min_discovered" in e for e in errors), errors
+
+
+def test_retry_recebe_o_feedback_do_gate_verbatim(root, monkeypatch):
+    prompts = []
+
+    def fake_claude(spec, node, journal, prompt, record, cwd=None,
+                    results=None, variables=None):
+        prompts.append(prompt)
+        return adw.ExecResult(exit_code=0, output="implementado")
+
+    monkeypatch.setattr(adw, "_agent_claude", fake_claude)
+    flag = root / "flag"
+    write_spec(root, "fb", """
+[adw]
+name = "fb"
+entry = "eng"
+[node.eng]
+type = "agent"
+prompt = "implemente a coisa"
+session = "resume_on_fail"
+on_pass = "g"
+on_fail = "__fail__"
+[node.g]
+type = "gate"
+command = ["bash", "-c", "if [ -f %s ]; then exit 0; else echo 'faltou o teste da paginacao'; touch %s; exit 1; fi"]
+idempotent = true
+on_pass = "__end__"
+on_fail = "eng"
+""" % (flag, flag))
+    outcome = adw.execute(adw.load_spec(root, "fb"), root)
+    assert outcome.status == "completed"
+    assert len(prompts) == 2
+    assert "[gate feedback]" not in prompts[0]  # sem falha → prompt intocado
+    assert "[gate feedback]" in prompts[1]
+    assert "faltou o teste da paginacao" in prompts[1]  # verbatim

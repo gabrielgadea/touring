@@ -1,0 +1,36 @@
+{
+ "schema_version": "baseline-pre-w1/1",
+ "frozen_at": "2026-08-24T23:59:49.182299+00:00",
+ "instruments": {
+  "diag_tools": {
+   "report_text": "SESSOES=55  TOOL_CALLS=6021\n\n-- frequencia por tool (top 14)\n   Bash                           4181   69%\n   Read                            767   12%\n   Edit                            723   12%\n   Write                           104    1%\n   ToolSearch                       36    0%\n   SendMessage                      35    0%\n   Agent                            29    0%\n   TaskUpdate                       24    0%\n   ListAgents                       18    0%\n   AskUserQuestion                  14    0%\n   TaskCreate                       14    0%\n   WebSearch                        13    0%\n   WebFetch                         10    0%\n   Skill                             8    0%\n\n-- bigramas mais fortes (top 16)  A -> B\n             Bash -> Bash              3568   P(B|A)= 86%\n             Read -> Read               452   P(B|A)= 59%\n             Edit -> Edit               430   P(B|A)= 59%\n             Bash -> Read               227   P(B|A)=  5%\n             Edit -> Bash               211   P(B|A)= 29%\n             Read -> Bash               184   P(B|A)= 24%\n             Bash -> Edit               159   P(B|A)=  3%\n             Read -> Edit               117   P(B|A)= 15%\n             Bash -> Write               74   P(B|A)=  1%\n             Edit -> Read                74   P(B|A)= 10%\n            Write -> Bash                73   P(B|A)= 70%\n             Bash -> ToolSearch          29   P(B|A)=  0%\n      SendMessage -> Bash                16   P(B|A)= 69%\n            Write -> Write               16   P(B|A)= 15%\n            Agent -> Agent               14   P(B|A)= 50%\n       ToolSearch -> SendMessage         14   P(B|A)= 40%\n\n-- rajadas >=3 do MESMO tool\n   Bash                           324 rajadas   maior=315\n   Read                            79 rajadas   maior=45\n   Edit                            78 rajadas   maior=17\n   Agent                            3 rajadas   maior=4\n   TaskCreate                       3 rajadas   maior=6\n   TaskUpdate                       2 rajadas   maior=4\n   Write                            2 rajadas   maior=5\n   SendMessage                      1 rajadas   maior=4\n\n-- chamadas REDUNDANTES (mesmo tool+input na sessao)\n   Bash                            16 repeticoes\n   ListAgents                      15 repeticoes\n   Write                            6 repeticoes\n   TaskUpdate                       3 repeticoes\n   Edit                             3 repeticoes\n   mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot     3 repeticoes\n   TaskOutput                       1 repeticoes\n   Read                             1 repeticoes\n\n-- antipadroes estruturais\n   ReadSemLocalizar               365\n   EditSemRead                    354",
+   "key_metrics": {
+    "read_sem_localizar": 365,
+    "edit_sem_read": 354
+   }
+  },
+  "diag_gate": {
+   "report_text": "BASH_CLASSIFICADOS=4181\n   inspecao        1894   45%\n   touring_cli      643   15%\n   escrita          597   14%\n   outro            521   12%\n   code_mode        191    4%\n   build_test       162    3%\n   git               93    2%\n   processo          80    1%\n\n-- distribuicao do tamanho da rajada de Bash (20+ agrupado)\n   len=1   n=178   acum= 29%\n   len=2   n=111   acum= 47%\n   len=3   n=60    acum= 56%\n   len=4   n=61    acum= 66%\n   len=5   n=33    acum= 72%\n   len=6   n=34    acum= 77%\n   len=7   n=22    acum= 81%\n   len=8   n=18    acum= 84%\n   len=9   n=14    acum= 86%\n   len=10  n=11    acum= 88%\n   len=11  n=7     acum= 89%\n   len=12  n=5     acum= 90%\n   len=13  n=7     acum= 91%\n   len=14  n=5     acum= 92%\n   len=15  n=2     acum= 92%\n   len=16  n=4     acum= 93%\n   len=17  n=3     acum= 93%\n   len=18  n=2     acum= 94%\n   len=19  n=5     acum= 94%\n   len=20  n=31    acum=100%\n\n-- classe DOMINANTE nas rajadas >=3\n   inspecao         164\n   touring_cli       48\n   outro             29\n   escrita           28\n   code_mode         19\n   git                6\n   build_test         4\n\nCHAMADAS_DE_INSPECAO_DENTRO_DE_RAJADA=1393\n\n-- P9 (Verify-After)\n   rajadas de Edit/Write: 366\n   seguidas de build/test em <=4 chamadas: 65 (17%)",
+   "key_metrics": {
+    "bash_classificados": 4181,
+    "code_mode_pct": 4,
+    "inspecao_pct": 45
+   }
+  },
+  "diag_mem": {
+   "report_text": "MEMORIAS=703   sem_modo_identificado=148 (21%)\n\n-- modo de falha (memoria pode ter varios)\n   staleness                 296   42%  [PREVENIVEL]\n        ex: OUTRAS-REFERENCIAS.md, a-ponte-perfil-fluxo-adw.md, a-regua-que-nao-e-o-tempo.md\n   instrumento_errado        269   38%  [PREVENIVEL]\n        ex: 5th-gen-architecture-plan.md, OUTRAS-REFERENCIAS.md, a-auditoria-que-sobreviveu-ao-objeto.md\n   ausencia_como_zero        159   22%  [PREVENIVEL]\n        ex: OUTRAS-REFERENCIAS.md, a-media-e-o-instrumento-errado-para-o-serrilhado.md, a-mesma-classe-em-outra-sintaxe.md\n   familia_parcial           135   19%  [PREVENIVEL]\n        ex: OUTRAS-REFERENCIAS.md, a-forma-oficial-de-citar-era-invisivel.md, a-regua-que-nao-e-o-tempo.md\n   inferencia_sem_medida      84   11%  [outro]\n        ex: feedback_analysis.md, OUTRAS-REFERENCIAS.md, a-flag-que-chamava-um-nome-inexistente.md\n   comentario_falso           76   10%  [outro]\n        ex: a-auditoria-que-sobreviveu-ao-objeto.md, a-clausula-nao-era-falsa-era-vazia.md, a-media-e-o-instrumento-errado-para-o-serrilhado.md\n   config_desligada           34    4%  [PREVENIVEL]\n        ex: compute-apagados-decisao-pendente.md, documentary-gap-local-corpus-w1.md, gate-que-mede-texto-certifica-o-defeito.md\n   teste_vacuo                14    1%  [PREVENIVEL]\n        ex: carregar-nao-e-executar.md, dependencia-ausente-esconde-quebra.md, discriminador-inventado.md\n\nMARCACOES_TOTAIS=1067  PREVENIVEL_POR_PROGRAMA=907 (85%)\n\n-- por projeto (memorias com >=1 modo)\n   -home-gabrielgadea-projects-analise             365\n   -home-gabrielgadea                              100\n   -home-gabrielgadea-projects-konverter            48\n   -home-gabrielgadea-projects-touring              37\n   -home-gabrielgadea-telegram-claude-bot            2\n   -home-gabrielgadea-projects-2026-04-layerzero     1",
+   "key_metrics": {
+    "memorias_total": 703,
+    "staleness_pct": 42,
+    "instrumento_errado_pct": 38
+   }
+  },
+  "diag_gate_sim": {
+   "report_text": "gate                 disparos  sessoes\n   G4_read_sem_loc         365    27/55\n   G3_edit_sem_read        354    15/55\n   G2_pipe_exit             68    14/55\n   G1_rajada                52    17/55\n   G6_redundante            46    13/55\n   G5_edit_sem_valid        43    21/55\n\nG1 proxy de precisao: rajada CONTINUARIA depois do disparo em 47/52 (90%) — o resto morria sozinha",
+   "key_metrics": {
+    "g1_fires": 52,
+    "g2_fires": 68
+   }
+  }
+ }
+}

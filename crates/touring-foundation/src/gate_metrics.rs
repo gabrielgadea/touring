@@ -807,6 +807,16 @@ pub struct GateMetrics {
     /// sed — the prior-bash side). `adoption_ratio = touring / (touring + antipattern)`.
     pub adoption_antipattern_count: AtomicU64,
 
+    /// **W0 S-0.1 (2026-08-24)** — code-mode adoption denominator: EVERY `Bash`
+    /// PreToolUse action observed by the suggester hook, counted before any
+    /// classification or dedupe (the F3 pair above sees only the classified
+    /// touring/antipattern subsets). With `code_mode_runs_count` powers
+    /// `touring.code_mode.adoption_ratio = runs / bash_calls`. Daemon-lifetime
+    /// accumulator like every counter in this struct — the plan's draft name
+    /// (`session_bash_calls_count`) claimed a session scope the struct does
+    /// not have, so the name states the real scope.
+    pub bash_calls_total_count: AtomicU64,
+
     /// **Task #6 (2026-06-29)** — pillar-induction denominator: armed pillar nudges
     /// emitted by `cli_suggester` (master-cli / learning-memory — the differentials
     /// the upstream classifiers miss). Paired with `pillar_induction_followed_count`
@@ -1008,6 +1018,7 @@ impl Default for GateMetrics {
             suggestion_uptake_followed_count: AtomicU64::new(0),
             adoption_touring_count: AtomicU64::new(0),
             adoption_antipattern_count: AtomicU64::new(0),
+            bash_calls_total_count: AtomicU64::new(0),
             pillar_induction_emitted_count: AtomicU64::new(0),
             pillar_induction_followed_count: AtomicU64::new(0),
             ceg_write_paths_observed_count: AtomicU64::new(0),
@@ -1300,6 +1311,15 @@ pub fn record_tool_outputs_cleanup_deleted(n: u64) {
 pub fn record_sandbox_tee_persisted() {
     global()
         .sandbox_tee_persisted_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// W0 S-0.1 — record one raw `Bash` PreToolUse action (the code-mode adoption
+/// denominator). Called unconditionally for every Bash action, before the
+/// suggester's dedupe/early-return paths, so the denominator sees all actions.
+pub fn record_bash_call() {
+    global()
+        .bash_calls_total_count
         .fetch_add(1, Ordering::Relaxed);
 }
 

@@ -364,6 +364,10 @@ pub struct GateMetricsSnapshot {
     /// gate-metrics -j` the docs pointed to never carried them.
     #[serde(default)]
     pub code_mode_runs_count: u64,
+    /// W0 S-0.1 — every `Bash` PreToolUse observed (code-mode adoption
+    /// denominator; `touring.code_mode.adoption_ratio = runs / bash_calls`).
+    #[serde(default)]
+    pub bash_calls_total_count: u64,
     /// W4 d4 — measured context savings of the spill (full − inline bytes).
     #[serde(default)]
     pub code_mode_bytes_elided_total: u64,
@@ -815,6 +819,7 @@ impl GateMetricsSnapshot {
                 .load(Ordering::Relaxed),
             sandbox_tee_persisted_count: m.sandbox_tee_persisted_count.load(Ordering::Relaxed),
             code_mode_runs_count: m.code_mode_runs_count.load(Ordering::Relaxed),
+            bash_calls_total_count: m.bash_calls_total_count.load(Ordering::Relaxed),
             code_mode_bytes_elided_total: m.code_mode_bytes_elided_total.load(Ordering::Relaxed),
             code_mode_subcalls_count: m.code_mode_subcalls_count.load(Ordering::Relaxed),
             code_mode_subcall_bytes_total: m

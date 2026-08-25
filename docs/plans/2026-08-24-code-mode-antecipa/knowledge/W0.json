@@ -1,0 +1,11 @@
+{
+  "phase": "W0",
+  "entities": [
+    {
+      "entity_id": "phase:W0",
+      "type": "phase",
+      "description": "W0 completa: KPI code_mode.adoption_ratio vivo (denominador bash_calls_total_count provado em produ\u00e7\u00e3o, ratio 0.0 medido, commitment ADVISORY 0.10), baseline pr\u00e9-W1 congelada com key_metrics dos 4 instrumentos, pagina\u00e7\u00e3o honesta shown/total/truncated em query/recall/list. 1223 testes verdes, clippy limpo, deploy update-touring verificado por comportamento."
+    }
+  ],
+  "relations": []
+}
