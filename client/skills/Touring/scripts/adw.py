@@ -63,7 +63,7 @@ from pathlib import Path
 END = "__end__"
 FAIL = "__fail__"
 TERMINALS = {END, FAIL}
-NODE_TYPES = {"code", "agent", "gate", "loop", "human", "parallel"}
+NODE_TYPES = {"code", "agent", "gate", "loop", "human", "parallel", "probe", "control"}
 # B4 fan-out. `merge` has NO default on purpose: without a declared join, N
 # branches racing into one result slot is last-write-wins — the silent default
 # LangGraph documents for a state key with no reducer. Here it fails the lint.
@@ -111,6 +111,25 @@ NEW_FINDINGS_RE = re.compile(r"^NEW_FINDINGS=(\d+)\s*$", re.MULTILINE)
 # reading the loop node applies to NEW_FINDINGS), never zero and never
 # stagnation.
 METRIC_RE = re.compile(r"^METRIC=([0-9]+(?:\.[0-9]+)?)\s*$", re.MULTILINE)
+# W4 S-4.1 (plano code-mode-total) — o loop `predicate = "fixpoint"` lê o MESMO
+# marcador METRIC=; converge quando o valor REPETE por `stable_rounds`. Marcador
+# ausente é UNKNOWN: nunca inicia nem estende a sequência estável (Lei L2).
+# W4 S-4.2 — `predicate = "covered"`: o corpo emite `COVERAGE=n/m`. Termina
+# APENAS com n==m e m >= min_discovered; exaurir com n<m é __fail__, jamais
+# sucesso (a classe familia_parcial, 19% do corpus de memórias). Um `m` que
+# ENCOLHE entre rodadas é erro: o universo não diminui — se diminuiu, a
+# descoberta está instável e o número não é confiável.
+COVERAGE_RE = re.compile(r"^COVERAGE=(\d+)/(\d+)\s*$", re.MULTILINE)
+# W4 S-4.4 — contrato do nó `probe`: DEVE emitir >= 1 `FACT=<chave>=<valor>`;
+# os fatos ganham endereço ({{nodes.X.facts.chave}} + journal com run_id).
+FACT_RE = re.compile(r"^FACT=([A-Za-z_][A-Za-z0-9_]*)=(.+?)\s*$", re.MULTILINE)
+# W4 S-4.3 — marcador emitido pelo RUNNER (run_control_node), nunca pelo corpo:
+# `CONTROL=pass` só existe quando o verificador aprovou o bom E reprovou o ruim.
+CONTROL_PASS_RE = re.compile(r"^CONTROL=pass\s*$", re.MULTILINE)
+#: Predicados de terminação aceitos por um nó loop. Cada um ataca uma classe
+#: medida do corpus de memórias (staleness 42% → fixpoint; familia_parcial 19%
+#: → covered; instrumento_errado 38% → calibrated/control).
+LOOP_PREDICATES = {"dry", "fixpoint", "covered", "calibrated"}
 # B6 verification contract. Three verdicts, because two cannot express the case
 # that costs the most: a check that COULD NOT RUN. Under a boolean gate a broken
 # environment is indistinguishable from a real rejection, so the runner spends
@@ -272,9 +291,14 @@ EXIT = "__exit__"
 EXIT_FAIL = "__exit_fail__"
 FRAGMENT_SEAMS = {EXIT, EXIT_FAIL}
 NAMESPACE_SEP = "."
+#: Edge fields that live only in `node.raw` (not as Node attributes). Kept as a
+#: named family because FOUR walkers must agree on what an edge is (inliner,
+#: control_successors, _lint_node, mermaid) — per-site drift here is the same
+#: class as the five hook-count sites (2026-08-23).
+RAW_EDGE_FIELDS = ("on_escalate", "on_stable", "on_covered", "on_calibrated")
 #: Every field that carries an edge. Kept in one place because the inliner and the
 #: namespace deref must agree: a field missing here is one a fragment cannot use.
-EDGE_FIELDS = ("on_pass", "on_fail", "on_dry", "on_escalate")
+EDGE_FIELDS = ("on_pass", "on_fail", "on_dry", *RAW_EDGE_FIELDS)
 
 
 def fragment_dirs(root: Path) -> list[Path]:
@@ -727,7 +751,7 @@ _REDIRECT_TO_FILE_RE = re.compile(r"(?<![0-9<>&])>>?(?!\s*&)")
 def _command_tokens(command) -> list[str]:
     """Todo token executável do comando, inclusive os de dentro de `bash -c`.
 
-    Um `bash -c "<script>"` esconde o comando real dentro de UM token. Sem
+    Um `bash -c "<corpo do programa>"` esconde o comando real dentro de UM token. Sem
     reabrir esse token o detector examinaria a casca (`bash`, `-c`) e declararia
     desconhecido tudo que importa.
     """
@@ -884,9 +908,13 @@ def control_successors(spec: Spec, node: Node) -> list[str]:
                 out.append(template)
         else:
             out.extend(b for b in (raw or []) if b in spec.nodes)
-    escalate = node.raw.get("on_escalate")
-    if escalate in spec.nodes:
-        out.append(str(escalate))
+    # RAW_EDGE_FIELDS é a família inteira (escalate/stable/covered/calibrated):
+    # um walker que enumera só parte dela raciocina sobre um grafo que os outros
+    # não têm — a deriva por sítio que a tupla nomeada existe para impedir.
+    for campo in RAW_EDGE_FIELDS:
+        alvo = node.raw.get(campo)
+        if alvo in spec.nodes:
+            out.append(str(alvo))
     return out
 
 
@@ -1165,12 +1193,31 @@ def _lint_node(node: Node, names: set[str], errors: list[str], warnings: list[st
     ):
         if target not in names and target not in TERMINALS:
             errors.append(f"node `{node.name}`: {edge_name} → unknown node `{target}`")
+    # W4 — arestas que vivem só em raw (on_stable/on_covered/on_calibrated);
+    # on_escalate mantém sua checagem dedicada no bloco verdict_contract abaixo.
+    for edge_name in ("on_stable", "on_covered", "on_calibrated"):
+        target = node.raw.get(edge_name)
+        if target is not None and target not in names and target not in TERMINALS:
+            errors.append(f"node `{node.name}`: {edge_name} → unknown node `{target}`")
     if node.type == "loop":
         body = node.raw.get("body", "")
         if body not in names:
             errors.append(f"loop `{node.name}`: body → unknown node `{body}`")
         if int(node.raw.get("max_iters", 0)) <= 0:
             errors.append(f"loop `{node.name}`: max_iters must be >= 1 (Law L2: runner owns termination)")
+        predicate = str(node.raw.get("predicate", "dry"))
+        if predicate not in LOOP_PREDICATES:
+            errors.append(f"loop `{node.name}`: predicate `{predicate}` desconhecido — "
+                          f"use um de {sorted(LOOP_PREDICATES)}")
+    if node.type == "control":
+        if not node.raw.get("command"):
+            errors.append(f"control `{node.name}`: missing command[]")
+        for chave in ("good_input", "bad_input"):
+            if chave not in node.raw:
+                errors.append(f"control `{node.name}`: falta `{chave}` — sem os dois lados "
+                              f"o verificador não distingue constante (R4)")
+    if node.type == "probe" and not node.raw.get("command"):
+        errors.append(f"probe `{node.name}`: missing command[]")
     if node.type in {"code", "gate"}:
         if not node.raw.get("command"):
             errors.append(f"node `{node.name}`: missing command[]")
@@ -1502,6 +1549,100 @@ def _lint_budget(spec: Spec, errors: list[str]) -> None:
         errors.append(f"budget-verify: Σ node budgets ({total}) > run budget ({spec.budget_tokens})")
 
 
+def _node_marker_text(node: Node) -> str:
+    """Prompt + command de um nó, achatado para busca de marcadores de contrato."""
+    parts = [str(node.raw.get("prompt", ""))]
+    parts.extend(str(c) for c in (node.raw.get("command") or []))
+    return " ".join(parts)
+
+
+def _lint_loop_marker_matches_type(spec: Spec, errors: list[str], warnings: list[str]) -> None:
+    """W4 S-4.5(2) — predicado sem o marcador correspondente no corpo = loop cego.
+
+    O runner só lê o que o corpo emite (Lei L2); um predicado cujo marcador não
+    aparece no texto do corpo nunca recebe sinal e exaure `max_iters` em
+    silêncio. Para `dry` (specs pré-W4) é warning — grandfathered; para os
+    predicados novos é erro, porque nasceram com o contrato.
+    """
+    markers = {"dry": "NEW_FINDINGS=", "fixpoint": "METRIC=", "covered": "COVERAGE="}
+    for node in spec.nodes.values():
+        if node.type != "loop":
+            continue
+        predicate = str(node.raw.get("predicate", "dry"))
+        body = spec.nodes.get(str(node.raw.get("body", "")))
+        if body is None or predicate not in LOOP_PREDICATES:
+            continue  # _lint_node já reporta corpo/predicado inválido
+        if predicate == "calibrated":
+            if body.type != "control":
+                errors.append(f"loop `{node.name}`: predicate `calibrated` exige corpo "
+                              f"do tipo control (o corpo `{body.name}` é `{body.type}`)")
+            continue
+        marker = markers[predicate]
+        if marker not in _node_marker_text(body):
+            msg = (f"loop `{node.name}`: predicate `{predicate}` exige `{marker}<...>` no "
+                   f"corpo `{body.name}` — sem o marcador o runner nunca lê o sinal (Lei L2)")
+            if predicate == "dry":
+                warnings.append(msg)
+            else:
+                errors.append(msg)
+
+
+def _lint_verdict_needs_evidence(spec: Spec, warnings: list[str]) -> None:
+    """W4 S-4.5(1) — agente que emite VERDICT=/METRIC= deve ler >= 1 nó medidor.
+
+    Um veredito sem leitura de code/probe/control/gate é opinião com marcador:
+    o texto certo, nenhum instrumento por trás (instrumento_errado, 38% do
+    corpus). code/probe/control/gate SÃO instrumentos — só agentes são cobrados.
+    """
+    medidores = {"code", "probe", "control", "gate"}
+    for node in spec.nodes.values():
+        if node.type != "agent":
+            continue
+        text = _node_marker_text(node)
+        if "VERDICT=" not in text and "METRIC=" not in text:
+            continue
+        reads = node_data_reads(node)
+        grounded = any(
+            (lido := spec.nodes.get(r)) is not None and lido.type in medidores
+            for r in reads
+        )
+        if not grounded:
+            warnings.append(
+                f"agente `{node.name}`: emite VERDICT=/METRIC= sem ler nenhum nó "
+                f"code/probe/control/gate — veredito sem evidência medida (S-4.5)")
+
+
+def _lint_gate_has_control(spec: Spec, warnings: list[str]) -> None:
+    """W4 S-4.5(3) — verdict_contract sem control no fluxo e sem waiver declarado.
+
+    Um juiz nunca calibrado pode aprovar tudo (`uma-execucao-nao-distingue-
+    constante`). A checagem é flow-wide (não upstream estrito) — v1 documentada:
+    a presença de UM control no fluxo já prova que o autor calibrou algo; o
+    refino por caminho fica para quando a telemetria mostrar que vale.
+    """
+    has_control = any(n.type == "control" for n in spec.nodes.values())
+    for node in spec.nodes.values():
+        if node.type != "gate" or not node.raw.get("verdict_contract", False):
+            continue
+        if has_control or node.raw.get("control_waived"):
+            continue
+        warnings.append(
+            f"gate `{node.name}`: verdict_contract sem nó control no fluxo e sem "
+            f"`control_waived = \"razão\"` — calibre o juiz ou declare por que não (S-4.5)")
+
+
+def _lint_sweep_declares_floor(spec: Spec, errors: list[str]) -> None:
+    """W4 S-4.5(4) — `covered` exige `min_discovered`: sem piso, a descoberta
+    vazia (COVERAGE=0/0) leria como família completa — o 0/0 do auditor."""
+    for node in spec.nodes.values():
+        if (node.type == "loop"
+                and str(node.raw.get("predicate", "dry")) == "covered"
+                and "min_discovered" not in node.raw):
+            errors.append(
+                f"loop `{node.name}`: predicate `covered` exige `min_discovered` — "
+                f"sem piso declarado COVERAGE=0/0 contaria como cobertura completa")
+
+
 def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     """Return (errors, warnings). Errors make `adw lint` exit non-zero."""
     errors: list[str] = []
@@ -1523,6 +1664,11 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     _lint_critique_without_brief(spec, warnings)
     _lint_agent_needs_permission(spec, warnings)
     _lint_agent_codegen_tier(spec, warnings)
+    # W4 S-4.5 — os 4 lints da honestidade (plano code-mode-total)
+    _lint_loop_marker_matches_type(spec, errors, warnings)
+    _lint_verdict_needs_evidence(spec, warnings)
+    _lint_gate_has_control(spec, warnings)
+    _lint_sweep_declares_floor(spec, errors)
     return errors, warnings
 
 
@@ -1611,6 +1757,11 @@ def render_template(text: str, results: dict[str, dict], variables: dict[str, st
         kind, key = match.group(1), match.group(2)
         if kind != "nodes":
             return variables.get(key, "")
+        if ".facts." in key:
+            # W4 S-4.4 — {{nodes.X.facts.chave}}: o fato de um probe, endereçável
+            # a jusante (E3 ganha o endereço que faltava).
+            node_key, fact_key = key.split(".facts.", 1)
+            return str(results.get(node_key, {}).get("facts", {}).get(fact_key, ""))
         campo = "summary"
         for f in RESULT_FIELDS:
             if key.endswith(f".{f}"):
@@ -1742,6 +1893,73 @@ def run_code_node(node: Node, results: dict, variables: dict,
         time.sleep(min(2 ** attempt, 10))
 
 
+def run_probe_node(node: Node, results: dict, variables: dict,
+                   cwd: Path | None = None) -> ExecResult:
+    """W4 S-4.4 — probe: um nó code cujo contrato é >= 1 linha FACT=<k>=<v>.
+
+    O fato ganha endereço: `attach_probe_facts` grava {fact, run_id, exec_key}
+    no journal e expõe `{{nodes.X.facts.chave}}` à interpolação. Sem FACT o nó
+    FALHA — contrato, não cortesia: um probe silencioso é o mesmo buraco que o
+    loop fail-closed fecha para NEW_FINDINGS.
+    """
+    result = run_code_node(node, results, variables, cwd=cwd)
+    if result.exit_code == 0 and not FACT_RE.search(result.output or ""):
+        return ExecResult(
+            exit_code=1,
+            output=(result.output or "")
+            + "\n[adw] probe sem FACT=<chave>=<valor> — o contrato exige ao menos um fato",
+        )
+    return result
+
+
+def attach_probe_facts(results: dict, node_name: str, output: str, journal: Journal,
+                       run_id: str, exec_key: str) -> None:
+    """W4 S-4.4 — FACT= vira dict endereçável + registro no journal com run_id."""
+    facts = {m.group(1): m.group(2) for m in FACT_RE.finditer(output or "")}
+    entry = results.get(node_name)
+    if isinstance(entry, dict):
+        entry["facts"] = facts
+    journal.append("probe_facts", node=node_name, exec_key=exec_key,
+                   run_id=run_id, facts=facts)
+
+
+def run_control_node(node: Node, results: dict, variables: dict,
+                     cwd: Path | None = None) -> ExecResult:
+    """W4 S-4.3 — R4 como nó: o verificador aprova o bom E reprova o ruim.
+
+    Um verificador que aprova tudo não sabe reprovar — a constante 0.990 do
+    `predict-action` (memória `uma-execucao-nao-distingue-constante`). O runner
+    roda `command` duas vezes, substituindo `{input}` por `good_input` e por
+    `bad_input`; o nó passa SÓ quando o bom passa E o ruim falha, e o RUNNER
+    (nunca o corpo) emite `CONTROL=pass|fail` — o marcador que o predicado
+    `calibrated` lê. Sem sandbox na v1 (documentado): o verificador é o comando
+    do próprio fluxo, já sujeito ao lint `_lint_readonly_claim`.
+    """
+    timeout_s = int(node.raw.get("timeout_ms", DEFAULT_TIMEOUT_MS)) / 1000
+    lines: list[str] = []
+    ok_all = True
+    for label, chave, want_pass in (("good", "good_input", True),
+                                    ("bad", "bad_input", False)):
+        valor = str(node.raw.get(chave, ""))
+        cmd = [render_template(str(p), results, variables).replace("{input}", valor)
+               for p in node.raw["command"]]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True,
+                                  timeout=timeout_s, cwd=cwd)
+            code = proc.returncode
+            out = (proc.stdout + proc.stderr)[-400:]
+        except subprocess.TimeoutExpired:
+            code, out = 124, f"timeout after {timeout_s:.0f}s"
+        ok = (code == 0) == want_pass
+        ok_all = ok_all and ok
+        lines.append(f"[control:{label}] exit={code} esperava_passar={want_pass} -> "
+                     f"{'ok' if ok else 'VIOLACAO'}")
+        if not ok:
+            lines.append(f"[control:{label}] saida: {out.strip()[:200]}")
+    lines.append(f"CONTROL={'pass' if ok_all else 'fail'}")
+    return ExecResult(exit_code=0 if ok_all else 1, output="\n".join(lines))
+
+
 def mock_recording_path(spec: Spec, node: str) -> Path:
     return spec.path.parent / f"{spec.name}.recordings" / f"{node}.json"
 
@@ -1855,9 +2073,15 @@ def _agent_claude(spec: Spec, node: Node, journal: Journal, prompt: str, record:
 def run_agent_node(
     node: Node, spec: Spec, journal: Journal, results: dict, variables: dict,
     force_mock: bool, record: bool, cwd: Path | None = None,
+    feedback: str | None = None,
 ) -> ExecResult:
     driver = "mock" if force_mock else node.raw.get("driver", "claude")
     prompt = render_template(node.raw.get("prompt", ""), results, variables)
+    if feedback:
+        # W4 S-4.6 — retry sem o porquê é a definição de retry cego (memória
+        # `adw-retry-sem-feedback-do-gate`): o veredito/saída do gate REPROVADOR
+        # entra verbatim no prompt do retry.
+        prompt = f"{prompt}\n\n[gate feedback]\n{feedback}"
     if driver == "mock":
         # Synthesis belongs to `adw test` alone. A spec that DECLARES
         # driver = "mock" is asking for one specific recording, and inventing it
@@ -2024,6 +2248,9 @@ class _RunCtx:
     #: node → the outputs its gate produced, newest last. Identical consecutive
     #: outputs mean the retry changed nothing the gate can see: stagnation.
     gate_history: dict[str, list[str]] = field(default_factory=dict)
+    #: W4 S-4.6 — nó de retry → saída do gate que o reprovou; consumido (pop)
+    #: pelo agent com `session = "resume_on_fail"` no próximo run.
+    pending_feedback: dict[str, str] = field(default_factory=dict)
     spent_usd: float = 0.0  # measured, not estimated — from the driver's own accounting
 
 
@@ -2037,14 +2264,26 @@ def _run_single_node(ctx: _RunCtx, node: Node, exec_key: str) -> str | None:
         if result is None:
             return None
     elif node.type == "agent":
+        feedback = None
+        if node.raw.get("session", "fresh") == "resume_on_fail":
+            # W4 S-4.6 — o veredito do gate reprovador viaja para o retry.
+            feedback = ctx.pending_feedback.pop(node.name, None)
         result = run_agent_node(node, ctx.spec, ctx.journal, ctx.results, ctx.variables,
-                                ctx.force_mock, ctx.record, cwd=ctx.root)
+                                ctx.force_mock, ctx.record, cwd=ctx.root,
+                                feedback=feedback)
     elif node.type == "parallel":
         result = run_parallel_node(ctx, node, exec_key)
+    elif node.type == "control":
+        result = run_control_node(node, ctx.results, ctx.variables, cwd=ctx.root)
+    elif node.type == "probe":
+        result = run_probe_node(node, ctx.results, ctx.variables, cwd=ctx.root)
     else:  # code | gate
         result = run_code_node(node, ctx.results, ctx.variables, cwd=ctx.root)
 
     ctx.results[node.name] = store_result(ctx.run_path, exec_key, result.output)
+    if node.type == "probe":
+        attach_probe_facts(ctx.results, node.name, result.output, ctx.journal,
+                           ctx.run_id, exec_key)
     if result.synthesized:
         ctx.outcome.synthesized.append(node.name)
     ctx.spent_usd += result.cost_usd
@@ -2348,6 +2587,10 @@ def _next_edge(ctx: _RunCtx, node: Node, exec_key: str, passed: bool,
                            reason="the gate reported an identical rejection — the retry "
                                   "changed nothing it can see")
         return FAIL
+    if nxt not in TERMINALS:
+        # W4 S-4.6 — registra a saída do nó reprovador para o retry consumir
+        # (`resume_on_fail` a injeta como [gate feedback] no prompt).
+        ctx.pending_feedback[nxt] = ctx.results.get(node.name, {}).get("summary", "")
     return nxt
 
 
@@ -2446,11 +2689,25 @@ def run_loop(
     variables: dict, visits: dict, completed: dict, force_mock: bool, record: bool,
     outcome: RunOutcome,
 ) -> str:
-    """Execute a loop node: the RUNNER counts findings and owns termination (L2)."""
+    """Execute a loop node: the RUNNER counts findings and owns termination (L2).
+
+    W4 (plano code-mode-total, 2026-08-24): quatro predicados de terminação,
+    cada um o remédio de uma classe medida do corpus de 703 memórias —
+    `dry` (NEW_FINDINGS=, o original), `fixpoint` (METRIC= repete →
+    staleness 42%), `covered` (COVERAGE=n/m família completa →
+    familia_parcial 19%), `calibrated` (corpo control passa →
+    instrumento_errado 38%).
+    """
     body = spec.node(node.raw["body"])
     max_iters = int(node.raw.get("max_iters", 1))
     dry_rounds = int(node.raw.get("dry_rounds", 2))
+    predicate = str(node.raw.get("predicate", "dry"))
+    stable_rounds = int(node.raw.get("stable_rounds", 2))
+    min_discovered = int(node.raw.get("min_discovered", 1))
     dry = 0
+    last_metric: float | None = None
+    stable = 0
+    prev_m: int | None = None
     for _ in range(max_iters):
         exec_key = f"{body.name}#{visits.get(body.name, 0)}"
         visits[body.name] = visits.get(body.name, 0) + 1
@@ -2465,38 +2722,108 @@ def run_loop(
             if body.type == "agent":
                 result = run_agent_node(body, spec, journal, results, variables,
                                         force_mock, record, cwd=run_path.parent.parent.parent)
+            elif body.type == "control":
+                result = run_control_node(body, results, variables,
+                                          cwd=run_path.parent.parent.parent)
+            elif body.type == "probe":
+                result = run_probe_node(body, results, variables,
+                                        cwd=run_path.parent.parent.parent)
             else:
                 result = run_code_node(body, results, variables, cwd=run_path.parent.parent.parent)
             store_result(run_path, exec_key, result.output)
             results[body.name] = {"summary": result.output[:SUMMARY_LIMIT],
                                   "omitted_bytes": 0, "full_ref": ""}
+            if body.type == "probe":
+                attach_probe_facts(results, body.name, result.output, journal,
+                                   run_path.name, exec_key)
             journal.append("node_completed", node=body.name, exec_key=exec_key,
                            exit_code=result.exit_code,
                            verdict="pass" if result.exit_code == 0 else "fail",
                            next=node.name, session_id=result.session_id, class_d=False)
             outcome.steps.append({"node": body.name, "exec_key": exec_key,
                                   "exit_code": result.exit_code})
-            if result.exit_code != 0:
+            if result.exit_code != 0 and predicate != "calibrated":
+                # `calibrated` ESPERA rodadas reprovadas — um control que falha é
+                # exatamente o que o loop re-tenta; os demais predicados leem um
+                # corpo falho como falha do loop.
                 return node.on_fail
             output = result.output
-        found = NEW_FINDINGS_RE.search(output or "")
-        # FAIL-CLOSED (2026-08-02): an absent marker means *unknown*, never zero.
-        # Reading it as 0 made silence indistinguishable from a dry round, so a
-        # body that never emits the signal — or whose output was truncated by a
-        # `tail -c` in the spec — terminated the loop after exactly `dry_rounds`
-        # iterations while still finding new material every round. Observed on
-        # strategy-loop: rounds of 30 and 4 new findings both counted as dry.
-        # Same defect class as loop_converged.py's dag_done (fail-open → closed).
-        new_findings = int(found.group(1)) if found else None
-        dry = dry + 1 if new_findings == 0 else 0
-        journal.append("loop_round", loop=node.name, body_exec=exec_key,
-                       new_findings=new_findings, dry_streak=dry,
-                       dry_signal="present" if found else "absent")
-        outcome.steps.append({"node": node.name, "loop_round": exec_key,
-                              "new_findings": new_findings,
-                              "dry_signal": "present" if found else "absent"})
-        if dry >= dry_rounds:
-            return node.on_dry
+
+        if predicate == "fixpoint":
+            found = METRIC_RE.search(output or "")
+            metric = float(found.group(1)) if found else None
+            if metric is None:
+                # UNKNOWN nunca inicia nem estende a sequência estável (Lei L2):
+                # silêncio não é estabilidade — é ausência de instrumento.
+                last_metric, stable = None, 0
+            elif last_metric is not None and metric == last_metric:
+                stable += 1
+            else:
+                last_metric, stable = metric, 1
+            journal.append("loop_round", loop=node.name, body_exec=exec_key,
+                           predicate=predicate, metric=metric, stable_streak=stable,
+                           dry_signal="present" if found else "absent")
+            outcome.steps.append({"node": node.name, "loop_round": exec_key,
+                                  "metric": metric, "stable_streak": stable})
+            if metric is not None and stable >= stable_rounds:
+                return str(node.raw.get("on_stable") or node.on_pass)
+        elif predicate == "covered":
+            found = COVERAGE_RE.search(output or "")
+            n = int(found.group(1)) if found else None
+            m = int(found.group(2)) if found else None
+            journal.append("loop_round", loop=node.name, body_exec=exec_key,
+                           predicate=predicate, covered_n=n, covered_m=m,
+                           dry_signal="present" if found else "absent")
+            outcome.steps.append({"node": node.name, "loop_round": exec_key,
+                                  "covered_n": n, "covered_m": m})
+            if m is not None:
+                if prev_m is not None and m < prev_m:
+                    journal.append("loop_universe_shrank", loop=node.name,
+                                   previous=prev_m, current=m,
+                                   reason="o universo não encolhe — descoberta instável")
+                    return FAIL
+                prev_m = m
+                if n == m and m >= min_discovered:
+                    return str(node.raw.get("on_covered") or node.on_pass)
+        elif predicate == "calibrated":
+            calibrated = bool(CONTROL_PASS_RE.search(output or ""))
+            journal.append("loop_round", loop=node.name, body_exec=exec_key,
+                           predicate=predicate, calibrated=calibrated)
+            outcome.steps.append({"node": node.name, "loop_round": exec_key,
+                                  "calibrated": calibrated})
+            if calibrated:
+                return str(node.raw.get("on_calibrated") or node.on_pass)
+        else:
+            found = NEW_FINDINGS_RE.search(output or "")
+            # FAIL-CLOSED (2026-08-02): an absent marker means *unknown*, never zero.
+            # Reading it as 0 made silence indistinguishable from a dry round, so a
+            # body that never emits the signal — or whose output was truncated by a
+            # `tail -c` in the spec — terminated the loop after exactly `dry_rounds`
+            # iterations while still finding new material every round. Observed on
+            # strategy-loop: rounds of 30 and 4 new findings both counted as dry.
+            # Same defect class as loop_converged.py's dag_done (fail-open → closed).
+            new_findings = int(found.group(1)) if found else None
+            dry = dry + 1 if new_findings == 0 else 0
+            journal.append("loop_round", loop=node.name, body_exec=exec_key,
+                           new_findings=new_findings, dry_streak=dry,
+                           dry_signal="present" if found else "absent")
+            outcome.steps.append({"node": node.name, "loop_round": exec_key,
+                                  "new_findings": new_findings,
+                                  "dry_signal": "present" if found else "absent"})
+            if dry >= dry_rounds:
+                return node.on_dry
+    if predicate == "covered":
+        # Exaurir com n<m é __fail__, jamais sucesso: a cobertura parcial que
+        # termina confiante é a classe familia_parcial (Lei L2 sobre conjunto).
+        journal.append("loop_exhausted_incomplete", loop=node.name,
+                       predicate=predicate,
+                       reason="max_iters com cobertura incompleta (n<m)")
+        return FAIL
+    if predicate == "calibrated":
+        journal.append("loop_exhausted_incomplete", loop=node.name,
+                       predicate=predicate,
+                       reason="max_iters sem calibrar o verificador")
+        return FAIL
     return node.on_pass
 
 

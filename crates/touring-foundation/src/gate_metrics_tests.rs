@@ -26,6 +26,19 @@ fn test_record_functions_are_additive() {
 }
 
 #[test]
+fn bash_calls_denominator_is_counted_and_snapshotted() {
+    // W0 S-0.1 — `record_bash_call` feeds the code-mode adoption denominator
+    // and the snapshot mirrors it (family: field + init + record + capture).
+    let baseline = global().bash_calls_total_count.load(Ordering::Relaxed);
+    record_bash_call();
+    record_bash_call();
+    let after = global().bash_calls_total_count.load(Ordering::Relaxed);
+    assert_eq!(after - baseline, 2);
+    let snap = GateMetricsSnapshot::capture();
+    assert!(snap.bash_calls_total_count >= after);
+}
+
+#[test]
 fn test_snapshot_zero_ratio_when_no_calls() {
     let snap = GateMetricsSnapshot {
         pre_edit_fast_path: 0,

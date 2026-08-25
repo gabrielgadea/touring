@@ -182,9 +182,23 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 // Loading + path resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// W0 S-0.1 — pure ratio for `touring.code_mode.adoption_ratio`. `None` when
+/// the denominator has not observed a single Bash action yet (absent signal is
+/// unknown, never zero — Lei L2); `Some(0.0)` only when Bash actions exist and
+/// none was a code-mode run (a measured zero).
+fn code_mode_adoption(runs: f64, bash_calls: f64) -> Option<f64> {
+    if bash_calls <= 0.0 {
+        return None;
+    }
+    Some(runs / bash_calls)
+}
+
 fn default_commitments_path() -> PathBuf {
+    // Canonical source tree first: the workspace moved from `~/.claude/rust`
+    // to `~/projects/touring` (F4′, 24/07/2026), so the old preferred path
+    // could never exist and resolution silently depended on the daemon's cwd.
     if let Ok(home) = std::env::var("HOME") {
-        let p = PathBuf::from(home).join(".claude/rust/docs/kpi/commitments.yaml");
+        let p = PathBuf::from(home).join("projects/touring/docs/kpi/commitments.yaml");
         if p.exists() {
             return p;
         }
@@ -343,6 +357,21 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
                 .and_then(json_value_as_f64)
                 .unwrap_or(0.0);
             Some(followed / emitted)
+        }
+        "code_mode_adoption_ratio" => {
+            // W0 S-0.1 (plano code-mode-total, 2026-08-24) — `touring run`
+            // executions over ALL Bash actions, both daemon-lifetime
+            // accumulators fed by the suggester hook and the run journal relay.
+            let m = invoke_handler(rt, "cli-gate-metrics")?;
+            let bash = m
+                .pointer("/bash_calls_total_count")
+                .and_then(json_value_as_f64)
+                .unwrap_or(0.0);
+            let runs = m
+                .pointer("/code_mode_runs_count")
+                .and_then(json_value_as_f64)
+                .unwrap_or(0.0);
+            code_mode_adoption(runs, bash)
         }
         "world_model_success" => read_world_model_success(),
         // The `touring.memory.*` family (2026-08-02). Derived by SQL over the
@@ -910,6 +939,20 @@ pub fn actuator_signals() -> (Option<f64>, Option<bool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn adoption_ratio_is_runs_over_bash_calls() {
+        assert_eq!(code_mode_adoption(4.0, 100.0), Some(0.04));
+        // Measured zero: Bash actions exist, no runs — honestly 0.0.
+        assert_eq!(code_mode_adoption(0.0, 10.0), Some(0.0));
+    }
+
+    #[test]
+    fn ratio_absent_reads_as_null_never_zero() {
+        // No denominator observed → unknown, never a fabricated 0.0 (Lei L2).
+        assert_eq!(code_mode_adoption(0.0, 0.0), None);
+        assert_eq!(code_mode_adoption(3.0, 0.0), None);
+    }
 
     #[test]
     fn project_slug_is_deterministic_and_collision_free() {

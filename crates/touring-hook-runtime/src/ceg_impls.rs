@@ -365,11 +365,18 @@ pub fn cli_memory_query(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         }
     });
     match result {
-        Ok(hits) => serde_json::json!({
+        // W0 S-0.3 — honest pagination: a count without the universe is
+        // unreadable as a universe (the 2026-08-24 retraction: a default
+        // limit of 10 read as "only 10 exist"). Every paginated response
+        // names shown/total/truncated; `count` stays for compatibility.
+        Ok((hits, total)) => serde_json::json!({
             "query": query,
             "tags": required.iter().map(|t| t.full_tag.clone()).collect::<Vec<_>>(),
             "text": text,
             "count": hits.len(),
+            "shown": hits.len(),
+            "total": total,
+            "truncated": total > hits.len(),
             "results": hits,
         })
         .to_string(),
@@ -385,7 +392,7 @@ fn fts_search_entries(
     text: &str,
     tag_keys: Option<&[String]>,
     limit: usize,
-) -> rusqlite::Result<Vec<serde_json::Value>> {
+) -> rusqlite::Result<(Vec<serde_json::Value>, usize)> {
     let fts_query = text
         .split_whitespace()
         .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
@@ -406,6 +413,9 @@ fn fts_search_entries(
         ))
     })?;
     let mut out = Vec::new();
+    // W0 S-0.3: the whole match set is walked so `total` names the real
+    // universe — only the DELIVERED slice stops at `limit`.
+    let mut total = 0usize;
     for row in rows {
         let (key, value, entry_type, tier) = row?;
         if let Some(keys) = tag_keys
@@ -413,14 +423,14 @@ fn fts_search_entries(
         {
             continue;
         }
-        out.push(serde_json::json!({
-            "key": key, "value": value, "entry_type": entry_type, "tier": tier,
-        }));
-        if out.len() >= limit {
-            break;
+        total += 1;
+        if out.len() < limit {
+            out.push(serde_json::json!({
+                "key": key, "value": value, "entry_type": entry_type, "tier": tier,
+            }));
         }
     }
-    Ok(out)
+    Ok((out, total))
 }
 
 /// Tag-only half of the query: fetch the entries behind the filtered keys.
@@ -428,7 +438,7 @@ fn fetch_entries_by_keys(
     conn: &rusqlite::Connection,
     keys: &[String],
     limit: usize,
-) -> rusqlite::Result<Vec<serde_json::Value>> {
+) -> rusqlite::Result<(Vec<serde_json::Value>, usize)> {
     let mut out = Vec::new();
     for key in keys.iter().take(limit) {
         let row = conn.query_row(
@@ -448,7 +458,8 @@ fn fetch_entries_by_keys(
             }));
         }
     }
-    Ok(out)
+    // W0 S-0.3: the tag-filtered key set IS the universe of this listing.
+    Ok((out, keys.len()))
 }
 
 /// Creates a typed memory↔memory edge (`touring memory link <src> <dst>

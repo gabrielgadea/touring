@@ -89,6 +89,9 @@ timeout_ms = 60000
 idempotent = true
 readonly = true
 verdict_contract = true
+# W4 S-4.5(3): o júri É a calibração — críticos independentes sob quorum;
+# um control sintético (good/bad input) não se aplica a juízo de texto livre.
+control_waived = "quorum de críticos independentes é o controle deste gate"
 on_pass = "__exit__"
 on_fail = "work"
 on_escalate = "__exit_fail__"

@@ -736,10 +736,9 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     //
     // `entries` below stays byte-identical to the pre-04/08 behaviour — this
     // is a new channel, not a change to the old one.
-    let cases = partition_cases(&memory_recall_rrf_merge_n(
-        &[&entries[..], &ann_results[..], &tfidf_results[..]],
-        60,
-    ));
+    let cases = partition_cases(
+        &memory_recall_rrf_merge_n(&[&entries[..], &ann_results[..], &tfidf_results[..]], 60).0,
+    );
 
     // Drop auto-recorded tool outcomes unless explicitly asked for. Filtering
     // BEFORE the RRF merge matters: filtering after would let noise consume the
@@ -754,9 +753,12 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     let ann_results = apply_tag_filter(ann_results, &tag_filter);
     let tfidf_results = apply_tag_filter(tfidf_results, &tag_filter);
     let entries_len = entries.len();
-    let merged_entries: Vec<serde_json::Value> =
+    // W0 S-0.3: `candidates_total` names the pre-cut universe of the merge so
+    // the response can say shown/total/truncated honestly.
+    let (merged_entries, candidates_total): (Vec<serde_json::Value>, usize) =
         if ann_results.is_empty() && tfidf_results.is_empty() {
-            entries
+            let n = entries.len();
+            (entries, n)
         } else {
             memory_recall_rrf_merge_n(&[&entries[..], &ann_results[..], &tfidf_results[..]], 20)
         };
@@ -856,6 +858,8 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     });
     serde_json::json!(
         { "entries" : merged_entries, "count" : entry_count, "query" : query,
+        "shown" : entry_count, "total" : candidates_total,
+        "truncated" : candidates_total > entry_count,
         "ann_results" : ann_count, "symbol_context" : symbol_context, "diagnostics" :
         memory_diagnostics, "cases" : cases, "tag_filter" : tag_filter_json, }
     )
@@ -887,7 +891,7 @@ fn memory_recall_query_embedding(query: &str) -> Vec<f32> {
 fn memory_recall_rrf_merge_n(
     lists: &[&[serde_json::Value]],
     limit: usize,
-) -> Vec<serde_json::Value> {
+) -> (Vec<serde_json::Value>, usize) {
     use std::collections::HashMap;
     const RRF_K: f64 = 60.0;
     let mut rrf_map: HashMap<String, (f64, serde_json::Value)> = HashMap::new();
@@ -906,9 +910,14 @@ fn memory_recall_rrf_merge_n(
             e.0 += score;
         }
     }
+    // W0 S-0.3 — the second element names the universe: distinct candidates
+    // BEFORE the `take(limit)` cut, so callers can report shown/total/truncated
+    // (a count without the universe is unreadable as a universe).
+    let total_candidates = rrf_map.len();
     let mut merged: Vec<(f64, serde_json::Value)> = rrf_map.into_values().collect();
     merged.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-    merged.into_iter().take(limit).map(|(_, v)| v).collect()
+    let delivered = merged.into_iter().take(limit).map(|(_, v)| v).collect();
+    (delivered, total_candidates)
 }
 /// Build (or load from cache) a TF-IDF index over the touring memory corpus
 /// and return up to `top_k` hits as RRF-ready JSON entries.
@@ -1155,6 +1164,10 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     serde_json::json!({
         "entries": entries,
         "count": count,
+        // W0 S-0.3 — honest pagination: shown/total/truncated on every listing.
+        "shown": count,
+        "total": total,
+        "truncated": (count as i64) < total,
         "corpus": { "total": total, "with_reward": scored },
     })
     .to_string()
@@ -1182,10 +1195,27 @@ fn memory_list_order_clause(sort_field: &str) -> &'static str {
 
 #[cfg(test)]
 mod memory_surface_tests {
-    use super::{filter_outcomes, memory_list_order_clause};
+    use super::{filter_outcomes, memory_list_order_clause, memory_recall_rrf_merge_n};
 
     fn entry(key: &str) -> serde_json::Value {
         serde_json::json!({ "key": key, "value": "v" })
+    }
+
+    #[test]
+    fn paginated_output_always_names_the_universe() {
+        // W0 S-0.3 — corpus of 23 distinct candidates, limit 10: the merge
+        // must deliver 10 AND name the 23 (the 2026-08-24 retraction was
+        // reading a default limit of 10 as "only 10 exist").
+        let corpus: Vec<serde_json::Value> =
+            (0..23).map(|i| entry(&format!("k{i}"))).collect();
+        let (delivered, total) = memory_recall_rrf_merge_n(&[&corpus[..]], 10);
+        assert_eq!(delivered.len(), 10);
+        assert_eq!(total, 23);
+        assert!(total > delivered.len(), "truncation must be nameable");
+        // No truncation: shown == total, never a phantom `truncated`.
+        let (all, total_all) = memory_recall_rrf_merge_n(&[&corpus[..]], 100);
+        assert_eq!(all.len(), 23);
+        assert_eq!(total_all, 23);
     }
 
     #[test]
