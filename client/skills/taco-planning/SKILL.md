@@ -294,6 +294,15 @@ Detail in [references/mcts-planning.md](references/mcts-planning.md).
 5. **Composable, not custom (REGRA #3).** Compose with `TACO-wt` for execution; do not re-implement its scripts.
 6. **Code generation via `Touring-native tooling` .** No raw `Write` of `.py`/`.sh` for scripts; use `Write tool (script Python)`.
 7. **Hygiene gate every refine.** SKILL.md < 500 lines (REGRA #13); add + prune together.
+8. **Efeito é medido antes de afirmado (2026-08-25).** Um plano que promete efeito de
+   roteamento/apresentação (adicionar um gate, um modo, uma indução) deve calibrar com
+   instrumentos REAIS antes de prometer: `calibration_p23.py` (extrator de transcripts
+   CC + classificador T0-T4 segment-aware — 20 prompts reais/1.312 calls provaram a
+   fronteira T2/T3) e `effect_p24.py` (simulador por braços com as 3 grandezas
+   separadas — comando/payload/nudge, bytes REAIS, bounds inferior/superior). Vivem em
+   `~/projects/touring/docs/plans/2026-08-25-code-mode-afordancia/` — o plano que os
+   gerou é o exemplo: "a afirmativa que persegue código, não intenção" (P2.4 — e a
+   reivindicação de 84,8% morreu nela).
 8. **50-dim acceptance gate in §5.** Every Pln2 plan encodes the delivery bar in its Verification Protocol: 6 BLOCK dims P0 (`touring-quality check --gate F2.1|F2.4|F2.5|F2.6|F4.3|F4.5`) + Gold floor (`touring-quality score --fail-below 0.80`). A plan without a measurable 50-dim gate ships prose, not a contract. Keystone: `~/.claude/rules/elite-50-quality.md`.
 
 ---
