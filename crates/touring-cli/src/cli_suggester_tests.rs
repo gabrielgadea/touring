@@ -2083,6 +2083,69 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    fn g8_laco_de_inspecao_vira_uma_varredura() {
+        use super::super::loop_rewrite_candidate;
+        // O caso medido no transcript de 25/08: laço de inspeção pura.
+        let cmd = r#"for f in a.rs b.rs; do grep -n "fn main" $f; done"#;
+        let got = loop_rewrite_candidate(cmd).expect("laço de inspeção é candidato");
+        assert!(got.starts_with("touring run --lang bash --code '"));
+        assert!(got.contains("for f in a.rs b.rs"), "carrega o comando REAL, não placeholder");
+    }
+
+    #[test]
+    fn g8_nunca_reescreve_laco_com_efeito() {
+        use super::super::loop_rewrite_candidate;
+        // Estes quebrariam sob as capabilities do sandbox — ficam de fora por
+        // construção, não por sorte. O gate que converte o que não devia é
+        // pior que gate nenhum.
+        for cmd in [
+            "for p in $(pgrep x); do kill -9 $p; done",
+            "for c in a b; do cargo test -p $c; done",
+            "for f in *.tmp; do rm $f; done",
+            "for d in a b; do git -C $d status; done",
+            "for i in 1 2; do echo $i >> saida.txt; done",
+            "for f in a b; do python3 -c 'print(1)'; done",
+        ] {
+            assert!(
+                loop_rewrite_candidate(cmd).is_none(),
+                "laço com efeito NÃO pode ser reescrito: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn g8_ignora_heredoc_aspas_impares_e_o_que_ja_e_code_mode() {
+        use super::super::loop_rewrite_candidate;
+        assert!(
+            loop_rewrite_candidate("for f in a; do cat <<EOF\n$f\nEOF\ndone").is_none(),
+            "heredoc é dado, e o quoting não sobrevive"
+        );
+        assert!(
+            loop_rewrite_candidate(r#"for f in a; do grep 'x $f; done"#).is_none(),
+            "aspas simples ímpares quebrariam o --code"
+        );
+        assert!(
+            loop_rewrite_candidate("touring run --lang bash --code 'for f in a; do ls $f; done'")
+                .is_none(),
+            "já é code mode"
+        );
+        assert!(
+            loop_rewrite_candidate("grep -rn foo crates/").is_none(),
+            "sem laço, nada a converter"
+        );
+    }
+
+    #[test]
+    fn g8_escapa_aspas_simples_preservando_o_comando() {
+        use super::super::loop_rewrite_candidate;
+        let cmd = r#"for f in a b; do grep -n 'fn main' $f; done"#;
+        let got = loop_rewrite_candidate(cmd).expect("candidato");
+        // O corpo entra escapado, de modo que o shell externo reentregue o
+        // comando original ao sandbox — o rewrite não pode alterar semântica.
+        assert!(got.contains(r"'\''fn main'\''"), "aspas internas escapadas: {got}");
+    }
+
+    #[test]
     fn g3_write_de_criacao_nao_conta_e_vale_como_read() {
         let proj = Path::new("/tmp/w3-g3-write");
         let s = "sess-g3w";

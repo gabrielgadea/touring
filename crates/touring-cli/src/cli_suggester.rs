@@ -2939,6 +2939,58 @@ fn deny_response(reason: String) -> String {
     .to_string()
 }
 
+/// G8 — o laço de inspeção pura vira UMA varredura no sandbox.
+///
+/// Devolve o comando reescrito, ou `None` quando o laço não é candidato. Puro
+/// (sem I/O) para ser exercitável em unit test — o predicado que decide precisa
+/// ser mais fácil de testar do que de contornar.
+///
+/// Entra: `for`/`while` cujo corpo só inspeciona (grep/cat/head/tail/ls/find/
+/// echo/wc/awk/sed/jq/stat/basename). Fica de fora, por construção, tudo que
+/// tem efeito (kill, git, cargo, rm, mv, install, deploy), redireciona para
+/// arquivo, usa heredoc (o corpo é dado, não programa) ou já é code mode.
+pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
+    if std::env::var("TOURING_G8_REWRITE_DISABLED").map(|v| v == "1") == Ok(true) {
+        return None;
+    }
+    let trimmed = cmd.trim();
+    // Já é code mode / master CLI — nada a converter.
+    if trimmed.contains("touring run") || trimmed.contains("touring exec") {
+        return None;
+    }
+    // Heredoc: o corpo é DADO (mesma razão do G2), e o quoting não sobrevive.
+    if trimmed.contains("<<") {
+        return None;
+    }
+    // Aspas simples desbalanceadas quebrariam o `--code '...'`.
+    if !trimmed.matches('\'').count().is_multiple_of(2) {
+        return None;
+    }
+    // Precisa de um laço de verdade — `for x in` / `while `.
+    let has_loop = trimmed.split(['\n', ';', '|', '&']).any(|part| {
+        let p = part.trim_start();
+        p.starts_with("for ") && p.contains(" in ") || p.starts_with("while ")
+    });
+    if !has_loop {
+        return None;
+    }
+    // Qualquer verbo com efeito colateral tira o comando do escopo.
+    const EFFECTFUL: &[&str] = &[
+        "kill", "pkill", "git ", "cargo", "rm ", "mv ", "cp ", "install", "update-touring",
+        "npm", "make ", "chmod", "chown", "mkdir", "touch ", "tee ", "curl", "wget", "ssh",
+        "docker", "systemctl", "sudo", "python3 -c", "python3 -m", "pip", ">>", "> /",
+    ];
+    if EFFECTFUL.iter().any(|verb| trimmed.contains(verb)) {
+        return None;
+    }
+    // Limite de tamanho: acima disso o comando reescrito polui mais do que ajuda.
+    if trimmed.len() > 1200 {
+        return None;
+    }
+    let escaped = trimmed.replace('\'', r"'\''");
+    Some(format!("touring run --lang bash --code '{escaped}'"))
+}
+
 /// W1 — G2 + G6 num só passe. `Some(resposta)` curto-circuita `run`; `None`
 /// segue para os classificadores. Corre ANTES do anti-spam: um deny repetido
 /// jamais pode ser engolido pelo cache de sugestões. Recebe `project_root`
@@ -3139,6 +3191,43 @@ pub(crate) fn code_mode_gates(
              Reexecute exatamente:\n  {remedy}\nOu remova o pipe e leia o exit \
              direto. Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
         )));
+    }
+    // G8 — laço de INSPEÇÃO reescrito para o sandbox (2026-08-25).
+    //
+    // Medido no transcript desta própria sessão (1433 tool calls): das 453
+    // oportunidades de code mode, as outras classes ou já estão cobertas ou
+    // não compensam. Apertar o limiar da rajada é fricção sem ganho (a mediana
+    // de rajada é 1); converter grep para o índice serviria a ~3% (56% dos
+    // greps são regex estrutural, que o índice não responde). Os laços, não:
+    // 44 casos reais em 47 detectados (94% de precisão), e o programa está
+    // ESCRITO no comando — foi decidido inteiro e partido em N round-trips.
+    //
+    // O remédio é o do G2, que se provou vivo: REESCREVER, não negar. Só
+    // laços de inspeção pura entram: o sandbox aplica capabilities por
+    // comando — `run-1787620774532-346193` registrou "X6 denied the subprocess
+    // capability 'echo' under profile 'Sandboxed'" —, então um laço que mata
+    // processo, faz git ou compila fica de fora por construção.
+    if let Some(rewritten) = loop_rewrite_candidate(cmd) {
+        if code_gates_disabled() {
+            record_gate_event(GateId::G8, GateEvent::Bypassed);
+        } else {
+            record_gate_event(GateId::G8, GateEvent::Emitted);
+            record_gate_event(GateId::G8, GateEvent::Followed);
+            return Some(
+                serde_json::json!({
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "allow",
+                        "permissionDecisionReason":
+                            "[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; \
+                             uma varredura no sandbox devolve só o agregado (Anthropic \
+                             CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.",
+                        "updatedInput": { "command": rewritten },
+                    }
+                })
+                .to_string(),
+            );
+        }
     }
     // W8 S-8.1 — modo experimental `TOURING_CODE_ONLY=1` (humano-only, env do
     // daemon): TODA inspeção atômica com equivalente no repertório é negada

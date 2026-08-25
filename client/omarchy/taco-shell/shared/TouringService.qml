@@ -27,23 +27,12 @@ QtObject {
   // blocks; consumers FileView the JSON and validate freshness via the stamp.
   // taco.state owns the timers; this is the single write path.
   //
-  // Single-flight (flock): triggeredOnStart + IPC refresh + timer tick can
-  // overlap on the same tmp file and race it away mid-write (observed
-  // 2026-08-25: FAIL stamp with valid data — the race, not the command).
-  // A skipped refresh is NOT a failure: the in-flight one owns the stamp.
-  // Success is validated by CONTENT (non-empty + jq parses), not exit code —
-  // a degraded composite may exit non-zero with valid partial JSON.
+  // The refresh logic lives in the vendored taco-cache-refresh.sh (single-flight
+  // flock + content-validated success) — argv-only invocation, zero quoting
+  // layers (the previous sh -c 'flock -c' nesting raced/misparsed, 2026-08-25).
   function execToCache(name, args) {
-    var json = cachePath(name), tmp = json + ".tmp", stamp = stampPath(name), lock = cacheRoot + "/." + name + ".lock"
-    var quoted = args.map(function(a) { return "'" + String(a).replace(/'/g, "'\\''") + "'" }).join(" ")
-    var script = "mkdir -p '" + cacheRoot + "'"
-      + " && flock -n '" + lock + "' -c '"
-      + quoted + " > \"" + tmp + "\" 2>/dev/null; "
-      + "if [ -s \"" + tmp + "\" ] && jq -e . \"" + tmp + "\" >/dev/null 2>&1; then "
-      + "mv \"" + tmp + "\" \"" + json + "\" && date -u +%FT%TZ > \"" + stamp + "\"; "
-      + "else rm -f \"" + tmp + "\"; echo FAIL > \"" + stamp + "\"; fi"
-      + "' || true"
-    Quickshell.execDetached({ command: ["sh", "-c", script] })
+    var script = String(Qt.resolvedUrl("taco-cache-refresh.sh")).replace("file://", "")
+    Quickshell.execDetached({ command: ["bash", script, name, cacheRoot].concat(args) })
   }
 
   // Freshness check (consumer-side): is the stamp younger than maxAgeS?

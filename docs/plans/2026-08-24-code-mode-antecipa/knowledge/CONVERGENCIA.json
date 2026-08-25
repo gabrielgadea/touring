@@ -1,0 +1,11 @@
+{
+  "phase": "CONVERGENCIA",
+  "entities": [
+    {
+      "entity_id": "phase:CONVERGENCIA",
+      "type": "phase",
+      "description": "Converg\u00eancia medida do code-mode-total: loop_converged.py --rust-full exit 0, 8/8 cl\u00e1usulas. O caminho at\u00e9 o exit 0 exigiu destravar o pr\u00f3prio juiz \u2014 tr\u00eas defeitos de isolamento na mesma fam\u00edlia (resolvedor que cai em fallback global sem marcador): conten\u00e7\u00e3o de SQLite WAL entre inst\u00e2ncias concorrentes, testes do diary escrevendo no HOME do operador, socket keyed no nome da thread (quebra em --test-threads=1). Corrigidos + guard estrutural provado por muta\u00e7\u00e3o."
+    }
+  ],
+  "relations": []
+}
