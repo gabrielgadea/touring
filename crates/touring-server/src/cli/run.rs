@@ -293,6 +293,20 @@ pub fn run(args: &[String]) -> Result<()> {
     // read-only hook allowlist), so gating the composed program made X6 deny
     // every `--orchestrate` the moment X0 learned to admit Sandbox* runtimes.
     // A user program that opens sockets itself is still caught.
+    // W8 S-8.4 (plano code-mode-total) — a lacuna que a fonte TanStack nomeia:
+    // a tool que executa código arbitrário era a ÚNICA sem gate de aprovação.
+    // `--allow-forbidden` eleva a Trusted; a decisão é POR-COMANDO (o padrão
+    // GIT_DESTRUCTIVE_OK — cada uso é uma escolha, nunca um estado exportado).
+    if cli.allow_forbidden
+        && std::env::var("TOURING_TRUSTED_OK").map(|v| v == "1") != Ok(true)
+    {
+        anyhow::bail!(
+            "--allow-forbidden eleva a execução a Trusted (capacidades sem sandbox) e \
+             exige decisão por-comando: prefixe TOURING_TRUSTED_OK=1 no PRÓPRIO comando \
+             (nunca exporte na sessão). Sem elevação, rode sem --allow-forbidden — o \
+             perfil Sandboxed cobre leitura + orquestração."
+        );
+    }
     gate_run(&cli.lang, &user_code, cli.allow_forbidden)?;
 
     let args_json = match cli.args.as_deref() {

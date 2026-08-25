@@ -3134,6 +3134,26 @@ pub(crate) fn code_mode_gates(
              direto. Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
         )));
     }
+    // W8 S-8.1 — modo experimental `TOURING_CODE_ONLY=1` (humano-only, env do
+    // daemon): TODA inspeção atômica com equivalente no repertório é negada
+    // com a rota derivada — a G1 levada ao limite, a sessão inteira em code
+    // mode (o colapso do dsh `CODE_ONLY_INSTRUCTION` como experimento
+    // pilotado). Mutação/build passam (scan_class_of só reconhece inspeção).
+    if std::env::var("TOURING_CODE_ONLY").map(|v| v == "1") == Ok(true)
+        && let Some(class) = scan_class_of(cmd)
+    {
+        {
+            record_gate_event(GateId::G1, GateEvent::Denied);
+            return Some(deny_response(format!(
+                "[CODE-ONLY] inspeção `{class}` negada — o modo TOURING_CODE_ONLY=1 \
+                 exige a rota de programa: touring run --lang bash --code \
+                 '{}'\nEsqueletos R1-R8: touring memory query \"#kind:snippet \
+                 #process:code-mode\". Piloto S-8.1: compare adoption_ratio e tokens \
+                 com a baseline S-0.2.",
+                cmd.chars().take(240).collect::<String>().replace('\'', "'\\''")
+            )));
+        }
+    }
     // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
     // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
     if let Some(resp) = burst_gate(project_root, session, cmd) {

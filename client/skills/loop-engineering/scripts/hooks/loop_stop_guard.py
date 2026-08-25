@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -216,6 +217,98 @@ def _block(path, marker: dict, unmet, next_action: str) -> int:
     return 0
 
 
+# ── W6 S-6.2 (plano code-mode-total) — rajada sem programa bloqueia o turno ──
+
+BURST_BASH_FLOOR = 20  # turno com >= N Bash e 0 `touring run` ganha 1 block
+
+
+def _stdin_payload():
+    """Payload JSON do hook, fail-open: {} em qualquer falha (tty, vazio, lixo)."""
+    try:
+        import sys
+        if sys.stdin is None or sys.stdin.isatty():
+            return {}
+        raw = sys.stdin.read()
+        return json.loads(raw) if raw.strip() else {}
+    except Exception:
+        return {}
+
+
+def turn_bash_stats(transcript_path):
+    """(turn_id, n_bash, n_touring_run, [comandos]) do ÚLTIMO turno.
+
+    O turno começa na última mensagem GENUÍNA do usuário (content com texto,
+    sem tool_result). turn_id é o índice de linha dessa mensagem — a identidade
+    que impede o guard de bloquear o mesmo turno duas vezes (nunca loop de
+    block). Fail-open: (None, 0, 0, []) em qualquer falha.
+    """
+    try:
+        linhas = Path(transcript_path).read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return None, 0, 0, []
+    turn_id, n_bash, n_run, comandos = None, 0, 0, []
+    for i in range(len(linhas) - 1, -1, -1):
+        try:
+            reg = json.loads(linhas[i])
+        except json.JSONDecodeError:
+            continue
+        msg = reg.get("message") or {}
+        conteudo = msg.get("content")
+        if reg.get("type") == "user":
+            itens = conteudo if isinstance(conteudo, list) else []
+            genuina = isinstance(conteudo, str) or any(
+                isinstance(c, dict) and c.get("type") == "text" for c in itens)
+            tem_tool_result = any(
+                isinstance(c, dict) and c.get("type") == "tool_result" for c in itens)
+            if genuina and not tem_tool_result:
+                turn_id = i
+                break
+        if reg.get("type") == "assistant" and isinstance(conteudo, list):
+            for c in conteudo:
+                if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Bash":
+                    n_bash += 1
+                    cmd = str((c.get("input") or {}).get("command", ""))
+                    comandos.append(cmd)
+                    if "touring run" in cmd:
+                        n_run += 1
+    return turn_id, n_bash, n_run, comandos
+
+
+def code_mode_burst_block(payload):
+    """W6 S-6.2 — turno com >= BURST_BASH_FLOOR Bash e 0 `touring run` recebe
+    UM block com o diagnóstico da maior rajada + R1 instanciado. O 2º Stop do
+    mesmo turno passa (sentinela por turn_id); `TOURING_WORK_OUTER_DISABLED=1`
+    desliga junto com o resto do enforcement. Retorna a razão do block ou None.
+    """
+    if os.environ.get("TOURING_WORK_OUTER_DISABLED") == "1":
+        return None
+    tp = payload.get("transcript_path")
+    if not tp or not os.path.isfile(tp):
+        return None
+    turn_id, n_bash, n_run, comandos = turn_bash_stats(tp)
+    if turn_id is None or n_bash < BURST_BASH_FLOOR or n_run > 0:
+        return None
+    sentinela = Path(str(tp) + ".g-burst-turn")
+    try:
+        if sentinela.is_file() and sentinela.read_text().strip() == str(turn_id):
+            return None  # já bloqueou ESTE turno uma vez — nunca loop de block
+        sentinela.write_text(str(turn_id))
+    except OSError:
+        return None  # sem sentinela confiável, não arriscar loop de block
+    # diagnóstico: o prefixo (1º token) mais repetido da rajada
+    from collections import Counter
+    prefixos = Counter(c.split()[0] for c in comandos if c.split())
+    campeao, vezes = (prefixos.most_common(1) or [("?", 0)])[0]
+    return (
+        f"[G-turno rajada-sem-programa] {n_bash} Bash neste turno e 0 `touring run` "
+        f"(maior classe: `{campeao}` ×{vezes}). A pergunta define a unidade (Reflexo #8): "
+        f"funda a família numa varredura única — esqueleto pronto: R1 em "
+        f"`touring memory query \"#kind:snippet #process:code-mode\"` → "
+        f"`touring run --lang python --file <r1_varredura_agregado.py>`. "
+        f"Este block acontece 1× por turno; o próximo Stop passa."
+    )
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Loop Stop hook: block stop until the loop converges (per-project scoped).")
@@ -234,6 +327,14 @@ def main(argv=None):
         path, marker = active_marker()
         if not marker:
             return 0  # no active loop for THIS project → allow stop
+
+    # W6 S-6.2 — a rajada sem programa bloqueia o turno UMA vez, antes de
+    # qualquer veredito de fase: este hook é o único executor que vê a prosa
+    # do turno inteiro (provado 2× em 24/08).
+    razao_rajada = code_mode_burst_block(_stdin_payload())
+    if razao_rajada is not None:
+        print(json.dumps({"decision": "block", "reason": razao_rajada}))
+        return 0
 
     # OUTER phase (marker armed at flow invocation by loop_outer_arm.py): gate on
     # the flow's artifact manifest, never on a DAG — no DAG exists yet at this
