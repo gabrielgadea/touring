@@ -2688,6 +2688,244 @@ fn pending_g2() -> &'static moka::sync::Cache<String, ()> {
     })
 }
 
+// ── W2 (plano code-mode-total) — G1: teeth no contador de rajada ─────────────
+
+/// W2 S-2.1 — a 4ª inspeção da MESMA classe na janela nega (o advisory legado
+/// segue dono da 3ª). 90% de precisão-proxy medida (51 disparos/55 sessões);
+/// 5 rajadas/55 sessões morriam sozinhas neste ponto — o custo do FP é 1 bypass.
+const G1_DENY_AT: u32 = 4;
+/// W2 S-2.3 — piso de precisão viva abaixo do qual o G1 se autodemove a
+/// advisory (F7: demote é código, não reunião)…
+const G1_DEMOTE_FLOOR: f64 = 0.70;
+/// …desde que haja volume real: um punhado de eventos iniciais nunca demove.
+const G1_DEMOTE_MIN_EVENTS: u64 = 100;
+
+/// W2 S-2.1 — classe da inspeção atômica (a taxonomia da simulação). `None`
+/// para comandos que não são inspeção — a rajada só conta o que inspeciona.
+fn scan_class_of(cmd: &str) -> Option<&'static str> {
+    // Pula prefixos `VAR=valor` (inclusive o próprio token de bypass): a
+    // classe é do comando executado, não do ambiente que o precede.
+    let first = cmd
+        .split_whitespace()
+        .find(|t| !t.contains('=') || !t.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_'))?;
+    match first {
+        "grep" | "rg" => Some("grep"),
+        "cat" | "head" | "tail" | "less" => Some("cat"),
+        "find" | "fd" => Some("find"),
+        "ls" => Some("ls"),
+        "wc" => Some("wc"),
+        "sed" if cmd.contains("-n") => Some("sed-n"),
+        _ => None,
+    }
+}
+
+/// W2 — ledger da rajada por (projeto, classe): contagem + os comandos REAIS
+/// acumulados (cap 8) — eles viram o corpo do programa no remédio do deny.
+/// TTL = a janela do contador legado (o mesmo sinal, agora com memória).
+fn burst_ledger() -> &'static moka::sync::Cache<u64, (u32, Vec<String>)> {
+    static C: OnceLock<moka::sync::Cache<u64, (u32, Vec<String>)>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(CODE_MODE_WINDOW_SECS))
+            .build()
+    })
+}
+
+fn burst_key(project_root: &Path, class: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g1-burst\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    class.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// W2 S-2.3 — deny de G1 pendente por sessão (guarda a CLASSE negada): a
+/// próxima chamada da sessão fecha o continuation-check do A/B.
+fn pending_g1() -> &'static moka::sync::Cache<String, String> {
+    static C: OnceLock<moka::sync::Cache<String, String>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+/// Resposta advisory do PreToolUse (additionalContext, nunca bloqueia).
+fn advisory_response(context: String) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": context,
+        }
+    })
+    .to_string()
+}
+
+// ── W3 (plano code-mode-total) — gates de MODO: G3 e G7 + telemetria G4/G5 ───
+
+/// W3 S-3.1 — G3: streak de Edits sem Read recente, POR SESSÃO (modo de
+/// sessão, não população: 336 disparos concentrados em 15/55 sessões; os 11
+/// erros `edit_string_not_found` medidos são o dano vivo).
+fn g3_streak() -> &'static moka::sync::Cache<String, u32> {
+    static C: OnceLock<moka::sync::Cache<String, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// W3 S-3.1 — (sessão, arquivo) lidos recentemente; um Edit de arquivo lido
+/// não conta streak.
+fn g3_read_files() -> &'static moka::sync::Cache<u64, ()> {
+    static C: OnceLock<moka::sync::Cache<u64, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+fn g3_read_key(project_root: &Path, session: &str, file: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g3-read\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
+    file.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// W3 S-3.2 — G7: contagem de releituras do MESMO arquivo por projeto (os
+/// campeões medidos: adw.py 39×, cli_suggester.rs 32× — o sinal mais direto de
+/// programa-faltando). 3ª → advisory com R1 instanciado; 5ª → deny.
+fn g7_seen() -> &'static moka::sync::Cache<u64, u32> {
+    static C: OnceLock<moka::sync::Cache<u64, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+fn g7_key(project_root: &Path, file: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g7-target\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    file.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// W3 S-3.3 — G4 (telemetria): a sessão localizou algo (Grep/Glob) há pouco?
+fn g4_last_locate() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(120))
+            .build()
+    })
+}
+
+/// W3 S-3.3 — G5 (telemetria): streak de Edits/Writes da sessão; zera na
+/// primeira ação Bash e, se a rajada terminou ≥3 sem validação, 1 advisory.
+fn g5_edit_streak() -> &'static moka::sync::Cache<String, u32> {
+    static C: OnceLock<moka::sync::Cache<String, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// W6 S-6.3 — linha ADICIONADA de comentário com modal contrafactual e nenhum
+/// run_id na vizinhança: a afirmação nunca exercitada (o pior erro de 24/08).
+fn counterfactual_comment(added: &str) -> bool {
+    const MODAIS: &[&str] = &["seria ", "quebraria", "impediria", "faria com que"];
+    added.lines().any(|l| {
+        let t = l.trim_start();
+        let comentario = t.starts_with("//") || t.starts_with('#') || t.starts_with('*');
+        comentario && MODAIS.iter().any(|m| t.contains(m)) && !t.contains("run-")
+    })
+}
+
+/// W2 S-2.3 — decide deny vs advisory a partir da precisão VIVA. Pura, para o
+/// teste não depender dos contadores globais de processo.
+fn g1_should_deny(precision: Option<(f64, u64)>) -> bool {
+    !matches!(precision,
+        Some((p, volume)) if volume >= G1_DEMOTE_MIN_EVENTS && p < G1_DEMOTE_FLOOR)
+}
+
+/// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
+/// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
+fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
+    use crate::shared::gate_metrics::{
+        GateEvent, GateId, g1_live_precision, record_g1_continuation, record_gate_event,
+    };
+    let class = scan_class_of(cmd);
+    // S-2.3: a primeira chamada pós-deny fecha o continuation-check. Seguir o
+    // REMÉDIO (`touring run`) conta como acerto E como followed: converter a
+    // rajada é o melhor desfecho do gate — contá-lo como "other" demoveria um
+    // gate funcionando (visto vivo no primeiríssimo deny do G1, 2026-08-25).
+    if let Some(denied_class) = pending_g1().remove(session) {
+        let seguiu_remedio = cmd.contains("touring run");
+        if seguiu_remedio {
+            record_gate_event(GateId::G1, GateEvent::Followed);
+        }
+        record_g1_continuation(seguiu_remedio || class == Some(denied_class.as_str()));
+    }
+    let class = class?;
+    let key = burst_key(project_root, class);
+    let (count, mut cmds) = burst_ledger().get(&key).unwrap_or((0, Vec::new()));
+    let count = count.saturating_add(1);
+    if cmds.len() < 8 {
+        cmds.push(cmd.chars().take(240).collect());
+    }
+    burst_ledger().insert(key, (count, cmds.clone()));
+    if count < G1_DENY_AT {
+        return None;
+    }
+    if code_gates_disabled() {
+        record_gate_event(GateId::G1, GateEvent::Bypassed);
+        return None;
+    }
+    // O remédio é o histórico REAL da rajada como corpo do programa — nunca um
+    // template (injection-density).
+    let corpo = cmds.join("\n").replace('\'', "'\\''");
+    let programa = format!("touring run --lang bash --code '{corpo}'");
+    if !g1_should_deny(g1_live_precision()) {
+        // Autodemovido por dado vivo (S-2.3): a tese continua falsificável.
+        record_gate_event(GateId::G1, GateEvent::Emitted);
+        return Some(
+            serde_json::json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "additionalContext": format!(
+                        "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de \
+                         {G1_DEMOTE_FLOOR}] {count}ª inspeção `{class}` na janela. A rajada \
+                         acumulada já é o programa:\n  {programa}"
+                    ),
+                }
+            })
+            .to_string(),
+        );
+    }
+    record_gate_event(GateId::G1, GateEvent::Denied);
+    pending_g1().insert(session.to_string(), class.to_string());
+    Some(deny_response(format!(
+        "[G1 rajada-de-inspeção] {count}ª inspeção da classe `{class}` em \
+         {CODE_MODE_WINDOW_SECS}s — 90% das rajadas ≥{G1_DENY_AT} continuavam iguais \
+         (51 disparos/55 sessões). A rajada acumulada JÁ é o programa; rode-a de uma \
+         vez:\n  {programa}\nBypass por-comando: prefixe {GATE_BYPASS_TOKEN} (reseta a \
+         janela e é contado)."
+    )))
+}
+
 /// Resposta de deny do PreToolUse (contrato Claude Code): a razão carrega o
 /// remédio derivado do comando REAL (injection-density — nunca placeholder).
 fn deny_response(reason: String) -> String {
@@ -2716,13 +2954,120 @@ pub(crate) fn code_mode_gates(
     // Toda mutação avança a época do projeto (G6 nunca dispara através dela).
     if matches!(tool_name, "Edit" | "Write" | "NotebookEdit") {
         let epoch = mutation_epoch().get(&project).unwrap_or(0);
-        mutation_epoch().insert(project, epoch + 1);
+        mutation_epoch().insert(project.clone(), epoch + 1);
+        // G5 (telemetria): a rajada de edits cresce; o fim dela é a primeira
+        // ação Bash (onde o advisory único pode falar).
+        let streak = g5_edit_streak().get(session).unwrap_or(0);
+        g5_edit_streak().insert(session.to_string(), streak.saturating_add(1));
+        // W3 S-3.1 — G3: Edit sem Read recente do arquivo, POR SESSÃO.
+        if let Some(fp) = tool_input.get("file_path").and_then(Value::as_str) {
+            if g3_read_files().get(&g3_read_key(project_root, session, fp)).is_some() {
+                g3_streak().insert(session.to_string(), 0);
+            } else if !code_gates_disabled() {
+                let n = g3_streak().get(session).unwrap_or(0).saturating_add(1);
+                g3_streak().insert(session.to_string(), n);
+                if n >= 3 {
+                    record_gate_event(GateId::G3, GateEvent::Denied);
+                    return Some(deny_response(format!(
+                        "[G3 edit-sem-read] {n}º Edit sem Read recente nesta sessão — os \
+                         11 erros `edit_string_not_found` medidos nascem exatamente aqui. \
+                         Leia primeiro: Read {fp} (o Read reseta o gate)."
+                    )));
+                }
+                record_gate_event(GateId::G3, GateEvent::Emitted);
+                return Some(advisory_response(format!(
+                    "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/2 — \
+                     o 3º seguido nega). Read {fp} zera o contador."
+                )));
+            }
+        }
+        // W6 S-6.3 — contrafactual em comentário adicionado (advisory, NUNCA
+        // deny: prosa em comentário tem falso positivo real).
+        let adicionado = tool_input
+            .get("new_string")
+            .or_else(|| tool_input.get("content"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if counterfactual_comment(adicionado) {
+            crate::shared::gate_metrics::record_e3_counterfactual();
+            return Some(advisory_response(
+                "[E3 contrafactual-sem-endereço] comentário adicionado afirma o que \
+                 ACONTECERIA sem citar um run_id — a classe do arm_marker de 24/08 \
+                 (afirmação falsa nunca exercitada). Exercite (probe FACT= / touring \
+                 run) e cite o run, ou remova o modal."
+                    .to_string(),
+            ));
+        }
+        return None;
+    }
+    if tool_name == "Read" {
+        let fp = tool_input.get("file_path").and_then(Value::as_str)?;
+        g3_read_files().insert(g3_read_key(project_root, session, fp), ());
+        g3_streak().insert(session.to_string(), 0);
+        // G4 (telemetria, nunca deny): leitura sem localizar antes.
+        if g4_last_locate().get(session).is_none() {
+            crate::shared::gate_metrics::record_g4_observed();
+        }
+        // W3 S-3.2 — G7: re-inspeção do MESMO alvo.
+        let key = g7_key(project_root, fp);
+        let n = g7_seen().get(&key).unwrap_or(0).saturating_add(1);
+        g7_seen().insert(key, n);
+        if !code_gates_disabled() {
+            if n >= 5 {
+                record_gate_event(GateId::G7, GateEvent::Denied);
+                return Some(deny_response(format!(
+                    "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
+                     mais direto de programa-faltando (campeões medidos: adw.py 39×, \
+                     cli_suggester.rs 32×). Varra de uma vez (R1): touring run --lang \
+                     python --args '[\"{fp}\"]' --file <r1_varredura_agregado.py> — \
+                     esqueletos: touring memory query \"#kind:snippet \
+                     #process:code-mode\". Um `touring run` citando {fp} reseta o gate."
+                )));
+            }
+            if n == 3 {
+                record_gate_event(GateId::G7, GateEvent::Emitted);
+                return Some(advisory_response(format!(
+                    "[G7 re-inspeção] 3ª leitura de {fp} na janela — programa-faltando? \
+                     R1 instanciado: touring run --lang python --args '[\"{fp}\"]' \
+                     --file r1_varredura_agregado.py (a 5ª leitura nega)."
+                )));
+            }
+        }
+        return None;
+    }
+    if matches!(tool_name, "Grep" | "Glob") {
+        g4_last_locate().insert(session.to_string(), ());
         return None;
     }
     if tool_name != "Bash" {
         return None;
     }
     let cmd = tool_input.get("command").and_then(Value::as_str)?;
+    // G7 reset: um `touring run` citando um caminho zera a contagem daquele alvo.
+    if cmd.contains("touring run") {
+        for token in cmd.split_whitespace().filter(|t| t.contains('/')) {
+            let limpo = token.trim_matches(|c: char| "'\"[]{},".contains(c));
+            g7_seen().invalidate(&g7_key(project_root, limpo));
+        }
+    }
+    // G5 (telemetria): a primeira ação Bash encerra a rajada de edits; se ela
+    // tinha >=3 e este comando não é validação, UM advisory (nunca durante).
+    let g5 = g5_edit_streak().get(session).unwrap_or(0);
+    if g5 > 0 {
+        g5_edit_streak().insert(session.to_string(), 0);
+        const VALIDA: &[&str] = &[
+            "cargo check", "cargo test", "cargo clippy", "pytest", "touring e2e",
+            "npm test", "adw lint", "adw test",
+        ];
+        if g5 >= 3 && !VALIDA.iter().any(|m| cmd.contains(m)) {
+            crate::shared::gate_metrics::record_g5_observed();
+            return Some(advisory_response(format!(
+                "[G5 telemetria] rajada de {g5} edits terminou sem build/teste — P9 \
+                 medido em 17%. Valide agora (cargo check/test no crate tocado); a \
+                 regressão silenciosa nasce aqui."
+            )));
+        }
+    }
     // followed (S-1.4): houve deny de G2 nesta sessão e o comando agora traz
     // pipefail — a conversão canônica foi adotada.
     if pending_g2().remove(session).is_some() && cmd.contains("pipefail") {
@@ -2732,6 +3077,15 @@ pub(crate) fn code_mode_gates(
         if exit_code_through_pipe(cmd) {
             record_gate_event(GateId::G2, GateEvent::Bypassed);
         }
+        // G1: o bypass consciente reseta a janela da classe (S-2.2) — a
+        // exploração legítima recomeça do zero, e o evento fica contado.
+        if let Some(class) = scan_class_of(cmd) {
+            let key = burst_key(project_root, class);
+            if matches!(burst_ledger().get(&key), Some((n, _)) if n >= G1_DENY_AT - 1) {
+                record_gate_event(GateId::G1, GateEvent::Bypassed);
+            }
+            burst_ledger().invalidate(&key);
+        }
         return None;
     }
     // G2 — heredoc é DADO (o corpo não executa como pipeline DESTE shell);
@@ -2740,6 +3094,30 @@ pub(crate) fn code_mode_gates(
         if code_gates_disabled() {
             record_gate_event(GateId::G2, GateEvent::Bypassed);
             return None;
+        }
+        // S-8.6 (spike SUPORTADO, provado vivo 2026-08-25: o rewrite A4
+        // `cat`→highlight trocou um comando real desta sessão): o Claude Code
+        // honra `updatedInput` de hook de settings.json. O G2 então CORRIGE em
+        // vez de negar — zero fricção, correção garantida pelo executor (o
+        // teto da afordância). `Followed` é registrado junto com `Emitted`
+        // porque a adoção é do executor, não uma esperança.
+        if std::env::var("TOURING_G2_REWRITE_DISABLED").map(|v| v == "1") != Ok(true) {
+            record_gate_event(GateId::G2, GateEvent::Emitted);
+            record_gate_event(GateId::G2, GateEvent::Followed);
+            return Some(
+                serde_json::json!({
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "allow",
+                        "permissionDecisionReason":
+                            "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe \
+                             leria o status do último estágio; `set -o pipefail; ` \
+                             prefixado (spike S-8.6: updatedInput honrado).",
+                        "updatedInput": { "command": format!("set -o pipefail; {cmd}") },
+                    }
+                })
+                .to_string(),
+            );
         }
         record_gate_event(GateId::G2, GateEvent::Denied);
         pending_g2().insert(session.to_string(), ());
@@ -2755,6 +3133,11 @@ pub(crate) fn code_mode_gates(
              Reexecute exatamente:\n  {remedy}\nOu remova o pipe e leia o exit \
              direto. Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
         )));
+    }
+    // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
+    // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
+    if let Some(resp) = burst_gate(project_root, session, cmd) {
+        return Some(resp);
     }
     // G6 — repetição byte-idêntica dentro da janela TTL, sem mutação no meio.
     if !g6_allowlisted(cmd) {

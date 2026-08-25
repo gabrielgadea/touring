@@ -825,6 +825,31 @@ pub struct GateMetrics {
     /// code, not by meeting.
     pub gate_events: [[AtomicU64; 4]; 5],
 
+    /// **W2 S-2.3 (2026-08-24)** — G1 A/B continuation check: after a burst
+    /// deny, was the session's NEXT call an inspection of the SAME class?
+    /// (= the deny was right — the burst would have continued). Live precision
+    /// `same / (same + other)`; below 0.70 with 100+ events the gate
+    /// SELF-DEMOTES to advisory — the threshold stops being an opinion.
+    pub g1_post_deny_same_class_count: AtomicU64,
+    /// W2 S-2.3 — the next call was NOT the same inspection class (the deny
+    /// may have interrupted legitimate exploration). A next call that FOLLOWS
+    /// the remedy (`touring run`) counts as `same_class`, not here: converting
+    /// the burst is the gate's best outcome, and counting it as a false
+    /// positive would self-demote a gate that is working (measured live on the
+    /// very first G1 deny, 2026-08-25).
+    pub g1_post_deny_other_count: AtomicU64,
+
+    /// W3 S-3.3 — G4 (read-sem-localizar) observed, NEVER denied: 365 fires
+    /// spread over 27/55 sessions in the simulation — diffusion means a high
+    /// false-positive risk, so it stays telemetry until S-7.2 has live data.
+    pub g4_observed_count: AtomicU64,
+    /// W3 S-3.3 — G5 (edit-burst-sem-validação) observed at burst END, never
+    /// during: P9 measured at 17%.
+    pub g5_observed_count: AtomicU64,
+    /// W6 S-6.3 — added comment line with a counterfactual modal and no run_id
+    /// nearby (advisory only — prose in comments has real false positives).
+    pub e3_counterfactual_observed_count: AtomicU64,
+
     /// **Task #6 (2026-06-29)** — pillar-induction denominator: armed pillar nudges
     /// emitted by `cli_suggester` (master-cli / learning-memory — the differentials
     /// the upstream classifiers miss). Paired with `pillar_induction_followed_count`
@@ -1028,6 +1053,11 @@ impl Default for GateMetrics {
             adoption_antipattern_count: AtomicU64::new(0),
             bash_calls_total_count: AtomicU64::new(0),
             gate_events: std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))),
+            g1_post_deny_same_class_count: AtomicU64::new(0),
+            g1_post_deny_other_count: AtomicU64::new(0),
+            g4_observed_count: AtomicU64::new(0),
+            g5_observed_count: AtomicU64::new(0),
+            e3_counterfactual_observed_count: AtomicU64::new(0),
             pillar_induction_emitted_count: AtomicU64::new(0),
             pillar_induction_followed_count: AtomicU64::new(0),
             ceg_write_paths_observed_count: AtomicU64::new(0),
@@ -1401,6 +1431,50 @@ impl GateEvent {
 /// and read back by `touring kpi` / S-7.2 promote-demote.
 pub fn record_gate_event(gate: GateId, event: GateEvent) {
     global().gate_events[gate as usize][event as usize].fetch_add(1, Ordering::Relaxed);
+}
+
+/// W3 S-3.3 — record one G4 observation (read without a prior locate).
+pub fn record_g4_observed() {
+    global().g4_observed_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// W3 S-3.3 — record one G5 observation (an edit burst ended unvalidated).
+pub fn record_g5_observed() {
+    global().g5_observed_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// W6 S-6.3 — record one counterfactual-comment observation.
+pub fn record_e3_counterfactual() {
+    global()
+        .e3_counterfactual_observed_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// W2 S-2.3 — record the G1 continuation verdict (`same_class` = the deny was
+/// right: the burst would have continued).
+pub fn record_g1_continuation(same_class: bool) {
+    let g = global();
+    if same_class {
+        g.g1_post_deny_same_class_count.fetch_add(1, Ordering::Relaxed);
+    } else {
+        g.g1_post_deny_other_count.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// W2 S-2.3 — live G1 precision from the continuation counters:
+/// `Some((same / total, total))` once any event exists, `None` before (absent
+/// signal is unknown, never zero). The self-demotion gate reads THIS — with
+/// the volume, so a handful of early events never demotes anything.
+pub fn g1_live_precision() -> Option<(f64, u64)> {
+    let g = global();
+    let same = g.g1_post_deny_same_class_count.load(Ordering::Relaxed);
+    let other = g.g1_post_deny_other_count.load(Ordering::Relaxed);
+    let total = same + other;
+    if total == 0 {
+        None
+    } else {
+        Some((same as f64 / total as f64, total))
+    }
 }
 
 /// W4 d4 — record one code-mode execution and its measured context savings

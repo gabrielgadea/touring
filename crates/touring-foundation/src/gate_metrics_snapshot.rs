@@ -374,6 +374,22 @@ pub struct GateMetricsSnapshot {
     /// `/gate_events/g2_pipe_exit/denied`.
     #[serde(default)]
     pub gate_events: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u64>>,
+    /// W2 S-2.3 — G1 continuation check: next call after a deny was the same
+    /// inspection class (deny was right).
+    #[serde(default)]
+    pub g1_post_deny_same_class_count: u64,
+    /// W2 S-2.3 — next call was a different class (possible false positive).
+    #[serde(default)]
+    pub g1_post_deny_other_count: u64,
+    /// W3 S-3.3 — G4 observed (telemetry only, never a deny).
+    #[serde(default)]
+    pub g4_observed_count: u64,
+    /// W3 S-3.3 — G5 observed at edit-burst end (telemetry only).
+    #[serde(default)]
+    pub g5_observed_count: u64,
+    /// W6 S-6.3 — counterfactual comment lines observed (advisory only).
+    #[serde(default)]
+    pub e3_counterfactual_observed_count: u64,
     /// W4 d4 — measured context savings of the spill (full − inline bytes).
     #[serde(default)]
     pub code_mode_bytes_elided_total: u64,
@@ -826,6 +842,15 @@ impl GateMetricsSnapshot {
             sandbox_tee_persisted_count: m.sandbox_tee_persisted_count.load(Ordering::Relaxed),
             code_mode_runs_count: m.code_mode_runs_count.load(Ordering::Relaxed),
             bash_calls_total_count: m.bash_calls_total_count.load(Ordering::Relaxed),
+            g1_post_deny_same_class_count: m
+                .g1_post_deny_same_class_count
+                .load(Ordering::Relaxed),
+            g1_post_deny_other_count: m.g1_post_deny_other_count.load(Ordering::Relaxed),
+            g4_observed_count: m.g4_observed_count.load(Ordering::Relaxed),
+            g5_observed_count: m.g5_observed_count.load(Ordering::Relaxed),
+            e3_counterfactual_observed_count: m
+                .e3_counterfactual_observed_count
+                .load(Ordering::Relaxed),
             gate_events: crate::gate_metrics::GateId::all()
                 .iter()
                 .map(|g| {
