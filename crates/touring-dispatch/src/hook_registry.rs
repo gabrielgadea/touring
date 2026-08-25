@@ -758,6 +758,11 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         // serialized response to the caller (the daemon actor) instead of
         // calling exit.
         m.insert("post-bash", |rt, v| {
+            // P3/T3-B — um PostToolUse intercalado FECHA o turno da sessão:
+            // a assinatura do batch paralelo do Claude Code é a ausência dele.
+            // Barato (no-op sem ledger) e antes do handler, para que mesmo um
+            // post-bash falho não deixe o turno aberto além da verdade.
+            crate::cli_suggester::turn_gate_close_for_payload(&rt.project_root, v);
             crate::post_bash::run_returning(rt, v).to_json()
         });
         m.insert("post-edit", |rt, v| {
@@ -770,6 +775,11 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             crate::post_tool_batch::run_post_tool_batch(rt, v).to_json()
         });
         m.insert("post-tool-rl", |rt, v| {
+            // P3/T3-B — QUALQUER PostToolUse fecha o turno da sessão (a
+            // assinatura do batch paralelo é a AUSÊNCIA de PostToolUse
+            // intercalado, de qualquer tool — não só Bash). matcher "*" cobre
+            // o universo inteiro; o close é no-op barato sem ledger.
+            crate::cli_suggester::turn_gate_close_for_payload(&rt.project_root, v);
             let _ = crate::post_tool_rl::run(rt, v);
             // R132: Generator hints on RL error signal — closes the RL degradation → generator loop.
             // post-tool-rl was completely silent. Now emits targeted generator hints when tool fails:

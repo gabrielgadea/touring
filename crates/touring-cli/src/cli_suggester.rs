@@ -2191,6 +2191,15 @@ fn code_mode_kind(tool_name: &str, tool_input: &Value) -> Option<CodeModeKind> {
     match tool_name {
         "Bash" => {
             let command = tool_input.get("command").and_then(|v| v.as_str())?;
+            // O comando JÁ É code mode — não há o que induzir. Sem este guard o
+            // nudge recebia `touring run --lang python --code '…'` e emitia como
+            // MUST `touring run --lang bash --code 'touring run --lang python …'`,
+            // ensinando o antipadrão que ele existe para evitar (observado 6× na
+            // sessão de 25/08/2026). O mesmo guard já protegia
+            // `loop_rewrite_candidate`; faltava na porta dos nudges.
+            if command.contains("touring run") || command.contains("touring exec") {
+                return None;
+            }
             if is_shell_loop(command) {
                 Some(CodeModeKind::Loop)
             } else if is_scan_command(command) {
@@ -2221,21 +2230,15 @@ fn code_mode_command(tool_name: &str, tool_input: &Value) -> Option<String> {
     ))
 }
 
-/// Extract the iterated glob from a `for VAR in GLOB …` loop — the one piece of an
-/// arbitrary shell loop that IS mechanically derivable. The per-item body is not
-/// (it needs a bash parser), so it stays a marked placeholder downstream: honest
-/// density, never a guessed translation. `None` for numeric / command-substitution
-/// loops (no glob to carry).
-fn loop_glob(command: &str) -> Option<String> {
-    let after_in = command.split(" in ").nth(1)?;
-    let first = after_in
-        .split(';')
-        .next()?
-        .split_whitespace()
-        .next()?
-        .trim_matches(|c| c == '"' || c == '\'');
-    (first.contains('*') || first.contains('/')).then(|| first.to_string())
-}
+// `loop_glob` + `loop_code_mode_command` REMOVIDAS em 25/08/2026 (P1).
+//
+// Extraíam o glob real de um `for … in GLOB` e montavam um programa python cujo
+// corpo era `# then your per-file op over files`. A premissa era que o corpo do
+// laço "não é derivável sem um parser bash" — verdadeira para TRADUZIR o laço,
+// falsa para EXECUTÁ-LO: `bash_code_mode_command` leva o laço verbatim para o
+// sandbox e roda, sem traduzir nada. Um remédio com placeholder é meio remédio,
+// e a métrica que importa é se o snippet substitui as N chamadas.
+// REGRA #0: removidas de fato, não silenciadas por atributo de supressão.
 
 /// E4 (2026-08-24) — a shell loop whose body invokes `touring adw run` is a
 /// CAMPAIGN written by hand: no predicate, no curve, no fail-closed signal,
@@ -2261,22 +2264,6 @@ fn campaign_code_mode_command(command: &str) -> Option<String> {
     ))
 }
 
-/// Specialize a loop into a concrete `touring run` carrying the real glob (so the
-/// nudge shows the actual file set, per the injection-density invariant); the
-/// per-file op is the one marked placeholder. `None` when no glob is derivable —
-/// the caller then falls back to the fully-generic template.
-fn loop_code_mode_command(command: &str) -> Option<String> {
-    let glob = loop_glob(command)?;
-    let args = serde_json::json!([glob]);
-    // Double quotes inside the python body: the whole snippet is wrapped in
-    // single quotes on the shell line, so embedded single quotes would split
-    // the wrapper and break the suggested command (density invariant demands
-    // a RUNNABLE nudge, not merely a specific one).
-    let code = "import glob,sys; files=glob.glob(sys.argv[1],recursive=True); print(len(files),\"files\")  # then your per-file op over files; print only the digest";
-    Some(format!(
-        "touring run --lang python --args '{args}' --code '{code}'"
-    ))
-}
 
 /// Render the real shell command verbatim as a `touring run --lang bash` sandbox call.
 /// The density-correct fallback for an arbitrary loop whose glob is not mechanically
@@ -2285,14 +2272,13 @@ fn loop_code_mode_command(command: &str) -> Option<String> {
 /// IS derivable, just as bash). Embedded single quotes use the `'\''` shell idiom;
 /// over-long commands are capped so the nudge stays dense (high signal-to-token).
 fn bash_code_mode_command(command: &str) -> String {
-    const MAX: usize = 200;
-    let body: String = if command.chars().count() > MAX {
-        let head: String = command.chars().take(MAX).collect();
-        format!("{head}…")
-    } else {
-        command.to_string()
-    };
-    let escaped = body.replace('\'', r"'\''");
+    // INTEIRO. A versão anterior cortava em 200 chars e anexava `…`, entregando
+    // um comando que não roda — o mesmo defeito de `fuse_burst_program`
+    // (25/08/2026), aqui na forma singular. O comando já está no contexto por
+    // definição (foi ele que chegou ao hook), então truncá-lo não economiza
+    // nada e destrói o remédio. A emenda do Gabriel é literal: o snippet tem
+    // de SUBSTITUIR as chamadas, e um snippet cortado não substitui nada.
+    let escaped = command.replace('\'', r"'\''");
     format!("touring run --lang bash --code '{escaped}'")
 }
 
@@ -2306,7 +2292,16 @@ fn specialized_command(kind: &CodeModeKind, tool_name: &str, tool_input: &Value)
             let command = tool_input.get("command").and_then(Value::as_str)?;
             // E4 precedence: a loop over `touring adw run` is a hand-written
             // campaign — the runner owns flow iteration, not the shell.
-            campaign_code_mode_command(command).or_else(|| loop_code_mode_command(command))
+            //
+            // Fora esse caso, a especialização em python foi REMOVIDA (P1,
+            // 25/08/2026). Ela carregava o glob real mas deixava o corpo como
+            // `# then your per-file op over files` — e um snippet que conta
+            // arquivos e depois manda o leitor escrever a operação não
+            // substitui as N chamadas, que é o que a emenda do Gabriel exige.
+            // Devolvendo `None`, o chamador cai em `bash_code_mode_command`,
+            // que leva o laço VERBATIM para o sandbox: zero tradução, zero
+            // placeholder, e roda. É a mesma derivação que o G8 já usava.
+            campaign_code_mode_command(command)
         }
     }
 }
@@ -2710,7 +2705,37 @@ fn scan_class_of(cmd: &str) -> Option<&'static str> {
         .find(|t| !t.contains('=') || !t.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_'))?;
     match first {
         "grep" | "rg" => Some("grep"),
-        "cat" | "head" | "tail" | "less" => Some("cat"),
+        // P2.3 (calibração 25/08, 1.312 chamadas reais): `cat > f`/`cat >> f`
+        // (heredoc de escrita) é T4 — escrita — não inspeção. O prefixo sozinho
+        // negava 27 escritas (20,6% do que a matriz pegaria) sob o modo `code`,
+        // que nega na 1ª chamada. Se o primeiro operando não-flag já é um
+        // redirect, não há arquivo de leitura: não é classe `cat`.
+        "cat" | "head" | "tail" | "less" => {
+            // O primeiro operando REAL decide: flags (`-n`) — e o argumento
+            // das que tomam valor (`-n 5`, `-c +3`) — são transparentes. Se o
+            // que sobra já começa com `>`, não há arquivo de leitura.
+            let mut it = cmd
+                .split_whitespace()
+                .skip_while(|t| *t != first)
+                .skip(1)
+                .peekable();
+            let mut primeiro_operando: Option<&str> = None;
+            while let Some(t) = it.next() {
+                if t == "-n" || t == "-c" {
+                    it.next(); // o argumento da flag, não um operando
+                    continue;
+                }
+                if t.starts_with('-') {
+                    continue;
+                }
+                primeiro_operando = Some(t);
+                break;
+            }
+            match primeiro_operando {
+                Some(op) if op.starts_with('>') => None,
+                _ => Some("cat"),
+            }
+        }
         "find" | "fd" => Some("find"),
         "ls" => Some("ls"),
         "wc" => Some("wc"),
@@ -2861,6 +2886,332 @@ fn g1_should_deny(precision: Option<(f64, u64)>) -> bool {
         Some((p, volume)) if volume >= G1_DEMOTE_MIN_EVENTS && p < G1_DEMOTE_FLOOR)
 }
 
+/// A forma em que as ferramentas chegam ao modelo NESTE escopo — o `presentAs`
+/// do harness do DeepSeek (`packages/core/agent-tool-presentation`), adaptado ao
+/// que controlamos: não mandamos no wire da Anthropic, então o colapso mora no
+/// executor (o `PreToolUse`), que é justamente a metade que impõe. O postmortem
+/// deles de 07/08/2026 é explícito: *"schema omission is not enforcement when a
+/// direct caller can bypass it; denial must be tested through the executor"*.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CodeModePresentation {
+    /// Sem colapso e sem indução: a inspeção atômica passa em silêncio.
+    Native,
+    /// Colapso por classe: a inspeção que comprovadamente fan-out é NEGADA com
+    /// a rota derivada; mutação, build e as classes de chamada única passam.
+    Code,
+    /// O default e o estado medido desta sessão: as duas superfícies coexistem,
+    /// com indução. Trocá-lo por `Code` no mundo todo seria a recusa que o
+    /// próprio DeepSeek documentou — *"forcing every edit through a program
+    /// taxes the common case"*.
+    Both,
+}
+
+/// Classes de inspeção que o modo `code` colapsa, calibradas por MEDIÇÃO e não
+/// por intuição (sessão 25/08/2026, 1.231 chamadas Bash):
+///
+/// | classe | ocorrências | colapsa? |
+/// |---|---|---|
+/// | `grep` | 468 | sim — 71% da inspeção atômica, 61 rajadas |
+/// | `cat`  | 165 | sim — ler N arquivos é o caso canônico |
+/// | `find` |  18 | sim — varredura por definição |
+/// | `ls`   |  11 | **não** — chamada única domina |
+/// | `wc` / `sed-n` | resíduo | **não** — sem volume que justifique |
+///
+/// Os níveis por classe são exatamente o desenho que o DeepSeek ADIOU (*"its
+/// design depends on evidence about how models split usage under `both`"*).
+/// A evidência que faltava a eles é esta tabela: rodamos em `both` instrumentado.
+const CODE_MODE_COLLAPSED_CLASSES: &[&str] = &["grep", "cat", "find"];
+
+/// Resolve a apresentação: **prefixo do comando → env do hook → alias → projeto → default**.
+///
+/// Duas verdades medidas (25/08) moram nesta ordem:
+///
+/// 1. **Exportar no shell da tool Bash NÃO chega ao hook.** O processo do hook
+///    e o shell que executa o comando são IRMÃOS spawnados pelo Claude Code —
+///    `export TOURING_CODE_MODE=…` num é invisível ao outro. A env que esta
+///    função lê com `std::env::var` é a do processo do hook (a do daemon que
+///    o spawnou), não a "da sessão" do operador.
+/// 2. **A via que atravessa é a linha de comando.** É assim que
+///    `TOURING_GATE_OK=1 <cmd>` já funciona: o hook lê o prefixo `VAR=valor`
+///    do próprio comando. Por isso o nível mais externo é o prefixo — útil
+///    sobretudo para RELAXAR por-comando (`TOURING_CODE_MODE=native grep …`),
+///    simétrico ao token de bypass.
+///
+/// `TOURING_CODE_ONLY=1` continua valendo como alias de `Code` (compatibilidade
+/// com o piloto S-8.1), agora com o escopo e a calibração que lhe faltavam — ele
+/// negava TODA classe, `ls` inclusive.
+fn code_mode_presentation(project_root: &Path, cmd: &str) -> CodeModePresentation {
+    for token in cmd.split_whitespace() {
+        let Some((nome, valor)) = token.split_once('=') else { break };
+        if !nome.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_') {
+            break;
+        }
+        if nome == "TOURING_CODE_MODE" {
+            match valor.trim_matches(|c| c == '"' || c == '\'') {
+                "native" => return CodeModePresentation::Native,
+                "code" => return CodeModePresentation::Code,
+                "both" => return CodeModePresentation::Both,
+                _ => break, // valor inválido não cala os níveis seguintes
+            }
+        }
+    }
+    if let Ok(v) = std::env::var("TOURING_CODE_MODE") {
+        match v.trim() {
+            "native" => return CodeModePresentation::Native,
+            "code" => return CodeModePresentation::Code,
+            "both" => return CodeModePresentation::Both,
+            _ => {}
+        }
+    }
+    if std::env::var("TOURING_CODE_ONLY").map(|v| v == "1") == Ok(true) {
+        return CodeModePresentation::Code;
+    }
+    project_presentation(project_root).unwrap_or(CodeModePresentation::Both)
+}
+
+/// Lê `[code_mode] mode` de `<root>/.touring/touring.toml`.
+///
+/// É uma varredura de linhas com estado de seção, **não** um parser TOML — o
+/// crate não depende de `toml` e puxar a dependência inteira por uma chave seria
+/// desproporcional. Entende exatamente a forma que escrevemos:
+///
+/// ```toml
+/// [code_mode]
+/// mode = "code"
+/// ```
+///
+/// Qualquer outra forma (aninhamento, tabela inline, valor sem aspas) devolve
+/// `None` e cai no default — falhar para o comportamento de hoje, nunca para um
+/// colapso que ninguém pediu.
+fn project_presentation(project_root: &Path) -> Option<CodeModePresentation> {
+    let texto = std::fs::read_to_string(project_root.join(".touring/touring.toml")).ok()?;
+    let mut na_secao = false;
+    for linha in texto.lines() {
+        let l = linha.trim();
+        if l.starts_with('[') {
+            na_secao = l == "[code_mode]";
+            continue;
+        }
+        if !na_secao {
+            continue;
+        }
+        let Some((chave, valor)) = l.split_once('=') else {
+            continue;
+        };
+        if chave.trim() != "mode" {
+            continue;
+        }
+        return match valor.trim().trim_matches('"') {
+            "native" => Some(CodeModePresentation::Native),
+            "code" => Some(CodeModePresentation::Code),
+            "both" => Some(CodeModePresentation::Both),
+            _ => None,
+        };
+    }
+    None
+}
+
+/// Orçamento total, em chars, do corpo do programa que o remédio entrega.
+const G1_BODY_BUDGET: usize = 3000;
+
+/// Funde a rajada acumulada num corpo de programa executável.
+///
+/// Devolve `(corpo, omitidos)`. A regra é **comando inteiro ou nenhum**: um
+/// comando que não cabe no orçamento é DESCARTADO, jamais truncado.
+///
+/// Origem (2026-08-25, observado ao vivo nesta função): cada comando entrava
+/// com `cmd.chars().take(240)`, então uma rajada de greps longos produzia um
+/// programa cortado no meio de um caminho (`crates/tou'`) — sintaticamente
+/// plausível, com aspas equilibradas, e que **não roda**. Um comando truncado
+/// é pior que um ausente: o ausente aparece na contagem que o remédio declara;
+/// o truncado se disfarça de programa completo. A emenda do Gabriel (25/08) é
+/// exatamente esta — a injeção tem de entregar o snippet que SUBSTITUI as N
+/// chamadas, e um snippet que falha não substitui nada.
+fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
+    let mut corpo = String::new();
+    let mut omitidos = 0usize;
+    for cmd in cmds {
+        let cabe = corpo.chars().count() + cmd.chars().count() + 1 <= G1_BODY_BUDGET;
+        if cabe {
+            if !corpo.is_empty() {
+                corpo.push('\n');
+            }
+            corpo.push_str(cmd);
+        } else {
+            omitidos += 1;
+        }
+    }
+    (corpo.replace('\'', "'\\''"), omitidos)
+}
+
+// ── P3/T3-B — fusão automática da rajada do TURNO (first-wins, fold-the-rest) ──
+//
+// Strategy §T3-B (25/08): K ≥ 2 chamadas Bash de classe fan-out chegam NO MESMO
+// TURNO — mesma sessão, sem PostToolUse intercalado, que é a assinatura exata do
+// batch paralelo do Claude Code (os N PreToolUse disparam antes de qualquer
+// execução). O daemon:
+//
+// 1. deixa a PRIMEIRA executar intacta (o resultado dela é real, nada se perde);
+// 2. NEGA as K−1 restantes com UMA rota derivada, que embute os K−1 comandos
+//    verbatim fundidos (`fuse_burst_program` — inteiro ou fora, omissão declarada).
+//
+// Difere do G1 em os dois eixos: o sinal (turno, não contagem em 180s) e o
+// disparo (a 2ª, não a 4ª). O G1 segue dono da rajada SERIADA — as negadas aqui
+// não alimentam o ledger dele, por construção: não executaram.
+/// Estado do turno por sessão. TTL 60s é só o backstop de limpeza — o sinal de
+/// fechamento real é o PostToolUse (`turn_gate_close`).
+#[derive(Clone, Default)]
+pub(crate) struct TurnBurst {
+    /// PostToolUse intercalou: a rajada deixa de ser "do mesmo turno".
+    pub closed: bool,
+    /// A 1ª fan-out do turno já passou intacta.
+    pub first_passed: bool,
+    /// Os comandos já NEGADOS neste turno — a rota da próxima carrega todos.
+    pub denied: Vec<String>,
+    /// Quando a 1ª passou (secs desde o UNIX_EPOCH) — a janela do batch.
+    pub first_seen_secs: u64,
+}
+
+/// Janela do batch paralelo: os N PreToolUse de um turno chegam quase juntos.
+/// Fora dela, uma fan-out solta reabre turno novo — protege a fusão de
+/// capturar sequências que só parecem turno por um PostToolUse perdido.
+const TURN_WINDOW_SECS: u64 = 10;
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+fn turn_ledger() -> &'static moka::sync::Cache<String, TurnBurst> {
+    static C: OnceLock<moka::sync::Cache<String, TurnBurst>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+/// O que fazer com uma chamada fan-out: deixar a 1ª passar intacta, ou negar
+/// com a rota fundida das acumuladas (esta inclusa).
+pub(crate) enum TurnDecision {
+    FirstPass,
+    Fold(Vec<String>),
+}
+
+/// Pura — o predicado separado do estado, para ser mais fácil de testar do
+/// que de contornar (o padrão `g1_should_deny`).
+pub(crate) fn turn_decide(st: &TurnBurst, cmd: &str, now_secs: u64) -> TurnDecision {
+    let dentro_da_janela = st.first_passed
+        && now_secs.saturating_sub(st.first_seen_secs) <= TURN_WINDOW_SECS;
+    if st.closed || !st.first_passed || !dentro_da_janela {
+        TurnDecision::FirstPass
+    } else {
+        let mut all = st.denied.clone();
+        all.push(cmd.to_string());
+        TurnDecision::Fold(all)
+    }
+}
+
+/// Contadores vivos (gate-metrics): a telemetria que decide se T3-A
+/// (hold-and-fuse) se justifica — frequência e acerto da detecção de turno.
+fn record_t3_first_passed() {
+    crate::shared::gate_metrics::record_t3_turn_first_passed();
+}
+fn record_t3_fused() {
+    crate::shared::gate_metrics::record_t3_turn_fused();
+}
+
+/// O gate propriamente: `Some(deny)` curto-circuita; `None` deixa o fluxo.
+/// Só classes fan-out (`scan_class_of`) — mutação/build nunca é rajada.
+pub(crate) fn turn_gate_pre_bash(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
+    if std::env::var("TOURING_T3_FUSE_DISABLED").map(|v| v == "1") == Ok(true) {
+        return None;
+    }
+    scan_class_of(cmd)?;
+    // a chave é (projeto, sessão): o batch de um turno acontece NUM projeto —
+    // e a mesma sessão CC pode ter dois projetos abertos (dois turnos).
+    let key = format!("{}\u{2}{session}", project_root.display());
+    let st = turn_ledger().get(&key).unwrap_or_default();
+    match turn_decide(&st, cmd, now_secs()) {
+        TurnDecision::FirstPass => {
+            turn_ledger().insert(
+                key,
+                TurnBurst {
+                    closed: false,
+                    first_passed: true,
+                    denied: Vec::new(),
+                    first_seen_secs: now_secs(),
+                },
+            );
+            record_t3_first_passed();
+            None
+        }
+        TurnDecision::Fold(all) => {
+            if code_gates_disabled() {
+                return None;
+            }
+            let n = all.len();
+            turn_ledger().insert(
+                key,
+                TurnBurst {
+                    closed: false,
+                    first_passed: true,
+                    denied: all.clone(),
+                    first_seen_secs: st.first_seen_secs,
+                },
+            );
+            let (corpo, omitidos) = fuse_burst_program(&all);
+            let programa = format!("touring run --lang bash --code '{corpo}'");
+            let nota_omissao = if omitidos > 0 {
+                format!(
+                    "
+  ({omitidos} comando(s) do lote não couberam no orçamento de                      {G1_BODY_BUDGET} chars e ficaram DE FORA — rode-os à parte.)"
+                )
+            } else {
+                String::new()
+            };
+            record_t3_fused();
+            // O lote degenerado (n=1) não é "fusão" — é a rota derivada do
+            // próprio comando; o texto diz a verdade dos dois casos.
+            let tese = if n == 1 {
+                "o sandbox roda este comando de uma vez — a rota já vem escrita:"
+            } else {
+                "o lote acumulado é 1 programa — você não precisava escrevê-lo:"
+            };
+            Some(deny_response(format!(
+                "[T3 fusão-de-turno] esta inspeção chegou no MESMO turno de outra que \
+                 já executou intacta (o resultado dela é real): {tese}
+  \
+                 {programa}{nota_omissao}
+Sub-chamadas DENTRO do programa são isentas \
+                 por construção. Kill switch humano: TOURING_T3_FUSE_DISABLED=1. \
+                 Bypass por-comando: {GATE_BYPASS_TOKEN}."
+            )))
+        }
+    }
+}
+
+/// PostToolUse (post-bash) fecha o turno: com um PostToolUse intercalado, a
+/// sequência deixa de ser batch paralelo por definição — a próxima fan-out
+/// abre turno novo. Idempotente e barata (no-op sem ledger).
+pub fn turn_gate_close(project_root: &Path, session: &str) {
+    let key = format!("{}\u{2}{session}", project_root.display());
+    if let Some(mut st) = turn_ledger().get(&key) {
+        st.closed = true;
+        turn_ledger().insert(key, st);
+    }
+}
+
+/// Fechamento a partir do payload do hook — a sessão é extraída pela MESMA
+/// `session_key` do pre, para pre e post nunca divergirem sobre qual turno
+/// estão falando (dois cálculos de sessão seriam dois turnos).
+pub fn turn_gate_close_for_payload(project_root: &Path, payload: &Value) {
+    turn_gate_close(project_root, &session_key(payload));
+}
+
 /// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
 /// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
 fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
@@ -2883,8 +3234,11 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     let key = burst_key(project_root, class);
     let (count, mut cmds) = burst_ledger().get(&key).unwrap_or((0, Vec::new()));
     let count = count.saturating_add(1);
-    if cmds.len() < 8 {
-        cmds.push(cmd.chars().take(240).collect());
+    // O comando entra INTEIRO. Quem decide o que cabe é `fuse_burst_program`,
+    // na renderização, descartando comando inteiro — nunca cortando um pela
+    // metade (ver a origem documentada lá).
+    if cmds.len() < 8 && cmd.chars().count() <= G1_BODY_BUDGET {
+        cmds.push(cmd.to_string());
     }
     burst_ledger().insert(key, (count, cmds.clone()));
     if count < G1_DENY_AT {
@@ -2895,9 +3249,19 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
         return None;
     }
     // O remédio é o histórico REAL da rajada como corpo do programa — nunca um
-    // template (injection-density).
-    let corpo = cmds.join("\n").replace('\'', "'\\''");
+    // template (injection-density), e nunca um comando pela metade.
+    let (corpo, omitidos) = fuse_burst_program(&cmds);
     let programa = format!("touring run --lang bash --code '{corpo}'");
+    // A omissão é DECLARADA: um remédio silenciosamente incompleto é a mesma
+    // família de defeito que o `--brief` que reporta `truncated: false`.
+    let nota_omissao = if omitidos > 0 {
+        format!(
+            "\n  ({omitidos} comando(s) da rajada não couberam no orçamento de \
+             {G1_BODY_BUDGET} chars e ficaram DE FORA do programa — rode-os à parte.)"
+        )
+    } else {
+        String::new()
+    };
     if !g1_should_deny(g1_live_precision()) {
         // Autodemovido por dado vivo (S-2.3): a tese continua falsificável.
         record_gate_event(GateId::G1, GateEvent::Emitted);
@@ -2908,7 +3272,7 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
                     "additionalContext": format!(
                         "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de \
                          {G1_DEMOTE_FLOOR}] {count}ª inspeção `{class}` na janela. A rajada \
-                         acumulada já é o programa:\n  {programa}"
+                         acumulada já é o programa:\n  {programa}{nota_omissao}"
                     ),
                 }
             })
@@ -2916,13 +3280,16 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
         );
     }
     record_gate_event(GateId::G1, GateEvent::Denied);
+    // um deny encerra o turno cego: a próxima chamada é a RESPOSTA do modelo
+    // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
+    turn_gate_close(project_root, session);
     pending_g1().insert(session.to_string(), class.to_string());
     Some(deny_response(format!(
         "[G1 rajada-de-inspeção] {count}ª inspeção da classe `{class}` em \
          {CODE_MODE_WINDOW_SECS}s — 90% das rajadas ≥{G1_DENY_AT} continuavam iguais \
          (51 disparos/55 sessões). A rajada acumulada JÁ é o programa; rode-a de uma \
-         vez:\n  {programa}\nBypass por-comando: prefixe {GATE_BYPASS_TOKEN} (reseta a \
-         janela e é contado)."
+         vez:\n  {programa}{nota_omissao}\nBypass por-comando: prefixe \
+         {GATE_BYPASS_TOKEN} (reseta a janela e é contado)."
     )))
 }
 
@@ -3234,27 +3601,37 @@ pub(crate) fn code_mode_gates(
     // com a rota derivada — a G1 levada ao limite, a sessão inteira em code
     // mode (o colapso do dsh `CODE_ONLY_INSTRUCTION` como experimento
     // pilotado). Mutação/build passam (scan_class_of só reconhece inspeção).
-    if std::env::var("TOURING_CODE_ONLY").map(|v| v == "1") == Ok(true)
+    let apresentacao = code_mode_presentation(project_root, cmd);
+    if apresentacao == CodeModePresentation::Code
         && let Some(class) = scan_class_of(cmd)
+        && CODE_MODE_COLLAPSED_CLASSES.contains(&class)
+        && !code_gates_disabled()
     {
-        {
-            record_gate_event(GateId::G1, GateEvent::Denied);
-            return Some(deny_response(format!(
-                "[CODE-ONLY] inspeção `{class}` negada — o modo TOURING_CODE_ONLY=1 \
-                 exige a rota de programa: touring run --lang bash --code \
-                 '{}'\nEsqueletos R1-R8: touring memory query \"#kind:snippet \
-                 #process:code-mode\". Piloto S-8.1: compare adoption_ratio e tokens \
-                 com a baseline S-0.2.",
-                cmd.chars().take(240).collect::<String>().replace('\'', "'\\''")
-            )));
-        }
+        record_gate_event(GateId::G1, GateEvent::Denied);
+        return Some(deny_response(format!(
+            "[CODE MODE] inspeção `{class}` é modelo-direta e este escopo apresenta \
+             `code` — a rota é o programa:\n  touring run --lang bash --code '{}'\n\
+             Sub-chamadas DENTRO do programa não passam por aqui (elas nunca chegam \
+             ao PreToolUse), então a tabela inteira segue disponível lá dentro. \
+             Classes que NÃO colapsam por classe: `ls`, `wc`, `sed-n` — ISOLADAS \
+             passam (chamada única domina); em RAJADA DE TURNO, o T3-B funde \
+             qualquer classe de inspeção, estas incluídas. Escopo: [code_mode] mode \
+             em <projeto>/.touring/touring.toml. Relaxar POR-COMANDO: prefixar \
+             TOURING_CODE_MODE=native (exportar no shell NÃO chega ao hook — \
+             processos irmãos). Bypass de todos os gates: {GATE_BYPASS_TOKEN}.",
+            // INTEIRO: truncar aqui entregaria uma rota que não roda, e o
+            // comando já está no contexto por definição — foi ele que chegou.
+            cmd.replace('\'', "'\\''")
+        )));
     }
-    // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
-    // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
-    if let Some(resp) = burst_gate(project_root, session, cmd) {
-        return Some(resp);
+    // `native` cala a indução inteira: o escopo declarou que não quer ser
+    // empurrado, e um nudge que ele não pediu é o custo sem a contrapartida.
+    if apresentacao == CodeModePresentation::Native {
+        return None;
     }
     // G6 — repetição byte-idêntica dentro da janela TTL, sem mutação no meio.
+    // ANTES do T3-B: retry cego byte-idêntico é o sinal mais específico e o G6
+    // o consome inteiro (advisory → deny); o que passa daqui é inspeção NOVA.
     if !g6_allowlisted(cmd) {
         let h = input_hash(project_root, tool_name, tool_input);
         let epoch = mutation_epoch().get(&project).unwrap_or(0);
@@ -3285,6 +3662,9 @@ pub(crate) fn code_mode_gates(
                     );
                 }
                 record_gate_event(GateId::G6, GateEvent::Denied);
+                // um deny encerra o turno cego: a próxima chamada é a RESPOSTA
+                // do modelo ao deny, não continuação de um batch paralelo.
+                turn_gate_close(project_root, session);
                 let inicio: String = cmd.chars().take(200).collect();
                 return Some(deny_response(format!(
                     "[G6 redundant-exact-call] repetição byte-idêntica em \
@@ -3297,6 +3677,18 @@ pub(crate) fn code_mode_gates(
             // época mudou: a árvore mutou desde a primeira vista — fresh.
             Some((_, _)) => g6_seen().insert(h, (0, epoch)),
         }
+    }
+
+    // P3/T3-B — rajada de TURNO (batch paralelo do CC): a 1ª executa intacta,
+    // as K−1 voltam fundidas num programa que o modelo não escreveu. Antes do
+    // G1: as negadas aqui não alimentam o ledger da rajada seriada.
+    if let Some(resp) = turn_gate_pre_bash(project_root, session, cmd) {
+        return Some(resp);
+    }
+    // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
+    // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
+    if let Some(resp) = burst_gate(project_root, session, cmd) {
+        return Some(resp);
     }
     None
 }

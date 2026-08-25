@@ -53,6 +53,7 @@ fn drive_regressions(path: &str, n: u32) {
 // ── Axis 1: snapshot exposes 2 new streak fields ─────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_snapshot_exposes_streak_fields() {
     let snap = GateMetricsSnapshot::capture();
     let json = serde_json::to_string(&snap).expect("serialize");
@@ -69,6 +70,7 @@ fn axis1_snapshot_exposes_streak_fields() {
 // ── Axis 2: STREAK_ALERT_THRESHOLD is exported and reasonable ────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_threshold_constant_is_three() {
     assert_eq!(STREAK_ALERT_THRESHOLD, 3, "Wave 13 contract: threshold = 3");
 }
@@ -76,6 +78,7 @@ fn axis2_threshold_constant_is_three() {
 // ── Axis 3: 3 consecutive regressions trigger 1 alert ────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_three_regressions_trigger_alert() {
     let path = "/wave13e2e/axis3.rs";
     reset_streak(path);
@@ -96,6 +99,7 @@ fn axis3_three_regressions_trigger_alert() {
 // ── Axis 4: Streak alert does NOT re-fire on every subsequent regression ─────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_alert_does_not_re_fire_on_each_regression() {
     // The alert fires exactly when the streak crosses STREAK_ALERT_THRESHOLD
     // (==3). Subsequent regressions (4, 5, 6...) MUST NOT bump the alert.
@@ -118,6 +122,7 @@ fn axis4_alert_does_not_re_fire_on_each_regression() {
 // ── Axis 5: Improvement after regression streak triggers recovery ────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_improvement_breaks_streak_and_records_recovery() {
     let path = "/wave13e2e/axis5.rs";
     reset_streak(path);
@@ -150,6 +155,7 @@ fn axis5_improvement_breaks_streak_and_records_recovery() {
 // ── Axis 6: Neutral delta resets both streaks ────────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_neutral_delta_resets_both_streaks() {
     let path = "/wave13e2e/axis6.rs";
     reset_streak(path);
@@ -171,6 +177,7 @@ fn axis6_neutral_delta_resets_both_streaks() {
 // ── Axis 7: Streaks are path-keyed (no cross-contamination) ──────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_streaks_are_path_keyed() {
     let p1 = "/wave13e2e/axis7_a.rs";
     let p2 = "/wave13e2e/axis7_b.rs";
@@ -186,6 +193,7 @@ fn axis7_streaks_are_path_keyed() {
 // ── Axis 8: First-observation (no pre-record) does NOT touch streaks ─────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis8_first_observation_preserves_streak_state() {
     let path = "/wave13e2e/axis8.rs";
     reset_streak(path);
@@ -207,6 +215,7 @@ fn axis8_first_observation_preserves_streak_state() {
 // ── Axis 9: reset_streak() drops both counters ───────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis9_reset_streak_clears_state() {
     let path = "/wave13e2e/axis9.rs";
     reset_streak(path);

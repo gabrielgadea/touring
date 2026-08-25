@@ -1078,11 +1078,20 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
         None => false,
     };
 
+    // `updated` fala da TAREFA-PAI; `subtask_updated`, do subtask. Lado a lado
+    // eles leem como contradição — `{"subtask_updated":false,"updated":true}`
+    // foi exatamente o payload que fez um fechamento de fase declarar sucesso
+    // sobre um subtask que não existia (25/08/2026). `subtask_missing` responde
+    // a pergunta que o chamador de fato tem: "o id que eu passei casou com
+    // alguma coisa?" — nomear o id inexistente é a diferença entre um veredito
+    // e um enigma de dois campos.
+    let subtask_missing = subtask_id_opt.is_some() && subtask_affected == 0;
     serde_json::json!({
         "task_id": task_id,
         "status": status,
         "updated": task_affected > 0,
         "subtask_updated": subtask_affected > 0,
+        "subtask_missing": subtask_missing,
         "resolution_logged": resolution_logged,
         "priority": priority,
         "quality_score": quality_score,

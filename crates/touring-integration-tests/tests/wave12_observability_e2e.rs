@@ -34,6 +34,7 @@ use touring_hooks::shared::gate_metrics::{GateMetricsSnapshot, global};
 // ── Axis 1: snapshot exposes 5 new health_delta fields ───────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_snapshot_exposes_health_delta_fields() {
     let snap = GateMetricsSnapshot::capture();
     // Fields exist (compile check) and serialize to JSON via serde.
@@ -48,6 +49,7 @@ fn axis1_snapshot_exposes_health_delta_fields() {
 // ── Axis 2: record_pre_signals advances the record counter ───────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_record_pre_signals_advances_counter() {
     let path = "/wave12e2e/axis2.rs";
     discard_pre_health(path);
@@ -63,6 +65,7 @@ fn axis2_record_pre_signals_advances_counter() {
 // ── Axis 3: compute_signals_delta advances the compute counter ───────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_compute_signals_delta_advances_counter() {
     let path = "/wave12e2e/axis3.rs";
     discard_pre_health(path);
@@ -76,6 +79,7 @@ fn axis3_compute_signals_delta_advances_counter() {
 // ── Axis 4: regression triggers regression counter ───────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_regression_triggers_counter() {
     let path = "/wave12e2e/axis4.rs";
     discard_pre_health(path);
@@ -100,6 +104,7 @@ fn axis4_regression_triggers_counter() {
 // ── Axis 5: improvement triggers improvement counter ─────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_improvement_triggers_counter() {
     let path = "/wave12e2e/axis5.rs";
     discard_pre_health(path);
@@ -124,6 +129,7 @@ fn axis5_improvement_triggers_counter() {
 // ── Axis 6: outstanding correctly reflects record - compute ──────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_outstanding_reflects_record_minus_compute() {
     let path1 = "/wave12e2e/axis6_a.rs";
     let path2 = "/wave12e2e/axis6_b.rs";
@@ -148,6 +154,7 @@ fn axis6_outstanding_reflects_record_minus_compute() {
 // ── Axis 7: non-Rust files also bump counters (Wave 11 multi-lang) ───────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_multilang_records_bump_counters() {
     let path = "/wave12e2e/axis7.py";
     discard_pre_health(path);
@@ -160,6 +167,7 @@ fn axis7_multilang_records_bump_counters() {
 // ── Axis 8: identity edits do NOT bump regression/improvement counters ───────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis8_identity_does_not_bump_directional_counters() {
     let path = "/wave12e2e/axis8.rs";
     discard_pre_health(path);

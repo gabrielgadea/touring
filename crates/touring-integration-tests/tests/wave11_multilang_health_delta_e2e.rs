@@ -47,6 +47,7 @@ fn temp_db() -> FileKnowledgeDB {
 // ── Axis 1: pre_edit hook records signals for Python files ────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_pre_edit_records_python_signals() {
     let (_tf, path) = write_temp(".py", "def add(a, b):\n    return a + b\n");
     discard_pre_health(&path);
@@ -67,6 +68,7 @@ fn axis1_pre_edit_records_python_signals() {
 // ── Axis 2: pre_edit hook records signals for TypeScript files ───────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_pre_edit_records_typescript_signals() {
     let (_tf, path) = write_temp(
         ".ts",
@@ -87,6 +89,7 @@ fn axis2_pre_edit_records_typescript_signals() {
 // ── Axis 3: Rust path still works via the multi-lang dispatch ────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_pre_edit_records_rust_via_dispatch() {
     let (_tf, path) = write_temp(".rs", "pub fn ok(x: i32) -> i32 { x + 1 }\n");
     discard_pre_health(&path);
@@ -103,6 +106,7 @@ fn axis3_pre_edit_records_rust_via_dispatch() {
 // ── Axis 4: Python regression detection (delta drops on complexity rise) ──────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_python_complexity_rise_yields_delta() {
     let path = "/wave11/py_complexity.py";
     discard_pre_health(path);
@@ -124,6 +128,7 @@ def a(x):
 // ── Axis 5: TypeScript identity edit emits zero delta ────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_typescript_identity_yields_zero_delta() {
     let path = "/wave11/ts_identity.ts";
     discard_pre_health(path);
@@ -136,6 +141,7 @@ fn axis5_typescript_identity_yields_zero_delta() {
 // ── Axis 6: cache schema is uniform across engines (path → engine deterministic) ──
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_cache_schema_uniform_across_engines() {
     // Same path, same engine, two distinct edits — first record then
     // multiple compute calls. Cache one-shot semantic must hold.
@@ -153,6 +159,7 @@ fn axis6_cache_schema_uniform_across_engines() {
 // ── Axis 7: legacy record_pre_health remains Rust-only (no behaviour drift) ──
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_legacy_apis_remain_rust_only() {
     use touring_hooks::health_delta::{compute_health_delta, record_pre_health};
 
@@ -172,6 +179,7 @@ fn axis7_legacy_apis_remain_rust_only() {
 // ── Axis 8: pre_write→post_edit cross-tool flow (overwrite produces delta) ────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis8_pre_write_records_signals_for_overwrite() {
     // Direct API simulation since pre_write is invoked through hook
     // entrypoints we don't expose publicly. The wiring inside pre_write

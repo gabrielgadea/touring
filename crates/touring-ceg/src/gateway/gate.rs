@@ -235,15 +235,117 @@ fn first_token_in<'a>(code: &str, tokens: &[&'a str]) -> Option<&'a str> {
     tokens.iter().copied().find(|t| code.contains(t))
 }
 
+/// Binários que uma chamada de subprocesso NOMEIA explicitamente no código.
+///
+/// `subprocess.run(["rg", …])`, `Popen(["fd", …])`, `os.system("rg foo")` e
+/// `Command::new("rg")` carregam todos o binário como o primeiro literal do
+/// argumento. Derivá-lo converte o pedido de `Run(any)` — que nenhum perfil
+/// deny-by-default pode conceder, por construção — em `Run("rg")`, que o
+/// allowlist de inspeção do perfil `Sandboxed` concede.
+///
+/// Devolve `(binários, houve_indecifrável)`. **Fail-closed**: se QUALQUER
+/// ocorrência de token de run não permitir derivar o binário, o segundo campo
+/// é `true` e o chamador mantém o pedido `Run(any)` ao lado dos derivados —
+/// um programa com `run(["rg"])` E `system(var)` continua pedindo `any`.
+/// Nenhum pedido é removido; o mecanismo só refina o que já era pedido.
+///
+/// Origem (2026-08-25): `touring run --lang python` não conseguia chamar `rg`
+/// enquanto a chamada `Bash` ao lado conseguia — o caminho preferido era mais
+/// fraco que o atômico, e a adoção de code mode pagava a conta.
+fn invoked_binaries(code: &str) -> (Vec<String>, bool) {
+    /// Janela de busca do literal após o token de chamada.
+    const LOOKAHEAD: usize = 80;
+    let mut bins: Vec<String> = Vec::new();
+    let mut underivable = false;
+
+    for token in RUN_TOKENS {
+        let mut from = 0usize;
+        while let Some(rel) = code[from..].find(token) {
+            let after = from + rel + token.len();
+            from = after;
+            let janela = &code[after..code.len().min(after + LOOKAHEAD)];
+            // O literal precisa estar na MESMA linha lógica da chamada.
+            let janela = janela.split('\n').next().unwrap_or("");
+            // Só POSIÇÃO DE CHAMADA conta. `import subprocess` menciona o token
+            // sem invocar nada — tratá-lo como invocação indecifrável fazia todo
+            // programa Python que importa o módulo pedir `Run(any)`, anulando a
+            // derivação inteira (o teste de ponta-a-ponta pegou isso).
+            let Some(args) = call_site_args(token, janela) else {
+                continue;
+            };
+            match first_string_literal(args).and_then(|lit| command_name(&lit)) {
+                Some(bin) => {
+                    if !bins.contains(&bin) {
+                        bins.push(bin);
+                    }
+                }
+                None => underivable = true,
+            }
+        }
+    }
+    (bins, underivable)
+}
+
+/// A região de argumentos, quando `token` está em POSIÇÃO DE CHAMADA em `linha`.
+///
+/// Um token que já termina em `(` (`system(`, `popen(`) abre a chamada por si.
+/// Caso contrário, aceita-se uma cadeia de atributos (`.run`, `::new`) até o
+/// `(`. `None` quando não há chamada — `import subprocess`, uma menção em
+/// comentário, o token dentro de outra string.
+fn call_site_args<'a>(token: &str, linha: &'a str) -> Option<&'a str> {
+    if token.ends_with('(') {
+        return Some(linha);
+    }
+    let cadeia = linha
+        .find('(')
+        .filter(|abre| {
+            linha[..*abre]
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':'))
+        })?;
+    Some(&linha[cadeia + 1..])
+}
+
+/// Primeiro literal entre aspas (simples ou duplas) de `s`, sem as aspas.
+fn first_string_literal(s: &str) -> Option<String> {
+    let abre = s.find(['"', '\''])?;
+    let aspa = s.as_bytes()[abre] as char;
+    let resto = &s[abre + 1..];
+    let fecha = resto.find(aspa)?;
+    Some(resto[..fecha].to_string())
+}
+
+/// Nome de comando extraído de um literal (`"/usr/bin/rg -l x"` → `rg`).
+/// `None` quando o literal não é um nome de comando simples — interpolação,
+/// variável, caminho com espaço — caso em que o chamador falha fechado.
+fn command_name(literal: &str) -> Option<String> {
+    let primeiro = literal.split_whitespace().next()?;
+    let base = primeiro.rsplit('/').next()?;
+    let plausivel = !base.is_empty()
+        && base
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
+    plausivel.then(|| base.to_string())
+}
+
 /// Extract the capability needs of an inline code body (`ctx_execute`,
 /// inferlet) via the per-class token tables.
 fn code_capability_needs(code: &str) -> Vec<CapabilityNeed> {
     let mut needs = Vec::new();
     if let Some(tok) = first_token_in(code, RUN_TOKENS) {
-        push_unique(
-            &mut needs,
-            CapabilityNeed::new(Capability::Run(CmdScope::any()), tok),
-        );
+        let (bins, underivable) = invoked_binaries(code);
+        for bin in &bins {
+            push_unique(
+                &mut needs,
+                CapabilityNeed::new(Capability::Run(CmdScope::new(bin)), format!("{tok} → {bin}")),
+            );
+        }
+        if bins.is_empty() || underivable {
+            push_unique(
+                &mut needs,
+                CapabilityNeed::new(Capability::Run(CmdScope::any()), tok),
+            );
+        }
     }
     if let Some(tok) = first_token_in(code, NET_TOKENS) {
         push_unique(
@@ -420,6 +522,100 @@ mod tests {
 
     fn ws() -> &'static Path {
         Path::new("/ws")
+    }
+
+    // ── derivação do binário invocado (2026-08-25) ───────────────────────
+
+    /// Estes testes verificam o CAMINHO — pedido → perfil → veredito — e não o
+    /// perfil isolado. A primeira tentativa desta correção concedeu `Run("rg")`
+    /// no perfil `Sandboxed`, passou 3 testes verdes, e a execução real seguiu
+    /// negada: ninguém jamais pedia `Run("rg")`; o pedido era `Run(any)`, que
+    /// nenhum grant específico cobre. Um teste que não atravessa o caminho pode
+    /// ser verde e inútil.
+    fn resolve_no_sandbox(code: &str) -> Vec<(Capability, Decision)> {
+        let perfil = sandboxed(ws());
+        required_capabilities(code, ExecSurface::CtxExecute)
+            .into_iter()
+            .filter(|n| matches!(n.capability, Capability::Run(_)))
+            .map(|n| {
+                let d = perfil.resolve(&n.capability);
+                (n.capability, d)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn subprocess_com_binario_de_inspecao_e_permitido_de_ponta_a_ponta() {
+        let code = r#"import subprocess
+out = subprocess.run(["rg", "-l", "foo", "crates/"], capture_output=True)"#;
+        let vereditos = resolve_no_sandbox(code);
+        assert!(
+            vereditos.iter().any(|(c, d)| matches!(c, Capability::Run(s) if s.matches(&CmdScope::new("rg")))
+                && *d == Decision::Allow),
+            "o binário `rg` tinha de ser derivado E concedido: {vereditos:?}"
+        );
+        assert!(
+            vereditos.iter().all(|(_, d)| *d == Decision::Allow),
+            "nenhum pedido residual `any` deveria sobrar: {vereditos:?}"
+        );
+    }
+
+    #[test]
+    fn subprocess_com_binario_perigoso_segue_negado() {
+        let code = r#"import subprocess
+subprocess.run(["rm", "-rf", "/tmp/x"])"#;
+        let vereditos = resolve_no_sandbox(code);
+        assert!(!vereditos.is_empty());
+        assert!(
+            vereditos.iter().all(|(_, d)| *d == Decision::Deny),
+            "`rm` derivado tem de ser negado pelo perfil Sandboxed: {vereditos:?}"
+        );
+    }
+
+    /// Fail-closed: binário indecifrável mantém o pedido `any`, que nenhum
+    /// perfil deny-by-default concede.
+    #[test]
+    fn binario_nao_derivavel_mantem_o_pedido_any() {
+        let code = "import os\nos.system(comando_da_variavel)";
+        let vereditos = resolve_no_sandbox(code);
+        assert!(
+            vereditos
+                .iter()
+                .any(|(c, _)| matches!(c, Capability::Run(s) if *s == CmdScope::any())),
+            "sem literal não há derivação — o pedido `any` tem de permanecer"
+        );
+        assert!(vereditos.iter().all(|(_, d)| *d == Decision::Deny));
+    }
+
+    /// O caso que faria a correção virar um furo: um binário seguro derivado
+    /// AO LADO de uma invocação opaca não pode "limpar" o pedido conservador.
+    #[test]
+    fn derivavel_junto_com_opaco_ainda_pede_any() {
+        let code = r#"import subprocess, os
+subprocess.run(["rg", "foo"])
+os.system(alguma_variavel)"#;
+        let vereditos = resolve_no_sandbox(code);
+        assert!(
+            vereditos
+                .iter()
+                .any(|(c, _)| matches!(c, Capability::Run(s) if *s == CmdScope::any())),
+            "a invocação opaca tem de manter o `any`: {vereditos:?}"
+        );
+        assert!(
+            vereditos.iter().any(|(_, d)| *d == Decision::Deny),
+            "e o veredito global continua Deny"
+        );
+    }
+
+    #[test]
+    fn deriva_de_system_e_de_command_new() {
+        let (bins, _) = invoked_binaries("os.system(\"rg -n foo src/\")");
+        assert!(bins.contains(&"rg".to_string()), "os.system: {bins:?}");
+        let (bins, _) = invoked_binaries("std::process::Command::new(\"fd\")");
+        assert!(bins.contains(&"fd".to_string()), "Command::new: {bins:?}");
+        // Caminho absoluto reduz ao nome do comando.
+        let (bins, _) = invoked_binaries("subprocess.run([\"/usr/bin/rg\", \"x\"])");
+        assert!(bins.contains(&"rg".to_string()), "caminho: {bins:?}");
     }
 
     // ── required_capabilities — bash surface ──────────────────────────────

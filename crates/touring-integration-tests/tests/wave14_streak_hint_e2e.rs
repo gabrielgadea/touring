@@ -60,6 +60,7 @@ fn drive_improvements(path: &str, n: u32) {
 // ── Axis 1: warning hint API contract ───────────────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_warning_hint_below_threshold_is_none() {
     let path = "/wave14e2e/axis1.rs";
     reset_streak(path);
@@ -69,6 +70,7 @@ fn axis1_warning_hint_below_threshold_is_none() {
 }
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_warning_hint_at_threshold_fires() {
     let path = "/wave14e2e/axis2.rs";
     reset_streak(path);
@@ -79,6 +81,7 @@ fn axis2_warning_hint_at_threshold_fires() {
 }
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_warning_hint_count_reflects_streak_size() {
     let path = "/wave14e2e/axis3.rs";
     reset_streak(path);
@@ -93,6 +96,7 @@ fn axis3_warning_hint_count_reflects_streak_size() {
 // ── Axis 4: warning hint clears after recovery ──────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_warning_clears_after_recovery() {
     let path = "/wave14e2e/axis4.rs";
     reset_streak(path);
@@ -111,6 +115,7 @@ fn axis4_warning_clears_after_recovery() {
 // ── Axis 5: improvement hint mirrors warning structure ──────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_improvement_hint_at_threshold() {
     let path = "/wave14e2e/axis5.rs";
     reset_streak(path);
@@ -124,6 +129,7 @@ fn axis5_improvement_hint_at_threshold() {
 // ── Axis 6: warning + improvement hints are mutually exclusive at any time ──
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_warning_and_improvement_are_mutually_exclusive() {
     let path = "/wave14e2e/axis6.rs";
     reset_streak(path);
@@ -142,6 +148,7 @@ fn axis6_warning_and_improvement_are_mutually_exclusive() {
 // ── Axis 7: hint format is parseable (count + path extractable) ─────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_hint_format_is_parseable() {
     let path = "/wave14e2e/axis7.rs";
     reset_streak(path);
@@ -160,6 +167,7 @@ fn axis7_hint_format_is_parseable() {
 // ── Axis 8: hints are path-keyed (no cross-contamination) ───────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis8_hints_are_path_keyed() {
     let p1 = "/wave14e2e/axis8_a.rs";
     let p2 = "/wave14e2e/axis8_b.rs";
@@ -174,6 +182,7 @@ fn axis8_hints_are_path_keyed() {
 // ── Axis 9: reset_streak clears the hint ────────────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis9_reset_clears_hint() {
     let path = "/wave14e2e/axis9.rs";
     reset_streak(path);

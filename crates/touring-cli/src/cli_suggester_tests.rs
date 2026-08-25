@@ -1331,6 +1331,89 @@ fn code_mode_loop_carries_real_glob() {
     );
 }
 
+/// A emenda do Gabriel (25/08/2026): *"o nudge de persuasão deve injetar
+/// contexto com snippet que substitua as n+ tool calls"*.
+///
+/// Enunciada na forma POSITIVA e sobre TODOS os gatilhos Bash: o comando
+/// emitido tem de conter o comando do gatilho. A forma negativa que existia —
+/// "não contém `<`" — deixou passar um placeholder que vestia outra roupa: o
+/// corpo python trazia o glob real e o comentário `# then your per-file op
+/// over files`, sem um único `<`. Verificar a ausência de UMA forma conhecida
+/// de defeito é o que faz o defeito voltar na próxima forma.
+#[test]
+fn todo_nudge_de_bash_carrega_o_comando_do_gatilho_inteiro() {
+    let gatilhos = [
+        "for f in *.md; do wc -l \"$f\"; done",
+        "for i in 1 2 3; do echo $i; done",
+        "for f in crates/*/src/lib.rs; do grep -c fn \"$f\"; done",
+        "while read -r l; do echo \"$l\"; done < lista.txt",
+    ];
+    for cmd in gatilhos {
+        let out = code_mode_output(&CodeModeKind::Loop, "Bash", &json!({ "command": cmd }));
+        let must = &out.must[0].command;
+        // O comando do gatilho viaja INTEIRO (com o escape de aspas do shell).
+        let esperado = cmd.replace('\'', r"'\''");
+        assert!(
+            must.contains(&esperado),
+            "o snippet tem de substituir a chamada, carregando-a inteira.\n\
+             gatilho: {cmd}\n emitido: {must}"
+        );
+    }
+}
+
+/// Nenhum comando emitido ADIA trabalho para o leitor.
+///
+/// Um snippet que diz "agora faça a sua operação" não substitui N chamadas —
+/// substitui zero. Cobre o vocabulário de adiamento inteiro, não só `<…>`.
+#[test]
+fn nenhum_nudge_adia_o_trabalho_para_o_leitor() {
+    const ADIAMENTO: &[&str] = &[
+        "then your",
+        "your per-file",
+        "your per-item",
+        "sua operação",
+        "TODO",
+        "FIXME",
+        "…",
+        "...",
+    ];
+    let casos: Vec<(CodeModeKind, serde_json::Value)> = vec![
+        (
+            CodeModeKind::Loop,
+            json!({"command": "for f in crates/*/src/*.rs; do wc -l \"$f\"; done"}),
+        ),
+        (
+            CodeModeKind::Loop,
+            json!({"command": "for i in $(seq 1 5); do echo $i; done"}),
+        ),
+        (
+            CodeModeKind::Scan,
+            json!({"command": "grep -rn \"AuthValidator\" crates/"}),
+        ),
+        (
+            CodeModeKind::Scan,
+            json!({"pattern": "AuthValidator", "path": "crates/", "glob": "*.rs"}),
+        ),
+    ];
+    for (kind, input) in casos {
+        let tool = if input.get("command").is_some() {
+            "Bash"
+        } else {
+            "Grep"
+        };
+        let out = code_mode_output(&kind, tool, &input);
+        for sug in out.must.iter().chain(out.should.iter()) {
+            for termo in ADIAMENTO {
+                assert!(
+                    !sug.command.contains(termo),
+                    "comando emitido adia trabalho ('{termo}'): {}",
+                    sug.command
+                );
+            }
+        }
+    }
+}
+
 /// Injection-density invariant (Gabriel 2026-06-29, `rules/touring-4-pillars.md`),
 /// enforced across EVERY nudge family — not just the pillar nudges (the gap that let
 /// the `code-mode-loop` / `exec-gate` placeholders survive). Each emitted command must
@@ -1911,13 +1994,16 @@ mod code_mode_gates_w1 {
         let proj = Path::new("/tmp/w1-g6-epoch");
         let cmd = bash("sed -n '10,20p' src/lib.rs");
         assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+        crate::cli_suggester::turn_gate_close(proj, "s1"); // PostToolUse do Bash
         // Edit no projeto → época avança (Read antes, para o G3 — W3 — ficar quieto).
         assert!(code_mode_gates(proj, "s1", "Read",
                 &json!({"file_path": "src/lib.rs"})).is_none());
+        crate::cli_suggester::turn_gate_close(proj, "s1"); // PostToolUse do Read
         assert!(
             code_mode_gates(proj, "s1", "Edit", &json!({"file_path": "src/lib.rs"}))
                 .is_none()
         );
+        crate::cli_suggester::turn_gate_close(proj, "s1"); // PostToolUse do Edit
         // mesma leitura: época mudou → fresh, sem advisory.
         assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
     }
@@ -1934,9 +2020,16 @@ mod burst_gate_w2 {
         json!({ "command": cmd })
     }
 
+    /// Rajada SERIADA: entre duas chamadas da sequência há um PostToolUse —
+    /// é o que a torna seriada e não batch paralelo (§T3-B). Fechar o turno
+    /// após cada chamada é a simulação honesta desse intercalado.
     fn inspecoes_com_base(base: usize, n: usize, proj: &Path, sess: &str) -> Vec<Option<String>> {
         (base..base + n)
-            .map(|i| code_mode_gates(proj, sess, "Bash", &bash(&format!("rg -n 'p{i}' src/f{i}.rs"))))
+            .map(|i| {
+                let r = code_mode_gates(proj, sess, "Bash", &bash(&format!("rg -n 'p{i}' src/f{i}.rs")));
+                crate::cli_suggester::turn_gate_close(proj, sess);
+                r
+            })
             .collect()
     }
 
@@ -2001,6 +2094,7 @@ mod burst_gate_w2 {
         let r = inspecoes(4, proj, "sess-cont");
         assert!(r[3].is_some(), "4ª negou");
         // a PRÓXIMA chamada da sessão é a MESMA classe → same_class++
+        // (o deny do G1 já fechou o turno — ela chega ao burst_gate por desenho)
         let _ = code_mode_gates(proj, "sess-cont", "Bash", &bash("rg -n 'de novo' src/a.rs"));
         let depois = gm::global().g1_post_deny_same_class_count
             .load(std::sync::atomic::Ordering::Relaxed);
@@ -2227,5 +2321,413 @@ mod mode_gates_w3 {
             "new_string": "// quebraria sem pipefail — provado em run-1787618052969\nlet x = 1;"
         });
         assert!(code_mode_gates(proj, s, "Edit", &com_endereco).is_none());
+    }
+}
+
+/// O remédio que a injeção entrega tem de RODAR.
+///
+/// Emenda do Gabriel (25/08): *"o nudge de persuasão deve injetar contexto com
+/// snippet que substitua as n+ tool calls"*. Um snippet truncado não substitui
+/// nada — e era o que saía, observado ao vivo nesta sessão: uma rajada de
+/// greps longos produzia um corpo cortado em `crates/tou'`, com as aspas
+/// equilibradas e o comando pela metade.
+mod apresentacao_por_escopo {
+    use super::super::{
+        CODE_MODE_COLLAPSED_CLASSES, CodeModePresentation, code_mode_presentation,
+        project_presentation, scan_class_of,
+    };
+
+    /// A calibração NÃO é intuição: colapsam as classes que fan-out na medição
+    /// (1.231 chamadas Bash, 25/08/2026); ficam de fora as de chamada única.
+    #[test]
+    fn a_calibracao_bate_com_a_medicao() {
+        for classe in ["grep", "cat", "find"] {
+            assert!(
+                CODE_MODE_COLLAPSED_CLASSES.contains(&classe),
+                "`{classe}` fan-out na medição e tem de colapsar"
+            );
+        }
+        for classe in ["ls", "wc", "sed-n"] {
+            assert!(
+                !CODE_MODE_COLLAPSED_CLASSES.contains(&classe),
+                "`{classe}` é chamada única — colapsá-la taxa o caso comum, a \
+                 recusa que o próprio DeepSeek documentou"
+            );
+        }
+    }
+
+    /// Toda classe da lista tem de ser uma que `scan_class_of` realmente emite.
+    /// Sem isto a lista pode nomear algo que jamais chega ao gate — o modo de
+    /// falha de `teste-do-componente-nao-e-teste-do-caminho`.
+    #[test]
+    fn toda_classe_colapsada_e_produzivel_pelo_classificador() {
+        let amostras = [
+            ("grep", "grep -rn foo src/"),
+            ("cat", "cat README.md"),
+            ("find", "find . -name x.rs"),
+        ];
+        for (classe, cmd) in amostras {
+            assert_eq!(scan_class_of(cmd), Some(classe), "classificador: {cmd}");
+        }
+        for classe in CODE_MODE_COLLAPSED_CLASSES {
+            assert!(
+                amostras.iter().any(|(c, _)| c == classe),
+                "classe `{classe}` colapsa sem amostra que a produza"
+            );
+        }
+    }
+
+    /// P2.3 (calibração, 1.312 chamadas reais): `cat > f`/`cat >> f` é
+    /// heredoc de ESCRITA (T4), não inspeção. Sem a exclusão, o modo `code` —
+    /// que nega na 1ª chamada — negava 27 escritas (20,6% do que a matriz
+    /// pegaria). Provado por mutação: remover o braço do redirect em
+    /// `scan_class_of` reprova os três primeiros casos.
+    #[test]
+    fn cat_com_redirect_e_escrita_nao_inspecao() {
+        // escrita: primeiro operando já é o redirect
+        assert_eq!(scan_class_of("cat > out.txt <<'EOF'"), None);
+        assert_eq!(scan_class_of("cat >> log.txt <<'EOF'"), None);
+        assert_eq!(scan_class_of("head > out.txt"), None);
+        assert_eq!(scan_class_of("tail -n +3 >> out.txt"), None);
+        // inspeção preservada
+        assert_eq!(scan_class_of("cat README.md"), Some("cat"));
+        assert_eq!(scan_class_of("cat -n README.md"), Some("cat"));
+        // inspeção cujo RESULTADO vai a arquivo: o operando de leitura vem
+        // primeiro — o programa fundido reproduziria o redirect
+        assert_eq!(scan_class_of("cat README.md > out.txt"), Some("cat"));
+        assert_eq!(scan_class_of("head -5 README.md"), Some("cat"));
+    }
+
+    /// RETOMAR-AQUI P2 item 1: `TOURING_CODE_MODE=<v>` no PREFIXO do comando
+    /// é o nível mais externo da resolução — a via que atravessa processos
+    /// irmãos (o shell da Bash tool e o hook não compartilham env; medido
+    /// 25/08: o processo do CC não tem nenhuma var TOURING_*). Útil sobretudo
+    /// para RELAXAR por-comando, simétrico ao TOURING_GATE_OK.
+    #[test]
+    fn prefixo_do_comando_vence_todos_os_niveis() {
+        let tmp = tmpdir("prefixo");
+        escreve_config(&tmp, "[code_mode]\nmode = \"code\"\n");
+        // relaxa um projeto code
+        assert_eq!(
+            code_mode_presentation(&tmp, "TOURING_CODE_MODE=native grep foo src/"),
+            CodeModePresentation::Native
+        );
+        assert_eq!(
+            code_mode_presentation(&tmp, "TOURING_CODE_MODE=both grep foo src/"),
+            CodeModePresentation::Both
+        );
+        // sem prefixo, o projeto manda
+        assert_eq!(
+            code_mode_presentation(&tmp, "grep foo src/"),
+            CodeModePresentation::Code
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn prefixo_aperta_projeto_sem_configuracao() {
+        let tmp = tmpdir("prefixo-aperta");
+        // sem .touring/touring.toml: default seria Both — o prefixo aperta
+        assert_eq!(
+            code_mode_presentation(&tmp, "TOURING_CODE_MODE=code grep foo"),
+            CodeModePresentation::Code
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn prefixo_invalido_nao_cala_os_niveis_seguintes() {
+        let tmp = tmpdir("prefixo-invalido");
+        escreve_config(&tmp, "[code_mode]\nmode = \"code\"\n");
+        assert_eq!(
+            code_mode_presentation(&tmp, "TOURING_CODE_MODE=explode grep foo"),
+            CodeModePresentation::Code,
+            "valor inválido cai para o nível do projeto, nunca para um colapso não pedido"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn prefixo_depois_de_outras_vars_e_valor_com_aspas() {
+        let tmp = tmpdir("prefixo-vars");
+        assert_eq!(
+            code_mode_presentation(&tmp, "FOO=1 TOURING_CODE_MODE=native grep foo"),
+            CodeModePresentation::Native
+        );
+        assert_eq!(
+            code_mode_presentation(&tmp, "TOURING_CODE_MODE=\"native\" grep foo"),
+            CodeModePresentation::Native
+        );
+        // parou de ser prefixo (token sem '='): a var no meio do comando NÃO vale
+        assert_eq!(
+            code_mode_presentation(&tmp, "echo x TOURING_CODE_MODE=native"),
+            CodeModePresentation::Both
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // ── P3/T3-B — fusão automática da rajada do turno ────────────────────────
+
+    /// O predicado puro: closed ou sem 1ª → FirstPass; turno aberto com 1ª →
+    /// Fold acumulando o comando. Separar decisão de estado é o que deixa o
+    /// gate mais fácil de testar do que de contornar.
+    #[test]
+    fn turn_decide_e_puro_e_acumula() {
+        use crate::cli_suggester::{TurnBurst, TurnDecision, turn_decide};
+        let agora = 1_000u64;
+        let dentro = TurnBurst { closed: false, first_passed: true, denied: vec![], first_seen_secs: agora - 3 };
+        let fechado = TurnBurst { closed: true, first_passed: true, denied: vec!["g1".into()], first_seen_secs: agora - 3 };
+        assert!(matches!(turn_decide(&fechado, "grep b", agora), TurnDecision::FirstPass));
+        let sem_primeira = TurnBurst::default();
+        assert!(matches!(turn_decide(&sem_primeira, "grep b", agora), TurnDecision::FirstPass));
+        match turn_decide(&dentro, "grep b", agora) {
+            TurnDecision::Fold(all) => assert_eq!(all, vec!["grep b".to_string()]),
+            _ => panic!("turno aberto com 1ª deveria fundir"),
+        }
+        let com_negadas = TurnBurst { closed: false, first_passed: true, denied: vec!["grep b".into()], first_seen_secs: agora - 3 };
+        match turn_decide(&com_negadas, "grep c", agora) {
+            TurnDecision::Fold(all) => assert_eq!(all, vec!["grep b".to_string(), "grep c".to_string()]),
+            _ => panic!("a rota carrega TODAS as acumuladas"),
+        }
+        // fora da janela do batch (10s), uma fan-out solta reabre turno novo
+        let velho = TurnBurst { closed: false, first_passed: true, denied: vec!["g1".into()], first_seen_secs: agora - 30 };
+        assert!(matches!(turn_decide(&velho, "grep b", agora), TurnDecision::FirstPass),
+            "fora da janela não é o mesmo turno");
+        // na borda exata da janela, ainda é o mesmo turno
+        let borda = TurnBurst { closed: false, first_passed: true, denied: vec![], first_seen_secs: agora - 10 };
+        assert!(matches!(turn_decide(&borda, "grep b", agora), TurnDecision::Fold(_)),
+            "a borda inclusiva da janela ainda funde");
+    }
+
+    /// O fluxo completo sobre o ledger (sessões únicas — o cache é global):
+    /// 1ª passa intacta, 2ª nega com [cmd2], 3ª nega com [cmd2, cmd3], e o
+    /// fechamento (PostToolUse) reabre o turno — a 4ª volta a ser 1ª.
+    #[test]
+    fn turn_gate_first_wins_fold_the_rest_close_reabre() {
+        use crate::cli_suggester::{turn_gate_close, turn_gate_pre_bash};
+        let proj = std::path::Path::new("/tmp/t3-it-1");
+        let s = "t3-it-1";
+        assert!(turn_gate_pre_bash(proj, s, "grep a src/").is_none(), "1ª executa intacta");
+        let d2 = turn_gate_pre_bash(proj, s, "grep b src/").expect("2ª é negada");
+        assert!(d2.contains("grep b src/"), "a rota embute o comando verbatim: {d2}");
+        assert!(d2.contains("touring run --lang bash --code"), "a rota é um programa: {d2}");
+        assert!(!d2.contains("grep a src/"), "a 1ª NÃO entra na rota — ela já executou: {d2}");
+        let d3 = turn_gate_pre_bash(proj, s, "grep c src/").expect("3ª é negada");
+        assert!(d3.contains("grep b src/") && d3.contains("grep c src/"), "a rota acumula: {d3}");
+        // PostToolUse intercalado FECHA o turno — a próxima volta a ser 1ª
+        turn_gate_close(proj, s);
+        assert!(turn_gate_pre_bash(proj, s, "grep d src/").is_none(), "turno novo, 1ª intacta");
+    }
+
+    /// Chamada sem classe fan-out não abre turno nem é negada: mutação/build
+    /// nunca é rajada (o desenho §T3-B é sobre inspeção).
+    #[test]
+    fn turn_gate_ignora_o_que_nao_e_fanout() {
+        use crate::cli_suggester::turn_gate_pre_bash;
+        let proj = std::path::Path::new("/tmp/t3-it-2");
+        let s = "t3-it-2";
+        assert!(turn_gate_pre_bash(proj, s, "cargo test -p x").is_none());
+        // um cargo no meio NÃO fecha o turno (só PostToolUse fecha) — mas
+        // também não é fundido
+        assert!(turn_gate_pre_bash(proj, s, "grep a src/").is_none(), "1ª fan-out abre o turno");
+        assert!(turn_gate_pre_bash(proj, s, "cargo build").is_none(), "build passa à parte");
+        assert!(turn_gate_pre_bash(proj, s, "grep b src/").is_some(), "a fan-out seguinte funde");
+    }
+
+    /// Kill switch humano: TOURING_T3_FUSE_DISABLED=1 desliga a fusão inteira.
+    /// (env no MESMO teste — sequencial; a var só é lida por este gate.)
+    #[test]
+    fn turn_gate_kill_switch_desliga_a_fusao() {
+        use crate::cli_suggester::turn_gate_pre_bash;
+        let proj = std::path::Path::new("/tmp/t3-it-3");
+        let s = "t3-it-3";
+        unsafe { std::env::set_var("TOURING_T3_FUSE_DISABLED", "1") };
+        assert!(turn_gate_pre_bash(proj, s, "grep a src/").is_none());
+        assert!(turn_gate_pre_bash(proj, s, "grep b src/").is_none(), "desligado, a 2ª também passa");
+        unsafe { std::env::remove_var("TOURING_T3_FUSE_DISABLED") };
+    }
+
+    fn escreve_config(dir: &std::path::Path, corpo: &str) {
+        let t = dir.join(".touring");
+        std::fs::create_dir_all(&t).expect("mkdir .touring");
+        std::fs::write(t.join("touring.toml"), corpo).expect("write toml");
+    }
+
+    fn tmpdir(slug: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("p2-{slug}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        d
+    }
+
+    #[test]
+    fn le_o_modo_da_secao_do_projeto() {
+        let tmp = tmpdir("cfg");
+        escreve_config(
+            &tmp,
+            "[daemon]\nper_project = true\n\n[code_mode]\nmode = \"code\"\n",
+        );
+        assert_eq!(project_presentation(&tmp), Some(CodeModePresentation::Code));
+        escreve_config(&tmp, "[code_mode]\nmode = \"native\"\n");
+        assert_eq!(
+            project_presentation(&tmp),
+            Some(CodeModePresentation::Native)
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// `mode` fora de `[code_mode]` NÃO conta: sem o estado de seção, a chave
+    /// homônima de outra tabela colapsaria o projeto por acidente.
+    #[test]
+    fn chave_de_outra_secao_nao_vale() {
+        let tmp = tmpdir("outra");
+        escreve_config(&tmp, "[toolchain]\nmode = \"code\"\nchannel = \"dev\"\n");
+        assert_eq!(project_presentation(&tmp), None, "só [code_mode] decide");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// Sem config e com valor desconhecido: default, nunca um colapso que
+    /// ninguém pediu. Falha para o comportamento de hoje.
+    #[test]
+    fn ausencia_e_valor_invalido_caem_no_default() {
+        let vazio = tmpdir("vazio");
+        std::fs::create_dir_all(&vazio).expect("mkdir");
+        assert_eq!(project_presentation(&vazio), None);
+        let _ = std::fs::remove_dir_all(&vazio);
+
+        let invalido = tmpdir("invalido");
+        escreve_config(&invalido, "[code_mode]\nmode = \"agressivo\"\n");
+        assert_eq!(project_presentation(&invalido), None);
+        let _ = std::fs::remove_dir_all(&invalido);
+    }
+}
+
+mod fusao_do_remedio {
+    use super::super::{G1_BODY_BUDGET, fuse_burst_program};
+
+    /// A invariante central: todo comando que ENTRA no corpo entra inteiro.
+    ///
+    /// Enunciada como asserção positiva sobre TODOS os comandos, não como
+    /// ausência de um caso conhecido — a lição de `every_derivable_nudge_...`:
+    /// invariante verificada numa instância recorre na próxima não coberta.
+    #[test]
+    fn nenhum_comando_entra_pela_metade() {
+        // Excede o orçamento SOZINHO (22 chars × 200 ≈ 4400 > 3000), que é a
+        // única forma de forçar a omissão — a primeira versão deste teste usava
+        // ×60 (~1334 chars), cabia, e o `omitidos > 0` reprovou o TESTE, não o
+        // código: a invariante do "nada pela metade" havia segurado.
+        let longo = format!("grep -rn \"x\" {}", "crates/touring-ceg/src/".repeat(200));
+        let cmds = vec![
+            "grep -n foo a.rs".to_string(),
+            longo,
+            "grep -n bar b.rs".to_string(),
+        ];
+        let (corpo, omitidos) = fuse_burst_program(&cmds);
+        for cmd in &cmds {
+            let inteiro = corpo.contains(&cmd.replace('\'', "'\\''"));
+            let prefixo: String = cmd.chars().take(24).collect();
+            let ausente = !corpo.contains(&prefixo);
+            assert!(
+                inteiro || ausente,
+                "comando entrou pela metade — nem inteiro nem ausente"
+            );
+        }
+        assert!(omitidos > 0, "o comando gigante devia ter sido omitido");
+    }
+
+    #[test]
+    fn corpo_respeita_o_orcamento() {
+        let cmds: Vec<String> = (0..8)
+            .map(|i| format!("grep -rn \"pat{i}\" {}", "crates/x/".repeat(50)))
+            .collect();
+        let (corpo, omitidos) = fuse_burst_program(&cmds);
+        assert!(corpo.chars().count() <= G1_BODY_BUDGET);
+        assert!(omitidos > 0, "com 8 comandos gigantes algo tem de sobrar");
+    }
+
+    #[test]
+    fn rajada_normal_entra_inteira_e_nada_e_omitido() {
+        let cmds = vec![
+            "grep -n alpha a.rs".to_string(),
+            "grep -n beta b.rs".to_string(),
+            "grep -n gamma c.rs".to_string(),
+        ];
+        let (corpo, omitidos) = fuse_burst_program(&cmds);
+        assert_eq!(omitidos, 0);
+        for cmd in &cmds {
+            assert!(corpo.contains(cmd), "faltou {cmd}");
+        }
+        assert_eq!(corpo.lines().count(), 3);
+    }
+
+    /// As aspas simples do comando original têm de sobreviver ao embrulho em
+    /// `--code '<corpo>'`, senão o programa entregue quebra na primeira aspa.
+    #[test]
+    fn aspas_simples_sao_escapadas_para_o_embrulho() {
+        let cmds = vec!["grep -rn 'foo bar' src/".to_string()];
+        let (corpo, _) = fuse_burst_program(&cmds);
+        assert!(corpo.contains("'\\''foo bar'\\''"), "corpo: {corpo}");
+        let programa = format!("touring run --lang bash --code '{corpo}'");
+        assert!(programa.ends_with('\''));
+        assert!(programa.starts_with("touring run --lang bash --code '"));
+    }
+
+    #[test]
+    fn lista_vazia_devolve_corpo_vazio_sem_omissao() {
+        let (corpo, omitidos) = fuse_burst_program(&[]);
+        assert!(corpo.is_empty());
+        assert_eq!(omitidos, 0);
+    }
+}
+
+/// Nenhuma família de indução dispara sobre um comando que JÁ é code mode.
+///
+/// Observado 6× em 25/08/2026: o nudge `code-mode-loop` recebia
+/// `touring run --lang python --code '…'` e emitia como MUST
+/// `touring run --lang bash --code 'touring run --lang python …'` — ensinando
+/// exatamente o antipadrão que existe para evitar. Asserção sobre TODAS as
+/// portas de indução, não só a que foi vista falhar.
+mod inducao_nao_reincide_sobre_si {
+    use super::super::{code_mode_kind, master_cli_command};
+    use serde_json::json;
+
+    fn bash(cmd: &str) -> serde_json::Value {
+        json!({ "command": cmd })
+    }
+
+    #[test]
+    fn code_mode_kind_ignora_comando_que_ja_e_programa() {
+        // Um laço DENTRO do sandbox continua sendo um laço — mas já está no
+        // programa, então não há nada a induzir.
+        let com_laco = bash("touring run --lang bash --code 'for f in *.rs; do wc -l $f; done'");
+        assert!(code_mode_kind("Bash", &com_laco).is_none());
+
+        // Uma varredura dentro do sandbox, idem.
+        let com_scan = bash("touring run --lang python --code 'import glob; print(glob.glob(\"**/*.rs\"))'");
+        assert!(code_mode_kind("Bash", &com_scan).is_none());
+
+        // `touring exec` é o outro canal do mesmo transporte.
+        let via_exec = bash("touring exec \"grep -rn foo crates/\"");
+        assert!(code_mode_kind("Bash", &via_exec).is_none());
+    }
+
+    /// O guard não pode calar a indução legítima — senão a correção troca um
+    /// defeito por outro (falso negativo no lugar de falso positivo).
+    #[test]
+    fn code_mode_kind_ainda_dispara_no_laco_atomico_de_verdade() {
+        let laco = bash("for f in crates/*/src/lib.rs; do wc -l $f; done");
+        assert!(
+            code_mode_kind("Bash", &laco).is_some(),
+            "o laço de shell cru continua sendo o caso canônico de indução"
+        );
+    }
+
+    /// A mesma pergunta feita à outra porta de indução — a assimetria entre
+    /// guards é o modo de falha de `comentario-afirma-simetria-inexistente`.
+    #[test]
+    fn master_cli_nao_induz_sobre_o_transporte() {
+        assert!(
+            master_cli_command("touring run --lang python --code 'print(1)'").is_none(),
+            "`touring run` é o transporte, não um atômico com master equivalente"
+        );
     }
 }

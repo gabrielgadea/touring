@@ -294,6 +294,13 @@ jobs:
         # congelada, e nenhum check de processo largo o bastante para
         # matar o daemon de outro projeto (REGRA #19).
         run: python3 -m pytest scripts/test_update_touring.py -q
+      - name: ceg serial(gate_metrics) — teste no pipeline do gateway DEVE ser serial
+        # Os testes de gateway/metrics.rs medem DELTAS exatos dos contadores
+        # globais de processo; um teste que chama run_gateway* fora do grupo
+        # serial(gate_metrics) intercala com a medição sob paralelismo do cargo
+        # e a suíte flaka (7 sítios corrigidos em 25/08/2026). O guard é
+        # provado por mutação (remover o atributo → exit 1; restaurar → exit 0).
+        run: python3 -m pytest scripts/test_ceg_serial_gate_metrics.py -q
       - name: file_size_gate — no .rs file bloat (>5k LOC)
         run: python3 docs/file_size_gate.py --check
       - name: gen_reference — docs/reference/ anti-drift

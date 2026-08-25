@@ -70,6 +70,7 @@ fn drive_regressions(path: &str, n: u32) {
 // ── Axis 1: pure status_json aggregate is well-formed ───────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_status_json_aggregate_is_well_formed() {
     let out = status_json(None);
     let v: serde_json::Value = serde_json::from_str(&out).expect("valid JSON");
@@ -93,6 +94,7 @@ fn axis1_status_json_aggregate_is_well_formed() {
 // ── Axis 2: pure status_json per-path matches recorded streak state ─────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_status_json_per_path_matches_state() {
     let path = "/wave16e2e/axis2.rs";
     reset_streak(path);
@@ -107,6 +109,7 @@ fn axis2_status_json_per_path_matches_state() {
 // ── Axis 3: `touring status -j` includes `health_delta` key ─────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_touring_status_includes_health_delta_key() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());
@@ -133,6 +136,7 @@ fn axis3_touring_status_includes_health_delta_key() {
 // ── Axis 4: status_json is byte-identical between aggregate calls ───────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_status_json_aggregate_is_stable_shape() {
     // Schema is stable across calls (counters may differ but keys must match).
     let a = status_json(None);
@@ -157,6 +161,7 @@ fn axis4_status_json_aggregate_is_stable_shape() {
 // ── Axis 5: MCP tool function signatures resolve (compile-time check) ───────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_mcp_helpers_compile_and_return_string() {
     // The MCP tools call status_json + reset_json directly — same as
     // the CLI handlers. We verify the pure functions are reachable
@@ -174,6 +179,7 @@ fn axis5_mcp_helpers_compile_and_return_string() {
 // ── Axis 6: CLI handler / pure function / MCP tool share JSON SHAPE ─────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_single_source_of_truth_invariant() {
     // Note: the daemon process and the test process have separate
     // `STREAK_CACHE` singletons (process-scoped). We can't compare
@@ -220,6 +226,7 @@ fn axis6_single_source_of_truth_invariant() {
 // ── Axis 7: `touring status -j` is parseable end-to-end ─────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_touring_status_parses_full_dashboard() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());
@@ -254,6 +261,7 @@ fn axis7_touring_status_parses_full_dashboard() {
 // ── Axis 8: regression_streak field reflects underlying state ───────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis8_regression_streak_field_reflects_state() {
     let path = "/wave16e2e/axis8.rs";
     reset_streak(path);
