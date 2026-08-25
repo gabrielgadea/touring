@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "P1 executa a emenda do Gabriel: o nudge deixa de exortar e passa a ENTREGAR o programa. (a) o caminho de laco parou de traduzir para python com o corpo '# then your per-file op over files'; loop_code_mode_command e loop_glob foram REMOVIDAS (REGRA #0) e o laco viaja verbatim via bash_code_mode_command, que tambem perdeu a truncagem de 200 chars. (b) dois guards estruturais novos: 'todo nudge de bash carrega o comando do gatilho inteiro' na forma POSITIVA sobre 4 gatilhos, e 'nenhum nudge adia o trabalho' sobre o vocabulario de adiamento inteiro \u2014 o guard antigo so procurava '<' e por isso deixou passar um placeholder em prosa. (c) SDK do transporte injetado 1x por sessao no SessionStart (2324 bytes, byte-estavel, kill switch TOURING_SDK_SECTION_DISABLED=1) contra 1196 injecoes por chamada."
+    }
+  ],
+  "relations": []
+}

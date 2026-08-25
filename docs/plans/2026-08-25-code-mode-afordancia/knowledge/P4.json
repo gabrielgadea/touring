@@ -1,0 +1,11 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "A/B por bracos sobre corpus real (1578 chamadas, 3 grandezas separadas): both +60% bytes (nudge domina), code -2.9% bytes mas N->1 round-trips (140 programas). Decisao registrada: simulacao adotada como evidencia (A/B ao vivo fica como opcao futura). Memoria inflada prova:code-mode-eficiencia-medida SUBSTITUIDA (mesma chave, #status:corrected). Telemetria t3 viva em gate-metrics."
+    }
+  ],
+  "relations": []
+}

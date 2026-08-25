@@ -34,6 +34,7 @@ use touring_hooks::health_delta::{
 // ── Axis 1: closure type signatures match touring-hooks helpers ────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_closure_types_compile_and_match() {
     // Build the exact closures generator/make_context will inject.
     let record: HealthDeltaRecordFn =
@@ -51,6 +52,7 @@ fn axis1_closure_types_compile_and_match() {
 // ── Axis 2: full pre-record → compute cycle through closures ───────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_closure_pair_yields_signed_delta() {
     let path = "/wave19e2e/axis2.rs";
     reset_streak(path);
@@ -83,6 +85,7 @@ fn axis2_closure_pair_yields_signed_delta() {
 // ── Axis 3: improvement direction propagates through closures ──────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_closure_pair_detects_improvement() {
     let path = "/wave19e2e/axis3.rs";
     reset_streak(path);
@@ -111,6 +114,7 @@ fn axis3_closure_pair_detects_improvement() {
 // ── Axis 4: GeneratorContext.with_health_delta builder wires closures ──────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_with_health_delta_builder_compiles() {
     // Build closures and confirm the builder API surface is usable
     // from cross-crate consumers. Actual wiring requires a full
@@ -123,6 +127,7 @@ fn axis4_with_health_delta_builder_compiles() {
 // ── Axis 5: closures don't leak when one half is None ──────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_unpaired_closures_are_safe_no_op() {
     // Even if record_fn is wired but compute_fn is None (or vice-versa),
     // the helpers should be no-ops — this is what GeneratorContext does
@@ -141,6 +146,7 @@ fn axis5_unpaired_closures_are_safe_no_op() {
 // ── Axis 6: streak counters update through generator commit path ───────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_repeated_regressions_advance_streak() {
     let path = "/wave19e2e/axis6.rs";
     reset_streak(path);
@@ -173,6 +179,7 @@ fn axis6_repeated_regressions_advance_streak() {
 // ── Axis 7: closure is dependency-free (tuple shape vs HealthDelta struct) ──
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_compute_closure_returns_pure_tuple() {
     // The closure intentionally returns `Option<(f32, bool, bool)>` instead
     // of `HealthDelta` so touring-generator does NOT need to import

@@ -841,6 +841,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn dry_run_bridge_result_from_allow_outcome_is_allowed() {
         use crate::capability::builtins;
         use crate::gateway::pre_exec::{

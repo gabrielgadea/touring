@@ -1,0 +1,684 @@
+{
+ "sample": 20,
+ "sessions": [
+  "205e116d",
+  "2f2d716c",
+  "3224ab0c",
+  "54a0ba2f",
+  "6acb0416",
+  "b1a350b8",
+  "b1ed63cf",
+  "e94aef3f"
+ ],
+ "total_tools": 1312,
+ "distribution": {
+  "T4": 404,
+  "T2": 402,
+  "T3": 302,
+  "T0": 201,
+  "T1": 3
+ },
+ "t2_bash_collapsed_by_matrix": {
+  "grep": 49,
+  "rg": 18,
+  "tail": 16,
+  "cat": 14,
+  "find": 7
+ },
+ "t2_bash_passing_by_matrix": {
+  "sed": 42,
+  "touring": 39,
+  "{": 34,
+  "ls": 11,
+  "adw.py": 7,
+  "set": 4,
+  "echo": 4,
+  "python3": 3,
+  "for": 3,
+  "ps": 2,
+  "tasks": 2,
+  "PID=$(cat": 2,
+  "adw.py;": 1,
+  "d=$(ls": 1,
+  "test": 1,
+  "true": 1,
+  "fd": 1,
+  "false": 1,
+  "mv5;": 1,
+  "sqlite3": 1,
+  "wc": 1,
+  "TOURING_GATE_OK=1": 1,
+  "git": 1,
+  "scratchpad": 1,
+  "pgrep": 1
+ },
+ "false_positive_candidates": [
+  {
+   "class": "T4",
+   "cmd": "cat >> ~/.claude/skills/Touring/scripts/test_adw.py <<'PYEOF'\n\n\n# ── W4 (plano code-mode-total 2026-08-24): predicados + probe/control ─────",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > .touring/adw/w4-smoke.toml <<'EOF'\n[adw]\nname = \"w4-smoke\"\ndescription = \"exercicio minimo real dos predicados W4 (fixpoint) — descart",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat >> crates/touring-cli/src/cli_suggester_tests.rs <<'EOF'\n\n// ── W1 (plano code-mode-total): G2 deny + G6 escalada ──────────────────────",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat >> ~/.claude/skills/Touring/scripts/test_adw.py <<'PYEOF'\n\n\ndef test_fixpoint_compara_token_cru_hash_converge(root):\n    # freshness-aud",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat >> ~/.claude/skills/Touring/scripts/test_adw.py <<'PYEOF'\n\n\ndef test_control_renderiza_good_e_bad_inputs_de_vars(root):\n    # regressão ",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat >> crates/touring-cli/src/cli_suggester_tests.rs <<'EOF'\n\n// ── W2 (plano code-mode-total): G1 teeth — rajada nega na 4ª ───────────────",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat >> ~/.claude/skills/loop-engineering/scripts/hooks/test_flow_guard.py <<'PYEOF'\n\n\n# ── W6 S-6.2 (plano code-mode-total): rajada sem prog",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat >> ~/.claude/skills/Touring/scripts/test_adw.py <<'PYEOF'\n\n\ndef test_lint_escritor_sem_sandbox_sem_humano_avisa(root):\n    # W8 S-8.4: n",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro"
+  },
+  {
+   "class": "T3",
+   "cmd": "grep -n \"escrit\\|write\\|ESCRIT\\|rm \\|sed -i\\|>>\" scripts/audit_code_mode.py | head -40",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita"
+  },
+  {
+   "class": "T3",
+   "cmd": "grep -rln \"sed -i\\|rm -rf\\|ESCRITA\\|escreve\" ~/.claude/skills/Touring/scripts/ /tmp/claude-1000/-home-gabrielgadea-projects-touring/*/scratc",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/claude-1000/-home-gabrielgadea-projects-touring/2f2d716c-f4bf-433a-9e7a-93d0e15d3d26/scratchpad/wd_patch.py <<'PYEOF'\nimport path",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/claude-1000/-home-gabrielgadea-projects-touring/2f2d716c-f4bf-433a-9e7a-93d0e15d3d26/scratchpad/wd_tests.py <<'PYEOF'\nimport path",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > ~/.claude/projects/-home-gabrielgadea-projects-touring/memory/diary-grava-onde-recall-nao-le.md <<'EOF'\n---\nname: diary-grava-onde-rec",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > ~/.claude/projects/-home-gabrielgadea-projects-touring/memory/detector-nao-conclui-por-ausencia.md <<'EOF'\n---\nname: detector-nao-conc",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > ~/.claude/projects/-home-gabrielgadea-projects-touring/memory/diary-grava-onde-recall-nao-le.md <<'EOF'\n---\nname: diary-grava-onde-rec",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita"
+  },
+  {
+   "class": "T3",
+   "cmd": "tail -4 /tmp/claude-1000/-home-gabrielgadea-projects-touring/9f40e547-2805-4b07-8eb0-91677e07a2c0/tasks/bzb5qljz7.output; echo '=== JUIZ ===",
+   "prompt": "<task-notification>\n<task-id>bo9swwh0g</task-id>\n<tool-use-id>toolu_01Q6SNXxz5ya"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat /tmp/claude-1000/-home-gabrielgadea-projects-touring/2f2d716c-f4bf-433a-9e7a-93d0e15d3d26/tasks/byiixb5h3.output 2>/dev/null | tail -5\ne",
+   "prompt": "corrija absolutamente tudo para que o code mode do touring funcione de forma per"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat >> /home/gabrielgadea/projects/touring/crates/touring-generator/src/plan/schema.rs <<'EOF'\n\n// ── Tests ────────────────────────────────",
+   "prompt": "aprovo o  o programa, ele começa por onde esta sessão terminou: ligando o pipeli"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/gen_rewrites.py << 'PYEOF'\n#!/usr/bin/env python3\nimport os, re, sys\n\ncli_dir = \"crates/touring-server/src/cli\"\n\n# Heuristics par",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "grep -n \"Missing <file>\\|unknown governor subcommand\\|not a directory\\|touring skill scripts not found\" crates/touring-server/src/cli/*.rs |",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/error_msg_fixes.txt << 'EOF'\nbackup.rs:348: \"unknown domain '{target}' — must be one of: knowledge, memory, graph, all\" -> \"unkno",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/fix_remaining.py << 'PYEOF'\nimport re\n\nfixes = {\n    \"crates/touring-server/src/cli/file_knowledge.rs\": [\n        (55, r'\"missing",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/batch_final.py << 'PYEOF'\nfixes = [\n    (\"crates/touring-server/src/cli/flow.rs\", '\"unknown subcommand: \\'{}\\'', \"run `touring fl",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/final_batch.sh << 'EOF'\n#!/bin/bash\n\n# Init.rs\nsed -i \"s/profile '{}' is missing a \\`name\\` field — ensure/profile '{}' is missin",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/scan_errors.py << 'EOF'\n#!/usr/bin/env python3\nimport re\nimport os\nfrom pathlib import Path\n\ncli_dir = Path(\"crates/touring-serve",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/bulk_edit.sh << 'EOF'\n#!/bin/bash\ncd /home/gabrielgadea/projects/touring\n\n# Padrões de edição em lote\n# 1. \"Row error\" → ensinar\n",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  },
+  {
+   "class": "T4",
+   "cmd": "cat > /tmp/final_report.py << 'EOF'\n#!/usr/bin/env python3\nimport re\nimport os\nfrom pathlib import Path\n\ncli_dir = Path(\"crates/touring-serv",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de"
+  }
+ ],
+ "blind_iterations_by_session": {
+  "2f2d716c": 1,
+  "6acb0416": 2
+ },
+ "frontier_cases_count": 100,
+ "frontier_cases": [
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_outer_gate.py --json 2>&1 | head -20",
+   "class": "T0"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{ \necho '== anchors W0 =='\nfor pat in 'code_mode_runs_count' 'code_mode_bytes_elided_total' 'session_bash_calls' 'adopti",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== adoption_ratio matches =='\nrg -n 'adoption_ratio' crates/touring-cli/src/cli_suggester.rs crates/touring-foun",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== all mirror sites of an existing counter (code_mode_runs_count) =='\nrg -n 'code_mode_runs_count' crates/ --typ",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== gate OUTER pós-ADW =='\npython3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_outer_gate.py --json 2>&1",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== record_adoption body (cli_suggester.rs) =='\nsed -n '2596,2625p' crates/touring-cli/src/cli_suggester.rs\necho ",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== shared/gate_metrics wrapper (touring-cli) =='\nsed -n '1,60p' crates/touring-cli/src/shared/gate_metrics.rs 2>",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== where is shared::gate_metrics =='\nrg -n 'fn record_adoption_touring|pub mod gate_metrics|mod shared' crates/t",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== lib.rs shared module =='\nsed -n '88,120p' crates/touring-cli/src/lib.rs\necho '== who defines KPI ids =='\nrg -",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== commitments defs =='\nrg -n 'derived:adoption_ratio|derived:suggestion_uptake' crates/ -g '*.rs' -g '*.toml' -",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== commitments file loading =='\nrg -n 'commitments|include_str|default_commitments' crates/touring-cli/src/cli/k",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== frozen vs canonical =='\nls -la ~/.claude/rust/docs/kpi/commitments.yaml 2>/dev/null || echo 'frozen: ABSENT'\n",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== mcp.rs site 2 (735 region) =='\nsed -n '730,742p' crates/touring-cli/src/cli/handlers/mcp.rs\necho '== foundati",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== evidence README =='\nhead -40 docs/plans/2026-08-24-code-mode-antecipa/evidence/README.md 2>/dev/null\necho '==",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "python3 docs/plans/2026-08-24-code-mode-antecipa/evidence/freeze_baseline.py 2>&1 | tail -12",
+   "class": "T0"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== E0061 detail =='\ncargo test -p touring-foundation --lib bash_calls_denominator 2>&1 | grep -B4 'E0061\\|expect",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "python3 -c \"\nimport json\nd=json.load(open('docs/plans/2026-08-24-code-mode-antecipa/data/baseline-pre-w1.json'))\nfor k,v",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "python3 docs/plans/2026-08-24-code-mode-antecipa/evidence/freeze_baseline.py > /tmp/claude-1000/-home-gabrielgadea-proje",
+   "class": "T0"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "python3 -c \"\nimport json\nd=json.load(open('docs/plans/2026-08-24-code-mode-antecipa/data/baseline-pre-w1.json'))\nprint('",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "python3 docs/plans/2026-08-24-code-mode-antecipa/evidence/freeze_baseline.py > /tmp/claude-1000/-home-gabrielgadea-proje",
+   "class": "T0"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== memory.rs Query/Recall arms (server cli) =='\nsed -n '295,365p' crates/touring-server/src/cli/memory.rs\necho '",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== handlers in touring-cli/src/cli/memory.rs =='\nrg -n 'cli-memory-query|cli-memory-list|cli-memory-recall|fn cl",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== freeze3 result =='\npython3 -c \"\nimport json\nd=json.load(open('/tmp/claude-1000/-home-gabrielgadea-projects-to",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== hook_registry cli-memory-query =='\nsed -n '1443,1462p' crates/touring-dispatch/src/hook_registry.rs\necho '== ",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== cli_memory_list tail (response assembly) =='\nsed -n '1140,1180p' crates/touring-cli/src/cli/memory.rs\necho '=",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== recall merge + response assembly =='\nsed -n '875,915p' crates/touring-cli/src/cli/memory.rs\nrg -n 'json!\\(' c",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== fetch_entries_by_keys (ceg_impls) =='\nsed -n '/fn fetch_entries_by_keys/,/^}/p' crates/touring-hook-runtime/s",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== baseline.rs enum (hooks-shared) =='\nsed -n '25,90p' crates/touring-hooks-shared/src/workflow/baseline.rs\necho",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== antipattern.rs structure =='\nrg -n 'pub fn|fn detect|AntipatternKind::' crates/touring-hooks-shared/src/workf",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== detect_antipattern signature + sig struct =='\nsed -n '110,205p' crates/touring-hooks-shared/src/workflow/anti",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== ActionSignature definition =='\nrg -n 'struct ActionSignature' -A 14 crates/touring-hooks-shared/src/ -g '*.rs",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== main.rs cli-suggest emit path =='\nsed -n '215,245p' crates/touring-hooks/src/main.rs\necho '== hook_response d",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== hook-side cli_suggester relay =='\nls crates/touring-hooks/src/ | head; rg -n 'pub fn run' crates/touring-hook",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== run tail: final JSON assembly =='\nrg -n 'hookSpecificOutput|additionalContext' crates/touring-cli/src/cli_sug",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== cache insert sites =='\nrg -n 'cache\\(\\)\\.insert|fn cache\\(' crates/touring-cli/src/cli_suggester.rs | head -5",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "{\necho '== CombinationAntipattern struct + for_kind =='\nsed -n '1,58p' crates/touring-hooks-shared/src/workflow/antipatt",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "A=~/.claude/skills/Touring/scripts/adw.py\n{\necho '== NODE_TYPES =='\nsed -n '60,75p' $A\necho '== loop node region (dry_ro",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "A=~/.claude/skills/Touring/scripts/adw.py\n{\necho '== interpolation resolver =='\nrg -n 'nodes\\.|def interpolate|\\{\\{nodes",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "A=~/.claude/skills/Touring/scripts/adw.py\n{\necho '== execute main loop =='\nsed -n '1930,2010p' $A\necho '== gate executor",
+   "class": "T2"
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/pro",
+   "tool": "Bash",
+   "cmd": "A=~/.claude/skills/Touring/scripts/adw.py\n{\necho '== _run_single_node =='\nsed -n '/def _run_single_node/,/^def /p' $A | ",
+   "class": "T2"
+  }
+ ],
+ "per_prompt": [
+  {
+   "session": "2f2d716c",
+   "prompt": "Goal set: --ultrathink --sequential-thinking implemente o /home/gabrielgadea/projects/touring/docs/p",
+   "n_tools": 357,
+   "classes": {
+    "T2": 134,
+    "T0": 79,
+    "T3": 16,
+    "T4": 127,
+    "T1": 1
+   }
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "verifiqe a questao do mem-vazio; \ncorrija o detector de escrita",
+   "n_tools": 137,
+   "classes": {
+    "T2": 32,
+    "T3": 91,
+    "T0": 6,
+    "T4": 8
+   }
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "aprovado, code mode precisa da afordancia, e o nudge de persuasão deve injetar contexto com snippet ",
+   "n_tools": 104,
+   "classes": {
+    "T3": 25,
+    "T2": 35,
+    "T0": 12,
+    "T4": 32
+   }
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "<task-notification>\n<task-id>ba45at1ca</task-id>\n<tool-use-id>toolu_012McGNssVd5fZRs77c6fXg6</tool-u",
+   "n_tools": 103,
+   "classes": {
+    "T2": 15,
+    "T3": 74,
+    "T4": 10,
+    "T0": 4
+   }
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "<task-notification>\n<task-id>bo9swwh0g</task-id>\n<tool-use-id>toolu_01Q6SNXxz5yaWj7S9frGjhm5</tool-u",
+   "n_tools": 80,
+   "classes": {
+    "T2": 32,
+    "T0": 26,
+    "T4": 15,
+    "T3": 7
+   }
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "corrija absolutamente tudo para que o code mode do touring funcione de forma perfeita e seja potenci",
+   "n_tools": 67,
+   "classes": {
+    "T3": 44,
+    "T4": 10,
+    "T2": 6,
+    "T0": 7
+   }
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "complemente o Documento em docs/plans/2026-08-24-code-mode-antecipa/, pois precisamos de:\ndiagnóstic",
+   "n_tools": 63,
+   "classes": {
+    "T2": 6,
+    "T4": 21,
+    "T3": 31,
+    "T0": 5
+   }
+  },
+  {
+   "session": "2f2d716c",
+   "prompt": "aprovo o  o programa, ele começa por onde esta sessão terminou: ligando o pipeline e corrigindo o qu",
+   "n_tools": 43,
+   "classes": {
+    "T2": 11,
+    "T0": 11,
+    "T3": 12,
+    "T4": 9
+   }
+  },
+  {
+   "session": "6acb0416",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` q",
+   "n_tools": 78,
+   "classes": {
+    "T2": 21,
+    "T0": 26,
+    "T3": 2,
+    "T4": 27,
+    "T1": 2
+   }
+  },
+  {
+   "session": "6acb0416",
+   "prompt": "Stop hook feedback:\nFlow guard [work-outer]: OUTER evidence incomplete (1/2). Missing artifacts: ['d",
+   "n_tools": 1,
+   "classes": {
+    "T0": 1
+   }
+  },
+  {
+   "session": "205e116d",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` q",
+   "n_tools": 71,
+   "classes": {
+    "T2": 33,
+    "T4": 31,
+    "T0": 7
+   }
+  },
+  {
+   "session": "205e116d",
+   "prompt": "Stop hook feedback:\nFlow guard [work-outer]: OUTER evidence incomplete (2/2). Missing artifacts: ['d",
+   "n_tools": 3,
+   "classes": {
+    "T0": 1,
+    "T2": 2
+   }
+  },
+  {
+   "session": "54a0ba2f",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` q",
+   "n_tools": 60,
+   "classes": {
+    "T2": 20,
+    "T0": 5,
+    "T4": 35
+   }
+  },
+  {
+   "session": "54a0ba2f",
+   "prompt": "Stop hook feedback:\nFlow guard [work-outer]: OUTER evidence incomplete (1/2). Missing artifacts: ['e",
+   "n_tools": 2,
+   "classes": {
+    "T2": 2
+   }
+  },
+  {
+   "session": "b1ed63cf",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` q",
+   "n_tools": 48,
+   "classes": {
+    "T2": 19,
+    "T4": 26,
+    "T0": 3
+   }
+  },
+  {
+   "session": "b1ed63cf",
+   "prompt": "Stop hook feedback:\nFlow guard [work-outer]: OUTER evidence incomplete (1/2). Missing artifacts: ['d",
+   "n_tools": 2,
+   "classes": {
+    "T0": 1,
+    "T2": 1
+   }
+  },
+  {
+   "session": "e94aef3f",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` q",
+   "n_tools": 48,
+   "classes": {
+    "T2": 15,
+    "T4": 31,
+    "T0": 2
+   }
+  },
+  {
+   "session": "e94aef3f",
+   "prompt": "Stop hook feedback:\nFlow guard [work-outer]: OUTER evidence incomplete (1/2). Missing artifacts: ['d",
+   "n_tools": 9,
+   "classes": {
+    "T0": 2,
+    "T2": 2,
+    "T4": 5
+   }
+  },
+  {
+   "session": "3224ab0c",
+   "prompt": "Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` q",
+   "n_tools": 30,
+   "classes": {
+    "T0": 3,
+    "T2": 10,
+    "T4": 17
+   }
+  },
+  {
+   "session": "3224ab0c",
+   "prompt": "Stop hook feedback:\nFlow guard [work-outer]: OUTER evidence incomplete (2/2). Missing artifacts: ['e",
+   "n_tools": 6,
+   "classes": {
+    "T2": 6
+   }
+  }
+ ]
+}

@@ -102,15 +102,40 @@ pub fn trusted() -> CapabilityProfile {
         .denying(Capability::Net(HostScope::any()))
 }
 
+/// Binários de INSPEÇÃO que um programa sandboxado pode invocar.
+///
+/// Todos são leitura pura: não escrevem, não removem, não alcançam a rede.
+/// `git` entra porque suas subformas de leitura (`log`/`diff`/`show`/`status`)
+/// são o vocabulário de investigação — a classe DESTRUTIVA da REGRA #11 é
+/// barrada a montante pelo `git-safety-guard`, não por este perfil.
+///
+/// Origem (2026-08-25): o perfil negava TODA capability `Run`, então um
+/// programa de code mode não podia chamar `rg` enquanto a chamada `Bash` ao
+/// lado podia — o caminho preferido era estritamente mais fraco que o atômico,
+/// e a adoção pagava por isso. O harness do DeepSeek escolheu deliberadamente a
+/// postura oposta (nota de 15/06, §Trust posture): o runtime deles é
+/// *bash-equivalent by design*, sem flag de unsafe, **porque** o bash ao lado
+/// já carrega mais autoridade ambiente. A contenção real aqui é a mesma nos
+/// dois caminhos — rlimits + landlock + env-clear + política de forbidden-call.
+const READ_ONLY_BINARIES: &[&str] = &[
+    "rg", "grep", "egrep", "ugrep", "find", "fd", "ls", "cat", "head", "tail", "wc", "sort",
+    "uniq", "cut", "tr", "jq", "file", "stat", "readlink", "basename", "dirname", "git",
+];
+
 /// `Sandboxed` — the default profile for any generic or unverified script.
 ///
-/// Default `Deny`; grants only read of `workspace` plus the [`ENV_ALLOWLIST`].
-/// Everything else — write, net, run — is denied.
+/// Default `Deny`; grants read of `workspace`, the [`ENV_ALLOWLIST`], e a
+/// invocação dos [`READ_ONLY_BINARIES`]. Escrita, rede e qualquer outro
+/// executável seguem negados.
 pub fn sandboxed(workspace: &Path) -> CapabilityProfile {
-    grant_env_allowlist(
+    let mut profile = grant_env_allowlist(
         CapabilityProfile::new("Sandboxed", Decision::Deny)
             .allowing(Capability::FsRead(PathScope::new(workspace))),
-    )
+    );
+    for bin in READ_ONLY_BINARIES {
+        profile = profile.allowing(Capability::Run(CmdScope::new(*bin)));
+    }
+    profile
 }
 
 #[cfg(test)]
@@ -123,6 +148,46 @@ mod tests {
 
     fn staging() -> &'static Path {
         Path::new("/home/user/.staging")
+    }
+
+    /// O caminho preferido não pode ser mais fraco que o atômico.
+    ///
+    /// Asserção sobre TODA a lista, não sobre um binário de amostra: uma
+    /// invariante verificada numa instância reaparece na próxima não coberta.
+    #[test]
+    fn sandboxed_permite_todo_binario_de_inspecao() {
+        let p = sandboxed(ws());
+        for bin in READ_ONLY_BINARIES {
+            assert!(
+                p.allows(&Capability::Run(CmdScope::new(*bin))),
+                "programa sandboxado precisa poder invocar `{bin}` — o Bash ao lado pode"
+            );
+        }
+    }
+
+    /// A abertura é cirúrgica: mutação e rede seguem negadas.
+    #[test]
+    fn sandboxed_segue_negando_mutacao_e_rede() {
+        let p = sandboxed(ws());
+        for perigoso in ["rm", "mv", "cp", "sudo", "kill", "pkill", "curl", "wget", "cargo", "sh"] {
+            assert!(
+                !p.allows(&Capability::Run(CmdScope::new(perigoso))),
+                "`{perigoso}` jamais pode ser concedido pelo perfil Sandboxed"
+            );
+        }
+        assert!(!p.allows(&Capability::Net(HostScope::any())));
+        assert!(!p.allows(&Capability::FsWrite(PathScope::new("/home/user/ws"))));
+    }
+
+    /// `ReadOnly` é o perfil de análise ESTÁTICA — continua sem `Run`. A
+    /// assimetria com `Sandboxed` é deliberada e por isso é afirmada aqui:
+    /// um comentário alegando simetria é a evidência mais fraca que existe.
+    #[test]
+    fn read_only_permanece_sem_run_apesar_do_sandboxed_ter_ganho() {
+        let p = read_only(ws());
+        for bin in READ_ONLY_BINARIES {
+            assert!(!p.allows(&Capability::Run(CmdScope::new(*bin))));
+        }
     }
 
     #[test]

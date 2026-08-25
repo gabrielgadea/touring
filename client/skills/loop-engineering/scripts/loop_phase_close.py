@@ -66,9 +66,51 @@ def plan_id_from_bundle(bundle: Path):
 
 
 # ── Touring side effects ─────────────────────────────────────────────────────
-def update_dag(task, phase, status):
-    rc, out, err = run(["touring", "decompose", "update", task, phase, "--status", status])
-    return rc == 0 or '"subtask_updated":true' in (out + err)
+def resolve_subtask_id(task, phase):
+    """Resolve um phase curto ("P2") para o subtask_id COMPLETO da DAG.
+
+    `decompose update` não casa prefixo: id parcial devolve rc 0 com
+    `subtask_updated:false` — o fechamento declara sucesso e a DAG não anda
+    (medido 25/08: P2 fechado com dag=False). O match é pelo sufixo após
+    `::`: igual ao phase, ou começando com ele seguido de espaço ("P2 ...").
+    Sem candidato, devolve o phase como veio (o veredito honesto do
+    `subtask_updated` continuará dizendo a verdade).
+    """
+    rc, out, _err = run(["touring", "decompose", "get", task])
+    if rc != 0:
+        return phase
+    try:
+        d = json.loads(out)
+    except Exception:
+        return phase
+    for s in d.get("subtasks", []):
+        sid = str(s.get("subtask_id", ""))
+        suffix = sid.split("::", 1)[1] if "::" in sid else sid
+        if suffix == phase or suffix.startswith(phase + " "):
+            return sid
+    return phase
+
+
+def update_dag(task, subtask, status):
+    """Marca `subtask` no DAG e devolve se ALGO foi de fato atualizado.
+
+    O veredito é `subtask_updated`, não o exit code. `touring decompose update`
+    com um subtask inexistente devolve **rc 0** e o payload
+    `{"subtask_updated": false, "updated": true}` — dois campos se contradizendo
+    na mesma resposta. A versão anterior testava `rc == 0 or …`, e o
+    short-circuit fazia o `or` nunca alcançar o campo honesto: todo fechamento
+    reportava `dag_updated: true` mesmo quando o id não casava com nada.
+    Descoberto em 25/08/2026, quando `decompose ready` seguia listando uma fase
+    fechada com sucesso declarado.
+    """
+    rc, out, err = run(["touring", "decompose", "update", task, subtask, "--status", status])
+    payload = out + err
+    if '"subtask_updated":true' in payload.replace(" ", ""):
+        return True
+    if '"subtask_updated":false' in payload.replace(" ", ""):
+        return False
+    # Sem o campo (binário antigo, erro de transporte): cai no exit code.
+    return rc == 0
 
 
 def store_memory(task, phase, status, summary, tags=None):
@@ -193,6 +235,35 @@ def merge_extra(*extras):
 
 
 # ── OKF emission ─────────────────────────────────────────────────────────────
+def validate_facts(raw):
+    """Parse --facts, recusando a forma errada com a forma CERTA na mensagem.
+
+    O contrato é uma LISTA de objetos `{chave, valor, run_id}`. Passar um dict
+    (o erro natural — "fatos" soa como mapa) fazia o relatório estourar com
+    `AttributeError: 'str' object has no attribute 'get'` lá dentro de
+    `write_phase_report`, DEPOIS de a memória e o reward já terem sido gravados
+    — um fechamento meio feito, com o erro apontando para a linha errada.
+    Falhar cedo e dizer o formato custa uma linha; adivinhar custou um turno
+    (25/08/2026).
+    """
+    if not raw:
+        return None
+    dados = json.loads(raw)
+    exemplo = '[{"chave":"testes","valor":"546 pass","run_id":"run-123"}]'
+    if not isinstance(dados, list):
+        raise SystemExit(
+            f"--facts precisa ser uma LISTA de objetos, recebi {type(dados).__name__}.\n"
+            f"Formato: {exemplo}"
+        )
+    for i, f in enumerate(dados):
+        if not isinstance(f, dict):
+            raise SystemExit(
+                f"--facts[{i}] precisa ser um objeto, recebi {type(f).__name__}.\n"
+                f"Formato: {exemplo}"
+            )
+    return dados
+
+
 def write_phase_report(bundle: Path, plan_id, phase, status, summary, gates, ts,
                        facts=None):
     path = bundle / "phases" / f"{phase}.md"
@@ -309,6 +380,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Close a loop phase and persist its knowledge.")
     ap.add_argument("--task", required=True)
     ap.add_argument("--phase", required=True)
+    ap.add_argument(
+        "--subtask",
+        help="Subtask id no DAG, quando difere de --phase. `--phase` nomeia o "
+        "RELATÓRIO (phases/P0.md); o id do subtask é o que `touring decompose "
+        "add` recebeu, e nem sempre são o mesmo texto. Conflatá-los fazia o "
+        "fechamento atualizar um subtask inexistente (25/08/2026).",
+    )
     ap.add_argument("--summary", default="")
     ap.add_argument("--status", default="done")
     ap.add_argument("--bundle", default=None, help="OKF bundle dir (writes report + abstract + log)")
@@ -340,7 +418,7 @@ def main(argv=None):
 
     result = {
         "task": args.task, "phase": args.phase, "status": args.status,
-        "dag_updated": update_dag(args.task, args.phase, args.status),
+        "dag_updated": update_dag(args.task, args.subtask or resolve_subtask_id(args.task, args.phase), args.status),
         "memory_stored": store_memory(args.task, args.phase, args.status, args.summary, tags=args.tag),
         "rewarded": reward(args.phase, args.reward),
         "recalls_credited": credit_recalls(
@@ -356,7 +434,7 @@ def main(argv=None):
         extra = merge_extra(load_json_file(args.abstract),
                             run_extractor(args.extractor, args.summary))
         abstract = build_abstract(args.phase, args.summary, extra)
-        facts = json.loads(args.facts) if args.facts else None
+        facts = validate_facts(args.facts)
         result["phase_report"] = write_phase_report(bundle, plan_id, args.phase, args.status,
                                                     args.summary, gates, ts, facts=facts)
         result["abstract"] = write_abstract(bundle, args.phase, abstract)

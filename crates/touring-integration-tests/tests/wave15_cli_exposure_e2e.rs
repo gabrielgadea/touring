@@ -76,6 +76,7 @@ fn binary_available() -> bool {
 // ── Axis 1: pre_write streak hint helpers reachable from cross-crate ────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_pre_write_hint_helpers_reachable() {
     // pre_write::ast_content_signals invokes these exact helpers; we
     // confirm they remain callable from cross-crate consumers and
@@ -93,6 +94,7 @@ fn axis1_pre_write_hint_helpers_reachable() {
 // ── Axis 2: pre_write parity — same helper reset across pre_edit/pre_write ──
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_pre_write_parity_with_pre_edit() {
     // Both pre_edit and pre_write call streak_warning_hint(path) on the
     // SAME singleton cache. After a regression streak the hint fires
@@ -113,6 +115,7 @@ fn axis2_pre_write_parity_with_pre_edit() {
 // ── Axis 3: CLI status without path returns aggregate JSON ──────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_cli_status_aggregate_returns_valid_json() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());
@@ -149,6 +152,7 @@ fn axis3_cli_status_aggregate_returns_valid_json() {
 // ── Axis 4: CLI status with file_path returns per-path JSON ─────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_cli_status_with_path_returns_per_path_json() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());
@@ -180,6 +184,7 @@ fn axis4_cli_status_with_path_returns_per_path_json() {
 // ── Axis 5: CLI reset without path errors out ───────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_cli_reset_without_path_errors() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());
@@ -202,6 +207,7 @@ fn axis5_cli_reset_without_path_errors() {
 // ── Axis 6: CLI reset with valid path returns success JSON ──────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_cli_reset_with_path_returns_success() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());
@@ -222,6 +228,7 @@ fn axis6_cli_reset_with_path_returns_success() {
 // ── Axis 7: CLI rejects unknown subcommand ──────────────────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_cli_unknown_subcommand_fails() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());
@@ -241,6 +248,7 @@ fn axis7_cli_unknown_subcommand_fails() {
 // ── Axis 8: CLI status default subcommand is `status` ───────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis8_cli_status_is_default_subcommand() {
     if !binary_available() {
         eprintln!("skipping: {} not built", touring_bin().display());

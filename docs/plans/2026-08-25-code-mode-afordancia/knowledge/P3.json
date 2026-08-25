@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "T3-B first-wins-fold-the-rest deployado: turn_ledger por (projeto,sessao), turn_decide puro com janela 10s, ordem G6\u2192T3-B\u2192G1 (especificidade), close em post-tool-rl (qq tool) + denies G1/G6, counters t3 no gate-metrics, kill switch. 5 testes novos; 406 cli + 1321 dispatch + 484 foundation + clippy 0. PROVA DE ACEITACAO viva: batch de 3 greps \u2192 3\u00aa fundida com programa nao-escrito. Achado: CC dispara hooks serial-com-sobreposicao (nao all-pres-first) \u2014 P5/T3-A hold de 25ms equaliza."
+    }
+  ],
+  "relations": []
+}

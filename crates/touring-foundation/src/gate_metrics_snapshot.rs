@@ -566,6 +566,12 @@ pub struct GateMetricsSnapshot {
     /// Snapshot of CEG X0 CAPTURE events (code-bearing actions entering the pipeline).
     #[serde(default)]
     pub ceg_captured_count: u64,
+    /// Snapshot of P3/T3-B first-pass (1ª fan-out do turno executando intacta).
+    #[serde(default)]
+    pub t3_turn_first_passed_count: u64,
+    /// Snapshot of P3/T3-B folds (chamadas K−1 negadas com a rota fundida).
+    #[serde(default)]
+    pub t3_turn_fused_count: u64,
     /// Snapshot of CEG X7 DECISION denials (actions blocked).
     #[serde(default)]
     pub ceg_blocked_count: u64,
@@ -944,6 +950,8 @@ impl GateMetricsSnapshot {
             wave3_t310_count: m.wave3_t310_count.load(Ordering::Relaxed),
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: m.ceg_captured_count.load(Ordering::Relaxed),
+            t3_turn_first_passed_count: m.t3_turn_first_passed_count.load(Ordering::Relaxed),
+            t3_turn_fused_count: m.t3_turn_fused_count.load(Ordering::Relaxed),
             ceg_blocked_count: m.ceg_blocked_count.load(Ordering::Relaxed),
             ceg_sandboxed_count: m.ceg_sandboxed_count.load(Ordering::Relaxed),
             ceg_fast_path_count: m.ceg_fast_path_count.load(Ordering::Relaxed),
@@ -1092,6 +1100,18 @@ pub fn record_wave3_t310() {
 #[inline]
 pub fn record_ceg_captured() {
     global().ceg_captured_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// P3/T3-B — 1ª fan-out do turno passou intacta (first-wins).
+#[inline]
+pub fn record_t3_turn_first_passed() {
+    global().t3_turn_first_passed_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// P3/T3-B — chamada K−1 negada com a rota fundida (fold-the-rest).
+#[inline]
+pub fn record_t3_turn_fused() {
+    global().t3_turn_fused_count.fetch_add(1, Ordering::Relaxed);
 }
 
 /// X7 DECISION — increment the CEG blocked (Deny verdict) counter.

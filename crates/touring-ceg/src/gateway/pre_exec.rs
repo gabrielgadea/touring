@@ -457,6 +457,7 @@ mod tests {
     // ── run_gateway ───────────────────────────────────────────────────────
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_rejects_empty_payload() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -468,6 +469,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_rejects_non_code_bearing_tool() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -479,6 +481,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_produces_a_decision_for_a_clean_command() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -491,6 +494,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_denies_a_destructive_command() {
         // The deferred X5 runner never spawns, so this is safe to run: the
         // verdict comes from X2 STATIC (a destructive pattern → Block) and X6.
@@ -522,6 +526,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn e2e_run_gateway_full_pipeline_records_all_eight_stages() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -537,6 +542,7 @@ mod tests {
     // ── S-12 — speculative batch driver ─────────────────────────────────────
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn speculative_accepts_prefix_until_first_deny() {
         use touring_hooks_shared::action_signature::{ActionSignature, ContextQualifier};
 
@@ -598,6 +604,7 @@ mod tests {
     /// all 3 candidate indices — the lossless contract is preserved
     /// through the new pre-pass.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_speculative_with_proof_filter_passes_via_stub() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -647,6 +654,7 @@ mod tests {
     /// overhead identity). The speculative driver produces the same
     /// prefix it would have produced before P3.5.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_speculative_with_proof_filter_opt_in_none_identity() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -680,6 +688,7 @@ mod tests {
     /// at the first Deny — the lossless contract holds across the
     /// new pre-pass even when a destructive candidate is present.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_speculative_with_proof_filter_still_truncates_on_deny() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -736,6 +745,7 @@ mod tests {
     /// transform. Net effect: all 3 candidates pass the pre-filter and are
     /// accepted by the speculative loop.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_speculative_with_per_candidate_filter_default_deps_is_identity() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -780,6 +790,7 @@ mod tests {
     /// (kept); the `md` candidate is identity (kept). Net: both pass
     /// the pre-filter and the speculative loop.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_speculative_with_per_candidate_filter_bash_cargo_with_stub() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();
@@ -824,6 +835,7 @@ mod tests {
 
     /// End-to-end: when the caller supplies a `Claim`, the gateway
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn run_gateway_with_claim_attaches_proof_report_to_evidence() {
         let profile = builtins::trusted();
         let predictor = ExecutionOutcomePredictor::new();

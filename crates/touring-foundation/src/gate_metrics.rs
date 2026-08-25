@@ -736,6 +736,10 @@ pub struct GateMetrics {
     // keeping the JSON shape stable.
     /// X0 CAPTURE — tool calls that entered the CEG pipeline.
     pub ceg_captured_count: AtomicU64,
+    /// P3/T3-B — 1ª fan-out do turno passando intacta (first-wins).
+    pub t3_turn_first_passed_count: AtomicU64,
+    /// P3/T3-B — chamadas K−1 negadas com a rota fundida (fold-the-rest).
+    pub t3_turn_fused_count: AtomicU64,
 
     /// X7 DECISION — calls whose verdict was `Deny` (hard-blocked by gateway).
     pub ceg_blocked_count: AtomicU64,
@@ -1039,6 +1043,8 @@ impl Default for GateMetrics {
             wave3_t310_count: AtomicU64::new(0),
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: AtomicU64::new(0),
+            t3_turn_first_passed_count: AtomicU64::new(0),
+            t3_turn_fused_count: AtomicU64::new(0),
             ceg_blocked_count: AtomicU64::new(0),
             ceg_sandboxed_count: AtomicU64::new(0),
             ceg_fast_path_count: AtomicU64::new(0),
@@ -2171,7 +2177,8 @@ pub use crate::gate_metrics_snapshot::{
     record_gate_metrics_daily_flush, record_pillar_induction_emitted,
     record_pillar_induction_followed, record_read_aggressive_chunked,
     record_read_aggressive_passthrough, record_suggestion_emitted, record_suggestion_followed,
-    record_touring_init_invocation, record_wave3_t201, record_wave3_t202, record_wave3_t203,
+    record_t3_turn_first_passed, record_t3_turn_fused, record_touring_init_invocation,
+    record_wave3_t201, record_wave3_t202, record_wave3_t203,
     record_wave3_t204, record_wave3_t205, record_wave3_t206, record_wave3_t207, record_wave3_t208,
     record_wave3_t209, record_wave3_t210, record_wave3_t211, record_wave3_t212, record_wave3_t213,
     record_wave3_t214, record_wave3_t215, record_wave3_t301, record_wave3_t302, record_wave3_t303,
