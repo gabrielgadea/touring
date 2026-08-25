@@ -1823,17 +1823,27 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
-    fn g2_nega_com_o_comando_real_no_remedio() {
+    fn g2_reescreve_por_default_e_nega_sob_fallback() {
+        // S-8.6 (spike SUPORTADO): o default é REWRITE — allow + updatedInput
+        // com o comando REAL prefixado; o deny fica atrás do env de fallback.
         let proj = Path::new("/tmp/w1-g2-deny");
         let cmd = "cargo test 2>&1 | tail -3; echo EXIT=$?";
         let resp = code_mode_gates(proj, "s1", "Bash", &bash(cmd))
-            .expect("G2 deve negar");
+            .expect("G2 deve falar");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "allow");
+        assert_eq!(
+            v["hookSpecificOutput"]["updatedInput"]["command"],
+            format!("set -o pipefail; {cmd}")
+        );
+        // fallback deny (env no MESMO teste — sequencial, sem corrida entre testes)
+        unsafe { std::env::set_var("TOURING_G2_REWRITE_DISABLED", "1") };
+        let resp = code_mode_gates(proj, "s1", "Bash", &bash(cmd))
+            .expect("G2 deve negar sob fallback");
+        unsafe { std::env::remove_var("TOURING_G2_REWRITE_DISABLED") };
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
-        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
-            .as_str()
-            .unwrap();
-        // injection-density: o remédio carrega o comando REAL, não um template.
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
         assert!(reason.contains(&format!("set -o pipefail; {cmd}")), "{reason}");
     }
 
@@ -1901,12 +1911,239 @@ mod code_mode_gates_w1 {
         let proj = Path::new("/tmp/w1-g6-epoch");
         let cmd = bash("sed -n '10,20p' src/lib.rs");
         assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
-        // Edit no projeto → época avança.
+        // Edit no projeto → época avança (Read antes, para o G3 — W3 — ficar quieto).
+        assert!(code_mode_gates(proj, "s1", "Read",
+                &json!({"file_path": "src/lib.rs"})).is_none());
         assert!(
             code_mode_gates(proj, "s1", "Edit", &json!({"file_path": "src/lib.rs"}))
                 .is_none()
         );
         // mesma leitura: época mudou → fresh, sem advisory.
         assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+    }
+}
+
+// ── W2 (plano code-mode-total): G1 teeth — rajada nega na 4ª ─────────────────
+
+mod burst_gate_w2 {
+    use super::super::{code_mode_gates, g1_should_deny};
+    use serde_json::json;
+    use std::path::Path;
+
+    fn bash(cmd: &str) -> serde_json::Value {
+        json!({ "command": cmd })
+    }
+
+    fn inspecoes_com_base(base: usize, n: usize, proj: &Path, sess: &str) -> Vec<Option<String>> {
+        (base..base + n)
+            .map(|i| code_mode_gates(proj, sess, "Bash", &bash(&format!("rg -n 'p{i}' src/f{i}.rs"))))
+            .collect()
+    }
+
+    fn inspecoes(n: usize, proj: &Path, sess: &str) -> Vec<Option<String>> {
+        inspecoes_com_base(0, n, proj, sess)
+    }
+
+    #[test]
+    fn g1_terceira_passa_quarta_nega_com_a_rajada_no_remedio() {
+        let proj = Path::new("/tmp/w2-g1-escala");
+        let r = inspecoes(4, proj, "s1");
+        assert!(r[0].is_none() && r[1].is_none() && r[2].is_none(),
+                "1ª-3ª ficam com o advisory legado");
+        let deny = r[3].as_ref().expect("4ª mesma classe nega");
+        let v: serde_json::Value = serde_json::from_str(deny).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
+        // o remédio carrega a RAJADA REAL como corpo do programa
+        assert!(reason.contains("touring run --lang bash"), "{reason}");
+        // as aspas do corpo vão escapadas para dentro do '...' externo —
+        // asserimos o conteúdo, não a forma escapada
+        assert!(reason.contains("p0") && reason.contains("src/f0.rs"), "{reason}");
+        assert!(reason.contains("p3") && reason.contains("src/f3.rs"), "{reason}");
+    }
+
+    #[test]
+    fn g1_quarta_de_classe_diferente_passa() {
+        let proj = Path::new("/tmp/w2-g1-classes");
+        let _ = inspecoes(3, proj, "s1"); // 3 da classe grep
+        // 4ª chamada é de OUTRA classe (cat) → não nega
+        assert!(code_mode_gates(proj, "s1", "Bash", &bash("cat src/lib.rs")).is_none());
+    }
+
+    #[test]
+    fn g1_projeto_diferente_nao_herda_rajada() {
+        let a = Path::new("/tmp/w2-g1-proj-a");
+        let b = Path::new("/tmp/w2-g1-proj-b");
+        let _ = inspecoes(3, a, "s1");
+        // 1ª do projeto B — mesmo que A esteja a 1 da borda
+        assert!(code_mode_gates(b, "s1", "Bash", &bash("rg -n 'x' src/y.rs")).is_none());
+    }
+
+    #[test]
+    fn g1_bypass_token_reseta_a_janela() {
+        let proj = Path::new("/tmp/w2-g1-bypass");
+        let _ = inspecoes(3, proj, "s1");
+        // bypass consciente na borda → reseta
+        assert!(code_mode_gates(proj, "s1", "Bash",
+                &bash("TOURING_GATE_OK=1 rg -n 'w' src/z.rs")).is_none());
+        // recomeça do zero: mais 3 passam (padrões NOVOS — repetir os mesmos
+        // acionaria o G6, que é outro gate fazendo o trabalho dele)
+        let r = inspecoes_com_base(10, 3, proj, "s1");
+        assert!(r.iter().all(Option::is_none), "janela resetada recomeça");
+    }
+
+    #[test]
+    fn g1_continuation_check_fecha_o_ab() {
+        use crate::shared::gate_metrics as gm;
+        let proj = Path::new("/tmp/w2-g1-continuation");
+        let base_same = gm::global().g1_post_deny_same_class_count
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let r = inspecoes(4, proj, "sess-cont");
+        assert!(r[3].is_some(), "4ª negou");
+        // a PRÓXIMA chamada da sessão é a MESMA classe → same_class++
+        let _ = code_mode_gates(proj, "sess-cont", "Bash", &bash("rg -n 'de novo' src/a.rs"));
+        let depois = gm::global().g1_post_deny_same_class_count
+            .load(std::sync::atomic::Ordering::Relaxed);
+        assert!(depois > base_same, "continuation same_class contado");
+    }
+
+    #[test]
+    fn g1_autodemote_e_puro_e_exige_volume() {
+        assert!(g1_should_deny(None), "sem dado → deny (o simulado 90% sustenta)");
+        assert!(g1_should_deny(Some((0.9, 200))), "precisão alta → deny");
+        assert!(g1_should_deny(Some((0.5, 50))), "pouco volume nunca demove");
+        assert!(!g1_should_deny(Some((0.5, 150))), "precisão < 0.70 com 100+ → advisory");
+    }
+}
+
+// ── W3 (plano code-mode-total): G3/G7 gates de modo + G4/G5 telemetria + E3 ──
+
+mod mode_gates_w3 {
+    use super::super::code_mode_gates;
+    use serde_json::json;
+    use std::path::Path;
+
+    fn edit(fp: &str) -> serde_json::Value {
+        json!({ "file_path": fp, "new_string": "let x = 1;" })
+    }
+
+    fn read(fp: &str) -> serde_json::Value {
+        json!({ "file_path": fp })
+    }
+
+    #[test]
+    fn g3_dois_advisories_depois_deny_e_read_reseta() {
+        let proj = Path::new("/tmp/w3-g3");
+        let s = "sess-g3";
+        // 1º e 2º Edit sem Read: advisories
+        for esperado in 1..=2u32 {
+            let r = code_mode_gates(proj, s, "Edit", &edit("src/a.rs")).expect("advisory");
+            let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+            assert!(v["hookSpecificOutput"]["permissionDecision"].is_null(), "{esperado}º é advisory");
+        }
+        // 3º: deny
+        let r = code_mode_gates(proj, s, "Edit", &edit("src/a.rs")).expect("deny");
+        let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+        // Read do arquivo reseta: o Edit seguinte passa em silêncio
+        assert!(code_mode_gates(proj, s, "Read", &read("src/b.rs")).is_none());
+        assert!(code_mode_gates(proj, s, "Edit", &edit("src/b.rs")).is_none());
+    }
+
+    #[test]
+    fn g3_sessao_nova_zera() {
+        let proj = Path::new("/tmp/w3-g3-sessoes");
+        let _ = code_mode_gates(proj, "sess-a", "Edit", &edit("src/x.rs"));
+        let _ = code_mode_gates(proj, "sess-a", "Edit", &edit("src/x.rs"));
+        // sessão B começa do 1º advisory, nunca herda o streak de A
+        let r = code_mode_gates(proj, "sess-b", "Edit", &edit("src/x.rs")).expect("advisory");
+        let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+        assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
+        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/2"));
+    }
+
+    #[test]
+    fn g7_terceira_advisory_quinta_deny_arquivos_distintos_nada() {
+        let proj = Path::new("/tmp/w3-g7");
+        let s = "sess-g7";
+        let fp = "crates/x/src/lib.rs";
+        // leituras 1-2: silêncio
+        assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
+        assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
+        // 3ª: advisory com R1 instanciado citando o ARQUIVO real
+        let r = code_mode_gates(proj, s, "Read", &read(fp)).expect("advisory");
+        assert!(r.contains("G7") && r.contains(fp) && r.contains("r1_varredura_agregado"));
+        // 4ª: silêncio; 5ª: deny
+        assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
+        let r = code_mode_gates(proj, s, "Read", &read(fp)).expect("deny");
+        let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+        // arquivo DIFERENTE: nada
+        assert!(code_mode_gates(proj, s, "Read", &read("crates/y/src/lib.rs")).is_none());
+    }
+
+    #[test]
+    fn g7_touring_run_citando_o_arquivo_reseta() {
+        let proj = Path::new("/tmp/w3-g7-reset");
+        let s = "sess-g7r";
+        let fp = "crates/z/src/mod.rs";
+        for _ in 0..2 {
+            let _ = code_mode_gates(proj, s, "Read", &read(fp));
+        }
+        // touring run citando o caminho zera a contagem do alvo
+        let cmd = json!({ "command": format!("touring run --lang python --args '[\"{fp}\"]' --file r1.py") });
+        let _ = code_mode_gates(proj, s, "Bash", &cmd);
+        // recomeça: a 3ª leitura absoluta é a 1ª da nova janela → silêncio
+        assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
+    }
+
+    #[test]
+    fn g5_advisory_unico_no_fim_da_rajada_sem_validacao() {
+        let proj = Path::new("/tmp/w3-g5");
+        let s = "sess-g5";
+        // 3 edits de arquivos previamente lidos (para o G3 ficar quieto)
+        for f in ["a.rs", "b.rs", "c.rs"] {
+            assert!(code_mode_gates(proj, s, "Read", &read(f)).is_none());
+            assert!(code_mode_gates(proj, s, "Edit", &edit(f)).is_none());
+        }
+        // primeira ação Bash NÃO-validação → 1 advisory G5
+        let r = code_mode_gates(proj, s, "Bash", &json!({"command": "echo done"}))
+            .expect("advisory G5");
+        assert!(r.contains("G5") && r.contains("3 edits"));
+        // segunda ação: streak já zerou → silêncio
+        assert!(code_mode_gates(proj, s, "Bash", &json!({"command": "echo again"})).is_none());
+    }
+
+    #[test]
+    fn g5_validacao_encerra_sem_advisory() {
+        let proj = Path::new("/tmp/w3-g5-ok");
+        let s = "sess-g5ok";
+        for f in ["d.rs", "e.rs", "f.rs"] {
+            assert!(code_mode_gates(proj, s, "Read", &read(f)).is_none());
+            assert!(code_mode_gates(proj, s, "Edit", &edit(f)).is_none());
+        }
+        assert!(code_mode_gates(proj, s, "Bash",
+                &json!({"command": "cargo check -p x"})).is_none());
+    }
+
+    #[test]
+    fn e3_contrafactual_em_comentario_gera_advisory_e_run_id_silencia() {
+        let proj = Path::new("/tmp/w3-e3");
+        let s = "sess-e3";
+        // arquivo lido antes (G3 quieto)
+        assert!(code_mode_gates(proj, s, "Read", &read("m.rs")).is_none());
+        let com_modal = json!({
+            "file_path": "m.rs",
+            "new_string": "// sandboxar este nó quebraria a escrita do marcador\nlet x = 1;"
+        });
+        let r = code_mode_gates(proj, s, "Edit", &com_modal).expect("advisory E3");
+        assert!(r.contains("contrafactual"));
+        // com endereço (run-...) na mesma linha: silêncio
+        assert!(code_mode_gates(proj, s, "Read", &read("m.rs")).is_none());
+        let com_endereco = json!({
+            "file_path": "m.rs",
+            "new_string": "// quebraria sem pipefail — provado em run-1787618052969\nlet x = 1;"
+        });
+        assert!(code_mode_gates(proj, s, "Edit", &com_endereco).is_none());
     }
 }

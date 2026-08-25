@@ -27,3 +27,7 @@ W1 completa: G2 (ExitCodeThroughPipe) e G6 (RedundantExactCall) como variantes d
 ## 2026-08-24T21:37:29.974638-03:00 — W5 done
 
 W5 completa: fluxos instrument-first (control→probe), family-fix (probe FACT=SITES → until_covered → gate) e freshness-audit (fixpoint sobre medida real com marcador embutido no fluxo — D8), fragmento control-pack; idioma eval-posicional satisfaz os guards anti-injection; promoções registradas com runs reais; repertório R1-R8 colhido na escada (8/8, sandbox-puro, sem subprocess/eval) e recuperável por #kind:snippet #process:code-mode com total honesto; claim-ledger --facts no phase-close (este próprio fechamento o usa).
+
+## 2026-08-24T21:51:45.950639-03:00 — W2 done
+
+W2 completa: G1 teeth — 4ª inspeção da MESMA classe nega com a rajada REAL acumulada como corpo do programa (burst_ledger por projeto+classe, TTL 180s); advisory legado segue dono da 3ª; bypass por-comando reseta a janela; continuation-check A/B (same/other) alimenta autodemote puro (piso 0.70 com 100+ eventos — g1_should_deny testado nas 4 bordas). Provado vivo: deny real na 4ª rg desta sessão com os 4 comandos verbatim no remédio, seguido do remédio em 1 touring run.

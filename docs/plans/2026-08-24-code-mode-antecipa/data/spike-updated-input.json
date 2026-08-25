@@ -1,0 +1,10 @@
+{
+ "spike": "S-8.6 — Claude Code honra updatedInput de hook PreToolUse registrado em settings.json?",
+ "supported": true,
+ "method": "discriminador por texto de erro: `cat <arquivo-inexistente>` — se o updatedInput fosse ignorado, o erro seria `cat: ...: No such file or directory`; se honrado, o comando executado é o rewrite `NO_COLOR=1 touring ast highlight <path>` (A4, hook_rewrite.rs) e o erro é do touring",
+ "evidence_raw": "Exit code 1\n2026-08-25T00:49:30.307762Z ERROR touring: ast failed: failed to read /tmp/spike-updated-input-inexistente-xyz.rs — run `ls -la /tmp/spike-updated-input-inexistente-xyz.rs` to check existence and permissions: No such file or directory (os error 2)",
+ "executed_at": "2026-08-25T00:49:30Z",
+ "session": "2f2d716c",
+ "consequence": "G2 (exit-code-through-pipe) convertido de deny-com-remédio para REWRITE (`set -o pipefail; <cmd>` via updatedInput) — zero fricção, correção garantida pelo executor; deny mantido apenas como fallback se TOURING_G2_REWRITE_DISABLED=1",
+ "prior_art": "A4 (2026-08-07) hook_rewrite.rs já usava updatedInput para `cat` → `touring ast highlight`; este spike é a primeira PROVA VIVA de que a plataforma o honra"
+}
