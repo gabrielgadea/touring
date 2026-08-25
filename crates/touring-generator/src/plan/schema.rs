@@ -25,27 +25,37 @@ pub struct GeneratorPlan {
     /// Kind of artifact to generate.
     pub kind: GeneratorKind,
     /// Symbol contracts (`must_exist` / `must_not_exist`).
+    #[serde(default)]
     pub contracts: super::contracts::Contracts,
     /// Template selection override (optional).
+    #[serde(default)]
     pub template: TemplateSelection,
     /// Assembly directives.
+    #[serde(default)]
     pub assembly: Assembly,
     /// Validation configuration.
+    #[serde(default)]
     pub validation: ValidationDirectives,
     /// Commit policy.
+    #[serde(default)]
     pub commit_policy: CommitPolicy,
     /// Rollback policy.
+    #[serde(default)]
     pub rollback: RollbackPolicy,
     /// RL learning directives.
+    #[serde(default)]
     pub learning: LearningDirectives,
     /// Spec-driven inputs (alternative to natural language).
+    #[serde(default)]
     pub spec_inputs: Option<SpecInputs>,
     /// Capacity hints from the LLM planner.
+    #[serde(default)]
     pub capacity_hints: CapacityHints,
     /// Execution trace populated by the engine during lifecycle.
     #[serde(default)]
     pub execution_trace: Vec<TraceEntry>,
     /// Plan metadata.
+    #[serde(default)]
     pub metadata: PlanMetadata,
 }
 
@@ -54,6 +64,38 @@ impl GeneratorPlan {
     #[must_use]
     pub fn version(&self) -> &str {
         &self.version
+    }
+
+    /// The single source of truth for plan skeletons: every directive comes
+    /// from the sub-structs' `Default` impls, so a skeleton can never drift
+    /// from what `Deserialize` accepts. Callers that hand-build plan JSON
+    /// instead of going through here reintroduce the 2026-08-25 drift
+    /// (`plan-suggest` emitted four field vocabularies that never existed).
+    #[must_use]
+    pub fn skeleton(intent: impl Into<String>, kind: GeneratorKind, file_path: impl Into<String>) -> Self {
+        Self {
+            version: "2.0".to_owned(),
+            plan_id: Uuid::nil(),
+            intent: intent.into(),
+            cila_level: CilaLevel::L2,
+            target: Target {
+                file_path: file_path.into(),
+                module_path: None,
+                crate_name: None,
+            },
+            kind,
+            contracts: super::contracts::Contracts::default(),
+            template: TemplateSelection::default(),
+            assembly: Assembly::default(),
+            validation: ValidationDirectives::default(),
+            commit_policy: CommitPolicy::default(),
+            rollback: RollbackPolicy::default(),
+            learning: LearningDirectives::default(),
+            spec_inputs: None,
+            capacity_hints: CapacityHints::default(),
+            execution_trace: Vec::new(),
+            metadata: PlanMetadata::default(),
+        }
     }
 }
 
@@ -102,6 +144,7 @@ pub struct Target {
 
 /// Template selection — allows overriding the default template for a kind.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct TemplateSelection {
     /// Explicit template ID (overrides `GeneratorKind::template_name()`).
     pub template_id: Option<String>,
@@ -112,6 +155,7 @@ pub struct TemplateSelection {
 
 /// Assembly directives — controls how generated files are assembled.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct Assembly {
     /// If true, append to existing file rather than replace.
     pub append_mode: bool,
@@ -136,6 +180,7 @@ impl Default for Assembly {
 
 /// Validation directives — controls which checks run post-generation.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct ValidationDirectives {
     /// Run speculative validation before commit.
     pub run_speculate: bool,
@@ -161,6 +206,7 @@ impl Default for ValidationDirectives {
 
 /// Commit policy — controls when and how files are written to disk.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct CommitPolicy {
     /// Auto-commit if speculate score meets threshold.
     pub auto_commit: bool,
@@ -185,6 +231,7 @@ impl Default for CommitPolicy {
 
 /// Rollback policy — controls backup and restore behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct RollbackPolicy {
     /// Create a backup before overwriting existing files.
     pub create_backup: bool,
@@ -206,6 +253,7 @@ impl Default for RollbackPolicy {
 
 /// RL learning directives — controls reward injection after execution.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct LearningDirectives {
     /// Inject RL reward after successful commit.
     pub inject_rl_reward: bool,
@@ -276,6 +324,7 @@ pub enum ReverseMode {
 
 /// Capacity hints provided by the LLM planner.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct CapacityHints {
     /// Estimated total bytes of generated output.
     pub estimated_output_bytes: u32,
@@ -316,6 +365,7 @@ pub struct TraceEntry {
 
 /// Plan metadata — provenance and tagging.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct PlanMetadata {
     /// UTC timestamp when the plan was created.
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -383,4 +433,56 @@ pub enum InvariantEnforcement {
         /// Human-readable description of the manual check to perform.
         description: String,
     },
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skeleton_roundtrips_through_serde() {
+        let plan = GeneratorPlan::skeleton("test intent", GeneratorKind::RustModule, "src/x.rs");
+        let v = serde_json::to_value(&plan).expect("skeleton serializes");
+        let back: GeneratorPlan = serde_json::from_value(v).expect("skeleton deserializes");
+        assert_eq!(back.intent, "test intent");
+        assert_eq!(back.target.file_path, "src/x.rs");
+    }
+
+    #[test]
+    fn minimal_plan_json_deserializes_with_defaults() {
+        // The LLM-as-Planner contract: a plan carrying only the decisions
+        // (version/id/intent/level/target/kind) parses; every directive falls
+        // back to the struct defaults instead of failing on a missing field.
+        let v = serde_json::json!({
+            "version": "2.0",
+            "plan_id": "00000000-0000-0000-0000-000000000000",
+            "intent": "minimal",
+            "cila_level": "L1",
+            "target": {"file_path": "src/y.rs", "module_path": null, "crate_name": null},
+            "kind": "Test",
+        });
+        let plan: GeneratorPlan = serde_json::from_value(v).expect("minimal plan parses");
+        assert!(plan.validation.run_speculate, "directives fall back to defaults");
+        assert!(plan.commit_policy.atomic_write);
+        assert_eq!(plan.assembly.encoding, "utf-8");
+    }
+
+    #[test]
+    fn unknown_fields_still_rejected() {
+        // serde(default) must not weaken deny_unknown_fields: a plan speaking
+        // a vocabulary that does not exist (the 2026-08-25 drift class) is
+        // rejected loudly, never silently accepted.
+        let v = serde_json::json!({
+            "version": "2.0",
+            "plan_id": "00000000-0000-0000-0000-000000000000",
+            "intent": "drift",
+            "cila_level": "L1",
+            "target": {"file_path": "src/z.rs", "module_path": null, "crate_name": null},
+            "kind": "Test",
+            "commit_policy_fantasma": {"write_to_disk": true},
+        });
+        assert!(serde_json::from_value::<GeneratorPlan>(v).is_err());
+    }
 }

@@ -14253,6 +14253,7 @@ dependencies = [
  "tracing-opentelemetry",
  "tracing-subscriber",
  "tracing-tracy",
+ "uuid",
  "vergen-gix",
 ]
 

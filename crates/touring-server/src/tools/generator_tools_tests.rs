@@ -143,3 +143,31 @@ fn ingest_targets_caps_at_ingest_max_files() {
 fn ingest_targets_empty_input_yields_nothing_to_spawn() {
     assert!(ingest_targets(std::iter::empty()).is_empty());
 }
+
+// ── suggest/consumer skeletons — a junta suggest↔serde ───────────────────
+// Até 2026-08-25 ambos os sítios construíam JSON à mão com QUATRO
+// vocabulários de campo que nunca existiram nos structs (merge_strategy,
+// run_clippy, write_to_disk, keep_backup) e plan-validate rejeitava o que
+// plan-suggest emitia. Estes testes prendem a junta para sempre: o que os
+// builders emitem DEVE deserializar como GeneratorPlan.
+
+#[test]
+fn suggest_skeleton_deserializes_as_generator_plan() {
+    let v = build_skeleton_plan("intent de teste", &GeneratorKind::RustModule);
+    let plan: GeneratorPlan =
+        serde_json::from_value(v).expect("o skeleton do suggest DEVE parsear como GeneratorPlan");
+    assert_eq!(plan.intent, "intent de teste");
+    assert_eq!(plan.kind, GeneratorKind::RustModule);
+}
+
+#[test]
+fn consumer_plan_deserializes_as_generator_plan() {
+    let v = build_consumer_plan("crates/x/src/lib.rs", "orphan_sym", "function", 3);
+    let plan: GeneratorPlan =
+        serde_json::from_value(v).expect("o plan do consumer-wiring DEVE parsear como GeneratorPlan");
+    assert_eq!(plan.kind, GeneratorKind::ConsumerGenerator);
+    assert_eq!(plan.contracts.symbols_must_exist.len(), 1);
+    assert_eq!(plan.contracts.files_must_exist, vec!["crates/x/src/lib.rs".to_owned()]);
+    assert!(plan.metadata.tags.contains(&"orphan_sym".to_owned()));
+    assert!(!plan.plan_id.is_nil(), "consumer plan carrega id único, não o placeholder");
+}
