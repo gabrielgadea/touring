@@ -4047,3 +4047,31 @@ on_fail = "__fail__"
     outcome = adw.execute(adw.load_spec(root, "ctlv"), root,
                           variables={"good": str(cheio), "bad": str(vazio)})
     assert outcome.status == "completed", outcome.steps
+
+
+def test_lint_escritor_sem_sandbox_sem_humano_avisa(root):
+    # W8 S-8.4: nó que escreve, sem sandbox, em fluxo sem gate humano → warning
+    base = """
+[adw]
+name = "w84"
+entry = "faz"
+[node.faz]
+type = "code"
+command = ["bash", "-c", "touring memory store chave valor"]
+idempotent = true
+on_pass = "__end__"
+%s
+"""
+    write_spec(root, "w84", base % "")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "w84"))
+    assert any("lacuna TanStack" in w for w in warnings), warnings
+    # com gate humano no fluxo: silêncio
+    write_spec(root, "w84", base % """
+[node.aprova]
+type = "human"
+prompt = "pode escrever?"
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "w84"))
+    assert not any("lacuna TanStack" in w for w in warnings), warnings

@@ -39,3 +39,11 @@ W3 completa: G3 edit-sem-read como gate de MODO por sessão (2 advisories → de
 ## 2026-08-24T22:06:35.472520-03:00 — W6 done
 
 W6 completa: reflexo #8 do CLAUDE.md afiado (a pergunta define a unidade; R1-R8 pelo slug; hygiene: linha editada, sem seção nova); Stop hook rajada-sem-programa (≥20 Bash/0 run → 1 block por turno com sentinela por turn_id, 4 testes + fix do import os que derrubava o guard inteiro — 69/69 no test_flow_guard); E3 contrafactual como advisory no PreToolUse Edit/Write (modal sem run- na vizinhança; nunca deny) com contador e3_counterfactual_observed_count; INNER facts documentado no SKILL.md (críticos julgam contra fatos endereçados; manifesto gateia só o OUTER — decisão registrada).
+
+## 2026-08-24T22:23:47.296401-03:00 — W8 done
+
+Fontes do code mode: TOURING_CODE_ONLY opt-in (deny de Bash não-touring-run com remédio derivado), audit_kv_hygiene.py (detecção por marcadores no transcript, ticket kv-hygiene-audit-2026-08-25), touring run --sdk-stub (contrato tipado do orchestrate), S-8.4 aprovação humana por token TOURING_TRUSTED_OK por-comando, tier routing no feature.toml (header), spike S-8.6 updatedInput provado vivo (REWRITE_PROVA=1)
+
+## 2026-08-24T22:37:02.174301-03:00 — W7 done
+
+Meta-loop fechado: replay do scout-perpetuo via code_mode_replay (corpus 4177→4375, NEW_FINDINGS=0), autodemote G1 por continuation-check (g1_should_deny puro, piso 0.70/100 eventos, seguir-remédio conta acerto), KPI dashboard vivo — bloco code_mode {runs,bash_calls,adoption_ratio,gates} derivado do snapshot gate_metrics do daemon em touring status -j (client-side lê daemon, nunca counters do processo efêmero) + commitment touring.code_mode.adoption_ratio. Fix G3-Write incluído: Write fora do gate G3 e valendo como Read (FP vivo de 24/08 eliminado, provado por comportamento pós-deploy)

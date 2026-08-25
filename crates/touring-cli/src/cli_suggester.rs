@@ -2960,8 +2960,14 @@ pub(crate) fn code_mode_gates(
         let streak = g5_edit_streak().get(session).unwrap_or(0);
         g5_edit_streak().insert(session.to_string(), streak.saturating_add(1));
         // W3 S-3.1 — G3: Edit sem Read recente do arquivo, POR SESSÃO.
+        // Write fica FORA do gate: criação não tem o que ler e overwrite já
+        // exige Read no harness — o G3 negou um Write de criação vivo em
+        // 24/08 (strategy doc). O conteúdo escrito é conhecido pela sessão,
+        // então o Write REGISTRA o arquivo como lido (Edit seguinte passa).
         if let Some(fp) = tool_input.get("file_path").and_then(Value::as_str) {
-            if g3_read_files().get(&g3_read_key(project_root, session, fp)).is_some() {
+            if tool_name == "Write" {
+                g3_read_files().insert(g3_read_key(project_root, session, fp), ());
+            } else if g3_read_files().get(&g3_read_key(project_root, session, fp)).is_some() {
                 g3_streak().insert(session.to_string(), 0);
             } else if !code_gates_disabled() {
                 let n = g3_streak().get(session).unwrap_or(0).saturating_add(1);

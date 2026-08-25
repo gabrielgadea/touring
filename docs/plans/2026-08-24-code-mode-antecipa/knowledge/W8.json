@@ -1,0 +1,11 @@
+{
+  "phase": "W8",
+  "entities": [
+    {
+      "entity_id": "phase:W8",
+      "type": "phase",
+      "description": "Fontes do code mode: TOURING_CODE_ONLY opt-in (deny de Bash n\u00e3o-touring-run com rem\u00e9dio derivado), audit_kv_hygiene.py (detec\u00e7\u00e3o por marcadores no transcript, ticket kv-hygiene-audit-2026-08-25), touring run --sdk-stub (contrato tipado do orchestrate), S-8.4 aprova\u00e7\u00e3o humana por token TOURING_TRUSTED_OK por-comando, tier routing no feature.toml (header), spike S-8.6 updatedInput provado vivo (REWRITE_PROVA=1)"
+    }
+  ],
+  "relations": []
+}

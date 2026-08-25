@@ -1,0 +1,11 @@
+{
+  "phase": "W7",
+  "entities": [
+    {
+      "entity_id": "phase:W7",
+      "type": "phase",
+      "description": "Meta-loop fechado: replay do scout-perpetuo via code_mode_replay (corpus 4177\u21924375, NEW_FINDINGS=0), autodemote G1 por continuation-check (g1_should_deny puro, piso 0.70/100 eventos, seguir-rem\u00e9dio conta acerto), KPI dashboard vivo \u2014 bloco code_mode {runs,bash_calls,adoption_ratio,gates} derivado do snapshot gate_metrics do daemon em touring status -j (client-side l\u00ea daemon, nunca counters do processo ef\u00eamero) + commitment touring.code_mode.adoption_ratio. Fix G3-Write inclu\u00eddo: Write fora do gate G3 e valendo como Read (FP vivo de 24/08 eliminado, provado por comportamento p\u00f3s-deploy)"
+    }
+  ],
+  "relations": []
+}
