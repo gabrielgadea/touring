@@ -101,6 +101,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         if let Some(spec) = &federate_arg {
             combined.insert("federation".to_string(), compute_federation_snapshot(spec));
         }
+        // W7 S-7.3 (code-mode-total): a régua de adoção no dashboard,
+        // derivada do snapshot gate_metrics do DAEMON (nunca counters do
+        // processo CLI efêmero, que leriam zero).
+        combined.insert(
+            "code_mode".to_string(),
+            code_mode_snapshot(combined.get("gate_metrics")),
+        );
         // Wave 8 S3 (synergy maximization): compute composite health score
         // from the aggregated subsystem snapshots. Surfaces a single
         // top-line number for at-a-glance "is the system healthy?" decisions.
@@ -120,6 +127,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "wiring": combined.get("wiring"),
                 "health_delta": combined.get("health_delta"),
                 "quality_signal": combined.get("quality_signal"),
+                "code_mode": combined.get("code_mode"),
             })
         } else {
             serde_json::Value::Object(combined)
@@ -250,6 +258,59 @@ fn compute_quality_signal_snapshot() -> serde_json::Value {
     }
 }
 
+/// Derive the `code_mode` adoption block from the daemon's `gate_metrics`
+/// snapshot (W7 S-7.3, plano code-mode-total).
+///
+/// The counters live in the DAEMON process — a CLI-side
+/// `gate_metrics::global()` read would report the ephemeral client's zeros —
+/// so the block is derived from the snapshot the dashboard already fetched.
+/// Absence of the denominator (or of the snapshot itself) reads as `null` /
+/// `error`, never a fabricated 0 (Lei L2: sinal ausente ≠ zero).
+fn code_mode_snapshot(gate_metrics: Option<&serde_json::Value>) -> serde_json::Value {
+    let Some(gm) = gate_metrics else {
+        return serde_json::json!({ "error": "gate_metrics unavailable" });
+    };
+    let (Some(runs), Some(bash_calls)) = (
+        gm.get("code_mode_runs_count").and_then(serde_json::Value::as_u64),
+        gm.get("bash_calls_total_count").and_then(serde_json::Value::as_u64),
+    ) else {
+        return serde_json::json!({ "error": "gate_metrics unavailable" });
+    };
+    let adoption_ratio = if bash_calls > 0 {
+        #[allow(clippy::cast_precision_loss)]
+        let ratio = runs as f64 / bash_calls as f64;
+        serde_json::json!(ratio)
+    } else {
+        serde_json::Value::Null
+    };
+    // Resumo por gate: só denied/followed (a régua de fricção × adesão);
+    // emitted/bypassed continuam no bloco gate_metrics completo.
+    let gates: serde_json::Map<String, serde_json::Value> = gm
+        .get("gate_events")
+        .and_then(serde_json::Value::as_object)
+        .map(|events| {
+            events
+                .iter()
+                .map(|(label, ev)| {
+                    (
+                        label.clone(),
+                        serde_json::json!({
+                            "denied": ev.get("denied").cloned().unwrap_or(serde_json::json!(0)),
+                            "followed": ev.get("followed").cloned().unwrap_or(serde_json::json!(0)),
+                        }),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    serde_json::json!({
+        "runs": runs,
+        "bash_calls": bash_calls,
+        "adoption_ratio": adoption_ratio,
+        "gates": gates,
+    })
+}
+
 /// Compute a composite health score ∈ [0.0, 1.0] from the aggregated
 /// subsystem snapshots returned by `STATUS_QUERIES`.
 ///
@@ -352,5 +413,47 @@ mod tests {
         // orphan_score = 1 - 0.9 = 0.1; others neutral 0.5.
         // 0.30*0.5 + 0.20*0.1 + 0.20*0.5 + 0.15*0.5 + 0.15*0.5 = 0.42
         assert!((score - 0.42).abs() < 1e-6, "expected 0.42, got {score}");
+    }
+
+    #[test]
+    fn code_mode_snapshot_ratio_is_runs_over_bash_calls() {
+        let gm = serde_json::json!({
+            "code_mode_runs_count": 2,
+            "bash_calls_total_count": 8,
+            "gate_events": {
+                "g2_pipe_exit": {"emitted": 3, "followed": 1, "denied": 2, "bypassed": 0}
+            }
+        });
+        let block = code_mode_snapshot(Some(&gm));
+        assert_eq!(block["runs"], 2);
+        assert_eq!(block["bash_calls"], 8);
+        assert!((block["adoption_ratio"].as_f64().unwrap() - 0.25).abs() < 1e-9);
+        assert_eq!(block["gates"]["g2_pipe_exit"]["denied"], 2);
+        assert_eq!(block["gates"]["g2_pipe_exit"]["followed"], 1);
+        // o resumo por gate carrega SÓ denied/followed
+        assert!(block["gates"]["g2_pipe_exit"].get("emitted").is_none());
+    }
+
+    #[test]
+    fn code_mode_snapshot_absent_denominator_reads_as_null_never_zero() {
+        let gm = serde_json::json!({
+            "code_mode_runs_count": 0,
+            "bash_calls_total_count": 0,
+            "gate_events": {}
+        });
+        let block = code_mode_snapshot(Some(&gm));
+        assert!(block["adoption_ratio"].is_null(), "bash_calls=0 → ratio null, nunca 0.0");
+    }
+
+    #[test]
+    fn code_mode_snapshot_missing_gate_metrics_is_error_not_zeros() {
+        // daemon degradado devolve {"error": ...} sem os counters — o bloco
+        // reporta indisponibilidade, jamais fabrica runs=0/bash=0.
+        let degraded = serde_json::json!({"error": "Connection refused"});
+        for gm in [None, Some(&degraded)] {
+            let block = code_mode_snapshot(gm);
+            assert!(block.get("error").is_some());
+            assert!(block.get("runs").is_none());
+        }
     }
 }

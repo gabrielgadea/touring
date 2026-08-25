@@ -1636,6 +1636,27 @@ def _lint_gate_has_control(spec: Spec, warnings: list[str]) -> None:
             f"`control_waived = \"razão\"` — calibre o juiz ou declare por que não (S-4.5)")
 
 
+def _lint_unsandboxed_writer_wants_human(spec: Spec, warnings: list[str]) -> None:
+    """W8 S-8.4 — a lacuna que a fonte TanStack nomeia, no lado ADW: um nó que
+    ESCREVE (command_writes()==True) sem sandbox, num fluxo sem nenhum gate
+    humano, executa mutação arbitrária sem aprovação. Warning (nunca erro):
+    fluxos maduros declaram a intenção; o lint induz a decisão explícita."""
+    tem_humano = any(n.type == "human" for n in spec.nodes.values())
+    if tem_humano:
+        return
+    for node in spec.nodes.values():
+        if node.type not in {"code", "gate"}:
+            continue
+        if node.raw.get("sandbox", False):
+            continue
+        if command_writes(node.raw.get("command")) is True:
+            warnings.append(
+                f"nó `{node.name}`: escreve (command_writes) sem sandbox e o fluxo não "
+                f"tem gate humano — a tool de mutação arbitrária era a única sem "
+                f"aprovação (lacuna TanStack, S-8.4). Adicione um nó `human` upstream, "
+                f"ligue `sandbox = true`, ou declare a intenção no header.")
+
+
 def _lint_sweep_declares_floor(spec: Spec, errors: list[str]) -> None:
     """W4 S-4.5(4) — `covered` exige `min_discovered`: sem piso, a descoberta
     vazia (COVERAGE=0/0) leria como família completa — o 0/0 do auditor."""
@@ -1674,6 +1695,7 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     _lint_verdict_needs_evidence(spec, warnings)
     _lint_gate_has_control(spec, warnings)
     _lint_sweep_declares_floor(spec, errors)
+    _lint_unsandboxed_writer_wants_human(spec, warnings)
     return errors, warnings
 
 

@@ -2083,6 +2083,25 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    fn g3_write_de_criacao_nao_conta_e_vale_como_read() {
+        let proj = Path::new("/tmp/w3-g3-write");
+        let s = "sess-g3w";
+        // 3 Writes seguidos de arquivos novos: o G3 fica em silêncio (criação
+        // não tem o que ler — o FP vivo de 24/08 negou um Write de strategy doc)
+        for f in ["docs/a.md", "docs/b.md", "docs/c.md"] {
+            let w = json!({ "file_path": f, "content": "conteudo novo" });
+            assert!(code_mode_gates(proj, s, "Write", &w).is_none(), "Write de {f} não dispara G3");
+        }
+        // Edit do arquivo recém-escrito passa sem Read: o Write valeu como Read
+        assert!(code_mode_gates(proj, s, "Edit", &edit("docs/a.md")).is_none());
+        // Edit de arquivo jamais lido/escrito continua contando (sem regressão)
+        let r = code_mode_gates(proj, s, "Edit", &edit("src/nunca_visto.rs")).expect("advisory");
+        let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+        assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
+        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/2"));
+    }
+
+    #[test]
     fn g7_touring_run_citando_o_arquivo_reseta() {
         let proj = Path::new("/tmp/w3-g7-reset");
         let s = "sess-g7r";
