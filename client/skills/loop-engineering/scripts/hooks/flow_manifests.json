@@ -15,7 +15,10 @@
         "id": "explore-ledger",
         "glob": "{scope}/.touring-explore/*.ledger.json",
         "min": 1,
-        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 6"
+        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 8   # must reach converged: true",
+        "require_json": {
+          "verdict.converged": true
+        }
       },
       {
         "id": "strategy-doc",
@@ -40,7 +43,10 @@
         "id": "explore-ledger",
         "glob": "{scope}/.touring-explore/*.ledger.json",
         "min": 1,
-        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 6"
+        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 8   # must reach converged: true",
+        "require_json": {
+          "verdict.converged": true
+        }
       }
     ]
   },

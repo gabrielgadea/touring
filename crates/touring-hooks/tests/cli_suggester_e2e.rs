@@ -134,7 +134,7 @@ fn classifier_bash_sed_inplace_promotes_taco_forge_perfect_edit() {
 }
 
 #[test]
-fn classifier_bash_git_routes_to_regra11_prohibition() {
+fn classifier_bash_git_readonly_reaches_the_permitted_arm() {
     let (_tmp, rt) = make_runtime();
     let payload = json!({
         "tool_name": "Bash",
@@ -143,11 +143,32 @@ fn classifier_bash_git_routes_to_regra11_prohibition() {
     });
     let out = cli_suggester::run(&rt, &payload);
     let ctx = additional_context(&out).expect("non-empty");
+    assert!(ctx.contains("regra-11-git-safe"), "cluster wrong: {ctx}");
+    assert!(ctx.contains("touring memory recall"));
     assert!(
-        ctx.contains("regra-11-git-prohibited"),
+        !ctx.contains("prohibited"),
+        "REGRA #11 v2 revoked the ban; the nudge must not claim it: {ctx}"
+    );
+}
+
+#[test]
+fn classifier_bash_git_destructive_reaches_the_ritual_arm() {
+    let (_tmp, rt) = make_runtime();
+    let payload = json!({
+        "tool_name": "Bash",
+        "session_id": "e2e-git-destructive",
+        "tool_input": { "command": "git reset --hard HEAD~1" }
+    });
+    let out = cli_suggester::run(&rt, &payload);
+    let ctx = additional_context(&out).expect("non-empty");
+    assert!(
+        ctx.contains("regra-11-git-destructive"),
         "cluster wrong: {ctx}"
     );
-    assert!(ctx.contains("touring memory recall"));
+    assert!(
+        ctx.contains("GIT_DESTRUCTIVE_OK=1"),
+        "the ritual token must travel: {ctx}"
+    );
 }
 
 #[test]

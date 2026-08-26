@@ -2182,6 +2182,43 @@ def _resume_state(
     return completed, results, visits
 
 
+#: Verdict of a finished run, as the arm's reward. `failed` is 0.0, not the
+#: 0.2 the FACTORY router uses for the same word: routing to an ADW that failed
+#: is a partial loss for the router's choice, while the run itself simply did
+#: not do what it set out to do.
+RUN_OUTCOME_REWARD = {"completed": 1.0, "failed": 0.0, "aborted": 0.0}
+
+
+def deposit_run_outcome(spec_name: str, outcome: "RunOutcome") -> None:
+    """Feed a finished run back into the learning substrate. Fail-open, always.
+
+    Until 2026-08-25 this did not exist: `adw.py` had exactly ONE reward call
+    site in 3.823 lines, on the `campaign` path, so 35 recorded runs produced a
+    fsync'd journal and taught the system nothing. Two deposits, because a run
+    generates two distinct signals:
+
+    * the ARM — was running this flow worth it (`adw:run:<spec>`);
+    * the CASES — the memories its agents recalled along the way are now known
+      to have informed work with a measured verdict (Memento Eq. 9). The run
+      knows its verdict but not its questions, so it drains rather than naming
+      them.
+
+    Never raises and never blocks the run: a learning deposit that could fail a
+    run would make the system worse at the exact moment it tries to improve.
+    """
+    value = RUN_OUTCOME_REWARD.get(outcome.status)
+    if value is None:  # waiting_human and any future status: the run is not over
+        return
+    for cmd in (
+        ["touring", "learning", "reward", f"adw:run:{spec_name}", f"{value:.3f}"],
+        ["touring", "memory", "credit", "--all-pending", "--reward", f"{value:.3f}"],
+    ):
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=30, check=False)
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+
 def execute(
     spec: Spec, root: Path, resume_run: str | None = None,
     approve: set[str] | None = None, force_mock: bool = False,
@@ -2254,6 +2291,10 @@ def execute(
         activity_append("task_completed", {"adw": spec.name, "run": run_id, "status": outcome.status})
     finally:
         lock.close()
+    # Outside the lock: a deposit must never hold the run dir, and it must fire
+    # for EVERY path that finishes a run (cmd_run, each campaign round, the
+    # factory) rather than only the one the caller happened to take.
+    deposit_run_outcome(spec.name, outcome)
     return outcome
 
 
@@ -2621,8 +2662,45 @@ def _next_edge(ctx: _RunCtx, node: Node, exec_key: str, passed: bool,
     if nxt not in TERMINALS:
         # W4 S-4.6 — registra a saída do nó reprovador para o retry consumir
         # (`resume_on_fail` a injeta como [gate feedback] no prompt).
-        ctx.pending_feedback[nxt] = ctx.results.get(node.name, {}).get("summary", "")
+        veredito = ctx.results.get(node.name, {}).get("summary", "")
+        ctx.pending_feedback[nxt] = veredito
+        _store_gate_rejection(ctx, node.name, veredito)
     return nxt
+
+
+def _store_gate_rejection(ctx: "_RunCtx", node_name: str, veredito: str) -> None:
+    """Persiste a reprovação como CASO ROTULADO NEGATIVO. Fail-open.
+
+    O corpus de casos é quase constante: medido 26/08/2026, 209 de 225 memórias
+    com `outcome_reward` valem ≥ 0,5 e a média é 0,919 — 93% positivas. Um
+    trainset sem fracasso não dá gradiente: o piso de 30-300 exemplos do DSPy
+    está atingido e a DISCRIMINAÇÃO não, então otimizar contra ele otimizaria
+    contra uma constante.
+
+    A causa é estrutural: o veredito vem de `status == "done"`, e quem fecha uma
+    fase é quem acabou de fazê-la funcionar — sinal auto-referencial, o que o
+    survey MSR diz que degrada com a iteração. Uma reprovação de gate é o
+    oposto: falha real, medida por CÓDIGO, independente de quem a produziu. É o
+    rótulo negativo determinístico que faltava.
+
+    Nunca levanta e nunca bloqueia o run: um caso não gravado é um exemplo a
+    menos, não um workflow quebrado.
+    """
+    if not veredito:
+        return
+    chave = f"gate-reject:{ctx.spec.name}:{node_name}"
+    corpo = veredito.strip()[:600]
+    try:
+        subprocess.run(
+            ["touring", "memory", "store", chave, corpo,
+             "--tier", "semantic", "--type", "gotcha",
+             "--reward", "0.0",
+             "--outcome-context", f"adw_gate_reject:{node_name}",
+             "--tag", "#kind:gotcha", "--tag", "#status:negative"],
+            capture_output=True, timeout=30, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        pass
 
 
 def _human_node(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult | None:

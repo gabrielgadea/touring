@@ -182,6 +182,59 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 // Loading + path resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// P5b (achado de Gabriel, 2026-08-26) — dos programas que o modelo rodou,
+/// qual fração FUNDIU round-trips.
+///
+/// `adoption_ratio` responde "usou a ferramenta certa?" — o CANAL. Ela sobe
+/// igual quando o modelo funde dez inspeções numa chamada e quando embrulha uma
+/// leitura trivial dez vezes, porque `scan_class_of` não reconhece
+/// `touring run` e nenhum gate vê a rota sancionada. Este KPI é a metade que
+/// faltava: `economicas / tomadas`, a ECONOMIA.
+///
+/// Ele fala da APRESENTAÇÃO, não da disciplina do modelo: sob `code` a chamada
+/// atômica é negada, então a casca sobre um alvo é obrigatória. Uma economia
+/// baixa com adoção alta é o retrato de um braço obedecido e caro.
+fn code_mode_economy_ratio(rt: &HookRuntime) -> Option<f64> {
+    let path = rt.project_root.join(".claude/touring/code_mode_arm.json");
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    let (mut tomadas, mut economicas) = (0.0f64, 0.0f64);
+    for arm in ["native", "both", "code"] {
+        if let Some(n) = v.get(arm) {
+            tomadas += n.get("followed").and_then(Value::as_f64).unwrap_or(0.0);
+            economicas += n.get("economical").and_then(Value::as_f64).unwrap_or(0.0);
+        }
+    }
+    if tomadas < crate::cli_suggester::ARM_MIN_SAMPLE as f64 {
+        return None;
+    }
+    Some(economicas / tomadas)
+}
+
+/// P2 (decisão (b), 2026-08-26) — taxa de adesão de um braço da apresentação,
+/// lida da **mesma fonte que a política lê**.
+///
+/// Ler os contadores de `gate-metrics` aqui seria mostrar um número diferente
+/// do que decide: eles são de processo e zeram no restart (medido 26/08:
+/// `t3_turn_first_passed` caiu 2 → 0 em dois minutos), enquanto a política lê
+/// `<projeto>/.claude/touring/code_mode_arm.json`. Promover olhando um medidor
+/// que não é o do juiz é a classe `verificador-usa-menos-que-o-extrator`.
+///
+/// `None` abaixo do piso ⇒ STUB, nunca um 0 falso: amostra insuficiente é
+/// desconhecido, e o KPI reporta ADVISORY em vez de acusar adesão nula.
+fn code_mode_arm_rate(rt: &HookRuntime, arm: &str) -> Option<f64> {
+    let path = rt
+        .project_root
+        .join(".claude/touring/code_mode_arm.json");
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    let node = v.get(arm)?;
+    let offered = node.get("offered").and_then(Value::as_f64)?;
+    let followed = node.get("followed").and_then(Value::as_f64)?;
+    if offered < crate::cli_suggester::ARM_MIN_SAMPLE as f64 {
+        return None;
+    }
+    Some(followed / offered)
+}
+
 /// W0 S-0.1 — pure ratio for `touring.code_mode.adoption_ratio`. `None` when
 /// the denominator has not observed a single Bash action yet (absent signal is
 /// unknown, never zero — Lei L2); `Some(0.0)` only when Bash actions exist and
@@ -358,6 +411,10 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
                 .unwrap_or(0.0);
             Some(followed / emitted)
         }
+        "code_mode_economy_ratio" => code_mode_economy_ratio(rt),
+        "code_mode_arm_native" => code_mode_arm_rate(rt, "native"),
+        "code_mode_arm_both" => code_mode_arm_rate(rt, "both"),
+        "code_mode_arm_code" => code_mode_arm_rate(rt, "code"),
         "code_mode_adoption_ratio" => {
             // W0 S-0.1 (plano code-mode-total, 2026-08-24) — `touring run`
             // executions over ALL Bash actions, both daemon-lifetime

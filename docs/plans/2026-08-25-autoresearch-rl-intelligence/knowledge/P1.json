@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "P1 ENFORCEMENT fechado \u2014 3 defeitos que o proprio OUTER expos, todos guardados por teste. D1: o no explore_round era ESTRUTURALMENTE incapaz de iterar \u2014 touring explore sai 1 em toda rodada nao-convergida (contrato: 0 convergido/1 continuar/3 degradado) e o no loop do adw.py faz return on_fail para qualquer exit != 0; corrigido em 3 specs com [ rc -le 1 ], preservando falha real no degradado (3). Bug espelhado em explore-plan.toml: sem pipefail o exit era do tail, nunca falhava. Endurecido tambem o NEW_FINDINGS= (impresso no TOPO, cortado por tail -c 1800 \u2014 medido 1457 B hoje, cabe, mas cresce com o ledger). D2: slug do ledger nao dobrava diacriticos (\u00ea.isalnum() \u00e9 True) \u2014 inteligencia/intelig\u00eancia abriam ledgers distintos para a MESMA pergunta; corrigido com NFKD + adocao nao-destrutiva do ledger legado. D3: o gate do flow casava QUALQUER *.ledger.json fresco do escopo \u2014 deu present apontando para o ledger NAO-convergido nesta sessao; agora exige require_json verdict.converged, fail-closed. Guards: 5 slug + 6 gate + 5 credit = 16 testes novos, todos mutation-proof."
+    }
+  ],
+  "relations": []
+}

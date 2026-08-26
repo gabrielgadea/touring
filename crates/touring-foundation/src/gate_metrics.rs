@@ -740,6 +740,18 @@ pub struct GateMetrics {
     pub t3_turn_first_passed_count: AtomicU64,
     /// P3/T3-B — chamadas K−1 negadas com a rota fundida (fold-the-rest).
     pub t3_turn_fused_count: AtomicU64,
+    /// P2 — rotas oferecidas com a apresentação `native` em vigor (o denominador do braço).
+    pub code_mode_arm_offered_native_count: AtomicU64,
+    /// P2 — rotas OFERECIDAS em `native` que o modelo de fato tomou (o numerador).
+    pub code_mode_arm_followed_native_count: AtomicU64,
+    /// P2 — rotas oferecidas com a apresentação `both` em vigor (o denominador do braço).
+    pub code_mode_arm_offered_both_count: AtomicU64,
+    /// P2 — rotas OFERECIDAS em `both` que o modelo de fato tomou (o numerador).
+    pub code_mode_arm_followed_both_count: AtomicU64,
+    /// P2 — rotas oferecidas com a apresentação `code` em vigor (o denominador do braço).
+    pub code_mode_arm_offered_code_count: AtomicU64,
+    /// P2 — rotas OFERECIDAS em `code` que o modelo de fato tomou (o numerador).
+    pub code_mode_arm_followed_code_count: AtomicU64,
 
     /// X7 DECISION — calls whose verdict was `Deny` (hard-blocked by gateway).
     pub ceg_blocked_count: AtomicU64,
@@ -1045,6 +1057,12 @@ impl Default for GateMetrics {
             ceg_captured_count: AtomicU64::new(0),
             t3_turn_first_passed_count: AtomicU64::new(0),
             t3_turn_fused_count: AtomicU64::new(0),
+            code_mode_arm_offered_native_count: AtomicU64::new(0),
+            code_mode_arm_followed_native_count: AtomicU64::new(0),
+            code_mode_arm_offered_both_count: AtomicU64::new(0),
+            code_mode_arm_followed_both_count: AtomicU64::new(0),
+            code_mode_arm_offered_code_count: AtomicU64::new(0),
+            code_mode_arm_followed_code_count: AtomicU64::new(0),
             ceg_blocked_count: AtomicU64::new(0),
             ceg_sandboxed_count: AtomicU64::new(0),
             ceg_fast_path_count: AtomicU64::new(0),

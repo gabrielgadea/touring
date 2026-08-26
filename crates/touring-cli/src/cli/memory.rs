@@ -321,19 +321,56 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0)
         .clamp(-1.0, 1.0);
-    if query.is_empty() {
-        return serde_json::json!({ "error": "query is required" }).to_string();
-    }
+    let all_pending = payload
+        .get("all_pending")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
 
-    let Some(pending) = rt.learning.case_ledger.take(&credit_key(query)) else {
-        // Not an error: crediting a query nobody recalled is a no-op, and the
-        // count of these is itself the signal that a caller is crediting the
-        // wrong key.
+    // Two ways to name what gets credited. Naming the query is exact and stays
+    // the default. Draining is for the caller that knows the VERDICT but not
+    // the questions — a phase gate, a run outcome — which is every caller there
+    // actually was: measured 2026-08-25, this function had zero callers and the
+    // ledger's `credited_count` was 0 for the daemon's whole life, because
+    // remembering the queries was left to whoever closed the phase.
+    let claims: Vec<(String, Vec<String>)> = if all_pending {
+        rt.learning
+            .case_ledger
+            .drain_pending()
+            .into_iter()
+            .map(|(key, entry)| (key, entry.payload))
+            .collect()
+    } else {
+        if query.is_empty() {
+            return serde_json::json!({
+                "error": "query is required unless all_pending is set",
+            })
+            .to_string();
+        }
+        let Some(pending) = rt.learning.case_ledger.take(&credit_key(query)) else {
+            // Not an error: crediting a query nobody recalled is a no-op, and the
+            // count of these is itself the signal that a caller is crediting the
+            // wrong key.
+            return serde_json::json!({
+                "credited": 0, "query": query, "reason": "no pending recall for this query",
+            })
+            .to_string();
+        };
+        vec![(credit_key(query), pending.payload)]
+    };
+
+    if claims.is_empty() {
+        // Draining an empty ledger is the honest "nothing was owed", not a
+        // failure — and it must not be reported as a credit.
         return serde_json::json!({
-            "credited": 0, "query": query, "reason": "no pending recall for this query",
+            "credited": 0,
+            "claimed_queries": 0,
+            "all_pending": true,
+            "reason": "no pending recalls to credit",
+            "ledger_credited_total": rt.learning.case_ledger.credited_count(),
+            "ledger_unclaimed_evictions": rt.learning.case_ledger.unclaimed_evictions(),
         })
         .to_string();
-    };
+    }
 
     // Credit across the SAME federated set the recall reads. `memory recall`
     // searches every project's `memory.db` (7 of them on this machine), so a
@@ -344,12 +381,14 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     let memory_dbs = discover_canonical_dbs(&memory_db_path, &touring_claude_dir(), "memory.db");
 
+    let served: usize = claims.iter().map(|(_, keys)| keys.len()).sum();
+    let claimed_queries: Vec<&str> = claims.iter().map(|(q, _)| q.as_str()).collect();
     let mut updated = 0usize;
     for db in &memory_dbs {
         let Ok(conn) = rusqlite::Connection::open(db) else {
             continue;
         };
-        for key in &pending.payload {
+        for key in claims.iter().flat_map(|(_, keys)| keys.iter()) {
             let prior: Option<f64> = conn
                 .query_row(
                     "SELECT outcome_reward FROM memory_entries WHERE key = ?1",
@@ -380,7 +419,9 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         "credited": updated,
         "query": query,
         "reward": reward,
-        "served": pending.payload.len(),
+        "served": served,
+        "all_pending": all_pending,
+        "claimed_queries": claimed_queries,
         "ledger_credited_total": rt.learning.case_ledger.credited_count(),
         "ledger_unclaimed_evictions": rt.learning.case_ledger.unclaimed_evictions(),
     })

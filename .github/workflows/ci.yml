@@ -301,6 +301,21 @@ jobs:
         # e a suíte flaka (7 sítios corrigidos em 25/08/2026). O guard é
         # provado por mutação (remover o atributo → exit 1; restaurar → exit 0).
         run: python3 -m pytest scripts/test_ceg_serial_gate_metrics.py -q
+      - name: code-mode D8 — a seção declarada DEVE casar com o predicado do executor
+        # Cross-audit 26/08/2026: este guard existia, era citado em
+        # rules/touring-4-pillars.md como "o remédio institucional… texto e
+        # executor reconciliados por teste, não por boa vontade" — e NUNCA
+        # rodava no CI. Uma garantia declarada e não executada é o próprio
+        # anti-padrão D8 aplicado ao guard do D8.
+        run: python3 -m pytest scripts/test_code_mode_sdk_section.py -q
+      - name: git nudge D8 — o nudge do git DEVE casar com block_git.sh (REGRA #11 v2)
+        # Até 25/08 o nudge afirmava "git is prohibited … block_git.sh will
+        # reject this command": falso duas vezes para `git status` (a proibição
+        # foi revogada em 23/08, e o executor libera leitura/aditivas). O guard
+        # lê AMBOS os lados e é provado por mutação.
+        run: python3 -m pytest scripts/test_git_nudge_matches_executor.py -q
+      - name: cli tests — isolamento de project root
+        run: python3 -m pytest scripts/test_cli_tests_isolate_project_root.py -q
       - name: file_size_gate — no .rs file bloat (>5k LOC)
         run: python3 docs/file_size_gate.py --check
       - name: gen_reference — docs/reference/ anti-drift

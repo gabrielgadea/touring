@@ -85,12 +85,65 @@ chamada do regime ANTIGO dominava)** · code 2,24 MB (−2,9%).
   `prova:code-mode-eficiencia-medida:2026-08-25`, `#status:corrected`) — media o caso
   ideal (inspeção pura N=8) e debitava injeções só de um braço.
 
+## 4.5 A política do braço e a economia (P2/P5b, 2026-08-26)
+
+A apresentação deixou de ser só configuração: existe uma **política** que pode escolher
+`native|code|both`, atrás de `TOURING_CODE_MODE_ARM_ARMED` (**default-OFF**, decisão (b) de
+Gabriel). Ela só age onde o humano **não** declarou — prefixo, env e `[code_mode] mode` vencem
+sempre — e só com **dois** braços acima de 20 amostras e margem ≥ 0,05 entre eles. Sem isso, cala.
+
+A evidência é **durável por projeto** em `<projeto>/.claude/touring/code_mode_arm.json`, não nos
+contadores de `gate-metrics`: estes zeram a cada restart de daemon (medido: `t3_turn_first_passed`
+2 → 0 em dois minutos), e uma política com piso de amostra nunca alcançaria o piso entre deploys.
+
+Três eixos por braço, e a distinção importa:
+
+| Eixo | Pergunta |
+|---|---|
+| `offered` | a apresentação entregou uma rota escrita |
+| `followed` | o modelo **tomou** a rota — o **canal** |
+| `economical` | a rota tomada **fundiu** round-trips (≥2 alvos ou ≥2 operações) — a **economia** |
+
+`adoption_ratio` mede só o canal: `scan_class_of` não reconhece `touring run`, então N programas
+diferentes e triviais somam N adoções e **zero avisos** de qualquer gate. Por isso o veredito da
+rota vale **0,5** para a casca sobre uma chamada única e **1,0** para o programa que funde — e
+0,5, não 0,0, porque sob `code` a chamada atômica é NEGADA: a casca é obrigatória e o custo é da
+**apresentação**, não indisciplina do modelo.
+
+Leitura: `touring kpi -j` → `touring.code_mode.{arm_native,arm_both,arm_code,economy_ratio}`,
+todos lendo a MESMA fonte que a política lê. STUB abaixo do piso — amostra insuficiente é
+desconhecido, nunca adesão nula.
+
 ## 5. Os guards (o que mantém a estratégia corrigida)
 
 | guard | o que impede | prova |
 |---|---|---|
 | `scripts/test_ceg_serial_gate_metrics.py` (CI) | teste que toca contadores globais medidos por delta fora do grupo serial (2 regras: ceg-gateway, health-delta) | mutação 0→1→0 |
 | `scripts/test_code_mode_sdk_section.py` | **guard D8 cruzado**: a declaração da seção (classes que colapsam) deve casar com o predicado do executor (`CODE_MODE_COLLAPSED_CLASSES` no Rust) — texto e executor reconciliados por teste | 12 testes |
+
+## 5.1 Precedência sobre a sugestão genérica do harness (2026-08-26)
+
+Em `bypassPermissions`, o **próprio Claude Code** injeta no contexto do PreToolUse uma
+instrução genérica: *"Do your work through the Bash tool wherever it can accomplish the
+job: read files with cat, head, or sed -n, search with grep and find, and make file
+changes with sed, heredocs"*. Ela **contradiz** o code mode deste workspace e a edição
+com gate. Três fatos, todos verificados por execução em 26/08:
+
+1. **Não é injeção hostil nem drift nosso.** A frase tem 0 ocorrências no repo e em
+   `~/.claude/` exceto o changelog do produto — vem do binário do Claude Code. Não há
+   arquivo nosso a corrigir, e `cache/changelog.md` é cache regenerável que apenas
+   *menciona* bypass mode (editá-lo não mudaria nada e seria desfeito no próximo update).
+2. **A precedência já é a correta**: instruções do usuário (CLAUDE.md/constituição)
+   vencem sugestões default do harness — o próprio `using-superpowers` declara isso.
+3. **E a precedência é EXECUTADA, não confiada à leitura do modelo** — que é o ponto
+   D8. Prova ao vivo (cross-audit 26/08, payload `session_id: "audit-d8-precedencia"`
+   contra `~/.claude/hooks/touring-hook cli-suggest`, comando de trabalho
+   `grep -rn CODE_MODE_COLLAPSED_CLASSES crates/ | head -5`): com a instrução do
+   harness ativa mandando usar `grep`, o hook respondeu `permissionDecision: "deny"`
+   e devolveu a rota `touring run --lang bash --code '<o mesmo grep>'`.
+
+Ou seja: o conflito é resolvido por afordância. Nada a "corrigir" a montante — o
+executor já ganha do texto, que é exatamente o que o produto existe para garantir.
 
 ## 6. Prova da afordância (o padrão de auditoria)
 

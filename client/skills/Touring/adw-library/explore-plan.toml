@@ -57,7 +57,17 @@ on_fail = "__fail__"
 [node.explore_round]
 type = "code"
 sandbox = true
-command = ["bash", "-c", "touring explore \"$1\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}"]
+# `touring explore` contract: exit 0 converged / 1 continue / 3 degraded.
+# Reading any non-zero as failure made this loop STRUCTURALLY unable to
+# iterate — every round that is not already dry exits 1, and the loop node
+# returns `on_fail` on a non-zero body (adw.py). Observed twice (2026-08-25).
+# `[ $rc -le 1 ]` lets a continuing round continue while a DEGRADED run (3)
+# still fails, which a bare `| tail` would have swallowed along with it.
+# The marker the runner reads is printed at the TOP; `tail -c` keeps the
+# BOTTOM. Measured 1457 B today (it fits) — but the size grows with the
+# ledger, and adw.py already carries the scar of a spec whose `tail -c`
+# ate the signal. Re-emitting the line makes survival independent of size.
+command = ["bash", "-c", "out=$(touring explore \"$1\" 2>&1); rc=$?; echo \"$out\" | tail -c 1800; echo \"$out\" | grep -E '^NEW_FINDINGS=' | tail -1; [ \"$rc\" -le 1 ]", "--", "{{vars.topic}}"]
 timeout_ms = 900000
 idempotent = true
 

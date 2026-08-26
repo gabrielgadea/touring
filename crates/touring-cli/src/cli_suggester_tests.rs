@@ -1,6 +1,7 @@
 use super::*;
 use serde_json::json;
 
+
 #[test]
 fn looks_like_symbol_accepts_pascal_case() {
     assert!(looks_like_symbol("DomainCircuitBreaker"));
@@ -171,12 +172,117 @@ fn classify_bash_sed_inplace_routes_to_taco_forge() {
     assert!(out.confidence >= 0.9);
 }
 
+/// REGRA #11 v2 (23/08/2026): read-only git is PERMITTED and the executor
+/// allows it. Until 2026-08-25 this test asserted the opposite — it encoded
+/// the very claim the nudge got wrong, and so defended the defect.
 #[test]
-fn classify_bash_git_routes_to_regra11() {
+fn classify_bash_git_readonly_is_permitted_not_prohibited() {
     let input = json!({"command": "git status"});
     let out = classify_bash(&input).expect("classify_bash emits");
-    assert_eq!(out.cluster, "regra-11-git-prohibited");
-    assert!(out.confidence >= 0.95);
+    assert_eq!(out.cluster, "regra-11-git-safe");
+    // No MUST: nothing is required of a permitted command.
+    assert!(out.must.is_empty(), "read-only git must demand nothing");
+    assert!(
+        !out.reason.contains("prohibited"),
+        "reason must not claim a revoked ban: {}",
+        out.reason
+    );
+}
+
+/// The DESTRUCTIVE class carries the ritual, and it is where the confidence
+/// belongs — that is the half of REGRA #11 v2 with real consequence.
+#[test]
+fn classify_bash_git_destructive_demands_the_ritual() {
+    for cmd_str in [
+        "git reset --hard HEAD~1",
+        "git stash",
+        "git clean -fd",
+        "git push --force origin main",
+        "git rebase -i main",
+        "git branch -D feature",
+        "git checkout -- src/lib.rs",
+    ] {
+        let input = json!({ "command": cmd_str });
+        let out = classify_bash(&input).unwrap_or_else(|| panic!("no output for {cmd_str}"));
+        assert_eq!(out.cluster, "regra-11-git-destructive", "cmd: {cmd_str}");
+        assert!(out.confidence >= 0.95, "cmd: {cmd_str}");
+        assert!(
+            out.must.iter().any(|c| c.command.contains("GIT_DESTRUCTIVE_OK=1")),
+            "ritual token missing for {cmd_str}"
+        );
+        assert!(
+            out.must.iter().any(|c| c.command.contains("safety/")),
+            "safety-branch snapshot missing for {cmd_str}"
+        );
+    }
+}
+
+/// The executor's carve-outs are mirrored exactly: these forms do NOT touch
+/// the working tree, so gating them would tax a safe command.
+#[test]
+fn git_destructive_mirrors_the_executor_carve_outs() {
+    for safe in [
+        "git stash list",
+        "git stash show",
+        "git restore --staged foo.rs",
+        "git reset HEAD~1",
+        "git reset --soft HEAD~1",
+        "git clean -n",
+        "git status",
+        "git commit -m x",
+        "git push origin main",
+        "git branch -d merged",
+    ] {
+        assert!(!git_is_destructive(safe), "false positive: {safe}");
+    }
+    for dangerous in [
+        "git restore src/lib.rs",
+        "git restore --staged --worktree src/lib.rs",
+        "git reset --keep HEAD~1",
+        "git push -f",
+        "git reflog expire --all",
+        "git gc --prune=now",
+        "git filter-branch --tree-filter x",
+    ] {
+        assert!(git_is_destructive(dangerous), "false negative: {dangerous}");
+    }
+}
+
+/// Every verb DECLARED in `GIT_DESTRUCTIVE_VERBS` must actually be gated by
+/// the predicate. Without this the list is decoration: it could name a verb
+/// the regex never matches and nothing would notice (the "comment asserts a
+/// symmetry that does not exist" failure). This makes the declaration a
+/// contract the executor has to honour.
+#[test]
+fn every_declared_destructive_verb_is_actually_gated() {
+    for verb in GIT_DESTRUCTIVE_VERBS {
+        // Build the most ordinary command carrying that verb.
+        let command = match *verb {
+            "stash" => "git stash".to_string(),
+            "restore" => "git restore src/lib.rs".to_string(),
+            "checkout --" => "git checkout -- src/lib.rs".to_string(),
+            "gc --prune" => "git gc --prune=now".to_string(),
+            "reflog expire" => "git reflog expire --all".to_string(),
+            v => format!("git {v} target"),
+        };
+        assert!(
+            git_is_destructive(&command),
+            "declared verb `{verb}` is not gated by the predicate (command: `{command}`)"
+        );
+    }
+}
+
+/// The deliberate per-command token means the ritual already happened
+/// upstream — re-gating it would make the approved path unusable.
+#[test]
+fn git_destructive_respects_the_completed_ritual_token() {
+    assert!(!git_is_destructive("GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD~1"));
+    let input = json!({"command": "GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD~1"});
+    let out = classify_bash(&input);
+    assert!(
+        out.as_ref().map(|o| o.cluster.as_str()) != Some("regra-11-git-destructive"),
+        "a completed ritual must not be re-gated"
+    );
 }
 
 #[test]
@@ -1897,6 +2003,7 @@ fn no_lessons_db_is_opened_for_writing() {
 // (o hash e a época são por projeto) para não interferir nos vizinhos.
 
 mod code_mode_gates_w1 {
+    use serial_test::serial;
     use super::super::code_mode_gates;
     use serde_json::json;
     use std::path::Path;
@@ -1906,6 +2013,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g2_reescreve_por_default_e_nega_sob_fallback() {
         // S-8.6 (spike SUPORTADO): o default é REWRITE — allow + updatedInput
         // com o comando REAL prefixado; o deny fica atrás do env de fallback.
@@ -1931,6 +2039,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g2_bypass_token_passa_e_conta() {
         let proj = Path::new("/tmp/w1-g2-bypass");
         let cmd = "TOURING_GATE_OK=1 cargo test | tail -1; echo $?";
@@ -1938,6 +2047,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g2_heredoc_e_dado_nunca_nega() {
         // Escrever um TESTE que contém o padrão não é cometer o padrão.
         let proj = Path::new("/tmp/w1-g2-heredoc");
@@ -1946,6 +2056,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g6_escala_advisory_e_depois_deny() {
         let proj = Path::new("/tmp/w1-g6-escalada");
         let cmd = bash("rg -n 'padrao' src/lib.rs");
@@ -1968,6 +2079,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g6_allowlist_de_estado_vivo_nunca_dispara() {
         let proj = Path::new("/tmp/w1-g6-allow");
         let cmd = bash("touring doctor -j");
@@ -1977,6 +2089,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g6_projeto_diferente_nao_herda_contador() {
         // regressão do escopo por projeto (a flakiness de 24/08).
         let a = Path::new("/tmp/w1-g6-proj-a");
@@ -1989,6 +2102,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g6_mutacao_no_meio_reseta_a_repeticao() {
         // ler-depois-de-editar NÃO é retry cego: a época avança com o Edit.
         let proj = Path::new("/tmp/w1-g6-epoch");
@@ -2012,6 +2126,7 @@ mod code_mode_gates_w1 {
 // ── W2 (plano code-mode-total): G1 teeth — rajada nega na 4ª ─────────────────
 
 mod burst_gate_w2 {
+    use serial_test::serial;
     use super::super::{code_mode_gates, g1_should_deny};
     use serde_json::json;
     use std::path::Path;
@@ -2056,6 +2171,7 @@ mod burst_gate_w2 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g1_quarta_de_classe_diferente_passa() {
         let proj = Path::new("/tmp/w2-g1-classes");
         let _ = inspecoes(3, proj, "s1"); // 3 da classe grep
@@ -2064,6 +2180,7 @@ mod burst_gate_w2 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g1_projeto_diferente_nao_herda_rajada() {
         let a = Path::new("/tmp/w2-g1-proj-a");
         let b = Path::new("/tmp/w2-g1-proj-b");
@@ -2073,6 +2190,7 @@ mod burst_gate_w2 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g1_bypass_token_reseta_a_janela() {
         let proj = Path::new("/tmp/w2-g1-bypass");
         let _ = inspecoes(3, proj, "s1");
@@ -2086,6 +2204,7 @@ mod burst_gate_w2 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g1_continuation_check_fecha_o_ab() {
         use crate::shared::gate_metrics as gm;
         let proj = Path::new("/tmp/w2-g1-continuation");
@@ -2113,6 +2232,7 @@ mod burst_gate_w2 {
 // ── W3 (plano code-mode-total): G3/G7 gates de modo + G4/G5 telemetria + E3 ──
 
 mod mode_gates_w3 {
+    use serial_test::serial;
     use super::super::code_mode_gates;
     use serde_json::json;
     use std::path::Path;
@@ -2126,6 +2246,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g3_dois_advisories_depois_deny_e_read_reseta() {
         let proj = Path::new("/tmp/w3-g3");
         let s = "sess-g3";
@@ -2145,6 +2266,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g3_sessao_nova_zera() {
         let proj = Path::new("/tmp/w3-g3-sessoes");
         let _ = code_mode_gates(proj, "sess-a", "Edit", &edit("src/x.rs"));
@@ -2157,6 +2279,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g7_terceira_advisory_quinta_deny_arquivos_distintos_nada() {
         let proj = Path::new("/tmp/w3-g7");
         let s = "sess-g7";
@@ -2240,6 +2363,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g3_write_de_criacao_nao_conta_e_vale_como_read() {
         let proj = Path::new("/tmp/w3-g3-write");
         let s = "sess-g3w";
@@ -2259,6 +2383,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g7_touring_run_citando_o_arquivo_reseta() {
         let proj = Path::new("/tmp/w3-g7-reset");
         let s = "sess-g7r";
@@ -2274,6 +2399,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g5_advisory_unico_no_fim_da_rajada_sem_validacao() {
         let proj = Path::new("/tmp/w3-g5");
         let s = "sess-g5";
@@ -2291,6 +2417,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn g5_validacao_encerra_sem_advisory() {
         let proj = Path::new("/tmp/w3-g5-ok");
         let s = "sess-g5ok";
@@ -2303,6 +2430,7 @@ mod mode_gates_w3 {
     }
 
     #[test]
+    #[serial(t3_env)]
     fn e3_contrafactual_em_comentario_gera_advisory_e_run_id_silencia() {
         let proj = Path::new("/tmp/w3-e3");
         let s = "sess-e3";
@@ -2332,6 +2460,7 @@ mod mode_gates_w3 {
 /// greps longos produzia um corpo cortado em `crates/tou'`, com as aspas
 /// equilibradas e o comando pela metade.
 mod apresentacao_por_escopo {
+    use serial_test::serial;
     use super::super::{
         CODE_MODE_COLLAPSED_CLASSES, CodeModePresentation, code_mode_presentation,
         project_presentation, scan_class_of,
@@ -2472,11 +2601,101 @@ mod apresentacao_por_escopo {
     /// Fold acumulando o comando. Separar decisão de estado é o que deixa o
     /// gate mais fácil de testar do que de contornar.
     #[test]
+    fn rota_tomada_e_rota_recusada_tem_vereditos_opostos() {
+        use crate::cli_suggester::classify_route_outcome;
+        // Rodar o programa É a rota. O VALOR carrega a economia (P5b): uma casca
+        // sobre uma operação vale 0.5; o que importa aqui é que é positivo,
+        // enquanto recusar vale 0.0.
+        assert_eq!(classify_route_outcome("touring run --lang bash --code 'ls'"), Some(0.5));
+        assert_eq!(
+            classify_route_outcome(
+                "touring run --lang bash --code 'cat /a/x.rs /a/y.rs /a/z.rs'"
+            ),
+            Some(1.0),
+            "o programa que funde vale a rota inteira"
+        );
+        // Relaxar o gate é recusá-la.
+        assert_eq!(classify_route_outcome("TOURING_CODE_MODE=native grep -rn foo ."), Some(0.0));
+        assert_eq!(classify_route_outcome("TOURING_GATE_OK=1 cat x"), Some(0.0));
+    }
+
+    /// A falha que isto pega: ler "fez outra coisa" como fracasso. Ausência de
+    /// sinal é desconhecido — creditar 0.0 aqui puniria o braço por silêncio.
+    #[test]
+    fn desfecho_desconhecido_nao_vira_veredito() {
+        use crate::cli_suggester::classify_route_outcome;
+        assert_eq!(classify_route_outcome("cargo test -p touring-cli"), None);
+        assert_eq!(classify_route_outcome(""), None);
+    }
+
+    /// Ordem: ter relaxado o gate no caminho não desfaz ter rodado o programa.
+    #[test]
+    fn relaxar_o_gate_e_ainda_assim_rodar_conta_como_rota_tomada() {
+        use crate::cli_suggester::classify_route_outcome;
+        let v = classify_route_outcome(
+            "TOURING_CODE_MODE=native touring run --lang bash --code 'ls'",
+        )
+        .expect("rodar o programa é um desfecho legível");
+        assert!(
+            v > 0.0,
+            "rodar o programa domina o token de relaxamento — senão o braço \
+             aprenderia o oposto do que houve (o valor exato é a ECONOMIA, \
+             coberta por outro teste)"
+        );
+    }
+
+    /// A falha que isto pega — e que existiu por alguns minutos hoje: um
+    /// PostToolUse de ferramenta SEM comando (um `Read`) consumia a oferta sem
+    /// veredito, e a rota tomada logo depois já não achava nada para creditar.
+    #[test]
+    fn desfecho_ilegivel_nao_consome_a_oferta() {
+        use crate::cli_suggester::{RouteOffer, claim_route_reward, turn_ledger_insert_for_test};
+        let raiz = std::path::Path::new("/tmp/p2-teste-ordem");
+        let payload = serde_json::json!({"session_id": "sessao-ordem"});
+        turn_ledger_insert_for_test(
+            raiz,
+            &payload,
+            RouteOffer { mode: "code".into(), offered_secs: 7 },
+        );
+
+        // Um `Read` não carrega comando: nada a classificar.
+        assert!(claim_route_reward(raiz, &payload, "").is_none());
+        // …e a oferta TEM de continuar lá para o veredito real.
+        let (offer, value) =
+            claim_route_reward(raiz, &payload, "touring run --lang bash --code 'ls'")
+                .expect("a oferta sobreviveu ao desfecho ilegível");
+        assert_eq!(offer.mode, "code");
+        assert_eq!(value, 0.5, "programa de um alvo: rota tomada, economia nula");
+        // E agora sim ela some.
+        assert!(claim_route_reward(raiz, &payload, "touring run --code 'x'").is_none());
+    }
+
+    /// Uma oferta reivindicada some: dois leitores nunca creditam a mesma
+    /// decisão duas vezes (a disciplina dos ledgers de decisão e de casos).
+    #[test]
+    fn a_oferta_de_rota_e_reivindicada_uma_unica_vez() {
+        use crate::cli_suggester::{RouteOffer, take_route_offer, turn_ledger_insert_for_test};
+        let raiz = std::path::Path::new("/tmp/p2-teste-rota");
+        let payload = serde_json::json!({"session_id": "sessao-p2"});
+        turn_ledger_insert_for_test(
+            raiz,
+            &payload,
+            RouteOffer { mode: "code".into(), offered_secs: 42 },
+        );
+        let primeira = take_route_offer(raiz, &payload);
+        assert_eq!(primeira.map(|o| o.mode), Some("code".to_string()));
+        assert!(
+            take_route_offer(raiz, &payload).is_none(),
+            "a segunda leitura não pode reencontrar a oferta já creditada"
+        );
+    }
+
+    #[test]
     fn turn_decide_e_puro_e_acumula() {
         use crate::cli_suggester::{TurnBurst, TurnDecision, turn_decide};
         let agora = 1_000u64;
-        let dentro = TurnBurst { closed: false, first_passed: true, denied: vec![], first_seen_secs: agora - 3 };
-        let fechado = TurnBurst { closed: true, first_passed: true, denied: vec!["g1".into()], first_seen_secs: agora - 3 };
+        let dentro = TurnBurst { closed: false, first_passed: true, denied: vec![], first_seen_secs: agora - 3  };
+        let fechado = TurnBurst { closed: true, first_passed: true, denied: vec!["g1".into()], first_seen_secs: agora - 3  };
         assert!(matches!(turn_decide(&fechado, "grep b", agora), TurnDecision::FirstPass));
         let sem_primeira = TurnBurst::default();
         assert!(matches!(turn_decide(&sem_primeira, "grep b", agora), TurnDecision::FirstPass));
@@ -2484,17 +2703,17 @@ mod apresentacao_por_escopo {
             TurnDecision::Fold(all) => assert_eq!(all, vec!["grep b".to_string()]),
             _ => panic!("turno aberto com 1ª deveria fundir"),
         }
-        let com_negadas = TurnBurst { closed: false, first_passed: true, denied: vec!["grep b".into()], first_seen_secs: agora - 3 };
+        let com_negadas = TurnBurst { closed: false, first_passed: true, denied: vec!["grep b".into()], first_seen_secs: agora - 3  };
         match turn_decide(&com_negadas, "grep c", agora) {
             TurnDecision::Fold(all) => assert_eq!(all, vec!["grep b".to_string(), "grep c".to_string()]),
             _ => panic!("a rota carrega TODAS as acumuladas"),
         }
         // fora da janela do batch (10s), uma fan-out solta reabre turno novo
-        let velho = TurnBurst { closed: false, first_passed: true, denied: vec!["g1".into()], first_seen_secs: agora - 30 };
+        let velho = TurnBurst { closed: false, first_passed: true, denied: vec!["g1".into()], first_seen_secs: agora - 30  };
         assert!(matches!(turn_decide(&velho, "grep b", agora), TurnDecision::FirstPass),
             "fora da janela não é o mesmo turno");
         // na borda exata da janela, ainda é o mesmo turno
-        let borda = TurnBurst { closed: false, first_passed: true, denied: vec![], first_seen_secs: agora - 10 };
+        let borda = TurnBurst { closed: false, first_passed: true, denied: vec![], first_seen_secs: agora - 10  };
         assert!(matches!(turn_decide(&borda, "grep b", agora), TurnDecision::Fold(_)),
             "a borda inclusiva da janela ainda funde");
     }
@@ -2503,6 +2722,7 @@ mod apresentacao_por_escopo {
     /// 1ª passa intacta, 2ª nega com [cmd2], 3ª nega com [cmd2, cmd3], e o
     /// fechamento (PostToolUse) reabre o turno — a 4ª volta a ser 1ª.
     #[test]
+    #[serial(t3_env)]
     fn turn_gate_first_wins_fold_the_rest_close_reabre() {
         use crate::cli_suggester::{turn_gate_close, turn_gate_pre_bash};
         let proj = std::path::Path::new("/tmp/t3-it-1");
@@ -2522,6 +2742,83 @@ mod apresentacao_por_escopo {
     /// Chamada sem classe fan-out não abre turno nem é negada: mutação/build
     /// nunca é rajada (o desenho §T3-B é sobre inspeção).
     #[test]
+    fn similaridade_pega_o_fanout_serial_que_os_outros_gates_nao_veem() {
+        use super::super::{G1_SIMILARITY_AT, command_similarity};
+        // O caso canônico: mesma inspeção, arquivo diferente. O G6 não pega
+        // (não é byte-idêntico) e o G7 não pega (arquivo diferente).
+        let s = command_similarity("grep X a.rs", "grep X b.rs");
+        assert!(s >= G1_SIMILARITY_AT, "esperado >= 0.5, obtido {s}");
+
+        // Mesma família, faixa diferente — o trabalho repetido é quase todo.
+        let s2 = command_similarity("sed -n 1,20p f.rs", "sed -n 40,60p f.rs");
+        assert!(s2 >= G1_SIMILARITY_AT, "esperado >= 0.5, obtido {s2}");
+    }
+
+    /// Sem falso positivo: comandos de propósitos distintos não podem ser
+    /// julgados repetição. Um gate que negasse isto seria pior que nenhum.
+    #[test]
+    fn comandos_diferentes_nao_sao_similares() {
+        use super::super::{G1_SIMILARITY_AT, command_similarity};
+        for (a, b) in [
+            ("grep X src/", "cargo test -p touring-cli"),
+            ("cat /a/b.rs", "touring doctor -j"),
+            ("", "grep X src/"),
+        ] {
+            let s = command_similarity(a, b);
+            assert!(s < G1_SIMILARITY_AT, "{a:?} vs {b:?} não deviam casar: {s}");
+        }
+    }
+
+    /// A calibração dispara na SEGUNDA chamada quase-idêntica, sem esperar o
+    /// contador do G1 chegar a `G1_DENY_AT` — que era o buraco.
+    /// D8 dentro do próprio gate: a razão DECLARADA tem de ser a do gatilho que
+    /// disparou. Um deny na 2ª chamada exibindo "90% das rajadas ≥4" justificaria
+    /// o bloqueio por uma estatística que não se aplica a ele.
+    #[test]
+    fn a_razao_declarada_e_a_do_gatilho_que_disparou() {
+        use super::super::{G1_DENY_AT, burst_gate};
+        let proj = std::path::Path::new("/tmp/g1-sim-3");
+        let s = "g1-sim-3";
+        assert!(burst_gate(proj, s, "grep alfa /x/a.rs").is_none());
+        let d = burst_gate(proj, s, "grep alfa /x/b.rs").expect("2ª negada por similaridade");
+        assert!(
+            d.contains("dos tokens da inspeção anterior"),
+            "o deny tem de citar a SIMILARIDADE, que foi o gatilho: {d}"
+        );
+        assert!(
+            !d.contains(&format!("rajadas ≥{G1_DENY_AT}")),
+            "não pode justificar por uma estatística de rajada que não disparou: {d}"
+        );
+    }
+
+    #[test]
+    fn a_segunda_quase_identica_ja_e_negada() {
+        use super::super::burst_gate;
+        let proj = std::path::Path::new("/tmp/g1-sim-1");
+        let s = "g1-sim-1";
+        assert!(burst_gate(proj, s, "grep alfa /x/a.rs").is_none(), "a 1ª passa");
+        let d = burst_gate(proj, s, "grep alfa /x/b.rs")
+            .expect("a 2ª quase-idêntica é negada pela similaridade");
+        assert!(d.contains("touring run --lang bash --code"), "a rota é um programa: {d}");
+        assert!(d.contains("/x/a.rs") && d.contains("/x/b.rs"), "funde as duas: {d}");
+    }
+
+    /// E uma 2ª chamada DIFERENTE da mesma classe continua passando — a
+    /// calibração não pode transformar o G1 num gate de duas-da-mesma-classe.
+    #[test]
+    fn segunda_da_mesma_classe_mas_diferente_ainda_passa() {
+        use super::super::burst_gate;
+        let proj = std::path::Path::new("/tmp/g1-sim-2");
+        let s = "g1-sim-2";
+        assert!(burst_gate(proj, s, "grep alfa /x/a.rs").is_none());
+        assert!(
+            burst_gate(proj, s, "grep beta_totalmente_outro /y/z/outro_arquivo.toml").is_none(),
+            "propósito diferente não é repetição"
+        );
+    }
+
+    #[test]
+    #[serial(t3_env)]
     fn turn_gate_ignora_o_que_nao_e_fanout() {
         use crate::cli_suggester::turn_gate_pre_bash;
         let proj = std::path::Path::new("/tmp/t3-it-2");
@@ -2535,9 +2832,15 @@ mod apresentacao_por_escopo {
     }
 
     /// Kill switch humano: TOURING_T3_FUSE_DISABLED=1 desliga a fusão inteira.
-    /// (env no MESMO teste — sequencial; a var só é lida por este gate.)
+    ///
+    /// O comentário anterior dizia "env no MESMO teste — sequencial; a var só
+    /// é lida por este gate", tratando isso como isolamento. Era verdade e
+    /// insuficiente: os OUTROS testes chamam esse mesmo gate, em paralelo, no
+    /// mesmo processo. Daí o lock (ver [`super::T3_ENV_LOCK`]).
     #[test]
+    #[serial(t3_env)]
     fn turn_gate_kill_switch_desliga_a_fusao() {
+        // Obrigatório sobretudo AQUI: este é o teste que ESCREVE a env global.
         use crate::cli_suggester::turn_gate_pre_bash;
         let proj = std::path::Path::new("/tmp/t3-it-3");
         let s = "t3-it-3";
@@ -2587,6 +2890,278 @@ mod apresentacao_por_escopo {
 
     /// Sem config e com valor desconhecido: default, nunca um colapso que
     /// ninguém pediu. Falha para o comportamento de hoje.
+    #[test]
+    fn politica_desarmada_nao_muda_absolutamente_nada() {
+        use super::super::{CodeModePresentation, code_mode_presentation};
+        // Sem a env, o caminho é byte-idêntico ao de antes: nenhum sinal lido.
+        let vazio = tmpdir("arm-desarmado");
+        std::fs::create_dir_all(&vazio).expect("mkdir");
+        assert_eq!(code_mode_presentation(&vazio, "grep x"), CodeModePresentation::Both);
+        let _ = std::fs::remove_dir_all(&vazio);
+    }
+
+    /// A invariante que protege Gabriel: a política preenche o espaço que o
+    /// humano deixou aberto — nunca sobrescreve o que ele declarou. Uma
+    /// política que vencesse o `touring.toml` não estaria aprendendo, estaria
+    /// desobedecendo.
+    ///
+    /// Testado no PREDICADO PURO: a versão anterior mutava
+    /// `TOURING_CODE_MODE_ARM_ARMED` no processo, e a var passou a ser lida
+    /// também pelo caminho da fusão — a mutação vazava para testes paralelos e
+    /// derrubava um vizinho (`--test-threads=1` passava; a assinatura de estado
+    /// global).
+    #[test]
+    fn declaracao_humana_vence_a_politica_mesmo_armada() {
+        use super::super::{CodeModePresentation, resolve_with_policy};
+        // evidência que, sozinha, faria a política escolher `code`
+        let counts = [(20, 4), (20, 10), (20, 20)];
+        assert_eq!(
+            resolve_with_policy(Some(CodeModePresentation::Native), true, counts),
+            CodeModePresentation::Native,
+            "o `touring.toml` declarou `native`; a política não pode passar por cima"
+        );
+        // sem declaração, armada e com evidência: a política escolhe
+        assert_eq!(
+            resolve_with_policy(None, true, counts),
+            CodeModePresentation::Code
+        );
+        // sem declaração e DESARMADA: default, nenhum sinal lido
+        assert_eq!(
+            resolve_with_policy(None, false, counts),
+            CodeModePresentation::Both
+        );
+    }
+
+    /// Evidência fina não promove nada — o ponto inteiro de "promoção medida".
+    #[test]
+    fn programa_de_um_alvo_e_uma_operacao_nao_fundiu_nada() {
+        use super::super::{ProgramShape, program_shape};
+        assert_eq!(program_shape("cat /a/b/c.rs"), ProgramShape::Trivial);
+        assert_eq!(program_shape("sed -n 1,20p /a/b/c.rs"), ProgramShape::Trivial);
+    }
+
+    #[test]
+    fn programa_que_toca_varios_alvos_ou_operacoes_e_fusao() {
+        use super::super::{ProgramShape, program_shape};
+        // três alvos, uma operação
+        assert!(matches!(
+            program_shape("cat /a/x.rs /a/y.rs /a/z.rs"),
+            ProgramShape::Fused(n) if n >= 3
+        ));
+        // um alvo, três operações
+        assert!(matches!(
+            program_shape("grep a /f/g.rs; wc -l /f/g.rs; sed -n 1p /f/g.rs"),
+            ProgramShape::Fused(n) if n >= 3
+        ));
+    }
+
+    #[test]
+    fn a_aspa_que_fecha_e_a_primeira_nao_a_ultima() {
+        use super::super::{ProgramShape, extract_run_body, program_shape};
+        // O caso REAL que quebrou a medição ao vivo em 26/08: o comando externo
+        // trazia mais aspas depois do corpo, e `rfind` engolia o pipe inteiro.
+        let cmd = "touring run --lang bash --code 'cat /a/b/Cargo.toml' 2>/dev/null \
+                   | python3 -c \"print('x')\"";
+        assert_eq!(extract_run_body(cmd), Some("cat /a/b/Cargo.toml"));
+        assert_eq!(
+            program_shape(extract_run_body(cmd).unwrap()),
+            ProgramShape::Trivial,
+            "um arquivo, uma operação — o pipe externo não é parte do programa"
+        );
+    }
+
+    /// `2>/dev/null` é plumbing do shell, não um alvo de inspeção. Contá-lo
+    /// fazia um programa de um arquivo parecer que tocava dois.
+    #[test]
+    fn dispositivos_nao_contam_como_alvo() {
+        use super::super::{ProgramShape, program_shape};
+        assert_eq!(program_shape("cat /a/b.rs 2>/dev/null"), ProgramShape::Trivial);
+        assert_eq!(program_shape("cat /a/b.rs >/dev/null"), ProgramShape::Trivial);
+    }
+
+    #[test]
+    fn o_corpo_do_programa_e_extraido_de_ambas_as_aspas() {
+        use super::super::extract_run_body;
+        assert_eq!(
+            extract_run_body("touring run --lang bash --code 'cat /a/b'"),
+            Some("cat /a/b")
+        );
+        assert_eq!(
+            extract_run_body("touring run --lang python --code \"print(1)\""),
+            Some("print(1)")
+        );
+        // sem --code não há o que classificar — jamais adivinhar
+        assert_eq!(extract_run_body("touring run --file x.py"), None);
+    }
+
+    /// O ponto do P5b: obedecer não é economizar. Uma casca sobre uma chamada
+    /// só vale metade — e NÃO zero, porque sob `code` a atômica é negada e a
+    /// casca é obrigatória: o custo é da apresentação, não do modelo.
+    #[test]
+    fn casca_sobre_chamada_unica_vale_metade_da_rota_que_funde() {
+        use super::super::classify_route_outcome;
+        assert_eq!(
+            classify_route_outcome("touring run --lang bash --code 'cat /a/b/c.rs'"),
+            Some(0.5)
+        );
+        assert_eq!(
+            classify_route_outcome(
+                "touring run --lang bash --code 'grep a /f/g.rs; wc -l /f/h.rs; cat /f/i.rs'"
+            ),
+            Some(1.0)
+        );
+    }
+
+    #[test]
+    #[serial_test::serial(gate_metrics)]
+    fn a_evidencia_do_braco_sobrevive_ao_processo() {
+        use super::super::{ArmAxis, arm_counts_durable, bump_arm, read_arm_file};
+        let proj = tmpdir("arm-duravel");
+        std::fs::create_dir_all(&proj).expect("mkdir");
+
+        for _ in 0..3 {
+            bump_arm(&proj, "code", ArmAxis::Offered);
+        }
+        bump_arm(&proj, "code", ArmAxis::Followed);
+        bump_arm(&proj, "code", ArmAxis::Economical);
+
+        // Leitura DIRETA do arquivo — sem cache, que é o que um processo novo
+        // (daemon reiniciado) faria. Contadores em memória zeraram de 2 para 0
+        // em dois minutos hoje; a decisão não pode depender deles.
+        let do_disco = read_arm_file(&proj);
+        assert_eq!(do_disco[2], (3, 1, 1), "o braço `code` tem de estar no disco");
+        assert_eq!(arm_counts_durable(&proj)[2], (3, 1));
+
+        let _ = std::fs::remove_dir_all(&proj);
+    }
+
+    /// A vista DURÁVEL (arquivo) e a VOLÁTIL (átomos publicados em
+    /// `gate-metrics -j`) são a mesma decisão contada duas vezes — e até
+    /// 26/08/2026 nada garantia que andassem juntas: os dois registros viviam
+    /// em call sites ADJACENTES, o que funciona por vizinhança e não por
+    /// construção. Um terceiro ponto de oferta que chamasse só um faria a
+    /// política aprender de um número que o operador não vê no `gate-metrics`.
+    ///
+    /// Este teste é o oráculo dessa invariante — e é também o consumidor de
+    /// `code_mode_arm_counts()`, que a decisão P2b (política lê o disco, não a
+    /// memória) havia deixado sem chamador. REGRA #0: o símbolo foi integrado,
+    /// não removido.
+    ///
+    /// Serial obrigatório: os átomos são globais ao processo e medidos por
+    /// DELTA aqui — exatamente a família que `scripts/
+    /// test_ceg_serial_gate_metrics.py` guarda.
+    #[test]
+    #[serial_test::serial(gate_metrics)]
+    fn bump_arm_mantem_duravel_e_volatil_em_sincronia() {
+        use super::super::{ArmAxis, bump_arm, read_arm_file};
+        use touring_foundation::gate_metrics_snapshot::code_mode_arm_counts;
+        let proj = tmpdir("arm-sincronia");
+        std::fs::create_dir_all(&proj).expect("mkdir");
+
+        // índice 2 = `code` na ordem (native, both, code).
+        let antes = code_mode_arm_counts()[2];
+        bump_arm(&proj, "code", ArmAxis::Offered);
+        bump_arm(&proj, "code", ArmAxis::Offered);
+        bump_arm(&proj, "code", ArmAxis::Followed);
+        let depois = code_mode_arm_counts()[2];
+        let disco = read_arm_file(&proj)[2];
+
+        assert_eq!(disco.0, 2, "durável: 2 ofertas");
+        assert_eq!(disco.1, 1, "durável: 1 tomada");
+        assert_eq!(
+            depois.0 - antes.0,
+            disco.0,
+            "delta volátil de ofertas divergiu do durável — as duas vistas \
+             precisam contar a MESMA decisão"
+        );
+        assert_eq!(
+            depois.1 - antes.1,
+            disco.1,
+            "delta volátil de tomadas divergiu do durável"
+        );
+
+        // Economia é durável-only por design: não existe átomo correspondente,
+        // então o volátil NÃO pode mexer quando só a economia é registrada.
+        let pre_eco = code_mode_arm_counts()[2];
+        bump_arm(&proj, "code", ArmAxis::Economical);
+        assert_eq!(
+            code_mode_arm_counts()[2],
+            pre_eco,
+            "economia não tem par volátil; nada no gate-metrics pode mudar"
+        );
+        assert_eq!(read_arm_file(&proj)[2].2, 1, "economia foi ao disco");
+
+        let _ = std::fs::remove_dir_all(&proj);
+    }
+
+    /// Um nome de braço desconhecido não pode cair num balde: contar errado é
+    /// pior que não contar, porque a política acreditaria na contagem.
+    #[test]
+    #[serial_test::serial(gate_metrics)]
+    fn braco_desconhecido_nao_e_contado() {
+        use super::super::{ArmAxis, bump_arm, read_arm_file};
+        let proj = tmpdir("arm-desconhecido");
+        std::fs::create_dir_all(&proj).expect("mkdir");
+        bump_arm(&proj, "agressivo", ArmAxis::Offered);
+        assert_eq!(read_arm_file(&proj), [(0, 0, 0); 3]);
+        let _ = std::fs::remove_dir_all(&proj);
+    }
+
+    /// Arquivo ilegível ⇒ zeros ⇒ política calada. Evidência que não se pode
+    /// ler é evidência que não existe; inventar uma escolha seria pior.
+    #[test]
+    fn evidencia_corrompida_deixa_a_politica_calada() {
+        use super::super::{arm_choice_from_counts, read_arm_file};
+        let proj = tmpdir("arm-corrompido");
+        std::fs::create_dir_all(proj.join(".claude/touring")).expect("mkdir");
+        std::fs::write(proj.join(".claude/touring/code_mode_arm.json"), "{nao json")
+            .expect("write");
+        assert_eq!(read_arm_file(&proj), [(0, 0, 0); 3]);
+        assert_eq!(arm_choice_from_counts([(0, 0); 3]), None);
+        let _ = std::fs::remove_dir_all(&proj);
+    }
+
+    #[test]
+    fn abaixo_do_piso_de_amostra_a_politica_se_cala() {
+        use super::super::arm_choice_from_counts;
+        assert_eq!(arm_choice_from_counts([(19, 19), (19, 0), (19, 5)]), None);
+        assert_eq!(arm_choice_from_counts([(0, 0), (0, 0), (0, 0)]), None);
+    }
+
+    /// Um único braço com amostra não é uma escolha: é o único observado.
+    /// Chamar isso de aprendizado seria confirmar a configuração vigente.
+    #[test]
+    fn um_braco_sozinho_nao_conta_como_comparacao() {
+        use super::super::arm_choice_from_counts;
+        assert_eq!(arm_choice_from_counts([(100, 90), (3, 3), (0, 0)]), None);
+    }
+
+    #[test]
+    fn diferenca_dentro_do_ruido_nao_e_evidencia() {
+        use super::super::arm_choice_from_counts;
+        // 90% vs 88%: diferença real, mas menor que a margem — silêncio.
+        assert_eq!(arm_choice_from_counts([(0, 0), (100, 90), (100, 88)]), None);
+        // Empate exato jamais pode desempatar pela ordem do vetor.
+        assert_eq!(arm_choice_from_counts([(20, 10), (20, 10), (20, 10)]), None);
+    }
+
+    #[test]
+    fn com_dois_bracos_medidos_vence_a_maior_taxa() {
+        use super::super::{CodeModePresentation, arm_choice_from_counts};
+        // native 50%, both 90% → both.
+        assert_eq!(
+            arm_choice_from_counts([(20, 10), (20, 18), (0, 0)]),
+            Some(CodeModePresentation::Both)
+        );
+        // code 100% supera both 80% — folga clara, não fronteira de margem.
+        // (Uma asserção exatamente NO limiar dependeria da representação IEEE754
+        // da subtração e falharia por motivo nenhum a ver com a política.)
+        assert_eq!(
+            arm_choice_from_counts([(0, 0), (20, 16), (20, 20)]),
+            Some(CodeModePresentation::Code)
+        );
+    }
+
     #[test]
     fn ausencia_e_valor_invalido_caem_no_default() {
         let vazio = tmpdir("vazio");
@@ -2729,5 +3304,78 @@ mod inducao_nao_reincide_sobre_si {
             master_cli_command("touring run --lang python --code 'print(1)'").is_none(),
             "`touring run` é o transporte, não um atômico com master equivalente"
         );
+    }
+}
+
+// ── P3 — harness de replay do research loop ──────────────────────────────────
+//
+// NÃO é uma asserção: é um EXPERIMENTO determinístico sobre corpus CONGELADO
+// (`eval/autoresearch/corpus.json`, extraído de transcripts reais). Usa os
+// predicados REAIS (`scan_class_of`, `command_similarity`) e não uma cópia —
+// um verificador que reimplementasse a regra mediria a cópia, não o gate.
+//
+// Roda sob demanda:
+//   cargo test -p touring-cli --lib autoresearch_replay -- --ignored --nocapture
+mod autoresearch_replay {
+    use super::super::{command_similarity, scan_class_of};
+
+    /// Uma varredura por limiar sobre o corpus congelado.
+    ///
+    /// Simula com estado LOCAL (um mapa por sessão), nunca os caches globais do
+    /// processo: um experimento que escrevesse no ledger vivo contaminaria o
+    /// sistema que ele mede.
+    fn varre(sessoes: &[Vec<String>], limiar: f64) -> (usize, usize, f64) {
+        let (mut inspecoes, mut colapsadas, mut soma_sim) = (0usize, 0usize, 0.0f64);
+        for cmds in sessoes {
+            let mut ultima_por_classe: std::collections::HashMap<&str, &str> =
+                std::collections::HashMap::new();
+            for cmd in cmds {
+                let Some(classe) = scan_class_of(cmd) else { continue };
+                inspecoes += 1;
+                if let Some(anterior) = ultima_por_classe.get(classe) {
+                    let sim = command_similarity(anterior, cmd);
+                    if sim >= limiar {
+                        colapsadas += 1;
+                        soma_sim += sim;
+                    }
+                }
+                ultima_por_classe.insert(classe, cmd);
+            }
+        }
+        let media = if colapsadas > 0 { soma_sim / colapsadas as f64 } else { 0.0 };
+        (inspecoes, colapsadas, media)
+    }
+
+    #[test]
+    #[ignore = "experimento sob demanda — precisa do corpus extraído"]
+    fn varre_o_limiar_de_similaridade_sobre_corpus_congelado() {
+        let raiz = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap().parent().unwrap()
+            .join("eval/autoresearch/corpus.json");
+        let Ok(txt) = std::fs::read_to_string(&raiz) else {
+            println!("CORPUS AUSENTE em {} — rode eval/autoresearch/extract_corpus.py",
+                     raiz.display());
+            return;
+        };
+        let v: serde_json::Value = serde_json::from_str(&txt).expect("corpus json");
+        let sessoes: Vec<Vec<String>> = v["sessions"].as_array().unwrap().iter()
+            .map(|s| s.as_array().unwrap().iter()
+                 .map(|c| c.as_str().unwrap_or("").to_string()).collect())
+            .collect();
+
+        println!("corpus: {} sessões, meta={}", sessoes.len(), v["meta"]);
+        println!("{:>7} {:>12} {:>12} {:>10}", "limiar", "inspeções", "colapsadas", "sim_média");
+        for passo in 0..=10 {
+            let limiar = passo as f64 / 10.0;
+            let (insp, col, media) = varre(&sessoes, limiar);
+            let pct = if insp > 0 { 100.0 * col as f64 / insp as f64 } else { 0.0 };
+            println!("{limiar:>7.1} {insp:>12} {col:>12} {media:>10.3}   ({pct:.1}% das inspeções)");
+        }
+        // O escalar que uma campanha leria. DECLARADO como proxy: maximizá-lo
+        // sozinho empurra o limiar para 0 (colapsar tudo), então o keep/discard
+        // sobre ele PRECISA de gate humano — que é exatamente a partição pela
+        // fronteira do verificador que o plano exige.
+        let (_, col, _) = varre(&sessoes, super::super::G1_SIMILARITY_AT);
+        println!("METRIC={col}");
     }
 }

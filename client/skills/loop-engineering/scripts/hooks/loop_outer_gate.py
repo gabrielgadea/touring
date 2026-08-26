@@ -55,6 +55,36 @@ def _fill(text: str, scope: str, bundle) -> str:
         "{bundle}", bundle or "<bundle — run strategy-loop to register it>")
 
 
+def _satisfies(path: str, require: dict | None) -> bool:
+    """Is this file the artifact the flow owes, or merely a file of that shape?
+
+    The glob answers "shape and freshness" and nothing else. On 2026-08-25 that
+    let `{scope}/.touring-explore/*.ledger.json` be satisfied by a ledger for a
+    DIFFERENT question whose exploration had NOT converged, while the converged
+    ledger for the real topic sat one filename away — the gate reported
+    `present` and would have let the turn end with the exploration open. A
+    predicate that reads the file's own verdict is the difference between
+    "a file exists" and "the work is done".
+
+    Fail-CLOSED: a file we cannot read or parse has not proven anything.
+    """
+    if not require:
+        return True
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    for pointer, expected in require.items():
+        node = data
+        for part in pointer.split("."):
+            if not isinstance(node, dict) or part not in node:
+                return False
+            node = node[part]
+        if node != expected:
+            return False
+    return True
+
+
 def evaluate(marker: dict, manifests: dict) -> dict:
     """Check every manifest artifact against disk; deterministic, narrative-free."""
     flow = marker.get("flow") or "strategy-outer"
@@ -75,7 +105,8 @@ def evaluate(marker: dict, manifests: dict) -> dict:
         if pattern:
             try:
                 hits = [p for p in globmod.glob(pattern)
-                        if Path(p).stat().st_mtime >= floor]
+                        if Path(p).stat().st_mtime >= floor
+                        and _satisfies(p, art.get("require_json"))]
             except Exception:  # noqa: BLE001 — unreadable path = no hit
                 hits = []
         if len(hits) >= int(art.get("min", 1)):
