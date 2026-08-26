@@ -969,38 +969,22 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
                 file_hint: None,
             });
         }
-        // Read-only / additive git: the guard ALLOWS it. Touring complements
-        // what git versions — it does not replace it. Emitted only for the
-        // subcommands where the complement is real, and only as MAY, so the
-        // common case is not taxed by a banner (injection-density invariant).
-        if regex::Regex::new(r"git\s+(log|status|diff|blame|show)\b")
-            .ok()
-            .map(|re| re.is_match(command))
-            .unwrap_or(false)
-        {
-            return Some(ClassifierOutput {
-                cluster: "regra-11-git-safe".into(),
-                must: vec![],
-                should: vec![],
-                may: vec![
-                    cmd(
-                        "touring memory recall \"<topic>\"",
-                        "histórico SEMÂNTICO (decisões, lições) — complementa o git log, não o substitui",
-                    ),
-                    cmd(
-                        "touring status -j",
-                        "saúde de índice/wiring/RL — o estado que o git status não vê",
-                    ),
-                ],
-                reason: "REGRA #11 v2 (23/08/2026) — git de leitura/aditivo é LIVRE e o \
-                         guard não bloqueia. Touring soma histórico semântico e saúde \
-                         ao que o git versiona; nenhuma ação é exigida aqui."
-                    .into(),
-                confidence: 0.55,
-                symbol_hint: None,
-                file_hint: None,
-            });
-        }
+        // Read-only / additive git: o executor PERMITE, nada é exigido, e o
+        // silêncio é a resposta correta.
+        //
+        // Houve aqui um arm `regra-11-git-safe` (MAY informativo, confiança
+        // 0.55) sugerindo `memory recall`/`status` como complemento. Ele nunca
+        // executou: `select_classifier` descarta tudo abaixo do gate conformal
+        // (`LEGACY_THRESHOLD = 0.7`), então o arm era código inerte —
+        // aparentemente correto, provadamente morto. Descoberto no cross-audit
+        // de 26/08 pelo teste E2E (o unitário não pegava, porque exercita
+        // `classify_bash` ANTES do gate).
+        //
+        // Inflar a confiança para furar o gate seria a correção errada: `git
+        // status` é dos comandos mais frequentes que existem, e um banner nele
+        // taxa o caso comum sem exigir ação nenhuma — o oposto da invariante
+        // de densidade. O valor da REGRA #11 v2 está no arm DESTRUTIVO, que
+        // tem 0.99 e passa folgado.
         return None;
     }
 

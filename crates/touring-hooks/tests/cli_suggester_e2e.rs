@@ -133,8 +133,19 @@ fn classifier_bash_sed_inplace_promotes_taco_forge_perfect_edit() {
     assert!(ctx.contains("Edit tool"));
 }
 
+/// REGRA #11 v2: git de leitura é PERMITIDO, nada é exigido, e o hook cala.
+///
+/// Este teste nasceu afirmando o oposto — que um arm `regra-11-git-safe`
+/// seria emitido. Ele falhou no gate de convergência de 26/08 e revelou que
+/// aquele arm tinha confiança 0.55, abaixo do gate conformal
+/// (`LEGACY_THRESHOLD = 0.7`): era código que nunca executou. O arm foi
+/// removido; o contrato REAL é o silêncio, e é o que se afirma aqui.
+///
+/// O par unitário (`classify_bash_...`) não podia pegar isso: ele chama
+/// `classify_bash` DIRETO, antes do gate. Só o caminho E2E atravessa
+/// `select_classifier`, que é onde a supressão acontece.
 #[test]
-fn classifier_bash_git_readonly_reaches_the_permitted_arm() {
+fn classifier_bash_git_readonly_stays_silent() {
     let (_tmp, rt) = make_runtime();
     let payload = json!({
         "tool_name": "Bash",
@@ -142,12 +153,14 @@ fn classifier_bash_git_readonly_reaches_the_permitted_arm() {
         "tool_input": { "command": "git log --oneline" }
     });
     let out = cli_suggester::run(&rt, &payload);
-    let ctx = additional_context(&out).expect("non-empty");
-    assert!(ctx.contains("regra-11-git-safe"), "cluster wrong: {ctx}");
-    assert!(ctx.contains("touring memory recall"));
+    let ctx = additional_context(&out).unwrap_or_default();
     assert!(
         !ctx.contains("prohibited"),
-        "REGRA #11 v2 revoked the ban; the nudge must not claim it: {ctx}"
+        "REGRA #11 v2 revogou a proibição; o nudge não pode reivindicá-la: {ctx}"
+    );
+    assert!(
+        ctx.is_empty(),
+        "git de leitura não exige ação — o hook deve calar, não emitir: {ctx}"
     );
 }
 

@@ -94,6 +94,31 @@ RULES = (
         "calls": ("bump_arm(",),
         "serial": "serial(gate_metrics)",
     },
+    # Quinta família (26/08/2026) — e a que melhor prova por que este guard
+    # existe. O remédio JÁ estava no arquivo desde 07/08: `GLOBAL_CACHE_LOCK` +
+    # `global_cache_guard()`, com uma docstring explicando que `clear_all()`
+    # limpa o cache do processo e pode cair entre o `put` e o `get` de outro
+    # teste. Foi aplicado a 2 testes — os que falhavam naquele dia — e os
+    # outros 9 ficaram expostos. Em 26/08 a vítima foi
+    # `invalidate_by_path_removes_only_matching_keys`, e só apareceu porque o
+    # gate de convergência roda o WORKSPACE inteiro (rodar o crate isolado
+    # dava verde). Medido: 4/6 falhas rodando só os query_cache, 0/6 serial;
+    # 0/10 depois do remédio nos 8 que tocam o cache.
+    #
+    # Corrigir a vítima do dia não corrige a classe — por isso a regra, e não
+    # mais um lock aplicado à mão.
+    {
+        "name": "query-cache",
+        "glob": "crates/touring-foundation/src/query_cache.rs",
+        "calls": ("clear_all(", "invalidate(", "invalidate_by_path(", "put(",
+                  "get_or_compute("),
+        "serial": "global_cache_guard()",
+        # guard RAII tomado na 1ª linha do corpo, não atributo.
+        "marker_in": "body",
+        "remedy": "tomar `let _guard = global_cache_guard();` na PRIMEIRA linha "
+                  "do teste — o cache é global ao processo e `clear_all()` de um "
+                  "irmão cai entre o `put` e o `get` deste",
+    },
 )
 
 SERIAL_ATTR = "serial("
@@ -167,10 +192,22 @@ def offenders() -> list[dict[str, object]]:
             if "#[test]" not in text:
                 continue
             helpers = _helpers_touching_pipeline(text, rule["calls"])
+            # Onde mora o marcador desta regra. As quatro primeiras famílias
+            # usam o ATRIBUTO `#[serial(...)]`; `query-cache` usa um guard
+            # RAII tomado na primeira linha do corpo (`global_cache_guard()`),
+            # que é o remédio que aquele módulo já tinha. Procurar só nos
+            # atributos reportava os 11 testes como violação e sugeria um
+            # remédio inexistente (`#[serial_test::global_cache_guard()]`).
+            marker_in = str(rule.get("marker_in", "attrs"))
             for blk in _blocks(text):
-                if any(rule["serial"] in a for a in blk["attrs"]):  # type: ignore[union-attr]
-                    continue
                 body = str(blk["body"])
+                marcado = (
+                    any(rule["serial"] in a for a in blk["attrs"])  # type: ignore[union-attr]
+                    if marker_in == "attrs"
+                    else rule["serial"] in body
+                )
+                if marcado:
+                    continue
                 direct = any(c in body for c in rule["calls"])
                 via_helper = any(re.search(rf"\b{re.escape(h)}\s*\(", body) for h in helpers)
                 if direct or via_helper:
@@ -181,10 +218,11 @@ def offenders() -> list[dict[str, object]]:
                             "line": blk["line"],
                             "test": blk["name"],
                             "via": "direct" if direct else "helper",
-                            "remedy": (
+                            "remedy": rule.get(
+                                "remedy",
                                 f"adicionar #[serial_test::{rule['serial']}] entre o "
                                 "#[test] e o fn — o teste toca contadores globais que "
-                                "irmãos medem por delta sob paralelismo do cargo"
+                                "irmãos medem por delta sob paralelismo do cargo",
                             ),
                         }
                     )

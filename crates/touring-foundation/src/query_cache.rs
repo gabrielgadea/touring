@@ -323,6 +323,7 @@ mod tests {
 
     #[test]
     fn get_returns_none_for_missing_key() {
+        let _guard = global_cache_guard();
         let key = "wave17::nonexistent_42";
         invalidate(key);
         assert_eq!(get(key), None);
@@ -330,6 +331,7 @@ mod tests {
 
     #[test]
     fn put_then_get_returns_value() {
+        let _guard = global_cache_guard();
         let key = "wave17::put_get_test";
         invalidate(key);
         put(key.to_string(), r#"{"hello":"world"}"#.to_string());
@@ -338,6 +340,7 @@ mod tests {
 
     #[test]
     fn get_or_compute_hits_on_second_call() {
+        let _guard = global_cache_guard();
         let key = "wave17::compute_hit";
         invalidate(key);
         let mut compute_calls = 0;
@@ -357,6 +360,7 @@ mod tests {
 
     #[test]
     fn get_or_compute_single_flight_under_concurrency() {
+        let _guard = global_cache_guard();
         // Wave 21: Context7 moka best practice — `get_with` coalesces
         // concurrent compute calls on the same missing key.
         // Before Wave 21: 16 threads requesting same missing key ran
@@ -401,6 +405,7 @@ mod tests {
 
     #[test]
     fn invalidate_drops_entry() {
+        let _guard = global_cache_guard();
         let key = "wave17::invalidate_test";
         put(key.to_string(), "value".to_string());
         assert!(get(key).is_some());
@@ -422,6 +427,7 @@ mod tests {
 
     #[test]
     fn invalidate_by_path_removes_only_matching_keys() {
+        let _guard = global_cache_guard();
         // Prime cache with 3 entries: 2 contain `/wave18/target.rs`, 1 doesn't.
         let target = "/wave18/target.rs";
         let other = "/wave18/other.rs";
@@ -448,12 +454,14 @@ mod tests {
 
     #[test]
     fn invalidate_by_path_returns_zero_when_no_match() {
+        let _guard = global_cache_guard();
         let removed = invalidate_by_path("/wave18/never_indexed.rs");
         assert_eq!(removed, 0, "no match must return 0");
     }
 
     #[test]
     fn invalidate_by_path_increments_counter() {
+        let _guard = global_cache_guard();
         use std::sync::atomic::Ordering;
         let path = "/wave18/counter_test.rs";
         let key = make_key("cli_ast_meta", &format!("{path}|skeleton"));
