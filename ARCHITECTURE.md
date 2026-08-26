@@ -326,25 +326,40 @@ Each crate has its own `ARCHITECTURE.md` with detailed types, modules, and invar
 
 ## Dependency Graph (simplified)
 
+> Reconciliado em 26/08/2026 (F1/F2 do loop `2026-08-26-documentacao-touring`)
+> a partir das dependências REAIS do `Cargo.toml` de cada crate — não do
+> diagrama anterior, que citava `touring-core`/`touring-ast`/`touring-learning`/
+> `touring-index`/`touring-cognitive` como crates de topo: nenhum deles existe
+> mais como crate próprio (foram fundidos; mapa completo em
+> `docs/plans/2026-08-26-documentacao-touring/f1-inventario.json` e
+> `gen_fusion_map.py` no mesmo bundle). O código que aquele diagrama descrevia
+> hoje mora em: `touring-code::ast`, `touring-intelligence::rl` (learning),
+> `touring-intelligence::index`, `touring-intelligence::reasoning`
+> (`CognitiveRuntime`), `touring-foundation` (core — 18 dos 19 paths de
+> `touring-core-ARCHITECTURE.md` confirmados ali exatamente).
+
 ```
-                    touring-core
-                   /     |      \
-            touring-simd  |   touring-rules
-              /    |      |
-           touring-ast |  touring-learning ← u4-quantization feature
-               |       |      |
-            touring-index |  touring-cognitive
-               |       |      |
-            touring-analysis ← blast radius, quality, wiring, health score
-               |       |      |
-            touring-hooks ← RefCell<ANN>, daemon, 8 hook files
-                |       \
-         touring-cortex  touring-wasm ← inferlets
-                |
-          touring-server (MCP + CLI + migrate)
-                |
-          touring-python (PyO3 FFI)
+                    touring-foundation
+                   /        |         \
+            touring-simd    |     touring-storage
+              /       \     |         |
+        touring-code    \   |    touring-code (também depende de storage)
+              |           \ |
+        touring-analysis ← blast radius, quality, wiring, health score
+              |
+        touring-intelligence ← RL/bandit (learning), index, reasoning (cognitive)
+              |        \
+     touring-hooks-core  touring-hooks ← via touring-dispatch + touring-hook-runtime
+              |
+     touring-cortex / touring-generator / touring-bindings
+              |
+        touring-server (MCP + CLI + migrate + daemon)
+              |
+        touring-python (PyO3 FFI, via touring-bindings)
 ```
+
+**Confirmar antes de citar em prosa**: `touring ast workspace-info` é a fonte
+de verdade — este diagrama é uma simplificação da árvore real de 42 crates.
 
 ## 3 Consolidated Databases (SCHEMA_VERSION=8)
 
@@ -414,7 +429,9 @@ SessionEnd  → session-stop (persist metrics)
 
 ## U4 Quantization (v29.8.0)
 
-- Feature chain: `touring-server → touring-hooks → touring-learning → touring-simd → dep:half`
+- Feature chain: `touring-server → touring-hooks → touring-intelligence → touring-simd → dep:half`
+  (`touring-learning` fundido em `touring-intelligence::rl`; a feature `u4-quantization` está
+  declarada em `crates/touring-intelligence/Cargo.toml`, verificado 26/08/2026)
 - `EmbeddingU4`: Per-vector min/max 4-bit, 8× compression, ~90% Recall@10
 - `SemanticRecall::ann_search()`: prefers `ann_search_u4()` path, falls back to f32
 - `store_chunk()`: writes both f32 + u4 columns simultaneously
@@ -437,7 +454,9 @@ SessionEnd  → session-stop (persist metrics)
 
 ### P4.2 — Palace Hierarchy Memory
 
-`crates/touring-learning/src/memory/rlm.rs` (lines 179-191) + `crates/touring-server/src/memory_store.rs`
+`crates/touring-intelligence/src/rl/memory/rlm.rs` (`store_with_palace` line 672,
+`query_by_palace` line 715 — verificado 26/08/2026; `touring-learning` fundido em
+`touring-intelligence::rl`) + `crates/touring-server/src/memory_store.rs`
 
 - **Schema**: `ALTER TABLE memory_entries ADD COLUMN palace_path TEXT` (idempotent migration)
 - **Palace Path**: `wing_{name}/room_{name}/closet_{name}/drawer_{name}` (4-level hierarchy)
@@ -469,12 +488,14 @@ SessionEnd  → session-stop (persist metrics)
 
 ### Tarjan SCC Cycle Detection
 
-`touring-ast/src/call_graph.rs` — `CallGraph::detect_cycles()` uses `petgraph::algo::tarjan_scc`
+`touring-code/src/ast/call_graph.rs` (`touring-ast` fundido em `touring-code::ast`,
+verificado 26/08/2026) — `CallGraph::detect_cycles()` uses `petgraph::algo::tarjan_scc`
 in O(|V|+|E|) to detect mutual recursion and self-loops in LLM-generated code before it reaches disk.
 
 ### 6-Layer Speculative Validation
 
-`touring-ast/src/speculate.rs` — `speculate_v2()` now validates 6 layers:
+`touring-code/src/ast/speculate.rs` — `speculate_v2()` (line 296, verificado 26/08/2026)
+now validates 6 layers:
 
 | Layer | Weight | Purpose |
 |-------|--------|---------|
@@ -504,12 +525,14 @@ state that would otherwise be lost during summarization.
 
 ### File Digest Signal
 
-`touring-hooks/src/precomputed_signals.rs` — `file_digest_signal(source, lang)` produces
+`touring-hooks-shared/src/precomputed_signals.rs` (movido de `touring-hooks`,
+verificado 26/08/2026) — `file_digest_signal(source, lang)` produces
 compact AST summary: `digest(NL, M symbols, CC avg=X max=Y, hot: fn1/fn2)`.
 
 ### HNSW Working Memory Activated
 
-`touring-server/Cargo.toml` enables `hnsw-working-memory` on `touring-learning`,
+`touring-server/Cargo.toml` enables `hnsw-working-memory` on `touring-intelligence`
+(`touring-learning` fundido nesse crate, verificado 26/08/2026),
 activating `instant-distance` + `bumpalo` arena allocation for in-memory ANN recall.
 
 ## Dual-Mode Operation
@@ -540,18 +563,22 @@ Quatro vetores de otimização GPU para NVIDIA RTX 4060 Laptop (8GB VRAM).
 - **`compute_dot_u4(input, weights, scale) -> Result<f32>`**: GPU dot product for quantized inference
 - Staging buffer pattern: `STORAGE | COPY_SRC` → `copy_buffer_to_buffer` → `COPY_DST | MAP_READ`
 
-### Vector B — Zero-Copy rkyv IPC [touring-core]
+### Vector B — Zero-Copy rkyv IPC [touring-storage]
+(`touring-core` fundido em `touring-storage`, verificado 26/08/2026 — `RkyvGpuBackend`
+mora hoje em `crates/touring-storage/src/embedding/client.rs`)
 - **`RkyvGpuBackend`**: reqwest client wrapping rkyv serialization
 - **`IpcEmbedRequest` / `IpcEmbedResponse`**: rkyv archived, zero-copy
 - Feature gate: `ipc-embed` (default off, opt-in)
 
-### Vector C — LinUCB GPU Offload [touring-learning]
+### Vector C — LinUCB GPU Offload [touring-intelligence]
+(`touring-learning` fundido em `touring-intelligence::rl::bandit`, verificado 26/08/2026)
 - **`LINUCB_UCB_SHADER`**: WGSL compute shader for UCB computation (8 arms × 25 dims)
 - **`predict_ucb_gpu(arms, features) -> Vec<f32>`**: GPU batch prediction
 - **`update_gpu(context, reward)`**: GPU reward update
 - Shader bindings: `@binding(0)` features, `@binding(1)` A_inv, `@binding(2)` b_vec, `@binding(3)` ucb_scores
 
-### Vector D — MCTS GPU Rollouts [touring-cognitive]
+### Vector D — MCTS GPU Rollouts [touring-intelligence]
+(`touring-cognitive` fundido em `touring-intelligence::reasoning`, verificado 26/08/2026)
 - **`MCTS_ROLLOUT_SHADER`**: WGSL parallel frontier evaluation
 - **`PheromoneMCTS::rollout_gpu(frontier, depth)`**: GPU dispatch real via wgpu 0.26, rayon fallback
 - **`PheromoneMCTS::search_gpu()`**: novo método público com GPU batch rollout
@@ -572,9 +599,9 @@ Quatro vetores de otimização GPU para NVIDIA RTX 4060 Laptop (8GB VRAM).
 ### Key Lessons
 
 1. GPU reduction originally on CPU — fixed to stay on GPU
-2. `GpuBackend` trait doesn't expose wgpu types — touring-cognitive uses direct wgpu
+2. `GpuBackend` trait doesn't expose wgpu types — `touring-intelligence` (era `touring-cognitive`) uses direct wgpu
 3. `MAP_READ` can only combine with `COPY_DST` — staging buffer pattern required
-4. Orphan rule: `impl touring_simd::gpu::GpuResources` in touring-cognitive blocked — solved with local extension
+4. Orphan rule: `impl touring_simd::gpu::GpuResources` in `touring-intelligence` (era `touring-cognitive`) blocked — solved with local extension
 
 ---
 
@@ -639,7 +666,7 @@ hint `[TOURING MCTS-SYNTHESIS]` se deadlock previsto.
 | `ShadowRolloutResult` | `pub struct` | `shared/shadow_rollout.rs:42` |
 | `run_shadow_rollout` | `pub fn` | `shared/shadow_rollout.rs:145` |
 | `mcts_shadow_rollout_hint` | `pub(crate) fn` | `plan_mode/enter.rs:388` |
-| `PheromoneMCTS` | `pub struct` | `touring-cognitive/mcts.rs:649` |
+| `PheromoneMCTS` | `pub struct` | `touring-intelligence/src/reasoning/mcts.rs:837` (era `touring-cognitive/mcts.rs:649`; crate fundido e linha realocada, verificado 26/08/2026) |
 
 `PheromoneMCTS` é o struct MCTS com pheromone layer (IC-1). `CognitiveMCTS` é type alias
 para `GraphInformedMCTS` (COG-1+S6) em `cognitive_mcts.rs:170` — sistemas distintos.

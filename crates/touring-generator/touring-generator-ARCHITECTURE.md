@@ -47,7 +47,7 @@ Code generation pipeline with VGP (Verified Generation Protocol) — 40 modules 
 ## Integration Points
 
 - taco-forge: perfect-create-* workflows invoke touring-generator
-- touring-ast: AST analysis for symbol verification
+- touring-code::ast (era touring-ast): AST analysis for symbol verification
 - touring-server: generator tools via MCP
 - REGRA #14: taco-forge canonical workflows use touring-generator as engine
 

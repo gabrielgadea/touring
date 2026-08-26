@@ -36,9 +36,9 @@ Python bindings for Touring subsystems — PyO3-based Python bindings exposing A
 
 ## Integration Points
 
-- touring-learning: ACO via Python bindings
+- touring-intelligence::rl (era touring-learning): ACO via Python bindings
 - touring-simd: SIMD operations from Python
-- touring-ast: AST analysis from Python
+- touring-code::ast (era touring-ast): AST analysis from Python
 - Python tooling: external Python tools consume Touring subsystems
 
 ## Technology

@@ -316,6 +316,22 @@ jobs:
         run: python3 -m pytest scripts/test_git_nudge_matches_executor.py -q
       - name: cli tests — isolamento de project root
         run: python3 -m pytest scripts/test_cli_tests_isolate_project_root.py -q
+      - name: docs — nenhuma doc de sistema/repo/infra cita crate inexistente
+        # 26/08/2026: 63 de 93 arquivos citavam crates fundidos meses atrás
+        # (touring-ast, touring-learning, touring-core...), 500+ menções. A
+        # correção não foi mecânica — 3 dos 5 primeiros palpites por nome de
+        # diretório homônimo estavam errados. Este guard fecha a classe: a
+        # próxima fusão de crate não reabre o mesmo drift em silêncio.
+        run: python3 -m pytest scripts/test_docs_no_phantom_crates.py -q
+      - name: mkdocs build --strict (F7, site de sistema/repo/infra)
+        # `docs-site/` são symlinks para README/CLAUDE/ARCHITECTURE/docs/ — se
+        # um link relativo quebrar (arquivo movido, renomeado) o build falha
+        # em vez de publicar um site com link morto. Reproduzido em venv
+        # limpo a partir de requirements-docs.txt, verificado 26/08/2026.
+        run: |
+          python3 -m venv .venv-docs
+          .venv-docs/bin/pip install -q -r requirements-docs.txt
+          .venv-docs/bin/mkdocs build --strict
       - name: file_size_gate — no .rs file bloat (>5k LOC)
         run: python3 docs/file_size_gate.py --check
       - name: gen_reference — docs/reference/ anti-drift

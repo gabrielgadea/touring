@@ -1,0 +1,11 @@
+{
+  "phase": "F7",
+  "entities": [
+    {
+      "entity_id": "phase:F7",
+      "type": "phase",
+      "description": "mkdocs.yml + docs-site/ (symlinks para README/CLAUDE/ARCHITECTURE/docs/) + requirements-docs.txt. mkdocs build --strict exit 0, reproduzido em VENV LIMPO a partir do requirements-docs.txt (nao so no venv onde instalei manualmente). Correcao factual a estrategia de 20/08: mkdocstrings NAO tem handler para Rust (confirmado via Context7 \u2014 so C/Crystal/Python/TypeScript/MATLAB/Shell/VBA); o padrao real para Rust e cargo doc, documentado no mkdocs.yml. docs_dir usa symlink de PASTA inteira para docs/ (nao arquivo por arquivo) \u2014 achatar quebrava links relativos internos em cascata (cada camada resolvida revelava outra referencia quebrada: 11 -> 8 -> 1 warnings ate a estrutura certa). 1 link genuinamente quebrado achado e corrigido: docs/landing/index.md apontava para docs/touring-license.md que nunca existiu; corrigido para link absoluto ao codigo-fonte real (crates/touring-license/src/lib.rs, que nao tem README). site/ e .venv-docs/ gitignorados; CI roda o build em venv limpo."
+    }
+  ],
+  "relations": []
+}

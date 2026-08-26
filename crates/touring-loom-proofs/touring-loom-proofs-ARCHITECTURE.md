@@ -4,7 +4,7 @@
 
 ## Overview
 
-Loom concurrency proof-of-concept crate for Touring — contains loom proofs for concurrent data structures used in touring-core and touring-hooks. Verifies memory safety under concurrent access.
+Loom concurrency proof-of-concept crate for Touring — contains loom proofs for concurrent data structures used in touring-foundation (era touring-core) and touring-hooks. Verifies memory safety under concurrent access.
 
 ## Key Types
 
@@ -23,7 +23,7 @@ N/A (loom proofs only)
 
 ## Integration Points
 
-- touring-core: concurrent data structure proofs
+- touring-foundation (era touring-core): concurrent data structure proofs
 - touring-hooks: concurrent hook runtime proofs
 
 ## Technology

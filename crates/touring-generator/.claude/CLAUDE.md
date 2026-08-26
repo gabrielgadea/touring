@@ -30,12 +30,12 @@ cargo clippy -p touring-generator -- -D warnings   # must be 0
 
 | Field | Type | Injected From | Purpose |
 |-------|------|---------------|---------|
-| `semantic_graph_fn` | `SemanticGraphFn` | touring-cognitive | Plan similarity via concept nodes |
+| `semantic_graph_fn` | `SemanticGraphFn` | touring-intelligence::reasoning | Plan similarity via concept nodes |
 | `pheromone_fn` | `PheromoneUpdateFn` | touring-simd | ACO template selection RL |
-| `cognitive_nexus_fn` | `CognitiveNexusFn` | touring-cognitive | Cross-session plan similarity |
+| `cognitive_nexus_fn` | `CognitiveNexusFn` | touring-intelligence::reasoning | Cross-session plan similarity |
 | `wiring_gate_fn` | `WiringGateFn` | touring-analysis + syn | Orphan export gate (hard block) |
-| `wasm_sandbox_fn` | `WasmSandboxFn` | touring-wasm | WASM defense-in-depth validator |
-| `mcts_eval_fn` | `MctsEvalFn` | touring-cognitive | MCTS synthesis scoring |
+| `wasm_sandbox_fn` | `WasmSandboxFn` | touring-bindings::wasm | WASM defense-in-depth validator |
+| `mcts_eval_fn` | `MctsEvalFn` | touring-intelligence::reasoning | MCTS synthesis scoring |
 | `dspy_sig_fn` | `DspySigFn` | touring-cortex | DSPy signature execution |
 | `knowledge_upsert_fn` | `KnowledgeUpsertFn` | touring-hooks | Post-commit FileKnowledgeDB upsert |
 | `session_start_fn` | `SessionStartFn` | touring-server | Auto touring session start at verify |

@@ -1,0 +1,11 @@
+{
+  "phase": "F1",
+  "entities": [
+    {
+      "entity_id": "phase:F1",
+      "type": "phase",
+      "description": "Mapa de fusao verificado: 20 nomes fantasma, 6 confirmados por definicao de simbolo (ALTA), 7 por tamanho dominante (MEDIA), 7 sem destino achado (BAIXA, provavel nunca-implementado). Escopo dividido: 26 arqs/105 mencoes no NUCLEO (crates/ARCHITECTURE+CLAUDE+README, ARCHITECTURE.md raiz, RFCs, CONSTITUTION) vs 30 arqs/457 mencoes que sao planos/relatos antigos (vao para pasta indefinidos, F6b). 3 dos 5 primeiros palpites por nome de diretorio estavam ERRADOS (ast->touring-code nao analysis; learning->intelligence::rl 1.7MB nao analysis::learning 12KB; cognitive->intelligence::reasoning::CognitiveRuntime sem diretorio homonimo algum) \u2014 confirmado que find/replace teria produzido doc confiantemente errada."
+    }
+  ],
+  "relations": []
+}
