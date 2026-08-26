@@ -7,6 +7,11 @@
 **Date**: 2026-05-09
 **Version**: 1.0.0
 
+> **Nota de manutenção (26/08/2026)**: `touring-activity` era crate próprio;
+> hoje é `touring-foundation::activity` (verificado por existência exata dos
+> arquivos citados). `schemas/event.schema.json` **não existe mais em lugar
+> nenhum do workspace** — mesma ausência confirmada em RFC-001.
+
 ---
 
 ## PREAMBLE
@@ -38,11 +43,11 @@ Touring adopts ESAA's architectural primitives as constraints:
 
 | ESAA Primitive | Touring Implementation | RFC |
 |---|---|---|
-| `activity.jsonl` append-only event log | `touring-activity` crate — monotonic seq, SHA-256 projection_hash | RFC-001 |
+| `activity.jsonl` append-only event log | `touring-foundation::activity` module — monotonic seq, SHA-256 projection_hash | RFC-001 |
 | Boundary contracts per task_kind | VGP Layer 5 Path Boundaries — globset enforcement per TaskKind | RFC-003 |
 | PARCER profiles (6-dim behavioral contract) | 5 PARCER YAML profiles in `~/.claude/agents/` | RFC-002 |
 | 7-layer validation pipeline | VGP typestate + `validate_plan()` in `pipeline.rs` | RFC-005 |
-| `output.rejected` error catalog | 7 error codes in `touring-activity` | RFC-001 |
+| `output.rejected` error catalog | 7 error codes in `touring-foundation::activity` | RFC-001 |
 | Immutability invariant | VGP Layer 6 — CommittedHistory blocks re-commit | RFC-005 |
 | Entity Identity Registry | `touring-identity` crate — EntityId, Criterion, Resolution | RFC-004 |
 
@@ -54,7 +59,7 @@ Touring adopts ESAA's architectural primitives as constraints:
 
 **File**: `docs/RFC-001-activity-event-catalog.md`
 
-The `touring-activity` crate delivers an append-only event store with monotonic
+The `touring-foundation::activity` module delivers an append-only event store with monotonic
 `seq`, SHA-256 `projection_hash`, and deterministic replay verification.
 
 **Key types**:
@@ -345,9 +350,9 @@ Full rules in `~/.claude/CLAUDE.md` and `~/.claude/rules/`.
 
 | File | Purpose |
 |------|---------|
-| `crates/touring-activity/src/event.rs` | EventAction, Actor, EventId, Event, projection_hash |
-| `crates/touring-activity/src/store.rs` | Append-only store with seq enforcement |
-| `crates/touring-activity/schemas/event.schema.json` | JSON Schema (draft-07) |
+| `crates/touring-foundation/src/activity/event.rs` | EventAction, Actor, EventId, Event, projection_hash |
+| `crates/touring-foundation/src/activity/store.rs` | Append-only store with seq enforcement |
+| `crates/touring-foundation/src/activity/schemas/event.schema.json` | JSON Schema (draft-07) |
 | `crates/touring-generator/src/validate/boundary.rs` | L5 PathBoundary validator |
 | `crates/touring-generator/src/validate/pipeline.rs` | 7-layer validation pipeline |
 | `crates/touring-generator/src/plan/contracts.rs` | Contracts, PathBoundaries, TaskKind, BoundaryEnforcement, EntityIdRef |

@@ -10,7 +10,7 @@ All 10 features are in `default` and require no flags:
 
 | Feature | Purpose |
 |---------|---------|
-| `blast-radius` | BFS exact blast radius via touring-ast SymbolIndex |
+| `blast-radius` | BFS exact blast radius via touring-code::ast (era touring-ast) SymbolIndex |
 | `quality` | Antipattern, complexity, unwrap audit, error coverage |
 | `wiring` | Orphan detection, functional chains, dead code |
 | `temporal` | Edit velocity, churn rate, KS drift via DriftDetector |

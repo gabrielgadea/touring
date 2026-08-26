@@ -4,6 +4,11 @@
 
 # Build cache — regenerable (REGRA #12 disk hygiene). Matches at any nesting depth.
 target/
+
+# MkDocs build output (F7, 2026-08-26) — 231 MB regenerable static site.
+# `mkdocs.yml` + `docs-site/` (symlinks) ARE versioned; only the build isn't.
+/site/
+/.venv-docs/
 **/target/
 
 # cargo-mutants output

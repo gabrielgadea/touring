@@ -42,9 +42,9 @@ Refactor-as-CLI framework — 10 assist handlers powered by tree-sitter AST anal
 
 ## Integration Points
 
-- touring-ast: AST parsing and symbol extraction
+- touring-code::ast (era touring-ast): AST parsing and symbol extraction
 - touring-generator: SourceChange flows through render/commit pipeline
-- touring-core: Error types and config
+- touring-foundation (era touring-core): Error types and config
 
 ## Technology
 

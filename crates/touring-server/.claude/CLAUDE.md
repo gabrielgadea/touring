@@ -10,23 +10,23 @@ All 17 features are in `default`:
 
 | Feature | Purpose |
 |---------|---------|
-| `wasm-plugins` | WASM plugin runner via touring-wasm |
+| `wasm-plugins` | WASM plugin runner via touring-bindings |
 | `l7b-alpha` | L7-B inferlets, job spawning, health gates |
-| `async-memory` | Async pattern clustering via touring-learning |
+| `async-memory` | Async pattern clustering via touring-intelligence |
 | `scip-emit` | SCIP index emission for code intelligence |
 | `simd-fuzzy` | SIMD fuzzy matching via touring-simd |
-| `rl-integration` | RL reward sink via touring-learning |
-| `mcts-synthesis` | MCTS synthesis via touring-cognitive |
+| `rl-integration` | RL reward sink via touring-generator |
+| `mcts-synthesis` | MCTS synthesis via touring-generator |
 | `syn-quote` | Syn quote macro for code generation |
-| `cognitive-nexus` | Cognitive nexus via touring-cognitive |
+| `cognitive-nexus` | Cognitive nexus via touring-generator |
 | `analysis-gate` | Wiring + quality gates via touring-analysis |
-| `nlp-reranking` | NLP reranking via touring-antt |
+| `nlp-reranking` | NLP reranking via touring-generator |
 | `observability` | Tracing telemetry, console, OTLP |
 | `memory-integration` | Memory provider for generator |
 | `generator-wasm-sandbox` | WASM sandbox adapter for generator |
 | `generator-zero-copy` | Zero-copy snapshot via rkyv |
 | `ebpf-telemetry` | eBPF syscall telemetry (Linux only) |
-| `prod-allocator` | Mimalloc global allocator (touring-core/mimalloc-allocator) |
+| `prod-allocator` | Mimalloc global allocator (touring-foundation/mimalloc-allocator) |
 | `console` | tokio-console instrumentation (port 6669) |
 | `otlp` | OpenTelemetry OTLP export |
 | `file-logs` | Daily-rotated tracing-appender logs |
@@ -73,7 +73,7 @@ internal rayon pool of `StreamingMCTS` does the multi-core work.
 
 Two recurring boot warnings were silenced:
 
-1. **eBPF init**: `touring-telemetry` now logs at `info!` (was `warn!`)
+1. **eBPF init**: `touring-foundation::telemetry` (feature `ebpf-telemetry`) now logs at `info!` (was `warn!`)
    when the compiled `.bpf.o` bytecode is absent — this is the expected
    state on workstations. Only real faults (kernel headers, map access)
    stay at `warn!`.

@@ -73,8 +73,8 @@ Organized into: reasoning (decompose, suggest), analysis (ast, wiring, index), g
 ## Integration Points
 
 - Tantivy index: all search operations via touring-tantivy
-- touring-ast: AST analysis via tour AST integration
-- touring-learning: RL via LinUCB + Q-table
+- touring-code::ast (era touring-ast): AST analysis via tour AST integration
+- touring-intelligence::rl (era touring-learning): RL via LinUCB + Q-table
 - touring-hooks: hook runtime for lifecycle events
 - Daemon socket: `/tmp/touring-daemon-1000.sock` (RPC)
 - REGRA #0: All pub symbols must have consumers or be documented as intentional orphans

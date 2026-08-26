@@ -53,7 +53,7 @@ Context enrichment and neural processing engine for Touring — 60 modules provi
 
 - touring-hooks: enrichment pipeline for pre-read
 - touring-server: context compiler for session injection
-- touring-learning: intelligence signals for RL
+- touring-intelligence::rl (era touring-learning): intelligence signals for RL
 
 ## Technology
 

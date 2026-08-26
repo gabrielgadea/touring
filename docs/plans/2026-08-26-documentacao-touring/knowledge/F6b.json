@@ -1,0 +1,11 @@
+{
+  "phase": "F6b",
+  "entities": [
+    {
+      "entity_id": "phase:F6b",
+      "type": "phase",
+      "description": "14 arquivos movidos de docs/ para docs/indefinidos/ via git mv (historico preservado), com index.md de proveniencia (idade/tamanho/motivo por arquivo). 3 falsos positivos da varredura original (memory-hashtag-library.md, code-mode.md, code-mode-execution-layers.md) VERIFICADOS como doc viva (citados por CLAUDE.md ou interlinkados entre si) e mantidos em docs/. 4 links quebrados identificados, todos em docs/internal/sessions/ (relatos historicos, politica de nao editar) ou client/ (gerado, regra 6) \u2014 registrados no index, nao corrigidos."
+    }
+  ],
+  "relations": []
+}

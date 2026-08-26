@@ -29,9 +29,9 @@ Zero-copy serialization templates for Touring IPC — rkyv-based templates for d
 ## Integration Points
 
 - touring-server: daemon RPC communication
-- touring-learning: RL state IPC (QTable, LinUCB snapshots)
+- touring-intelligence::rl (era touring-learning): RL state IPC (QTable, LinUCB snapshots)
 - touring-hooks: hook event IPC (ArchivedHookEvent, ArchivedIndexSnapshot)
-- touring-cognitive: GoTSnapshot local types (NOT shared — engine-specific state)
+- touring-intelligence::reasoning (era touring-cognitive): GoTSnapshot local types (NOT shared — engine-specific state)
 
 ## Technology
 

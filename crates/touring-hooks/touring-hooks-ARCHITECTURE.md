@@ -90,7 +90,7 @@ Hook runtime and plugin system for the Touring ecosystem — orchestrates 200+ l
 | `src/aco/pheromone.rs` | ~125 | Pheromone tracking for ACO |
 | `src/aco/esaa.rs` | ~120 | ESAA pattern implementation |
 | `src/rkyv_ipc.rs` | ~115 | rkyv IPC for daemon communication |
-| `src/touring_ast_integration.rs` | ~110 | touring-ast integration |
+| `src/touring_ast_integration.rs` | ~110 | touring-ast integration — **arquivo não existe mais em lugar nenhum do workspace, verificado 26/08/2026** (nem removido nem renomeado com nome rastreável) |
 | `src/health_delta.rs` | ~105 | Health delta computation |
 | `src/health.rs` | ~100 | Health module |
 | `src/shared/checkpoint.rs` | ~95 | Checkpoint utilities |
@@ -122,7 +122,8 @@ Hook runtime and plugin system for the Touring ecosystem — orchestrates 200+ l
 
 ## Integration Points
 
-- Consumed by touring-core for health scoring
+- Consumed by touring-analysis (era referenciado como touring-core, corrigido 26/08/2026 —
+  `health_score` mora em `touring-analysis::quality`) for health scoring
 - Wired via `touring-hook` binary in `~/.claude/hooks/`
 - Daemon health component: `knowledge_db`, `symbol_store`, `crdt_graph`, `predictor`, `cognitive_runtime`, `enrichment_pipeline`, `gotcha_db`
 - Gate metrics: pre_edit_fast_path, rkyv_dispatch_count, tantivy_upsert_count, health_delta_*

@@ -31,7 +31,7 @@ Cap'n Proto RPC server for Touring — provides high-performance RPC server usin
 ## Integration Points
 
 - touring-server: RPC server for daemon communication
-- touring-wasm: WASM plugin RPC support
+- touring-bindings::wasm (era touring-wasm): WASM plugin RPC support
 
 ## Technology
 

@@ -1,0 +1,11 @@
+{
+  "phase": "F3",
+  "entities": [
+    {
+      "entity_id": "phase:F3",
+      "type": "phase",
+      "description": "scripts/test_docs_no_phantom_crates.py \u2014 reprova doc do escopo sistema/repo/infra citando crate inexistente sem nota de provenienciacao. Ground truth via os.listdir('crates') (nunca lista hardcoded, que envelheceria). Tolera notas de provenienciacao (era/fundido/verificado/data) \u2014 nao proibe a HISTORIA da fusao, so a mentira presente. 3 rodadas de refinamento por falso positivo: (1) nomes de arquivo colados com extensao (.md/.rs/.sh), (2) path de diretorio (docs/plans/touring-X/), (3) hifen orfao antes de palavra com maiuscula quebrando o boundary do regex. Provado por mutacao (reintroduzir crate fantasma isolado -> exit 1; restaurar -> exit 0). Registrado no CI."
+    }
+  ],
+  "relations": []
+}

@@ -7,6 +7,15 @@
 **Date**: 2026-05-09
 **Version**: 1.0.0
 
+> **Nota de manutenção (26/08/2026)**: os exemplos de `EntityId::from_str(...)`
+> abaixo citavam `touring-ast`/`touring-core` — crates que não existem mais
+> (fundidos; mapa verificado em
+> `docs/plans/2026-08-26-documentacao-touring/f1-inventario.json`). Atualizados
+> para `touring-code`/`touring-foundation`, os destinos reais — confirmado por
+> 18 dos 19 paths de `touring-core-ARCHITECTURE.md` existindo exatamente em
+> `crates/touring-foundation/`. O RFC em si (formato `EntityId::derive`) não
+> mudou — só os exemplos ilustrativos.
+
 ---
 
 ## 1. Context and Motivation
@@ -57,9 +66,9 @@ impl EntityId {
 **Canonical name format**: `crate_name::module_path::symbol_name`
 
 Examples:
-- `touring-ast::semantic_search::CosineComputer` — struct in touring-ast crate
+- `touring-code::semantic_search::CosineComputer` — struct in touring-code crate
 - `touring-hooks::pre_read::PreReadContext` — struct in touring-hooks
-- `touring-core::profile::Profiler` — type in touring-core
+- `touring-foundation::profile::Profiler` — type in touring-foundation
 
 **Invariant**: `as_str()` returns the full interned string. There is no
 validation of format at construction time — the entity canonical name is
@@ -74,8 +83,8 @@ pub fn crate_namespace(&self) -> Option<&str> {
 
 #[test]
 fn entity_id_crate_namespace() {
-    let id = EntityId::from_str("touring-ast::semantic_search::CosineComputer");
-    assert_eq!(id.crate_namespace(), Some("touring-ast"));
+    let id = EntityId::from_str("touring-code::semantic_search::CosineComputer");
+    assert_eq!(id.crate_namespace(), Some("touring-code"));
     let id2 = EntityId::from_str("PlainSymbol");
     assert_eq!(id2.crate_namespace(), None); // no namespace
 }
@@ -166,7 +175,7 @@ impl Criterion {
 |-----------|------|-------------|
 | `Criterion::exact_name("CosineComputer")` | `"CosineComputer"` | exact name match |
 | `Criterion::fuzzy_name("CosineComp", 2)` | `"fuzzy:CosineComp"` | fuzzy match, edit distance ≤ 2 |
-| `Criterion::context_scoped("touring-ast::**", "CosineComputer")` | `"ctx:touring-ast::**::CosineComputer"` | same symbol within touring-ast subtree |
+| `Criterion::context_scoped("touring-code::**", "CosineComputer")` | `"ctx:touring-code::**::CosineComputer"` | same symbol within touring-code subtree |
 
 The fuzzy name format uses the prefix `"fuzzy:"` and stores the configured
 `max_edit_distance` in the description (not the name). The context-scoped
@@ -179,9 +188,9 @@ name.
 // touring-identity/src/types.rs:152-237
 pub struct Entity {
     pub id: EntityId,                               // stable identifier
-    pub canonical_name: SmolStr,                    // e.g. "touring-ast::semantic_search::CosineComputer"
+    pub canonical_name: SmolStr,                    // e.g. "touring-code::semantic_search::CosineComputer"
     pub kind: EntityKind,                           // kind of entity
-    pub crate_name: SmolStr,                       // e.g. "touring-ast"
+    pub crate_name: SmolStr,                       // e.g. "touring-code"
     pub criteria: Vec<Criterion>,                  // rules this entity satisfies
     pub source_path: Option<SmolStr>,             // file path where defined
     pub definition_line: Option<u32>,              // line number of definition
@@ -274,8 +283,8 @@ impl EntityRelation {
 
 ```rust
 EntityRelation::new(
-    EntityId::from_str("touring-ast::NewCalculator"),
-    EntityId::from_str("touring-ast::OldCalculator"),
+    EntityId::from_str("touring-code::NewCalculator"),
+    EntityId::from_str("touring-code::OldCalculator"),
     RelationKind::Supersedes,
 ).with_justification("OldCalculator was renamed to NewCalculator in the v8 refactor")
 ```
@@ -375,9 +384,9 @@ Examples:
 
 | Canonical Name | Crate | Module | Symbol |
 |---------------|-------|--------|--------|
-| `touring-ast::semantic_search::CosineComputer` | touring-ast | semantic_search | CosineComputer |
+| `touring-code::semantic_search::CosineComputer` | touring-code | semantic_search | CosineComputer |
 | `touring-hooks::pre_read::PreReadContext` | touring-hooks | pre_read | PreReadContext |
-| `touring-core::profile::Profiler` | touring-core | profile | Profiler |
+| `touring-foundation::profile::Profiler` | touring-foundation | profile | Profiler |
 | `touring-analysis::quality::ComplexityMetrics` | touring-analysis | quality | ComplexityMetrics |
 
 ### 5.1 Crate Namespace Extraction
@@ -385,8 +394,8 @@ Examples:
 `EntityId::crate_namespace()` returns the first `::`-delimited segment:
 
 ```rust
-EntityId::from_str("touring-ast::semantic_search::CosineComputer").crate_namespace()
-// → Some("touring-ast")
+EntityId::from_str("touring-code::semantic_search::CosineComputer").crate_namespace()
+// → Some("touring-code")
 ```
 
 This is used by the resolution algorithm to group entities by crate of origin

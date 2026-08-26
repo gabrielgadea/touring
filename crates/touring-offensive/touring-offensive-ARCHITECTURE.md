@@ -41,7 +41,7 @@ Security vulnerability analysis and exploit tooling for Touring — 14 modules i
 ## Integration Points
 
 - touring-analysis: vulnerability scanning in quality pipeline
-- touring-learning: RL-based exploit prioritization
+- touring-intelligence::rl (era touring-learning): RL-based exploit prioritization
 - Security gate: vulnerability detection in touring hooks
 
 ## Technology

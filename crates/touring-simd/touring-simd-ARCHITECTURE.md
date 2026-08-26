@@ -46,9 +46,11 @@ SIMD-accelerated vector operations for Touring — 26 modules providing quantiza
 
 ## Integration Points
 
-- touring-vector-store: SIMD-accelerated vector operations
-- touring-search-fusion: semantic similarity in hybrid search
-- touring-learning: ACO-based vector search optimization
+- touring-intelligence::ann / ::index (era touring-vector-store / touring-search-fusion,
+  crates que a evidência de 26/08/2026 não confirma terem existido — mapa em
+  `docs/plans/2026-08-26-documentacao-touring/f1-inventario.json`): SIMD-accelerated
+  vector operations, semantic similarity in hybrid search
+- touring-intelligence::rl (era touring-learning): ACO-based vector search optimization
 
 ## Technology
 

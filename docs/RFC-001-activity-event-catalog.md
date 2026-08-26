@@ -7,13 +7,21 @@
 **Date**: 2026-05-09  
 **Version**: 1.0.0  
 
+> **Nota de manutenção (26/08/2026)**: `touring-activity` era um crate próprio;
+> hoje o módulo mora em `touring-foundation::activity`
+> (`crates/touring-foundation/src/activity/`), confirmado por existência exata
+> de `event.rs`/`store.rs`/`projection.rs`/`verify.rs`. `schemas/event.schema.json`
+> citado abaixo **não existe mais em lugar nenhum do workspace** — removido,
+> não movido (verificar com Gabriel se o schema deve ser recriado ou se a
+> validação migrou para outro mecanismo).
+
 ---
 
 ## 1. Context and Motivation
 
 ESAA (Event Sourcing for Autonomous Agents) prescribes an append-only event store as
 the single source of truth for agentic state. Touring v8.0 adopted this principle in
-S1 (Activity Log) and implemented it in `touring-activity` crate.
+S1 (Activity Log) and implemented it in `touring-foundation::activity` crate.
 
 This RFC formalizes the complete event catalog, establishing canonical type names,
 field semantics, error taxonomy, and invariants that all consumers (scouts, architects,
@@ -21,14 +29,14 @@ engineers, auditors) must respect.
 
 **Relation to S1**: This RFC supersedes the S1 "gap" identified in the v8 master plan
 analysis (line 94 of master plan: "GAP — diary AAAK approximates but is not append-only
-with monotonic event_seq"). The `touring-activity` crate closes that gap.
+with monotonic event_seq"). The `touring-foundation::activity` crate closes that gap.
 
 ---
 
 ## 2. Event Type Catalog
 
 All events are JSON objects over a UTF-8 wire. The canonical schema is at
-`crates/touring-activity/schemas/event.schema.json` (JSON Schema draft-07).
+`crates/touring-foundation/src/activity/schemas/event.schema.json` (JSON Schema draft-07).
 
 ### 2.1 EventAction Enum (12 + 1 variants)
 
@@ -86,7 +94,7 @@ Example: "1746758401234567890-a1b2c3d4e5f6"
 The first event has `seq = 1`. No gaps, no duplicates, no decreases.
 
 **Enforcement**: `store.rs` appends only if `seq == last_seq + 1` (verified in
-`touring-activity/src/store.rs`).
+`touring-foundation::activity/src/store.rs`).
 
 ### 2.5 Projection Hash
 
@@ -156,11 +164,11 @@ When an event cannot be appended due to invariant violation, the store emits an
 
 | File | Purpose |
 |------|---------|
-| `crates/touring-activity/src/event.rs` | EventAction, Actor, EventId, Event structs |
-| `crates/touring-activity/src/store.rs` | Append-only store with seq enforcement |
-| `crates/touring-activity/src/projection.rs` | Deterministic projection logic |
-| `crates/touring-activity/src/verify.rs` | Replay verification |
-| `crates/touring-activity/schemas/event.schema.json` | JSON Schema (draft-07) |
+| `crates/touring-foundation/src/activity/event.rs` | EventAction, Actor, EventId, Event structs |
+| `crates/touring-foundation/src/activity/store.rs` | Append-only store with seq enforcement |
+| `crates/touring-foundation/src/activity/projection.rs` | Deterministic projection logic |
+| `crates/touring-foundation/src/activity/verify.rs` | Replay verification |
+| `crates/touring-foundation/src/activity/schemas/event.schema.json` | JSON Schema (draft-07) |
 
 ---
 

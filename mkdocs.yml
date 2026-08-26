@@ -1,0 +1,86 @@
+site_name: Touring
+site_description: Touring — orquestração de código agentic (documentação de sistema, repositório e infraestrutura)
+site_url: https://gabrielgadea.github.io/touring/
+repo_url: https://github.com/gabrielgadea/touring
+repo_name: gabrielgadea/touring
+
+# `docs-site/` é um espelho por SYMLINK, não uma cópia — o MkDocs exige um
+# docs_dir que não seja o pai do arquivo de config nem contenha o site_dir.
+# `docs-site/docs` é um symlink de PASTA inteira para `../docs` (não arquivo
+# por arquivo): os documentos do escopo linkam uns aos outros com paths
+# relativos que assumem a árvore real de `docs/` (`docs/adr/...`,
+# `docs/explanation/...`) — achatar tudo numa pasta quebra essa cadeia em
+# cascata (medido: cada camada resolvida revelava outra referência quebrada).
+# `exclude_docs` corta o que `docs/` tem e não é escopo deste site (planos,
+# relatórios datados, auditorias, indefinidos, o espelho client/ nem entra
+# aqui porque symlinkar pasta preserva source-of-truth único).
+docs_dir: docs-site
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Modo escuro
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Modo claro
+  features:
+    - navigation.sections
+    - navigation.top
+    - toc.integrate
+    - search.suggest
+
+exclude_docs: |
+  docs/plans/
+  docs/plans-archive/
+  docs/audits/
+  docs/internal/
+  docs/indefinidos/
+  docs/reference/
+  docs/*.md
+  !docs/RFC-*.md
+  !docs/CONSTITUTION*.md
+
+nav:
+  - Início: README.md
+  - Constituição para agentes: CLAUDE.md
+  - Arquitetura:
+      - Visão geral: ARCHITECTURE.md
+      - Histórico (v29.5.0): ARCHITECTURE-historical-v29.5.0.md
+      - RFC-001 — Activity Event Catalog: docs/RFC-001-activity-event-catalog.md
+      - RFC-002 — PARCER Profile Schema: docs/RFC-002-parcer-profile-schema.md
+      - RFC-003 — Path Boundaries Contract: docs/RFC-003-path-boundaries-contract.md
+      - RFC-004 — Entity Identity Registry: docs/RFC-004-entity-identity-registry.md
+      - RFC-005 — Seven-Layer Validation Pipeline: docs/RFC-005-seven-layer-validation-pipeline.md
+      - Constitution v8.0: docs/CONSTITUTION-v8.md
+  - Decisões de arquitetura (ADR):
+      - Índice: docs/adr/README.md
+      - "0001 — Web dashboard loopback default": docs/adr/0001-web-dashboard-loopback-default.md
+      - "0002 — ADW fragment composition by inlining": docs/adr/0002-adw-fragment-composition-by-inlining.md
+      - "0003 — ADW read-only fanout explicit policies": docs/adr/0003-adw-read-only-fanout-explicit-policies.md
+      - "0004 — ADW three-verdict verification contract": docs/adr/0004-adw-three-verdict-verification-contract.md
+      - "0005 — Decompose atomic subtask claim": docs/adr/0005-decompose-atomic-subtask-claim.md
+  - Projeto:
+      - Changelog: CHANGELOG.md
+      - Segurança: SECURITY.md
+      - Contribuindo: CONTRIBUTING.md
+      - Código de conduta: CODE_OF_CONDUCT.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+# Referência de API Rust: mkdocstrings NÃO tem handler para Rust (confirmado
+# via Context7, 26/08/2026 — só C/Crystal/Python/TypeScript/MATLAB/Shell/VBA;
+# a estratégia de 20/08 citava "MkDocs Material + mkdocstrings" para isso, o
+# que estava errado). O padrão real para Rust é `cargo doc` — este site cobre
+# o material narrativo (arquitetura, RFCs, ADRs); a referência de símbolo por
+# símbolo continua em `cargo doc --workspace --no-deps --open`.
