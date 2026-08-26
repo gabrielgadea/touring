@@ -267,6 +267,39 @@ pub fn run(
         }
     }
 
+    // P2 (autoresearch 2026-08-25) — a apresentação code-mode vira um BRAÇO vivo.
+    //
+    // O T3 entrega ao modelo uma rota já escrita. Até aqui os contadores
+    // (`t3_turn_fused`, `t3_turn_first_passed`) diziam com que frequência isso
+    // acontecia e NADA sobre se funcionava: telemetria sem consumidor de
+    // aprendizado. O veredito é o comando seguinte — rodar o programa é a rota
+    // tomada, prefixar um token de relaxamento é a rota recusada — e este é o
+    // primeiro hook depois do deny com runtime mutável, logo o lugar certo.
+    //
+    // Fail-open em cada passo: sem oferta pendente, sem comando legível ou com
+    // desfecho desconhecido, não se deposita nada. Desconhecido não é zero.
+    {
+        let cmd = input
+            .pointer("/tool_input/command")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if let Some((offer, value)) =
+            touring_cli::cli_suggester::claim_route_reward(&runtime.project_root, input, cmd)
+        {
+            let seguida = value > 0.0;
+            runtime.learning.inject_reward(
+                &format!("code_mode:{}", offer.mode),
+                value,
+                if seguida { "t3_route_followed" } else { "t3_route_bypassed" },
+            );
+            tracing::debug!(
+                arm = %offer.mode,
+                followed = seguida,
+                "P2: code-mode route outcome rewarded"
+            );
+        }
+    }
+
     let latency_ms = std::env::var("HOOK_ELAPSED_MS")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())

@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "P2 POLITICAS fechado conforme a decisao (b) de Gabriel. O braco code_mode GANHOU o controle da apresentacao, atras de TOURING_CODE_MODE_ARM_ARMED (default-OFF), com promocao por evidencia medida. Invariantes fixadas por teste (28/28 no modulo): desarmado o caminho e byte-identico ao anterior; declaracao humana (prefixo/env/touring.toml) NUNCA e sobrescrita \u2014 a politica so preenche o espaco deixado aberto; piso de 20 amostras E minimo de 2 bracos elegiveis (um braco sozinho nao e comparacao, e a configuracao vigente se confirmando); margem minima de 0.05 (diferenca dentro do ruido nao e evidencia, e empate jamais desempata pela ordem do vetor); evidencia corrompida ou ilegivel deixa a politica calada em vez de inventar escolha. Assimetria deliberada: bump_arm coleta SEMPRE (mesmo desarmado) e a leitura so acontece armada \u2014 se a coleta dependesse da env, no dia de armar a evidencia estaria em zero e a leitura natural seria 'nao funciona'. QTable passa a receber outcome real via inject_reward em vez de so telemetria de ferramenta. FORA DE ESCOPO POR DECISAO: exploracao (oferecer de proposito braco sub-amostrado) degradaria a apresentacao para colher dado \u2014 outra decisao humana. Follow-ups: P2d (expor no touring kpi lendo a MESMA fonte que a politica le)."
+    }
+  ],
+  "relations": []
+}

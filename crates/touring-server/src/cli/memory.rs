@@ -51,6 +51,15 @@ enum MemoryCmd {
         /// Outcome in [-1.0, 1.0] — e.g. 1.0 when the gate passed, 0.0 when it failed.
         #[arg(long)]
         reward: f64,
+        /// Credit EVERY recall still awaiting a verdict, not one named query.
+        ///
+        /// For the caller that knows the outcome but not the questions — a
+        /// phase gate, a run outcome. Naming the query stays exact and is the
+        /// default; this exists because requiring the caller to remember its
+        /// own recalls left the loop open at every site (0 credits in the
+        /// daemon's history, measured 2026-08-25).
+        #[arg(long = "all-pending", conflicts_with = "query")]
+        all_pending: bool,
     },
     /// Persist a new key-value entry.
     Store {
@@ -232,10 +241,18 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             )?;
             println!("{output}");
         }
-        MemoryCmd::Credit { query, reward } => {
+        MemoryCmd::Credit {
+            query,
+            reward,
+            all_pending,
+        } => {
             let output = daemon_query(
                 "cli-memory-credit",
-                serde_json::json!({ "query": query.join(" "), "reward": reward }),
+                serde_json::json!({
+                    "query": query.join(" "),
+                    "reward": reward,
+                    "all_pending": all_pending,
+                }),
             )?;
             println!("{output}");
         }

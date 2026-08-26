@@ -61,6 +61,39 @@ RULES = (
                   "health_delta_regression_count", "health_delta_improvement_count"),
         "serial": "serial(health_delta)",
     },
+    # Terceira família (26/08/2026): o gate de turno T3-B lê a env global
+    # TOURING_T3_FUSE_DISABLED, e `turn_gate_kill_switch_desliga_a_fusao` a
+    # ESCREVE. Uma env var é global ao processo: enquanto ela está posta, todo
+    # teste concorrente que atravesse o gate observa o oposto do que afirma.
+    #
+    # Medido antes do remédio: a suíte falhava 1 em 6 execuções paralelas
+    # (0 em 6 seriais); isolando só os `turn_gate_*` a taxa ia a 4/10, e o
+    # alvo sozinho dava 0/10 — assinatura de estado global, não de lógica.
+    # Havia 22 testes atravessando o gate e apenas o autor do kill switch
+    # sabia disso; a vítima que aparecia era acidental. É a mesma família das
+    # duas regras acima: corrigir a vítima do dia não impede a 23ª.
+    {
+        "name": "t3-env",
+        "glob": "crates/touring-cli/src/cli_suggester_tests.rs",
+        "calls": ("code_mode_gates(", "turn_gate_pre_bash("),
+        "serial": "serial(t3_env)",
+    },
+    # Quarta família (26/08/2026): `bump_arm` passou a ser o escritor ÚNICO da
+    # contagem do braço — grava a vista durável (arquivo) E a volátil (os
+    # átomos code_mode_arm_*). A unificação matou a divergência silenciosa
+    # entre as duas vistas, mas trouxe os testes de `bump_arm` para a família
+    # "contador global medido por delta": o teste de sincronia mediu delta 4
+    # contra 2 no disco porque um irmão paralelo também bumpou.
+    #
+    # A regra é a consequência estrutural da correção, não um detalhe: quem
+    # mexe em estado global do processo pertence a um grupo serial, e é o
+    # guard — não a memória de quem escreve o próximo teste — que garante.
+    {
+        "name": "arm-counters",
+        "glob": "crates/touring-cli/src/cli_suggester_tests.rs",
+        "calls": ("bump_arm(",),
+        "serial": "serial(gate_metrics)",
+    },
 )
 
 SERIAL_ATTR = "serial("
@@ -169,16 +202,27 @@ def main() -> int:
         json.dump({"ok": not bad, "offenders": bad}, sys.stdout, indent=2)
         print()
     elif bad:
-        print("VIOLAÇÃO — teste toca o pipeline do gateway sem serial(gate_metrics):")
+        # A mensagem deriva da REGRA violada. Antes era fixa no texto da
+        # primeira regra, então uma violação de `health-delta` ou `t3-env`
+        # era anunciada como se fosse do pipeline do gateway — mandando quem
+        # lê o CI investigar o subsistema errado.
+        by_rule: dict[str, list[dict[str, object]]] = {}
         for entry in bad:
-            print(f"  {entry['file']}:{entry['line']} {entry['test']} ({entry['via']})")
-            print(f"    remédio: {entry['remedy']}")
+            by_rule.setdefault(str(entry["rule"]), []).append(entry)
+        for name, entries in by_rule.items():
+            serial = next(r["serial"] for r in RULES if r["name"] == name)
+            print(f"VIOLAÇÃO [{name}] — teste toca estado global sem {serial}:")
+            for entry in entries:
+                print(f"  {entry['file']}:{entry['line']} {entry['test']} ({entry['via']})")
+                print(f"    remédio: {entry['remedy']}")
         print(
-            "\nSem o serial, o teste intercala com a medição de delta de "
-            "gateway/metrics.rs sob paralelismo do cargo e a suíte flaka."
+            "\nSem o grupo serial, o teste intercala com irmãos que medem esse "
+            "estado por delta (ou o sobrescrevem) sob o paralelismo do cargo, "
+            "e a suíte flaka com vítima rotativa."
         )
     else:
-        print("OK — todo teste que toca o pipeline do gateway é serial(gate_metrics)")
+        names = ", ".join(str(r["name"]) for r in RULES)
+        print(f"OK — todo teste sob as regras [{names}] carrega seu grupo serial")
     return 1 if bad else 0
 
 

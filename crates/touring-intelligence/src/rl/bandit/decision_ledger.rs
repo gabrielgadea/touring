@@ -130,6 +130,28 @@ impl<P> Ledger<P> {
         found
     }
 
+    /// Claim EVERY pending choice at once, oldest first.
+    ///
+    /// [`take`](Self::take) requires the caller to know the key. For the case
+    /// ledger nothing did: `memory recall` records one entry per query, and no
+    /// caller ever remembered which queries a phase had recalled — so the loop
+    /// stayed open at 100% of sites. Measured 2026-08-25: `credited_count` was
+    /// **0 for the entire life of the daemon**, with the mechanism fully built.
+    ///
+    /// Draining moves the burden of memory off the caller and onto the ledger:
+    /// the party that knows the VERDICT (a phase gate, a run outcome) can credit
+    /// everything the work rested on without having to reconstruct what it asked.
+    ///
+    /// Each drained entry counts as credited, exactly as `take` does — the two
+    /// paths must agree, or `credited_count` would report a different number
+    /// depending on which one the caller used.
+    pub fn drain_pending(&mut self) -> Vec<(String, Pending<P>)> {
+        let mut claimed: Vec<(String, Pending<P>)> = self.pending.drain().collect();
+        claimed.sort_by_key(|(_, entry)| entry.seq);
+        self.credited = self.credited.saturating_add(claimed.len() as u64);
+        claimed
+    }
+
     /// Number of outcomes successfully joined back onto their choice.
     pub fn credited_count(&self) -> u64 {
         self.credited
@@ -322,6 +344,57 @@ mod tests {
             .expect("recall was recorded");
         assert_eq!(served.payload.len(), 2);
         assert!(served.payload.contains(&"lesson:paging".to_string()));
+    }
+
+    /// Draining is the path for a caller that knows the verdict but not the
+    /// queries — the situation every phase gate was in.
+    #[test]
+    fn draining_claims_every_pending_recall_oldest_first() {
+        let mut ledger = CaseLedger::new(8);
+        ledger.record("first query", vec!["k1".into()]);
+        ledger.record("second query", vec!["k2".into(), "k3".into()]);
+
+        let claimed = ledger.drain_pending();
+
+        assert_eq!(claimed.len(), 2, "both recalls must be claimed");
+        assert_eq!(
+            claimed[0].0, "first query",
+            "oldest first — a caller replaying credits must see insertion order"
+        );
+        assert_eq!(claimed[1].1.payload.len(), 2);
+        assert!(ledger.is_empty(), "a drained ledger holds nothing");
+    }
+
+    /// The failure this catches: draining that forgets to count would let
+    /// `credited_count` report 0 while entries were in fact credited, so the
+    /// one number that says whether attribution runs would say it never does.
+    #[test]
+    fn draining_counts_as_credited_exactly_like_take() {
+        let mut drained = CaseLedger::new(8);
+        drained.record("q1", vec!["k".into()]);
+        drained.record("q2", vec!["k".into()]);
+        drained.drain_pending();
+
+        let mut taken = CaseLedger::new(8);
+        taken.record("q1", vec!["k".into()]);
+        taken.record("q2", vec!["k".into()]);
+        taken.take("q1");
+        taken.take("q2");
+
+        assert_eq!(
+            drained.credited_count(),
+            taken.credited_count(),
+            "the two claim paths must agree on the credited count"
+        );
+        assert_eq!(drained.credited_count(), 2);
+    }
+
+    /// Draining nothing is not an error, and must not inflate the counter.
+    #[test]
+    fn draining_an_empty_ledger_credits_nothing() {
+        let mut ledger = CaseLedger::new(8);
+        assert!(ledger.drain_pending().is_empty());
+        assert_eq!(ledger.credited_count(), 0);
     }
 
     /// The two ledgers are independent instances of the same discipline.

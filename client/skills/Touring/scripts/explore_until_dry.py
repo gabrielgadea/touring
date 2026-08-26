@@ -43,6 +43,7 @@ import hashlib
 import json
 import sys
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -72,11 +73,38 @@ def det_id(prefix: str, *parts: str) -> str:
 
 # === ledger ================================================================
 
+def _slugify(topic: str, fold: bool = True) -> str:
+    """Topic → ledger filename stem.
+
+    `"ê".isalnum()` is True in Python, so the pre-2026-08-25 slug carried
+    diacritics straight into the filename: `…inteligência…` and
+    `…inteligencia…` — the SAME question typed twice, once with the accent —
+    opened two ledgers side by side in one scope. Convergence reached in one
+    said nothing about the other, and the gate could be satisfied by whichever
+    was fresher (observed live, both defects together).
+
+    Folding to the unaccented form makes one question map to one ledger.
+    """
+    text = topic
+    if fold:
+        text = "".join(c for c in unicodedata.normalize("NFKD", topic)
+                       if not unicodedata.combining(c))
+    return "".join(c if c.isalnum() else "-" for c in text.lower()).strip("-")[:48]
+
+
 def ledger_path_for(topic: str, scope: Path, explicit: str | None) -> Path:
     if explicit:
         return Path(explicit).expanduser().resolve()
-    slug = "".join(c if c.isalnum() else "-" for c in topic.lower()).strip("-")[:48]
-    return scope / LEDGER_DIRNAME / f"{slug}.ledger.json"
+    path = scope / LEDGER_DIRNAME / f"{_slugify(topic)}.ledger.json"
+    if not path.exists():
+        # A ledger written before folding keeps its diacritics in the filename.
+        # Adopting it is the non-destructive migration: opening the folded path
+        # instead would start a second empty ledger and silently strand every
+        # round the first one had already converged.
+        legacy = scope / LEDGER_DIRNAME / f"{_slugify(topic, fold=False)}.ledger.json"
+        if legacy != path and legacy.exists():
+            return legacy
+    return path
 
 
 def load_ledger(path: Path, topic: str, scope: Path) -> dict[str, Any]:

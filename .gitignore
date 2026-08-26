@@ -62,6 +62,14 @@ docs/plans-archive/**/data/ground_truth.json
 /.cipher/
 /.local-cache/
 /.touring-explore/
+# Mesma razão, corpus destilado (2026-08-25): eval/autoresearch/corpus.json são
+# 3,8 MB de comandos REAIS extraídos de 40 transcripts — 5.338 comandos, 2.068
+# referências a paths de projetos privados (`analise`, `konverter`,
+# `transferegov`). A auditoria não achou credencial (0 tokens/chaves/PAT), mas é
+# transcript destilado indo para um repo PÚBLICO, e é a regra desta seção.
+# O EXTRATOR (`eval/autoresearch/extract_corpus.py`) é versionado — ele é o que
+# tem valor reproduzível; o corpus é regenerável e permanece em disco.
+eval/autoresearch/corpus.json
 /.full-review/
 /.serena/
 /.remember/

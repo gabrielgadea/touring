@@ -370,7 +370,9 @@ static W10_STEPS: &[WorkflowStep] = &[
         order: 1,
         action: "Persist implementation state as Touring snapshot",
         tool_or_cmd: "touring memory store \"snapshot:<task>:<ts>\" \"<state>\" --tier semantic",
-        note: "REGRA #11: git is prohibited — Touring memory is the audit trail.",
+        note: "REGRA #11 v2: git é PERMITIDO (leitura/aditivas livres; destrutivas sob \
+               ritual + GIT_DESTRUCTIVE_OK=1). A memory do Touring SOMA a trilha \
+               semântica ao que o git versiona — não a substitui.",
     },
     WorkflowStep {
         order: 2,

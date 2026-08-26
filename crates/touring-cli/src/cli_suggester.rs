@@ -663,6 +663,85 @@ fn classify_webfetch(tool_input: &Value) -> Option<ClassifierOutput> {
     })
 }
 
+/// The DESTRUCTIVE verbs of REGRA #11 v2, mirroring the EXECUTOR —
+/// `~/.claude/hooks/block_git.sh` (`DESTRUCTIVE_RE` plus the `stash` and
+/// `restore` special cases). This list exists so the text this nudge
+/// DECLARES and the predicate that actually DENIES the command derive from
+/// the same source (D8: enforcement lives in the executor, and the prompt
+/// never promises what the executor does not apply). `scripts/
+/// test_git_nudge_matches_executor.py` reads the shell regex and fails if
+/// the two drift apart.
+pub(crate) const GIT_DESTRUCTIVE_VERBS: &[&str] = &[
+    "reset --hard",
+    "reset --merge",
+    "reset --keep",
+    "checkout --",
+    "checkout -f",
+    "switch --discard-changes",
+    "clean -f",
+    "rebase",
+    "push --force",
+    "push -f",
+    "branch -D",
+    "filter-branch",
+    "filter-repo",
+    "reflog expire",
+    "gc --prune",
+    "stash",
+    "restore",
+];
+
+/// True when `command` belongs to the DESTRUCTIVE class of REGRA #11 v2.
+///
+/// Mirrors the executor's carve-outs exactly: `stash list`/`stash show` are
+/// read-only; `restore --staged` (without `--worktree`) only unstages; plain
+/// `reset` (mixed/soft) never touches the working tree; `clean -n` is a
+/// dry-run. Anything already carrying the deliberate per-command token is not
+/// re-gated — the ritual happened upstream.
+pub(crate) fn git_is_destructive(command: &str) -> bool {
+    if command.contains("GIT_DESTRUCTIVE_OK=1") {
+        return false;
+    }
+    // Descarte barato — e a razão de ser da lista estar AQUI, no caminho de
+    // execução, e não só na documentação: se nenhum verbo declarado aparece
+    // sequer como substring, não há o que testar. Uma lista que o predicado
+    // não percorre é declaração que envelhece em silêncio, exatamente o que
+    // este arquivo passou a guardar contra (D8).
+    if !GIT_DESTRUCTIVE_VERBS.iter().any(|verb| {
+        // Só o primeiro token: a lista declara "reset --hard", mas o descarte
+        // pergunta apenas se a palavra `reset` aparece no comando.
+        let head = verb.split_whitespace().next().unwrap_or(verb);
+        command.contains(head)
+    }) {
+        return false;
+    }
+    let re = match regex::Regex::new(
+        r"git\s+(reset\s+[^|;&]*--(hard|merge|keep)|checkout[^|;&]*(\s--(\s|$)|\s-f\b|\s--force\b|\s\.\s*$)|switch\s+[^|;&]*--discard-changes|clean\s+[^|;&]*(-[a-z]*f|--force)|rebase\b|push[^|;&]*(\s--force(-with-lease)?\b|\s-f\b)|branch[^|;&]*\s-D\b|filter-branch\b|filter-repo\b|reflog\s+expire|gc\s+[^|;&]*--prune)",
+    ) {
+        Ok(re) => re,
+        Err(_) => return false,
+    };
+    if re.is_match(command) {
+        return true;
+    }
+    // `git stash`: every mutating form is gated; only list/show are read-only.
+    let stash_hit = regex::Regex::new(r"git\s+stash\b")
+        .ok()
+        .zip(regex::Regex::new(r"git\s+stash\s+(list|show)\b").ok())
+        .is_some_and(|(s, ro)| s.is_match(command) && !ro.is_match(command));
+    if stash_hit {
+        return true;
+    }
+    // `git restore` discards worktree changes unless it is purely --staged.
+    regex::Regex::new(r"git\s+restore\b")
+        .ok()
+        .zip(regex::Regex::new(r"git\s+restore\s+[^|;&]*--staged").ok())
+        .zip(regex::Regex::new(r"git\s+restore\s+[^|;&]*--worktree").ok())
+        .is_some_and(|((r, s), w)| {
+            r.is_match(command) && (!s.is_match(command) || w.is_match(command))
+        })
+}
+
 fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
     let command = tool_input.get("command").and_then(|v| v.as_str())?;
     if command.is_empty() {
@@ -843,36 +922,86 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
         });
     }
 
-    // Pattern 6: git command — REGRA #11 prohibits git in TACO.
-    if regex::Regex::new(r"^\s*git\s+")
+    // Pattern 6: git — REGRA #11 v2 (Gabriel, 2026-08-23) PERMITS git. Only
+    // the DESTRUCTIVE class is gated, and it is gated by a RITUAL, not a ban.
+    // Until 2026-08-25 this arm claimed "git is prohibited … block_git.sh will
+    // reject this command", which was false twice over for `git status`: the
+    // ban was revoked, and the guard allows read-only/additive git. A nudge
+    // that misstates the executor is the D8 anti-pattern inside the product.
+    if regex::Regex::new(r"^\s*(\w+=\S+\s+)*git\s+")
         .ok()
         .map(|re| re.is_match(command))
         .unwrap_or(false)
     {
-        return Some(ClassifierOutput {
-            cluster: "regra-11-git-prohibited".into(),
-            must: vec![
-                cmd(
-                    "touring memory recall \"<topic>\"",
-                    "history substitute (git log replacement)",
-                ),
-                cmd(
-                    "touring status -j",
-                    "current state (git status replacement)",
-                ),
-            ],
-            should: vec![cmd(
-                "touring ast blast <file>",
-                "diff/impact view (git diff replacement)",
-            )],
-            may: vec![],
-            reason: "REGRA #11 — git is prohibited in TACO. Touring is the source \
-                     of truth; the block_git.sh hook will reject this command."
-                .into(),
-            confidence: 0.99,
-            symbol_hint: None,
-            file_hint: None,
-        });
+        if git_is_destructive(command) {
+            return Some(ClassifierOutput {
+                cluster: "regra-11-git-destructive".into(),
+                must: vec![
+                    cmd(
+                        "git status --porcelain && git stash list",
+                        "(1) MEDIR — nomear os arquivos que a operação pode descartar",
+                    ),
+                    cmd(
+                        "git checkout -b safety/$(date +%F)-<slug> && git add -A \
+                         && git commit -m \"WIP safety pre-<op>\"",
+                        "(2) SNAPSHOT — commit WIP; stash como guarda segue BANIDO \
+                         (destruiu 162 módulos em 06/04/2026)",
+                    ),
+                    cmd(
+                        "GIT_DESTRUCTIVE_OK=1 <o mesmo comando>",
+                        "(4) EXECUTAR — token por-comando, jamais exportado na sessão",
+                    ),
+                ],
+                should: vec![cmd(
+                    "touring memory store \"pre-<op>:<ts>\" \"<estado em risco>\" --tier semantic",
+                    "snapshot semântico do que o git não versiona (DBs, hooks, untracked)",
+                )],
+                may: vec![],
+                reason: "REGRA #11 v2 — git é PERMITIDO, mas esta operação é da classe \
+                         DESTRUTIVA: exige o ritual anti-perda (medir → snapshot → \
+                         confirmar) ANTES do token. O executor `block_git.sh` NEGA \
+                         este comando enquanto não carregar GIT_DESTRUCTIVE_OK=1. \
+                         Confirmar com Gabriel se: force-push, histórico publicado, \
+                         ou mudanças que esta sessão não criou."
+                    .into(),
+                confidence: 0.99,
+                symbol_hint: None,
+                file_hint: None,
+            });
+        }
+        // Read-only / additive git: the guard ALLOWS it. Touring complements
+        // what git versions — it does not replace it. Emitted only for the
+        // subcommands where the complement is real, and only as MAY, so the
+        // common case is not taxed by a banner (injection-density invariant).
+        if regex::Regex::new(r"git\s+(log|status|diff|blame|show)\b")
+            .ok()
+            .map(|re| re.is_match(command))
+            .unwrap_or(false)
+        {
+            return Some(ClassifierOutput {
+                cluster: "regra-11-git-safe".into(),
+                must: vec![],
+                should: vec![],
+                may: vec![
+                    cmd(
+                        "touring memory recall \"<topic>\"",
+                        "histórico SEMÂNTICO (decisões, lições) — complementa o git log, não o substitui",
+                    ),
+                    cmd(
+                        "touring status -j",
+                        "saúde de índice/wiring/RL — o estado que o git status não vê",
+                    ),
+                ],
+                reason: "REGRA #11 v2 (23/08/2026) — git de leitura/aditivo é LIVRE e o \
+                         guard não bloqueia. Touring soma histórico semântico e saúde \
+                         ao que o git versiona; nenhuma ação é exigida aqui."
+                    .into(),
+                confidence: 0.55,
+                symbol_hint: None,
+                file_hint: None,
+            });
+        }
+        return None;
     }
 
     // Pattern 7: pgrep / ps for touring daemon — point to doctor.
@@ -2747,8 +2876,17 @@ fn scan_class_of(cmd: &str) -> Option<&'static str> {
 /// W2 — ledger da rajada por (projeto, classe): contagem + os comandos REAIS
 /// acumulados (cap 8) — eles viram o corpo do programa no remédio do deny.
 /// TTL = a janela do contador legado (o mesmo sinal, agora com memória).
-fn burst_ledger() -> &'static moka::sync::Cache<u64, (u32, Vec<String>)> {
-    static C: OnceLock<moka::sync::Cache<u64, (u32, Vec<String>)>> = OnceLock::new();
+/// Entrada da rajada: `(contagem, comandos, época de mutação da última inserção)`.
+///
+/// A época entrou junto com a calibração por similaridade: sem ela, uma
+/// releitura DEPOIS de um Edit era negada como repetição — e reler o que
+/// acabou de mudar é legítimo, não redundância. É a mesma proteção que o G6 já
+/// tinha (`mutation_epoch`), agora estendida ao gatilho novo. O teste
+/// `g6_mutacao_no_meio_reseta_a_repeticao` pegou a regressão.
+type BurstEntry = (u32, Vec<String>, u64);
+
+fn burst_ledger() -> &'static moka::sync::Cache<u64, BurstEntry> {
+    static C: OnceLock<moka::sync::Cache<u64, BurstEntry>> = OnceLock::new();
     C.get_or_init(|| {
         moka::sync::Cache::builder()
             .max_capacity(CACHE_MAX_CAPACITY)
@@ -2966,7 +3104,15 @@ fn code_mode_presentation(project_root: &Path, cmd: &str) -> CodeModePresentatio
     if std::env::var("TOURING_CODE_ONLY").map(|v| v == "1") == Ok(true) {
         return CodeModePresentation::Code;
     }
-    project_presentation(project_root).unwrap_or(CodeModePresentation::Both)
+    // A declaração humana vence SEMPRE: prefixo, env, alias e `touring.toml` já
+    // decidiram acima. A política só preenche o espaço que o humano deixou em
+    // aberto — sobrescrever uma declaração explícita não seria aprender, seria
+    // desobedecer.
+    resolve_with_policy(
+        project_presentation(project_root),
+        code_mode_arm_armed(),
+        arm_counts_durable(project_root),
+    )
 }
 
 /// Lê `[code_mode] mode` de `<root>/.touring/touring.toml`.
@@ -3072,6 +3218,20 @@ pub(crate) struct TurnBurst {
     pub first_seen_secs: u64,
 }
 
+/// A rota escrita que o T3 entregou ao modelo, com o braço que a produziu.
+///
+/// Os contadores `t3_turn_fused`/`first_passed` diziam com que FREQUÊNCIA o gate
+/// agia e nada sobre se agir funcionou — telemetria sem consumidor de aprendizado
+/// (medido 25/08/2026: zero políticas os liam). Esta é a metade que faltava: a
+/// apresentação vigente vira o braço, e o comando seguinte vira a recompensa.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RouteOffer {
+    /// `native` | `code` | `both` — a apresentação em vigor quando a rota saiu.
+    pub mode: String,
+    /// Quando foi oferecida (secs desde o UNIX_EPOCH).
+    pub offered_secs: u64,
+}
+
 /// Janela do batch paralelo: os N PreToolUse de um turno chegam quase juntos.
 /// Fora dela, uma fan-out solta reabre turno novo — protege a fusão de
 /// capturar sequências que só parecem turno por um PostToolUse perdido.
@@ -3173,6 +3333,7 @@ pub(crate) fn turn_gate_pre_bash(project_root: &Path, session: &str, cmd: &str) 
             } else {
                 String::new()
             };
+            record_route_offer(project_root, session, code_mode_presentation(project_root, cmd));
             record_t3_fused();
             // O lote degenerado (n=1) não é "fusão" — é a rota derivada do
             // próprio comando; o texto diz a verdade dos dois casos.
@@ -3192,6 +3353,482 @@ Sub-chamadas DENTRO do programa são isentas \
             )))
         }
     }
+}
+
+/// Reivindica a rota pendente deste (projeto, sessão) — UMA vez.
+///
+/// Mesma disciplina dos ledgers de decisão e de casos: uma oferta reivindicada
+/// some, para que duas leituras nunca creditem a mesma decisão duas vezes. A
+/// sessão sai da MESMA `session_key` do pre e do close, ou pre e post estariam
+/// falando de turnos diferentes com a mesma cara.
+pub fn take_route_offer(project_root: &Path, payload: &Value) -> Option<RouteOffer> {
+    let key = format!("{}\u{2}{}", project_root.display(), session_key(payload));
+    let offer = route_offers().get(&key)?;
+    route_offers().invalidate(&key);
+    Some(offer)
+}
+
+/// O que um programa de code mode COMPROU em round-trips.
+///
+/// `adoption_ratio` responde "usou a ferramenta certa?" e nada sobre "a chamada
+/// valia um round-trip?" — mede o CANAL, não a ECONOMIA (achado de Gabriel,
+/// 26/08/2026: `scan_class_of` não reconhece `touring run`, então N programas
+/// diferentes e triviais somam N adoções e zero avisos).
+///
+/// Um programa que inspeciona UM alvo com UMA operação não fundiu nada: é uma
+/// chamada atômica com uma casca. Isso não é indisciplina do modelo — sob a
+/// apresentação `code` a chamada atômica é NEGADA, então a casca é obrigatória.
+/// Por isso a economia é lida como CUSTO DA APRESENTAÇÃO e não como falta do
+/// modelo: é o número que impede o braço `code` de parecer ótimo só porque
+/// todos obedecem, quando cada obediência custa um round-trip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProgramShape {
+    /// Uma operação sobre um alvo — a casca não comprou nada.
+    Trivial,
+    /// Fundiu `n` operações/alvos numa chamada só.
+    Fused(usize),
+}
+
+/// Verbos de inspeção reconhecidos no corpo, em qualquer linguagem.
+const INSPECTION_VERBS: [&str; 12] = [
+    "grep", "rg", "cat", "head", "tail", "sed", "awk", "ls", "wc", "find", "stat", "jq",
+];
+
+/// Extrai o corpo de `touring run … --code '<corpo>'`.
+///
+/// Sem o corpo não há o que classificar, e `None` mantém o comportamento
+/// anterior — jamais adivinhar a forma de um programa que não se leu.
+pub(crate) fn extract_run_body(cmd: &str) -> Option<&str> {
+    let idx = cmd.find("--code")?;
+    let resto = &cmd[idx + "--code".len()..];
+    let resto = resto.trim_start();
+    let aspa = resto.chars().next()?;
+    if aspa != '\'' && aspa != '"' {
+        return None;
+    }
+    let corpo = &resto[aspa.len_utf8()..];
+    // A PRIMEIRA aspa igual fecha, não a última. `rfind` capturava além do
+    // corpo quando o comando externo trazia mais aspas depois — medido ao vivo
+    // em 26/08: `… --code 'cat X' 2>/dev/null | python3 -c "…print('…')"`
+    // devolvia um corpo que incluía o pipe inteiro, e o `/dev/null` de dentro
+    // dele contava como um segundo alvo: um programa trivial era classificado
+    // como fusão. Em shell, string entre aspas simples não contém a própria
+    // aspa, então a primeira É a de fechamento.
+    let fim = corpo.find(aspa)?;
+    Some(&corpo[..fim])
+}
+
+/// Classifica o corpo pelo que ele funde. Puro — mais fácil de testar do que
+/// de contornar.
+///
+/// Dois eixos, e o MAIOR decide: quantas operações de inspeção o corpo executa,
+/// e quantos alvos distintos ele toca. Um `grep` sobre três arquivos fundiu
+/// três; três `sed` sobre o mesmo arquivo fundiram três. Um de cada não fundiu
+/// nada.
+pub(crate) fn program_shape(body: &str) -> ProgramShape {
+    // Casar PALAVRA, não substring: `body.matches("rg")` conta 1 dentro de
+    // "Cargo.toml", e `cat /a/Cargo.toml` — um arquivo, uma operação — era
+    // classificado como fusão de duas. O teste pegou; a medição ao vivo teria
+    // levado semanas para revelar, porque o número errado é plausível.
+    let ops = body
+        .split(|c: char| c.is_whitespace() || matches!(c, ';' | '|' | '&' | '(' | ')' | '"' | '\''))
+        .filter(|t| INSPECTION_VERBS.contains(&t.trim_start_matches("$(")))
+        .count()
+        // `open(` é chamada de função (Python), não token isolado.
+        + body.matches("open(").count();
+    let alvos: std::collections::BTreeSet<&str> = body
+        .split(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '(' || c == ')')
+        .filter(|t| t.contains('/') && t.len() > 3 && !t.starts_with('-'))
+        // Dispositivos e descritores não são alvos de inspeção: `2>/dev/null`
+        // é plumbing do shell, e contá-lo fazia um programa de um arquivo
+        // parecer que tocava dois (medido ao vivo em 26/08).
+        .filter(|t| !t.trim_start_matches(['>', '<', '&', '1', '2']).starts_with("/dev/"))
+        .collect();
+    let fundido = ops.max(alvos.len());
+    if fundido <= 1 {
+        ProgramShape::Trivial
+    } else {
+        ProgramShape::Fused(fundido)
+    }
+}
+
+/// O que o modelo fez com a rota que recebeu — puro, para ser mais fácil de
+/// testar do que de contornar.
+///
+/// `Some(1.0)` rodou o programa; `Some(0.0)` recusou a rota com um token de
+/// relaxamento; `None` fez outra coisa — e isso NÃO é veredito. Ausência de
+/// sinal é desconhecido, jamais zero: a mesma leitura fail-closed que o nó
+/// `loop` aplica a `NEW_FINDINGS`.
+///
+/// A ordem importa: `TOURING_CODE_MODE=native touring run …` **rodou** o
+/// programa. Ter relaxado o gate no caminho não desfaz o fato de a rota ter
+/// sido tomada.
+pub fn classify_route_outcome(cmd: &str) -> Option<f64> {
+    const BYPASS: [&str; 4] = [
+        "TOURING_CODE_MODE=native",
+        "TOURING_GATE_OK=1",
+        "TOURING_CODE_GATES_DISABLED=1",
+        "TOURING_T3_FUSE_DISABLED=1",
+    ];
+    if cmd.contains("touring run ") || cmd.contains("touring exec ") {
+        // A rota foi tomada — mas COMPROU alguma coisa? Um programa que
+        // inspeciona um alvo com uma operação é uma chamada atômica com casca:
+        // o canal está certo e a economia é nula. Creditar 1.0 aqui ensinaria
+        // ao braço que `code` é ótimo porque todos obedecem, quando cada
+        // obediência custou um round-trip (achado de Gabriel, 26/08).
+        //
+        // 0.5 e não 0.0: sob `code` a chamada atômica é NEGADA, então a casca é
+        // obrigatória. Punir como recusa culparia o modelo pela política — o
+        // custo é da apresentação, e é dela que o número tem de falar.
+        return Some(match extract_run_body(cmd).map(program_shape) {
+            Some(ProgramShape::Trivial) => 0.5,
+            _ => 1.0,
+        });
+    }
+    if BYPASS.iter().any(|t| cmd.contains(t)) {
+        return Some(0.0);
+    }
+    None
+}
+
+/// Semeia uma oferta de rota — só para teste, pela MESMA chave do runtime.
+///
+/// Um teste que montasse a chave por conta própria provaria que a sua fórmula
+/// funciona, não que a do gate funciona.
+#[cfg(test)]
+pub fn turn_ledger_insert_for_test(project_root: &Path, payload: &Value, offer: RouteOffer) {
+    let key = format!("{}\u{2}{}", project_root.display(), session_key(payload));
+    route_offers().insert(key, offer);
+}
+
+/// Nome estável do braço. É a chave dos contadores e da memória — mudá-lo
+/// renomeia o braço e zera a evidência acumulada sem avisar ninguém.
+pub(crate) fn presentation_label(p: CodeModePresentation) -> &'static str {
+    match p {
+        CodeModePresentation::Native => "native",
+        CodeModePresentation::Code => "code",
+        CodeModePresentation::Both => "both",
+    }
+}
+
+/// Registra que a apresentação acabou de entregar uma rota escrita.
+///
+/// Escritor ÚNICO do campo `route`: dois sítios gravando a mesma oferta seriam
+/// duas versões da mesma decisão, e a primeira divergência entre eles só
+/// apareceria como um braço aprendendo o oposto do que aconteceu — a classe de
+/// `comentario-afirma-simetria-inexistente`.
+pub(crate) fn record_route_offer(project_root: &Path, session: &str, mode: CodeModePresentation) {
+    let label = presentation_label(mode);
+    let key = format!("{}\u{2}{session}", project_root.display());
+    route_offers().insert(
+        key,
+        RouteOffer { mode: label.to_string(), offered_secs: now_secs() },
+    );
+    // `bump_arm` é o escritor único: ele grava a vista durável E a volátil.
+    bump_arm(project_root, label, ArmAxis::Offered);
+}
+
+/// Onde vive a evidência DURÁVEL do braço, por projeto.
+///
+/// Medido em 26/08/2026: `t3_turn_first_passed_count` caiu de 2 para 0 em dois
+/// minutos, sem nada acontecer além de um restart de daemon. Os contadores de
+/// `gate-metrics` são telemetria de processo — e uma política com piso de
+/// amostra que lesse dali NUNCA alcançaria o piso entre deploys: existiria,
+/// estaria armada, e não escolheria nada. Exatamente o modo de falha que este
+/// plano inteiro cataloga. A decisão lê disco; a telemetria segue observando.
+/// Ofertas de rota pendentes, por (projeto, sessão).
+///
+/// Cache PRÓPRIO e não um campo do `TurnBurst`: guardá-la lá fazia
+/// `record_route_offer` chamar `get(...).unwrap_or_default()` num deny
+/// code-mode onde o turno muitas vezes NÃO existe — e o default tem
+/// `first_passed = false`, então a oferta inseria um turno falso e a fusão T3
+/// seguinte nunca disparava. Os testes pegaram isso como vítima alternando
+/// entre dois vizinhos, a assinatura de estado global compartilhado.
+///
+/// A separação também é semântica: a oferta sobrevive ao `turn_gate_close` de
+/// propósito (o fim do turno é quando o desfecho fica observável, não quando se
+/// esquece dele) — sinal de que nunca foi estado de turno.
+fn route_offers() -> &'static moka::sync::Cache<String, RouteOffer> {
+    static C: OnceLock<moka::sync::Cache<String, RouteOffer>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+fn arm_store_path(project_root: &Path) -> std::path::PathBuf {
+    project_root.join(".claude/touring/code_mode_arm.json")
+}
+
+/// TTL curto: `code_mode_presentation` roda em todo PreToolUse, e ler o arquivo
+/// a cada chamada trocaria um problema de durabilidade por um de latência.
+fn arm_cache() -> &'static moka::sync::Cache<String, ArmCounts> {
+    static C: OnceLock<moka::sync::Cache<String, ArmCounts>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(64)
+            .time_to_live(Duration::from_secs(5))
+            .build()
+    })
+}
+
+const ARM_NAMES: [&str; 3] = ["native", "both", "code"];
+
+fn arm_index(mode: &str) -> Option<usize> {
+    ARM_NAMES.iter().position(|n| *n == mode)
+}
+
+/// Lê o arquivo. Ausente, ilegível ou corrompido ⇒ zeros: evidência que não se
+/// pode ler é evidência que não existe, e zeros deixam a política calada (que é
+/// o comportamento seguro), em vez de inventar uma escolha.
+/// `(oferecidas, tomadas, economicas)` por braço.
+///
+/// Três números e não dois porque obediência e economia são eixos DIFERENTES:
+/// `tomadas/oferecidas` responde "seguiram a rota?" (o canal) e
+/// `economicas/tomadas` responde "a rota comprou round-trips?" (a economia).
+/// Fundi-los num só faria um braço obedecido e caro parecer excelente — o
+/// defeito que Gabriel apontou na `adoption_ratio`.
+pub(crate) type ArmCounts = [(u64, u64, u64); 3];
+
+fn read_arm_file(project_root: &Path) -> ArmCounts {
+    let mut out = [(0u64, 0u64, 0u64); 3];
+    let Ok(txt) = std::fs::read_to_string(arm_store_path(project_root)) else {
+        return out;
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) else {
+        return out;
+    };
+    for (i, nome) in ARM_NAMES.iter().enumerate() {
+        if let Some(par) = v.get(*nome) {
+            out[i].0 = par.get("offered").and_then(Value::as_u64).unwrap_or(0);
+            out[i].1 = par.get("followed").and_then(Value::as_u64).unwrap_or(0);
+            out[i].2 = par.get("economical").and_then(Value::as_u64).unwrap_or(0);
+        }
+    }
+    out
+}
+
+fn write_arm_file(project_root: &Path, counts: &ArmCounts) {
+    let path = arm_store_path(project_root);
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let mut obj = serde_json::Map::new();
+    for (i, nome) in ARM_NAMES.iter().enumerate() {
+        obj.insert(
+            (*nome).to_string(),
+            serde_json::json!({
+                "offered": counts[i].0,
+                "followed": counts[i].1,
+                "economical": counts[i].2,
+            }),
+        );
+    }
+    // Falha de escrita NÃO pode ser silenciosa. Se o diretório não for
+    // gravável, a evidência fica em zero para sempre e a política se cala —
+    // indistinguível de "ainda não há amostra". Um `warn` é a diferença entre
+    // um bug diagnosticável e mais um mecanismo que existe e nunca dispara.
+    if let Err(e) = std::fs::write(&path, serde_json::Value::Object(obj).to_string()) {
+        tracing::warn!(
+            path = %path.display(),
+            error = %e,
+            "P2: evidência do braço code-mode não pôde ser persistida — a política \
+             ficará calada e isso NÃO é ausência de amostra"
+        );
+    }
+}
+
+/// Evidência durável do projeto, com cache curto.
+pub(crate) fn arm_counts_full(project_root: &Path) -> ArmCounts {
+    let key = project_root.display().to_string();
+    if let Some(c) = arm_cache().get(&key) {
+        return c;
+    }
+    let counts = read_arm_file(project_root);
+    arm_cache().insert(key, counts);
+    counts
+}
+
+/// O par `(oferecidas, tomadas)` que a POLÍTICA lê. A economia é reportada
+/// (KPI) mas ainda não escolhe braço: mudar o critério de escolha é decisão de
+/// Gabriel, não efeito colateral de ter passado a medir.
+pub(crate) fn arm_counts_durable(project_root: &Path) -> [(u64, u64); 3] {
+    let full = arm_counts_full(project_root);
+    [
+        (full[0].0, full[0].1),
+        (full[1].0, full[1].1),
+        (full[2].0, full[2].1),
+    ]
+}
+
+/// Incrementa um eixo do braço e persiste.
+///
+/// **Orçamento**: este arquivo declara `< 1ms (scan de bytes + moka)` para o
+/// caminho quente, e aqui há I/O de disco. Os dois únicos chamadores estão
+/// DENTRO de ramos de deny (a fusão T3 e o deny code-mode), então a leitura +
+/// escrita de ~200 bytes é paga só quando um gate age — nunca nas chamadas que
+/// passam, que são a esmagadora maioria. O orçamento do caminho comum segue
+/// intacto; quem paga é o evento raro que produz a evidência.
+///
+/// Relê o arquivo antes de somar (não o cache): dois daemons per-project ou
+/// duas sessões no mesmo projeto somariam sobre uma cópia velha e uma das duas
+/// contagens sumiria. Continua havendo uma janela de corrida entre a leitura e
+/// a escrita — aceitável para um contador de evidência, e declarada aqui em vez
+/// de descoberta depois como número que não bate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArmAxis {
+    /// A apresentação entregou uma rota.
+    Offered,
+    /// O modelo tomou a rota (o canal).
+    Followed,
+    /// A rota tomada fundiu round-trips (a economia).
+    Economical,
+}
+
+fn bump_arm(project_root: &Path, mode: &str, eixo: ArmAxis) {
+    let Some(i) = arm_index(mode) else { return };
+    let mut counts = read_arm_file(project_root);
+    // Escritor ÚNICO da contagem do braço. A evidência DURÁVEL (o arquivo, que
+    // sobrevive ao restart e alimenta a política) e a VOLÁTIL (os átomos que
+    // `gate-metrics -j` publica) são duas VISTAS DA MESMA decisão — não dois
+    // registros independentes. Até 26/08 elas eram mantidas por dois call
+    // sites adjacentes: funcionava por vizinhança, não por construção, e um
+    // terceiro ponto de oferta que chamasse só um dos dois faria as vistas
+    // divergirem em silêncio (a política aprendendo de um número que o
+    // operador não vê em `gate-metrics`, ou o inverso). É a mesma regra que a
+    // docstring de `record_route_offer` já impunha ao campo `route`, aplicada
+    // ao vizinho que ela não cobria. Provado por
+    // `bump_arm_mantem_duravel_e_volatil_em_sincronia`.
+    match eixo {
+        ArmAxis::Offered => {
+            counts[i].0 = counts[i].0.saturating_add(1);
+            touring_foundation::gate_metrics_snapshot::record_code_mode_arm_offered(mode);
+        }
+        ArmAxis::Followed => {
+            counts[i].1 = counts[i].1.saturating_add(1);
+            touring_foundation::gate_metrics_snapshot::record_code_mode_arm_followed(mode);
+        }
+        // Economia não tem contador atômico correspondente: `gate-metrics`
+        // publica canal (oferecida/tomada), e a economia é derivada no KPI a
+        // partir da forma do programa. Sem par volátil, nada a sincronizar.
+        ArmAxis::Economical => counts[i].2 = counts[i].2.saturating_add(1),
+    }
+    write_arm_file(project_root, &counts);
+    arm_cache().insert(project_root.display().to_string(), counts);
+}
+
+/// P2 (decisão (b), 26/08/2026) — a política só age quando ARMADA.
+///
+/// Default-OFF, como o `f7_actuator_armed`: sem a env, nenhum sinal é lido e o
+/// comportamento é byte-idêntico ao de antes. Armar é decisão humana, e é o
+/// gate de promoção que o survey MSR exige além da fronteira do verificador —
+/// aqui o sinal (o modelo seguiu a rota?) é produzido pelo próprio sistema
+/// dirigido, então autonomia sem humano degradaria com a iteração.
+fn code_mode_arm_armed() -> bool {
+    std::env::var("TOURING_CODE_MODE_ARM_ARMED").is_ok_and(|v| v != "0")
+}
+
+/// A precedência final, PURA: declaração humana > política armada > default.
+///
+/// Extraída de `code_mode_presentation` porque a invariante que mais importa
+/// aqui — "a política nunca sobrescreve o que o humano declarou" — só era
+/// testável mutando `TOURING_CODE_MODE_ARM_ARMED` no processo. E a var passou a
+/// ser lida também pelo caminho da fusão, então essa mutação vazava para testes
+/// concorrentes: `turn_gate_ignora_o_que_nao_e_fanout` falhava em paralelo e
+/// passava com `--test-threads=1` (a assinatura de estado global). Um predicado
+/// puro é mais fácil de testar do que de contornar, e não tem vítima.
+pub(crate) fn resolve_with_policy(
+    declarado: Option<CodeModePresentation>,
+    armada: bool,
+    counts: [(u64, u64); 3],
+) -> CodeModePresentation {
+    if let Some(d) = declarado {
+        return d;
+    }
+    if armada
+        && let Some(escolhido) = arm_choice_from_counts(counts)
+    {
+        return escolhido;
+    }
+    CodeModePresentation::Both
+}
+
+/// Piso de amostra por braço — COMPARTILHADO com o KPI que reporta a evidência.
+///
+/// Uma cópia do número em cada lado divergiria no primeiro ajuste, e aí o
+/// painel diria "pronto para promover" enquanto a política ainda se cala (ou o
+/// contrário). O juiz e o medidor têm de ler o mesmo predicado.
+pub(crate) const ARM_MIN_SAMPLE: u64 = 20;
+
+/// Escolhe o braço pela evidência medida — ou `None` quando ela é fina.
+///
+/// Puro, para ser mais fácil de testar do que de contornar. Duas regras:
+///
+/// * **Piso de amostra** (`ARM_MIN_SAMPLE`): abaixo dele "a melhor taxa" é
+///   ruído amostral, e promover ruído é exatamente o que `default-OFF +
+///   promoção medida` existe para impedir.
+/// * **Comparação exige ao menos DOIS braços** com amostra. Um único braço
+///   acima do piso não é uma escolha: é o único que existe, e "escolher" o
+///   único observado seria confirmar a configuração vigente chamando isso de
+///   aprendizado.
+///
+/// Exploração — oferecer deliberadamente um braço sub-amostrado para aprender
+/// sobre ele — NÃO está aqui de propósito: significaria degradar a
+/// apresentação para colher dado, o que é outra decisão humana.
+pub(crate) fn arm_choice_from_counts(counts: [(u64, u64); 3]) -> Option<CodeModePresentation> {
+    let arms = [
+        CodeModePresentation::Native,
+        CodeModePresentation::Both,
+        CodeModePresentation::Code,
+    ];
+    let mut elegiveis: Vec<(f64, CodeModePresentation)> = Vec::new();
+    for (i, (offered, followed)) in counts.iter().enumerate() {
+        if *offered >= ARM_MIN_SAMPLE {
+            elegiveis.push((*followed as f64 / *offered as f64, arms[i]));
+        }
+    }
+    if elegiveis.len() < 2 {
+        return None;
+    }
+    elegiveis.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let (melhor, vice) = (elegiveis[0], elegiveis[1]);
+    // Margem mínima: uma diferença dentro do ruído NÃO é evidência. Sem ela,
+    // `max_by` desempataria pela ordem do vetor e a apresentação mudaria por
+    // acaso — trocar o gate de um projeto no desempate é o oposto de "promoção
+    // por evidência medida". Empate ⇒ silêncio ⇒ o default declarado prevalece.
+    const ARM_MIN_MARGIN: f64 = 0.05;
+    if melhor.0 - vice.0 < ARM_MIN_MARGIN {
+        return None;
+    }
+    Some(melhor.1)
+}
+
+/// Reivindica a rota pendente **apenas quando há veredito** — o par
+/// (braço, recompensa) pronto para o depósito.
+///
+/// Classificar antes de reivindicar não é preferência de estilo: uma oferta
+/// reivindicada some. Com a ordem invertida, o primeiro PostToolUse de QUALQUER
+/// ferramenta — um `Read`, que nem carrega comando — consumia a oferta sem
+/// veredito, e o `touring run` logo em seguida já não achava nada para creditar.
+/// Deixar a regra no chamador a perderia no segundo chamador; aqui ela é
+/// estrutural.
+pub fn claim_route_reward(
+    project_root: &Path,
+    payload: &Value,
+    cmd: &str,
+) -> Option<(RouteOffer, f64)> {
+    let value = classify_route_outcome(cmd)?;
+    let offer = take_route_offer(project_root, payload)?;
+    if value > 0.0 {
+        bump_arm(project_root, &offer.mode, ArmAxis::Followed);
+        // 1.0 é o programa que FUNDIU; 0.5 é a casca sobre uma chamada só.
+        if value >= 1.0 {
+            bump_arm(project_root, &offer.mode, ArmAxis::Economical);
+        }
+    }
+    Some((offer, value))
 }
 
 /// PostToolUse (post-bash) fecha o turno: com um PostToolUse intercalado, a
@@ -3214,6 +3851,35 @@ pub fn turn_gate_close_for_payload(project_root: &Path, payload: &Value) {
 
 /// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
 /// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
+/// Fração de tokens que dois comandos compartilham (Jaccard sobre o multiconjunto
+/// de tokens), em `[0.0, 1.0]`.
+///
+/// Calibração proposta por Gabriel (26/08/2026): *"se o comando repetir pelo
+/// menos 50% do comando anterior"*. Preenche um buraco real entre os gates —
+/// o G6 pega só o byte-idêntico, o G7 só a re-inspeção do MESMO arquivo, e o G1
+/// só ao acumular N da mesma classe. `grep X a.rs` seguido de `grep X b.rs` é a
+/// assinatura canônica do fan-out serial e não era pego por nenhum deles.
+///
+/// Jaccard sobre tokens, e não prefixo comum: `sed -n 1,20p f` vs
+/// `sed -n 40,60p f` compartilham quase tudo mas divergem cedo no texto, e um
+/// prefixo os julgaria distintos. A ordem também não deve importar — o que
+/// interessa é quanto do trabalho se repete.
+pub(crate) fn command_similarity(a: &str, b: &str) -> f64 {
+    let toks = |c: &str| -> std::collections::BTreeSet<String> {
+        c.split_whitespace().map(str::to_string).collect()
+    };
+    let (ta, tb) = (toks(a), toks(b));
+    if ta.is_empty() || tb.is_empty() {
+        return 0.0;
+    }
+    let inter = ta.intersection(&tb).count() as f64;
+    let uniao = ta.union(&tb).count() as f64;
+    inter / uniao
+}
+
+/// Limiar da calibração por similaridade (Gabriel, 26/08/2026).
+pub(crate) const G1_SIMILARITY_AT: f64 = 0.5;
+
 fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     use crate::shared::gate_metrics::{
         GateEvent, GateId, g1_live_precision, record_g1_continuation, record_gate_event,
@@ -3232,7 +3898,11 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     }
     let class = class?;
     let key = burst_key(project_root, class);
-    let (count, mut cmds) = burst_ledger().get(&key).unwrap_or((0, Vec::new()));
+    let epoca_atual = mutation_epoch()
+        .get(&project_root.display().to_string())
+        .unwrap_or(0);
+    let (count, mut cmds, epoca_anterior) =
+        burst_ledger().get(&key).unwrap_or((0, Vec::new(), epoca_atual));
     let count = count.saturating_add(1);
     // O comando entra INTEIRO. Quem decide o que cabe é `fuse_burst_program`,
     // na renderização, descartando comando inteiro — nunca cortando um pela
@@ -3240,8 +3910,18 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     if cmds.len() < 8 && cmd.chars().count() <= G1_BODY_BUDGET {
         cmds.push(cmd.to_string());
     }
-    burst_ledger().insert(key, (count, cmds.clone()));
-    if count < G1_DENY_AT {
+    burst_ledger().insert(key, (count, cmds.clone(), epoca_atual));
+    // Calibração por SIMILARIDADE: o G1 esperava `G1_DENY_AT` chamadas da mesma
+    // classe. Uma variação pequena da chamada anterior já é a mesma inspeção
+    // repetida — não é preciso esperar a quarta para saber que a rajada é uma
+    // só. Dispara na SEGUNDA quando ≥ 50% dos tokens se repetem.
+    let similaridade = if cmds.len() >= 2 && epoca_anterior == epoca_atual {
+        command_similarity(&cmds[cmds.len() - 2], cmd)
+    } else {
+        0.0
+    };
+    let quase_igual = similaridade >= G1_SIMILARITY_AT;
+    if count < G1_DENY_AT && !quase_igual {
         return None;
     }
     if code_gates_disabled() {
@@ -3284,10 +3964,25 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
     turn_gate_close(project_root, session);
     pending_g1().insert(session.to_string(), class.to_string());
+    // A razão DECLARADA tem de ser a do gatilho que disparou. Com a calibração
+    // por similaridade, um deny na 2ª chamada exibindo "90% das rajadas ≥4"
+    // justificaria o bloqueio por uma estatística que não se aplica a ele — o
+    // anti-padrão D8 (o anúncio promete o que o executor não fez) dentro do
+    // próprio gate.
+    let motivo = if quase_igual && count < G1_DENY_AT {
+        format!(
+            "repete {:.0}% dos tokens da inspeção anterior da mesma classe, sem \
+             mutação no meio — é a mesma varredura variada, não uma pergunta nova",
+            similaridade * 100.0
+        )
+    } else {
+        format!(
+            "{count}ª inspeção da classe `{class}` em {CODE_MODE_WINDOW_SECS}s — 90% \
+             das rajadas ≥{G1_DENY_AT} continuavam iguais (51 disparos/55 sessões)"
+        )
+    };
     Some(deny_response(format!(
-        "[G1 rajada-de-inspeção] {count}ª inspeção da classe `{class}` em \
-         {CODE_MODE_WINDOW_SECS}s — 90% das rajadas ≥{G1_DENY_AT} continuavam iguais \
-         (51 disparos/55 sessões). A rajada acumulada JÁ é o programa; rode-a de uma \
+        "[G1 rajada-de-inspeção] {motivo}. O acumulado JÁ é o programa; rode-o de uma \
          vez:\n  {programa}{nota_omissao}\nBypass por-comando: prefixe \
          {GATE_BYPASS_TOKEN} (reseta a janela e é contado)."
     )))
@@ -3506,7 +4201,7 @@ pub(crate) fn code_mode_gates(
         // exploração legítima recomeça do zero, e o evento fica contado.
         if let Some(class) = scan_class_of(cmd) {
             let key = burst_key(project_root, class);
-            if matches!(burst_ledger().get(&key), Some((n, _)) if n >= G1_DENY_AT - 1) {
+            if matches!(burst_ledger().get(&key), Some((n, _, _)) if n >= G1_DENY_AT - 1) {
                 record_gate_event(GateId::G1, GateEvent::Bypassed);
             }
             burst_ledger().invalidate(&key);
@@ -3607,6 +4302,13 @@ pub(crate) fn code_mode_gates(
         && CODE_MODE_COLLAPSED_CLASSES.contains(&class)
         && !code_gates_disabled()
     {
+        // P2c (26/08/2026) — ESTE é o deny que dispara de verdade. O braço
+        // nasceu preso ao fuse T3 e mediu-se `t3_turn_fused = 0`: o gatilho não
+        // ocorre neste modelo de execução, porque o PostToolUse de cada chamada
+        // fecha o turno. Uma política pendurada no evento mais raro do sistema
+        // não aprende — e adoção zero não prova que ela é ruim, prova que nunca
+        // foi consultada.
+        record_route_offer(project_root, session, apresentacao);
         record_gate_event(GateId::G1, GateEvent::Denied);
         return Some(deny_response(format!(
             "[CODE MODE] inspeção `{class}` é modelo-direta e este escopo apresenta \

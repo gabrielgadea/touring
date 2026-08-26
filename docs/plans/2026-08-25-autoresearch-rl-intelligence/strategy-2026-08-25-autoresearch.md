@@ -100,3 +100,50 @@ Guards novos seguem o padrão da casa: mutation-proof (0→1→0) e veredito por
 - **Reward hacking** (o agente otimiza a métrica e não o propósito): `judge_attest.py` já é a defesa institucional (arXiv:2505.22954 App. H) — toda métrica canônica nova entra no judge of record com attestation.
 - **Métrica escalar errada vira norte errado**: fase P2 começa com 1 subsistema (T3-B) cujo outcome é binário e observável (programa fundido executou ou não).
 - **DSPy offline pode virar yak shaving**: P3 só começa se P0–P2 convergirem; kill switch = não instalar nada novo, dspy 3.2.1 já está no ambiente.
+
+---
+
+## 6. Adendo da retomada — 2026-08-25 20:18 BRT (OUTER re-executado nesta volta)
+
+O piso de frescor do gate (`flow_armed_at`) exige artefatos **desta** volta, então o OUTER
+foi re-executado em vez de herdado. O que a re-execução mediu e o que ela expôs:
+
+### 6.1 Ground truth re-medido (probe SQL direto, `mode=ro`)
+
+| Métrica | 18h (sessão 1) | 20h18 (retomada) | Leitura |
+|---|---|---|---|
+| `outcome_reward IS NOT NULL` (projeto) | 147/8.641 = 1,70% | **147/8.671 = 1,70%** | +30 memórias novas, **zero** com veredito — o poço não é histórico, é **corrente** |
+| `outcome_reward` (global) | 4/241 = 1,66% | 4/242 = 1,65% | idem |
+| `access_count = 0` (projeto) | 1.717/8.641 = 19,9% | 1.717/8.671 = 19,8% | estável |
+
+O dado novo é o **fluxo**, não o estoque: nas ~2h entre as duas medições o corpus cresceu 30
+entradas e **nenhuma** carregou outcome. Qualquer trabalho feito hoje entra no corpus mudo.
+
+### 6.2 Três defeitos que a própria re-execução expôs (não estavam no diagnóstico de 18h)
+
+- **D1 — `strategy-loop` falha estruturalmente em tema com lente externa.** O nó
+  `explore_round` roda `touring explore "$topic" --scope "$scope"`, que **sai 1** enquanto a
+  lente `external` está `PENDING`. O nó não tem rota para marcá-la (é decisão humana/manual),
+  então `on_fail = "__fail__"` derruba o fluxo antes do `evidence_report`. Observado 2× (exit 3
+  na sessão 1, exit 1 aqui). Efeito: o OUTER determinístico **nunca** completa sozinho num tema
+  que exija pesquisa externa — exatamente a classe de tema que mais precisa dele.
+- **D2 — o slug do ledger não normaliza diacríticos.** `…inteligencia…` e `…inteligência…`
+  produzem dois ledgers distintos no mesmo escopo. A convergência de um não protege o outro:
+  havia um ledger convergido (5 rodadas, `external` visitada com 11 fontes) e um fork
+  não-convergido, para a mesma pergunta.
+- **D3 — o gate do flow aceita ledger alheio.** O manifesto casa
+  `{scope}/.touring-explore/*.ledger.json` — **qualquer** ledger fresco do escopo, sem exigir
+  o tema do flow nem `verdict.converged`. Na primeira avaliação desta sessão o gate deu
+  `present` apontando para o ledger **não-convergido** (D2), e teria deixado o turno fechar com
+  a exploração incompleta. É a mesma classe já registrada em `piso-de-artefato-envelhece-com-o-marker`:
+  o artefato certo pelo predicado errado.
+
+D1–D3 são candidatos naturais ao escopo do plano: D1/D3 endurecem o próprio enforcement que a
+Lei L3 promete, e D2 é uma linha de normalização.
+
+### 6.3 Exploração
+
+Ledger convergido nesta volta: 8 rodadas, 13 findings, `1 → 10 → 0 → 0 → 0 → 2 → 0 → 0`, todas
+as 7 lentes visitadas (`external` reafirmada com as 11 fontes do §2). Os 2 findings da rodada 6
+são **auto-referentes** — as duas memórias que a sessão anterior gravou. Sem substância nova:
+o tema segue seco.

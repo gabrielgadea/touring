@@ -87,5 +87,21 @@ def main() -> int:
     return 1 if bad else 0
 
 
+# --------------------------------------------------------------------------
+# Entrada pytest. Sem ela o arquivo é coletado, não acha nenhuma função
+# `test_*` e reporta "no tests ran" — verde que não afirmou nada. Descoberto
+# no cross-audit de 26/08/2026, ao registrar este guard no CI: registrar um
+# passo que não verifica é pior que não registrar, porque parece cobertura.
+# --------------------------------------------------------------------------
+
+
+def test_cli_tests_mark_their_project_root():
+    """Todo teste que roda o CLI num tmpdir precisa marcar o projeto."""
+    bad = offenders()
+    assert not bad, "testes sem marcador de projeto: " + ", ".join(
+        str(e["file"]) for e in bad
+    )
+
+
 if __name__ == "__main__":
     sys.exit(main())

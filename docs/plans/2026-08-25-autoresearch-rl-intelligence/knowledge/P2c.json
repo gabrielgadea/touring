@@ -1,0 +1,11 @@
+{
+  "phase": "P2c",
+  "entities": [
+    {
+      "entity_id": "phase:P2c",
+      "type": "phase",
+      "description": "P2c fechado \u2014 a fonte da oferta corrigida por MEDICAO. O braco nascera preso ao fuse T3 e mediu-se t3_turn_fused=0: o gatilho nao ocorre neste modelo de execucao porque o PostToolUse de cada chamada fecha o turno. A oferta passou a ser gravada tambem no deny code-mode (code_mode_gates), que e o que dispara de fato. record_route_offer virou escritor UNICO dos dois sitios. PROVA AO VIVO no binario implantado: deny -> offered_code=1; chamada intermediaria ilegivel NAO consumiu a oferta (correcao de ordem classificar-antes-de-reivindicar); touring run -> followed_code=1; t3_turn_fused permaneceu 0 o tempo todo. BLOQUEADOR achado no caminho (a partir da observacao de Gabriel sobre a sequencia de bashs): contadores de gate-metrics sao volateis \u2014 t3_turn_first_passed caiu 2->0 num restart \u2014 logo uma politica com piso de amostra nunca promoveria entre deploys. A decisao passou a ler evidencia DURAVEL por projeto (.claude/touring/code_mode_arm.json), provada em disco: {code:{offered:1,followed:1}}. Falha de escrita virou warn em vez de silencio."
+    }
+  ],
+  "relations": []
+}

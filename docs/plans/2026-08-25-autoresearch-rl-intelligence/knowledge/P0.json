@@ -1,0 +1,11 @@
+{
+  "phase": "P0",
+  "entities": [
+    {
+      "entity_id": "phase:P0",
+      "type": "phase",
+      "description": "P0 SINAL fechado. Achado que mudou a fase: o laco de credito ja existia inteiro (cli_memory_credit, Memento Eq.9, ledger, CLI documentada) com ZERO chamadores \u2014 ledger_credited_total=0 na vida do daemon. Entregue: (a) Ledger::drain_pending() + touring memory credit --all-pending (quem sabe o VEREDITO credita sem lembrar as queries) + loop_phase_close cai nesse fallback sozinho; (b) adw.py deposit_run_outcome() em execute() fora do lock \u2014 reward por run (adw:run:<spec>) + credito das memorias, para TODO caminho de run (antes: 1 sitio, so campaign, em 3.823 linhas). NAO precisou codigo: (c) router_accuracy ja implementado (le .touring/factory/stats.json; STUB e ausencia honesta \u2014 o factory nunca rodou aqui); (d) canal de feedback do gate JA existe (W4 S-4.6, com lint) \u2014 memoria adw-retry-sem-feedback-do-gate corrigida para RESOLVIDO. Medido: outcome_reward 147/8641=1,70% -> 203/8684=2,34% (+38% relativo). Gates: 3.450 testes verdes (1924 intelligence+cli, 1526 server), clippy exit 0, 5 guards novos do credit_recalls."
+    }
+  ],
+  "relations": []
+}

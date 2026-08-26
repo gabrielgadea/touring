@@ -148,9 +148,24 @@ def credit_recalls(task, phase, status, queries):
     only known to be useful once the work it informed has been judged. Silent
     no-op when no query was recorded — crediting is best-effort, never a gate.
     """
-    if not queries:
-        return 0
     verdict = "1.0" if status == "done" else "0.0"
+    if not queries:
+        # The affordance, not the reminder. A phase knows its VERDICT; it never
+        # knows the list of questions it asked along the way. Requiring
+        # `--credit-query` meant the loop closed only when a caller remembered
+        # to pass it — and measured 2026-08-25, none ever did: the ledger's
+        # `credited_count` was 0 for the daemon's whole life with the mechanism
+        # fully built. `--all-pending` moves the remembering into the executor.
+        # A binary predating the flag rejects the call; crediting stays
+        # best-effort and never gates the phase.
+        rc, out, _ = run(["touring", "memory", "credit", "--all-pending",
+                          "--reward", verdict])
+        if rc != 0 or '"credited"' not in out:
+            return 0
+        try:
+            return len(json.loads(out).get("claimed_queries") or [])
+        except (ValueError, AttributeError):
+            return 0
     credited = 0
     for q in queries:
         rc, out, _ = run(["touring", "memory", "credit", q, "--reward", verdict])
@@ -463,16 +478,25 @@ def main(argv=None):
         except Exception as exc:  # noqa: BLE001 — fail-open, like every hook here
             result["variant_error"] = f"{exc.__class__.__name__}: {exc}"
 
+    # O exit code sempre foi honesto; o CABEÇALHO não era. Ele anunciava
+    # "→ done" mesmo com `dag=False`, e um leitor que não conferisse os flags
+    # (ou que canalizasse a saída por um `tail`) levava embora a impressão de
+    # que a fase fechou. Um cabeçalho que afirma o desfecho contradito pelos
+    # próprios flags logo abaixo é a classe `sinais-de-progresso-que-mentem`.
+    ok = result["dag_updated"] and result["memory_stored"]
     if args.json:
         print(json.dumps(result, indent=2))
     elif not args.quiet:
-        print(f"phase-close · {args.phase} → {args.status}")
+        estado = args.status if ok else f"{args.status} — NÃO PERSISTIDO (exit 1)"
+        print(f"phase-close · {args.phase} → {estado}")
         print(f"  dag={result['dag_updated']} memory={result['memory_stored']} reward={result['rewarded']}")
+        if not ok:
+            print("  ⚠ o relatório OKF foi escrito, mas a DAG/memória NÃO avançaram "
+                  "— reexecute quando o daemon responder")
         if args.bundle:
             print(f"  OKF report: {result['phase_report']}")
             print(f"  abstract:   {result['abstract']} ({result['entities']} entities, {result['relations']} relations)")
 
-    ok = result["dag_updated"] and result["memory_stored"]
     return 0 if ok else 1
 
 

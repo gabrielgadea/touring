@@ -572,6 +572,24 @@ pub struct GateMetricsSnapshot {
     /// Snapshot of P3/T3-B folds (chamadas K−1 negadas com a rota fundida).
     #[serde(default)]
     pub t3_turn_fused_count: u64,
+    /// P2 — denominador do braço `native`: rotas oferecidas sob essa apresentação.
+    #[serde(default)]
+    pub code_mode_arm_offered_native_count: u64,
+    /// P2 — numerador do braço `native`: rotas tomadas.
+    #[serde(default)]
+    pub code_mode_arm_followed_native_count: u64,
+    /// P2 — denominador do braço `both`: rotas oferecidas sob essa apresentação.
+    #[serde(default)]
+    pub code_mode_arm_offered_both_count: u64,
+    /// P2 — numerador do braço `both`: rotas tomadas.
+    #[serde(default)]
+    pub code_mode_arm_followed_both_count: u64,
+    /// P2 — denominador do braço `code`: rotas oferecidas sob essa apresentação.
+    #[serde(default)]
+    pub code_mode_arm_offered_code_count: u64,
+    /// P2 — numerador do braço `code`: rotas tomadas.
+    #[serde(default)]
+    pub code_mode_arm_followed_code_count: u64,
     /// Snapshot of CEG X7 DECISION denials (actions blocked).
     #[serde(default)]
     pub ceg_blocked_count: u64,
@@ -952,6 +970,12 @@ impl GateMetricsSnapshot {
             ceg_captured_count: m.ceg_captured_count.load(Ordering::Relaxed),
             t3_turn_first_passed_count: m.t3_turn_first_passed_count.load(Ordering::Relaxed),
             t3_turn_fused_count: m.t3_turn_fused_count.load(Ordering::Relaxed),
+            code_mode_arm_offered_native_count: m.code_mode_arm_offered_native_count.load(Ordering::Relaxed),
+            code_mode_arm_followed_native_count: m.code_mode_arm_followed_native_count.load(Ordering::Relaxed),
+            code_mode_arm_offered_both_count: m.code_mode_arm_offered_both_count.load(Ordering::Relaxed),
+            code_mode_arm_followed_both_count: m.code_mode_arm_followed_both_count.load(Ordering::Relaxed),
+            code_mode_arm_offered_code_count: m.code_mode_arm_offered_code_count.load(Ordering::Relaxed),
+            code_mode_arm_followed_code_count: m.code_mode_arm_followed_code_count.load(Ordering::Relaxed),
             ceg_blocked_count: m.ceg_blocked_count.load(Ordering::Relaxed),
             ceg_sandboxed_count: m.ceg_sandboxed_count.load(Ordering::Relaxed),
             ceg_fast_path_count: m.ceg_fast_path_count.load(Ordering::Relaxed),
@@ -1112,6 +1136,48 @@ pub fn record_t3_turn_first_passed() {
 #[inline]
 pub fn record_t3_turn_fused() {
     global().t3_turn_fused_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// P2 — a apresentação entregou uma rota escrita sob o braço `mode`.
+///
+/// Contadores, e não o bandit, porque a decisão de apresentação acontece num
+/// caminho que não tem o runtime de aprendizado em mãos — o mesmo motivo pelo
+/// qual `actuator_signals` lê um snapshot. Um nome de braço desconhecido é
+/// ignorado: contar num balde errado é pior que não contar.
+pub fn record_code_mode_arm_offered(mode: &str) {
+    match mode {
+        "native" => global().code_mode_arm_offered_native_count.fetch_add(1, Ordering::Relaxed),
+        "both" => global().code_mode_arm_offered_both_count.fetch_add(1, Ordering::Relaxed),
+        "code" => global().code_mode_arm_offered_code_count.fetch_add(1, Ordering::Relaxed),
+        _ => return,
+    };
+}
+
+/// P2 — a rota oferecida sob `mode` foi de fato tomada.
+pub fn record_code_mode_arm_followed(mode: &str) {
+    match mode {
+        "native" => global().code_mode_arm_followed_native_count.fetch_add(1, Ordering::Relaxed),
+        "both" => global().code_mode_arm_followed_both_count.fetch_add(1, Ordering::Relaxed),
+        "code" => global().code_mode_arm_followed_code_count.fetch_add(1, Ordering::Relaxed),
+        _ => return,
+    };
+}
+
+/// P2 — `[(oferecidas, tomadas); 3]` na ordem `native, both, code`.
+///
+/// Leitura direta dos seis átomos em vez de `GateMetricsSnapshot::capture()`:
+/// a política é consultada no caminho quente de cada PreToolUse, e capturar o
+/// snapshot inteiro para ler seis números seria pagar o mapa para achar a rua.
+pub fn code_mode_arm_counts() -> [(u64, u64); 3] {
+    let m = global();
+    [
+        (m.code_mode_arm_offered_native_count.load(Ordering::Relaxed),
+         m.code_mode_arm_followed_native_count.load(Ordering::Relaxed)),
+        (m.code_mode_arm_offered_both_count.load(Ordering::Relaxed),
+         m.code_mode_arm_followed_both_count.load(Ordering::Relaxed)),
+        (m.code_mode_arm_offered_code_count.load(Ordering::Relaxed),
+         m.code_mode_arm_followed_code_count.load(Ordering::Relaxed)),
+    ]
 }
 
 /// X7 DECISION — increment the CEG blocked (Deny verdict) counter.
