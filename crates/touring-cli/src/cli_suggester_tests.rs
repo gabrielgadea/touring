@@ -178,14 +178,13 @@ fn classify_bash_sed_inplace_routes_to_taco_forge() {
 #[test]
 fn classify_bash_git_readonly_is_permitted_not_prohibited() {
     let input = json!({"command": "git status"});
-    let out = classify_bash(&input).expect("classify_bash emits");
-    assert_eq!(out.cluster, "regra-11-git-safe");
-    // No MUST: nothing is required of a permitted command.
-    assert!(out.must.is_empty(), "read-only git must demand nothing");
+    // Nada é emitido: o comando é permitido e não exige ação. O arm
+    // `regra-11-git-safe` que existia aqui tinha confiança 0.55 e era
+    // descartado pelo gate conformal (LEGACY_THRESHOLD = 0.7) — código
+    // aparentemente correto e provadamente inerte, removido em 26/08.
     assert!(
-        !out.reason.contains("prohibited"),
-        "reason must not claim a revoked ban: {}",
-        out.reason
+        classify_bash(&input).is_none(),
+        "git de leitura não exige ação: o classificador deve calar"
     );
 }
 

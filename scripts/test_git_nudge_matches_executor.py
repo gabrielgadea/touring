@@ -179,9 +179,13 @@ def test_guard_detects_a_revoked_prohibition_claim():
     passa sempre — e um guard que nunca reprova não guarda nada.
     """
     original = RUST.read_text(encoding="utf-8")
+    # Muta o `reason` do arm DESTRUTIVO — o único que sobrou depois que o arm
+    # `safe` foi removido em 26/08 (tinha confiança 0.55, abaixo do gate
+    # conformal de 0.7, e nunca era emitido). Um teste de mutação que aponta
+    # para texto que não existe mais falha por invalidez, não por defeito.
     mutated = original.replace(
-        "REGRA #11 v2 (23/08/2026) — git de leitura/aditivo é LIVRE e o \\",
-        "REGRA #11 — git is prohibited in TACO. \\",
+        "reason: \"REGRA #11 v2 — git é PERMITIDO, mas esta operação é da classe \\",
+        "reason: \"REGRA #11 — git is prohibited in TACO. \\",
         1,
     )
     assert mutated != original, "a mutação não aplicou — teste inválido"
