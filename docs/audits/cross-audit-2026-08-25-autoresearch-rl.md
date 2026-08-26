@@ -321,5 +321,72 @@ guard serial; 3 guards registrados no CI; 2 guards que passaram a afirmar algo;
 
 ---
 
-_Cross-audit 2026-08-25 (noite) · 7 fases · evidência executada, sem veredito por
-narrativa · auditor não-independente (declarado em §1)._
+## 8. ADENDO — o que o GATE achou depois que a auditoria se declarou pronta
+
+Escrito após o §1..§7. Ao registrar a DAG (passo 11 do loop) e submeter o veredito
+a `loop_converged.py --rust-full`, o gate **reprovou duas vezes** e expôs dois
+defeitos que esta auditoria não tinha encontrado. Ficam aqui porque um relatório que
+omite o que veio depois do seu próprio "pronto" é exatamente a autoavaliação que a
+Lei L3 existe para eliminar.
+
+**A causa de eu não os ter achado é nomeável**: rodei os testes **crate a crate**
+(os 4 que toquei). O gate roda o **workspace inteiro**. Escopo mais estreito que o
+do juiz produz um verde que não vale.
+
+### F11 — `query_cache`: o remédio existia e cobria 2 de 11 testes
+
+`GLOBAL_CACHE_LOCK` + `global_cache_guard()` estão no arquivo desde **07/08**, com
+docstring explicando que `clear_all()` limpa o cache do processo e cai entre o `put`
+e o `get` de outro teste. Foi aplicado aos 2 testes que falhavam naquele dia; os
+outros 9 ficaram expostos. A vítima de hoje foi
+`invalidate_by_path_removes_only_matching_keys` — e o crate isolado dava **verde**.
+
+Medido: **4/6** falhas rodando só os `query_cache`, **0/6** serial; **0/10** e
+**0/8** depois do guard nos 8 que tocam o cache. Guard estendido com a 5ª família e
+**generalizado**: o marcador agora pode viver no corpo (guard RAII), não só nos
+atributos — procurar só em atributos reportava os 11 como violação e sugeria um
+remédio inexistente (`#[serial_test::global_cache_guard()]`).
+
+É a terceira instância nesta sessão da mesma lei: **corrigir a vítima do dia não
+corrige a classe.**
+
+### F12 — `regra-11-git-safe`: correto no papel, morto na prática
+
+O arm que **eu** escrevi na F1 para `git log/status/diff` tinha confiança **0.55**,
+abaixo do gate conformal (`LEGACY_THRESHOLD = 0.7`) aplicado em
+`select_classifier`. **Nunca era emitido.**
+
+Isso explica retroativamente os `UNVERIFIED` do §6 — o silêncio do nudge nas provas
+ao vivo não era gate de projeto desconhecido, era o arm sendo suprimido pelo limiar.
+O teste unitário não podia pegar: chama `classify_bash` **direto**, antes do gate. Só
+o E2E atravessa o caminho real, e foi ele que reprovou.
+
+**Removido**, não inflado: `git status` é dos comandos mais frequentes que existem, e
+um banner nele taxaria o caso comum sem exigir ação — o oposto da invariante de
+densidade que o próprio arm invocava. O valor da REGRA #11 v2 está no arm DESTRUTIVO
+(0.99), que passa folgado e está provado ao vivo.
+
+Ironia registrada: a F1 corrigiu um nudge que *afirmava o que o executor não faz*, e
+introduziu um arm que *o executor nunca executa*. Mesma família, cometida na própria
+correção.
+
+### Veredito final (o exit code, não a narrativa)
+
+```
+loop_converged.py --rust-full  →  exit 0
+  PASS judge_intact          juiz de registro íntegro, 8 cláusulas
+  PASS dag_done              10/10 subtasks
+  PASS quality_gold          tier=Platinum composite=0.9185
+  PASS no_p0_fail            0 P0
+  PASS measured_whole_scope  nenhum corpus truncado
+  PASS orphans_base          2357 = baseline
+  PASS cargo_green           check + test + clippy verdes (WORKSPACE)
+  N/A  cross_audit           sem audit-plan-completion.sh
+```
+
+Commits: `73ff27c` (sessão) · `e3aa133` (ferramenta versionada) · `d2d6d32` (F11+F12).
+
+---
+
+_Cross-audit 2026-08-25 (noite) · 7 fases + adendo do gate · evidência executada, sem
+veredito por narrativa · auditor não-independente (declarado em §1)._
