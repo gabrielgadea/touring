@@ -1,3 +1,11 @@
+---
+type: ResumePoint
+title: RETOMAR-AQUI — code-mode afordancia deep
+description: ponto de retomada do plano code-mode-afordancia-deep (sessões 1-2)
+plan_id: task_1787767900017576294
+tags: [resume, code-mode]
+---
+
 <!-- OKF document -->
 ---
 okf_version: "1.0"
@@ -107,3 +115,17 @@ S1-S6; §7: N1-N5) — persistida em `strategy:code-mode-afordancia-deep:2026-08
 | Binário patchado (referência) | `~/.local/share/mise/installs/claude/2.1.245/claude.patched-bash-nudge` |
 | deepseek-harness (clone) | `/tmp/deepseek-harness` (shallow; re-clonar se perdido) |
 | Plano anterior (P0-P4) | `docs/plans/2026-08-25-code-mode-afordancia/` + `retomar:code-mode-afordancia:2026-08-25` |
+
+
+---
+
+## UPDATE sessão 2 (26/08 18:45) — 7/8 fases FECHADAS
+
+Fechadas: S1(+cd/segmentos) · N3a(G9) · N5(KPI 2 pontas) · S3(já existia) · S5a(campo JSON) · S4(G10+R9) · S6(portfolio) · S5b/c(GateFatigue). Suites: cli 455, foundation 486, server 1527 — clippy limpo, orphans 2357=baseline, convergência exit 1 **só por S2**.
+
+**ABERTO — S2 (piloto analise): AGUARDA DECISÃO DO GABRIEL** (deploy com 2 sessões CC vivas):
+- opção A: bump 30.4.15 → update-touring → toolchain install → update analise → `mode="code"` no analise → medir adoção >60% nas próximas sessões
+- opção B: pilotar com 30.4.14 atual (sem executor maduro)
+- opção C: adiar deploy
+
+**Contorno OBRIGATÓRIO sessão 3:** Edit/Write FABRICAM (incidente escalado — 9 edições fantasma nesta sessão; cargo verde sobre código não-escrito). Usar python substituição-exata + re-leitura. Reler `incident:edit-tool-tambem-fabrica:2026-08-26` antes de qualquer escrita.

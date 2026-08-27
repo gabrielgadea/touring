@@ -113,8 +113,16 @@ fn classifier_grep_free_text_routes_to_tantivy() {
     assert!(ctx.contains("tantivy search"));
 }
 
+/// `sed -i` é NEGADO pelo G9, não sugerido.
+///
+/// Este teste afirmava que a escrita cega inline virava um NUDGE com o cluster
+/// `anti-pattern-bash-edit`. O G9 (N3a, 26/08/2026) promoveu a mesma situação a
+/// DENY — que é a decisão certa: `sed -i` atravessa os 17 gates do Edit, e um
+/// conselho que se pode ignorar não impede isso. O teste ficou afirmando o
+/// contrato anterior e passou a falhar; corrigido em 27/08 para exigir o deny,
+/// porque é o comportamento que se quer proteger de regressão.
 #[test]
-fn classifier_bash_sed_inplace_promotes_taco_forge_perfect_edit() {
+fn classifier_bash_sed_inplace_is_denied_by_g9() {
     let (_tmp, rt) = make_runtime();
     // session_id próprio: os caches de gate (G3/G5 streak) são por sessão e
     // globais ao processo — sem ele, um Edit de OUTRO teste faz o G5 falar
@@ -125,12 +133,20 @@ fn classifier_bash_sed_inplace_promotes_taco_forge_perfect_edit() {
         "tool_input": { "command": "sed -i 's/old/new/g' foo.rs" }
     });
     let out = cli_suggester::run(&rt, &payload);
-    let ctx = additional_context(&out).expect("non-empty");
-    assert!(
-        ctx.contains("anti-pattern-bash-edit"),
-        "cluster wrong: {ctx}"
+    let v: Value = serde_json::from_str(&out).expect("JSON");
+    let h = v.get("hookSpecificOutput").expect("hookSpecificOutput");
+    assert_eq!(
+        h.get("permissionDecision").and_then(|x| x.as_str()),
+        Some("deny"),
+        "escrita cega inline tem de ser NEGADA: {out}"
     );
-    assert!(ctx.contains("Edit tool"));
+    let razao = h
+        .get("permissionDecisionReason")
+        .and_then(|x| x.as_str())
+        .expect("o deny carrega a razão");
+    assert!(razao.contains("G9"), "o deny se identifica: {razao}");
+    // e a rota alternativa vem escrita — um deny sem saída é só um obstáculo
+    assert!(razao.contains("Edit tool"), "a rota canônica viaja no deny: {razao}");
 }
 
 /// REGRA #11 v2: git de leitura é PERMITIDO, nada é exigido, e o hook cala.
@@ -323,11 +339,31 @@ fn every_non_empty_output_is_a_valid_json_object_with_additional_context() {
                 h.get("hookEventName").and_then(|x| x.as_str()),
                 Some("PreToolUse")
             );
-            assert!(
-                h.get("additionalContext")
-                    .and_then(|x| x.as_str())
-                    .is_some()
-            );
+            // Uma resposta não-vazia é um NUDGE (`additionalContext`) ou uma
+            // DECISÃO (`permissionDecision` + a razão). O invariante afirmava
+            // só a primeira forma, de quando o hook ainda não negava nada; o
+            // G9 (26/08) e o gate de rajada do modo `code` (S3, 27/08) trouxeram
+            // a segunda. Exigir `additionalContext` de um deny é exigir que ele
+            // seja um conselho — exatamente o que ele deixou de ser.
+            let nudge = h.get("additionalContext").and_then(|x| x.as_str());
+            let decisao = h.get("permissionDecision").and_then(|x| x.as_str());
+            match (nudge, decisao) {
+                (Some(_), None) => {}
+                (None, Some(d)) => {
+                    assert!(
+                        matches!(d, "deny" | "allow" | "ask"),
+                        "decisão desconhecida `{d}`: {out}"
+                    );
+                    assert!(
+                        h.get("permissionDecisionReason")
+                            .and_then(|x| x.as_str())
+                            .is_some_and(|r| !r.is_empty()),
+                        "toda decisão carrega a razão — um deny mudo não ensina nada: {out}"
+                    );
+                }
+                (Some(_), Some(_)) => panic!("nudge E decisão na mesma resposta: {out}"),
+                (None, None) => panic!("resposta não-vazia sem nudge nem decisão: {out}"),
+            }
         }
     }
 }

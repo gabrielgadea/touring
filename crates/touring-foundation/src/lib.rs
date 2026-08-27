@@ -35,6 +35,7 @@ pub mod alloc;
 pub mod char_classes;
 pub mod checkpoint;
 pub mod chunker;
+pub mod code_mode;
 pub mod config;
 // conflict peeled to touring-resilience crate (A4 P1, 2026-06-15)
 pub mod diagnostic;
@@ -75,6 +76,7 @@ pub mod migration;
 /// A5 step-2, 2026-06-15; generic infra belongs in the kernel).
 pub mod moka_policies;
 pub mod plugin;
+pub mod orchestrate_allowlist;
 /// Capability Portfolio — prior-art discovery keyed by purpose.
 pub mod portfolio;
 pub mod profile;

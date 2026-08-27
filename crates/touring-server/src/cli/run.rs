@@ -10,7 +10,7 @@
 //! so the model receives a < ~200-token digest that NEVER masks a failure (exit_code +
 //! error lines are preserved verbatim).
 //!
-//! `--orchestrate` (R4) prepends the read-only `touring` Python SDK (`TOURING_PY_SDK`) so a
+//! `--orchestrate` (R4) prepends the read-only `touring` Python SDK (`py_sdk()`) so a
 //! single sandboxed script queries the daemon over its socket — orchestration-in-code WITHOUT
 //! MCP. See `docs/2026-06-27-coupling-codemode-cli-and-master-commands.md` §3 (Camada 2 / R4).
 
@@ -19,17 +19,172 @@ use clap::Parser;
 
 use crate::tools::ctx_execute_tools::{CtxExecuteOutput, ctx_execute_impl};
 
-/// R4 — the `touring` orchestration SDK, injected ahead of the user's Python body by
-/// `--orchestrate`. It speaks the daemon's newline-delimited JSON RPC over the Unix
-/// socket (`daemon_client` wire format), so one sandboxed script can query the whole
-/// stack in a single execution — orchestration-in-code WITHOUT MCP (the −60-85% token
-/// win of CodeAct). Read-only query helpers only; `query()` is the generic escape hatch.
+/// S4 SURFACE — a allowlist de leitura, reexportada da FONTE ÚNICA.
 ///
-/// Security note: the sandbox already reaches the daemon socket (R1 — `socket` is not a
-/// forbidden primitive and landlock permits `/tmp`), so `--orchestrate` adds *ergonomics*
-/// (the SDK), not a new capability. Hardening the socket behind an explicit grant + a
-/// server-side read-only hook allowlist is tracked as a follow-up (MAESTRO mitigation).
-const TOURING_PY_SDK: &str = r#"# --- touring orchestration SDK (injected by `touring run --orchestrate`) ---
+/// Ela mora em [`touring_foundation::orchestrate_allowlist`] desde 27/08/2026
+/// porque DOIS lados precisam da mesma lista: este, que RENDERIZA o guard no
+/// SDK, e o daemon, que o IMPÕE. Enquanto só existia aqui (e, pior, só dentro
+/// da string Python), o guard era um atributo mutável do cliente — um programa
+/// no sandbox reescrevia `touring.READONLY_HOOKS` e chamava o que quisesse.
+use touring_foundation::orchestrate_allowlist::READONLY_HOOKS;
+
+/// S4 — one typed shortcut of the orchestrate SDK.
+///
+/// `hook: None` marks `query` itself: it is declared in the stub (so the escape
+/// hatch is discoverable) but hand-written in the client, since it IS the
+/// transport the other methods are built on.
+struct SdkMethod {
+    /// Python method name — also the stub's sort key.
+    name: &'static str,
+    /// Daemon hook it calls; `None` only for `query`.
+    hook: Option<&'static str>,
+    /// Implementation signature, e.g. `"self, symbol"`.
+    args: &'static str,
+    /// Stub signature with type hints, e.g. `"self, symbol: str"`.
+    stub_args: &'static str,
+    /// Payload dict literal passed to `query`.
+    payload: &'static str,
+    /// One-line docstring, shared by implementation and stub.
+    doc: &'static str,
+}
+
+const SDK_METHODS: &[SdkMethod] = &[
+    SdkMethod {
+        name: "ast_blast",
+        hook: Some("cli-ast-blast"),
+        args: "self, file_path",
+        stub_args: "self, file_path: str",
+        payload: r#"{"file_path": file_path}"#,
+        doc: "Full dependency tree (blast radius) for a file.",
+    },
+    SdkMethod {
+        name: "ast_meta",
+        hook: Some("cli-ast-meta"),
+        args: "self, file_path",
+        stub_args: "self, file_path: str",
+        payload: r#"{"file_path": file_path}"#,
+        doc: "File metadata first: blast_radius, quality/cognitive score, fan-in/fan-out.",
+    },
+    SdkMethod {
+        name: "ast_overview",
+        hook: Some("cli-ast-overview"),
+        args: "self, file_path",
+        stub_args: "self, file_path: str",
+        payload: r#"{"file_path": file_path}"#,
+        doc: "Structure + symbol map for a file.",
+    },
+    SdkMethod {
+        name: "ast_tdg",
+        hook: Some("cli-ast-tdg"),
+        args: "self, file_path",
+        stub_args: "self, file_path: str",
+        payload: r#"{"file_path": file_path}"#,
+        doc: "Technical-debt grade A+..F over 6 dimensions.",
+    },
+    SdkMethod {
+        name: "doctor",
+        hook: Some("cli-doctor"),
+        args: "self",
+        stub_args: "self",
+        payload: r#"{}"#,
+        doc: "Daemon/index health check (the FASE 0 gate).",
+    },
+    SdkMethod {
+        name: "find_references",
+        hook: Some("cli-find-references"),
+        args: "self, symbol",
+        stub_args: "self, symbol: str",
+        payload: r#"{"symbol": symbol}"#,
+        doc: "Every reference to a symbol across the project.",
+    },
+    SdkMethod {
+        name: "gotcha_match",
+        hook: Some("cli-gotcha-match"),
+        args: "self, file_path",
+        stub_args: "self, file_path: str",
+        payload: r#"{"file_path": file_path}"#,
+        doc: "Known pitfalls recorded for this file.",
+    },
+    SdkMethod {
+        name: "index_find",
+        hook: Some("cli-index-find"),
+        args: "self, symbol",
+        stub_args: "self, symbol: str",
+        payload: r#"{"symbol_name": symbol}"#,
+        doc: "Exact symbol lookup in the project index (VGP).",
+    },
+    SdkMethod {
+        name: "memory_recall",
+        hook: Some("cli-memory-recall"),
+        args: "self, query",
+        stub_args: "self, query: str",
+        payload: r#"{"query": query}"#,
+        doc: "Semantic memory recall; '#facet:value' tokens filter the tagged corpus.",
+    },
+    SdkMethod {
+        name: "query",
+        hook: None,
+        args: "",
+        stub_args: "self, hook: str, payload: dict",
+        payload: "",
+        doc: "Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS).",
+    },
+    SdkMethod {
+        name: "search",
+        hook: Some("cli-search-docs"),
+        args: "self, query",
+        stub_args: "self, query: str",
+        payload: r#"{"query": query}"#,
+        doc: "Search over the docs index.",
+    },
+    SdkMethod {
+        name: "tantivy_search",
+        hook: Some("cli-tantivy-search"),
+        args: "self, query, top=10",
+        stub_args: "self, query: str, top: int = 10",
+        payload: r#"{"query": query, "top": top}"#,
+        doc: "BM25 ranked search over the symbol/docs index.",
+    },
+    SdkMethod {
+        name: "wiring_impact",
+        hook: Some("cli-wiring-impact"),
+        args: "self, symbol, depth=2",
+        stub_args: "self, symbol: str, depth: int = 2",
+        payload: r#"{"symbol": symbol, "depth": depth, "format": "json"}"#,
+        doc: "Transitive consumers of a symbol (blast radius, BFS to `depth`).",
+    },
+    SdkMethod {
+        name: "wiring_orphans",
+        hook: Some("cli-wiring-orphans"),
+        args: "self",
+        stub_args: "self",
+        payload: r#"{}"#,
+        doc: "Public symbols with no consumer (REGRA #0).",
+    },
+    SdkMethod {
+        name: "wiring_status",
+        hook: Some("cli-wiring-status"),
+        args: "self",
+        stub_args: "self",
+        payload: r#"{}"#,
+        doc: "Workspace wiring summary (orphans, module scores).",
+    },
+];
+
+/// S4 — the client body, with `{allowlist}` and `{methods}` filled in by
+/// [`py_sdk`]. Everything the model reads about the surface comes from
+/// [`READONLY_HOOKS`] and [`SDK_METHODS`]; nothing here restates it.
+const TOURING_PY_SDK_TEMPLATE: &str = r#"# --- touring orchestration SDK (injected by `touring run --orchestrate`) ---
+# Why this pays: each call below is a daemon read that would otherwise cost a
+# full model round-trip. Inside one `touring run` they are ordinary function
+# calls, so a program that consults N facts spends ONE turn instead of N, and
+# only what it PRINTS enters the context — intermediates stay in the sandbox
+# (Anthropic CodeAct / programmatic tool calling; Cloudflare Code Mode).
+#   * 3 lookups (find + blast + impact) = 1 turn, not 3.
+#   * A loop over 40 files = 1 turn; the same sweep as tool calls is 40.
+#   * `--brief` returns the digest and DECLARES what it elided (`elided_lines`).
+#   * {n_hooks} read hooks are reachable — the 9 typed shortcuts below are
+#     conveniences; `touring.query(hook, payload)` reaches all of them.
 import socket as _tr_socket, os as _tr_os, json as _tr_json
 
 
@@ -49,18 +204,17 @@ class _TouringClient:
         self._run_id = _tr_os.environ.get("TOURING_RUN_ID") or ""
         self._n = 0
 
-    # W2 d1/S-2.1 — the read-only hook allowlist this SDK speaks. Containment,
-    # not a security boundary (the sandbox reaches the socket regardless; the
-    # server-side grant/proxy is the tracked follow-up): the guard teaches the
-    # contract up front instead of failing opaquely at the daemon.
+    # W2 d1/S-2.1 — the read-only hook allowlist this SDK speaks, GENERATED from
+    # `READONLY_HOOKS` (S4). Containment, not a security boundary (the sandbox
+    # reaches the socket regardless; the server-side grant/proxy is the tracked
+    # follow-up): the guard teaches the contract up front instead of failing
+    # opaquely at the daemon.
     READONLY_HOOKS = (
-        "cli-index-find", "cli-ast-blast", "cli-ast-overview",
-        "cli-wiring-status", "cli-search-docs", "cli-memory-recall",
-        "cli-tantivy-search", "cli-wiring-impact",
+{allowlist}
     )
 
     def query(self, hook, payload=None):
-        """Send a daemon RPC; return the parsed JSON output (or the raw string)."""
+        """{query_doc}"""
         if hook not in self.READONLY_HOOKS:
             raise RuntimeError(
                 "hook " + repr(hook) + " is not in the orchestrate read-only "
@@ -85,7 +239,17 @@ class _TouringClient:
             s.close()
         resp = _tr_json.loads(buf.decode())
         if not resp.get("success"):
-            raise RuntimeError("touring daemon returned success=false for hook " + repr(hook))
+            # A razão do daemon VIAJA. Sem isto o programa via só
+            # "success=false" e o remédio — que o servidor escreveu — morria no
+            # caminho; um deny que não ensina é obstáculo, não gate.
+            motivo = ""
+            try:
+                motivo = (_tr_json.loads(resp.get("output") or "{}") or {}).get("error") or ""
+            except _tr_json.JSONDecodeError:
+                motivo = resp.get("output") or ""
+            raise RuntimeError(
+                "touring daemon refused hook " + repr(hook)
+                + (": " + motivo if motivo else ""))
         out = resp.get("output", "")
         if not out:
             return None
@@ -94,92 +258,106 @@ class _TouringClient:
         except _tr_json.JSONDecodeError:
             return out
 
-    def index_find(self, symbol):
-        return self.query("cli-index-find", {"symbol_name": symbol})
-
-    def ast_blast(self, file_path):
-        return self.query("cli-ast-blast", {"file_path": file_path})
-
-    def ast_overview(self, file_path):
-        return self.query("cli-ast-overview", {"file_path": file_path})
-
-    def wiring_status(self):
-        return self.query("cli-wiring-status", {})
-
-    def search(self, query):
-        return self.query("cli-search-docs", {"query": query})
-
-    def memory_recall(self, query):
-        """Semantic memory recall; '#facet:value' tokens filter the tagged corpus."""
-        return self.query("cli-memory-recall", {"query": query})
-
-    def tantivy_search(self, query, top=10):
-        """BM25 ranked search over the symbol/docs index."""
-        return self.query("cli-tantivy-search", {"query": query, "top": top})
-
-    def wiring_impact(self, symbol, depth=2):
-        """Transitive consumers of a symbol (blast radius, BFS to `depth`)."""
-        return self.query("cli-wiring-impact", {"symbol": symbol, "depth": depth, "format": "json"})
-
-
+{methods}
 touring = _TouringClient()
 # --- end touring SDK ---
 "#;
 
-/// W2 d1/S-2.3 — the STATIC STUB for the orchestrate SDK (dsh `py-types`
-/// blueprint): TypedDict payloads + a Protocol with the docstring INSIDE each
-/// method + the mandatory static-stub warning, lexicographically ordered so
-/// the text is byte-identical across runs (provider KV-cache stability, P21).
-/// Printed by `touring run --sdk-stub`; decision record: P23 (2026-08-23) —
-/// the full stub (~360 tok) is on-demand; nudges carry the 1-line form.
-const TOURING_PY_SDK_STUB: &str = r#"# touring run --orchestrate SDK — STATIC STUB (auto-generated, byte-stable)
+/// S4 — the stub header; the Protocol methods are appended by [`py_sdk_stub`].
+const TOURING_PY_SDK_STUB_HEADER: &str = r#"# touring run --orchestrate SDK — STATIC STUB (auto-generated, byte-stable)
 # Exactly two of the names declared below are bound at runtime: `touring` and
 # the RuntimeError raised on a non-allowlisted hook. Everything else is a
 # STATIC STUB for reading: build arguments as plain dict/list — never
 # `IndexFindArgs(symbol_name=...)`, which raises NameError at run time.
+# `query(hook, payload)` reaches all {n_hooks} allowlisted read hooks; the typed
+# methods below are the shortcuts for the ones used most.
 from typing import Any, Protocol
 
 
 class _Touring(Protocol):
-    def ast_blast(self, file_path: str) -> Any:
-        """Full dependency tree (blast radius) for a file."""
-        ...
-
-    def ast_overview(self, file_path: str) -> Any:
-        """Structure + symbol map for a file."""
-        ...
-
-    def index_find(self, symbol: str) -> Any:
-        """Exact symbol lookup in the project index (VGP)."""
-        ...
-
-    def memory_recall(self, query: str) -> Any:
-        """Semantic memory recall; '#facet:value' tokens filter the tagged corpus."""
-        ...
-
-    def query(self, hook: str, payload: dict) -> Any:
-        """Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS)."""
-        ...
-
-    def search(self, query: str) -> Any:
-        """Search over the docs index."""
-        ...
-
-    def tantivy_search(self, query: str, top: int = 10) -> Any:
-        """BM25 ranked search over the symbol/docs index."""
-        ...
-
-    def wiring_impact(self, symbol: str, depth: int = 2) -> Any:
-        """Transitive consumers of a symbol (blast radius, BFS to `depth`)."""
-        ...
-
-    def wiring_status(self) -> Any:
-        """Workspace wiring summary (orphans, module scores)."""
-        ...
-
-
-touring: _Touring
 "#;
+
+/// The allowlist rendered as the body of a Python tuple (4 per line, indented).
+fn allowlist_py() -> String {
+    READONLY_HOOKS
+        .chunks(4)
+        .map(|linha| {
+            let itens: Vec<String> = linha.iter().map(|h| format!("\"{h}\"")).collect();
+            format!("        {},", itens.join(", "))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The typed shortcuts rendered as Python methods (skipping `query`, which the
+/// template hand-writes because it is the transport itself).
+fn methods_py() -> String {
+    SDK_METHODS
+        .iter()
+        .filter_map(|m| {
+            let hook = m.hook?;
+            Some(format!(
+                "    def {}({}):\n        \"\"\"{}\"\"\"\n        return self.query(\"{}\", {})\n",
+                m.name, m.args, m.doc, hook, m.payload
+            ))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// R4 — the orchestrate SDK, generated once from [`READONLY_HOOKS`] and
+/// [`SDK_METHODS`]. `OnceLock` so the cost is paid once and the bytes are
+/// identical for the rest of the process (provider KV-cache stability, P21).
+fn py_sdk() -> &'static str {
+    static S: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    S.get_or_init(|| {
+        TOURING_PY_SDK_TEMPLATE
+            .replace("{allowlist}", &allowlist_py())
+            .replace("{methods}", &methods_py())
+            .replace("{n_hooks}", &READONLY_HOOKS.len().to_string())
+            // `query` é hand-written no template (é o transporte), mas a sua
+            // docstring vem da MESMA tabela que o stub lê — duas descrições do
+            // mesmo método é como a divergência começa.
+            .replace(
+                "{query_doc}",
+                SDK_METHODS
+                    .iter()
+                    .find(|m| m.name == "query")
+                    .map_or("Send a daemon RPC.", |m| m.doc),
+            )
+    })
+}
+
+/// W2 d1/S-2.3 — the STATIC STUB (dsh `py-types` blueprint): a Protocol with
+/// the docstring INSIDE each method plus the mandatory static-stub warning,
+/// lexicographically ordered so the text is byte-identical across runs.
+/// Printed by `touring run --sdk-stub`; decision record: P23 (2026-08-23) —
+/// the full stub is on-demand; nudges carry the 1-line form.
+///
+/// S4 made it GENERATED: it and the SDK now read the same two tables, so the
+/// advertised surface cannot drift from the enforced one.
+fn py_sdk_stub() -> &'static str {
+    static S: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    S.get_or_init(|| {
+        let mut ordenados: Vec<&SdkMethod> = SDK_METHODS.iter().collect();
+        ordenados.sort_by_key(|m| m.name);
+        let corpo = ordenados
+            .iter()
+            .map(|m| {
+                format!(
+                    "    def {}({}) -> Any:\n        \"\"\"{}\"\"\"\n        ...\n",
+                    m.name, m.stub_args, m.doc
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "{}{corpo}\n\ntouring: _Touring\n",
+            TOURING_PY_SDK_STUB_HEADER.replace("{n_hooks}", &READONLY_HOOKS.len().to_string())
+        )
+    })
+}
+
 
 /// `touring run` — execute code in the deny-by-default sandbox (11 languages,
 /// forbidden-call detection, 1 MB output cap). The code-mode channel without MCP.
@@ -267,7 +445,7 @@ pub fn run(args: &[String]) -> Result<()> {
 
     // W2 d1/S-2.3 — the stub is a pure print: no sandbox, no daemon.
     if cli.sdk_stub {
-        print!("{TOURING_PY_SDK_STUB}");
+        print!("{}", py_sdk_stub());
         return Ok(());
     }
 
@@ -307,7 +485,7 @@ pub fn run(args: &[String]) -> Result<()> {
              perfil Sandboxed cobre leitura + orquestração."
         );
     }
-    gate_run(&cli.lang, &user_code, cli.allow_forbidden)?;
+    let ceg_advisory = gate_run(&cli.lang, &user_code, cli.allow_forbidden)?;
 
     let args_json = match cli.args.as_deref() {
         Some(s) => Some(serde_json::from_str(s).context("parsing --args as a JSON array")?),
@@ -359,6 +537,7 @@ pub fn run(args: &[String]) -> Result<()> {
         harvest.as_deref(),
         trust.as_deref(),
         &snippet_report,
+        ceg_advisory.as_ref(),
     )?;
 
     // Propagate the sandboxed program's exit code as the CLI exit code so callers (and
@@ -376,7 +555,28 @@ pub fn run(args: &[String]) -> Result<()> {
 /// `sandboxed` (default) or `trusted` (--allow-forbidden). A `Deny` verdict
 /// aborts with a teaching error; an internal gateway error logs and proceeds
 /// (fail-open — the CEG invariant: the gate never bricks the session).
-fn gate_run(lang: &str, code: &str, allow_forbidden: bool) -> Result<()> {
+/// S5a (26/08/2026) — o advisory do exec-gate viaja no RESULTADO (campo
+/// estruturado), não no stderr: lá ele se misturava ao stderr real do
+/// programa sandboxed e corrompia quem parseava o stream (o consumidor CC lê
+/// stdout+stderr fundidos). O conteúdo é o mesmo; o canal é o JSON.
+struct CegRunAdvisory {
+    composite: f64,
+    reason: String,
+}
+
+/// S5a — o JSON do advisory, uma forma só nos dois modos (brief/full).
+fn ceg_advisory_json(a: &CegRunAdvisory) -> serde_json::Value {
+    serde_json::json!({
+        "composite": a.composite,
+        "reason": a.reason,
+        "note": "subprocess-only X6 deny waived for shell — the sandbox DOES contain \
+                 the filesystem (a write outside the workspace fails), which is what \
+                 makes this class waivable. Network and destructive-pattern denials \
+                 are NOT waived: they hard-deny, exactly as in the code languages.",
+    })
+}
+
+fn gate_run(lang: &str, code: &str, allow_forbidden: bool) -> Result<Option<CegRunAdvisory>> {
     use touring_hooks::capability::builtins;
     use touring_hooks::gateway::{
         ExecutionOutcomePredictor, GatewayDeps, SandboxCapabilities, Verdict,
@@ -417,24 +617,38 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool) -> Result<()> {
     let is_shell = matches!(tool, "Bash");
     match run_gateway(tool, code, None, &deps) {
         Ok(outcome) => match outcome.decision.verdict {
-            // For SHELL payloads the X6 capability gate evaluates every word
-            // as a subprocess grant, so `echo hi` denies under `sandboxed` —
-            // taxing the common case (P20). The run's REAL containment is the
-            // execution sandbox itself (rlimits + landlock + env-clear + the
-            // forbidden-call policy), so a shell Deny downgrades to a logged
-            // advisory; code languages keep the hard gate.
-            Verdict::Deny if is_shell => {
-                tracing::warn!(
-                    composite = outcome.decision.composite_score,
-                    reason = outcome
+            // SHELL denials used to downgrade WHOLESALE, on the grounds that
+            // the sandbox is the real containment. Measured 2026-08-27, that
+            // grounding was false for one class: Landlock is filesystem-only,
+            // so `curl https://example.com` — X6-denied as `network`, then
+            // downgraded — executed and returned HTTP 200, while the identical
+            // Python `socket` call was correctly refused. Same capability, same
+            // verdict, opposite outcomes, decided by the language.
+            //
+            // So the downgrade is now SELECTIVE: only `subprocess` noise is
+            // waived (and after the builtin fix in `gate.rs` there is far less
+            // of it). Any other denied class — network above all — keeps the
+            // hard deny that code languages always had.
+            Verdict::Deny if is_shell && only_subprocess_denials(&outcome.decision) => {
+                // S5a — o advisory virou campo do resultado; no stderr ele se
+                // misturava ao erro real do programa. debug! guarda o rastro
+                // forense sem poluir o canal (default-off).
+                let advisory = CegRunAdvisory {
+                    composite: outcome.decision.composite_score,
+                    reason: outcome
                         .decision
                         .reasons
                         .first()
                         .map(String::as_str)
-                        .unwrap_or("hard block fired"),
+                        .unwrap_or("hard block fired")
+                        .to_string(),
+                };
+                tracing::debug!(
+                    composite = advisory.composite,
+                    reason = advisory.reason.as_str(),
                     "CEG advisory deny on shell run; proceeding under the real sandbox"
                 );
-                Ok(())
+                Ok(Some(advisory))
             }
             Verdict::Deny => anyhow::bail!(
                 "the CEG gateway denied this run (composite {:.2}): {}. Adjust the code, \
@@ -448,13 +662,52 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool) -> Result<()> {
                     .map(String::as_str)
                     .unwrap_or("hard block fired")
             ),
-            _ => Ok(()),
+            _ => Ok(None),
         },
         Err(e) => {
             tracing::warn!(error = %e, "CEG gateway errored on the run path; proceeding (fail-open)");
-            Ok(())
+            Ok(None)
         }
     }
+}
+
+/// Whether every capability X6 denied is `subprocess` — the only class the
+/// shell path waives.
+///
+/// An EMPTY class list means the deny came from somewhere other than X6 (an X2
+/// destructive pattern, a composite below threshold), and those were never
+/// shell noise: it returns `false`, so the deny stands. Failing to the hard
+/// verdict is the right default — a waiver granted by accident is a hole.
+fn only_subprocess_denials(decision: &touring_ceg::gateway::GateDecision) -> bool {
+    // An X2 destructive pattern is never shell noise, even when a `subprocess`
+    // denial rides along with it — `rm -rf` denies for BOTH reasons, and keying
+    // the waiver on the capability class alone let the destructive half through
+    // on the coattails of the harmless one (observed 2026-08-27).
+    !decision.static_blocked
+        && !decision.denied_classes.is_empty()
+        && decision.denied_classes.iter().all(|c| c == "subprocess")
+}
+
+/// S7 (2026-08-27) — abaixo deste número de linhas, `--brief` NÃO resume.
+///
+/// Medido no próprio comando: uma saída de 3 linhas (6 bytes) virava o digest
+/// `{"counts":{},"elided_lines":0,"error_lines":[],"head_tail":[...],...}` —
+/// ~140 bytes. A "compressão" custava 23× o original e ainda entregava a
+/// informação numa forma que o leitor precisa desembrulhar. Um resumidor que
+/// aumenta o texto não está resumindo; está taxando o caso comum, a mesma
+/// recusa que orienta o modo `code` (S3).
+///
+/// 200 linhas é o ponto em que o digest passa a ganhar de forma inequívoca: o
+/// `head_tail` do sumarizador guarda ~20 linhas, então abaixo disso ele estaria
+/// devolvendo quase tudo de qualquer jeito, empacotado.
+const BRIEF_FLOOR_LINES: usize = 200;
+
+/// Whether summarising this output actually pays.
+///
+/// Uma saída TRUNCADA sempre paga — ali o digest é a única forma de dizer o que
+/// ficou de fora, e o `stored_path` do spill é o caminho para a íntegra.
+fn brief_pays_off(stdout: &str, truncated: bool) -> bool {
+    truncated || stdout.lines().count() >= BRIEF_FLOOR_LINES
 }
 
 /// Render the sandbox result to stdout: a C5 summary digest under `--brief`, otherwise
@@ -465,14 +718,20 @@ fn emit_output(
     harvest: Option<&str>,
     snippet_trust: Option<&str>,
     snippet_report: &serde_json::Value,
+    ceg_advisory: Option<&CegRunAdvisory>,
 ) -> Result<()> {
-    if brief {
+    if brief && brief_pays_off(&out.stdout, out.stdout_truncated) {
         let summary = touring_ceg::gateway::summarize_output(
             &out.stdout,
             out.exit_code,
             out.stdout_truncated,
         );
-        println!("{}", serde_json::to_string(&summary)?);
+        let mut v = serde_json::to_value(&summary)?;
+        // S5a — campo aditivo: o shape do summary não muda
+        if let Some(a) = ceg_advisory {
+            v["ceg_advisory"] = ceg_advisory_json(a);
+        }
+        println!("{}", serde_json::to_string(&v)?);
     } else {
         let mut payload = serde_json::json!({
             "stdout": out.stdout,
@@ -487,6 +746,22 @@ fn emit_output(
             // reached the CLI caller.
             "run_id": out.run_id,
         });
+        // S5a — o advisory do exec-gate como campo estruturado (canal próprio,
+        // jamais o stderr que o programa sandboxed também usa)
+        if let Some(a) = ceg_advisory {
+            payload["ceg_advisory"] = ceg_advisory_json(a);
+        }
+        // S7 — pediram `--brief` e a saída veio inteira: DIZER isso é o mesmo
+        // contrato do `elided_lines` (o digest declara o que omitiu; aqui o
+        // payload declara que não omitiu nada e por quê). Silenciar deixaria o
+        // chamador achando que 12 linhas é o resumo de um volume maior.
+        if brief {
+            payload["brief_skipped"] = serde_json::json!({
+                "reason": "output below the summariser floor",
+                "lines": out.stdout.lines().count(),
+                "floor_lines": BRIEF_FLOOR_LINES,
+            });
+        }
         // W1 d3 — taxonomy + spill locator reach the CLI surface too.
         if let Some(f) = &out.failure {
             payload["failure"] = serde_json::json!({
@@ -649,7 +924,7 @@ fn resolve_code(cli: &RunCli) -> Result<String> {
     }
 }
 
-/// R4 — prepend the `touring` orchestration SDK (`TOURING_PY_SDK`) when `--orchestrate`
+/// R4 — prepend the `touring` orchestration SDK (`py_sdk()`) when `--orchestrate`
 /// is set, so the script can call `touring.search(...)`, `touring.index_find(...)`, … against
 /// the daemon in a single execution. The SDK is Python, so `--orchestrate` requires
 /// `--lang python` (a clear error rather than a silent no-op for other languages).
@@ -663,7 +938,7 @@ fn maybe_inject_sdk(code: String, lang: &str, orchestrate: bool) -> Result<Strin
             "--orchestrate currently supports --lang python only (the touring SDK is Python); got {lang:?}"
         );
     }
-    Ok(format!("{TOURING_PY_SDK}\n{code}"))
+    Ok(format!("{}\n{code}", py_sdk()))
 }
 
 /// W3b/S-3.4 — o preâmbulo de bindings `snippet_*` para este run.
@@ -795,56 +1070,276 @@ mod tests {
         assert!(super::harvest_hint("def f(x):\n    return x\nf(1)\nf(2)\nf(3)", "python", 3, false).is_none());
     }
 
+    /// 2026-08-27 — o waiver do shell é SELETIVO.
+    ///
+    /// Medido antes deste conserto: `curl https://example.com` foi X6-negado
+    /// como `network`, rebaixado a advisory pelo waiver cego, e executou
+    /// devolvendo HTTP 200 — enquanto o `socket` equivalente em Python era
+    /// corretamente recusado. Mesma capability, mesmo veredito, destinos
+    /// opostos decididos pela linguagem. O waiver agora cobre só `subprocess`,
+    /// a classe cuja contenção o sandbox REALMENTE tem (provado no mesmo dia:
+    /// `touch ~/.ssh/x` falha, `touch <workspace>/x` funciona; Landlock é
+    /// filesystem-only, e é por isso que rede não podia ser rebaixada).
+    #[test]
+    fn the_shell_waiver_covers_subprocess_noise_only() {
+        let so_subprocess = decisao(vec!["subprocess"], false);
+        assert!(
+            super::only_subprocess_denials(&so_subprocess),
+            "ruído de subprocess é o que o waiver existe para calar"
+        );
+        for classe in ["network", "fs-write", "env-read"] {
+            let d = decisao(vec![classe], false);
+            assert!(
+                !super::only_subprocess_denials(&d),
+                "`{classe}` não é ruído de shell — o deny tem de valer"
+            );
+            let misto = decisao(vec!["subprocess", classe], false);
+            assert!(
+                !super::only_subprocess_denials(&misto),
+                "`{classe}` junto de subprocess ainda nega — o waiver não pode \
+                 pegar carona no ruído"
+            );
+        }
+    }
+
+    /// Um bloqueio do X2 (padrão destrutivo) nunca é ruído de shell, mesmo com
+    /// um deny de subprocess ao lado.
+    ///
+    /// Observado ao vivo em 2026-08-27, antes do campo `static_blocked`:
+    /// `rm -rf /tmp/zz` EXECUTOU sob um advisory que dizia "X2 STATIC blocked
+    /// the code". O `rm` nega por dois motivos ao mesmo tempo, e um waiver
+    /// chaveado só na classe da capability deixava a metade destrutiva passar
+    /// na carona da metade inofensiva.
+    #[test]
+    fn a_destructive_pattern_is_never_waived() {
+        assert!(
+            !super::only_subprocess_denials(&decisao(vec!["subprocess"], true)),
+            "X2 block + subprocess: o deny vale"
+        );
+        assert!(
+            !super::only_subprocess_denials(&decisao(vec![], true)),
+            "X2 block sozinho: o deny vale"
+        );
+    }
+
+    /// Lista vazia = o deny não veio do X6 (composite abaixo do limiar, por
+    /// exemplo). Isso nunca foi ruído de shell: falhar para o veredito duro é
+    /// o default correto — um waiver concedido por acidente é um buraco.
+    #[test]
+    fn an_empty_class_list_does_not_grant_a_waiver() {
+        assert!(!super::only_subprocess_denials(&decisao(vec![], false)));
+    }
+
+    /// Monta uma `GateDecision` mínima para exercitar o predicado do waiver.
+    fn decisao(classes: Vec<&str>, static_blocked: bool) -> touring_ceg::gateway::GateDecision {
+        let mut d = touring_ceg::gateway::GateDecision::from_evidence(
+            &touring_ceg::gateway::Evidence::default(),
+        );
+        d.denied_classes = classes.into_iter().map(str::to_owned).collect();
+        d.static_blocked = static_blocked;
+        d
+    }
+
+    /// S7 — o piso do `--brief`.
+    #[test]
+    fn brief_does_not_summarise_below_the_floor() {
+        let curta = "a\nb\nc\n";
+        assert!(
+            !super::brief_pays_off(curta, false),
+            "3 linhas viram um digest MAIOR que a saída — resumir aqui é taxar"
+        );
+        let longa = "linha\n".repeat(super::BRIEF_FLOOR_LINES);
+        assert!(
+            super::brief_pays_off(&longa, false),
+            "no piso o digest passa a ganhar"
+        );
+    }
+
+    /// Truncada sempre paga: ali o digest é a ÚNICA forma de dizer o que ficou
+    /// de fora, e o `stored_path` do spill é o caminho para a íntegra.
+    #[test]
+    fn a_truncated_output_always_pays_off() {
+        assert!(
+            super::brief_pays_off("uma linha só\n", true),
+            "truncada resume mesmo curta — senão o corte fica invisível"
+        );
+    }
+
+    /// A borda é inclusiva, e um a menos não resume — o piso é um limiar, não
+    /// uma faixa cinzenta.
+    #[test]
+    fn the_floor_is_an_inclusive_threshold() {
+        let no_piso = "x\n".repeat(super::BRIEF_FLOOR_LINES);
+        let um_a_menos = "x\n".repeat(super::BRIEF_FLOOR_LINES - 1);
+        assert!(super::brief_pays_off(&no_piso, false));
+        assert!(!super::brief_pays_off(&um_a_menos, false));
+    }
+
     #[test]
     fn sdk_stub_is_byte_identical_across_runs() {
-        // The const IS the output — identity here proves regen stability; the
-        // lexicographic method order is asserted structurally below.
-        assert_eq!(super::TOURING_PY_SDK_STUB, super::TOURING_PY_SDK_STUB);
-        let methods: Vec<&str> = super::TOURING_PY_SDK_STUB
+        // Agora o stub é GERADO, então identidade entre duas chamadas é uma
+        // afirmação real (antes a const era trivialmente igual a si mesma).
+        assert_eq!(super::py_sdk_stub(), super::py_sdk_stub());
+        let methods: Vec<&str> = super::py_sdk_stub()
             .lines()
             .filter_map(|l| l.trim().strip_prefix("def "))
             .collect();
         let mut sorted = methods.clone();
-        sorted.sort();
+        sorted.sort_unstable();
         assert_eq!(methods, sorted, "stub methods must be lexicographically ordered");
+        assert!(!methods.is_empty(), "um stub vazio anunciaria superfície nenhuma");
     }
 
+    /// S4 — o invariante central: a superfície ANUNCIADA e a IMPOSTA saem da
+    /// mesma tabela. Antes eram duas consts escritas à mão, o D8 em duas vozes.
     #[test]
-    fn sdk_stub_lists_every_binding() {
-        for m in [
-            "query", "index_find", "ast_blast", "ast_overview", "wiring_status",
-            "search", "memory_recall", "tantivy_search", "wiring_impact",
-        ] {
+    fn stub_and_sdk_declare_exactly_the_same_methods() {
+        let stub = super::py_sdk_stub();
+        let sdk = super::py_sdk();
+        for m in super::SDK_METHODS {
             assert!(
-                super::TOURING_PY_SDK_STUB.contains(&format!("def {m}(")),
-                "stub must declare {m}"
+                stub.contains(&format!("def {}(", m.name)),
+                "stub deve declarar {}",
+                m.name
             );
             assert!(
-                super::TOURING_PY_SDK.contains(&format!("def {m}(")),
-                "SDK must implement {m}"
+                sdk.contains(&format!("def {}(", m.name)),
+                "SDK deve implementar {}",
+                m.name
+            );
+            assert!(
+                stub.contains(m.doc) && sdk.contains(m.doc),
+                "a docstring de {} é a MESMA nos dois — texto duplicado diverge",
+                m.name
             );
         }
+        // e nada além: um método no stub sem entrada na tabela seria superfície
+        // anunciada que ninguém implementa.
+        let no_stub: Vec<&str> = stub
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("def "))
+            .filter_map(|l| l.split('(').next())
+            .collect();
+        for nome in no_stub {
+            assert!(
+                super::SDK_METHODS.iter().any(|m| m.name == nome),
+                "stub declara `{nome}`, que não está em SDK_METHODS"
+            );
+        }
+    }
+
+    /// Todo atalho tipado chama um hook que a allowlist aceita — senão o método
+    /// levantaria o RuntimeError do próprio guard ao ser usado.
+    #[test]
+    fn every_typed_method_targets_an_allowlisted_hook() {
+        for m in super::SDK_METHODS {
+            let Some(hook) = m.hook else { continue };
+            assert!(
+                super::READONLY_HOOKS.contains(&hook),
+                "`{}` chama `{hook}`, fora da allowlist",
+                m.name
+            );
+        }
+    }
+
+    /// S4 — cada hook da allowlist EXISTE no registry do daemon.
+    ///
+    /// Sem isto o SDK ensinaria uma rota morta: o programa no sandbox chamaria
+    /// um hook que o guard aceita e o daemon não atende, e a falha chegaria
+    /// como `success=false` opaco. É o modo de falha
+    /// `teste-do-componente-nao-e-teste-do-caminho` aplicado à superfície.
+    #[test]
+    fn every_allowlisted_hook_exists_in_the_daemon_registry() {
+        let registry = touring_hooks::hook_registry::all_daemon_hook_names();
+        let ausentes: Vec<&&str> = super::READONLY_HOOKS
+            .iter()
+            .filter(|h| !registry.contains(h))
+            .collect();
         assert!(
-            super::TOURING_PY_SDK_STUB.contains("STATIC STUB"),
-            "the static-stub warning is mandatory (dsh py-types blueprint)"
+            ausentes.is_empty(),
+            "allowlist cita hooks que o daemon não registra: {ausentes:?}"
         );
     }
 
+    /// Defesa em profundidade sobre a curadoria: nenhum verbo de MUTAÇÃO entra
+    /// na allowlist de leitura.
+    ///
+    /// Não é o critério de seleção — a curadoria é por propósito, porque um
+    /// filtro de verbos deixava passar `cli-gotcha-add`, `cli-jobs-spawn` e
+    /// `cli-saga-begin` (ausência de palavra perigosa não é prova de
+    /// segurança). É a rede embaixo: se alguém acrescentar um hook mutante à
+    /// lista sem pensar, este teste reprova.
     #[test]
-    fn sdk_allowlist_covers_every_binding_hook() {
+    fn no_mutating_verb_in_the_readonly_allowlist() {
+        const MUTANTES: &[&str] = &[
+            "-add", "-create", "-update", "-delete", "-reset", "-store", "-write",
+            "-rebuild", "-ingest", "-spawn", "-drop", "-begin", "-abort", "-commit",
+            "-apply", "-purge", "-flush", "-install", "-init", "-sync", "-import",
+            "-reindex", "-populate", "-repair", "-rename", "-run", "-claim",
+            "-release", "-finalize", "-reload", "-unregister", "-gc", "-warmstart",
+            "-drain", "-consumed", "-checkpoint", "-start", "-edit", "-backfill",
+        ];
+        for h in super::READONLY_HOOKS {
+            for m in MUTANTES {
+                assert!(!h.ends_with(m), "`{h}` termina em `{m}` — não é leitura");
+            }
+        }
+    }
+
+    /// A allowlist não tem duplicatas e está ordenada — o texto gerado precisa
+    /// ser byte-estável, e uma duplicata a faria repetir uma linha.
+    #[test]
+    fn allowlist_is_sorted_and_unique() {
+        let mut ordenada = super::READONLY_HOOKS.to_vec();
+        ordenada.sort_unstable();
+        assert_eq!(
+            super::READONLY_HOOKS.to_vec(),
+            ordenada,
+            "READONLY_HOOKS deve estar ordenada"
+        );
+        let n = ordenada.len();
+        ordenada.dedup();
+        assert_eq!(n, ordenada.len(), "READONLY_HOOKS tem duplicatas");
+    }
+
+    /// A superfície de leitura cresceu de verdade — o S4 existe porque 8 hooks
+    /// obrigavam o programa a voltar ao modelo para tudo o mais.
+    #[test]
+    fn allowlist_covers_far_more_than_the_original_eight() {
+        assert!(
+            super::READONLY_HOOKS.len() >= 60,
+            "a allowlist encolheu para {} — o ganho do S4 era a superfície",
+            super::READONLY_HOOKS.len()
+        );
         for hook in [
             "cli-index-find", "cli-ast-blast", "cli-ast-overview", "cli-wiring-status",
             "cli-search-docs", "cli-memory-recall", "cli-tantivy-search", "cli-wiring-impact",
         ] {
             assert!(
-                super::TOURING_PY_SDK.contains(hook),
-                "SDK allowlist/bindings must reference {hook}"
+                super::READONLY_HOOKS.contains(&hook),
+                "os 8 originais continuam valendo: {hook}"
             );
         }
+    }
+
+    /// Os bullets de economia: o SDK injetado precisa DIZER por que compensa —
+    /// um contrato que só lista métodos ensina a API e não a decisão.
+    #[test]
+    fn sdk_states_what_it_saves() {
+        let sdk = super::py_sdk();
+        assert!(sdk.contains("READONLY_HOOKS"), "o guard client-side deve existir");
         assert!(
-            super::TOURING_PY_SDK.contains("READONLY_HOOKS"),
-            "the client-side allowlist guard must exist"
+            sdk.contains("ONE turn instead of N"),
+            "o SDK deve declarar a economia, não só a API"
         );
+        assert!(
+            sdk.contains(&super::READONLY_HOOKS.len().to_string()),
+            "o número de hooks alcançáveis é derivado, nunca escrito à mão"
+        );
+        // e a allowlist inteira viaja no texto injetado
+        for h in super::READONLY_HOOKS {
+            assert!(sdk.contains(h), "allowlist gerada deve conter {h}");
+        }
     }
 
     use super::*;
@@ -932,10 +1427,10 @@ mod tests {
     fn sdk_uses_correct_daemon_hook_names() {
         // VGP: the SDK's payload keys must match the daemon's CLI hooks (verified via
         // the handlers: index.rs / snapshot.rs / clones.rs / eval.rs).
-        assert!(TOURING_PY_SDK.contains("\"cli-index-find\", {\"symbol_name\":"));
-        assert!(TOURING_PY_SDK.contains("\"cli-ast-blast\", {\"file_path\":"));
-        assert!(TOURING_PY_SDK.contains("\"cli-search-docs\", {\"query\":"));
-        assert!(TOURING_PY_SDK.contains("\"cli-wiring-status\", {}"));
+        assert!(py_sdk().contains("\"cli-index-find\", {\"symbol_name\":"));
+        assert!(py_sdk().contains("\"cli-ast-blast\", {\"file_path\":"));
+        assert!(py_sdk().contains("\"cli-search-docs\", {\"query\":"));
+        assert!(py_sdk().contains("\"cli-wiring-status\", {}"));
     }
 
     // ── C2-W0 — the gate targets the USER's code, never the injected SDK ────
@@ -947,13 +1442,69 @@ mod tests {
     #[test]
     fn gate_targets_user_code_because_the_sdk_itself_would_deny() {
         assert!(
-            gate_run("python", TOURING_PY_SDK, false).is_err(),
+            gate_run("python", py_sdk(), false).is_err(),
             "the SDK's socket use must trip the sandboxed profile — that is \
              why it is exempt from the gate"
         );
         assert!(
             gate_run("python", "print(1)", false).is_ok(),
             "plain user code passes"
+        );
+    }
+
+    // ── S5a — o advisory do exec-gate viaja no resultado, não no stderr ────
+
+    /// Um deny de shell POR SUBPROCESSO volta como advisory estruturado —
+    /// composite + reason no campo, jamais no stderr que o programa também usa.
+    ///
+    /// Este teste usava `echo hi` como o caso do advisory. Ele parou de servir
+    /// em 27/08: `echo` é builtin e não exige mais grant de subprocesso, então
+    /// o run sai LIMPO — que é justamente o conserto (de 10 comandos benignos
+    /// medidos, 0 emitem advisory hoje; antes eram 10). O advisory continua
+    /// existindo para o spawn REAL, e é ele que o teste passou a exercitar.
+    #[test]
+    fn shell_subprocess_deny_vira_advisory_estruturado() {
+        assert!(
+            gate_run("bash", "echo hi", false).expect("builtin passa").is_none(),
+            "`echo` é builtin — advisory aqui seria o ruído que o S6 eliminou"
+        );
+        let adv = gate_run("bash", "python3 -c 1", false)
+            .expect("spawn real segue adiante sob advisory (o FS é contido)")
+            .expect("o deny de subprocesso produz advisory estruturado");
+        assert!(adv.composite > 0.0, "composite viaja: {}", adv.composite);
+        assert!(!adv.reason.is_empty(), "reason viaja");
+        let v = ceg_advisory_json(&adv);
+        assert_eq!(v["composite"], serde_json::json!(adv.composite));
+        assert!(
+            v["note"].as_str().expect("note").contains("subprocess-only"),
+            "a nota declara que o waiver é seletivo: {}",
+            v["note"]
+        );
+    }
+
+    /// O outro lado do mesmo contrato: uma classe que o sandbox NÃO contém
+    /// nega de verdade, mesmo em shell.
+    ///
+    /// Medido em 27/08 antes do conserto: `curl https://example.com` era
+    /// X6-negado como `network`, rebaixado pelo waiver cego, e devolvia
+    /// HTTP 200 — enquanto o `socket` equivalente em Python era recusado.
+    #[test]
+    fn shell_network_deny_is_not_waived() {
+        let r = gate_run("bash", "curl https://example.com", false);
+        let msg = match r {
+            Err(e) => e.to_string(),
+            Ok(_) => panic!("rede em shell tem de negar DURO, como no Python"),
+        };
+        assert!(msg.contains("network"), "o deny nomeia a classe: {msg}");
+    }
+
+    /// E um padrão destrutivo nunca é waived, nem com um deny de subprocesso
+    /// ao lado (`rm` gera os dois ao mesmo tempo).
+    #[test]
+    fn shell_destructive_pattern_is_not_waived() {
+        assert!(
+            gate_run("bash", "rm -rf /tmp/zz-probe", false).is_err(),
+            "X2 block não pega carona no waiver de subprocesso"
         );
     }
 
@@ -966,15 +1517,15 @@ mod tests {
         // site counts the counterfactual from (d4). No identity in the env →
         // no origin key at all (old-daemon compatible either way).
         assert!(
-            TOURING_PY_SDK.contains("TOURING_RUN_ID"),
+            py_sdk().contains("TOURING_RUN_ID"),
             "SDK must read the exported run identity"
         );
         assert!(
-            TOURING_PY_SDK.contains("\":code:\" + str(self._n)"),
+            py_sdk().contains("\":code:\" + str(self._n)"),
             "each sub-call is numbered <run_id>:code:<n>"
         );
         assert!(
-            TOURING_PY_SDK.contains("if self._run_id:"),
+            py_sdk().contains("if self._run_id:"),
             "origin is only attached when an identity exists"
         );
     }

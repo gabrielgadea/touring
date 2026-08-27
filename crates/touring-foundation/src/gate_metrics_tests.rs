@@ -26,6 +26,65 @@ fn test_record_functions_are_additive() {
 }
 
 #[test]
+fn gate_fatigue_computa_ratio_por_gate_e_autoconsiste() {
+    // S5b/c — a matemática do KPI: ratio = bypassed/(denied+bypassed), por
+    // gate e global; fp_candidate = ratio>0.20 com volume≥10. Baseline-delta
+    // (o processo acumula de outros testes) + autoconsistência absoluta.
+    use crate::gate_metrics::{GateEvent, GateId, record_gate_event};
+    let bd = global().gate_events[GateId::G2 as usize][GateEvent::Denied as usize]
+        .load(Ordering::Relaxed);
+    let bb = global().gate_events[GateId::G2 as usize][GateEvent::Bypassed as usize]
+        .load(Ordering::Relaxed);
+    for _ in 0..2 {
+        record_gate_event(GateId::G2, GateEvent::Denied);
+    }
+    for _ in 0..3 {
+        record_gate_event(GateId::G2, GateEvent::Bypassed);
+    }
+    let snap = GateMetricsSnapshot::capture();
+    let g2 = snap
+        .gate_fatigue
+        .per_gate
+        .iter()
+        .find(|e| e.gate == "g2_pipe_exit")
+        .expect("g2 no fatigue");
+    assert_eq!(g2.denied - bd, 2);
+    assert_eq!(g2.bypassed - bb, 3);
+    let esperado = g2.bypassed as f64 / (g2.denied + g2.bypassed) as f64;
+    assert!((g2.bypass_ratio.unwrap() - esperado).abs() < 1e-9);
+    // total = soma das linhas; flag autoconsistente com a regra declarada
+    let soma_d: u64 = snap.gate_fatigue.per_gate.iter().map(|e| e.denied).sum();
+    let soma_b: u64 = snap.gate_fatigue.per_gate.iter().map(|e| e.bypassed).sum();
+    assert_eq!(soma_d, snap.gate_fatigue.denied_total);
+    assert_eq!(soma_b, snap.gate_fatigue.bypassed_total);
+    for e in &snap.gate_fatigue.per_gate {
+        let volume = e.denied + e.bypassed;
+        let flag_esperado = e.bypass_ratio.is_some_and(|r| r > 0.20) && volume >= 10;
+        assert_eq!(e.fp_candidate, flag_esperado, "{} inconsistente", e.gate);
+    }
+}
+
+#[test]
+fn native_injection_counters_are_additive_and_snapshotted() {
+    // N5 — família completa: field + init + record + capture (mesma prova do
+    // bash_calls_denominator).
+    let bf = global().native_injection_followed_count.load(Ordering::Relaxed);
+    let br = global().native_injection_resisted_count.load(Ordering::Relaxed);
+    let bc = global().native_injection_code_route_count.load(Ordering::Relaxed);
+    record_native_injection_followed();
+    record_native_injection_resisted();
+    record_native_injection_code_route();
+    record_native_injection_code_route();
+    assert_eq!(global().native_injection_followed_count.load(Ordering::Relaxed) - bf, 1);
+    assert_eq!(global().native_injection_resisted_count.load(Ordering::Relaxed) - br, 1);
+    assert_eq!(global().native_injection_code_route_count.load(Ordering::Relaxed) - bc, 2);
+    let snap = GateMetricsSnapshot::capture();
+    assert!(snap.native_injection_followed_count >= 1);
+    assert!(snap.native_injection_resisted_count >= 1);
+    assert!(snap.native_injection_code_route_count >= 2);
+}
+
+#[test]
 fn bash_calls_denominator_is_counted_and_snapshotted() {
     // W0 S-0.1 — `record_bash_call` feeds the code-mode adoption denominator
     // and the snapshot mirrors it (family: field + init + record + capture).
@@ -180,8 +239,6 @@ fn test_snapshot_zero_ratio_when_no_calls() {
         wave3_t309_count: 0,
         wave3_t310_count: 0,
         ceg_captured_count: 0,
-        t3_turn_first_passed_count: 0,
-        t3_turn_fused_count: 0,
         ceg_blocked_count: 0,
         ceg_sandboxed_count: 0,
         ceg_fast_path_count: 0,
@@ -354,8 +411,6 @@ fn test_snapshot_ratio_50_percent() {
         wave3_t309_count: 0,
         wave3_t310_count: 0,
         ceg_captured_count: 0,
-        t3_turn_first_passed_count: 0,
-        t3_turn_fused_count: 0,
         ceg_blocked_count: 0,
         ceg_sandboxed_count: 0,
         ceg_fast_path_count: 0,

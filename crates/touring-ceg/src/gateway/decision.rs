@@ -234,6 +234,28 @@ pub struct GateDecision {
     /// X8 EXECUTE, X9 LEARN and the agent; `composite_score` is its scalar
     /// projection (`evidence.composite()`).
     pub evidence: EvidenceBundle,
+    /// The capability CLASSES X6 denied (`"subprocess"`, `"network"`,
+    /// `"fs-write"`, …), deduplicated, in first-seen order.
+    ///
+    /// Callers that need to treat one denial differently from another — the
+    /// shell path in `touring run` downgrades subprocess noise but must NOT
+    /// downgrade a network denial — used to have only `reasons`, so the choice
+    /// was either to parse English prose or to treat every denial alike. The
+    /// second is what happened, and it let `curl` reach the internet from a
+    /// sandbox whose Python counterpart was correctly refused.
+    #[serde(default)]
+    pub denied_classes: Vec<String>,
+    /// Whether X2 STATIC raised a [`StaticSeverity::Block`] — a destructive
+    /// pattern, independent of any capability verdict.
+    ///
+    /// A caller that waives capability noise MUST still honour this: `rm -rf`
+    /// denies for two reasons at once (the destructive pattern AND the
+    /// `subprocess` grant for `rm`), and a waiver keyed only on the capability
+    /// class would let the destructive half through on the coattails of the
+    /// harmless one. Observed exactly so on 2026-08-27, before this field
+    /// existed: `rm -rf /tmp/zz` executed under an X2-block advisory.
+    #[serde(default)]
+    pub static_blocked: bool,
 }
 
 /// The X2 STATIC reason line, if the report is not `Clear`.
@@ -258,6 +280,25 @@ fn static_reasons(report: Option<&StaticReport>) -> Vec<String> {
                 .unwrap_or_else(|| "destructive pattern".to_owned())
         )],
     }
+}
+
+/// The distinct capability classes X6 denied, in first-seen order.
+///
+/// Derived from the SAME `GateReport::denied()` iterator that writes the reason
+/// lines, so the structured field and the prose can never disagree about what
+/// was denied.
+fn denied_capability_classes(report: Option<&GateReport>) -> Vec<String> {
+    let Some(r) = report else {
+        return Vec::new();
+    };
+    let mut classes: Vec<String> = Vec::new();
+    for denied in r.denied() {
+        let class = capability_class(&denied.capability).to_owned();
+        if !classes.contains(&class) {
+            classes.push(class);
+        }
+    }
+    classes
 }
 
 /// One X6 reason line per denied capability.
@@ -424,6 +465,8 @@ impl GateDecision {
             reasons,
             canonical_fix,
             evidence: EvidenceBundle::from_evidence(evidence),
+            denied_classes: denied_capability_classes(evidence.gate_report.as_ref()),
+            static_blocked: static_block,
         }
     }
 

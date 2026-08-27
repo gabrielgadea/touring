@@ -246,6 +246,29 @@ fn code_mode_adoption(runs: f64, bash_calls: f64) -> Option<f64> {
     Some(runs / bash_calls)
 }
 
+/// S3 — fração da inspeção que a rajada capturou.
+///
+/// `denied / (denied + first_passed)`: das inspeções que o gate VIU sob o modo
+/// `code`, quantas eram rajada. A medição de 27/08/2026 em 115 transcripts
+/// previu ~0,775 com janela de 300s, e é contra esse número que o uso real
+/// julga a calibração:
+///
+/// * muito ABAIXO ⇒ a janela ou o limiar estão apertados demais e o gate quase
+///   não fala — foi o destino do T3-B, que media zero;
+/// * muito ACIMA ⇒ está pegando inspeção que não é rajada, e a fricção voltou
+///   pela porta dos fundos.
+///
+/// `None` enquanto nenhuma inspeção foi observada: ausência de sinal é
+/// desconhecido, nunca zero (Lei L2). `Some(0.0)` só quando houve inspeção e
+/// nenhuma virou rajada — um zero MEDIDO.
+fn inspect_burst_share(denied: f64, first_passed: f64) -> Option<f64> {
+    let total = denied + first_passed;
+    if total <= 0.0 {
+        return None;
+    }
+    Some(denied / total)
+}
+
 fn default_commitments_path() -> PathBuf {
     // Canonical source tree first: the workspace moved from `~/.claude/rust`
     // to `~/projects/touring` (F4′, 24/07/2026), so the old preferred path
@@ -415,6 +438,21 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
         "code_mode_arm_native" => code_mode_arm_rate(rt, "native"),
         "code_mode_arm_both" => code_mode_arm_rate(rt, "both"),
         "code_mode_arm_code" => code_mode_arm_rate(rt, "code"),
+        "inspect_burst_share" => {
+            // S3 (2026-08-27) — a leitura da recalibração. Os counters vivem no
+            // daemon, então a série sobrevive ao processo CLI; o veredito sobre
+            // o limiar precisa de dias de uso, não de mais uma medição hoje.
+            let m = invoke_handler(rt, "cli-gate-metrics")?;
+            let denied = m
+                .pointer("/g1_inspect_burst_denied_count")
+                .and_then(json_value_as_f64)
+                .unwrap_or(0.0);
+            let passed = m
+                .pointer("/g1_inspect_first_passed_count")
+                .and_then(json_value_as_f64)
+                .unwrap_or(0.0);
+            inspect_burst_share(denied, passed)
+        }
         "code_mode_adoption_ratio" => {
             // W0 S-0.1 (plano code-mode-total, 2026-08-24) — `touring run`
             // executions over ALL Bash actions, both daemon-lifetime
@@ -996,6 +1034,27 @@ pub fn actuator_signals() -> (Option<f64>, Option<bool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// S3 — a fração da inspeção capturada como rajada.
+    #[test]
+    fn inspect_burst_share_is_denied_over_observed() {
+        // a previsão da medição de 115 transcripts: ~77,5% em rajada
+        let r = super::inspect_burst_share(775.0, 225.0).expect("há observação");
+        assert!((r - 0.775).abs() < 1e-9, "{r}");
+    }
+
+    /// Ausência de sinal é DESCONHECIDO, nunca zero (Lei L2). Um gate que nunca
+    /// falou e um gate que falou e não pegou nada são estados diferentes — o
+    /// T3-B morreu justamente por essa confusão.
+    #[test]
+    fn no_inspection_observed_is_none_not_zero() {
+        assert_eq!(super::inspect_burst_share(0.0, 0.0), None);
+        assert_eq!(
+            super::inspect_burst_share(0.0, 10.0),
+            Some(0.0),
+            "10 isoladas e nenhuma rajada é um zero MEDIDO"
+        );
+    }
 
     #[test]
     fn adoption_ratio_is_runs_over_bash_calls() {

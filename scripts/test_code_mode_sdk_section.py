@@ -107,7 +107,24 @@ def _rust_collapsed_classes() -> list[str]:
         r'CODE_MODE_COLLAPSED_CLASSES:\s*&\[&str\]\s*=\s*&\[([^\]]+)\]', src
     )
     assert m, "CODE_MODE_COLLAPSED_CLASSES não encontrado no cli_suggester.rs"
-    return re.findall(r'"(\w+)"', m.group(1))
+    # `[\w-]+`, não `\w+`: a classe `sed-n` tem hífen, e o `\w+` a lia como
+    # `sed` — na prática ela era INVISÍVEL a este guard (furo achado no S3,
+    # 27/08). Um verificador que casa menos que o extrator mede outra coisa.
+    return re.findall(r'"([\w-]+)"', m.group(1))
+
+
+def _rust_deny_at() -> int:
+    src = SUGGESTER.read_text(encoding="utf-8")
+    m = re.search(r'INSPECT_BURST_DENY_AT:\s*u32\s*=\s*(\d+)', src)
+    assert m, "INSPECT_BURST_DENY_AT não encontrado no cli_suggester.rs"
+    return int(m.group(1))
+
+
+def _rust_window_secs() -> int:
+    src = SUGGESTER.read_text(encoding="utf-8")
+    m = re.search(r'INSPECT_BURST_WINDOW_SECS:\s*u64\s*=\s*(\d+)', src)
+    assert m, "INSPECT_BURST_WINDOW_SECS não encontrado no cli_suggester.rs"
+    return int(m.group(1))
 
 
 def test_d8_declared_classes_match_executor_classes():
@@ -119,10 +136,31 @@ def test_d8_declared_classes_match_executor_classes():
     efeito = next(l for l in body.splitlines() if l.startswith("Efeito:"))
     for cls in classes:
         assert f"`{cls}`" in efeito, f"classe `{cls}` negada pelo executor mas não declarada"
-    promised = set(re.findall(r"`(\w+)`", efeito))
-    non_collapsed = {"ls", "wc", "sed"}  # declaradas como NÃO-colapsadas
-    over_promised = promised - set(classes) - non_collapsed
+    promised = set(re.findall(r"`([\w-]+)`", efeito))
+    over_promised = promised - set(classes)
     assert not over_promised, f"seção promete colapsar {over_promised} que o executor não nega"
+
+
+def test_d8_declared_trigger_matches_executor_predicate():
+    """S3 — o furo que o teste de classes sozinho NÃO pegava: ele exigia a
+    classe PRESENTE na linha, e uma classe listada como "não colapsa" também
+    está presente. Presença não é declaração. Aqui o que se compara é o
+    GATILHO: se o executor nega a partir da N-ésima chamada em W segundos, a
+    seção tem de dizer N e W — os dois números, do executor, no texto."""
+    deny_at, window = _rust_deny_at(), _rust_window_secs()
+    body = hook.section("STUB", "code", "default")
+    efeito = next(l for l in body.splitlines() if l.startswith("Efeito:"))
+    ordinal = {2: "2ª", 3: "3ª", 4: "4ª"}.get(deny_at, f"{deny_at}ª")
+    assert ordinal in efeito, (
+        f"executor nega na {ordinal} chamada, mas a seção não declara esse gatilho: {efeito}"
+    )
+    assert f"{window}s" in efeito, (
+        f"executor usa janela de {window}s, mas a seção não a declara: {efeito}"
+    )
+    assert "ISOLADA" in efeito.upper(), (
+        "o executor deixa a inspeção isolada passar; a seção precisa dizê-lo, "
+        "senão o modelo evita uma chamada que teria passado"
+    )
 
 
 # ── main() — fail-open e kill switch ──────────────────────────────────────────

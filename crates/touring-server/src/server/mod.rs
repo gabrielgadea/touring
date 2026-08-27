@@ -114,17 +114,52 @@ fn is_curated(name: &str) -> bool {
 /// disclosure at its floor — 3 tools ≈ the −99.9% shape of the pattern).
 const CODE_MODE_TOOLS: &[&str] = &["touring_search", "touring_ctx_execute", "touring_memory_recall"];
 
-/// Apply the curated allowlist to a full tool list. Precedence:
-/// `TOURING_MCP_ALL_TOOLS` (any value) returns everything — the runtime
-/// escape hatch; `TOURING_MCP_CODE_MODE=1` keeps only [`CODE_MODE_TOOLS`]
-/// (W7 T2 — the search+execute façade); otherwise keeps [`CURATED_TOOLS`]
-/// (input order preserved). A listed name absent from `all` is simply
+/// Whether the code-first façade applies, given the scope's declaration.
+///
+/// S1 TRANSPORT (2026-08-27) — the façade used to require
+/// `TOURING_MCP_CODE_MODE=1` on every session, so a project that had already
+/// declared `[code_mode] mode = "code"` still received the full ~22-tool
+/// handshake. That is the failure mode this workspace names *affordance that
+/// ships switched off breaks in silence*: the declaration existed, the executor
+/// ignored it. Now the scope's own declaration is what arms it, and the env var
+/// is only the per-session override.
+///
+/// Precedence, outermost first:
+///
+/// 1. `TOURING_MCP_ALL_TOOLS` (any value) — the escape hatch: list everything.
+/// 2. `TOURING_MCP_CODE_MODE=1` forces the façade; `=0` forces it OFF even in a
+///    `code` scope (the human kill switch, symmetric to `TOURING_CODE_MODE=native`
+///    on the hook side). Any other value is ignored rather than silently
+///    treated as one of the two.
+/// 3. `[code_mode] mode` in `<project>/.touring/touring.toml` — `code` arms the
+///    façade; `native` and `both` keep the curated surface.
+/// 4. Otherwise the curated default.
+///
+/// Only the ADVERTISEMENT narrows. Every hidden tool stays invocable by name
+/// via `tools/call`, exactly as under [`CURATED_TOOLS`] — the façade is
+/// progressive disclosure, never a capability cut.
+fn code_mode_facade_applies(project_root: &std::path::Path) -> bool {
+    match std::env::var("TOURING_MCP_CODE_MODE").as_deref() {
+        Ok("1") => return true,
+        Ok("0") => return false,
+        _ => {}
+    }
+    touring_foundation::code_mode::project_presentation(project_root)
+        == Some(touring_foundation::code_mode::CodeModePresentation::Code)
+}
+
+/// Apply the curated allowlist to a full tool list, honouring the scope's
+/// code-mode declaration (see [`code_mode_facade_applies`] for the precedence).
+/// Input order is preserved, and a listed name absent from `all` is simply
 /// skipped, so the filter is rename-resilient.
-fn apply_curation(all: Vec<rmcp::model::Tool>) -> Vec<rmcp::model::Tool> {
+fn apply_curation(
+    all: Vec<rmcp::model::Tool>,
+    project_root: &std::path::Path,
+) -> Vec<rmcp::model::Tool> {
     if std::env::var_os("TOURING_MCP_ALL_TOOLS").is_some() {
         return all;
     }
-    if std::env::var("TOURING_MCP_CODE_MODE").as_deref() == Ok("1") {
+    if code_mode_facade_applies(project_root) {
         return all
             .into_iter()
             .filter(|t| CODE_MODE_TOOLS.contains(&t.name.as_ref()))
@@ -170,6 +205,96 @@ mod curation_tests {
         assert!(!is_curated("touring_ctx_smart"));
         assert!(!is_curated("touring_evolution_drift"));
         assert!(!is_curated("nonexistent_tool"));
+    }
+
+    /// S1 TRANSPORT — a scope that declares `mode = "code"` gets the façade
+    /// WITHOUT any env var. This is the whole point: the declaration in
+    /// `touring.toml` is what arms the collapse, not a flag each session must
+    /// remember to export.
+    #[test]
+    fn code_scope_arms_the_facade_without_env() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_scope(tmp.path(), "code");
+        assert!(facade_without_env(tmp.path()));
+    }
+
+    /// `native` and `both` keep the curated surface — the façade narrows only
+    /// where the scope asked for it. Failing to the status quo is the rule:
+    /// never collapse a surface nobody declared.
+    #[test]
+    fn other_scopes_keep_the_curated_surface() {
+        for modo in ["native", "both"] {
+            let tmp = tempfile::tempdir().expect("tempdir");
+            write_scope(tmp.path(), modo);
+            assert!(!facade_without_env(tmp.path()), "mode={modo}");
+        }
+    }
+
+    /// No `.touring/touring.toml` at all — curated, as before this change.
+    #[test]
+    fn undeclared_scope_keeps_the_curated_surface() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        assert!(!facade_without_env(tmp.path()));
+    }
+
+    /// An unrecognised value is NOT read as a collapse — it falls through to
+    /// the curated default.
+    #[test]
+    fn unknown_declared_value_does_not_collapse() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_scope(tmp.path(), "turbo");
+        assert!(!facade_without_env(tmp.path()));
+    }
+
+    /// The filter itself: under the façade exactly the three tools survive, and
+    /// each survivor is a real member of `CODE_MODE_TOOLS` — proving the
+    /// advertisement narrows rather than emptying.
+    #[test]
+    fn facade_filter_keeps_exactly_the_three_tools() {
+        let names = [
+            "touring_search",
+            "touring_ctx_execute",
+            "touring_memory_recall",
+            "touring_ast_meta",
+            "touring_wiring",
+        ];
+        let kept: Vec<&str> = names
+            .iter()
+            .copied()
+            .filter(|n| CODE_MODE_TOOLS.contains(n))
+            .collect();
+        assert_eq!(kept.len(), 3, "kept={kept:?}");
+        let curated = names.iter().copied().filter(|n| is_curated(n)).count();
+        assert!(
+            curated > kept.len(),
+            "the façade must be strictly narrower than the curated surface"
+        );
+    }
+
+    /// Write a scope declaration and read the façade decision back. The env var
+    /// is the per-session override and is NOT set here, so what these tests
+    /// observe is the scope path alone.
+    fn write_scope(root: &std::path::Path, modo: &str) {
+        let dir = root.join(".touring");
+        std::fs::create_dir_all(&dir).expect("mkdir .touring");
+        std::fs::write(
+            dir.join("touring.toml"),
+            format!("[code_mode]\nmode = \"{modo}\"\n"),
+        )
+        .expect("write touring.toml");
+    }
+
+    /// The scope half of the precedence, isolated from the process environment.
+    ///
+    /// `code_mode_facade_applies` reads `TOURING_MCP_CODE_MODE`, and env is
+    /// process-global: asserting on it here would make these tests order-
+    /// dependent against every other test in the binary (the flaky-by-global-
+    /// state disease already paid for in this workspace, 2026-08-25). So the
+    /// scope path is exercised directly, and the env override is documented on
+    /// `code_mode_facade_applies` where it is implemented.
+    fn facade_without_env(root: &std::path::Path) -> bool {
+        touring_foundation::code_mode::project_presentation(root)
+            == Some(touring_foundation::code_mode::CodeModePresentation::Code)
     }
 
     #[test]
@@ -701,7 +826,7 @@ impl ServerHandler for TouringServer {
     ) -> Result<rmcp::model::ListToolsResult, rmcp::ErrorData> {
         // C2 — curate the default surface to ~22 tools (TOURING_MCP_ALL_TOOLS
         // lists all). `call_tool` is unfiltered, so hidden tools stay callable.
-        let all = apply_curation(self.tool_router.list_all());
+        let all = apply_curation(self.tool_router.list_all(), &self.config.project_root);
 
         let page_size = std::env::var("TOURING_TOOLS_LIST_PAGE_SIZE")
             .ok()

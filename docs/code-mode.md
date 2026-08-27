@@ -53,6 +53,29 @@ Todo `touring run` atravessa o gateway X0..X7 antes de executar (perfil `sandbox
 sob `--allow-forbidden`). `Deny` aborta com a razão e a rota correta; erro interno do gateway é
 fail-open (o gate nunca brica a sessão).
 
+**O waiver do shell é SELETIVO (27/08/2026).** Um `Deny` de shell cuja ÚNICA classe negada é
+`subprocess` vira advisory e o comando roda; qualquer outra classe — rede acima de tudo — e
+qualquer bloqueio destrutivo do X2 negam de verdade, exatamente como nas linguagens de código.
+
+A assimetria não é preferência, é o que a contenção do sandbox sustenta, medido:
+
+| recurso | contido pelo sandbox? | prova | política |
+|---|---|---|---|
+| filesystem | **sim** | `touch ~/.ssh/x` falha; `touch <workspace>/x` funciona | `subprocess` é waivable |
+| rede | **não** (Landlock é FS-only) | `curl https://example.com` devolvia HTTP 200 sob o waiver cego | `network` nega duro |
+
+Antes disso o waiver era cego: `curl` era X6-negado como `network`, rebaixado, e executava —
+enquanto o `socket` equivalente em Python era corretamente recusado. Mesma capability, mesmo
+veredito, destinos opostos decididos pela linguagem.
+
+Os builtins do shell (`echo`, `cd`, `for`, `test`, …) deixaram de exigir grant de subprocess:
+antes toda palavra virava `Capability::Run`, então `echo oi` negava com o MESMO composite
+(0.675) que `curl http://evil.test`. Um gate que dispara em 100% dos runs legítimos não carrega
+informação — e era esse ruído que justificava o waiver cego. `eval`/`exec`/`source` continuam
+exigindo grant: executam texto como código.
+
+Hoje, de 10 comandos benignos medidos, **0** emitem advisory.
+
 ## `--orchestrate` — o SDK `touring.*` dentro do sandbox
 
 Um script Python consulta o daemon em UMA execução (code-mode sem MCP):
@@ -65,11 +88,30 @@ imp  = touring.wiring_impact("spawn_and_capture", 2)    # blast transitivo
 mem  = touring.memory_recall("code mode #kind:lesson")  # memória facetada
 ```
 
-9 métodos: `query · index_find · ast_blast · ast_overview · wiring_status · search ·
-memory_recall · tantivy_search · wiring_impact`. Hooks fora da allowlist read-only recusam com
-a lista do que existe. Contrato completo tipado: `touring run --sdk-stub` (byte-estável — cabe
-em prompt cache). Postura: contenção, não fronteira de segurança (o proxy server-side é
-follow-up registrado).
+**71 hooks de leitura alcançáveis** (S4, 27/08/2026), com 15 atalhos tipados para os mais
+usados: `query · ast_blast · ast_meta · ast_overview · ast_tdg · doctor · find_references ·
+gotcha_match · index_find · memory_recall · search · tantivy_search · wiring_impact ·
+wiring_orphans · wiring_status`. Tudo o mais chega por `touring.query(hook, payload)`.
+
+Eram 8 hooks escritos à mão dentro da string Python, de ~195 que o daemon registra: um programa
+no sandbox alcançava 8 leituras e voltava ao modelo para todo o resto — o que anula o ganho do
+code mode. Pior, o stub que ANUNCIA a superfície era uma segunda const escrita à mão ao lado,
+livre para divergir da allowlist que IMPÕE.
+
+Hoje `READONLY_HOOKS` + `SDK_METHODS` são a fonte única, e o SDK e o stub são GERADOS dela —
+inclusive a docstring de `query()`. Quatro guards fecham o contrato: todo hook existe no
+registry REAL do daemon (`all_daemon_hook_names()`, não texto), todo atalho aponta para hook
+allowlistado, stub e SDK declaram os mesmos métodos com as mesmas docstrings, e nenhum verbo
+mutante entra na lista.
+
+A curadoria é por PROPÓSITO, nunca por padrão de nome: um filtro sobre verbos mutantes deixava
+passar `cli-gotcha-add`, `cli-jobs-spawn` e `cli-saga-begin` — ausência de palavra perigosa não
+é prova de segurança. Fora deliberadamente: `cli-ast-grep` (tem modo `--rewrite`) e
+`cli-wiring-suggest`.
+
+Contrato completo tipado: `touring run --lang python --sdk-stub` (byte-estável — cabe em prompt
+cache). Postura: contenção, não fronteira de segurança (o proxy server-side é follow-up
+registrado).
 
 ## Snippets com confiança MEDIDA
 
@@ -131,9 +173,21 @@ Teto de `MAX_BINDINGS = 20`, ordenado por confiança e uso; o que sobra é **nom
   ganha `run_id` (`run-<epoch_ms>-<pid>`, também no campo `runId` do resultado);
   o child o recebe como `TOURING_RUN_ID` e o SDK do `--orchestrate` carimba cada
   sub-chamada `origin: <run_id>:code:<n>`. O daemon registra cada uma em
-  `~/.claude/touring/run_subcalls.jsonl` (`{ts, origin, hook, payload_bytes,
-  output_bytes}` — tamanhos, nunca conteúdo) e soma o custo contrafactual: cada
+  `~/.claude/touring/run_subcalls.jsonl` e soma o custo contrafactual: cada
   sub-chamada é exatamente 1 tool call MCP que NÃO passou pelo contexto.
+- **Par start/settle (S5, 27/08/2026)**: cada sub-chamada grava DOIS registros —
+  `{phase:"start", ts, origin, hook, payload_bytes}` antes do despacho e
+  `{phase:"settle", …, output_bytes, duration_ms, ok}` depois. Casá-los pelo
+  `origin` deixa órfãos que são exatamente as sub-chamadas que NÃO voltaram
+  (hook travado, daemon morto no meio). Sem o `start`, "não voltou" e "nunca
+  aconteceu" produzem o mesmo journal — a ambiguidade que já fez este workspace
+  ler "parou de escrever" como "terminou".
+- **Sem conteúdo, por decisão**: tamanhos, latência e desfecho; nunca o dado. O
+  item de plano do S5 pedia também um *preview* do output — recusado: preview é
+  conteúdo, e uma `memory_recall` ou um corpo de símbolo pode carregar segredo.
+  Latência e desfecho respondem o que o preview queria responder (qual hook é
+  caro, qual falhou) sem transformar um arquivo de observabilidade numa
+  superfície de exfiltração. Guardado por teste estrutural.
 - Counters: `touring gate-metrics -j` → `code_mode_runs_count`,
   `code_mode_bytes_elided_total`, `code_mode_subcalls_count`,
   `code_mode_subcall_bytes_total` (economia MEDIDA de contexto — nunca estimada;
@@ -141,10 +195,34 @@ Teto de `MAX_BINDINGS = 20`, ordenado por confiança e uso; o que sobra é **nom
 
 ## MCP code-first
 
-`TOURING_MCP_CODE_MODE=1` reduz o handshake a 3 tools (`touring_search`,
-`touring_ctx_execute`, `touring_memory_recall`) — o par search+execute da Cloudflare +
-memória; as demais tools seguem invocáveis por nome. `TOURING_MCP_ALL_TOOLS` mantém
-precedência como escape hatch.
+Um escopo que declara `[code_mode] mode = "code"` no seu `.touring/touring.toml` reduz o
+handshake a 3 tools (`touring_search`, `touring_ctx_execute`, `touring_memory_recall`) — o par
+search+execute da Cloudflare + memória. As demais seguem invocáveis por nome via `tools/call`:
+só o ANÚNCIO estreita.
+
+Precedência: `TOURING_MCP_ALL_TOOLS` (lista tudo) > `TOURING_MCP_CODE_MODE=1` força / `=0`
+desliga (kill switch por sessão) > a declaração do escopo > a superfície curada (~23).
+
+Até 27/08/2026 a fachada existia mas exigia a env var em CADA sessão, então um projeto que já
+declarava `code` seguia recebendo as ~23 curadas — afordância declarada e desligada, quebrando
+em silêncio. O tipo e o parser da declaração são ÚNICOS
+(`touring_foundation::code_mode`), consumidos pelos DOIS executores que a impõem: o hook
+`PreToolUse` e o handshake MCP. Duplicá-los era o caminho para hook e handshake divergirem.
+
+## Divergências conscientes do harness DeepSeek (dsh)
+
+O dsh é a referência mais próxima do que fazemos, e o postmortem dele de 07/08/2026 é a fonte
+da tese central: *"schema omission is not enforcement when a direct caller can bypass it;
+denial must be tested through the executor"*. Onde divergimos, é por medição — e vale registrar
+por quê, para que a próxima leitura do dsh não seja tomada como correção pendente.
+
+| tema | dsh | touring | por quê |
+|---|---|---|---|
+| onde o colapso mora | apresentação no registry (`UNKNOWN_TOOL` estrutural, pré-pipeline) | no executor (`PreToolUse`) **e** no registry (handshake MCP) | não mandamos no wire da Anthropic; o executor é a metade que impõe, e o registry é a que ensina |
+| granularidade do colapso | por classe de ferramenta | por RAJADA, não por classe | medido em 115 transcripts: 22,5% da inspeção é isolada, e cobrar dela é taxar o caso comum — a recusa que o próprio dsh documenta |
+| níveis por classe | ADIADO (*"depends on evidence about how models split usage under `both`"*) | implementado | a evidência que lhes faltava nós temos: rodamos em `both` instrumentado e medimos |
+| trust do canal code | bash-equivalent por design | idem, com uma exceção medida | a rota code nunca é mais assustadora que a bash, EXCETO onde a contenção não existe (rede) |
+| rewrite do comando | — | mantido (`updatedInput` no transcript) | o G8 reescreve o laço em vez de negá-lo; um remédio que executa é seguido, um que exorta não é |
 
 ## Higiene de KV-cache dos hooks
 

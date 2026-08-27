@@ -749,7 +749,7 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
     }
 
     // Pattern 1: grep/rg for a symbol-like token.
-    if (command.starts_with("grep") || command.starts_with("rg ") || command.starts_with("rg\t"))
+    if matches!(resolved_verb(command), Some("grep") | Some("rg"))
         && command.contains(' ')
         && let Some(sym) = extract_first_symbol_in_text(command)
     {
@@ -891,12 +891,15 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
 
     // Pattern 5: destructive inline edits (sed -i, awk -i inplace, perl -pi,
     // rm + heredoc) — anti-pattern, route to touring-native tooling.
-    if regex::Regex::new(
-        r"(sed\s+-i|awk\s+-i\s+inplace|perl\s+-pi|rm\s+.*&&\s*(?:cat|echo|printf)\s*>)",
-    )
-    .ok()
-    .map(|re| re.is_match(command))
-    .unwrap_or(false)
+    // O predicado da escrita cega é UM SÓ — o mesmo do gate G9 (âncora em
+    // posição de comando): antes o regex solto casava a PROSA `sed -i`
+    // dentro de outro comando (observado vivo 26/08 num `decompose update`
+    // cujo texto citava o padrão) — advisory barulhento ensina a ignorar.
+    if is_inline_blind_edit(command)
+        || regex::Regex::new(r"rm\s+.*&&\s*(?:cat|echo|printf)\s*>")
+            .ok()
+            .map(|re| re.is_match(command))
+            .unwrap_or(false)
     {
         let target = inline_edit_target(command).unwrap_or_else(|| "<file>".to_string());
         return Some(ClassifierOutput {
@@ -2274,16 +2277,152 @@ enum CodeModeKind {
 
 /// True iff `command` starts an atomic content/file search that `ctx_execute`
 /// could fold into one pass.
+/// `VAR=valor` de prefixo (inclusive o bypass `TOURING_GATE_OK=1`): a classe é
+/// do comando executado, não do ambiente que o precede. Predicado idêntico ao
+/// que `scan_class_of` sempre usou — extraído para os 5 sítios dividirem.
+fn is_env_assignment(t: &str) -> bool {
+    t.contains('=') && t.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+}
+
+/// Wrapper de execução reconhecido pelo resolvedor: flags que tomam valor +
+/// quantos posicionais o PRÓPRIO wrapper consome (a duração do `timeout`, a
+/// máscara do `taskset`, a prioridade do `chrt`).
+struct WrapperSpec {
+    value_flags: &'static [&'static str],
+    positionals: usize,
+}
+
+/// S1 (26/08/2026) — os classificadores liam o 1º token: `time grep`,
+/// `nice -n 5 find`, `sudo cat`, `env F=1 rg` escapavam de TODOS os gates e
+/// nudges ao mesmo tempo (a cobertura nascia zero onde a classe nasce).
+fn wrapper_spec(verb: &str) -> Option<WrapperSpec> {
+    Some(match verb {
+        "env" => WrapperSpec {
+            value_flags: &["-u", "--unset", "-C", "--chdir", "-S", "--split-string"],
+            positionals: 0,
+        },
+        "time" => WrapperSpec {
+            value_flags: &["-o", "--output", "-f", "--format"],
+            positionals: 0,
+        },
+        "nice" => WrapperSpec { value_flags: &["-n", "--adjustment"], positionals: 0 },
+        "ionice" => WrapperSpec { value_flags: &["-c", "-n", "-p", "-P"], positionals: 0 },
+        "sudo" => WrapperSpec {
+            value_flags: &[
+                "-u", "-g", "-h", "-p", "-C", "-r", "-t", "-T", "-U", "-D", "-R",
+                "--user", "--group", "--host", "--prompt", "--role", "--type",
+                "--chdir", "--chroot",
+            ],
+            positionals: 0,
+        },
+        "command" | "builtin" => WrapperSpec { value_flags: &[], positionals: 0 },
+        "timeout" => WrapperSpec {
+            value_flags: &["-s", "--signal", "-k", "--kill-after"],
+            positionals: 1,
+        },
+        "stdbuf" => WrapperSpec { value_flags: &["-i", "-o", "-e"], positionals: 0 },
+        "taskset" => WrapperSpec { value_flags: &["-c", "--cpu-list"], positionals: 1 },
+        "chrt" => WrapperSpec { value_flags: &[], positionals: 1 },
+        _ => return None,
+    })
+}
+
+/// Consome o wrapper em `toks[i]` (verbo + flags + posicionais dele) e devolve
+/// o índice seguinte; `i` inalterado quando `toks[i]` não é wrapper. Flag
+/// idêntica à da tabela consome o valor no token seguinte (`-n 5`); a forma
+/// colada (`-n5`) e a longa com `=` (`--signal=KILL`) consomem um só token.
+fn skip_wrapper(toks: &[&str], i: usize) -> usize {
+    let Some(spec) = toks.get(i).and_then(|v| wrapper_spec(v)) else {
+        return i;
+    };
+    let mut j = i + 1;
+    let mut positionals = spec.positionals;
+    while j < toks.len() {
+        let t = toks[j];
+        if is_env_assignment(t) {
+            j += 1; // `sudo FOO=1 cmd` / as atribuições do próprio `env`
+            continue;
+        }
+        if t.starts_with('-') && t != "-" {
+            j += if spec.value_flags.contains(&t) { 2 } else { 1 };
+            continue;
+        }
+        if positionals > 0 {
+            positionals -= 1;
+            j += 1;
+            continue;
+        }
+        break; // o verbo real
+    }
+    j
+}
+
+/// Tokens a partir do VERBO REAL: prefixos `VAR=valor` e wrappers de execução
+/// (`env`/`time`/`nice`/`sudo`/`command`/`builtin`/`timeout`/`stdbuf`/
+/// `ionice`/`taskset`/`chrt`, encadeados em qualquer ordem) removidos. Vazio
+/// quando o comando é só invólucro (`env` puro imprime o ambiente). Um único
+/// resolvedor para todos os classificadores — consertar um sítio só mascarou
+/// o defeito uma vez (memória `definer-module-cinco-sitios`); não duas.
+fn resolved_tokens<'a, 'b>(toks: &'b [&'a str]) -> &'b [&'a str] {
+    let mut i = 0;
+    while i < toks.len() {
+        if is_env_assignment(toks[i]) {
+            i += 1;
+            continue;
+        }
+        let j = skip_wrapper(toks, i);
+        if j == i {
+            break;
+        }
+        i = j;
+    }
+    &toks[i..]
+}
+
+/// Segmentos de comando separados por operadores de sequência (`&&`, `||`,
+/// `;`, nova linha). Ingênuo quanto a aspas (`grep 'a;b'` corta dentro da
+/// aspa) — seguro para CLASSIFICAÇÃO: o verbo do segmento não muda com o
+/// corte, que é o único uso (S1, 26/08).
+fn command_segments(cmd: &str) -> Vec<&str> {
+    cmd.split(['\n', ';'])
+        .flat_map(|part| part.split("&&"))
+        .flat_map(|part| part.split("||"))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// Tokens efetivos: segmenta por operadores de sequência, pula segmentos
+/// `cd <dir>` (prefixo de navegação — `cd /x && grep foo` é `grep`), e
+/// resolve wrappers no primeiro segmento que não é só navegação. Tudo `cd`
+/// (ou nada) devolve vazio. É o resolved_tokens + a lacuna que a estratégia
+/// S1 nomeou (`cd <dir> (&&|;\n)`) e a primeira entrega deixou passar.
+fn effective_tokens(cmd: &str) -> Vec<&str> {
+    for seg in command_segments(cmd) {
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        match rest.first() {
+            Some(&"cd") => continue, // prefixo de navegação — o próximo decide
+            _ => return rest.to_vec(),
+        }
+    }
+    Vec::new()
+}
+
+/// O verbo real de `command` — primeiro token depois de segmentos, prefixos
+/// `cd` e wrappers.
+fn resolved_verb(command: &str) -> Option<&str> {
+    effective_tokens(command).first().copied()
+}
+
 fn is_scan_command(command: &str) -> bool {
-    let c = command.trim_start();
-    c.starts_with("grep ")
-        || c.starts_with("grep\t")
-        || c.starts_with("rg ")
-        || c.starts_with("rg\t")
-        || c.starts_with("egrep ")
-        || c.starts_with("fgrep ")
-        || c.starts_with("ag ")
-        || (c.starts_with("find ") && c.contains("-name"))
+    let rest = effective_tokens(command);
+    let Some(&verb) = rest.first() else { return false };
+    match verb {
+        "grep" | "rg" | "egrep" | "fgrep" | "ag" => rest.len() > 1,
+        "find" => rest[1..].iter().any(|t| t.contains("-name")),
+        _ => false,
+    }
 }
 
 /// True iff `command` contains an explicit shell iteration construct that fans a
@@ -2462,8 +2601,9 @@ fn scan_glob(path: &str, glob: Option<&str>) -> String {
 /// after the command word is the pattern (unquoted); a later token containing `/` is
 /// the path; `--include=GLOB` narrows the filter.
 fn parse_grep_command(command: &str) -> Option<(String, String)> {
-    let mut toks = command.split_whitespace();
-    let _verb = toks.next()?; // grep / rg / egrep / …
+    let rest = effective_tokens(command);
+    let mut toks = rest.iter().copied();
+    let _verb = toks.next()?; // grep / rg / egrep / … (o verbo REAL, pós-cd/wrappers)
     let mut pattern: Option<String> = None;
     let mut path = ".";
     for t in toks {
@@ -2517,6 +2657,243 @@ fn find_name_glob(command: &str) -> Option<String> {
 /// The file an inline `sed -i`/`awk -i inplace`/`perl -pi` edit targets — the last
 /// path-like token (skips flags and the substitution script). Lets the Edit tool /
 /// ast-meta nudge carry the real path instead of `<file>`. `None` when not derivable.
+/// N3a (26/08/2026) — escrita cega inline: `sed -i`/`sed --in-place`/
+/// `awk -i inplace`/`perl -pi` EM POSIÇÃO DE COMANDO (início, `|`, `;`,
+/// `&&`/`&`, `$(`, nova linha). A âncora em posição de comando separa a
+/// invocação do texto — `echo "rode sed -i aqui"` é prosa, não escrita.
+/// Lacuna conhecida (documentada, fora do escopo N3a): `find -exec sed -i`
+/// e `xargs sed -i` não estão em posição de comando.
+fn is_inline_blind_edit(cmd: &str) -> bool {
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(
+            r"(?:^|[|;&\n]|\$\()\s*(?:sed\s+-[a-zA-Z]*i(?:\.\S*)?(?:\s|$)|sed\s+--in-place\b|awk\s+-i\s+inplace\b|perl\s+-pi\b)",
+        )
+        .expect("G9 regex compila")
+    })
+    .is_match(cmd)
+}
+
+/// S4 (26/08) — classe do executor homogêneo (R4): `python3`/
+/// `.venv/bin/python3`/`pytest` & cia — a rajada desenrolada que nenhum gate
+/// nomeava (75 chamadas seriadas na sessão dc87e4e0, 5,8% adoção).
+/// `python3 -c` fica de fora (o advisory CEG é o dono do inline). Mutação
+/// marcada fica de fora por construção (P2.3): redirect de shell,
+/// instaladores, git, rm — o marcador é a calibração, não prova de pureza
+/// (a limitação é documentada, como no G8).
+fn exec_class_of(cmd: &str) -> Option<&'static str> {
+    const MUTATING: &[&str] = &[
+        ">", "| tee", "pip install", "setup.py install", "rm ", "mv ", "cp ",
+        "git ", "kill", "chmod", "chown", "curl", "wget", "ssh", "docker",
+        "systemctl", "touch ", "mkdir",
+    ];
+    if MUTATING.iter().any(|m| cmd.contains(m)) {
+        return None;
+    }
+    let rest = effective_tokens(cmd);
+    let verb = rest.first()?;
+    let base = verb.rsplit('/').next()?;
+    if base == "python" || base == "python3" || base.starts_with("python3.") {
+        if rest.get(1) == Some(&"-c") {
+            return None; // inline: o advisory CEG já é o dono
+        }
+        return Some("python");
+    }
+    if base.starts_with("pytest") {
+        return Some("pytest");
+    }
+    None
+}
+
+/// S4 — janela da rajada de execução: 600s. O passo de uma suíte de testes
+/// (minutos por chamada) é mais lento que o de uma rajada de inspeção (180s
+/// do G1) — a janela curta nunca veria o 10º passo.
+const EXEC_BURST_WINDOW_SECS: u64 = 600;
+/// S4 — disparo na 10ª (R4: as sessões reais iam a 30-75; 10 é o ponto em
+/// que o laço desenrolado já custou 9 round-trips).
+const EXEC_BURST_DENY_AT: u32 = 10;
+
+type ExecBurstEntry = (u32, Vec<String>);
+
+fn exec_burst_ledger() -> &'static moka::sync::Cache<u64, ExecBurstEntry> {
+    static C: OnceLock<moka::sync::Cache<u64, ExecBurstEntry>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(EXEC_BURST_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// S3 — janela da rajada de INSPEÇÃO, derivada de medição e não de intuição.
+///
+/// Medido em 115 transcripts desde 01/08/2026 (`scripts/s3_burst_distribution.py`),
+/// sobre as 1.118 chamadas das classes que o modo `code` negava por lista fixa:
+///
+/// | janela | isoladas | volume em rajada ≥2 |
+/// |---|---|---|
+/// | 60s  | 41,6% | 58,4% |
+/// | 120s | 32,1% | 67,9% |
+/// | **300s** | **22,5%** | **77,5%** |
+/// | 600s | 17,8% | 82,2% |
+///
+/// 300s é o joelho: de 300 para 600 a janela DOBRA para comprar 4,7 pontos de
+/// volume, e cada segundo a mais é uma chance de agrupar duas inspeções que não
+/// têm nada a ver uma com a outra — um falso positivo de rajada é exatamente a
+/// fricção no caso comum que o S3 existe para remover.
+const INSPECT_BURST_WINDOW_SECS: u64 = 300;
+
+/// S3 — a 2ª nega; a 1ª executa intacta.
+///
+/// A medição é inequívoca no limiar: com janela de 300s, 77,5% do volume das
+/// classes de inspeção está em rajadas de tamanho ≥ 2. Deixar a isolada passar
+/// renuncia a 22,5% dos denies e preserva os outros 77,5% — o oposto do que a
+/// lista fixa fazia, que era cobrar 100% da fricção para capturar o mesmo 77,5%.
+/// É a regra que o próprio DeepSeek documentou e que o T3-B já declarava sem
+/// nunca conseguir aplicar: *"forcing every edit through a program taxes the
+/// common case"*.
+const INSPECT_BURST_DENY_AT: u32 = 2;
+
+/// Ledger da rajada de inspeção — mesmo formato do G10, janela própria.
+fn inspect_burst_ledger() -> &'static moka::sync::Cache<u64, ExecBurstEntry> {
+    static C: OnceLock<moka::sync::Cache<u64, ExecBurstEntry>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(INSPECT_BURST_WINDOW_SECS))
+            .build()
+    })
+}
+
+fn inspect_burst_key(project_root: &Path, class: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}s3-inspect\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    class.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// As classes de inspeção que o ledger da rajada acompanha — TODAS as que
+/// [`scan_class_of`] reconhece.
+///
+/// A lista fixa que existia aqui (`grep`/`cat`/`find`) errava nos DOIS sentidos,
+/// e a mesma medição mostra as duas pontas: `find` é 56,2% isolada e não tem
+/// UMA rajada ≥3 em 115 transcripts — negá-la por classe era fricção pura; já
+/// `sed-n` (408 chamadas, 81,4% do volume em rajada) e `ls` (338, 71,3%)
+/// passavam sempre, e eram o maior volume fan-out não capturado. O predicado de
+/// rajada dispensa a lista: ele discrimina pelo que a classe FAZ nesta janela,
+/// não pelo nome dela.
+const CODE_MODE_COLLAPSED_CLASSES: &[&str] = &["grep", "cat", "find", "ls", "wc", "sed-n"];
+
+fn exec_burst_key(project_root: &Path, class: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g10-exec\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    class.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// S4 — deny de G10 pendente por sessão: o próximo `touring run` fecha o
+/// continuation-check (a conversão é o programa agregado).
+fn pending_g10() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+/// S4 — o programa R9 (exec-agregado): as N chamadas REAIS em subprocess
+/// sequencial (mesma ordem, mesmo efeito), digest por chamada (cauda só nas
+/// falhas), RESUMO final — a íntegra fica no spill do sandbox quando estoura.
+/// O array JSON é literal Python válido (aspas duplas + escapes JSON são um
+/// subconjunto do Python) — sem json.loads, sem conflito de aspas no corpo.
+fn r9_exec_program(cmds: &[String]) -> String {
+    let lista = serde_json::to_string(cmds).unwrap_or_else(|_| "[]".into());
+    let mut corpo = String::from("import subprocess\ncmds = ");
+    corpo.push_str(&lista);
+    corpo.push('\n');
+    corpo.push_str("falhas = []\n");
+    corpo.push_str("for c in cmds:\n");
+    corpo.push_str("    r = subprocess.run(c, shell=True, capture_output=True, text=True, timeout=600)\n");
+    corpo.push_str("    ok = r.returncode == 0\n");
+    corpo.push_str("    print('[' + ('ok' if ok else 'FALHOU') + '] ' + c)\n");
+    corpo.push_str("    if not ok:\n");
+    corpo.push_str("        falhas.append(c)\n");
+    corpo.push_str("        print((r.stdout or '')[-300:])\n");
+    corpo.push_str("        print((r.stderr or '')[-200:])\n");
+    corpo.push_str("print('RESUMO: ' + str(len(cmds) - len(falhas)) + '/' + str(len(cmds)) + ' ok')");
+    format!("touring run --lang python --code '{}'", corpo.replace('\'', "'\\''"))
+}
+
+/// S6 (26/08) — intent de prior-art derivado da rajada real: a classe do
+/// executor + os alvos recorrentes (BM25 precisa dos termos do TRABALHO,
+/// não da forma da rajada). Máx 6 termos — intent longo dilui o ranking.
+fn exec_burst_intent(class: &str, cmds: &[String]) -> String {
+    /// Componente de trabalho (dir ou pedaço de stem): ≥2 chars, não-dígito,
+    /// dedup. Tokens de caminho INTEIROS não entram — `tests/test_1.py`
+    /// diluiria o intent em termos que nenhum propósito contém (medido vivo:
+    /// 6 termos → required_matches 3 → 2 matches → o portfolio calado com o
+    /// artefato certo na prateleira).
+    fn push_componente(t: &str, termos: &mut Vec<String>) {
+        let t = t.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
+        if t.len() >= 2
+            && !t.chars().all(|c| c.is_ascii_digit())
+            && !termos.iter().any(|x| x == t)
+        {
+            termos.push(t.to_string());
+        }
+    }
+    let mut termos: Vec<String> = vec![class.to_string()];
+    'outer: for cmd in cmds.iter().take(8) {
+        for tok in effective_tokens(cmd).into_iter().skip(1) {
+            let limpo = tok.trim_matches(|c: char| "'\"()[]{},".contains(c));
+            if limpo.starts_with('-') {
+                continue;
+            }
+            if limpo.contains('/') || limpo.contains('.') {
+                let sem_ext = limpo.split('.').next().unwrap_or(limpo);
+                for parte in sem_ext.split('/') {
+                    for pedaco in parte.split(['_', '-']) {
+                        push_componente(pedaco, &mut termos);
+                    }
+                }
+                if termos.len() >= 6 {
+                    break 'outer;
+                }
+            }
+        }
+    }
+    termos.join(" ")
+}
+
+/// S6 — o prior art mais próximo da rajada, instanciado: quando o portfólio
+/// tem um programa que JÁ funcionou para este intent, a rota vem escrita E
+/// vem de um artefato real (a diferença para o esqueleto R9, que é genérico
+/// por construção). Fail-open em todas as direções: sem índice, sem entrada,
+/// sem entry_point, ou entry_point com placeholder não-derivável → `None` e
+/// o deny sai só com o R9 (o comportamento anterior, honesto).
+fn portfolio_remedy_for_burst(class: &str, cmds: &[String]) -> Option<String> {
+    let index = portfolio_index()?;
+    if index.is_empty() {
+        return None;
+    }
+    let intent = exec_burst_intent(class, cmds);
+    let answer = touring_foundation::portfolio::query::answer(&index, &intent, 1);
+    let top = answer.prior_art.first()?;
+    let entry_point = top.entry.entry_point.as_deref()?;
+    if entry_point.contains('<') {
+        return None; // placeholder não-derivável: apresentar seria fabricar
+    }
+    Some(format!(
+        "\n  prior art (programa que já funcionou para este trabalho): {entry_point} \
+         — {} · score {:.2}",
+        top.entry.display_path, top.score
+    ))
+}
+
 fn inline_edit_target(command: &str) -> Option<String> {
     command
         .split_whitespace()
@@ -2710,6 +3087,42 @@ fn classify_adoption(tool_name: &str, tool_input: &Value) -> Option<AdoptionClas
 /// (W0 S-0.1 — unconditional, before classification, so the denominator sees
 /// all actions, not just the classified subsets).
 /// Extracted from `run` to keep the hot path flat. Fail-open + infallible.
+/// N5 (26/08) — a classe da ESCOLHA no eixo da injeção nativa ("use Bash
+/// rather than dedicated tools"): `followed` (Bash onde Grep/Glob/Read
+/// existia), `resisted` (a tool dedicada), `code_route` (touring run/exec).
+/// Pura — testável sem tocar os contadores; espelho 1:1 do
+/// `classify_tool_call` em scripts/n5_injection_kpi.py (paridade guardada
+/// pelos mesmos casos nos dois lados).
+fn native_injection_class(tool_name: &str, tool_input: &Value) -> Option<&'static str> {
+    match tool_name {
+        "Grep" | "Glob" | "Read" => Some("resisted"),
+        "Bash" => {
+            let cmd = tool_input.get("command").and_then(Value::as_str)?;
+            if cmd.contains("touring run") || cmd.contains("touring exec") {
+                Some("code_route")
+            } else if matches!(scan_class_of(cmd), Some("grep" | "find" | "cat" | "sed-n")) {
+                Some("followed")
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// N5 — registra a escolha ANTES de qualquer gate: um deny posterior não
+/// apaga o sinal da pressão (o KPI mede escolhas, não execuções). Global por
+/// daemon; a taxa POR SESSÃO vem do minerador scripts/n5_injection_kpi.py.
+fn record_native_injection(tool_name: &str, tool_input: &Value) {
+    use crate::shared::gate_metrics as gm;
+    match native_injection_class(tool_name, tool_input) {
+        Some("followed") => gm::record_native_injection_followed(),
+        Some("resisted") => gm::record_native_injection_resisted(),
+        Some("code_route") => gm::record_native_injection_code_route(),
+        _ => {}
+    }
+}
+
 fn record_adoption(tool_name: &str, tool_input: &Value) {
     if tool_name == "Bash" {
         crate::shared::gate_metrics::record_bash_call();
@@ -2786,6 +3199,18 @@ fn mutation_epoch() -> &'static moka::sync::Cache<String, u64> {
 
 /// W1 S-1.4 — deny de G2 pendente por sessão: a próxima chamada Bash com
 /// `pipefail` dentro de 60s conta como `followed` (o contrato pillar_induction).
+/// N3a — deny de G9 pendente por sessão: a próxima chamada Edit/Write da
+/// sessão fecha o continuation-check (a conversão é o Edit com os 17 gates).
+fn pending_g9() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
 fn pending_g2() -> &'static moka::sync::Cache<String, ()> {
     static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
     C.get_or_init(|| {
@@ -2811,11 +3236,12 @@ const G1_DEMOTE_MIN_EVENTS: u64 = 100;
 /// W2 S-2.1 — classe da inspeção atômica (a taxonomia da simulação). `None`
 /// para comandos que não são inspeção — a rajada só conta o que inspeciona.
 fn scan_class_of(cmd: &str) -> Option<&'static str> {
-    // Pula prefixos `VAR=valor` (inclusive o próprio token de bypass): a
-    // classe é do comando executado, não do ambiente que o precede.
-    let first = cmd
-        .split_whitespace()
-        .find(|t| !t.contains('=') || !t.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_'))?;
+    // Verbo REAL pós-segmentos/prefixos-cd/wrappers (S1, 26/08): `time grep`
+    // é `grep`, `cd /x && cat f` é `cat` — antes o 1º token decidia, e
+    // `time`/`nice`/`sudo`/`env`/`cd` anulavam a classe para os 4 gates que
+    // consomem este classificador de uma vez só.
+    let rest = effective_tokens(cmd);
+    let first = *rest.first()?;
     match first {
         "grep" | "rg" => Some("grep"),
         // P2.3 (calibração 25/08, 1.312 chamadas reais): `cat > f`/`cat >> f`
@@ -2827,11 +3253,7 @@ fn scan_class_of(cmd: &str) -> Option<&'static str> {
             // O primeiro operando REAL decide: flags (`-n`) — e o argumento
             // das que tomam valor (`-n 5`, `-c +3`) — são transparentes. Se o
             // que sobra já começa com `>`, não há arquivo de leitura.
-            let mut it = cmd
-                .split_whitespace()
-                .skip_while(|t| *t != first)
-                .skip(1)
-                .peekable();
+            let mut it = rest[1..].iter().copied().peekable();
             let mut primeiro_operando: Option<&str> = None;
             while let Some(t) = it.next() {
                 if t == "-n" || t == "-c" {
@@ -2852,7 +3274,10 @@ fn scan_class_of(cmd: &str) -> Option<&'static str> {
         "find" | "fd" => Some("find"),
         "ls" => Some("ls"),
         "wc" => Some("wc"),
-        "sed" if cmd.contains("-n") => Some("sed-n"),
+        // `-n` do sed, não do invólucro: `nice -n 5 sed 5p f` NÃO é sed-n
+        // (com o verbo resolvido, o `contains` no comando inteiro herdaria o
+        // `-n` do `nice` — o bug latente que a resolução expõe).
+        "sed" if rest[1..].contains(&"-n") => Some("sed-n"),
         _ => None,
     }
 }
@@ -3008,41 +3433,40 @@ fn g1_should_deny(precision: Option<(f64, u64)>) -> bool {
         Some((p, volume)) if volume >= G1_DEMOTE_MIN_EVENTS && p < G1_DEMOTE_FLOOR)
 }
 
-/// A forma em que as ferramentas chegam ao modelo NESTE escopo — o `presentAs`
-/// do harness do DeepSeek (`packages/core/agent-tool-presentation`), adaptado ao
-/// que controlamos: não mandamos no wire da Anthropic, então o colapso mora no
-/// executor (o `PreToolUse`), que é justamente a metade que impõe. O postmortem
-/// deles de 07/08/2026 é explícito: *"schema omission is not enforcement when a
-/// direct caller can bypass it; denial must be tested through the executor"*.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum CodeModePresentation {
-    /// Sem colapso e sem indução: a inspeção atômica passa em silêncio.
-    Native,
-    /// Colapso por classe: a inspeção que comprovadamente fan-out é NEGADA com
-    /// a rota derivada; mutação, build e as classes de chamada única passam.
-    Code,
-    /// O default e o estado medido desta sessão: as duas superfícies coexistem,
-    /// com indução. Trocá-lo por `Code` no mundo todo seria a recusa que o
-    /// próprio DeepSeek documentou — *"forcing every edit through a program
-    /// taxes the common case"*.
-    Both,
-}
+/// A forma em que as ferramentas chegam ao modelo NESTE escopo.
+///
+/// A definição canônica mora em [`touring_foundation::code_mode`] porque DOIS
+/// executores a impõem — este hook (`PreToolUse`) e o handshake MCP
+/// (`touring-server::server::apply_curation`, S1 TRANSPORT). Duplicar o tipo e
+/// o parser recriaria a falha que este workspace já pagou duas vezes: sítios da
+/// mesma regra que divergem (2026-08-23) e uma declaração que promete o que o
+/// executor não aplica (achado D8, 2026-08-25).
+pub(crate) use touring_foundation::code_mode::CodeModePresentation;
 
-/// Classes de inspeção que o modo `code` colapsa, calibradas por MEDIÇÃO e não
-/// por intuição (sessão 25/08/2026, 1.231 chamadas Bash):
-///
-/// | classe | ocorrências | colapsa? |
-/// |---|---|---|
-/// | `grep` | 468 | sim — 71% da inspeção atômica, 61 rajadas |
-/// | `cat`  | 165 | sim — ler N arquivos é o caso canônico |
-/// | `find` |  18 | sim — varredura por definição |
-/// | `ls`   |  11 | **não** — chamada única domina |
-/// | `wc` / `sed-n` | resíduo | **não** — sem volume que justifique |
-///
-/// Os níveis por classe são exatamente o desenho que o DeepSeek ADIOU (*"its
-/// design depends on evidence about how models split usage under `both`"*).
-/// A evidência que faltava a eles é esta tabela: rodamos em `both` instrumentado.
-const CODE_MODE_COLLAPSED_CLASSES: &[&str] = &["grep", "cat", "find"];
+// **Calibração REVISTA pelo S3 (27/08/2026) — a lista fixa saiu, o predicado
+// de rajada entrou.** A tabela abaixo é a de 25/08 (1.312 chamadas), mantida
+// porque foi ela que motivou a revisão, com o dado de 27/08 ao lado
+// (115 transcripts, janela 300s, `scripts/s3_burst_distribution.py`):
+//
+// | classe | colapsava? | chamadas | % isoladas | % volume em rajada ≥2 |
+// |---|---|---|---|---|
+// | `grep`  | sim  | 770 | 12,6% | 87,4% |
+// | `sed-n` | NÃO  | 408 | 18,6% | 81,4% |
+// | `ls`    | NÃO  | 338 | 28,7% | 71,3% |
+// | `cat`   | sim  | 316 | 26,6% | 73,4% |
+// | `wc`    | NÃO  |  34 | 67,6% | 32,4% |
+// | `find`  | sim  |  32 | 56,2% | 43,8% (zero rajadas ≥3) |
+//
+// A lista fixa errava nos dois sentidos ao mesmo tempo: negava `find`, que é
+// majoritariamente isolada e não produziu UMA rajada ≥3 em 115 transcripts, e
+// deixava passar `sed-n` e `ls`, que juntas somam 746 chamadas com ~76% do
+// volume em rajada. Nome de classe não prediz fan-out; o que prediz é o que a
+// classe está fazendo NESTA janela — e isso um contador responde, uma lista não.
+//
+// Os níveis por classe são exatamente o desenho que o DeepSeek ADIOU (*"its
+// design depends on evidence about how models split usage under `both`"*). A
+// evidência que faltava a eles é esta tabela: rodamos em `both` instrumentado,
+// e depois medimos de novo para corrigir a nossa própria primeira leitura.
 
 /// Resolve a apresentação: **prefixo do comando → env do hook → alias → projeto → default**.
 ///
@@ -3101,45 +3525,11 @@ fn code_mode_presentation(project_root: &Path, cmd: &str) -> CodeModePresentatio
 
 /// Lê `[code_mode] mode` de `<root>/.touring/touring.toml`.
 ///
-/// É uma varredura de linhas com estado de seção, **não** um parser TOML — o
-/// crate não depende de `toml` e puxar a dependência inteira por uma chave seria
-/// desproporcional. Entende exatamente a forma que escrevemos:
-///
-/// ```toml
-/// [code_mode]
-/// mode = "code"
-/// ```
-///
-/// Qualquer outra forma (aninhamento, tabela inline, valor sem aspas) devolve
-/// `None` e cai no default — falhar para o comportamento de hoje, nunca para um
-/// colapso que ninguém pediu.
-fn project_presentation(project_root: &Path) -> Option<CodeModePresentation> {
-    let texto = std::fs::read_to_string(project_root.join(".touring/touring.toml")).ok()?;
-    let mut na_secao = false;
-    for linha in texto.lines() {
-        let l = linha.trim();
-        if l.starts_with('[') {
-            na_secao = l == "[code_mode]";
-            continue;
-        }
-        if !na_secao {
-            continue;
-        }
-        let Some((chave, valor)) = l.split_once('=') else {
-            continue;
-        };
-        if chave.trim() != "mode" {
-            continue;
-        }
-        return match valor.trim().trim_matches('"') {
-            "native" => Some(CodeModePresentation::Native),
-            "code" => Some(CodeModePresentation::Code),
-            "both" => Some(CodeModePresentation::Both),
-            _ => None,
-        };
-    }
-    None
-}
+/// Delega ao parser canônico do `touring-foundation` — o mesmo que o handshake
+/// MCP consulta, para que a apresentação declarada e a imposta nunca possam
+/// divergir. Reexportado no escopo do módulo porque os testes o consultam
+/// diretamente.
+pub(crate) use touring_foundation::code_mode::project_presentation;
 
 /// Orçamento total, em chars, do corpo do programa que o remédio entrega.
 const G1_BODY_BUDGET: usize = 3000;
@@ -3174,39 +3564,13 @@ fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
     (corpo.replace('\'', "'\\''"), omitidos)
 }
 
-// ── P3/T3-B — fusão automática da rajada do TURNO (first-wins, fold-the-rest) ──
-//
-// Strategy §T3-B (25/08): K ≥ 2 chamadas Bash de classe fan-out chegam NO MESMO
-// TURNO — mesma sessão, sem PostToolUse intercalado, que é a assinatura exata do
-// batch paralelo do Claude Code (os N PreToolUse disparam antes de qualquer
-// execução). O daemon:
-//
-// 1. deixa a PRIMEIRA executar intacta (o resultado dela é real, nada se perde);
-// 2. NEGA as K−1 restantes com UMA rota derivada, que embute os K−1 comandos
-//    verbatim fundidos (`fuse_burst_program` — inteiro ou fora, omissão declarada).
-//
-// Difere do G1 em os dois eixos: o sinal (turno, não contagem em 180s) e o
-// disparo (a 2ª, não a 4ª). O G1 segue dono da rajada SERIADA — as negadas aqui
-// não alimentam o ledger dele, por construção: não executaram.
-/// Estado do turno por sessão. TTL 60s é só o backstop de limpeza — o sinal de
-/// fechamento real é o PostToolUse (`turn_gate_close`).
-#[derive(Clone, Default)]
-pub(crate) struct TurnBurst {
-    /// PostToolUse intercalou: a rajada deixa de ser "do mesmo turno".
-    pub closed: bool,
-    /// A 1ª fan-out do turno já passou intacta.
-    pub first_passed: bool,
-    /// Os comandos já NEGADOS neste turno — a rota da próxima carrega todos.
-    pub denied: Vec<String>,
-    /// Quando a 1ª passou (secs desde o UNIX_EPOCH) — a janela do batch.
-    pub first_seen_secs: u64,
-}
 
-/// A rota escrita que o T3 entregou ao modelo, com o braço que a produziu.
+/// A rota escrita que a apresentação entregou ao modelo, com o braço que a produziu.
 ///
-/// Os contadores `t3_turn_fused`/`first_passed` diziam com que FREQUÊNCIA o gate
-/// agia e nada sobre se agir funcionou — telemetria sem consumidor de aprendizado
-/// (medido 25/08/2026: zero políticas os liam). Esta é a metade que faltava: a
+/// Contadores de FREQUÊNCIA dizem com que assiduidade um gate age e nada sobre
+/// se agir funcionou — telemetria sem consumidor de aprendizado (medido
+/// 25/08/2026: zero políticas os liam; os contadores do T3-B eram o caso
+/// exemplar, e o gate inteiro saiu no S10). Esta é a metade que faltava: a
 /// apresentação vigente vira o braço, e o comando seguinte vira a recompensa.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RouteOffer {
@@ -3216,10 +3580,6 @@ pub struct RouteOffer {
     pub offered_secs: u64,
 }
 
-/// Janela do batch paralelo: os N PreToolUse de um turno chegam quase juntos.
-/// Fora dela, uma fan-out solta reabre turno novo — protege a fusão de
-/// capturar sequências que só parecem turno por um PostToolUse perdido.
-const TURN_WINDOW_SECS: u64 = 10;
 
 fn now_secs() -> u64 {
     std::time::SystemTime::now()
@@ -3228,116 +3588,10 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-fn turn_ledger() -> &'static moka::sync::Cache<String, TurnBurst> {
-    static C: OnceLock<moka::sync::Cache<String, TurnBurst>> = OnceLock::new();
-    C.get_or_init(|| {
-        moka::sync::Cache::builder()
-            .max_capacity(1024)
-            .time_to_live(Duration::from_secs(60))
-            .build()
-    })
-}
 
-/// O que fazer com uma chamada fan-out: deixar a 1ª passar intacta, ou negar
-/// com a rota fundida das acumuladas (esta inclusa).
-pub(crate) enum TurnDecision {
-    FirstPass,
-    Fold(Vec<String>),
-}
 
-/// Pura — o predicado separado do estado, para ser mais fácil de testar do
-/// que de contornar (o padrão `g1_should_deny`).
-pub(crate) fn turn_decide(st: &TurnBurst, cmd: &str, now_secs: u64) -> TurnDecision {
-    let dentro_da_janela = st.first_passed
-        && now_secs.saturating_sub(st.first_seen_secs) <= TURN_WINDOW_SECS;
-    if st.closed || !st.first_passed || !dentro_da_janela {
-        TurnDecision::FirstPass
-    } else {
-        let mut all = st.denied.clone();
-        all.push(cmd.to_string());
-        TurnDecision::Fold(all)
-    }
-}
 
-/// Contadores vivos (gate-metrics): a telemetria que decide se T3-A
-/// (hold-and-fuse) se justifica — frequência e acerto da detecção de turno.
-fn record_t3_first_passed() {
-    crate::shared::gate_metrics::record_t3_turn_first_passed();
-}
-fn record_t3_fused() {
-    crate::shared::gate_metrics::record_t3_turn_fused();
-}
 
-/// O gate propriamente: `Some(deny)` curto-circuita; `None` deixa o fluxo.
-/// Só classes fan-out (`scan_class_of`) — mutação/build nunca é rajada.
-pub(crate) fn turn_gate_pre_bash(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
-    if std::env::var("TOURING_T3_FUSE_DISABLED").map(|v| v == "1") == Ok(true) {
-        return None;
-    }
-    scan_class_of(cmd)?;
-    // a chave é (projeto, sessão): o batch de um turno acontece NUM projeto —
-    // e a mesma sessão CC pode ter dois projetos abertos (dois turnos).
-    let key = format!("{}\u{2}{session}", project_root.display());
-    let st = turn_ledger().get(&key).unwrap_or_default();
-    match turn_decide(&st, cmd, now_secs()) {
-        TurnDecision::FirstPass => {
-            turn_ledger().insert(
-                key,
-                TurnBurst {
-                    closed: false,
-                    first_passed: true,
-                    denied: Vec::new(),
-                    first_seen_secs: now_secs(),
-                },
-            );
-            record_t3_first_passed();
-            None
-        }
-        TurnDecision::Fold(all) => {
-            if code_gates_disabled() {
-                return None;
-            }
-            let n = all.len();
-            turn_ledger().insert(
-                key,
-                TurnBurst {
-                    closed: false,
-                    first_passed: true,
-                    denied: all.clone(),
-                    first_seen_secs: st.first_seen_secs,
-                },
-            );
-            let (corpo, omitidos) = fuse_burst_program(&all);
-            let programa = format!("touring run --lang bash --code '{corpo}'");
-            let nota_omissao = if omitidos > 0 {
-                format!(
-                    "
-  ({omitidos} comando(s) do lote não couberam no orçamento de                      {G1_BODY_BUDGET} chars e ficaram DE FORA — rode-os à parte.)"
-                )
-            } else {
-                String::new()
-            };
-            record_route_offer(project_root, session, code_mode_presentation(project_root, cmd));
-            record_t3_fused();
-            // O lote degenerado (n=1) não é "fusão" — é a rota derivada do
-            // próprio comando; o texto diz a verdade dos dois casos.
-            let tese = if n == 1 {
-                "o sandbox roda este comando de uma vez — a rota já vem escrita:"
-            } else {
-                "o lote acumulado é 1 programa — você não precisava escrevê-lo:"
-            };
-            Some(deny_response(format!(
-                "[T3 fusão-de-turno] esta inspeção chegou no MESMO turno de outra que \
-                 já executou intacta (o resultado dela é real): {tese}
-  \
-                 {programa}{nota_omissao}
-Sub-chamadas DENTRO do programa são isentas \
-                 por construção. Kill switch humano: TOURING_T3_FUSE_DISABLED=1. \
-                 Bypass por-comando: {GATE_BYPASS_TOKEN}."
-            )))
-        }
-    }
-}
 
 /// Reivindica a rota pendente deste (projeto, sessão) — UMA vez.
 ///
@@ -3448,11 +3702,12 @@ pub(crate) fn program_shape(body: &str) -> ProgramShape {
 /// programa. Ter relaxado o gate no caminho não desfaz o fato de a rota ter
 /// sido tomada.
 pub fn classify_route_outcome(cmd: &str) -> Option<f64> {
-    const BYPASS: [&str; 4] = [
+    // `TOURING_T3_FUSE_DISABLED=1` saiu com o T3-B (S10, 27/08): reconhecer um
+    // kill switch que não desliga nada ensinaria o modelo a digitá-lo.
+    const BYPASS: [&str; 3] = [
         "TOURING_CODE_MODE=native",
         "TOURING_GATE_OK=1",
         "TOURING_CODE_GATES_DISABLED=1",
-        "TOURING_T3_FUSE_DISABLED=1",
     ];
     if cmd.contains("touring run ") || cmd.contains("touring exec ") {
         // A rota foi tomada — mas COMPROU alguma coisa? Um programa que
@@ -3488,11 +3743,7 @@ pub fn turn_ledger_insert_for_test(project_root: &Path, payload: &Value, offer: 
 /// Nome estável do braço. É a chave dos contadores e da memória — mudá-lo
 /// renomeia o braço e zera a evidência acumulada sem avisar ninguém.
 pub(crate) fn presentation_label(p: CodeModePresentation) -> &'static str {
-    match p {
-        CodeModePresentation::Native => "native",
-        CodeModePresentation::Code => "code",
-        CodeModePresentation::Both => "both",
-    }
+    p.label()
 }
 
 /// Registra que a apresentação acabou de entregar uma rota escrita.
@@ -3815,23 +4066,6 @@ pub fn claim_route_reward(
     Some((offer, value))
 }
 
-/// PostToolUse (post-bash) fecha o turno: com um PostToolUse intercalado, a
-/// sequência deixa de ser batch paralelo por definição — a próxima fan-out
-/// abre turno novo. Idempotente e barata (no-op sem ledger).
-pub fn turn_gate_close(project_root: &Path, session: &str) {
-    let key = format!("{}\u{2}{session}", project_root.display());
-    if let Some(mut st) = turn_ledger().get(&key) {
-        st.closed = true;
-        turn_ledger().insert(key, st);
-    }
-}
-
-/// Fechamento a partir do payload do hook — a sessão é extraída pela MESMA
-/// `session_key` do pre, para pre e post nunca divergirem sobre qual turno
-/// estão falando (dois cálculos de sessão seriam dois turnos).
-pub fn turn_gate_close_for_payload(project_root: &Path, payload: &Value) {
-    turn_gate_close(project_root, &session_key(payload));
-}
 
 /// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
 /// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
@@ -3946,7 +4180,6 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     record_gate_event(GateId::G1, GateEvent::Denied);
     // um deny encerra o turno cego: a próxima chamada é a RESPOSTA do modelo
     // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
-    turn_gate_close(project_root, session);
     pending_g1().insert(session.to_string(), class.to_string());
     // A razão DECLARADA tem de ser a do gatilho que disparou. Com a calibração
     // por similaridade, um deny na 2ª chamada exibindo "90% das rajadas ≥4"
@@ -4051,6 +4284,11 @@ pub(crate) fn code_mode_gates(
     let project = project_root.display().to_string();
     // Toda mutação avança a época do projeto (G6 nunca dispara através dela).
     if matches!(tool_name, "Edit" | "Write" | "NotebookEdit") {
+        // G9 (N3a): a conversão do deny é o Edit com gates — a próxima
+        // Edit/Write/NotebookEdit da sessão fecha o continuation-check.
+        if pending_g9().remove(session).is_some() {
+            record_gate_event(GateId::G9, GateEvent::Followed);
+        }
         let epoch = mutation_epoch().get(&project).unwrap_or(0);
         mutation_epoch().insert(project.clone(), epoch + 1);
         // G5 (telemetria): a rajada de edits cresce; o fim dela é a primeira
@@ -4181,6 +4419,12 @@ pub(crate) fn code_mode_gates(
         if exit_code_through_pipe(cmd) {
             record_gate_event(GateId::G2, GateEvent::Bypassed);
         }
+        if is_inline_blind_edit(cmd) {
+            record_gate_event(GateId::G9, GateEvent::Bypassed);
+        }
+        if exec_class_of(cmd).is_some() {
+            record_gate_event(GateId::G10, GateEvent::Bypassed);
+        }
         // G1: o bypass consciente reseta a janela da classe (S-2.2) — a
         // exploração legítima recomeça do zero, e o evento fica contado.
         if let Some(class) = scan_class_of(cmd) {
@@ -4238,6 +4482,35 @@ pub(crate) fn code_mode_gates(
              direto. Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
         )));
     }
+    // G9 (N3a, 2026-08-26) — escrita cega inline negada com a rota derivada:
+    // o advisory Pattern 5 falava e o comando executava igual (advisory ≠
+    // gate — adoção medida de um não transfere para o outro). Heredoc é
+    // dado (o corpo não executa neste shell). ANTES do G8: um laço com
+    // `sed -i` é negado aqui, não reescrito para o sandbox.
+    if !cmd.contains("<<") && is_inline_blind_edit(cmd) {
+        if code_gates_disabled() {
+            record_gate_event(GateId::G9, GateEvent::Bypassed);
+            return None;
+        }
+        record_gate_event(GateId::G9, GateEvent::Denied);
+        pending_g9().insert(session.to_string(), ());
+        let target = inline_edit_target(cmd).unwrap_or_else(|| "<o arquivo>".to_string());
+        let cmd_remedio = if cmd.len() <= 1500 {
+            cmd.replace('\'', r"'\''") // aspas escapadas — a rota cola no shell (lição G8)
+        } else {
+            "<o mesmo comando, verbatim>".to_string()
+        };
+        return Some(deny_response(format!(
+            "[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às \
+             cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot \
+             atômico, gotcha). Rotas:\n  \
+             1 arquivo:   Edit tool em `{target}` (old_string → new_string, gates completos)\n  \
+             mesmo comando, sandbox: touring run --lang bash --code '{cmd_remedio}'\n  \
+             estrutural (N arquivos): touring ast grep {target} '<pattern>' --rewrite '<replacement>' \
+             (ast-grep — metavars $VAR, NÃO regex de sed)\n  \
+             Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
+        )));
+    }
     // G8 — laço de INSPEÇÃO reescrito para o sandbox (2026-08-25).
     //
     // Medido no transcript desta própria sessão (1433 tool calls): das 453
@@ -4275,40 +4548,124 @@ pub(crate) fn code_mode_gates(
             );
         }
     }
-    // W8 S-8.1 — modo experimental `TOURING_CODE_ONLY=1` (humano-only, env do
-    // daemon): TODA inspeção atômica com equivalente no repertório é negada
-    // com a rota derivada — a G1 levada ao limite, a sessão inteira em code
-    // mode (o colapso do dsh `CODE_ONLY_INSTRUCTION` como experimento
-    // pilotado). Mutação/build passam (scan_class_of só reconhece inspeção).
+    // G10 (S4, 2026-08-26) — rajada de execução homogênea (R4): N seriadas do
+    // mesmo interpretador com 0 `touring run` na janela. O laço desenrolado
+    // vira 1 programa (R9). Um `touring run` entre elas zera a contagem — a
+    // condição "0 run" é a prova de que a rota já foi oferecida e ignorada.
+    // DEPOIS do G8: um laço escrito é reescrito lá; aqui é a rajada serial.
+    if let Some(class) = exec_class_of(cmd) {
+        let key = exec_burst_key(project_root, class);
+        let (n, mut cmds) = exec_burst_ledger().get(&key).unwrap_or_default();
+        let n = n + 1;
+        if cmds.len() < 16 {
+            cmds.push(cmd.to_string());
+        }
+        if n < EXEC_BURST_DENY_AT {
+            exec_burst_ledger().insert(key, (n, cmds));
+        } else if code_gates_disabled() {
+            record_gate_event(GateId::G10, GateEvent::Bypassed);
+            return None;
+        } else {
+            record_gate_event(GateId::G10, GateEvent::Denied);
+            pending_g10().insert(session.to_string(), ());
+            // zera para a próxima rajada — um deny por lote, nunca fadiga
+            exec_burst_ledger().invalidate(&key);
+            let programa = r9_exec_program(&cmds);
+            // S6 — a rajada real consulta o portfólio: quando há um programa
+            // que já funcionou para este trabalho, o deny entrega os dois
+            // (o esqueleto agregado + o prior art instanciado).
+            let prior = portfolio_remedy_for_burst(class, &cmds).unwrap_or_default();
+            return Some(deny_response(format!(
+                "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
+                 na janela de {}s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\n  \
+                 {programa}\nSubprocessos DENTRO do programa são o próprio mecanismo \
+                 (sequencial, mesma ordem); digest agregado na saída, íntegra no spill.{prior} \
+                 Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
+                EXEC_BURST_WINDOW_SECS
+            )));
+        }
+    } else if cmd.contains("touring run") || cmd.contains("touring exec") {
+        if pending_g10().remove(session).is_some() {
+            record_gate_event(GateId::G10, GateEvent::Followed);
+        }
+        for class in ["python", "pytest"] {
+            exec_burst_ledger().invalidate(&exec_burst_key(project_root, class));
+        }
+        // S3 — a rota foi seguida: a janela de inspeção zera junto. Sem isto o
+        // ledger seguiria contando uma rajada que o modelo JÁ converteu em
+        // programa, e o próximo `grep` legítimo levaria um deny herdado de uma
+        // rajada que não existe mais.
+        for class in CODE_MODE_COLLAPSED_CLASSES {
+            inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, class));
+        }
+    }
+    // S3 (27/08/2026) — o colapso do modo `code` deixou de ser POR CLASSE e
+    // passou a ser POR RAJADA. A 1ª inspeção de uma classe na janela executa
+    // intacta; a 2ª em diante volta como UM programa com as duas fundidas.
+    //
+    // O que mudou e por quê: o braço P2c negava na PRIMEIRA chamada de
+    // `grep`/`cat`/`find`. Medindo 115 transcripts (`s3_burst_distribution.py`),
+    // 22,5% dessas chamadas são isoladas — para elas o deny cobrava um
+    // round-trip inteiro e devolvia a MESMA leitura, que é a definição de
+    // taxar o caso comum. Os outros 77,5% estão em rajadas ≥2, e esses o
+    // predicado continua pegando, agora com o programa fundido em vez do
+    // comando único reescrito.
+    //
+    // O predicado também é o que finalmente ENTREGA a promessa que o T3-B fazia
+    // e nunca cumpriu (`t3_turn_fused = 0`): "a 1ª executa intacta, as K−1
+    // voltam como 1 programa". O T3-B pendurava isso no fechamento de turno, um
+    // evento que este modelo de execução não produz; aqui é um contador com
+    // TTL, que ocorre. Mutação/build seguem passando (scan_class_of só
+    // reconhece inspeção), e um `touring run` na janela zera o ledger — a
+    // contagem prova que a rota foi oferecida e não usada.
     let apresentacao = code_mode_presentation(project_root, cmd);
     if apresentacao == CodeModePresentation::Code
         && let Some(class) = scan_class_of(cmd)
         && CODE_MODE_COLLAPSED_CLASSES.contains(&class)
         && !code_gates_disabled()
     {
-        // P2c (26/08/2026) — ESTE é o deny que dispara de verdade. O braço
-        // nasceu preso ao fuse T3 e mediu-se `t3_turn_fused = 0`: o gatilho não
-        // ocorre neste modelo de execução, porque o PostToolUse de cada chamada
-        // fecha o turno. Uma política pendurada no evento mais raro do sistema
-        // não aprende — e adoção zero não prova que ela é ruim, prova que nunca
-        // foi consultada.
-        record_route_offer(project_root, session, apresentacao);
-        record_gate_event(GateId::G1, GateEvent::Denied);
-        return Some(deny_response(format!(
-            "[CODE MODE] inspeção `{class}` é modelo-direta e este escopo apresenta \
-             `code` — a rota é o programa:\n  touring run --lang bash --code '{}'\n\
-             Sub-chamadas DENTRO do programa não passam por aqui (elas nunca chegam \
-             ao PreToolUse), então a tabela inteira segue disponível lá dentro. \
-             Classes que NÃO colapsam por classe: `ls`, `wc`, `sed-n` — ISOLADAS \
-             passam (chamada única domina); em RAJADA DE TURNO, o T3-B funde \
-             qualquer classe de inspeção, estas incluídas. Escopo: [code_mode] mode \
-             em <projeto>/.touring/touring.toml. Relaxar POR-COMANDO: prefixar \
-             TOURING_CODE_MODE=native (exportar no shell NÃO chega ao hook — \
-             processos irmãos). Bypass de todos os gates: {GATE_BYPASS_TOKEN}.",
-            // INTEIRO: truncar aqui entregaria uma rota que não roda, e o
-            // comando já está no contexto por definição — foi ele que chegou.
-            cmd.replace('\'', "'\\''")
-        )));
+        let key = inspect_burst_key(project_root, class);
+        let (n, mut cmds) = inspect_burst_ledger().get(&key).unwrap_or_default();
+        let n = n + 1;
+        if cmds.len() < 16 {
+            cmds.push(cmd.to_string());
+        }
+        if n < INSPECT_BURST_DENY_AT {
+            // A isolada passa em SILÊNCIO: um nudge aqui devolveria pela porta
+            // dos fundos a fricção que o predicado acabou de tirar da frente.
+            inspect_burst_ledger().insert(key, (n, cmds));
+            crate::shared::gate_metrics::record_g1_inspect_first_passed();
+        } else {
+            let (programa, omitidos) = fuse_burst_program(&cmds);
+            // zera para a próxima rajada — um deny por lote, nunca fadiga
+            // (mesma regra do G10, pela mesma razão).
+            inspect_burst_ledger().invalidate(&key);
+            record_route_offer(project_root, session, apresentacao);
+            record_gate_event(GateId::G1, GateEvent::Denied);
+            crate::shared::gate_metrics::record_g1_inspect_burst_denied();
+            let nota_omissao = if omitidos > 0 {
+                format!(
+                    " ({omitidos} comando(s) não coube(ram) no orçamento e foram OMITIDOS \
+                     — inteiro ou fora, jamais truncado: rode-os à parte)"
+                )
+            } else {
+                String::new()
+            };
+            return Some(deny_response(format!(
+                "[CODE MODE · rajada] {n}ª inspeção `{class}` em {}s — a 1ª já executou \
+                 intacta; esta rajada É o programa, rode-o de uma vez:\n  \
+                 touring run --lang bash --code '{programa}'\n{nota_omissao}\
+                 Sub-chamadas DENTRO do programa não passam por aqui (elas nunca chegam \
+                 ao PreToolUse), então a tabela inteira segue disponível lá dentro. \
+                 Inspeção ISOLADA de qualquer classe PASSA — só a RAJADA colapsa \
+                 (medido em 115 transcripts: 77,5% do volume de inspeção está em \
+                 rajadas ≥2). Um `touring run` zera a janela. Escopo: [code_mode] mode \
+                 em <projeto>/.touring/touring.toml. Relaxar POR-COMANDO: prefixar \
+                 TOURING_CODE_MODE=native (exportar no shell NÃO chega ao hook — \
+                 processos irmãos). Bypass de todos os gates: {GATE_BYPASS_TOKEN}.",
+                INSPECT_BURST_WINDOW_SECS
+            )));
+        }
     }
     // `native` cala a indução inteira: o escopo declarou que não quer ser
     // empurrado, e um nudge que ele não pediu é o custo sem a contrapartida.
@@ -4350,7 +4707,6 @@ pub(crate) fn code_mode_gates(
                 record_gate_event(GateId::G6, GateEvent::Denied);
                 // um deny encerra o turno cego: a próxima chamada é a RESPOSTA
                 // do modelo ao deny, não continuação de um batch paralelo.
-                turn_gate_close(project_root, session);
                 let inicio: String = cmd.chars().take(200).collect();
                 return Some(deny_response(format!(
                     "[G6 redundant-exact-call] repetição byte-idêntica em \
@@ -4365,12 +4721,12 @@ pub(crate) fn code_mode_gates(
         }
     }
 
-    // P3/T3-B — rajada de TURNO (batch paralelo do CC): a 1ª executa intacta,
-    // as K−1 voltam fundidas num programa que o modelo não escreveu. Antes do
-    // G1: as negadas aqui não alimentam o ledger da rajada seriada.
-    if let Some(resp) = turn_gate_pre_bash(project_root, session, cmd) {
-        return Some(resp);
-    }
+    // S10 (2026-08-27) — o T3-B foi REMOVIDO daqui. Medido ao vivo: 3 chamadas
+    // Bash de classes distintas no mesmo turno deram `t3_turn_first_passed = 3`
+    // e `t3_turn_fused = 0` — cada uma era "a primeira", porque o PostToolUse
+    // fecha o turno entre elas. O gate mantinha estado por sessão e NUNCA
+    // decidia. O predicado de rajada do S3 entrega o que ele prometia, com uma
+    // janela de TEMPO (300s) em vez de um turno que sempre fecha.
     // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
     // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
     if let Some(resp) = burst_gate(project_root, session, cmd) {
@@ -4494,7 +4850,7 @@ fn master_cli_command(command: &str) -> Option<(String, String, Option<String>)>
 /// from scratch (Reflexo #3). Conservative: only raw-shell search of knowledge
 /// surfaces, never code identifiers.
 fn is_memory_search(command: &str) -> bool {
-    let first = command.split_whitespace().next().unwrap_or("");
+    let first = resolved_verb(command).unwrap_or("");
     let is_search = matches!(first, "grep" | "rg" | "ag" | "egrep" | "ugrep");
     is_search
         && [
@@ -4716,6 +5072,10 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // cache below would otherwise drop repeated identical antipatterns from the
     // count). Fail-open: pure classification + Relaxed atomics, no error path.
     record_adoption(tool_name, tool_input);
+
+    // N5 — eixo da injeção nativa: mesma disciplina (antes dos gates, sem
+    // early-return): cada PreToolUse é uma escolha no eixo.
+    record_native_injection(tool_name, tool_input);
 
     // W1 — gates com executor (G2 deny + G6 escalada): decididos ANTES do
     // anti-spam, porque um deny repetido nunca pode ser engolido pelo cache.

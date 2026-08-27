@@ -101,11 +101,13 @@ def section(stub: str, modo: str, origem: str) -> str:
     """A seção completa: apresentação do escopo, transporte, contrato, e a regra."""
     efeito = {
         "code": (
-            "inspeção `grep`/`cat`/`find` é NEGADA com a rota derivada — "
-            "a rajada inteira vira 1 programa (classes calibradas por medição: "
-            "71% da inspeção atômica). `ls`/`wc`/`sed-n` ISOLADAS passam "
-            "(chamada única domina); em rajada de turno, o T3-B funde qualquer "
-            "classe de inspeção, estas incluídas."
+            "inspeção ISOLADA PASSA — de qualquer classe. O que colapsa é a "
+            "RAJADA: a 2ª chamada de `grep`/`cat`/`find`/`ls`/`wc`/`sed-n` "
+            "dentro de 300s volta NEGADA com as duas fundidas em 1 programa "
+            "(a 1ª já executou intacta). Calibrado por medição em 115 "
+            "transcripts: 77,5% do volume de inspeção está em rajadas ≥2, e "
+            "os 22,5% isolados não pagam mais pedágio. Um `touring run` na "
+            "janela zera a contagem."
         ),
         "native": "indução desligada neste escopo — nenhum nudge de code mode.",
         "both": (

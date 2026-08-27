@@ -1,0 +1,11 @@
+{
+  "phase": "S2",
+  "entities": [
+    {
+      "entity_id": "phase:S2",
+      "type": "phase",
+      "description": "PILOTO ATIVO. Deploy: propagate-release 30.4.15 (gates workspace+clippy+mirror verdes, update-touring, toolchain freeze, default, analise+konverter atualizados e verificados lock=30.4.15). Config: [code_mode] mode=code no analise toml. PROVA COMPORTAMENTAL 8/8 no binario do piloto (regra 10 \u2014 nunca rotulo): grep\u2192deny CODE MODE; time grep\u2192deny (S1 wrappers); cd /x && cat\u2192deny (S1 cd); sed -i\u2192deny G9; sed -n isolado passa; ceg_advisory no JSON + stderr limpa (S5a); gate_fatigue + native_injection_* no snapshot do daemon do analise. ABERTO POR CONSTRUCAO: gate adocao elegivel >60% se mede nas proximas sessoes do analise \u2014 plano de medicao no bundle (s2-piloto-medicao.md): baseline adoption 0/10/42, injecao 52.5-63.7%, fatigue x24."
+    }
+  ],
+  "relations": []
+}

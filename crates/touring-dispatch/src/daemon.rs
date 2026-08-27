@@ -1108,11 +1108,49 @@ where
                 .origin
                 .as_ref()
                 .map(|o| (o.clone(), req.hook.clone(), req.payload.to_string().len() as u64));
+            // S5 — o par start/settle. O `start` é gravado ANTES do dispatch,
+            // então uma sub-chamada que nunca volta (daemon morto, hook travado)
+            // deixa um start ÓRFÃO no journal. Sem ele, uma sub-chamada que não
+            // retorna é indistinguível de uma que nunca aconteceu — e "ausência
+            // de sinal" já foi lida como "terminou" neste workspace antes.
+            if let Some((origin, hook, payload_bytes)) = subcall.as_ref() {
+                journal_subcall_start(origin, hook, *payload_bytes);
+                // 27/08/2026 — a allowlist do `--orchestrate` passa a ser
+                // IMPOSTA aqui, e não só ensinada no cliente.
+                //
+                // Provado no mesmo dia: `touring.READONLY_HOOKS` é um atributo
+                // Python mutável, então um programa no sandbox fazia
+                // `touring.READONLY_HOOKS += ("cli-memory-store",)` e gravava
+                // na memória do daemon. Uma tupla num objeto de cliente é uma
+                // sugestão; a fronteira é deste lado do socket, onde o
+                // chamador não escreve o código que a verifica.
+                if touring_foundation::orchestrate_allowlist::is_sandbox_origin(Some(origin))
+                    && !touring_foundation::orchestrate_allowlist::sandbox_may_call(hook)
+                {
+                    let motivo =
+                        touring_foundation::orchestrate_allowlist::refusal(hook);
+                    tracing::warn!(
+                        hook = hook.as_str(),
+                        origin = origin.as_str(),
+                        "sandboxed sub-call refused: hook outside the read-only allowlist"
+                    );
+                    journal_subcall(origin, hook, *payload_bytes, 0, 0, false);
+                    return protocol_failure(format_args!("{motivo}"));
+                }
+            }
+            let iniciado = std::time::Instant::now();
             let resp = dispatch_request_async(req, runtime).await;
             if let Some((origin, hook, payload_bytes)) = subcall {
                 let output_bytes = resp.output.len() as u64;
                 crate::shared::gate_metrics::record_code_mode_subcall(payload_bytes, output_bytes);
-                journal_subcall(&origin, &hook, payload_bytes, output_bytes);
+                journal_subcall(
+                    &origin,
+                    &hook,
+                    payload_bytes,
+                    output_bytes,
+                    u64::try_from(iniciado.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    resp.success,
+                );
             }
             resp
         }
@@ -1129,7 +1167,59 @@ where
 /// tool-parts per run: sizes + hook name only — never the content (volume +
 /// secret risk; the KPI needs the bytes, not the data). Fail-open: I/O errors
 /// are swallowed — observability never blocks a dispatch.
-fn journal_subcall(origin: &str, hook: &str, payload_bytes: u64, output_bytes: u64) {
+///
+/// S5 (2026-08-27) added the `start`/`settle` pair, `duration_ms` and `ok`, and
+/// deliberately did NOT add the output preview its plan item asked for: a
+/// preview is content, and the whole point of the rule above is that a memory
+/// recall or a symbol body can carry a secret. Latency and outcome answer the
+/// questions a preview was wanted for — which hook is expensive, which one
+/// failed — without turning an observability file into an exfiltration surface.
+fn journal_subcall(
+    origin: &str,
+    hook: &str,
+    payload_bytes: u64,
+    output_bytes: u64,
+    duration_ms: u64,
+    success: bool,
+) {
+    append_subcall_record(serde_json::json!({
+        "ts": agora_secs(),
+        "phase": "settle",
+        "origin": origin,
+        "hook": hook,
+        "payload_bytes": payload_bytes,
+        "output_bytes": output_bytes,
+        "duration_ms": duration_ms,
+        "ok": success,
+    }));
+}
+
+/// S5 — o `start` do par, gravado ANTES do dispatch.
+///
+/// Carrega identidade e tamanho de entrada, nunca conteúdo (a mesma política do
+/// `settle`). Seu valor está em ser o registro que SOBREVIVE a uma sub-chamada
+/// que não termina: um `start` sem `settle` correspondente é a assinatura em
+/// disco de um hook travado ou de um daemon que morreu no meio do despacho.
+fn journal_subcall_start(origin: &str, hook: &str, payload_bytes: u64) {
+    append_subcall_record(serde_json::json!({
+        "ts": agora_secs(),
+        "phase": "start",
+        "origin": origin,
+        "hook": hook,
+        "payload_bytes": payload_bytes,
+    }));
+}
+
+/// Segundos desde o epoch, 0 se o relógio recuar.
+fn agora_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+/// Escreve uma linha em `run_subcalls.jsonl`. Fail-open em toda direção —
+/// observabilidade jamais bloqueia um despacho.
+fn append_subcall_record(record: serde_json::Value) {
     let Some(home) = std::env::var_os("HOME") else {
         return;
     };
@@ -1137,16 +1227,6 @@ fn journal_subcall(origin: &str, hook: &str, payload_bytes: u64, output_bytes: u
     if std::fs::create_dir_all(&dir).is_err() {
         return;
     }
-    let record = serde_json::json!({
-        "ts": std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0),
-        "origin": origin,
-        "hook": hook,
-        "payload_bytes": payload_bytes,
-        "output_bytes": output_bytes,
-    });
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
@@ -2173,3 +2253,64 @@ unsafe extern "C" {
 #[cfg(test)]
 #[path = "daemon_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod s5_journal_tests {
+    /// S5 — o par start/settle é o que torna uma sub-chamada travada VISÍVEL.
+    ///
+    /// O teste afirma a propriedade que importa na leitura do journal: casar
+    /// `start` com `settle` pelo `origin` deixa órfãos que são exatamente as
+    /// sub-chamadas que não voltaram. Sem o `start`, "não voltou" e "nunca
+    /// aconteceu" produzem o mesmo journal — a ambiguidade que já fez este
+    /// workspace ler "parou de escrever" como "terminou".
+    #[test]
+    fn start_without_settle_identifies_a_stuck_subcall() {
+        let linhas = vec![
+            serde_json::json!({"phase": "start",  "origin": "r:code:1", "hook": "cli-index-find"}),
+            serde_json::json!({"phase": "settle", "origin": "r:code:1", "hook": "cli-index-find",
+                               "duration_ms": 3, "ok": true}),
+            serde_json::json!({"phase": "start",  "origin": "r:code:2", "hook": "cli-ast-blast"}),
+        ];
+        let iniciados: Vec<&str> = linhas
+            .iter()
+            .filter(|l| l["phase"] == "start")
+            .filter_map(|l| l["origin"].as_str())
+            .collect();
+        let concluidos: Vec<&str> = linhas
+            .iter()
+            .filter(|l| l["phase"] == "settle")
+            .filter_map(|l| l["origin"].as_str())
+            .collect();
+        let orfaos: Vec<&&str> = iniciados
+            .iter()
+            .filter(|o| !concluidos.contains(o))
+            .collect();
+        assert_eq!(orfaos, vec![&"r:code:2"], "a sub-chamada travada é o órfão");
+    }
+
+    /// Nenhum campo de conteúdo entra no journal — nem no start, nem no settle.
+    /// A regra é de segurança (uma recall pode devolver segredo), então vale
+    /// como invariante e não como convenção.
+    #[test]
+    fn no_content_field_is_journalled() {
+        const PROIBIDOS: &[&str] = &["output", "preview", "body", "content", "payload", "result"];
+        let fonte = include_str!("daemon.rs");
+        let inicio = fonte
+            .find("fn journal_subcall(")
+            .expect("journal_subcall existe");
+        let fim = fonte[inicio..]
+            .find("fn agora_secs")
+            .map_or(fonte.len(), |o| inicio + o);
+        let corpo = &fonte[inicio..fim];
+        for campo in PROIBIDOS {
+            assert!(
+                !corpo.contains(&format!("\"{campo}\":")),
+                "`{campo}` é conteúdo — o journal grava tamanho, nunca dado"
+            );
+        }
+        // e o que DEVE estar lá
+        for campo in ["payload_bytes", "output_bytes", "duration_ms", "ok"] {
+            assert!(corpo.contains(&format!("\"{campo}\":")), "falta `{campo}`");
+        }
+    }
+}
