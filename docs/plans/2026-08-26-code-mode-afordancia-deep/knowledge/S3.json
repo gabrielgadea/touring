@@ -1,0 +1,11 @@
+{
+  "phase": "S3",
+  "entities": [
+    {
+      "entity_id": "phase:S3",
+      "type": "phase",
+      "description": "VERIFICADO: G-turno ja entrega o remedio derivado \u2014 fuse_burst_program (comando inteiro ou fora, orcamento 3000 declarado, aspas escapadas) + deny T3-B/G1 carrega o programa real da rajada (vivido ao vivo nesta sessao: meu deny G1 trouxe os 4 comandos verbatim). Cobertura existente: 5 testes fusao_do_remedio + turn_gate_first_wins E2E. DELTA S3: teste E2E do caso historicamente quebrado (aspas simples atravessando o caminho ate o deny JSON) \u2014 pegou 1 defeito na MINHA assercao (a forma escapada contem o padrao cru como substring; a negativa correta e a forma quebrada). 445 passed, 0 failed."
+    }
+  ],
+  "relations": []
+}

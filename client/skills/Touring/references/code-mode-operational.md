@@ -12,7 +12,7 @@
 | Contexto | Apresentação | Por quê (medido) |
 |---|---|---|
 | **Projeto maduro / piloto** | `code` | touring: a calibração mediu 71% da inspeção atômica em grep/cat/find **em rajada** — o colapso por classe paga a si mesmo |
-| **Projeto em adoção inicial** | `both` (default) | G1 nega só a 4ª+ da mesma classe/180s com a rajada como programa; T3-B funde rajada de turno — o colapso chega sem quebrar o fluxo |
+| **Projeto em adoção inicial** | `both` (default) | G1 nega só a 4ª+ da mesma classe/180s com a rajada como programa — o colapso chega sem quebrar o fluxo |
 | **Projeto/equipe que não quer gates** | `native` | silêncio total: sem deny, sem nudge, sem fusão |
 | **Uma chamada fora da regra** | prefixo `TOURING_CODE_MODE=<v>` | por-comando, sem config nem export (o shell e o hook são processos irmãos — export não atravessa) |
 | **Inspeção de 1 arquivo conhecido** | nativa (`Read`) | chamada única domina — a recusa que o DeepSeek documentou (*"forcing every edit through a program taxes the common case"*) |
@@ -20,7 +20,7 @@
 | **Escrita/mutação (T4)** | nunca colapsa | 31% das chamadas medidas — taxar escrita taxa o caso comum |
 | **Build/teste/veredito (T0)** | nunca colapsa | cargo/pytest produzem o veredito que o programa consumiria |
 | **`ls`/`wc`/`sed-n` isoladas** | passam em qualquer modo | calibração: chamada única domina nessas classes |
-| **`ls`/`wc`/`sed-n` em rajada de turno** | T3-B funde | qualquer classe de inspeção, estas incluídas |
+| **`ls`/`wc`/`sed-n` em rajada (2ª em 300s)** | o predicado do S3 funde | TODA classe de inspeção responde ao mesmo limiar; isolada sempre passa |
 
 ## 2. Os mecanismos (o que executa a estratégia)
 
@@ -37,27 +37,33 @@ derivada do comando verbatim (a rota EXECUTA — provado 25/08, exit 0). `cat >`
 (escrita via heredoc) **não é inspeção** — o classificador olha o primeiro operando real
 (fix da calibração: 27 escritas, 20,6% de erro antes do fix).
 
-### T3-B — fusão automática da rajada do turno (first-wins, fold-the-rest)
+### Rajada de inspeção (S3, 27/08/2026) — a 1ª passa, a 2ª funde
 
-K≥2 Bash de classe fan-out **no mesmo turno** (sem PostToolUse intercalado — a assinatura
-do batch paralelo do CC): a 1ª executa intacta; as K−1 são negadas com **um programa que
-o modelo não escreveu** (comandos verbatim fundidos, orçamento 3000 chars, omissão
-declarada). Janela 10s, ledger por (projeto, sessão), TTL 60s. **Qualquer** PostToolUse
-fecha o turno (`post-tool-rl`, matcher `*`); um deny de G1/G6 também fecha (a resposta do
-modelo a um deny é decisão nova, não batch). Ordem dos gates: **G6 → T3-B → G1**
-(especificidade decrescente: byte-idêntico > turno > seriada).
+Sob `mode = "code"`, a inspeção ISOLADA de qualquer classe passa intacta. O que
+colapsa é a RAJADA: a 2ª chamada da MESMA classe (`grep`/`cat`/`find`/`ls`/`wc`/
+`sed-n`) dentro de **300s** volta negada com as duas fundidas em um programa.
+Um `touring run` na janela zera a contagem, e o deny zera o lote (um deny por
+rajada, nunca fadiga).
 
-Telemetria: `t3_turn_first_passed_count` / `t3_turn_fused_count` em
-`touring gate-metrics -j` — é ela que decide se T3-A (hold-and-fuse, 25ms) se justifica.
-Achado medido: o CC dispara hooks **serial-com-sobreposição**, não all-pres-first — a
-captura do T3-B depende do timing de dispatch (a 1ª de cada mini-janela passa intacta).
+Calibrado por medição em 115 transcripts: 77,5% do volume de inspeção está em
+rajadas ≥2, e os 22,5% isolados deixaram de pagar pedágio. A lista fixa anterior
+(`grep`/`cat`/`find`) errava nos dois sentidos — negava `find` (56% isolada, zero
+rajadas ≥3) e isentava `sed-n`/`ls` (746 chamadas, ~76% em rajada).
+
+> **O T3-B foi REMOVIDO no S10 (27/08/2026).** Ele prometia exatamente isto
+> ("a 1ª executa intacta, as K−1 voltam fundidas"), mas pendurava a regra no
+> fechamento de TURNO — e o PostToolUse fecha o turno entre cada chamada.
+> Medido ao vivo com 3 classes distintas no mesmo turno:
+> `t3_turn_first_passed = 3`, `t3_turn_fused = 0` — cada uma era "a primeira".
+> Um caminho que executava, mantinha estado por sessão e nunca decidia. O
+> predicado do S3 entrega a mesma promessa com uma janela de TEMPO.
 
 ### Kill switches (humano-only, REGRA #19)
 
 | var | efeito |
 |---|---|
 | `TOURING_CODE_GATES_DISABLED=1` (env do daemon + restart) | desliga TODOS os gates code mode |
-| `TOURING_T3_FUSE_DISABLED=1` | desliga só a fusão de turno |
+
 | `TOURING_G8_REWRITE_DISABLED=1` | desliga só o rewrite de laços |
 | prefixo `TOURING_GATE_OK=1` | bypass por-comando de todos os gates (contado) |
 | prefixo `TOURING_CODE_MODE=native` | bypass por-comando só deste modo |
@@ -149,7 +155,7 @@ executor já ganha do texto, que é exatamente o que o produto existe para garan
 
 Cross-audit 2026-08-25 (`docs/audits/cross-audit-2026-08-25.md`): 11/11 provas ao vivo
 **sem prompt deliberado** — grep de trabalho negado pela política do projeto, a rota do
-deny **executada** (exit 0), laço reescrito pelo G8, 2ª do turno fundida pelo T3-B,
+deny **executada** (exit 0), laço reescrito pelo G8, 2ª da rajada fundida pelo S3,
 `ls` isolado passando, `cat >` passando, prefixo native relaxando, counters Δ+1/+1.
 A afordância mora no executor, não no anúncio (D8, `rules/touring-4-pillars.md`).
 

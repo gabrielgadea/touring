@@ -874,6 +874,8 @@ fn x9_learn_emit_gate_reward_does_not_panic_for_any_verdict() {
             reasons: vec!["e2e test reason".to_owned()],
             canonical_fix: Some("e2e test fix".to_owned()),
             evidence: touring_hooks::gateway::EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
         };
         // Must not panic — fail-open invariant.
         emit_gate_reward(&mut rt, &decision);
@@ -1022,6 +1024,8 @@ fn x9_learn_emit_gate_reward_is_fail_open_for_all_verdicts() {
         reasons: vec![],
         canonical_fix: None,
         evidence: touring_hooks::gateway::EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
     };
     let warn_decision = GateDecision {
         verdict: Verdict::Warn,
@@ -1029,6 +1033,8 @@ fn x9_learn_emit_gate_reward_is_fail_open_for_all_verdicts() {
         reasons: vec!["X3 VGP left 1 symbol unresolved".to_owned()],
         canonical_fix: Some("Review VGP output.".to_owned()),
         evidence: touring_hooks::gateway::EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
     };
     let deny_decision = GateDecision {
         verdict: Verdict::Deny,
@@ -1036,6 +1042,8 @@ fn x9_learn_emit_gate_reward_is_fail_open_for_all_verdicts() {
         reasons: vec!["X2 STATIC blocked the code: rm -rf /".to_owned()],
         canonical_fix: Some("Remove the destructive command.".to_owned()),
         evidence: touring_hooks::gateway::EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
     };
 
     // None must panic — the fail-open invariant.
@@ -1073,6 +1081,8 @@ fn x9_learn_persist_forbidden_skips_non_deny_and_is_fail_open() {
         reasons: vec![],
         canonical_fix: None,
         evidence: touring_hooks::gateway::EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
     };
     let warn = GateDecision {
         verdict: Verdict::Warn,
@@ -1080,6 +1090,8 @@ fn x9_learn_persist_forbidden_skips_non_deny_and_is_fail_open() {
         reasons: vec!["X3 warn".to_owned()],
         canonical_fix: Some("review".to_owned()),
         evidence: touring_hooks::gateway::EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
     };
     // Deny with an X2 STATIC reason (no scripting-language risk patterns in the
     // string — uses the rm pattern already exercised elsewhere in this suite).
@@ -1089,6 +1101,8 @@ fn x9_learn_persist_forbidden_skips_non_deny_and_is_fail_open() {
         reasons: vec!["X2 STATIC blocked the code: rm -rf /danger".to_owned()],
         canonical_fix: Some("Replace with a safe delete.".to_owned()),
         evidence: touring_hooks::gateway::EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
     };
 
     // All three must complete without panic (fail-open).
@@ -1210,6 +1224,8 @@ fn x9_drift_first_call_is_baseline_then_steady_is_not_drift() {
         reasons: vec![],
         canonical_fix: None,
         evidence: EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
     };
 
     // First call: no prior reading → baseline, never drift.

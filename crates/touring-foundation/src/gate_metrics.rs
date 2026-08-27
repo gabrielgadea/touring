@@ -736,10 +736,20 @@ pub struct GateMetrics {
     // keeping the JSON shape stable.
     /// X0 CAPTURE — tool calls that entered the CEG pipeline.
     pub ceg_captured_count: AtomicU64,
-    /// P3/T3-B — 1ª fan-out do turno passando intacta (first-wins).
-    pub t3_turn_first_passed_count: AtomicU64,
-    /// P3/T3-B — chamadas K−1 negadas com a rota fundida (fold-the-rest).
-    pub t3_turn_fused_count: AtomicU64,
+    /// S3 — inspeção ISOLADA que passou: a 1ª da classe na janela executa
+    /// intacta. Denominador do KPI de recalibração — sem ele não dá para
+    /// distinguir "o predicado está calibrado" de "o predicado nunca fala".
+    pub g1_inspect_first_passed_count: AtomicU64,
+    /// S3 — rajada de inspeção negada com a rota fundida (a 2ª em diante).
+    pub g1_inspect_burst_denied_count: AtomicU64,
+    /// N5 — injeção nativa SEGUIDA: Bash escolhida onde tool dedicada existia
+    /// (search/read). Numerador do KPI — ESCOLHA, não execução (o deny
+    /// posterior não apaga o sinal da pressão).
+    pub native_injection_followed_count: AtomicU64,
+    /// N5 — injeção RESISTIDA: tool dedicada (Grep/Glob/Read) na oportunidade.
+    pub native_injection_resisted_count: AtomicU64,
+    /// N5 — terceira via: `touring run`/`touring exec` escolhido (sandbox).
+    pub native_injection_code_route_count: AtomicU64,
     /// P2 — rotas oferecidas com a apresentação `native` em vigor (o denominador do braço).
     pub code_mode_arm_offered_native_count: AtomicU64,
     /// P2 — rotas OFERECIDAS em `native` que o modelo de fato tomou (o numerador).
@@ -839,7 +849,7 @@ pub struct GateMetrics {
     /// `pillar_induction_*`. Promote/demote (S-7.2) reads THESE counters,
     /// never opinion: a gate whose denies are not followed gets demoted by
     /// code, not by meeting.
-    pub gate_events: [[AtomicU64; 4]; 6],
+    pub gate_events: [[AtomicU64; 4]; 8],
 
     /// **W2 S-2.3 (2026-08-24)** — G1 A/B continuation check: after a burst
     /// deny, was the session's NEXT call an inspection of the SAME class?
@@ -1055,8 +1065,11 @@ impl Default for GateMetrics {
             wave3_t310_count: AtomicU64::new(0),
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: AtomicU64::new(0),
-            t3_turn_first_passed_count: AtomicU64::new(0),
-            t3_turn_fused_count: AtomicU64::new(0),
+            g1_inspect_first_passed_count: AtomicU64::new(0),
+            g1_inspect_burst_denied_count: AtomicU64::new(0),
+            native_injection_followed_count: AtomicU64::new(0),
+            native_injection_resisted_count: AtomicU64::new(0),
+            native_injection_code_route_count: AtomicU64::new(0),
             code_mode_arm_offered_native_count: AtomicU64::new(0),
             code_mode_arm_followed_native_count: AtomicU64::new(0),
             code_mode_arm_offered_both_count: AtomicU64::new(0),
@@ -1402,6 +1415,12 @@ pub enum GateId {
     G7 = 4,
     /// G8 — inspection loop rewritten into one sandbox sweep (2026-08-25).
     G8 = 5,
+    /// G9 — blind inline write (`sed -i`/`awk -i inplace`/`perl -pi`) denied
+    /// with the derived route (Edit with the 17 gates / sandbox) — N3a, 2026-08-26.
+    G9 = 6,
+    /// G10 — homogeneous exec burst (N serial calls of the same interpreter,
+    /// 0 `touring run` in window) folded into one R9 aggregate program — S4, 2026-08-26.
+    G10 = 7,
 }
 
 impl GateId {
@@ -1414,12 +1433,14 @@ impl GateId {
             Self::G6 => "g6_redundant",
             Self::G7 => "g7_reinspect",
             Self::G8 => "g8_loop_rewrite",
+            Self::G9 => "g9_sed_inline",
+            Self::G10 => "g10_exec_burst",
         }
     }
 
     /// All gates, for snapshot iteration.
     pub fn all() -> &'static [GateId] {
-        &[Self::G1, Self::G2, Self::G3, Self::G6, Self::G7, Self::G8]
+        &[Self::G1, Self::G2, Self::G3, Self::G6, Self::G7, Self::G8, Self::G9, Self::G10]
     }
 }
 
@@ -2192,10 +2213,12 @@ pub use crate::gate_metrics_snapshot::{
     record_ctx_execute_file, record_ctx_execute_file_count, record_ctx_explain,
     record_ctx_gain_graph, record_ctx_purge, record_ctx_replay, record_ctx_session_adoption_query,
     record_ctx_smart, record_ctx_upgrade, record_enrichment_emitted,
+    record_g1_inspect_burst_denied, record_g1_inspect_first_passed,
     record_gate_metrics_daily_flush, record_pillar_induction_emitted,
     record_pillar_induction_followed, record_read_aggressive_chunked,
     record_read_aggressive_passthrough, record_suggestion_emitted, record_suggestion_followed,
-    record_t3_turn_first_passed, record_t3_turn_fused, record_touring_init_invocation,
+    record_native_injection_code_route, record_native_injection_followed,
+    record_native_injection_resisted,     record_touring_init_invocation,
     record_wave3_t201, record_wave3_t202, record_wave3_t203,
     record_wave3_t204, record_wave3_t205, record_wave3_t206, record_wave3_t207, record_wave3_t208,
     record_wave3_t209, record_wave3_t210, record_wave3_t211, record_wave3_t212, record_wave3_t213,

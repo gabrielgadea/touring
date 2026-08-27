@@ -9,6 +9,36 @@ use std::sync::atomic::Ordering;
 
 /// Immutable snapshot of all gate counters at a point in time.
 ///
+/// S5b/c — uma linha do KPI de fadiga: um deny que gera bypass HABITUAL é
+/// candidato a correção de FP (a revisão S5c consome `fp_candidate`).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GateFatigueEntry {
+    /// Label estável do gate (`g2_pipe_exit`…).
+    pub gate: String,
+    /// Denies disparados.
+    pub denied: u64,
+    /// Bypasses por-comando (`TOURING_GATE_OK=1`).
+    pub bypassed: u64,
+    /// bypassed / (denied + bypassed) — `None` sem volume (ausência de sinal
+    /// não é zero: sem dados, sem taxa — Lei L2).
+    pub bypass_ratio: Option<f64>,
+    /// ratio > 0.20 com volume ≥ 10: o deny virou hábito de bypass.
+    pub fp_candidate: bool,
+}
+
+/// S5b/c — o KPI de gate-fatigue, computado do gate_events no capture().
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GateFatigue {
+    /// Soma dos denies de todos os gates.
+    pub denied_total: u64,
+    /// Soma dos bypasses de todos os gates.
+    pub bypassed_total: u64,
+    /// Taxa global de bypass (`None` sem volume).
+    pub bypass_ratio: Option<f64>,
+    /// Uma linha por gate, na ordem estável de `GateId::all()`.
+    pub per_gate: Vec<GateFatigueEntry>,
+}
+
 /// Computes the fast-path ratio for each hook and returns them alongside
 /// the raw counts for CLI/JSON consumers.
 ///
@@ -374,6 +404,9 @@ pub struct GateMetricsSnapshot {
     /// `/gate_events/g2_pipe_exit/denied`.
     #[serde(default)]
     pub gate_events: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u64>>,
+    /// S5b/c (26/08) — gate-fatigue: taxa de bypass por gate e global.
+    #[serde(default)]
+    pub gate_fatigue: GateFatigue,
     /// W2 S-2.3 — G1 continuation check: next call after a deny was the same
     /// inspection class (deny was right).
     #[serde(default)]
@@ -566,12 +599,21 @@ pub struct GateMetricsSnapshot {
     /// Snapshot of CEG X0 CAPTURE events (code-bearing actions entering the pipeline).
     #[serde(default)]
     pub ceg_captured_count: u64,
-    /// Snapshot of P3/T3-B first-pass (1ª fan-out do turno executando intacta).
+    /// S3 — inspeção isolada que passou intacta (denominador da recalibração).
     #[serde(default)]
-    pub t3_turn_first_passed_count: u64,
-    /// Snapshot of P3/T3-B folds (chamadas K−1 negadas com a rota fundida).
+    pub g1_inspect_first_passed_count: u64,
+    /// S3 — rajada de inspeção negada com a rota fundida.
     #[serde(default)]
-    pub t3_turn_fused_count: u64,
+    pub g1_inspect_burst_denied_count: u64,
+    /// N5 — injeção nativa seguida (Bash onde tool dedicada existia).
+    #[serde(default)]
+    pub native_injection_followed_count: u64,
+    /// N5 — injeção resistida (Grep/Glob/Read na oportunidade).
+    #[serde(default)]
+    pub native_injection_resisted_count: u64,
+    /// N5 — terceira via (touring run/exec).
+    #[serde(default)]
+    pub native_injection_code_route_count: u64,
     /// P2 — denominador do braço `native`: rotas oferecidas sob essa apresentação.
     #[serde(default)]
     pub code_mode_arm_offered_native_count: u64,
@@ -893,6 +935,36 @@ impl GateMetricsSnapshot {
                     )
                 })
                 .collect(),
+            gate_fatigue: {
+                let mut denied_total = 0u64;
+                let mut bypassed_total = 0u64;
+                let mut per_gate = Vec::new();
+                for g in crate::gate_metrics::GateId::all() {
+                    let denied = m.gate_events[*g as usize][crate::gate_metrics::GateEvent::Denied as usize]
+                        .load(Ordering::Relaxed);
+                    let bypassed = m.gate_events[*g as usize]
+                        [crate::gate_metrics::GateEvent::Bypassed as usize]
+                        .load(Ordering::Relaxed);
+                    denied_total += denied;
+                    bypassed_total += bypassed;
+                    let volume = denied + bypassed;
+                    let bypass_ratio = (volume > 0).then(|| bypassed as f64 / volume as f64);
+                    per_gate.push(GateFatigueEntry {
+                        gate: g.label().to_string(),
+                        denied,
+                        bypassed,
+                        bypass_ratio,
+                        fp_candidate: bypass_ratio.is_some_and(|r| r > 0.20) && volume >= 10,
+                    });
+                }
+                GateFatigue {
+                    denied_total,
+                    bypassed_total,
+                    bypass_ratio: (denied_total + bypassed_total > 0)
+                        .then(|| bypassed_total as f64 / (denied_total + bypassed_total) as f64),
+                    per_gate,
+                }
+            },
             code_mode_bytes_elided_total: m.code_mode_bytes_elided_total.load(Ordering::Relaxed),
             code_mode_subcalls_count: m.code_mode_subcalls_count.load(Ordering::Relaxed),
             code_mode_subcall_bytes_total: m
@@ -968,8 +1040,15 @@ impl GateMetricsSnapshot {
             wave3_t310_count: m.wave3_t310_count.load(Ordering::Relaxed),
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: m.ceg_captured_count.load(Ordering::Relaxed),
-            t3_turn_first_passed_count: m.t3_turn_first_passed_count.load(Ordering::Relaxed),
-            t3_turn_fused_count: m.t3_turn_fused_count.load(Ordering::Relaxed),
+            g1_inspect_first_passed_count: m
+                .g1_inspect_first_passed_count
+                .load(Ordering::Relaxed),
+            g1_inspect_burst_denied_count: m
+                .g1_inspect_burst_denied_count
+                .load(Ordering::Relaxed),
+            native_injection_followed_count: m.native_injection_followed_count.load(Ordering::Relaxed),
+            native_injection_resisted_count: m.native_injection_resisted_count.load(Ordering::Relaxed),
+            native_injection_code_route_count: m.native_injection_code_route_count.load(Ordering::Relaxed),
             code_mode_arm_offered_native_count: m.code_mode_arm_offered_native_count.load(Ordering::Relaxed),
             code_mode_arm_followed_native_count: m.code_mode_arm_followed_native_count.load(Ordering::Relaxed),
             code_mode_arm_offered_both_count: m.code_mode_arm_offered_both_count.load(Ordering::Relaxed),
@@ -1126,16 +1205,34 @@ pub fn record_ceg_captured() {
     global().ceg_captured_count.fetch_add(1, Ordering::Relaxed);
 }
 
-/// P3/T3-B — 1ª fan-out do turno passou intacta (first-wins).
+/// N5 — injeção nativa seguida (Bash onde tool dedicada existia).
 #[inline]
-pub fn record_t3_turn_first_passed() {
-    global().t3_turn_first_passed_count.fetch_add(1, Ordering::Relaxed);
+pub fn record_native_injection_followed() {
+    global().native_injection_followed_count.fetch_add(1, Ordering::Relaxed);
 }
 
-/// P3/T3-B — chamada K−1 negada com a rota fundida (fold-the-rest).
+/// N5 — injeção resistida (Grep/Glob/Read na oportunidade).
 #[inline]
-pub fn record_t3_turn_fused() {
-    global().t3_turn_fused_count.fetch_add(1, Ordering::Relaxed);
+pub fn record_native_injection_resisted() {
+    global().native_injection_resisted_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// N5 — terceira via (touring run/exec escolhido).
+#[inline]
+pub fn record_native_injection_code_route() {
+    global().native_injection_code_route_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// S3 — inspeção isolada passou intacta (a 1ª da classe na janela).
+#[inline]
+pub fn record_g1_inspect_first_passed() {
+    global().g1_inspect_first_passed_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// S3 — rajada de inspeção negada com a rota fundida (a 2ª em diante).
+#[inline]
+pub fn record_g1_inspect_burst_denied() {
+    global().g1_inspect_burst_denied_count.fetch_add(1, Ordering::Relaxed);
 }
 
 /// P2 — a apresentação entregou uma rota escrita sob o braço `mode`.

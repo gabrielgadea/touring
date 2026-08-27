@@ -241,6 +241,43 @@ if [ "$PROPAGATED" -eq 0 ] && [ "$ALLOW_NO_PROJECTS" -eq 0 ]; then
 fi
 [ "$PROP_FAILED" -eq 0 ] || die "$PROP_FAILED projeto(s) falharam na propagação — nada é declarado pronto com falha aberta (REGRA #21)"
 
+# ─── 5.5 PROVA COMPORTAMENTAL (code mode + CEG) ──────────────────────────────
+#
+# O rótulo da toolchain NÃO prova o build — 24/08/2026 o lock dizia 30.4.14
+# rodando binário de 4 dias antes. A prova é sempre COMPORTAMENTAL: exercitar
+# o contrato contra o binário instalado e julgar o que ele devolveu.
+#
+# Esta bateria (29 asserções) cobre as duas metades que mais custaram para
+# ficar certas: o CEG discriminando benigno de perigoso (rede e padrão
+# destrutivo negam DURO; builtins passam limpos) e o code mode entregando o
+# que promete (transporte, 71 hooks, piso do --brief, par start/settle).
+# Precisa do lado vivo — por isso mora aqui, e não no CI.
+step "5.5/6 PROVA — contrato de code mode + CEG contra o binário instalado"
+if [ "$DRY_RUN" -eq 1 ]; then
+    echo "  ${YELLOW}[dry-run]${RESET} (a prova roda apenas em execução real)"
+elif [ ! -f "$WORKSPACE/scripts/prova_code_mode_ceg.py" ]; then
+    echo "  ${YELLOW}(prova ausente — pulada)${RESET}"
+else
+    # O passo 5 reinicia o daemon global E um por projeto. Rodar a prova em
+    # cima do restart mede o transiente, não o contrato — e um gate que reprova
+    # por transiente é um gate que as pessoas aprendem a ignorar (a fadiga que
+    # a REGRA #19 já documenta: "daemon degraded ≠ daemon inexistente").
+    for _ in $(seq 1 20); do
+        if touring doctor -j 2>/dev/null | grep -q '"status": *"ok"'; then
+            if ! touring doctor -j 2>/dev/null | grep -q '"status": *"error"'; then
+                break
+            fi
+        fi
+        sleep 1
+    done
+    if python3 "$WORKSPACE/scripts/prova_code_mode_ceg.py" >/tmp/prova-code-mode.log 2>&1; then
+        log "prova comportamental: $(tail -2 /tmp/prova-code-mode.log | head -1)"
+    else
+        tail -20 /tmp/prova-code-mode.log
+        die "a prova comportamental falhou — o binário instalado não cumpre o contrato (REGRA #21)"
+    fi
+fi
+
 # ─── 6. VERIFY ───────────────────────────────────────────────────────────────
 step "6/6 VERIFY — versão resolvida por projeto"
 if [ "$DRY_RUN" -eq 1 ]; then

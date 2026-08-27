@@ -519,6 +519,8 @@ mod tests {
             reasons: vec![],
             canonical_fix: None,
             evidence: EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
         }
     }
 
@@ -529,6 +531,8 @@ mod tests {
             reasons: vec!["X3 VGP left 1 symbol(s) unresolved".to_owned()],
             canonical_fix: Some("Review VGP output.".to_owned()),
             evidence: EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
         }
     }
 
@@ -541,6 +545,8 @@ mod tests {
                 "X2 STATIC blocked the code (rm -rf /). Revise and re-run.".to_owned(),
             ),
             evidence: EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
         }
     }
 
@@ -551,6 +557,8 @@ mod tests {
             reasons: vec!["X5 SANDBOX dry-run exited with code 1".to_owned()],
             canonical_fix: Some("Strengthen the weakest signal.".to_owned()),
             evidence: EvidenceBundle::default(),
+            denied_classes: Vec::new(),
+            static_blocked: false,
         }
     }
 

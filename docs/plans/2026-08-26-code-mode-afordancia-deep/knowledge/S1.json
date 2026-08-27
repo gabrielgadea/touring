@@ -1,0 +1,11 @@
+{
+  "phase": "S1",
+  "entities": [
+    {
+      "entity_id": "phase:S1",
+      "type": "phase",
+      "description": "Classificador alem do 1o token: resolved_tokens/skip_wrapper/wrapper_spec unicos, consumidos por 5 sitios (scan_class_of, is_scan_command, parse_grep_command, is_memory_search, classify_bash P1). Wrappers env/time/nice/sudo/command/builtin/timeout/stdbuf/ionice/taskset/chrt transparentes; exclusoes preservadas (escrita, involucro puro, -n do nice != -n do sed). 4 testes novos; 440 passed 0 failed; clippy -D warnings limpo; guard D8 12 passed (via pytest \u2014 python3 direto coleta 0)."
+    }
+  ],
+  "relations": []
+}

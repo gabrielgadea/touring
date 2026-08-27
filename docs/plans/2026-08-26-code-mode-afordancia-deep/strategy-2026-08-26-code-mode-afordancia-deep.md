@@ -1,3 +1,11 @@
+---
+type: Strategy
+title: Estratégia code-mode afordância deep
+description: as 7 estratégias + N1-N5 para a afordância do code mode (S1-S7) com adendos de execução
+plan_id: task_1787767900017576294
+tags: [strategy, code-mode, affordance]
+---
+
 <!-- OKF document -->
 ---
 okf_version: "1.0"
@@ -229,3 +237,31 @@ que ele nem é alavanca de comportamento, é só cosmético de prompt).
   em gate-metrics. Meta: followed → ~0. A injeção restaurada vira o instrumento
   que mede a própria desconsideração — sem ela (patch ativo) o KPI não tem
   numerador, mais uma razão para o despatch.
+
+---
+
+## Adendo de retomada — sessão 2 (26/08 ~15:07 BRT)
+
+- **Incidente Write REPRODUZIDO na sessão de retomada** (FACT [1.0]): probe `/tmp/write-probe-resume.txt` — Write reportou "has been updated", arquivo inexistente em disco (2 probes, 2 falhas). Ambiente: `CLAUDE_CONFIG_DIR` **UNSET**, binário mise CC 2.1.245 (a versão exata do incidente). Edit tool sã (probe `/tmp/edit-probe.txt` OK). **Contorno ativo nesta sessão: `cat >` heredoc para criar arquivos; Edit para mutações.** Reforça N4 (defesa CC-side) como direção estrutural: a Write do harness é não-confiável sem `CLAUDE_CONFIG_DIR` exportado no launcher.
+- **OUTER re-fundamentado nesta sessão** (Lei L3): diagnostic OKF `diagnostics/touring-20260826T150745.md` + ledger CCE converged:true (8 rounds, 34 findings; lens externa marcada visited com as 4 fontes da manhã) — ambos re-gerados, não herdados por narrativa.
+- Gates observados AO VIVO nesta sessão: code-mode deny de `cat` (rota derivada executada), T3-B G1 rajada (4ª `ls` em 180s) com o acumulado da rajada no remédio — **evidência a favor de S3 já estar parcialmente funcional** (verificar se o programa entregue é o derivado real, não template).
+
+---
+
+## Adendo de execução — sessão 2 (26/08 ~18:45 BRT): 7 fases fechadas, S2 aguardando decisão
+
+| Fase | Veredito | Evidência |
+|---|---|---|
+| S1 (+cd) | ✅ FECHADO | resolved_tokens+effective_tokens únicos, 5+2 sítios; wrappers **e prefixos cd/segmentos** (a lacuna que o doc nomeou e a 1ª entrega deixou passar — pega na releitura); 5 testes Rust + paridade no espelho python |
+| N3a (G9) | ✅ FECHADO | gate escrita-cega-inline (âncora posição-de-comando); Pattern 5 advisory unificado no MESMO predicado (FP vivo observado nesta sessão); 3 testes |
+| N5 | ✅ FECHADO | minerador (31 transcripts: overall 52,5%→63,7% com classificador S1-completo) + 3 contadores estruturais no hook (escolha, não execução) + relatório OKF |
+| S3 | ✅ JÁ IMPLEMENTADO | fuse_burst_program completo (inteiro-ou-fora, orçamento, aspas); delta: prova E2E do caso das aspas no caminho do deny (pegou 1 defeito na MINHA asserção) |
+| S5a | ✅ FECHADO | advisory CEG → campo `ceg_advisory` no JSON (full+brief); E2E: stderr com 0 ocorrências |
+| S4 (G10) | ✅ FECHADO | exec-burst: classe python/pytest, ledger 600s, deny na 10ª com R9 (subprocess sequencial, digest, spill); LIVE PROOF do programa R9 (2/3 ok + falha detectada) |
+| S6 | ✅ FECHADO | portfolio no remédio do G10: intent por COMPONENTES (caminho inteiro diluía BM25 — 6 termos→need 3→2 matches→portfolio calado, achado pelo teste) + entry_point instanciado; 4 testes |
+| S5b/c | ✅ FECHADO | GateFatigue no snapshot (ratio por gate/global, fp_candidate=ratio>0,20+volume≥10) + bypass no minerador N5 (24 usos no corpus) |
+| **S2** | ⏸ **DECISÃO DO GABRIEL** | única subtask aberta na DAG; convergência exit 1 SÓ por ela |
+
+**Incidentes da sessão (todos no contorno):** (1) **Edit tool TAMBÉM fabrica** (não só Write) — 9 edições fantasma, cargo verde sobre código não-escrito; contorno python substituição-exata com asserção 1× + re-leitura; (2) debris `/tmp/.touring` de probes quebrava 2 testes de config/paths — quarentenado; (3) âncora de inserção roubou derive+doc do GateMetricsSnapshot — `deny(missing_docs)` pegou; (4) guard python rodando `python3` direto coleta 0 testes (pytest-style) — rodar via `python3 -m pytest`.
+
+**Pendências para a sessão 3:** deploy (bump + update-touring + toolchain + analise) **mediante decisão do Gabriel** → ativar piloto → medir adoção elegível >60% + fatigue live → convergência final.

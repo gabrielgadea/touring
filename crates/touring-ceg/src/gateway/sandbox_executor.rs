@@ -334,6 +334,141 @@ pub async fn execute_in_sandbox(
     spawn_and_capture(cmd, &config).await
 }
 
+/// A raiz de escrita natural de um run: o projeto que contém `cwd`.
+///
+/// Subir até a marca de projeto (`.touring/` ou `.git/`) em vez de usar `cwd`
+/// cru evita a estreiteza inútil — um programa lançado de `crates/foo/` que
+/// escreve em `docs/` está trabalhando no MESMO projeto, e negá-lo seria
+/// fricção sem ganho de segurança. A subida para em `$HOME`: o home NÃO é um
+/// projeto, e concedê-lo devolveria exatamente o buraco que este confinamento
+/// existe para fechar.
+fn project_root_for_writes(cwd: &Path) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let mut atual = cwd;
+    loop {
+        if home.as_deref() == Some(atual) || atual.parent().is_none() {
+            break;
+        }
+        if atual.join(".touring").is_dir() || atual.join(".git").exists() {
+            return Some(atual.to_path_buf());
+        }
+        atual = atual.parent()?;
+    }
+    // Sem marca de projeto: o próprio `cwd`, desde que não seja `$HOME` nem `/`.
+    if home.as_deref() == Some(cwd) || cwd.parent().is_none() {
+        None
+    } else {
+        Some(cwd.to_path_buf())
+    }
+}
+
+/// As raízes que o filho do sandbox pode ESCREVER.
+///
+/// Deny-by-default do landlock: tudo fora desta união é inalcançável para
+/// escrita, no kernel. Medido em 27/08/2026, ANTES deste confinamento, um
+/// programa do sandbox gravava em `~/.bashrc`, em `~/.claude/` (a constituição
+/// do próprio agente) e em `~/.local/bin/` — o diretório do binário `touring`
+/// que o executa. Um sandbox que reescreve o seu próprio juiz não é sandbox.
+fn sandbox_write_roots() -> Vec<PathBuf> {
+    let mut raizes: Vec<PathBuf> = Vec::new();
+    if let Ok(cwd) = std::env::current_dir()
+        && let Some(projeto) = project_root_for_writes(&cwd)
+    {
+        raizes.push(projeto);
+    }
+    // Temporários e os nós de dispositivo que todo programa usa (`/dev/null`).
+    for p in ["/tmp", "/var/tmp", "/dev"] {
+        raizes.push(PathBuf::from(p));
+    }
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        // Caches de toolchain: `cargo`/`rustc` gravam aqui para compilar.
+        raizes.push(home.join(".cache"));
+        raizes.push(home.join(".cargo"));
+    }
+    if let Some(t) = std::env::var_os("TMPDIR") {
+        raizes.push(PathBuf::from(t));
+    }
+    raizes
+}
+
+/// As raízes que o filho pode LER.
+///
+/// `/` — deliberadamente amplo, e a limitação declarada deste confinamento.
+/// Estreitar a leitura quebraria o interpretador, o `mise`, o `cargo` e o
+/// próprio projeto por caminhos que variam por máquina, e o vetor que a
+/// auditoria mediu foi ESCRITA (persistência ⇒ execução futura), não leitura.
+/// O env do filho já não carrega credenciais
+/// ([`apply_credential_whitelist`]); arquivos de credencial no disco seguem
+/// legíveis, e isso está registrado como residual, não como resolvido.
+fn sandbox_read_roots() -> Vec<PathBuf> {
+    vec![PathBuf::from("/")]
+}
+
+/// Confina o filho pelo landlock LSM: escrita nas raízes de projeto/temp, e
+/// **nenhuma** conexão TCP.
+///
+/// Fecha dois furos medidos por execução em 27/08/2026:
+///
+/// 1. **Filesystem.** O caminho do code mode (`execute_in_sandbox` →
+///    [`spawn_and_capture`]) aplicava apenas `rlimit`. O `run_supervised` (X8)
+///    era o único a montar ruleset, e não tinha chamador de produção — um
+///    mecanismo de kernel inteiro sem consumidor.
+/// 2. **Rede.** Um conjunto VAZIO de portas concedidas deixa o acesso
+///    *declarado e não autorizado*, então todo `connect`/`bind` TCP é negado
+///    pelo kernel. A negação de rede deixa de depender de reconhecer um token
+///    no fonte e passa a valer mesmo para o binário que o classificador não
+///    conhece.
+///
+/// Aplicado no funil único por onde TODO caminho de execução passa
+/// (interpretado, Go, Rust), do mesmo modo que `TOURING_RUN_ID`.
+///
+/// Degradação é **ruidosa**: se o ruleset não puder ser montado, o run segue
+/// sem confinamento e o log diz isso — nunca em silêncio. Kill switch humano:
+/// `TOURING_SANDBOX_LANDLOCK_DISABLED=1`.
+#[cfg(target_os = "linux")]
+fn apply_landlock_to(cmd: &mut Command) {
+    if std::env::var_os("TOURING_SANDBOX_LANDLOCK_DISABLED").is_some() {
+        tracing::warn!(
+            "CEG sandbox: confinamento landlock DESLIGADO por \
+             TOURING_SANDBOX_LANDLOCK_DISABLED — o filho pode escrever fora do projeto"
+        );
+        return;
+    }
+    let leitura = sandbox_read_roots();
+    let escrita = sandbox_write_roots();
+    let ruleset = match crate::capability::enforce_linux::build_landlock_ruleset_with_net_and_scope(
+        &leitura, &escrita, &[], &[], false,
+    ) {
+        Ok(rs) => rs,
+        Err(e) => {
+            tracing::error!(
+                "CEG sandbox: falha ao montar o ruleset landlock ({e}) — \
+                 o filho será lançado SEM confinamento de filesystem/rede"
+            );
+            return;
+        }
+    };
+    let mut uma_vez = Some(ruleset);
+    // SAFETY: a closure roda pós-`fork`, pré-`exec`, no filho. `restrict_self`
+    // é o par de syscalls `prctl` + `landlock_restrict_self` — sem alocação,
+    // async-signal-safe, como o contexto pós-fork exige. Toda a alocação (a
+    // criação do ruleset e as regras) já aconteceu no pai, acima.
+    unsafe {
+        cmd.pre_exec(move || {
+            if let Some(rs) = uma_vez.take() {
+                rs.restrict_current_thread()?;
+            }
+            Ok(())
+        });
+    }
+}
+
+/// Sem landlock fora do Linux: o confinamento é uma LSM do kernel Linux.
+#[cfg(not(target_os = "linux"))]
+fn apply_landlock_to(cmd: &mut Command) {
+    let _ = cmd;
+}
+
 /// P4.1 — spawn a fully-built command and capture its bounded output.
 ///
 /// The shared execution core of [`execute_in_sandbox`] and the compiled-
@@ -365,6 +500,12 @@ pub(crate) async fn spawn_and_capture(
     if let Some(run_id) = &config.run_id {
         cmd.env("TOURING_RUN_ID", run_id);
     }
+
+    // Auditoria cruzada 27/08/2026 — mesmo funil, mesma razão: confinar aqui
+    // cobre interpretado, Go e Rust de uma vez. Antes disto o caminho do code
+    // mode aplicava só `rlimit`, e a linha de log "landlock: KernelEnforced"
+    // vinha de um probe de DISPONIBILIDADE, não de um ruleset vivo.
+    apply_landlock_to(&mut cmd);
 
     cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
@@ -1778,5 +1919,71 @@ mod tests {
             execute_in_sandbox_blocking("Bash", json!({"command": "echo standalone_path"}), cfg);
         // We don't assert on the result content; we only assert the call
         // returned (did not abort the process).
+    }
+
+    // ── Confinamento do sandbox (auditoria cruzada 27/08/2026) ───────────────
+
+    /// A raiz de escrita sobe até a marca de projeto, não fica no `cwd` cru.
+    #[test]
+    fn the_write_root_is_the_project_not_the_subdirectory() {
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let raiz = tmp.path().join("proj");
+        std::fs::create_dir_all(raiz.join(".git")).expect("marca de projeto");
+        let fundo = raiz.join("crates").join("foo").join("src");
+        std::fs::create_dir_all(&fundo).expect("subdir");
+        assert_eq!(
+            super::project_root_for_writes(&fundo).as_deref(),
+            Some(raiz.as_path()),
+            "um programa lançado de crates/foo/src trabalha no MESMO projeto"
+        );
+    }
+
+    /// O home NUNCA é raiz de escrita — é exatamente o buraco que a auditoria
+    /// mediu (`~/.bashrc`, `~/.claude/`, `~/.local/bin/` graváveis).
+    #[test]
+    fn the_home_directory_is_never_a_write_root() {
+        let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+        let Some(home) = home else {
+            return; // sem HOME não há o que asseverar
+        };
+        assert_eq!(
+            super::project_root_for_writes(&home),
+            None,
+            "o home foi aceito como projeto — o escape reabre"
+        );
+        assert!(
+            !super::sandbox_write_roots().contains(&home),
+            "o home entrou nas raízes de escrita"
+        );
+        // E os três alvos medidos precisam ficar FORA de toda raiz concedida.
+        let raizes = super::sandbox_write_roots();
+        for alvo in [".bashrc", ".claude", ".local/bin"] {
+            let p = home.join(alvo);
+            assert!(
+                !raizes.iter().any(|r| p.starts_with(r)),
+                "`{}` continua sob uma raiz de escrita: {raizes:?}",
+                p.display()
+            );
+        }
+    }
+
+    /// A raiz `/` também não: um `cwd` sem projeto acima não vira grant total.
+    #[test]
+    fn the_filesystem_root_is_never_a_write_root() {
+        assert_eq!(super::project_root_for_writes(std::path::Path::new("/")), None);
+    }
+
+    /// O que o programa legitimamente precisa continua concedido — sem isto,
+    /// as asserções acima seriam satisfeitas por um confinamento que quebra
+    /// tudo.
+    #[test]
+    fn temp_and_device_roots_are_still_granted() {
+        let raizes = super::sandbox_write_roots();
+        for necessario in ["/tmp", "/dev"] {
+            assert!(
+                raizes.iter().any(|r| r == std::path::Path::new(necessario)),
+                "`{necessario}` não está concedido — /dev/null deixaria de funcionar"
+            );
+        }
     }
 }

@@ -6,16 +6,26 @@ OUTER phase (steps 1-4: recall + deep diagnostic + overview) is ONE call, not N.
 Each sub-diagnostic is best-effort (fail-open); an OKF-compliant diagnostic
 document is written into the bundle when ``--bundle`` is given.
 
-Sub-diagnostics:
+Sub-diagnostics (TWO LANES — quality50 runs parallel to the four
+daemon-backed calls, which stay sequential among themselves):
   health    — touring status -j            (composite health, symbols, orphans)
-  quality50 — touring-quality --workspace  (composite, tier, blockers, warnings)
+  quality50 — touring-quality score <scope> (composite, tier, blockers, warnings)
   wiring    — touring wiring orphans -j     (orphan count)
   memory    — touring memory recall <topic> (prior context — top keys)
   structure — touring map <scope>           (workspace structure, best-effort)
 
+Measured cost (27/08/2026, scope=analise — 8.790 files / 2.3M LOC):
+  quality50 ≈ 84s (dominant, scales with repo size) · memory ≈ 15s ·
+  health ≈ 1.2s · wiring ≈ 0.15s · structure(fs-fallback) ≈ 2s.
+Sequential that is ~102s — three sessions died to a caller-side `timeout 90`
+(mid-quality-score). Concurrent it is ≈ max(84s, 15s, …) ≈ 86s.
+**Caller guidance: use a timeout ≥ 150s for repo-scale scopes** — or bound the
+quality pass with --quality-timeout and accept `quality50.available=false`
+(the digest stays useful; fail-open by design).
+
 Usage:
     loop_diagnose.py --scope <path> [--topic <str>] [--bundle <dir>]
-                     [--plan-id <id>] [--json] [--quiet]
+                     [--plan-id <id>] [--quality-timeout <s>] [--json] [--quiet]
 """
 from __future__ import annotations
 
@@ -24,6 +34,7 @@ import datetime
 import json
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -68,14 +79,16 @@ def diag_health():
     }
 
 
-def diag_quality(scope):
+def diag_quality(scope, timeout=300):
     # Score the SCOPE directly — NO --workspace (which resolves to the ambient
     # workspace and scores the wrong tree — audit finding 2026-07-02).
+    # Bounded by `timeout` (default 300s; repo-scale measured 84s on 27/08/2026):
+    # a timeout must degrade THIS sub-diagnostic, never kill the whole digest.
     _, out, _e = run(
-        ["touring-quality", "score", str(scope), "--format", "json"], timeout=1800)
+        ["touring-quality", "score", str(scope), "--format", "json"], timeout=timeout)
     data = parse_json(out)
     if not data:
-        return {"available": False}
+        return {"available": False, "reason": f"no JSON after up to {timeout}s"}
     return {
         "available": True,
         "composite": data.get("composite"),
@@ -94,12 +107,24 @@ def diag_wiring():
 
 
 def diag_memory(topic):
-    _, out, _e = run(["touring", "memory", "recall", topic], timeout=30)
+    _, out, err = run(["touring", "memory", "recall", topic], timeout=30)
     data = parse_json(out)
-    hits = []
     if data and isinstance(data.get("entries"), list):
         hits = [e.get("key") for e in data["entries"][:8] if isinstance(e, dict)]
-    return {"topic": topic, "hits": hits}
+        return {"topic": topic, "hits": hits}
+    # Fail-open, mas honesto: uma falha do daemon NÃO é "zero memórias" —
+    # leitura fiel: ausência de sinal nunca vira zero. O digest carrega o
+    # motivo para o operador saber que o sinal está degradado, não vazio.
+    reason = None
+    if (err or "").find("budget") >= 0:
+        reason = "daemon handler budget exceeded (recall >15s — consulta lenta)"
+    elif (err or "").strip():
+        reason = (err or "").strip().splitlines()[-1][:160]
+    elif not (out or "").strip():
+        reason = "empty-output"
+    else:
+        reason = "unparseable-output"
+    return {"topic": topic, "hits": [], "degraded": reason}
 
 
 def _fs_summary(scope: Path):
@@ -129,15 +154,31 @@ def diag_structure(scope):
 
 
 # ── Assembly + OKF emission ──────────────────────────────────────────────────
-def diagnose(scope, topic):
-    return {
-        "scope": str(scope),
-        "health": diag_health(),
-        "quality50": diag_quality(scope),
-        "wiring": diag_wiring(),
-        "memory": diag_memory(topic),
-        "structure": diag_structure(scope),
-    }
+def diagnose(scope, topic, quality_timeout=300):
+    """Run the sub-diagnostics in TWO LANES and assemble the digest.
+
+    Lane 1 is ``diag_quality`` alone (the standalone ``touring-quality``
+    binary, ~84s repo-scale — the long pole). Lane 2 runs the four
+    daemon-backed calls SEQUENTIALLY (~19s total): the project daemon
+    serializes requests on one actor, and firing them concurrently starves
+    the 15s handler budget — measured 27/08/2026: full-parallel returned
+    ``wiring.available=false`` and 0 memory hits; the two-lane shape keeps
+    the same ~84s wall clock with ALL signals present.
+    """
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_quality = pool.submit(diag_quality, scope, quality_timeout)
+        health = diag_health()
+        wiring = diag_wiring()
+        memory = diag_memory(topic)
+        structure = diag_structure(scope)
+        return {
+            "scope": str(scope),
+            "health": health,
+            "quality50": f_quality.result(),
+            "wiring": wiring,
+            "memory": memory,
+            "structure": structure,
+        }
 
 
 def _slug(scope):
@@ -232,7 +273,9 @@ def write_okf_diagnostic(bundle: Path, plan_id, digest, ts):
         f"| blockers | {q.get('blockers')} |",
         f"| warnings | {q.get('warnings')} |",
         f"| orphans | {digest['wiring'].get('orphans')} |",
-        f"| memory hits | {len(digest['memory'].get('hits', []))} |",
+        f"| memory hits | {len(digest['memory'].get('hits', []))}"
+        + (f" (degraded: {digest['memory']['degraded']})" if digest["memory"].get("degraded") else "")
+        + " |",
         "",
         "## Citations",
         "",
@@ -249,11 +292,15 @@ def main(argv=None):
     ap.add_argument("--topic", default="loop-engineering", help="memory recall topic")
     ap.add_argument("--bundle", default=None, help="OKF bundle dir — writes an OKF diagnostic doc")
     ap.add_argument("--plan-id", default=None, help="plan_id for the OKF doc (else read from bundle/index.md)")
+    ap.add_argument("--quality-timeout", type=int, default=300,
+                    help="cap the 50-dim quality pass at N seconds (default: 300; "
+                         "repo-scale measured 84s on 27/08/2026). On expiry the "
+                         "digest carries quality50.available=false — fail-open.")
     ap.add_argument("--json", action="store_true", help="emit JSON only")
     ap.add_argument("--quiet", action="store_true", help="no human output")
     args = ap.parse_args(argv)
 
-    digest = diagnose(Path(args.scope), args.topic)
+    digest = diagnose(Path(args.scope), args.topic, args.quality_timeout)
 
     written = None
     if args.bundle:
