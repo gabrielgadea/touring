@@ -13,6 +13,9 @@ entry = "scan"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: depende da telemetria kpi/gate-metrics.
+curation = "local"
 intent = "Encontrar toda capacidade declarada que nunca rodou e entregar, por item, o exercício de 1 comando que a prova ou a refuta"
 when_to_use = [
   "periodicamente (o padrão recorre: 3 casos numa única wave em 28/08)",

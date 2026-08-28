@@ -10,6 +10,9 @@ entry = "audit"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: usa scripts/error_message_audit.py deste repo.
+curation = "local"
 intent = "Rewrite CLI error literals that teach nothing into messages that name the next action, in cheap-tier batches gated by compile + re-measure"
 when_to_use = [
   "error_message_audit.py reports a teach-ratio below target",

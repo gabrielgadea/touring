@@ -12,6 +12,9 @@ entry = "discover"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 3 runs, padrao scripts/test_*.py vale em qualquer repo.
+curation = "generic"
 intent = "Provar que toda proteção declarada executa: descobrir guards, rodar todos, e listar os órfãos de CI com evidência"
 when_to_use = [
   "após adicionar/citar um guard em rules/docs — a citação não prova a execução",

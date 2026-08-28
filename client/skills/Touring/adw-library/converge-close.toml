@@ -15,6 +15,9 @@ entry = "judge"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global loop-engineering.
+curation = "generic"
 intent = "Encerrar um loop apenas quando os três juízes dizem sim por exit code: juiz de record intacto, cláusulas de convergência atendidas, bundle documentado sem links quebrados"
 when_to_use = [
   "no fechamento de qualquer loop/wave com DAG + bundle OKF (loop-engineering passos 15-17)",

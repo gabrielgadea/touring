@@ -4214,3 +4214,32 @@ on_fail = "__fail__"
 """)
     _, warnings = adw.lint_spec(adw.load_spec(root, "sgat2"))
     assert not any("texto de agente" in w for w in warnings), warnings
+
+
+def test_every_shipped_flow_carries_a_curation_label():
+    """Curadoria 28/08/2026 (veredito do proprio ADW adw-curation, aprovado):
+    um projeto novo instancia specs via from-template sem saber quais dependem
+    de infra que so existe no repo touring — a etiqueta diz. Sem o guard, o
+    campo vira metadado morto no proximo spec novo."""
+    import tomllib
+    lib = Path.home() / ".claude/skills/Touring/adw-library"
+    if not lib.exists():
+        import pytest
+        pytest.skip("biblioteca central ausente nesta maquina")
+    VALID = {"generic", "local", "hold"}
+    sem_etiqueta, invalida, total = [], [], 0
+    for f in sorted(lib.glob("*.toml")):
+        spec = tomllib.loads(f.read_text())
+        if "adw" not in spec:
+            continue  # tabelas de config (tiers.toml) nao sao flows
+        total += 1
+        cur = (spec.get("purpose") or {}).get("curation")
+        if cur is None:
+            sem_etiqueta.append(f.stem)
+        elif cur not in VALID:
+            invalida.append(f"{f.stem}={cur}")
+    assert total >= 15, f"so {total} flows examinados — a varredura nao achou a biblioteca"
+    assert not sem_etiqueta, (
+        "flows sem etiqueta de curadoria (adicione curation = "
+        '"generic|local|hold" no [purpose]): ' + ", ".join(sem_etiqueta))
+    assert not invalida, "curation fora do vocabulario generic|local|hold: " + ", ".join(invalida)

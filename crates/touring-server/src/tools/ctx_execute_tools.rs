@@ -392,7 +392,18 @@ fn derive_run_outcome(
                     kind: RunFailureKind::Exception,
                     phase: RunPhase::Execute,
                     message: if first_stderr_line.is_empty() {
-                        format!("process exited with code {}", r.exit_code)
+                        // A5: a silent non-zero exit teaches nothing — and 71.6%
+                        // of real failures land here (M1 ruler, 2026-08-28). The
+                        // dominant silent case is grep/test/diff "no match", which
+                        // exits 1 by DESIGN: name it so the model stops retrying
+                        // the same body and handles the empty result instead.
+                        format!(
+                            "process exited with code {} with empty stderr — for \
+                             grep/test/diff exit 1 usually means 'no match', a \
+                             valid result to handle (append `|| true` if so), not \
+                             an error to retry",
+                            r.exit_code
+                        )
                     } else {
                         first_stderr_line
                     },

@@ -12,6 +12,9 @@ entry = "inventory"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). veredito 'manter' ficou obsoleto: run real completed 28/08 + parametrizado (memory_dir/sample).
+curation = "generic"
 intent = "Impedir que memórias envelhecidas guiem decisões: amostrar as mais antigas, verificar cada claim no código de hoje e entregar veredito por memória"
 when_to_use = [
   "periodicamente (a cada N sessões) ou quando uma memória stale for pega guiando uma decisão",

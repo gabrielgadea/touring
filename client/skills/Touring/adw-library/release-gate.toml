@@ -13,6 +13,9 @@ entry = "check"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: usa docs/elite_aggregate.py deste repo.
+curation = "local"
 intent = "Responder 'posso soltar?' com quatro gates medidos e um veredito agregado, deixando a decisão final com um humano"
 when_to_use = [
   "antes de update-touring / propagate-release / tag de versão",

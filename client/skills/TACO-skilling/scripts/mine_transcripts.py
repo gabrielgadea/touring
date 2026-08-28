@@ -31,6 +31,38 @@ CORRECTION_MARKERS = (
 )
 
 
+def _normalize(text: str) -> str:
+    return " ".join(text.split())
+
+
+def skill_body(skill: str) -> str:
+    """The skill's own SKILL.md body, normalized — the echo reference."""
+    path = Path.home() / ".claude" / "skills" / skill / "SKILL.md"
+    try:
+        return _normalize(path.read_text(encoding="utf-8"))
+    except OSError:
+        return ""
+
+
+def is_skill_echo(text: str, body: str) -> bool:
+    """True when a "user" message is the skill's own content echoed back.
+
+    Instrument bug found by the skill-refine ADW debut (2026-08-28): activating
+    a skill injects its SKILL.md into the transcript as a user message, and any
+    skill whose body contains words like "não"/"wrong" then counted as a USER
+    CORRECTION of itself — the bigger the skill, the worse its correction_rate.
+    A message is an echo when a long chunk of it appears verbatim in the body;
+    three probe windows (start/middle/end) keep this O(1) per message.
+    """
+    if not body:
+        return False
+    norm = _normalize(text)
+    if len(norm) < 80:
+        return False
+    probes = (norm[:80], norm[len(norm) // 2:len(norm) // 2 + 80], norm[-80:])
+    return any(p in body for p in probes if len(p) >= 40)
+
+
 def activates_skill(entry: dict[str, Any], skill: str) -> bool:
     """Return True when a transcript entry activates the named skill.
 
@@ -53,7 +85,7 @@ def activates_skill(entry: dict[str, Any], skill: str) -> bool:
     return f"/{skill}" in text or f"skill: {skill}" in text.lower()
 
 
-def scan_session(path: Path, skill: str, window: int) -> dict[str, Any]:
+def scan_session(path: Path, skill: str, window: int, body: str = "") -> dict[str, Any]:
     """Find skill activations in one transcript plus the feedback that followed."""
     entries = list(lib.iter_jsonl(path))
     uses = 0
@@ -70,6 +102,8 @@ def scan_session(path: Path, skill: str, window: int) -> dict[str, Any]:
                 errors += 1
             if follow.get("type") == "user":
                 text = lib.message_text(follow)
+                if is_skill_echo(text, body):
+                    continue
                 lowered = text.lower()
                 if text and any(marker in lowered for marker in CORRECTION_MARKERS):
                     corrections += 1
@@ -83,10 +117,11 @@ def mine(skill: str, window: int = 6, max_files: int = 400) -> dict[str, Any]:
     totals = {"uses": 0, "corrections": 0, "errors": 0}
     sessions_with_use = 0
     samples: list[str] = []
+    body = skill_body(skill)
     for index, path in enumerate(lib.iter_transcripts()):
         if index >= max_files:
             break
-        result = scan_session(path, skill, window)
+        result = scan_session(path, skill, window, body=body)
         if not result["uses"]:
             continue
         sessions_with_use += 1

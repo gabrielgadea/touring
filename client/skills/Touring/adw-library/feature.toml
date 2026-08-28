@@ -19,6 +19,9 @@ budget_tokens = 0
 # by filename. `when_not_to_use` is not modesty: it is the field that lets a
 # search show a GAP instead of pitching the closest candidate.
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). criterio 28/08: kit base parametrizado.
+curation = "generic"
 intent = "Build a new capability end to end: prior art, SOTA scout, plan, conflict check, then a verified implementation"
 when_to_use = [
   "a capability that does not exist yet and spans more than one file",

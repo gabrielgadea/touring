@@ -11,6 +11,9 @@ budget_tokens = 0
 # by filename. `when_not_to_use` is not modesty: it is the field that lets a
 # search show a GAP instead of pitching the closest candidate.
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: workflow light generico.
+curation = "generic"
 intent = "Do one small scoped task with a single light agent and exactly one verification gate"
 when_to_use = [
   "mechanical low-risk work whose success is a single command",

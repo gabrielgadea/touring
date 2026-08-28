@@ -3,7 +3,7 @@
 Generate Implementation Plan: Touring × context-mode Integration
 ===============================================================
 
-Generates: ~/.claude/rust/docs/2026-05-07-context-mode-integration-plan.md
+Generates: ~/projects/touring/docs/2026-05-07-context-mode-integration-plan.md
 
 Priority Table:
   P0 | D2 PreToolUse Router      | 98% token reduction  | Alta   | None
@@ -21,8 +21,10 @@ Usage:
 import os
 from datetime import datetime
 
+# ~/.claude/rust is the FROZEN pre-move tree (CLAUDE.md §1) — writing there
+# deposited the plan where nothing reads anymore (cross-audit 2026-08-28).
 OUTPUT_PATH = os.path.expanduser(
-    "~/.claude/rust/docs/2026-05-07-context-mode-integration-plan.md"
+    "~/projects/touring/docs/2026-05-07-context-mode-integration-plan.md"
 )
 
 PLAN = {

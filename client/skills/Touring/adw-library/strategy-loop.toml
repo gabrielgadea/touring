@@ -18,6 +18,9 @@ budget_tokens = 0
 # by filename. `when_not_to_use` is not modesty: it is the field that lets a
 # search show a GAP instead of pitching the closest candidate.
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 19 runs, OUTER deterministico projeto-agnostico.
+curation = "generic"
 intent = "Run the deterministic OUTER prefix of loop-engineering: arm the marker, recall, diagnose, explore until dry, report the evidence"
 when_to_use = [
   "starting substantive work that owes a diagnostic doc and a CCE ledger on disk",

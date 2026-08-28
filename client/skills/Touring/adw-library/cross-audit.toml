@@ -16,6 +16,9 @@ entry = "map"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global TACO-cross-audit.
+curation = "generic"
 intent = "Auditar uma árvore contra o propósito documentado com evidência determinística (wiring/debt/testes) e entregar o report datado em docs/audits/"
 when_to_use = [
   "após uma entrega/wave — o cross-audit é o gate VERIFY do INNER (loop-engineering passo 13)",
