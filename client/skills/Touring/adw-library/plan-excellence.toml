@@ -15,6 +15,9 @@ entry = "ground_truth"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global taco-planning.
+curation = "generic"
 intent = "Produzir um plano Pln2 com ground truth verificado, zero gaps P0 e estrutura validada por exit code — nunca um plano de plausibilidade"
 when_to_use = [
   "tarefa L3+ que exige plano antes de codar (loop-engineering passo 10)",

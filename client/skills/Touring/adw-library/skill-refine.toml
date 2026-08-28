@@ -13,6 +13,9 @@ entry = "mine"
 budget_tokens = 0
 
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global TACO-skilling.
+curation = "generic"
 intent = "Melhorar uma skill pela evidência do seu uso real: minerar sessões, diagnosticar o sinal, rotear cada lição ao destino certo e propor o diff concreto"
 when_to_use = [
   "periodicamente para skills de alto uso, ou quando o usuário corrige a skill repetidamente",

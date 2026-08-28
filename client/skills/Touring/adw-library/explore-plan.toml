@@ -13,6 +13,9 @@ budget_tokens = 0
 # by filename. `when_not_to_use` is not modesty: it is the field that lets a
 # search show a GAP instead of pitching the closest candidate.
 [purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). criterio 28/08: explore+plan_refine genericos.
+curation = "generic"
 intent = "Explore a foggy topic until the round comes back dry, refine a plan to plateau, then let a human decide act or wait"
 when_to_use = [
   "the goal is too uncertain to plan directly",
