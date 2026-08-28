@@ -145,6 +145,16 @@ timestamp: 2026-08-20T11:15:00-03:00
     `30.4.14` rodando binário de 24/08. Após propagar, a prova é SEMPRE comportamental
     (um deny T3/modo-code ao vivo no projeto alvo), nunca por versão.
 
+11. **Diretrizes de elaboração de código E/A/M (28/08/2026)**: como ESCOLHER a rota
+    (E1-E6: loop/agregação/≥3 fatos → programa; colapso no executor, D8), ACERTAR o
+    programa (A1-A14: SDK plana, JSON tipado, erros que ensinam, output-limit explícito,
+    `touring.parallel` pool 10, prompt byte-estável, **cap 3 retries — na 4ª muda de
+    estratégia**, segredos nunca no sandbox, escada de trust) e MEDIR (M1-M3: `touring
+    kpi -j` → `code_mode_adherence`, piso 0.8). Corpo: `docs/code-mode.md` §Diretrizes +
+    rule auto-load `~/.claude/rules/code-elaboration-directives.md`. Enforcement:
+    `BestPracticesGate` (`crates/touring-quality/src/builtins/best_practices.rs`) verifica
+    declaração + aderência M1.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`
