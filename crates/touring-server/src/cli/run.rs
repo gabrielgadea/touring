@@ -391,7 +391,7 @@ struct RunCli {
     #[arg(long)]
     args: Option<String>,
 
-    /// Wall-clock timeout in milliseconds (engine default 30000, max 120000)
+    /// Wall-clock timeout in milliseconds (engine default 30000, max 600000)
     #[arg(long)]
     timeout_ms: Option<u64>,
 
@@ -407,6 +407,24 @@ struct RunCli {
     /// daemon over its socket in one execution — code-mode orchestration WITHOUT MCP (R4)
     #[arg(long)]
     orchestrate: bool,
+
+    /// Busy-time (CPU) budget of the child in ms (engine default 60000) —
+    /// QW-3, cross-audit 27/08
+    #[arg(long)]
+    compute_ms: Option<u64>,
+
+    /// Inline stdout cap in bytes (default 8192; the full output always lands
+    /// in the spill regardless) — QW-2
+    #[arg(long)]
+    max_stdout_bytes: Option<usize>,
+
+    /// Inline stderr cap in bytes (default 4096) — QW-2
+    #[arg(long)]
+    max_stderr_bytes: Option<usize>,
+
+    /// File whose bytes become the program's stdin — QW-4
+    #[arg(long)]
+    input: Option<String>,
 
     /// Print the byte-stable typed stub (.pyi) of the orchestrate SDK and exit —
     /// the full contract for reading; nudges carry the 1-line form (P23)
@@ -493,6 +511,28 @@ pub fn run(args: &[String]) -> Result<()> {
     };
     let allow_forbidden = cli.allow_forbidden.then_some(true);
 
+    // QW-2/3/4 (cross-audit 27/08) — tunables por chamada: só valem Some quando
+    // o operador passou a flag correspondente; `None` preserva o engine default.
+    let stdin_bytes = match &cli.input {
+        Some(path) => Some(std::fs::read(path).map_err(|e| {
+            anyhow::anyhow!("--input {path}: {e}")
+        })?),
+        None => None,
+    };
+    let tunables = if cli.compute_ms.is_some()
+        || cli.max_stdout_bytes.is_some()
+        || cli.max_stderr_bytes.is_some()
+        || stdin_bytes.is_some()
+    {
+        Some(crate::tools::ctx_execute_tools::RunTunables {
+            compute_ms: cli.compute_ms,
+            max_stdout_bytes: cli.max_stdout_bytes,
+            max_stderr_bytes: cli.max_stderr_bytes,
+            stdin_bytes,
+        })
+    } else {
+        None
+    };
     let out = block_on_async(ctx_execute_impl(
         cli.lang.clone(),
         code,
@@ -500,6 +540,7 @@ pub fn run(args: &[String]) -> Result<()> {
         cli.timeout_ms,
         None, // cwd: inherit current working directory
         allow_forbidden,
+        tunables,
     ))
     .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
@@ -1527,6 +1568,18 @@ mod tests {
         assert!(
             py_sdk().contains("if self._run_id:"),
             "origin is only attached when an identity exists"
+        );
+    }
+
+    #[test]
+    fn sdk_marker_matches_the_daemon_const() {
+        // H6 (cross-audit 27/08): o SDK cunha o marker como literal Python e o
+        // daemon impõe a const Rust em `is_sandbox_origin` — este teste é o
+        // guard de paridade cross-linguagem entre os dois lados do contrato.
+        let marker = touring_foundation::orchestrate_allowlist::SANDBOX_ORIGIN_MARKER;
+        assert!(
+            py_sdk().contains(&format!("\"{marker}\"")),
+            "o SDK Python deve cunhar exatamente SANDBOX_ORIGIN_MARKER ({marker})"
         );
     }
 }

@@ -2181,6 +2181,10 @@ mod code_mode_gates_w1 {
         assert_eq!(exec_class_of("cd /x && pytest tests/"), Some("pytest"));
         // inline é do advisory CEG, não da rajada
         assert_eq!(exec_class_of("python3 -c 'print(1)'"), None);
+        // heredoc/stdin é o mesmo inline sob outra forma (F-1, 27/08):
+        // contá-lo na rajada o serializaria multi-linha esmagado no R9
+        assert_eq!(exec_class_of("python3 - <<'EOF'\nprint(1)\nEOF"), None);
+        assert_eq!(exec_class_of("python3 - arg1"), None);
         // mutação marcada fica de fora por construção (P2.3)
         assert_eq!(exec_class_of("python3 setup.py install"), None);
         assert_eq!(exec_class_of("python3 runner.py > out.txt"), None);

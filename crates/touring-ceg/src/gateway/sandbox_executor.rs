@@ -51,6 +51,11 @@ pub struct SandboxConfig {
     /// credential whitelist's `env_clear`, so it survives the wipe. `None`
     /// exports nothing (every non-run caller).
     pub run_id: Option<String>,
+    /// Cross-audit 27/08 (QW-4) — bytes entregues ao stdin do programa
+    /// (`touring run --input <file>`). `None` mantém o comportamento anterior
+    /// (stdin herdado/fechado). O write é concorrente ao drain de stdout/stderr:
+    /// um filho que não lê destrava o write com BrokenPipe ao terminar.
+    pub stdin_bytes: Option<Vec<u8>>,
 }
 
 impl Default for SandboxConfig {
@@ -61,6 +66,7 @@ impl Default for SandboxConfig {
             fallback_on_timeout: true,
             compute_ms: Some(60_000),
             run_id: None,
+            stdin_bytes: None,
         }
     }
 }
@@ -161,8 +167,10 @@ pub use touring_hooks_shared::sandbox_language::SandboxLanguage;
 /// 2. Fallback common alias.
 /// 3. Last-resort: language name as binary (PATH may surface alternatives).
 ///
-/// Result cached at module level via OnceLock: re-detection forced via
-/// `touring sandbox-runtimes refresh` (future CLI).
+/// Detecção a CADA chamada via `command -v` (~1 ms) — deliberado, não falta de
+/// cache: o daemon é longevo e runtimes entram/saem do PATH; um OnceLock
+/// serviria stale sem um comando de refresh. Se a medida um dia mostrar custo,
+/// o cache exige o refresh junto (medir antes: um run típico é 30-250 ms).
 pub fn resolve_language_runtime(lang: SandboxLanguage) -> PathBuf {
     fn which(bin: &str) -> Option<PathBuf> {
         // Use `command -v` via shell — portable, no extra deps.
@@ -419,7 +427,7 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
 ///    no fonte e passa a valer mesmo para o binário que o classificador não
 ///    conhece.
 ///
-/// Aplicado no funil único por onde TODO caminho de execução passa
+/// Aplicado no funil único por onde todo caminho de execução passa
 /// (interpretado, Go, Rust), do mesmo modo que `TOURING_RUN_ID`.
 ///
 /// Degradação é **ruidosa**: se o ruleset não puder ser montado, o run segue
@@ -436,8 +444,12 @@ fn apply_landlock_to(cmd: &mut Command) {
     }
     let leitura = sandbox_read_roots();
     let escrita = sandbox_write_roots();
+    // Cross-audit 27/08 (QW-5): IPC scope LIGADO — kernel 7.1 ≥ 6.12 suporta.
+    // Sinais para processos fora do domínio (ex.: o daemon, mesmo UID) passam a
+    // ser confinados pelo kernel (antes: só DAC); sockets unix por PATH — a base
+    // do --orchestrate — NÃO são afetados (o escopo cobre só os ABSTRACT).
     let ruleset = match crate::capability::enforce_linux::build_landlock_ruleset_with_net_and_scope(
-        &leitura, &escrita, &[], &[], false,
+        &leitura, &escrita, &[], &[], true,
     ) {
         Ok(rs) => rs,
         Err(e) => {
@@ -509,6 +521,11 @@ pub(crate) async fn spawn_and_capture(
 
     cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+    // QW-4 (cross-audit 27/08): stdin do programa — só vira pipe quando o
+    // chamador entregou bytes (`--input`); senão segue herdado/fechado.
+    if config.stdin_bytes.is_some() {
+        cmd.stdin(std::process::Stdio::piped());
+    }
 
     let mut child = cmd
         .spawn()
@@ -519,6 +536,9 @@ pub(crate) async fn spawn_and_capture(
     // drained, so the channel was lost and a chatty-stderr child blocked on a
     // full 64 KiB pipe until the timeout path killed it.
     let stderr_handle = child.stderr.take();
+    // QW-4 — o pipe de stdin só existe quando `stdin_bytes` veio (acima).
+    let stdin_handle = child.stdin.take();
+    let stdin_bytes = config.stdin_bytes.clone();
     let timeout_dur = Duration::from_millis(config.timeout_ms);
     let max_bytes = config.max_output_bytes as usize;
 
@@ -546,6 +566,16 @@ pub(crate) async fn spawn_and_capture(
         (buf, truncated)
     }
 
+    // QW-4 — write do stdin concorrente aos drains: um filho que não lê
+    // destrava o write com BrokenPipe ao sair; o byte count não entra no
+    // outcome (o journal mede a saída, não a entrada).
+    async fn write_stdin(handle: Option<tokio::process::ChildStdin>, bytes: Option<Vec<u8>>) {
+        if let (Some(mut w), Some(b)) = (handle, bytes) {
+            use tokio::io::AsyncWriteExt;
+            let _ = w.write_all(&b).await;
+        }
+    }
+
     // Drain the two pipes CONCURRENTLY under one wall-clock budget — reading
     // them sequentially would reintroduce the full-pipe deadlock on whichever
     // channel is read second.
@@ -553,6 +583,7 @@ pub(crate) async fn spawn_and_capture(
         tokio::join!(
             drain_pipe(stdout_handle, max_bytes),
             drain_pipe(stderr_handle, max_bytes),
+            write_stdin(stdin_handle, stdin_bytes),
         )
     };
 
@@ -576,7 +607,7 @@ pub(crate) async fn spawn_and_capture(
         }
     };
 
-    let ((output_bytes, was_truncated), (stderr_bytes, stderr_truncated)) = tokio::select! {
+    let ((output_bytes, was_truncated), (stderr_bytes, stderr_truncated), ()) = tokio::select! {
         pair = read_fut => pair,
         _ = tokio::time::sleep(timeout_dur) => {
             let _ = child.kill().await;
@@ -935,6 +966,10 @@ pub(crate) fn apply_credential_whitelist(cmd: &mut Command) {
             cmd.env(name, value);
         }
     }
+    // Cross-audit 27/08 (QW-1): TMPDIR declarado apontando para /tmp — write
+    // root que o Landlock já concede. Medido ausente no filho (TMPDIR=None):
+    // ferramentas que o respeitam ficavam sem diretório temporário declarado.
+    cmd.env("TMPDIR", "/tmp");
 }
 
 /// T-09 (2026-06-15) — token-format secret patterns, matched ANYWHERE in a line.
