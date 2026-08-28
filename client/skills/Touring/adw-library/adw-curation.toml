@@ -1,0 +1,87 @@
+# ADW `adw-curation` (expansão 2026-08-28) — o meta-ADW: a curadoria da própria
+# biblioteca, codificada a partir do processo manual provado na F5 da wave
+# adw-potencializacao (triagem de specs locais, promoção por evidência, lint
+# 100%). Sem este flow a library só é curada quando alguém lembra; com ele a
+# curadoria é um comando.
+# Run:  touring adw run adw-curation
+
+[adw]
+name = "adw-curation"
+description = "Curar a biblioteca ADW: diff library↔local, evidência de runs por spec, lint 100%, propostas de promoção/etiqueta com razão"
+entry = "inventory"
+budget_tokens = 0
+
+[purpose]
+intent = "Manter a biblioteca ADW curada por evidência: o que rodou e presta sobe (promote), o que é local/demo é etiquetado, e tudo linta"
+when_to_use = [
+  "specs locais acumulando fora da library (o diff cresceu)",
+  "periodicamente, e sempre antes de propagar a library a outro projeto",
+]
+when_not_to_use = [
+  "criar spec novo — isso é `touring adw new` com prior-art",
+  "promover sem run completado — a promoção é POR EVIDÊNCIA, e este flow não fabrica evidência",
+]
+inputs = []
+produces = ["diff curatorial com veredito por spec (promover/etiquetar/manter) e lint da library inteira"]
+tags = ["#kind:flow", "#domain:adw", "#process:curation"]
+
+# Prior art (portfolio 28/08/2026): nenhum candidato acima do piso — o processo
+# foi executado manualmente na F5 de adw-potencializacao; isto o torna comando.
+prior_art_verdict = "create_new"
+
+# ── inventory → lint_all → triage → human ────────────────────────────────────
+
+# O diff curatorial + evidência de runs, tudo FACT= endereçável.
+[node.inventory]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "lib=$HOME/.claude/skills/Touring/adw-library; echo '-- specs locais fora da library --'; for f in .touring/adw/*.toml; do n=$(basename \"$f\" .toml); [ -f \"$lib/$n.toml\" ] || echo \"FACT=local_$n=fora_da_library $(grep -c 'CURADORIA' \"$f\" | sed 's/^0$/SEM-etiqueta/;s/^[1-9].*/etiquetado/')\"; done; echo '-- evidência de runs por spec local --'; for f in .touring/adw/*.toml; do n=$(basename \"$f\" .toml); c=$(ls -d .touring/adw-runs/$n-* 2>/dev/null | wc -l); [ \"$c\" -gt 0 ] && echo \"$n: $c run(s)\"; done; echo '-- cobertura de promotions --'; jq -r 'keys[]' \"$lib/promotions.json\" | tr '\\n' ' '; echo"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "lint_all"
+on_fail = "__fail__"
+
+# Lint 100% da library num root temporário (o programa provado na F5).
+# Escreve em tempdir — deliberadamente SEM sandbox (o X6 nega write fora do
+# workspace; o tempdir é descartado no fim do próprio comando).
+[node.lint_all]
+type = "gate"
+command = ["bash", "-c", "python3 - <<'PYEOF'\nimport pathlib, sys, shutil, tempfile\nsys.path.insert(0, str(pathlib.Path.home() / '.claude/skills/Touring/scripts'))\nimport adw\ntmp = pathlib.Path(tempfile.mkdtemp(prefix='adw-curation-lint-'))\nalvo = tmp / '.touring' / 'adw'\nlib = pathlib.Path.home() / '.claude/skills/Touring/adw-library'\nalvo.mkdir(parents=True)\nfor f in lib.glob('*.toml'):\n    if f.name != 'tiers.toml':\n        shutil.copy(f, alvo / f.name)\nshutil.copytree(lib / 'fragments', alvo / 'fragments')\nfalhas = 0\nfor f in sorted(alvo.glob('*.toml')):\n    try:\n        errors, _ = adw.lint_spec(adw.load_spec(tmp, f.stem))\n    except Exception as e:\n        print(f'FACT=lint_{f.stem}=LOAD-ERRO {e}')\n        falhas += 1\n        continue\n    if errors:\n        falhas += 1\n        print(f'FACT=lint_{f.stem}=ERRO {errors[0][:80]}')\nprint(f'FACT=library_specs_com_erro={falhas}')\nshutil.rmtree(tmp)\nsys.exit(1 if falhas else 0)\nPYEOF"]
+timeout_ms = 300000
+idempotent = true
+on_pass = "triage"
+on_fail = "__fail__"
+
+[node.triage]
+type = "agent"
+driver = "claude"
+tier = "light"
+prompt = """Você é o curador da biblioteca ADW. O inventário (specs locais, evidência de runs, cobertura de promotions):
+
+{{nodes.inventory.summary}}
+
+Lint da library: {{nodes.lint_all.summary}}
+
+Para cada spec LOCAL sem etiqueta de curadoria: leia o [purpose] do spec (.touring/adw/<n>.toml) e proponha UM veredito:
+FACT=<spec>=<promover|etiquetar|manter> <razão em ≤15 palavras; promover EXIGE run completed citado>
+
+Regras: (1) promover exige evidência (runs completed no inventário) E generalidade (nada hardcoded deste repo — verifique com Read); (2) etiquetar = local/demo com a razão; (3) não execute promoção nem edite nada — o humano decide no gate seguinte. Termine com VERDICT=PASS se todo spec local sem etiqueta recebeu veredito com razão, senão VERDICT=REJECT."""
+allowed_tools = ["Read", "Grep", "Glob"]
+retries = 1
+session = "resume_on_fail"
+timeout_ms = 600000
+on_pass = "aprovar"
+on_fail = "__fail__"
+
+# Promoção muda a biblioteca compartilhada entre projetos: decisão humana.
+[node.aprovar]
+type = "human"
+message = "Vereditos de curadoria prontos ({{nodes.triage.summary}}). Aprovar? A aplicação (adw promote / etiquetas) é da sessão."
+on_pass = "close.persist"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:adw-curation:round", summary = "{{nodes.triage.summary}}", domain = "adw" }
+on_pass = "__end__"
+on_fail = "__end__"

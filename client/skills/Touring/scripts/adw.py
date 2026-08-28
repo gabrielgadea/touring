@@ -1677,6 +1677,13 @@ def _lint_readonly_without_sandbox(spec: Spec, warnings: list[str]) -> None:
         )
         if not provado_leitor:
             continue
+        # Precedência (28/08/2026): um leitor que consome TEXTO DE AGENTE nos
+        # posicionais NÃO recebe o convite — lá o sandbox é o defeito (o X6
+        # classifica o programa inteiro e prosa vira deny não-determinístico;
+        # ver _lint_sandboxed_gate_reads_agent_text). Dois lints em guerra
+        # ensinariam a oscilar entre dois estados errados.
+        if _command_agent_text_refs(node, _agent_text_sources(spec)):
+            continue
         # Calibração: um nó puro-stdout (`echo done`, `true`) não toca nada —
         # contê-lo não compra contenção, e avisar ali é ruído com cara de
         # rigor (a mesma régua do `-o` em WRITING_FLAGS). O aviso exige um
@@ -1714,6 +1721,61 @@ def _lint_unsandboxed_writer_wants_human(spec: Spec, warnings: list[str]) -> Non
                 f"tem gate humano — a tool de mutação arbitrária era a única sem "
                 f"aprovação (lacuna TanStack, S-8.4). Adicione um nó `human` upstream, "
                 f"ligue `sandbox = true`, ou declare a intenção no header.")
+
+
+_AGENT_TEXT_REF_RE = re.compile(r"\{\{nodes\.([\w.-]+)\.(?:summary|full_ref)\}\}")
+
+
+def _agent_text_sources(spec: Spec) -> set[str]:
+    """Nós cujo output é TEXTO DE AGENTE: os `agent` diretos e todo `parallel`
+    cujo template ou branches são agents (o merge entrega a mesma prosa)."""
+    sources = {n.name for n in spec.nodes.values() if n.type == "agent"}
+    for n in spec.nodes.values():
+        if n.type != "parallel":
+            continue
+        template = n.raw.get("template")
+        template_is_agent = (
+            (isinstance(template, dict) and template.get("type") == "agent")
+            or (isinstance(template, str) and template in sources)
+        )
+        branches = n.raw.get("branches")
+        branch_names = ([b for b in branches if isinstance(b, str)]
+                        if isinstance(branches, list) else [])
+        if template_is_agent or any(b in sources for b in branch_names):
+            sources.add(n.name)
+    return sources
+
+
+def _command_agent_text_refs(node: Node, sources: set[str]) -> set[str]:
+    refs: set[str] = set()
+    for part in node.raw.get("command") or []:
+        refs.update(_AGENT_TEXT_REF_RE.findall(str(part)))
+    return refs & sources
+
+
+def _lint_sandboxed_gate_reads_agent_text(spec: Spec, warnings: list[str]) -> None:
+    """Estreia do cross-audit 28/08/2026 — um nó `sandbox = true` cujo command
+    interpola texto de AGENTE (`{{nodes.X.summary}}`/`full_ref` de um nó agent)
+    manda esse texto ao classificador do CEG como parte do programa: prosa com
+    cara de comando vira deny não-determinístico ("X6 denied the subprocess
+    capability 'bash'", 3 gates seguidos — e o retry recebia feedback VAZIO,
+    então o agente degradava sem saber por quê). Predicado de string é leitor
+    puro e os posicionais já bloqueiam injection — o remédio é sair do sandbox."""
+    sources = _agent_text_sources(spec)
+    if not sources:
+        return
+    for node in spec.nodes.values():
+        if node.type not in {"code", "gate"} or not node.raw.get("sandbox", False):
+            continue
+        toca_agente = _command_agent_text_refs(node, sources)
+        if toca_agente:
+            warnings.append(
+                f"nó `{node.name}`: sandbox = true com texto de agente no command "
+                f"({', '.join(sorted(toca_agente))}) — o X6 classifica o programa "
+                f"INTEIRO (args inclusos) e prosa com cara de comando vira deny "
+                f"não-determinístico (estreia cross-audit 28/08). Remova o sandbox: "
+                f"predicado de string é leitor puro e posicionais já bloqueiam "
+                f"injection.")
 
 
 def _lint_sweep_declares_floor(spec: Spec, errors: list[str]) -> None:
@@ -1757,6 +1819,8 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     _lint_unsandboxed_writer_wants_human(spec, warnings)
     # F3 ADW 28/08 — o dual: leitor provado fora do sandbox ganha o remédio.
     _lint_readonly_without_sandbox(spec, warnings)
+    # Potencialização skills 28/08 — texto de agente nunca entra no sandbox.
+    _lint_sandboxed_gate_reads_agent_text(spec, warnings)
     return errors, warnings
 
 
@@ -2132,8 +2196,18 @@ def _agent_claude(spec: Spec, node: Node, journal: Journal, prompt: str, record:
                   variables: dict | None = None) -> ExecResult:
     cmd = _claude_cmd(node, journal, prompt, results, variables)
     timeout_s = int(node.raw.get("timeout_ms", 600_000)) / 1000
+    # The headless subagent inherits the session's hooks, so loop_outer_arm
+    # (UserPromptSubmit) read the node's imperative prompt as substantive work
+    # and armed the `work-outer` flow INSIDE the agent: its Stop hook then
+    # demanded the OUTER artifacts and the final answer became guard narrative,
+    # never the FACT=/VERDICT= contract (exercise-idle-infra debut 28/08/2026:
+    # 4 real attempts answered the guard; run exercise-idle-infra-1787920381).
+    # An ADW node is already gated by its OWN flow's gate (Law L2) — the
+    # documented kill switch disarms the redundant guard at the executor (D8).
+    env = {**os.environ, "TOURING_WORK_OUTER_DISABLED": "1"}
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, cwd=cwd)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s,
+                              cwd=cwd, env=env)
     except subprocess.TimeoutExpired:
         return ExecResult(exit_code=124, output=f"agent timeout after {timeout_s:.0f}s")
     session_id = None

@@ -1,0 +1,100 @@
+# ADW `skill-refine` (potencialização das skills, 2026-08-28) — o loop REFINE
+# do TACO-skilling como GRAFO: Mine (evidência real de sessões) → Diagnose +
+# Route + Propose (agent com o craft) → gate. O skilling-pack cobre o CREATE
+# (procedimento recorrente vira skill); o REFINE — a skill melhorada pela
+# PRÓPRIA história de uso — era procedimento manual. O flow JULGA e propõe
+# diffs; aplicar é ato da sessão com o humano (regra da skill: nunca blind).
+# Run:  touring adw run skill-refine --var skill=<nome> --var skill_dir=<dir>
+
+[adw]
+name = "skill-refine"
+description = "REFINE do TACO-skilling: mine_transcripts (sinal real) + quality_gate (higiene atual) → agente diagnostica, roteia e propõe diffs — sem aplicar"
+entry = "mine"
+budget_tokens = 0
+
+[purpose]
+intent = "Melhorar uma skill pela evidência do seu uso real: minerar sessões, diagnosticar o sinal, rotear cada lição ao destino certo e propor o diff concreto"
+when_to_use = [
+  "periodicamente para skills de alto uso, ou quando o usuário corrige a skill repetidamente",
+  "após N sessões que ativaram a skill — o sinal minerado é o insumo",
+]
+when_not_to_use = [
+  "aplicar os diffs automaticamente — o flow PROPÕE; editar skill viva é ato da sessão com o humano (regra 4 do craft: never apply blind)",
+  "criar skill nova — skilling-pack/CREATE cobre; aqui só refinamento por evidência",
+]
+inputs = ["skill", "skill_dir"]
+produces = ["FACT= por lição minerada com destino roteado (skill.md|reference|script|memory|gotcha) + diff proposto"]
+tags = ["#kind:flow", "#domain:skilling", "#process:refine"]
+
+# Prior art (portfolio 28/08/2026, explore da meta): gap — skilling-pack é o
+# CREATE (1 nó agent); o loop REFINE por evidência não existia como flow.
+prior_art_verdict = "create_new"
+
+# ── mine → hygiene → refine → gate ───────────────────────────────────────────
+
+# Mine (fase 1): o sinal REAL — sessões onde a skill rodou + telemetria local.
+[node.mine]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "python3 $HOME/.claude/skills/TACO-skilling/scripts/mine_transcripts.py --json \"$1\" 2>&1 | head -c 3600; true", "--", "{{vars.skill}}"]
+timeout_ms = 180000
+idempotent = true
+on_pass = "hygiene"
+on_fail = "__fail__"
+
+# Higiene ATUAL da skill (REGRA #13 + gates estruturais) — evidência de
+# entrada para o diagnóstico; skill fora do piso é ACHADO, nunca falha do flow.
+[node.hygiene]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "python3 $HOME/.claude/skills/TACO-skilling/scripts/quality_gate.py --json \"$1\" 2>&1 | head -c 2400; true", "--", "{{vars.skill_dir}}"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "refine"
+on_fail = "__fail__"
+
+# Diagnose + Route + Propose (fases 2-4) sob o craft TACO-skilling.
+[node.refine]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+skill = "TACO-skilling"
+prompt = """Você refina a skill `{{vars.skill}}` ({{vars.skill_dir}}) sob o craft TACO-skilling (fases Diagnose, Route the learning, Propose — nunca Apply).
+
+Evidência já colhida:
+[sinal minerado das sessões reais] {{nodes.mine.summary}}
+[higiene atual — REGRA #13 + gates estruturais] {{nodes.hygiene.summary}}
+
+Leia a skill (SKILL.md e o que o sinal apontar) e, para cada lição sustentada pelo sinal (erro recorrente, edge case descoberto, passo que o usuário corrige, re-prompt pós-skill, gate de higiene em falha): (1) diagnostique a causa; (2) ROTEIE ao destino certo — nem tudo pertence à skill; (3) proponha o diff concreto (trecho antes→depois ou arquivo novo, ≤10 linhas por proposta). Emita por lição UMA linha exatamente:
+FACT=<slug-da-licao>=<skill_md|reference|script|memory|gotcha> <proposta em ≤15 palavras>
+
+Sem sinal minerado suficiente, diga-o com o número e proponha no máximo as correções que a higiene sustenta. Nunca edite arquivo algum. A ÚLTIMA linha da resposta deve ser a linha literal VERDICT=PASS (toda lição recebeu FACT= com destino e proposta) ou VERDICT=REJECT — em coluna 0, fora de tabela, negrito ou bloco de código.
+
+Veredito do gate na tentativa anterior (vazio na primeira; se carrega texto, foi ISSO que reprovou — corrija-o primeiro): {{nodes.verdict_gate.summary}}"""
+allowed_tools = ["Read", "Grep", "Glob"]
+retries = 1
+session = "resume_on_fail"
+timeout_ms = 900000
+on_pass = "verdict_gate"
+on_fail = "__fail__"
+
+# Gate FALANTE (lição 28/08: gate mudo → feedback vazio → retry degrada).
+# SEM sandbox (estreia cross-audit 28/08): o gate julga TEXTO DE AGENTE que
+# viaja como posicional, e o X6 classifica o programa INTEIRO (args inclusos)
+# — texto arbitrário com cara de comando vira deny não-determinístico
+# ("X6 denied the subprocess capability 'bash'", 3 gates seguidos). Predicado
+# de string é leitor puro; posicionais já bloqueiam injection.
+[node.verdict_gate]
+type = "gate"
+command = ["bash", "-c", "if [ -n \"$2\" ] && [ -r \"$2\" ]; then t=$(cat \"$2\"); else t=$1; fi; nf=$(printf '%s' \"$t\" | grep -c '^FACT=' || true); np=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); if [ \"$np\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=sem linha 'VERDICT=PASS' em coluna 0 ($nf FACT= presentes) — termine a resposta com a linha literal VERDICT=PASS, fora de tabela/negrito/bloco de codigo\"; exit 1; fi; if [ \"$nf\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=nenhuma linha 'FACT=slug=destino proposta' em coluna 0 — uma por licao, sem lista nem indentacao\"; exit 1; fi; echo \"VERDICT=PASS + REASON=$nf FACT= e VERDICT=PASS presentes\"", "--", "{{nodes.refine.summary}}", "{{nodes.refine.full_ref}}"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "refine"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:skill-refine:round", summary = "{{nodes.refine.summary}}", domain = "skilling" }
+on_pass = "__end__"
+on_fail = "__end__"

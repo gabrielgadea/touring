@@ -1,0 +1,86 @@
+# ADW `code-mode-adherence` (expansão 2026-08-28) — fecha o loop M1→calibração:
+# a régua `code_mode_adherence` (touring kpi) existe desde o MED-1, mas ler o
+# número e DERIVAR a calibração era ato manual. Este flow lê a régua + o journal
+# de runs, diagnostica por failure_kind e propõe a calibração sob as diretrizes
+# E/A/M — com veredito, nunca prosa.
+# Run:  touring adw run code-mode-adherence
+
+[adw]
+name = "code-mode-adherence"
+description = "Ler a régua M1 (success_rate, retry pairs, by_failure_kind) e propor calibração dos gates/SDK sob as diretrizes E/A/M"
+entry = "ruler"
+budget_tokens = 0
+
+[purpose]
+intent = "Transformar a régua M1 em decisão: onde a aderência sangra (failure kind dominante, retries desperdiçados) e qual calibração E/A/M responde"
+when_to_use = [
+  "success_rate < 0.8 no touring kpi, ou wasted_attempts_retry_pairs crescendo",
+  "após mudar gates/SDK/apresentação — medir se a aderência respondeu",
+]
+when_not_to_use = [
+  "debug de UM run específico — leia o journal/spill daquele run direto",
+  "sem journal ainda (runs_total ~0) — exercite o code mode antes de medir",
+]
+inputs = []
+produces = ["diagnóstico por failure_kind com calibração proposta (diretriz E/A/M citada por item)"]
+tags = ["#kind:flow", "#domain:code-mode", "#process:m1"]
+
+# Prior art (portfolio 28/08/2026): nenhum candidato acima do piso — a régua
+# existe (kpi.rs::code_mode_adherence), o consumo institucional dela não existia.
+prior_art_verdict = "create_new"
+
+# ── ruler → diagnose → verdict ───────────────────────────────────────────────
+
+# A régua + a cauda do journal: FACT= para o gate julgar contra dados endereçados.
+[node.ruler]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "adh=$(touring kpi -j 2>/dev/null | jq -c '[.checks[] | select(.id | test(\"code_mode|adherence\"))]'); echo \"kpi: $adh\"; j=$HOME/.claude/touring/run_journal.jsonl; if [ -r \"$j\" ]; then total=$(wc -l < \"$j\"); ok=$(grep -c '\"exit_code\":0' \"$j\" || true); echo \"FACT=runs_total=$total\"; echo \"FACT=runs_ok=$ok\"; echo '-- failure kinds (cauda 200) --'; tail -200 \"$j\" | jq -r '.failure_kind // empty' | sort | uniq -c | sort -rn | head -8; else echo 'FACT=runs_total=0'; echo 'journal ausente — nada medido ainda'; fi"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "diagnose"
+on_fail = "__fail__"
+
+[node.diagnose]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+prompt = """Você é o calibrador do code mode. A régua M1 e a distribuição de falhas:
+
+{{nodes.ruler.summary}}
+
+As diretrizes de elaboração vivem em docs/code-mode.md §"Diretrizes de elaboração de código (E/A/M)" — leia a seção antes de propor. Para cada failure_kind relevante (>5% da cauda): (1) leia 2-3 exemplos reais no journal (~/.claude/touring/run_journal.jsonl) com Read/Grep; (2) diga a causa PROVÁVEL apontando a diretriz E/A/M violada ou ausente; (3) proponha UMA calibração concreta (mudança de gate, de stub, de mensagem-ensino, de teto) com o arquivo alvo. Formato por item:
+FACT=<failure_kind>=<diretriz-violada> <calibração em ≤20 palavras, com arquivo alvo>
+
+Se a aderência está saudável (success_rate ≥ 0.8 e retries desperdiçados baixos), diga-o com o número e proponha no máximo 1 melhoria. Nunca proponha mudança que o dado não sustenta. Termine com VERDICT=PASS se cada failure_kind relevante recebeu FACT= com calibração endereçada, senão VERDICT=REJECT.
+
+Veredito do gate na tentativa anterior (vazio na primeira; se carrega texto, foi ISSO que reprovou — corrija-o primeiro): {{nodes.verdict_gate.summary}}"""
+allowed_tools = ["Read", "Grep", "Glob"]
+retries = 1
+session = "resume_on_fail"
+timeout_ms = 900000
+on_pass = "verdict_gate"
+on_fail = "__fail__"
+
+# Gate FALANTE (28/08): o predicado mudo reprovava sem dizer o quê — o feedback
+# do retry chegava vazio e a estreia custou 3 retries até o agente acertar o
+# formato por sorte. A5: a mensagem do erro ENSINA a correção.
+# SEM sandbox (estreia cross-audit 28/08): o gate julga TEXTO DE AGENTE que
+# viaja como posicional, e o X6 classifica o programa INTEIRO (args inclusos)
+# — texto arbitrário com cara de comando vira deny não-determinístico
+# ("X6 denied the subprocess capability 'bash'", 3 gates seguidos). Predicado
+# de string é leitor puro; posicionais já bloqueiam injection.
+[node.verdict_gate]
+type = "gate"
+command = ["bash", "-c", "if [ -n \"$2\" ] && [ -r \"$2\" ]; then t=$(cat \"$2\"); else t=$1; fi; nf=$(printf '%s' \"$t\" | grep -c '^FACT=' || true); np=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); if [ \"$np\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=sem linha 'VERDICT=PASS' em coluna 0 ($nf FACT= presentes) — termine a resposta com a linha literal VERDICT=PASS, fora de tabela/negrito/bloco de codigo\"; exit 1; fi; if [ \"$nf\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=nenhuma linha 'FACT=failure_kind=diretriz calibracao' em coluna 0 — uma por failure_kind relevante, sem lista nem indentacao\"; exit 1; fi; echo \"VERDICT=PASS + REASON=$nf FACT= e VERDICT=PASS presentes\"", "--", "{{nodes.diagnose.summary}}", "{{nodes.diagnose.full_ref}}"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "diagnose"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:code-mode-adherence:round", summary = "{{nodes.diagnose.summary}}", domain = "code-mode" }
+on_pass = "__end__"
+on_fail = "__end__"

@@ -2823,6 +2823,7 @@ mod apresentacao_por_escopo {
     /// contadores próprios. Serializar seria tratar o sintoma da colisão em vez
     /// da causa — e este workspace já pagou 49 marcadores seriais por isso.
     #[test]
+    #[serial_test::serial(t3_env)]
     fn rajada_de_inspecao_nega_da_segunda_em_diante() {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
@@ -2847,7 +2848,7 @@ mod apresentacao_por_escopo {
     /// "a 1ª". Sem isto o modelo levaria um deny por chamada até a janela
     /// expirar — fadiga de gate, que é como um gate deixa de ser lido.
     #[test]
-    #[serial_test::serial(gate_metrics)]
+    #[serial_test::serial(gate_metrics, t3_env)]
     fn deny_zera_o_lote_e_a_seguinte_volta_a_passar() {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
@@ -2878,7 +2879,7 @@ mod apresentacao_por_escopo {
     /// Evidência direta para o S10 (T3-BURIAL): são dois gates a dizer a mesma
     /// coisa, e o que sobrevive é o que dispara.
     #[test]
-    #[serial_test::serial(gate_metrics)]
+    #[serial_test::serial(gate_metrics, t3_env)]
     fn classes_distintas_nao_formam_rajada() {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
@@ -2898,7 +2899,7 @@ mod apresentacao_por_escopo {
     /// agora respondem ao mesmo predicado — é o volume fan-out que a medição
     /// de 27/08 mostrou estar escapando (746 chamadas, ~76% em rajada).
     #[test]
-    #[serial_test::serial(gate_metrics)]
+    #[serial_test::serial(gate_metrics, t3_env)]
     fn classes_antes_isentas_agora_colapsam_em_rajada() {
         for (classe, a, b) in [
             ("sed-n", "sed -n 1,20p a.rs", "sed -n 30,50p b.rs"),
@@ -2924,6 +2925,7 @@ mod apresentacao_por_escopo {
     /// Um escopo que NÃO declara `code` não colapsa nada, por mais rajada que
     /// seja: o predicado é a discriminação DENTRO do modo, não um modo novo.
     #[test]
+    #[serial_test::serial(t3_env)]
     fn escopo_sem_declaracao_nao_colapsa_rajada() {
         let tmp = tempfile::tempdir().expect("tempdir");
         // sem .touring/touring.toml — o default é `both`
@@ -2939,6 +2941,7 @@ mod apresentacao_por_escopo {
     /// Mutação e build NUNCA entram no predicado, em rajada ou não —
     /// `scan_class_of` só reconhece inspeção, e é ele quem porteia.
     #[test]
+    #[serial_test::serial(t3_env)]
     fn mutacao_e_build_nao_entram_na_rajada() {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());

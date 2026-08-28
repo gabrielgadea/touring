@@ -108,8 +108,9 @@ emits = "VERDICT=PASS|REJECT|ESCALATE followed by REASON=<one line>"
 # truncated, and then the summary IS the whole output — hence the fallback.
 [node.quorum]
 type = "gate"
-# F3 28/08/2026: leitor provado — contenção de kernel de graça (lint readonly_sem_sandbox)
-sandbox = true
+# 28/08/2026 (estreia cross-audit): SEM sandbox — o gate julga TEXTO DE AGENTE
+# posicional e o X6 classifica o programa inteiro (args inclusos): prosa com
+# cara de comando vira deny nao-deterministico. Predicado de string e leitor puro.
 command = ["bash", "-c", "if [ -n \"$3\" ] && [ -r \"$3\" ]; then t=$(cat \"$3\"); else t=$1; fi; p=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); r=$(printf '%s' \"$t\" | grep -c '^VERDICT=REJECT' || true); e=$(printf '%s' \"$t\" | grep -c '^VERDICT=ESCALATE' || true); q=$2; if [ \"$e\" -gt 0 ]; then echo \"VERDICT=ESCALATE + REASON=$e critic(s) could not decide\"; exit 1; fi; if [ \"$r\" -ge \"$q\" ]; then echo \"VERDICT=REJECT + REASON=$r critic(s) rejected, quorum is $q\"; exit 1; fi; if [ \"$p\" -eq 0 ]; then echo 'VERDICT=ESCALATE + REASON=no critic returned a parseable verdict'; exit 1; fi; echo \"VERDICT=PASS + REASON=$p passed, $r rejected, quorum $q\"", "--", "{{nodes.panel.summary}}", "{{inputs.quorum}}", "{{nodes.panel.full_ref}}"]
 timeout_ms = 60000
 idempotent = true

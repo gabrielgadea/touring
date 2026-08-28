@@ -1,0 +1,58 @@
+# ADW `guard-sweep` (expansão 2026-08-28) — a lição guard-existe-mas-não-roda:
+# 3 de 7 guards estavam fora do CI e 2 rodavam com "no tests ran" enquanto as
+# rules os citavam como proteção. Um guard que não executa é decoração com cara
+# de rigor. Este flow DESCOBRE todos os guards do repo, RODA 100% deles e
+# aponta os que nenhum CI conhece.
+# Run:  touring adw run guard-sweep
+
+[adw]
+name = "guard-sweep"
+description = "Descobrir e rodar 100% dos guards (scripts/test_*.py e afins) e denunciar os que estão fora do CI — guard que não roda é decoração"
+entry = "discover"
+budget_tokens = 0
+
+[purpose]
+intent = "Provar que toda proteção declarada executa: descobrir guards, rodar todos, e listar os órfãos de CI com evidência"
+when_to_use = [
+  "após adicionar/citar um guard em rules/docs — a citação não prova a execução",
+  "periodicamente e antes de release (o cross-audit assume guards vivos)",
+]
+when_not_to_use = [
+  "rodar a suíte de UM guard específico — chame o pytest direto",
+  "repos sem guards em scripts/ — não há o que varrer",
+]
+inputs = []
+produces = ["resultado de 100% dos guards + lista dos fora-do-CI com evidência"]
+tags = ["#kind:flow", "#domain:ci", "#process:guard"]
+
+# Prior art (portfolio 28/08/2026): nenhum candidato acima do piso — xaudit-gates
+# (local) roda um SUBCONJUNTO fixo; este flow DESCOBRE o conjunto e cobre 100%.
+prior_art_verdict = "create_new"
+
+# ── discover → run_all → verdict ─────────────────────────────────────────────
+
+# Descoberta + diff contra o CI: o guard fora do CI é o achado principal.
+[node.discover]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "echo '-- guards descobertos --'; ls scripts/test_*.py 2>/dev/null; total=$(ls scripts/test_*.py 2>/dev/null | wc -l); echo \"FACT=guards_total=$total\"; echo '-- fora do CI --'; fora=0; for f in scripts/test_*.py; do n=$(basename \"$f\"); grep -rq \"$n\" .github/workflows/ 2>/dev/null || { echo \"FACT=fora_do_ci_$n=nenhum_workflow_cita\"; fora=$((fora+1)); }; done; echo \"FACT=guards_fora_do_ci=$fora\""]
+timeout_ms = 60000
+idempotent = true
+on_pass = "run_all"
+on_fail = "__fail__"
+
+# 100% ou nada: um sweep que amostra vira o guard-amostrado-não-vê-salto.
+[node.run_all]
+type = "gate"
+command = ["bash", "-c", "falhas=0; vazios=0; for f in scripts/test_*.py; do out=$(python3 -m pytest \"$f\" -q --no-header 2>&1 | tail -1); case \"$out\" in *failed*|*error*) falhas=$((falhas+1)); echo \"FALHOU $f: $out\";; *'no tests ran'*) vazios=$((vazios+1)); echo \"VAZIO $f: coleta zero — o guard não guarda nada\";; *passed*) : ;; *) echo \"? $f: $out\";; esac; done; echo \"FACT=guards_falhando=$falhas\"; echo \"FACT=guards_vazios=$vazios\"; test $((falhas+vazios)) -eq 0"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "__fail__"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:guard-sweep:round", summary = "{{nodes.run_all.summary}}", domain = "ci" }
+on_pass = "__end__"
+on_fail = "__end__"
