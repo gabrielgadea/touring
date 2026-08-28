@@ -1,0 +1,11 @@
+{
+  "phase": "C5",
+  "entities": [
+    {
+      "entity_id": "phase:C5",
+      "type": "phase",
+      "description": "mine_transcripts desconta eco do SKILL.md (is_skill_echo, wired no mine); 4 testes novos verdes"
+    }
+  ],
+  "relations": []
+}

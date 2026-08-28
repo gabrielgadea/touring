@@ -35,3 +35,23 @@ converge-close.toml: CLOSE do loop-engineering (judge_attest -> loop_converged -
 ## 2026-08-28T10:54:11.858934-03:00 — F6 done
 
 docs: nota Skills-como-ADWs no CLAUDE.md item 8 (23 specs + 3 licoes de executor), strategy doc OKF, espelho client/ sincronizado; commit apos o converge-close validar a convergencia
+
+## 2026-08-28T14:00:22.786236-03:00 — C1 done
+
+23 flows etiquetados curation=generic|local|hold + guard test_every_shipped_flow_carries_a_curation_label; 248 testes verdes
+
+## 2026-08-28T14:00:22.884871-03:00 — C2 done
+
+OUTPUT_PATH fora da arvore congelada; desvio 2 era falso-stale (symlinks live->repo ja existiam desde 25/08)
+
+## 2026-08-28T14:00:22.990714-03:00 — C3 done
+
+test_count=15786 (nextest); coverage 75,28% linhas (llvm-cov, piso 0.75 cumprido); 2x code_mode_arm; daemon armado pillar induction; plan_refine fonte+consumidor prontos p/ deploy; mutation backlog
+
+## 2026-08-28T14:00:23.093036-03:00 — C4 done
+
+A5 em ctx_execute_tools.rs (stderr vazio ensina no-match) + E4 no banner (--timeout-ms 30000); cargo check + suite server + guard D8 13/13 verdes
+
+## 2026-08-28T14:00:23.210094-03:00 — C5 done
+
+mine_transcripts desconta eco do SKILL.md (is_skill_echo, wired no mine); 4 testes novos verdes
