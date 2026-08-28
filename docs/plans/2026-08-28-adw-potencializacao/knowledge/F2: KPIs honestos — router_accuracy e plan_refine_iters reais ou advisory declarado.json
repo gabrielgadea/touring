@@ -1,0 +1,11 @@
+{
+  "phase": "F2: KPIs honestos \u2014 router_accuracy e plan_refine_iters reais ou advisory declarado",
+  "entities": [
+    {
+      "entity_id": "phase:F2: KPIs honestos \u2014 router_accuracy e plan_refine_iters reais ou advisory declarado",
+      "type": "phase",
+      "description": "F2 fechada: os 2 STUBs eram medidores reais com fonte vazia \u2014 rem\u00e9dio foi EXERCITAR a infra: (1) factory start real (ticket chore com verify_cmd real; o gate recusou verify fake \u2014 L2 viva) \u2192 router_accuracy STUB\u21921.0 PASS vivo, runs 45\u219246; (2) plan_refine.py real sobre o strategy doc + ledger CCE \u2192 .refine.json no disco, que revelou BUG produtor\u2260consumidor: plan_refine grava {version,iterations}, o KPI s\u00f3 aceitava array cru \u2014 corrigido no kpi.rs aceitando ambas as formas + teste que espelha o formato do produtor (34/34). Vivo do plan_refine_iters vira PASS no pr\u00f3ximo deploy (o dispatch roda no daemon instalado). ZTE fica para F6 como planejado."
+    }
+  ],
+  "relations": []
+}

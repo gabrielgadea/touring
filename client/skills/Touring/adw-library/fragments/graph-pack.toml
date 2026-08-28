@@ -18,6 +18,8 @@ entry = "relations"
 
 [node.relations]
 type = "code"
+# F3 28/08/2026: leitor provado — contenção de kernel de graça (lint readonly_sem_sandbox)
+sandbox = true
 # Positional arguments only — a value interpolated into the shell string would be
 # executed by it. Each stage is `|| true` so a cold index degrades the context
 # instead of failing the flow.

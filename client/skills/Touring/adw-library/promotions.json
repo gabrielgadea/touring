@@ -41,6 +41,20 @@
     "recorded_at": 1787135699.3270853,
     "evidence": "behaviour — 1 real agent session(s), every node ran for real"
   },
+  "error-teach": {
+    "run_id": "error-teach-1787546756-999a45f8.3860434",
+    "status": "completed",
+    "class_d": false,
+    "synthesized": [],
+    "agent_sessions": {
+      "real": 1,
+      "mock": 0
+    },
+    "started_at": 1787546756.571088,
+    "finished_at": 1787547173.465261,
+    "recorded_at": 1787919034.0833497,
+    "evidence": "behaviour — 1 real agent session(s), every node ran for real"
+  },
   "estado-do-processo": {
     "run_id": "estado-do-processo-1787204972-c5b475f1.2119104",
     "status": "completed",

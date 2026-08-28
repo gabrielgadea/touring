@@ -1,0 +1,86 @@
+# ADW `error-teach` (w8b, 2026-08-24) — one auditable round of the agent-first
+# error-message campaign: measure → cheap-tier batch fix → compile gate → re-measure.
+# Run:  touring adw run error-teach --var batch=30
+# Campaign: repeat runs until scripts/error_message_audit.py reports ratio >= 0.8.
+
+[adw]
+name = "error-teach"
+description = "Raise the CLI error-message teach-ratio (P9: errors that name the next action)"
+entry = "audit"
+budget_tokens = 0
+
+[purpose]
+intent = "Rewrite CLI error literals that teach nothing into messages that name the next action, in cheap-tier batches gated by compile + re-measure"
+when_to_use = [
+  "error_message_audit.py reports a teach-ratio below target",
+  "mechanical text-quality campaigns that suit a cheap codegen tier",
+]
+when_not_to_use = [
+  "errors whose fix needs new control flow or API changes — that is a bugfix, not a rewrite",
+  "messages asserted verbatim by tests you are not prepared to update in the same round",
+]
+inputs = ["batch"]
+produces = ["rewritten error literals", "before/after teach-ratio evidence"]
+tags = ["#kind:flow", "#domain:code-mode", "#process:w8b"]
+
+# Prior art: bugfix/chore fix code defects; this campaign rewrites MESSAGE TEXT
+# at scale with a measured quality bar — no library flow does that.
+prior_art_verdict = "create_new"
+
+# ── Round pipeline ────────────────────────────────────────────────────────
+
+# Measure first: the offender list IS the work order (real file:line:message).
+[node.audit]
+type = "code"
+command = ["python3", "scripts/error_message_audit.py", "--top", "{{vars.batch}}"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "fix_batch"
+on_fail = "__fail__"
+
+# The fixer: mechanical rewrite on a cheap tier (W8 lint rationale — measured
+# TanStack: codegen runs well on haiku). Explicit tier = the cost decision the
+# _lint_agent_codegen_tier warning exists to induce.
+[node.fix_batch]
+type = "agent"
+driver = "claude"
+tier = "haiku"
+prompt = """Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` que NÃO ensinam o próximo passo (file:line 'mensagem'):
+
+{{nodes.audit.summary}}
+
+Para CADA item listado: abra o arquivo na linha indicada e reescreva SOMENTE a string da mensagem para que ela ENSINE a correção — nomeie o próximo comando, a flag, o valor esperado ou a alternativa (ex.: 'X failed: {e} — check `touring daemon-ctl status` and rerun', 'invalid Y; expected one of: a|b|c'). REGRAS INVIOLÁVEIS: (1) preserve TODOS os placeholders de format! exatamente como estão ({e}, {0}, {name}, {:?} etc.) — nunca adicione placeholder novo; (2) não mude control flow, tipos, nem nada fora da string; (3) mantenha inglês técnico conciso (1 linha; até ~140 chars); (4) se a mensagem exigir contexto que você não tem para nomear um próximo passo honesto, torne-a específica sobre O QUE falhou e pule a promessa — nunca invente comandos inexistentes (comandos reais: touring doctor|status|daemon-ctl|index|ast|wiring|memory|run|exec); (5) se um teste asserta a mensagem literalmente, atualize o teste na mesma edição. Ao final rode `cargo check -p touring-server -p touring-cli -p touring-ceg` e corrija qualquer erro de compilação que você tenha introduzido.
+
+VEREDITO DO GATE DE COMPILAÇÃO da tentativa anterior (vazio na primeira passada — se carrega texto, foi ISSO que rejeitou você; corrija-o antes de qualquer outra coisa): {{nodes.check.summary}}"""
+allowed_tools = ["Read", "Grep", "Glob", "Edit", "Bash"]
+permission_mode = "acceptEdits"
+session = "resume_on_fail"
+timeout_ms = 1500000
+on_pass = "check"
+on_fail = "__fail__"
+
+# Compile gate: the round only counts if the tree still builds warning-clean.
+[node.check]
+type = "gate"
+command = ["bash", "-c", "cargo check -p touring-server -p touring-cli -p touring-ceg 2>&1 | tail -2 && cargo clippy -p touring-server -p touring-cli -p touring-ceg -- -D warnings 2>&1 | tail -1"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "reaudit"
+on_fail = "fix_batch"
+
+# Re-measure: the round's verdict is the NEW ratio, printed as evidence.
+[node.reaudit]
+type = "code"
+command = ["python3", "scripts/error_message_audit.py", "--top", "5"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "__fail__"
+
+# Pheromone deposit: ratio evolution feeds the RL that routes the next round.
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:error-teach:round", summary = "{{nodes.reaudit.summary}}", domain = "code-mode" }
+on_pass = "__end__"
+on_fail = "__end__"

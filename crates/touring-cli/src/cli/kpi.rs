@@ -616,11 +616,24 @@ fn adw_plan_refine_iters(root: &std::path::Path) -> Option<f64> {
                 .file_name()
                 .is_some_and(|n| n.to_string_lossy().ends_with(".refine.json"))
                 && let Ok(text) = std::fs::read_to_string(&path)
-                && let Ok(serde_json::Value::Array(iters)) = serde_json::from_str(&text)
+                && let Ok(value) = serde_json::from_str::<serde_json::Value>(&text)
             {
-                let n = iters.len() as f64;
-                if best.is_none_or(|b| n > b) {
-                    *best = Some(n);
+                // O produtor real (`plan_refine.py`) grava `{version,
+                // iterations: […]}`; só o formato de array cru fazia o KPI
+                // ficar STUB com ledger legítimo no disco (produtor≠consumidor,
+                // descoberto 28/08/2026 exercitando a fonte de verdade).
+                let iters = match &value {
+                    serde_json::Value::Array(a) => Some(a.len()),
+                    v => v
+                        .pointer("/iterations")
+                        .and_then(serde_json::Value::as_array)
+                        .map(|a| a.len()),
+                };
+                if let Some(n) = iters {
+                    let n = n as f64;
+                    if best.is_none_or(|b| n > b) {
+                        *best = Some(n);
+                    }
                 }
             }
         }
@@ -1105,6 +1118,26 @@ pub fn actuator_signals() -> (Option<f64>, Option<bool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// F2 ADW (28/08/2026) — o KPI lê o formato que o PRODUTOR grava:
+    /// `plan_refine.py` escreve `{version, iterations: […]}`, e só o array cru
+    /// era aceito — o KPI ficava STUB com ledger legítimo no disco.
+    #[test]
+    fn plan_refine_iters_reads_the_producers_object_format() {
+        let dir = std::env::temp_dir().join(format!("kpi-refine-{}", std::process::id()));
+        let plans = dir.join("docs").join("plans").join("bundle");
+        std::fs::create_dir_all(&plans).expect("tempdir");
+        std::fs::write(
+            plans.join("strategy.refine.json"),
+            r#"{"version": 1, "iterations": [{"iter": 1}, {"iter": 2}, {"iter": 3}]}"#,
+        )
+        .expect("write ledger");
+        assert_eq!(super::adw_plan_refine_iters(&dir), Some(3.0));
+        // o formato de array cru segue aceito
+        std::fs::write(plans.join("raw.refine.json"), r#"[1, 2, 3, 4]"#).expect("write raw");
+        assert_eq!(super::adw_plan_refine_iters(&dir), Some(4.0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     /// S3 — a fração da inspeção capturada como rajada.
     #[test]

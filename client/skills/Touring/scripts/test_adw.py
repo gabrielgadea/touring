@@ -612,6 +612,27 @@ on_pass = "__end__"
     assert canceled and canceled[0]["lane"] == 1  # the loser was canceled, not awaited
 
 
+def test_race_lane_excludes_caches_vcs_and_runtime_state(root, tmp_path):
+    # P0 28/08/2026: RACE_IGNORE não excluía `target/` (dezenas de GB), `.git`,
+    # `.claude` (symbols.db ~350MB) nem `*.db` — N lanes copiavam N× o workspace
+    # inteiro antes do primeiro nó rodar (viola a REGRA #12). O merge é por
+    # bytes, não usa git, então a exclusão não muda a semântica do race.
+    (root / "src").mkdir()
+    (root / "src" / "lib.rs").write_text("fn main() {}", encoding="utf-8")
+    (root / "target" / "debug").mkdir(parents=True)
+    (root / "target" / "debug" / "bin").write_text("ELF", encoding="utf-8")
+    (root / ".git").mkdir()
+    (root / ".git" / "HEAD").write_text("ref: refs/heads/main", encoding="utf-8")
+    (root / ".claude" / "touring").mkdir(parents=True)
+    (root / ".claude" / "touring" / "symbols.db").write_text("db", encoding="utf-8")
+    (root / "knowledge.db").write_text("db", encoding="utf-8")
+    lane = tmp_path / "lane0"
+    adw._copy_lane(root, lane)
+    assert (lane / "src" / "lib.rs").is_file()  # o código VIAJA
+    for excluded in ("target", ".git", ".claude", "knowledge.db"):
+        assert not (lane / excluded).exists(), f"{excluded} não pode entrar na lane"
+
+
 def test_race_all_fail_returns_nonzero(root, capsys):
     write_spec(root, "failer", """
 [adw]
@@ -628,6 +649,49 @@ on_fail = "__fail__"
     rc = adw.cmd_race(root, "failer", 2, {})
     report = json.loads(capsys.readouterr().out)
     assert rc == 1 and report["winner"] is None and report["merged_files"] == []
+
+
+def test_agent_transport_retry_replays_infra_failure_only(root, tmp_path, monkeypatch):
+    """F4 28/08/2026 — exit != 0 do `claude -p` é TRANSPORTE (timeout, CLI
+    morto) e merece replay barato; veredito ruim chega com exit 0 e é o gate
+    quem o julga. O retry re-tenta a infra e cada tentativa fica no journal."""
+    calls = {"n": 0}
+
+    def flaky(spec, node, journal, prompt, record, cwd=None, results=None, variables=None):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return adw.ExecResult(exit_code=124, output="agent timeout after 1s")
+        return adw.ExecResult(exit_code=0, output="VERDICT=PASS\nok")
+
+    monkeypatch.setattr(adw, "_agent_claude", flaky)
+    monkeypatch.setattr(adw.time, "sleep", lambda s: None)
+    node = adw.Node(name="a", type="agent", raw={"retries": 3, "prompt": "go"})
+    journal = adw.Journal(tmp_path)
+    result = adw.run_agent_node(node, None, journal, {}, {}, False, False)
+    assert result.exit_code == 0 and calls["n"] == 3
+    text = (tmp_path / "journal.jsonl").read_text()
+    assert text.count("agent_transport_retry") == 2, "cada tentativa é auditável"
+    # sem retries declarado, a 1ª falha é final (comportamento anterior intacto)
+    calls["n"] = 0
+    sem_retry = adw.Node(name="b", type="agent", raw={"prompt": "go"})
+    result = adw.run_agent_node(sem_retry, None, journal, {}, {}, False, False)
+    assert result.exit_code == 124 and calls["n"] == 1
+
+
+def test_agent_retries_above_three_is_a_lint_error(root):
+    """A14: 3 é o teto — a 4ª tentativa muda de estratégia, nunca repete."""
+    write_spec(root, "teimoso", """
+[adw]
+name = "teimoso"
+entry = "a"
+[node.a]
+type = "agent"
+retries = 4
+prompt = "go"
+on_pass = "__end__"
+""")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "teimoso"))
+    assert any("A14" in e and "retries=4" in e for e in errors), errors
 
 
 def test_claude_cmd_carries_permission_and_add_dirs(tmp_path):
@@ -3498,6 +3562,22 @@ on_fail = "__fail__"
     assert rc == 1
     assert out["status"] == "flow_failed"
     assert out["rounds"] == 1
+
+
+def test_sandbox_cap_matches_the_real_executor_clamp():
+    """Guard D8 cruzado: a constante do runner e o clamp do `touring run` REAL
+    saem do mesmo número. Em 28/08/2026 o executor subiu de 120s para 600s
+    (QW-3) e a constante daqui ficou 120s — clampando com uma nota que
+    afirmava um teto falso. O teste lê o predicado DO EXECUTOR (o fonte Rust)
+    e exige que a declaração case com ele; sem o workspace, skip honesto."""
+    rust = (Path.home() / "projects" / "touring" / "crates" / "touring-server"
+            / "src" / "tools" / "ctx_execute_tools.rs")
+    if not rust.is_file():
+        pytest.skip("fonte canônica do touring ausente nesta máquina")
+    assert f".min({adw.SANDBOX_MAX_TIMEOUT_MS:_})" in rust.read_text(encoding="utf-8"), (
+        f"SANDBOX_MAX_TIMEOUT_MS={adw.SANDBOX_MAX_TIMEOUT_MS} diverge do clamp "
+        "real em ctx_execute_tools.rs — atualize a constante, não a nota"
+    )
 
 
 # ── sandbox: o envelope do `touring run` não pode engolir os marcadores ──────

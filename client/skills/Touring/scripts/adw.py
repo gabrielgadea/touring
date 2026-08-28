@@ -93,7 +93,10 @@ SUMMARY_LIMIT = 2000  # bytes of dense inline summary (Law L4)
 DEFAULT_TIMEOUT_MS = 120_000
 #: Teto de wall-clock do `touring run` (o sandbox recusa acima disso). Um nó
 #: com `sandbox = true` e timeout maior é limitado a este valor, com aviso.
-SANDBOX_MAX_TIMEOUT_MS = 120_000
+#: 28/08/2026 (QW-3): o executor real subiu o clamp de 120s para 600s
+#: (`ctx_execute_impl`: `.min(600_000)`) — manter 120 aqui clampava com uma
+#: nota que afirmava um teto FALSO (anti-padrão D8: texto ≠ executor).
+SANDBOX_MAX_TIMEOUT_MS = 600_000
 ACTIVITY_TIMEOUT_S = 5
 # F3: tier → model mapping. The library's tiers.toml (central, swappable) wins;
 # these are the fallback when no library mapping exists.
@@ -721,6 +724,16 @@ READING_COMMANDS = frozenset({
     "done", "exit", "return", "shift", "eval", "source", ".",
 })
 
+#: O subconjunto de READING_COMMANDS que de fato TOCA dados (FS, streams) — o
+#: que separa `grep`/`cat` de `echo`/`true`. É a régua do lint
+#: `_lint_readonly_without_sandbox`: só um leitor substantivo ganha o convite
+#: ao sandbox; um puro-stdout não tem o que conter.
+_FS_READING_COMMANDS = frozenset({
+    "cat", "head", "tail", "grep", "rg", "ls", "wc", "sort", "uniq", "cut",
+    "sed", "awk", "jq", "diff", "stat", "comm", "find", "du", "df",
+    "readlink", "realpath", "tr",
+})
+
 #: Multiplexadores cujo PRIMEIRO argumento é um subcomando — é ali que o verbo
 #: de escrita aparece quando a escrita mora dentro do programa.
 PROGRAM_MULTIPLEXERS = frozenset({
@@ -1223,6 +1236,14 @@ def _lint_node(node: Node, names: set[str], errors: list[str], warnings: list[st
                               f"o verificador não distingue constante (R4)")
     if node.type == "probe" and not node.raw.get("command"):
         errors.append(f"probe `{node.name}`: missing command[]")
+    # F4 28/08/2026 — A14: 3 tentativas de transporte é o teto; a 4ª tem de
+    # mudar de ESTRATÉGIA (outra rota, outra decomposição), nunca repetir o
+    # mesmo corpo. Erro (não warning): cada retry de agente é custo LLM real.
+    if node.type == "agent" and int(node.raw.get("retries", 0)) > 3:
+        errors.append(
+            f"agent `{node.name}`: retries={node.raw.get('retries')} > 3 — A14: "
+            f"após 3 retries de transporte muda-se de estratégia; o retry de "
+            f"VEREDITO já existe e mora no gate (feedback verbatim)")
     if node.type in {"code", "gate"}:
         if not node.raw.get("command"):
             errors.append(f"node `{node.name}`: missing command[]")
@@ -1636,6 +1657,44 @@ def _lint_gate_has_control(spec: Spec, warnings: list[str]) -> None:
             f"`control_waived = \"razão\"` — calibre o juiz ou declare por que não (S-4.5)")
 
 
+def _lint_readonly_without_sandbox(spec: Spec, warnings: list[str]) -> None:
+    """F3 ADW 28/08/2026 — o dual do S-8.4: um nó `code`/`gate` PROVADAMENTE
+    leitor (`command_writes()==False` ou `readonly = true` declarado) rodando
+    FORA do sandbox paga zero para ser contido — `sandbox = true` roteia pelo
+    CEG (Landlock FS + rlimit + seccomp-UDP) sem mudar a semântica de quem só
+    lê. Medido 28/08: 16/66 nós usavam sandbox; a afordância existia e nada a
+    apontava (adoption does not emerge from availability — 4 Pilares). Warning,
+    nunca erro: quem escreve fica de fora (o custo lá é real) e a decisão
+    permanece visível no spec."""
+    for node in spec.nodes.values():
+        if node.type not in {"code", "gate"}:
+            continue
+        if node.raw.get("sandbox", False):
+            continue
+        command = node.raw.get("command")
+        provado_leitor = (
+            node.raw.get("readonly") is True or command_writes(command) is False
+        )
+        if not provado_leitor:
+            continue
+        # Calibração: um nó puro-stdout (`echo done`, `true`) não toca nada —
+        # contê-lo não compra contenção, e avisar ali é ruído com cara de
+        # rigor (a mesma régua do `-o` em WRITING_FLAGS). O aviso exige um
+        # leitor SUBSTANTIVO: toca FS/dados ou invoca um programa opaco.
+        tokens = _command_tokens(command)
+        substantivo = any(
+            t in _FS_READING_COMMANDS
+            or t in PROGRAM_MULTIPLEXERS
+            or t.endswith(PROGRAM_SUFFIXES)
+            for t in tokens
+        )
+        if substantivo:
+            warnings.append(
+                f"nó `{node.name}`: leitura provada rodando fora do sandbox — "
+                f"ligue `sandbox = true` no [node.{node.name}]: contenção de "
+                f"kernel (Landlock/rlimit/seccomp) de graça para um leitor.")
+
+
 def _lint_unsandboxed_writer_wants_human(spec: Spec, warnings: list[str]) -> None:
     """W8 S-8.4 — a lacuna que a fonte TanStack nomeia, no lado ADW: um nó que
     ESCREVE (command_writes()==True) sem sandbox, num fluxo sem nenhum gate
@@ -1696,6 +1755,8 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     _lint_gate_has_control(spec, warnings)
     _lint_sweep_declares_floor(spec, errors)
     _lint_unsandboxed_writer_wants_human(spec, warnings)
+    # F3 ADW 28/08 — o dual: leitor provado fora do sandbox ganha o remédio.
+    _lint_readonly_without_sandbox(spec, warnings)
     return errors, warnings
 
 
@@ -1883,10 +1944,10 @@ def run_code_node(node: Node, results: dict, variables: dict,
     node_timeout_ms = int(node.raw.get("timeout_ms", DEFAULT_TIMEOUT_MS))
     sandbox_note = ""
     if node.raw.get("sandbox", False):
-        # O `touring run` tem orçamento PRÓPRIO: 30s de default e 120s de teto.
-        # Sem propagar o timeout do nó, um nó que declara 300_000 abortava em 30s
-        # ao ligar `sandbox = true` — a afordância existia mas quebrava quem a
-        # usasse, o que explica os 0/24 nós que a adotaram (medido 24/08/2026).
+        # O `touring run` tem orçamento PRÓPRIO: 30s de default e 600s de teto
+        # (QW-3, 28/08/2026). Sem propagar o timeout do nó, um nó que declara
+        # 300_000 abortava em 30s ao ligar `sandbox = true` — a afordância
+        # existia mas quebrava quem a usasse (0/24 nós adotavam, medido 24/08).
         sandbox_ms = min(node_timeout_ms, SANDBOX_MAX_TIMEOUT_MS)
         if node_timeout_ms > SANDBOX_MAX_TIMEOUT_MS:
             # Nunca silenciosamente: o nó pediu mais do que o sandbox concede, e
@@ -2118,8 +2179,22 @@ def run_agent_node(
         # driver = "mock" is asking for one specific recording, and inventing it
         # would turn an explicit contract into a guess.
         return _agent_mock(spec, node, synthesize=force_mock)
-    return _agent_claude(spec, node, journal, prompt, record, cwd=cwd,
-                         results=results, variables=variables)
+    # F4 28/08/2026 — retry de TRANSPORTE (paridade com o nó `code`): exit != 0
+    # do `claude -p` é infra (timeout 124, rede, CLI morto), nunca veredito —
+    # veredito ruim chega com exit 0 e quem o julga é o GATE (com feedback).
+    # Cap 3 imposto pelo lint (A14): na 4ª muda-se de estratégia, jamais
+    # re-roda o mesmo corpo. Cada tentativa fica no journal — custo visível.
+    retries = int(node.raw.get("retries", 0))
+    attempt = 0
+    while True:
+        result = _agent_claude(spec, node, journal, prompt, record, cwd=cwd,
+                               results=results, variables=variables)
+        if result.exit_code == 0 or attempt >= retries:
+            return result
+        attempt += 1
+        journal.append("agent_transport_retry", node=node.name, attempt=attempt,
+                       exit_code=result.exit_code)
+        time.sleep(min(2 ** attempt, 10))
 
 
 # ── runner ────────────────────────────────────────────────────────────────────
@@ -3695,7 +3770,14 @@ def cmd_new(root: Path, args: argparse.Namespace) -> int:
 
 # ── F5b: racing — N parallel lanes, first-to-pass wins, losers canceled ───────
 
-RACE_IGNORE = ("*.pyc", "__pycache__", ".touring", ".touring-explore", ".touring-plan")
+# Caches, VCS e estado de runtime NUNCA entram numa lane: `target/` custa
+# dezenas de GB (REGRA #12), `.git` é história inteira, `.claude/` carrega
+# symbols.db (~350MB) e `*.db` são bancos vivos. O merge do vencedor é por
+# bytes (não usa git), então excluí-los não muda a semântica do race — só o
+# torna executável num workspace real (medido 28/08/2026: sem isto, N lanes
+# × o touring copiavam N × ~30GB antes do primeiro nó rodar).
+RACE_IGNORE = ("*.pyc", "__pycache__", ".touring", ".touring-explore", ".touring-plan",
+               "target", ".git", ".claude", "node_modules", "*.db")
 
 
 def _copy_lane(root: Path, lane_dir: Path) -> None:

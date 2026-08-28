@@ -1,0 +1,11 @@
+{
+  "phase": "F6: exercitar ZTE 1x (ou decis\u00e3o documentada) + docs sincronizadas + memory + converg\u00eancia",
+  "entities": [
+    {
+      "entity_id": "phase:F6: exercitar ZTE 1x (ou decis\u00e3o documentada) + docs sincronizadas + memory + converg\u00eancia",
+      "type": "phase",
+      "description": "F6 fechada: ZTE exercitado end-to-end ao vivo via zte-probe (3 warmups aprovados + 4\u00aa run bypassa com conformal IN, confidence 1.0, journal audit a-posteriori; KPI zte_bypass_rate 0.0\u21920.02); CLAUDE.md item 8 atualizado com a potencializa\u00e7\u00e3o; mem\u00f3ria semantic persistida; probe etiquetado como local."
+    }
+  ],
+  "relations": []
+}

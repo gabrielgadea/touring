@@ -1,0 +1,11 @@
+{
+  "phase": "F4: retry de transporte no agent node (exit!=0/timeout; veredito segue no gate) + teste",
+  "entities": [
+    {
+      "entity_id": "phase:F4: retry de transporte no agent node (exit!=0/timeout; veredito segue no gate) + teste",
+      "type": "phase",
+      "description": "F4 fechada: run_agent_node ganhou retries de TRANSPORTE (paridade com o n\u00f3 code) \u2014 exit!=0/timeout 124 do claude -p re-tenta com backoff, cada tentativa audit\u00e1vel no journal (agent_transport_retry); veredito segue exclusivo do gate (feedback verbatim). Teto A14=3 imposto como ERRO de lint (custo LLM real). 2 testes novos: replay de infra-only (3\u00aa tentativa passa, 2 registros no journal, sem-retries preserva comportamento) + lint barra retries=4. Su\u00edte 230/230 do test_adw; espelho client/ sincronizado."
+    }
+  ],
+  "relations": []
+}
