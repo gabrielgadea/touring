@@ -1,0 +1,89 @@
+# ADW `exercise-idle-infra` (expansão 2026-08-28) — a lição que apareceu 3×
+# numa única wave (ZTE, router_accuracy, plan_refine_iters): infra pronta com
+# uso zero NÃO é infra pronta — é hipótese não testada, e o defeito dela só
+# aparece quando alguém liga (memórias: infra-desligada-não-é-infra-pronta,
+# exercitar-infra-como-metodo, afordância-desligada-quebra-em-silêncio).
+# Este flow VARRE o que está ocioso e propõe o exercício de 1 comando para cada.
+# Run:  touring adw run exercise-idle-infra
+
+[adw]
+name = "exercise-idle-infra"
+description = "Varrer KPIs STUB, contadores zerados e afordâncias sem uso; propor 1 exercício real por item — infra ociosa é hipótese, não capacidade"
+entry = "scan"
+budget_tokens = 0
+
+[purpose]
+intent = "Encontrar toda capacidade declarada que nunca rodou e entregar, por item, o exercício de 1 comando que a prova ou a refuta"
+when_to_use = [
+  "periodicamente (o padrão recorre: 3 casos numa única wave em 28/08)",
+  "após entregar capacidade nova — o exercício de estreia é parte da entrega",
+]
+when_not_to_use = [
+  "executar exercícios com efeito colateral (deploy, rede, mutação) — o flow PROPÕE; efeitos colaterais passam pelo humano da sessão",
+  "capacidade já com telemetria de uso saudável — não há ócio a provar",
+]
+inputs = []
+produces = ["inventário de infra ociosa com o exercício de estreia proposto por item"]
+tags = ["#kind:flow", "#domain:observability", "#process:exercise"]
+
+# Prior art (portfolio 28/08/2026): nenhum candidato acima do piso — as três
+# memórias da lição existem; o processo que a aplica de ofício não existia.
+prior_art_verdict = "create_new"
+
+# ── scan → propose → verdict ─────────────────────────────────────────────────
+
+# O ócio MEDIDO: KPIs STUB, actuals zerados e contadores gate-metrics em zero.
+[node.scan]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "echo '-- KPIs STUB (fonte de dado vazia) --'; touring kpi -j 2>/dev/null | jq -r '.checks[] | select(.status==\"STUB\") | \"FACT=stub_\\(.id | gsub(\"[^a-zA-Z0-9]\";\"_\"))=nunca_mediu\"'; echo '-- KPIs em zero absoluto --'; touring kpi -j 2>/dev/null | jq -r '.checks[] | select(.actual==0) | \"FACT=zero_\\(.id | gsub(\"[^a-zA-Z0-9]\";\"_\"))=uso_zero\"'; echo '-- contadores gate-metrics zerados (amostra) --'; touring gate-metrics -j 2>/dev/null | jq -r 'to_entries[] | select(.value==0) | .key' | head -12"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "propose"
+on_fail = "__fail__"
+
+[node.propose]
+type = "agent"
+driver = "claude"
+tier = "light"
+prompt = """Você aplica a lição 'infra desligada não é infra pronta'. O inventário de ócio medido:
+
+{{nodes.scan.summary}}
+
+Para cada item FACT= do inventário: descubra com Read/Grep de onde o dado viria (qual comando/afordância alimenta aquela fonte) e proponha O EXERCÍCIO DE ESTREIA — um único comando real, o mais barato que gera o primeiro dado verdadeiro. Marque cada um:
+FACT=<item>=<safe|colateral> <o comando de 1 linha>
+
+`safe` = leitura/execução local sem efeito externo (pode rodar direto). `colateral` = deploy/rede/mutação (só com humano). Não invente comandos: verifique que existem (--help, grep no código). Se um item é ócio LEGÍTIMO (capacidade de reserva com razão documentada), diga-o com a referência. Termine com VERDICT=PASS se todo item recebeu FACT= com comando verificado ou razão documentada, senão VERDICT=REJECT.
+
+Veredito do gate na tentativa anterior (vazio na primeira; se carrega texto, foi ISSO que reprovou — corrija-o primeiro): {{nodes.verdict_gate.summary}}"""
+allowed_tools = ["Read", "Grep", "Glob", "Bash"]
+permission_mode = "acceptEdits"
+retries = 1
+session = "resume_on_fail"
+timeout_ms = 900000
+on_pass = "verdict_gate"
+on_fail = "__fail__"
+
+# Gate FALANTE (2ª estreia, 28/08): o predicado mudo (`grep -q && grep -q`)
+# reprovava sem dizer o quê — o {{...verdict_gate.summary}} do retry chegava
+# VAZIO e o agente degradava a cada tentativa (13→6→0 FACT= medidos no run
+# 1787920973). A5: a mensagem do erro ENSINA a correção.
+# SEM sandbox (estreia cross-audit 28/08): o gate julga TEXTO DE AGENTE que
+# viaja como posicional, e o X6 classifica o programa INTEIRO (args inclusos)
+# — texto arbitrário com cara de comando vira deny não-determinístico
+# ("X6 denied the subprocess capability 'bash'", 3 gates seguidos). Predicado
+# de string é leitor puro; posicionais já bloqueiam injection.
+[node.verdict_gate]
+type = "gate"
+command = ["bash", "-c", "if [ -n \"$2\" ] && [ -r \"$2\" ]; then t=$(cat \"$2\"); else t=$1; fi; nf=$(printf '%s' \"$t\" | grep -c '^FACT=' || true); np=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); if [ \"$np\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=sem linha 'VERDICT=PASS' em coluna 0 ($nf FACT= presentes) — termine a resposta com a linha literal VERDICT=PASS, fora de tabela/negrito/bloco de codigo\"; exit 1; fi; if [ \"$nf\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=nenhuma linha 'FACT=item=safe|colateral comando' em coluna 0 — uma por item, sem prefixo de lista nem indentacao\"; exit 1; fi; echo \"VERDICT=PASS + REASON=$nf FACT= e VERDICT=PASS presentes\"", "--", "{{nodes.propose.summary}}", "{{nodes.propose.full_ref}}"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "propose"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:exercise-idle-infra:round", summary = "{{nodes.propose.summary}}", domain = "observability" }
+on_pass = "__end__"
+on_fail = "__end__"

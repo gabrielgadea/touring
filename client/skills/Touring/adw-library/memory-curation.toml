@@ -1,0 +1,91 @@
+# ADW `memory-curation` (expansão 2026-08-28) — memórias são observações de um
+# ponto no tempo, não estado vivo: uma memória que descreve bug já corrigido
+# ativa o reflexo errado na próxima sessão (aconteceu 28/08: lint-cycles
+# constava aberto, corrigido havia 10 dias). Este flow verifica as memórias
+# mais antigas CONTRA O CÓDIGO ATUAL e propõe o veredito por memória.
+# Run:  touring adw run memory-curation --var memory_dir=<dir> --var sample=8
+
+[adw]
+name = "memory-curation"
+description = "Verificar memórias antigas contra o código atual: cada claim vira stale/valid/resolved com evidência, sem edição automática"
+entry = "inventory"
+budget_tokens = 0
+
+[purpose]
+intent = "Impedir que memórias envelhecidas guiem decisões: amostrar as mais antigas, verificar cada claim no código de hoje e entregar veredito por memória"
+when_to_use = [
+  "periodicamente (a cada N sessões) ou quando uma memória stale for pega guiando uma decisão",
+  "antes de uma wave grande num domínio com memórias antigas",
+]
+when_not_to_use = [
+  "aplicação automática das correções — o flow entrega VEREDITO; editar memória é ato da sessão com o humano presente",
+  "memórias de preferência do usuário (type: user/feedback) — não têm contraparte em código para verificar",
+]
+inputs = ["memory_dir", "sample"]
+produces = ["veredito stale/valid/resolved por memória amostrada, com a evidência que o sustenta"]
+tags = ["#kind:flow", "#domain:memory", "#process:curation"]
+
+# Prior art (portfolio 28/08/2026): nenhum candidato acima do piso — a memória
+# facetada tem store/recall/link/moc, mas nenhum processo verifica o envelhecido
+# contra o código. O incidente lint-cycles é a evidência da lacuna.
+prior_art_verdict = "create_new"
+
+# ── inventory → verify → veredito ────────────────────────────────────────────
+
+# As N mais antigas por mtime, com nome+descrição — a lista É a ordem de serviço.
+[node.inventory]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "ls -tr \"$1\"/*.md 2>/dev/null | grep -v MEMORY.md | head -\"$2\" | while read -r f; do idade=$(( ($(date +%s) - $(stat -c %Y \"$f\")) / 86400 )); echo \"${idade}d $f :: $(grep -m1 '^description:' \"$f\" | cut -c14-120)\"; done", "--", "{{vars.memory_dir}}", "{{vars.sample}}"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "verify"
+on_fail = "__fail__"
+
+# O verificador é read-only por construção (allowed_tools) — julga, não conserta.
+[node.verify]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+prompt = """Você é um curador de memórias institucionais. Cada linha abaixo é uma memória antiga (idade, caminho, descrição):
+
+{{nodes.inventory.summary}}
+
+Para CADA memória: leia o arquivo, extraia os claims verificáveis (símbolo existe? bug ainda existe? comportamento ainda é esse?) e VERIFIQUE cada um contra o código atual com Read/Grep/Glob — jamais pela plausibilidade. Emita por memória UMA linha exatamente neste formato:
+FACT=<slug-do-arquivo>=<stale|valid|resolved> <evidência em ≤15 palavras: arquivo:linha ou comando que prova>
+
+Regras: (1) `resolved` só com a correção LOCALIZADA no código (arquivo:linha); (2) `stale` quando o claim central não se sustenta mas a correção não foi localizada; (3) `valid` exige que você tenha verificado e o claim se sustente — na dúvida, diga stale com a dúvida na evidência; (4) nunca edite arquivo algum. Termine com VERDICT=PASS se TODAS as memórias receberam FACT= com evidência, senão VERDICT=REJECT.
+
+Veredito do gate na tentativa anterior (vazio na primeira; se carrega texto, foi ISSO que reprovou — corrija-o primeiro): {{nodes.quorum_gate.summary}}"""
+allowed_tools = ["Read", "Grep", "Glob"]
+retries = 1
+session = "resume_on_fail"
+timeout_ms = 900000
+on_pass = "quorum_gate"
+on_fail = "__fail__"
+
+# O gate lê o contrato, não a prosa — e lê o ARQUIVO COMPLETO (full_ref) quando
+# existe: o summary trunca a 2000 bytes e um VERDICT= no fim do output caía fora
+# (medido na estreia do exercise-idle-infra, 28/08: 4 sessões reais reprovadas
+# pelo truncamento, não pelo conteúdo): sem FACT= por item, o round não conta.
+# O veredito viaja como POSICIONAL (o fix da template-injection): um critic não
+# injeta shell escrevendo um.
+# SEM sandbox (estreia cross-audit 28/08): o gate julga TEXTO DE AGENTE que
+# viaja como posicional, e o X6 classifica o programa INTEIRO (args inclusos)
+# — texto arbitrário com cara de comando vira deny não-determinístico
+# ("X6 denied the subprocess capability 'bash'", 3 gates seguidos). Predicado
+# de string é leitor puro; posicionais já bloqueiam injection.
+[node.quorum_gate]
+type = "gate"
+command = ["bash", "-c", "if [ -n \"$2\" ] && [ -r \"$2\" ]; then t=$(cat \"$2\"); else t=$1; fi; n=$(printf '%s' \"$t\" | grep -c '^FACT=' || true); echo \"FACT=facts_emitidos=$n\"; if [ \"$n\" -lt 1 ]; then echo \"VERDICT=REJECT + REASON=nenhuma linha 'FACT=slug=stale|valid|resolved evidencia' em coluna 0 — uma por memoria, sem prefixo de lista nem indentacao\"; exit 1; fi; echo \"VERDICT=PASS + REASON=$n FACT= presentes\"", "--", "{{nodes.verify.summary}}", "{{nodes.verify.full_ref}}"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "verify"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:memory-curation:round", summary = "{{nodes.verify.summary}}", domain = "memory" }
+on_pass = "__end__"
+on_fail = "__end__"

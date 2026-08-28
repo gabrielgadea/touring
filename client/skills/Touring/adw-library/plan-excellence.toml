@@ -1,0 +1,109 @@
+# ADW `plan-excellence` (potencialização das skills, 2026-08-28) — os 4 stages
+# do taco-planning como PIPELINE: o craft viajava num nó agent solto
+# (plan-pack) e os 10 scripts layer-3 da skill eram invocação manual. Aqui o
+# Stage 1 (ground truth), o scaffold, os gates do Stage 4 (gap_detector P0 +
+# plan_validator) e o score 9-dim viram nós `code` — o agente só faz o que só
+# um agente faz: PREENCHER o plano. Gate reprovou → o author recebe os gaps
+# verbatim (o gap_detector é falante por construção).
+# Run:  touring adw run plan-excellence --var intent="<intento>" \
+#         --var bundle=<dir> [--var level=L3]
+
+[adw]
+name = "plan-excellence"
+description = "Pipeline Pln2 do taco-planning: ground_truth_collector → scaffold → author (craft) → gap_detector+plan_validator como gate fail-closed → score 9-dim"
+entry = "ground_truth"
+budget_tokens = 0
+
+[purpose]
+intent = "Produzir um plano Pln2 com ground truth verificado, zero gaps P0 e estrutura validada por exit code — nunca um plano de plausibilidade"
+when_to_use = [
+  "tarefa L3+ que exige plano antes de codar (loop-engineering passo 10)",
+  "quando 'planejar', 'plano Pln2' ou 'taco-planning' for pedido para um intento",
+]
+when_not_to_use = [
+  "tarefa L0-L1 trivial — o overhead do pipeline não paga",
+  "executar o plano — este flow AUTORA e valida; execução é da sessão/outro ADW",
+]
+inputs = ["intent", "bundle", "level"]
+produces = ["<bundle>/plan.md validado (0 gaps P0, estrutura 4-stages) + ground_truth.json + score 9-dim"]
+tags = ["#kind:flow", "#domain:planning", "#process:pln2"]
+
+# Prior art (portfolio 28/08/2026, explore da meta): gap — plan-pack é 1 nó
+# agent com o craft; o PIPELINE determinístico dos scripts não existia como flow.
+prior_art_verdict = "create_new"
+
+[vars]
+level = "L3"
+
+# ── ground_truth → scaffold → author → gates → score ─────────────────────────
+
+# Stage 1 — sweep unificado paralelo; grava o envelope que TODOS os nós leem.
+# Sem sandbox: escreve artefato e spawna N comandos touring (não é leitor).
+[node.ground_truth]
+type = "code"
+command = ["bash", "-c", "mkdir -p \"$2\"; python3 $HOME/.claude/skills/taco-planning/scripts/ground_truth_collector.py --intent \"$1\" --output \"$2/ground_truth.json\" -j 2>&1 | head -c 4000; test -s \"$2/ground_truth.json\"", "--", "{{vars.intent}}", "{{vars.bundle}}"]
+timeout_ms = 420000
+idempotent = true
+on_pass = "scaffold"
+on_fail = "__fail__"
+
+# Esqueleto Pln2 canônico (Jinja2) a partir do intent + ground truth.
+[node.scaffold]
+type = "code"
+command = ["bash", "-c", "python3 $HOME/.claude/skills/taco-planning/scripts/plan_scaffolder.py --intent \"$1\" --level \"$3\" --ground-truth \"$2/ground_truth.json\" --out \"$2/plan.md\" --apply 2>&1 | head -c 2000; test -s \"$2/plan.md\"", "--", "{{vars.intent}}", "{{vars.bundle}}", "{{vars.level}}"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "author"
+on_fail = "__fail__"
+
+# O agente faz SÓ o que só um agente faz: preencher o esqueleto com o plano
+# real, sob o craft taco-planning (9 dims, VGP, confidence tags).
+[node.author]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+skill = "taco-planning"
+prompt = """Você autora um plano Pln2 sob o craft taco-planning. O intento: {{vars.intent}}
+
+Artefatos já em disco (leia ambos ANTES de escrever uma linha):
+- {{vars.bundle}}/ground_truth.json — o ground truth verificado do Stage 1 (a ÚNICA fonte de símbolos/paths citáveis; símbolo fora dele é P0 BLOCKED_INVENTED_SYMBOL)
+- {{vars.bundle}}/plan.md — o esqueleto Pln2 canônico a PREENCHER (edite este arquivo; não crie outro)
+
+Preencha todas as 4 stages: Ground Truth Summary (com evidência do envelope), 9-Dimension Scores (mire ≥8; dim i Potentiation: toda subtask com coluna Enables não-vazia), Phases com subtasks, Verification Protocol e Potentiation Matrix. Marque TODA claim com FACT [1.0] / INFERENCE [0.7-0.9] / SPECULATION [<0.7] — FACT exige file:LINE + comando citado no mesmo bloco. Ao terminar, sua resposta final deve conter a linha FACT=plan_path={{vars.bundle}}/plan.md e a ÚLTIMA linha deve ser a linha literal VERDICT=PASS — em coluna 0, fora de tabela, negrito ou bloco de código.
+
+Veredito dos gates na tentativa anterior (vazio na primeira; se carrega texto, são os GAPS/erros que reprovaram — corrija cada um no plan.md antes de responder): {{nodes.gates.summary}}"""
+allowed_tools = ["Read", "Grep", "Glob", "Edit", "Write"]
+permission_mode = "acceptEdits"
+retries = 1
+session = "resume_on_fail"
+timeout_ms = 900000
+on_pass = "gates"
+on_fail = "__fail__"
+
+# Stage 4 — os gates da skill, fail-closed e FALANTES por construção: o output
+# do gap_detector (gaps P0-P3 nomeados) e do plan_validator entra verbatim no
+# retry do author. confidence_tagger --report é evidência, nunca bloqueio.
+[node.gates]
+type = "gate"
+command = ["bash", "-c", "set -o pipefail; g=$(python3 $HOME/.claude/skills/taco-planning/scripts/gap_detector.py \"$1/plan.md\" --ground-truth \"$1/ground_truth.json\" --fail-on P0 -j 2>&1); ge=$?; v=$(python3 $HOME/.claude/skills/taco-planning/scripts/plan_validator.py \"$1/plan.md\" -j 2>&1); ve=$?; c=$(python3 $HOME/.claude/skills/taco-planning/scripts/confidence_tagger.py \"$1/plan.md\" --report -j 2>&1 | head -c 1200); printf '[gap_detector exit=%s]\\n%s\\n[plan_validator exit=%s]\\n%s\\n[confidence_tagger]\\n%s\\n' \"$ge\" \"$g\" \"$ve\" \"$v\" \"$c\" | head -c 3600; if [ \"$ge\" -ne 0 ] || [ \"$ve\" -ne 0 ]; then echo \"VERDICT=REJECT + REASON=gap_detector exit=$ge plan_validator exit=$ve — corrija os gaps/erros listados acima no plan.md\"; exit 1; fi; echo 'VERDICT=PASS + REASON=0 gaps P0 e estrutura 4-stages valida'", "--", "{{vars.bundle}}"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "score"
+on_fail = "author"
+
+# Score 9-dim como evidência final (METRIC= para o journal; o piso duro já
+# passou nos gates — o score documenta ONDE amplificar depois).
+[node.score]
+type = "code"
+command = ["bash", "-c", "out=$(python3 $HOME/.claude/skills/taco-planning/scripts/dimension_scorer.py \"$1/plan.md\" --ground-truth \"$1/ground_truth.json\" -j 2>&1); printf '%s\\n' \"$out\" | head -c 2400; avg=$(printf '%s' \"$out\" | python3 -c 'import json,sys\ntry:\n d=json.load(sys.stdin); s=d.get(\"scores\") or d.get(\"dimensions\") or {}\n vals=[v if isinstance(v,(int,float)) else v.get(\"score\",0) for v in s.values()] if isinstance(s,dict) else []\n print(round(sum(vals)/len(vals),2) if vals else \"\")\nexcept Exception:\n print(\"\")'); echo \"METRIC=plan_9dim_avg=${avg:-unscored}\"", "--", "{{vars.bundle}}"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "__fail__"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:plan-excellence:round", summary = "{{nodes.score.summary}}", domain = "planning" }
+on_pass = "__end__"
+on_fail = "__end__"

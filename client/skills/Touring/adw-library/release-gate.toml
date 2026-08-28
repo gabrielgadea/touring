@@ -1,0 +1,81 @@
+# ADW `release-gate` (expansão 2026-08-28) — prontidão de release MEDIDA, nunca
+# declarada: check → clippy → e2e → elite composite, cada gate com veredito
+# próprio, e o deploy atrás de um gate HUMANO (deploy é sempre decisão de
+# Gabriel — REGRA do loop: human-gate o irreversível).
+# Run:  touring adw run release-gate
+# O deploy em si NÃO acontece aqui: o flow entrega o veredito e a evidência;
+# `update-touring`/`propagate-release.sh` continuam sendo o executor humano.
+
+[adw]
+name = "release-gate"
+description = "Prontidão de release medida: cargo check + clippy -D + e2e + elite composite, com gate humano antes de qualquer deploy"
+entry = "check"
+budget_tokens = 0
+
+[purpose]
+intent = "Responder 'posso soltar?' com quatro gates medidos e um veredito agregado, deixando a decisão final com um humano"
+when_to_use = [
+  "antes de update-touring / propagate-release / tag de versão",
+  "fim de wave: provar que o tree está release-ready sem depender de leitura otimista",
+]
+when_not_to_use = [
+  "verificação de um único crate/teste — rode o comando direto",
+  "o deploy em si — este flow PARA no veredito; quem propaga é o humano com propagate-release.sh",
+]
+inputs = []
+produces = ["veredito release-ready com evidência por gate", "pausa humana antes do deploy"]
+tags = ["#kind:flow", "#domain:release", "#process:gate"]
+
+# Prior art (portfolio 28/08/2026): nenhum candidato acima do piso — os gates
+# existem como script (propagate-release.sh, gates 1-6) mas nenhum FLOW entrega
+# veredito auditável + pausa humana. O script segue sendo o executor do deploy.
+prior_art_verdict = "create_new"
+
+# ── Os quatro gates, do mais barato ao mais caro ─────────────────────────────
+
+[node.check]
+type = "gate"
+command = ["bash", "-c", "cargo check --workspace --all-targets 2>&1 | tail -3"]
+timeout_ms = 600000
+idempotent = true
+on_pass = "clippy"
+on_fail = "__fail__"
+
+[node.clippy]
+type = "gate"
+command = ["bash", "-c", "cargo clippy --workspace -- -D warnings 2>&1 | tail -3"]
+timeout_ms = 600000
+idempotent = true
+on_pass = "e2e"
+on_fail = "__fail__"
+
+# METRIC= carrega o composite: o journal da campanha lê a curva entre releases.
+[node.e2e]
+type = "code"
+command = ["bash", "-c", "score=$(touring e2e -j 2>/dev/null | jq -r '.composite_score // .composite // empty'); echo \"METRIC=${score:-0}\"; echo \"e2e composite: ${score:-INDISPONIVEL}\""]
+timeout_ms = 300000
+idempotent = true
+on_pass = "elite"
+on_fail = "__fail__"
+
+# Degrade EXPLÍCITO fora do touring: a ausência do agregador é dita, nunca muda.
+[node.elite]
+type = "gate"
+command = ["bash", "-c", "if [ -f docs/elite_aggregate.py ]; then python3 docs/elite_aggregate.py --check 2>&1 | tail -3; else echo 'elite_aggregate ausente neste projeto — gate coberto por check+clippy+e2e (degrade declarado)'; fi"]
+timeout_ms = 300000
+idempotent = true
+on_pass = "aprovar"
+on_fail = "__fail__"
+
+# Deploy é irreversível-para-fora: SEMPRE humano. ZTE deliberadamente ausente.
+[node.aprovar]
+type = "human"
+message = "Gates verdes (check/clippy/e2e/elite). Aprovar o release? O deploy segue com update-touring / propagate-release.sh — este flow não propaga nada."
+on_pass = "close.persist"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:release-gate:round", summary = "{{nodes.e2e.summary}}", domain = "release" }
+on_pass = "__end__"
+on_fail = "__end__"

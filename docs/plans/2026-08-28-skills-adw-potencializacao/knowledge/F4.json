@@ -1,0 +1,11 @@
+{
+  "phase": "F4",
+  "entities": [
+    {
+      "entity_id": "phase:F4",
+      "type": "phase",
+      "description": "converge-close.toml: CLOSE do loop-engineering (judge_attest -> loop_converged -> doc_link_gate, zero agentes, Lei L2 pura); spec+lint prontos; a estreia E o gate de fechamento desta propria wave (roda apos a DAG zerar)"
+    }
+  ],
+  "relations": []
+}

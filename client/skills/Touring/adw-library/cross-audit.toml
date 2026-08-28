@@ -1,0 +1,131 @@
+# ADW `cross-audit` (potencialização das skills, 2026-08-28) — as 7 fases do
+# TACO-cross-audit como GRAFO: até hoje o craft viajava num nó agent solto
+# (audit-pack) e o `audit.toml` audita 1 arquivo; o flow das 7 fases sobre uma
+# ÁRVORE (MAP → PURPOSE → DEBT → HARMONY → FIX&POT proposto → E2E → REPORT)
+# era procedimento manual da skill. Os scripts layer-3 da skill viram nós
+# `code` — adoção estrutural: o runner os chama por construção.
+# Fase→nó: MAP+HARMONY=map (harmony_map.py agrega wiring orphans/audit/cycles),
+# DEBT=debt (scan_debt.py), PURPOSE+FIX&POT=audit (agent com o craft),
+# E2E=e2e (prove_invariants.py), REPORT=report (artefato em disco, Lei L3).
+# Run:  touring adw run cross-audit --var target=<dir> [--var test_timeout=300]
+
+[adw]
+name = "cross-audit"
+description = "As 7 fases do TACO-cross-audit sobre uma árvore: harmony_map + scan_debt como evidência, auditor com o craft, prova E2E e report em docs/audits/"
+entry = "map"
+budget_tokens = 0
+
+[purpose]
+intent = "Auditar uma árvore contra o propósito documentado com evidência determinística (wiring/debt/testes) e entregar o report datado em docs/audits/"
+when_to_use = [
+  "após uma entrega/wave — o cross-audit é o gate VERIFY do INNER (loop-engineering passo 13)",
+  "quando 'auditar', 'verificar fidelidade de propósito' ou 'cross-audit' de um diretório for pedido",
+]
+when_not_to_use = [
+  "auditar 1 arquivo — `touring adw run audit --var target=<file>` já cobre",
+  "aplicar as correções da fase FIX automaticamente — o flow JULGA e propõe; editar código é ato da sessão com o humano",
+]
+inputs = ["target", "test_timeout"]
+produces = ["report OKF em <target>/docs/audits/cross-audit-<data>.md com FACT= por alvo auditado"]
+tags = ["#kind:flow", "#domain:audit", "#process:cross-audit"]
+
+# Prior art (portfolio 28/08/2026, explore da meta): gap — nenhum artefato cobre
+# o flow das 7 fases; audit.toml (1 arquivo) e audit-pack (1 nó) são o prior-art
+# parcial que este spec compõe em grafo.
+prior_art_verdict = "create_new"
+
+[vars]
+test_timeout = "300"
+
+# ── map → debt → audit → gate → e2e → report ─────────────────────────────────
+
+# MAP + HARMONY (fases 1+4): harmony_map agrega wiring orphans/audit/cycles.
+[node.map]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "python3 $HOME/.claude/skills/TACO-cross-audit/scripts/harmony_map.py --json \"$1\" 2>&1; true", "--", "{{vars.target}}"]
+timeout_ms = 180000
+idempotent = true
+on_pass = "debt"
+on_fail = "__fail__"
+
+# DEBT SCAN (fase 3): dead code, supressões, TODOs, pendências.
+[node.debt]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "python3 $HOME/.claude/skills/TACO-cross-audit/scripts/scan_debt.py --json \"$1\" 2>&1; true", "--", "{{vars.target}}"]
+timeout_ms = 180000
+idempotent = true
+on_pass = "audit"
+on_fail = "__fail__"
+
+# PURPOSE AUDIT + FIX&POTENTIALIZE proposto (fases 2+5): o craft da skill num
+# agente que JULGA contra evidência endereçada — nunca edita (when_not_to_use).
+[node.audit]
+type = "agent"
+driver = "claude"
+tier = "workhorse"
+skill = "TACO-cross-audit"
+prompt = """Você audita a árvore {{vars.target}} sob o craft TACO-cross-audit (fases PURPOSE AUDIT e FIX & POTENTIALIZE — propor, nunca editar).
+
+Evidência determinística já colhida (Lei L3 — julgue contra ela, não contra plausibilidade):
+[harmony/wiring] {{nodes.map.summary}}
+[debt] {{nodes.debt.summary}}
+
+Para cada módulo/símbolo relevante da árvore (leia com Read/Grep/Glob o que a evidência apontar): compare o propósito DOCUMENTADO (doc comment, README, nome) com o comportamento REAL. Emita por alvo UMA linha exatamente:
+FACT=<alvo>=<fiel|desvio|orfao|pendente> <evidência ≤15 palavras: arquivo:linha ou comando>
+
+`desvio` = comportamento contraria o propósito documentado; `orfao` = símbolo pub sem consumidor real (REGRA #0 — proponha o wiring); `pendente` = feature declarada não construída. Para cada desvio/orfao/pendente, acrescente na mesma linha a ação de potencialização proposta em ≤10 palavras. Nunca edite arquivo algum. A ÚLTIMA linha da resposta deve ser a linha literal VERDICT=PASS (todos os alvos receberam FACT= com evidência) ou VERDICT=REJECT — em coluna 0, fora de tabela, negrito ou bloco de código.
+
+Veredito do gate na tentativa anterior (vazio na primeira; se carrega texto, foi ISSO que reprovou — corrija-o primeiro): {{nodes.verdict_gate.summary}}"""
+allowed_tools = ["Read", "Grep", "Glob"]
+retries = 1
+session = "resume_on_fail"
+timeout_ms = 900000
+on_pass = "verdict_gate"
+on_fail = "__fail__"
+
+# Gate FALANTE (lição 28/08: gate mudo → feedback vazio → retry degrada).
+# SEM sandbox (estreia cross-audit 28/08): o gate julga TEXTO DE AGENTE que
+# viaja como posicional, e o X6 classifica o programa INTEIRO (args inclusos)
+# — texto arbitrário com cara de comando vira deny não-determinístico
+# ("X6 denied the subprocess capability 'bash'", 3 gates seguidos). Predicado
+# de string é leitor puro; posicionais já bloqueiam injection.
+[node.verdict_gate]
+type = "gate"
+command = ["bash", "-c", "if [ -n \"$2\" ] && [ -r \"$2\" ]; then t=$(cat \"$2\"); else t=$1; fi; nf=$(printf '%s' \"$t\" | grep -c '^FACT=' || true); np=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); if [ \"$np\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=sem linha 'VERDICT=PASS' em coluna 0 ($nf FACT= presentes) — termine a resposta com a linha literal VERDICT=PASS, fora de tabela/negrito/bloco de codigo\"; exit 1; fi; if [ \"$nf\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=nenhuma linha 'FACT=alvo=fiel|desvio|orfao|pendente evidencia' em coluna 0 — uma por alvo, sem lista nem indentacao\"; exit 1; fi; echo \"VERDICT=PASS + REASON=$nf FACT= e VERDICT=PASS presentes\"", "--", "{{nodes.audit.summary}}", "{{nodes.audit.full_ref}}"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "e2e"
+on_fail = "audit"
+
+# E2E PROOF (fase 6): roda a suíte do alvo e verifica o invariante exit-0.
+# SEM sandbox: um test-runner forka livremente (cargo/pytest) e pode exceder o
+# teto do `touring run`; não é leitor — o convite readonly_sem_sandbox não se
+# aplica. `; true` porque suíte VERMELHA é ACHADO do audit (entra no report),
+# nunca falha do flow.
+[node.e2e]
+type = "code"
+command = ["bash", "-c", "python3 $HOME/.claude/skills/TACO-cross-audit/scripts/prove_invariants.py --json --timeout \"$2\" \"$1\" 2>&1; true", "--", "{{vars.target}}", "{{vars.test_timeout}}"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "report"
+on_fail = "__fail__"
+
+# REPORT (fase 7): o artefato datado que o flow guard da skill já exige —
+# determinístico, em disco, com os 4 blocos de evidência. Sem sandbox: escreve
+# arquivo (o X6 nega redirection no perfil Sandboxed).
+[node.report]
+type = "code"
+command = ["bash", "-c", "mkdir -p \"$1/docs/audits\"; f=\"$1/docs/audits/cross-audit-$(date +%F).md\"; { printf -- '---\\ntype: AuditReport\\ntitle: \"cross-audit %s\"\\ndate: %s\\nflow: cross-audit (adw)\\n---\\n\\n' \"$1\" \"$(date +%F)\"; printf '## PURPOSE AUDIT (FACT= por alvo)\\n\\n%s\\n\\n## MAP+HARMONY (harmony_map)\\n\\n```json\\n%s\\n```\\n\\n## DEBT (scan_debt)\\n\\n```json\\n%s\\n```\\n\\n## E2E PROOF (prove_invariants)\\n\\n```json\\n%s\\n```\\n' \"$2\" \"$3\" \"$4\" \"$5\"; } > \"$f\"; echo \"REPORT=$f\"; test -s \"$f\"", "--", "{{vars.target}}", "{{nodes.audit.summary}}", "{{nodes.map.summary}}", "{{nodes.debt.summary}}", "{{nodes.e2e.summary}}"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "__fail__"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:cross-audit:round", summary = "{{nodes.audit.summary}}", domain = "audit" }
+on_pass = "__end__"
+on_fail = "__end__"

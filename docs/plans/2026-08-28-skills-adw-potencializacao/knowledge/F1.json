@@ -1,0 +1,11 @@
+{
+  "phase": "F1",
+  "entities": [
+    {
+      "entity_id": "phase:F1",
+      "type": "phase",
+      "description": "cross-audit.toml: 7 fases como flow (harmony_map/scan_debt/prove_invariants nos code + auditor craft + report datado); estreia completed sobre scripts/ com gate de primeira; report em docs/audits/cross-audit-scripts-2026-08-28.md achou 2 desvios reais; promovido com evidencia comportamental"
+    }
+  ],
+  "relations": []
+}

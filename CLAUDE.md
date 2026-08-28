@@ -104,6 +104,15 @@ timestamp: 2026-08-20T11:15:00-03:00
    Criar: `touring adw new` (prior-art com veredito obrigatório) · inspecionar:
    `touring adw explain` (grafo plano) · `touring adw fragments`. Bundle:
    `docs/plans/2026-08-18-graph-engineering-flow-portfolio/`.
+   **Expansão do portfólio 28/08/2026** (bundle `docs/plans/2026-08-28-adw-specs-expansao/`):
+   a library saltou para **19 specs** — 6 novos codificam o modus operandi que era manual:
+   `release-gate` (4 gates medidos + pausa humana antes de deploy) · `memory-curation`
+   (memórias antigas verificadas contra o código, veredito stale/valid/resolved) ·
+   `exercise-idle-infra` (KPIs STUB/afordâncias uso-zero → exercício de estreia por item) ·
+   `code-mode-adherence` (régua M1 → calibração E/A/M por failure_kind) · `adw-curation`
+   (o meta-ADW: cura a própria library por evidência) · `guard-sweep` (100% dos guards;
+   a estreia achou 3 falhando e forçou as correções). Todos com prior-art create_new
+   registrado, lint 0 erros e evidência comportamental em promotions.json.
    **Potencialização 28/08/2026** (bundle `docs/plans/2026-08-28-adw-potencializacao/`):
    `adw race` deixou de copiar `target/`/`.git`/`.claude` por lane (era N×~30GB);
    teto do sandbox de nó alinhado ao executor real (600s, guard D8 cruzado); lint novo
@@ -112,6 +121,27 @@ timestamp: 2026-08-20T11:15:00-03:00
    veredito segue no gate); ZTE exercitado ao vivo (bypass conformal auditado, KPI 0→0.02);
    `error-teach` promovido à library (10 runs de evidência); KPI `plan_refine_iters`
    corrigido (produtor grava `{version,iterations}`, consumidor só lia array).
+   **Skills como ADWs 28/08/2026** (bundle `docs/plans/2026-08-28-skills-adw-potencializacao/`):
+   library em **23 specs** — o modus operandi das 5 skills TACO virou comando:
+   `cross-audit` (7 fases: harmony_map/scan_debt/prove_invariants como nós code +
+   auditor com o craft + report datado) · `plan-excellence` (pipeline Pln2:
+   ground_truth_collector → scaffold → author → gap_detector P0 + plan_validator
+   como gate falante) · `skill-refine` (REFINE por evidência: mine_transcripts +
+   quality_gate → propostas roteadas, nunca apply) · `converge-close` (judge_attest
+   → loop_converged → doc_link_gate, zero agentes — Lei L2 pura); analysis-loop já
+   era ADW-nativa (profile_to_adw verificado por execução, lint 0/0). Três lições
+   de executor pagas pelas estreias: (a) agente headless herdava os hooks da sessão
+   e o `work-outer` o capturava — `_agent_claude` agora spawna com
+   `TOURING_WORK_OUTER_DISABLED=1` (nó de ADW já é gatado pelo próprio flow);
+   (b) gate mudo → feedback vazio → retry degrada (13→6→0 FACT medidos) — gates
+   FALANTES (a REASON ensina a correção, A5); (c) **texto de agente nunca entra no
+   sandbox**: o X6 classifica o programa inteiro (posicionais inclusos) e prosa com
+   cara de comando vira deny não-determinístico — lint novo
+   `sandboxed_gate_reads_agent_text` (com precedência sobre o convite dual) +
+   2 fragments da library corrigidos (worker-critic-pair, critic-panel); e os
+   placeholders angulados `<x>` em `echo` de REASON casavam com o detector de
+   redirect do `command_writes` (falso escritor) — guard da library agora nomeia
+   os 4 escritores DELIBERADOS.
 
 9. **Reivindicação atômica + Wayfinder no `decompose` (v30.4.1)**: `touring decompose
    claim <task> --owner <id> [--lease-secs N]` / `release` — `ready` só LÊ, então duas
@@ -140,7 +170,8 @@ timestamp: 2026-08-20T11:15:00-03:00
     chamadas, então ele nunca acumulava; o predicado de rajada do S3 o absorveu.
     **Efeito no handshake MCP (S1
     TRANSPORT, 27/08)**: um escopo que declara `code` passa a anunciar só a fachada
-    search+execute — `touring_search`/`touring_ctx_execute`/`touring_memory_recall`
+    search+execute — as tools MCP (nome de tool verificado no handshake, não é
+    crate) `touring_search`/`touring_ctx_execute`/`touring_memory_recall`
     — em vez das ~23 curadas; antes a fachada existia mas exigia
     `TOURING_MCP_CODE_MODE=1` por sessão, então a declaração ficava desligada em
     silêncio. Só o ANÚNCIO estreita: todo tool escondido segue invocável por nome

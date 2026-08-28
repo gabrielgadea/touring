@@ -1,0 +1,11 @@
+{
+  "phase": "F6",
+  "entities": [
+    {
+      "entity_id": "phase:F6",
+      "type": "phase",
+      "description": "docs: nota Skills-como-ADWs no CLAUDE.md item 8 (23 specs + 3 licoes de executor), strategy doc OKF, espelho client/ sincronizado; commit apos o converge-close validar a convergencia"
+    }
+  ],
+  "relations": []
+}

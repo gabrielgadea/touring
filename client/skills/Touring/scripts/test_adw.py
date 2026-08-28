@@ -3733,7 +3733,17 @@ def test_the_shipped_library_is_classified_and_arm_marker_is_the_writer():
             if adw.command_writes(node.get("command")) is True:
                 escritores.append(f"{f.stem}:{name}")
     assert total >= 15, f"só {total} nós examinados — a varredura não achou a biblioteca"
-    assert escritores == ["strategy-loop:arm_marker"], escritores
+    # Escritores DELIBERADOS, cada um o ponto do seu flow (28/08/2026, wave
+    # potencialização das skills): o report do cross-audit e os artefatos do
+    # pipeline Pln2 são a razão de existir dos nós — a mutação é a entrega.
+    # Qualquer nome NOVO nesta lista exige a mesma justificativa no spec.
+    esperados = [
+        "cross-audit:report",
+        "plan-excellence:ground_truth",
+        "plan-excellence:scaffold",
+        "strategy-loop:arm_marker",
+    ]
+    assert sorted(escritores) == esperados, escritores
 
 
 # ── W4 (plano code-mode-total 2026-08-24): predicados + probe/control ─────────
@@ -4155,3 +4165,52 @@ on_fail = "__fail__"
 """)
     _, warnings = adw.lint_spec(adw.load_spec(root, "w84"))
     assert not any("lacuna TanStack" in w for w in warnings), warnings
+
+
+def test_sandboxed_gate_reading_agent_text_is_reported(root):
+    """Estreia cross-audit 28/08: o X6 classifica o programa INTEIRO (args
+    inclusos), e o summary de um agente com cara de comando vira deny."""
+    write_spec(root, "sgat", """
+[adw]
+name = "sgat"
+entry = "think"
+[node.think]
+type = "agent"
+driver = "mock"
+allowed_tools = ["Read"]
+prompt = "produce facts"
+on_pass = "judge"
+[node.judge]
+type = "gate"
+sandbox = true
+command = ["bash", "-c", "printf %s $1 | grep -q FACT", "--", "{{nodes.think.summary}}"]
+idempotent = true
+on_pass = "__end__"
+on_fail = "think"
+""")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "sgat"))
+    assert any("texto de agente" in w and "`judge`" in w for w in warnings), warnings
+
+
+def test_sandboxed_gate_with_plain_vars_stays_silent(root):
+    """O dual: posicionais que carregam vars simples (paths) não são texto de
+    agente — o sandbox ali é o convite correto, nunca ruído."""
+    write_spec(root, "sgat2", """
+[adw]
+name = "sgat2"
+entry = "scan"
+[node.scan]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "ls $1", "--", "{{vars.target}}"]
+idempotent = true
+on_pass = "judge"
+[node.judge]
+type = "gate"
+command = ["bash", "-c", "printf %s $1 | grep -q x", "--", "{{nodes.scan.summary}}"]
+idempotent = true
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "sgat2"))
+    assert not any("texto de agente" in w for w in warnings), warnings

@@ -1,0 +1,76 @@
+# ADW `converge-close` (potencialização das skills, 2026-08-28) — o veredito
+# de convergência do loop-engineering como UM comando: judge_attest (o juiz de
+# record intacto?) → loop_converged (as cláusulas fail-closed) → doc_link_gate
+# (o passo 17 do CLOSE: todo .md do bundle linkado e sem contradição). ZERO
+# agentes — é a Lei L2 em forma pura: código, nunca o LLM, encerra o loop.
+# Um run `completed` É convergência; `failed` carrega o unmet/next_action no
+# journal. Antes disso os 3 juízes eram invocação manual em sequência.
+# Run:  touring adw run converge-close --var task=<task_id> \
+#         --var scope=<path> --var bundle=<okf bundle dir>
+
+[adw]
+name = "converge-close"
+description = "CLOSE do loop-engineering: judge_attest → loop_converged → loop_doc_link_gate encadeados fail-closed; completed = convergido de fato"
+entry = "judge"
+budget_tokens = 0
+
+[purpose]
+intent = "Encerrar um loop apenas quando os três juízes dizem sim por exit code: juiz de record intacto, cláusulas de convergência atendidas, bundle documentado sem links quebrados"
+when_to_use = [
+  "no fechamento de qualquer loop/wave com DAG + bundle OKF (loop-engineering passos 15-17)",
+  "antes de declarar 'pronto' — o veredito é o exit code deste flow, nunca autoavaliação (REGRA #21/Lei L3)",
+]
+when_not_to_use = [
+  "meio de fase — o Stop hook já roda loop_converged por conta própria; este flow é o fechamento deliberado",
+  "tarefa sem DAG e sem bundle — não há o que julgar; use os gates unitários",
+]
+inputs = ["task", "scope", "bundle"]
+produces = ["veredito de convergência por exit code + unmet/next_action quando não convergido"]
+tags = ["#kind:flow", "#domain:loop", "#process:converge"]
+
+# Prior art (portfolio 28/08/2026, explore da meta): gap — os 3 juízes existem
+# como scripts da skill; o encadeamento fail-closed como comando não existia.
+prior_art_verdict = "create_new"
+
+# ── judge → converged → doclink ──────────────────────────────────────────────
+
+# O juiz de record primeiro: toda cláusula vale o que vale quem a pontuou.
+# Drift bloqueante → o flow FALHA nomeando o remédio (judge_attest --attest).
+[node.judge]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "out=$(python3 $HOME/.claude/skills/loop-engineering/scripts/judge_attest.py --json 2>&1); ec=$?; printf '%s\\n' \"$out\" | head -c 2400; if [ \"$ec\" -ne 0 ]; then echo 'VERDICT=REJECT + REASON=juiz de record em drift bloqueante — se a mudanca foi deliberada, ateste com: judge_attest.py --attest --why \"...\"'; exit 1; fi; echo 'VERDICT=PASS + REASON=graders conferem com o juiz de record'", "--"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "converged"
+on_fail = "__fail__"
+
+# As cláusulas de convergência (DAG vazio, quality ≥ Gold, 0 P0 BLOCK, orphans
+# ≤ baseline, cargo verde, purpose-fidelity). SEM sandbox: roda cargo no scope.
+# exit 1 = não convergido — o flow FALHA carregando unmet[]/next_action, que é
+# exatamente o contrato: completed deste flow SIGNIFICA convergido.
+[node.converged]
+type = "code"
+command = ["bash", "-c", "out=$(python3 $HOME/.claude/skills/loop-engineering/scripts/loop_converged.py --task \"$1\" --scope \"$2\" --bundle \"$3\" 2>&1); ec=$?; printf '%s\\n' \"$out\" | head -c 3200; if [ \"$ec\" -ne 0 ]; then echo 'VERDICT=REJECT + REASON=nao convergido — o unmet[]/next_action acima diz o que falta'; exit 1; fi; echo 'VERDICT=PASS + REASON=todas as clausulas de convergencia atendidas'", "--", "{{vars.task}}", "{{vars.scope}}", "{{vars.bundle}}"]
+timeout_ms = 900000
+idempotent = true
+on_pass = "doclink"
+on_fail = "__fail__"
+
+# Passo 17 do CLOSE: todo .md do bundle é OKF válido, linkado ao plano, sem
+# órfãos nem contradições.
+[node.doclink]
+type = "code"
+sandbox = true
+command = ["bash", "-c", "out=$(python3 $HOME/.claude/skills/loop-engineering/scripts/loop_doc_link_gate.py --bundle \"$1\" 2>&1); ec=$?; printf '%s\\n' \"$out\" | head -c 2400; if [ \"$ec\" -ne 0 ]; then echo 'VERDICT=REJECT + REASON=bundle com frontmatter/links quebrados ou contradicoes — a lista acima nomeia cada um'; exit 1; fi; echo 'VERDICT=PASS + REASON=bundle OKF integro'", "--", "{{vars.bundle}}"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "close.persist"
+on_fail = "__fail__"
+
+[[use]]
+module  = "phase-close"
+as      = "close"
+with    = { key = "adw:converge-close:round", summary = "{{nodes.converged.summary}}", domain = "loop" }
+on_pass = "__end__"
+on_fail = "__end__"

@@ -122,6 +122,25 @@ RULES = (
 )
 
 SERIAL_ATTR = "serial("
+SERIAL_GROUPS_RE = re.compile(r"serial\(([^)]*)\)")
+
+
+def _serial_groups(attrs: list[str]) -> set[str]:
+    """Todos os grupos declarados em atributos `serial(...)` — inclusive a forma
+    multi-key `#[serial(gate_metrics, t3_env)]`, que o serial_test aceita e o
+    predicado por substring literal não enxergava (28/08/2026: 3 testes com os
+    dois locks eram acusados de não ter o segundo — o verificador lia menos do
+    que o extrator escreve)."""
+    groups: set[str] = set()
+    for attr in attrs:
+        for m in SERIAL_GROUPS_RE.finditer(attr):
+            for g in m.group(1).split(","):
+                g = g.strip()
+                if g:
+                    groups.add(g)
+    return groups
+
+
 TEST_RE = re.compile(r"^\s*#\[test\]")
 ATTR_RE = re.compile(r"^\s*#\[")
 FN_RE = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)")
@@ -199,10 +218,13 @@ def offenders() -> list[dict[str, object]]:
             # atributos reportava os 11 testes como violação e sugeria um
             # remédio inexistente (`#[serial_test::global_cache_guard()]`).
             marker_in = str(rule.get("marker_in", "attrs"))
+            grupo_exigido = SERIAL_GROUPS_RE.search(str(rule["serial"]))
             for blk in _blocks(text):
                 body = str(blk["body"])
                 marcado = (
-                    any(rule["serial"] in a for a in blk["attrs"])  # type: ignore[union-attr]
+                    grupo_exigido is not None
+                    and grupo_exigido.group(1).strip()
+                    in _serial_groups(list(blk["attrs"]))  # type: ignore[arg-type]
                     if marker_in == "attrs"
                     else rule["serial"] in body
                 )
