@@ -136,7 +136,18 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
             .to_string();
         }
     };
-    let checks: Vec<CommitmentCheck> = file.commitments.iter().map(|c| check_one(rt, c)).collect();
+    // Measurements for `external:` sources live next to the contract itself
+    // (`<commitments-dir>/external/<id>.json` — versionable, dated, auditable);
+    // see `resolve_external`.
+    let external_dir = yaml_path
+        .parent()
+        .map(|p| p.join("external"))
+        .unwrap_or_else(|| PathBuf::from("external"));
+    let checks: Vec<CommitmentCheck> = file
+        .commitments
+        .iter()
+        .map(|c| check_one(rt, c, &external_dir))
+        .collect();
     let summary = summarize(&checks);
     let snapshot_date = today_iso();
     // Investigation 2026-07-01: several sources resolve per-project (orphans,
@@ -394,11 +405,13 @@ fn days_to_ymd(mut days: i64) -> (i32, u32, u32) {
 // Per-commitment checking
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn check_one(rt: &mut HookRuntime, c: &Commitment) -> CommitmentCheck {
-    let (kind, actual) = resolve_source(rt, &c.source);
+fn check_one(rt: &mut HookRuntime, c: &Commitment, external_dir: &std::path::Path) -> CommitmentCheck {
+    let (kind, actual) = resolve_source(rt, &c.source, &c.id, external_dir);
     let mut status = match (kind, actual) {
-        ("daemon" | "derived", Some(v)) => check_threshold(v, c.threshold, &c.direction),
-        ("external", _) | ("daemon" | "derived", None) => "STUB",
+        ("daemon" | "derived" | "external", Some(v)) => {
+            check_threshold(v, c.threshold, &c.direction)
+        }
+        ("daemon" | "derived" | "external", None) => "STUB",
         _ => "ERROR",
     };
     if c.advisory && status == "FAIL" {
@@ -417,7 +430,12 @@ fn check_one(rt: &mut HookRuntime, c: &Commitment) -> CommitmentCheck {
     }
 }
 
-fn resolve_source(rt: &mut HookRuntime, source: &str) -> (&'static str, Option<f64>) {
+fn resolve_source(
+    rt: &mut HookRuntime,
+    source: &str,
+    id: &str,
+    external_dir: &std::path::Path,
+) -> (&'static str, Option<f64>) {
     if let Some(rest) = source.strip_prefix("daemon:") {
         let mut parts = rest.splitn(2, ':');
         let handler = parts.next().unwrap_or("");
@@ -433,9 +451,40 @@ fn resolve_source(rt: &mut HookRuntime, source: &str) -> (&'static str, Option<f
         return ("derived", resolve_derived(rt, name));
     }
     if source.starts_with("external:") {
-        return ("external", None);
+        return ("external", resolve_external(external_dir, id));
     }
     ("unknown", None)
+}
+
+/// Out-of-band measurements stay valid for a fortnight: `external:` sources
+/// are expensive runs (a full llvm-cov is ~10 min) whose numbers move slowly,
+/// and a months-old figure must not masquerade as current.
+const EXTERNAL_STALE_SECS: u64 = 14 * 24 * 3600;
+
+/// Reads the recorded measurement for an `external:` commitment.
+///
+/// `touring kpi` never runs external commands itself (a dashboard must not
+/// spawn a 10-minute `llvm-cov`) — until 2026-08-28 `external:` sources
+/// resolved to `None` unconditionally, so `test.count`/`coverage.line` stayed
+/// STUB forever even after being measured. The `source` field documents HOW
+/// to measure; whoever runs the measurement drops
+/// `<commitments-dir>/external/<id>.json` with a numeric `value` field (extra
+/// fields like `measured_at`/`command` are for human audit) and this reader
+/// surfaces it while fresh (file mtime within [`EXTERNAL_STALE_SECS`]).
+/// Missing, stale or malformed → `None` (STUB): an unrecorded measurement is
+/// unknown, never zero.
+fn resolve_external(external_dir: &std::path::Path, id: &str) -> Option<f64> {
+    let path = external_dir.join(format!("{id}.json"));
+    let meta = std::fs::metadata(&path).ok()?;
+    if let Ok(modified) = meta.modified()
+        && let Ok(age) = modified.elapsed()
+        && age.as_secs() > EXTERNAL_STALE_SECS
+    {
+        return None;
+    }
+    let raw = std::fs::read_to_string(&path).ok()?;
+    let v: Value = serde_json::from_str(&raw).ok()?;
+    v.pointer("/value").and_then(json_value_as_f64)
 }
 
 /// Resolves a `derived:<name>` KPI — a value computed from already-collected
@@ -834,13 +883,31 @@ fn read_world_model_success() -> Option<f64> {
     }
 }
 
+/// `<handler>@<scope>` — a `daemon:` source may carry a scope argument
+/// declared in the YAML (e.g. `daemon:cli-mutation-test@touring-identity:/kill_rate`),
+/// so the target lives in the contract instead of hardcoded here.
+fn split_handler_scope(handler: &str) -> (&str, Option<&str>) {
+    match handler.split_once('@') {
+        Some((name, scope)) if !scope.is_empty() => (name, Some(scope)),
+        _ => (handler, None),
+    }
+}
+
 fn invoke_handler(rt: &mut HookRuntime, handler: &str) -> Option<Value> {
-    let raw = match handler {
+    let (name, scope) = split_handler_scope(handler);
+    let raw = match name {
         "cli-wiring-status" => super::super::cli_handlers::cli_wiring_status(rt, &Value::Null),
         "cli-learning-status" => super::super::cli_handlers::cli_learning_status(rt, &Value::Null),
         "cli-gate-metrics" => super::super::cli_handlers::cli_gate_metrics(rt, &Value::Null),
         "cli-gotcha-stats" => super::super::cli_handlers::cli_gotcha_stats(rt, &Value::Null),
         "cli-memory-stats" => super::super::cli_handlers::cli_memory_stats(rt, &Value::Null),
+        // Cache-only read: the mutation run itself takes ~20 min and is
+        // triggered explicitly (`touring mutation-test --package <p>`); the
+        // KPI must never spawn it — a cold cache reads as STUB, by design.
+        "cli-mutation-test" => crate::cli_handlers_mutation_test::cli_mutation_test(
+            rt,
+            &json!({"cache_only": true, "package": scope}),
+        ),
         _ => return None,
     };
     serde_json::from_str(&raw).ok()
@@ -888,7 +955,15 @@ fn summarize(checks: &[CommitmentCheck]) -> Value {
 /// Path to the latest A/B attribution block written by `run_bench.py --compare`
 /// (mirrors its `DEFAULT_AB_OUT`: `<workspace>/docs/agentic-bench/.ab-latest.json`).
 fn default_ab_path() -> PathBuf {
+    // Canonical source tree first (F4′, 24/07/2026): `~/.claude/rust` is the
+    // FROZEN tree — preferring it meant reading A/B blocks nothing writes
+    // anymore. The frozen path stays as a read fallback for pre-move history.
     if let Ok(home) = std::env::var("HOME") {
+        let canonical =
+            PathBuf::from(&home).join("projects/touring/docs/agentic-bench/.ab-latest.json");
+        if canonical.exists() {
+            return canonical;
+        }
         PathBuf::from(home).join(".claude/rust/docs/agentic-bench/.ab-latest.json")
     } else {
         PathBuf::from("docs/agentic-bench/.ab-latest.json")
@@ -909,9 +984,12 @@ fn persist_snapshot(
     project_root: &std::path::Path,
 ) -> std::io::Result<PathBuf> {
     let month = date.get(0..7).unwrap_or("0000-00");
+    // Canonical source tree (F4′, 24/07/2026): snapshots were still being
+    // written under `~/.claude/rust/docs/kpi` — the FROZEN tree — so the
+    // dated series silently accumulated where no reader looks anymore.
     let dir = if let Ok(home) = std::env::var("HOME") {
         PathBuf::from(home)
-            .join(".claude/rust/docs/kpi")
+            .join("projects/touring/docs/kpi")
             .join(month)
     } else {
         PathBuf::from("docs/kpi").join(month)
@@ -1461,5 +1539,134 @@ mod tests {
         let adv = "version: '1.0'\nschema: kpi-v1\ncommitments:\n  - id: a.b\n    name: T\n    threshold: 1.0\n    direction: gte\n    source: 'derived:health_delta_net'\n    advisory: true\n";
         let f2: CommitmentsFile = serde_yaml::from_str(adv).expect("parse advisory");
         assert!(f2.commitments[0].advisory);
+    }
+
+    #[test]
+    fn split_handler_scope_extracts_package() {
+        assert_eq!(
+            split_handler_scope("cli-gate-metrics"),
+            ("cli-gate-metrics", None)
+        );
+        assert_eq!(
+            split_handler_scope("cli-mutation-test@touring-identity"),
+            ("cli-mutation-test", Some("touring-identity"))
+        );
+        assert_eq!(
+            split_handler_scope("cli-x@"),
+            ("cli-x@", None),
+            "an empty scope is not a scope"
+        );
+    }
+
+    #[test]
+    fn resolve_external_reads_fresh_value_and_stubs_otherwise() {
+        let dir = std::env::temp_dir().join(format!("kpi-external-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        assert_eq!(resolve_external(&dir, "a.b"), None, "missing file is STUB");
+        std::fs::write(dir.join("a.b.json"), r#"{"value": 15786, "measured_at": "x"}"#)
+            .expect("write fresh");
+        assert_eq!(resolve_external(&dir, "a.b"), Some(15786.0));
+        std::fs::write(dir.join("c.d.json"), "not json").expect("write malformed");
+        assert_eq!(resolve_external(&dir, "c.d"), None, "malformed is STUB");
+        std::fs::write(dir.join("e.f.json"), r#"{"measured_at": "x"}"#).expect("write valueless");
+        assert_eq!(
+            resolve_external(&dir, "e.f"),
+            None,
+            "a file without `value` is STUB, never a fabricated zero"
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The structural guard the 2026-08-28 audit found missing: every source
+    /// the contract declares must have a matching arm in this file, and every
+    /// derived arm must be declared by the contract. `cli-mutation-test` sat
+    /// in the YAML with no `invoke_handler` arm (permanently STUB), and the
+    /// `inspect_burst_share` arm sat here with no commitment (never shown) —
+    /// declaration and executor must derive from the same source (D8).
+    #[test]
+    fn every_declared_source_has_an_arm_and_every_derived_arm_a_commitment() {
+        let yaml_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/kpi/commitments.yaml");
+        let Ok(yaml) = std::fs::read_to_string(&yaml_path) else {
+            eprintln!(
+                "skip: {} not present (out-of-repo build)",
+                yaml_path.display()
+            );
+            return;
+        };
+        let src = include_str!("kpi.rs");
+        // A region runs from its top-level `fn` line to the next top-level fn.
+        let region = |start: &str| -> String {
+            let mut out = String::new();
+            let mut inside = false;
+            for line in src.lines() {
+                if line.starts_with(start) {
+                    inside = true;
+                } else if inside && line.starts_with("fn ") {
+                    break;
+                }
+                if inside {
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+            out
+        };
+        let invoke = region("fn invoke_handler");
+        let derived_region = region("fn resolve_derived");
+        assert!(
+            !invoke.is_empty() && !derived_region.is_empty(),
+            "invoke_handler / resolve_derived regions must be locatable"
+        );
+
+        let mut daemon_handlers: Vec<String> = Vec::new();
+        let mut derived_names: Vec<String> = Vec::new();
+        for line in yaml.lines() {
+            let t = line.trim();
+            let Some(rest) = t.strip_prefix("source: \"") else {
+                continue;
+            };
+            let Some(end) = rest.rfind('"') else { continue };
+            let source = &rest[..end];
+            if let Some(r) = source.strip_prefix("daemon:") {
+                let handler = r.split(':').next().unwrap_or("");
+                let (name, _) = split_handler_scope(handler);
+                daemon_handlers.push(name.to_string());
+            } else if let Some(r) = source.strip_prefix("derived:") {
+                derived_names.push(r.to_string());
+            }
+        }
+        assert!(
+            !daemon_handlers.is_empty() && !derived_names.is_empty(),
+            "commitments.yaml parsed no sources — the guard is not seeing the contract"
+        );
+        for h in &daemon_handlers {
+            assert!(
+                invoke.contains(&format!("\"{h}\"")),
+                "daemon source `{h}` declared in commitments.yaml has no invoke_handler arm — it can only ever be STUB"
+            );
+        }
+        for d in &derived_names {
+            assert!(
+                derived_region.contains(&format!("\"{d}\"")),
+                "derived source `{d}` declared in commitments.yaml has no resolve_derived arm — it can only ever be STUB"
+            );
+        }
+        // Inverse direction: an arm nothing declares is dead code no KPI shows.
+        for line in derived_region.lines() {
+            let t = line.trim_start();
+            if !t.starts_with('"') || !t.contains("=>") {
+                continue;
+            }
+            let Some(name) = t.trim_start_matches('"').split('"').next() else {
+                continue;
+            };
+            if !name.is_empty() {
+                assert!(
+                    derived_names.iter().any(|d| d == name),
+                    "resolve_derived arm `{name}` has no commitment in commitments.yaml — an orphan no `touring kpi` output ever shows"
+                );
+            }
+        }
     }
 }

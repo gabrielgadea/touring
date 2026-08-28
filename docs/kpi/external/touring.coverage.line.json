@@ -1,0 +1,6 @@
+{
+  "value": 0.7528,
+  "measured_at": "2026-08-28T11:00:00-03:00",
+  "command": "cargo llvm-cov --workspace --lcov --summary-only",
+  "note": "First real measurement (exercise-idle-infra debut, curadoria 28/08): 75.28% line coverage, floor 0.75."
+}

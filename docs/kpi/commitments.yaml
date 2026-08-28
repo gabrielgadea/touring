@@ -61,33 +61,45 @@ commitments:
     source: "daemon:cli-gotcha-stats:/resolved"
     rationale: "Gotchas should be progressively resolved over time."
 
+  # `external:` sources document HOW to measure; `touring kpi` never runs them
+  # (a dashboard must not spawn a 10-minute llvm-cov). Record the measurement
+  # next to this contract as `docs/kpi/external/<id>.json` with a numeric
+  # `value` field (extra fields like `measured_at`/`command` are human audit
+  # trail); the kpi surfaces it while the file is <14 days old, else STUB.
+  # Until 2026-08-28 there was NO channel at all and these stayed STUB forever
+  # even after being measured.
   - id: touring.test.count
     name: "Total nextest count"
     threshold: 5100
     direction: gte
-    source: "external:cargo nextest --list-tests | wc -l"
-    rationale: "Test count is a leading indicator of confidence; do not regress."
+    source: "external:cargo nextest list 2>/dev/null | grep -c ': test$' # → docs/kpi/external/touring.test.count.json"
+    rationale: "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786."
 
   - id: touring.coverage.line
     name: "Line coverage (cargo llvm-cov)"
     threshold: 0.75
     direction: gte
-    source: "external:cargo llvm-cov --workspace --lcov --summary-only"
-    rationale: "75% line coverage is the minimum bar set by docs/ci-template.yml."
+    source: "external:cargo llvm-cov --workspace --lcov --summary-only # fraction → docs/kpi/external/touring.coverage.line.json"
+    rationale: "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528."
 
   # ─── Wave T2 (2026-04-25) — mutation testing ──────────────────────────────
   # Threshold ramps up per docs/mutation-testing.md (week 1-2 → month 3):
   #   week 1-2: 50  | week 3-4: 65  | month 2: 75  | month 3: 80 (target)
-  # Source reads the cached report written by `touring mutation-test` (T1).
-  # When the cache is empty (cache_miss / kind=cache_miss / kill_rate absent)
-  # the kpi handler returns 0.0 and this commitment fails, but the gate in
-  # run_full_audit.sh is advisory (skip-aware) so cold-start does not block.
+  # Source reads the cached report written by `touring mutation-test` (T1);
+  # `@touring-identity` is the package scope (the handler's cache is keyed per
+  # package). The kpi reads cache_only — kill_rate absent → STUB, and the run
+  # itself (~19 min for 134 mutants) is triggered explicitly:
+  #   touring mutation-test --package touring-identity
+  # Retarget note (2026-08-28): the original target `touring-ast` no longer
+  # exists as a crate (absorbed in refactors) — the commitment pointed at a
+  # ghost. touring-identity is the measured series (2026-08-20: 74.3% → 99.1%
+  # after the mutants nextest profile).
   - id: touring.mutation.kill_rate
-    name: "Mutation test kill_rate (touring-ast, advisory)"
+    name: "Mutation test kill_rate (touring-identity)"
     threshold: 50.0
     direction: gte
-    source: "daemon:cli-mutation-test:/kill_rate"
-    rationale: "Mutation testing measures how many fault injections the test suite catches. Week 1-2 baseline is 50% (advisory); ramps to 80% by month 3. See docs/mutation-testing.md."
+    source: "daemon:cli-mutation-test@touring-identity:/kill_rate"
+    rationale: "Mutation testing measures how many fault injections the test suite catches. Week 1-2 baseline is 50%; ramps to 80% by month 3. See docs/mutation-testing.md."
 
   # ─── Wave F1 (2026-06-28) — coupling telemetry (node ⑦) ───────────────────
   # The touring.coupling.* family measures the EFFECTIVENESS of the LLM↔Touring
@@ -200,6 +212,17 @@ commitments:
     advisory: true
     source: "derived:code_mode_arm_code"
     rationale: "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado."
+
+  # Wire note (2026-08-28): the `inspect_burst_share` derived branch existed in
+  # kpi.rs since S3 (2026-08-27) with NO commitment declaring it — an orphan
+  # branch no `touring kpi` output ever showed. This entry is its consumer.
+  - id: touring.code_mode.inspect_burst_share
+    name: "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)"
+    threshold: 0.75
+    direction: lte
+    advisory: true
+    source: "derived:inspect_burst_share"
+    rationale: "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2)."
 
   - id: touring.coupling.pillar_induction_ratio
     name: "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)"
