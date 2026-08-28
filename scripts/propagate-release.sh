@@ -262,19 +262,41 @@ else
     # cima do restart mede o transiente, não o contrato — e um gate que reprova
     # por transiente é um gate que as pessoas aprendem a ignorar (a fadiga que
     # a REGRA #19 já documenta: "daemon degraded ≠ daemon inexistente").
-    for _ in $(seq 1 20); do
-        if touring doctor -j 2>/dev/null | grep -q '"status": *"ok"'; then
-            if ! touring doctor -j 2>/dev/null | grep -q '"status": *"error"'; then
-                break
+    #
+    # ESTREIA REAL (28/08/2026, propagação 30.4.17): a espera de 20s esgotou com
+    # o project actor ainda drenando (o index de ~350 MB recarrega após o restart)
+    # e a prova mediu o transiente — 27/35, todos os probes do SDK em None.
+    # Re-rodada com o daemon estável: 35/35. A espera era best-effort SEM
+    # verificação final: esgotar o teto caía direto na prova. Agora o esgotamento
+    # é anunciado e a prova tem UM retry após re-espera — transiente vira atraso;
+    # falha real reprova duas vezes seguidas e mata o script igual.
+    wait_doctor_clean() {
+        for _ in $(seq 1 "$1"); do
+            if touring doctor -j 2>/dev/null | grep -q '"status": *"ok"'; then
+                if ! touring doctor -j 2>/dev/null | grep -q '"status": *"error"'; then
+                    return 0
+                fi
             fi
-        fi
-        sleep 1
-    done
-    if python3 "$WORKSPACE/scripts/prova_code_mode_ceg.py" >/tmp/prova-code-mode.log 2>&1; then
+            sleep 1
+        done
+        return 1
+    }
+    run_prova() {
+        python3 "$WORKSPACE/scripts/prova_code_mode_ceg.py" >/tmp/prova-code-mode.log 2>&1
+    }
+    wait_doctor_clean 20 \
+        || echo "  ${YELLOW}(doctor ainda degradado após 20s — se a prova falhar, re-espera + retry)${RESET}"
+    if run_prova; then
         log "prova comportamental: $(tail -2 /tmp/prova-code-mode.log | head -1)"
     else
-        tail -20 /tmp/prova-code-mode.log
-        die "a prova comportamental falhou — o binário instalado não cumpre o contrato (REGRA #21)"
+        echo "  ${YELLOW}(prova falhou; re-esperando o doctor limpar — teto 60s — e re-rodando 1×)${RESET}"
+        wait_doctor_clean 60 || true
+        if run_prova; then
+            log "prova comportamental (2ª tentativa, pós-transiente): $(tail -2 /tmp/prova-code-mode.log | head -1)"
+        else
+            tail -20 /tmp/prova-code-mode.log
+            die "a prova comportamental falhou 2× — o binário instalado não cumpre o contrato (REGRA #21)"
+        fi
     fi
 fi
 
