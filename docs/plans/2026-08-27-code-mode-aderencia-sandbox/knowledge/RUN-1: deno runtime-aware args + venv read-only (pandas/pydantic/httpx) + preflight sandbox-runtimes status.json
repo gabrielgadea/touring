@@ -1,0 +1,11 @@
+{
+  "phase": "RUN-1: deno runtime-aware args + venv read-only (pandas/pydantic/httpx) + preflight sandbox-runtimes status",
+  "entities": [
+    {
+      "entity_id": "phase:RUN-1: deno runtime-aware args + venv read-only (pandas/pydantic/httpx) + preflight sandbox-runtimes status",
+      "type": "phase",
+      "description": "RUN-1 done: (1) deno runtime-aware (eval/eval --ext=ts medidos ao vivo; resolve_language_args_for + resolve_args_with_runtime; wrapper compat sem quebrar API; LANGUAGE_CANDIDATES fonte \u00fanica); TS executa via deno (ts-deno: 42). (2) venv read-only: setup-venv no host instalou pandas 3.0.5/pydantic 2.13.4/httpx 0.28.1 (py 3.14.7); sandbox monta via PYTHONPATH fora dos write roots; pandas importa DE DENTRO (prova). (3) preflight touring sandbox-runtimes status: 7/11 resolvidos com path, ausentes nomeados (fail-LOUD, A12). Suites ceg+server 2280 verdes; 2 testes novos (deno args, preflight)."
+    }
+  ],
+  "relations": []
+}

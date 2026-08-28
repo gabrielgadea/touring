@@ -20,7 +20,12 @@ Destaque novo (2026-08-24): `touring adw campaign <flow> --until "<predicado>"`
 touring run --lang python --code '<programa>'        # 12 linguagens (python, js/ts, bash, go, rust…)
 touring run --lang python --file script.py --brief   # digest C5 < ~200 tokens
 touring run --lang python --orchestrate --code '…'   # injeta o SDK touring.* (abaixo)
+touring run --lang js --orchestrate --code '…'       # SDK-1: o MESMO SDK em JS (Promise; node/bun/deno)
 touring run --sdk-stub                               # imprime o contrato tipado (.pyi, byte-estável)
+touring run --lang bash --stream --code '…'          # OUT-1: saída espelhada no stderr CONFORME chega
+touring run --lang python --input dados.json …       # QW-4: bytes do arquivo no stdin do programa
+touring run --lang python --allow-net-port 443 …     # NET-1: TCP de saída só nessa porta (Landlock)
+touring sandbox-runtimes status                      # RUN-1: preflight das 11 linguagens + venv
 ```
 
 ### O que volta (contrato do resultado)
@@ -38,10 +43,13 @@ touring run --sdk-stub                               # imprime o contrato tipado
 
 ### Budgets (dois, independentes)
 
-- **Wall clock**: `--timeout-ms` (default 30000, max 120000).
-- **Busy time (CPU)**: `compute_ms` (default 60000) medido do `/proc/<pid>/stat` do próprio
+- **Wall clock**: `--timeout-ms` (default 30000, max 600000).
+- **Busy time (CPU)**: `--compute-ms` (default 60000) medido do `/proc/<pid>/stat` do próprio
   child — um hot loop expira o budget mesmo com wall folgado; espera por I/O não consome.
   A mensagem do timeout distingue as duas causas.
+- **Salvage (OUT-1, 28/08)**: o sentinela `-2` carrega a saída PARCIAL — o que o programa
+  imprimiu antes do kill viaja em `stdout` (hash+spill inclusos) e o stderr do filho lidera
+  a mensagem-ensino. Antes o timeout chegava de mãos vazias e o retry aprendia nada.
 
 Caps de saída inline: `TOURING_RUN_MAX_STDOUT_BYTES` (8 KiB) / `TOURING_RUN_MAX_STDERR_BYTES`
 (4 KiB), com truncamento head/tail e marcador explícito de elisão; o cap do sandbox (1 MiB) é
@@ -88,10 +96,25 @@ imp  = touring.wiring_impact("spawn_and_capture", 2)    # blast transitivo
 mem  = touring.memory_recall("code mode #kind:lesson")  # memória facetada
 ```
 
-**71 hooks de leitura alcançáveis** (S4, 27/08/2026), com 15 atalhos tipados para os mais
-usados: `query · ast_blast · ast_meta · ast_overview · ast_tdg · doctor · find_references ·
-gotcha_match · index_find · memory_recall · search · tantivy_search · wiring_impact ·
-wiring_orphans · wiring_status`. Tudo o mais chega por `touring.query(hook, payload)`.
+**71 hooks de leitura alcançáveis** (S4, 27/08/2026), com 16 atalhos tipados para os mais
+usados: `query · parallel · ast_blast · ast_meta · ast_overview · ast_tdg · doctor ·
+find_references · gotcha_match · index_find · memory_recall · search · tantivy_search ·
+wiring_impact · wiring_orphans · wiring_status`. Tudo o mais chega por
+`touring.query(hook, payload)`.
+
+**`parallel` (SDK-1, 28/08)** — fan-out de leituras independentes com pool limitado a 10
+(dsh `maxParallelSubCalls`): `touring.parallel([(hook, payload), …])` devolve os resultados
+NA ORDEM; um slot que falha vira `{'parallel_error': …}` sem anular os N−1 restantes.
+Medido ao vivo: 6 `index_find` em 54 ms sequencial → 15 ms paralelo (3,76×). O contador
+`origin` é mintado sob lock — `parallel` chama `query` de worker threads e uma sequência
+duplicada subcontaria o d4.
+
+**SDK JS (SDK-1, 28/08)** — `--lang js|node|bun|ts --orchestrate` injeta o MESMO SDK como
+cliente Promise-based (`node:net` via dynamic import — funciona em node -e, bun -e e deno
+eval). Gerado das MESMAS tabelas `SDK_METHODS`/`READONLY_HOOKS` que o Python e o stub (D8:
+uma fonte, três renderizações — o guard `js_sdk_mirrors_the_same_method_table` prova).
+Todo método devolve Promise: `await touring.index_find("X")` dentro de
+`(async () => { … })()`.
 
 Eram 8 hooks escritos à mão dentro da string Python, de ~195 que o daemon registra: um programa
 no sandbox alcançava 8 leituras e voltava ao modelo para todo o resto — o que anula o ganho do
@@ -208,6 +231,17 @@ declarava `code` seguia recebendo as ~23 curadas — afordância declarada e des
 em silêncio. O tipo e o parser da declaração são ÚNICOS
 (`touring_foundation::code_mode`), consumidos pelos DOIS executores que a impõem: o hook
 `PreToolUse` e o handshake MCP. Duplicá-los era o caminho para hook e handshake divergirem.
+
+## Diretrizes de elaboração de código (E/A/M — 28/08/2026)
+
+Como ESCOLHER a rota, ACERTAR o programa e MEDIR a aderência. Corpo completo, fontes e
+racional: `docs/plans/2026-08-27-code-mode-aderencia-sandbox/strategy-2026-08-27-code-mode-aderencia-sandbox.md`.
+
+| Grupo | Diretriz (condensada) |
+|---|---|
+| **E — Escolher** | E1 uma ferramenta de execução + API tipada no prompt (nunca o catálogo). E2 regra de custo declarada: loop/condicional/agregação → programa; op simples → tool direta. E3 o colapso mora no EXECUTOR e o deny nomeia a rota (D8). E4 transport nomeia TODOS os args obrigatórios. E5 progressive disclosure para catálogo grande. E6 code é objetivamente mais barato (150k→2k tokens; loops 11-15×). |
+| **A — Acertar** | A1 SDK plana (nunca fluent/OO). A2 um objeto de config nomeado. A3 stub tipado com doc densa. A4 retornos JSON canônicos tipados. A5 erros estruturados, taxonomia ortogonal. A6 output-limit explícito, nunca corte mudo. A7 concorrência declarada (read-only sobrepõem — `touring.parallel`, pool 10; mutantes correm sós). A8 exemplo canônico completo no prompt. A9 prompt byte-estável (KV-cache). A10/A14 retry com autocorreção, MÁX 3 tentativas — na 4ª muda de estratégia, nunca repete o mesmo corpo. A11 trust paritário ao bash; segredos NUNCA no sandbox. A12 fail-LOUD em linguagem desconhecida. A13 scripts bons viram ativos (escada ≥10@90% → ≥100@95%). |
+| **M — Medir** | M1 régua dedicada: `touring kpi -j` → `code_mode_adherence` (success_rate, wasted_attempts_retry_pairs, by_failure_kind/language, do run_journal). M2 aderência é modelo × apresentação — abaixo do piso de capacidade nenhum prompt salva. M3 contenção determinística no substrato (não evitável por código malicioso). |
 
 ## Divergências conscientes do harness DeepSeek (dsh)
 

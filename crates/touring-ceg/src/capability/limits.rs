@@ -63,6 +63,45 @@ impl ResourceLimits {
             },
         }
     }
+
+    /// SEG-1 (28/08, decisão de Gabriel: híbrido) — o piso de memória: tudo de
+    /// [`sandboxed`] **mais** `RLIMIT_AS` = 80% do RAM físico lido de
+    /// `/proc/meminfo`.
+    ///
+    /// A gotcha de 18/05 segue valendo e foi MEDIDA de novo nesta máquina:
+    /// RLIMIT_AS é cego a mmap — o V8 do deno reserva ~40 GiB de espaço VIRTUAL
+    /// (CagedHeap) sem usar a RAM correspondente; medido: deno morre com
+    /// ≤32 GiB de AS e passa com 48 GiB. Por isso o teto é 80% (≈50 GiB aqui):
+    /// contém o leak infinito (VA≈RAM num leak real) deixando ~20% para o
+    /// host, sem estrangular V8/rustc. Em hosts <60 GiB o deno pode ficar de
+    /// fora — o preflight `touring sandbox-runtimes status` é onde isso se vê.
+    ///
+    /// Por que não menor: 25% (a primeira tentativa) matou o deno no gate de
+    /// compat. Por que não só cgroup: o wrap via `systemd-run --scope` lançaria
+    /// o processo real fora da árvore do filho e o Landlock/rlimit/seccomp do
+    /// `pre_exec` não o alcançariam — o caminho cgroup exige um wrapper que
+    /// re-aplique o pre_exec no processo final (trabalho próprio). V8 se
+    /// auto-contém pelo cage; o AS existe para python/bash/ruby/perl/go.
+    /// Falha na leitura de meminfo → `None` (fail-open, nunca aperta às cegas).
+    #[must_use]
+    pub fn sandboxed_with_memory_ceiling() -> Self {
+        let mut limits = Self::sandboxed();
+        limits.rlimit.address_space_bytes = proc_mem_total_bytes().map(|total| total * 4 / 5);
+        limits
+    }
+}
+
+/// `MemTotal` de `/proc/meminfo` em bytes, quando legível.
+fn proc_mem_total_bytes() -> Option<u64> {
+    let texto = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let kb = texto
+        .lines()
+        .find_map(|l| l.strip_prefix("MemTotal:"))?
+        .split_whitespace()
+        .next()?
+        .parse::<u64>()
+        .ok()?;
+    Some(kb * 1024)
 }
 
 /// Wire `limits` into a sandbox [`Command`](tokio::process::Command): registers
@@ -243,6 +282,27 @@ mod tests {
         assert_eq!(limits.rlimit.active_count(), 3);
         assert_eq!(limits.rlimit.address_space_bytes, None);
         assert_eq!(limits.rlimit.processes, None);
+        assert_eq!(limits.rlimit.cpu_seconds, Some(30));
+        assert_eq!(limits.rlimit.open_files, Some(256));
+    }
+
+    #[test]
+    fn seg1_memory_ceiling_reads_a_generous_share_of_physical_ram() {
+        let limits = ResourceLimits::sandboxed_with_memory_ceiling();
+        let Some(total) = proc_mem_total_bytes() else {
+            // host sem /proc/meminfo legível → fail-open documentado (None)
+            assert_eq!(limits.rlimit.address_space_bytes, None);
+            return;
+        };
+        let ceiling = limits
+            .rlimit
+            .address_space_bytes
+            .expect("com meminfo legível o teto existe");
+        assert_eq!(ceiling, total * 4 / 5, "teto = 80% do RAM físico");
+        // sanidade: cobre o V8 caged heap (medido 28/08: deno morre ≤32 GiB,
+        // passa com 48 GiB) em qualquer host ≥ 60 GiB
+        assert!(ceiling > 0);
+        // e as 3 classes limpas seguem capadas (o piso não as removeu)
         assert_eq!(limits.rlimit.cpu_seconds, Some(30));
         assert_eq!(limits.rlimit.open_files, Some(256));
     }

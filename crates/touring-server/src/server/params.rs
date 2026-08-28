@@ -1972,7 +1972,7 @@ pub struct CtxExecuteParams {
     /// Optional JSON array of arguments (exposed as `sys.argv` / `process.argv`).
     #[serde(default)]
     pub args: Option<serde_json::Value>,
-    /// Timeout in milliseconds (default: 30000, max: 120000).
+    /// Timeout in milliseconds (default: 30000, max: 600000 — QW-3, 28/08).
     #[serde(default)]
     pub timeout_ms: Option<u64>,
     /// Working directory for execution (default: project root).

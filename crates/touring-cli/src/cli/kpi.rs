@@ -169,6 +169,9 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     if check && summary["failed"].as_u64().unwrap_or(0) > 0 {
         out["check_failed"] = json!(true);
     }
+    // MED-1 (28/08) — a régua de aderência do `touring run`, do journal
+    // durável (o processo CLI morre; o journal fica). Ausência exibida (E4).
+    out["code_mode_adherence"] = code_mode_adherence();
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),
@@ -295,6 +298,74 @@ fn today_iso() -> String {
         .map(|d| d.as_secs())
         .unwrap_or(0);
     iso_date_from_unix(secs)
+}
+
+/// Convert unix seconds to `YYYY-MM-DD` (UTC, Gregorian, post-1970).
+#[must_use]
+/// MED-1 (28/08) — a régua de aderência do `touring run`, lida do journal
+/// durável (`~/.claude/touring/run_journal.jsonl`): `runs_ok/runs_total` é o
+/// `successfulExecuteCalls/totalExecuteCalls` que o TanStack chama de CME.
+/// O processo CLI morre a cada run; o journal sobrevive. Ausência de journal é
+/// EXIBIDA (`available: false`), nunca some (E4). `wasted_attempts` é um proxy
+/// documentado: uma run da mesma linguagem <120 s após uma falha (o par
+/// falha→retry conta 1).
+fn code_mode_adherence() -> Value {
+    let Some(home) = std::env::var_os("HOME") else {
+        return json!({"available": false, "reason": "HOME unset"});
+    };
+    let path = PathBuf::from(home).join(".claude/touring/run_journal.jsonl");
+    match std::fs::read_to_string(&path) {
+        Ok(content) => adherence_from_lines(content.lines()),
+        Err(_) => json!({"available": false, "reason": "no journal yet"}),
+    }
+}
+
+/// A agregação pura por trás de [`code_mode_adherence`] — testável sem FS.
+fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
+    let mut total = 0u64;
+    let mut ok = 0u64;
+    let mut by_kind: std::collections::BTreeMap<String, u64> = Default::default();
+    let mut by_lang: std::collections::BTreeMap<String, u64> = Default::default();
+    let mut wasted = 0u64;
+    let mut prev_fail: Option<(u64, String)> = None;
+    for line in lines {
+        let Ok(v) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        total += 1;
+        let lang = v
+            .get("language")
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string();
+        *by_lang.entry(lang.clone()).or_default() += 1;
+        let ts = v.get("ts").and_then(Value::as_u64).unwrap_or(0);
+        let exit = v.get("exit_code").and_then(Value::as_i64).unwrap_or(-1);
+        if exit == 0 {
+            ok += 1;
+        }
+        if let Some(fk) = v.get("failure_kind").and_then(Value::as_str) {
+            *by_kind.entry(fk.to_string()).or_default() += 1;
+        }
+        if let Some((pts, plang)) = prev_fail.take()
+            && plang == lang
+            && ts.saturating_sub(pts) < 120
+        {
+            wasted += 1;
+        }
+        prev_fail = (exit != 0).then_some((ts, lang));
+    }
+    json!({
+        "available": true,
+        "runs_total": total,
+        "runs_ok": ok,
+        "success_rate": (total > 0).then(|| ok as f64 / total as f64),
+        "wasted_attempts_retry_pairs": wasted,
+        "by_failure_kind": by_kind,
+        "by_language": by_lang,
+        "source": "run_journal.jsonl",
+        "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
+    })
 }
 
 /// Convert unix seconds to `YYYY-MM-DD` (UTC, Gregorian, post-1970).
@@ -1236,6 +1307,32 @@ mod tests {
         assert_eq!(json_value_as_f64(&json!(true)), Some(1.0));
         assert_eq!(json_value_as_f64(&json!(false)), Some(0.0));
         assert_eq!(json_value_as_f64(&json!("not a number")), None);
+    }
+
+    // MED-1 (28/08) — a régua de aderência, sobre dados sintéticos:
+    // 4 runs (3 ok, 1 falha com failure_kind) e 1 par falha→retry <120s.
+    #[test]
+    fn med1_adherence_from_lines_agrega_e_conta_retry() {
+        let journal = [
+            r#"{"exit_code":0,"failure_kind":null,"language":"python","ts":1000}"#,
+            r#"{"exit_code":1,"failure_kind":"proc-exit","language":"python","ts":1010}"#,
+            // retry da mesma linguagem 30s depois → wasted
+            r#"{"exit_code":0,"failure_kind":null,"language":"python","ts":1040}"#,
+            // outra linguagem: não é retry do par anterior
+            r#"{"exit_code":0,"failure_kind":null,"language":"bash","ts":2000}"#,
+        ];
+        let v = adherence_from_lines(journal.iter().copied());
+        assert_eq!(v["runs_total"], json!(4));
+        assert_eq!(v["runs_ok"], json!(3));
+        assert_eq!(v["success_rate"], json!(0.75));
+        assert_eq!(v["wasted_attempts_retry_pairs"], json!(1));
+        assert_eq!(v["by_failure_kind"]["proc-exit"], json!(1));
+        assert_eq!(v["by_language"]["python"], json!(3));
+        assert_eq!(v["by_language"]["bash"], json!(1));
+        // journal vazio: available com zeros, success_rate null (nunca inventa)
+        let vazio = adherence_from_lines(std::iter::empty());
+        assert_eq!(vazio["runs_total"], json!(0));
+        assert_eq!(vazio["success_rate"], Value::Null);
     }
     #[test]
     fn yaml_round_trip_preserves_commitment() {

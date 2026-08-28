@@ -122,12 +122,19 @@ const SDK_METHODS: &[SdkMethod] = &[
         doc: "Semantic memory recall; '#facet:value' tokens filter the tagged corpus.",
     },
     SdkMethod {
+        name: "parallel",
+        hook: None,
+        args: "",
+        stub_args: "self, calls: list, max_workers: int = 10",
+        payload: "",
+        doc: "Fan-out: run independent read-only queries concurrently — calls is a list of (hook, payload) pairs, results return in the same order, a failed slot becomes {'parallel_error': ...}; pool hard-capped at 10.",
+    },
+    SdkMethod {
         name: "query",
         hook: None,
         args: "",
         stub_args: "self, hook: str, payload: dict",
-        payload: "",
-        doc: "Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS).",
+        payload: "",        doc: "Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS).",
     },
     SdkMethod {
         name: "search",
@@ -185,7 +192,7 @@ const TOURING_PY_SDK_TEMPLATE: &str = r#"# --- touring orchestration SDK (inject
 #   * `--brief` returns the digest and DECLARES what it elided (`elided_lines`).
 #   * {n_hooks} read hooks are reachable — the 9 typed shortcuts below are
 #     conveniences; `touring.query(hook, payload)` reaches all of them.
-import socket as _tr_socket, os as _tr_os, json as _tr_json
+import socket as _tr_socket, os as _tr_os, json as _tr_json, threading as _tr_threading
 
 
 class _TouringClient:
@@ -203,6 +210,9 @@ class _TouringClient:
         # daemon can count the counterfactual tool-part it replaced (d4).
         self._run_id = _tr_os.environ.get("TOURING_RUN_ID") or ""
         self._n = 0
+        # `parallel` calls `query` from worker threads; the origin counter must
+        # never mint the same sequence twice or d4 under-counts sub-calls.
+        self._mutex = _tr_threading.Lock()
 
     # W2 d1/S-2.1 — the read-only hook allowlist this SDK speaks, GENERATED from
     # `READONLY_HOOKS` (S4). Containment, not a security boundary (the sandbox
@@ -223,10 +233,12 @@ class _TouringClient:
         s.settimeout(30)
         try:
             s.connect(self._sock)
-            self._n += 1
+            with self._mutex:
+                self._n += 1
+                seq = self._n
             body = {"hook": hook, "payload": payload or {}, "project_root": self._root}
             if self._run_id:
-                body["origin"] = self._run_id + ":code:" + str(self._n)
+                body["origin"] = self._run_id + ":code:" + str(seq)
             req = _tr_json.dumps(body)
             s.sendall(req.encode() + b"\n")
             buf = b""
@@ -258,6 +270,19 @@ class _TouringClient:
         except _tr_json.JSONDecodeError:
             return out
 
+    def parallel(self, calls, max_workers=10):
+        """{parallel_doc}"""
+        from concurrent.futures import ThreadPoolExecutor
+        def one(call):
+            hook, payload = call[0], (call[1] if len(call) > 1 else None)
+            try:
+                return self.query(hook, payload)
+            except Exception as e:
+                # keep the batch: one failed slot must not void the other N-1
+                return {"parallel_error": str(e), "hook": hook}
+        with ThreadPoolExecutor(max_workers=max(1, min(int(max_workers), 10))) as pool:
+            return list(pool.map(one, calls))
+
 {methods}
 touring = _TouringClient()
 # --- end touring SDK ---
@@ -277,8 +302,9 @@ from typing import Any, Protocol
 class _Touring(Protocol):
 "#;
 
-/// The allowlist rendered as the body of a Python tuple (4 per line, indented).
-fn allowlist_py() -> String {
+/// The allowlist rendered 4-per-line, 8-space indent, trailing comma — a body
+/// valid inside BOTH a Python tuple and a JS array, so the two SDKs share it.
+fn allowlist_body() -> String {
     READONLY_HOOKS
         .chunks(4)
         .map(|linha| {
@@ -305,6 +331,16 @@ fn methods_py() -> String {
         .join("\n")
 }
 
+/// The doc of one hand-written method (`query`, `parallel`), read from the
+/// SAME table the stub renders — duas descrições do mesmo método é como a
+/// divergência começa.
+fn doc_of(name: &str) -> &'static str {
+    SDK_METHODS
+        .iter()
+        .find(|m| m.name == name)
+        .map_or("Send a daemon RPC.", |m| m.doc)
+}
+
 /// R4 — the orchestrate SDK, generated once from [`READONLY_HOOKS`] and
 /// [`SDK_METHODS`]. `OnceLock` so the cost is paid once and the bytes are
 /// identical for the rest of the process (provider KV-cache stability, P21).
@@ -312,19 +348,131 @@ fn py_sdk() -> &'static str {
     static S: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     S.get_or_init(|| {
         TOURING_PY_SDK_TEMPLATE
-            .replace("{allowlist}", &allowlist_py())
+            .replace("{allowlist}", &allowlist_body())
             .replace("{methods}", &methods_py())
             .replace("{n_hooks}", &READONLY_HOOKS.len().to_string())
-            // `query` é hand-written no template (é o transporte), mas a sua
-            // docstring vem da MESMA tabela que o stub lê — duas descrições do
-            // mesmo método é como a divergência começa.
-            .replace(
-                "{query_doc}",
-                SDK_METHODS
-                    .iter()
-                    .find(|m| m.name == "query")
-                    .map_or("Send a daemon RPC.", |m| m.doc),
-            )
+            .replace("{query_doc}", doc_of("query"))
+            .replace("{parallel_doc}", doc_of("parallel"))
+    })
+}
+
+/// SDK-1 — the same orchestrate SDK for the JS runtimes (node/bun/deno), with
+/// `{allowlist}`, `{methods}`, `{n_hooks}` and the two hand-written docs filled
+/// by [`js_sdk`]. Promise-based because `net` is async; `node:net` via dynamic
+/// import works under node -e (CJS), bun -e, and deno eval (ESM) alike.
+const TOURING_JS_SDK_TEMPLATE: &str = r#"// --- touring orchestration SDK (injected by `touring run --orchestrate`) ---
+// Same contract as the Python SDK: {n_hooks} read hooks are reachable through
+// `touring.query(hook, payload)`; the typed shortcuts below are conveniences.
+// Every method returns a Promise — await it inside `(async () => { ... })()`.
+class _TouringClient {
+    constructor() {
+        this._sock = process.env.TOURING_DAEMON_SOCKET || process.env.TOURING_DAEMON_SOCK
+            || "/tmp/touring-daemon-" + (process.getuid ? process.getuid() : 1000) + ".sock";
+        this._root = process.env.TOURING_PROJECT_ROOT || process.cwd();
+        this._runId = process.env.TOURING_RUN_ID || "";
+        this._n = 0;
+        this.READONLY_HOOKS = [
+{allowlist}
+        ];
+    }
+
+    /** {query_doc} */
+    async query(hook, payload) {
+        if (!this.READONLY_HOOKS.includes(hook)) {
+            throw new Error("hook " + JSON.stringify(hook) + " is not in the orchestrate "
+                + "read-only allowlist; available: " + this.READONLY_HOOKS.join(", "));
+        }
+        this._n += 1;
+        const body = { hook: hook, payload: payload || {}, project_root: this._root };
+        if (this._runId) { body.origin = this._runId + ":code:" + this._n; }
+        const net = await import("node:net");
+        return await new Promise((resolve, reject) => {
+            const s = net.createConnection(this._sock);
+            let buf = "";
+            s.setTimeout(30000, () => { s.destroy(new Error("touring daemon timeout (30s)")); });
+            s.on("error", reject);
+            s.on("data", (chunk) => { buf += chunk; if (buf.endsWith("\n")) { s.end(); } });
+            s.on("close", () => {
+                let resp;
+                try { resp = JSON.parse(buf); } catch (e) { reject(e); return; }
+                if (!resp.success) {
+                    // The daemon's reason TRAVELS — a deny that does not teach
+                    // is an obstacle, not a gate (same rule as the Python SDK).
+                    let motivo = "";
+                    try { motivo = (JSON.parse(resp.output || "{}") || {}).error || ""; }
+                    catch (e) { motivo = resp.output || ""; }
+                    reject(new Error("touring daemon refused hook " + JSON.stringify(hook)
+                        + (motivo ? ": " + motivo : "")));
+                    return;
+                }
+                const out = resp.output || "";
+                if (!out) { resolve(null); return; }
+                try { resolve(JSON.parse(out)); } catch (e) { resolve(out); }
+            });
+            s.write(JSON.stringify(body) + "\n");
+        });
+    }
+
+    /** {parallel_doc} */
+    async parallel(calls, max_workers = 10) {
+        const bounded = Math.max(1, Math.min(max_workers | 0, 10));
+        const results = new Array(calls.length);
+        let next = 0;
+        const worker = async () => {
+            while (next < calls.length) {
+                const i = next++;
+                const hook = calls[i][0], payload = calls[i][1];
+                try { results[i] = await this.query(hook, payload); }
+                catch (e) {
+                    // keep the batch: one failed slot must not void the other N-1
+                    results[i] = { parallel_error: String((e && e.message) || e), hook: hook };
+                }
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(bounded, calls.length || 1) }, worker));
+        return results;
+    }
+
+{methods}
+}
+const touring = new _TouringClient();
+// --- end touring SDK ---
+"#;
+
+/// The typed shortcuts as JS methods, from the SAME table as Python's: `self`
+/// is stripped from the signature and the payload dict literal is already
+/// valid JS (quoted keys, `=` defaults are shared syntax).
+fn methods_js() -> String {
+    SDK_METHODS
+        .iter()
+        .filter_map(|m| {
+            let hook = m.hook?;
+            let args = m
+                .args
+                .trim_start_matches("self")
+                .trim_start_matches(',')
+                .trim();
+            Some(format!(
+                "    /** {} */\n    {}({}) {{\n        return this.query(\"{}\", {});\n    }}\n",
+                m.doc, m.name, args, hook, m.payload
+            ))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// SDK-1 — the JS orchestrate SDK, generated from the SAME two tables as the
+/// Python one so the multi-language surface cannot drift from the enforced
+/// one (D8: one source, two renderings).
+fn js_sdk() -> &'static str {
+    static S: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    S.get_or_init(|| {
+        TOURING_JS_SDK_TEMPLATE
+            .replace("{allowlist}", &allowlist_body())
+            .replace("{methods}", &methods_js())
+            .replace("{n_hooks}", &READONLY_HOOKS.len().to_string())
+            .replace("{query_doc}", doc_of("query"))
+            .replace("{parallel_doc}", doc_of("parallel"))
     })
 }
 
@@ -403,8 +551,9 @@ struct RunCli {
     #[arg(long)]
     brief: bool,
 
-    /// Inject the read-only `touring` orchestration SDK (Python) so the script can query the
-    /// daemon over its socket in one execution — code-mode orchestration WITHOUT MCP (R4)
+    /// Inject the read-only `touring` orchestration SDK (Python sync, or the Promise mirror
+    /// for js/node/bun/ts) so the script can query the daemon over its socket in one
+    /// execution — code-mode orchestration WITHOUT MCP (R4/SDK-1)
     #[arg(long)]
     orchestrate: bool,
 
@@ -425,6 +574,18 @@ struct RunCli {
     /// File whose bytes become the program's stdin — QW-4
     #[arg(long)]
     input: Option<String>,
+
+    /// Grant outbound TCP to this port (repeatable; Landlock NetPort — the
+    /// kernel enforces). Residual, accepted and documented: the filter is by
+    /// PORT, not host — 443 talks to any host on 443. — NET-1
+    #[arg(long = "allow-net-port", action = clap::ArgAction::Append)]
+    allow_net_port: Vec<u16>,
+
+    /// Mirror the program's output to stderr AS IT ARRIVES (the JSON envelope
+    /// keeps stdout) — a long run stops being a black box until the end. The
+    /// captured buffer and its caps do not change. — OUT-1
+    #[arg(long)]
+    stream: bool,
 
     /// Print the byte-stable typed stub (.pyi) of the orchestrate SDK and exit —
     /// the full contract for reading; nudges carry the 1-line form (P23)
@@ -503,16 +664,8 @@ pub fn run(args: &[String]) -> Result<()> {
              perfil Sandboxed cobre leitura + orquestração."
         );
     }
-    let ceg_advisory = gate_run(&cli.lang, &user_code, cli.allow_forbidden)?;
-
-    let args_json = match cli.args.as_deref() {
-        Some(s) => Some(serde_json::from_str(s).context("parsing --args as a JSON array")?),
-        None => None,
-    };
-    let allow_forbidden = cli.allow_forbidden.then_some(true);
-
-    // QW-2/3/4 (cross-audit 27/08) — tunables por chamada: só valem Some quando
-    // o operador passou a flag correspondente; `None` preserva o engine default.
+    // QW-2/3/4 + NET-1 (cross-audit 27-28/08) — tunables por chamada: só valem
+    // Some quando o operador passou a flag; `None` preserva o engine default.
     let stdin_bytes = match &cli.input {
         Some(path) => Some(std::fs::read(path).map_err(|e| {
             anyhow::anyhow!("--input {path}: {e}")
@@ -523,16 +676,32 @@ pub fn run(args: &[String]) -> Result<()> {
         || cli.max_stdout_bytes.is_some()
         || cli.max_stderr_bytes.is_some()
         || stdin_bytes.is_some()
+        || !cli.allow_net_port.is_empty()
+        || cli.stream
     {
         Some(crate::tools::ctx_execute_tools::RunTunables {
             compute_ms: cli.compute_ms,
             max_stdout_bytes: cli.max_stdout_bytes,
             max_stderr_bytes: cli.max_stderr_bytes,
             stdin_bytes,
+            allow_net_ports: if cli.allow_net_port.is_empty() {
+                None
+            } else {
+                Some(cli.allow_net_port.clone())
+            },
+            stream: cli.stream,
         })
     } else {
         None
     };
+    let ceg_advisory = gate_run(&cli.lang, &user_code, cli.allow_forbidden, &cli.allow_net_port)?;
+
+    let args_json = match cli.args.as_deref() {
+        Some(s) => Some(serde_json::from_str(s).context("parsing --args as a JSON array")?),
+        None => None,
+    };
+    let allow_forbidden = cli.allow_forbidden.then_some(true);
+
     let out = block_on_async(ctx_execute_impl(
         cli.lang.clone(),
         code,
@@ -617,7 +786,7 @@ fn ceg_advisory_json(a: &CegRunAdvisory) -> serde_json::Value {
     })
 }
 
-fn gate_run(lang: &str, code: &str, allow_forbidden: bool) -> Result<Option<CegRunAdvisory>> {
+fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u16]) -> Result<Option<CegRunAdvisory>> {
     use touring_hooks::capability::builtins;
     use touring_hooks::gateway::{
         ExecutionOutcomePredictor, GatewayDeps, SandboxCapabilities, Verdict,
@@ -670,6 +839,28 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool) -> Result<Option<CegR
             // waived (and after the builtin fix in `gate.rs` there is far less
             // of it). Any other denied class — network above all — keeps the
             // hard deny that code languages always had.
+            // NET-1 (28/08): com `--allow-net-port` o operador concedeu portas
+            // TCP explicitamente — um deny cuja ÚNICA classe é `network` vira
+            // advisory e o kernel (Landlock NetPort) restringe a essas portas.
+            // Residual aceito e documentado: a concessão é por PORTA; 443 fala
+            // com qualquer host (Landlock não filtra host).
+            Verdict::Deny if !allow_net_ports.is_empty() && only_network_denials(&outcome.decision) => {
+                let advisory = CegRunAdvisory {
+                    composite: outcome.decision.composite_score,
+                    reason: format!(
+                        "network deny dispensado: operador concedeu a(s) porta(s) {:?} por \
+                         --allow-net-port; o kernel (Landlock NetPort) restringe a elas. \
+                         Residual: por PORTA, não por host.",
+                        allow_net_ports
+                    ),
+                };
+                tracing::debug!(
+                    composite = advisory.composite,
+                    ports = ?allow_net_ports,
+                    "CEG network deny waived per --allow-net-port (kernel NetPort enforces)"
+                );
+                Ok(Some(advisory))
+            }
             Verdict::Deny if is_shell && only_subprocess_denials(&outcome.decision) => {
                 // S5a — o advisory virou campo do resultado; no stderr ele se
                 // misturava ao erro real do programa. debug! guarda o rastro
@@ -727,6 +918,19 @@ fn only_subprocess_denials(decision: &touring_ceg::gateway::GateDecision) -> boo
     !decision.static_blocked
         && !decision.denied_classes.is_empty()
         && decision.denied_classes.iter().all(|c| c == "subprocess")
+}
+
+/// NET-1 (28/08) — a rede é a razão do deny, com no máximo o `subprocess` do
+/// próprio cliente ao lado (`curl` é X6-negado como `network` E `subprocess` —
+/// Run("curl") — porque não é read-only binary). Um X2 static block ou uma
+/// classe fora desse par → o deny fica de pé.
+fn only_network_denials(decision: &touring_ceg::gateway::GateDecision) -> bool {
+    !decision.static_blocked
+        && decision.denied_classes.iter().any(|c| c == "network")
+        && decision
+            .denied_classes
+            .iter()
+            .all(|c| c == "network" || c == "subprocess")
 }
 
 /// S7 (2026-08-27) — abaixo deste número de linhas, `--brief` NÃO resume.
@@ -965,21 +1169,24 @@ fn resolve_code(cli: &RunCli) -> Result<String> {
     }
 }
 
-/// R4 — prepend the `touring` orchestration SDK (`py_sdk()`) when `--orchestrate`
-/// is set, so the script can call `touring.search(...)`, `touring.index_find(...)`, … against
-/// the daemon in a single execution. The SDK is Python, so `--orchestrate` requires
-/// `--lang python` (a clear error rather than a silent no-op for other languages).
+/// R4/SDK-1 — prepend the `touring` orchestration SDK when `--orchestrate` is
+/// set, so the script can call `touring.search(...)`, `touring.index_find(...)`, …
+/// against the daemon in a single execution. Python gets the sync client
+/// ([`py_sdk`]); the JS runtimes get the Promise-based mirror ([`js_sdk`]),
+/// both rendered from the same tables. Other languages get a clear error
+/// rather than a silent no-op.
 fn maybe_inject_sdk(code: String, lang: &str, orchestrate: bool) -> Result<String> {
     if !orchestrate {
         return Ok(code);
     }
-    let canon = lang.trim().to_ascii_lowercase();
-    if canon != "python" && canon != "py" {
-        anyhow::bail!(
-            "--orchestrate currently supports --lang python only (the touring SDK is Python); got {lang:?}"
-        );
+    match lang.trim().to_ascii_lowercase().as_str() {
+        "python" | "py" => Ok(format!("{}\n{code}", py_sdk())),
+        "js" | "node" | "bun" | "ts" => Ok(format!("{}\n{code}", js_sdk())),
+        _ => anyhow::bail!(
+            "--orchestrate supports --lang python (sync SDK) and js/node/bun/ts \
+             (Promise SDK); got {lang:?}"
+        ),
     }
-    Ok(format!("{}\n{code}", py_sdk()))
 }
 
 /// W3b/S-3.4 — o preâmbulo de bindings `snippet_*` para este run.
@@ -1269,6 +1476,45 @@ mod tests {
         }
     }
 
+    /// A7 — `parallel` é hand-written (como `query`): o pool tem teto 10 no
+    /// PRÓPRIO corpo executável, não só na docstring (dsh maxParallelSubCalls).
+    #[test]
+    fn parallel_pool_cap_lives_in_the_client_body() {
+        let sdk = super::py_sdk();
+        assert!(sdk.contains("def parallel(self, calls, max_workers=10):"));
+        assert!(
+            sdk.contains("min(int(max_workers), 10)"),
+            "o teto 10 deve estar no código que executa, não apenas anunciado"
+        );
+        let js = super::js_sdk();
+        assert!(js.contains("async parallel(calls, max_workers = 10)"));
+        assert!(
+            js.contains("Math.min(max_workers | 0, 10)"),
+            "o mesmo teto vale no SDK JS"
+        );
+    }
+
+    /// SDK-1 — o SDK JS é renderizado das MESMAS tabelas que o Python: cada
+    /// atalho tipado e cada docstring aparecem nos dois, ou a superfície
+    /// multi-linguagem divergiu da imposta (D8).
+    #[test]
+    fn js_sdk_mirrors_the_same_method_table() {
+        let js = super::js_sdk();
+        for m in super::SDK_METHODS {
+            assert!(
+                js.contains(&format!(" {}(", m.name)),
+                "SDK JS deve declarar {}",
+                m.name
+            );
+            assert!(js.contains(m.doc), "a doc de {} é a MESMA nos dois SDKs", m.name);
+        }
+        for hook in super::READONLY_HOOKS {
+            assert!(js.contains(&format!("\"{hook}\"")), "allowlist JS sem {hook}");
+        }
+        // byte-stável entre chamadas (P21, KV-cache do provider)
+        assert_eq!(super::js_sdk(), super::js_sdk());
+    }
+
     /// Todo atalho tipado chama um hook que a allowlist aceita — senão o método
     /// levantaria o RuntimeError do próprio guard ao ser usado.
     #[test]
@@ -1483,12 +1729,12 @@ mod tests {
     #[test]
     fn gate_targets_user_code_because_the_sdk_itself_would_deny() {
         assert!(
-            gate_run("python", py_sdk(), false).is_err(),
+            gate_run("python", py_sdk(), false, &[]).is_err(),
             "the SDK's socket use must trip the sandboxed profile — that is \
              why it is exempt from the gate"
         );
         assert!(
-            gate_run("python", "print(1)", false).is_ok(),
+            gate_run("python", "print(1)", false, &[]).is_ok(),
             "plain user code passes"
         );
     }
@@ -1506,10 +1752,10 @@ mod tests {
     #[test]
     fn shell_subprocess_deny_vira_advisory_estruturado() {
         assert!(
-            gate_run("bash", "echo hi", false).expect("builtin passa").is_none(),
+            gate_run("bash", "echo hi", false, &[]).expect("builtin passa").is_none(),
             "`echo` é builtin — advisory aqui seria o ruído que o S6 eliminou"
         );
-        let adv = gate_run("bash", "python3 -c 1", false)
+        let adv = gate_run("bash", "python3 -c 1", false, &[])
             .expect("spawn real segue adiante sob advisory (o FS é contido)")
             .expect("o deny de subprocesso produz advisory estruturado");
         assert!(adv.composite > 0.0, "composite viaja: {}", adv.composite);
@@ -1531,12 +1777,31 @@ mod tests {
     /// HTTP 200 — enquanto o `socket` equivalente em Python era recusado.
     #[test]
     fn shell_network_deny_is_not_waived() {
-        let r = gate_run("bash", "curl https://example.com", false);
-        let msg = match r {
+        let r = gate_run("bash", "curl https://example.com", false, &[]);        let msg = match r {
             Err(e) => e.to_string(),
             Ok(_) => panic!("rede em shell tem de negar DURO, como no Python"),
         };
         assert!(msg.contains("network"), "o deny nomeia a classe: {msg}");
+    }
+
+    /// NET-1 (28/08): com `--allow-net-port` o operador concedeu a porta — o
+    /// deny de rede vira advisory e o kernel (Landlock NetPort) restringe a
+    /// ela. Sem a flag o deny segue duro (o teste acima).
+    #[test]
+    fn net1_allow_net_port_dispensa_o_deny_de_rede() {
+        let adv = gate_run("bash", "curl https://example.com", false, &[443])
+            .expect("com a porta concedida o run segue")
+            .expect("e carrega o advisory NET-1");
+        assert!(
+            adv.reason.contains("--allow-net-port"),
+            "o advisory nomeia a concessão: {}",
+            adv.reason
+        );
+        // e um deny MISTO (network + outra classe) não se dispersa
+        assert!(
+            gate_run("bash", "curl https://x && rm -rf /tmp/zz", false, &[443]).is_err(),
+            "network + destrutivo junto continua deny-duro"
+        );
     }
 
     /// E um padrão destrutivo nunca é waived, nem com um deny de subprocesso
@@ -1544,7 +1809,7 @@ mod tests {
     #[test]
     fn shell_destructive_pattern_is_not_waived() {
         assert!(
-            gate_run("bash", "rm -rf /tmp/zz-probe", false).is_err(),
+            gate_run("bash", "rm -rf /tmp/zz-probe", false, &[]).is_err(),
             "X2 block não pega carona no waiver de subprocesso"
         );
     }
@@ -1562,8 +1827,13 @@ mod tests {
             "SDK must read the exported run identity"
         );
         assert!(
-            py_sdk().contains("\":code:\" + str(self._n)"),
+            py_sdk().contains("\":code:\" + str(seq)"),
             "each sub-call is numbered <run_id>:code:<n>"
+        );
+        assert!(
+            py_sdk().contains("with self._mutex:"),
+            "the sequence is minted under a lock — `parallel` calls `query` \
+             from worker threads and a duplicated origin under-counts d4"
         );
         assert!(
             py_sdk().contains("if self._run_id:"),

@@ -39,6 +39,8 @@ moka = { workspace = true }
 blake3 = { workspace = true }
 rustix = { version = "1", features = ["process"] }
 landlock = "0.4"
+libc = { workspace = true }          # SEG-1: constantes do filtro seccomp (socket/SOCK_DGRAM)
+seccompiler = "0.5"                  # SEG-1: deny de UDP no kernel (pre_exec, funil único)
 tempfile = { workspace = true } # production dep: sandbox_executor tee dirs (not just tests)
 
 [dev-dependencies]
