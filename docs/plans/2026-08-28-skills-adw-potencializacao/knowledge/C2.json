@@ -1,0 +1,11 @@
+{
+  "phase": "C2",
+  "entities": [
+    {
+      "entity_id": "phase:C2",
+      "type": "phase",
+      "description": "OUTPUT_PATH fora da arvore congelada; desvio 2 era falso-stale (symlinks live->repo ja existiam desde 25/08)"
+    }
+  ],
+  "relations": []
+}

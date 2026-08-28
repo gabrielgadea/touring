@@ -1,0 +1,11 @@
+{
+  "phase": "C3",
+  "entities": [
+    {
+      "entity_id": "phase:C3",
+      "type": "phase",
+      "description": "test_count=15786 (nextest); coverage 75,28% linhas (llvm-cov, piso 0.75 cumprido); 2x code_mode_arm; daemon armado pillar induction; plan_refine fonte+consumidor prontos p/ deploy; mutation backlog"
+    }
+  ],
+  "relations": []
+}
