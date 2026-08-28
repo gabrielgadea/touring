@@ -281,6 +281,31 @@ fn the_server_budget_reads_the_shared_constant_not_a_literal() {
     );
 }
 
+/// A cargo-mutants run over one crate is ~19 min measured (134 mutants,
+/// touring-identity). Outside the heavy class the light 15s budget kills every
+/// real run in transport, so the KPI's cache could never be populated through
+/// the canonical route (rodada 4, 2026-08-20 — fixed 2026-08-28).
+#[test]
+fn mutation_test_is_classified_heavy() {
+    let source = include_str!("daemon.rs");
+    // Window = the whole fn body, ending at the first column-zero `}`.
+    // Anything narrower proved fragile twice in one sitting: cutting at the
+    // first `)` stopped at the signature's own paren, and cutting at the
+    // first `)` after `matches!` stopped inside a comment's parenthetical —
+    // both excluded the arm regardless of the list's real content.
+    let heavy_list = source
+        .split("fn is_heavy_hook")
+        .nth(1)
+        .and_then(|rest| rest.split("\n}").next())
+        .unwrap_or("");
+    assert!(
+        heavy_list.contains("\"cli-mutation-test\""),
+        "cli-mutation-test must be in the is_heavy_hook class — under the light \
+         budget a real mutation run dies in transport and the kill_rate KPI \
+         can only ever see a cache_miss"
+    );
+}
+
 /// The three tests above prove the HELPER carries a reason. None of them proved
 /// that the failure BRANCHES call it — and on 09/08/2026 only the saturation
 /// branch was converted, while four others kept returning the empty payload.

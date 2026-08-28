@@ -58,6 +58,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     }
     if args.iter().any(|a| a == "--cache-only") {
         payload.insert("cache_only".into(), serde_json::Value::Bool(true));
+    } else {
+        // A real run is ~19 min for one crate (134 mutants measured); under
+        // the 120s default read timeout the client abandoned a run the daemon
+        // was still executing (observed 2026-08-28, the server side had just
+        // gained the heavy budget). Same floor as `index rebuild`; an explicit
+        // `--timeout` still wins. Cache-only reads keep the fast default.
+        crate::daemon_client::raise_timeout_floor(touring_foundation::HEAVY_OP_BUDGET_SECS);
     }
 
     let output = daemon_query("cli-mutation-test", serde_json::Value::Object(payload))?;
@@ -75,7 +82,14 @@ mod tests {
 
     #[test]
     fn no_args_routes_to_daemon_without_panicking() {
-        let args = s(&["touring", "mutation-test"]);
+        // `--cache-only` is load-bearing, not incidental: this test reaches
+        // the REAL daemon when one is up. Bare `mutation-test` means "run the
+        // whole workspace", and on 2026-08-28 — the day cargo-mutants landed
+        // on the daemon's PATH — every execution of this test fired an
+        // hours-long workspace mutation run (jobs=24, load 26) and then hung
+        // the suite waiting on the heavy read floor. cache_only exercises the
+        // same parsing and transport but structurally cannot start a run.
+        let args = s(&["touring", "mutation-test", "--cache-only"]);
         // Don't assert success — daemon may be down in unit tests; assert no
         // arg-parsing panic / no Usage message.
         let result = run(&args);

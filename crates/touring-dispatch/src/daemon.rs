@@ -549,6 +549,11 @@ fn is_heavy_hook(hook_name: &str) -> bool {
             | "cli-wiring-chains"
             | "cli-wiring-audit"
             | "cli-e2e"
+            // cargo-mutants over one crate is ~19 min measured (134 mutants,
+            // touring-identity, mutants profile). Under the light 15s budget
+            // every real run died in transport — the KPI could only ever see
+            // a cache_miss (rodada 4, 2026-08-20; fixed 2026-08-28).
+            | "cli-mutation-test"
     )
 }
 
