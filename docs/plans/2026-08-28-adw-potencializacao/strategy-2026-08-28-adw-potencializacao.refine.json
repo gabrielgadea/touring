@@ -1,0 +1,92 @@
+{
+ "version": 1,
+ "iterations": [
+  {
+   "coverage": 0.2,
+   "gap_count": 30,
+   "top_gaps": [
+    {
+     "key": "/home/gabrielgadea/projects/touring/crates/touring-hook-handlers/src/hooks/post_tool_batch.rs:16",
+     "lens": "antistaleness",
+     "depth": "D2",
+     "weight": 3.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester.rs:1577",
+     "lens": "antistaleness",
+     "depth": "D2",
+     "weight": 3.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester_tests.rs:1671",
+     "lens": "antistaleness",
+     "depth": "D2",
+     "weight": 3.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/crates/touring-hook-handlers/src/hooks/post_tool_batch.rs",
+     "lens": "quality",
+     "depth": "D2",
+     "weight": 3.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester.rs",
+     "lens": "quality",
+     "depth": "D2",
+     "weight": 3.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester_tests.rs",
+     "lens": "quality",
+     "depth": "D2",
+     "weight": 3.0
+    },
+    {
+     "key": "~/projects/analise/scripts/touring_bridge_pln2/generate_plan.py",
+     "lens": "portfolio",
+     "depth": "D2",
+     "weight": 3.0
+    },
+    {
+     "key": "~/projects/analise/scripts/touring_bridge_pln2/generate_plan.py",
+     "lens": "quality",
+     "depth": "D2",
+     "weight": 3.0
+    }
+   ],
+   "open_questions": 0,
+   "open_question_items": [],
+   "unverified_claims": 21,
+   "unverified_items": [
+    "RACE_IGNORE",
+    "SUCCESS_NARRATIVE",
+    "_copy_lane",
+    "adw-lint-cycles-return-prematuro",
+    "critique_without_brief",
+    "dead_node",
+    "dynamic_parallel",
+    "fake_waiting"
+   ],
+   "plan_delta": {
+    "headings_added": 5,
+    "headings_removed": 0,
+    "effort_reclassified": 0,
+    "is_zero": false,
+    "first": true
+   },
+   "signature": {
+    "headings": [
+     "Estratégia — ADW potencializado ao máximo",
+     "1. O que a estrutura É (mapa verificado por execução)",
+     "2. Achados (evidência por execução, conf. anotada)",
+     "3. Estratégia — 6 fases (INNER)",
+     "4. O que NÃO muda"
+    ],
+    "efforts": {},
+    "hash": "43e02cbd25c8"
+   },
+   "at": "2026-08-28T08:56:53-0300",
+   "iter": 1
+  }
+ ]
+}

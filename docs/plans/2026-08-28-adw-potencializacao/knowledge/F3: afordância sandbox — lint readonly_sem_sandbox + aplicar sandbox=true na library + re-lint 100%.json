@@ -1,0 +1,11 @@
+{
+  "phase": "F3: aford\u00e2ncia sandbox \u2014 lint readonly_sem_sandbox + aplicar sandbox=true na library + re-lint 100%",
+  "entities": [
+    {
+      "entity_id": "phase:F3: aford\u00e2ncia sandbox \u2014 lint readonly_sem_sandbox + aplicar sandbox=true na library + re-lint 100%",
+      "type": "phase",
+      "description": "F3 fechada: lint novo _lint_readonly_without_sandbox (dual do S-8.4) \u2014 leitor PROVADO (command_writes False ou readonly=true) fora do sandbox ganha warning com rem\u00e9dio derivado; calibrado para exigir leitor SUBSTANTIVO (_FS_READING_COMMANDS/multiplexers/programas \u2014 echo/true n\u00e3o t\u00eam o que conter, ru\u00eddo com cara de rigor). O lint apontou 3 n\u00f3s reais da library (critic-panel::quorum, graph-pack::relations, worker-critic-pair::judge) \u2014 sandbox=true aplicado nos 3; eleg\u00edveis 3/3 (100%). Prova viva: test_shipped_critic_panel executa o quorum de verdade, agora via touring run/CEG \u2014 248/248 verdes. Espelho client/ sincronizado (guard library_and_repo_mirror_agree)."
+    }
+  ],
+  "relations": []
+}

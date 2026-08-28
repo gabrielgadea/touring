@@ -1,0 +1,11 @@
+{
+  "phase": "F5: curadoria \u2014 triagem dos 5 specs locais (promover/etiquetar) + adw lint 100% da library",
+  "entities": [
+    {
+      "entity_id": "phase:F5: curadoria \u2014 triagem dos 5 specs locais (promover/etiquetar) + adw lint 100% da library",
+      "type": "phase",
+      "description": "F5 fechada: error-teach PROMOVIDO \u00e0 library com evid\u00eancia comportamental (10 runs completed; adw promote --run + c\u00f3pia para adw-library \u2014 13\u00aa entrada em promotions.json); 4 specs locais etiquetados com raz\u00e3o (herdr-fanout-demo=demo, omarchy-audit-2=local-omarchy, xaudit-gates=local-touring/parametrizar antes, xaudit-lintscan=utilit\u00e1rio local). Lint 100% da library: 12/12 specs SEM erro (warnings restantes s\u00e3o advisories deliberados de outros lints). Espelho client/ sincronizado."
+    }
+  ],
+  "relations": []
+}

@@ -104,6 +104,14 @@ timestamp: 2026-08-20T11:15:00-03:00
    Criar: `touring adw new` (prior-art com veredito obrigatório) · inspecionar:
    `touring adw explain` (grafo plano) · `touring adw fragments`. Bundle:
    `docs/plans/2026-08-18-graph-engineering-flow-portfolio/`.
+   **Potencialização 28/08/2026** (bundle `docs/plans/2026-08-28-adw-potencializacao/`):
+   `adw race` deixou de copiar `target/`/`.git`/`.claude` por lane (era N×~30GB);
+   teto do sandbox de nó alinhado ao executor real (600s, guard D8 cruzado); lint novo
+   `readonly_sem_sandbox` (leitor provado ganha o convite ao CEG — 3 fragments aplicados);
+   nó `agent` ganhou `retries` de TRANSPORTE (exit≠0/timeout; teto A14=3 é ERRO de lint;
+   veredito segue no gate); ZTE exercitado ao vivo (bypass conformal auditado, KPI 0→0.02);
+   `error-teach` promovido à library (10 runs de evidência); KPI `plan_refine_iters`
+   corrigido (produtor grava `{version,iterations}`, consumidor só lia array).
 
 9. **Reivindicação atômica + Wayfinder no `decompose` (v30.4.1)**: `touring decompose
    claim <task> --owner <id> [--lease-secs N]` / `release` — `ready` só LÊ, então duas

@@ -82,6 +82,8 @@ emits = "VERDICT=PASS|REJECT|ESCALATE followed by REASON=<one line naming what w
 
 [node.judge]
 type = "gate"
+# F3 28/08/2026: leitor provado — contenção de kernel de graça (lint readonly_sem_sandbox)
+sandbox = true
 # The verdict arrives as a positional argument: a critic cannot inject shell by
 # writing one.
 command = ["bash", "-c", "v=$(printf '%s' \"$1\" | grep -m1 '^VERDICT=' || true); case \"$v\" in VERDICT=PASS*) echo \"$v\"; exit 0;; VERDICT=ESCALATE*) echo \"$v\"; exit 1;; VERDICT=REJECT*) echo \"$v\"; exit 1;; *) echo 'VERDICT=ESCALATE + REASON=no parseable verdict from the paired critic'; exit 1;; esac", "--", "{{nodes.critic.summary}}"]
