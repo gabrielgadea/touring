@@ -13298,7 +13298,7 @@ dependencies = [
 
 [[package]]
 name = "touring-bindings"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13384,7 +13384,7 @@ dependencies = [
 
 [[package]]
 name = "touring-ceg"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "blake3",
  "landlock",
@@ -13411,7 +13411,7 @@ dependencies = [
 
 [[package]]
 name = "touring-cli"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "aho-corasick",
  "base64 0.22.1",
@@ -13445,7 +13445,7 @@ dependencies = [
 
 [[package]]
 name = "touring-code"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -13515,7 +13515,7 @@ dependencies = [
 
 [[package]]
 name = "touring-contracts"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "serde_json",
 ]
@@ -13724,7 +13724,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hook-handlers"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "blake3",
  "chrono",
@@ -13762,7 +13762,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hook-runtime"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "blake3",
  "chrono",
@@ -13838,7 +13838,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hooks-core"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "blake3",
  "chrono",
@@ -13903,7 +13903,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hooks-rl"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "serde",
  "tokio",
@@ -13913,7 +13913,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hooks-saga"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
@@ -13959,7 +13959,7 @@ dependencies = [
 
 [[package]]
 name = "touring-identity"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "pretty_assertions",
  "rusqlite",
@@ -13991,7 +13991,7 @@ dependencies = [
 
 [[package]]
 name = "touring-intelligence"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -14055,7 +14055,7 @@ dependencies = [
 
 [[package]]
 name = "touring-license"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "anyhow",
  "pretty_assertions",
@@ -14072,7 +14072,7 @@ dependencies = [
 
 [[package]]
 name = "touring-lsp"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "async-trait",
  "pretty_assertions",
@@ -14105,7 +14105,7 @@ dependencies = [
 
 [[package]]
 name = "touring-orchestration"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "anyhow",
  "chrono",
@@ -14130,7 +14130,7 @@ dependencies = [
 
 [[package]]
 name = "touring-quality"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "anyhow",
  "chrono",
@@ -14148,7 +14148,7 @@ dependencies = [
 
 [[package]]
 name = "touring-resilience"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "async-trait",
  "libc",
@@ -14187,7 +14187,7 @@ dependencies = [
 
 [[package]]
 name = "touring-server"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -14328,7 +14328,7 @@ dependencies = [
 
 [[package]]
 name = "touring-storage"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -14372,7 +14372,7 @@ dependencies = [
 
 [[package]]
 name = "touring-web"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "getrandom 0.2.17",
  "getrandom 0.3.4",
@@ -14382,7 +14382,7 @@ dependencies = [
 
 [[package]]
 name = "touring-web-server"
-version = "30.4.16"
+version = "30.4.17"
 dependencies = [
  "tokio",
  "touring-bindings",
