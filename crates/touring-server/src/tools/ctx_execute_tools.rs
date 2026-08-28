@@ -271,6 +271,13 @@ pub struct RunTunables {
     pub max_stderr_bytes: Option<usize>,
     /// Bytes entregues ao stdin do programa (`touring run --input <file>`).
     pub stdin_bytes: Option<Vec<u8>>,
+    /// NET-1 (28/08): portas TCP de saída concedidas (`--allow-net-port`).
+    /// `None`/`Some(vec![])` = deny-all (default). Residual aceito e
+    /// documentado: Landlock filtra por PORTA, não por host.
+    pub allow_net_ports: Option<Vec<u16>>,
+    /// OUT-1 (28/08): espelha a saída do programa no stderr do pai CONFORME
+    /// chega (`touring run --stream`); o envelope JSON continua no stdout.
+    pub stream: bool,
 }
 
 /// P1.3: Hybrid forbidden-call scanner.
@@ -487,6 +494,11 @@ pub async fn ctx_execute_impl(
             .and_then(|t| t.compute_ms)
             .or(Some(60_000)),
         stdin_bytes: tunables.as_ref().and_then(|t| t.stdin_bytes.clone()),
+        allow_net_ports: tunables
+            .as_ref()
+            .and_then(|t| t.allow_net_ports.clone())
+            .unwrap_or_default(),
+        stream_output: tunables.as_ref().is_some_and(|t| t.stream),
         ..SandboxConfig::default()
     };
     let tool_name = match lang {

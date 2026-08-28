@@ -306,6 +306,44 @@ fn test_p14_allow_forbidden_override() {
     let _ = ForbiddenCallPolicy::Block; // ensure type is accessible
 }
 
+// SEG-1 (28/08): UDP egress é negado pelo KERNEL (seccomp), mesmo com o
+// scanner léxico fora do caminho — em 27/08 um datagrama p/ 8.8.8.8:53 SAIU
+// (Landlock é FS+TCP-only; não modela UDP). O deny léxico do X6 fala do token
+// `socket`; este teste prova a camada que não depende de léxico.
+#[test]
+fn seg1_udp_egress_is_denied_by_the_kernel() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ctx_execute_impl(
+        "python".to_string(),
+        r#"import socket
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.sendto(b"x", ("8.8.8.8", 53))
+    print("UDP SAIU — FURO")
+except (PermissionError, OSError) as e:
+    print(f"UDP CONFINADO errno={e.errno}")
+"#
+        .to_string(),
+        None,
+        Some(15000),
+        None,
+        None,
+        None,
+    ));
+    let out = result.expect("run deve completar (o deny é no filho, não no gate)");
+    assert!(
+        out.stdout.contains("UDP CONFINADO"),
+        "o kernel deve negar o socket UDP: stdout={:?} stderr={:?}",
+        out.stdout,
+        out.stderr
+    );
+    assert!(
+        !out.stdout.contains("SAIU"),
+        "FURO: o datagrama saiu: {:?}",
+        out.stdout
+    );
+}
+
 // T2.13: Off policy suppresses scanner entirely — forbidden_calls is empty even for bad code.
 #[test]
 #[serial_test::serial(ceg_forbidden_env)]

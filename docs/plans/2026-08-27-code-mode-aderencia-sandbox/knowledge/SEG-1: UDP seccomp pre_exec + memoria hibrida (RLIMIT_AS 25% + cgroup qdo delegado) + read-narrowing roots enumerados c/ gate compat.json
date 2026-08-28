@@ -1,0 +1,11 @@
+{
+  "phase": "SEG-1: UDP seccomp pre_exec + memoria hibrida (RLIMIT_AS 25% + cgroup qdo delegado) + read-narrowing roots enumerados c/ gate compat",
+  "entities": [
+    {
+      "entity_id": "phase:SEG-1: UDP seccomp pre_exec + memoria hibrida (RLIMIT_AS 25% + cgroup qdo delegado) + read-narrowing roots enumerados c/ gate compat",
+      "type": "phase",
+      "description": "SEG-1 done (3/3 medidos ao vivo): (1) UDP deny no KERNEL via seccompiler (build_udp_deny_bpf em enforce_linux + apply_seccomp_udp_to no funil; kill switch TOURING_SANDBOX_SECCOMP_DISABLED) \u2014 teste e2e prova PermissionError na CRIACAO do socket; X6 lexico continua na frente. (2) Memoria: RLIMIT_AS 80% do RAM fisico (leitura /proc/meminfo) \u2014 a 1a tentativa (25%) matou o deno (V8 CagedHeap ~40GB VA; medido: morre <=32GB, passa 48GB); 80% passa deno e contem leak infinito; cgroup NAO wired (systemd-run lancaria fora da arvore do filho, fora do pre_exec \u2014 documentado). (3) Read-narrowing: roots enumerados (sistema + mise/cargo/rustup + ~/.claude/touring + ~/projects) com kill switch TOURING_SANDBOX_READ_WIDE=1; gate compat 9/9 (python+numpy/pandas via venv, node, ts/deno, bash, ruby, perl, rustc); credenciais fechadas (~/.gnupg FECHADO medido). Suites ceg+server 2282 verdes."
+    }
+  ],
+  "relations": []
+}

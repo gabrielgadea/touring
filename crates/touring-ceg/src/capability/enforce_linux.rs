@@ -351,6 +351,66 @@ pub fn build_landlock_ruleset(
 /// [`LandlockRuleset::restrict_current_thread`]. The call itself **always
 /// succeeds** on any kernel.
 ///
+/// SEG-1 (28/08) — filtro seccomp que nega UDP no kernel: `socket()` com
+/// `AF_INET`/`AF_INET6` + `SOCK_DGRAM` (com ou sem `SOCK_CLOEXEC`/`SOCK_NONBLOCK`
+/// OR'd) retorna `EPERM`. Landlock não modela UDP (só TCP) — medido 27/08: um
+/// datagrama p/ 8.8.8.8:53 SAIA do sandbox. TCP fica com o Landlock (que tem
+/// grants por porta, NET-1); isto fecha o canal que faltava.
+///
+/// `mismatch = Allow` (tudo que não é socket+UDP passa), `match = Errno(EPERM)`.
+/// Construir no **pai** (aloca); aplicar no filho via `pre_exec` com
+/// [`seccompiler::apply_filter`] — que é `prctl(PR_SET_NO_NEW_PRIVS)` +
+/// `seccomp(2)`, sem alocação, async-signal-safe. `None` fora do Linux ou se a
+/// construção falhar (fail-open ruidoso no call site).
+#[cfg(target_os = "linux")]
+pub fn build_udp_deny_bpf() -> Option<seccompiler::BpfProgram> {
+    use seccompiler::{
+        SeccompAction, SeccompCmpArgLen, SeccompCmpOp, SeccompCondition, SeccompFilter,
+        SeccompRule,
+    };
+    use std::collections::BTreeMap;
+    use std::convert::TryInto;
+
+    let udp = |domain: i32| {
+        SeccompRule::new(vec![
+            SeccompCondition::new(
+                0,
+                SeccompCmpArgLen::Dword,
+                SeccompCmpOp::Eq,
+                domain as u64,
+            )
+            .ok()?,
+            // type & 0xF == SOCK_DGRAM (bits altos podem trazer CLOEXEC/NONBLOCK)
+            SeccompCondition::new(
+                1,
+                SeccompCmpArgLen::Dword,
+                SeccompCmpOp::MaskedEq(0xF),
+                libc::SOCK_DGRAM as u64,
+            )
+            .ok()?,
+        ])
+        .ok()
+    };
+    let rules: Vec<SeccompRule> = [udp(libc::AF_INET), udp(libc::AF_INET6)]
+        .into_iter()
+        .flatten()
+        .collect();
+    if rules.len() != 2 {
+        return None;
+    }
+    let mut map: BTreeMap<i64, Vec<SeccompRule>> = BTreeMap::new();
+    map.insert(libc::SYS_socket, rules);
+    let arch = std::env::consts::ARCH.try_into().ok()?;
+    let filter = SeccompFilter::new(
+        map,
+        SeccompAction::Allow,
+        SeccompAction::Errno(libc::EPERM as u32),
+        arch,
+    )
+    .ok()?;
+    filter.try_into().ok()
+}
+
 /// Call this in the **parent** (it allocates); enforce in the child via a
 /// `Command::pre_exec` closure.
 #[cfg(target_os = "linux")]

@@ -133,6 +133,12 @@ fn standalone_commands() -> Vec<CommandDescriptor> {
             error_policy: ErrorPolicy::ExitOnError,
             handler: |args| super::run::run(args),
         },
+        CommandDescriptor {
+            name: "sandbox-runtimes",
+            description: "Sandbox CEG runtimes: `status` (preflight presente/ausente por linguagem) | `setup-venv` (bibliotecas de agente via PYTHONPATH read-only)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::sandbox_runtimes::sandbox_runtimes(args),
+        },
         // R3 — master CLI commands: thin wrappers over the Touring skill Layer-3
         // scripts (code-mode without MCP). See cli/master.rs.
         CommandDescriptor {
