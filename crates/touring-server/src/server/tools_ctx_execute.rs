@@ -36,6 +36,7 @@ impl TouringServer {
             p.timeout_ms,
             p.cwd,
             p.allow_forbidden,
+            None, // tunables por chamada são superfície do `touring run` (CLI)
         )
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;

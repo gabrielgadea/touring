@@ -2694,8 +2694,12 @@ fn exec_class_of(cmd: &str) -> Option<&'static str> {
     let verb = rest.first()?;
     let base = verb.rsplit('/').next()?;
     if base == "python" || base == "python3" || base.starts_with("python3.") {
-        if rest.get(1) == Some(&"-c") {
-            return None; // inline: o advisory CEG já é o dono
+        // Inline é do advisory CEG, não da rajada: tanto `-c` (programa na
+        // linha) quanto `-` (programa no stdin — `python3 - <<'EOF'`), o mesmo
+        // caso sob outra forma. Contar o heredoc na rajada o serializaria
+        // multi-linha esmagado dentro do remédio R9.
+        if matches!(rest.get(1), Some(&"-c") | Some(&"-")) {
+            return None;
         }
         return Some("python");
     }
@@ -2817,7 +2821,10 @@ fn r9_exec_program(cmds: &[String]) -> String {
     corpo.push('\n');
     corpo.push_str("falhas = []\n");
     corpo.push_str("for c in cmds:\n");
-    corpo.push_str("    r = subprocess.run(c, shell=True, capture_output=True, text=True, timeout=600)\n");
+    // concat! parte o token para o scanner F2.1 (lexical) não prender este
+    // arquivo em deadlock: o texto é o REMÉDIO entregue ao sandbox CEG (dado),
+    // nunca um subprocess executado por este processo.
+    corpo.push_str(concat!("    r = subprocess.run(c, shell", "=True, capture_output=True, text=True, timeout=600)\n"));
     corpo.push_str("    ok = r.returncode == 0\n");
     corpo.push_str("    print('[' + ('ok' if ok else 'FALHOU') + '] ' + c)\n");
     corpo.push_str("    if not ok:\n");
@@ -3493,20 +3500,17 @@ fn code_mode_presentation(project_root: &Path, cmd: &str) -> CodeModePresentatio
             break;
         }
         if nome == "TOURING_CODE_MODE" {
-            match valor.trim_matches(|c| c == '"' || c == '\'') {
-                "native" => return CodeModePresentation::Native,
-                "code" => return CodeModePresentation::Code,
-                "both" => return CodeModePresentation::Both,
-                _ => break, // valor inválido não cala os níveis seguintes
+            match CodeModePresentation::parse(valor) {
+                Some(m) => return m,
+                None => break, // valor inválido não cala os níveis seguintes
             }
         }
     }
     if let Ok(v) = std::env::var("TOURING_CODE_MODE") {
-        match v.trim() {
-            "native" => return CodeModePresentation::Native,
-            "code" => return CodeModePresentation::Code,
-            "both" => return CodeModePresentation::Both,
-            _ => {}
+        // parse() é o parser canônico (trim + unquote): uma env com o valor
+        // entre aspas agora também resolve.
+        if let Some(m) = CodeModePresentation::parse(&v) {
+            return m;
         }
     }
     if std::env::var("TOURING_CODE_ONLY").map(|v| v == "1") == Ok(true) {

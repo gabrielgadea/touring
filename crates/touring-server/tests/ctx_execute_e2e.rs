@@ -37,6 +37,7 @@ fn run_ctx_with_override(
         input.timeout_ms,
         input.cwd,
         allow_forbidden,
+        None, // RunTunables — superfície do `touring run` CLI
     ))
     .unwrap()
 }
@@ -292,6 +293,7 @@ fn test_p14_allow_forbidden_override() {
         Some(5000),
         None,
         Some(true),
+        None,
     ));
     // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
@@ -329,6 +331,7 @@ fn test_p14_off_policy_suppresses_detection() {
         code.to_string(),
         None,
         Some(5000),
+        None,
         None,
         None,
     ));

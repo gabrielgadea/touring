@@ -258,6 +258,21 @@ fn inline_caps() -> (usize, usize) {
     )
 }
 
+/// Cross-audit 27/08 (QW-2/3/4) — ajustes POR CHAMADA do `touring run`; antes
+/// só existiam como env vars globais do processo. Todo campo `None` preserva
+/// o comportamento anterior (default do engine / env var).
+#[derive(Debug, Default, Clone)]
+pub struct RunTunables {
+    /// Busy-time (CPU) budget do filho em ms — override do default 60 s.
+    pub compute_ms: Option<u64>,
+    /// Cap do stdout INLINE em bytes (a íntegra sempre vai para o spill).
+    pub max_stdout_bytes: Option<usize>,
+    /// Cap do stderr INLINE em bytes.
+    pub max_stderr_bytes: Option<usize>,
+    /// Bytes entregues ao stdin do programa (`touring run --input <file>`).
+    pub stdin_bytes: Option<Vec<u8>>,
+}
+
 /// P1.3: Hybrid forbidden-call scanner.
 ///
 /// Wraps `ast_forbidden_scan` (AST-backed for 9 grammars + substring fallback
@@ -417,6 +432,7 @@ pub async fn ctx_execute_impl(
     timeout_ms: Option<u64>,
     _cwd: Option<String>,
     allow_forbidden: Option<bool>,
+    tunables: Option<RunTunables>,
 ) -> Result<CtxExecuteOutput> {
     const MAX_CODE_BYTES: usize = 64 * 1024;
     if code.len() > MAX_CODE_BYTES {
@@ -446,7 +462,10 @@ pub async fn ctx_execute_impl(
     } else {
         code
     };
-    let timeout = timeout_ms.unwrap_or(30_000).min(120_000);
+    // Cross-audit 27/08 (QW-3): teto do wall-clock sobe de 120 s para 600 s —
+    // compilação pesada (rustc em projeto grande) estrangulava nos 120 s. O hot
+    // loop segue contido: RLIMIT_CPU=30 s (kernel) + busy budget de CPU abaixo.
+    let timeout = timeout_ms.unwrap_or(30_000).min(600_000);
     // C2-W0 S-5.2 — mint this execution's identity. It keys the journal,
     // reaches the child as TOURING_RUN_ID, and prefixes every orchestrate
     // sub-call's origin (`<run_id>:code:<n>`) at the daemon.
@@ -463,6 +482,11 @@ pub async fn ctx_execute_impl(
         max_output_bytes: 1_000_000,
         fallback_on_timeout: true,
         run_id: Some(run_id.clone()),
+        compute_ms: tunables
+            .as_ref()
+            .and_then(|t| t.compute_ms)
+            .or(Some(60_000)),
+        stdin_bytes: tunables.as_ref().and_then(|t| t.stdin_bytes.clone()),
         ..SandboxConfig::default()
     };
     let tool_name = match lang {
@@ -499,7 +523,18 @@ pub async fn ctx_execute_impl(
     let duration_ms = start.elapsed().as_millis() as u64;
     let (stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure) =
         derive_run_outcome(result);
-    let (max_stdout, max_stderr) = inline_caps();
+    let (env_stdout, env_stderr) = inline_caps();
+    // QW-2 — o pedido por chamada (flags do `touring run`) vence a env var.
+    let (max_stdout, max_stderr) = (
+        tunables
+            .as_ref()
+            .and_then(|t| t.max_stdout_bytes)
+            .unwrap_or(env_stdout),
+        tunables
+            .as_ref()
+            .and_then(|t| t.max_stderr_bytes)
+            .unwrap_or(env_stderr),
+    );
     let (stdout_trunc, stdout_truncated) = truncate_head_tail(&stdout, max_stdout);
 
     // P1.4 Warn mode: emit warning to stderr when forbidden calls found but policy != Block.
@@ -652,6 +687,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("run");
@@ -661,6 +697,79 @@ mod tests {
             out.run_id
         );
         assert_eq!(out.exit_code, 0);
+    }
+
+    // ── Cross-audit 27/08 — quick-wins QW-1..QW-4 ────────────────────────
+
+    /// QW-4: `--input` bytes reach the program's stdin.
+    #[tokio::test]
+    async fn tunables_stdin_bytes_reach_the_program() {
+        let out = ctx_execute_impl(
+            "python".to_string(),
+            "import sys; print('GOT:' + sys.stdin.read().strip())".to_string(),
+            None,
+            None,
+            None,
+            None,
+            Some(crate::tools::ctx_execute_tools::RunTunables {
+                stdin_bytes: Some(b"payload-via-input\n".to_vec()),
+                ..Default::default()
+            }),
+        )
+        .await
+        .expect("run");
+        assert_eq!(out.exit_code, 0);
+        assert!(
+            out.stdout.contains("GOT:payload-via-input"),
+            "stdin entregue ao programa: {:?}",
+            out.stdout
+        );
+    }
+
+    /// QW-1: TMPDIR is declared (=/tmp, a write root Landlock already grants)
+    /// so tools honouring it have a temp dir.
+    #[tokio::test]
+    async fn child_sees_tmpdir_pointing_to_tmp() {
+        let out = ctx_execute_impl(
+            "bash".to_string(),
+            "echo \"TMPDIR=$TMPDIR\"; mktemp -d >/dev/null && echo MKTEMP_OK".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("run");
+        assert_eq!(out.exit_code, 0);
+        assert!(out.stdout.contains("TMPDIR=/tmp"), "TMPDIR: {:?}", out.stdout);
+        assert!(out.stdout.contains("MKTEMP_OK"), "mktemp: {:?}", out.stdout);
+    }
+
+    /// QW-2: per-call inline caps override the 8 KB default — a 10 KB stdout
+    /// stays whole inline when the caller asks for it.
+    #[tokio::test]
+    async fn tunables_max_stdout_bytes_overrides_the_inline_cap() {
+        let out = ctx_execute_impl(
+            "python".to_string(),
+            "print('x' * 10000)".to_string(),
+            None,
+            None,
+            None,
+            None,
+            Some(crate::tools::ctx_execute_tools::RunTunables {
+                max_stdout_bytes: Some(64 * 1024),
+                ..Default::default()
+            }),
+        )
+        .await
+        .expect("run");
+        assert_eq!(out.exit_code, 0);
+        assert!(
+            out.stdout.contains(&"x".repeat(10_000)),
+            "stdout inline integral com o cap pedido (len={})",
+            out.stdout.len()
+        );
     }
 
     // P1.3 unit tests — ast_forbidden_scan integration.
