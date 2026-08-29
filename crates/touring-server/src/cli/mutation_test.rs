@@ -8,8 +8,8 @@
 //! # Usage
 //!
 //! ```bash
-//! touring mutation-test                                  # whole workspace, defaults
-//! touring mutation-test --package touring-ast            # single crate
+//! touring mutation-test --package touring-identity       # single crate (the normal run)
+//! touring mutation-test --force                          # whole workspace — hours; force required
 //! touring mutation-test --threshold 70 --timeout 120     # tune gate
 //! touring mutation-test --jobs 8                         # parallelism override
 //! touring mutation-test --force                          # bypass cache
