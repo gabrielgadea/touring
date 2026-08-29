@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 5478.0,
+      "actual": 5469.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.2820232100000001,
+      "actual": 0.8759763956629958,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.0,
+      "actual": 0.367816091954023,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -110,29 +110,29 @@
       "threshold": 50.0
     },
     {
-      "actual": 0.0,
+      "actual": 1131.8235294117646,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 800.0
     },
     {
-      "actual": 1584.0,
+      "actual": 214.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
       "name": "Coupling hook dispatch latency p50 (D5, leading)",
       "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 1000.0
     },
     {
-      "actual": 520191.0,
+      "actual": 6189055.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,14 +143,14 @@
       "threshold": 50000.0
     },
     {
-      "actual": 415231.0,
+      "actual": 7942143.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
       "name": "Coupling actor queue-wait p99 — serialized-actor backpressure (D5, leading, F8)",
       "rationale": "Time a RunHook waited in the per-project actor's serial mpsc before dequeue (F8, 2026-07-01). hook_dispatch_latency starts at dequeue, so this wait was invisible — it is the cross-session contention signal (one session's heavy hook stalling another's in the same project). >1s p99 = contention; advisory until a 2-week baseline exists.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 1000000.0
     },
     {
@@ -176,18 +176,18 @@
       "threshold": 0.7
     },
     {
-      "actual": null,
+      "actual": 0.29411764705882354,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.4
     },
     {
-      "actual": 1.0,
+      "actual": 0.9545454545454546,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
@@ -198,14 +198,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": 1.1,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.1
     },
     {
@@ -253,14 +253,14 @@
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
       "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
       "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.75
     },
     {
@@ -275,7 +275,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 7.911764705882353,
+      "actual": 7.942857142857143,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
@@ -297,7 +297,7 @@
       "threshold": 2.0
     },
     {
-      "actual": 75.0,
+      "actual": 76.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -319,7 +319,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.013513513513513514,
+      "actual": 0.013333333333333334,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.zte_bypass_rate",
@@ -330,7 +330,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.5085714285714286,
+      "actual": 0.5056818181818182,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -341,7 +341,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.7875168761034376,
+      "actual": 0.7861289653742484,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -352,7 +352,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.17724785795395892,
+      "actual": 0.17736509680076892,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -363,7 +363,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.17831550524457368,
+      "actual": 0.17800124403897988,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -395,33 +395,33 @@
     },
     "by_language": {
       "?": 1,
-      "bash": 1699,
+      "bash": 1722,
       "go": 1,
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1331,
+      "python": 1341,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 2851,
-    "runs_total": 3141,
+    "runs_ok": 2884,
+    "runs_total": 3174,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9076727156956383,
+    "success_rate": 0.9086326402016384,
     "wasted_attempts_retry_pairs": 168
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-08-28",
   "summary": {
-    "advisory": 10,
+    "advisory": 11,
     "failed": 0,
-    "passed": 19,
+    "passed": 20,
     "regressions": 0,
-    "stub": 5,
+    "stub": 3,
     "total": 34
   }
 }
