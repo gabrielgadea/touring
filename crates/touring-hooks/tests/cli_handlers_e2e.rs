@@ -760,6 +760,51 @@ fn test_gotcha_resolve_feeds_the_resolution_channel() {
     // id fantasma → erro que ensina
     let ghost = parse_json(&cli_gotcha_resolve(&mut rt, &serde_json::json!({ "id": 999_999 })));
     assert!(ghost["error"].is_string() && ghost["hint"].is_string(), "payload: {ghost}");
+    // reopen (achado F-2 do cross-audit 29/08): o inverso existe e o meter volta
+    let reopened = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": id, "reopen": true, "why": "prova do verbo inverso" }),
+    ));
+    assert_eq!(reopened["reopened"], true, "payload: {reopened}");
+    let final_stats = parse_json(&cli_gotcha_stats(&mut rt, &serde_json::json!({})));
+    assert_eq!(
+        final_stats["resolved"].as_i64().unwrap_or(-1),
+        before["resolved"].as_i64().unwrap_or(0),
+        "reopen devolve o meter ao estado anterior"
+    );
+    // reopen de algo não-resolvido: declarado, nunca silencioso
+    let noop = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": id, "reopen": true }),
+    ));
+    assert_eq!(noop["reopened"], false, "payload: {noop}");
+    assert!(noop["hint"].is_string(), "payload: {noop}");
+}
+
+/// F-1 do cross-audit 29/08: um rótulo de decisão inválido era coagido em
+/// silêncio para `keep` — o veredito MAIS FORTE (atualiza best_reward).
+/// Agora ensina; e o round-trip record→list devolve variant/target/reward.
+#[test]
+fn test_experiment_record_teaches_on_invalid_decision_and_round_trips() {
+    let (_tmp, mut rt) = setup_runtime();
+    let bad = parse_json(&cli_experiment_record(
+        &mut rt,
+        &serde_json::json!({ "variant": "v", "target": "t", "decision": "banana" }),
+    ));
+    assert!(bad["error"].is_string() && bad["hint"].is_string(), "payload: {bad}");
+    let ok = parse_json(&cli_experiment_record(
+        &mut rt,
+        &serde_json::json!({
+            "variant": "variante de prova", "target": "alvo-e2e",
+            "reward": 0.7, "decision": "keep",
+        }),
+    ));
+    assert_eq!(ok["recorded"], true, "payload: {ok}");
+    let listed = parse_json(&cli_experiment_list(&mut rt, &serde_json::json!({ "limit": 5 })));
+    let first = &listed["entries"][0];
+    assert_eq!(first["target"], "alvo-e2e");
+    assert_eq!(first["variant"], "variante de prova", "diagnostic volta no reader: {listed}");
+    assert_eq!(listed["best_reward"], 0.7);
 }
 
 // ═══════════════════════════════════════════════════════════════════════

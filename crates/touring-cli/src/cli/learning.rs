@@ -125,9 +125,19 @@ pub fn cli_experiment_record(rt: &mut HookRuntime, payload: &serde_json::Value) 
         .get("reward")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
+    // Achado do cross-audit 29/08 (F-1): `_ => Keep` coagia um rótulo
+    // inválido em silêncio para o veredito MAIS FORTE (keep atualiza
+    // best_reward). Entrada desconhecida agora ensina, nunca coage (A5).
     let decision = match str_or(payload, "decision", "keep") {
+        "keep" => ExperimentDecision::Keep,
         "discard" => ExperimentDecision::Discard,
-        _ => ExperimentDecision::Keep,
+        other => {
+            return serde_json::json!({
+                "error": format!("unknown decision '{other}'"),
+                "hint": "decision must be `keep` or `discard`",
+            })
+            .to_string();
+        }
     };
     let entry = ExperimentEntry {
         state: 0,
