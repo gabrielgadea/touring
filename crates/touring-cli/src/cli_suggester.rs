@@ -4215,6 +4215,55 @@ fn arm_store_path(project_root: &Path) -> std::path::PathBuf {
     project_root.join(".claude/touring/code_mode_arm.json")
 }
 
+/// Evidência DURÁVEL das famílias de medição sem arquivo próprio — S3 (rajada
+/// de inspeção) e pillar-induction. R2 (29/08, ordem de Gabriel): os KPIs
+/// `inspect_burst_share` e `pillar_induction_ratio` liam contadores de
+/// processo que zeram a cada restart do daemon (3 deploys num dia = 3 apagões
+/// da amostra) — a mesma classe que fez a decisão do braço ler
+/// `code_mode_arm.json`. Mesmo contrato do arm: leitura ilegível ⇒ zeros (o
+/// consumidor fica calado), falha de escrita ⇒ warn, nunca silêncio.
+fn durable_evidence_path(project_root: &Path) -> std::path::PathBuf {
+    project_root.join(".claude/touring/durable_gate_evidence.json")
+}
+
+/// O arquivo inteiro como JSON; ausente/corrompido ⇒ objeto vazio (evidência
+/// que não se pode ler é evidência que não existe).
+pub(crate) fn read_durable_evidence(project_root: &Path) -> serde_json::Value {
+    std::fs::read_to_string(durable_evidence_path(project_root))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .filter(serde_json::Value::is_object)
+        .unwrap_or_else(|| serde_json::json!({}))
+}
+
+/// `+1` em `<family>.<field>`, read-modify-write no arquivo durável. Chamado
+/// ao lado do contador volátil correspondente — o vivo alimenta o
+/// `gate-metrics` da sessão, o durável alimenta o KPI que precisa de DIAS.
+pub(crate) fn bump_durable_evidence(project_root: &Path, family: &str, field: &str) {
+    let mut v = read_durable_evidence(project_root);
+    let Some(obj) = v.as_object_mut() else { return };
+    let fam = obj
+        .entry(family.to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !fam.is_object() {
+        *fam = serde_json::json!({});
+    }
+    let Some(f) = fam.as_object_mut() else { return };
+    let n = f.get(field).and_then(Value::as_u64).unwrap_or(0);
+    f.insert(field.to_string(), serde_json::json!(n + 1));
+    let path = durable_evidence_path(project_root);
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, v.to_string()) {
+        tracing::warn!(
+            target: "touring::kpi",
+            "durable gate evidence write failed at {}: {e}",
+            path.display()
+        );
+    }
+}
+
 /// TTL curto: `code_mode_presentation` roda em todo PreToolUse, e ler o arquivo
 /// a cada chamada trocaria um problema de durabilidade por um de latência.
 fn arm_cache() -> &'static moka::sync::Cache<String, ArmCounts> {
@@ -5117,6 +5166,7 @@ pub(crate) fn code_mode_gates(
             // dos fundos a fricção que o predicado acabou de tirar da frente.
             inspect_burst_ledger().insert(key, (n, cmds));
             crate::shared::gate_metrics::record_g1_inspect_first_passed();
+            bump_durable_evidence(project_root, "s3", "first_passed");
         } else {
             // python-inline funde os CORPOS (o remédio 1:1 por comando já
             // existia; a rajada junta-os na ordem); as classes shell seguem
@@ -5134,6 +5184,7 @@ pub(crate) fn code_mode_gates(
             record_route_offer(project_root, session, apresentacao);
             record_gate_event(GateId::G1, GateEvent::Denied);
             crate::shared::gate_metrics::record_g1_inspect_burst_denied();
+            bump_durable_evidence(project_root, "s3", "denied");
             let nota_omissao = if omitidos > 0 {
                 format!(
                     " ({omitidos} comando(s) não coube(ram) no orçamento e foram OMITIDOS \
@@ -5486,7 +5537,7 @@ fn pending_pillar() -> &'static moka::sync::Cache<String, ()> {
 /// and the Task #6 pillar layer (a master/recall command, precise predicate).
 /// Extracted from `run` to keep its control flow flat. Fail-open: pure cache ops
 /// + Relaxed atomics, no error path.
-fn eval_uptake(session: &str, tool_name: &str, tool_input: &Value) {
+fn eval_uptake(project_root: &Path, session: &str, tool_name: &str, tool_input: &Value) {
     if pending_suggestion().remove(session).is_some()
         && action_is_touring_redirect(tool_name, tool_input)
     {
@@ -5494,6 +5545,7 @@ fn eval_uptake(session: &str, tool_name: &str, tool_input: &Value) {
     }
     if pending_pillar().remove(session).is_some() && action_followed_pillar(tool_name, tool_input) {
         crate::shared::gate_metrics::record_pillar_induction_followed();
+        bump_durable_evidence(project_root, "pillar", "followed");
     }
 }
 
@@ -5517,7 +5569,7 @@ fn resolve_classifier(
 /// redirect counter always, plus the Task #6 per-pillar counter + parallel marker
 /// when `is_pillar`. Extracted from `run` to keep it under the complexity gate.
 /// Fail-open: counter calls + cache inserts are infallible.
-fn record_emission(context_len: usize, session: String, is_pillar: bool) {
+fn record_emission(project_root: &Path, context_len: usize, session: String, is_pillar: bool) {
     crate::shared::gate_metrics::record_enrichment_emitted(context_len);
     // F2: this emission is a redirect suggestion — count it and arm the uptake
     // measurement for this session's next action.
@@ -5527,6 +5579,7 @@ fn record_emission(context_len: usize, session: String, is_pillar: bool) {
     // precise per-pillar follow-through (parallel cache so F2 is undisturbed).
     if is_pillar {
         crate::shared::gate_metrics::record_pillar_induction_emitted();
+        bump_durable_evidence(project_root, "pillar", "emitted");
         pending_pillar().insert(session, ());
     }
 }
@@ -5555,7 +5608,7 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // early returns so a non-emitting call still closes the prior suggestion's loop.
     // Fail-open: pure cache + atomic ops, no error path.
     let session = session_key(payload);
-    eval_uptake(&session, tool_name, tool_input);
+    eval_uptake(&rt.project_root, &session, tool_name, tool_input);
 
     // F3 adoption_ratio (doc §9, the mother coupling KPI): classify EVERY Bash
     // action — touring-canonical vs raw-shell antipattern — BEFORE the anti-spam /
@@ -5664,7 +5717,7 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // used as a token-count proxy for the Signal-to-Token Ratio metric.
     // Fail-open: the counter call is infallible (~1 ns, Relaxed atomic).
     if !context.is_empty() {
-        record_emission(context.len(), session, is_pillar);
+        record_emission(&rt.project_root, context.len(), session, is_pillar);
     }
 
     emit(tool_name, tool_input, &context)

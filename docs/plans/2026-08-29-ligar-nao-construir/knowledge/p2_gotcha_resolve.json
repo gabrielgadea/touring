@@ -1,0 +1,11 @@
+{
+  "phase": "p2_gotcha_resolve",
+  "entities": [
+    {
+      "entity_id": "phase:p2_gotcha_resolve",
+      "type": "phase",
+      "description": "R1: cli-gotcha-resolve criado (handler + dispatch + registry + verbo clap) \u2014 o produtor do canal que touring.gotcha.resolution l\u00ea; resolve por id ou pattern \u00fanico, idempotente declarado, erro que ensina. Tripwire de contagem atualizado nos 4 s\u00edtios (236/240/242). E2E: add\u2192resolve incrementa stats.resolved."
+    }
+  ],
+  "relations": []
+}

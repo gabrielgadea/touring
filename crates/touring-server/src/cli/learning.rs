@@ -35,6 +35,37 @@ enum LearningCmd {
         /// Optional free-form context (remaining positional args, joined).
         context: Vec<String>,
     },
+    /// A/B experiment log (R4, 29/08): record a judged variant / read them back.
+    #[command(subcommand)]
+    Experiment(ExperimentCmd),
+}
+
+#[derive(Subcommand, Debug)]
+enum ExperimentCmd {
+    /// Record one judged variant into the project's experiment log.
+    Record {
+        /// What was attempted (the variant text).
+        #[arg(long)]
+        variant: String,
+        /// What the variant attacks (the target/rubric).
+        #[arg(long)]
+        target: String,
+        /// Measured reward/score for the variant.
+        #[arg(long, default_value_t = 0.0)]
+        reward: f64,
+        /// keep (passed the gate) or discard.
+        #[arg(long, default_value = "keep")]
+        decision: String,
+        /// Session id for attribution.
+        #[arg(long)]
+        session_id: Option<String>,
+    },
+    /// List recorded experiments (newest first).
+    List {
+        /// Maximum rows to return.
+        #[arg(long, default_value_t = 20)]
+        limit: u64,
+    },
 }
 
 /// Entry point for the `touring learning` CLI handler — parses the argv slice
@@ -64,6 +95,24 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "context": context.join(" "),
             });
             let output = daemon_query("cli-learning-reward", payload)?;
+            println!("{output}");
+        }
+        LearningCmd::Experiment(ExperimentCmd::Record {
+            variant,
+            target,
+            reward,
+            decision,
+            session_id,
+        }) => {
+            let payload = serde_json::json!({
+                "variant": variant, "target": target, "reward": reward,
+                "decision": decision, "session_id": session_id,
+            });
+            let output = daemon_query("cli-experiment-record", payload)?;
+            println!("{output}");
+        }
+        LearningCmd::Experiment(ExperimentCmd::List { limit }) => {
+            let output = daemon_query("cli-experiment-list", serde_json::json!({ "limit": limit }))?;
             println!("{output}");
         }
     }

@@ -195,7 +195,20 @@ fn rerank_by_case_value(mut entries: Vec<serde_json::Value>) -> Vec<serde_json::
             Some(_) => 2,
         }
     }
-    entries.sort_by_key(class_of);
+    // R5 (29/08, ordem de Gabriel): dentro da MESMA classe de valor, curadoria
+    // antes de traço de processo. A classe 1 (unobserved) é onde as lições
+    // curadas vivem por desenho — e o volume de `decomp:`/`loop:`/`subtask:`
+    // as afogava (`curated_recall_share` 0,177 medido 29/08: 82% dos slots em
+    // não-curadas). O sort segue estável: valor decide a classe, procedência
+    // decide dentro dela, e o RRF decide dentro de cada (classe, procedência).
+    const PROCESS_TRACE_PREFIXES: &[&str] = &["outcome:", "decomp:", "subtask:", "loop:", "adw:"];
+    fn is_process_trace(entry: &serde_json::Value) -> bool {
+        entry
+            .get("key")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|k| PROCESS_TRACE_PREFIXES.iter().any(|p| k.starts_with(p)))
+    }
+    entries.sort_by_key(|e| (class_of(e), u8::from(is_process_trace(e))));
     entries
 }
 
@@ -821,6 +834,21 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         .into_iter()
         .collect();
     if !served_keys.is_empty() {
+        // R5 (29/08, ordem de Gabriel): o retrieval CONTA. `access_count` só
+        // subia em writes e exact-key reads, então `curated_recall_share` e
+        // `never_recalled_ratio` mediam outra coisa que não o recall que
+        // declaram. Melhor-esforço no DB canônico do projeto (o KPI é por
+        // projeto); key federada de outro projeto ou schema sem a coluna
+        // ficam de fora em silêncio.
+        if let Ok(conn) = rusqlite::Connection::open(&memory_db_path) {
+            for key in &served_keys {
+                let _ = conn.execute(
+                    "UPDATE memory_entries SET access_count = COALESCE(access_count, 0) + 1 \
+                     WHERE key = ?1",
+                    params![key],
+                );
+            }
+        }
         rt.learning
             .case_ledger
             .record(credit_key(query), served_keys);
@@ -1242,10 +1270,43 @@ fn memory_list_order_clause(sort_field: &str) -> &'static str {
 
 #[cfg(test)]
 mod memory_surface_tests {
-    use super::{filter_outcomes, memory_list_order_clause, memory_recall_rrf_merge_n};
+    use super::{
+        filter_outcomes, memory_list_order_clause, memory_recall_rrf_merge_n,
+        rerank_by_case_value,
+    };
 
     fn entry(key: &str) -> serde_json::Value {
         serde_json::json!({ "key": key, "value": "v" })
+    }
+
+    /// R5 (29/08): dentro da classe unobserved, curadoria vem antes de traço
+    /// de processo (`loop:`/`decomp:`/`subtask:`/`adw:`) — era o afogamento
+    /// medido em `curated_recall_share` 0,177. Valor segue mandando entre
+    /// classes; a ordem RRF segue estável dentro de cada (classe, procedência).
+    #[test]
+    fn rerank_prefers_curated_over_process_trace_within_a_class() {
+        let ranked = rerank_by_case_value(vec![
+            entry("loop:task_1:P2:done"),
+            entry("decomp:task_2"),
+            entry("gotcha:algum-defeito:2026-08-29"),
+            entry("lesson:algo-aprendido"),
+            serde_json::json!({ "key": "outcome:bash:x:success", "outcome_reward": 1.0 }),
+        ]);
+        let keys: Vec<&str> = ranked
+            .iter()
+            .filter_map(|e| e.get("key").and_then(serde_json::Value::as_str))
+            .collect();
+        assert_eq!(
+            keys,
+            vec![
+                "outcome:bash:x:success",     // proven good vence a classe
+                "gotcha:algum-defeito:2026-08-29", // curadas antes dos traços…
+                "lesson:algo-aprendido",
+                "loop:task_1:P2:done",        // …e os traços preservam a ordem RRF
+                "decomp:task_2",
+            ],
+            "valor > procedência > similaridade, nesta ordem"
+        );
     }
 
     #[test]

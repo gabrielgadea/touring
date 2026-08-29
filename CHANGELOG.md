@@ -172,6 +172,45 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 ## [Unreleased]
 
+### feat(aprendizado) — ligar, não construir: R1-R6 fecham os furos do ciclo (ordem de Gabriel, 29/08)
+
+Auditoria da inteligência mediu: registro forte, crédito compondo (1,70%→7,87%
+em 4 dias), mas o USO pelo motor era o gargalo — 5 furos, todos com número.
+Cada fase LIGOU estrutura já compilada (bundle
+`docs/plans/2026-08-29-ligar-nao-construir/`, DAG task_1788020982583817162):
+
+- **P1/R2 — evidência durável**: `durable_gate_evidence.json` (mesmo contrato
+  do `code_mode_arm.json`); o gate S3 e o pillar-induction gravam ao lado dos
+  counters voláteis, e os KPIs `inspect_burst_share`/`pillar_induction_ratio`
+  leem o arquivo — 3 deploys num dia deixam de ser 3 apagões da amostra.
+  Diagnóstico honesto: `arm_native`/`arm_both` já liam disco (STUB por piso de
+  amostra, não volatilidade).
+- **P2/R1 — o produtor do canal de resolução**: `touring gotcha resolve
+  <id|--pattern> [--why]` escreve `resolved_at` — o campo que
+  `touring.gotcha.resolution` conta e que NENHUM caminho escrevia (91 gotchas,
+  meter 0.0). Idempotente declarado; erro que ensina; tripwire de contagem
+  atualizado nos 4 sítios.
+- **P3/R6 — STR no learning status**: `agentic_rl_state` vira resumo — arrays
+  numéricos longos comprimidos a `{len, l2_norm}` recursivamente (~40KB de
+  pesos crus por chamada eliminados); o estado completo segue só na
+  persistência.
+- **P4/R5 — o retrieval conta e a curadoria emerge**: o recall RRF incrementa
+  `access_count` das entries servidas (curated_recall_share e
+  never_recalled_ratio passam a medir o recall que declaram) e o re-rank ganha
+  eixo de procedência — dentro da classe de valor, curadoria antes de traço de
+  processo (`outcome:`/`decomp:`/`subtask:`/`loop:`/`adw:`).
+- **P5/R3 — condicional DSPy medida e honesta**: família real é a KEY
+  `gate-reject:<flow>:<nó>` (7 casos, reward 0.0-0.2, n=1-2 por nó; 147/154
+  negativos são crédito difuso). O 1º ciclo `dspy_compile` NÃO parte (piso ~30
+  num verificador único); gatilho monitorável em
+  `criterio:p4-dspy-gatilho-familia:2026-08-29`.
+- **P6/R4 — ExperimentLog ganha chamadores**: superfície
+  `touring learning experiment record|list` (hooks `cli-experiment-{record,list}`),
+  `LogRow` potencializado com `diagnostic` (a coluna era gravada e nunca lida),
+  e o `variant_archive.record` do loop-engineering alimenta o log (fail-open).
+- Testes: dispatch 1325 · intelligence 12 (experiment_log) · server clap 34 ·
+  variant_archive 18 · clippy 0 nos 4 crates.
+
 ### tighten(code-mode) — python-inline READ-ONLY cai na rajada de inspeção (ordem de Gabriel, 29/08)
 
 - **O furo medido ao vivo**: 4 heredocs python de leitura pura seriados até o

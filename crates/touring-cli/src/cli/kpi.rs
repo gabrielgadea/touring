@@ -537,19 +537,24 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
         }
         "pillar_induction_ratio" => {
             // Task #6 — followed / emitted for the armed pillar-induction layer
-            // (master-cli + learning-memory nudges). Mirrors `suggestion_uptake`
-            // but scoped to the per-pillar counters; `None` until the layer emits
+            // (master-cli + learning-memory nudges). `None` until the layer emits
             // (default-OFF), so it reports ADVISORY rather than a false 0.
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let emitted = m
-                .pointer("/pillar_induction_emitted_count")
+            //
+            // R2 (29/08, ordem de Gabriel): a fonte é o arquivo DURÁVEL
+            // (`durable_gate_evidence.json`), não os contadores de processo —
+            // 3 deploys num dia são 3 apagões da amostra, e um medidor que
+            // esquece nunca cruza o piso (a mesma razão que fez o braço da
+            // apresentação ler `code_mode_arm.json`).
+            let v = crate::cli_suggester::read_durable_evidence(&rt.project_root);
+            let emitted = v
+                .pointer("/pillar/emitted")
                 .and_then(json_value_as_f64)
                 .unwrap_or(0.0);
             if emitted <= 0.0 {
                 return None;
             }
-            let followed = m
-                .pointer("/pillar_induction_followed_count")
+            let followed = v
+                .pointer("/pillar/followed")
                 .and_then(json_value_as_f64)
                 .unwrap_or(0.0);
             Some(followed / emitted)
@@ -559,16 +564,18 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
         "code_mode_arm_both" => code_mode_arm_rate(rt, "both"),
         "code_mode_arm_code" => code_mode_arm_rate(rt, "code"),
         "inspect_burst_share" => {
-            // S3 (2026-08-27) — a leitura da recalibração. Os counters vivem no
-            // daemon, então a série sobrevive ao processo CLI; o veredito sobre
-            // o limiar precisa de dias de uso, não de mais uma medição hoje.
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let denied = m
-                .pointer("/g1_inspect_burst_denied_count")
+            // S3 (2026-08-27) — a leitura da recalibração. O veredito sobre o
+            // limiar precisa de DIAS de uso — e uma série que zera a cada
+            // restart do daemon nunca acumula dias (R2, 29/08: os counters de
+            // processo ficaram para o `gate-metrics` vivo; o KPI lê o arquivo
+            // durável que o gate incrementa ao lado deles).
+            let v = crate::cli_suggester::read_durable_evidence(&rt.project_root);
+            let denied = v
+                .pointer("/s3/denied")
                 .and_then(json_value_as_f64)
                 .unwrap_or(0.0);
-            let passed = m
-                .pointer("/g1_inspect_first_passed_count")
+            let passed = v
+                .pointer("/s3/first_passed")
                 .and_then(json_value_as_f64)
                 .unwrap_or(0.0);
             inspect_burst_share(denied, passed)

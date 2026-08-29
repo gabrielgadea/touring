@@ -1,0 +1,11 @@
+{
+  "phase": "p3_learning_status_str",
+  "entities": [
+    {
+      "entity_id": "phase:p3_learning_status_str",
+      "type": "phase",
+      "description": "R6: agentic_rl_state do learning status vira resumo \u2014 arrays num\u00e9ricos longos comprimidos a {len, l2_norm} recursivamente (summarize_numeric_arrays), escalares e arrays curtos intactos; estado completo segue s\u00f3 na persist\u00eancia. Teste prova <2KB. clippy 0."
+    }
+  ],
+  "relations": []
+}

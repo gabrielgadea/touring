@@ -154,7 +154,7 @@ impl ExperimentLog {
     /// Query the "committed" view — only Keep decisions (monotonically improving).
     pub fn committed(&self, limit: usize) -> Result<Vec<LogRow>, rusqlite::Error> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, timestamp, state, action, reward, decision, tool_name
+            "SELECT id, timestamp, state, action, reward, decision, tool_name, diagnostic
              FROM experiment_log WHERE decision = 'keep'
              ORDER BY id DESC LIMIT ?1",
         )?;
@@ -168,6 +168,7 @@ impl ExperimentLog {
                     reward: row.get(4)?,
                     decision: row.get(5)?,
                     tool_name: row.get(6)?,
+                    diagnostic: row.get(7)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -177,7 +178,7 @@ impl ExperimentLog {
     /// Query the "all" view — every experiment regardless of outcome.
     pub fn all_events(&self, limit: usize) -> Result<Vec<LogRow>, rusqlite::Error> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, timestamp, state, action, reward, decision, tool_name
+            "SELECT id, timestamp, state, action, reward, decision, tool_name, diagnostic
              FROM experiment_log
              ORDER BY id DESC LIMIT ?1",
         )?;
@@ -191,6 +192,7 @@ impl ExperimentLog {
                     reward: row.get(4)?,
                     decision: row.get(5)?,
                     tool_name: row.get(6)?,
+                    diagnostic: row.get(7)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -276,6 +278,11 @@ pub struct LogRow {
     pub decision: String,
     /// Tool associated with the action, if any.
     pub tool_name: Option<String>,
+    /// Free-text diagnostic recorded with the entry — the column was written
+    /// since day one and never read back (R4, 29/08: the variant text of an
+    /// A/B experiment travels here; a reader that drops it makes the log
+    /// write-only).
+    pub diagnostic: Option<String>,
 }
 
 #[cfg(test)]

@@ -128,10 +128,17 @@ fn registry_has_expected_count() {
     //   isso o canal SEM MCP contava zero (163 runs no journal contra
     //   `code_mode_runs_count = 0`) enquanto a rota MCP contava tudo. Este hook
     //   é o relay que o CLI usa para o daemon contabilizar: 238->239 / 240->241.
+    // 2026-08-29 (R1 ligar-não-construir): +1 cli-gotcha-resolve — o produtor
+    //   do canal que `touring.gotcha.resolution` lê (91 gotchas, meter 0.0:
+    //   `resolved_at` existia no schema e nenhum caminho o escrevia):
+    //   239->240 / 241->242.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list} — a superfície do
+    //   ExperimentLog (zero chamadores de produção; o A/B do variant_archive
+    //   passa a registrar e ler de volta): 240->242 / 242->244.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 241;
+    const EXPECTED_NAMES: usize = 244;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 239;
+    const EXPECTED_NAMES: usize = 242;
     assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205
@@ -152,7 +159,9 @@ fn registry_has_expected_count() {
     // 2026-08-12 (H2 SCIP type-aware wiring): +1 cli-wiring-scip-ingest = 230.
     // 2026-08-18 (C2+C3): +4 cli-decompose-{claim,release,ticket,frontier} = 234.
     // 2026-08-24 (code-mode máximo): +1 cli-code-mode-run = 235.
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 235);
+    // 2026-08-29 (R1): +1 cli-gotcha-resolve = 236.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list} = 238.
+    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 238);
 }
 
 /// The tripwire literal is duplicated across four files; this asserts they agree.

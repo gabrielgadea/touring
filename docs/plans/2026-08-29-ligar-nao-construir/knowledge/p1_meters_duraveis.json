@@ -1,0 +1,11 @@
+{
+  "phase": "p1_meters_duraveis",
+  "entities": [
+    {
+      "entity_id": "phase:p1_meters_duraveis",
+      "type": "phase",
+      "description": "R2: evid\u00eancia dur\u00e1vel em durable_gate_evidence.json (mesmo contrato do code_mode_arm.json); gate S3 e pillar gravam ao lado dos counters vol\u00e1teis; KPIs inspect_burst_share e pillar_induction_ratio leem o arquivo. arm_native/arm_both diagnosticados STUB-honesto (piso de amostra, j\u00e1 liam disco). 219 passed (2 novos), kpi 39, clippy 0."
+    }
+  ],
+  "relations": []
+}
