@@ -170,6 +170,50 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [30.4.22] - 2026-08-29 — A "aceleração GPU" que custava 7,86 segundos por busca
+
+> `cli-memory-recall` estourava o budget de 15s do handler (ordem de Gabriel:
+> "é infra Touring"). O vilão não era o DB de 1,1 GB: `gate-metrics` mostrava
+> `ann_search_latency` p50 = 7.864.319 µs — e o número bateu com a anatomia.
+> `EmbeddingIndex::new()` armava um backend wgpu cujo `compute_topk` faz um
+> dispatch COMPLETO (criar buffers + submit + readback com spin-wait) POR PAR
+> DE CANDIDATOS: ~0,95 ms × 8.218 vetores = os 7,8 s medidos. O comentário
+> "falls back to SIMD on init failure" era ficção — `try_with_gpu` nunca
+> prova nada, então o backend por-par ficava sempre armado.
+
+### Changed
+- `EmbeddingIndex::new()` agora é UM construtor incondicional que usa o caminho
+  CPU-SIMD (rayon + pulp, O(n log k)); GPU segue opt-in via `with_gpu`/
+  `try_with_gpu` e só ganha o default de volta com top-k batched de 1 dispatch
+  medido mais rápido (`crates/touring-hooks-prediction/src/ann_memory/mod.rs`).
+- Caminho heterogêneo do `search` clona o corpus filtrado 1× (unzip), não 2×.
+- `cli-memory-reindex` entrou em `is_heavy_hook` (300s): backfill de ~1.000
+  embeddings 768-dim é trabalho legítimo de dezenas de segundos — a mesma
+  correção do `cli-mutation-test` de 28/08 (`touring-dispatch/src/daemon.rs`).
+
+### Removed
+- O par `#[cfg(not(feature = "gpu-compute"))]` de `new()`/`with_simd` que (a)
+  duplicava `with_simd` — E0201, o build sem a feature NUNCA compilou — e (b)
+  no construtor "SIMD-only" armava um `HttpGpuBackend` com URL vazia.
+
+### Dados (higiene do corpus, projeto touring)
+- 619 embeddings ÓRFÃOS (64-dim, sem linha-fonte em `memory_entries` — sobras
+  da purga de outcomes de 02/08) removidos; 4 legadas com fonte re-embedadas
+  pelo reindex. Corpus final homogêneo: 8.622 × 768 (fast path sem clones).
+
+### Medido (antes → depois, ao vivo)
+- ANN p50: **7.864.319 µs → 596 µs** (~13.000×; max pós-fix 29 ms na 1ª chamada).
+- `touring memory recall` regime estável: **~8–9 s → 0,15 s** (~55×).
+- Fan-out de 5 recalls concorrentes (`touring.parallel`): **2/5 ok (3 mortos
+  no budget de 15s) → 5/5 ok em 0,69 s**.
+
+### Registro de honestidade
+- O primeiro suspeito era o DB grande/federação; o `gate-metrics` inocentou-os
+  em uma leitura — instrumentação viva primeiro, hipótese depois.
+- As duas primeiras medições pós-deploy (15,0 s) competiam com o backfill do
+  reindex no actor — regime estável só depois dele; medir DURANTE a migração
+  teria condenado o próprio fix.
+
 ## [30.4.21] - 2026-08-29 — "Cinco é muito frouxo" — o aperto geral dos gates
 
 > Ordem de Gabriel: G7 negando só na 5ª releitura era folga; revisar e apertar
