@@ -1,0 +1,11 @@
+{
+  "phase": "S1",
+  "entities": [
+    {
+      "entity_id": "phase:S1",
+      "type": "phase",
+      "description": "force-gate workspace_requires_force: handler recusa bare payload com erro que ensina; tabela-verdade + envelope testados; provado vivo no daemon deployado"
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "R1",
+  "entities": [
+    {
+      "entity_id": "phase:R1",
+      "type": "phase",
+      "description": "Root cause provado: fixtures sem marcador -> $HOME -> indice tantivy global real compartilhado; fila no writer Mutex sob I/O saturado (starvation); flagrante: docs de teste no indice de producao (cc_task_t-r18-create, file_changed fake); fundamentado em doc oficial tantivy (commit blocks) via Context7"
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "S3",
+  "entities": [
+    {
+      "entity_id": "phase:S3",
+      "type": "phase",
+      "description": "hang lifecycle: 15 rodadas instrumentadas sem flagra (so ocorre sob carga extrema); instrumento versionado scripts/diag_lifecycle_hang.sh; estrategia OKF; sem fix cego"
+    }
+  ],
+  "relations": []
+}

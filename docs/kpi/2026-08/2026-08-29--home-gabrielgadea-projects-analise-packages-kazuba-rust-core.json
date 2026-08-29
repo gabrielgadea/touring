@@ -11,14 +11,14 @@
   },
   "checks": [
     {
-      "actual": 0.0,
+      "actual": 8207.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
       "name": "Wiring orphan symbols",
       "rationale": "More than 100 orphans indicates significant wiring debt. ADVISORY (investigation 2026-07-01): the meter is not yet trustworthy — the count is cwd-sensitive (rust=5016 vs home=27088) and a Chain-7 spot-check found 3/4 sampled orphans have real consumers via grep (incomplete consumer population in wiring_map). Re-arm as blocking only after the wiring_map is repopulated and the FP rate is measured low.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 100.0
     },
     {
@@ -33,14 +33,14 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.5384615384615384,
+      "actual": 0.19242902208201892,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
       "name": "Query cache hit ratio (W17/W18)",
       "rationale": "Hit ratio >= 0.5 confirms cache is paying for itself. ADVISORY (2026-07-01): same structural pattern as ema_reward — the moka cache is in-memory and resets to 0.0 on every daemon restart (measured 0.0 → 0.71 post-warm, telemetry §1.4), so a non-advisory gate fails transiently after each restart without signalling anything. Re-arm if the ratio gains uptime-aware gating or persistence.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
@@ -110,7 +110,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 883.5,
+      "actual": 1260.7692307692307,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 291.0,
+      "actual": 281.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 1254399.0,
+      "actual": 24575999.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 1189887.0,
+      "actual": 37355519.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,7 +176,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.0,
+      "actual": 0.23076923076923078,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
@@ -187,18 +187,18 @@
       "threshold": 0.4
     },
     {
-      "actual": 0.0,
+      "actual": 0.8076923076923077,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": 2.3125,
+      "actual": 3.4693877551020407,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -253,7 +253,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.25,
+      "actual": 0.16666666666666666,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -330,18 +330,18 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.5,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
       "name": "Gated-flow OUTER compliance (artifact manifests complete at Stop)",
       "rationale": "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.9
     },
     {
-      "actual": 0.015486725663716814,
+      "actual": 0.8378378378378378,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -352,18 +352,18 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.061361457334611694,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
       "name": "Recall share landing on curated lessons, not auto-recorded outcomes",
       "rationale": "Before the 2026-08-02 filter the eight most-recalled entries in the whole store were all `outcome:*:failure`, and automatic entries were retrieved 2.4x more often than curated lessons — the ACO pheromone diluted by its own exhaust. This is the anti-regression meter for that fix; a fall back below 0.5 means noise is crowding the channel again.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": 0.02702702702702703,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -374,14 +374,14 @@
       "threshold": 0.25
     },
     {
-      "actual": 1.0,
+      "actual": 0.0,
       "advisory": false,
       "direction": "gte",
       "id": "touring.memory.tag_coverage",
       "name": "Memory entries carrying faceted hashtags (hashtag library)",
       "rationale": "The hashtag library only compounds when entries are faceted — an untagged entry is invisible to `#facet:value` filters and MOC communities. Backfilled to 1.0 on 2026-08-12 (7.393/7.393); every store path auto-tags since F1, so a fall below 0.9 means a write path is bypassing derivation (or the codetag sync silently broke).",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "FAIL",
       "threshold": 0.9
     }
   ],
@@ -395,33 +395,33 @@
     },
     "by_language": {
       "?": 1,
-      "bash": 1857,
+      "bash": 1829,
       "go": 1,
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1440,
+      "python": 1420,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 3114,
-    "runs_total": 3408,
+    "runs_ok": 3066,
+    "runs_total": 3360,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9137323943661971,
+    "success_rate": 0.9125,
     "wasted_attempts_retry_pairs": 170
   },
-  "project_root": "/home/gabrielgadea/Work",
+  "project_root": "/home/gabrielgadea/projects/analise/packages/kazuba-rust-core",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-08-29",
   "summary": {
-    "advisory": 9,
-    "failed": 0,
-    "passed": 14,
+    "advisory": 8,
+    "failed": 1,
+    "passed": 13,
     "regressions": 0,
-    "stub": 11,
+    "stub": 12,
     "total": 34
   }
 }

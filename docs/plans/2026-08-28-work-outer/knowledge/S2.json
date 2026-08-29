@@ -1,0 +1,11 @@
+{
+  "phase": "S2",
+  "entities": [
+    {
+      "entity_id": "phase:S2",
+      "type": "phase",
+      "description": "probe cargo_mutants_available consulta CARGO_HOME/bin como o cargo; teste puro has_subcommand_in + isolamento CARGO_HOME no teste de ausencia"
+    }
+  ],
+  "relations": []
+}

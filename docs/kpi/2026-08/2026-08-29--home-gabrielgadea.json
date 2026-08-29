@@ -33,14 +33,14 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.0,
+      "actual": 0.8846153846153846,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
       "name": "Query cache hit ratio (W17/W18)",
       "rationale": "Hit ratio >= 0.5 confirms cache is paying for itself. ADVISORY (2026-07-01): same structural pattern as ema_reward — the moka cache is in-memory and resets to 0.0 on every daemon restart (measured 0.0 → 0.71 post-warm, telemetry §1.4), so a non-advisory gate fails transiently after each restart without signalling anything. Re-arm if the ratio gains uptime-aware gating or persistence.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 365.0,
+      "actual": 51.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 485119.0,
+      "actual": 1058815.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 488447.0,
+      "actual": 27903.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -187,25 +187,25 @@
       "threshold": 0.4
     },
     {
-      "actual": 1.0,
+      "actual": 0.4,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": 5.4,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.1
     },
     {
@@ -253,7 +253,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": 0.3333333333333333,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -388,38 +388,38 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 210,
+      "exception": 215,
       "output-limit": 1,
       "proc-exit": 3,
       "timeout": 75
     },
     "by_language": {
       "?": 1,
-      "bash": 1722,
+      "bash": 1877,
       "go": 1,
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1355,
+      "python": 1447,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 2898,
-    "runs_total": 3188,
+    "runs_ok": 3140,
+    "runs_total": 3435,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9090338770388958,
-    "wasted_attempts_retry_pairs": 168
+    "success_rate": 0.9141193595342066,
+    "wasted_attempts_retry_pairs": 171
   },
   "project_root": "/home/gabrielgadea",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-08-29",
   "summary": {
-    "advisory": 7,
+    "advisory": 6,
     "failed": 0,
-    "passed": 18,
+    "passed": 19,
     "regressions": 0,
     "stub": 9,
     "total": 34

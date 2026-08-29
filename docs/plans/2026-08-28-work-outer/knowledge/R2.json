@@ -1,0 +1,11 @@
+{
+  "phase": "R2",
+  "entities": [
+    {
+      "entity_id": "phase:R2",
+      "type": "phase",
+      "description": "Fix: marcador .git na fixture + guard estrutural + fossil corrigido; provas: 1247/1247 lifecycle e 1325/1325 crate paralelos, zero escritas no indice global durante a suite; commit 476cbba; contaminacao estancada, residuo documentado"
+    }
+  ],
+  "relations": []
+}

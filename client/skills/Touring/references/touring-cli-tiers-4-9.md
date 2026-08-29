@@ -13,7 +13,7 @@ For per-module deep CLI reference see `touring-cli-*.md` siblings in this direct
 | `touring decompose create <type> "<desc>"` | Cria DAG | Pln2: --origin=<val>, Pln3: --cila-level=N | Sempre para tasks complexas |
 | `touring decompose add <task> <subtask> [deps]` | Adiciona subtask | Deps via vírgula: sub1,sub2 | Task decomposition |
 | `touring memory store <key> <val> --tier semantic` | Persiste lesson | Evita repetir erros | Antes de refactors |
-| `touring mutation-test [--package P] [--threshold T] [--cache-only\|--force]` **T1+T2** | Mutation testing wrapper sobre cargo-mutants | Cache 7d em `<ws>/.touring-cache/mutation-test/`; alimenta R1 Testing + R2 KPI; advisory gate em `run_full_audit.sh` (skip se cargo-mutants ausente). Playbook: `docs/mutation-testing.md` |
+| `touring mutation-test [--package P] [--threshold T] [--cache-only\|--force]` **T1+T2** | Mutation testing wrapper sobre cargo-mutants | Cache 7d em `<ws>/.touring-cache/mutation-test/`; alimenta R1 Testing + R2 KPI (`daemon:cli-mutation-test@<pkg>:/kill_rate`, cache-only). **Corrida workspace exige `--force`** (recusa falante `workspace_requires_force`, 28/08); corrida real é heavy (budget 1800s client+daemon); probe acha cargo-mutants no PATH E `$CARGO_HOME/bin`. Playbook: `docs/mutation-testing.md` (real desde 28/08) |
 
 ## TIER 5 — CODE GENERATION (touring-generator pipeline)
 
