@@ -200,6 +200,12 @@ timestamp: 2026-08-20T11:15:00-03:00
     `- <<EOF`) entrou na rajada como classe `python-inline` com remédio 1:1 (o
     corpo verbatim). Inalterados por medição/desenho: rajada de inspeção 2ª/300s
     (janela calibrada no joelho), G2/G8/G9 (1ª), G6 (2ª), G5 (telemetria).
+    **Extensão 29/08 (ordem de Gabriel)**: python-inline READ-ONLY (corpo sem
+    escrita/rede/subprocesso/DB — classificado pelo CORPO, `open(` com modo
+    mutante detectado por posição do 2º arg) cai na PRÓPRIA rajada de inspeção
+    (deny 2ª/300s, corpos fundidos em `--lang python`); escritor segue só no
+    G10 — usado como leitura, o interpretador ganhava 4 passes onde `cat`
+    ganha 1.
 
 11. **Diretrizes de elaboração de código E/A/M (28/08/2026)**: como ESCOLHER a rota
     (E1-E6: loop/agregação/≥3 fatos → programa; colapso no executor, D8), ACERTAR o
