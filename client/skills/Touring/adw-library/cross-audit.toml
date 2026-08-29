@@ -80,7 +80,9 @@ FACT=<alvo>=<fiel|desvio|orfao|pendente> <evidência ≤15 palavras: arquivo:lin
 
 `desvio` = comportamento contraria o propósito documentado; `orfao` = símbolo pub sem consumidor real (REGRA #0 — proponha o wiring); `pendente` = feature declarada não construída. Para cada desvio/orfao/pendente, acrescente na mesma linha a ação de potencialização proposta em ≤10 palavras. Nunca edite arquivo algum. A ÚLTIMA linha da resposta deve ser a linha literal VERDICT=PASS (todos os alvos receberam FACT= com evidência) ou VERDICT=REJECT — em coluna 0, fora de tabela, negrito ou bloco de código.
 
-Veredito do gate na tentativa anterior (vazio na primeira; se carrega texto, foi ISSO que reprovou — corrija-o primeiro): {{nodes.verdict_gate.summary}}"""
+Veredito do gate na tentativa anterior (vazio na primeira; se carrega texto, foi ISSO que reprovou — corrija-o primeiro): {{nodes.verdict_gate.summary}}
+
+Veredito do painel cego na rodada anterior (vazio na primeira; um REJECT aqui nomeia a lente que reprovou — corrija a EVIDÊNCIA, não o texto): {{nodes.panel.quorum.summary}}"""
 allowed_tools = ["Read", "Grep", "Glob"]
 retries = 1
 session = "resume_on_fail"
@@ -99,6 +101,20 @@ type = "gate"
 command = ["bash", "-c", "if [ -n \"$2\" ] && [ -r \"$2\" ]; then t=$(cat \"$2\"); else t=$1; fi; nf=$(printf '%s' \"$t\" | grep -c '^FACT=' || true); np=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); if [ \"$np\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=sem linha 'VERDICT=PASS' em coluna 0 ($nf FACT= presentes) — termine a resposta com a linha literal VERDICT=PASS, fora de tabela/negrito/bloco de codigo\"; exit 1; fi; if [ \"$nf\" -eq 0 ]; then echo \"VERDICT=REJECT + REASON=nenhuma linha 'FACT=alvo=fiel|desvio|orfao|pendente evidencia' em coluna 0 — uma por alvo, sem lista nem indentacao\"; exit 1; fi; echo \"VERDICT=PASS + REASON=$nf FACT= e VERDICT=PASS presentes\"", "--", "{{nodes.audit.summary}}", "{{nodes.audit.full_ref}}"]
 timeout_ms = 30000
 idempotent = true
+on_pass = "panel.panel"
+on_fail = "audit"
+
+# M1 (estratégia paralelização-agentes 29/08/2026) — o gauntlet cego entra no
+# caminho que já roda por construção: verdict_gate valida FORMA (linhas FACT=),
+# o painel julga CONTEÚDO às cegas — 3 lentes DISTINTAS (correctness/security/
+# reproducibility), sessões fresh (P3: crítico que viu o trabalho nascer não é
+# cego), quorum contado por CÓDIGO. REJECT volta ao auditor com a razão da
+# lente (gate falante, A5). Fecha também o evaluator-optimizer que a
+# cartografia marcava "parcial — gate determinístico, não juiz".
+[[use]]
+module  = "critic-panel"
+as      = "panel"
+with    = { artifact = "as linhas FACT= do auditor sobre a árvore {{vars.target}} — verifique a evidência citada NA PRÓPRIA árvore, nunca a narrativa: {{nodes.audit.summary}}", bar = "cada FACT= sustenta-se em evidência verificável (arquivo:linha ou comando reproduzível) dentro de {{vars.target}}; desvio/orfao/pendente sem ação de potencialização proposta reprova", quorum = "2" }
 on_pass = "e2e"
 on_fail = "audit"
 

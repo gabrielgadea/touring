@@ -18,9 +18,6 @@ budget_tokens = 0
 # by filename. `when_not_to_use` is not modesty: it is the field that lets a
 # search show a GAP instead of pitching the closest candidate.
 [purpose]
-# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
-# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 19 runs, OUTER deterministico projeto-agnostico.
-curation = "generic"
 intent = "Run the deterministic OUTER prefix of loop-engineering: arm the marker, recall, diagnose, explore until dry, report the evidence"
 when_to_use = [
   "starting substantive work that owes a diagnostic doc and a CCE ledger on disk",
@@ -56,47 +53,44 @@ prior_art_verdict = "create_new"
 
 [node.arm_marker]
 type = "code"
-# SEM sandbox de propósito: este nó ESCREVE o marcador do flow guard
-# (`loop_marker.py write`), e armar a guarda é o passo do qual todo o resto do
-# turno depende — mantê-lo no caminho mais curto é uma escolha de robustez, não
-# uma restrição técnica.
-#
-# ⚠ O que estava escrito aqui antes — que sandboxar o nó "trocaria a garantia
-# por observabilidade" — foi MEDIDO em 24/08/2026 e é falso: sob `touring run`
-# a escrita passa (a aplicação do CEG para shell é advisory, e o landlock vigente
-# permite estes caminhos). A afirmação nunca tinha sido exercida.
-#
-# A escrita, essa sim, não aparece na sintaxe do shell — está dentro do programa.
-# Era a cegueira do detector antigo; hoje `command_writes` a enxerga pelo VERBO
-# em posição de subcomando (`loop_marker.py write`), e é o único nó da biblioteca
-# classificado como escrita.
 command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
 timeout_ms = 30000
 idempotent = true
-on_pass = "recall"
-on_fail = "recall"          # marker write is best-effort; the flow still runs
+on_pass = "ground"
+on_fail = "ground"          # marker write is best-effort; the flow still runs
+
+# M2 (estratégia paralelização-agentes 29/08/2026) — recall e diagnose são
+# leituras INDEPENDENTES que rodavam em série (medido 18/08: recall 5,4s,
+# diagnose 30,2s — a série pagava a soma). O diamante read-only no flow de
+# maior frequência (23 runs/7d, armado pelo Stop hook) é a adoção POR
+# CONSTRUÇÃO do fan-out. Semântica de falha preservada: o ramo recall nunca
+# falha (`|| true`, como o antigo on_fail tolerante), então `all` fail-closed
+# equivale ao antigo `diagnose.on_fail = __fail__`.
+[node.ground]
+type = "parallel"
+branches = ["recall", "diagnose"]
+merge = "collect"
+on_branch_fail = "all"
+max_branches = 2
+on_pass = "explore_loop"
+on_fail = "__fail__"        # no diagnostic evidence -> the OUTER cannot proceed
 
 [node.recall]
 type = "code"
-sandbox = true
-command = ["bash", "-c", "touring memory recall \"$1\" 2>&1", "--", "{{vars.topic}}"]
+command = ["bash", "-c", "touring memory recall \"$1\" 2>&1 | head -c 1800; true", "--", "{{vars.topic}}"]
 timeout_ms = 120000
 idempotent = true
-on_pass = "diagnose"
-on_fail = "diagnose"        # empty recall is a valid result, never a blocker
 
 # ⚠ pipefail (23/08/2026): o comando termina em `| tail`, e sem pipefail o exit
-# era SEMPRE o do tail — o `on_fail = "__fail__"` declarado abaixo ficou
-# inalcançável por 105 runs (medido por flow_redundancy.py: nenhum nó separou
-# caso algum). O pipefail devolve ao nó o veredito que o spec sempre prometeu.
+# era SEMPRE o do tail — o `on_fail` declarado ficou inalcançável por 105 runs
+# (medido por flow_redundancy.py: nenhum nó separou caso algum). O pipefail
+# devolve ao nó o veredito que o spec sempre prometeu; hoje quem o consome é a
+# política `all` do bloco `ground`.
 [node.diagnose]
 type = "code"
-sandbox = true
 command = ["bash", "-c", "set -o pipefail; python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope \"$1\" --topic \"$2\" --bundle \"$3\" --json 2>&1 | tail -c 1800", "--", "{{vars.scope}}", "{{vars.topic}}", "{{vars.bundle}}"]
 timeout_ms = 900000
 idempotent = true
-on_pass = "explore_loop"
-on_fail = "__fail__"        # no diagnostic evidence -> the OUTER cannot proceed
 
 # `touring explore` loops-until-dry internally (CCE v2); the loop node re-drives
 # it so late findings still count — the runner, not the agent, decides dryness
@@ -112,7 +106,6 @@ on_fail = "__fail__"
 
 [node.explore_round]
 type = "code"
-sandbox = true
 # `touring explore` contract: exit 0 converged / 1 continue / 3 degraded.
 # Reading any non-zero as failure made this loop STRUCTURALLY unable to
 # iterate — every round that is not already dry exits 1, and the loop node
@@ -129,7 +122,6 @@ idempotent = true
 
 [node.evidence_report]
 type = "code"
-sandbox = true
 # Report-only (|| true): the summary carries the manifest verdict; the missing
 # strategy-doc is the orchestrator's synthesis deliverable, enforced at Stop.
 command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_outer_gate.py --json --no-emit || true"]

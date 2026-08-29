@@ -170,6 +170,59 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [30.4.23] - 2026-08-29 — O motor parado foi acoplado aos caminhos que rodam (M0-M5)
+
+> Estratégia paralelização-agentes aprovada por Gabriel: a doutrina de fan-out/
+> personas estava TODA implementada com adoção ~zero (0/23 flows com nó
+> `parallel`; personas jamais executaram em 40 dias). O que roda é o que um
+> executor arma — então cada peça parada foi acoplada a um caminho que roda por
+> construção, e o que não tinha instrumento ganhou instrumento ANTES de
+> esperar adoção. Eixo das fontes (lidas nos originais): READ paraleliza,
+> WRITE serializa; ~15× tokens — paralelize onde o valor paga.
+
+### Added (M0 — instrumentar antes de esperar adoção)
+- `SDK_HOOK_ALIASES` + `resolve_hook` (`touring-foundation/orchestrate_allowlist.rs`):
+  os nomes tipados do stub (`memory_recall`, `ast_blast`, …) são aceitos como
+  hooks em `query`/`parallel` — resolvidos no DAEMON e nos DOIS preludes
+  gerados da MESMA tabela (fricção paga ao vivo em 29/08: o stub ensinava um
+  nome e o transporte recusava com 71 strings `cli-*`). Cross-guard
+  bidirecional SDK_METHODS ↔ aliases.
+- Sufixo `:par` no origin das sub-chamadas emitidas via `touring.parallel`
+  (py+js) → `run_subcalls.jsonl` passa a discriminar fan-out; KPI novo
+  `touring.code_mode.parallel_runs` (a adoção era invisível por construção).
+- `adw.py` journala `tier`/`skill` nos `node_started` de nós agent (3 sítios);
+  KPI novo `touring.adw.tiered_agent_share` (o `calls_by_tier` do explain
+  estimava; este mede o EXECUTADO). Counter `m3_delegation_advised_count`.
+
+### Changed (M1-M3 — acoplar ao caminho por construção)
+- `cross-audit` (spec + library): `critic-panel` composto após o
+  `verdict_gate` — o gate valida FORMA, o painel julga CONTEÚDO às cegas
+  (3 lentes distintas, sessões fresh, quorum por código; REJECT volta ao
+  auditor com a razão da lente). Fecha P3 e o evaluator-optimizer que a
+  cartografia marcava "parcial".
+- `strategy-loop` (spec + library): `recall` + `diagnose` viram o diamante
+  read-only `ground` (merge=collect, `all` fail-closed; semântica de falha
+  preservada) — fan-out POR CONSTRUÇÃO no flow de maior frequência (23
+  runs/7d). Provado ao vivo: ramos partem com 0ms de diferença, 0,44s de
+  sobreposição, `parallel_joined`.
+- `cli_suggester`: advisory `[M3 delegação]` no 10º arquivo DISTINTO lido na
+  janela — o gatilho medido do blog subagents-in-claude-code; advisory único
+  por sessão/janela, nunca deny. + linha na decision matrix (reflexo M3).
+
+### Docs (M4-M5)
+- `adw-flow-portfolio.md` §5: "Quando paralelizar (e quando não)" — READ×WRITE,
+  15×, effort scaling, os 2 gatilhos legítimos de escrita paralela
+  (conflict-check waves · race), fan-out ≠ relógio (medido ~15%).
+- Quadro M5 fase→agente→craft→tier no strategy doc do bundle.
+
+### Decisões de menor-grafo (registradas, não silenciosas)
+- xaudit-gates fica determinístico (painel não se aplica a gates de código);
+  M1b já satisfeito por plan-excellence; M1c contradiz o design "zero agentes"
+  do converge-close; lentes-AGENTE ficam fora do strategy-loop (23 runs/sem ×
+  15× tokens sem demanda provada — o contrafactual de 30d decide); hotfix segue
+  deliberadamente sem skill ("a hotfix exists to be FAST", declarado no spec);
+  descriptions dos agentes TACO já nomeiam triggers (verificado, sem edit).
+
 ## [30.4.22] - 2026-08-29 — A "aceleração GPU" que custava 7,86 segundos por busca
 
 > `cli-memory-recall` estourava o budget de 15s do handler (ordem de Gabriel:

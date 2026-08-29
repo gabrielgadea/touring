@@ -880,6 +880,10 @@ pub struct GateMetrics {
     /// W3 S-3.3 — G5 (edit-burst-sem-validação) observed at burst END, never
     /// during: P9 measured at 17%.
     pub g5_observed_count: AtomicU64,
+    /// M3 (paralelização-agentes 29/08/2026) — delegation advisory emitted:
+    /// the session read its 10th DISTINCT file inside the window (the
+    /// measured broad-exploration trigger; advisory-only, once per window).
+    pub m3_delegation_advised_count: AtomicU64,
     /// W6 S-6.3 — added comment line with a counterfactual modal and no run_id
     /// nearby (advisory only — prose in comments has real false positives).
     pub e3_counterfactual_observed_count: AtomicU64,
@@ -1104,6 +1108,7 @@ impl Default for GateMetrics {
             g1_post_deny_other_count: AtomicU64::new(0),
             g4_observed_count: AtomicU64::new(0),
             g5_observed_count: AtomicU64::new(0),
+            m3_delegation_advised_count: AtomicU64::new(0),
             e3_counterfactual_observed_count: AtomicU64::new(0),
             pillar_induction_emitted_count: AtomicU64::new(0),
             pillar_induction_followed_count: AtomicU64::new(0),
@@ -1494,6 +1499,11 @@ pub fn record_gate_event(gate: GateId, event: GateEvent) {
 /// W3 S-3.3 — record one G4 observation (read without a prior locate).
 pub fn record_g4_observed() {
     global().g4_observed_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// M3 (29/08/2026) — record one delegation advisory (10th distinct file read).
+pub fn record_m3_delegation_advised() {
+    global().m3_delegation_advised_count.fetch_add(1, Ordering::Relaxed);
 }
 
 /// W3 S-3.3 — record one G5 observation (an edit burst ended unvalidated).

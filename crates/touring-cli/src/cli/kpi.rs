@@ -605,6 +605,12 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
         "adw_runs" => adw_runs_count(&rt.project_root),
         "adw_router_accuracy" => adw_router_accuracy(&rt.project_root),
         "adw_zte_bypass_rate" => adw_zte_bypass_rate(&rt.project_root),
+        // M0 (estratégia paralelização 29/08/2026) — instrumentar ANTES de
+        // esperar adoção: as duas afordâncias de paralelismo eram invisíveis
+        // ao instrumento (inventário 29/08: journal sem discriminador do
+        // `parallel`; tier só como estimativa estática do explain --cost).
+        "code_mode_parallel_runs" => code_mode_parallel_runs(),
+        "adw_tiered_agent_share" => adw_tiered_agent_share(&rt.project_root),
         // E3 (flow enforcement 2026-07-23) — gated-flow OUTER compliance for
         // THIS project, fed by loop_outer_gate.py evaluations at every Stop.
         "flow_compliance" => flow_compliance_ratio(&rt.project_root),
@@ -691,6 +697,74 @@ fn adw_plan_refine_iters(root: &std::path::Path) -> Option<f64> {
     scan(&root.join("docs").join("plans"), 4, &mut best);
     scan(root, 1, &mut best);
     best
+}
+
+/// M0 (29/08/2026) — distinct sandbox runs with at least one sub-call issued
+/// via `touring.parallel` (the SDKs stamp a `:par` suffix on the origin).
+/// Reads the daemon-side `~/.claude/touring/run_subcalls.jsonl`; `None`
+/// (→ STUB) until the first parallel sub-call is journaled — before this
+/// counter the fan-out affordance's adoption was invisible by construction.
+fn code_mode_parallel_runs() -> Option<f64> {
+    let home = std::env::var_os("HOME")?;
+    let path = std::path::Path::new(&home).join(".claude/touring/run_subcalls.jsonl");
+    let text = std::fs::read_to_string(path).ok()?;
+    let mut runs = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let Some(origin) = v.get("origin").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        if let Some(resto) = origin.strip_suffix(":par")
+            && let Some(run_id) = resto.split(":code:").next()
+        {
+            runs.insert(run_id.to_string());
+        }
+    }
+    if runs.is_empty() {
+        return None;
+    }
+    Some(runs.len() as f64)
+}
+
+/// M0 (29/08/2026) — share of EXECUTED ADW agent-node starts that declared a
+/// `tier`, over this project's run journals. The static `calls_by_tier` in
+/// `explain --cost` estimates; this measures. `None` until a journal carries
+/// an agent `node_started` with the (new) `tier` key — old journals predate
+/// the instrumentation and must not read as "0% tiered".
+fn adw_tiered_agent_share(root: &std::path::Path) -> Option<f64> {
+    let dir = root.join(".touring").join("adw-runs");
+    let mut agentes = 0u64;
+    let mut com_tier = 0u64;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let journal = entry.path().join("journal.jsonl");
+        let Ok(text) = std::fs::read_to_string(&journal) else {
+            continue;
+        };
+        for line in text.lines() {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            if v.get("event").and_then(serde_json::Value::as_str) != Some("node_started")
+                || v.get("type").and_then(serde_json::Value::as_str) != Some("agent")
+                || !v.as_object().is_some_and(|o| o.contains_key("tier"))
+            {
+                continue;
+            }
+            agentes += 1;
+            if v.get("tier")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|t| !t.is_empty())
+            {
+                com_tier += 1;
+            }
+        }
+    }
+    if agentes == 0 {
+        return None;
+    }
+    Some(com_tier as f64 / agentes as f64)
 }
 
 /// Number of ADW runs recorded for this project (`.touring/adw-runs/*/journal.jsonl`).

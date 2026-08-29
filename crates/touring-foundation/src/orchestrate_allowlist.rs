@@ -63,6 +63,45 @@ pub const READONLY_HOOKS: &[&str] = &[
     "cli-wiring-status",
 ];
 
+/// Typed SDK method names accepted as hook aliases by `query`/`parallel`.
+///
+/// Measured friction (29/08/2026): the stub teaches `touring.memory_recall(q)`
+/// and `parallel` takes "(hook, payload) pairs" — a program that passed the
+/// typed NAME as the hook got a refusal listing 71 unfamiliar `cli-*` strings.
+/// The remedy is not a longer error message: the executor accepts the very
+/// name the SDK taught. One table serves both executors (client guard and
+/// daemon enforcement) — the same single-source discipline as
+/// [`READONLY_HOOKS`]; `touring-server` asserts by test that every typed SDK
+/// method with a hook appears here (the cross-guard against drift).
+pub const SDK_HOOK_ALIASES: &[(&str, &str)] = &[
+    ("ast_blast", "cli-ast-blast"),
+    ("ast_meta", "cli-ast-meta"),
+    ("ast_overview", "cli-ast-overview"),
+    ("ast_tdg", "cli-ast-tdg"),
+    ("doctor", "cli-doctor"),
+    ("find_references", "cli-find-references"),
+    ("gotcha_match", "cli-gotcha-match"),
+    ("index_find", "cli-index-find"),
+    ("memory_recall", "cli-memory-recall"),
+    ("search", "cli-search-docs"),
+    ("tantivy_search", "cli-tantivy-search"),
+    ("wiring_impact", "cli-wiring-impact"),
+    ("wiring_orphans", "cli-wiring-orphans"),
+    ("wiring_status", "cli-wiring-status"),
+];
+
+/// Resolve a possibly-aliased hook name to its canonical `cli-*` hook.
+///
+/// Identity for anything that is not an alias — a canonical name, or an
+/// unknown one, passes through untouched and meets the allowlist as before.
+#[must_use]
+pub fn resolve_hook(hook: &str) -> &str {
+    SDK_HOOK_ALIASES
+        .iter()
+        .find(|(name, _)| *name == hook)
+        .map_or(hook, |(_, target)| *target)
+}
+
 /// Whether `origin` identifies a sub-call made from inside a run sandbox.
 ///
 /// Empty or absent origin ⇒ not a sandbox call. The marker is the whole test;
@@ -142,5 +181,36 @@ mod tests {
         assert!(!is_sandbox_origin(None));
         assert!(!is_sandbox_origin(Some("")));
         assert!(!is_sandbox_origin(Some("cli")), "chamada normal não é sandbox");
+    }
+
+    /// M0 (29/08/2026) — todo alias aponta para hook allowlisted, e o resolver
+    /// é identidade para nome canônico ou desconhecido (jamais ALARGA a
+    /// superfície: um alias só pode nomear o que a allowlist já permite).
+    #[test]
+    fn aliases_resolve_into_the_allowlist() {
+        for (name, target) in SDK_HOOK_ALIASES {
+            assert!(
+                sandbox_may_call(target),
+                "alias `{name}` aponta para `{target}`, que não está na allowlist"
+            );
+            assert_eq!(resolve_hook(name), *target);
+            assert!(
+                !sandbox_may_call(name),
+                "alias `{name}` colide com um hook canônico — ambiguidade proibida"
+            );
+        }
+        assert_eq!(resolve_hook("cli-memory-recall"), "cli-memory-recall");
+        assert_eq!(resolve_hook("inexistente"), "inexistente");
+    }
+
+    #[test]
+    fn alias_names_are_sorted_and_unique() {
+        let nomes: Vec<&str> = SDK_HOOK_ALIASES.iter().map(|(n, _)| *n).collect();
+        let mut ordenados = nomes.clone();
+        ordenados.sort_unstable();
+        assert_eq!(nomes, ordenados, "aliases devem estar ordenados por nome");
+        let n = ordenados.len();
+        ordenados.dedup();
+        assert_eq!(n, ordenados.len(), "sem aliases duplicados");
     }
 }

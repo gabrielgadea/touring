@@ -420,6 +420,9 @@ pub struct GateMetricsSnapshot {
     /// W3 S-3.3 — G5 observed at edit-burst end (telemetry only).
     #[serde(default)]
     pub g5_observed_count: u64,
+    /// M3 — delegation advisory emitted (10th distinct file read in window).
+    #[serde(default)]
+    pub m3_delegation_advised_count: u64,
     /// W6 S-6.3 — counterfactual comment lines observed (advisory only).
     #[serde(default)]
     pub e3_counterfactual_observed_count: u64,
@@ -920,6 +923,7 @@ impl GateMetricsSnapshot {
             g1_post_deny_other_count: m.g1_post_deny_other_count.load(Ordering::Relaxed),
             g4_observed_count: m.g4_observed_count.load(Ordering::Relaxed),
             g5_observed_count: m.g5_observed_count.load(Ordering::Relaxed),
+            m3_delegation_advised_count: m.m3_delegation_advised_count.load(Ordering::Relaxed),
             e3_counterfactual_observed_count: m
                 .e3_counterfactual_observed_count
                 .load(Ordering::Relaxed),

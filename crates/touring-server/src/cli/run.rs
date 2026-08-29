@@ -127,14 +127,14 @@ const SDK_METHODS: &[SdkMethod] = &[
         args: "",
         stub_args: "self, calls: list, max_workers: int = 10",
         payload: "",
-        doc: "Fan-out: run independent read-only queries concurrently — calls is a list of (hook, payload) pairs, results return in the same order, a failed slot becomes {'parallel_error': ...}; pool hard-capped at 10.",
+        doc: "Fan-out: run independent read-only queries concurrently — calls is a list of (hook, payload) pairs, results return in the same order, a failed slot becomes {'parallel_error': ...}; pool hard-capped at 10. Typed method names (e.g. 'memory_recall') are accepted as hooks.",
     },
     SdkMethod {
         name: "query",
         hook: None,
         args: "",
         stub_args: "self, hook: str, payload: dict",
-        payload: "",        doc: "Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS).",
+        payload: "",        doc: "Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS); typed method names (e.g. 'memory_recall') are accepted as aliases.",
     },
     SdkMethod {
         name: "search",
@@ -223,8 +223,16 @@ class _TouringClient:
 {allowlist}
     )
 
-    def query(self, hook, payload=None):
+    # M0 (29/08/2026) — typed method names accepted as hook aliases in
+    # query/parallel, GENERATED from `SDK_HOOK_ALIASES` — the same table the
+    # daemon resolves, so client convenience and enforcement cannot drift.
+    HOOK_ALIASES = {
+{aliases_py}
+    }
+
+    def query(self, hook, payload=None, _par=False):
         """{query_doc}"""
+        hook = self.HOOK_ALIASES.get(hook, hook)
         if hook not in self.READONLY_HOOKS:
             raise RuntimeError(
                 "hook " + repr(hook) + " is not in the orchestrate read-only "
@@ -238,7 +246,10 @@ class _TouringClient:
                 seq = self._n
             body = {"hook": hook, "payload": payload or {}, "project_root": self._root}
             if self._run_id:
-                body["origin"] = self._run_id + ":code:" + str(seq)
+                # M0 — a `:par` suffix marks sub-calls issued through
+                # `parallel`, so run_subcalls.jsonl can measure fan-out
+                # adoption; the run_id prefix (the correlation key) is intact.
+                body["origin"] = self._run_id + ":code:" + str(seq) + (":par" if _par else "")
             req = _tr_json.dumps(body)
             s.sendall(req.encode() + b"\n")
             buf = b""
@@ -276,7 +287,7 @@ class _TouringClient:
         def one(call):
             hook, payload = call[0], (call[1] if len(call) > 1 else None)
             try:
-                return self.query(hook, payload)
+                return self.query(hook, payload, _par=True)
             except Exception as e:
                 # keep the batch: one failed slot must not void the other N-1
                 return {"parallel_error": str(e), "hook": hook}
@@ -315,6 +326,25 @@ fn allowlist_body() -> String {
         .join("\n")
 }
 
+/// M0 — the alias map rendered for the Python SDK (`"name": "hook",` lines),
+/// from the SAME table the daemon resolves (`SDK_HOOK_ALIASES`).
+fn aliases_body_py() -> String {
+    touring_foundation::orchestrate_allowlist::SDK_HOOK_ALIASES
+        .iter()
+        .map(|(n, h)| format!("        \"{n}\": \"{h}\","))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// M0 — the same alias map as a JS object body (names are identifiers).
+fn aliases_body_js() -> String {
+    touring_foundation::orchestrate_allowlist::SDK_HOOK_ALIASES
+        .iter()
+        .map(|(n, h)| format!("            {n}: \"{h}\","))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// The typed shortcuts rendered as Python methods (skipping `query`, which the
 /// template hand-writes because it is the transport itself).
 fn methods_py() -> String {
@@ -349,6 +379,7 @@ fn py_sdk() -> &'static str {
     S.get_or_init(|| {
         TOURING_PY_SDK_TEMPLATE
             .replace("{allowlist}", &allowlist_body())
+            .replace("{aliases_py}", &aliases_body_py())
             .replace("{methods}", &methods_py())
             .replace("{n_hooks}", &READONLY_HOOKS.len().to_string())
             .replace("{query_doc}", doc_of("query"))
@@ -374,17 +405,24 @@ class _TouringClient {
         this.READONLY_HOOKS = [
 {allowlist}
         ];
+        // M0 — typed method names accepted as hook aliases (same table the
+        // daemon resolves; generated, so convenience and enforcement agree).
+        this.HOOK_ALIASES = {
+{aliases_js}
+        };
     }
 
     /** {query_doc} */
-    async query(hook, payload) {
+    async query(hook, payload, _par) {
+        hook = this.HOOK_ALIASES[hook] || hook;
         if (!this.READONLY_HOOKS.includes(hook)) {
             throw new Error("hook " + JSON.stringify(hook) + " is not in the orchestrate "
                 + "read-only allowlist; available: " + this.READONLY_HOOKS.join(", "));
         }
         this._n += 1;
         const body = { hook: hook, payload: payload || {}, project_root: this._root };
-        if (this._runId) { body.origin = this._runId + ":code:" + this._n; }
+        // M0 — `:par` marks parallel-issued sub-calls (adoption telemetry).
+        if (this._runId) { body.origin = this._runId + ":code:" + this._n + (_par ? ":par" : ""); }
         const net = await import("node:net");
         return await new Promise((resolve, reject) => {
             const s = net.createConnection(this._sock);
@@ -422,7 +460,7 @@ class _TouringClient {
             while (next < calls.length) {
                 const i = next++;
                 const hook = calls[i][0], payload = calls[i][1];
-                try { results[i] = await this.query(hook, payload); }
+                try { results[i] = await this.query(hook, payload, true); }
                 catch (e) {
                     // keep the batch: one failed slot must not void the other N-1
                     results[i] = { parallel_error: String((e && e.message) || e), hook: hook };
@@ -469,6 +507,7 @@ fn js_sdk() -> &'static str {
     S.get_or_init(|| {
         TOURING_JS_SDK_TEMPLATE
             .replace("{allowlist}", &allowlist_body())
+            .replace("{aliases_js}", &aliases_body_js())
             .replace("{methods}", &methods_js())
             .replace("{n_hooks}", &READONLY_HOOKS.len().to_string())
             .replace("{query_doc}", doc_of("query"))
@@ -1492,6 +1531,53 @@ mod tests {
             js.contains("Math.min(max_workers | 0, 10)"),
             "o mesmo teto vale no SDK JS"
         );
+    }
+
+    /// M0 (29/08/2026) — cross-guard: todo método tipado com hook tem alias
+    /// fiel em `SDK_HOOK_ALIASES` (foundation), e nenhum alias é órfão de
+    /// método. É o que impede o nome que o stub ENSINA de divergir do nome
+    /// que o daemon RESOLVE (D8: uma tabela, dois executores).
+    #[test]
+    fn every_typed_method_is_a_faithful_alias_in_foundation() {
+        use touring_foundation::orchestrate_allowlist::SDK_HOOK_ALIASES;
+        for m in super::SDK_METHODS {
+            let Some(hook) = m.hook else { continue };
+            let alvo = SDK_HOOK_ALIASES
+                .iter()
+                .find(|(n, _)| *n == m.name)
+                .map(|(_, h)| *h);
+            assert_eq!(
+                alvo,
+                Some(hook),
+                "método tipado `{}` sem alias fiel na foundation",
+                m.name
+            );
+        }
+        for (n, _) in SDK_HOOK_ALIASES {
+            assert!(
+                super::SDK_METHODS.iter().any(|m| m.name == *n),
+                "alias `{n}` não corresponde a nenhum método tipado"
+            );
+        }
+    }
+
+    /// M0 — os dois SDKs resolvem aliases no `query` executável e carimbam
+    /// `:par` no origin das sub-chamadas emitidas via `parallel` (o sinal de
+    /// adoção que o run_subcalls.jsonl passa a registrar).
+    #[test]
+    fn both_sdks_resolve_aliases_and_stamp_parallel_origin() {
+        let py = super::py_sdk();
+        assert!(py.contains("HOOK_ALIASES"));
+        assert!(py.contains("\"memory_recall\": \"cli-memory-recall\","));
+        assert!(py.contains("hook = self.HOOK_ALIASES.get(hook, hook)"));
+        assert!(py.contains("(\":par\" if _par else \"\")"));
+        assert!(py.contains("self.query(hook, payload, _par=True)"));
+        let js = super::js_sdk();
+        assert!(js.contains("HOOK_ALIASES"));
+        assert!(js.contains("memory_recall: \"cli-memory-recall\","));
+        assert!(js.contains("hook = this.HOOK_ALIASES[hook] || hook;"));
+        assert!(js.contains("(_par ? \":par\" : \"\")"));
+        assert!(js.contains("await this.query(hook, payload, true)"));
     }
 
     /// SDK-1 — o SDK JS é renderizado das MESMAS tabelas que o Python: cada

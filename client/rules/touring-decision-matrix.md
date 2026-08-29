@@ -258,6 +258,7 @@ correspondente ANTES de qualquer outra ação:
 | Antes de declarar "task completa" | `touring wiring orphans -j` (REGRA #0) | sempre |
 | Deny de gate G1/G2/G6/T3-B/modo-code no PreToolUse (code-mode, 2026-08-24/25) | seguir o remédio derivado que o deny carrega (a rota EXECUTA — provado 25/08); relaxar POR-COMANDO: prefixar `TOURING_CODE_MODE=native` (só este modo) ou `TOURING_GATE_OK=1` (todos os gates, contado); escopo: `.touring/touring.toml [code_mode] mode` (native\|code\|both); kill switch humano: `TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart · `TOURING_T3_FUSE_DISABLED=1` (só a fusão de turno) | sempre |
 | Criar snippet/script/artefato reutilizável | ancorar `// #tags: kind:… purpose:… domain:…` + `touring portfolio "<intento> #kind:…"` antes | F-library |
+| Exploração ampla read-only (≥10 arquivos a ler OU ≥3 frentes independentes) | delegar a 1-3 subagentes read-only (Explore/general-purpose), cada um com objetivo + formato de saída + fronteiras — 50 arquivos lidos voltam como 3 conclusões (isolamento de contexto). ESCRITA nunca paralela; cadeia dependente (passo 2 precisa do output do passo 1) fica no contexto único. Enforcement: advisory `[M3 delegação]` do cli_suggester no 10º arquivo distinto/sessão (estratégia paralelização-agentes 29/08/2026) | C01/C02 |
 | Buscar contexto por tipo/propósito/domínio | `touring memory query "#kind:… #lang:…"` / `touring memory moc <tópico>` | F-library |
 
 ---

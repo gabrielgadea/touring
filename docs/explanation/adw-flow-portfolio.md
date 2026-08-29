@@ -225,6 +225,34 @@ refused at lint: it is a gate that could only ever fail.
 
 There is no `policy` field. The pass condition lives in `on_branch_fail` alone.
 
+### Quando paralelizar (e quando não) — a doutrina do custo (M4, 29/08/2026)
+
+O eixo decisivo é **READ × WRITE**, não pesquisa × código (Anthropic
+*built-multi-agent-research-system* × Cognition *dont-build-multi-agents*,
+reconciliados por H. Chase: não há contradição — há um eixo):
+
+- **Paralelize LEITURA**: breadth-first (N direções independentes), volume que
+  estoura uma janela de contexto, voting/N-amostras para confiança, painel de
+  críticos cegos (lentes distintas). Sempre com o reduce num único ponto
+  (`merge`). Custo declarado das fontes: multi-agente ≈ **15× tokens** de um
+  chat, e "token usage explains 80% of the variance" — paralelize onde o valor
+  paga. Effort scaling medido: fato simples = 1 agente; comparação = 2-4;
+  pesquisa larga = 10+ com fronteiras explícitas.
+- **Serialize ESCRITA**: "actions carry implicit decisions, and conflicting
+  decisions carry bad results" — um só agente segura a caneta num mesmo
+  arquivo/módulo, e cadeia dependente (o passo 2 precisa do output integral do
+  passo 1) fica num contexto único.
+- **Escrita paralela tem UM gatilho legítimo**: write-sets **disjuntos e
+  provados** pelo `conflict-check` (ondas computadas → `txn-acquire` serializa
+  o resto), ou `adw race --lanes N` para unidades caras, independentes e
+  verificáveis (first-to-pass vence, perdedores cancelados, merge só do
+  vencedor). Fora desses dois, escrita concorrente é o modo de falha
+  documentado — não uma otimização.
+- **Fan-out local não é ganho de relógio** (medido 18/08: ~15% no
+  strategy-loop; `diagnose` domina) — o argumento é QUALIDADE: contexto isolado
+  por ramo e vocabulário topológico. O diamante `ground` do strategy-loop e o
+  `critic-panel` do cross-audit são as duas formas vivas.
+
 ---
 
 ## 6. Persona — declaring posture, not hoping for it
