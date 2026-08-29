@@ -170,6 +170,46 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [30.4.19] - 2026-08-29 — Sessenta chamadas passaram por dois gates cegos e um par invisível
+
+> Uma sessão do `analise` gastou 60 chamadas Bash num turno (48 com prefixo
+> `cd`, 28 no padrão escreve-script-roda-script) e o guard só falou no Stop,
+> com o custo pago. O replay dos 60 comandos reais contra o hook vivo negava
+> **2**. Três causas, cada uma provada por execução antes do fix.
+
+### Fixed
+
+- **`contains(">")` sobre o blob inteiro cegava o G10**: qualquer `2>&1` ou
+  `2>/dev/null` anulava a classe exec — 12 execuções python com redirect de FD,
+  zero denies. Agora o filtro de mutação inspeciona `mutation_scan_view`:
+  corpos de heredoc removidos (são dado no stdin, não comando) e redirects de
+  FD/descarte neutralizados; o `>` que sobra é escrita real e continua fora da
+  rajada, como os testes originais exigem.
+- **Segmento assignment-only matava toda classificação**: `P=x\npython3 f.py`
+  devolvia tokens vazios em `effective_tokens` (12 execuções, zero denies).
+  Um braço `None => continue` — o próximo segmento decide.
+
+### Added
+
+- **Par write→run (S5)**: `cat >`/`tee` de um `.py`/`.sh` registra o alvo;
+  executar o MESMO path na janela de 600s conta um par; o 3º par é negado com
+  o remédio 1:1 — `touring run --file <o próprio script>`, zero reescrita.
+  O padrão dominante do turno (28 pares) era invisível porque cada metade é
+  individualmente legítima; pytest/gates/tools nunca casam (o path que rodam
+  não foi escrito na janela), então o limiar baixo não taxa o caso comum.
+- Counters: `g10_write_run_pair_denied_count` (enforcement) e
+  `exec_heredoc_inline_seen_count` (calibração — a exclusão do heredoc inline
+  da rajada é deliberada; medir antes de armar).
+
+### Registro de honestidade
+
+O primeiro diagnóstico ("o classificador olha o 1º token") estava errado — o
+S1 já resolvia `cd`/wrappers; só o replay dos comandos REAIS contra o hook
+vivo, mais três experimentos de isolamento (limpo ×12 / `2>&1` ×12 /
+assignment ×12), separou os dois furos reais do gap de design. E o número
+"60" do insight veio do próprio guard G-turno: recontado do transcript,
+exato dígito por dígito, `cd` ×48 incluso.
+
 ## [30.4.18] - 2026-08-28 — A fonte declarada ganhou executor, e a fixture alcançava o índice real
 
 > Quatro encarnações do mesmo defeito num dia: "declaração ≠ executor" — fonte
