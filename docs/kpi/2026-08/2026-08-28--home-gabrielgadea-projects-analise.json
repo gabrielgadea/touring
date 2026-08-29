@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 25516.0,
+      "actual": 25508.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.179606,
+      "actual": 0.06164539999999999,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.2857142857142857,
+      "actual": 0.367816091954023,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -110,7 +110,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 851.125,
+      "actual": 1131.8235294117646,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 346.0,
+      "actual": 214.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 753151.0,
+      "actual": 6189055.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 60030975.0,
+      "actual": 7942143.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,7 +176,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.125,
+      "actual": 0.29411764705882354,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
@@ -187,7 +187,7 @@
       "threshold": 0.4
     },
     {
-      "actual": 1.0,
+      "actual": 0.9545454545454546,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
@@ -198,7 +198,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.3333333333333333,
+      "actual": 1.1,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -253,14 +253,14 @@
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
       "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
       "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.75
     },
     {
@@ -275,7 +275,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 11.557692307692308,
+      "actual": 11.50943396226415,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
@@ -297,7 +297,7 @@
       "threshold": 2.0
     },
     {
-      "actual": 134.0,
+      "actual": 135.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -330,7 +330,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.4207920792079208,
+      "actual": 0.4195121951219512,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -352,7 +352,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.11575652017236979,
+      "actual": 0.11571221661050783,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -395,22 +395,22 @@
     },
     "by_language": {
       "?": 1,
-      "bash": 1699,
+      "bash": 1722,
       "go": 1,
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1331,
+      "python": 1341,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 2851,
-    "runs_total": 3141,
+    "runs_ok": 2884,
+    "runs_total": 3174,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9076727156956383,
+    "success_rate": 0.9086326402016384,
     "wasted_attempts_retry_pairs": 168
   },
   "project_root": "/home/gabrielgadea/projects/analise",
@@ -419,9 +419,9 @@
   "summary": {
     "advisory": 11,
     "failed": 0,
-    "passed": 16,
+    "passed": 17,
     "regressions": 0,
-    "stub": 7,
+    "stub": 6,
     "total": 34
   }
 }

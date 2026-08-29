@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 2.0,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.367816091954023,
+      "actual": 0.3333333333333333,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -110,18 +110,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 1131.8235294117646,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 800.0
     },
     {
-      "actual": 214.0,
+      "actual": 271.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 6189055.0,
+      "actual": 20594687.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 7942143.0,
+      "actual": 14811135.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,36 +176,36 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.29411764705882354,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.4
     },
     {
-      "actual": 0.9545454545454546,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 1.1,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.1
     },
     {
@@ -253,14 +253,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
       "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
       "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.75
     },
     {
@@ -275,14 +275,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 6.0,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
       "name": "Explore rounds until CCE convergence (mean)",
       "rationale": "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 8.0
     },
     {
@@ -297,14 +297,14 @@
       "threshold": 2.0
     },
     {
-      "actual": 3.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
       "name": "ADW runs recorded in this project",
       "rationale": "Adoption meter for the durable runner (adw_runs >= 1 means the factory is actually used here, not just installed).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 1.0
     },
     {
@@ -319,18 +319,18 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.zte_bypass_rate",
       "name": "ZTE bypass rate (bypasses per finished run)",
       "rationale": "The conformal bypass must remain the audited exception. Above 0.5 the human gate is being skipped more often than exercised — tighten zte_warmup or review the confidence model.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.6333333333333333,
+      "actual": 0.5,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -341,7 +341,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.17958412098298676,
+      "actual": 0.015486725663716814,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -352,7 +352,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.19398430688753268,
+      "actual": 0.061361457334611694,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -363,7 +363,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.005671077504725898,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -400,28 +400,28 @@
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1341,
+      "python": 1355,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 2884,
-    "runs_total": 3174,
+    "runs_ok": 2898,
+    "runs_total": 3188,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9086326402016384,
+    "success_rate": 0.9090338770388958,
     "wasted_attempts_retry_pairs": 168
   },
-  "project_root": "/home/gabrielgadea",
+  "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
-  "snapshot_date": "2026-08-28",
+  "snapshot_date": "2026-08-29",
   "summary": {
-    "advisory": 9,
+    "advisory": 7,
     "failed": 0,
-    "passed": 17,
+    "passed": 12,
     "regressions": 0,
-    "stub": 8,
+    "stub": 15,
     "total": 34
   }
 }
