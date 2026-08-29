@@ -605,6 +605,12 @@ pub struct GateMetricsSnapshot {
     /// S3 — rajada de inspeção negada com a rota fundida.
     #[serde(default)]
     pub g1_inspect_burst_denied_count: u64,
+    /// S5 — par write→run negado (cat > script + execuções do mesmo script).
+    #[serde(default)]
+    pub g10_write_run_pair_denied_count: u64,
+    /// S5 — heredoc inline visto fora da rajada (calibração, não enforcement).
+    #[serde(default)]
+    pub exec_heredoc_inline_seen_count: u64,
     /// N5 — injeção nativa seguida (Bash onde tool dedicada existia).
     #[serde(default)]
     pub native_injection_followed_count: u64,
@@ -1046,6 +1052,12 @@ impl GateMetricsSnapshot {
             g1_inspect_burst_denied_count: m
                 .g1_inspect_burst_denied_count
                 .load(Ordering::Relaxed),
+            g10_write_run_pair_denied_count: m
+                .g10_write_run_pair_denied_count
+                .load(Ordering::Relaxed),
+            exec_heredoc_inline_seen_count: m
+                .exec_heredoc_inline_seen_count
+                .load(Ordering::Relaxed),
             native_injection_followed_count: m.native_injection_followed_count.load(Ordering::Relaxed),
             native_injection_resisted_count: m.native_injection_resisted_count.load(Ordering::Relaxed),
             native_injection_code_route_count: m.native_injection_code_route_count.load(Ordering::Relaxed),
@@ -1233,6 +1245,18 @@ pub fn record_g1_inspect_first_passed() {
 #[inline]
 pub fn record_g1_inspect_burst_denied() {
     global().g1_inspect_burst_denied_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// S5 — par write→run negado: N execuções de um script escrito na mesma janela.
+#[inline]
+pub fn record_g10_write_run_pair_denied() {
+    global().g10_write_run_pair_denied_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// S5 — heredoc inline (`python3 -`/`-c`) visto fora da rajada (calibração).
+#[inline]
+pub fn record_exec_heredoc_inline_seen() {
+    global().exec_heredoc_inline_seen_count.fetch_add(1, Ordering::Relaxed);
 }
 
 /// P2 — a apresentação entregou uma rota escrita sob o braço `mode`.
