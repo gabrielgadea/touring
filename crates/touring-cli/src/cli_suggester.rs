@@ -181,10 +181,10 @@ fn cluster_dedupe_gate(project_root: &Path, classifier: &ClassifierOutput) -> Cl
 /// so the "repeated scanning" signal reflects the *current* burst of activity.
 const CODE_MODE_WINDOW_SECS: u64 = 180;
 
-/// Scan count at which the Code Mode hint fires. Set to 3 (not the literal "2nd")
-/// to favour precision: by the 3rd atomic search in one window the repeated-scan
-/// pattern is unambiguous, cutting false positives on an incidental 2nd grep.
-const CODE_MODE_SCAN_THRESHOLD: u32 = 3;
+/// Scan count at which the Code Mode hint fires. Tightened 3→2 (29/08, ordem de
+/// Gabriel): with G1_DENY_AT now at 3, the hint must speak BEFORE the deny —
+/// the 2nd atomic search is the last chance to teach without blocking.
+const CODE_MODE_SCAN_THRESHOLD: u32 = 2;
 
 /// Per-window counter of repeated scan operations, keyed by [`scan_class_key`].
 /// Value is the running count within the live [`CODE_MODE_WINDOW_SECS`] window.
@@ -2748,12 +2748,13 @@ fn exec_class_of(cmd: &str) -> Option<&'static str> {
     let verb = rest.first()?;
     let base = verb.rsplit('/').next()?;
     if base == "python" || base == "python3" || base.starts_with("python3.") {
-        // Inline é do advisory CEG, não da rajada: tanto `-c` (programa na
-        // linha) quanto `-` (programa no stdin — `python3 - <<'EOF'`), o mesmo
-        // caso sob outra forma. Contar o heredoc na rajada o serializaria
-        // multi-linha esmagado dentro do remédio R9.
+        // Inline (`-c` / `- <<EOF`) entrou na rajada em 29/08 (aperto de
+        // Gabriel) como classe PRÓPRIA: a exclusão histórica existia porque o
+        // R9 esmagaria heredoc multi-linha no remédio — o python-inline tem
+        // remédio 1:1 (o corpo verbatim em `touring run --lang python`), então
+        // a razão caiu. Os 5 heredocs do turno de 60 do analise estavam fora.
         if matches!(rest.get(1), Some(&"-c") | Some(&"-")) {
-            return None;
+            return Some("python-inline");
         }
         return Some("python");
     }
@@ -2767,18 +2768,21 @@ fn exec_class_of(cmd: &str) -> Option<&'static str> {
 /// (minutos por chamada) é mais lento que o de uma rajada de inspeção (180s
 /// do G1) — a janela curta nunca veria o 10º passo.
 const EXEC_BURST_WINDOW_SECS: u64 = 600;
-/// S4 — disparo na 10ª (R4: as sessões reais iam a 30-75; 10 é o ponto em
-/// que o laço desenrolado já custou 9 round-trips).
-const EXEC_BURST_DENY_AT: u32 = 10;
+/// S4 — disparo da rajada de execução homogênea. Nasceu em 10 (R4: sessões
+/// reais iam a 30-75); **aperto 29/08 (ordem de Gabriel): 10→5** — 5 já pagou
+/// 4 round-trips, e o uso pontual legítimo (2-3 pytest de debug) segue fora.
+const EXEC_BURST_DENY_AT: u32 = 5;
 
 /// S5 (29/08) — janela do par write→run: a mesma da rajada de execução.
 const WRITE_RUN_WINDOW_SECS: u64 = 600;
-/// S5 — disparo no 3º par: escrever um script e executá-lo em seguida é o
-/// loop execute-observe por definição (28 pares no turno de 60 do `analise`,
-/// todos invisíveis porque cada metade é individualmente legítima). O limiar
+/// S5 — disparo do par write→run: escrever um script e executá-lo em seguida
+/// é o loop execute-observe por definição (28 pares no turno de 60 do
+/// `analise`, todos invisíveis porque cada metade é individualmente legítima).
+/// **Aperto 29/08 (ordem de Gabriel): 3→2** — o 1º par sempre passa (criar e
+/// testar UM script é legítimo); o 2º na mesma janela JÁ é o loop. O limiar
 /// baixo não taxa o caso comum: pytest/gates/tools nunca casam — o path que
 /// eles executam não foi escrito via `cat >`/`tee` na janela.
-const WRITE_RUN_DENY_AT: u32 = 3;
+const WRITE_RUN_DENY_AT: u32 = 2;
 
 /// Paths de script escritos via `cat >`/`tee` na janela, por (projeto, path).
 fn written_scripts_ledger() -> &'static moka::sync::Cache<u64, ()> {
@@ -2894,16 +2898,47 @@ fn script_run_targets(cmd: &str) -> Vec<String> {
     out
 }
 
-/// True para `python3 -`/`python3 -c` (programa inline) — o caso que a rajada
-/// exec exclui de propósito; contado à parte para calibração (S5).
-fn python_inline_heredoc(cmd: &str) -> bool {
-    let rest = effective_tokens(cmd);
-    let Some(verb) = rest.first() else {
-        return false;
-    };
-    let base = verb.rsplit('/').next().unwrap_or(verb);
-    (base == "python" || base == "python3" || base.starts_with("python3."))
-        && matches!(rest.get(1), Some(&"-c") | Some(&"-"))
+/// O corpo do programa inline (`python3 -c '<code>'` ou `python3 - <<'M'`),
+/// para o remédio 1:1 da classe `python-inline`.
+fn python_inline_body(cmd: &str) -> Option<String> {
+    // heredoc: corpo entre a linha pós-`<<MARKER` e a linha MARKER
+    if let Some(pos) = cmd.find("<<")
+        && !cmd[pos..].starts_with("<<<")
+    {
+        let first_line_end = pos + cmd[pos..].find('\n')?;
+        let marker = cmd[pos + 2..first_line_end]
+            .trim_start_matches('-')
+            .split_whitespace()
+            .next()?
+            .trim_matches(|c| c == '\'' || c == '"')
+            .to_string();
+        let body: Vec<&str> = cmd[first_line_end + 1..]
+            .lines()
+            .take_while(|l| l.trim() != marker)
+            .collect();
+        return Some(body.join("\n"));
+    }
+    // -c: o literal após a flag (heurística: o par de aspas externo)
+    let idx = cmd.find(" -c ")?;
+    let rest = cmd[idx + 4..].trim();
+    let quote = rest.chars().next().filter(|c| *c == '\'' || *c == '"')?;
+    let inner = &rest[1..];
+    let end = inner.rfind(quote)?;
+    Some(inner[..end].to_string())
+}
+
+/// Remédio 1:1 do inline: o MESMO corpo em `touring run --lang python --code`.
+/// Sem fusão — a razão histórica de excluir o heredoc da rajada era o R9
+/// esmagar multi-linha; com remédio próprio ela caiu (aperto 29/08).
+fn python_inline_remedy(cmd: &str) -> String {
+    match python_inline_body(cmd) {
+        Some(b) if !b.is_empty() && b.len() <= 1500 => format!(
+            "touring run --lang python --code '{}'",
+            b.replace('\'', "'\\''")
+        ),
+        _ => "touring run --lang python --code '<o corpo do seu heredoc/-c, verbatim>'"
+            .to_string(),
+    }
 }
 
 /// S5 — o gate do par write→run. `None` = sem decisão (o fluxo segue).
@@ -3456,10 +3491,11 @@ fn pending_g2() -> &'static moka::sync::Cache<String, ()> {
 
 // ── W2 (plano code-mode-total) — G1: teeth no contador de rajada ─────────────
 
-/// W2 S-2.1 — a 4ª inspeção da MESMA classe na janela nega (o advisory legado
-/// segue dono da 3ª). 90% de precisão-proxy medida (51 disparos/55 sessões);
-/// 5 rajadas/55 sessões morriam sozinhas neste ponto — o custo do FP é 1 bypass.
-const G1_DENY_AT: u32 = 4;
+/// W2 S-2.1 — a inspeção repetida da MESMA classe na janela nega (o advisory
+/// legado fala uma antes). 90% de precisão-proxy medida na 4ª (51/55 sessões);
+/// **aperto 29/08 (ordem de Gabriel): 4→3** — na 3ª o padrão já é inequívoco
+/// (o mesmo racional do CODE_MODE_SCAN_THRESHOLD) e o custo do FP segue 1 bypass.
+const G1_DENY_AT: u32 = 3;
 /// W2 S-2.3 — piso de precisão viva abaixo do qual o G1 se autodemove a
 /// advisory (F7: demote é código, não reunião)…
 const G1_DEMOTE_FLOOR: f64 = 0.70;
@@ -3606,7 +3642,8 @@ fn g3_read_key(project_root: &Path, session: &str, file: &str) -> u64 {
 
 /// W3 S-3.2 — G7: contagem de releituras do MESMO arquivo por projeto (os
 /// campeões medidos: adw.py 39×, cli_suggester.rs 32× — o sinal mais direto de
-/// programa-faltando). 3ª → advisory com R1 instanciado; 5ª → deny.
+/// programa-faltando). 2ª → advisory com R1 instanciado; 3ª → deny
+/// (aperto 29/08, ordem de Gabriel: era 3ª/5ª — "5 é muito frouxo").
 fn g7_seen() -> &'static moka::sync::Cache<u64, u32> {
     static C: OnceLock<moka::sync::Cache<u64, u32>> = OnceLock::new();
     C.get_or_init(|| {
@@ -4538,7 +4575,10 @@ pub(crate) fn code_mode_gates(
             } else if !code_gates_disabled() {
                 let n = g3_streak().get(session).unwrap_or(0).saturating_add(1);
                 g3_streak().insert(session.to_string(), n);
-                if n >= 3 {
+                // Aperto 29/08 (ordem de Gabriel): 1 advisory e o 2º seguido
+                // nega — editar sem ler é a origem dos edit_string_not_found;
+                // um aviso basta.
+                if n >= 2 {
                     record_gate_event(GateId::G3, GateEvent::Denied);
                     return Some(deny_response(format!(
                         "[G3 edit-sem-read] {n}º Edit sem Read recente nesta sessão — os \
@@ -4548,8 +4588,8 @@ pub(crate) fn code_mode_gates(
                 }
                 record_gate_event(GateId::G3, GateEvent::Emitted);
                 return Some(advisory_response(format!(
-                    "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/2 — \
-                     o 3º seguido nega). Read {fp} zera o contador."
+                    "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/1 — \
+                     o 2º seguido nega). Read {fp} zera o contador."
                 )));
             }
         }
@@ -4585,7 +4625,7 @@ pub(crate) fn code_mode_gates(
         let n = g7_seen().get(&key).unwrap_or(0).saturating_add(1);
         g7_seen().insert(key, n);
         if !code_gates_disabled() {
-            if n >= 5 {
+            if n >= 3 {
                 record_gate_event(GateId::G7, GateEvent::Denied);
                 return Some(deny_response(format!(
                     "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
@@ -4596,12 +4636,12 @@ pub(crate) fn code_mode_gates(
                      #process:code-mode\". Um `touring run` citando {fp} reseta o gate."
                 )));
             }
-            if n == 3 {
+            if n == 2 {
                 record_gate_event(GateId::G7, GateEvent::Emitted);
                 return Some(advisory_response(format!(
-                    "[G7 re-inspeção] 3ª leitura de {fp} na janela — programa-faltando? \
+                    "[G7 re-inspeção] 2ª leitura de {fp} na janela — programa-faltando? \
                      R1 instanciado: touring run --lang python --args '[\"{fp}\"]' \
-                     --file r1_varredura_agregado.py (a 5ª leitura nega)."
+                     --file r1_varredura_agregado.py (a 3ª leitura nega)."
                 )));
             }
         }
@@ -4795,6 +4835,11 @@ pub(crate) fn code_mode_gates(
     // condição "0 run" é a prova de que a rota já foi oferecida e ignorada.
     // DEPOIS do G8: um laço escrito é reescrito lá; aqui é a rajada serial.
     if let Some(class) = exec_class_of(cmd) {
+        if class == "python-inline" {
+            // telemetria S5: cada inline visto conta — a calibração segue
+            // medindo mesmo com a classe agora dentro da rajada.
+            crate::shared::gate_metrics::record_exec_heredoc_inline_seen();
+        }
         let key = exec_burst_key(project_root, class);
         let (n, mut cmds) = exec_burst_ledger().get(&key).unwrap_or_default();
         let n = n + 1;
@@ -4811,7 +4856,13 @@ pub(crate) fn code_mode_gates(
             pending_g10().insert(session.to_string(), ());
             // zera para a próxima rajada — um deny por lote, nunca fadiga
             exec_burst_ledger().invalidate(&key);
-            let programa = r9_exec_program(&cmds);
+            // python-inline tem remédio 1:1 (o corpo do PRÓPRIO comando); as
+            // demais classes fundem a rajada acumulada via R9.
+            let programa = if class == "python-inline" {
+                python_inline_remedy(cmd)
+            } else {
+                r9_exec_program(&cmds)
+            };
             // S6 — a rajada real consulta o portfólio: quando há um programa
             // que já funcionou para este trabalho, o deny entrega os dois
             // (o esqueleto agregado + o prior art instanciado).
@@ -4829,7 +4880,7 @@ pub(crate) fn code_mode_gates(
         if pending_g10().remove(session).is_some() {
             record_gate_event(GateId::G10, GateEvent::Followed);
         }
-        for class in ["python", "pytest"] {
+        for class in ["python", "pytest", "python-inline"] {
             exec_burst_ledger().invalidate(&exec_burst_key(project_root, class));
         }
         // S5 — a rota seguida zera o par write→run junto (mesma razão do S3
@@ -4843,11 +4894,6 @@ pub(crate) fn code_mode_gates(
         for class in CODE_MODE_COLLAPSED_CLASSES {
             inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, class));
         }
-    } else if python_inline_heredoc(cmd) {
-        // S5 — calibração do heredoc inline: a exclusão em `exec_class_of`
-        // (`-`/`-c`) é deliberada, e este counter é o dado que decidirá se
-        // ela fica (medir antes de armar — o S3 nasceu de 115 transcripts).
-        crate::shared::gate_metrics::record_exec_heredoc_inline_seen();
     }
     // S3 (27/08/2026) — o colapso do modo `code` deixou de ser POR CLASSE e
     // passou a ser POR RAJADA. A 1ª inspeção de uma classe na janela executa
