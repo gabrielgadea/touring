@@ -2820,8 +2820,11 @@ fn clean_script_path(p: &str) -> String {
 }
 
 /// O path de script (.py/.sh) que este comando ESCREVE via `cat >`/`tee`.
+/// Varre a VIEW (corpos de heredoc removidos): um `cat > y.py` dentro do
+/// corpo é dado, não escrita.
 fn script_write_target(cmd: &str) -> Option<String> {
-    for seg in command_segments(cmd) {
+    let view = mutation_scan_view(cmd);
+    for seg in command_segments(&view) {
         let toks: Vec<&str> = seg.split_whitespace().collect();
         let rest = resolved_tokens(&toks);
         match rest.first() {
@@ -2856,31 +2859,39 @@ fn script_write_target(cmd: &str) -> Option<String> {
     None
 }
 
-/// O path de script que este comando EXECUTA diretamente (python/bash/sh).
-/// `None` quando há redirect real de saída (a view de mutação ainda contém
-/// `>` após neutralizar FD/descartes) — o remédio `--file` não reproduziria a
-/// escrita, então o par não é contado (conservador por construção).
-fn script_run_target(cmd: &str) -> Option<String> {
-    if mutation_scan_view(cmd).contains('>') {
-        return None;
+/// Os paths de script que este comando EXECUTA diretamente (python/bash/sh),
+/// em QUALQUER segmento — o padrão real do `analise` (24 dos 60) escrevia E
+/// executava no MESMO tool_use multi-linha (`cat > x.py <<EOF…EOF` +
+/// `python3 x.py`), e um detector que só olha o primeiro verbo efetivo vê o
+/// `cat` e nunca o run. Varre a VIEW (heredoc fora); segmento com redirect
+/// real de saída é pulado — o remédio `--file` não reproduziria a escrita.
+fn script_run_targets(cmd: &str) -> Vec<String> {
+    let view = mutation_scan_view(cmd);
+    let mut out: Vec<String> = Vec::new();
+    for seg in command_segments(&view) {
+        if seg.contains('>') {
+            continue;
+        }
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        let Some(verb) = rest.first() else { continue };
+        let base = verb.rsplit('/').next().unwrap_or(verb);
+        let interpretador = base == "bash"
+            || base == "sh"
+            || base == "python"
+            || base == "python3"
+            || base.starts_with("python3.");
+        if !interpretador {
+            continue;
+        }
+        if let Some(arg) = rest[1..].iter().find(|t| !t.starts_with('-'))
+            && is_script_path(arg)
+            && !out.iter().any(|p| p == &clean_script_path(arg))
+        {
+            out.push(clean_script_path(arg));
+        }
     }
-    let rest = effective_tokens(cmd);
-    let verb = rest.first()?;
-    let base = verb.rsplit('/').next()?;
-    let interpretador = base == "bash"
-        || base == "sh"
-        || base == "python"
-        || base == "python3"
-        || base.starts_with("python3.");
-    if !interpretador {
-        return None;
-    }
-    let arg = rest[1..].iter().find(|t| !t.starts_with('-'))?;
-    if is_script_path(arg) {
-        Some(clean_script_path(arg))
-    } else {
-        None
-    }
+    out
 }
 
 /// True para `python3 -`/`python3 -c` (programa inline) — o caso que a rajada
@@ -2898,8 +2909,13 @@ fn python_inline_heredoc(cmd: &str) -> bool {
 /// S5 — o gate do par write→run. `None` = sem decisão (o fluxo segue).
 fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
-    let path = script_run_target(cmd)?;
-    written_scripts_ledger().get(&write_run_key(project_root, &path))?;
+    // 1 par por comando, mesmo com múltiplos runs no tool_use: o que se conta
+    // é o PASSO do loop execute-observe, não o número de interpretações.
+    let path = script_run_targets(cmd).into_iter().find(|p| {
+        written_scripts_ledger()
+            .get(&write_run_key(project_root, p))
+            .is_some()
+    })?;
     let pkey = write_run_key(project_root, "\u{0}write-run-pares");
     let (n, mut paths) = write_run_pair_ledger().get(&pkey).unwrap_or_default();
     let n = n + 1;

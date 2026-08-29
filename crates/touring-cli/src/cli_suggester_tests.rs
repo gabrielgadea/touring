@@ -2243,7 +2243,7 @@ mod code_mode_gates_w1 {
 
     #[test]
     fn s5_par_write_run_detecta_escrita_e_execucao_do_mesmo_script() {
-        use super::super::{script_run_target, script_write_target};
+        use super::super::{script_run_targets, script_write_target};
         // A escrita registra o alvo (heredoc típico do loop execute-observe).
         assert_eq!(
             script_write_target("cat > /tmp/s/medir.py <<'PYEOF'\nprint(1)\nPYEOF"),
@@ -2256,18 +2256,27 @@ mod code_mode_gates_w1 {
         assert_eq!(script_write_target("cat > notas.md <<'EOF'\noi\nEOF"), None);
         // A execução resolve o path mesmo atrás de cd/assignment.
         assert_eq!(
-            script_run_target("cd /proj\n.venv/bin/python3 /tmp/s/medir.py"),
-            Some("/tmp/s/medir.py".to_string())
+            script_run_targets("cd /proj\n.venv/bin/python3 /tmp/s/medir.py"),
+            vec!["/tmp/s/medir.py".to_string()]
         );
         assert_eq!(
-            script_run_target("bash scratch/x.sh"),
-            Some("scratch/x.sh".to_string())
+            script_run_targets("bash scratch/x.sh"),
+            vec!["scratch/x.sh".to_string()]
+        );
+        // O padrão CANÔNICO do analise (24 dos 60): escreve E executa no MESMO
+        // tool_use multi-linha — o run da linha pós-heredoc TEM que aparecer.
+        assert_eq!(
+            script_run_targets(
+                "cat > /tmp/s/perfil.py <<'PYEOF'\nimport json\nPYEOF\n\npython3 /tmp/s/perfil.py"
+            ),
+            vec!["/tmp/s/perfil.py".to_string()]
         );
         // pytest/módulos nunca casam — o limiar baixo não taxa o caso comum.
-        assert_eq!(script_run_target("python3 -m pytest tests/test_a.py"), None);
-        assert_eq!(script_run_target("pytest tests/test_a.py"), None);
-        // Redirect real de saída: o remédio --file não reproduziria a escrita.
-        assert_eq!(script_run_target("python3 /tmp/s/medir.py > out.json"), None);
+        assert!(script_run_targets("python3 -m pytest tests/test_a.py").is_empty());
+        assert!(script_run_targets("pytest tests/test_a.py").is_empty());
+        // Redirect real no SEGMENTO do run: o remédio --file não reproduziria
+        // a escrita — aquele segmento não conta.
+        assert!(script_run_targets("python3 /tmp/s/medir.py > out.json").is_empty());
     }
 
     #[test]
@@ -2281,7 +2290,13 @@ mod code_mode_gates_w1 {
             written_scripts_ledger().insert(write_run_key(root, p), ());
         }
         let d1 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/a.py");
-        let d2 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/b.py");
+        // O 2º par na forma canônica do analise: write+run no MESMO comando
+        // (o written ledger já tem b.py; o run da última linha casa).
+        let d2 = write_run_pair_gate(
+            root,
+            "sess-s5",
+            "cat > /tmp/s5/b.py <<'PYEOF'\nprint(2)\nPYEOF\npython3 /tmp/s5/b.py",
+        );
         let d3 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/c.py");
         assert!(d1.is_none(), "1º par passa");
         assert!(d2.is_none(), "2º par passa");
