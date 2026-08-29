@@ -123,3 +123,17 @@ Cognition *dont-build-multi-agents*, LangChain *art-of-loop-engineering* + LangG
 Send, arXiv:2505.22954 (DGM — paralelismo de exploração), claude.com/blog
 *subagents-in-claude-code*, Harrison Chase *how-and-when-to-build-multi-agent-systems*
 (a ponte read/write).
+
+## Adendo 29/08 — veredito do cross-audit (pós-implementação)
+
+Cross-audit completo sobre M0–M5 + fix ANN (`docs/audits/cross-audit-2026-08-29.md`,
+commit `9e0f6d6`): **PASS com 2 correções feitas no próprio audit**. (1) A prova
+do diamante M2 citada no fechamento não apontava artefato em disco — refeita ao
+vivo: run `strategy-loop-1788014691`, `ground type=parallel`, ramos partindo no
+mesmo ms, `parallel_joined`; ganho medido serial 33,5s → paralelo 25,3s (o ramo
+menor sai do relógio, como a doutrina previa). (2) Os 2 KPIs novos ganharam
+testes semânticos (`parallel_runs` distintos/STUB; `tiered_share` com tier:null
+abaixando o share — a régua mede DECLARAÇÃO, não versão do runner). Provas vivas
+re-executadas: aliases py+js (bordas incluídas), M3 no 10º arquivo exato
+(counter 0→1), painel 3 críticos cegos `pass`, 50-dim 0.862–0.961 (≥Gold em
+todos), P0 6/6 nos 8 arquivos.
