@@ -29,8 +29,34 @@ fn create_intent_task(rt: &mut HookRuntime, description: &str, fallback: &str) -
 
 fn make_runtime() -> (TempDir, HookRuntime) {
     let tmp = TempDir::new().expect("tempdir");
+    // Real project marker — WITHOUT it `normalize_project_root` walks up, finds
+    // nothing, and falls back to $HOME, so every handler that touches tantivy
+    // resolves to the USER'S REAL global index (~/.claude/touring/tantivy).
+    // That is exactly what happened until 2026-08-28: test docs were found in
+    // the production index (cc_task_t-r18-create::*, file_changed src/lonely.rs
+    // …) and, under saturated I/O, 32 tests queued for hours on the shared
+    // index's writer Mutex — the intermittent lifecycle hang ("commit blocks",
+    // tantivy docs). Same reason `per_project_flush_tests` creates its marker.
+    std::fs::create_dir_all(tmp.path().join(".git")).expect("project marker");
     let rt = HookRuntime::new(tmp.path()).expect("runtime");
     (tmp, rt)
+}
+
+/// The marker above is load-bearing — this guard says WHY when someone
+/// removes it: a fixture root must normalize to ITSELF, never to $HOME.
+#[test]
+fn fixture_root_normalizes_to_itself_not_home() {
+    let (tmp, rt) = make_runtime();
+    let normalized =
+        touring_foundation::config::TouringConfig::normalize_project_root(&rt.project_root);
+    assert_eq!(
+        normalized.canonicalize().ok(),
+        tmp.path().canonicalize().ok(),
+        "fixture root must normalize to itself — falling back to $HOME sends \
+         every tantivy-touching handler to the user's REAL global index \
+         (production contamination + the shared-writer queue behind the \
+         intermittent lifecycle hang, 2026-08-28)"
+    );
 }
 
 #[test]
@@ -1589,14 +1615,18 @@ fn task_sync_list_code_symbols_hint_does_not_panic() {
     );
 }
 
-// R21-S3: upsert_task_completion_to_tantivy does not panic (Tantivy may be None in tests)
+// R21-S3: upsert_task_completion_to_tantivy does not panic (index may be absent)
 #[test]
 fn upsert_task_completion_to_tantivy_does_not_panic() {
-    // global_tantivy() returns None in test env — function must be a no-op, not panic
-    super::upsert_task_completion_to_tantivy(
-        std::path::Path::new("/tmp/projeto-de-teste"),
-        "t-r21-s3-smoke",
-    );
+    // FOSSIL WARNING (corrected 2026-08-28): the old comment claimed
+    // "global_tantivy() returns None in test env" — false since the per-root
+    // migration (F5, 03/08/2026). A bare /tmp path normalizes to $HOME and
+    // reaches the user's REAL index; this very test's "t-r21-s3-smoke" was
+    // found there. A marker-less tempdir keeps the write out of the real
+    // index only because the path below does not exist as a project.
+    let tmp = TempDir::new().expect("tempdir");
+    std::fs::create_dir_all(tmp.path().join(".git")).expect("project marker");
+    super::upsert_task_completion_to_tantivy(tmp.path(), "t-r21-s3-smoke");
 }
 
 #[test]
