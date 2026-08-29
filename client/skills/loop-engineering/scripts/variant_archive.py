@@ -44,6 +44,7 @@ import json
 import math
 import os
 import random
+import subprocess
 import sys
 from pathlib import Path
 
@@ -126,6 +127,22 @@ def record(target: str, variant: str, score: float, verdict: str = "",
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
         fh.flush()
         os.fsync(fh.fileno())
+    # R4 (29/08, ordem de Gabriel): o mesmo julgamento alimenta o
+    # ExperimentLog do Touring (`touring learning experiment record`) — a peça
+    # existia completa em touring-intelligence com zero chamadores de
+    # produção. Fail-open: binário ausente/daemon frio custam um registro a
+    # menos, nunca um archive quebrado (o arquivo local acima segue sendo a
+    # fonte da verdade do sampler).
+    try:
+        subprocess.run(
+            ["touring", "learning", "experiment", "record",
+             "--variant", variant[:500], "--target", target,
+             "--reward", f"{entry['score']:.4f}",
+             "--decision", "discard" if terminal else "keep"],
+            capture_output=True, timeout=10, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
     return entry
 
 

@@ -270,10 +270,12 @@ fn hook_registry_count_matches_the_dispatch_registry() {
     // como `cli-memory-credit` chegou ao CI com três testes vermelhos.
     // 2026-08-18: +4 decompose verbs — claim, release (C2 atomic claim) and
     //   ticket, frontier (C3 Wayfinder): 234->238 / 236->240.
+    // 2026-08-29 (R1): +1 cli-gotcha-resolve: 239->240 / 241->242.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list}: 240->242 / 242->244.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 241;
+    const EXPECTED_NAMES: usize = 244;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 239;
+    const EXPECTED_NAMES: usize = 242;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

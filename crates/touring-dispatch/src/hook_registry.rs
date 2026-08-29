@@ -142,6 +142,9 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-gotcha-add",
         "cli-gotcha-match",
         "cli-gotcha-stats",
+        "cli-gotcha-resolve",
+        "cli-experiment-record",
+        "cli-experiment-list",
         "cli-memory-stats",
         "cli-memory-recall",
         "cli-memory-credit",
@@ -483,6 +486,9 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-gotcha-add",
     "cli-gotcha-match",
     "cli-gotcha-stats",
+    "cli-gotcha-resolve",
+    "cli-experiment-record",
+    "cli-experiment-list",
     "cli-memory-stats",
     "cli-memory-recall",
     "cli-memory-credit",
@@ -1427,6 +1433,18 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-gotcha-stats", |rt, v| {
         crate::cli_handlers::cli_gotcha_stats(rt, v)
+    });
+    // R1 (29/08): o produtor do canal que `touring.gotcha.resolution` lê.
+    m.insert("cli-gotcha-resolve", |rt, v| {
+        crate::cli_handlers::cli_gotcha_resolve(rt, v)
+    });
+    // R4 (29/08): a superfície do ExperimentLog — o A/B do variant_archive
+    // registra e lê de volta (a peça tinha zero chamadores de produção).
+    m.insert("cli-experiment-record", |rt, v| {
+        crate::cli_handlers::cli_experiment_record(rt, v)
+    });
+    m.insert("cli-experiment-list", |rt, v| {
+        crate::cli_handlers::cli_experiment_list(rt, v)
     });
     m.insert("cli-memory-stats", |rt, v| {
         crate::cli_handlers::cli_memory_stats(rt, v)

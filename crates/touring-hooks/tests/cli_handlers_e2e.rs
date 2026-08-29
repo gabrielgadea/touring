@@ -727,6 +727,41 @@ fn test_gotcha_stats() {
     assert!(stats["unresolved"].is_number());
 }
 
+/// R1 (29/08): `resolve` é o PRODUTOR do canal que `touring.gotcha.resolution`
+/// lê — add → resolve incrementa `stats.resolved`; re-resolver é idempotente e
+/// declarado; id fantasma ensina a correção em vez de só recusar.
+#[test]
+fn test_gotcha_resolve_feeds_the_resolution_channel() {
+    let (_tmp, mut rt) = setup_runtime();
+    cli_gotcha_add(
+        &mut rt,
+        &serde_json::json!({
+            "pattern": "resolve_e2e.rs",
+            "description": "gotcha de prova do canal de resolução",
+            "severity": "low"
+        }),
+    );
+    let before = parse_json(&cli_gotcha_stats(&mut rt, &serde_json::json!({})));
+    let resolved = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "pattern": "resolve_e2e", "why": "prova e2e" }),
+    ));
+    assert_eq!(resolved["resolved"], true, "payload: {resolved}");
+    let id = resolved["id"].as_i64().expect("id ecoado");
+    let after = parse_json(&cli_gotcha_stats(&mut rt, &serde_json::json!({})));
+    assert_eq!(
+        after["resolved"].as_i64().unwrap_or(0),
+        before["resolved"].as_i64().unwrap_or(0) + 1,
+        "o meter que estava em 0.0 agora tem produtor"
+    );
+    // idempotente e declarado
+    let again = parse_json(&cli_gotcha_resolve(&mut rt, &serde_json::json!({ "id": id })));
+    assert_eq!(again["already_resolved"], true, "payload: {again}");
+    // id fantasma → erro que ensina
+    let ghost = parse_json(&cli_gotcha_resolve(&mut rt, &serde_json::json!({ "id": 999_999 })));
+    assert!(ghost["error"].is_string() && ghost["hint"].is_string(), "payload: {ghost}");
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // AST TESTS
 // ═══════════════════════════════════════════════════════════════════════

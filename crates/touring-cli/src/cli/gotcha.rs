@@ -68,6 +68,85 @@ pub fn cli_gotcha_match(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
     let count = gotchas.len();
     serde_json::json!({ "file_path" : file_path, "matches" : gotchas, "count" : count }).to_string()
 }
+/// R1 (29/08, ordem de Gabriel): o PRODUTOR do canal de resolução.
+///
+/// `touring.gotcha.resolution` lê `COUNT(*) WHERE resolved_at IS NOT NULL`
+/// (via `cli-gotcha-stats:/resolved`) e ficou em 0.0 com 91 gotchas gravados
+/// porque NENHUM caminho escrevia `resolved_at` — o consumidor existia sem
+/// produtor (a classe `kpi-fonte-sem-resolvedor`). Payload: `{"id": N}` ou
+/// `{"pattern": "<substring>"}` (exatamente 1 match); `"why"` opcional ecoado.
+/// O erro estruturado ENSINA a correção (A5), nunca só recusa.
+pub fn cli_gotcha_resolve(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let why = str_or(payload, "why", "").to_string();
+    let conn = rt.ctx.knowledge.conn_ref();
+    let id = match payload.get("id").and_then(serde_json::Value::as_i64) {
+        Some(i) => i,
+        None => {
+            let pattern = str_or_empty(payload, "pattern");
+            if pattern.is_empty() {
+                return serde_json::json!({
+                    "error": "id or pattern required",
+                    "hint": "ids: `touring gotcha list` — depois `touring gotcha resolve <id> --why \"<prova>\"`",
+                })
+                .to_string();
+            }
+            let like = format!("%{pattern}%");
+            let ids: Vec<i64> = match conn
+                .prepare("SELECT id FROM gotchas WHERE pattern LIKE ?1 OR gotcha LIKE ?1 ORDER BY id")
+            {
+                Ok(mut stmt) => stmt
+                    .query_map(params![like], |r| r.get(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                    .unwrap_or_default(),
+                Err(e) => {
+                    return serde_json::json!({ "error": format!("query failed: {e}") })
+                        .to_string();
+                }
+            };
+            match ids.as_slice() {
+                [only] => *only,
+                [] => {
+                    return serde_json::json!({
+                        "error": format!("no gotcha matches '{pattern}'"),
+                        "hint": "liste os ids com `touring gotcha list`",
+                    })
+                    .to_string();
+                }
+                many => {
+                    return serde_json::json!({
+                        "error": format!("'{pattern}' matches {} gotchas — use the id", many.len()),
+                        "candidates": many,
+                    })
+                    .to_string();
+                }
+            }
+        }
+    };
+    let updated = conn
+        .execute(
+            "UPDATE gotchas SET resolved_at = datetime('now') WHERE id = ?1 AND resolved_at IS NULL",
+            params![id],
+        )
+        .unwrap_or(0);
+    if updated == 0 {
+        let exists = conn
+            .query_row("SELECT 1 FROM gotchas WHERE id = ?1", params![id], |_r| Ok(true))
+            .unwrap_or(false);
+        return if exists {
+            // Idempotente e declarado: re-resolver não é erro nem re-conta.
+            serde_json::json!({ "id": id, "resolved": true, "already_resolved": true })
+                .to_string()
+        } else {
+            serde_json::json!({
+                "error": format!("gotcha id {id} not found"),
+                "hint": "ids: `touring gotcha list`",
+            })
+            .to_string()
+        };
+    }
+    serde_json::json!({ "id": id, "resolved": true, "why": why }).to_string()
+}
+
 /// Reports aggregate gotcha statistics (total, resolved, and unresolved counts) as JSON.
 pub fn cli_gotcha_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
     let (total, hits, prevented) = rt.ctx.knowledge.gotcha_stats();

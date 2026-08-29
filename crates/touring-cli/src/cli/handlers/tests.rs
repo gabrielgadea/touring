@@ -494,6 +494,34 @@ fn memory_recall_rows_expose_stored_at_in_both_column_shapes() {
         }
     }
 }
+/// R6 (29/08): `learning status` summarizes — a long numeric array becomes
+/// `{len, l2_norm}`, scalars and short arrays pass through untouched, and the
+/// recursion reaches nested objects (any future weight vector is covered
+/// without a new list).
+#[test]
+fn learning_status_policy_is_summarized_not_dumped() {
+    use crate::cli::learning::summarize_numeric_arrays;
+    let weights: Vec<f64> = (0..100).map(|i| f64::from(i) / 10.0).collect();
+    let l2_expected = weights.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let v = serde_json::json!({
+        "learning_phase_score": 0.99,
+        "policy": { "hidden_weights": weights, "input_size": 25 },
+        "short": [1.0, 2.0, 3.0],
+    });
+    let s = summarize_numeric_arrays(v);
+    assert_eq!(s["learning_phase_score"], 0.99, "escalares intactos");
+    assert_eq!(s["policy"]["input_size"], 25);
+    assert_eq!(s["short"], serde_json::json!([1.0, 2.0, 3.0]), "array curto intacto");
+    assert_eq!(s["policy"]["hidden_weights"]["len"], 100);
+    let l2 = s["policy"]["hidden_weights"]["l2_norm"].as_f64().unwrap_or(0.0);
+    assert!((l2 - l2_expected).abs() < 1e-9, "l2 real: {l2} vs {l2_expected}");
+    assert!(
+        s.to_string().len() < 2048,
+        "o resumo cabe num status (<2KB): {} bytes",
+        s.to_string().len()
+    );
+}
+
 /// Self-echo completion (2026-08-29): the RRF merge keeps the winning arm's
 /// object (ANN/TF-IDF rows have no `stored_at`), so the age must be
 /// backfilled at the choke point — by key, from the federated DBs, both

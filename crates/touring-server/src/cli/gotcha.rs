@@ -60,6 +60,18 @@ enum GotchaCmd {
     },
     /// Show gotcha statistics (total, resolved, unresolved).
     Stats,
+    /// Mark a gotcha as resolved (R1, 29/08: writes `resolved_at`, the field
+    /// `touring.gotcha.resolution` counts — the channel had no producer).
+    Resolve {
+        /// Gotcha id (see `touring gotcha list`).
+        id: Option<i64>,
+        /// Alternative to id: substring of the pattern/description (must match exactly one).
+        #[arg(long)]
+        pattern: Option<String>,
+        /// Why it is resolved (the proof — echoed into the response).
+        #[arg(long)]
+        why: Option<String>,
+    },
     /// Sync gotchas from YAML rule library to SQLite cache (Wave Q3).
     Sync {
         /// Directory containing YAML gotcha files (default: ~/.claude/rust/docs/gotchas).
@@ -113,6 +125,21 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             Ok(())
         }
         GotchaCmd::Stats => cmd_stats(),
+        GotchaCmd::Resolve { id, pattern, why } => {
+            let mut payload = serde_json::Map::new();
+            if let Some(i) = id {
+                payload.insert("id".into(), serde_json::json!(i));
+            }
+            if let Some(p) = pattern {
+                payload.insert("pattern".into(), serde_json::json!(p));
+            }
+            if let Some(w) = why {
+                payload.insert("why".into(), serde_json::json!(w));
+            }
+            let output = daemon_query("cli-gotcha-resolve", serde_json::Value::Object(payload))?;
+            println!("{output}");
+            Ok(())
+        }
         GotchaCmd::Sync { dir } => {
             let payload = match dir {
                 Some(d) => serde_json::json!({ "dir": d }),

@@ -99,10 +99,12 @@ fn hook_registry_has_cascade_queue_handlers() {
     // doc de `test_hook_registry_counts_match_the_dispatch_registry`
     // (touring-hooks/tests/stringzilla_e2e.rs).
     // 2026-08-18: +4 decompose verbs — claim, release (C2), ticket, frontier (C3).
+    // 2026-08-29 (R1): +1 cli-gotcha-resolve.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list}.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 241;
+    const EXPECTED_NAMES: usize = 244;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 239;
+    const EXPECTED_NAMES: usize = 242;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

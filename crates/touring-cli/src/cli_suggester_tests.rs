@@ -3212,6 +3212,55 @@ mod apresentacao_por_escopo {
         );
     }
 
+    /// R2 (29/08): a evidência durável acumula em DISCO — 2 bumps somam, uma
+    /// família nova coexiste, arquivo corrompido recomeça de zeros sem panic
+    /// (evidência ilegível é evidência inexistente, jamais um valor inventado).
+    #[test]
+    fn evidencia_duravel_acumula_em_disco_e_tolera_corrupcao() {
+        use super::super::{bump_durable_evidence, read_durable_evidence};
+        let tmp = tempfile::tempdir().expect("tempdir");
+        bump_durable_evidence(tmp.path(), "s3", "denied");
+        bump_durable_evidence(tmp.path(), "s3", "denied");
+        bump_durable_evidence(tmp.path(), "s3", "first_passed");
+        bump_durable_evidence(tmp.path(), "pillar", "emitted");
+        let v = read_durable_evidence(tmp.path());
+        assert_eq!(v.pointer("/s3/denied").and_then(|x| x.as_u64()), Some(2));
+        assert_eq!(v.pointer("/s3/first_passed").and_then(|x| x.as_u64()), Some(1));
+        assert_eq!(v.pointer("/pillar/emitted").and_then(|x| x.as_u64()), Some(1));
+        // corrupção: leitura volta objeto vazio; o próximo bump recomeça de 1
+        let path = tmp.path().join(".claude/touring/durable_gate_evidence.json");
+        std::fs::write(&path, "{ nao-e-json").expect("write");
+        assert!(read_durable_evidence(tmp.path()).as_object().is_some_and(|o| o.is_empty()));
+        bump_durable_evidence(tmp.path(), "s3", "denied");
+        let v2 = read_durable_evidence(tmp.path());
+        assert_eq!(v2.pointer("/s3/denied").and_then(|x| x.as_u64()), Some(1));
+    }
+
+    /// R2 fim-a-fim no gate REAL: a rajada de inspeção grava a evidência
+    /// durável no root do projeto — 1ª passa (`first_passed`), 2ª nega
+    /// (`denied`) — e um restart do daemon não a apaga porque ela é arquivo.
+    #[test]
+    #[serial_test::serial(gate_metrics, t3_env)]
+    fn rajada_de_inspecao_grava_evidencia_duravel_no_disco() {
+        use super::super::read_durable_evidence;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        escopo_code(tmp.path());
+        let s = "r2-duravel-1";
+        assert!(code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn a src/")).is_none());
+        code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn b src/")).expect("2ª nega");
+        let v = read_durable_evidence(tmp.path());
+        assert_eq!(
+            v.pointer("/s3/first_passed").and_then(|x| x.as_u64()),
+            Some(1),
+            "a 1ª aprovada durou em disco: {v}"
+        );
+        assert_eq!(
+            v.pointer("/s3/denied").and_then(|x| x.as_u64()),
+            Some(1),
+            "o deny durou em disco: {v}"
+        );
+    }
+
     /// Declara `[code_mode] mode = "code"` na raiz temporária.
     fn escopo_code(root: &std::path::Path) {
         std::fs::create_dir_all(root.join(".touring")).expect("mkdir");

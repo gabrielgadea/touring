@@ -101,3 +101,14 @@ SELECT COUNT(*) FROM memory_entries WHERE outcome_reward < 0.5;   -- hoje: 16
 
 `P5` (consolidação + `loop_converged --rust-full`) depende de `P4`. `P3b` (embalar o research loop
 como ADW) é independente e implementável a qualquer momento.
+
+## Adendo 29/08 — o gatilho do P4 foi medido e corrigido (wave ligar-não-construir)
+
+O critério de partida do P4 mudou de forma: as rejeições de gate vivem como KEY
+`gate-reject:<flow>:<nó>` (7 hoje, reward 0.0-0.2, n=1-2 por nó), não como
+contexto `adw_gate_reject` no value. 147/154 negativos do store são crédito
+difuso de outcomes (sem verificador único) — o GEPA segue sem trainset. Gatilho
+monitorável e memória: `criterio:p4-dspy-gatilho-familia:2026-08-29`. As
+ligações R1-R6 (evidência durável dos meters, produtor do gotcha.resolution,
+access_count no recall, re-rank por procedência, superfície do ExperimentLog)
+estão em `docs/plans/2026-08-29-ligar-nao-construir/`.

@@ -54,7 +54,14 @@ pub struct LearningStatus {
     /// Number of bandit arms (candidate actions).
     pub arm_count: usize,
     /// AgenticRL state snapshot — None if AgenticRL was never activated.
-    pub agentic_rl_state: Option<crate::agentic_rl::AgenticRLState>,
+    /// Agentic-RL summary — R6 (29/08): the full `AgenticRLState` used to be
+    /// inlined here and dumped ~40KB of raw policy weights into every
+    /// `learning status` (an STR violation — a status reader decides nothing
+    /// with 8k floats). Long numeric arrays are compressed to
+    /// `{len, l2_norm}`; scalars pass through. The full state still lives on
+    /// the persistence path (`.claude/data/agentic_rl_state.json`), never in
+    /// a status line.
+    pub agentic_rl_state: Option<serde_json::Value>,
 }
 /// A public symbol with no consumers, reported by wiring orphan analysis.
 #[derive(Serialize)]
@@ -216,7 +223,9 @@ pub use crate::cli::gotcha::cli_gotcha_add;
 pub use crate::cli::gotcha::cli_gotcha_init;
 pub use crate::cli::gotcha::cli_gotcha_list;
 pub use crate::cli::gotcha::cli_gotcha_match;
+pub use crate::cli::gotcha::cli_gotcha_resolve;
 pub use crate::cli::gotcha::cli_gotcha_stats;
+pub use crate::cli::learning::{cli_experiment_list, cli_experiment_record};
 pub use crate::cli::gotcha::cli_gotcha_sync;
 pub use crate::cli::granularity::cli_granularity_hint;
 pub use crate::cli::granularity::cli_granularity_reset;
