@@ -2194,6 +2194,109 @@ mod code_mode_gates_w1 {
         assert_eq!(exec_class_of("grep foo f"), None);
     }
 
+    // ── S5 (29/08): os furos do turno de 60 do `analise` viram guards ──
+    // Provados ao vivo antes do fix: 12 execuções python com `2>&1` e 12
+    // atrás de `VAR=...\n` — zero denies do G10 em ambos os casos.
+
+    #[test]
+    fn s5_redirect_de_fd_nao_anula_a_classe_exec() {
+        use super::super::exec_class_of;
+        // O furo B: `contains(">")` sobre o blob inteiro cegava o G10.
+        assert_eq!(
+            exec_class_of("cd /tmp && python3 medir.py 2>&1 | head -5"),
+            Some("python")
+        );
+        assert_eq!(exec_class_of("python3 medir.py 2>/dev/null"), Some("python"));
+        assert_eq!(exec_class_of("pytest tests/ -q 2>&1"), Some("pytest"));
+        // Redirect REAL de saída segue fora — escrita não é rajada exec.
+        assert_eq!(exec_class_of("python3 runner.py > out.txt"), None);
+        assert_eq!(exec_class_of("python3 runner.py >> log.txt"), None);
+    }
+
+    #[test]
+    fn s5_assignment_prefixo_e_transparente_para_a_classe() {
+        use super::super::{effective_tokens, exec_class_of};
+        // O furo C: segmento assignment-only devolvia tokens vazios e TODA
+        // classificação morria ali.
+        assert_eq!(
+            exec_class_of("P=docs/x\npython3 medir.py --map $P"),
+            Some("python")
+        );
+        assert_eq!(
+            effective_tokens("P=docs/x\nR=docs/y\ngrep -n foo arq.rs").first(),
+            Some(&"grep")
+        );
+        // Assignment sozinho continua sem classe (não há verbo).
+        assert_eq!(exec_class_of("P=docs/x"), None);
+    }
+
+    #[test]
+    fn s5_corpo_de_heredoc_nao_alimenta_o_filtro_de_mutacao() {
+        use super::super::{exec_class_of, mutation_scan_view};
+        // O corpo é DADO no stdin — um `git ` ou `>` lá dentro não é comando.
+        let cmd = "python3 medir.py <<'EOF'\nx = \"git checkout\"\ny = 1 > 0\nEOF";
+        assert!(!mutation_scan_view(cmd).contains("git "));
+        assert_eq!(exec_class_of(cmd), Some("python"));
+        // Herestring não é heredoc — a view não pode engolir o resto.
+        assert!(mutation_scan_view("cat <<< 'x' && rm f").contains("rm "));
+    }
+
+    #[test]
+    fn s5_par_write_run_detecta_escrita_e_execucao_do_mesmo_script() {
+        use super::super::{script_run_target, script_write_target};
+        // A escrita registra o alvo (heredoc típico do loop execute-observe).
+        assert_eq!(
+            script_write_target("cat > /tmp/s/medir.py <<'PYEOF'\nprint(1)\nPYEOF"),
+            Some("/tmp/s/medir.py".to_string())
+        );
+        assert_eq!(
+            script_write_target("cd /proj\ncat > scratch/x.sh <<'EOF'\nls\nEOF"),
+            Some("scratch/x.sh".to_string())
+        );
+        assert_eq!(script_write_target("cat > notas.md <<'EOF'\noi\nEOF"), None);
+        // A execução resolve o path mesmo atrás de cd/assignment.
+        assert_eq!(
+            script_run_target("cd /proj\n.venv/bin/python3 /tmp/s/medir.py"),
+            Some("/tmp/s/medir.py".to_string())
+        );
+        assert_eq!(
+            script_run_target("bash scratch/x.sh"),
+            Some("scratch/x.sh".to_string())
+        );
+        // pytest/módulos nunca casam — o limiar baixo não taxa o caso comum.
+        assert_eq!(script_run_target("python3 -m pytest tests/test_a.py"), None);
+        assert_eq!(script_run_target("pytest tests/test_a.py"), None);
+        // Redirect real de saída: o remédio --file não reproduziria a escrita.
+        assert_eq!(script_run_target("python3 /tmp/s/medir.py > out.json"), None);
+    }
+
+    #[test]
+    fn s5_par_write_run_nega_no_terceiro_par_com_o_proprio_arquivo() {
+        use super::super::{
+            write_run_key, write_run_pair_gate, written_scripts_ledger,
+        };
+        let root = std::path::Path::new("/tmp/s5-par-teste-isolado");
+        // Simula as escritas: 3 scripts registrados na janela.
+        for p in ["/tmp/s5/a.py", "/tmp/s5/b.py", "/tmp/s5/c.py"] {
+            written_scripts_ledger().insert(write_run_key(root, p), ());
+        }
+        let d1 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/a.py");
+        let d2 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/b.py");
+        let d3 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/c.py");
+        assert!(d1.is_none(), "1º par passa");
+        assert!(d2.is_none(), "2º par passa");
+        let deny = d3.expect("3º par nega");
+        assert!(deny.contains("write→run"), "deny nomeia o gate: {deny}");
+        assert!(
+            deny.contains("touring run --file /tmp/s5/c.py"),
+            "o remédio é o PRÓPRIO script, sem reescrita: {deny}"
+        );
+        // Um script que NÃO foi escrito na janela nunca conta como par.
+        assert!(
+            write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/alheio.py").is_none()
+        );
+    }
+
     #[test]
     fn g10_programa_r9_agrega_as_chamadas_reais_em_python_valido() {
         use super::super::r9_exec_program;

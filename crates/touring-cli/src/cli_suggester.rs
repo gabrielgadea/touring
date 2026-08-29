@@ -2403,6 +2403,12 @@ fn effective_tokens(cmd: &str) -> Vec<&str> {
         let rest = resolved_tokens(&toks);
         match rest.first() {
             Some(&"cd") => continue, // prefixo de navegação — o próximo decide
+            // Segmento que resolve para NADA (`P=x` sozinho, `env` puro): o
+            // próximo segmento decide. Sem este braço, `P=x\npython3 f.py`
+            // devolvia vazio e TODA classificação morria no assignment —
+            // provado ao vivo (29/08): 12 execuções python atrás de
+            // `VAR=...\n` e zero denies do G10 no turno de 60 do `analise`.
+            None => continue,
             _ => return rest.to_vec(),
         }
     }
@@ -2681,13 +2687,61 @@ fn is_inline_blind_edit(cmd: &str) -> bool {
 /// marcada fica de fora por construção (P2.3): redirect de shell,
 /// instaladores, git, rm — o marcador é a calibração, não prova de pureza
 /// (a limitação é documentada, como no G8).
+/// A visão do comando que o filtro de mutação inspeciona: corpos de heredoc
+/// removidos (são DADO alimentando stdin, não comando) e redirects inofensivos
+/// de FD/descarte neutralizados (`2>&1`, `2>/dev/null`, `>/dev/null`, …) — eles
+/// não gravam arquivo nenhum. O `>` que sobrar é redirect real (escrita), e o
+/// comando continua fora da rajada exec, como os testes exigem. Furo provado
+/// ao vivo (29/08): as execuções python do turno de 60 do `analise` carregavam
+/// `2>&1`/`2>/dev/null` e o `contains(">")` sobre o blob inteiro anulava a
+/// classe — o G10 ficou mudo o turno todo ("verificador usa menos que o
+/// extrator", mais uma encarnação).
+fn mutation_scan_view(cmd: &str) -> String {
+    // 1) corta corpos de heredoc: da linha após `<<MARKER` até a linha MARKER.
+    let mut kept: Vec<&str> = Vec::new();
+    let mut skip_until: Option<String> = None;
+    for line in cmd.lines() {
+        if let Some(marker) = &skip_until {
+            if line.trim() == marker.as_str() {
+                skip_until = None;
+            }
+            continue;
+        }
+        kept.push(line);
+        if let Some(pos) = line.find("<<")
+            && !line[pos..].starts_with("<<<")
+        {
+            let raw = line[pos + 2..].trim_start_matches('-').trim();
+            let marker = raw
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .trim_matches(|c| c == '\'' || c == '"');
+            if !marker.is_empty() {
+                skip_until = Some(marker.to_string());
+            }
+        }
+    }
+    let mut s = kept.join("\n");
+    // 2) neutraliza redirects que não gravam nada (ordem: os prefixados por FD
+    // antes do genérico, senão o replace parcial deixa o dígito para trás).
+    for inofensivo in [
+        "2>&1", "1>&2", "2>/dev/null", "2> /dev/null", "&>/dev/null",
+        "&> /dev/null", ">/dev/null", "> /dev/null",
+    ] {
+        s = s.replace(inofensivo, " ");
+    }
+    s
+}
+
 fn exec_class_of(cmd: &str) -> Option<&'static str> {
     const MUTATING: &[&str] = &[
         ">", "| tee", "pip install", "setup.py install", "rm ", "mv ", "cp ",
         "git ", "kill", "chmod", "chown", "curl", "wget", "ssh", "docker",
         "systemctl", "touch ", "mkdir",
     ];
-    if MUTATING.iter().any(|m| cmd.contains(m)) {
+    let scan = mutation_scan_view(cmd);
+    if MUTATING.iter().any(|m| scan.contains(m)) {
         return None;
     }
     let rest = effective_tokens(cmd);
@@ -2716,6 +2770,162 @@ const EXEC_BURST_WINDOW_SECS: u64 = 600;
 /// S4 — disparo na 10ª (R4: as sessões reais iam a 30-75; 10 é o ponto em
 /// que o laço desenrolado já custou 9 round-trips).
 const EXEC_BURST_DENY_AT: u32 = 10;
+
+/// S5 (29/08) — janela do par write→run: a mesma da rajada de execução.
+const WRITE_RUN_WINDOW_SECS: u64 = 600;
+/// S5 — disparo no 3º par: escrever um script e executá-lo em seguida é o
+/// loop execute-observe por definição (28 pares no turno de 60 do `analise`,
+/// todos invisíveis porque cada metade é individualmente legítima). O limiar
+/// baixo não taxa o caso comum: pytest/gates/tools nunca casam — o path que
+/// eles executam não foi escrito via `cat >`/`tee` na janela.
+const WRITE_RUN_DENY_AT: u32 = 3;
+
+/// Paths de script escritos via `cat >`/`tee` na janela, por (projeto, path).
+fn written_scripts_ledger() -> &'static moka::sync::Cache<u64, ()> {
+    static C: OnceLock<moka::sync::Cache<u64, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(WRITE_RUN_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// Contagem de pares write→run por projeto (+ os paths, para o remédio).
+fn write_run_pair_ledger() -> &'static moka::sync::Cache<u64, (u32, Vec<String>)> {
+    static C: OnceLock<moka::sync::Cache<u64, (u32, Vec<String>)>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(WRITE_RUN_WINDOW_SECS))
+            .build()
+    })
+}
+
+fn write_run_key(project_root: &Path, tag: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    project_root.hash(&mut h);
+    tag.hash(&mut h);
+    h.finish()
+}
+
+fn is_script_path(p: &str) -> bool {
+    let p = p.trim_matches(|c| c == '\'' || c == '"');
+    p.ends_with(".py") || p.ends_with(".sh")
+}
+
+fn clean_script_path(p: &str) -> String {
+    p.trim_matches(|c| c == '\'' || c == '"').to_string()
+}
+
+/// O path de script (.py/.sh) que este comando ESCREVE via `cat >`/`tee`.
+fn script_write_target(cmd: &str) -> Option<String> {
+    for seg in command_segments(cmd) {
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        match rest.first() {
+            Some(&"cat") => {
+                let mut it = rest[1..].iter().copied();
+                while let Some(t) = it.next() {
+                    if t == ">" || t == ">>" {
+                        if let Some(p) = it.next()
+                            && is_script_path(p)
+                        {
+                            return Some(clean_script_path(p));
+                        }
+                    } else if let Some(p) =
+                        t.strip_prefix(">>").or_else(|| t.strip_prefix('>'))
+                        && !p.is_empty()
+                        && is_script_path(p)
+                    {
+                        return Some(clean_script_path(p));
+                    }
+                }
+            }
+            Some(&"tee") => {
+                if let Some(p) = rest[1..].iter().find(|t| !t.starts_with('-'))
+                    && is_script_path(p)
+                {
+                    return Some(clean_script_path(p));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// O path de script que este comando EXECUTA diretamente (python/bash/sh).
+/// `None` quando há redirect real de saída (a view de mutação ainda contém
+/// `>` após neutralizar FD/descartes) — o remédio `--file` não reproduziria a
+/// escrita, então o par não é contado (conservador por construção).
+fn script_run_target(cmd: &str) -> Option<String> {
+    if mutation_scan_view(cmd).contains('>') {
+        return None;
+    }
+    let rest = effective_tokens(cmd);
+    let verb = rest.first()?;
+    let base = verb.rsplit('/').next()?;
+    let interpretador = base == "bash"
+        || base == "sh"
+        || base == "python"
+        || base == "python3"
+        || base.starts_with("python3.");
+    if !interpretador {
+        return None;
+    }
+    let arg = rest[1..].iter().find(|t| !t.starts_with('-'))?;
+    if is_script_path(arg) {
+        Some(clean_script_path(arg))
+    } else {
+        None
+    }
+}
+
+/// True para `python3 -`/`python3 -c` (programa inline) — o caso que a rajada
+/// exec exclui de propósito; contado à parte para calibração (S5).
+fn python_inline_heredoc(cmd: &str) -> bool {
+    let rest = effective_tokens(cmd);
+    let Some(verb) = rest.first() else {
+        return false;
+    };
+    let base = verb.rsplit('/').next().unwrap_or(verb);
+    (base == "python" || base == "python3" || base.starts_with("python3."))
+        && matches!(rest.get(1), Some(&"-c") | Some(&"-"))
+}
+
+/// S5 — o gate do par write→run. `None` = sem decisão (o fluxo segue).
+fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
+    use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
+    let path = script_run_target(cmd)?;
+    written_scripts_ledger().get(&write_run_key(project_root, &path))?;
+    let pkey = write_run_key(project_root, "\u{0}write-run-pares");
+    let (n, mut paths) = write_run_pair_ledger().get(&pkey).unwrap_or_default();
+    let n = n + 1;
+    if paths.len() < 8 {
+        paths.push(path.clone());
+    }
+    if n < WRITE_RUN_DENY_AT || code_gates_disabled() {
+        write_run_pair_ledger().insert(pkey, (n, paths));
+        return None;
+    }
+    write_run_pair_ledger().invalidate(&pkey);
+    record_gate_event(GateId::G10, GateEvent::Denied);
+    crate::shared::gate_metrics::record_g10_write_run_pair_denied();
+    pending_g10().insert(session.to_string(), ());
+    let lang = if path.ends_with(".sh") { " --lang bash" } else { "" };
+    Some(deny_response(format!(
+        "[G10 write→run] {n}º script escrito-e-executado na janela de \
+         {WRITE_RUN_WINDOW_SECS}s (`{path}`) — o loop execute-observe manual \
+         paga 2 round-trips por passo; o script JÁ está em disco, rode o MESMO \
+         arquivo no sandbox sem reescrever nada:\n  \
+         touring run{lang} --file {path} --timeout-ms 60000\n\
+         O sandbox devolve só o que o script imprime (digest no contexto, \
+         íntegra no spill), e um `touring run` zera a janela. Bypass \
+         por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
+    )))
+}
 
 type ExecBurstEntry = (u32, Vec<String>);
 
@@ -4552,6 +4762,17 @@ pub(crate) fn code_mode_gates(
             );
         }
     }
+    // S5 (29/08) — o par write→run: `cat >`/`tee` de um script registra o
+    // alvo; a execução do MESMO path na janela conta um par. Nasceu do turno
+    // de 60 Bash do `analise` (28 pares, todos invisíveis: a escrita é T4
+    // sancionada e a execução avulsa não acumulava) — o G-turno só falou no
+    // Stop, com o custo já pago. Aqui o colapso acontece DURANTE o turno.
+    if let Some(path) = script_write_target(cmd) {
+        written_scripts_ledger().insert(write_run_key(project_root, &path), ());
+    }
+    if let Some(deny) = write_run_pair_gate(project_root, session, cmd) {
+        return Some(deny);
+    }
     // G10 (S4, 2026-08-26) — rajada de execução homogênea (R4): N seriadas do
     // mesmo interpretador com 0 `touring run` na janela. O laço desenrolado
     // vira 1 programa (R9). Um `touring run` entre elas zera a contagem — a
@@ -4595,6 +4816,10 @@ pub(crate) fn code_mode_gates(
         for class in ["python", "pytest"] {
             exec_burst_ledger().invalidate(&exec_burst_key(project_root, class));
         }
+        // S5 — a rota seguida zera o par write→run junto (mesma razão do S3
+        // abaixo: sem isto o próximo script legítimo herdaria uma contagem de
+        // um loop que o modelo JÁ converteu em programa).
+        write_run_pair_ledger().invalidate(&write_run_key(project_root, "\u{0}write-run-pares"));
         // S3 — a rota foi seguida: a janela de inspeção zera junto. Sem isto o
         // ledger seguiria contando uma rajada que o modelo JÁ converteu em
         // programa, e o próximo `grep` legítimo levaria um deny herdado de uma
@@ -4602,6 +4827,11 @@ pub(crate) fn code_mode_gates(
         for class in CODE_MODE_COLLAPSED_CLASSES {
             inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, class));
         }
+    } else if python_inline_heredoc(cmd) {
+        // S5 — calibração do heredoc inline: a exclusão em `exec_class_of`
+        // (`-`/`-c`) é deliberada, e este counter é o dado que decidirá se
+        // ela fica (medir antes de armar — o S3 nasceu de 115 transcripts).
+        crate::shared::gate_metrics::record_exec_heredoc_inline_seen();
     }
     // S3 (27/08/2026) — o colapso do modo `code` deixou de ser POR CLASSE e
     // passou a ser POR RAJADA. A 1ª inspeção de uma classe na janela executa

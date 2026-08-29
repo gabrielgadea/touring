@@ -742,6 +742,14 @@ pub struct GateMetrics {
     pub g1_inspect_first_passed_count: AtomicU64,
     /// S3 — rajada de inspeção negada com a rota fundida (a 2ª em diante).
     pub g1_inspect_burst_denied_count: AtomicU64,
+    /// S5 (29/08) — par write→run negado: `cat > script` seguido de N execuções
+    /// do MESMO script na janela — o loop execute-observe manual; o remédio é
+    /// `touring run --file <o próprio script>` (conversão 1:1, zero reescrita).
+    pub g10_write_run_pair_denied_count: AtomicU64,
+    /// S5 (29/08) — heredoc inline (`python3 -`/`-c`) VISTO fora da rajada:
+    /// contagem de calibração (medir antes de armar) — a exclusão atual é
+    /// deliberada e este counter é o dado que decidirá se ela fica.
+    pub exec_heredoc_inline_seen_count: AtomicU64,
     /// N5 — injeção nativa SEGUIDA: Bash escolhida onde tool dedicada existia
     /// (search/read). Numerador do KPI — ESCOLHA, não execução (o deny
     /// posterior não apaga o sinal da pressão).
@@ -1067,6 +1075,8 @@ impl Default for GateMetrics {
             ceg_captured_count: AtomicU64::new(0),
             g1_inspect_first_passed_count: AtomicU64::new(0),
             g1_inspect_burst_denied_count: AtomicU64::new(0),
+            g10_write_run_pair_denied_count: AtomicU64::new(0),
+            exec_heredoc_inline_seen_count: AtomicU64::new(0),
             native_injection_followed_count: AtomicU64::new(0),
             native_injection_resisted_count: AtomicU64::new(0),
             native_injection_code_route_count: AtomicU64::new(0),
@@ -2213,7 +2223,8 @@ pub use crate::gate_metrics_snapshot::{
     record_ctx_execute_file, record_ctx_execute_file_count, record_ctx_explain,
     record_ctx_gain_graph, record_ctx_purge, record_ctx_replay, record_ctx_session_adoption_query,
     record_ctx_smart, record_ctx_upgrade, record_enrichment_emitted,
-    record_g1_inspect_burst_denied, record_g1_inspect_first_passed,
+    record_exec_heredoc_inline_seen, record_g1_inspect_burst_denied, record_g1_inspect_first_passed,
+    record_g10_write_run_pair_denied,
     record_gate_metrics_daily_flush, record_pillar_induction_emitted,
     record_pillar_induction_followed, record_read_aggressive_chunked,
     record_read_aggressive_passthrough, record_suggestion_emitted, record_suggestion_followed,
