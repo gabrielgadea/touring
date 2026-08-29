@@ -197,7 +197,106 @@ pub(crate) fn memory_recall_row_to_json(
     ) {
         obj.insert("pinned".into(), serde_json::json!(true));
     }
+    // Self-echo detection (2026-08-29): `stored_at` lets a consumer tell a
+    // pre-existing lesson from one written DURING its own campaign — the CCE
+    // explorer suppresses the latter from its dry-tail, or the topic that
+    // writes memories about itself never dries ([1,0,0,1,…] measured live).
+    // The column is TEXT ("YYYY-MM-DD HH:MM:SS", UTC) on live DBs and INTEGER
+    // (epoch) on consolidated ones, so both shapes pass through verbatim;
+    // absent column / NULL / a 7-column caller row stay silent (an unknown
+    // age must stay unknown, never zero).
+    if let Ok(vref) = row.get_ref(7) {
+        let stored = match vref {
+            rusqlite::types::ValueRef::Text(t) => {
+                std::str::from_utf8(t).ok().map(|s| serde_json::json!(s))
+            }
+            rusqlite::types::ValueRef::Integer(i) => Some(serde_json::json!(i)),
+            _ => None,
+        };
+        if let (Some(v), Some(obj)) = (stored, out.as_object_mut()) {
+            obj.insert("stored_at".into(), v);
+        }
+    }
     Ok(out)
+}
+
+/// Backfills `stored_at` (by key, from the federated memory DBs) onto merged
+/// recall entries that lack it.
+///
+/// The RRF merge keeps the FIRST arm's object per key (SQL > ANN > TF-IDF) and
+/// never rewrites its fields — so the entries that carry an arm `score` (the
+/// only ones a ranking consumer accepts) were precisely the ones missing
+/// `stored_at`, and the self-echo suppression shipped for the SQL arm was
+/// unreachable on the production path. One choke point covers every arm,
+/// present and future, instead of chasing each row-builder. Same tolerance as
+/// the mapper: absent column / NULL / unknown key stay silent — an unknown age
+/// must stay unknown, never zero.
+pub(crate) fn memory_backfill_stored_at(
+    dbs: &[std::path::PathBuf],
+    entries: &mut [serde_json::Value],
+) {
+    let mut missing: std::collections::HashSet<String> = entries
+        .iter()
+        .filter(|e| e.get("stored_at").is_none())
+        .filter_map(|e| e.get("key").and_then(|k| k.as_str()).map(str::to_string))
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    let mut found: std::collections::HashMap<String, serde_json::Value> =
+        std::collections::HashMap::new();
+    for db in dbs {
+        if missing.is_empty() {
+            break;
+        }
+        let Ok(conn) = rusqlite::Connection::open(db) else {
+            continue;
+        };
+        if !memory_column_present(&conn, "created_at") {
+            continue;
+        }
+        let Ok(mut stmt) = conn.prepare("SELECT created_at FROM memory_entries WHERE key = ?1")
+        else {
+            continue;
+        };
+        missing.retain(|key| {
+            let stored = stmt
+                .query_row(params![key], |row| {
+                    Ok(match row.get_ref(0) {
+                        Ok(rusqlite::types::ValueRef::Text(t)) => {
+                            std::str::from_utf8(t).ok().map(|s| serde_json::json!(s))
+                        }
+                        Ok(rusqlite::types::ValueRef::Integer(i)) => Some(serde_json::json!(i)),
+                        _ => None,
+                    })
+                })
+                .ok()
+                .flatten();
+            match stored {
+                Some(v) => {
+                    found.insert(key.clone(), v);
+                    false
+                }
+                None => true,
+            }
+        });
+    }
+    for e in entries.iter_mut() {
+        if e.get("stored_at").is_some() {
+            continue;
+        }
+        let Some(v) = e
+            .get("key")
+            .and_then(|k| k.as_str())
+            .and_then(|k| found.get(k))
+            .cloned()
+        else {
+            continue;
+        };
+        if let Some(obj) = e.as_object_mut() {
+            obj.insert("stored_at".into(), v);
+        }
+    }
 }
 
 /// FTS5 primary recall path — tokenized `MATCH` over `memories_fts`,
@@ -212,12 +311,13 @@ pub(crate) fn memory_recall_fts5(
     let reward_col = outcome_reward_select(conn, "e.");
     let importance_col = optional_column_select(conn, "e.", "importance");
     let pinned_col = optional_column_select(conn, "e.", "pinned");
+    let created_col = optional_column_select(conn, "e.", "created_at");
     let not_superseded = superseded_filter(conn, "e.");
     // S4 ranking: pinned first, then importance, then bm25. Both weights are
     // COALESCEd to a neutral floor so an unweighted entry is not punished for
     // having never been judged — it simply ranks by relevance, as before.
     let sql = format!(
-        "SELECT e.key, e.value, e.tier, e.entry_type, {reward_col}, {importance_col}, {pinned_col} \
+        "SELECT e.key, e.value, e.tier, e.entry_type, {reward_col}, {importance_col}, {pinned_col}, {created_col} \
          FROM memories_fts \
          JOIN memory_entries e ON e.rowid = memories_fts.rowid \
          WHERE memories_fts MATCH ?1{not_superseded} \
@@ -256,9 +356,10 @@ pub(crate) fn memory_recall_like(
     let reward_col = outcome_reward_select(conn, "");
     let importance_col = optional_column_select(conn, "", "importance");
     let pinned_col = optional_column_select(conn, "", "pinned");
+    let created_col = optional_column_select(conn, "", "created_at");
     let not_superseded = superseded_filter(conn, "");
     let sql = format!(
-        "SELECT key, value, tier, entry_type, {reward_col}, {importance_col}, {pinned_col} \
+        "SELECT key, value, tier, entry_type, {reward_col}, {importance_col}, {pinned_col}, {created_col} \
          FROM memory_entries \
          WHERE ({where_clause}){not_superseded} \
          ORDER BY COALESCE({pinned_col}, 0) DESC, COALESCE({importance_col}, 0) DESC \

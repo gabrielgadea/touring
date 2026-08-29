@@ -19,6 +19,13 @@ docs/plans/2026-07-19-touring-adw-software-factory/plan.md:
     D2 (corroborated by 2+ independent lenses — computed, not asserted).
   * OPEN QUESTIONS gate convergence: findings spawn questions (endogenous
     targets); the queue must be empty (answered/waived) to converge.
+  * SELF-ECHO suppression (2026-08-29): a memory stored AFTER the campaign
+    began that resurfaces via recall is the campaign's own output echoing
+    back — recorded VISIBLE (``echo: true``, ``echoes_suppressed`` in the
+    verdict) but never wetting the dry-tail, or a self-referential topic
+    livelocks ([1,0,0,1,…] measured). Suppression needs POSITIVE temporal
+    proof (``stored_at`` from recall vs the ledger's ``created_at``); any
+    missing timestamp counts the finding normally.
   * The verdict is epistemically honest: never "complete" — always "no new
     findings UNDER current questions/lenses/depth after K dry rounds".
 
@@ -45,6 +52,7 @@ import sys
 import time
 import unicodedata
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -119,6 +127,11 @@ def load_ledger(path: Path, topic: str, scope: Path) -> dict[str, Any]:
         "version": 2,
         "topic": topic,
         "scope": str(scope),
+        # Campaign birth (2026-08-29): the self-echo boundary. A memory stored
+        # AFTER this instant that resurfaces via recall is the campaign's own
+        # output echoing back — it must not keep the dry-tail wet forever
+        # (measured live: [1,0,0,1,...] on a self-referential topic).
+        "created_at": time.time(),
         "rounds": [],
         "findings": {},
         "coverage": {lens: {"visits": 0, "max_depth": None, "truncated_total": 0}
@@ -134,6 +147,38 @@ def save_ledger(ledger: dict[str, Any], path: Path) -> None:
     tmp.write_text(json.dumps(ledger, indent=1, ensure_ascii=False, default=str),
                    encoding="utf-8")
     tmp.replace(path)
+
+
+def ledger_created_at(ledger: dict[str, Any]) -> float | None:
+    """Campaign birth epoch — the field on new ledgers, derived from round 1's
+    timestamp on legacy ones, ``None`` when neither exists. A ``None`` start
+    NEVER suppresses anything: no proof, no echo (Lei L2 — absent signal is
+    unknown, not zero)."""
+    if isinstance(ledger.get("created_at"), (int, float)):
+        return float(ledger["created_at"])
+    rounds = ledger.get("rounds") or []
+    at = rounds[0].get("at") if rounds and isinstance(rounds[0], dict) else None
+    if isinstance(at, str):
+        try:
+            return datetime.strptime(at, "%Y-%m-%dT%H:%M:%S%z").timestamp()
+        except ValueError:
+            return None
+    return None
+
+
+def stored_epoch(value: Any) -> float | None:
+    """Epoch of a recall entry's ``stored_at`` — INTEGER epoch or the SQLite
+    TEXT shape ``YYYY-MM-DD HH:MM:SS`` (UTC). Unparseable → ``None`` (and the
+    finding then counts as a normal discovery — never suppressed on doubt)."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return (datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+                    .replace(tzinfo=timezone.utc).timestamp())
+        except ValueError:
+            return None
+    return None
 
 
 # === lens machinery ========================================================
@@ -216,6 +261,10 @@ def lens_institutional(topic: str, scope: Path, run: Runner, timeout: float) -> 
     for e in sweep.take_head(strong, "memory recall"):
         sweep.add("memory", str(e.get("key", "?")), f"touring memory recall {topic}",
                   str(e.get("value", ""))[:200], depth="D1")
+        # The lens reports the FACT (the entry's age); run_round applies the
+        # POLICY (echo suppression). Absent stored_at travels as absent.
+        if e.get("stored_at") is not None:
+            sweep.findings[-1]["stored_at"] = e["stored_at"]
     if not strong and entries:
         sweep.notes.append(f"memory: {len(entries)} entries all below "
                            f"score {MEMORY_SCORE_FLOOR} (noise floor)")
@@ -308,6 +357,7 @@ def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
     topic = ledger["topic"]
     round_no = len(ledger["rounds"]) + 1
     seen = set(ledger["findings"].keys())
+    campaign_start = ledger_created_at(ledger)
     new_ids: list[str] = []
     degraded = False
     lens_stats: dict[str, dict[str, int]] = {}
@@ -317,10 +367,24 @@ def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
                  if lens == "quality" else fn(topic, scope, run, timeout))
         degraded |= sweep.degraded
         fresh = 0
+        echoes = 0
         for f in sweep.findings:
             if f["id"] in seen:
                 continue
             f["round"] = round_no
+            # Self-echo suppression (2026-08-29): a memory stored AFTER the
+            # campaign began is the campaign's own output echoing back — it
+            # enters the ledger VISIBLE (echo: true) but never wets the
+            # dry-tail, or a self-referential topic loops [1,0,0,1,…] forever.
+            # Suppression requires POSITIVE temporal proof; any missing
+            # timestamp counts the finding normally.
+            born = stored_epoch(f.get("stored_at"))
+            if campaign_start is not None and born is not None and born > campaign_start:
+                f["echo"] = True
+                ledger["findings"][f["id"]] = f
+                seen.add(f["id"])
+                echoes += 1
+                continue
             ledger["findings"][f["id"]] = f
             seen.add(f["id"])
             new_ids.append(f["id"])
@@ -333,6 +397,8 @@ def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
         cov["max_depth"] = best
         lens_stats[lens] = {"found": len(sweep.findings), "new": fresh,
                             "truncated": sweep.truncated}
+        if echoes:
+            lens_stats[lens]["echo"] = echoes
     promote_corroborated(ledger)
     entry = {"round": round_no, "new_findings": len(new_ids),
              "lens_stats": lens_stats, "degraded": degraded,
@@ -405,6 +471,10 @@ def convergence(ledger: dict[str, Any], dry_rounds: int,
             "manual_lenses_pending": manual_pending,
             "open_questions": len(open_qs),
             "degraded_rounds": sum(1 for r in rounds if r.get("degraded")),
+            # E4: suppression is DECLARED, never silent — how many findings
+            # were recorded as the campaign's own echo and kept off the dry-tail.
+            "echoes_suppressed": sum(1 for f in ledger["findings"].values()
+                                     if f.get("echo")),
         },
         "unmet": unmet,
         "next_action": (None if converged else

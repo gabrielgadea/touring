@@ -87,6 +87,87 @@ def test_round_dedupes_against_full_ledger(scope):
     assert r2["new_findings"] == 0          # identical sweep → fully deduped
 
 
+# === self-echo suppression (2026-08-29) ====================================
+
+def test_stored_epoch_parses_both_column_shapes():
+    """The live DB stores TEXT UTC; consolidated ones store INTEGER epoch."""
+    assert ex.stored_epoch("2026-08-29 14:57:27") == pytest.approx(1788015447.0)
+    assert ex.stored_epoch(1788016909) == 1788016909.0
+    assert ex.stored_epoch("not a date") is None
+    assert ex.stored_epoch(None) is None
+
+
+def test_echo_memory_stored_after_campaign_never_wets_the_dry_tail(scope):
+    """A memory written AFTER the campaign began (its own output echoing back)
+    is recorded VISIBLE (echo: true) but never counts as a new finding — the
+    [1,0,0,1,…] livelock measured live on 2026-08-29."""
+    ledger = fresh_ledger(scope)
+    responses = base_responses()
+    run = make_runner(responses)
+    r1 = ex.run_round(ledger, scope, run, 5.0)
+    assert r1["new_findings"] > 0
+    # the campaign now "stores a lesson about itself": recall grows one entry
+    # younger than the ledger
+    responses["memory recall"] = {"entries": [
+        *RECALL["entries"],
+        {"key": "lesson:self", "score": 0.9, "value": "the campaign's own lesson",
+         "stored_at": int(ledger["created_at"]) + 3600},
+    ]}
+    r2 = ex.run_round(ledger, scope, run, 5.0)
+    assert r2["new_findings"] == 0, "echo must not wet the dry tail"
+    echoes = [f for f in ledger["findings"].values() if f.get("echo")]
+    assert len(echoes) == 1 and echoes[0]["key"] == "lesson:self"
+    verdict = ex.convergence(ledger, dry_rounds=2)
+    assert verdict["clauses"]["echoes_suppressed"] == 1
+
+
+def test_pre_campaign_memory_and_missing_timestamp_count_normally(scope):
+    """Suppression needs POSITIVE proof: an older memory counts (it is the
+    world, not an echo), and one with no stored_at counts too (an unknown age
+    never suppresses — Lei L2)."""
+    ledger = fresh_ledger(scope)
+    responses = base_responses()
+    run = make_runner(responses)
+    ex.run_round(ledger, scope, run, 5.0)
+    responses["memory recall"] = {"entries": [
+        *RECALL["entries"],
+        {"key": "lesson:old", "score": 0.9, "value": "pre-campaign lesson",
+         "stored_at": int(ledger["created_at"]) - 3600},
+        {"key": "lesson:undated", "score": 0.9, "value": "no timestamp"},
+    ]}
+    r2 = ex.run_round(ledger, scope, run, 5.0)
+    assert r2["new_findings"] == 2
+    assert not any(f.get("echo") for f in ledger["findings"].values())
+
+
+def test_legacy_ledger_derives_birth_from_round_one(scope):
+    """A pre-field ledger derives its birth from round 1's timestamp; with no
+    rounds either, nothing is ever suppressed (no proof, no echo)."""
+    import time as _t
+    ledger = fresh_ledger(scope)
+    del ledger["created_at"]
+    responses = base_responses()
+    responses["memory recall"] = {"entries": [
+        {"key": "lesson:young", "score": 0.9, "value": "young lesson",
+         "stored_at": int(_t.time()) + 3600},
+    ]}
+    run = make_runner(responses)
+    r1 = ex.run_round(ledger, scope, run, 5.0)
+    # no created_at and no prior rounds → no proof → the young memory counts
+    assert any(f["key"] == "lesson:young" and not f.get("echo")
+               for f in ledger["findings"].values())
+    assert r1["new_findings"] > 0
+    # once round 1 exists, birth derives from its timestamp — a later young
+    # memory IS suppressible
+    responses["memory recall"]["entries"].append(
+        {"key": "lesson:younger", "score": 0.9, "value": "younger lesson",
+         "stored_at": int(_t.time()) + 7200})
+    r2 = ex.run_round(ledger, scope, run, 5.0)
+    assert r2["new_findings"] == 0
+    assert any(f["key"] == "lesson:younger" and f.get("echo")
+               for f in ledger["findings"].values())
+
+
 # === convergence contract ==================================================
 
 def test_dry_rounds_plus_waived_external_converges(scope):

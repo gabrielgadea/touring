@@ -172,6 +172,39 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 ## [Unreleased]
 
+### fix(explore+recall) — supressão de self-echo: o tópico auto-referente agora seca
+
+- **Sintoma medido**: o explore CCE nunca convergia em tópico auto-referente —
+  as memórias que o próprio trabalho grava re-entravam pelo recall como
+  finding "novo" a cada quase-convergência (curva `[1,0,0,1,0,0,1]` no ledger
+  `xaudit-prova-diamante-ground`; 3 invocações `--until-dry` paradas no teto).
+- **Recall expõe `stored_at`** (aditivo): `memory_recall_{fts5,like}` SELECTam
+  `created_at` via `optional_column_select` (schema-tolerante) e o mapper o
+  emite verbatim — TEXT UTC nos DBs vivos, INTEGER nos consolidados; coluna
+  ausente/NULL/caller de 7 colunas ficam silenciosos (idade desconhecida
+  nunca vira zero). A idade invisível era, por si, uma violação E9.
+- **Explore suprime o eco com prova temporal POSITIVA**: o ledger ganha
+  `created_at` (legado deriva do round 1); memória com `stored_at` posterior
+  ao nascimento da campanha entra no ledger VISÍVEL (`echo: true`) mas nunca
+  molha o dry-tail; o veredito declara `echoes_suppressed` (E4 — supressão
+  declarada, jamais silenciosa). Re-ranking de memórias PRÉ-campanha segue
+  contando (é o mundo, não eco) — e se esgota sozinho (corpus finito).
+- **Backfill no choke point** (2ª camada, achada na prova viva): o merge RRF
+  mantém o objeto do braço vencedor (SQL > ANN > TF-IDF) sem reescrever campos
+  — e só o braço SQL carregava `stored_at`, exatamente o braço cujas rows não
+  têm `score`. Como a lente institutional filtra por score ≥ 0.30, o eco de
+  produção vinha sempre dos braços ANN/TF-IDF, sem idade: a supressão
+  embarcada era inalcançável no caminho real ("teste do componente ≠ teste do
+  caminho"). `memory_backfill_stored_at` (cli/shared.rs) preenche a idade por
+  key nas entries fundidas — um sítio cobre todos os braços, presentes e
+  futuros — chamado em `cli_memory_recall` após o merge; nunca sobrescreve
+  idade presente nem inventa para key desconhecida.
+- Testes: 4 novos na suite do explore (18/18) + `stored_at` nos 2 shapes de
+  coluna no Rust (`memory_recall_rows_expose_stored_at_in_both_column_shapes`)
+  + backfill dos braços scored
+  (`memory_backfill_stored_at_covers_scored_arms_and_never_overwrites`);
+  clippy 0.
+
 ### audit(paralelizacao-agentes) — cross-audit 29/08: tudo re-provado em execução
 
 - **A prova do diamante não estava em disco**: o fechamento da wave citou "0ms

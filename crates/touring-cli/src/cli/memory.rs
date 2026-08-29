@@ -890,6 +890,12 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     };
     let mut merged_entries = merged_entries;
     attach_one_hop_links(rt, &mut merged_entries);
+    // Self-echo detection (2026-08-29): the RRF merge keeps the winning arm's
+    // object, and only the SQL arm carries `stored_at` — precisely the arm
+    // whose rows carry no `score`, so a ranking consumer (the CCE explorer's
+    // noise floor) only ever saw ageless entries. Backfill at the choke point
+    // so every delivered entry carries its age regardless of the winning arm.
+    crate::cli::shared::memory_backfill_stored_at(&memory_dbs, &mut merged_entries);
     let entry_count = merged_entries.len();
     let ann_count = ann_results.len();
     let tag_filter_json = tag_filter.as_ref().map(|f| {
