@@ -2179,12 +2179,15 @@ mod code_mode_gates_w1 {
         assert_eq!(exec_class_of(".venv/bin/pytest tests/ -q"), Some("pytest"));
         assert_eq!(exec_class_of("time python3 runner.py"), Some("python"));
         assert_eq!(exec_class_of("cd /x && pytest tests/"), Some("pytest"));
-        // inline é do advisory CEG, não da rajada
-        assert_eq!(exec_class_of("python3 -c 'print(1)'"), None);
-        // heredoc/stdin é o mesmo inline sob outra forma (F-1, 27/08):
-        // contá-lo na rajada o serializaria multi-linha esmagado no R9
-        assert_eq!(exec_class_of("python3 - <<'EOF'\nprint(1)\nEOF"), None);
-        assert_eq!(exec_class_of("python3 - arg1"), None);
+        // inline entrou na rajada como classe PRÓPRIA (aperto 29/08): o
+        // remédio é 1:1 (o corpo verbatim), não a fusão R9 que justificava a
+        // exclusão histórica
+        assert_eq!(exec_class_of("python3 -c 'print(1)'"), Some("python-inline"));
+        assert_eq!(
+            exec_class_of("python3 - <<'EOF'\nprint(1)\nEOF"),
+            Some("python-inline")
+        );
+        assert_eq!(exec_class_of("python3 - arg1"), Some("python-inline"));
         // mutação marcada fica de fora por construção (P2.3)
         assert_eq!(exec_class_of("python3 setup.py install"), None);
         assert_eq!(exec_class_of("python3 runner.py > out.txt"), None);
@@ -2280,36 +2283,55 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
-    fn s5_par_write_run_nega_no_terceiro_par_com_o_proprio_arquivo() {
+    fn s5_par_write_run_nega_no_segundo_par_com_o_proprio_arquivo() {
         use super::super::{
             write_run_key, write_run_pair_gate, written_scripts_ledger,
         };
         let root = std::path::Path::new("/tmp/s5-par-teste-isolado");
-        // Simula as escritas: 3 scripts registrados na janela.
-        for p in ["/tmp/s5/a.py", "/tmp/s5/b.py", "/tmp/s5/c.py"] {
+        // Simula as escritas: 2 scripts registrados na janela.
+        for p in ["/tmp/s5/a.py", "/tmp/s5/b.py"] {
             written_scripts_ledger().insert(write_run_key(root, p), ());
         }
         let d1 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/a.py");
-        // O 2º par na forma canônica do analise: write+run no MESMO comando
-        // (o written ledger já tem b.py; o run da última linha casa).
-        let d2 = write_run_pair_gate(
+        assert!(d1.is_none(), "1º par passa (criar e testar UM script é legítimo)");
+        // O 2º par na forma canônica do analise: write+run no MESMO comando —
+        // nega (aperto 29/08: era o 3º).
+        let deny = write_run_pair_gate(
             root,
             "sess-s5",
             "cat > /tmp/s5/b.py <<'PYEOF'\nprint(2)\nPYEOF\npython3 /tmp/s5/b.py",
-        );
-        let d3 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/c.py");
-        assert!(d1.is_none(), "1º par passa");
-        assert!(d2.is_none(), "2º par passa");
-        let deny = d3.expect("3º par nega");
+        )
+        .expect("2º par nega");
         assert!(deny.contains("write→run"), "deny nomeia o gate: {deny}");
         assert!(
-            deny.contains("touring run --file /tmp/s5/c.py"),
+            deny.contains("touring run --file /tmp/s5/b.py"),
             "o remédio é o PRÓPRIO script, sem reescrita: {deny}"
         );
         // Um script que NÃO foi escrito na janela nunca conta como par.
         assert!(
             write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/alheio.py").is_none()
         );
+    }
+
+    #[test]
+    fn s5_python_inline_tem_remedio_um_para_um() {
+        use super::super::{python_inline_body, python_inline_remedy};
+        // heredoc: o corpo verbatim, sem fusão R9
+        let cmd = "python3 - <<'PYEOF'\nimport json\nprint(1)\nPYEOF";
+        assert_eq!(
+            python_inline_body(cmd).as_deref(),
+            Some("import json\nprint(1)")
+        );
+        let r = python_inline_remedy(cmd);
+        assert!(r.starts_with("touring run --lang python --code '"), "{r}");
+        assert!(r.contains("import json"), "{r}");
+        // -c: o literal entre as aspas externas
+        assert_eq!(
+            python_inline_body("python3 -c 'print(42)'").as_deref(),
+            Some("print(42)")
+        );
+        // inextraível → placeholder honesto, nunca comando quebrado
+        assert!(python_inline_remedy("python3 -").contains("verbatim"));
     }
 
     #[test]
@@ -2337,31 +2359,31 @@ mod code_mode_gates_w1 {
 
     #[test]
     #[serial(t3_env)]
-    fn g10_decima_chamada_nega_com_o_programa_e_run_zera() {
+    fn g10_quinta_chamada_nega_com_o_programa_e_run_zera() {
         let proj = Path::new("/tmp/s4-g10-burst");
         let sess = "g10-a";
-        // 9 seriadas passam intactas
-        for i in 1..=9 {
+        // 4 seriadas passam intactas (aperto 29/08: DENY_AT 10→5)
+        for i in 1..=4 {
             let cmd = format!("pytest tests/test_{i}.py -x");
             assert!(
                 code_mode_gates(proj, sess, "Bash", &bash(&cmd)).is_none(),
                 "#{i} passa: {cmd}"
             );
         }
-        // a 10ª nega com o programa carregando TODAS as 10 reais
-        let cmd10 = "pytest tests/test_10.py -x";
-        let resp = code_mode_gates(proj, sess, "Bash", &bash(cmd10)).expect("10ª nega");
+        // a 5ª nega com o programa carregando TODAS as 5 reais
+        let cmd5 = "pytest tests/test_5.py -x";
+        let resp = code_mode_gates(proj, sess, "Bash", &bash(cmd5)).expect("5ª nega");
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
         let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
         assert!(reason.contains("touring run --lang python --code '"), "{reason}");
-        for i in 1..=10 {
+        for i in 1..=5 {
             let literal = serde_json::to_string(&format!("pytest tests/test_{i}.py -x")).unwrap();
             assert!(reason.contains(&literal), "programa sem a chamada {i}: {reason}");
         }
         // ledger zerado após o deny: a próxima rajada recomeça do zero
         assert!(
-            code_mode_gates(proj, sess, "Bash", &bash("pytest tests/test_11.py -x")).is_none(),
+            code_mode_gates(proj, sess, "Bash", &bash("pytest tests/test_6.py -x")).is_none(),
             "um deny por lote, nunca fadiga"
         );
     }
@@ -2371,14 +2393,14 @@ mod code_mode_gates_w1 {
     fn g10_touring_run_no_meio_zera_a_rajada() {
         let proj = Path::new("/tmp/s4-g10-reset");
         let sess = "g10-b";
-        for i in 1..=9 {
+        for i in 1..=4 {
             let cmd = format!("pytest tests/test_{i}.py -x");
             let _ = code_mode_gates(proj, sess, "Bash", &bash(&cmd));
         }
         // a rota tomada entre elas zera a condição "0 run"
         let _ = code_mode_gates(proj, sess, "Bash", &bash("touring run --lang bash --code 'ls'"));
-        // mais 9: sem o reset, a 10ª acumulada (9+9=18) teria negado muito antes
-        for i in 11..=19 {
+        // mais 4: sem o reset, a acumulada (4+4=8) teria negado na 5ª absoluta
+        for i in 11..=14 {
             let cmd = format!("pytest tests/test_{i}.py -x");
             assert!(
                 code_mode_gates(proj, sess, "Bash", &bash(&cmd)).is_none(),
@@ -2392,11 +2414,11 @@ mod code_mode_gates_w1 {
     fn g10_bypass_por_comando_passa() {
         let proj = Path::new("/tmp/s4-g10-bypass");
         let sess = "g10-c";
-        for i in 1..=9 {
+        for i in 1..=4 {
             let cmd = format!("pytest tests/test_{i}.py -x");
             let _ = code_mode_gates(proj, sess, "Bash", &bash(&cmd));
         }
-        let cmd = "TOURING_GATE_OK=1 pytest tests/test_10.py -x";
+        let cmd = "TOURING_GATE_OK=1 pytest tests/test_5.py -x";
         assert!(code_mode_gates(proj, sess, "Bash", &bash(cmd)).is_none());
     }
 
@@ -2483,12 +2505,12 @@ mod code_mode_gates_w1 {
         unsafe { std::env::set_var("TOURING_PORTFOLIO_DIR", &dir) };
         let proj = Path::new("/tmp/s6-g10-prior");
         let sess = "g10-prior";
-        for i in 1..=9 {
+        for i in 1..=4 {
             let cmd = format!("pytest tests/test_{i}.py -x");
             let _ = code_mode_gates(proj, sess, "Bash", &bash(&cmd));
         }
-        let resp = code_mode_gates(proj, sess, "Bash", &bash("pytest tests/test_10.py -x"))
-            .expect("10ª nega");
+        let resp = code_mode_gates(proj, sess, "Bash", &bash("pytest tests/test_5.py -x"))
+            .expect("5ª nega");
         unsafe { std::env::remove_var("TOURING_PORTFOLIO_DIR") };
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
@@ -2562,7 +2584,7 @@ mod code_mode_gates_w1 {
     }
 }
 
-// ── W2 (plano code-mode-total): G1 teeth — rajada nega na 4ª ─────────────────
+// ── W2 (plano code-mode-total): G1 teeth — rajada nega na 3ª (aperto 29/08) ──
 
 mod burst_gate_w2 {
     use serial_test::serial;
@@ -2591,12 +2613,12 @@ mod burst_gate_w2 {
     }
 
     #[test]
-    fn g1_terceira_passa_quarta_nega_com_a_rajada_no_remedio() {
+    fn g1_segunda_passa_terceira_nega_com_a_rajada_no_remedio() {
         let proj = Path::new("/tmp/w2-g1-escala");
-        let r = inspecoes(4, proj, "s1");
-        assert!(r[0].is_none() && r[1].is_none() && r[2].is_none(),
-                "1ª-3ª ficam com o advisory legado");
-        let deny = r[3].as_ref().expect("4ª mesma classe nega");
+        let r = inspecoes(3, proj, "s1");
+        assert!(r[0].is_none() && r[1].is_none(),
+                "1ª-2ª ficam com o advisory legado");
+        let deny = r[2].as_ref().expect("3ª mesma classe nega");
         let v: serde_json::Value = serde_json::from_str(deny).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
         let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
@@ -2605,15 +2627,15 @@ mod burst_gate_w2 {
         // as aspas do corpo vão escapadas para dentro do '...' externo —
         // asserimos o conteúdo, não a forma escapada
         assert!(reason.contains("p0") && reason.contains("src/f0.rs"), "{reason}");
-        assert!(reason.contains("p3") && reason.contains("src/f3.rs"), "{reason}");
+        assert!(reason.contains("p2") && reason.contains("src/f2.rs"), "{reason}");
     }
 
     #[test]
     #[serial(t3_env)]
-    fn g1_quarta_de_classe_diferente_passa() {
+    fn g1_terceira_de_classe_diferente_passa() {
         let proj = Path::new("/tmp/w2-g1-classes");
-        let _ = inspecoes(3, proj, "s1"); // 3 da classe grep
-        // 4ª chamada é de OUTRA classe (cat) → não nega
+        let _ = inspecoes(2, proj, "s1"); // 2 da classe grep (a 1 da borda)
+        // 3ª chamada é de OUTRA classe (cat) → não nega
         assert!(code_mode_gates(proj, "s1", "Bash", &bash("cat src/lib.rs")).is_none());
     }
 
@@ -2622,7 +2644,7 @@ mod burst_gate_w2 {
     fn g1_projeto_diferente_nao_herda_rajada() {
         let a = Path::new("/tmp/w2-g1-proj-a");
         let b = Path::new("/tmp/w2-g1-proj-b");
-        let _ = inspecoes(3, a, "s1");
+        let _ = inspecoes(2, a, "s1");
         // 1ª do projeto B — mesmo que A esteja a 1 da borda
         assert!(code_mode_gates(b, "s1", "Bash", &bash("rg -n 'x' src/y.rs")).is_none());
     }
@@ -2631,13 +2653,13 @@ mod burst_gate_w2 {
     #[serial(t3_env)]
     fn g1_bypass_token_reseta_a_janela() {
         let proj = Path::new("/tmp/w2-g1-bypass");
-        let _ = inspecoes(3, proj, "s1");
+        let _ = inspecoes(2, proj, "s1");
         // bypass consciente na borda → reseta
         assert!(code_mode_gates(proj, "s1", "Bash",
                 &bash("TOURING_GATE_OK=1 rg -n 'w' src/z.rs")).is_none());
-        // recomeça do zero: mais 3 passam (padrões NOVOS — repetir os mesmos
+        // recomeça do zero: mais 2 passam (padrões NOVOS — repetir os mesmos
         // acionaria o G6, que é outro gate fazendo o trabalho dele)
-        let r = inspecoes_com_base(10, 3, proj, "s1");
+        let r = inspecoes_com_base(10, 2, proj, "s1");
         assert!(r.iter().all(Option::is_none), "janela resetada recomeça");
     }
 
@@ -2648,8 +2670,8 @@ mod burst_gate_w2 {
         let proj = Path::new("/tmp/w2-g1-continuation");
         let base_same = gm::global().g1_post_deny_same_class_count
             .load(std::sync::atomic::Ordering::Relaxed);
-        let r = inspecoes(4, proj, "sess-cont");
-        assert!(r[3].is_some(), "4ª negou");
+        let r = inspecoes(3, proj, "sess-cont");
+        assert!(r[2].is_some(), "3ª negou");
         // a PRÓXIMA chamada da sessão é a MESMA classe → same_class++
         // (o deny do G1 já fechou o turno — ela chega ao burst_gate por desenho)
         let _ = code_mode_gates(proj, "sess-cont", "Bash", &bash("rg -n 'de novo' src/a.rs"));
@@ -2685,16 +2707,14 @@ mod mode_gates_w3 {
 
     #[test]
     #[serial(t3_env)]
-    fn g3_dois_advisories_depois_deny_e_read_reseta() {
+    fn g3_um_advisory_depois_deny_e_read_reseta() {
         let proj = Path::new("/tmp/w3-g3");
         let s = "sess-g3";
-        // 1º e 2º Edit sem Read: advisories
-        for esperado in 1..=2u32 {
-            let r = code_mode_gates(proj, s, "Edit", &edit("src/a.rs")).expect("advisory");
-            let v: serde_json::Value = serde_json::from_str(&r).unwrap();
-            assert!(v["hookSpecificOutput"]["permissionDecision"].is_null(), "{esperado}º é advisory");
-        }
-        // 3º: deny
+        // 1º Edit sem Read: advisory (aperto 29/08: o 2º seguido nega)
+        let r = code_mode_gates(proj, s, "Edit", &edit("src/a.rs")).expect("advisory");
+        let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+        assert!(v["hookSpecificOutput"]["permissionDecision"].is_null(), "1º é advisory");
+        // 2º: deny
         let r = code_mode_gates(proj, s, "Edit", &edit("src/a.rs")).expect("deny");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
@@ -2713,23 +2733,21 @@ mod mode_gates_w3 {
         let r = code_mode_gates(proj, "sess-b", "Edit", &edit("src/x.rs")).expect("advisory");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
         assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
-        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/2"));
+        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/1"));
     }
 
     #[test]
     #[serial(t3_env)]
-    fn g7_terceira_advisory_quinta_deny_arquivos_distintos_nada() {
+    fn g7_segunda_advisory_terceira_deny_arquivos_distintos_nada() {
         let proj = Path::new("/tmp/w3-g7");
         let s = "sess-g7";
         let fp = "crates/x/src/lib.rs";
-        // leituras 1-2: silêncio
+        // 1ª leitura: silêncio (aperto 29/08, ordem de Gabriel: era 3ª/5ª)
         assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
-        assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
-        // 3ª: advisory com R1 instanciado citando o ARQUIVO real
+        // 2ª: advisory com R1 instanciado citando o ARQUIVO real
         let r = code_mode_gates(proj, s, "Read", &read(fp)).expect("advisory");
         assert!(r.contains("G7") && r.contains(fp) && r.contains("r1_varredura_agregado"));
-        // 4ª: silêncio; 5ª: deny
-        assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
+        // 3ª: deny
         let r = code_mode_gates(proj, s, "Read", &read(fp)).expect("deny");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
@@ -2817,7 +2835,7 @@ mod mode_gates_w3 {
         let r = code_mode_gates(proj, s, "Edit", &edit("src/nunca_visto.rs")).expect("advisory");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
         assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
-        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/2"));
+        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/1"));
     }
 
     #[test]
@@ -2880,8 +2898,9 @@ mod mode_gates_w3 {
         });
         let r = code_mode_gates(proj, s, "Edit", &com_modal).expect("advisory E3");
         assert!(r.contains("contrafactual"));
-        // com endereço (run-...) na mesma linha: silêncio
-        assert!(code_mode_gates(proj, s, "Read", &read("m.rs")).is_none());
+        // re-Read para o G3 ficar quieto — a 2ª leitura do MESMO arquivo agora
+        // carrega o advisory do G7 (aperto 29/08), irrelevante para o E3
+        let _ = code_mode_gates(proj, s, "Read", &read("m.rs"));
         let com_endereco = json!({
             "file_path": "m.rs",
             "new_string": "// quebraria sem pipefail — provado em run-1787618052969\nlet x = 1;"
