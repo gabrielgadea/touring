@@ -554,6 +554,11 @@ fn is_heavy_hook(hook_name: &str) -> bool {
             // every real run died in transport — the KPI could only ever see
             // a cache_miss (rodada 4, 2026-08-20; fixed 2026-08-28).
             | "cli-mutation-test"
+            // Backfilling ~1,000 missing 768-dim embeddings legitimately runs
+            // for tens of seconds; under the light budget the client gave up
+            // at 15s while the actor kept working (observed 29/08/2026 during
+            // the ANN p50 7.86s→596µs remediation).
+            | "cli-memory-reindex"
     )
 }
 

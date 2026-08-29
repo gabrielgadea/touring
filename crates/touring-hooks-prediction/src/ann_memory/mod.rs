@@ -136,23 +136,20 @@ impl Default for EmbeddingIndex {
 }
 
 impl EmbeddingIndex {
-    /// Create a new embedding index with GPU-accelerated backend (WGPU/Vulkan).
+    /// Create a new embedding index with the CPU-SIMD backend.
     ///
-    /// Falls back to SIMD-only if GPU initialization fails.
-    /// Uses `HttpGpuBackend` via WGPU Vulkan compute for cosine similarity.
-    #[cfg(feature = "gpu-compute")]
+    /// The default was the wgpu backend until 29/08/2026, when live
+    /// `gate-metrics` showed `ann_search_latency` p50 = 7.86 s over an
+    /// 8,218-vector corpus: `HttpGpuBackend::compute_topk` runs one full GPU
+    /// dispatch (buffer create + submit + blocking readback) PER CANDIDATE
+    /// PAIR — ~1 ms each, three orders of magnitude behind the rayon+pulp
+    /// SIMD path for every corpus this index serves. The old "falls back on
+    /// init failure" comment was fiction: `try_with_gpu` never probes, so the
+    /// per-pair backend was always armed. GPU stays opt-in via
+    /// `with_gpu`/`try_with_gpu`; it earns the default back only with a
+    /// batched single-dispatch top-k measured faster than SIMD.
     pub fn new() -> Self {
-        // Try GPU first, fall back to SIMD on initialization failure
-        match Self::try_with_gpu("http://localhost:8080") {
-            Ok(idx) => idx,
-            Err(e) => {
-                eprintln!(
-                    "[EmbeddingIndex] GPU init failed: {}, falling back to SIMD",
-                    e
-                );
-                Self::with_simd()
-            }
-        }
+        Self::with_simd()
     }
 
     /// Create a GPU-accelerated embedding index with explicit URL.
@@ -180,25 +177,11 @@ impl EmbeddingIndex {
         Self::try_with_gpu(gpu_url).expect("Failed to initialize GPU backend")
     }
 
-    /// Create a new embedding index with SIMD-only backend (no GPU).
-    #[cfg(not(feature = "gpu-compute"))]
-    pub fn new() -> Self {
-        Self::with_simd()
-    }
-
-    #[inline]
-    #[cfg(not(feature = "gpu-compute"))]
-    fn with_simd() -> Self {
-        use std::sync::Arc;
-        use touring_simd::gpu::HttpGpuBackend;
-        let gpu_url = String::new();
-        let backend = Arc::new(HttpGpuBackend::new(gpu_url, PATH_EMBED_DIM));
-        Self {
-            embeddings: Vec::new(),
-            ids: Vec::new(),
-            searcher: TopKSearcher::with_backend(backend),
-        }
-    }
+    // The old `#[cfg(not(feature = "gpu-compute"))]` pair here was doubly
+    // broken: it duplicated `new()`/`with_simd` (E0201 the moment the feature
+    // was disabled — the non-GPU build never compiled), and its "SIMD-only"
+    // constructor armed an `HttpGpuBackend` with an empty URL. Removed
+    // 29/08/2026; `new()` above is now the single, unconditional constructor.
 
     #[inline]
     fn with_simd() -> Self {
@@ -251,25 +234,27 @@ impl EmbeddingIndex {
 
         // Heterogeneous (migration window): compare only against matching-width
         // entries, mapping the searcher's local indices back to the originals.
-        let matching: Vec<(usize, Vec<f32>)> = self
+        // One clone per matching entry (unzip), not two — the previous shape
+        // cloned the filtered corpus a second time into `embeds` on every
+        // search (measured 29/08/2026 on a 7,597×768 + 621 legacy corpus).
+        let (orig_indices, embeds): (Vec<usize>, Vec<Vec<f32>>) = self
             .embeddings
             .iter()
             .enumerate()
             .filter(|(_, e)| e.len() == qd)
             .map(|(i, e)| (i, e.clone()))
-            .collect();
-        if matching.is_empty() {
+            .unzip();
+        if embeds.is_empty() {
             return Vec::new();
         }
-        let embeds: Vec<Vec<f32>> = matching.iter().map(|(_, e)| e.clone()).collect();
         let k = k.min(embeds.len());
         self.searcher
             .top_k(query, &embeds, k)
             .into_iter()
             .filter_map(|r| {
-                matching
+                orig_indices
                     .get(r.index)
-                    .and_then(|(orig, _)| self.ids.get(*orig))
+                    .and_then(|&orig| self.ids.get(orig))
                     .map(|id| SearchResult::new(id.clone(), r.score))
             })
             .collect()
