@@ -467,6 +467,8 @@ Kit: 13 fragmentos. Os três modos de paralelismo — `fanout-lenses` (N lentes,
 cada um com **seu** crítico). `graph-pack` traz **relações** (`wiring impact` + `index find`
 + `memory moc`), onde `recall-pack` traz texto.
 
+**Acoplamento por construção (M0-M5, 29/08/2026)**: `cross-audit` compõe o `critic-panel` (estreia verde: 3 críticos `tier=mid`, quorum `pass` apurado por código) e `strategy-loop` abre no diamante `ground` (`recall`‖`diagnose`, serial 33,5s → paralelo 25,3s). Nós `agent` journalizam `tier`/`skill` no `node_started`; o SDK orchestrate aceita aliases tipados em `query`/`parallel` e carimba `:par` no origin — KPIs `touring.adw.tiered_agent_share` e `touring.code_mode.parallel_runs` medem a adoção EXECUTADA (`touring kpi -j`).
+
 ## Reference Map
 
 Operational depth (consult on demand):

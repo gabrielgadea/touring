@@ -99,7 +99,12 @@ has no independent evidence in it. The `critic-panel` fragment is the remedy —
 N critics, each with a DISTINCT lens (correctness · security · does-it-reproduce),
 each in a fresh session (`session = "fresh"`: a critic that watched the work being
 made is not blind), and a **quorum counted by code**, never a narrative synthesis.
-N identical critics find one failure mode N times. Compose it, do not restate it:
+N identical critics find one failure mode N times. Since 29/08/2026 the
+library's `cross-audit` flow composes the panel BY CONSTRUCTION — `verdict_gate`
+validates FORM, then 3 blind critics (`tier=mid`) judge CONTENT and a
+code-counted quorum decides; first live run green (the first persona execution
+in 40 days of infra) — so `touring adw run cross-audit` already carries it. For
+a NEW flow, compose it, do not restate it:
 `touring adw new --use critic-panel:panel`. Ref: `Touring/references/skill-operating-principles.md` (P3).
 
 ### Proving the AUTOMATIC — affordance as an audit surface (2026-08-25)

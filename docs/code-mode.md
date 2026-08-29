@@ -28,6 +28,19 @@ touring run --lang python --allow-net-port 443 …     # NET-1: TCP de saída s�
 touring sandbox-runtimes status                      # RUN-1: preflight das 11 linguagens + venv
 ```
 
+### Aliases tipados e fan-out no SDK (M0 paralelização-agentes, 29/08/2026)
+
+- `query(hook, payload)` e `parallel([(hook, payload), …])` aceitam os **nomes
+  tipados** como hook (`memory_recall`, `index_find`, `ast_blast`, …): uma tabela
+  única (`SDK_HOOK_ALIASES`, `touring-foundation::orchestrate_allowlist`) alimenta
+  os DOIS preludes (py/js) **e** o resolve no daemon — que só resolve para
+  `origin` de sandbox (fora dele o alias não existe). Alias inválido erra
+  **ensinando** a allowlist (A5); hook mutante nunca passa (allowlist read-only).
+- Toda sub-chamada emitida por `touring.parallel` carimba `:par` no origin
+  (`<run_id>:code:<n>:par` em `run_subcalls.jsonl`) — a adoção do fan-out é
+  medida por `touring.code_mode.parallel_runs` (`touring kpi -j`): distinct runs
+  com o carimbo, STUB até o primeiro sinal (zero nunca é inferido).
+
 ### O que volta (contrato do resultado)
 
 | Campo | Semântica |

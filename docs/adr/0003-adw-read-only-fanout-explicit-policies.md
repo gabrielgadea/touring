@@ -1,6 +1,8 @@
 # 0003 — Fan-out is read-only, and its merge and failure policies are declared
 
-- Status: accepted
+- Status: accepted — exercised in production 29/08/2026 (cross-audit
+  `critic-panel`: 3 blind critics, quorum `pass`; strategy-loop `ground`
+  diamond: serial 33.5s → parallel 25.3s, run `strategy-loop-1788014691`)
 - Date: 2026-08-19
 - Deciders: Gabriel Gadea (plan `2026-08-18-graph-engineering-flow-portfolio`, B4)
 
