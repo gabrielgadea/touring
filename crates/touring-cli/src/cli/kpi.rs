@@ -707,6 +707,13 @@ fn adw_plan_refine_iters(root: &std::path::Path) -> Option<f64> {
 fn code_mode_parallel_runs() -> Option<f64> {
     let home = std::env::var_os("HOME")?;
     let path = std::path::Path::new(&home).join(".claude/touring/run_subcalls.jsonl");
+    code_mode_parallel_runs_from(&path)
+}
+
+/// Testable core of [`code_mode_parallel_runs`]: the wrapper resolves `$HOME`
+/// (process-global, unsafe to mutate in parallel tests), this one takes the
+/// journal path.
+fn code_mode_parallel_runs_from(path: &std::path::Path) -> Option<f64> {
     let text = std::fs::read_to_string(path).ok()?;
     let mut runs = std::collections::BTreeSet::new();
     for line in text.lines() {
@@ -1288,6 +1295,85 @@ mod tests {
         // o formato de array cru segue aceito
         std::fs::write(plans.join("raw.refine.json"), r#"[1, 2, 3, 4]"#).expect("write raw");
         assert_eq!(super::adw_plan_refine_iters(&dir), Some(4.0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// M0 (29/08/2026) — the `:par` stamp is the only adoption signal:
+    /// distinct run_ids count once, unstamped origins never count, and a
+    /// missing journal is STUB (`None`), never zero.
+    #[test]
+    fn parallel_runs_counts_distinct_stamped_runs_only() {
+        let dir = std::env::temp_dir().join(format!("kpi-par-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("tempdir");
+        let journal = dir.join("run_subcalls.jsonl");
+        std::fs::write(
+            &journal,
+            concat!(
+                r#"{"origin":"run-1:code:1:par","hook":"cli-memory-recall"}"#,
+                "\n",
+                r#"{"origin":"run-1:code:2:par","hook":"cli-index-find"}"#,
+                "\n",
+                r#"{"origin":"run-2:code:1:par","hook":"cli-memory-recall"}"#,
+                "\n",
+                r#"{"origin":"run-3:code:1","hook":"cli-memory-recall"}"#,
+                "\n",
+            ),
+        )
+        .expect("write journal");
+        assert_eq!(
+            super::code_mode_parallel_runs_from(&journal),
+            Some(2.0),
+            "run-1 counts once, run-3 has no :par stamp"
+        );
+        assert_eq!(
+            super::code_mode_parallel_runs_from(&dir.join("missing.jsonl")),
+            None,
+            "no journal is STUB, never a measured zero"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// M0 (29/08/2026) — the `tier` KEY separates the eras: a line without it
+    /// (pre-instrumentation) stays out of the denominator entirely, while
+    /// `tier: null` is an agent that declared nothing and MUST lower the
+    /// share — the ruler measures declared specialization, not runner
+    /// version (the "adoption measures the channel" trap).
+    #[test]
+    fn tiered_share_null_lowers_and_missing_key_is_excluded() {
+        let dir = std::env::temp_dir().join(format!("kpi-tier-{}", std::process::id()));
+        let run = dir.join(".touring").join("adw-runs").join("r1");
+        std::fs::create_dir_all(&run).expect("tempdir");
+        let journal = run.join("journal.jsonl");
+        // only a pre-instrumentation line (no tier key) → STUB, never "0% tiered"
+        std::fs::write(
+            &journal,
+            concat!(r#"{"event":"node_started","type":"agent","node":"old"}"#, "\n"),
+        )
+        .expect("write journal");
+        assert_eq!(
+            super::adw_tiered_agent_share(&dir),
+            None,
+            "journals that predate the instrumentation must read as STUB"
+        );
+        std::fs::write(
+            &journal,
+            concat!(
+                r#"{"event":"node_started","type":"agent","node":"old"}"#,
+                "\n",
+                r#"{"event":"node_started","type":"agent","node":"critic","tier":"mid"}"#,
+                "\n",
+                r#"{"event":"node_started","type":"agent","node":"bare","tier":null}"#,
+                "\n",
+                r#"{"event":"node_started","type":"code","node":"gate","tier":"mid"}"#,
+                "\n",
+            ),
+        )
+        .expect("write journal");
+        assert_eq!(
+            super::adw_tiered_agent_share(&dir),
+            Some(0.5),
+            "null tier enters the denominator only; non-agent lines never count"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
