@@ -2755,6 +2755,55 @@ mod mode_gates_w3 {
         assert!(code_mode_gates(proj, s, "Read", &read("crates/y/src/lib.rs")).is_none());
     }
 
+    /// M3 (29/08/2026) — o 10º arquivo DISTINTO lido na janela dispara o
+    /// advisory de delegação UMA vez; o 11º fica em silêncio.
+    #[test]
+    #[serial(t3_env)]
+    fn m3_decimo_arquivo_distinto_aconselha_delegacao_uma_vez() {
+        let proj = Path::new("/tmp/m3-deleg");
+        let s = "sess-m3";
+        for i in 0..9 {
+            assert!(
+                code_mode_gates(proj, s, "Read", &read(&format!("src/m3_{i}.rs"))).is_none(),
+                "até o 9º arquivo distinto: silêncio"
+            );
+        }
+        let r = code_mode_gates(proj, s, "Read", &read("src/m3_9.rs")).expect("10º aconselha");
+        let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+        assert!(
+            v["hookSpecificOutput"]["permissionDecision"].is_null(),
+            "advisory, nunca deny"
+        );
+        let ctx = v["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
+        assert!(
+            ctx.contains("M3 delegação") && ctx.contains("subagentes read-only"),
+            "{ctx}"
+        );
+        // 11º distinto: silêncio (1 advisory por sessão/janela)
+        assert!(code_mode_gates(proj, s, "Read", &read("src/m3_10.rs")).is_none());
+    }
+
+    /// M3 — releitura não conta como arquivo distinto (ela fala G7, nunca M3).
+    #[test]
+    #[serial(t3_env)]
+    fn m3_releitura_nao_conta_distinto() {
+        let proj = Path::new("/tmp/m3-deleg-reread");
+        let s = "sess-m3-r";
+        for i in 0..8 {
+            assert!(code_mode_gates(proj, s, "Read", &read(&format!("src/r{i}.rs"))).is_none());
+        }
+        // releitura do 1º: arquivo_novo=false → cai no G7 (2ª leitura), nunca M3
+        let r = code_mode_gates(proj, s, "Read", &read("src/r0.rs"));
+        if let Some(r) = &r {
+            assert!(r.contains("G7") && !r.contains("M3"), "releitura fala G7: {r}");
+        }
+        // o próximo DISTINTO é o 9º, não o 10º — silêncio
+        assert!(code_mode_gates(proj, s, "Read", &read("src/r8.rs")).is_none());
+        // e o 10º distinto aconselha
+        let r = code_mode_gates(proj, s, "Read", &read("src/r9.rs")).expect("10º");
+        assert!(r.contains("M3 delegação"));
+    }
+
     #[test]
     fn g8_laco_de_inspecao_vira_uma_varredura() {
         use super::super::loop_rewrite_candidate;

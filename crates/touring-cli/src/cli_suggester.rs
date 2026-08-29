@@ -3662,6 +3662,25 @@ fn g7_key(project_root: &Path, file: &str) -> u64 {
     hasher.finish()
 }
 
+/// M3 (estratégia paralelização-agentes 29/08/2026) — arquivos DISTINTOS
+/// lidos pela sessão na janela de 1h. O gatilho ≥10 é o medido do blog
+/// subagents-in-claude-code ("exploring ten or more files" → subagente;
+/// razão nº 1: isolamento de contexto — 50 arquivos lidos voltam como 3
+/// conclusões). Dispara UMA vez, no exato 10º arquivo novo; advisory, nunca
+/// deny — delegar é juízo da sessão, não do gate.
+fn m3_distinct_reads() -> &'static moka::sync::Cache<String, u32> {
+    static C: OnceLock<moka::sync::Cache<String, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// M3 — quantos arquivos distintos disparam o advisory de delegação.
+const M3_DELEGATION_AT: u32 = 10;
+
 /// W3 S-3.3 — G4 (telemetria): a sessão localizou algo (Grep/Glob) há pouco?
 fn g4_last_locate() -> &'static moka::sync::Cache<String, ()> {
     static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
@@ -4614,8 +4633,33 @@ pub(crate) fn code_mode_gates(
     }
     if tool_name == "Read" {
         let fp = tool_input.get("file_path").and_then(Value::as_str)?;
-        g3_read_files().insert(g3_read_key(project_root, session, fp), ());
+        // M3 — o ledger (sessão, arquivo) do G3 já distingue arquivo novo de
+        // releitura; um miss aqui É um arquivo distinto novo na janela.
+        let g3k = g3_read_key(project_root, session, fp);
+        let arquivo_novo = g3_read_files().get(&g3k).is_none();
+        g3_read_files().insert(g3k, ());
         g3_streak().insert(session.to_string(), 0);
+        if arquivo_novo {
+            let distintos = m3_distinct_reads()
+                .get(session)
+                .unwrap_or(0)
+                .saturating_add(1);
+            m3_distinct_reads().insert(session.to_string(), distintos);
+            // Exatamente no limiar (== e não >=): 1 advisory por janela.
+            if distintos == M3_DELEGATION_AT && !code_gates_disabled() {
+                crate::shared::gate_metrics::record_m3_delegation_advised();
+                return Some(advisory_response(format!(
+                    "[M3 delegação] {M3_DELEGATION_AT}º arquivo DISTINTO lido nesta janela — \
+                     exploração desta largura paga o isolamento de contexto: delegue a 1-3 \
+                     subagentes read-only (Explore/general-purpose), cada um com objetivo + \
+                     formato de saída + fronteiras, e receba só as conclusões (50 arquivos \
+                     lidos voltam como 3 achados). Leitura larga paraleliza; ESCRITA fica \
+                     serial no contexto principal — decisões paralelas conflitam. Cadeia \
+                     dependente (passo 2 precisa do output integral do passo 1) também fica \
+                     no contexto único. Advisory único por sessão/1h."
+                )));
+            }
+        }
         // G4 (telemetria, nunca deny): leitura sem localizar antes.
         if g4_last_locate().get(session).is_none() {
             crate::shared::gate_metrics::record_g4_observed();

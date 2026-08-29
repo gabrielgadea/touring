@@ -276,6 +276,26 @@ commitments:
     source: "derived:adw_zte_bypass_rate"
     rationale: "The conformal bypass must remain the audited exception. Above 0.5 the human gate is being skipped more often than exercised — tighten zte_warmup or review the confidence model."
 
+  # M0 (estratégia paralelização-agentes 29/08/2026): instrumentar ANTES de
+  # esperar adoção — as duas afordâncias de paralelismo eram invisíveis ao
+  # instrumento (journal sem discriminador do `parallel`; tier só estimado).
+
+  - id: touring.code_mode.parallel_runs
+    name: "Sandbox runs that used touring.parallel (distinct)"
+    threshold: 1
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_parallel_runs"
+    rationale: "Adoption meter for in-sandbox fan-out: distinct runs whose sub-calls carry the ':par' origin stamp in run_subcalls.jsonl. STUB until the first parallel sub-call — zero adoption must be visible, never inferred."
+
+  - id: touring.adw.tiered_agent_share
+    name: "ADW agent starts with a declared tier (executed share)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:adw_tiered_agent_share"
+    rationale: "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist."
+
   - id: touring.flow.compliance_ratio
     name: "Gated-flow OUTER compliance (artifact manifests complete at Stop)"
     threshold: 0.9

@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "M0 completo (retry diagn\u00f3stico)"
+    }
+  ],
+  "relations": []
+}

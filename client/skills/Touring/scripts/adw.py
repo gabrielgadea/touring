@@ -2475,9 +2475,24 @@ class _RunCtx:
     spent_usd: float = 0.0  # measured, not estimated — from the driver's own accounting
 
 
+def _agent_journal_fields(node: Node) -> dict:
+    """M0 (29/08/2026) — agent nodes journal their tier/skill so EXECUTED (not
+    estimated) tier adoption is measurable (`touring.adw.tiered_agent_share`
+    reads these lines; `calls_by_tier` in explain --cost remains the static
+    estimate). Non-agent nodes contribute nothing: absence of the key means
+    "not an agent", never "agent without tier"."""
+    if node.type != "agent":
+        return {}
+    campos: dict = {"tier": node.raw.get("tier")}
+    if node.raw.get("skill"):
+        campos["skill"] = node.raw.get("skill")
+    return campos
+
+
 def _run_single_node(ctx: _RunCtx, node: Node, exec_key: str) -> str | None:
     """Execute one non-loop node; returns the next node, or None on human pause."""
-    ctx.journal.append("node_started", node=node.name, exec_key=exec_key, type=node.type)
+    ctx.journal.append("node_started", node=node.name, exec_key=exec_key, type=node.type,
+                       **_agent_journal_fields(node))
     activity_append("task_started", {"adw": ctx.spec.name, "run": ctx.run_id, "node": node.name})
 
     if node.type == "human":
@@ -2675,7 +2690,8 @@ def run_parallel_node(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult:
     pending = [(n, k) for n, k in plan if k not in ctx.completed]
     for b_node, b_key in pending:
         ctx.journal.append("node_started", node=b_node.name, exec_key=b_key,
-                           type=b_node.type, parallel=node.name)
+                           type=b_node.type, parallel=node.name,
+                           **_agent_journal_fields(b_node))
 
     computed: dict[str, ExecResult] = {}
     if pending:
@@ -2976,7 +2992,8 @@ def run_loop(
                 output = json.loads(artifact_path.read_text(encoding="utf-8"))["summary"]
             outcome.steps.append({"node": body.name, "exec_key": exec_key, "replayed": True})
         else:
-            journal.append("node_started", node=body.name, exec_key=exec_key, type=body.type)
+            journal.append("node_started", node=body.name, exec_key=exec_key, type=body.type,
+                           **_agent_journal_fields(body))
             if body.type == "agent":
                 result = run_agent_node(body, spec, journal, results, variables,
                                         force_mock, record, cwd=run_path.parent.parent.parent)

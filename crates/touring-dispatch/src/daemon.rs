@@ -1109,6 +1109,21 @@ where
     match serde_json::from_str::<DaemonRequest>(line.trim()) {
         Ok(mut req) => {
             req.peer_pid = peer_pid;
+            // M0 (29/08/2026) — a sandboxed sub-call may name the hook by the
+            // typed SDK method the stub taught (`memory_recall`); resolve it
+            // to the canonical `cli-*` name BEFORE identity capture,
+            // enforcement and dispatch, so all three see one spelling. Only
+            // sandbox-origin requests get the convenience: aliases are an SDK
+            // contract, not a wire one — and an alias can only ever name a
+            // hook the allowlist already permits (asserted in foundation).
+            if touring_foundation::orchestrate_allowlist::is_sandbox_origin(req.origin.as_deref())
+            {
+                let resolvido =
+                    touring_foundation::orchestrate_allowlist::resolve_hook(&req.hook);
+                if resolvido != req.hook {
+                    req.hook = resolvido.to_string();
+                }
+            }
             // C2-W0 d4/S-5.2 — an orchestrate sub-call announces itself via
             // `origin: <run_id>:code:<n>`. Capture identity + payload size
             // BEFORE dispatch consumes the request; the common path (no
