@@ -2941,6 +2941,138 @@ fn python_inline_remedy(cmd: &str) -> String {
     }
 }
 
+/// A classe do python-inline READ-ONLY dentro da rajada de inspeção (aperto
+/// 29/08, ordem de Gabriel: *"read-only cai na rajada de inspeção"*). Distinta
+/// no ledger — a chave é por classe — e fora de `CODE_MODE_COLLAPSED_CLASSES`,
+/// que documenta as classes que `scan_class_of` emite; esta vem do CORPO do
+/// programa, não do nome do comando.
+const PY_INLINE_INSPECT_CLASS: &str = "python-inline";
+
+/// Indícios de que um corpo python NÃO é leitura pura — deny-list
+/// conservadora: escrita em FS, modos mutantes de `open`, subprocesso, rede,
+/// import/exec dinâmico e DB (abrir SQLite muda estado de lock mesmo lendo).
+/// Falso "escritor" (a marca aparece numa string inocente) só devolve o
+/// comando ao G10, mais frouxo — a direção segura; o inverso rotearia um
+/// escritor para o deny de inspeção.
+const PY_INLINE_WRITER_MARKS: &[&str] = &[
+    ".write(",
+    ".writelines(",
+    "write_text(",
+    "write_bytes(",
+    ".unlink(",
+    ".touch(",
+    ".chmod(",
+    ".rename(",
+    ".rmdir(",
+    "os.remove",
+    "os.rename",
+    "os.replace",
+    "os.rmdir",
+    "os.removedirs",
+    "os.mkdir",
+    "os.makedirs",
+    "os.symlink",
+    "os.link",
+    "os.truncate",
+    "os.putenv",
+    "shutil.",
+    "tempfile.",
+    "mode='w",
+    "mode=\"w",
+    "mode='a",
+    "mode=\"a",
+    "mode='x",
+    "mode=\"x",
+    "subprocess",
+    "os.system",
+    "os.popen",
+    "os.exec",
+    "os.spawn",
+    "pty.",
+    "socket",
+    "urllib",
+    "requests",
+    "http.client",
+    "httpx",
+    "ftplib",
+    "smtplib",
+    "exec(",
+    "eval(",
+    "__import__",
+    "importlib",
+    "sqlite3",
+    "dbm.",
+    "shelve",
+];
+
+/// `Some(PY_INLINE_INSPECT_CLASS)` quando o comando é um python-inline cujo
+/// corpo é leitura pura — e portanto INSPEÇÃO, sujeita à rajada 2ª/300s. Um
+/// corpo inextraível ou com qualquer marca de escrita fica de fora (G10 é o
+/// backstop, 5ª/600s).
+fn python_inline_readonly_class(cmd: &str) -> Option<&'static str> {
+    if exec_class_of(cmd) != Some("python-inline") {
+        return None;
+    }
+    let body = python_inline_body(cmd)?;
+    if body.is_empty()
+        || PY_INLINE_WRITER_MARKS.iter().any(|m| body.contains(m))
+        || py_open_mutating_mode(&body)
+    {
+        return None;
+    }
+    Some(PY_INLINE_INSPECT_CLASS)
+}
+
+/// `open(...)` com 2º argumento LITERAL contendo `w`/`a`/`x`/`+` — o modo
+/// mutante. Um `open(f)`/`open(f, encoding=…)` é leitura e passa; a marca por
+/// aspas soltas (`'w'`) foi tentada e mordeu o próprio teste (`re.findall(
+/// "x", …)` classificava escritor). Falso positivo residual (uma vírgula de
+/// outra chamada seguida de literal com w/a/x) só devolve o comando ao G10.
+fn py_open_mutating_mode(body: &str) -> bool {
+    let mut rest = body;
+    while let Some(i) = rest.find("open(") {
+        let after = &rest[i + 5..];
+        if let Some(c) = after.find(',') {
+            let tail = after[c + 1..].trim_start();
+            if let Some(q) = tail.chars().next().filter(|ch| *ch == '\'' || *ch == '"') {
+                let inner = &tail[1..];
+                if let Some(end) = inner.find(q)
+                    && inner[..end].contains(['w', 'a', 'x', '+'])
+                {
+                    return true;
+                }
+            }
+        }
+        rest = after;
+    }
+    false
+}
+
+/// A rajada de python-inline fundida: os CORPOS na ordem, um programa. O
+/// contrato de orçamento é o do R9 — inteiro ou fora, jamais truncado; o
+/// segundo elemento conta os omitidos.
+fn python_inline_burst_program(cmds: &[String]) -> (String, usize) {
+    const BUDGET: usize = 4000;
+    let mut out = String::new();
+    let mut omitidos = 0usize;
+    for cmd in cmds {
+        let Some(body) = python_inline_body(cmd).filter(|b| !b.is_empty()) else {
+            omitidos += 1;
+            continue;
+        };
+        let piece = body.replace('\'', "'\\''");
+        if out.len() + piece.len() + 40 > BUDGET {
+            omitidos += 1;
+            continue;
+        }
+        if !out.is_empty() {
+            out.push_str("\n\n# --- proximo comando da rajada ---\n");
+        }
+        out.push_str(&piece);
+    }
+    (out, omitidos)
+}
+
 /// S5 — o gate do par write→run. `None` = sem decisão (o fluxo segue).
 fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
@@ -4938,6 +5070,8 @@ pub(crate) fn code_mode_gates(
         for class in CODE_MODE_COLLAPSED_CLASSES {
             inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, class));
         }
+        inspect_burst_ledger()
+            .invalidate(&inspect_burst_key(project_root, PY_INLINE_INSPECT_CLASS));
     }
     // S3 (27/08/2026) — o colapso do modo `code` deixou de ser POR CLASSE e
     // passou a ser POR RAJADA. A 1ª inspeção de uma classe na janela executa
@@ -4959,9 +5093,17 @@ pub(crate) fn code_mode_gates(
     // reconhece inspeção), e um `touring run` na janela zera o ledger — a
     // contagem prova que a rota foi oferecida e não usada.
     let apresentacao = code_mode_presentation(project_root, cmd);
+    // Aperto 29/08 (ordem de Gabriel): python-inline READ-ONLY é inspeção e
+    // cai na MESMA rajada — usado como leitura, o interpretador ganhava 4
+    // passes onde `cat` ganha 1 (o G10 só nega na 5ª/600s). A classificação é
+    // pelo CORPO (deny-list conservadora): qualquer indício de escrita/rede/
+    // subprocesso mantém o comando no G10 — falha na direção frouxa, nunca
+    // roteia um escritor ao deny de inspeção.
+    let inspect_class = scan_class_of(cmd)
+        .filter(|c| CODE_MODE_COLLAPSED_CLASSES.contains(c))
+        .or_else(|| python_inline_readonly_class(cmd));
     if apresentacao == CodeModePresentation::Code
-        && let Some(class) = scan_class_of(cmd)
-        && CODE_MODE_COLLAPSED_CLASSES.contains(&class)
+        && let Some(class) = inspect_class
         && !code_gates_disabled()
     {
         let key = inspect_burst_key(project_root, class);
@@ -4976,7 +5118,16 @@ pub(crate) fn code_mode_gates(
             inspect_burst_ledger().insert(key, (n, cmds));
             crate::shared::gate_metrics::record_g1_inspect_first_passed();
         } else {
-            let (programa, omitidos) = fuse_burst_program(&cmds);
+            // python-inline funde os CORPOS (o remédio 1:1 por comando já
+            // existia; a rajada junta-os na ordem); as classes shell seguem
+            // no R9 via fuse_burst_program.
+            let (programa, omitidos, lang) = if class == PY_INLINE_INSPECT_CLASS {
+                let (p, o) = python_inline_burst_program(&cmds);
+                (p, o, "python")
+            } else {
+                let (p, o) = fuse_burst_program(&cmds);
+                (p, o, "bash")
+            };
             // zera para a próxima rajada — um deny por lote, nunca fadiga
             // (mesma regra do G10, pela mesma razão).
             inspect_burst_ledger().invalidate(&key);
@@ -4994,7 +5145,7 @@ pub(crate) fn code_mode_gates(
             return Some(deny_response(format!(
                 "[CODE MODE · rajada] {n}ª inspeção `{class}` em {}s — a 1ª já executou \
                  intacta; esta rajada É o programa, rode-o de uma vez:\n  \
-                 touring run --lang bash --code '{programa}'\n{nota_omissao}\
+                 touring run --lang {lang} --code '{programa}'\n{nota_omissao}\
                  Sub-chamadas DENTRO do programa não passam por aqui (elas nunca chegam \
                  ao PreToolUse), então a tabela inteira segue disponível lá dentro. \
                  Inspeção ISOLADA de qualquer classe PASSA — só a RAJADA colapsa \

@@ -172,6 +172,24 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 ## [Unreleased]
 
+### tighten(code-mode) — python-inline READ-ONLY cai na rajada de inspeção (ordem de Gabriel, 29/08)
+
+- **O furo medido ao vivo**: 4 heredocs python de leitura pura seriados até o
+  G10 falar na 5ª — usado como inspeção, o interpretador ganhava 4 passes onde
+  `cat` ganha 1 (a classificação era pelo executor, não pela intenção).
+- **O aperto**: `python_inline_readonly_class` classifica pelo CORPO — inline
+  (`-c`/`- <<EOF`) cuja leitura é pura entra na MESMA rajada de inspeção
+  (deny na 2ª/300s) com remédio de CORPOS fundidos em `--lang python`;
+  qualquer indício de escrita/rede/subprocesso/DB (deny-list conservadora +
+  parser leve do 2º arg de `open(`) mantém o comando no G10 (5ª/600s) — a
+  falha é sempre na direção frouxa, jamais roteia escritor ao deny de
+  inspeção. `touring run` zera os dois ledgers.
+- **Lição paga no próprio teste**: a marca de modo por aspas soltas (`"x"`)
+  classificava `re.findall("x", …)` como escritor — o modo de `open` agora é
+  detectado por posição (2º argumento literal), não por aspas no corpo.
+- Testes: 3 novos na suite do suggester (217 passed) · clippy 0 · guard D8
+  (`test_code_mode_sdk_section.py`) verde.
+
 ### fix(explore+recall) — supressão de self-echo: o tópico auto-referente agora seca
 
 - **Sintoma medido**: o explore CCE nunca convergia em tópico auto-referente —

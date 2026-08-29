@@ -3141,6 +3141,77 @@ mod apresentacao_por_escopo {
         }
     }
 
+    /// Aperto 29/08 (ordem de Gabriel): python-inline READ-ONLY é inspeção —
+    /// a 2ª na janela nega com os CORPOS fundidos em `--lang python`. Usado
+    /// como leitura, o interpretador ganhava 4 passes onde `cat` ganha 1
+    /// (o G10 só nega na 5ª/600s) — medido ao vivo em 29/08: 4 heredocs de
+    /// leitura seriados até o G10 falar.
+    #[test]
+    #[serial_test::serial(gate_metrics, t3_env)]
+    fn python_inline_readonly_cai_na_rajada_de_inspecao() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        escopo_code(tmp.path());
+        let s = "s3-pyinline-1";
+        let c1 = bash("python3 - <<'EOF'\nimport json\nprint(json.load(open('a.json')))\nEOF");
+        let c2 = bash("python3 -c 'import re; print(re.findall(\"x\", open(\"b.txt\").read()))'");
+        assert!(
+            code_mode_gates(tmp.path(), s, "Bash", &c1).is_none(),
+            "a 1ª leitura inline executa INTACTA — o caso comum segue destaxado"
+        );
+        let d2 = code_mode_gates(tmp.path(), s, "Bash", &c2)
+            .expect("a 2ª read-only na janela é negada pela rajada de inspeção");
+        assert!(d2.contains("[CODE MODE · rajada]"), "QUEM negou? {d2}");
+        assert!(
+            d2.contains("--lang python"),
+            "o remédio da rajada python é python, não bash: {d2}"
+        );
+        assert!(d2.contains("json.load"), "a rota funde o CORPO da 1ª: {d2}");
+        assert!(d2.contains("re.findall"), "a rota funde o CORPO da 2ª: {d2}");
+    }
+
+    /// Escritor NÃO entra: qualquer indício de escrita/rede/subprocesso no
+    /// corpo devolve o inline ao G10 (5ª/600s) — a direção frouxa é a segura;
+    /// o inverso rotearia um escritor ao deny de inspeção.
+    #[test]
+    #[serial_test::serial(gate_metrics, t3_env)]
+    fn python_inline_escritor_fica_fora_da_rajada_de_inspecao() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        escopo_code(tmp.path());
+        let s = "s3-pyinline-2";
+        let w1 = bash("python3 - <<'EOF'\nopen('out.txt', 'w').write('x')\nEOF");
+        let w2 = bash("python3 -c 'import shutil; shutil.copy(\"a\", \"b\")'");
+        assert!(code_mode_gates(tmp.path(), s, "Bash", &w1).is_none());
+        let d2 = code_mode_gates(tmp.path(), s, "Bash", &w2);
+        assert!(
+            d2.as_deref().is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
+            "escritor não soma na rajada de inspeção: {d2:?}"
+        );
+    }
+
+    /// O detector de corpo falha na direção FROUXA: leitura pura classifica;
+    /// qualquer marca de escrita/subprocesso/DB/dinamismo devolve `None` (o
+    /// comando fica no G10); não-python nunca classifica.
+    #[test]
+    fn o_detector_de_corpo_readonly_falha_na_direcao_frouxa() {
+        use super::super::python_inline_readonly_class;
+        let ro = "python3 - <<'EOF'\nimport json\nd = json.load(open('x.json'))\nprint(d)\nEOF";
+        assert_eq!(python_inline_readonly_class(ro), Some("python-inline"));
+        for w in [
+            "python3 -c 'open(\"f\", \"w\").write(\"x\")'",
+            "python3 -c 'import subprocess'",
+            "python3 -c 'import sqlite3'",
+            "python3 -c 'eval(input())'",
+            "python3 -c 'import shutil; shutil.rmtree(\"d\")'",
+        ] {
+            assert_eq!(python_inline_readonly_class(w), None, "escritor tem de ficar fora: {w}");
+        }
+        assert_eq!(
+            python_inline_readonly_class("grep -rn foo src/"),
+            None,
+            "não-python nunca entra por este classificador"
+        );
+    }
+
     /// Declara `[code_mode] mode = "code"` na raiz temporária.
     fn escopo_code(root: &std::path::Path) {
         std::fs::create_dir_all(root.join(".touring")).expect("mkdir");
