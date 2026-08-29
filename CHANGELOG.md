@@ -170,6 +170,42 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [30.4.21] - 2026-08-29 — "Cinco é muito frouxo" — o aperto geral dos gates
+
+> Ordem de Gabriel: G7 negando só na 5ª releitura era folga; revisar e apertar
+> todos os gates do code mode. Cada limiar desceu com racional; o que ficou,
+> ficou por medição — não por inércia.
+
+### Changed
+
+- **G7 re-inspeção**: advisory na 2ª leitura do mesmo arquivo, **deny na 3ª**
+  (era 3ª/5ª).
+- **G1 rajada (teeth)**: deny na **3ª** inspeção da mesma classe (era 4ª); o
+  hint legado (`CODE_MODE_SCAN_THRESHOLD`) desceu para a 2ª — o ensino fala
+  antes do bloqueio.
+- **G10 exec-burst**: deny na **5ª** execução seriada (era 10ª) — 5 já pagou
+  4 round-trips; 2-3 pytest de debug seguem fora.
+- **Par write→run**: deny no **2º par** (era 3º) — o 1º par (criar e testar UM
+  script) é legítimo; o 2º na janela JÁ é o loop execute-observe.
+- **G3 edit-sem-read**: 1 advisory e o **2º seguido nega** (era 2 advisories +
+  deny no 3º).
+
+### Added
+
+- **Heredoc inline entrou na rajada**: `python3 -c`/`python3 - <<EOF` agora é
+  a classe `python-inline` do G10, com remédio **1:1** — o corpo verbatim em
+  `touring run --lang python --code` (`python_inline_body`/`_remedy`). A
+  exclusão histórica existia porque o R9 esmagaria heredoc multi-linha na
+  fusão; com remédio próprio, a razão caiu. O counter de calibração
+  (`exec_heredoc_inline_seen`) segue contando cada vista.
+
+### Mantidos (com o porquê no código)
+
+Rajada de inspeção 2ª/300s — a janela foi **calibrada no joelho da curva**
+(300→600s dobraria o custo por 4,7 pontos; negar a 1ª taxaria os 22,5% de
+inspeção isolada medidos). G2/G8/G9 já agem na 1ª; G6 na 2ª repetição; G5 é
+telemetria por design (P9). Testes recalibrados: 471/471, clippy limpo.
+
 ## [30.4.20] - 2026-08-29 — O par estava no mesmo comando
 
 > O replay pós-deploy da 30.4.19 negava 3/60, não os ~10 que os 24 pares
