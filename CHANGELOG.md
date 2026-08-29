@@ -170,6 +170,23 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [30.4.20] - 2026-08-29 — O par estava no mesmo comando
+
+> O replay pós-deploy da 30.4.19 negava 3/60, não os ~10 que os 24 pares
+> prometiam. Provar depois de propagar salvou o número: os pares reais
+> escrevem E executam no MESMO tool_use multi-linha, e o detector só olhava o
+> primeiro verbo efetivo (o `cat`) — com o `>` do próprio `cat` vetando o par.
+
+### Fixed
+
+- `script_run_targets` varre TODOS os segmentos da `mutation_scan_view`
+  (corpo de heredoc fora) com veto de redirect POR SEGMENTO — o run da linha
+  pós-heredoc aparece e o `>` da escrita não mata o par. Replay dos mesmos 60:
+  **deny 2 (30.4.18) → 10 (30.4.20)** — 7× `[G10 write→run]` no padrão
+  dominante + 3× rajada de inspeção, duas delas atrás de assignments (o furo
+  do 30.4.19 em ação). Counters vivos após o replay:
+  `g10_write_run_pair_denied=7`, `exec_heredoc_inline_seen=5`.
+
 ## [30.4.19] - 2026-08-29 — Sessenta chamadas passaram por dois gates cegos e um par invisível
 
 > Uma sessão do `analise` gastou 60 chamadas Bash num turno (48 com prefixo
