@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 2.0,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,25 +22,25 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.179606,
+      "actual": 0.26164540000000003,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
       "name": "RL EMA reward (OnlineRL engine)",
       "rationale": "EMA reward < 0.2 means the RL loop hasn't converged yet. ADVISORY (investigation 2026-07-01): the value lives in the in-memory OnlineRLEngine, which resets on every daemon restart and re-injects a synthetic 0.2 warmup — so the first post-restart samples sit deterministically just under the 0.2 threshold (0.179606 observed byte-identical across days). A non-advisory gate on this source fails structurally after every restart without signalling anything. Re-arm only if the EMA gains durable persistence.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.2
     },
     {
-      "actual": 0.8846153846153846,
+      "actual": 0.3611111111111111,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
       "name": "Query cache hit ratio (W17/W18)",
       "rationale": "Hit ratio >= 0.5 confirms cache is paying for itself. ADVISORY (2026-07-01): same structural pattern as ema_reward — the moka cache is in-memory and resets to 0.0 on every daemon restart (measured 0.0 → 0.71 post-warm, telemetry §1.4), so a non-advisory gate fails transiently after each restart without signalling anything. Re-arm if the ratio gains uptime-aware gating or persistence.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
@@ -110,18 +110,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 0.0,
+      "actual": 1297.3863636363635,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 800.0
     },
     {
-      "actual": 42.0,
+      "actual": 220.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 615935.0,
+      "actual": 707583.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 524287.0,
+      "actual": 695807.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,29 +176,29 @@
       "threshold": 0.7
     },
     {
-      "actual": null,
+      "actual": 0.29545454545454547,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.4
     },
     {
-      "actual": 0.4,
+      "actual": 0.9428571428571428,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": 5.4,
+      "actual": 1.4339622641509433,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -253,7 +253,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.3333333333333333,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -275,14 +275,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 6.0,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
       "name": "Explore rounds until CCE convergence (mean)",
       "rationale": "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 8.0
     },
     {
@@ -297,7 +297,7 @@
       "threshold": 2.0
     },
     {
-      "actual": 3.0,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -352,98 +352,98 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.6333333333333333,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
       "name": "Gated-flow OUTER compliance (artifact manifests complete at Stop)",
       "rationale": "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.9
     },
     {
-      "actual": 0.17958412098298676,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
       "name": "Memory entries reachable by ANN recall (indexed / stored)",
       "rationale": "Entries absent from the ANN corpus are 4.3x more likely to never be recalled (measured 2026-08-02: 50.9% never-read outside the corpus vs 11.8% inside). This drifted to 0.797 for weeks with a one-command remedy — `touring memory reindex` — and nothing measured it, so nobody could see it. Below 0.95: run the reindex.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.95
     },
     {
-      "actual": 0.19643633202955238,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
       "name": "Recall share landing on curated lessons, not auto-recorded outcomes",
       "rationale": "Before the 2026-08-02 filter the eight most-recalled entries in the whole store were all `outcome:*:failure`, and automatic entries were retrieved 2.4x more often than curated lessons — the ACO pheromone diluted by its own exhaust. This is the anti-regression meter for that fix; a fall back below 0.5 means noise is crowding the channel again.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.005671077504725898,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
       "name": "Stored entries no recall has ever returned",
       "rationale": "Dead weight in the store: written once, never read. 0.200 at 2026-08-02. Rising means either the corpus is drifting again (see corpus_coverage) or entries are being written in a shape recall cannot match.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.25
     },
     {
-      "actual": 1.0,
+      "actual": 0.0,
       "advisory": false,
       "direction": "gte",
       "id": "touring.memory.tag_coverage",
       "name": "Memory entries carrying faceted hashtags (hashtag library)",
       "rationale": "The hashtag library only compounds when entries are faceted — an untagged entry is invisible to `#facet:value` filters and MOC communities. Backfilled to 1.0 on 2026-08-12 (7.393/7.393); every store path auto-tags since F1, so a fall below 0.9 means a write path is bypassing derivation (or the codetag sync silently broke).",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "FAIL",
       "threshold": 0.9
     }
   ],
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 235,
+      "exception": 234,
       "output-limit": 1,
       "proc-exit": 3,
       "timeout": 85
     },
     "by_language": {
       "?": 1,
-      "bash": 2212,
+      "bash": 2194,
       "go": 1,
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1712,
+      "python": 1693,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 3710,
-    "runs_total": 4035,
+    "runs_ok": 3674,
+    "runs_total": 3998,
     "source": "run_journal.jsonl",
-    "success_rate": 0.919454770755886,
-    "wasted_attempts_retry_pairs": 191
+    "success_rate": 0.9189594797398699,
+    "wasted_attempts_retry_pairs": 190
   },
-  "project_root": "/home/gabrielgadea",
+  "project_root": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/a718151d-1737-4b66-bcb2-af9717c37686/scratchpad/mock-m2",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-08-29",
   "summary": {
-    "advisory": 6,
-    "failed": 0,
-    "passed": 19,
+    "advisory": 4,
+    "failed": 1,
+    "passed": 16,
     "regressions": 0,
-    "stub": 11,
+    "stub": 15,
     "total": 36
   }
 }

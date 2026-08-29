@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 5447.0,
+      "actual": 5443.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 56.0,
+      "actual": 41.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 504319.0,
+      "actual": 615935.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 391167.0,
+      "actual": 524287.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -198,7 +198,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 5.0,
+      "actual": 5.4,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -242,7 +242,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.35833333333333334,
+      "actual": 0.35537190082644626,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -330,7 +330,29 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.5157894736842106,
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.code_mode.parallel_runs",
+      "name": "Sandbox runs that used touring.parallel (distinct)",
+      "rationale": "Adoption meter for in-sandbox fan-out: distinct runs whose sub-calls carry the ':par' origin stamp in run_subcalls.jsonl. STUB until the first parallel sub-call — zero adoption must be visible, never inferred.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 1.0
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.adw.tiered_agent_share",
+      "name": "ADW agent starts with a declared tier (executed share)",
+      "rationale": "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.5208333333333334,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -341,7 +363,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.9730141016536471,
+      "actual": 0.9702609751163261,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -352,7 +374,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.1793743069323566,
+      "actual": 0.17894525632879643,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -363,7 +385,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.17419093030333774,
+      "actual": 0.17367995144648998,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -388,30 +410,30 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 233,
+      "exception": 235,
       "output-limit": 1,
       "proc-exit": 3,
       "timeout": 85
     },
     "by_language": {
       "?": 1,
-      "bash": 2163,
+      "bash": 2212,
       "go": 1,
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1648,
+      "python": 1712,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 3599,
-    "runs_total": 3922,
+    "runs_ok": 3710,
+    "runs_total": 4035,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9176440591534931,
-    "wasted_attempts_retry_pairs": 189
+    "success_rate": 0.919454770755886,
+    "wasted_attempts_retry_pairs": 191
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
@@ -421,7 +443,7 @@
     "failed": 0,
     "passed": 23,
     "regressions": 0,
-    "stub": 4,
-    "total": 34
+    "stub": 6,
+    "total": 36
   }
 }
