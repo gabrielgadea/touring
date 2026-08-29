@@ -170,6 +170,70 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [30.4.18] - 2026-08-28 — A fonte declarada ganhou executor, e a fixture alcançava o índice real
+
+> Quatro encarnações do mesmo defeito num dia: "declaração ≠ executor" — fonte
+> KPI sem braço no resolvedor, probe de binário mais estreito que a resolução do
+> cargo, client com floor menor que o budget do server, e fixture "isolada" cujo
+> resolvedor de path tinha fallback global. O remédio institucional em todos:
+> guards que leem OS DOIS lados.
+
+### Added
+
+- **Estreia real do KPI `touring.mutation.kill_rate`** (STUB desde a Wave T2 de
+  abril): braço `cli-mutation-test` no `invoke_handler`, gramática de escopo
+  `daemon:<handler>@<scope>:<pointer>` (`split_handler_scope`), fonte lida do
+  cache (`cache_only: true` — o KPI nunca dispara a corrida cara). Medido:
+  **98,15%** no touring-identity (106 killed + 2 survived, 2 corridas
+  reproduzindo o número). Playbook novo: `docs/mutation-testing.md`.
+- **Canal `external:` do `touring kpi`** — medições que nenhum handler produz
+  entram por `docs/kpi/external/<id>.json` (`{"value": N}`, STUB se mtime > 14
+  dias). Primeiras medições: `touring.test.count` 15 786 ·
+  `touring.coverage.line` 0,7528. Guia: `docs/kpi/README.md`.
+- **Guard contrato×executor bidirecional**
+  (`every_declared_source_has_an_arm_and_every_derived_arm_a_commitment`): fonte
+  declarada sem braço E braço derived sem commitment reprovam — o segundo caso
+  flagrou `inspect_burst_share`, braço órfão desde o S3, que ganhou seu
+  commitment (`touring.code_mode.inspect_burst_share`, advisory lte 0.75).
+- **Force-gate de corrida workspace** no handler mutation: payload sem `package`
+  e sem `force` é recusado com envelope falante `workspace_requires_force`
+  ANTES de executar — a corrida de horas passa a ser decisão explícita.
+- **Probe CARGO_HOME**: `cargo_mutants_available()` consulta PATH **e**
+  `$CARGO_HOME/bin`, como o cargo real — o daemon com PATH estreito reportava
+  `binary_not_found` com o binário instalado.
+- **Classificação heavy + floor do client**: `cli-mutation-test` entrou no
+  `is_heavy_hook` (guard estrutural junto) e o client sobe o floor para
+  `HEAVY_OP_BUDGET_SECS` (1800 s) — a corrida real de ~19 min morria no budget
+  light de 15 s ou no floor de 120 s.
+- **Gate 5.5 do propagate-release com retry-once**: a prova comportamental (35
+  asserções) re-espera o doctor limpar e tenta uma 2ª vez antes de reprovar —
+  a estreia da prova reprovou por transiente (project actor drenando índice) e
+  o exit tinha sido mascarado por `| tail` no operador.
+- **`scripts/diag_lifecycle_hang.sh`**: instrumento que fotografa
+  threads/wchan/fds no flagra de um hang de suíte antes de matar o processo.
+
+### Fixed
+
+- **RCA definitivo do hang do lifecycle** (suíte pendurada 3h46, 32 threads):
+  `make_runtime()` criava TempDir **sem marcador de projeto** →
+  `normalize_project_root` caía para `$HOME` → todos os testes resolviam para o
+  **índice tantivy global REAL** (85k docs) → fila no `Mutex` do writer
+  compartilhado sob I/O saturado = starvation coletiva (não deadlock — máquina
+  calma nunca reproduziu). Flagrante: docs de teste achados no índice de
+  produção. Fix: marcador `.git` na fixture + guard
+  `fixture_root_normalizes_to_itself_not_home`. Prova: 1247/1247 e 1325/1325
+  paralelos + zero escritas no índice global durante a suíte.
+
+### Registro de honestidade
+
+Dois falsos alarmes foram do auditor, não do sistema: `cmd | tail -1` cortou o
+runner multilinha de um teste (parecia mudo; 6 passed) e `unittest discover`
+sobre arquivo pytest-style deu "NO TESTS RAN" (o CI usa pytest; 10 passed). E o
+próprio teste `no_args_routes_to_daemon_without_panicking` disparava corridas
+workspace REAIS no daemon a cada `cargo test` — três background tasks mortas até
+o diagnóstico; hoje usa `--cache-only`. Cross-audit completo com toda a
+proveniência: `docs/audits/cross-audit-2026-08-28-kpi-mutation-lifecycle.md`.
+
 ## [30.4.13] - 2026-08-20 — `extern` é terminal, e a varredura tinha visto 62%
 
 > O reparo que 30.4.12 fez rodar começou a rodar também onde não devia.

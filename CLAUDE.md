@@ -35,6 +35,10 @@ timestamp: 2026-08-20T11:15:00-03:00
    script itera projeto a projeto pulando a fonte.
    (b) `touring --version` escreve em **stderr**, não stdout — `2>/dev/null` apaga a
    versão e qualquer gate de verificação passa sem verificar nada.
+   (c) o gate 5.5 (prova comportamental, 35 asserções) tem **retry-once** com
+   re-espera do doctor (28/08): a estreia da prova reprovou por transiente — project
+   actor drenando índice — e o operador leu EXIT=0 porque `| tail` engoliu o exit
+   (`${PIPESTATUS[0]}` é a leitura correta; o script agora falha só após 2 tentativas).
 2.2. **`update-touring` é versionado (18/08/2026)**: vive em `scripts/update-touring`
    e chega ao PATH por `~/.local/bin/update-touring`, um **symlink** — a mesma forma
    já usada para os binários. Antes existia só em `~/.local/bin/`: a ferramenta que
