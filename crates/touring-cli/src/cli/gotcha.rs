@@ -122,6 +122,31 @@ pub fn cli_gotcha_resolve(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
             }
         }
     };
+    // Achado do cross-audit 29/08 (F-2): um canal só-ida convida a estado
+    // errado permanente — o próprio audit resolveu por engano um gotcha
+    // aberto e não tinha como voltar. `{"reopen": true}` limpa `resolved_at`
+    // (REGRA #0: potencializar com o verbo inverso, nunca SQL manual).
+    if payload
+        .get("reopen")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        let reopened = conn
+            .execute(
+                "UPDATE gotchas SET resolved_at = NULL WHERE id = ?1 AND resolved_at IS NOT NULL",
+                params![id],
+            )
+            .unwrap_or(0);
+        return if reopened > 0 {
+            serde_json::json!({ "id": id, "reopened": true, "why": why }).to_string()
+        } else {
+            serde_json::json!({
+                "id": id, "reopened": false,
+                "hint": "not resolved (or unknown id) — nothing to reopen; ids: `touring gotcha list`",
+            })
+            .to_string()
+        };
+    }
     let updated = conn
         .execute(
             "UPDATE gotchas SET resolved_at = datetime('now') WHERE id = ?1 AND resolved_at IS NULL",

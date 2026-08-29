@@ -72,6 +72,16 @@ enum GotchaCmd {
         #[arg(long)]
         why: Option<String>,
     },
+    /// Reopen a wrongly-resolved gotcha (clears `resolved_at`). Born from the
+    /// 29/08 cross-audit, whose own probe resolved an open gotcha by mistake
+    /// and had no way back.
+    Reopen {
+        /// Gotcha id (see `touring gotcha list`).
+        id: i64,
+        /// Why it is being reopened (echoed into the response).
+        #[arg(long)]
+        why: Option<String>,
+    },
     /// Sync gotchas from YAML rule library to SQLite cache (Wave Q3).
     Sync {
         /// Directory containing YAML gotcha files (default: ~/.claude/rust/docs/gotchas).
@@ -133,6 +143,17 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             if let Some(p) = pattern {
                 payload.insert("pattern".into(), serde_json::json!(p));
             }
+            if let Some(w) = why {
+                payload.insert("why".into(), serde_json::json!(w));
+            }
+            let output = daemon_query("cli-gotcha-resolve", serde_json::Value::Object(payload))?;
+            println!("{output}");
+            Ok(())
+        }
+        GotchaCmd::Reopen { id, why } => {
+            let mut payload = serde_json::Map::new();
+            payload.insert("id".into(), serde_json::json!(id));
+            payload.insert("reopen".into(), serde_json::json!(true));
             if let Some(w) = why {
                 payload.insert("why".into(), serde_json::json!(w));
             }
