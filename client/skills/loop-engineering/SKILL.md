@@ -71,8 +71,11 @@ OUTER (1× per goal) — steps 1-5 are ONE command (deterministic, ADW-enforced)
   1-5  touring adw from-template strategy-loop 2>/dev/null;  # instantiate 1× per project
        touring adw run strategy-loop --var topic="<goal>" \
          --var scope="<project root>" --var bundle="<plan bundle dir>"
-       (= arm outer marker → memory recall → loop_diagnose.py →
-          touring explore --until-dry (CCE) → evidence report)
+       (= arm outer marker → `ground` DIAMOND: memory recall ‖ loop_diagnose.py
+          in a read-only fan-out — by construction since 29/08 (M2,
+          paralelização-agentes; the smaller branch leaves the clock:
+          33.5s serial → 25.3s parallel) → touring explore --until-dry (CCE)
+          → evidence report)
        Context7 stays a manual lens: mark it on the ledger with
        touring explore "<goal>" --mark-lens external:visited --note "<source>"
        The `portfolio` lens (2026-08-08) is AUTOMATED and therefore inescapable:
@@ -105,6 +108,10 @@ INNER (repeat per phase until CONVERGED)
        + --use critic-panel:panel — ORTHOGONAL: audit-pack supplies the craft,
        critic-panel supplies the blindness. A skilled auditor who watched the
        work being made is still not blind. + touring wiring audit + touring-quality
+       (the library's cross-audit flow composes the panel BY CONSTRUCTION since
+        29/08 — verdict_gate → 3 blind critics → code-counted quorum; first live
+        run green — so `touring adw run cross-audit` already carries it; the
+        manual --use remains the route for NEW flows)
   ██ VERIFY/REFLECT gate ██       passed the rubric? if NO → retry with the failure as feedback
                                   + self-critique: "did this fulfil the INTENT? what is missing?"
   14 Phase-close                  scripts/loop_phase_close.py <task> <phase>

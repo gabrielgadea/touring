@@ -85,7 +85,7 @@ roteáveis: um ticket recorrente de qualidade vira `campaign` com predicado.
 
 | Estrutura | Papel nas camadas |
 |---|---|
-| **CEG X0..X7** | gate de E0 (todo `run`); cada sub-chamada E1 carrega identidade `<run_id>:code:<n>` no wire (S-5.2, entregue 2026-08-24) — o daemon soma o contrafactual dela em `code_mode_subcall_bytes_total` e a registra em `run_subcalls.jsonl` |
+| **CEG X0..X7** | gate de E0 (todo `run`); cada sub-chamada E1 carrega identidade `<run_id>:code:<n>` no wire (S-5.2, entregue 2026-08-24; sufixo `:par` quando emitida por `touring.parallel` — M0 29/08, base do KPI `code_mode.parallel_runs`) — o daemon soma o contrafactual dela em `code_mode_subcall_bytes_total`, a registra em `run_subcalls.jsonl` e, para origins de sandbox, resolve aliases tipados (`memory_recall` → `cli-memory-recall`) pela mesma tabela dos preludes |
 | **decompose** | E3/E4 mapeiam para subtasks com `claim` atômico; convergência de campanha fecha o subtask |
 | **memory** | curvas de campanha (`#kind:campaign`), snippets harvestados (E0/E1 → `#kind:snippet` com trust medido), lessons por fase |
 | **learning reward** | por rodada (E4, delta da métrica), por snippet (`snippet:` → trust ladder), por fluxo (phase-close) |

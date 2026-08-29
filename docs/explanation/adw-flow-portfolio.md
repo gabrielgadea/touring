@@ -252,6 +252,14 @@ reconciliados por H. Chase: não há contradição — há um eixo):
   strategy-loop; `diagnose` domina) — o argumento é QUALIDADE: contexto isolado
   por ramo e vocabulário topológico. O diamante `ground` do strategy-loop e o
   `critic-panel` do cross-audit são as duas formas vivas.
+- **Estreia medida (cross-audit 29/08)**: o painel do `cross-audit` executou com
+  3 críticos cegos (`tier=mid`) e quorum `pass` — a primeira execução de
+  personas em 40 dias de infra; o diamante `ground` provou serial 33,5s →
+  paralelo 25,3s (run `strategy-loop-1788014691` — o ramo menor sai do relógio).
+  Nós `agent` journalizam `tier`/`skill` no `node_started` (M0):
+  `touring.adw.tiered_agent_share` mede a especialização DECLARADA — `tier:null`
+  (não declarado) abaixa o share; chave ausente = era pré-instrumentação (STUB,
+  nunca "0%").
 
 ---
 

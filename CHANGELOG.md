@@ -170,6 +170,25 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 <!-- END toon-synth -->
 
+## [Unreleased]
+
+### audit(paralelizacao-agentes) — cross-audit 29/08: tudo re-provado em execução
+
+- **A prova do diamante não estava em disco**: o fechamento da wave citou "0ms
+  skew, parallel_joined" sem apontar artefato — nenhum journal tinha eventos
+  `parallel_*` de `ground`. Refeita ao vivo: run `strategy-loop-1788014691`
+  (`ground type=parallel`, ramos no mesmo ms, `parallel_joined`; serial 33,5s →
+  paralelo 25,3s). Lição: prova viva em fechamento cita `run_id`, ou é
+  narrativa — a Lei L3 aplicada ao relator.
+- **KPIs novos ganharam testes semânticos** + `code_mode_parallel_runs_from()`
+  extraído (testável sem mutar `$HOME`); kpi 39/39, clippy 0. A régua
+  `tiered_agent_share` foi investigada e é honesta: `tier:null` abaixa o share,
+  a CHAVE separa as eras (pré-instrumentação = STUB, nunca "0%").
+- Report com todas as provas executadas: `docs/audits/cross-audit-2026-08-29.md`
+  — aliases py+js (bordas incluídas), M3 no 10º arquivo exato (counter 0→1),
+  painel quorum `pass`, 50-dim 0.862–0.961 (≥Gold nos 8 arquivos), P0 6/6,
+  débito zero, órfãos zero.
+
 ## [30.4.23] - 2026-08-29 — O motor parado foi acoplado aos caminhos que rodam (M0-M5)
 
 > Estratégia paralelização-agentes aprovada por Gabriel: a doutrina de fan-out/
