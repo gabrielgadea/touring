@@ -187,8 +187,9 @@ timestamp: 2026-08-20T11:15:00-03:00
     (regra 2 ampliada)**: o rótulo da toolchain NÃO prova o build — 24/08 o lock dizia
     `30.4.14` rodando binário de 24/08. Após propagar, a prova é SEMPRE comportamental
     (um deny T3/modo-code ao vivo no projeto alvo), nunca por versão.
-    **S5 (30.4.19, 29/08)**: o G10 também vê o **par write→run** — `cat > script.py`
-    + `python3 script.py` do MESMO path na janela de 600s; o 3º par é negado com
+    **S5 (30.4.19–20, 29/08)**: o G10 também vê o **par write→run** — `cat > script.py`
+    + `python3 script.py` do MESMO path (inclusive no MESMO tool_use multi-linha,
+    a forma real) na janela de 600s; o 3º par é negado com
     `touring run --file <o próprio script>` (remédio 1:1). E dois furos fechados:
     `2>&1`/`2>/dev/null` e prefixo `VAR=...\n` não cegam mais a classe exec
     (origem: turno de 60 Bash do analise em que o replay negava só 2).
