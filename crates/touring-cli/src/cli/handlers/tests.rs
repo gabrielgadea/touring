@@ -444,6 +444,113 @@ fn memory_recall_sql_federated_merges_and_dedups() {
         hits.iter().all(|h| h.get("source_db").is_some()),
         "each federated row carries source_db"
     );
+    // A DB whose schema predates `created_at` (this fixture) must NOT invent
+    // an age — absence stays absent (an unknown age is never zero).
+    assert!(
+        hits.iter().all(|h| h.get("stored_at").is_none()),
+        "no created_at column → no stored_at field"
+    );
+}
+/// Self-echo detection (2026-08-29): recall rows expose `stored_at` verbatim
+/// when the DB carries `created_at` — TEXT on live DBs, INTEGER on
+/// consolidated ones — so the CCE explorer can tell a pre-existing lesson
+/// from one its own campaign wrote (the topic that never dried).
+#[test]
+fn memory_recall_rows_expose_stored_at_in_both_column_shapes() {
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    for (name, decl, val) in [
+        ("text.db", "created_at TEXT", "'2026-08-29 14:57:27'"),
+        ("int.db", "created_at INTEGER", "1788016909"),
+    ] {
+        let db = dir.path().join(name);
+        let conn = rusqlite::Connection::open(&db).expect("open");
+        conn.execute_batch(&format!(
+            "CREATE TABLE memory_entries (
+                 key TEXT PRIMARY KEY, value TEXT NOT NULL,
+                 tier TEXT NOT NULL DEFAULT 'local',
+                 entry_type TEXT NOT NULL DEFAULT 'insight',
+                 {decl});
+             INSERT INTO memory_entries (key, value, tier, entry_type, created_at)
+             VALUES ('lesson:echo:probe', 'echo probe lesson', 'semantic',
+                     'lesson', {val});"
+        ))
+        .expect("schema+insert");
+        let hits = crate::cli::shared::memory_recall_sql(&db, "echo probe lesson");
+        assert_eq!(hits.len(), 1, "{name}: one row recalled");
+        let stored = hits[0].get("stored_at").unwrap_or_else(|| {
+            panic!("{name}: row must carry stored_at when created_at exists")
+        });
+        match name {
+            "text.db" => assert_eq!(
+                stored.as_str(),
+                Some("2026-08-29 14:57:27"),
+                "TEXT column passes through verbatim"
+            ),
+            _ => assert_eq!(
+                stored.as_i64(),
+                Some(1_788_016_909),
+                "INTEGER column passes through verbatim"
+            ),
+        }
+    }
+}
+/// Self-echo completion (2026-08-29): the RRF merge keeps the winning arm's
+/// object (ANN/TF-IDF rows have no `stored_at`), so the age must be
+/// backfilled at the choke point — by key, from the federated DBs, both
+/// column shapes, never overwriting an age already present and never
+/// inventing one for an unknown key.
+#[test]
+fn memory_backfill_stored_at_covers_scored_arms_and_never_overwrites() {
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let mut dbs = vec![];
+    for (name, decl, key, val) in [
+        ("text.db", "created_at TEXT", "ann:echo", "'2026-08-29 15:00:00'"),
+        ("int.db", "created_at INTEGER", "tfidf:echo", "1788016909"),
+    ] {
+        let db = dir.path().join(name);
+        let conn = rusqlite::Connection::open(&db).expect("open");
+        conn.execute_batch(&format!(
+            "CREATE TABLE memory_entries (
+                 key TEXT PRIMARY KEY, value TEXT NOT NULL, {decl});
+             INSERT INTO memory_entries (key, value, created_at)
+             VALUES ('{key}', 'v', {val});"
+        ))
+        .expect("schema+insert");
+        dbs.push(db);
+    }
+    // A DB without the column must contribute nothing (and not panic).
+    let bare = dir.path().join("bare.db");
+    rusqlite::Connection::open(&bare)
+        .expect("open")
+        .execute_batch("CREATE TABLE memory_entries (key TEXT PRIMARY KEY, value TEXT);")
+        .expect("schema");
+    dbs.push(bare);
+    let mut entries = vec![
+        serde_json::json!({"key": "ann:echo", "score": 0.42, "source": "ann"}),
+        serde_json::json!({"key": "tfidf:echo", "score": 0.33, "source": "tfidf:memory"}),
+        serde_json::json!({"key": "sql:kept", "stored_at": "keep-me"}),
+        serde_json::json!({"key": "ghost:unknown", "score": 0.9}),
+    ];
+    crate::cli::shared::memory_backfill_stored_at(&dbs, &mut entries);
+    assert_eq!(
+        entries[0]["stored_at"].as_str(),
+        Some("2026-08-29 15:00:00"),
+        "ANN-arm entry backfilled from the TEXT-shape DB"
+    );
+    assert_eq!(
+        entries[1]["stored_at"].as_i64(),
+        Some(1_788_016_909),
+        "TF-IDF-arm entry backfilled from the INTEGER-shape DB"
+    );
+    assert_eq!(
+        entries[2]["stored_at"].as_str(),
+        Some("keep-me"),
+        "an age already present is never overwritten"
+    );
+    assert!(
+        entries[3].get("stored_at").is_none(),
+        "unknown key: absence stays absent, never invented"
+    );
 }
 #[test]
 fn cli_ast_blast_diag_carries_source_snippet_when_file_readable() {
