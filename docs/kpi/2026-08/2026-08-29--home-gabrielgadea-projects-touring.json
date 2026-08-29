@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 5469.0,
+      "actual": 5445.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.8846153846153846,
+      "actual": 0.5,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 51.0,
+      "actual": 211.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 1058815.0,
+      "actual": 492031.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 27903.0,
+      "actual": 491775.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -187,18 +187,18 @@
       "threshold": 0.4
     },
     {
-      "actual": 0.4,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": 5.4,
+      "actual": 0.5,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -209,7 +209,7 @@
       "threshold": 0.1
     },
     {
-      "actual": 0.8536585365853658,
+      "actual": 0.8571428571428571,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
@@ -242,7 +242,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.40594059405940597,
+      "actual": 0.3559322033898305,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -253,14 +253,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.3333333333333333,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
       "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
       "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.75
     },
     {
@@ -275,7 +275,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 7.861111111111111,
+      "actual": 8.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
@@ -297,7 +297,7 @@
       "threshold": 2.0
     },
     {
-      "actual": 76.0,
+      "actual": 77.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -319,7 +319,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.013333333333333334,
+      "actual": 0.013157894736842105,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.zte_bypass_rate",
@@ -330,7 +330,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.5136612021857924,
+      "actual": 0.5157894736842106,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -341,7 +341,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.7827970297029703,
+      "actual": 0.770949720670391,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -352,7 +352,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.17773831073465624,
+      "actual": 0.1794354160357996,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -363,7 +363,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.17708333333333334,
+      "actual": 0.174403250380904,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -388,40 +388,40 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 215,
+      "exception": 232,
       "output-limit": 1,
       "proc-exit": 3,
-      "timeout": 75
+      "timeout": 85
     },
     "by_language": {
       "?": 1,
-      "bash": 1877,
+      "bash": 2144,
       "go": 1,
       "js": 43,
       "perl": 4,
       "php": 1,
-      "python": 1447,
+      "python": 1639,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 3140,
-    "runs_total": 3435,
+    "runs_ok": 3572,
+    "runs_total": 3894,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9141193595342066,
-    "wasted_attempts_retry_pairs": 171
+    "success_rate": 0.9173086800205444,
+    "wasted_attempts_retry_pairs": 188
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-08-29",
   "summary": {
-    "advisory": 8,
+    "advisory": 7,
     "failed": 0,
     "passed": 22,
     "regressions": 0,
-    "stub": 4,
+    "stub": 5,
     "total": 34
   }
 }
