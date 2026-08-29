@@ -427,10 +427,34 @@ pub fn cache_store(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Returns true iff `cargo-mutants` (or `cargo-mutants.exe`) is on PATH.
+/// Returns true iff `cargo-mutants` (or `cargo-mutants.exe`) is reachable the
+/// way `cargo` itself resolves external subcommands: on PATH, **or** in
+/// `$CARGO_HOME/bin` (default `~/.cargo/bin`), which cargo always consults.
+///
+/// The narrower PATH-only probe refused runs the executor would have
+/// completed: on 2026-08-28 a daemon spawned without the cargo dir on PATH
+/// answered `binary_not_found` while `cargo mutants` worked from every shell
+/// — the verifier must not see less than the executor.
 #[must_use]
 pub fn cargo_mutants_available() -> bool {
     which_in_path("cargo-mutants").is_some()
+        || cargo_home_bin()
+            .map(|bin| has_subcommand_in(&bin, "cargo-mutants"))
+            .unwrap_or(false)
+}
+
+/// `$CARGO_HOME/bin`, falling back to `~/.cargo/bin` — the directory cargo
+/// consults for external subcommands regardless of PATH.
+fn cargo_home_bin() -> Option<PathBuf> {
+    std::env::var_os("CARGO_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cargo")))
+        .map(|base| base.join("bin"))
+}
+
+/// True when `<bin_dir>/<name>` (or the `.exe` variant) exists as a file.
+fn has_subcommand_in(bin_dir: &Path, name: &str) -> bool {
+    bin_dir.join(name).is_file() || bin_dir.join(format!("{name}.exe")).is_file()
 }
 
 fn which_in_path(name: &str) -> Option<PathBuf> {
@@ -777,18 +801,49 @@ mod tests {
     fn ci_mock_no_cargo_mutants_returns_binary_not_found() {
         let dir = TempDir::new().unwrap();
         let original_path = std::env::var_os("PATH");
+        // The probe now also consults $CARGO_HOME/bin (the way cargo itself
+        // resolves subcommands), so the "absent" scenario must isolate BOTH
+        // lookups — on a dev machine ~/.cargo/bin/cargo-mutants exists and an
+        // empty PATH alone would still report available.
+        let original_cargo_home = std::env::var_os("CARGO_HOME");
         // SAFETY: tests with env mutation must not run in parallel with other
         // tests touching PATH; this one only checks our own helper.
         unsafe {
             std::env::set_var("PATH", dir.path());
+            std::env::set_var("CARGO_HOME", dir.path());
         }
         let available = cargo_mutants_available();
-        if let Some(p) = original_path {
-            // SAFETY: restore immediately to minimize cross-test contamination.
-            unsafe {
+        // SAFETY: restore immediately to minimize cross-test contamination.
+        unsafe {
+            if let Some(p) = original_path {
                 std::env::set_var("PATH", p);
             }
+            match original_cargo_home {
+                Some(v) => std::env::set_var("CARGO_HOME", v),
+                None => std::env::remove_var("CARGO_HOME"),
+            }
         }
-        assert!(!available, "expected cargo-mutants absent under empty PATH");
+        assert!(
+            !available,
+            "expected cargo-mutants absent under empty PATH + empty CARGO_HOME"
+        );
+    }
+
+    /// The pure half of the CARGO_HOME probe: a file named like the
+    /// subcommand (or its .exe variant) in the bin dir is found; an empty
+    /// dir is not. No env mutation — the env-resolving wrapper is covered
+    /// by `ci_mock_no_cargo_mutants_returns_binary_not_found`.
+    #[test]
+    fn cargo_home_bin_probe_finds_the_subcommand_file() {
+        let dir = TempDir::new().unwrap();
+        assert!(!has_subcommand_in(dir.path(), "cargo-mutants"));
+        std::fs::write(dir.path().join("cargo-mutants"), b"").unwrap();
+        assert!(has_subcommand_in(dir.path(), "cargo-mutants"));
+        let dir2 = TempDir::new().unwrap();
+        std::fs::write(dir2.path().join("cargo-mutants.exe"), b"").unwrap();
+        assert!(
+            has_subcommand_in(dir2.path(), "cargo-mutants"),
+            "the .exe variant must also be found"
+        );
     }
 }
