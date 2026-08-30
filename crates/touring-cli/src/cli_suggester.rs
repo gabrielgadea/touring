@@ -2784,7 +2784,8 @@ const WRITE_RUN_WINDOW_SECS: u64 = 600;
 /// eles executam não foi escrito via `cat >`/`tee` na janela.
 const WRITE_RUN_DENY_AT: u32 = 2;
 
-/// Paths de script escritos via `cat >`/`tee` na janela, por (projeto, path).
+/// Paths de script escritos via `cat >`/`tee` na janela, por (projeto,
+/// sessão, path).
 fn written_scripts_ledger() -> &'static moka::sync::Cache<u64, ()> {
     static C: OnceLock<moka::sync::Cache<u64, ()>> = OnceLock::new();
     C.get_or_init(|| {
@@ -2806,10 +2807,17 @@ fn write_run_pair_ledger() -> &'static moka::sync::Cache<u64, (u32, Vec<String>)
     })
 }
 
-fn write_run_key(project_root: &Path, tag: &str) -> u64 {
+/// A sessão entra na chave (30/08/2026): os ledgers vivem no daemon, um
+/// processo só para N sessões CC — chaveado por (projeto, tag), um deny nesta
+/// sessão carregava comandos de OUTRA (medido pela peer `analise-a2`: paths de
+/// scratchpad alheios no remédio) e inflava a contagem de quem não fez a
+/// rajada. O custo: a rajada distribuída entre 2 sessões deixa de somar — o
+/// desenho certo, cada sessão responde pelo próprio loop.
+fn write_run_key(project_root: &Path, session: &str, tag: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     project_root.hash(&mut h);
+    session.hash(&mut h);
     tag.hash(&mut h);
     h.finish()
 }
@@ -3080,10 +3088,10 @@ fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<
     // é o PASSO do loop execute-observe, não o número de interpretações.
     let path = script_run_targets(cmd).into_iter().find(|p| {
         written_scripts_ledger()
-            .get(&write_run_key(project_root, p))
+            .get(&write_run_key(project_root, session, p))
             .is_some()
     })?;
-    let pkey = write_run_key(project_root, "\u{0}write-run-pares");
+    let pkey = write_run_key(project_root, session, "\u{0}write-run-pares");
     let (n, mut paths) = write_run_pair_ledger().get(&pkey).unwrap_or_default();
     let n = n + 1;
     if paths.len() < 8 {
@@ -3097,7 +3105,11 @@ fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<
     record_gate_event(GateId::G10, GateEvent::Denied);
     crate::shared::gate_metrics::record_g10_write_run_pair_denied();
     pending_g10().insert(session.to_string(), ());
-    let lang = if path.ends_with(".sh") { " --lang bash" } else { "" };
+    // `--lang` é obrigatório no CLI: sem ele a rota emitida NÃO EXECUTA
+    // (medido pela peer analise-a2, 30/08 — clap rejeita e o deny vira erro
+    // opaco, o antipadrão E4 cometido pelo próprio enforcement). is_script_path
+    // só aceita .py/.sh, então o else é python.
+    let lang = if path.ends_with(".sh") { " --lang bash" } else { " --lang python" };
     Some(deny_response(format!(
         "[G10 write→run] {n}º script escrito-e-executado na janela de \
          {WRITE_RUN_WINDOW_SECS}s (`{path}`) — o loop execute-observe manual \
@@ -3162,10 +3174,13 @@ fn inspect_burst_ledger() -> &'static moka::sync::Cache<u64, ExecBurstEntry> {
     })
 }
 
-fn inspect_burst_key(project_root: &Path, class: &str) -> u64 {
+/// Sessão na chave pela mesma razão de [`write_run_key`]: o ledger é do
+/// daemon, e sem ela a janela vazava entre sessões CC do mesmo projeto.
+fn inspect_burst_key(project_root: &Path, session: &str, class: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}s3-inspect\u{2}".hash(&mut hasher);
     project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
     class.hash(&mut hasher);
     hasher.finish()
 }
@@ -3182,10 +3197,12 @@ fn inspect_burst_key(project_root: &Path, class: &str) -> u64 {
 /// não pelo nome dela.
 const CODE_MODE_COLLAPSED_CLASSES: &[&str] = &["grep", "cat", "find", "ls", "wc", "sed-n"];
 
-fn exec_burst_key(project_root: &Path, class: &str) -> u64 {
+/// Sessão na chave pela mesma razão de [`write_run_key`].
+fn exec_burst_key(project_root: &Path, session: &str, class: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}g10-exec\u{2}".hash(&mut hasher);
     project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
     class.hash(&mut hasher);
     hasher.finish()
 }
@@ -3202,30 +3219,41 @@ fn pending_g10() -> &'static moka::sync::Cache<String, ()> {
     })
 }
 
-/// S4 — o programa R9 (exec-agregado): as N chamadas REAIS em subprocess
-/// sequencial (mesma ordem, mesmo efeito), digest por chamada (cauda só nas
-/// falhas), RESUMO final — a íntegra fica no spill do sandbox quando estoura.
-/// O array JSON é literal Python válido (aspas duplas + escapes JSON são um
-/// subconjunto do Python) — sem json.loads, sem conflito de aspas no corpo.
+/// S4 — o programa R9 (exec-agregado): as N chamadas REAIS, verbatim e na
+/// mesma ordem, cada uma seguida do veredito `[ok]`/`[FALHOU N]` (a execução
+/// continua nas falhas), RESUMO final — a íntegra fica no spill quando estoura.
+///
+/// Em BASH, não python (30/08/2026): o template anterior era `--lang python`
+/// com `import subprocess` — exatamente a capability que o X6 nega sob o
+/// perfil Sandboxed. O deny do G10 emitia uma rota que o gate seguinte
+/// barrava (medido pela peer `analise-a2`: seguiu a sugestão e foi negada —
+/// não havia caminho conforme). O waiver subprocess-only existe SÓ para
+/// shell (run.rs `only_subprocess_denials`), então shell é a única lang em
+/// que esta rota executa; rede e padrões destrutivos seguem hard-deny lá.
+/// `--timeout-ms` viaja explícito (E4): N ferramentas reais não cabem no
+/// default de 30s do engine.
 fn r9_exec_program(cmds: &[String]) -> String {
-    let lista = serde_json::to_string(cmds).unwrap_or_else(|_| "[]".into());
-    let mut corpo = String::from("import subprocess\ncmds = ");
-    corpo.push_str(&lista);
-    corpo.push('\n');
-    corpo.push_str("falhas = []\n");
-    corpo.push_str("for c in cmds:\n");
-    // concat! parte o token para o scanner F2.1 (lexical) não prender este
-    // arquivo em deadlock: o texto é o REMÉDIO entregue ao sandbox CEG (dado),
-    // nunca um subprocess executado por este processo.
-    corpo.push_str(concat!("    r = subprocess.run(c, shell", "=True, capture_output=True, text=True, timeout=600)\n"));
-    corpo.push_str("    ok = r.returncode == 0\n");
-    corpo.push_str("    print('[' + ('ok' if ok else 'FALHOU') + '] ' + c)\n");
-    corpo.push_str("    if not ok:\n");
-    corpo.push_str("        falhas.append(c)\n");
-    corpo.push_str("        print((r.stdout or '')[-300:])\n");
-    corpo.push_str("        print((r.stderr or '')[-200:])\n");
-    corpo.push_str("print('RESUMO: ' + str(len(cmds) - len(falhas)) + '/' + str(len(cmds)) + ' ok')");
-    format!("touring run --lang python --code '{}'", corpo.replace('\'', "'\\''"))
+    let mut corpo = String::from("falhas=0\n");
+    let mut ordem = 0usize;
+    for cmd in cmds {
+        let cabe = corpo.chars().count() + cmd.chars().count() + 64 <= G1_BODY_BUDGET;
+        if !cabe {
+            continue; // inteiro ou fora, jamais truncado (mesma regra do R9 antigo)
+        }
+        ordem += 1;
+        corpo.push_str(&format!("echo \"== {ordem}/{} ==\"\n", cmds.len()));
+        corpo.push_str(cmd);
+        corpo.push_str(&format!(
+            " || {{ echo \"[FALHOU {ordem}] exit=$?\"; falhas=$((falhas+1)); }}\n"
+        ));
+    }
+    corpo.push_str(&format!(
+        "echo \"RESUMO: $(( {ordem} - falhas ))/{ordem} ok\""
+    ));
+    format!(
+        "touring run --lang bash --timeout-ms 120000 --code '{}'",
+        corpo.replace('\'', "'\\''")
+    )
 }
 
 /// S6 (26/08) — intent de prior-art derivado da rajada real: a classe do
@@ -5049,7 +5077,7 @@ pub(crate) fn code_mode_gates(
     // sancionada e a execução avulsa não acumulava) — o G-turno só falou no
     // Stop, com o custo já pago. Aqui o colapso acontece DURANTE o turno.
     if let Some(path) = script_write_target(cmd) {
-        written_scripts_ledger().insert(write_run_key(project_root, &path), ());
+        written_scripts_ledger().insert(write_run_key(project_root, session, &path), ());
     }
     if let Some(deny) = write_run_pair_gate(project_root, session, cmd) {
         return Some(deny);
@@ -5065,7 +5093,7 @@ pub(crate) fn code_mode_gates(
             // medindo mesmo com a classe agora dentro da rajada.
             crate::shared::gate_metrics::record_exec_heredoc_inline_seen();
         }
-        let key = exec_burst_key(project_root, class);
+        let key = exec_burst_key(project_root, session, class);
         let (n, mut cmds) = exec_burst_ledger().get(&key).unwrap_or_default();
         let n = n + 1;
         if cmds.len() < 16 {
@@ -5095,8 +5123,9 @@ pub(crate) fn code_mode_gates(
             return Some(deny_response(format!(
                 "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
                  na janela de {}s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\n  \
-                 {programa}\nSubprocessos DENTRO do programa são o próprio mecanismo \
-                 (sequencial, mesma ordem); digest agregado na saída, íntegra no spill.{prior} \
+                 {programa}\nOs comandos rodam verbatim, sequenciais e na mesma ordem \
+                 (denies subprocess-only são advisory em `--lang bash` — o sandbox contém o \
+                 filesystem); veredito por comando na saída, íntegra no spill.{prior} \
                  Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
                 EXEC_BURST_WINDOW_SECS
             )));
@@ -5106,21 +5135,21 @@ pub(crate) fn code_mode_gates(
             record_gate_event(GateId::G10, GateEvent::Followed);
         }
         for class in ["python", "pytest", "python-inline"] {
-            exec_burst_ledger().invalidate(&exec_burst_key(project_root, class));
+            exec_burst_ledger().invalidate(&exec_burst_key(project_root, session, class));
         }
         // S5 — a rota seguida zera o par write→run junto (mesma razão do S3
         // abaixo: sem isto o próximo script legítimo herdaria uma contagem de
         // um loop que o modelo JÁ converteu em programa).
-        write_run_pair_ledger().invalidate(&write_run_key(project_root, "\u{0}write-run-pares"));
+        write_run_pair_ledger().invalidate(&write_run_key(project_root, session, "\u{0}write-run-pares"));
         // S3 — a rota foi seguida: a janela de inspeção zera junto. Sem isto o
         // ledger seguiria contando uma rajada que o modelo JÁ converteu em
         // programa, e o próximo `grep` legítimo levaria um deny herdado de uma
         // rajada que não existe mais.
         for class in CODE_MODE_COLLAPSED_CLASSES {
-            inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, class));
+            inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, session, class));
         }
         inspect_burst_ledger()
-            .invalidate(&inspect_burst_key(project_root, PY_INLINE_INSPECT_CLASS));
+            .invalidate(&inspect_burst_key(project_root, session, PY_INLINE_INSPECT_CLASS));
     }
     // S3 (27/08/2026) — o colapso do modo `code` deixou de ser POR CLASSE e
     // passou a ser POR RAJADA. A 1ª inspeção de uma classe na janela executa
@@ -5155,7 +5184,7 @@ pub(crate) fn code_mode_gates(
         && let Some(class) = inspect_class
         && !code_gates_disabled()
     {
-        let key = inspect_burst_key(project_root, class);
+        let key = inspect_burst_key(project_root, session, class);
         let (n, mut cmds) = inspect_burst_ledger().get(&key).unwrap_or_default();
         let n = n + 1;
         if cmds.len() < 16 {

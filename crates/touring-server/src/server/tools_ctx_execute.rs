@@ -15,8 +15,11 @@ impl TouringServer {
     ///
     /// Supports: js/node, python, ts/bun, ruby, go, rust, perl, r, elixir, php, shell/bash, sh.
     ///
-    /// Forbidden calls are blocked (fs.write*, subprocess.run, eval, etc.) and returned
-    /// in `forbidden_calls` array.
+    /// Forbidden calls (fs.write*, subprocess.run, eval, etc.) are detected and returned
+    /// in the `forbidden_calls` array. By default they WARN (a `[CEG WARNING]` stderr
+    /// banner) and the run proceeds; `TOURING_CEG_FORBIDDEN_ENFORCE=1` upgrades the
+    /// policy to Block. Saying "blocked" here while the executor warned was the D8
+    /// text-vs-executor drift the analise-a2 field report caught (30/08/2026).
     ///
     /// Output is truncated at 1MB. Timeout defaults to 30s, max 120s.
     #[tool(

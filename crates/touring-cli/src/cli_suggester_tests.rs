@@ -2288,9 +2288,9 @@ mod code_mode_gates_w1 {
             write_run_key, write_run_pair_gate, written_scripts_ledger,
         };
         let root = std::path::Path::new("/tmp/s5-par-teste-isolado");
-        // Simula as escritas: 2 scripts registrados na janela.
+        // Simula as escritas: 2 scripts registrados na janela DESTA sessão.
         for p in ["/tmp/s5/a.py", "/tmp/s5/b.py"] {
-            written_scripts_ledger().insert(write_run_key(root, p), ());
+            written_scripts_ledger().insert(write_run_key(root, "sess-s5", p), ());
         }
         let d1 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/a.py");
         assert!(d1.is_none(), "1º par passa (criar e testar UM script é legítimo)");
@@ -2303,14 +2303,34 @@ mod code_mode_gates_w1 {
         )
         .expect("2º par nega");
         assert!(deny.contains("write→run"), "deny nomeia o gate: {deny}");
+        // 30/08: a rota carrega `--lang` — sem ele o clap rejeita e o remédio
+        // não executa (E4 cometido pelo enforcement, medido pela analise-a2).
         assert!(
-            deny.contains("touring run --file /tmp/s5/b.py"),
-            "o remédio é o PRÓPRIO script, sem reescrita: {deny}"
+            deny.contains("touring run --lang python --file /tmp/s5/b.py"),
+            "o remédio é o PRÓPRIO script, com --lang executável: {deny}"
         );
         // Um script que NÃO foi escrito na janela nunca conta como par.
         assert!(
             write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/alheio.py").is_none()
         );
+    }
+
+    #[test]
+    fn s5_janela_do_par_nao_vaza_entre_sessoes() {
+        use super::super::{write_run_key, write_run_pair_gate, written_scripts_ledger};
+        // O ledger vive no daemon (um processo para N sessões CC): sem a
+        // sessão na chave, o script escrito pela sessão A virava par na
+        // sessão B — contagem inflada + remédio com path alheio (medido pela
+        // peer analise-a2, 30/08). Mutação que este teste mata: remover
+        // `session` de write_run_key.
+        let root = std::path::Path::new("/tmp/s5-cross-sessao");
+        written_scripts_ledger().insert(write_run_key(root, "sess-A", "/tmp/s5x/c.py"), ());
+        for _ in 0..3 {
+            assert!(
+                write_run_pair_gate(root, "sess-B", "python3 /tmp/s5x/c.py").is_none(),
+                "execução na sessão B nunca casa com escrita da sessão A"
+            );
+        }
     }
 
     #[test]
@@ -2335,25 +2355,35 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
-    fn g10_programa_r9_agrega_as_chamadas_reais_em_python_valido() {
+    fn g10_programa_r9_agrega_as_chamadas_reais_em_bash_executavel() {
         use super::super::r9_exec_program;
         let cmds = vec![
             "pytest tests/test_a.py -x".to_string(),
             "pytest tests/test_b.py -x".to_string(),
-            "python3 -c 'nao-entra-mas-aspas-sobrevivem'".to_string(),
+            "python3 -c 'aspas-sobrevivem'".to_string(),
         ];
         let p = r9_exec_program(&cmds);
-        assert!(p.starts_with("touring run --lang python --code '"));
+        // 30/08: o R9 é BASH — o template python com `import subprocess` era
+        // exatamente a capability que o X6 nega sob Sandboxed: o deny do G10
+        // emitia uma rota que o gate seguinte barrava (medido pela peer
+        // analise-a2 — não havia caminho conforme). Bash é a única lang com o
+        // waiver subprocess-only; `--timeout-ms` viaja explícito (E4).
+        assert!(
+            p.starts_with("touring run --lang bash --timeout-ms 120000 --code '"),
+            "{p}"
+        );
         assert!(p.ends_with('\''));
+        assert!(
+            !p.contains("subprocess"),
+            "a rota emitida não pode depender da capability que o X6 nega: {p}"
+        );
         for c in &cmds {
-            // o comando viaja como literal JSON (aspas duplas) — Python válido
-            // — COM o escape do embrulho shell aplicado por cima (o bash
-            // desfaz na entrega; o Python recebe a aspa original)
-            let literal = serde_json::to_string(c).unwrap().replace('\'', "'\\''");
+            // o comando viaja VERBATIM, com o escape do embrulho shell por
+            // cima (o bash externo desfaz na entrega)
+            let literal = c.replace('\'', "'\\''");
             assert!(p.contains(&literal), "faltou {literal} no programa");
         }
-        // aspas simples do corpo escapadas para o embrulho do shell
-        assert!(p.contains("'\\''ok'\\''"), "escape do corpo: {p}");
+        assert!(p.contains("FALHOU"), "veredito por comando: {p}");
         assert!(p.contains("RESUMO"), "digest agregado: {p}");
     }
 
@@ -2376,10 +2406,15 @@ mod code_mode_gates_w1 {
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
         let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
-        assert!(reason.contains("touring run --lang python --code '"), "{reason}");
+        // 30/08: o R9 é bash verbatim (o template python+subprocess era negado
+        // pelo próprio X6 — rota inexecutável).
+        assert!(
+            reason.contains("touring run --lang bash --timeout-ms 120000 --code '"),
+            "{reason}"
+        );
         for i in 1..=5 {
-            let literal = serde_json::to_string(&format!("pytest tests/test_{i}.py -x")).unwrap();
-            assert!(reason.contains(&literal), "programa sem a chamada {i}: {reason}");
+            let verbatim = format!("pytest tests/test_{i}.py -x");
+            assert!(reason.contains(&verbatim), "programa sem a chamada {i}: {reason}");
         }
         // ledger zerado após o deny: a próxima rajada recomeça do zero
         assert!(
@@ -2514,7 +2549,10 @@ mod code_mode_gates_w1 {
         unsafe { std::env::remove_var("TOURING_PORTFOLIO_DIR") };
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
-        assert!(reason.contains("touring run --lang python --code '"), "R9 presente: {reason}");
+        assert!(
+            reason.contains("touring run --lang bash --timeout-ms 120000 --code '"),
+            "R9 presente: {reason}"
+        );
         assert!(reason.contains("prior art"), "prior art presente: {reason}");
         assert!(reason.contains("python3 ~/x/rodar_suite.py --fast"), "instanciado: {reason}");
     }

@@ -921,18 +921,35 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u1
                 );
                 Ok(Some(advisory))
             }
-            Verdict::Deny => anyhow::bail!(
-                "the CEG gateway denied this run (composite {:.2}): {}. Adjust the code, \
-                 or rerun with --allow-forbidden for the trusted profile if the operation \
-                 is intentionally privileged.",
-                outcome.decision.composite_score,
-                outcome
-                    .decision
-                    .reasons
-                    .first()
-                    .map(String::as_str)
-                    .unwrap_or("hard block fired")
-            ),
+            Verdict::Deny => {
+                // A5: the deny names the conforming route back. A code-language
+                // subprocess-only deny reaching this arm means the SAME work
+                // would run under `--lang bash`, where this class is waived
+                // (the sandbox contains the filesystem) — measured by the
+                // analise-a2 field report (30/08): without the hint the model
+                // had no conforming path for external-tool work and fell back
+                // to counted bypasses.
+                let hint = if only_subprocess_denials(&outcome.decision) {
+                    " The subprocess class is waived under `--lang bash` (Landlock \
+                     contains the filesystem): rerun the same work as `touring run \
+                     --lang bash --code '<the commands>' --timeout-ms <ms>`. Network \
+                     and destructive patterns stay denied in every language."
+                } else {
+                    ""
+                };
+                anyhow::bail!(
+                    "the CEG gateway denied this run (composite {:.2}): {}.{hint} Adjust \
+                     the code, or rerun with --allow-forbidden for the trusted profile \
+                     if the operation is intentionally privileged.",
+                    outcome.decision.composite_score,
+                    outcome
+                        .decision
+                        .reasons
+                        .first()
+                        .map(String::as_str)
+                        .unwrap_or("hard block fired")
+                )
+            }
             _ => Ok(None),
         },
         Err(e) => {
