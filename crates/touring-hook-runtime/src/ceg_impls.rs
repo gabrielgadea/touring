@@ -253,9 +253,38 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
             // ambiguous with an old daemon ("absence has two causes"). Each
             // element teaches the fix: reason names the 7 canonical facets,
             // `suggestion` the closest one.
+            //
+            // Contract P3: for the curated kinds (semantic lesson/decision/
+            // diagnostico) the response also carries the ADVISORY contract
+            // scorecard — links are usually created in the same batch right
+            // AFTER the store, so `linked`/`provenance` false here is the
+            // nudge to do it now, never a veto (the enforcement ladder starts
+            // at advisory + KPI; a gate born blocking becomes a routed-around
+            // gate).
+            let contract = (tier == "semantic"
+                && matches!(entry_type, "lesson" | "decision" | "diagnostico"))
+            .then(|| {
+                use touring_intelligence::rl::memory::tags;
+                let (linked, provenance) = rusqlite::Connection::open(&memory_db_path)
+                    .ok()
+                    .and_then(|conn| tags::fetch_links(&conn, key).ok())
+                    .map(|links| {
+                        let prov = links.iter().any(|l| l.rel == tags::LinkRel::GeneratedBy);
+                        (!links.is_empty(), prov)
+                    })
+                    .unwrap_or((false, false));
+                serde_json::json!({
+                    "key_shape": tags::key_shape_ok(key),
+                    "faceted": !parsed.explicit_tags.is_empty()
+                        && ignored_tags.len() < parsed.explicit_tags.len(),
+                    "linked": linked,
+                    "provenance": provenance,
+                })
+            });
             serde_json::json!(
                 { "key" : key, "tier" : tier, "type" : entry_type, "status" : "stored", "ann_indexed" : ann_indexed,
-                  "ignored_facets" : ignored_tags.iter().map(|t| t.to_json()).collect::<Vec<_>>() }
+                  "ignored_facets" : ignored_tags.iter().map(|t| t.to_json()).collect::<Vec<_>>(),
+                  "contract" : contract }
             )
                 .to_string()
         }
