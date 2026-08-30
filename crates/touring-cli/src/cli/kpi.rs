@@ -336,12 +336,18 @@ fn graph_contract_share(project_root: &Path) -> Option<f64> {
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
     )
     .ok()?;
+    // Cross-audit 2026-08-30 (F-1): the contract governs kinds by FACET
+    // (clause 3), so the filter reads memory_tags — the governed vocabulary —
+    // never entry_type (a legacy field that diverges: ~39 semantic nodes
+    // carried a curated facet with a different entry_type when measured).
+    // auto-derive maps entry_type→kind facet, so this is a strict superset.
     let keys: Vec<String> = conn
         .prepare(
-            "SELECT key FROM memory_entries
-             WHERE tier = 'semantic'
-               AND entry_type IN ('lesson','decision','diagnostico')
-               AND created_at >= datetime('now','-14 days')",
+            "SELECT DISTINCT e.key FROM memory_entries e
+             JOIN memory_tags t ON t.entry_key = e.key
+             WHERE e.tier = 'semantic'
+               AND t.full_tag IN ('kind:lesson','kind:decision','kind:diagnostico')
+               AND e.created_at >= datetime('now','-14 days')",
         )
         .ok()?
         .query_map([], |r| r.get(0))
@@ -1428,6 +1434,47 @@ pub fn actuator_signals() -> (Option<f64>, Option<bool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Cross-audit 2026-08-30 (F-1) — o contrato do grafo governa kinds por
+    /// FACETA (cláusula 3), então o KPI filtra por memory_tags, nunca por
+    /// entry_type (medido: nós semantic com `kind:decision` na faceta e
+    /// entry_type legado ficavam invisíveis). Mutação que mata: reverter o
+    /// filtro para `entry_type IN (...)`.
+    #[test]
+    fn graph_contract_share_counts_by_facet_not_entry_type() {
+        let dir = std::env::temp_dir().join(format!("kpi-gcs-{}", std::process::id()));
+        let db_dir = dir.join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("tempdir");
+        let conn = rusqlite::Connection::open(db_dir.join("memory.db")).expect("open");
+        conn.execute_batch(
+            "CREATE TABLE memory_entries (key TEXT PRIMARY KEY, tier TEXT,
+                 entry_type TEXT, created_at TEXT);
+             CREATE TABLE memory_tags (entry_key TEXT, full_tag TEXT);
+             CREATE TABLE memory_links (id TEXT PRIMARY KEY, src TEXT, dst TEXT,
+                 rel TEXT, created_at TEXT DEFAULT (datetime('now')));
+             -- curado PELA FACETA, entry_type legado, COM aresta e key ok
+             INSERT INTO memory_entries VALUES
+                 ('lesson:facetado:2026-08-30','semantic','text',datetime('now'));
+             INSERT INTO memory_tags VALUES ('lesson:facetado:2026-08-30','kind:lesson');
+             INSERT INTO memory_links VALUES ('e1','lesson:facetado:2026-08-30','x',
+                 'generated-by',datetime('now'));
+             -- curado pela faceta, SEM aresta (conta no denominador, não no numerador)
+             INSERT INTO memory_entries VALUES
+                 ('decisao:orfa:2026-08-30','semantic','text',datetime('now'));
+             INSERT INTO memory_tags VALUES ('decisao:orfa:2026-08-30','kind:decision');
+             -- não-curado: fora das duas contagens
+             INSERT INTO memory_entries VALUES
+                 ('outcome:bash:x','episodic','outcome',datetime('now'));",
+        )
+        .expect("seed");
+        drop(conn);
+        assert_eq!(
+            super::graph_contract_share(&dir),
+            Some(0.5),
+            "1 de 2 nós curados-por-faceta cumpre chave+aresta"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     /// F2 ADW (28/08/2026) — o KPI lê o formato que o PRODUTOR grava:
     /// `plan_refine.py` escreve `{version, iterations: […]}`, e só o array cru

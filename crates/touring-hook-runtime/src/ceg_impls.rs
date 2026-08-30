@@ -261,9 +261,18 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
             // nudge to do it now, never a veto (the enforcement ladder starts
             // at advisory + KPI; a gate born blocking becomes a routed-around
             // gate).
-            let contract = (tier == "semantic"
-                && matches!(entry_type, "lesson" | "decision" | "diagnostico"))
-            .then(|| {
+            // Cross-audit 2026-08-30 (F-1): curated-kind detection reads the
+            // FACET vocabulary too — a store carrying `#kind:decision` with a
+            // default entry_type is exactly as curated as `--type decision`
+            // (the contract governs by facet; entry_type is the legacy field).
+            let curated_kind = matches!(entry_type, "lesson" | "decision" | "diagnostico")
+                || parsed.explicit_tags.iter().any(|t| {
+                    matches!(
+                        t.trim().trim_start_matches('#'),
+                        "kind:lesson" | "kind:decision" | "kind:diagnostico"
+                    )
+                });
+            let contract = (tier == "semantic" && curated_kind).then(|| {
                 use touring_intelligence::rl::memory::tags;
                 let (linked, provenance) = rusqlite::Connection::open(&memory_db_path)
                     .ok()
