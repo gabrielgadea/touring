@@ -541,6 +541,61 @@ pub fn cli_memory_link(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
 /// Lists the 1-hop link neighbourhood of a memory (`touring memory links <key>`).
 pub fn cli_memory_links(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     use touring_intelligence::rl::memory::tags;
+    // P5 (graph contract, 2026-08-30): `suggest: true` returns DERIVED edge
+    // candidates from durable co-service — pairs the recall keeps serving
+    // together that no typed edge connects yet. Suggestion only, never an
+    // automatic write (the enforcement ladder measures before it acts);
+    // every row carries the exact apply command (the nudge delivers the
+    // program, never an exhortation).
+    if payload.get("suggest").and_then(serde_json::Value::as_bool) == Some(true) {
+        let min_co = payload
+            .get("min_co")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(3) as i64;
+        let limit = payload
+            .get("limit")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(20) as i64;
+        let result = open_tagged_memory_db(rt).and_then(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT c.a, c.b, c.count FROM memory_coserved c
+                 WHERE c.count >= ?1
+                   AND NOT EXISTS (SELECT 1 FROM memory_links l
+                                   WHERE (l.src = c.a AND l.dst = c.b)
+                                      OR (l.src = c.b AND l.dst = c.a))
+                 ORDER BY c.count DESC, c.pair LIMIT ?2",
+            )?;
+            let rows = stmt.query_map(rusqlite::params![min_co, limit], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                ))
+            })?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()
+        });
+        return match result {
+            Ok(pairs) => serde_json::json!({
+                "min_co": min_co,
+                "count": pairs.len(),
+                "suggestions": pairs.iter().map(|(a, b, n)| serde_json::json!({
+                    "a": a, "b": b, "co_served": n,
+                    "rel": "relates-to", "derived": true,
+                    "apply": format!("touring memory link {a} {b} --rel relates-to"),
+                })).collect::<Vec<_>>(),
+            })
+            .to_string(),
+            Err(e) if e.to_string().contains("no such table") => serde_json::json!({
+                "min_co": min_co, "count": 0, "suggestions": [],
+                "note": "no co-service recorded yet — memory_coserved is \
+                         written by every recall from this build on",
+            })
+            .to_string(),
+            Err(e) => {
+                serde_json::json!({ "error": format!("suggest-links failed: {e}") }).to_string()
+            }
+        };
+    }
     let key = payload.get("key").and_then(|v| v.as_str()).unwrap_or("");
     if key.is_empty() {
         return serde_json::json!({ "error": "key is required" }).to_string();

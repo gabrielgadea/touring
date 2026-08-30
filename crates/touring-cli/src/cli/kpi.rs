@@ -373,6 +373,38 @@ fn graph_contract_share(project_root: &Path) -> Option<f64> {
     Some(ok as f64 / keys.len() as f64)
 }
 
+/// P5 (graph contract, 2026-08-30): typed edges created per new memory entry
+/// (14-day window) — the ruler that decides when derived suggestions may ever
+/// become automatic. `None` = STUB when the window has no new entries.
+fn memory_edge_density(project_root: &Path) -> Option<f64> {
+    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
+    let conn = rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .ok()?;
+    let entries: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM memory_entries
+             WHERE created_at >= datetime('now','-14 days')",
+            [],
+            |r| r.get(0),
+        )
+        .ok()?;
+    if entries <= 0 {
+        return None;
+    }
+    let edges: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM memory_links
+             WHERE created_at >= datetime('now','-14 days')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    Some(edges as f64 / entries as f64)
+}
+
 fn default_commitments_path() -> PathBuf {
     // Canonical source tree first: the workspace moved from `~/.claude/rust`
     // to `~/projects/touring` (F4′, 24/07/2026), so the old preferred path
@@ -714,6 +746,7 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
         "memory_corpus_coverage" => memory_corpus_coverage(&rt.project_root),
         "memory_curated_recall_share" => memory_curated_recall_share(&rt.project_root),
         "memory_graph_contract_share" => graph_contract_share(&rt.project_root),
+        "memory_edge_density" => memory_edge_density(&rt.project_root),
         "memory_never_recalled_ratio" => memory_never_recalled_ratio(&rt.project_root),
         // F6.4 (ADW plan 2026-07-19) — the software-factory KPI family. All are
         // file-derived from per-project artifacts the ADW stack already writes;
