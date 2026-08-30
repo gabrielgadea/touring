@@ -99,6 +99,22 @@ depois de série durável — o gate que nasce bloqueando vira rota contornada.
   `#kind:lesson #classe:x` devolve o nó certo sempre que o valor aparece no
   corpo. É por isso que o defeito sobreviveu meses; um teste só desse caso
   nunca o pegaria. O erro-que-ensina do P1 cobre também a consulta.
+- **Classe nomeada: `veredito-e-predicado-desalinhados`** (30/08, proposta
+  da peer após o 4º caso em 2 dias entre as duas sessões). Definição: o
+  veredito mora num campo e o texto/predicado/leitor consome OUTRO — o
+  sistema aceita, mede ou instrui pelo campo errado e o defeito sobrevive
+  porque cada metade está "certa" isolada. Casos medidos: (1) `quality_gold`
+  mandava subir `composite` quando quem reprova é `blockers`; (2) F-1 — KPI
+  e advisory julgavam kind por `entry_type` onde a cláusula 3 governa por
+  faceta; (3) o leitor do `ignored_facets` da peer colapsava chave-ausente /
+  array-vazio / não-JSON num só silêncio; (4) o auditor dela media a GRAFIA
+  (`memory\s+store` casando "in-memory store") onde o fato é sintático.
+  **Remédio institucional** (não boa vontade): guard cruzado D8 — um teste
+  lê o predicado DO EXECUTOR e exige que a declaração/mensagem/leitor case
+  com ele, mais um teste de mutação que mata a reversão para o campo errado
+  (padrão dos fixes `d1b0455` e `03ff709`). Ao encontrar instância nova:
+  registrar com esta classe (`#domain:` do subsistema + corpo citando
+  `veredito-e-predicado-desalinhados`), nunca só o incidente.
 - **Executor de referência existe**: `~/projects/analise/scripts/memoria/`
   `grafo_memoria.py` deriva as 7 cláusulas no construtor (36 testes, cada um
   nomeando a mutação que mata) e implementa o P1.5 (supersede lê
