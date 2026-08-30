@@ -367,3 +367,20 @@ commitments:
     advisory: false
     source: "daemon:cli-memory-stats:/tag_coverage"
     rationale: "The hashtag library only compounds when entries are faceted — an untagged entry is invisible to `#facet:value` filters and MOC communities. Backfilled to 1.0 on 2026-08-12 (7.393/7.393); every store path auto-tags since F1, so a fall below 0.9 means a write path is bypassing derivation (or the codetag sync silently broke)."
+
+  # ─── Validade de medição (analise-e0, 2026-08-30) ─────────────────────────────
+  # Fração das medições registradas que verificaram ao menos uma RELAÇÃO METAMÓRFICA
+  # e não a violaram. Nasce de `data/medicao_journal.jsonl` no projeto `analise`, no
+  # mesmo molde em que `code_mode_adherence` nasce do `run_journal`.
+  # Motivo: em 30/08/2026, 44,4% dos instrumentos ad-hoc de uma sessão não declaravam
+  # controle algum, e onze vereditos falsos saíram deles num único dia. Nenhuma
+  # garantia do stack tem o instrumento ad-hoc como objeto: `touring-quality` mede
+  # higiene, `judge_attest` mede IDENTIDADE do juiz, `eficacia_gates` mede gates.
+  # Abaixo de n=20 o produtor emite `value: null` — STUB com causa, jamais zero.
+  - id: touring.medicao.adherence
+    name: "Measurement adherence (metamorphic relations verified)"
+    threshold: 0.8
+    direction: gte
+    advisory: true
+    source: "external:cd ~/projects/analise && python3 -m scripts.medicao.adherence --emit docs/kpi/external/touring.medicao.adherence.json # → docs/kpi/external/touring.medicao.adherence.json"
+    rationale: "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado."
