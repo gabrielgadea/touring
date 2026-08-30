@@ -86,6 +86,25 @@ depois de série durável — o gate que nasce bloqueando vira rota contornada.
   sobre valor não-único é ambíguo entre faceta casada e fallback textual
   (`*` NÃO é wildcard — cai para busca de texto). A prova exige valor único +
   controle negativo (faceta absurda → 0) + controle positivo na mesma sonda.
+- **A leitura de volta é TERNÁRIA, não binária** (da peer, 30/08, pago em
+  produção no executor dela): verificar por UMA faceta larga devolve
+  `total=33, shown=10` — a chave pode estar entre as 23 não exibidas, e
+  "não achei na página" ≠ "não está lá". Correções que o P1 herda: a
+  consulta de verificação é **conjuntiva com todas as facetas do nó**
+  (estreita antes da paginação) e o veredito tem 3 estados —
+  achou / não-está / truncado-inconclusivo (aviso, nunca exceção). Um
+  `ignored_facets` binário nasceria com o mesmo defeito.
+- **Faceta desconhecida em consulta mista acerta por acidente** (da peer,
+  medido): com duas facetas, a conhecida FILTRA e a desconhecida vira texto —
+  `#kind:lesson #classe:x` devolve o nó certo sempre que o valor aparece no
+  corpo. É por isso que o defeito sobreviveu meses; um teste só desse caso
+  nunca o pegaria. O erro-que-ensina do P1 cobre também a consulta.
+- **Executor de referência existe**: `~/projects/analise/scripts/memoria/`
+  `grafo_memoria.py` deriva as 7 cláusulas no construtor (36 testes, cada um
+  nomeando a mutação que mata) e implementa o P1.5 (supersede lê
+  `memory links` do antigo e recria no novo, idempotente). Corpus P2 medido:
+  bucket-0 foi de 0 → 7 nós; 27 de 31 gravadores seguem ilhas — o conjunto
+  positivo/negativo para calibrar o rank key quando o P2 for aprovado.
 
 ## Regras de uso imediato (valem já, sem esperar as fases)
 
