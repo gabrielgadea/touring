@@ -1510,11 +1510,27 @@ mod tests {
             super::deny_class_hint(&decisao(vec!["subprocess", "environment"], false))
                 .contains("sys.executable")
         );
-        // NOTA: o ARM inteiro não é unit-testável para esta classe — o
-        // veredito de `environment` depende do composite (histórico neutro
-        // do stub → Allow; produção com histórico vivo → Deny, medido pela
-        // analise-a2 na 30.4.26). A prova do arm é comportamental,
-        // pós-propagação.
+        // O ARM não é unit-testável para esta classe — o veredito de
+        // `environment` depende do composite (histórico neutro do stub →
+        // Allow; produção com histórico vivo → Deny, medido pela analise-a2
+        // na 30.4.26). A prova do arm é comportamental, pós-propagação.
+        // Mas a DISCREPÂNCIA em si é contrato (método da peer, 30/08): o
+        // stub devolvendo Allow é ASSERIDO — no dia em que ele passar a
+        // negar, este teste falha como SINAL (o arm talvez tenha virado
+        // determinístico e o teste do arm pode voltar), em vez de o
+        // comportamento mudar em silêncio.
+        let stub_verdict = super::gate_run(
+            "python",
+            "import os\nprint(os.environ.get(\"PYTHONPATH\"))\n",
+            false,
+            &[],
+        );
+        assert!(
+            matches!(stub_verdict, Ok(None)),
+            "o stub com histórico neutro permite env-read (a produção nega); \
+             se isto falhou, o arm virou determinístico — reavalie o teste \
+             do arm: {stub_verdict:?}"
+        );
     }
 
     /// 30/08/2026, ordem de Gabriel: o waiver subprocess-only vale em TODA
