@@ -101,6 +101,12 @@ pub struct CommitmentCheck {
     /// Whether this commitment is advisory (missed threshold → `ADVISORY`,
     /// excluded from the `--check` failure gate).
     pub advisory: bool,
+    /// Why an `external:` STUB has no value — never-measured, stale, or
+    /// malformed, each named with its remedy. `None` for non-external sources
+    /// or when a value resolved: "measured and failed" (FAIL) must never be
+    /// confusable with "nobody measured" (a bare STUB).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stub_reason: Option<String>,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -555,6 +561,7 @@ fn check_one(rt: &mut HookRuntime, c: &Commitment, external_dir: &std::path::Pat
         status,
         rationale: c.rationale.clone(),
         advisory: c.advisory,
+        stub_reason: external_stub_reason(kind, actual, external_dir, &c.id),
     }
 }
 
@@ -602,17 +609,89 @@ const EXTERNAL_STALE_SECS: u64 = 14 * 24 * 3600;
 /// Missing, stale or malformed → `None` (STUB): an unrecorded measurement is
 /// unknown, never zero.
 fn resolve_external(external_dir: &std::path::Path, id: &str) -> Option<f64> {
-    let path = external_dir.join(format!("{id}.json"));
-    let meta = std::fs::metadata(&path).ok()?;
-    if let Ok(modified) = meta.modified()
-        && let Ok(age) = modified.elapsed()
-        && age.as_secs() > EXTERNAL_STALE_SECS
-    {
-        return None;
+    resolve_external_detailed(external_dir, id).ok()
+}
+
+/// Why an `external:` commitment resolved to no value. The three causes have
+/// three different remedies, so the dashboard names which one it is instead
+/// of a bare STUB — otherwise "nobody measured" is indistinguishable from
+/// "measured long ago", the very silence that kept `test.count` /
+/// `coverage.line` STUB until 2026-08-28 (see [`resolve_external`]'s history).
+#[derive(Debug, PartialEq)]
+enum ExternalStub {
+    /// No measurement file on disk — declared in the contract, never fed.
+    Missing,
+    /// A measurement exists but is older than [`EXTERNAL_STALE_SECS`].
+    Stale { days: u64 },
+    /// The file exists and is fresh but carries no numeric `value` field.
+    Malformed,
+}
+
+impl ExternalStub {
+    /// The message teaches the remedy (A5): each cause names its own fix and
+    /// the exact drop path, so the operator acts without reading this file.
+    fn teach(&self, id: &str) -> String {
+        match self {
+            Self::Missing => format!(
+                "never measured — run the `source` command and drop docs/kpi/external/{id}.json with a numeric `value` field"
+            ),
+            Self::Stale { days } => format!(
+                "stale — measured {days}d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/{id}.json"
+            ),
+            Self::Malformed => format!(
+                "malformed — docs/kpi/external/{id}.json exists but has no numeric `value` field"
+            ),
+        }
     }
-    let raw = std::fs::read_to_string(&path).ok()?;
-    let v: Value = serde_json::from_str(&raw).ok()?;
-    v.pointer("/value").and_then(json_value_as_f64)
+}
+
+/// Pure verdict over the gathered facts (file age + raw content) — testable
+/// without a filesystem, the same shape as [`adherence_from_lines`].
+fn external_verdict(age_secs: u64, raw: Option<&str>) -> Result<f64, ExternalStub> {
+    if age_secs > EXTERNAL_STALE_SECS {
+        return Err(ExternalStub::Stale {
+            days: age_secs / 86_400,
+        });
+    }
+    let raw = raw.ok_or(ExternalStub::Missing)?;
+    serde_json::from_str::<Value>(raw)
+        .ok()
+        .and_then(|v| v.pointer("/value").and_then(json_value_as_f64))
+        .ok_or(ExternalStub::Malformed)
+}
+
+fn resolve_external_detailed(
+    external_dir: &std::path::Path,
+    id: &str,
+) -> Result<f64, ExternalStub> {
+    let path = external_dir.join(format!("{id}.json"));
+    let Ok(meta) = std::fs::metadata(&path) else {
+        return Err(ExternalStub::Missing);
+    };
+    // An unreadable mtime counts as fresh — staleness only fires when the
+    // clock could actually be read (the pre-refactor behavior).
+    let age_secs = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.elapsed().ok())
+        .map_or(0, |d| d.as_secs());
+    let raw = std::fs::read_to_string(&path).ok();
+    external_verdict(age_secs, raw.as_deref())
+}
+
+/// The `stub_reason` wiring for [`check_one`], kept pure so a test reaches it
+/// without a `HookRuntime`: only an `external:` source that resolved to no
+/// value carries a reason.
+fn external_stub_reason(
+    kind: &str,
+    actual: Option<f64>,
+    external_dir: &std::path::Path,
+    id: &str,
+) -> Option<String> {
+    (kind == "external" && actual.is_none())
+        .then(|| resolve_external_detailed(external_dir, id))
+        .and_then(Result::err)
+        .map(|s| s.teach(id))
 }
 
 /// Resolves a `derived:<name>` KPI — a value computed from already-collected
@@ -1849,6 +1928,7 @@ mod tests {
             status,
             rationale: String::new(),
             advisory: false,
+            stub_reason: None,
         }
     }
     #[test]
@@ -1935,6 +2015,61 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
+    /// The three STUB causes are distinguishable facts with distinct remedies
+    /// (analise-e0 review, 30/08/2026): "nobody measured" must never be
+    /// confusable with "measured long ago" or "recorded wrong".
+    #[test]
+    fn an_external_stub_names_its_cause_and_the_remedy() {
+        assert_eq!(external_verdict(0, Some("{\"value\": 3.5}")), Ok(3.5));
+        assert_eq!(
+            external_verdict(0, None),
+            Err(ExternalStub::Missing),
+            "unreadable content is an unknown, never zero"
+        );
+        assert_eq!(
+            external_verdict(EXTERNAL_STALE_SECS + 86_400, Some("{\"value\": 1.0}")),
+            Err(ExternalStub::Stale { days: 15 }),
+            "a stale value must not masquerade as current even when parseable"
+        );
+        assert_eq!(
+            external_verdict(0, Some("{\"measured_at\": \"2026-08-28\"}")),
+            Err(ExternalStub::Malformed)
+        );
+        // The message carries the remedy and the exact drop path (A5) — the
+        // operator acts on the dashboard line alone.
+        let m = ExternalStub::Missing.teach("touring.test.count");
+        assert!(
+            m.contains("never measured")
+                && m.contains("docs/kpi/external/touring.test.count.json"),
+            "got: {m}"
+        );
+        let s = ExternalStub::Stale { days: 15 }.teach("x");
+        assert!(s.contains("15d ago"), "got: {s}");
+        assert!(ExternalStub::Malformed.teach("x").contains("numeric `value`"));
+    }
+
+    /// Only an `external:` source that resolved to no value carries a reason —
+    /// non-external STUBs and resolved values keep the old payload shape.
+    #[test]
+    fn only_an_external_stub_carries_a_reason() {
+        let dir = std::env::temp_dir().join("touring-kpi-stub-reason-test");
+        std::fs::create_dir_all(&dir).ok();
+        assert_eq!(
+            external_stub_reason("derived", None, &dir, "x"),
+            None,
+            "a non-external STUB explains nothing new"
+        );
+        assert_eq!(
+            external_stub_reason("external", Some(1.0), &dir, "x"),
+            None,
+            "a resolved value needs no excuse"
+        );
+        let reason = external_stub_reason("external", None, &dir, "kpi-stub-nonexistent")
+            .expect("a missing measurement must name its cause");
+        assert!(reason.contains("never measured"), "got: {reason}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
     /// The structural guard the 2026-08-28 audit found missing: every source
     /// the contract declares must have a matching arm in this file, and every
     /// derived arm must be declared by the contract. `cli-mutation-test` sat
@@ -1979,8 +2114,14 @@ mod tests {
 
         let mut daemon_handlers: Vec<String> = Vec::new();
         let mut derived_names: Vec<String> = Vec::new();
+        let mut external_ids: Vec<String> = Vec::new();
+        let mut last_id = String::new();
         for line in yaml.lines() {
             let t = line.trim();
+            if let Some(id) = t.strip_prefix("- id: ") {
+                last_id = id.trim().to_string();
+                continue;
+            }
             let Some(rest) = t.strip_prefix("source: \"") else {
                 continue;
             };
@@ -1992,6 +2133,15 @@ mod tests {
                 daemon_handlers.push(name.to_string());
             } else if let Some(r) = source.strip_prefix("derived:") {
                 derived_names.push(r.to_string());
+            } else if source.starts_with("external:") {
+                // The operator learns WHERE to drop the measurement from the
+                // source line itself; an id×path drift leaves the KPI STUB
+                // forever while the operator writes to the wrong file.
+                assert!(
+                    source.contains(&format!("docs/kpi/external/{last_id}.json")),
+                    "external source for `{last_id}` does not name its drop path docs/kpi/external/{last_id}.json — the operator cannot know where to record the measurement"
+                );
+                external_ids.push(last_id.clone());
             }
         }
         assert!(
@@ -2023,6 +2173,31 @@ mod tests {
                 assert!(
                     derived_names.iter().any(|d| d == name),
                     "resolve_derived arm `{name}` has no commitment in commitments.yaml — an orphan no `touring kpi` output ever shows"
+                );
+            }
+        }
+
+        // `external:` arm (the gap the analise-e0 review named, 30/08/2026):
+        // the resolver is generic so there is no per-id arm to demand, but the
+        // parse must be SEEN working (an id-format drift would empty this vec
+        // silently and turn the path assertions above into no-ops)…
+        assert!(
+            !external_ids.is_empty(),
+            "commitments.yaml declares no parseable external: sources — the guard is not seeing the contract"
+        );
+        // …and the inverse direction holds like the others: a measurement file
+        // nothing declares is an orphan no `touring kpi` output ever shows.
+        if let Some(dir) = yaml_path.parent().map(|p| p.join("external"))
+            && let Ok(entries) = std::fs::read_dir(&dir)
+        {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let Some(id) = name.strip_suffix(".json") else {
+                    continue;
+                };
+                assert!(
+                    external_ids.iter().any(|e| e == id),
+                    "external measurement `{name}` has no commitment in commitments.yaml — an orphan no `touring kpi` output ever shows"
                 );
             }
         }
