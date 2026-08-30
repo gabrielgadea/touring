@@ -109,11 +109,23 @@ depois de série durável — o gate que nasce bloqueando vira rota contornada.
   faceta; (3) o leitor do `ignored_facets` da peer colapsava chave-ausente /
   array-vazio / não-JSON num só silêncio; (4) o auditor dela media a GRAFIA
   (`memory\s+store` casando "in-memory store") onde o fato é sintático.
-  **Remédio institucional** (não boa vontade): guard cruzado D8 — um teste
-  lê o predicado DO EXECUTOR e exige que a declaração/mensagem/leitor case
-  com ele, mais um teste de mutação que mata a reversão para o campo errado
-  (padrão dos fixes `d1b0455` e `03ff709`). Ao encontrar instância nova:
-  registrar com esta classe (`#domain:` do subsistema + corpo citando
+  **Dois subtipos, dois remédios** (refinamento da peer, 30/08, após a 5ª
+  instância aparecer sozinha meia hora depois do batismo — o quality_gold
+  dela reprovando com composite 0,932 acima do piso):
+  - *Predicado no campo errado* (casos 2 e 4): o executor decide pelo campo
+    que o contrato não governa. Remédio: **guard cruzado D8** — um teste lê
+    o predicado DO EXECUTOR e exige a declaração casada, mais mutação que
+    mata a reversão (`03ff709`).
+  - *Campo-limitante* (casos 1 e 3): o veredito está CERTO, mas o campo que
+    o explica não é o que o leitor pega primeiro — "a qualidade caiu" quando
+    o fato é "há dívida declarada". Remédio: **a mensagem carrega o campo
+    que produziu o veredito** (`d1b0455`: evidence `blockers=F1_3` + action
+    nomeando a dim), e o leitor separa TODOS os estados (o ternário).
+  Método que tornou a classe visível (transferível): **medir com controle
+  positivo E negativo dos dois lados** — sem o positivo, "0 ignoradas" e
+  "0 arestas cruzando" teriam sido lidos como "está limpo".
+  Ao encontrar instância nova: registrar com esta classe e o subtipo
+  (`#domain:` do subsistema + corpo citando
   `veredito-e-predicado-desalinhados`), nunca só o incidente.
 - **Executor de referência existe**: `~/projects/analise/scripts/memoria/`
   `grafo_memoria.py` deriva as 7 cláusulas no construtor (36 testes, cada um
