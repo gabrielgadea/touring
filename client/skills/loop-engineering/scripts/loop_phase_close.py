@@ -180,13 +180,31 @@ def reward(phase, value):
     return '"reward_injected"' in out or rc == 0
 
 
+def link_provenance(task, phase, status):
+    """P4 (graph contract, 2026-08-30): the phase memory leaves the close
+    ALREADY wired — `generated-by` edges to the loop and DAG anchors, created
+    by the executor, never left to whoever remembers (the measured corpus had
+    27/31 writers as islands with the whole link surface available). The
+    anchors are bridge nodes: the edge is valid before any entry exists at the
+    destination key. Best-effort — an edge failure never gates the phase.
+    """
+    key = f"loop:{task}:{phase}:{status}"
+    linked = 0
+    for dst in (f"loop:{task}", f"decomp:{task}"):
+        rc, _out, _ = run(["touring", "memory", "link", key, dst,
+                           "--rel", "generated-by"])
+        if rc == 0:
+            linked += 1
+    return linked
+
+
 # ── Hyper-Extract typed abstract ─────────────────────────────────────────────
 def _rel(source, rtype, target):
     return {"relation_id": f"{source}|{rtype}|{target}", "source": source,
             "type": rtype, "target": target}
 
 
-def build_abstract(phase, summary, extra):
+def build_abstract(phase, summary, extra, task=None, status="done"):
     """Deterministic typed hypergraph: nodes + typed edges, ids from canonical name."""
     phase_id = f"phase:{phase}"
     entities = [{"entity_id": phase_id, "type": "phase", "description": summary or phase}]
@@ -216,6 +234,23 @@ def build_abstract(phase, summary, extra):
     for r in (extra or {}).get("relations", []) or []:
         if r.get("source") and r.get("target"):
             add_rel(r["source"], r.get("type", "relates"), r["target"])
+
+    # P4 (graph contract, 2026-08-30): the abstract is a PROJECTION of the
+    # same material the close just wired into memory_links — the phase memory
+    # node, the loop/DAG anchors and the generated-by edges — so a run with
+    # no --abstract can never again degenerate to 1 node / 0 relations while
+    # the real graph has both ("the same graph written twice, one copy
+    # hollow": knowledge/P1.json measured 2026-08-29 with 1 entity, 0
+    # relations, because nobody passes --abstract).
+    if task:
+        mem_id = add_entity(f"loop:{task}:{phase}:{status}", "memory",
+                            "phase lesson (memory key)")
+        loop_id = add_entity(f"loop:{task}", "loop", "loop anchor (bridge node)")
+        dag_id = add_entity(f"decomp:{task}", "dag",
+                            "decompose task anchor (bridge node)")
+        add_rel(phase_id, "produces", mem_id)
+        add_rel(mem_id, "generated-by", loop_id)
+        add_rel(mem_id, "generated-by", dag_id)
 
     return {"phase": phase, "entities": entities, "relations": relations}
 
@@ -435,6 +470,9 @@ def main(argv=None):
         "task": args.task, "phase": args.phase, "status": args.status,
         "dag_updated": update_dag(args.task, args.subtask or resolve_subtask_id(args.task, args.phase), args.status),
         "memory_stored": store_memory(args.task, args.phase, args.status, args.summary, tags=args.tag),
+        # P4: provenance is created BY the executor at close time — clause 5
+        # of the graph contract stops being a convention nobody follows.
+        "provenance_links": link_provenance(args.task, args.phase, args.status),
         "rewarded": reward(args.phase, args.reward),
         "recalls_credited": credit_recalls(
             args.task, args.phase, args.status, args.credit_query
@@ -448,7 +486,8 @@ def main(argv=None):
         gates = load_json_file(args.gates)
         extra = merge_extra(load_json_file(args.abstract),
                             run_extractor(args.extractor, args.summary))
-        abstract = build_abstract(args.phase, args.summary, extra)
+        abstract = build_abstract(args.phase, args.summary, extra,
+                                  task=args.task, status=args.status)
         facts = validate_facts(args.facts)
         result["phase_report"] = write_phase_report(bundle, plan_id, args.phase, args.status,
                                                     args.summary, gates, ts, facts=facts)
