@@ -344,6 +344,14 @@ commitments:
     source: "derived:memory_never_recalled_ratio"
     rationale: "Dead weight in the store: written once, never read. 0.200 at 2026-08-02. Rising means either the corpus is drifting again (see corpus_coverage) or entries are being written in a shape recall cannot match."
 
+  - id: touring.memory.graph_contract_share
+    name: "Curated nodes honouring the minimum graph contract (key shape + typed edge)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:memory_graph_contract_share"
+    rationale: "P3 of the memory-graph contract (2026-08-30, Gabriel's directive via analise-e0): share of new semantic lesson/decision/diagnostico nodes (14-day window) with a deterministic <tipo>:<slug>:<date> key AND at least one typed memory_links edge. Measured reference corpus: 27/31 writers were islands. Advisory by the enforcement ladder — instrument before blocking; the store response's contract:{} advisory and the P2 structural rank make linking pay, this meter tells whether behaviour actually moved. STUB (null) when the window has no curated nodes."
+
   - id: touring.memory.tag_coverage
     name: "Memory entries carrying faceted hashtags (hashtag library)"
     threshold: 0.9

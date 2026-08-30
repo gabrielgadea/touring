@@ -321,6 +321,58 @@ fn policy_discrimination(project_root: &Path) -> Option<f64> {
     Some(discriminating as f64 / multi.len() as f64)
 }
 
+/// P3 (graph contract, 2026-08-30): share of NEW curated nodes (semantic
+/// lesson/decision/diagnostico, 14-day window) honouring the minimum graph
+/// contract — deterministic key shape AND at least one typed edge. The shape
+/// predicate is `tags::key_shape_ok`, the SAME one the store advisory
+/// declares (D8: declared text and enforced predicate share one source).
+/// `None` = STUB when the window has no curated nodes — unknown, never a
+/// false 1.0.
+fn graph_contract_share(project_root: &Path) -> Option<f64> {
+    use touring_intelligence::rl::memory::tags;
+    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
+    let conn = rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .ok()?;
+    let keys: Vec<String> = conn
+        .prepare(
+            "SELECT key FROM memory_entries
+             WHERE tier = 'semantic'
+               AND entry_type IN ('lesson','decision','diagnostico')
+               AND created_at >= datetime('now','-14 days')",
+        )
+        .ok()?
+        .query_map([], |r| r.get(0))
+        .ok()?
+        .filter_map(std::result::Result::ok)
+        .collect();
+    if keys.is_empty() {
+        return None;
+    }
+    let mut ok = 0usize;
+    for key in &keys {
+        if !tags::key_shape_ok(key) {
+            continue;
+        }
+        // A missing memory_links table reads as unlinked, not as an error:
+        // the share then honestly reports how far the corpus is from the
+        // contract instead of hiding behind a STUB.
+        let linked: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM memory_links WHERE src = ?1 OR dst = ?1",
+                rusqlite::params![key],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if linked > 0 {
+            ok += 1;
+        }
+    }
+    Some(ok as f64 / keys.len() as f64)
+}
+
 fn default_commitments_path() -> PathBuf {
     // Canonical source tree first: the workspace moved from `~/.claude/rust`
     // to `~/projects/touring` (F4′, 24/07/2026), so the old preferred path
@@ -661,6 +713,7 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
         // nothing measured it, so nobody could see it.
         "memory_corpus_coverage" => memory_corpus_coverage(&rt.project_root),
         "memory_curated_recall_share" => memory_curated_recall_share(&rt.project_root),
+        "memory_graph_contract_share" => graph_contract_share(&rt.project_root),
         "memory_never_recalled_ratio" => memory_never_recalled_ratio(&rt.project_root),
         // F6.4 (ADW plan 2026-07-19) — the software-factory KPI family. All are
         // file-derived from per-project artifacts the ADW stack already writes;

@@ -710,6 +710,22 @@ pub fn describe_violations(raw: &str, errs: &[TagViolation]) -> IgnoredTag {
     IgnoredTag { raw: raw.to_string(), reason, suggestion }
 }
 
+/// Contract clause 1 (memory-graph contract, 2026-08-30): a deterministic key
+/// is `<tipo>:<slug>:<AAAA-MM-DD>` — three `:`-separated parts, the last a
+/// calendar-shaped date. Single source for the store advisory AND the
+/// `graph_contract_share` KPI (D8: the declared predicate IS the enforced one).
+pub fn key_shape_ok(key: &str) -> bool {
+    let parts: Vec<&str> = key.split(':').collect();
+    if parts.len() != 3 || parts[0].is_empty() || parts[1].is_empty() {
+        return false;
+    }
+    let d = parts[2];
+    d.len() == 10
+        && d.chars().enumerate().all(|(i, c)| {
+            if i == 4 || i == 7 { c == '-' } else { c.is_ascii_digit() }
+        })
+}
+
 /// Like [`split_query_tags`], but the third slot reports every `#`-prefixed
 /// token that did NOT become a filter and fell back to plain text. Callers
 /// serving query/recall responses surface it as `unknown_facets`, so
