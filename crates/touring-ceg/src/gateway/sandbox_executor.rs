@@ -441,6 +441,11 @@ pub async fn execute_in_sandbox(
     // whitelisted credentials. Subprocess vê GH_TOKEN, AWS_*, etc., mas o
     // LLM nunca recebe os valores (stdout passa por redact_secrets).
     apply_credential_whitelist(&mut cmd);
+    // RUN-2 (30/08): o venv gerenciado só entra quando a VERSÃO do runtime
+    // casa com o site-packages — e só no caminho python (ver a fn).
+    if tool_name == "SandboxPython" {
+        apply_sandbox_venv_pythonpath(&mut cmd, &program);
+    }
     // P4.3 — every X5 sandbox execution is resource-capped, not only X8.
     // SEG-1 (28/08): o piso inclui o teto de memória. 30/08: o cap de CPU
     // escala com o wall pedido — fixo em 30s ele matava runs legítimos de
@@ -1230,23 +1235,92 @@ pub(crate) fn apply_credential_whitelist(cmd: &mut Command) {
     // root que o Landlock já concede. Medido ausente no filho (TMPDIR=None):
     // ferramentas que o respeitam ficavam sem diretório temporário declarado.
     cmd.env("TMPDIR", "/tmp");
-    // RUN-1: venv gerenciado (pandas/pydantic/httpx…) entra por PYTHONPATH.
-    // Criado no HOST por `touring sandbox-runtimes setup-venv` — a rede do
-    // sandbox é deny-all no kernel (medido 27/08: TCP 443 → EACCES), então o
-    // pip roda fora. Read-only por construção: o caminho fica fora dos write
-    // roots do Landlock.
-    if let Some(home) = std::env::var_os("HOME") {
-        let venv_lib = PathBuf::from(home).join(".claude/touring/sandbox-venv/lib");
-        if let Ok(entries) = std::fs::read_dir(&venv_lib) {
-            for entry in entries.flatten() {
-                let site_packages = entry.path().join("site-packages");
-                if site_packages.is_dir() {
-                    cmd.env("PYTHONPATH", &site_packages);
-                    break;
-                }
-            }
+    // RUN-2 (30/08/2026): a injeção do sandbox-venv saiu daqui. Era
+    // incondicional — TODA execução (bash incluído) recebia PYTHONPATH com um
+    // site-packages de UMA versão de python, que sombreava o venv do projeto
+    // de qualquer outra versão (medido pela analise-a2: numpy 3.14 servido a
+    // um 3.12, erro lendo como instalação quebrada). Ver
+    // [`apply_sandbox_venv_pythonpath`] — condicional à versão, só no caminho
+    // `--lang python`.
+}
+
+/// RUN-2 (30/08/2026) — o PYTHONPATH do sandbox-venv é CONDICIONAL à versão
+/// do interpretador que vai rodar, e só o caminho `SandboxPython` o recebe.
+///
+/// A injeção incondicional do RUN-1 punha `sandbox-venv/lib/python3.14/
+/// site-packages` na frente do venv 3.12 de QUALQUER projeto: o FileFinder
+/// achava o numpy 3.14 e procurava o binding nativo DENTRO dele — o erro
+/// (`No module named 'numpy._core._multiarray_umath'`) parece instalação
+/// quebrada, não ambiente injetado (medido pela peer analise-a2,
+/// run-1788113157696-2438469: `sys.path[1]` era o intruso, e `env -u
+/// PYTHONPATH` devolvia numpy/pydantic/shapely ao sandbox). Em bash o
+/// interpretador é escolhido DENTRO do script — o predicado é indecidível,
+/// então bash não recebe a injeção (um script que queira as libs de agente
+/// exporta o PYTHONPATH ele mesmo, ou usa `--lang python`).
+pub(crate) fn apply_sandbox_venv_pythonpath(cmd: &mut Command, runtime: &Path) {
+    let Some(rt) = runtime_python_version(runtime) else {
+        return;
+    };
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let venv_lib = PathBuf::from(home).join(".claude/touring/sandbox-venv/lib");
+    if let Some(site) = sandbox_venv_site_packages(&venv_lib, rt) {
+        cmd.env("PYTHONPATH", &site);
+    }
+}
+
+/// O `site-packages` do sandbox-venv cuja versão `pythonX.Y` casa com `rt` —
+/// `None` quando nenhum casa (fail-safe: sem injeção é melhor que sombrear).
+fn sandbox_venv_site_packages(venv_lib: &Path, rt: (u32, u32)) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(venv_lib).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if parse_python_lib_version(name) != Some(rt) {
+            continue;
+        }
+        let site_packages = entry.path().join("site-packages");
+        if site_packages.is_dir() {
+            return Some(site_packages);
         }
     }
+    None
+}
+
+/// `"python3.14"` → `Some((3, 14))`; qualquer outra forma → `None`.
+fn parse_python_lib_version(dir_name: &str) -> Option<(u32, u32)> {
+    let rest = dir_name.strip_prefix("python")?;
+    let (maj, min) = rest.split_once('.')?;
+    Some((maj.parse().ok()?, min.parse().ok()?))
+}
+
+/// Versão `(X, Y)` do interpretador em `runtime`, via `--version`, cacheada
+/// por path (1 spawn por binário por vida do processo). Cobre stdout e
+/// stderr — historicamente o CPython já imprimiu a versão nos dois.
+fn runtime_python_version(runtime: &Path) -> Option<(u32, u32)> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    type VersionCache = Mutex<HashMap<PathBuf, Option<(u32, u32)>>>;
+    static CACHE: OnceLock<VersionCache> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut m = cache.lock().ok()?;
+    if let Some(v) = m.get(runtime) {
+        return *v;
+    }
+    let ver = std::process::Command::new(runtime)
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| {
+            let raw = if o.stdout.is_empty() { o.stderr } else { o.stdout };
+            let s = String::from_utf8_lossy(&raw).to_string();
+            let num = s.split_whitespace().nth(1)?.to_string();
+            let mut it = num.split('.');
+            Some((it.next()?.parse().ok()?, it.next()?.parse().ok()?))
+        });
+    m.insert(runtime.to_path_buf(), ver);
+    ver
 }
 
 /// T-09 (2026-06-15) — token-format secret patterns, matched ANYWHERE in a line.
@@ -1656,6 +1730,34 @@ mod tests {
                 "echo hello".into()
             ]
         );
+    }
+
+    #[test]
+    fn parse_python_lib_version_reads_only_the_python_x_y_form() {
+        assert_eq!(parse_python_lib_version("python3.14"), Some((3, 14)));
+        assert_eq!(parse_python_lib_version("python3.12"), Some((3, 12)));
+        assert_eq!(parse_python_lib_version("python3"), None);
+        assert_eq!(parse_python_lib_version("share"), None);
+        assert_eq!(parse_python_lib_version("pythonX.Y"), None);
+    }
+
+    #[test]
+    fn sandbox_venv_site_packages_matches_version_or_injects_nothing() {
+        // RUN-2 — mutação que este teste mata: voltar ao "primeiro dir que
+        // existir" (RUN-1), que servia um site-packages 3.14 a um runtime
+        // 3.12 e o venv do projeto era sombreado (analise-a2, 30/08).
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let lib = tmp.path();
+        for v in ["python3.12", "python3.14"] {
+            std::fs::create_dir_all(lib.join(v).join("site-packages")).expect("mkdir");
+        }
+        let s312 = sandbox_venv_site_packages(lib, (3, 12)).expect("3.12 presente casa");
+        assert!(s312.ends_with("python3.12/site-packages"), "{s312:?}");
+        let s314 = sandbox_venv_site_packages(lib, (3, 14)).expect("3.14 presente casa");
+        assert!(s314.ends_with("python3.14/site-packages"), "{s314:?}");
+        // Versão sem site-packages correspondente: NADA é injetado — sem
+        // injeção é melhor que sombrear (fail-safe).
+        assert_eq!(sandbox_venv_site_packages(lib, (3, 10)), None);
     }
 
     #[test]
