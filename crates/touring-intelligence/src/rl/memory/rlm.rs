@@ -534,7 +534,7 @@ impl RlmMemory {
     /// - `accessed_at` (epoch) and `last_accessed_at` (TEXT) both move to now.
     /// - `supersedes` retires the old entry (`superseded_by`), never deletes.
     /// - Automatic facet derivation + explicit tags apply after the row lands.
-    pub fn store_rich(&self, entry: &RichMemoryEntry<'_>) -> Result<()> {
+    pub fn store_rich(&self, entry: &RichMemoryEntry<'_>) -> Result<Vec<tags::IgnoredTag>> {
         let now = Utc::now().timestamp();
         let entry_type = entry.entry_type.unwrap_or("insight");
         let embedding_bytes: Option<Vec<u8>> = entry
@@ -590,22 +590,57 @@ impl RlmMemory {
                     params![entry.key, old_key],
                 )
                 .ok();
+            // Contract P1.5 (2026-08-30): a supersede also RE-POINTS the old
+            // node's edges at the successor — proven live before this fix:
+            // links(new)=0, links(old)=1, so correcting a linked node silently
+            // orphaned the correction. The deterministic id ({src}|{rel}|{dst})
+            // must be recomputed, never UPDATEd in place (REGRA #17), and the
+            // whole pass is fail-open: an edge problem never loses the store.
+            // An edge BETWEEN old and new (e.g. a recorded succession) is kept
+            // as-is — re-pointing it would fabricate a self-loop.
+            if let Ok(edges) = tags::fetch_links(&self.conn, old_key) {
+                for e in edges {
+                    if e.src == entry.key || e.dst == entry.key {
+                        continue;
+                    }
+                    let src = if e.src == old_key { entry.key } else { e.src.as_str() };
+                    let dst = if e.dst == old_key { entry.key } else { e.dst.as_str() };
+                    tags::upsert_link(&self.conn, src, e.rel, dst).ok();
+                    self.conn
+                        .execute(
+                            "DELETE FROM memory_links WHERE id = ?1",
+                            params![e.id],
+                        )
+                        .ok();
+                }
+            }
         }
 
         self.auto_tag_entry(entry.key, entry_type, entry.file_path);
+        // Contract P1 (2026-08-30): a rejected explicit tag no longer dies in
+        // the daemon log — it returns to the caller so the store RESPONSE can
+        // carry `ignored_facets` (both silent-death points elevated; the WARN
+        // stays for operators tailing the log).
+        let mut ignored = Vec::new();
         for raw in entry.explicit_tags {
             match tags::parse_tag(raw) {
                 Ok(tag) => {
                     if let Err(e) = self.tag_entry(entry.key, &tag, tags::TagSource::Explicit) {
                         tracing::warn!(error = %e, key = entry.key, tag = raw, "explicit tag failed, continuing");
+                        ignored.push(tags::IgnoredTag {
+                            raw: (*raw).to_string(),
+                            reason: format!("valid tag but persistence failed: {e}"),
+                            suggestion: None,
+                        });
                     }
                 }
                 Err(errs) => {
                     tracing::warn!(key = entry.key, tag = raw, "invalid explicit tag skipped: {errs:?}");
+                    ignored.push(tags::describe_violations(raw, &errs));
                 }
             }
         }
-        Ok(())
+        Ok(ignored)
     }
 
     /// Stores a memory entry in the given tier with an optional embedding.
@@ -682,7 +717,7 @@ impl RlmMemory {
         let mut entry = RichMemoryEntry::new(key, tier.as_str(), value);
         entry.entry_type = Some(entry_type);
         entry.palace_path = Some(&palace_path);
-        self.store_rich(&entry)
+        self.store_rich(&entry).map(|_| ())
     }
 
     /// Query entries by palace path prefix (e.g., "gabriel.memory.*").
@@ -768,7 +803,7 @@ impl RlmMemory {
             entry.file_path = g.file_path;
             entry.graph_blast_radius = g.blast_radius;
         }
-        self.store_rich(&entry)
+        self.store_rich(&entry).map(|_| ())
     }
 
     /// Derives and persists the automatic facets of an entry (F1 auto-tagging
@@ -1301,6 +1336,81 @@ mod tests {
             "old entry retired, not deleted"
         );
         assert!(snapshot(&mem.conn, "new").superseded_by.is_none());
+    }
+
+    #[test]
+    fn store_rich_reports_ignored_facets_in_the_return_value() {
+        // Mutation killed: reverting store_rich to Result<()> / dropping the
+        // collection — the silent-death point the P1 contract closes.
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
+        let mut entry = RichMemoryEntry::new("k", "local", "v");
+        let raw_tags = vec![
+            "#kind:lesson".to_string(),
+            "#classe:prova".to_string(),
+            "#kynd:x".to_string(),
+        ];
+        entry.explicit_tags = &raw_tags;
+        let ignored = mem.store_rich(&entry).unwrap();
+        assert_eq!(ignored.len(), 2, "one valid tag, two rejected");
+        assert_eq!(ignored[0].raw, "#classe:prova");
+        assert!(
+            ignored[0].reason.contains("kind, purpose, lang, domain, process, artifact, status"),
+            "the reason must TEACH the canonical vocabulary: {}",
+            ignored[0].reason
+        );
+        assert_eq!(ignored[1].suggestion, Some("kind"), "near-miss suggests the canonical facet");
+        // The accepted tag really persisted (the report is additive, not a veto).
+        // full_tag, not facet: auto-tagging also derives a kind:* row from
+        // the entry_type, so counting by facet would see both.
+        let tagged: i64 = mem
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM memory_tags WHERE entry_key = 'k' AND full_tag = 'kind:lesson'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(tagged, 1);
+    }
+
+    #[test]
+    fn store_rich_supersede_repoints_the_old_nodes_edges() {
+        // Mutation killed: removing the P1.5 re-point block — proven live
+        // before the fix: links(new)=0, links(old)=1, a linked node's
+        // correction silently orphaned.
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
+        mem.store_rich(&RichMemoryEntry::new("old", "local", "v1")).unwrap();
+        mem.store_rich(&RichMemoryEntry::new("other", "local", "peer")).unwrap();
+        tags::upsert_link(&mem.conn, "old", tags::LinkRel::RelatesTo, "other").unwrap();
+        // An edge BETWEEN old and its successor must be kept, never turned
+        // into a self-loop by the re-point.
+        tags::upsert_link(&mem.conn, "new", tags::LinkRel::Supersedes, "old").unwrap();
+
+        let mut new_entry = RichMemoryEntry::new("new", "local", "v2");
+        new_entry.supersedes = Some("old");
+        mem.store_rich(&new_entry).unwrap();
+
+        let new_links = tags::fetch_links(&mem.conn, "new").unwrap();
+        assert!(
+            new_links.iter().any(|e| e.src == "new" && e.dst == "other"),
+            "the old node's edge was re-pointed at the successor: {new_links:?}"
+        );
+        assert!(
+            new_links.iter().any(|e| e.src == "new" && e.dst == "old"),
+            "the succession edge survives untouched"
+        );
+        assert!(
+            new_links.iter().all(|e| e.src != e.dst),
+            "no self-loop fabricated"
+        );
+        let old_links = tags::fetch_links(&mem.conn, "old").unwrap();
+        assert_eq!(
+            old_links.len(),
+            1,
+            "old keeps only the succession edge: {old_links:?}"
+        );
     }
 
     #[test]

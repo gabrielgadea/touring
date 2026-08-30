@@ -222,7 +222,7 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         })
         .map_err(|e| e.to_string());
     match result {
-        Ok(_) => {
+        Ok(ignored_tags) => {
             // S-04 (2026-05-29): mirror the stored entry into the ANN corpus so
             // `memory recall` returns ANN hits (RRF no longer degrades to FTS/
             // TF-IDF only). Embedding = 64-dim deterministic hash vector (no GPU
@@ -248,8 +248,14 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
                     false
                 }
             };
+            // Contract P1 (2026-08-30): `ignored_facets` is ALWAYS present —
+            // an empty array is "all tags accepted", a missing key would be
+            // ambiguous with an old daemon ("absence has two causes"). Each
+            // element teaches the fix: reason names the 7 canonical facets,
+            // `suggestion` the closest one.
             serde_json::json!(
-                { "key" : key, "tier" : tier, "type" : entry_type, "status" : "stored", "ann_indexed" : ann_indexed }
+                { "key" : key, "tier" : tier, "type" : entry_type, "status" : "stored", "ann_indexed" : ann_indexed,
+                  "ignored_facets" : ignored_tags.iter().map(|t| t.to_json()).collect::<Vec<_>>() }
             )
                 .to_string()
         }
@@ -343,7 +349,12 @@ pub fn cli_memory_query(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
     if query.trim().is_empty() {
         return serde_json::json!({ "error": "query is required" }).to_string();
     }
-    let (required, text) = tags::split_query_tags(query);
+    // Contract P1 (2026-08-30): a `#facet:value` token whose facet is not
+    // canonical silently became TEXT — and matched by textual accident
+    // whenever the value appeared in a body (measured: `#kind:lesson
+    // #classe:x` returned the right entry for the wrong reason). The
+    // reporting split surfaces those tokens so the response can say so.
+    let (required, text, unknown) = tags::split_query_tags_reporting(query);
     let result = open_tagged_memory_db(rt).and_then(|conn| {
         let tag_keys = if required.is_empty() {
             None
@@ -377,6 +388,10 @@ pub fn cli_memory_query(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
             "shown": hits.len(),
             "total": total,
             "truncated": total > hits.len(),
+            // P1: always present — empty means "every #token filtered";
+            // entries here fell back to TEXT search (a hit can be textual
+            // accident, and a total of 0 here is not "the facet is empty").
+            "unknown_facets": unknown.iter().map(|t| t.to_json()).collect::<Vec<_>>(),
             "results": hits,
         })
         .to_string(),
