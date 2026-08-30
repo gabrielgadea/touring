@@ -208,7 +208,25 @@ fn rerank_by_case_value(mut entries: Vec<serde_json::Value>) -> Vec<serde_json::
             .and_then(serde_json::Value::as_str)
             .is_some_and(|k| PROCESS_TRACE_PREFIXES.iter().any(|p| k.starts_with(p)))
     }
-    entries.sort_by_key(|e| (class_of(e), u8::from(is_process_trace(e))));
+    // P2 (graph contract, 2026-08-30): structural pheromone INSIDE the
+    // (class, provenance) pair — a node with generated-by AND ≥2 edges
+    // outranks a connected one, which outranks an orphan, never across
+    // classes. Reads the 1-hop `links` attach_one_hop_links put on the
+    // entry BEFORE this sort (measured corpus: 27/31 writers are islands;
+    // the bucket is what makes linking pay at read time).
+    fn structure_bucket(entry: &serde_json::Value) -> u8 {
+        let Some(links) = entry.get("links").and_then(serde_json::Value::as_array) else {
+            return 2;
+        };
+        if links.is_empty() {
+            return 2;
+        }
+        let has_provenance = links
+            .iter()
+            .any(|l| l.get("rel").and_then(serde_json::Value::as_str) == Some("generated-by"));
+        if has_provenance && links.len() >= 2 { 0 } else { 1 }
+    }
+    entries.sort_by_key(|e| (class_of(e), u8::from(is_process_trace(e)), structure_bucket(e)));
     entries
 }
 
@@ -822,6 +840,13 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // Value-ranked read (Memento Eq. 7/16): RRF has ordered by resemblance;
     // now let the MEASURED outcome decide which of those the caller sees first.
     // Stable, so similarity still orders within each value class.
+    //
+    // P2 (graph contract, 2026-08-30): the structural pheromone needs the
+    // 1-hop links AT RANK TIME — attach BEFORE the rerank. Until now the
+    // attach ran after, so a node with 17 edges ranked exactly like an
+    // orphan and the graph bought nothing at read time.
+    let mut merged_entries = merged_entries;
+    attach_one_hop_links(rt, &mut merged_entries);
     let merged_entries = annotate_case_value(rerank_by_case_value(merged_entries));
 
     // Record which cases this recall served, so a later verdict can be joined
@@ -919,8 +944,8 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         }
         diags
     };
+    // (P2: the 1-hop links were attached before the rerank above.)
     let mut merged_entries = merged_entries;
-    attach_one_hop_links(rt, &mut merged_entries);
     // Self-echo detection (2026-08-29): the RRF merge keeps the winning arm's
     // object, and only the SQL arm carries `stored_at` — precisely the arm
     // whose rows carry no `score`, so a ranking consumer (the CCE explorer's
@@ -1477,6 +1502,54 @@ mod case_value_tests {
                 "lesson:least-similar"
             ],
             "equal value must leave the RRF order untouched"
+        );
+    }
+
+    /// P2 (graph contract, 2026-08-30): inside the SAME (class, provenance)
+    /// pair, structure ranks — provenance+edges > some edge > orphan.
+    #[test]
+    fn rerank_prefers_structured_nodes_inside_the_same_class() {
+        // Mutation killed: dropping structure_bucket from the sort key —
+        // before P2 a node with 17 edges ranked exactly like an orphan.
+        let orphan = keyed("lesson:orphan");
+        let mut connected = keyed("lesson:connected");
+        connected["links"] = serde_json::json!([
+            {"rel": "relates-to", "src": "lesson:connected", "dst": "x", "direction": "out"},
+        ]);
+        let mut provenanced = keyed("lesson:provenanced");
+        provenanced["links"] = serde_json::json!([
+            {"rel": "generated-by", "src": "lesson:provenanced", "dst": "loop:t", "direction": "out"},
+            {"rel": "relates-to", "src": "lesson:provenanced", "dst": "y", "direction": "out"},
+        ]);
+        let ranked = rerank_by_case_value(vec![orphan, connected, provenanced]);
+        let keys: Vec<&str> = ranked
+            .iter()
+            .filter_map(|e| e.get("key").and_then(|k| k.as_str()))
+            .collect();
+        assert_eq!(
+            keys,
+            vec!["lesson:provenanced", "lesson:connected", "lesson:orphan"],
+            "structure orders WITHIN the class, never across classes"
+        );
+    }
+
+    /// P2 counter-proof: structure must never beat VALUE class — a proven-good
+    /// orphan still outranks a well-connected unobserved node.
+    #[test]
+    fn structure_never_crosses_a_value_class() {
+        let mut connected_unobserved = keyed("lesson:connected");
+        connected_unobserved["links"] = serde_json::json!([
+            {"rel": "generated-by", "src": "lesson:connected", "dst": "loop:t", "direction": "out"},
+            {"rel": "relates-to", "src": "lesson:connected", "dst": "y", "direction": "out"},
+        ]);
+        let ranked = rerank_by_case_value(vec![
+            connected_unobserved,
+            keyed("outcome:bash:b:success"),
+        ]);
+        assert_eq!(
+            ranked[0]["key"].as_str(),
+            Some("outcome:bash:b:success"),
+            "value class stays the primary axis"
         );
     }
 
