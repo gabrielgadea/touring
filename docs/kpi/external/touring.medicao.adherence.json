@@ -1,0 +1,8 @@
+{
+  "value": null,
+  "measured_at": "2026-08-30T23:17:05.321062+00:00",
+  "command": "python3 -m scripts.medicao.adherence --emit <path>",
+  "n": 6,
+  "id": "medicao.adherence",
+  "detalhe": "STUB — amostra de 6 abaixo do mínimo 20. Rode mais medições pela biblioteca; ausência de dado não é zero."
+}
