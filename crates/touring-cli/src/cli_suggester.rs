@@ -3224,14 +3224,14 @@ fn pending_g10() -> &'static moka::sync::Cache<String, ()> {
 /// continua nas falhas), RESUMO final — a íntegra fica no spill quando estoura.
 ///
 /// Em BASH, não python (30/08/2026): o template anterior era `--lang python`
-/// com `import subprocess` — exatamente a capability que o X6 nega sob o
-/// perfil Sandboxed. O deny do G10 emitia uma rota que o gate seguinte
-/// barrava (medido pela peer `analise-a2`: seguiu a sugestão e foi negada —
-/// não havia caminho conforme). O waiver subprocess-only existe SÓ para
-/// shell (run.rs `only_subprocess_denials`), então shell é a única lang em
-/// que esta rota executa; rede e padrões destrutivos seguem hard-deny lá.
-/// `--timeout-ms` viaja explícito (E4): N ferramentas reais não cabem no
-/// default de 30s do engine.
+/// com `import subprocess` — a capability que o X6 negava sob Sandboxed, e o
+/// deny do G10 emitia uma rota que o gate seguinte barrava (medido pela peer
+/// `analise-a2`). No mesmo dia Gabriel estendeu o waiver subprocess-only a
+/// toda linguagem, então o template python voltaria a executar — mas bash
+/// segue sendo a forma certa AQUI: os comandos viajam verbatim, 1:1, sem a
+/// camada de reescrita em subprocess que o modelo teria de conferir. Rede e
+/// padrões destrutivos seguem hard-deny em toda lang. `--timeout-ms` viaja
+/// explícito (E4): N ferramentas reais não cabem no default de 30s.
 fn r9_exec_program(cmds: &[String]) -> String {
     let mut corpo = String::from("falhas=0\n");
     let mut ordem = 0usize;
