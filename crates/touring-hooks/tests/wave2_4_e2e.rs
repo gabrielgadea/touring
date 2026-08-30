@@ -272,10 +272,11 @@ fn hook_registry_count_matches_the_dispatch_registry() {
     //   ticket, frontier (C3 Wayfinder): 234->238 / 236->240.
     // 2026-08-29 (R1): +1 cli-gotcha-resolve: 239->240 / 241->242.
     // 2026-08-29 (R4): +2 cli-experiment-{record,list}: 240->242 / 242->244.
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay: 242->243 / 244->245.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 244;
+    const EXPECTED_NAMES: usize = 245;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 242;
+    const EXPECTED_NAMES: usize = 243;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

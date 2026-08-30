@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "R\u00e9gua + provas vivas contra o bin\u00e1rio/daemon instalados: backfill 818 outcomes em 2 lotes (update_count 3\u2192822, exato +818), corpus_pending 818\u21920, PROVA-RAINHA da reten\u00e7\u00e3o (daemon-ctl restart \u2192 822\u2192822 monot\u00f4nico; antes 13\u21927), trickle online +1/tool call segue vivo (822\u2192823), KPI touring.learning.replay_share actual=1.0 PASS (limiar 0.9). Todos os 4 gatilhos med\u00edveis da estrat\u00e9gia verdes."
+    }
+  ],
+  "relations": []
+}

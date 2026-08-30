@@ -38,6 +38,17 @@ enum LearningCmd {
     /// A/B experiment log (R4, 29/08): record a judged variant / read them back.
     #[command(subcommand)]
     Experiment(ExperimentCmd),
+    /// P2 (29/08): replay the rewarded-outcome corpus into the OnlineRL engine
+    /// (offline pretrain — the online per-tool trickle continues on the same
+    /// engine). Durable cursor: each outcome is consumed once.
+    Replay {
+        /// Maximum outcomes to replay in this call.
+        #[arg(long, default_value_t = 2000)]
+        limit: u64,
+        /// Count what WOULD be replayed without touching engine or cursor.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -113,6 +124,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         LearningCmd::Experiment(ExperimentCmd::List { limit }) => {
             let output = daemon_query("cli-experiment-list", serde_json::json!({ "limit": limit }))?;
+            println!("{output}");
+        }
+        LearningCmd::Replay { limit, dry_run } => {
+            let output = daemon_query(
+                "cli-learning-replay",
+                serde_json::json!({ "limit": limit, "dry_run": dry_run }),
+            )?;
             println!("{output}");
         }
     }

@@ -596,6 +596,25 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
             code_mode_adoption(runs, bash)
         }
         "world_model_success" => read_world_model_success(),
+        "learning_replay_share" => {
+            // P2 replay (29/08) — que fração do corpus de outcomes
+            // recompensados o OnlineRLEngine já consumiu. Numerador do cursor
+            // durável (`learning_replay_cursor.json`), denominador contado no
+            // memory.db AGORA — a mesma fonte que o replay lê. `None` = STUB
+            // enquanto nada foi replayado E o corpus está invisível (db
+            // ilegível): amostra ausente é desconhecido, nunca zero.
+            let (last_rowid, replayed_total, _) =
+                crate::cli::learning::replay_cursor_read(&rt.project_root);
+            let pending =
+                crate::cli::learning::replay_corpus_pending(&rt.project_root, last_rowid);
+            match (replayed_total, pending) {
+                (0, None) => None,
+                (r, p) => {
+                    let total = r as f64 + p.unwrap_or(0).max(0) as f64;
+                    if total <= 0.0 { None } else { Some(r as f64 / total) }
+                }
+            }
+        }
         // The `touring.memory.*` family (2026-08-02). Derived by SQL over the
         // project's memory.db — no new instrumentation, same shape as the ADW
         // derivations. Retroactive justification for the family: the ANN corpus

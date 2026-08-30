@@ -145,6 +145,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-gotcha-resolve",
         "cli-experiment-record",
         "cli-experiment-list",
+        "cli-learning-replay",
         "cli-memory-stats",
         "cli-memory-recall",
         "cli-memory-credit",
@@ -489,6 +490,7 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-gotcha-resolve",
     "cli-experiment-record",
     "cli-experiment-list",
+    "cli-learning-replay",
     "cli-memory-stats",
     "cli-memory-recall",
     "cli-memory-credit",
@@ -1445,6 +1447,11 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-experiment-list", |rt, v| {
         crate::cli_handlers::cli_experiment_list(rt, v)
+    });
+    // P2 replay (29/08): o canal offline→engine — o corpus de outcomes
+    // recompensados vira updates no OnlineRLEngine vivo, com cursor durável.
+    m.insert("cli-learning-replay", |rt, v| {
+        crate::cli_handlers::cli_learning_replay(rt, v)
     });
     m.insert("cli-memory-stats", |rt, v| {
         crate::cli_handlers::cli_memory_stats(rt, v)

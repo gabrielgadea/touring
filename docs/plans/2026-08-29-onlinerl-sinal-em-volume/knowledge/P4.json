@@ -1,0 +1,11 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "Gates finais todos verdes: touring-cli 484/484, touring-intelligence 1519/1519, touring-server clap 11/11, hook-runtime 382/382, hook-handlers 103/103, dispatch 1325/1325 (re-run sozinho 15,9s; travamento anterior era flaky-sob-build-pesado \u2014 0,4% CPU 636 threads, morto e re-provado), e2e replay round-trip, guard KPI 39/39, clippy 6 crates -D warnings exit 0. Deploy update-touring OK. Docs: CHANGELOG (feat rl), strategy+log+index no bundle, adendo RETOMAR autoresearch, mem\u00f3ria diagnostico:onlinerl-motor-a-seco. Prova viva 5/5 gatilhos (P3)."
+    }
+  ],
+  "relations": []
+}
