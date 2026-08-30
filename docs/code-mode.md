@@ -113,16 +113,20 @@ lá dentro não sabe em que modo a sessão está — e não precisa: quem decide
 antes da execução. Para falar com o daemon de dentro do sandbox a rota é `--orchestrate` (o SDK
 injeta o canal), nunca a env herdada.
 
-**Extensão nativa (.so) CARREGA no sandbox — a armadilha é o interpretador (30/08/2026).**
-Provado por execução: `ctypes.CDLL` funciona lá dentro para `.so` do sistema E do workspace —
-Landlock não intercepta `mmap(PROT_EXEC)` e o seccomp só filtra socket UDP; o próprio `python3`
-(que mapeia dezenas de `.so`) é a prova ambulante. O sintoma real medido em campo
-(`No module named 'numpy._core._multiarray_umath'` com o `.so` presente e legível) é OUTRA
-classe: `--lang python` resolve o `python3` do PATH do sistema, nunca o do venv do projeto —
-sufixos `cpython-314` procurando um binding `cpython-312`. Remédio: em `--lang bash`, invocar
-`.venv/bin/python3 <script>` EXPLÍCITO (o binário direto dispensa `activate` e sobrevive ao
-`env_clear`). Não leia esse erro como sandbox nem como instalação quebrada — é interpretador
-errado, a mesma classe das 774 falhas da suíte da analise (memória `analise-exige-venv`).
+**Extensão nativa (.so) CARREGA no sandbox — a armadilha era o PYTHONPATH injetado
+(30/08/2026, corrigido no RUN-2).** Provado por execução: `ctypes.CDLL` funciona lá dentro para
+`.so` do sistema E do workspace — Landlock não intercepta `mmap(PROT_EXEC)` e o seccomp só
+filtra socket UDP. O sintoma medido em campo (`No module named 'numpy._core._multiarray_umath'`
+com o `.so` presente, legível e o interpretador CERTO do venv) tinha uma terceira causa, achada
+pela peer no `sys.path[1]`: o sandbox injetava `PYTHONPATH=~/.claude/touring/sandbox-venv/lib/
+python3.14/site-packages` em TODA execução — um numpy 3.14 servido na frente do venv 3.12 de
+qualquer projeto, com erro que parece instalação quebrada. Duas hipóteses plausíveis (bloqueio
+de mmap; interpretador errado) caíram por sonda antes da verdadeira. **Fix (RUN-2)**: a injeção
+é condicional — só `--lang python`, e só quando a versão `pythonX.Y` do site-packages casa com a
+do runtime resolvido (`apply_sandbox_venv_pythonpath`); bash nunca a recebe (o interpretador é
+escolhido dentro do script — indecidível, e sem injeção é melhor que sombrear). **Na 30.4.25
+instalada** (até a propagação): `env -u PYTHONPATH .venv/bin/python3 <script>` dentro do
+`--lang bash` — 1 linha e numpy/pydantic/shapely rodam no sandbox (provado: 25 pytest passed).
 
 **O rlimit de CPU escala com `--timeout-ms` (30/08/2026).** Era fixo em 30s e matava por
 SIGKILL (stderr vazio, exit negativo) um run legítimo de `--timeout-ms 180000` CPU-bound aos
