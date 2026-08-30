@@ -72,6 +72,17 @@ export TOURING_PILLAR_INDUCTION_ARMED=1   # arm the pillar nudges (a human decis
 touring daemon-ctl restart                 # daemon picks up the env (REGRA #19)
 ```
 
+> **ARMADO por ordem de Gabriel em 29/08/2026** (durante o deploy 30.4.24).
+> Executor: `TOURING_PILLAR_INDUCTION_ARMED=1` no bloco `env` de
+> `~/.claude/settings.json` (toda sessão CC e todo hook herdam) + daemon
+> reiniciado com a var no ambiente. Expectativa CALIBRADA, não fé: a evidência
+> (`protocol-adherence-diagnosis`, tese ①) pesa contra nudges como mecanismo —
+> o valor primário do arming é gerar o dado do experimento
+> (`pillar_induction_ratio` em `touring kpi -j`); ratio baixo com nudge armado
+> é a evidência que promove a migração persuasão→afordância no executor.
+> Desarmar (decisão humana): remover a var do settings.json + restart.
+> Memória: `decisao:pillar-induction-armado:2026-08-29`.
+
 ## The compounding loop — measure → attribute → refine
 
 Adoption is **measured, not assumed**: `pillar_induction_{emitted,followed}` counters → `touring.coupling.pillar_induction_ratio` KPI (`touring kpi -j`) → F7 promote/demote. Per the roadmap thesis ① (**affordance changes `U(a)=P·V−C(tokens)`; persuasion does not**), if the ratio stays low while armed, that telemetry is the evidence pushing from persuasion (this nudge) toward affordance (productization ⑨) — the experiment, not just the nudge.
