@@ -97,6 +97,27 @@ exigindo grant: executam texto como código.
 
 Hoje, de 10 comandos benignos medidos, **0** emitem advisory.
 
+**Ferramenta externa roda em `--lang bash`, não em python+subprocess (30/08/2026).** Trabalho
+subprocess-bound por natureza — `rsvg-convert`, `pytest`, `weasyprint`, rodar gates e medir exit
+code — tem rota conforme: `touring run --lang bash --code '<os comandos>' --timeout-ms <ms>`.
+O waiver seletivo acima é o que a torna executável; em `--lang python`, `import subprocess` é
+X6-negado sob `Sandboxed` (e o deny agora nomeia esta rota de volta). O relato de campo da
+sessão `analise-a2` (30/08) mediu o vazio antes do fix: 26 bypasses `TOURING_GATE_OK=1` num
+turno porque o G10 sugeria exatamente o programa python que o X6 negava — a telemetria lia
+"recusa do code mode" onde havia rota inexistente. O R9 do G10 emite bash verbatim desde então.
+
+**Env vars NÃO chegam ao sandbox — por design (A11).** O executor faz `env_clear` + allowlist
+fixa (`PATH HOME USER LANG LC_ALL TERM TZ` — `touring-ceg/src/capability/builtins.rs::ENV_ALLOWLIST`);
+`TOURING_CODE_MODE`, `TOURING_GATE_OK`, `TOURING_DAEMON_SOCKET` e afins chegam VAZIAS. O programa
+lá dentro não sabe em que modo a sessão está — e não precisa: quem decide modo/gate é o hook,
+antes da execução. Para falar com o daemon de dentro do sandbox a rota é `--orchestrate` (o SDK
+injeta o canal), nunca a env herdada.
+
+**As janelas de rajada (G1/G10/par write→run) são por (projeto, sessão, classe) desde 30/08.**
+Os ledgers vivem no daemon — um processo para N sessões CC. Chaveados só por projeto, um deny
+carregava comandos de OUTRA sessão no remédio e inflava a contagem de quem não fez a rajada
+(medido pela `analise-a2`: paths de scratchpad alheios na rota sugerida).
+
 ## `--orchestrate` — o SDK `touring.*` dentro do sandbox
 
 Um script Python consulta o daemon em UMA execução (code-mode sem MCP):
