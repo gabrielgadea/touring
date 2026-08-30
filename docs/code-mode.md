@@ -115,6 +115,14 @@ sessão `analise-a2` (30/08) mediu o vazio antes do fix: 26 bypasses `TOURING_GA
 turno porque o G10 sugeria exatamente o programa python que o X6 negava — a telemetria lia
 "recusa do code mode" onde havia rota inexistente. O R9 do G10 emite bash verbatim desde então.
 
+**Ler `os.environ` é negado sob Sandboxed — por design, e o deny ensina a rota (G-D,
+30/08/2026).** O filho do sandbox carrega credenciais whitelisted (I-12: gh/aws/cargo precisam
+delas), e uma escrita em arquivo do workspace contornaria o `redact_secrets` que só cobre o
+stdout — por isso a leitura genérica de env nega. Para auto-verificação do ambiente Python,
+`sys.executable` / `sys.path` / `sys.prefix` respondem o mesmo sem tocar env (o `sys.path`
+reflete o PYTHONPATH); a mensagem do deny nomeia essas sondas. Env read no perfil Trusted:
+`--allow-forbidden`.
+
 **Env vars NÃO chegam ao sandbox — por design (A11).** O executor faz `env_clear` + allowlist
 fixa (`PATH HOME USER LANG LC_ALL TERM TZ` — `touring-ceg/src/capability/builtins.rs::ENV_ALLOWLIST`);
 `TOURING_CODE_MODE`, `TOURING_GATE_OK`, `TOURING_DAEMON_SOCKET` e afins chegam VAZIAS. O programa

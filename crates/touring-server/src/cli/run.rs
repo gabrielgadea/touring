@@ -808,6 +808,7 @@ pub fn run(args: &[String]) -> Result<()> {
 /// estruturado), não no stderr: lá ele se misturava ao stderr real do
 /// programa sandboxed e corrompia quem parseava o stream (o consumidor CC lê
 /// stdout+stderr fundidos). O conteúdo é o mesmo; o canal é o JSON.
+#[derive(Debug)]
 struct CegRunAdvisory {
     composite: f64,
     reason: String,
@@ -935,11 +936,12 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u1
                 // "denied the subprocess capability 'sed'" quando a classe
                 // determinante era file-write, e o operador bisecou um `sed`
                 // inocente.
-                "the CEG gateway denied this run (composite {:.2}): {}. Adjust the code, \
+                "the CEG gateway denied this run (composite {:.2}): {}.{} Adjust the code, \
                  or rerun with --allow-forbidden for the trusted profile if the operation \
                  is intentionally privileged.",
                 outcome.decision.composite_score,
-                blocking_reason(&outcome.decision)
+                blocking_reason(&outcome.decision),
+                deny_class_hint(&outcome.decision)
             ),
             _ => Ok(None),
         },
@@ -970,6 +972,25 @@ fn blocking_reason(decision: &touring_ceg::gateway::GateDecision) -> &str {
         .first()
         .map(String::as_str)
         .unwrap_or("hard block fired")
+}
+
+/// G-D (30/08, campo analise-a2): env reads are denied ON PURPOSE under
+/// `Sandboxed` — the child carries whitelisted credentials (I-12) and a
+/// workspace file write would bypass the stdout redaction — but denying
+/// WITHOUT a route left the program unable to self-verify (the probe that
+/// confirms the sandbox was the one the sandbox refused). The hint names the
+/// probes that answer the same questions without touching env.
+fn deny_class_hint(decision: &touring_ceg::gateway::GateDecision) -> &'static str {
+    if decision.denied_classes.iter().any(|c| c == "environment") {
+        " Env reads are denied under Sandboxed on purpose: the child carries \
+         whitelisted credentials, and a workspace file write would bypass \
+         stdout redaction. To self-verify the Python environment use \
+         sys.executable / sys.path / sys.prefix (they reflect PYTHONPATH \
+         without touching env); the sandbox env itself is env_clear plus a \
+         fixed allowlist — see docs/code-mode.md, section CEG."
+    } else {
+        ""
+    }
 }
 
 /// Whether every capability X6 denied is `subprocess` — the only class the
@@ -1469,6 +1490,31 @@ mod tests {
         so_sub.reasons =
             vec!["X6 denied the subprocess capability 'rm' under profile 'Sandboxed'".into()];
         assert!(super::blocking_reason(&so_sub).contains("'rm'"));
+    }
+
+    /// G-D (30/08, campo analise-a2): o deny de env-read fica de pé (é
+    /// intencional), mas a mensagem ENSINA a rota de auto-verificação — a
+    /// sonda que confirma o sandbox não pode ser a que o sandbox recusa sem
+    /// caminho (A5).
+    #[test]
+    fn the_env_read_deny_teaches_the_selfcheck_route() {
+        let d = decisao(vec!["environment"], false);
+        assert!(
+            super::deny_class_hint(&d).contains("sys.executable"),
+            "o hint nomeia a sonda que não toca env"
+        );
+        // Controle: classes sem hint dedicado não ganham texto espúrio.
+        assert_eq!(super::deny_class_hint(&decisao(vec!["network"], false)), "");
+        // O hint compõe com classes mistas: environment presente basta.
+        assert!(
+            super::deny_class_hint(&decisao(vec!["subprocess", "environment"], false))
+                .contains("sys.executable")
+        );
+        // NOTA: o ARM inteiro não é unit-testável para esta classe — o
+        // veredito de `environment` depende do composite (histórico neutro
+        // do stub → Allow; produção com histórico vivo → Deny, medido pela
+        // analise-a2 na 30.4.26). A prova do arm é comportamental,
+        // pós-propagação.
     }
 
     /// 30/08/2026, ordem de Gabriel: o waiver subprocess-only vale em TODA
