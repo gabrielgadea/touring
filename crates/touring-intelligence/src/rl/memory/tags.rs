@@ -647,18 +647,92 @@ pub fn entry_keys_with_all_tags(
 /// Splits a free-form query into `#facet:value` filters and the remaining
 /// text — the CLI grammar of `touring memory query "texto #kind:snippet"`.
 pub fn split_query_tags(query: &str) -> (Vec<ParsedTag>, String) {
+    let (tags, text, _) = split_query_tags_reporting(query);
+    (tags, text)
+}
+
+/// One `#facet:value` token the parser could not accept, elevated to the
+/// RESPONSE instead of dying in a daemon log. Contract P1 (memory-graph
+/// contract, 2026-08-30): both silent-death points — parse failure at store
+/// time and the token-falls-back-to-text path at query time — must speak in
+/// the payload, and the message must teach the correction (A5): the reason
+/// names the seven canonical facets and `suggestion` carries the closest one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IgnoredTag {
+    /// The token as written (e.g. `#classe:prova`).
+    pub raw: String,
+    /// Human-readable reason that teaches the fix.
+    pub reason: String,
+    /// Closest canonical facet, when one is within edit distance ≤ 2.
+    pub suggestion: Option<&'static str>,
+}
+
+impl IgnoredTag {
+    /// JSON shape served in `ignored_facets` / `unknown_facets` arrays.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "raw": self.raw,
+            "reason": self.reason,
+            "suggestion": self.suggestion,
+        })
+    }
+}
+
+/// Renders parse violations into one [`IgnoredTag`] whose reason TEACHES:
+/// an unknown facet names the full canonical vocabulary (never a bare
+/// "invalid"), because the observed failure mode is months of silently
+/// discarded facets that queries then matched by textual accident.
+pub fn describe_violations(raw: &str, errs: &[TagViolation]) -> IgnoredTag {
+    let canon = || {
+        Facet::ALL
+            .iter()
+            .map(|f| f.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let mut suggestion = None;
+    let reason = match errs.first() {
+        Some(TagViolation::UnknownFacet { raw: facet, suggestion: s }) => {
+            suggestion = s.map(Facet::as_str);
+            format!("unknown facet '{facet}' — canonical facets: {}", canon())
+        }
+        Some(TagViolation::MissingColon) => {
+            format!("missing ':' — a tag is #facet:value (facets: {})", canon())
+        }
+        Some(TagViolation::InvalidValue { facet, value, reason }) => {
+            format!("invalid value '{value}' for facet '{}': {reason}", facet.as_str())
+        }
+        Some(TagViolation::UnseededValue { facet, value }) => {
+            format!("unseeded value '{value}' for facet '{}'", facet.as_str())
+        }
+        None => "unparseable tag".to_string(),
+    };
+    IgnoredTag { raw: raw.to_string(), reason, suggestion }
+}
+
+/// Like [`split_query_tags`], but the third slot reports every `#`-prefixed
+/// token that did NOT become a filter and fell back to plain text. Callers
+/// serving query/recall responses surface it as `unknown_facets`, so
+/// "found by textual accident" is distinguishable from "facet matched"
+/// (measured 2026-08-29: `#kind:lesson #classe:x` returned the right entry
+/// only because the value appeared in the body).
+pub fn split_query_tags_reporting(query: &str) -> (Vec<ParsedTag>, String, Vec<IgnoredTag>) {
     let mut tags = Vec::new();
     let mut text = Vec::new();
+    let mut ignored = Vec::new();
     for word in query.split_whitespace() {
-        if word.starts_with('#')
-            && let Ok(tag) = parse_tag(word)
-        {
-            tags.push(tag);
-            continue;
+        if word.starts_with('#') && word.contains(':') {
+            match parse_tag(word) {
+                Ok(tag) => {
+                    tags.push(tag);
+                    continue;
+                }
+                Err(errs) => ignored.push(describe_violations(word, &errs)),
+            }
         }
         text.push(word);
     }
-    (tags, text.join(" "))
+    (tags, text.join(" "), ignored)
 }
 
 // ── Link graph helpers (L3 of the hashtag library) ─────────────────────────
@@ -867,5 +941,46 @@ mod tests {
         for rel in LinkRel::ALL {
             assert_eq!(LinkRel::from_str_ci(rel.as_str()), Some(rel));
         }
+    }
+
+    // ── Contract P1 (2026-08-30): the silent-death points speak ────────────
+
+    #[rstest]
+    fn unknown_facet_token_is_reported_and_falls_back_to_text() {
+        // Mutation killed: dropping the third slot / not pushing the token
+        // back into the text (the pre-P1 behaviour matched by accident).
+        let (tags, text, ignored) =
+            split_query_tags_reporting("#kind:lesson #classe:prova corpo");
+        assert_eq!(tags.len(), 1, "the canonical tag still filters");
+        assert_eq!(text, "#classe:prova corpo", "the rejected token stays searchable text");
+        assert_eq!(ignored.len(), 1);
+        assert_eq!(ignored[0].raw, "#classe:prova");
+        assert!(
+            ignored[0]
+                .reason
+                .contains("kind, purpose, lang, domain, process, artifact, status"),
+            "the reason TEACHES the canonical vocabulary: {}",
+            ignored[0].reason
+        );
+    }
+
+    #[rstest]
+    fn near_miss_facet_carries_the_closest_canonical_suggestion() {
+        // Mutation killed: not forwarding suggest_facet into the report.
+        let (_, _, ignored) = split_query_tags_reporting("#kynd:lesson");
+        assert_eq!(ignored[0].suggestion, Some("kind"));
+    }
+
+    #[rstest]
+    fn silent_wrapper_stays_byte_compatible_with_the_reporting_split() {
+        // Mutation killed: the wrapper diverging from the reporting variant
+        // (two parse sites would drift — the D8 failure mode).
+        let q = "#kind:lesson #purpose:diagnose free text #nota";
+        let (a, b) = split_query_tags(q);
+        let (a2, b2, ignored) = split_query_tags_reporting(q);
+        assert_eq!(a.len(), a2.len());
+        assert_eq!(b, b2);
+        // `#nota` has no ':' — markdown-ish tokens never spam the report.
+        assert!(ignored.is_empty());
     }
 }

@@ -724,7 +724,10 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // matches nothing falls back to the full corpus and reports
     // `tag_filter.relaxed: true` rather than silently returning empty.
     use touring_intelligence::rl::memory::tags;
-    let (required_tags, text_query) = tags::split_query_tags(query);
+    // Contract P1 (2026-08-30): a token with an unknown facet used to fall
+    // back to TEXT silently and match by accident whenever the value appeared
+    // in a body — the reporting split lets the response say so.
+    let (required_tags, text_query, unknown_facets) = tags::split_query_tags_reporting(query);
     let search_text: &str = if required_tags.is_empty() {
         query
     } else {
@@ -936,7 +939,10 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         "shown" : entry_count, "total" : candidates_total,
         "truncated" : candidates_total > entry_count,
         "ann_results" : ann_count, "symbol_context" : symbol_context, "diagnostics" :
-        memory_diagnostics, "cases" : cases, "tag_filter" : tag_filter_json, }
+        memory_diagnostics, "cases" : cases, "tag_filter" : tag_filter_json,
+        // P1: always present — a token listed here did NOT filter (it was
+        // searched as text), so a hit may be textual accident.
+        "unknown_facets" : unknown_facets.iter().map(|t| t.to_json()).collect::<Vec<_>>(), }
     )
     .to_string()
 }
