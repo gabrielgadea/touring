@@ -68,10 +68,30 @@ KPIs da família: `graph_contract_share` (P3) · `edge_density` (arestas/nó nov
 janela) · `provenance_share` (nós com `generated-by` / nós novos). Bloqueio só
 depois de série durável — o gate que nasce bloqueando vira rota contornada.
 
+## Adenda medida (30/08, troca com `analise-e0`)
+
+- **`--supersedes` NÃO reaponta arestas** (provado por código rlm.rs:586-593 —
+  só `memory_entries.superseded_by` é tocada — e por sonda viva:
+  `links(nó-novo)=0`, `links(nó-antigo)=1`). Corrigir nó com arestas =
+  supersede + reapontar as arestas NA MESMA LEVA (id determinístico torna
+  idempotente). Candidato **P1.5**: o handler do store reaponta
+  `memory_links` quando `supersedes` está presente.
+- **Dois pontos de morte muda para tags**: `parse_tag` Err → `tracing::warn`
+  no LOG do daemon (rlm.rs:604), nunca na resposta; faceta não-canônica que
+  parseia Ok morre depois, no filtro por `Facet` da consulta. O P1 eleva
+  ambos à resposta — com a emenda da peer: `ignored_facets` nomeia a faceta
+  canônica mais próxima (`#classe`→`#domain|#process`;
+  `#adw`→`#process:adw-<nome>`).
+- **Método das 3 sondas para provar faceta** (da peer, medido): `total>0`
+  sobre valor não-único é ambíguo entre faceta casada e fallback textual
+  (`*` NÃO é wildcard — cai para busca de texto). A prova exige valor único +
+  controle negativo (faceta absurda → 0) + controle positivo na mesma sonda.
+
 ## Regras de uso imediato (valem já, sem esperar as fases)
 
 1. Chave: `<tipo>:<slug>:<AAAA-MM-DD>`; corrigir nó = `--supersedes <key-velha>`
-   (retire executável), nunca regravar variante.
+   (retire executável) **+ reapontar as arestas na mesma leva** (ver adenda),
+   nunca regravar variante.
 2. Toda memória de fase/lição: facetas das 7 + `link --rel generated-by` para
    `loop:<task_id>` ou `decomp:<task_id>` na mesma leva do store.
 3. Depois de gravar: `memory query "#faceta:valor"` e exigir o nó em `total`
