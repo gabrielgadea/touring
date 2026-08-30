@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "attested_at": "2026-08-26T17:28:55-03:00",
+  "attested_at": "2026-08-29T22:46:49-03:00",
   "attested_by": "gabrielgadea",
-  "why": "26/08: drift de 2 graders (loop_outer_gate.py + flow_manifests.json) acumulado de sessoes 23-25/08 (work-outer/manifest) \u2014 revisado ao vivo nesta sessao: o gate strategy-outer executou e vereditou corretamente (3/3 artefatos). Clauses enforced==attested (8/8).",
+  "why": "quality_gold remedy now names blockers when they cap the tier (peer-measured: composite=0.932 tier=Silver via blockers=[F1_3]; old fixed message pointed at composite which already passed) \u2014 A5/D8, +5 tests",
   "files": {
-    "loop_converged.py": "460d6e5b5a555ec80c4d63791662703df61257b9d8496632c9121415a19b7f7d",
+    "loop_converged.py": "2fd68e7bdad023d4c0eb4060aac13c737ad4415571e32175f191c4fadf7fae32",
     "hooks/loop_outer_gate.py": "be1f9b404eecbf52dbea072b6fef0bf4fb9f8b5e35ffde2327d5783327b4b1f6",
     "hooks/flow_manifests.json": "d395ef1790b0ff0e74f6d336d0925521b5b5fc340b14b35d9e662665af7029fb"
   },

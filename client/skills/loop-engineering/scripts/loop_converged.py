@@ -129,11 +129,15 @@ def clause_dag_done(task):
 
 
 def clause_quality(scope):
-    """Returns ``(gold_ok, p0_fail_list, tier, composite, truncated_dims)``.
+    """Returns ``(gold_ok, p0_fail_list, tier, composite, truncated_dims, blockers)``.
 
     ``gold_ok`` ⟺ **tier ≥ Gold** — the honest verdict. The quality-gate caps
     the tier to Silver when a WARN/BLOCK dim fails, so ``composite ≥ 0.80`` alone
-    can still be Silver (a lenient false-pass). Scores the SCOPE directly: NO
+    can still be Silver (a lenient false-pass). ``blockers`` names the dims doing
+    that capping — the remedy must name THEM, never "raise the composite": measured
+    2026-08-29 (peer analise-e0), composite=0.932 with 0/50 dims below 0.80 still
+    yielded tier=Silver via ``blockers=["F1_3"]``, and the old fixed message told
+    the operator to raise a number that already passed. Scores the SCOPE directly: NO
     ``--workspace`` (which would resolve to the ambient workspace and score the
     wrong tree — audit finding 2026-07-02). Fail-CLOSED on tool error.
 
@@ -148,9 +152,10 @@ def clause_quality(scope):
     if not data:
         # applicable but unverifiable → fail-closed. `None` for truncated_dims
         # distinguishes "could not measure" from "measured, nothing truncated".
-        return False, [], None, None, None
+        return False, [], None, None, None, []
     tier = data.get("tier")
     composite = data.get("composite")
+    blockers = [str(b) for b in (data.get("blockers") or []) if b]
     p0_fail = []
     truncated = []
     dims = data.get("dimensions")
@@ -162,7 +167,7 @@ def clause_quality(scope):
         for name, dim in sorted(dims.items()):
             if isinstance(dim, dict) and dim.get("truncated") is True:
                 truncated.append(name)
-    return (tier in GOLD_OR_BETTER), p0_fail, tier, composite, truncated
+    return (tier in GOLD_OR_BETTER), p0_fail, tier, composite, truncated, blockers
 
 
 def clause_not_truncated(truncated_dims):
@@ -532,9 +537,18 @@ def _gather_clauses(task, scope: Path, bundle: Path, rust_full, rust):
     # wiring index are polyglot); only cargo is Rust-specific. Until 2026-08-02
     # all four were gated on the Rust flag, so a Python scope was never held to
     # the quality bar at all — the opposite of the harness's purpose.
-    gold, p0, tier, comp, truncated = clause_quality(scope)
-    yield ("quality_gold", gold, f"tier={tier} composite={comp}",
-           "raise touring-quality to >= Gold (0.80)")
+    gold, p0, tier, comp, truncated, blockers = clause_quality(scope)
+    # The remedy must name the field that actually fails the clause (A5/D8):
+    # with blockers, the tier is capped below Gold regardless of composite —
+    # "raise the composite" would point the operator at a number that already
+    # passes (measured: composite=0.932, tier=Silver via blockers=[F1_3]).
+    qual_ev = f"tier={tier} composite={comp}" + (
+        f" blockers={','.join(blockers)}" if blockers else "")
+    qual_fix = (
+        f"fix blocker dim(s) {','.join(blockers)} — the tier is capped below "
+        f"Gold by blockers, not by composite ({comp} already measured)"
+        if blockers else "raise touring-quality to >= Gold (0.80)")
+    yield ("quality_gold", gold, qual_ev, qual_fix)
     yield ("no_p0_fail", len(p0) == 0, f"P0 fails: {p0 or 'none'}",
            f"fix P0 BLOCK dims: {','.join(p0)}" if p0 else None)
     yield ("measured_whole_scope", *clause_not_truncated(truncated),
