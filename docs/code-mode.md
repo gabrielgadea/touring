@@ -74,9 +74,18 @@ Todo `touring run` atravessa o gateway X0..X7 antes de executar (perfil `sandbox
 sob `--allow-forbidden`). `Deny` aborta com a razão e a rota correta; erro interno do gateway é
 fail-open (o gate nunca brica a sessão).
 
-**O waiver do shell é SELETIVO (27/08/2026).** Um `Deny` de shell cuja ÚNICA classe negada é
-`subprocess` vira advisory e o comando roda; qualquer outra classe — rede acima de tudo — e
-qualquer bloqueio destrutivo do X2 negam de verdade, exatamente como nas linguagens de código.
+**O waiver subprocess-only vale em TODA linguagem (30/08/2026, ordem de Gabriel; era
+shell-only desde 27/08).** Um `Deny` cuja ÚNICA classe negada é `subprocess` vira advisory e o
+programa roda — em bash, python, qualquer lang; qualquer outra classe — rede acima de tudo — e
+qualquer bloqueio destrutivo do X2 negam de verdade. A assimetria anterior era puramente
+lexical (`is_shell = matches!(tool, "Bash")`): mesmo perfil, mesmo Landlock, `echo` negado em
+python enquanto `sed` passava em bash (4 sondas da analise-a2), e o gate empurrava o trabalho
+para a linguagem pior para a correção sem ganhar um bit de contenção. Quem carrega a segurança
+é o predicado `only_subprocess_denials`, inalterado. Quando um deny FICA de pé, a razão citada
+é a da classe que o manteve — nunca `reasons.first()` cru (G-B: um `sed` inocente era nomeado
+quando a classe determinante era `file-write`). E o git roda hermético no sandbox
+(`GIT_CONFIG_GLOBAL/SYSTEM=/dev/null` — G-C: a config global ilegível pelo Landlock fazia
+`git log` sair vazio e `merge-base` responder errado sobre um repo que não leu).
 
 A assimetria não é preferência, é o que a contenção do sandbox sustenta, medido:
 

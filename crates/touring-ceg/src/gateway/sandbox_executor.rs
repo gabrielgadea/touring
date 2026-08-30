@@ -1235,6 +1235,14 @@ pub(crate) fn apply_credential_whitelist(cmd: &mut Command) {
     // root que o Landlock já concede. Medido ausente no filho (TMPDIR=None):
     // ferramentas que o respeitam ficavam sem diretório temporário declarado.
     cmd.env("TMPDIR", "/tmp");
+    // G-C (30/08, campo analise-a2): git dentro do sandbox abortava lendo
+    // ~/.config/git/config (Landlock nega o path) — e o aborto produzia um
+    // `git log` VAZIO e um `merge-base --is-ancestor` respondendo NÃO sobre
+    // um repositório que ele não conseguiu ler (um negativo bem-formado de
+    // uma leitura que não leu). Config global/system apontadas ao void: o
+    // git roda hermético, lendo só o `.git/config` do próprio repo.
+    cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
+    cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
     // RUN-2 (30/08/2026): a injeção do sandbox-venv saiu daqui. Era
     // incondicional — TODA execução (bash incluído) recebia PYTHONPATH com um
     // site-packages de UMA versão de python, que sombreava o venv do projeto

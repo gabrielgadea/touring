@@ -818,10 +818,11 @@ fn ceg_advisory_json(a: &CegRunAdvisory) -> serde_json::Value {
     serde_json::json!({
         "composite": a.composite,
         "reason": a.reason,
-        "note": "subprocess-only X6 deny waived for shell — the sandbox DOES contain \
-                 the filesystem (a write outside the workspace fails), which is what \
-                 makes this class waivable. Network and destructive-pattern denials \
-                 are NOT waived: they hard-deny, exactly as in the code languages.",
+        "note": "subprocess-only X6 deny waived — the sandbox DOES contain the \
+                 filesystem (a write outside the workspace fails), which is what \
+                 makes this class waivable in every language (extended from \
+                 shell-only by Gabriel's order, 30/08/2026). Network and \
+                 destructive-pattern denials are NOT waived: they hard-deny.",
     })
 }
 
@@ -863,7 +864,6 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u1
             _ => "SandboxPython",
         },
     };
-    let is_shell = matches!(tool, "Bash");
     match run_gateway(tool, code, None, &deps) {
         Ok(outcome) => match outcome.decision.verdict {
             // SHELL denials used to downgrade WHOLESALE, on the grounds that
@@ -900,7 +900,14 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u1
                 );
                 Ok(Some(advisory))
             }
-            Verdict::Deny if is_shell && only_subprocess_denials(&outcome.decision) => {
+            // 30/08/2026, ordem de Gabriel ("estenda o waiver às linguagens de
+            // código"): o `is_shell &&` saiu da guarda. A assimetria era
+            // puramente lexical — mesmo perfil Sandboxed, mesmo Landlock,
+            // mesmo rlimit, e `echo` negado em python enquanto `sed` passava
+            // em bash (medido pela analise-a2, 4 sondas). O predicado
+            // `only_subprocess_denials` é quem carrega a segurança: rede e
+            // X2 destrutivo seguem negando duro em toda linguagem.
+            Verdict::Deny if only_subprocess_denials(&outcome.decision) => {
                 // S5a — o advisory virou campo do resultado; no stderr ele se
                 // misturava ao erro real do programa. debug! guarda o rastro
                 // forense sem poluir o canal (default-off).
@@ -921,35 +928,19 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u1
                 );
                 Ok(Some(advisory))
             }
-            Verdict::Deny => {
-                // A5: the deny names the conforming route back. A code-language
-                // subprocess-only deny reaching this arm means the SAME work
-                // would run under `--lang bash`, where this class is waived
-                // (the sandbox contains the filesystem) — measured by the
-                // analise-a2 field report (30/08): without the hint the model
-                // had no conforming path for external-tool work and fell back
-                // to counted bypasses.
-                let hint = if only_subprocess_denials(&outcome.decision) {
-                    " The subprocess class is waived under `--lang bash` (Landlock \
-                     contains the filesystem): rerun the same work as `touring run \
-                     --lang bash --code '<the commands>' --timeout-ms <ms>`. Network \
-                     and destructive patterns stay denied in every language."
-                } else {
-                    ""
-                };
-                anyhow::bail!(
-                    "the CEG gateway denied this run (composite {:.2}): {}.{hint} Adjust \
-                     the code, or rerun with --allow-forbidden for the trusted profile \
-                     if the operation is intentionally privileged.",
-                    outcome.decision.composite_score,
-                    outcome
-                        .decision
-                        .reasons
-                        .first()
-                        .map(String::as_str)
-                        .unwrap_or("hard block fired")
-                )
-            }
+            Verdict::Deny => anyhow::bail!(
+                // G-B (30/08, campo analise-a2): a razão citada é a da CLASSE
+                // que manteve o deny de pé, nunca `reasons.first()` cru — um
+                // programa com `sed` + um redirect de escrita imprimia
+                // "denied the subprocess capability 'sed'" quando a classe
+                // determinante era file-write, e o operador bisecou um `sed`
+                // inocente.
+                "the CEG gateway denied this run (composite {:.2}): {}. Adjust the code, \
+                 or rerun with --allow-forbidden for the trusted profile if the operation \
+                 is intentionally privileged.",
+                outcome.decision.composite_score,
+                blocking_reason(&outcome.decision)
+            ),
             _ => Ok(None),
         },
         Err(e) => {
@@ -959,8 +950,30 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u1
     }
 }
 
+/// The reason worth showing when a deny STANDS: the first one whose class is
+/// not `subprocess`, because that is the class that kept the waiver from
+/// firing — `reasons.first()` named an innocent `sed` while the determinant
+/// class was `file-write` (G-B, campo analise-a2 30/08). Falls back to the
+/// first reason (or the generic line) when nothing more specific exists.
+fn blocking_reason(decision: &touring_ceg::gateway::GateDecision) -> &str {
+    let has_non_subprocess = decision.denied_classes.iter().any(|c| c != "subprocess");
+    if has_non_subprocess
+        && let Some(r) = decision
+            .reasons
+            .iter()
+            .find(|r| !r.contains("the subprocess capability"))
+    {
+        return r;
+    }
+    decision
+        .reasons
+        .first()
+        .map(String::as_str)
+        .unwrap_or("hard block fired")
+}
+
 /// Whether every capability X6 denied is `subprocess` — the only class the
-/// shell path waives.
+/// run path waives (every language since 30/08/2026; shell-only before).
 ///
 /// An EMPTY class list means the deny came from somewhere other than X6 (an X2
 /// destructive pattern, a composite below threshold), and those were never
@@ -1432,6 +1445,59 @@ mod tests {
     #[test]
     fn an_empty_class_list_does_not_grant_a_waiver() {
         assert!(!super::only_subprocess_denials(&decisao(vec![], false)));
+    }
+
+    /// G-B (30/08, campo analise-a2): quando o deny FICA de pé, a razão
+    /// citada é a da classe que o manteve — `reasons.first()` nomeava um
+    /// `sed` inocente ("subprocess capability 'sed'") quando a classe
+    /// determinante era `file-write`, e o operador bisecou o comando errado.
+    #[test]
+    fn the_blocking_reason_names_the_class_that_kept_the_deny_standing() {
+        let mut d = decisao(vec!["subprocess", "fs-write"], false);
+        d.reasons = vec![
+            "X6 denied the subprocess capability 'sed' under profile 'Sandboxed'".into(),
+            "X6 denied the file-write capability 'redirection' under profile 'Sandboxed'"
+                .into(),
+        ];
+        assert!(
+            super::blocking_reason(&d).contains("file-write"),
+            "a classe que quebrou o waiver é a que se nomeia: {}",
+            super::blocking_reason(&d)
+        );
+        // Controle: deny só-subprocess (ex.: sob X2 static) cita a primeira.
+        let mut so_sub = decisao(vec!["subprocess"], true);
+        so_sub.reasons =
+            vec!["X6 denied the subprocess capability 'rm' under profile 'Sandboxed'".into()];
+        assert!(super::blocking_reason(&so_sub).contains("'rm'"));
+    }
+
+    /// 30/08/2026, ordem de Gabriel: o waiver subprocess-only vale em TODA
+    /// linguagem — a assimetria anterior era puramente lexical
+    /// (`is_shell = matches!(tool, "Bash")`): mesmo perfil, mesmo Landlock,
+    /// `echo` negado em python enquanto `sed` passava em bash. O ARM inteiro
+    /// é exercitado (não só a função pura): python com subprocess vira
+    /// advisory; python com rede segue Err (o controle negativo que impede
+    /// esta extensão de reabrir o furo do waiver cego de 27/08).
+    #[test]
+    fn the_waiver_covers_code_languages_and_network_still_hard_denies() {
+        let advisory = super::gate_run(
+            "python",
+            "import subprocess\nsubprocess.run([\"echo\", \"oi\"])\n",
+            false,
+            &[],
+        )
+        .expect("subprocess-only em python é advisory, nunca erro");
+        assert!(
+            advisory.is_some(),
+            "o deny rebaixado viaja como advisory no resultado"
+        );
+        let rede = super::gate_run(
+            "python",
+            "import socket\nsocket.create_connection((\"1.2.3.4\", 443))\n",
+            false,
+            &[],
+        );
+        assert!(rede.is_err(), "rede segue negando duro em toda linguagem");
     }
 
     /// Monta uma `GateDecision` mínima para exercitar o predicado do waiver.

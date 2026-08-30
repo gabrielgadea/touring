@@ -1031,6 +1031,29 @@ mod tests {
         );
     }
 
+    /// G-A (regressão fixada 30/08, campo analise-a2): redirect para o void
+    /// (`2>/dev/null` e afins) é DESCARTE, não escrita — não pode gerar o
+    /// need de `FsWrite` que quebra o waiver subprocess-only. O relato de
+    /// campo mediu um deny `file-write 'redirection'` por `2>/dev/null` na
+    /// instalação; a fonte trata o void e este teste impede a reversão.
+    #[test]
+    fn a_redirect_to_the_void_is_not_a_file_write() {
+        for cmd in [
+            "find scripts -name \"x.py\" 2>/dev/null",
+            "grep -rn foo src/ 2> /dev/null",
+            "cmd > /dev/null 2>&1",
+            "cmd &>/dev/null",
+        ] {
+            assert!(
+                !super::bash_writes_a_file(cmd),
+                "`{cmd}` descarta, não escreve"
+            );
+        }
+        // Controle positivo: redirect para arquivo REAL segue sendo escrita.
+        assert!(super::bash_writes_a_file("echo x > /tmp/saida.txt"));
+        assert!(super::bash_writes_a_file("cmd 2>erros.log"));
+    }
+
     /// Rede é rede em qualquer posição — o conserto dos builtins não podia
     /// afrouxar a classificação que pega `curl`/`nc`.
     #[test]
