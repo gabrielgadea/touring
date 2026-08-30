@@ -284,9 +284,15 @@ pub trait LinUCBBanditOps {
         reward: f64,
     );
 
-    /// P4.2: Suggest a context verbosity level using QTable.
+    /// P4.2: Suggest a context verbosity level from the LinUCB arm choice.
     ///
-    /// Maps the current state to one of 4 levels (0-3).
+    /// Maps the selected arm to one of 4 levels (0-3). The original doc said
+    /// "using QTable", but the impl has always delegated to
+    /// `select_context_strategy` (LinUCB) — a comment asserting a symmetry
+    /// that never existed (corrected 29/08/2026; wiring the trained QTable
+    /// into a production decision is gated on the
+    /// `touring.learning.policy_discrimination` KPI showing a policy worth
+    /// consulting).
     #[allow(clippy::too_many_arguments)]
     fn suggest_context_level(
         &mut self,

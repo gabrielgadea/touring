@@ -283,6 +283,44 @@ fn inspect_burst_share(denied: f64, first_passed: f64) -> Option<f64> {
     Some(denied / total)
 }
 
+/// P2 elos-exponenciais (29/08): a política discrimina ou é constante? A
+/// QTable era um órgão quase write-only — treinada por 3 caminhos, consultada
+/// por ~nenhum decisor — e o consumidor já observado devolvia 0.990 para tudo
+/// (`uma-execucao-nao-distingue-constante`). Antes de LIGAR a política a
+/// decisões de produção, instrumentar: fração dos estados multi-ação cuja
+/// dispersão de Q (max−min) supera 0.01. `None`/STUB sem estados multi-ação —
+/// tabela rasa é desconhecido, nunca "política constante".
+fn policy_discrimination(project_root: &Path) -> Option<f64> {
+    let db = touring_foundation::TouringConfig::graph_db_canonical(project_root);
+    let conn = rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .ok()?;
+    let rows: Vec<(String, f64)> = conn
+        .prepare("SELECT state_action, q_value FROM learning_qtable")
+        .ok()?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .ok()?
+        .filter_map(std::result::Result::ok)
+        .collect();
+    let mut by_state: std::collections::HashMap<String, (f64, f64, u32)> =
+        std::collections::HashMap::new();
+    for (sa, q) in rows {
+        let state = sa.split(':').next().unwrap_or("").to_string();
+        let e = by_state.entry(state).or_insert((f64::MAX, f64::MIN, 0));
+        e.0 = e.0.min(q);
+        e.1 = e.1.max(q);
+        e.2 += 1;
+    }
+    let multi: Vec<_> = by_state.values().filter(|(_, _, n)| *n >= 2).collect();
+    if multi.is_empty() {
+        return None;
+    }
+    let discriminating = multi.iter().filter(|(lo, hi, _)| hi - lo > 0.01).count();
+    Some(discriminating as f64 / multi.len() as f64)
+}
+
 fn default_commitments_path() -> PathBuf {
     // Canonical source tree first: the workspace moved from `~/.claude/rust`
     // to `~/projects/touring` (F4′, 24/07/2026), so the old preferred path
@@ -596,6 +634,7 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
             code_mode_adoption(runs, bash)
         }
         "world_model_success" => read_world_model_success(),
+        "learning_policy_discrimination" => policy_discrimination(&rt.project_root),
         "learning_replay_share" => {
             // P2 replay (29/08) — que fração do corpus de outcomes
             // recompensados o OnlineRLEngine já consumiu. Numerador do cursor

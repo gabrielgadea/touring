@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "Honestidade: d\u00e9bito auto_learn/rlm.db seco (2\u00ba engine sem leitor) registrado como decis\u00e3o formal hitl pending (debito:auto-learn-rlm-db-seco:2026-08-29); a wave deliberadamente n\u00e3o construiu sobre engine sem leitor. CHANGELOG + bundle atualizados."
+    }
+  ],
+  "relations": []
+}

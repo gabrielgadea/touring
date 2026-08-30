@@ -102,6 +102,22 @@ pub fn run_session_start(
         }
     }
 
+    // P1 elos-exponenciais (29/08/2026): incremental replay drain — the
+    // rewarded-outcome corpus can never silently accumulate again. The manual
+    // verb (`touring learning replay`) proved the channel (818 backfilled,
+    // replay_share 1.0); this makes consumption automatic BY CONSTRUCTION,
+    // once per session, capped and fail-open (an unreadable memory.db is a
+    // JSON error object here, never a panic — exit-0 invariant).
+    {
+        let drained =
+            touring_hook_runtime::runtime::replay::replay_outcomes_into(runtime, 500, false);
+        if let Some(n) = drained.get("replayed").and_then(serde_json::Value::as_u64)
+            && n > 0
+        {
+            tracing::info!(replayed = n, "session-start replay drain: outcomes → OnlineRL");
+        }
+    }
+
     // S12: Pre-warm result cache with context for most accessed files
     prewarm_result_cache(runtime);
 

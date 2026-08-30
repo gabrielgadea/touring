@@ -30,7 +30,7 @@ commitments:
     direction: gte
     advisory: true
     source: "daemon:cli-learning-status:/ema_reward"
-    rationale: "EMA reward < 0.2 means the RL loop hasn't converged yet. ADVISORY (investigation 2026-07-01): the value lives in the in-memory OnlineRLEngine, which resets on every daemon restart and re-injects a synthetic 0.2 warmup — so the first post-restart samples sit deterministically just under the 0.2 threshold (0.179606 observed byte-identical across days). A non-advisory gate on this source fails structurally after every restart without signalling anything. Re-arm only if the EMA gains durable persistence."
+    rationale: "EMA reward < 0.2 means the RL loop hasn't converged yet. HISTÓRICO (2026-07-01): o valor vivia só em memória e zerava a cada restart (0.179606 sintético observado byte-idêntico por dias) — por isso virou advisory. ATUALIZADO 29/08/2026 (P1 retenção, wave onlinerl-sinal-em-volume): update_count/EMA agora persistem em .claude/data/online_rl_state.json com restore monotônico no boot — medido 0.84 pós-restart, não mais o warmup sintético. Segue advisory por prudência; candidato a re-armar como blocking após dias de série durável."
 
   - id: touring.cache.hit_ratio
     name: "Query cache hit ratio (W17/W18)"
@@ -303,6 +303,14 @@ commitments:
     advisory: true
     source: "derived:flow_compliance"
     rationale: "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here."
+
+  - id: touring.learning.policy_discrimination
+    name: "Política discrimina — estados multi-ação com dispersão de Q > 0.01"
+    threshold: 0.3
+    direction: gte
+    advisory: true
+    source: "derived:learning_policy_discrimination"
+    rationale: "P2 elos-exponenciais (29/08/2026): a QTable era um órgão quase write-only — treinada pelo trickle, pelo replay e pelo auto_learn (seco), consultada por ~nenhum decisor de produção (a doc do trait prometia 'using QTable' e a impl delega ao LinUCB). O consumidor já observado devolveu 0.990 constante para qualquer entrada (uma-execucao-nao-distingue-constante). Instrumentar ANTES de ligar a política a decisões (estratégia M0): fração dos estados multi-ação cuja dispersão max−min de Q supera 0.01, lida da learning_qtable do graph.db — a MESMA tabela que o replay treina (127 pares pós-backfill; eram 71). None/STUB sem estados multi-ação. Limiar 0.3 provisório: o veredito pede dias de sinal, não mais uma medição hoje."
 
   - id: touring.learning.replay_share
     name: "Corpus de outcomes recompensados já consumido pelo OnlineRL (replay offline)"

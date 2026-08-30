@@ -172,6 +172,31 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 ## [Unreleased]
 
+### feat(rl) — elos exponenciais: replay automático por construção + régua política→decisão (ordem de Gabriel, 29/08)
+
+Amadurece os elos que o mapa da inteligência expôs. Três movimentos:
+
+- **Replay automático por construção (P1)**: o core do replay saiu da casca CLI
+  para `touring_hook_runtime::runtime::replay` (`cursor_read`/`corpus_pending`/
+  `replay_outcomes_into`) — UMA implementação servindo o verbo manual E o
+  drain incremental do session-start (cap 500, fail-open, silencioso em 0). O
+  corpus de outcomes nunca mais acumula sem consumo: a escada "provar o verbo
+  manual → automatizar com evidência" foi cumprida (818 backfilled,
+  replay_share 1.0 na wave anterior).
+- **Régua política→decisão (P2)**: a QTable era um órgão quase **write-only**
+  — treinada por 3 caminhos (trickle, replay, auto_learn seco), consultada por
+  ~nenhum decisor: a doc do trait prometia "using QTable" e a impl sempre
+  delegou ao LinUCB (classe comentário-afirma-simetria-inexistente; doc
+  corrigida). Antes de ligar a política a decisões de produção, instrumentar
+  (estratégia M0): KPI `touring.learning.policy_discrimination` — fração dos
+  estados multi-ação com dispersão de Q > 0.01, lido da MESMA `learning_qtable`
+  que o replay treina (127 pares pós-backfill; eram 71). STUB sem estados
+  multi-ação. Ligar a QTable a um decisor real fica gated neste KPI.
+- **Honestidade (P3)**: o auto_learn do server (300s) lê `touring_rlm.db`
+  morto desde março e alimenta um 2º engine sem leitor — decisão formal
+  registrada (`debito:auto-learn-rlm-db-seco:2026-08-29`, #status:pending,
+  hitl); esta wave deliberadamente NÃO construiu sobre um engine sem leitor.
+
 ### feat(rl) — OnlineRL consome o sinal em volume: replay offline + retenção de identidade (pendência "motor girando a seco", 29/08)
 
 O débito honesto da wave anterior dizia "o sinal chega limpo até a porta do
