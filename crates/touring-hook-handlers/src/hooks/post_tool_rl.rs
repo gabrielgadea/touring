@@ -131,6 +131,15 @@ pub(crate) fn persist_qtable_batched(runtime: &HookRuntime) -> u32 {
                 tracing::debug!("Failed to persist QTable to graph.db: {e}");
             }
         }
+        // P1 retenção (29/08/2026): the engine's lifetime identity rides the
+        // same batch cadence — without it, update_count/EMA restart at zero
+        // on every daemon deploy and the meter measures uptime, not learning.
+        if let Some(ref engine) = runtime.learning.online_rl
+            && let Ok(json) = serde_json::to_string(&engine.export_stats())
+        {
+            let stats_path = runtime.project_root.join(".claude/data/online_rl_state.json");
+            let _ = std::fs::write(&stats_path, json);
+        }
         let _ = std::fs::write(&counter_path, "0");
     } else {
         let _ = std::fs::write(&counter_path, new_count.to_string());

@@ -304,6 +304,14 @@ commitments:
     source: "derived:flow_compliance"
     rationale: "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here."
 
+  - id: touring.learning.replay_share
+    name: "Corpus de outcomes recompensados já consumido pelo OnlineRL (replay offline)"
+    threshold: 0.9
+    direction: gte
+    advisory: true
+    source: "derived:learning_replay_share"
+    rationale: "P2 replay (29/08/2026, pendência 'motor girando a seco'): o corpus de outcomes com reward (820 na estreia) nunca alcançava o OnlineRLEngine — o trickle online funciona (+1/tool call, provado 7→19→20), mas o acumulado ficava no memory.db sem consumidor e o estado do engine zerava a cada restart (13→7 medido). Numerador: replayed_total do cursor durável `learning_replay_cursor.json`; denominador: numerador + pendentes contados AGORA no memory.db (mesma fonte que `touring learning replay` lê). None/STUB enquanto nada foi replayado e o corpus está invisível — ausência é desconhecido, nunca zero. Abaixo de 0.9: rode `touring learning replay`."
+
   - id: touring.memory.corpus_coverage
     name: "Memory entries reachable by ANN recall (indexed / stored)"
     threshold: 0.95

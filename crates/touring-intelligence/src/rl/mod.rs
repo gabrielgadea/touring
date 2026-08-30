@@ -299,7 +299,9 @@ pub use aco::{MultiObjectiveMapping, TrackerRlBridge};
 pub use templates::{ContextTemplate, TemplateLibrary};
 
 // Online RL
-pub use online_rl::{Experience, ImmediateReward, OnlineRLConfig, OnlineRLEngine, ReplayBuffer};
+pub use online_rl::{
+    Experience, ImmediateReward, OnlineRLConfig, OnlineRLEngine, OnlineRlStats, ReplayBuffer,
+};
 /// Online RL engine with experience replay and immediate reward signalling.
 /// - `OnlineRLEngine` / `OnlineRLConfig`: engine and its configuration
 /// - `Experience` / `ReplayBuffer`: experience tuple and replay buffer

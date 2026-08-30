@@ -50,6 +50,18 @@ struct Transition {
     reward: f64,
 }
 
+/// The engine's lifetime identity — the counters that must survive a daemon
+/// restart (P1 retenção, 29/08/2026). Everything else in the engine either
+/// persists elsewhere (QTable/LinUCB) or is short-horizon diagnostics that
+/// legitimately restarts empty (replay buffer, TD window).
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct OnlineRlStats {
+    /// Total updates ever processed, across daemon lifetimes.
+    pub update_count: u64,
+    /// EMA-smoothed reward at the moment of the snapshot.
+    pub ema_reward: f64,
+}
+
 /// Immediate reward signal from a single tool execution.
 #[derive(Debug, Clone)]
 pub struct ImmediateReward {
@@ -609,6 +621,33 @@ impl OnlineRLEngine {
     /// Total number of updates processed.
     pub fn update_count(&self) -> u64 {
         self.update_count
+    }
+
+    /// P1 retenção (29/08/2026): the engine's lifetime identity — the part
+    /// that must survive a daemon restart. The learned VALUES already do
+    /// (QTable/LinUCB are persisted); these counters did not, so
+    /// `update_count` measured daemon uptime instead of learning — the
+    /// "13 updates" misread — and every restart looked like a newborn engine,
+    /// re-triggering warmup/synthetic injection.
+    pub fn export_stats(&self) -> OnlineRlStats {
+        OnlineRlStats {
+            update_count: self.update_count,
+            ema_reward: self.ema_reward,
+        }
+    }
+
+    /// Restore lifetime identity from a prior daemon lifetime.
+    ///
+    /// Monotonic: never rewinds a live engine — the restore only applies when
+    /// the stored count is ahead of the current one (a corrupt or stale file
+    /// can therefore never erase progress). The n-step replay buffer and the
+    /// TD window restart empty by design: they are short-horizon diagnostics,
+    /// not identity.
+    pub fn restore_stats(&mut self, stats: &OnlineRlStats) {
+        if stats.update_count > self.update_count {
+            self.update_count = stats.update_count;
+            self.ema_reward = stats.ema_reward;
+        }
     }
 
     /// Whether the engine should trigger a save based on update count.
@@ -1182,6 +1221,31 @@ mod tests {
             ..Default::default()
         });
         assert!(engine.should_save(), "auto_save=true → always save");
+    }
+
+    /// P1 retenção (29/08/2026): a identidade sobrevive a um "restart" —
+    /// export → engine novo → restore continua a contagem; e um snapshot
+    /// ATRASADO nunca rebobina um engine vivo (monotonicidade é o que torna
+    /// um arquivo stale inofensivo).
+    #[test]
+    fn test_export_restore_stats_is_monotonic_identity() {
+        let mut old = OnlineRLEngine::with_defaults();
+        old.update_count = 42;
+        old.ema_reward = 0.7;
+        let snapshot = old.export_stats();
+        assert_eq!(snapshot.update_count, 42);
+
+        let mut reborn = OnlineRLEngine::with_defaults();
+        reborn.restore_stats(&snapshot);
+        assert_eq!(reborn.update_count(), 42, "o restart continua a contagem");
+        assert!((reborn.ema_reward() - 0.7).abs() < 1e-9);
+
+        reborn.restore_stats(&OnlineRlStats {
+            update_count: 10,
+            ema_reward: 0.1,
+        });
+        assert_eq!(reborn.update_count(), 42, "snapshot atrasado nunca rebobina");
+        assert!((reborn.ema_reward() - 0.7).abs() < 1e-9, "EMA fica com o mais novo");
     }
 
     #[test]

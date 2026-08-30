@@ -135,10 +135,13 @@ fn registry_has_expected_count() {
     // 2026-08-29 (R4): +2 cli-experiment-{record,list} — a superfície do
     //   ExperimentLog (zero chamadores de produção; o A/B do variant_archive
     //   passa a registrar e ler de volta): 240->242 / 242->244.
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay — o canal offline→engine
+    //   (o corpus de outcomes recompensados nunca alcançava o OnlineRLEngine;
+    //   o motor recomeçava do zero a cada restart): 242->243 / 244->245.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 244;
+    const EXPECTED_NAMES: usize = 245;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 242;
+    const EXPECTED_NAMES: usize = 243;
     assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205
@@ -161,7 +164,8 @@ fn registry_has_expected_count() {
     // 2026-08-24 (code-mode máximo): +1 cli-code-mode-run = 235.
     // 2026-08-29 (R1): +1 cli-gotcha-resolve = 236.
     // 2026-08-29 (R4): +2 cli-experiment-{record,list} = 238.
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 238);
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay = 239.
+    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 239);
 }
 
 /// The tripwire literal is duplicated across four files; this asserts they agree.

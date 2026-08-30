@@ -172,6 +172,44 @@ _The entries below are synthesized deterministically from the 102 TOON checkpoin
 
 ## [Unreleased]
 
+### feat(rl) — OnlineRL consome o sinal em volume: replay offline + retenção de identidade (pendência "motor girando a seco", 29/08)
+
+O débito honesto da wave anterior dizia "o sinal chega limpo até a porta do
+motor, mas ele não o consome em volume". A exploração OUTER mediu o débito de
+verdade em três fatos: (1) o trickle online FUNCIONA — post-tool-rl registrado
+no PostToolUse soma +1 update por tool call (provado 7→19→20 com probe ao
+vivo); (2) o corpus acumulado (820 outcomes com `outcome_reward` no memory.db)
+NUNCA alcançava o engine — não existia canal offline; (3) a identidade do
+engine (update_count/EMA) zerava a cada restart do daemon (13→7 medido em um
+dia), então o "13 updates" era o instrumento medindo uptime, não aprendizado.
+Bônus do mapa: o auto_learn do server (300s) lê `touring_rlm.db` morto desde
+março — consumidor girando a seco literal, registrado como débito à parte.
+Padrão externo (Context7 `/takuseno/d3rlpy`): offline pretrain no dataset
+logado → fine-tuning online no MESMO engine; retenção é pré-condição do valor.
+
+- **P1 retenção**: `OnlineRlStats` + `export_stats()`/`restore_stats()`
+  (monotônico — snapshot atrasado nunca rebobina) em `OnlineRLEngine`; restore
+  na construção do `HookRuntime`, save no batch do `persist_qtable_batched`
+  (cadência 10, zero I/O novo) e ao fim de cada replay
+  (`.claude/data/online_rl_state.json`).
+- **P2 replay**: handler in-daemon `cli-learning-replay` + verbo
+  `touring learning replay [--limit N] [--dry-run]` — lê
+  `memory_entries WHERE outcome_reward IS NOT NULL` acima do cursor durável
+  (`.claude/touring/learning_replay_cursor.json`; ilegível ⇒ recomeça
+  DECLARANDO `resumed_from_zero`), embaralha com FNV determinístico
+  (decorrelação, linhagem DQN), mapeia key→tool (`outcome:bash:…`→`bash`;
+  malformada → `replay-unknown` contado, nunca descartada) e dirige o MESMO
+  `process_immediate_reward` do caminho vivo. `learning status` ganhou
+  `corpus_pending` (None = db ilegível, E4).
+- **P3 régua**: KPI `touring.learning.replay_share` (cursor/pendentes, mesma
+  fonte que o replay lê; STUB quando nada foi replayado E o corpus está
+  invisível) + commitment declarado (guard bidirecional).
+- Tripwires de hooks 238→239 (const) / 242→243 / 244→245 nos 4 arquivos;
+  testes: monotonicidade unit, e2e round-trip (consome 1×, dry_run inerte,
+  snapshot em disco), replay de 5 outcomes = exatamente +5 updates.
+- Bundle: `docs/plans/2026-08-29-onlinerl-sinal-em-volume/` (DAG
+  `task_1788046758317161946`).
+
 ### feat(aprendizado) — ligar, não construir: R1-R6 fecham os furos do ciclo (ordem de Gabriel, 29/08)
 
 Auditoria da inteligência mediu: registro forte, crédito compondo (1,70%→7,87%

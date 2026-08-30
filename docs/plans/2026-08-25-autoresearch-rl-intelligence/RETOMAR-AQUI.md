@@ -102,6 +102,19 @@ SELECT COUNT(*) FROM memory_entries WHERE outcome_reward < 0.5;   -- hoje: 16
 `P5` (consolidação + `loop_converged --rust-full`) depende de `P4`. `P3b` (embalar o research loop
 como ADW) é independente e implementável a qualquer momento.
 
+## Adendo 29/08 (noite) — o débito "motor girando a seco" foi RESOLVIDO
+
+A fronteira "fazer o OnlineRL consumir o sinal em volume" fechou na wave
+`docs/plans/2026-08-29-onlinerl-sinal-em-volume/`. O débito real eram TRÊS
+fatos (o trickle online já funcionava — +1/tool call provado): faltava o canal
+offline (820 outcomes sem consumidor) e a retenção (update_count zerava a cada
+restart — o "13 updates" era o instrumento medindo uptime). Entregue e provado
+ao vivo: `touring learning replay` (cursor durável) fez update_count **3→822**
+num backfill, `corpus_pending` 818→0, retenção **monotônica através de
+`daemon-ctl restart`** (822→822), KPI `touring.learning.replay_share` = 1.0
+PASS. Débito novo registrado: o auto_learn do server (300s) lê
+`touring_rlm.db` morto desde março e alimenta um segundo engine sem leitor.
+
 ## Adendo 29/08 — o gatilho do P4 foi medido e corrigido (wave ligar-não-construir)
 
 O critério de partida do P4 mudou de forma: as rejeições de gate vivem como KEY

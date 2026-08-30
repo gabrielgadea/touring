@@ -781,6 +781,84 @@ fn test_gotcha_resolve_feeds_the_resolution_channel() {
     assert!(noop["hint"].is_string(), "payload: {noop}");
 }
 
+/// P2 replay (29/08): o canal offline→engine. Semeia outcomes recompensados
+/// no memory.db e prova: (a) o replay consome TODOS e o update_count do
+/// engine avança na mesma medida; (b) o cursor é durável — a 2ª chamada
+/// replaya 0; (c) dry_run não toca engine nem cursor; (d) corpus_pending
+/// zera após o consumo; (e) o snapshot de identidade vai ao disco.
+#[test]
+fn test_learning_replay_consumes_the_outcome_corpus_once() {
+    let (_tmp, mut rt) = setup_runtime();
+    let db = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
+    std::fs::create_dir_all(db.parent().expect("parent")).expect("mkdir");
+    let conn = rusqlite::Connection::open(&db).expect("open memory.db");
+    // HookRuntime::new já cria o memory.db com o schema real — o seed insere
+    // NELE (teste do caminho, não de uma fixture paralela); o IF NOT EXISTS
+    // cobre apenas um harness futuro que não o crie.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS memory_entries \
+         (key TEXT PRIMARY KEY, value TEXT, outcome_reward REAL);",
+    )
+    .expect("schema");
+    for i in 0..5 {
+        conn.execute(
+            "INSERT INTO memory_entries (key, value, outcome_reward) VALUES (?1, ?2, ?3)",
+            rusqlite::params![
+                format!("outcome:bash:seed-{i}"),
+                "seed",
+                if i % 2 == 0 { 0.9 } else { 0.2 }
+            ],
+        )
+        .expect("seed row");
+    }
+    // Uma entrada SEM reward jamais é replayada.
+    conn.execute(
+        "INSERT INTO memory_entries (key, value) VALUES ('lesson:sem-reward', 'x')",
+        [],
+    )
+    .expect("unrewarded row");
+    let count_before = rt
+        .learning
+        .online_rl
+        .as_ref()
+        .map(touring_intelligence::rl::OnlineRLEngine::update_count)
+        .expect("engine");
+    // (c) dry_run: conta sem consumir.
+    let dry = parse_json(&cli_learning_replay(
+        &mut rt,
+        &serde_json::json!({ "dry_run": true }),
+    ));
+    assert_eq!(dry["available"], 5, "payload: {dry}");
+    assert_eq!(dry["replayed"], 0, "payload: {dry}");
+    assert_eq!(dry["corpus_pending"], 5, "dry_run não avança cursor: {dry}");
+    // (a) consumo real.
+    let first = parse_json(&cli_learning_replay(&mut rt, &serde_json::json!({})));
+    assert_eq!(first["replayed"], 5, "payload: {first}");
+    assert_eq!(first["corpus_pending"], 0, "payload: {first}");
+    let count_after = rt
+        .learning
+        .online_rl
+        .as_ref()
+        .map(touring_intelligence::rl::OnlineRLEngine::update_count)
+        .expect("engine");
+    assert_eq!(
+        count_after,
+        count_before + 5,
+        "cada outcome vira exatamente 1 update no engine"
+    );
+    // (e) identidade persistida em disco (a retenção que faltava).
+    let stats_raw = std::fs::read_to_string(
+        rt.project_root.join(".claude/data/online_rl_state.json"),
+    )
+    .expect("snapshot de identidade no disco");
+    let stats: serde_json::Value = serde_json::from_str(&stats_raw).expect("json");
+    assert_eq!(stats["update_count"].as_u64(), Some(count_after));
+    // (b) cursor durável: nada resta para a 2ª chamada.
+    let second = parse_json(&cli_learning_replay(&mut rt, &serde_json::json!({})));
+    assert_eq!(second["replayed"], 0, "payload: {second}");
+    assert_eq!(second["cursor"]["replayed_total"], 5, "payload: {second}");
+}
+
 /// F-1 do cross-audit 29/08: um rótulo de decisão inválido era coagido em
 /// silêncio para `keep` — o veredito MAIS FORTE (atualiza best_reward).
 /// Agora ensina; e o round-trip record→list devolve variant/target/reward.

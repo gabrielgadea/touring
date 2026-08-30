@@ -863,6 +863,20 @@ impl HookRuntime {
                 bandit: None,
                 online_rl: Some({
                     let mut engine = OnlineRLEngine::new(OnlineRLConfig::default());
+                    // P1 retenção (29/08/2026): restore the lifetime identity
+                    // BEFORE warmup, so a restarted daemon continues the count
+                    // instead of being reborn — `update_count` had been
+                    // measuring daemon uptime, not learning (13 → 7 across one
+                    // restart, measured live). Unreadable file ⇒ fresh engine,
+                    // and `restore_stats` is monotonic, so a stale snapshot
+                    // can never rewind a live count.
+                    let stats_path = project_root.join(".claude/data/online_rl_state.json");
+                    if let Ok(raw) = std::fs::read_to_string(&stats_path)
+                        && let Ok(stats) =
+                            serde_json::from_str::<touring_intelligence::rl::OnlineRlStats>(&raw)
+                    {
+                        engine.restore_stats(&stats);
+                    }
                     engine.inject_warmup_reward();
                     engine
                 }),

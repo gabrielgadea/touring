@@ -53,6 +53,10 @@ pub struct LearningStatus {
     pub bandit_type: String,
     /// Number of bandit arms (candidate actions).
     pub arm_count: usize,
+    /// P2 replay (29/08): rewarded outcomes still awaiting offline replay
+    /// into the engine (`touring learning replay`). `None` when memory.db is
+    /// unreadable — absence displayed, never coerced to zero (E4).
+    pub corpus_pending: Option<i64>,
     /// AgenticRL state snapshot — None if AgenticRL was never activated.
     /// Agentic-RL summary — R6 (29/08): the full `AgenticRLState` used to be
     /// inlined here and dumped ~40KB of raw policy weights into every
@@ -225,7 +229,7 @@ pub use crate::cli::gotcha::cli_gotcha_list;
 pub use crate::cli::gotcha::cli_gotcha_match;
 pub use crate::cli::gotcha::cli_gotcha_resolve;
 pub use crate::cli::gotcha::cli_gotcha_stats;
-pub use crate::cli::learning::{cli_experiment_list, cli_experiment_record};
+pub use crate::cli::learning::{cli_experiment_list, cli_experiment_record, cli_learning_replay};
 pub use crate::cli::gotcha::cli_gotcha_sync;
 pub use crate::cli::granularity::cli_granularity_hint;
 pub use crate::cli::granularity::cli_granularity_reset;

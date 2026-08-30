@@ -101,10 +101,11 @@ fn hook_registry_has_cascade_queue_handlers() {
     // 2026-08-18: +4 decompose verbs — claim, release (C2), ticket, frontier (C3).
     // 2026-08-29 (R1): +1 cli-gotcha-resolve.
     // 2026-08-29 (R4): +2 cli-experiment-{record,list}.
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 244;
+    const EXPECTED_NAMES: usize = 245;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 242;
+    const EXPECTED_NAMES: usize = 243;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,
