@@ -293,7 +293,16 @@ fn resolve_language_args_legacy(lang: SandboxLanguage, code: &str) -> Vec<String
         SandboxLanguage::Php => vec!["-r".into(), code.to_string()],
         SandboxLanguage::Perl => vec!["-e".into(), code.to_string()],
         SandboxLanguage::R => vec!["-e".into(), code.to_string()],
-        SandboxLanguage::Shell => vec!["-c".into(), code.to_string()],
+        // --norc/--noprofile: o sandbox nunca deve depender (nem tropeçar) nos
+        // rc files do usuário — sob Landlock a leitura de ~/.bashrc nega e o
+        // ruído "Permission denied" polui o stderr de quem lê veredito
+        // (relato analise-a2, 30/08).
+        SandboxLanguage::Shell => vec![
+            "--norc".into(),
+            "--noprofile".into(),
+            "-c".into(),
+            code.to_string(),
+        ],
         // P4.1 — Go and Rust are compiled: they have no inline-source flag.
         // `execute_in_sandbox` routes them to `compile_and_run_go` /
         // `compile_and_run_rust` (tempfile + compile); this arm is unreachable
@@ -313,7 +322,14 @@ pub fn resolve_args(tool_name: &str, args: &Value) -> Result<Vec<String>, Sandbo
                 .get("command")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| SandboxError::InvalidArgs("Bash requires 'command' field".into()))?;
-            Ok(vec!["-c".into(), cmd.to_string()])
+            // --norc/--noprofile: mesma razão do braço Shell — rc files do
+            // usuário nunca entram no sandbox.
+            Ok(vec![
+                "--norc".into(),
+                "--noprofile".into(),
+                "-c".into(),
+                cmd.to_string(),
+            ])
         }
         "Grep" => {
             let pattern = args
@@ -426,8 +442,10 @@ pub async fn execute_in_sandbox(
     // LLM nunca recebe os valores (stdout passa por redact_secrets).
     apply_credential_whitelist(&mut cmd);
     // P4.3 — every X5 sandbox execution is resource-capped, not only X8.
-    // SEG-1 (28/08): o piso inclui o teto de memória (25% do RAM físico).
-    apply_resource_caps_to(&mut cmd, &ResourceLimits::sandboxed_with_memory_ceiling());
+    // SEG-1 (28/08): o piso inclui o teto de memória. 30/08: o cap de CPU
+    // escala com o wall pedido — fixo em 30s ele matava runs legítimos de
+    // `--timeout-ms` maiores (SIGKILL, stderr vazio, lido como timeout).
+    apply_resource_caps_to(&mut cmd, &ResourceLimits::sandboxed_for_timeout(config.timeout_ms));
 
     spawn_and_capture(cmd, &config).await
 }
@@ -1628,7 +1646,16 @@ mod tests {
     fn test_resolve_args_bash_ok() {
         let args = json!({"command": "echo hello"});
         let argv = resolve_args("Bash", &args).unwrap();
-        assert_eq!(argv, vec!["-c".to_string(), "echo hello".into()]);
+        // 30/08: rc files do usuário nunca entram no sandbox (--norc/--noprofile).
+        assert_eq!(
+            argv,
+            vec![
+                "--norc".to_string(),
+                "--noprofile".into(),
+                "-c".into(),
+                "echo hello".into()
+            ]
+        );
     }
 
     #[test]

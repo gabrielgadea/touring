@@ -113,6 +113,23 @@ lá dentro não sabe em que modo a sessão está — e não precisa: quem decide
 antes da execução. Para falar com o daemon de dentro do sandbox a rota é `--orchestrate` (o SDK
 injeta o canal), nunca a env herdada.
 
+**Extensão nativa (.so) CARREGA no sandbox — a armadilha é o interpretador (30/08/2026).**
+Provado por execução: `ctypes.CDLL` funciona lá dentro para `.so` do sistema E do workspace —
+Landlock não intercepta `mmap(PROT_EXEC)` e o seccomp só filtra socket UDP; o próprio `python3`
+(que mapeia dezenas de `.so`) é a prova ambulante. O sintoma real medido em campo
+(`No module named 'numpy._core._multiarray_umath'` com o `.so` presente e legível) é OUTRA
+classe: `--lang python` resolve o `python3` do PATH do sistema, nunca o do venv do projeto —
+sufixos `cpython-314` procurando um binding `cpython-312`. Remédio: em `--lang bash`, invocar
+`.venv/bin/python3 <script>` EXPLÍCITO (o binário direto dispensa `activate` e sobrevive ao
+`env_clear`). Não leia esse erro como sandbox nem como instalação quebrada — é interpretador
+errado, a mesma classe das 774 falhas da suíte da analise (memória `analise-exige-venv`).
+
+**O rlimit de CPU escala com `--timeout-ms` (30/08/2026).** Era fixo em 30s e matava por
+SIGKILL (stderr vazio, exit negativo) um run legítimo de `--timeout-ms 180000` CPU-bound aos
+~30s — lido em campo como timeout. Agora `cpu = max(30s, 2×wall)`; e um exit negativo com
+stderr vazio passou a ser nomeado como kill de resource cap na `failure.message`, nunca
+confundível com o exit do programa.
+
 **As janelas de rajada (G1/G10/par write→run) são por (projeto, sessão, classe) desde 30/08.**
 Os ledgers vivem no daemon — um processo para N sessões CC. Chaveados só por projeto, um deny
 carregava comandos de OUTRA sessão no remédio e inflava a contagem de quem não fez a rajada
