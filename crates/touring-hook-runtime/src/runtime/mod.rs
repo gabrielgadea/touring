@@ -3,6 +3,7 @@
 //! This module re-exports all traits from the concrete HookRuntime implementation
 //! in the parent module (hook_runtime.rs).
 
+pub mod replay;
 pub mod traits;
 
 // ── Trait implementations (split by domain for maintainability) ─────────

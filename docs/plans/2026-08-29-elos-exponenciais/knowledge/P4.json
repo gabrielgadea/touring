@@ -1,0 +1,11 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "Gates e provas: e2e round-trip + runtime 382 + handlers 103 + cli 484 verdes, clippy 4 crates -D warnings exit 0, deploy update-touring OK (doctor 6/7). Provas vivas: drain autom\u00e1tico do session-start zerou pend\u00eancia 4\u21920 (update_count 993\u21921002) sem verbo manual; replay_share 0.995 PASS; policy_discrimination 1.0 PASS; ema_reward 0.84 sobrevivendo restart (prova extra da reten\u00e7\u00e3o P1 da wave anterior)."
+    }
+  ],
+  "relations": []
+}
