@@ -781,6 +781,60 @@ fn test_gotcha_resolve_feeds_the_resolution_channel() {
     assert!(noop["hint"].is_string(), "payload: {noop}");
 }
 
+/// P5 (graph contract, 2026-08-30): sugestões derivadas do co-serviço
+/// durável — pares co-servidos >= min_co sem aresta tipada; par já ligado
+/// jamais ressurge; abaixo do piso não aparece; cada sugestão carrega o
+/// comando de aplicação exato (o nudge entrega o programa).
+#[test]
+fn test_memory_suggest_links_derives_from_coservice_and_skips_linked_pairs() {
+    let (_tmp, mut rt) = setup_runtime();
+    let db = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
+    std::fs::create_dir_all(db.parent().expect("parent")).expect("mkdir");
+    let conn = rusqlite::Connection::open(&db).expect("open memory.db");
+    touring_intelligence::rl::memory::tags::ensure_tag_schema(&conn).expect("tag schema");
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS memory_coserved (
+             pair TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL,
+             count INTEGER NOT NULL DEFAULT 1,
+             last_at TEXT NOT NULL DEFAULT (datetime('now')));
+         INSERT INTO memory_coserved(pair, a, b, count) VALUES
+             ('ka|kb', 'ka', 'kb', 5),
+             ('ka|kc', 'ka', 'kc', 4),
+             ('kd|ke', 'kd', 'ke', 2);",
+    )
+    .expect("seed coserved");
+    // ka<->kc já tem aresta tipada: a sugestão jamais o repete.
+    touring_intelligence::rl::memory::tags::upsert_link(
+        &conn,
+        "ka",
+        touring_intelligence::rl::memory::tags::LinkRel::RelatesTo,
+        "kc",
+    )
+    .expect("link");
+    drop(conn);
+    let out = parse_json(&touring_hook_runtime::ceg_impls::cli_memory_links(
+        &mut rt,
+        &serde_json::json!({ "suggest": true, "min_co": 3 }),
+    ));
+    assert_eq!(out["count"], 1, "payload: {out}");
+    let s = &out["suggestions"][0];
+    assert_eq!(s["a"], "ka", "payload: {out}");
+    assert_eq!(s["b"], "kb", "payload: {out}");
+    assert_eq!(s["co_served"], 5, "payload: {out}");
+    assert_eq!(s["derived"], true, "nunca gravação automática: {out}");
+    assert!(
+        s["apply"]
+            .as_str()
+            .expect("apply")
+            .contains("touring memory link ka kb --rel relates-to"),
+        "a sugestão carrega o comando exato: {out}"
+    );
+    assert!(
+        !out.to_string().contains("kd"),
+        "abaixo do min_co não aparece: {out}"
+    );
+}
+
 /// P2 replay (29/08): o canal offline→engine. Semeia outcomes recompensados
 /// no memory.db e prova: (a) o replay consome TODOS e o update_count do
 /// engine avança na mesma medida; (b) o cursor é durável — a 2ª chamada

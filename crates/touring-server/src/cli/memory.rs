@@ -150,6 +150,18 @@ enum MemoryCmd {
         /// Memory key.
         key: String,
     },
+    /// P5 (graph contract): suggest `relates-to` edges from durable
+    /// co-service — pairs the recall keeps serving together that no typed
+    /// edge connects yet. Suggestion only (marked `derived`), never an
+    /// automatic write; each row carries the exact apply command.
+    SuggestLinks {
+        /// Minimum number of co-served recalls for a pair to qualify.
+        #[arg(long, default_value_t = 3u64)]
+        min_co: u64,
+        /// Maximum suggestions returned.
+        #[arg(long, default_value_t = 20u64)]
+        limit: u64,
+    },
     /// Conservative backfill: derive faceted tags for entries that have NONE
     /// (never second-guesses explicit/auto/code-sync tags; written rows are
     /// marked `source='backfill'`). Bounded per call — re-run while the
@@ -308,6 +320,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         | MemoryCmd::SyncTags { .. }
         | MemoryCmd::Link { .. }
         | MemoryCmd::Links { .. }
+        | MemoryCmd::SuggestLinks { .. }
         | MemoryCmd::BackfillTags { .. }
         | MemoryCmd::Moc { .. }
         | MemoryCmd::Communities { .. }
@@ -381,6 +394,10 @@ fn run_tag_query(cmd: MemoryCmd) -> anyhow::Result<()> {
             serde_json::json!({ "src": src, "dst": dst, "rel": rel }),
         ),
         MemoryCmd::Links { key } => ("cli-memory-links", serde_json::json!({ "key": key })),
+        MemoryCmd::SuggestLinks { min_co, limit } => (
+            "cli-memory-links",
+            serde_json::json!({ "suggest": true, "min_co": min_co, "limit": limit }),
+        ),
         MemoryCmd::BackfillTags { limit, dry_run } => (
             "cli-memory-backfill-tags",
             serde_json::json!({ "limit": limit, "dry_run": dry_run }),

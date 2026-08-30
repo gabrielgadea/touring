@@ -876,6 +876,31 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                     params![key],
                 );
             }
+            // P5 (graph contract, 2026-08-30): durable co-service — the raw
+            // material for `memory suggest-links`. The case_ledger is
+            // claim-once, so it cannot answer "which pairs keep being served
+            // together"; this table can. Top 10 served per recall
+            // (C(10,2)=45 upserts max), best-effort on the same connection.
+            let _ = conn.execute(
+                "CREATE TABLE IF NOT EXISTS memory_coserved (
+                     pair TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL,
+                     count INTEGER NOT NULL DEFAULT 1,
+                     last_at TEXT NOT NULL DEFAULT (datetime('now')))",
+                [],
+            );
+            let top: Vec<&String> = served_keys.iter().take(10).collect();
+            for (i, a) in top.iter().enumerate() {
+                for b in top.iter().skip(i + 1) {
+                    let (x, y) = if a <= b { (a, b) } else { (b, a) };
+                    let _ = conn.execute(
+                        "INSERT INTO memory_coserved(pair, a, b, count, last_at)
+                         VALUES (?1, ?2, ?3, 1, datetime('now'))
+                         ON CONFLICT(pair) DO UPDATE SET
+                             count = count + 1, last_at = datetime('now')",
+                        params![format!("{x}|{y}"), x, y],
+                    );
+                }
+            }
         }
         rt.learning
             .case_ledger
