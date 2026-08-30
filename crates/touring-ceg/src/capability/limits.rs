@@ -89,6 +89,24 @@ impl ResourceLimits {
         limits.rlimit.address_space_bytes = proc_mem_total_bytes().map(|total| total * 4 / 5);
         limits
     }
+
+    /// O piso de memória **mais** o cap de CPU escalado ao wall-clock pedido
+    /// (30/08/2026).
+    ///
+    /// O rlimit de CPU é o cinto do wall-timer (pega runaway que o timer não
+    /// veria), não um segundo teto de trabalho — mas fixo em 30s ele matava
+    /// por SIGKILL um run legítimo de `--timeout-ms 180000` CPU-bound aos
+    /// ~30s, com stderr vazio lido como "exception" (relato analise-a2,
+    /// run-1788111465088-2305217: `duration_ms 30116`, o operador leu
+    /// timeout). 2× o wall dá margem a programas multi-thread moderados sem
+    /// abrir mão do teto; o piso de 30s preserva o comportamento das sondas.
+    #[must_use]
+    pub fn sandboxed_for_timeout(timeout_ms: u64) -> Self {
+        let mut limits = Self::sandboxed_with_memory_ceiling();
+        let wall_secs = timeout_ms.div_ceil(1000);
+        limits.rlimit.cpu_seconds = Some(wall_secs.saturating_mul(2).max(30));
+        limits
+    }
 }
 
 /// `MemTotal` de `/proc/meminfo` em bytes, quando legível.

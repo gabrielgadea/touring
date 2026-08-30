@@ -392,18 +392,34 @@ fn derive_run_outcome(
                     kind: RunFailureKind::Exception,
                     phase: RunPhase::Execute,
                     message: if first_stderr_line.is_empty() {
-                        // A5: a silent non-zero exit teaches nothing — and 71.6%
-                        // of real failures land here (M1 ruler, 2026-08-28). The
-                        // dominant silent case is grep/test/diff "no match", which
-                        // exits 1 by DESIGN: name it so the model stops retrying
-                        // the same body and handles the empty result instead.
-                        format!(
-                            "process exited with code {} with empty stderr — for \
-                             grep/test/diff exit 1 usually means 'no match', a \
-                             valid result to handle (append `|| true` if so), not \
-                             an error to retry",
-                            r.exit_code
-                        )
+                        if r.exit_code < 0 {
+                            // 30/08 (analise-a2): exit negativo = morto por SINAL,
+                            // não código do programa — o suspeito é um resource
+                            // cap (SIGKILL não deixa stderr). Antes esta mensagem
+                            // era a do "no match" e o operador leu kill de rlimit
+                            // como timeout.
+                            format!(
+                                "process was killed by a signal (exit {}) before \
+                                 finishing — a resource cap likely fired (the CPU \
+                                 rlimit scales with --timeout-ms; memory is capped \
+                                 at 80% of RAM). Empty stderr is typical of SIGKILL; \
+                                 this is not the program's own exit code",
+                                r.exit_code
+                            )
+                        } else {
+                            // A5: a silent non-zero exit teaches nothing — and 71.6%
+                            // of real failures land here (M1 ruler, 2026-08-28). The
+                            // dominant silent case is grep/test/diff "no match", which
+                            // exits 1 by DESIGN: name it so the model stops retrying
+                            // the same body and handles the empty result instead.
+                            format!(
+                                "process exited with code {} with empty stderr — for \
+                                 grep/test/diff exit 1 usually means 'no match', a \
+                                 valid result to handle (append `|| true` if so), not \
+                                 an error to retry",
+                                r.exit_code
+                            )
+                        }
                     } else {
                         first_stderr_line
                     },
