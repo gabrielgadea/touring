@@ -336,6 +336,18 @@ jobs:
         # diretório homônimo estavam errados. Este guard fecha a classe: a
         # próxima fusão de crate não reabre o mesmo drift em silêncio.
         run: python3 -m pytest scripts/test_docs_no_phantom_crates.py -q
+      - name: drift_semantic_scan — 7 categorias de drift semântico (advisory; || true até saneamento)
+        # 31/08/2026 (item #4 doc-touring, Opção A1 do plano 2026-08-31-work-outer):
+        # Cobre 7 categorias (versões, paths, fused, CLI, code-fences, envvars,
+        # hooks). test_docs_no_phantom_crates.py (linha acima) cobre APENAS C3
+        # (fused crates); este step adiciona as outras 6 (representando 550 dos
+        # 561 stale signals no baseline — guard atual escapa 98% do drift).
+        # Baseline: 561 stale (C1=36, C3=11, C4=279, C5=151, C6=84) sobre 1098 .md files.
+        # Por enquanto ADVISORY (`|| true`) — saneamento de 561 stale é trabalho
+        # do próximo ciclo (B1 thresholds + B2 auto-fix); quando drift ≤ threshold
+        # desejado, remover o `|| true` para virar fail-on-drift.
+        # Coverage validada: 8 testes em scripts/test_drift_coverage.py (F2.1 Diamond).
+        run: python3 scripts/drift_semantic_scan.py --check --quiet || true
       - name: mkdocs build --strict (F7, site de sistema/repo/infra)
         # `docs-site/` são symlinks para README/CLAUDE/ARCHITECTURE/docs/ — se
         # um link relativo quebrar (arquivo movido, renomeado) o build falha

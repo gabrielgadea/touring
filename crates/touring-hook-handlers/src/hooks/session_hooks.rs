@@ -229,6 +229,9 @@ pub fn run_session_start(
     } else if seq_count > 0 {
         parts.push(format!("predictor=warming({seq_count} seq)"));
     }
+
+    // ── F7 complementacao-hooks wirings: H7 + H12 + H15 ──
+    parts.push(wire_complementacao_session_signals(runtime));
     // T2.5: Cache the trained predictor for use by pre_edit/pre_write
     runtime.ctx.error_predictor = Some(predictor);
     runtime.ctx.error_predictor_last_trained = Some(std::time::Instant::now());
@@ -643,6 +646,74 @@ pub fn run_session_stop(
 /// Loads `bandit_snapshot.json` from `.claude/data/`, deserializes, and imports
 /// into the current bandit. If the snapshot doesn't exist or is invalid, falls
 /// back to cold start (the bandit begins with uniform priors).
+///
+/// F7 complementacao-hooks: emits H7 (code_mode_status), H12 (entity_id),
+/// H15 (evolution_status) as a compact JSON line injected into the session
+/// additionalContext. Pure over the runtime — no I/O beyond reading
+/// `.touring/touring.toml`.
+fn wire_complementacao_session_signals(runtime: &HookRuntime) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::path::Path;
+
+    // H7 — code_mode_status: parse `[code_mode]` section of `.touring/touring.toml`.
+    let toml_path = runtime.project_root.join(".touring").join("touring.toml");
+    let code_mode_status = std::fs::read_to_string(&toml_path)
+        .ok()
+        .and_then(|t| {
+            // Minimal TOML parse: locate [code_mode] line + the mode value.
+            let mut in_section = false;
+            for line in t.lines() {
+                if line.trim_start().starts_with("[code_mode]") {
+                    in_section = true;
+                    continue;
+                }
+                if in_section && line.trim_start().starts_with("[") {
+                    break;
+                }
+                if in_section
+                    && line.trim_start().starts_with("mode")
+                    && let Some(val) = line.split('=').nth(1)
+                {
+                    return Some(val.trim().trim_matches('"').to_string());
+                }
+            }
+            None
+        })
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    // H12 — entity_id: derive deterministically from canonical project root.
+    let canonical = runtime
+        .project_root
+        .canonicalize()
+        .unwrap_or_else(|_| Path::new(&runtime.project_root).to_path_buf());
+    let mut hasher = DefaultHasher::new();
+    canonical.hash(&mut hasher);
+    let entity_id = format!("entity:{:x}", hasher.finish());
+
+    // H15 — evolution_status: surface qtable_cache metrics if available, else
+    // report graceful "warming" status.
+    let evolution_status = runtime
+        .learning
+        .qtable_cache
+        .as_ref()
+        .map(|qt| {
+            let m = qt.metrics();
+            format!(
+                "{{\"converging\":{},\"total_updates\":{},\"avg_reward\":{:.2}}}",
+                m.is_converging(),
+                m.total_updates(),
+                m.avg_reward()
+            )
+        })
+        .unwrap_or_else(|| "{\"converging\":false,\"total_updates\":0,\"avg_reward\":0.0}".to_string());
+
+    format!(
+        "complementacao=[h7_code_mode={};h12_entity_id={};h15_evolution={}]",
+        code_mode_status, entity_id, evolution_status
+    )
+}
+
 fn warm_start_bandit(runtime: &mut HookRuntime) {
     let snapshot_path = runtime
         .project_root

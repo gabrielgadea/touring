@@ -451,7 +451,7 @@ fn test_hook_registry_counts_match_the_dispatch_registry() {
     assert_eq!(
         ALL_DAEMON_HOOK_NAMES.len(),
         239,
-        "ALL_DAEMON_HOOK_NAMES must have exactly 239 entries (sync with touring-dispatch hook_registry test; 2026-08-12: +10 memory facet commands F1-F6, +1 cli-wiring-scip-ingest H2; 2026-08-18: +4 decompose verbs — claim, release, ticket, frontier; 2026-08-24: +1 cli-code-mode-run; 2026-08-29 R1: +1 cli-gotcha-resolve; 2026-08-29 R4: +2 cli-experiment-{record,list}; 2026-08-29 P2: +1 cli-learning-replay)"
+        "ALL_DAEMON_HOOK_NAMES must have exactly 239 entries (sync with touring-dispatch hook_registry test; 2026-08-12: +10 memory facet commands F1-F6, +1 cli-wiring-scip-ingest H2; 2026-08-18: +4 decompose verbs — claim, release, ticket, frontier; 2026-08-24: +1 cli-code-mode-run; 2026-08-29 R1: +1 cli-gotcha-resolve; 2026-08-29 R4: +2 cli-experiment-{{record,list}}; 2026-08-29 P2: +1 cli-learning-replay)"
     );
     // NOTE: all_daemon_hook_names() and ALL_DAEMON_HOOK_NAMES differ by feature-gated entries
     // and 'stop' which is in constant but not in function.

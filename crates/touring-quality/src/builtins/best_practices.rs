@@ -68,6 +68,78 @@ fn adherence_counts(journal: &str) -> (u64, u64) {
     (total, ok)
 }
 
+/// Tabela canônica dos 15 sinais reativos definidos em
+/// `docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md`.
+///
+/// Cada entrada: (símbolo canônico para busca em fonte, descrição curta).
+/// A busca é case-insensitive substring match no source — Rust permite `pub
+/// fn <symbol>` em qualquer crate, então procuramos só o identificador.
+const HOOKS_COMPLEMENT_SIGNALS: &[(&str, &str)] = &[
+    ("measure_quality_snapshot", "H6 quality delta"),
+    ("blast_radius_signal", "H3 dependents"),
+    ("detect_cwes", "H6 scan vulnerabilities"),
+    ("extract_pub_symbols", "H4 pub_api_diff"),
+    ("enrich_with_cognitive", "H5 gotchas"),
+    ("similar_symbol_signal_for_path", "H5 gotcha match"),
+    ("wilson_adjusted_score", "H5 gotchas ranker"),
+    ("assemble_scored_context", "H5 assemble scored"),
+    ("normalize_scores", "H5 normalize"),
+    ("apply_relevance_cutoff", "H5 relevance cutoff"),
+    ("rank_gotchas_by_relevance", "H5 gotcha rank"),
+    ("try_send_symbol", "H10 tantivy_stream"),
+    ("is_active", "H10 tantivy_stream active"),
+    ("spawn_stream_actor", "H10 tantivy_stream actor"),
+    ("reindex_file", "H11 reindex"),
+];
+
+/// Collect text content of all .rs/.py files under `root/src/`, skipping
+/// target/.git/node_modules. Returns concatenated text + per-symbol hit set.
+fn collect_wired_signals(root: &Path) -> std::collections::BTreeSet<&'static str> {
+    let mut hits = std::collections::BTreeSet::new();
+    let src = root.join("src");
+    if !src.exists() {
+        return hits;
+    }
+    let queue = std::cell::RefCell::new(vec![src]);
+    while let Some(dir) = {
+        let mut q = queue.borrow_mut();
+        q.pop()
+    } {
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            if path.is_dir() {
+                if matches!(name, "target" | ".git" | "node_modules" | "dist") {
+                    continue;
+                }
+                queue.borrow_mut().push(path);
+            } else if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                if ext != "rs" && ext != "py" {
+                    continue;
+                }
+                let Ok(text) = std::fs::read_to_string(&path) else { continue };
+                for (sym, _desc) in HOOKS_COMPLEMENT_SIGNALS {
+                    if text.contains(sym) {
+                        hits.insert(*sym);
+                    }
+                }
+            }
+        }
+    }
+    hits
+}
+
+/// Counts how many of the canonical 15 complementacao-hooks symbols appear
+/// anywhere in the workspace's `src/` tree. Each symbol counted at most once.
+fn hooks_complement_wired(root: &Path) -> (usize, usize) {
+    let total = HOOKS_COMPLEMENT_SIGNALS.len();
+    let hits = collect_wired_signals(root);
+    (hits.len().min(total), total)
+}
+
 impl Gate for BestPracticesGate {
     fn id(&self) -> GateId {
         GateId::BestPractices
@@ -104,7 +176,17 @@ impl Gate for BestPracticesGate {
             "external": "clippy::pedantic lints + cargo semver-checks (ci.yml:gates, advisory)",
         });
 
-        let outcome = if declared.is_none() {
+        // 3ª regra: hooks_complement_use — quantos dos 15 sinais reativos da
+        // complementacao-hooks estão wirados no source do workspace. Piso 12/15
+        // = 80%. Abaixo → Warn. Fail-open se `src/` não existir.
+        let (hc_wired, hc_total) = hooks_complement_wired(&root);
+        let hc_payload = serde_json::json!({
+            "wired": hc_wired,
+            "total": hc_total,
+            "ratio": hc_wired as f64 / hc_total.max(1) as f64,
+        });
+
+        let mut outcome = if declared.is_none() {
             GateOutcome::warn(
                 GateId::BestPractices,
                 GateSeverity::Warn,
@@ -126,7 +208,27 @@ impl Gate for BestPracticesGate {
         } else {
             GateOutcome::pass(GateId::BestPractices, GateSeverity::Warn)
         };
-        outcome.with_payload(payload)
+
+        // Hierarquia: o WARN mais severo vence (declared missing > adherence low >
+        // hooks_complement low > pass). Se outcome atual já é WARN por motivos
+        // mais sérios, mantemos. Caso contrário, avaliamos hc_use.
+        let hc_warn_threshold = (hc_total * 80) / 100; // 12/15 = 80%
+        if hc_wired < hc_warn_threshold && hc_total > 0 && !matches!(outcome.status, crate::gate::GateStatus::Warn) {
+            outcome = GateOutcome::warn(
+                GateId::BestPractices,
+                GateSeverity::Warn,
+                format!(
+                    "hooks_complement_use {hc_wired}/{hc_total} < 80% — wirings faltando para os \
+                     15 sinais reativos da complementacao-hooks (H1-H15)"
+                ),
+            );
+        }
+
+        let mut merged = payload;
+        if let serde_json::Value::Object(ref mut m) = merged {
+            m.insert("hooks_complement_use".to_string(), hc_payload);
+        }
+        outcome.with_payload(merged)
     }
 }
 

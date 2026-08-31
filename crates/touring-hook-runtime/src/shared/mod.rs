@@ -21,6 +21,8 @@ pub mod quality;
 // — gated like its dependency (the monolith's default-on feature masked this).
 /// Shared file re-indexing helpers driven by post-edit and post-write hooks.
 pub mod reindex;
+pub mod drift; // complementacao-hooks H14 — temporal drift detection SignalLayer
+pub mod scan; // complementacao-hooks H6 — CWE vulnerability scan SignalLayer
 pub mod session_context;
 pub mod signals;
 #[cfg(feature = "tantivy-fts")]

@@ -1033,6 +1033,25 @@ fn daemon_commands() -> Vec<CommandDescriptor> {
                 Ok(())
             },
         },
+        // Complementação-hooks F1.5 — 3 novos subcommands para handlers reativos.
+        CommandDescriptor {
+            name: "pub-api",
+            description: "Pub API diff between two revisions of a file (complementação-hooks H4)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::pub_api::run(args),
+        },
+        CommandDescriptor {
+            name: "scan",
+            description: "CWE vulnerability scan of a source file (complementação-hooks H6)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::scan::run(args),
+        },
+        CommandDescriptor {
+            name: "identity",
+            description: "REGRA #17 EntityId derivation from canonical name + admission (complementação-hooks H12)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::identity_derive::run(args),
+        },
     ]
 }
 
