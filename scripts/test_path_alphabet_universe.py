@@ -96,3 +96,24 @@ def test_prosa_continua_sem_casar():
     for texto in ("isto é só prosa comum", "a versão 1.2 saiu ontem", "use e.g. 2>&1 sempre"):
         assert not _PATH_RE.search(texto), texto
         assert not _RE_FILE_CITATION.search(texto), texto
+
+
+def test_nome_que_estende_um_fonte_vira_ausencia_nunca_outro_arquivo():
+    """Classe medida pela peer (analise, 30/08): backup cujo prefixo é o
+    arquivo vivo. No acervo daqui: `.cargo/config.toml.bak.p4` estende o
+    `.cargo/config.toml` vivo (censo: 15 nomes com extensão coberta no meio,
+    1 colisão). Citar um desses nomes tem de extrair NADA (ausência honesta)
+    ou o nome INTEIRO — jamais um prefixo que nomeia outro objeto real."""
+    import re as _re
+
+    meio = _re.compile(r"\.(rs|py|ts|tsx|js|go|toml|yaml|json|md)\.[A-Za-z0-9]")
+    extensores = [p for p in _universo() if meio.search(p)]
+    assert extensores, "o censo tinha 15 — universo suspeito se zerou de repente"
+    errados = []
+    for p in extensores:
+        m = _PATH_RE.search(f"veja {p} aqui")
+        if m and m.group(0) != p:
+            errados.append((p, m.group(0)))
+    assert not errados, (
+        f"captura de PREFIXO em nome extensor — nomeia o objeto errado: {errados[:3]}"
+    )

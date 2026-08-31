@@ -54,7 +54,7 @@ _RE_CONFIDENCE_PRESENT = re.compile(
 # carries a hyphen (crates/touring-ceg/…), so the old [a-z_0-9/] class matched
 # ZERO real file:line citations — silently (same family as the analise
 # [NN]-name.md finding, 30/08/2026: the detector never errs, it never sees).
-_RE_FILE_LINE = re.compile(r"`[A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:rs|py|ts|tsx|js|go):\d+")
+_RE_FILE_LINE = re.compile(r"`[A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:rs|py|ts|tsx|js|go):\d+")  # ":\d+" already anchors the suffix
 _RE_TOURING_CMD = re.compile(r"touring\s+\w+")
 _RE_PASCAL_SYMBOL = re.compile(r"`?\b[A-Z][a-zA-Z0-9]{2,}\b`?")
 
