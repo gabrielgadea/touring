@@ -322,6 +322,13 @@ jobs:
         run: python3 -m pytest scripts/test_git_nudge_matches_executor.py -q
       - name: cli tests — isolamento de project root
         run: python3 -m pytest scripts/test_cli_tests_isolate_project_root.py -q
+      - name: path alphabet — predicados de caminho varridos contra o acervo inteiro
+        # 30/08/2026, dois casos no mesmo dia: _PARECE_CAMINHO do analise sem
+        # [ ] via 0 de 505; os detectores da taco-planning sem hífen davam 0
+        # match ou caminho MUTILADO (ceg/src/…). O alfabeto é propriedade do
+        # acervo, não da intuição — a varredura de `git ls-files` faz uma
+        # convenção nova de nome falhar no dia em que entra, não meses depois.
+        run: python3 -m pytest scripts/test_path_alphabet_universe.py -q
       - name: docs — nenhuma doc de sistema/repo/infra cita crate inexistente
         # 26/08/2026: 63 de 93 arquivos citavam crates fundidos meses atrás
         # (touring-ast, touring-learning, touring-core...), 500+ menções. A

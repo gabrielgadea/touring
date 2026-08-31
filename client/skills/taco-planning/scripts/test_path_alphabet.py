@@ -52,6 +52,16 @@ class PathAlphabet(unittest.TestCase):
                       "the hyphen used to cut this down to 'mode.md'")
         self.assertIn("docs/plans/2026-08-30-mundos-da-criacao/index.md", achados)
 
+    def test_path_re_sees_leading_dotdir_and_never_a_mid_path_prefix(self):
+        # 26 real tracked paths live under dot-dirs (.cargo/, .github/, .holon/)
+        # — found by the universe sweep, invisible to \b before ".".
+        m = _PATH_RE.search("veja .cargo/config.toml aqui")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(0), ".cargo/config.toml")
+        # The lookbehind must forbid a match starting mid-path (the mutilation).
+        m = _PATH_RE.search("veja crates/touring-ceg/src/lib.rs aqui")
+        self.assertEqual(m.group(0), "crates/touring-ceg/src/lib.rs")
+
     def test_prose_still_does_not_match(self):
         # The widening must not turn ordinary prose into paths.
         for texto in ("isto é só prosa comum", "a versão 1.2 saiu ontem"):

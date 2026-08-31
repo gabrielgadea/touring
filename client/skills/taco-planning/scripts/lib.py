@@ -295,9 +295,15 @@ def touring_learning_reward(tool: str, value: float, context: str = "") -> bool:
 _PASCAL_CASE_RE = re.compile(r"\b([A-Z][a-z0-9]+){2,}\b")
 _SNAKE_CASE_RE = re.compile(r"\b[a-z][a-z0-9]+(?:_[a-z0-9]+){1,}\b")
 _KEBAB_RE = re.compile(r"\b[a-z]+(?:-[a-z]+){1,}\b")
-# Path alphabet includes -, ., digits and uppercase: "docs/code-mode.md" used
-# to extract as "mode.md" and "Cargo.toml" was invisible under [a-z_0-9/].
-_PATH_RE = re.compile(r"\b[A-Za-z0-9_][A-Za-z0-9_./-]*\.(rs|py|ts|tsx|js|go|toml|yaml|json|md)\b")
+# Path alphabet is a property of the acervo, not of intuition (rule from the
+# 30/08/2026 census, measured over `git ls-files`): -, ., digits, uppercase
+# ("docs/code-mode.md" used to extract as "mode.md"; "Cargo.toml" was
+# invisible), and a leading dot-dir (".cargo/config.toml" — \b cannot match
+# before "."). The negative lookbehind also kills prefix mutilation
+# structurally: a match can never start mid-path after "/" or "-".
+_PATH_RE = re.compile(
+    r"(?<![\w./-])\.?[A-Za-z0-9_][A-Za-z0-9_./-]*\.(rs|py|ts|tsx|js|go|toml|yaml|json|md)\b"
+)
 
 
 def extract_symbols_from_intent(intent: str) -> list[str]:
