@@ -12,6 +12,7 @@
 // zero crate:: deps). Re-exported by the touring-hooks facade as
 // `crate::action_signature` so every call site + the public API stay unchanged.
 pub mod action_signature;
+pub mod hooks_complement_journal; // F6: instrumented emit counter for hooks-complement SignalLayers
 pub mod errors;
 pub mod got_snapshot_store;
 pub mod idempotency;

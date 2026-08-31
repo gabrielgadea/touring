@@ -86,6 +86,7 @@ pub mod harness_metric;
 pub mod health_delta;
 pub mod highlight;
 pub mod incremental;
+pub mod identity_derive; // complementacao-hooks H12 (F1.5) — REGRA #17 EntityId derivation
 pub mod index;
 pub mod inferlets;
 pub mod init;
@@ -110,6 +111,7 @@ pub mod portfolio; // prior-art discovery keyed by purpose
 pub mod profile;
 pub mod project_toolchain; // F3 — channel ↔ lockfile ↔ .touring/bin state machine
 pub mod projects;
+pub mod pub_api; // complementacao-hooks H4 (F1.5) — pub API diff between revisions
 pub mod quality_signal;
 pub mod reason_tools; // C11/C12/C14 — orchestrator surfaces: budget-verify / plan-chain / consistency
 pub mod rename;
@@ -120,6 +122,7 @@ pub mod route; // C7 — RGAO task routing
 pub mod run; // R1 — touring run: code-mode via CLI over the ctx_execute sandbox
 pub mod sandbox_runtimes; // RUN-1 (27/08) — touring sandbox-runtimes: preflight + setup-venv
 pub mod saga;
+pub mod scan; // complementacao-hooks H6 (F1.5) — CWE vulnerability scan
 pub mod search_tools; // C3 — intent-ranked tool discovery
 pub mod search_unified;
 pub mod session;

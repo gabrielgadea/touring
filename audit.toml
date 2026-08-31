@@ -1,0 +1,16 @@
+# audit.toml — cargo-audit ignore list (Estratégia caminho 3 da F8)
+#
+# Vulns acknowledged (sem patch disponível no upstream — validado 2026-08-31):
+#   RUSTSEC-2026-0194 — quick-xml quadratic runtime (affeta 0.26.0 e 0.39.4)
+#   RUSTSEC-2026-0195 — quick-xml namespace-declaration DoS (affeta 0.26.0 e 0.39.4)
+#
+# Status: aguardando patch do upstream (quick-xml tracker). Atualizar este
+# arquivo quando o patch sair.
+#
+# REF: docs/plans/2026-08-31-complementacao-hooks/investigation-9-vulns.md
+
+[advisories]
+ignore = [
+    "RUSTSEC-2026-0194",  # quick-xml quadratic — sem patch no upstream
+    "RUSTSEC-2026-0195",  # quick-xml namespace DoS — sem patch no upstream
+]
