@@ -247,7 +247,7 @@ fi
 # rodando binário de 4 dias antes. A prova é sempre COMPORTAMENTAL: exercitar
 # o contrato contra o binário instalado e julgar o que ele devolveu.
 #
-# Esta bateria (29 asserções) cobre as duas metades que mais custaram para
+# Esta bateria cobre as duas metades que mais custaram para
 # ficar certas: o CEG discriminando benigno de perigoso (rede e padrão
 # destrutivo negam DURO; builtins passam limpos) e o code mode entregando o
 # que promete (transporte, 71 hooks, piso do --brief, par start/settle).
