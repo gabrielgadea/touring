@@ -263,8 +263,35 @@ def padrao_data(last_n: int = 50) -> dict[str, Any]:
             d = m.get("dominio") or "sem-dominio"
             dominios[d] = dominios.get(d, 0) + 1
         out["dominios"] = dominios
+        par = _par_cross_dominio(medicoes, chaves)
+        if par:
+            out["par_cross_dominio"] = par
     out["registros"] = len(registros)
     return out
+
+
+def _par_cross_dominio(medicoes: list[dict[str, Any]],
+                       chaves: set[str]) -> dict[str, Any] | None:
+    """As 2 medições mais recentes de domínios DISTINTOS — a matéria-prima do
+    apontador de isomorfismo (Gick & Holyoak: o esquema só se abstrai quando a
+    mesma forma é vista em superfícies diferentes). O apontamento semântico é
+    do modelo no turno; aqui viaja só o par endereçado."""
+    ultima = None
+    for m in reversed(medicoes):
+        d = m.get("dominio")
+        if not d:
+            continue
+        if ultima is None:
+            ultima = m
+        elif d != ultima.get("dominio"):
+            def _lado(x: dict[str, Any]) -> dict[str, Any]:
+                return {
+                    "dominio": x.get("dominio"),
+                    "hash": x.get("hash", ""),
+                    "ausentes": sorted(chaves - set(x.get("presentes", []))),
+                }
+            return {"a": _lado(ultima), "b": _lado(m)}
+    return None
 
 
 def cmd_padrao(args: argparse.Namespace) -> int:

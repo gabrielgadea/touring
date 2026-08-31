@@ -146,6 +146,68 @@ class AdesaoTests(unittest.TestCase):
         self.assertIn("0.43", texto)
         self.assertIn("fronteira", texto)
 
+    def test_o_par_cross_dominio_vira_oferta_de_isomorfismo(self):
+        espelho = {"n": 4, "ratio_medio": 0.5, "ratio_ultimos5": 0.5,
+                   "mais_ausentes": [], "registros": 0,
+                   "par_cross_dominio": {
+                       "a": {"dominio": "negocio", "hash": "h1",
+                             "ausentes": ["imagem"]},
+                       "b": {"dominio": "codigo", "hash": "h2",
+                             "ausentes": ["fronteira", "pronto"]}}}
+        texto = pe.render([], espelho)
+        self.assertIn("Isomorfismo?", texto)
+        self.assertIn("negocio", texto)
+        self.assertIn("mesma forma?", texto)
+
+
+class DagTests(unittest.TestCase):
+    def _marker(self, tmp: Path, cwd: str, task="task_9", status="active"):
+        d = tmp / "markers"
+        d.mkdir(exist_ok=True)
+        (d / "active-abc-def.json").write_text(json.dumps(
+            {"task": task, "cwd": cwd, "status": status}), encoding="utf-8")
+        return d
+
+    def test_dag_do_projeto_vira_item_com_etapa_e_proxima(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpp = Path(tmp)
+            markers = self._marker(tmpp, cwd=str(tmpp / "proj"))
+            dag = {"description": "Grande criação", "subtasks": [
+                {"subtask_id": "a", "status": "completed", "description": "feita"},
+                {"subtask_id": "b", "status": "pending", "description": "a próxima"},
+            ]}
+            r = mock.Mock()
+            r.stdout = json.dumps(dag)
+            with mock.patch.object(pe.Path, "home", return_value=tmpp), \
+                 mock.patch.object(pe.subprocess, "run", return_value=r), \
+                 mock.patch.object(pe, "TIMEOUT_COLETA", 1):
+                # o glob procura em <home>/.claude/loop-engineering
+                real = tmpp / ".claude" / "loop-engineering"
+                real.mkdir(parents=True)
+                (real / "active-x-y.json").write_text(
+                    (markers / "active-abc-def.json").read_text(), encoding="utf-8")
+                itens = pe.coletar_dags(tmpp / "proj")
+        self.assertEqual(len(itens), 1)
+        self.assertIn("Grande criação", itens[0]["titulo"])
+        self.assertIn("1/2 done", itens[0]["extra"])
+        self.assertIn("a próxima", itens[0]["extra"])
+
+    def test_marker_de_outro_projeto_ou_convergido_e_ignorado(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpp = Path(tmp)
+            real = tmpp / ".claude" / "loop-engineering"
+            real.mkdir(parents=True)
+            (real / "active-1.json").write_text(json.dumps(
+                {"task": "task_1", "cwd": "/outro", "status": "active"}))
+            (real / "active-2.json").write_text(json.dumps(
+                {"task": "task_2", "cwd": str(tmpp / "proj"),
+                 "status": "CONVERGED"}))
+            with mock.patch.object(pe.Path, "home", return_value=tmpp), \
+                 mock.patch.object(pe.subprocess, "run",
+                                   side_effect=AssertionError("não deve chamar")):
+                itens = pe.coletar_dags(tmpp / "proj")
+        self.assertEqual(itens, [])
+
 
 if __name__ == "__main__":
     unittest.main()

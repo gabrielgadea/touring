@@ -134,6 +134,24 @@ o conteúdo. Consequências:
    transferência não é subproduto esperado: é o que se treina; a condição do
    item 3 é o que a garante.
 
+## 5c. Cadeia causal (Yetzirah — os elos se→então da própria estratégia)
+
+1. Se o rito roda em cada criação → então as 7 operações formais são
+   praticadas deliberadamente, não por acaso.
+2. Se a antecipação é medida ANTES de o rito perguntar → então o rito pergunta
+   só o ausente (fading por construção) e a internalização vira número.
+3. Se o feedback mede a FORMA (completude, integridade da cadeia,
+   sobrevivência de fases) → então o Sistema 1 aprende o esquema, não o
+   domínio.
+4. Se o esquema é nomeado e praticado em superfícies variadas → então ele se
+   descola do conteúdo (Gick & Holyoak) e o far transfer vira alvo, não
+   esperança.
+5. Se a curva de antecipação sobe em domínio nunca praticado → então a
+   transferência está PROVADA e o rito pode desaparecer (fading completo).
+6. Se qualquer elo acima falha → então o medidor mostra ONDE: ratio estagnado
+   = o rito não treina; fases redesenhadas = faseamento fraco; ausências
+   repetidas = a operação que resiste.
+
 ## 6. Gate humano — FECHADO (Gabriel, 30/08/2026)
 
 | Decisão | Veredito |

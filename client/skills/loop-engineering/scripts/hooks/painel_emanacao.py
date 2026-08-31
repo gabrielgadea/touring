@@ -79,6 +79,50 @@ def coletar_retomar(cwd: Path) -> list[dict[str, Any]]:
     return itens
 
 
+def coletar_dags(cwd: Path) -> list[dict[str, Any]]:
+    """DAGs vivos DESTE projeto via markers do loop-engineering (v1).
+
+    Não há superfície de listagem global no decompose; os markers ativos
+    (qualquer sessão) carregam o task_id — `decompose get` dá etapa e próxima.
+    """
+    itens: list[dict[str, Any]] = []
+    markers_dir = Path.home() / ".claude" / "loop-engineering"
+    for mf in markers_dir.glob("active-*.json"):
+        try:
+            marker = json.loads(mf.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        task = marker.get("task")
+        if not task or marker.get("cwd") != str(cwd):
+            continue
+        if str(marker.get("status", "")).upper() in ("CONVERGED", "ARCHIVED"):
+            continue
+        try:
+            r = subprocess.run(
+                ["touring", "decompose", "get", task], capture_output=True,
+                text=True, timeout=TIMEOUT_COLETA, check=False,
+            )
+            dag = json.loads(r.stdout)
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+            continue
+        subtasks = dag.get("subtasks", [])
+        pendentes = [s for s in subtasks
+                     if s.get("status") not in ("completed", "done")]
+        if not pendentes:
+            continue
+        idade_dias = int((time.time() - mf.stat().st_mtime) / 86_400)
+        proxima = pendentes[0].get("description", pendentes[0].get("subtask_id", "?"))
+        itens.append({
+            "titulo": f"DAG: {str(dag.get('description', task))[:60]}",
+            "fonte": task,
+            "g": 4,
+            "u": min(5, 2 + idade_dias // 3),
+            "t": 3,
+            "extra": f"{len(subtasks) - len(pendentes)}/{len(subtasks)} done → {str(proxima)[:50]}",
+        })
+    return itens
+
+
 def coletar_kpi() -> list[dict[str, Any]]:
     """Checks FAIL (não-advisory) e STUB do dashboard de commitments."""
     try:
@@ -149,6 +193,14 @@ def render(itens: list[dict[str, Any]], espelho: dict[str, Any]) -> str:
         if espelho.get("mais_ausentes"):
             partes.append("mais ausentes: " + ", ".join(espelho["mais_ausentes"]))
         linhas.append("🪞 Espelho (F4): " + " · ".join(partes))
+        par = espelho.get("par_cross_dominio")
+        if par:
+            a, b = par["a"], par["b"]
+            linhas.append(
+                f"🔁 Isomorfismo? {a['dominio']} (faltou: {', '.join(a['ausentes']) or '—'}) × "
+                f"{b['dominio']} (faltou: {', '.join(b['ausentes']) or '—'}) — mesma forma? "
+                f"O apontamento é do turno de abertura."
+            )
     linhas.append(
         "→ Diga \"retomar N\" para um item, descreva uma nova criação "
         "(o rito Briah será ofertado no tamanho certo), ou vá direto ao trabalho."
@@ -166,12 +218,13 @@ def main() -> int:
         payload = {}
     cwd = Path(payload.get("cwd") or os.getcwd())
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         fut_retomar = pool.submit(coletar_retomar, cwd)
         fut_kpi = pool.submit(coletar_kpi)
+        fut_dags = pool.submit(coletar_dags, cwd)
         fut_espelho = pool.submit(coletar_espelho)
         itens: list[dict[str, Any]] = []
-        for fut in (fut_retomar, fut_kpi):
+        for fut in (fut_retomar, fut_kpi, fut_dags):
             try:
                 itens.extend(fut.result(timeout=TIMEOUT_COLETA + 1))
             except Exception:  # noqa: BLE001 — coleta quebrada ≠ painel quebrado

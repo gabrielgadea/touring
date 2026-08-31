@@ -121,6 +121,24 @@ class JournalRoundtripTests(unittest.TestCase):
         pad = cf.padrao_data()
         self.assertIn("pronto", pad["mais_ausentes"])
 
+    def test_par_cross_dominio_junta_as_2_ultimas_de_dominios_distintos(self):
+        cf.main(["medir", "--texto", "etapas: a depois b", "--gravar",
+                 "--dominio", "codigo"])
+        cf.main(["medir", "--texto", "não deve incluir x", "--gravar",
+                 "--dominio", "codigo"])
+        cf.main(["medir", "--texto", "para que a equipe decida", "--gravar",
+                 "--dominio", "negocio"])
+        par = cf.padrao_data()["par_cross_dominio"]
+        # a = a mais recente (negocio); b = a mais recente de OUTRO domínio.
+        self.assertEqual(par["a"]["dominio"], "negocio")
+        self.assertEqual(par["b"]["dominio"], "codigo")
+        self.assertIn("imagem", par["a"]["ausentes"])
+
+    def test_par_cross_dominio_ausente_com_um_so_dominio(self):
+        cf.main(["medir", "--texto", "x", "--gravar", "--dominio", "codigo"])
+        cf.main(["medir", "--texto", "y", "--gravar", "--dominio", "codigo"])
+        self.assertNotIn("par_cross_dominio", cf.padrao_data())
+
 
 if __name__ == "__main__":
     unittest.main()
