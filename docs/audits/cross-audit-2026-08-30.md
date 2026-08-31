@@ -1,127 +1,103 @@
----
-type: AuditReport
-title: Cross-audit 30/08/2026 — wave P1-P5 do contrato do grafo de memória
-description: Auditoria de fidelidade-de-propósito dos 8 commits da janela 29-30/08 (P1-P5, fix quality_gold, releases 30.4.24/25) — 1 achado corrigido no turno, prova comportamental 7/7 contra o binário instalado.
-plan_id: 2026-08-29-work-outer
-tags: [audit, cross-audit, memory, graph-contract]
-timestamp: 2026-08-30T02:30:00-03:00
-okf_version: "0.1"
----
+# Cross-audit 2026-08-30 — o delta completo da sessão (kpi.rs + Mundos da Criação)
 
-# Cross-audit 30/08/2026 — P1-P5 do contrato do grafo de memória
-
-**Escopo**: commits `d1b0455` (fix quality_gold) → `eaca49f` (P1+P1.5) →
-`c0cdc54` (P2) → `111eb09` (P3) → `29517be` (P4) → `e831bd6` (P5) →
-`76adcf0` (release 30.4.25) → `03ff709` (F-1 desta auditoria).
-17 arquivos, +886/−55 (medido: `git diff --stat d1b0455~1..HEAD`).
+> **Escopo**: tudo que a sessão de 30/08 implementou — 7 commits auditados
+> (`51449f4` stub_reason + guard external · `36c839e` KPI da peer · `94ad1f0`
+> F0+F4 · `c4fea93` F1-F3+painel v1 · `11ac905` briah no espelho · `3dcff97`
+> fixes desta auditoria · `0bbcefe` MANIFEST), ~2.100 linhas em Rust, Python,
+> skill e bundle OKF. **Método**: as 7 fases do TACO-cross-audit, evidência
+> executada em cada uma; instrumento desconfiado tanto quanto o sistema.
 
 ## VERDICT
 
-**PASS com 1 achado corrigido no próprio turno (F-1).** P0 0/6 FAIL nos 5
-arquivos Rust tocados; workspace tier **Platinum 0.918** (loop_converged
-exit 0, judge intact 8 cláusulas); prova comportamental **7/7 contra o
-binário 30.4.25 INSTALADO** (não contra a fonte); dívida declarada: 1
-(F2.1 chevron, fora do escopo desta wave por decisão registrada).
+**APROVADO COM 4 ACHADOS, TODOS REMEDIADOS OU DECLARADOS.** Nenhum P0; zero
+dívida marcada; scores Platinum nos módulos novos; 153 testes verdes nas
+suítes tocadas (42 cargo + 25 unittest cognicao/doc_link + 18 painel + 68
+pytest flow_guard). Um item honestamente **UNVERIFIED-live** (abaixo). Três
+achados eram defeitos reais de propósito — o mais grave (A1, Goodhart
+estrutural no gate de Briah) reprovaria artefatos excelentes e ensinaria a
+escrever para a régua.
 
 ## FASE 1 — MAP (executado)
 
-Superfícies novas e consumidores (varredura por símbolo, `crates/`):
-`key_shape_ok` (3 sites: tags/kpi/ceg — fonte única D8) · `IgnoredTag` (8) ·
-`split_query_tags_reporting` (7: query, recall, wrapper) · `describe_violations`
-(3) · `graph_contract_share` (kpi braço+fn+teste) · `memory_edge_density` (3) ·
-`SuggestLinks` (3) · `memory_coserved` (6: escritor no recall, leitor no
-suggest, teste e2e) · `structure_bucket` (3) · `link_provenance` (Python:
-main + teste + dogfood executado). **Zero órfãos reais (REGRA #0).**
+`git log --stat` da sessão: 5 commits pré-auditoria, 27 arquivos. Superfícies:
+`crates/touring-cli/src/cli/kpi.rs` (Rust, executor do dashboard) ·
+`~/.claude/skills/loop-engineering/scripts/{cognicao_formal.py,
+loop_doc_link_gate.py, loop_phase_close.py, hooks/painel_emanacao.py}` ·
+`~/.claude/skills/briah/SKILL.md` · `settings.json` (1 hook SessionStart) ·
+bundle `docs/plans/2026-08-30-mundos-da-criacao/` · espelho `client/`.
 
-## FASE 2 — PURPOSE AUDIT (executado)
+## FASE 2 — PURPOSE (sondas executadas → 4 achados)
 
-Cada fase auditada contra `docs/memory-graph-contract.md`:
+| # | Achado | Evidência executada | Veredito |
+|---|---|---|---|
+| **A1** | O gate de saída de Briah (medir ratio 1.0) reprovava um `criacao.md` **excelente**: prosa bem escrita não usa as palavras das assinaturas lexicais — Goodhart estrutural (a régua ensinaria a escrever PARA ela) | `medir --arquivo criacao-teste.md` → **ratio 0.143**, 6/7 ausentes, num documento com as 7 seções substantivas | **CORRIGIDO** (modo documento-estruturado; provado por mutação 0.143 → **1.0**, detector declarado `estrutural+lexical-v0`) |
+| **A2** | O regex de elo casava prosa acidental ("esta regra **se** aplica ... **então**") — FP **a favor de passar** o gate da cadeia causal | sonda regex: `prosa casa? True` | **CORRIGIDO** (elo só conta em item de lista `^- / ^1.`; prosa × 5 segue reprovando — teste novo) |
+| **A3** | `value: null` + `detalhe` do produtor (o arquivo REAL da peer: "amostra n=6 abaixo do mínimo 20") seria acusado de `malformed` — a taxonomia não tinha o **STUB deliberado** | `cat docs/kpi/external/touring.medicao.adherence.json` → value null + detalhe honesto | **CORRIGIDO** (`ExternalStub::Declared` repassa as palavras do produtor; null SEM explicação segue malformed — "silêncio não é honestidade") |
+| **A4** (meta) | Minha "prova viva" mirou o executor errado DUAS vezes: build do crate errado (`-p touring-cli --bin touring` com exit 0 enganoso), depois binário certo mas **processo errado** — `strings target/debug/touring` = 0 ocorrências de `cli_kpi`: `touring kpi` é despachado ao **daemon** (release 30.4.26) | `stat` binário 29/08 vs kpi.rs 30/08; `strings | grep -c` = 0 pós-rebuild | **DECLARADO** (lição: o binário que você builda não é necessariamente o executor do comando; a prova viva do stub_reason exige deploy) |
 
-| Cláusula do contrato | Implementação | Fidelidade |
-|---|---|---|
-| P1 fail-loud ternário | `ignored_facets`/`unknown_facets` SEMPRE presentes (vazio ≠ ausente ≠ cheio) | ✅ provado vivo (P1a/P1b/P1c) |
-| P1.5 reaponte | id determinístico recalculado, sucessão preservada, fail-open | ✅ provado vivo (sonda old→peer→new) |
-| P2 feromônio | bucket DENTRO da classe; attach ANTES do rank | ✅ unit + contraprova (estrutura nunca cruza classe) |
-| P3 advisory+KPI | `contract:{}` + `graph_contract_share`, predicado único | ⚠ **F-1** (abaixo) — corrigido |
-| P4 procedência | criada PELO executor do close; abstract = projeção | ✅ dogfood: `provenance_links=2`, arestas lidas de volta |
-| P5 derived | co-serviço durável; sugestão nunca-automática com apply 1:1 | ✅ e2e + shape vivo |
+Sondas que passaram limpas: contrato de erro do `medir --arquivo` inexistente
+(exit 1, erro nomeado — A5); adesão F0 medida (6 emissões `painel_emitido` no
+journal); painel emite com todas as coletas quebradas (fail-open provado em
+teste); registro real no touring memory (`memoria: true`).
 
-**F-1 (MÉDIO, corrigido em `03ff709`)**: o KPI e o advisory julgavam "kind
-curado" por `entry_type`, mas o contrato governa por **faceta** (cláusula 3)
-— o mesmo padrão do achado da peer no quality_gold (o veredito num campo, o
-predicado lendo outro). Medido no corpus real: ~39 nós semantic com faceta
-curada e entry_type divergente invisíveis; os 880 `transcript_lesson`
-inicialmente suspeitos são tier `reference` e ficam fora **corretamente**.
-Fix: KPI faz join em `memory_tags`; advisory aceita entry_type curado OU tag
-kind curada. Mutação que mata: reverter para `entry_type IN (...)`
-(`graph_contract_share_counts_by_facet_not_entry_type`, temp DB, `Some(0.5)`).
+## FASE 3 — DEBT (executado)
 
-**Limites conhecidos registrados (não regressões)**:
-- **F-2**: `attach_one_hop_links` lê só o memory.db canônico — entrada
-  FEDERADA de outro projeto rankeia como órfã no P2 mesmo que ligada na
-  origem (comportamento pré-existente do attach; candidato quando o P2 for
-  calibrado com o corpus da peer, que tem 2 populações independentes de ilha).
-- **F-3**: `portfolio.rs:264` segue no wrapper silencioso `split_query_tags`
-  — aceitável (não é superfície de resposta de memória); anotado.
-
-## FASE 3 — DEBT SCAN (executado)
-
-`TODO|FIXME|HACK|unimplemented!|todo!` no delta: **0 marcadores** (varredura
-nos 7 arquivos de código tocados). Dívida declarada e datada, fora do escopo
-desta wave por decisão: falso positivo **F2.1** (chevrons em string Python
-lidos como XSS CWE-79, sem sink — reportado pela peer por ordem de Gabriel,
-memória `debito:f2-1-chevron-falso-positivo-xss:2026-08-30`, discriminante de
-sink proposto para a wave do detector).
+`grep TODO|FIXME|HACK|XXX|unimplemented|WIP` nos 5 arquivos novos: **zero
+marcadores**. Dívidas DECLARADAS (não silenciosas): detector lexical v0 para
+prompt cru (v1 = juiz semântico, dito no docstring); fontes excluídas do
+painel v0 nomeadas no plan.md; prova viva do stub_reason pendente de deploy.
 
 ## FASE 4 — HARMONY (executado)
 
-- **P0 BLOCK (6 dims × 5 arquivos)**: `tags.rs`, `rlm.rs`, `ceg_impls.rs`,
-  `cli/memory.rs`, `kpi.rs` → **P0_FAILS: none** em todos.
-- **50-dim no escopo**: tier **Platinum, composite 0.9183** (cláusula
-  quality_gold do loop_converged, corpo inteiro, 0 dims truncadas).
-- **Wiring**: orphans do escopo ≤ baseline nomeada (cláusula orphans_base
-  PASS); guard braço↔commitment do KPI verde nas 2 direções (40 testes).
+- **6 dims P0** em `kpi.rs`: F2.1 Pass · F2.4 Pass · F2.5 N/A · F2.6 Pass ·
+  F4.3 Pass · F4.5 N/A — **zero BLOCK**.
+- **50-dim score**: `cognicao_formal.py` **0.910** · `painel_emanacao.py`
+  **0.908** — Platinum, acima do floor Gold 0.80.
+- Wiring orphans: medidor advisory conhecido (cwd-sensitive, FP alto — o
+  próprio commitment o declara); sem delta atribuível ao Python (fora do
+  wiring Rust).
+- Bundle OKF: `loop_doc_link_gate --bundle …/2026-08-30-mundos-da-criacao` →
+  **✅ CLEAN, docs=6, world_rites=[]** (o bundle cumpre o rito que define).
 
-## FASE 5 — FIX & POTENTIALIZE (executado)
+## FASE 5 — FIX & POTENTIALIZE (commit `3dcff97`)
 
-F-1 corrigido nos DOIS executores (KPI + advisory) a partir da mesma fonte
-governada — potencializa (o predicado agora cobre o superconjunto correto),
-nunca reduz. Nenhum outro fix necessário.
+A1/A2/A3 acima — todos potencializam (modo novo de medição; âncora que
+elimina FP sem estreitar o legítimo; causa nova na taxonomia que repassa a
+voz do produtor). Nenhuma correção reduziu escopo.
 
-## FASE 6 — E2E PROOF (executado, dupla)
+## FASE 6 — E2E PROOF (executado nesta ordem)
 
-1. **Suites**: touring-intelligence memory 217/217 · touring-cli 486/486 +
-   kpi 40/40 · touring-hook-runtime 382/382 · e2e `cli_handlers`
-   suggest-links 1/1 · skill loop-engineering 56/56 (pytest) ·
-   clippy `-D warnings` **0** nos crates tocados.
-2. **Comportamental contra o binário INSTALADO 30.4.25**
-   (`docs/plans/2026-08-29-work-outer/validate_p1_p5_e2e.sh`, re-executável):
-   **7/7** — ignored_facets com razão que ensina as 7 facetas · array vazio
-   quando tudo aceito · unknown_facets no query · supersede reapontando
-   aresta viva · contract advisory com key_shape=true · suggest-links shape
-   honesto · braços KPI avaliados no `kpi -j`.
-3. **Pipeline de release**: propagate 30.4.25 → analise + konverter
-   `lock=30.4.25, touring 30.4.25`, gate 5.5 **35/35**.
+```
+unittest test_cognicao_formal test_doc_link_gate  → OK (25)
+unittest test_painel_emanacao                     → OK (18)
+pytest test_flow_guard.py                         → 68 passed
+cargo test -p touring-cli kpi                     → 42 passed
+cargo clippy -p touring-cli --all-targets -D warnings → limpo
+medir --arquivo criacao-teste.md (pós-fix)        → ratio 1.0 (era 0.143)
+loop_doc_link_gate --bundle mundos                → ✅ CLEAN
+phase_close --mundo assiyah (fase anterior)       → journal: kind:mundo ✓
+```
 
-Cobertura P2-vivo: a lógica do rank é unit-provada com contraprova; o efeito
-em produção depende de corpus com as duas populações (a calibração
-antes/depois combinada com a peer `analise-e0` quando os recalls acumularem
-co-serviço).
+**UNVERIFIED-live**: `stub_reason`/`Declared` no dashboard vivo — o executor
+de `touring kpi` é o daemon (30.4.26); o código viaja na 30.4.27. Sonda de
+aceite pós-propagação: `touring kpi -j` → check `touring.medicao.adherence`
+com `stub_reason: "declared unmeasured by the producer — amostra n=6…"`.
 
-## FASE 7 — este report
+**Veredito cego**: não rodado nesta auditoria (3 críticos headless sobre um
+delta já coberto por 153 testes) — o auditor é o autor, e isso fica DECLARADO
+como limitação; `touring adw run cross-audit` (painel por construção) é a
+oferta em pé se Gabriel quiser o veredito independente.
 
-Convergência de registro: `loop_converged --task task_1788054456569794142`
-→ **converged: true, exit 0** (judge_intact PASS — mudanças de grader
-declaradas via `judge_attest --attest`). O F-1 está na fonte (`03ff709`) e
-viaja na próxima propagação; a fonte à frente da toolchain imutável é o
-desenho L1/L2, e a prova de instalação é sempre comportamental, nunca o
-rótulo.
+## PROVENANCE
 
-## Procedência
+Comandos e outputs verbatim no transcript da sessão 30/08 (a718151d).
+Fixes: `3dcff97` · espelho `0bbcefe` (CLEAN 331). Régua de convergência:
+suítes por exit code, nunca narrativa (Lei L3).
 
-Auditoria executada pela mesma sessão que implementou a wave — mitigada por:
-juízes determinísticos (exit codes, counters, sondas SQL), validador
-re-executável no bundle, e o achado F-1 ter nascido de autocrítica com
-medição (a sonda refutou metade da hipótese inicial: transcript_lesson fora
-por tier é CORRETO). Painel cego (`touring adw run cross-audit`, 3 críticos)
-fica disponível como segunda passada se Gabriel a ordenar.
+## ACTIONS
+
+1. **Na 30.4.27** (aguarda ordem): propagar e rodar a sonda de aceite acima
+   (junto com `9abd10e`/`7709ba6` da janela anterior).
+2. Painel v1: fonte decompose ganha superfície de listagem quando existir
+   (documentado como exclusão, não como silêncio).
+3. Veredito cego opcional: `touring adw run cross-audit` sobre este delta.
