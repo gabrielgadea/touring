@@ -142,7 +142,7 @@ on_fail = "__fail__"
 # Sandboxed). Posicionais seguem bloqueando injection.
 [node.report]
 type = "code"
-command = ["bash", "-c", "python3 \"$HOME/.claude/skills/Touring/scripts/okf_emit.py\" --out \"$1/docs/audits/cross-audit-$(date +%F).md\" --type AuditReport --title \"cross-audit $1\" --description \"Painel cego do flow ADW cross-audit sobre $1 — FACT= do auditor + MAP/DEBT/E2E deterministicos.\" --field \"flow=cross-audit (adw)\" --process cross-audit --link-lesson \"adw:cross-audit:round\" --section \"PURPOSE AUDIT — FACT por alvo=$2\" --section-json \"MAP+HARMONY (harmony_map)=$3\" --section-json \"DEBT (scan_debt)=$4\" --section-json \"E2E PROOF (prove_invariants)=$5\"", "--", "{{vars.target}}", "{{nodes.audit.summary}}", "{{nodes.map.summary}}", "{{nodes.debt.summary}}", "{{nodes.e2e.summary}}"]
+command = ["bash", "-c", "t=\"$1\"; [ -f \"$t\" ] && t=\".\"; python3 \"$HOME/.claude/skills/Touring/scripts/okf_emit.py\" --out \"$t/docs/audits/cross-audit-$(date +%F).md\" --type AuditReport --title \"cross-audit $1\" --description \"Painel cego do flow ADW cross-audit sobre $1 — FACT= do auditor + MAP/DEBT/E2E deterministicos.\" --field \"flow=cross-audit (adw)\" --process cross-audit --link-lesson \"adw:cross-audit:round\" --section \"PURPOSE AUDIT — FACT por alvo=$2\" --section-json \"MAP+HARMONY (harmony_map)=$3\" --section-json \"DEBT (scan_debt)=$4\" --section-json \"E2E PROOF (prove_invariants)=$5\"", "--", "{{vars.target}}", "{{nodes.audit.summary}}", "{{nodes.map.summary}}", "{{nodes.debt.summary}}", "{{nodes.e2e.summary}}"]
 timeout_ms = 60000
 idempotent = true
 on_pass = "close.persist"

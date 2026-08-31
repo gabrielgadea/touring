@@ -53,6 +53,18 @@ def isolated_marker_dir(tmp_path_factory, monkeypatch):
     yield d
 
 
+@pytest.fixture(autouse=True)
+def ambiente_sem_kill_switch(monkeypatch):
+    """A suíte não herda política do ambiente (painel cego 30/08/2026).
+
+    Sob ``TOURING_WORK_OUTER_DISABLED=1`` ambiente — exatamente o env com que
+    os agentes headless de ADW são spawnados por design — 6 testes que assumem
+    arming falhavam (62/68, reproduzido pelas 3 lentes do painel). O default
+    aqui é a env LIMPA; o teste do kill switch o liga explicitamente via
+    ``monkeypatch.setenv``, que vence este delenv por ordem de aplicação."""
+    monkeypatch.delenv("TOURING_WORK_OUTER_DISABLED", raising=False)
+
+
 def run_arm(prompt: str, cwd: Path) -> subprocess.CompletedProcess:
     payload = json.dumps({"prompt": prompt, "cwd": str(cwd)})
     return subprocess.run([sys.executable, str(ARM)], input=payload,
