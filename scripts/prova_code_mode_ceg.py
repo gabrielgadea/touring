@@ -131,6 +131,46 @@ def prova_contencao():
     dentro.unlink(missing_ok=True)
 
 
+# ══ 2b. SEG-2 — superfície de instrução legível, segredos de ~/.claude não ══
+
+def prova_instrucao():
+    print("\n[2b] SEG-2 — skills/rules legíveis no sandbox; settings/credenciais não")
+    home = Path.home()
+
+    skill = home / ".claude/skills/Touring/SKILL.md"
+    if skill.exists():
+        r = sandbox(f"head -1 {skill}")
+        afirma(r is not None and r.get("exit_code") == 0 and (r.get("stdout") or "").strip() != "",
+               "estrutura de skills é LEGÍVEL no sandbox (o caso da sessão analise)",
+               f"exit={r and r.get('exit_code')} stdout={(r or {}).get('stdout', '')[:60]!r}")
+
+    r = sandbox(f"ls {home / '.claude/rules'}")
+    afirma(r is not None and r.get("exit_code") == 0,
+           "~/.claude/rules é legível no sandbox",
+           f"exit={r and r.get('exit_code')}")
+
+    settings = home / ".claude/settings.json"
+    if settings.exists():
+        r = sandbox(f"cat {settings}")
+        afirma(r is not None and r.get("exit_code") != 0 and (r.get("stdout") or "") == "",
+               "settings.json (env com chaves) CONTINUA inalcançável",
+               f"exit={r and r.get('exit_code')} stdout_len={len((r or {}).get('stdout', ''))}")
+
+    # Predicado POSITIVO, no idioma que enganou (sonda da sessão analise-94,
+    # 30/08): `pathlib.rglob` ENGOLE PermissionError e devolve 0 sem exceção
+    # enquanto `exists()` dá True — um aceite "não levantou" passa com o bug
+    # presente. Só a contagem > 0 prova o grant.
+    if (home / ".claude/skills").exists():
+        r = sandbox(
+            "from pathlib import Path\n"
+            "print(len(list((Path.home() / '.claude/skills').rglob('*.md'))))",
+            lang="python")
+        n = int((r or {}).get("stdout", "0").strip() or 0) if r else 0
+        afirma(n > 0,
+               "rglob em ~/.claude/skills devolve > 0 (o vazio silencioso morreu)",
+               f"exit={r and r.get('exit_code')} md_count={n}")
+
+
 # ══ 3. Code mode — o transporte ════════════════════════════════════════════
 
 def prova_transporte():
@@ -338,8 +378,9 @@ def main() -> int:
     print(f"binário: {TOURING}  |  {ver.strip() or '(versão em stderr)'}")
     print("=" * 74)
 
-    for f in (prova_ceg_discrimina, prova_contencao, prova_transporte, prova_superficie,
-              prova_fronteira, prova_brief, prova_journal, prova_rajada, prova_t3_enterrado):
+    for f in (prova_ceg_discrimina, prova_contencao, prova_instrucao, prova_transporte,
+              prova_superficie, prova_fronteira, prova_brief, prova_journal, prova_rajada,
+              prova_t3_enterrado):
         try:
             f()
         except Exception as e:  # uma prova que explode é uma prova que falhou

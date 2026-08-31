@@ -513,7 +513,6 @@ fn sandbox_write_roots() -> Vec<PathBuf> {
 }
 
 /// As raízes que o filho pode LER.
-/// As raízes que o filho pode LER.
 ///
 /// SEG-1 (28/08, decisão de Gabriel: enumerar com gate de compat) — a leitura
 /// deixa de ser `/` inteiro e vira a lista dos caminhos que o trabalho toca:
@@ -523,6 +522,16 @@ fn sandbox_write_roots() -> Vec<PathBuf> {
 /// (`~/.ssh`, `~/.aws`, `~/.netrc`, `~/.gnupg`) deixam de ser legíveis pelo
 /// sandbox** — o residual declarado abaixo (escrito 27/08) fecha. O vetor medido
 /// continua sendo escrita; leitura era o canal de exfiltração por dados locais.
+///
+/// SEG-2 (30/08, ordem de Gabriel: sessão analise negada ao ler estrutura de
+/// skills) — a **superfície de instrução** do agente entra como leitura:
+/// `~/.claude/{skills,rules,agents,commands}` + `~/.claude/CLAUDE.md`. São
+/// instruções versionadas, não segredos — e um programa de code mode que varre
+/// skills é exatamente a rajada que os gates G1/T3 fundem para dentro do
+/// sandbox; negar aqui empurrava o trabalho de volta às N chamadas atômicas.
+/// O que **continua negado** de `~/.claude`: `settings.json` (env com chaves),
+/// `.credentials.json`, `projects/` (transcripts), `history.jsonl`, `hooks/` —
+/// nenhum root cobre `~/.claude` inteiro, cada subcaminho é um grant explícito.
 ///
 /// Fail-safe humano: `TOURING_SANDBOX_READ_WIDE=1` volta ao `/` de antes — use
 /// se uma ferramenta legítima quebrar por um root não enumerado (e reporte o
@@ -545,7 +554,10 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
     .collect();
     if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
         // toolchains do usuário (medido 28/08: node vem do mise; rustup guarda
-        // os toolchains reais) + o estado do Touring (spill/tee/SDK) + projetos.
+        // os toolchains reais) + o estado do Touring (spill/tee/SDK) + projetos
+        // + a superfície de instrução do agente (SEG-2, 30/08 — subcaminhos
+        // explícitos de ~/.claude; o diretório inteiro NUNCA entra: settings,
+        // credenciais e transcripts ficam fora do alcance do kernel).
         for sub in [
             ".cache",
             ".cargo",
@@ -555,6 +567,11 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
             ".nvm",
             ".pyenv",
             ".claude/touring",
+            ".claude/skills",
+            ".claude/rules",
+            ".claude/agents",
+            ".claude/commands",
+            ".claude/CLAUDE.md",
             "projects",
         ] {
             let p = home.join(sub);
@@ -2470,6 +2487,59 @@ mod tests {
     #[test]
     fn the_filesystem_root_is_never_a_write_root() {
         assert_eq!(super::project_root_for_writes(std::path::Path::new("/")), None);
+    }
+
+    /// SEG-2 (30/08/2026): a superfície de instrução do agente é LEGÍVEL pelo
+    /// sandbox (o caso real: um programa de code mode varrendo a estrutura de
+    /// skills, negado por Landlock na sessão do projeto analise) — e o grant é
+    /// por subcaminho explícito, nunca `~/.claude` inteiro: settings.json,
+    /// .credentials.json e projects/ (transcripts) ficam fora de TODA raiz.
+    #[test]
+    fn the_instruction_surface_is_readable_but_claude_secrets_stay_out() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return; // sem HOME não há o que asseverar
+        };
+        let raizes = super::sandbox_read_roots();
+        for sub in [
+            ".claude/skills",
+            ".claude/rules",
+            ".claude/agents",
+            ".claude/commands",
+        ] {
+            let p = home.join(sub);
+            if p.exists() {
+                assert!(
+                    raizes.contains(&p),
+                    "`{}` existe e não entrou nas raízes de leitura: {raizes:?}",
+                    p.display()
+                );
+            }
+        }
+        assert!(
+            !raizes.contains(&home.join(".claude")),
+            "~/.claude INTEIRO virou raiz de leitura — credenciais e transcripts reabrem"
+        );
+        assert!(
+            !raizes.contains(&home),
+            "o home inteiro virou raiz de leitura"
+        );
+        for segredo in [
+            ".claude/settings.json",
+            ".claude/.credentials.json",
+            ".claude/projects",
+            ".claude/history.jsonl",
+            ".ssh",
+            ".aws",
+            ".netrc",
+            ".gnupg",
+        ] {
+            let alvo = home.join(segredo);
+            assert!(
+                !raizes.iter().any(|r| alvo.starts_with(r)),
+                "`{}` ficou sob uma raiz de leitura: {raizes:?}",
+                alvo.display()
+            );
+        }
     }
 
     /// O que o programa legitimamente precisa continua concedido — sem isto,
