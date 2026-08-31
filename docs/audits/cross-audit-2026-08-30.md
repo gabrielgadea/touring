@@ -87,10 +87,15 @@ loop_doc_link_gate --bundle mundos                → ✅ CLEAN
 phase_close --mundo assiyah (fase anterior)       → journal: kind:mundo ✓
 ```
 
-**UNVERIFIED-live**: `stub_reason`/`Declared` no dashboard vivo — o executor
-de `touring kpi` é o daemon (30.4.26); o código viaja na 30.4.27. Sonda de
-aceite pós-propagação: `touring kpi -j` → check `touring.medicao.adherence`
-com `stub_reason: "declared unmeasured by the producer — amostra n=6…"`.
+**~~UNVERIFIED-live~~ → VERIFICADO (propagação 30.4.27, ordem de Gabriel
+30/08 ~22:30 BRT)**: `scripts/propagate-release.sh 30.4.27` completo — gates,
+build+restart, freeze L2, default, 2 projetos consumidores em 30.4.27
+(verify comportamental por projeto), prova 5.5 **35/35 asserções**. A sonda
+de aceite rodou contra o daemon vivo: `touring kpi -j` →
+`touring.medicao.adherence` = `status: STUB`, `stub_reason: "declared
+unmeasured by the producer — STUB — amostra de 6 abaixo do mínimo 20. Rode
+mais medições pela biblioteca; ausência de dado não é zero."` — o braço
+`Declared` repassando as palavras do produtor, em produção.
 
 **Veredito cego (3 painéis ADW, ordem de Gabriel 30/08 — "o auditor é o autor
 é o quinto modo de veredito errado")**: rodados os 3, auditor + 3 lentes
@@ -118,8 +123,8 @@ suítes por exit code, nunca narrativa (Lei L3).
 
 ## ACTIONS
 
-1. **Na 30.4.27** (aguarda ordem): propagar e rodar a sonda de aceite acima
-   (junto com `9abd10e`/`7709ba6` da janela anterior).
+1. ~~Na 30.4.27 (aguarda ordem)~~ **FEITO** (30/08 ~22:30 BRT): propagação
+   completa e verificada; sonda de aceite passou (bloco VERIFICADO acima).
 2. Painel v1: fonte decompose ganha superfície de listagem quando existir
    (documentado como exclusão, não como silêncio).
 3. ~~Veredito cego opcional~~ **FEITO**: 3 painéis rodados (tabela acima) —
