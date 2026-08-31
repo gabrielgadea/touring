@@ -19,6 +19,8 @@ from pathlib import Path
 import pytest
 
 AUDITS_DIR = Path(__file__).resolve().parent.parent / "docs" / "audits"
+ADW_LIBRARY = (Path(__file__).resolve().parent.parent
+               / "client" / "skills" / "Touring" / "adw-library")
 CAMPOS_OBRIGATORIOS = ("type:", "title:", "description:", "timestamp:")
 
 
@@ -45,6 +47,37 @@ def test_todo_report_de_auditoria_e_um_documento_okf(report: Path):
     faltando = [c for c in CAMPOS_OBRIGATORIOS if c not in fm]
     assert not faltando, (
         f"{report.name}: frontmatter OKF incompleto — faltam {faltando}"
+    )
+
+
+def test_nenhum_spec_adw_fabrica_frontmatter_a_mao():
+    """Guard D8 (30/08/2026): o emissor de documento OKF é okf_emit.py.
+
+    O printf de `---` no nó report do cross-audit foi a causa-raiz do report
+    sem description/timestamp; o remédio institucional é o executor único
+    (validação antes de escrever + elisão A6 + registro no grafo). Um spec
+    que volte a fabricar frontmatter à mão é regressão — este teste lê o
+    ARTEFATO versionado (o espelho client/, que o sync mantém byte-igual à
+    library viva de onde `adw from-template` copia).
+    """
+    specs = sorted(ADW_LIBRARY.glob("*.toml"))
+    assert specs, f"adw-library sumiu do espelho? {ADW_LIBRARY}"
+    ofensores = [s.name for s in specs
+                 if "printf -- '---" in s.read_text(encoding="utf-8",
+                                                    errors="ignore")]
+    assert not ofensores, (
+        f"specs fabricando frontmatter via printf: {ofensores} — use "
+        f"python3 $HOME/.claude/skills/Touring/scripts/okf_emit.py "
+        f"(valida antes de escrever; imprime REPORT=<path>)."
+    )
+
+
+def test_o_no_report_do_cross_audit_usa_o_emissor_unico():
+    spec = ADW_LIBRARY / "cross-audit.toml"
+    texto = spec.read_text(encoding="utf-8", errors="ignore")
+    assert "okf_emit.py" in texto, (
+        "cross-audit.toml não referencia okf_emit.py — o nó report deve "
+        "emitir pelo executor único, nunca por printf."
     )
 
 

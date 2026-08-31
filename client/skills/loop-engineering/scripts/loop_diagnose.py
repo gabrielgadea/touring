@@ -38,6 +38,32 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
+def _import_okf_emit():
+    """O emissor único de documentos OKF (arsenal compartilhado) — todo
+    frontmatter deste script sai dele (D8: campo ausente impossível por
+    construção). Caminho relativo vale no live E no espelho client/;
+    falha LOUD — sem o executor seria voltar à convenção."""
+    here = Path(__file__).absolute()
+    candidatos = [
+        here.parents[2] / "Touring" / "scripts",
+        here.resolve().parents[2] / "Touring" / "scripts",
+        Path.home() / ".claude" / "skills" / "Touring" / "scripts",
+    ]
+    for c in candidatos:
+        if (c / "okf_emit.py").is_file():
+            if str(c) not in sys.path:
+                sys.path.insert(0, str(c))
+            import okf_emit as mod
+            return mod
+    raise ImportError(
+        "okf_emit.py não encontrado — procurado em: "
+        + ", ".join(str(c) for c in candidatos)
+    )
+
+
+okf_emit = _import_okf_emit()
+
+
 def run(cmd, timeout=300):
     """Run a command; return (rc, stdout, stderr). Never raises (fail-open)."""
     try:
@@ -221,17 +247,14 @@ def ensure_bundle_log(bundle: Path, plan_id, ts) -> Path:
     try:
         bundle.mkdir(parents=True, exist_ok=True)
         log.write_text(
-            "---\n"
-            "type: Log\n"
-            "title: Log — chronological history of this loop run\n"
-            "description: Append-only history; PreCompact resume notes and phase closes land here.\n"
-            f"plan_id: {plan_id or bundle.resolve().name}\n"
-            "tags: [loop, log]\n"
-            f"timestamp: {ts}\n"
-            'okf_version: "0.1"\n'
-            "---\n\n"
-            "# Log\n\n"
-            "Part of the [bundle](/index.md).\n",
+            okf_emit.render_frontmatter(
+                "Log", "Log — chronological history of this loop run",
+                "Append-only history; PreCompact resume notes and phase closes land here.",
+                timestamp=ts, tags=["loop", "log"],
+                fields={"plan_id": plan_id or bundle.resolve().name,
+                        "okf_version": "0.1"},
+            )
+            + "# Log\n\nPart of the [bundle](/index.md).\n",
             encoding="utf-8",
         )
     except Exception:  # noqa: BLE001 — a missing log must never fail the diagnostic
@@ -246,16 +269,11 @@ def write_okf_diagnostic(bundle: Path, plan_id, digest, ts):
     ensure_bundle_log(bundle, plan_id, ts)
     q = digest["quality50"]
     h = digest["health"]
-    fm = (
-        "---\n"
-        "type: Diagnostic\n"
-        f"title: Diagnostic — {digest['scope']}\n"
-        "description: One-shot deep diagnostic digest (health, 50-dim quality, wiring, memory, structure).\n"
-        f"plan_id: {plan_id or 'unknown'}\n"
-        "tags: [loop, diagnostic]\n"
-        f"timestamp: {ts}\n"
-        'okf_version: "0.1"\n'
-        "---\n\n"
+    fm = okf_emit.render_frontmatter(
+        "Diagnostic", f"Diagnostic — {digest['scope']}",
+        "One-shot deep diagnostic digest (health, 50-dim quality, wiring, memory, structure).",
+        timestamp=ts, tags=["loop", "diagnostic"],
+        fields={"plan_id": plan_id or "unknown", "okf_version": "0.1"},
     )
     body = [
         f"# Diagnostic — `{digest['scope']}`",
@@ -283,6 +301,13 @@ def write_okf_diagnostic(bundle: Path, plan_id, digest, ts):
         "`touring wiring orphans -j`, `touring memory recall`, `touring map`.",
     ]
     path.write_text(fm + "\n".join(body) + "\n")
+    # O diagnóstico entra no grafo como artefato facetado (#artifact:diagnostic)
+    # — sem isso recall/moc só alcançam o resumo, nunca o documento (furo
+    # medido 30/08/2026). Fail-open: daemon mudo nunca gata o diagnóstico.
+    okf_emit.register_artifact(
+        path, f"report:diagnostic:{slug}", f"Diagnostic — {digest['scope']}",
+        facets=["#artifact:diagnostic", "#process:loop"],
+    )
     return str(path)
 
 
