@@ -301,8 +301,13 @@ _KEBAB_RE = re.compile(r"\b[a-z]+(?:-[a-z]+){1,}\b")
 # invisible), and a leading dot-dir (".cargo/config.toml" — \b cannot match
 # before "."). The negative lookbehind also kills prefix mutilation
 # structurally: a match can never start mid-path after "/" or "-".
+# The trailing guard closes the suffix-side mutilation (peer measurement,
+# analise 30/08: 21 backups ".pre-*" whose prefix IS the live file — the
+# capture named the wrong real object). Citing "config.toml.bak.p4" now
+# extracts NOTHING (honest absence) instead of capturing ".cargo/config.toml".
 _PATH_RE = re.compile(
-    r"(?<![\w./-])\.?[A-Za-z0-9_][A-Za-z0-9_./-]*\.(rs|py|ts|tsx|js|go|toml|yaml|json|md)\b"
+    r"(?<![\w./-])\.?[A-Za-z0-9_][A-Za-z0-9_./-]*"
+    r"\.(rs|py|ts|tsx|js|go|toml|yaml|json|md)\b(?!\.[A-Za-z0-9])"
 )
 
 

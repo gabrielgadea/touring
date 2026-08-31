@@ -48,7 +48,9 @@ from lib import (  # noqa: E402  pylint: disable=wrong-import-position
 # Path alphabet includes -, ., digits and uppercase (hyphenated crate dirs) —
 # the old class captured MUTILATED paths ("ceg/src/…" from "crates/touring-ceg/
 # src/…"), which fail any existence check downstream.
-_RE_FILE_CITATION = re.compile(r"`?([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:rs|py|ts|tsx|js|go))(?::(\d+))?`?")
+_RE_FILE_CITATION = re.compile(
+    r"`?([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:rs|py|ts|tsx|js|go))(?!\.[A-Za-z0-9])(?::(\d+))?`?"
+)
 _RE_PASCAL_SYMBOL = re.compile(r"\b([A-Z][a-zA-Z0-9]{2,}(?:[A-Z][a-zA-Z0-9]{2,})*)\b")
 _RE_SUBTASK_BLOCK = re.compile(
     r"(?:^#{2,4}\s+|^\s*-\s*\*\*)S-(\d+(?:\.\d+)?)\s*[:—-]",

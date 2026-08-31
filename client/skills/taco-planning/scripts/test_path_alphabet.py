@@ -68,6 +68,19 @@ class PathAlphabet(unittest.TestCase):
             self.assertIsNone(_PATH_RE.search(texto), texto)
             self.assertIsNone(_RE_FILE_CITATION.search(texto), texto)
 
+    def test_name_extending_a_live_file_yields_absence_never_the_wrong_file(self):
+        # Peer measurement (analise, 30/08): 21 backups ".pre-*" whose prefix
+        # IS the live file — counting "captured != path" as mutilation nearly
+        # "fixed" the extractor toward the backup. Here the suffix guard makes
+        # citing such a name extract NOTHING (honest absence beats capturing
+        # the wrong real object).
+        self.assertIsNone(_PATH_RE.search("restaure de .cargo/config.toml.bak.p4"))
+        self.assertIsNone(_RE_FILE_CITATION.search("compare com `src/lib.rs.orig` antes"))
+        # A sentence-ending period after a real citation must still match.
+        m = _PATH_RE.search("veja docs/code-mode.md. Depois seguimos")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(0), "docs/code-mode.md")
+
 
 if __name__ == "__main__":
     unittest.main()
