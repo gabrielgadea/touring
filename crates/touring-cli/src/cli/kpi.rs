@@ -1,6 +1,7 @@
 //! `cli_kpi` — Wave R2: Falsifiable Commitments Dashboard.
 //!
-//! Reads `~/.claude/rust/docs/kpi/commitments.yaml` (versioned source of truth),
+//! Reads `~/projects/touring/docs/kpi/commitments.yaml` (versioned source of
+//! truth — the canonical workspace; `~/.claude/rust` is the FROZEN tree),
 //! checks each commitment against its declared threshold/direction, and
 //! returns a structured snapshot consumable by Gabriel or by CI gates.
 //!
@@ -12,9 +13,11 @@
 //! - `derived:<name>` — a value computed from already-collected data with no
 //!   new instrumentation (`health_delta_net`, `world_model_success`). Powers
 //!   the `touring.coupling.*` effectiveness family (F1 telemetry).
-//! - `external:<command>` — placeholder for subprocess gates (cargo nextest,
-//!   llvm-cov, etc.) that the daemon cannot check alone. For MVP these
-//!   return `actual: null, status: "STUB"` to keep the dashboard honest.
+//! - `external:<id>` — resolved from `docs/kpi/external/<id>.json`, the file a
+//!   subprocess gate (cargo nextest, llvm-cov, a peer session) writes. Since
+//!   28/08/2026 these resolve REAL values; a missing/stale/value-less file
+//!   returns `status: "STUB"` with a `stub_reason` naming the cause and the
+//!   remedy (`ExternalStub` — Missing/Stale/Declared/Malformed).
 //!
 //! # CLI flags (handled by `touring-server::cli::kpi`)
 //!

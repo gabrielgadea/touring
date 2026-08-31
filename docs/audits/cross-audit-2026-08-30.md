@@ -92,10 +92,23 @@ de `touring kpi` é o daemon (30.4.26); o código viaja na 30.4.27. Sonda de
 aceite pós-propagação: `touring kpi -j` → check `touring.medicao.adherence`
 com `stub_reason: "declared unmeasured by the producer — amostra n=6…"`.
 
-**Veredito cego**: não rodado nesta auditoria (3 críticos headless sobre um
-delta já coberto por 153 testes) — o auditor é o autor, e isso fica DECLARADO
-como limitação; `touring adw run cross-audit` (painel por construção) é a
-oferta em pé se Gabriel quiser o veredito independente.
+**Veredito cego (3 painéis ADW, ordem de Gabriel 30/08 — "o auditor é o autor
+é o quinto modo de veredito errado")**: rodados os 3, auditor + 3 lentes
+frescas + quorum por código em cada um:
+
+| Painel | Alvo | Quorum | Desfecho |
+|---|---|---|---|
+| **A** (`…1788136967`) | `crates/touring-cli/src/cli/kpi.rs` | **PASS 2/3** | 9 FACTs (41/41 testes, clippy 0, debt 0); 2 desvios de doc do cabeçalho **corrigidos** (citava `~/.claude/rust` congelado; "external: sempre STUB" falso desde 28/08) + 1 institucional (binário do daemon sem `stub_reason` — a propagação 30.4.27, mesma pendência do UNVERIFIED-live acima). Report próprio: `/docs/audits/cross-audit-2026-08-30-kpi-rs.md` |
+| **B** (`…1788136969`) | `client/skills/loop-engineering/scripts` | **REJECT 3/3** | Achado real e reproduzido pelas 3 lentes: `test_flow_guard.py` dava **62/68 sob `TOURING_WORK_OUTER_DISABLED=1`** (o env com que agentes headless spawnam por design) — suíte sensível ao ambiente. **Corrigido**: fixture autouse limpa a env; provado 68/68 COM e SEM o kill switch ambiente |
+| **C** (`…1788137003`) | `client/skills/briah` | **REJECT 3/3** (4 rodadas) | 3 achados reais **corrigidos** no SKILL.md: caminho quebrado (:143, painel citado como local); interpolação de texto verbatim em aspas duplas (injection — trocado por heredoc quotado); comando prescrito não reproduzia sob Landlock (declarado NATIVO, sandbox nega `~/.claude`) |
+
+O painel condenou o autor com razão duas vezes em três — exatamente o que o
+veredito independente existe para fazer. Os runs A e C morreram no nó
+`report` ANTES da emissão (target-arquivo × `mkdir`, e exaustão de retry) —
+ambos os defeitos de flow também corrigidos (target-arquivo → `docs/audits/`
+do cwd; e o nó report agora emite por `okf_emit.py`, o emissor único aprovado
+por Gabriel em 30/08: validação antes de escrever, elisão A6 declarada,
+proveniência blake2b, registro no grafo `#artifact:report`).
 
 ## PROVENANCE
 
@@ -109,4 +122,6 @@ suítes por exit code, nunca narrativa (Lei L3).
    (junto com `9abd10e`/`7709ba6` da janela anterior).
 2. Painel v1: fonte decompose ganha superfície de listagem quando existir
    (documentado como exclusão, não como silêncio).
-3. Veredito cego opcional: `touring adw run cross-audit` sobre este delta.
+3. ~~Veredito cego opcional~~ **FEITO**: 3 painéis rodados (tabela acima) —
+   2 REJECTs procedentes, 6 achados corrigidos, 2 defeitos do próprio flow
+   consertados no processo.
