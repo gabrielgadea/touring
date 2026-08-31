@@ -81,7 +81,11 @@ def make_complete_artifacts(scope: Path, bundle: Path) -> None:
     (bundle / "diagnostics" / "d.md").write_text("diag")
     (bundle / "strategy-2026-07-23-t.md").write_text("strategy")
     (scope / ".touring-explore").mkdir(parents=True, exist_ok=True)
-    (scope / ".touring-explore" / "t.ledger.json").write_text("{}")
+    # The manifest requires verdict.converged == true (the CCE contract) — an
+    # empty ledger is precisely the "not yet dry" state and must NOT complete
+    # the gate (this fixture once planted "{}" and three tests rotted green).
+    (scope / ".touring-explore" / "t.ledger.json").write_text(
+        '{"verdict": {"converged": true}}')
 
 
 # ── detection (F1 regression: invocation forms only, prose never) ────────────
