@@ -132,11 +132,17 @@ on_pass = "report"
 on_fail = "__fail__"
 
 # REPORT (fase 7): o artefato datado que o flow guard da skill já exige —
-# determinístico, em disco, com os 4 blocos de evidência. Sem sandbox: escreve
-# arquivo (o X6 nega redirection no perfil Sandboxed).
+# determinístico, em disco, com os 4 blocos de evidência. Emitido por
+# okf_emit.py, o emissor ÚNICO (30/08/2026): frontmatter validado antes de
+# escrever (campo ausente é impossível — D8), JSON com fence fechada e elisão
+# DECLARADA (A6; o printf anterior truncava summary no meio da string), e o
+# report entra no grafo de memória facetado (#artifact:report) linkado à
+# lesson do round. Imprime REPORT=<path> (o contrato que o runner lê) e sai
+# ≠0 na recusa. Sem sandbox: escreve arquivo (o X6 nega redirection no perfil
+# Sandboxed). Posicionais seguem bloqueando injection.
 [node.report]
 type = "code"
-command = ["bash", "-c", "mkdir -p \"$1/docs/audits\"; f=\"$1/docs/audits/cross-audit-$(date +%F).md\"; { printf -- '---\\ntype: AuditReport\\ntitle: \"cross-audit %s\"\\ndescription: \"Painel cego do flow ADW cross-audit sobre %s — FACT= do auditor + MAP/DEBT/E2E deterministicos.\"\\ntimestamp: %s\\nflow: cross-audit (adw)\\n---\\n\\n' \"$1\" \"$1\" \"$(date -Iseconds)\"; printf '## PURPOSE AUDIT (FACT= por alvo)\\n\\n%s\\n\\n## MAP+HARMONY (harmony_map)\\n\\n```json\\n%s\\n```\\n\\n## DEBT (scan_debt)\\n\\n```json\\n%s\\n```\\n\\n## E2E PROOF (prove_invariants)\\n\\n```json\\n%s\\n```\\n' \"$2\" \"$3\" \"$4\" \"$5\"; } > \"$f\"; echo \"REPORT=$f\"; test -s \"$f\"", "--", "{{vars.target}}", "{{nodes.audit.summary}}", "{{nodes.map.summary}}", "{{nodes.debt.summary}}", "{{nodes.e2e.summary}}"]
+command = ["bash", "-c", "python3 \"$HOME/.claude/skills/Touring/scripts/okf_emit.py\" --out \"$1/docs/audits/cross-audit-$(date +%F).md\" --type AuditReport --title \"cross-audit $1\" --description \"Painel cego do flow ADW cross-audit sobre $1 — FACT= do auditor + MAP/DEBT/E2E deterministicos.\" --field \"flow=cross-audit (adw)\" --process cross-audit --link-lesson \"adw:cross-audit:round\" --section \"PURPOSE AUDIT — FACT por alvo=$2\" --section-json \"MAP+HARMONY (harmony_map)=$3\" --section-json \"DEBT (scan_debt)=$4\" --section-json \"E2E PROOF (prove_invariants)=$5\"", "--", "{{vars.target}}", "{{nodes.audit.summary}}", "{{nodes.map.summary}}", "{{nodes.debt.summary}}", "{{nodes.e2e.summary}}"]
 timeout_ms = 60000
 idempotent = true
 on_pass = "close.persist"

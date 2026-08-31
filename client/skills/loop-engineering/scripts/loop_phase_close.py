@@ -29,6 +29,37 @@ import sys
 from pathlib import Path
 
 
+def _import_okf_emit():
+    """O emissor único de documentos OKF (arsenal compartilhado).
+
+    Todo frontmatter deste script sai de `okf_emit.render_frontmatter` — o
+    executor que torna o campo ausente impossível (D8; origem 30/08/2026:
+    report sem OKF pego por Gabriel + 5 sítios fabricando frontmatter à mão).
+    O caminho relativo (skills/<esta>/scripts → skills/Touring/scripts) vale
+    no live E no espelho client/; a falha é LOUD — emitir sem o executor
+    seria voltar à convenção.
+    """
+    here = Path(__file__).absolute()
+    candidatos = [
+        here.parents[2] / "Touring" / "scripts",
+        here.resolve().parents[2] / "Touring" / "scripts",
+        Path.home() / ".claude" / "skills" / "Touring" / "scripts",
+    ]
+    for c in candidatos:
+        if (c / "okf_emit.py").is_file():
+            if str(c) not in sys.path:
+                sys.path.insert(0, str(c))
+            import okf_emit as mod
+            return mod
+    raise ImportError(
+        "okf_emit.py não encontrado — procurado em: "
+        + ", ".join(str(c) for c in candidatos)
+    )
+
+
+okf_emit = _import_okf_emit()
+
+
 def run(cmd, timeout=120):
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -331,16 +362,12 @@ def write_phase_report(bundle: Path, plan_id, phase, status, summary, gates, ts,
                        facts=None):
     path = bundle / "phases" / f"{phase}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
-    fm = (
-        "---\n"
-        "type: PhaseReport\n"
-        f"title: {phase} — phase report\n"
-        f"description: {(summary or phase)[:140]}\n"
-        f"plan_id: {plan_id or 'unknown'}\n"
-        f"tags: [loop, phase, {phase}]\n"
-        f"timestamp: {ts}\n"
-        'okf_version: "0.1"\n'
-        "---\n\n"
+    # Frontmatter pelo emissor único — campo ausente é impossível por
+    # construção (okf_emit valida antes de renderizar; D8).
+    fm = okf_emit.render_frontmatter(
+        "PhaseReport", f"{phase} — phase report", (summary or phase)[:140],
+        timestamp=ts, tags=["loop", "phase", phase],
+        fields={"plan_id": plan_id or "unknown", "okf_version": "0.1"},
     )
     # Link only to bundle docs that actually exist — a report must never emit a
     # broken bundle-relative link (E2E finding 2026-07-02).
@@ -405,16 +432,12 @@ def append_log(bundle: Path, phase, status, summary, ts):
         log.write_text(log.read_text() + entry)
     else:
         plan_id = plan_id_from_bundle(bundle)
-        header = (
-            "---\n"
-            'okf_version: "1.0"\n'
-            "type: Log\n"
-            f'title: "Log — {plan_id}"\n'
-            f'description: "Chronological history of the phases closed in this bundle."\n'
-            f"plan_id: {plan_id}\n"
-            'tags: ["#kind:log", "#artifact:log"]\n'
-            f"timestamp: {ts}\n"
-            "---\n\n"
+        header = okf_emit.render_frontmatter(
+            "Log", f"Log — {plan_id}",
+            "Chronological history of the phases closed in this bundle.",
+            timestamp=ts, tags=["#kind:log", "#artifact:log"],
+            fields={"plan_id": plan_id, "okf_version": "1.0"},
+        ) + (
             f"# Log — {plan_id}\n\n"
             "Cada entrada é um fecho de fase registrado por `loop_phase_close.py`.\n"
             "O plano: [`plan.md`](/plan.md)\n"
@@ -513,6 +536,17 @@ def main(argv=None):
         facts = validate_facts(args.facts)
         result["phase_report"] = write_phase_report(bundle, plan_id, args.phase, args.status,
                                                     args.summary, gates, ts, facts=facts)
+        # O ARTEFATO entra no grafo, não só o resumo: ponteiro facetado
+        # (#artifact:report) + aresta `documents` para a lesson desta fase.
+        # Furo medido 30/08/2026: `memory query "#artifact:report"` devolvia
+        # 0 reports reais — recall/moc paravam no resumo. Fail-open.
+        result["report_registered"] = okf_emit.register_artifact(
+            result["phase_report"],
+            f"report:phase:{args.task}:{args.phase}",
+            f"{args.phase} — phase report ({plan_id})",
+            facets=["#artifact:report", "#process:loop"],
+            link_to=f"loop:{args.task}:{args.phase}:{args.status}",
+        )["memory_stored"]
         result["abstract"] = write_abstract(bundle, args.phase, abstract)
         result["log"] = append_log(bundle, args.phase, args.status, args.summary, ts)
         result["entities"] = len(abstract["entities"])

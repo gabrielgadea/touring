@@ -28,9 +28,16 @@ Ao receber a descrição crua da criação, PRIMEIRO meça o que Gabriel já
 antecipou — nunca pergunte o que ele já respondeu:
 
 ```bash
+# NATIVO (host), nunca via `touring run`: o sandbox nega ~/.claude por
+# Landlock (Permission denied, medido 30/08/2026). E texto verbatim entra
+# por heredoc QUOTADO ('EOF') — interpolar texto livre em aspas duplas é
+# superfície de injection (classe adw-template-injection, painel cego 30/08).
 python3 ~/.claude/skills/loop-engineering/scripts/cognicao_formal.py \
   medir --gravar --dominio <codigo|texto|negocio|vida|harness> \
-  --texto "<a descrição crua, verbatim>"
+  --texto "$(cat <<'BRIAH_EOF'
+<a descrição crua, verbatim>
+BRIAH_EOF
+)"
 # → {presentes, ausentes, ratio}
 ```
 
@@ -111,9 +118,13 @@ python3 ~/.claude/skills/loop-engineering/scripts/cognicao_formal.py \
 Feche registrando o rito (a série do espelho):
 
 ```bash
+# Idem: nativo, e a pergunta (texto livre) entra por heredoc quotado.
 python3 ~/.claude/skills/loop-engineering/scripts/cognicao_formal.py \
   registrar --tipo destravamento --dominio <d> --criacao <slug> \
-  --pergunta-destravou "<a pergunta que destravou, se houve>" \
+  --pergunta-destravou "$(cat <<'BRIAH_EOF'
+<a pergunta que destravou, se houve>
+BRIAH_EOF
+)" \
   --texto "briah fechado: ratio entrada <r0> → saída 1.0"
 ```
 
@@ -140,4 +151,4 @@ bundle>`. Nunca redigite a intenção — a externalização já foi feita e pag
 
 - Régua e journal: `~/.claude/skills/loop-engineering/scripts/cognicao_formal.py`
 - Estratégia-mãe + gate humano: `~/projects/touring/docs/plans/2026-08-30-mundos-da-criacao/strategy-2026-08-30-mundos-da-criacao.md`
-- Painel que oferta este rito: `scripts/hooks/painel_emanacao.py` (Atziluth)
+- Painel que oferta este rito: `~/.claude/skills/loop-engineering/scripts/hooks/painel_emanacao.py` (Atziluth)
