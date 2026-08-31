@@ -1,0 +1,45 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "sandbox_read_roots() ganhou grants read-only por subcaminho (~/.claude/{skills,rules,agents,commands}+CLAUDE.md); ~/.claude inteiro segue fora. Teste estrutural the_instruction_surface_is_readable_but_claude_secrets_stay_out (positivo nos grants, negativo em 8 portadores de segredo). Evid\u00eancia: cargo test -p touring-ceg --lib = 577 passed; clippy -D warnings limpo. Commit 9e4e8e1."
+    },
+    {
+      "entity_id": "memory:loop:task_1788143070843142448:P1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788143070843142448",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788143070843142448",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P1|produces|memory:loop:task_1788143070843142448:P1:done",
+      "source": "phase:P1",
+      "type": "produces",
+      "target": "memory:loop:task_1788143070843142448:P1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788143070843142448:P1:done|generated-by|loop:loop:task_1788143070843142448",
+      "source": "memory:loop:task_1788143070843142448:P1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788143070843142448"
+    },
+    {
+      "relation_id": "memory:loop:task_1788143070843142448:P1:done|generated-by|dag:decomp:task_1788143070843142448",
+      "source": "memory:loop:task_1788143070843142448:P1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788143070843142448"
+    }
+  ]
+}

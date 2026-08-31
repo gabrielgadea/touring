@@ -1,0 +1,45 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "Propaga\u00e7\u00e3o 30.4.28 completa: 1\u00aa tentativa morreu em SIGSEGV do rustc (LLVM, touring-bindings, build release); retry com RUST_MIN_STACK=16777216 + --skip-gates passou inteiro. analise e konverter 30.4.27\u219230.4.28 (verify comportamental por projeto), prova 5.5 = 39/39 asser\u00e7\u00f5es (4 novas do prova_instrucao). Sonda de aceite no daemon global: rglob(~/.claude/skills)=402 (era 0), settings.json e .credentials.json NEGADOS."
+    },
+    {
+      "entity_id": "memory:loop:task_1788143070843142448:P3:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788143070843142448",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788143070843142448",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P3|produces|memory:loop:task_1788143070843142448:P3:done",
+      "source": "phase:P3",
+      "type": "produces",
+      "target": "memory:loop:task_1788143070843142448:P3:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788143070843142448:P3:done|generated-by|loop:loop:task_1788143070843142448",
+      "source": "memory:loop:task_1788143070843142448:P3:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788143070843142448"
+    },
+    {
+      "relation_id": "memory:loop:task_1788143070843142448:P3:done|generated-by|dag:decomp:task_1788143070843142448",
+      "source": "memory:loop:task_1788143070843142448:P3:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788143070843142448"
+    }
+  ]
+}
