@@ -1,3 +1,11 @@
+---
+type: AuditReport
+title: "Cross-audit 28/08/2026 (noite) — estreia do KPI mutation, force-gate, RCA do lifecycle"
+description: "Auditoria do delta pós-bump 30.4.17 (frontmatter OKF adicionado retroativamente em 30/08 — REGRA #21 do censo de audits sem frontmatter)."
+tags: [cross-audit, kpi, mutation, lifecycle]
+timestamp: 2026-08-28T22:00:00-03:00
+---
+
 # Cross-audit 28/08/2026 (noite) — estreia do KPI mutation, force-gate, RCA do lifecycle
 
 > Escopo: o delta da sessão pós-bump 30.4.17 — commits `e7195cd` (propagate

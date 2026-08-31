@@ -1,3 +1,12 @@
+---
+type: AuditReport
+title: "Cross-audit 30/08/2026 — delta completo da sessão (kpi.rs + Mundos da Criação)"
+description: "Auditoria de fidelidade a propósito sobre os 7 commits de 30/08: stub_reason/guard external no kpi.rs, F0-F4 dos Mundos (painel, cognicao_formal, briah, world_rites, --mundo), painel v1. 4 achados (A1 Goodhart estrutural, A2 FP de elo, A3 STUB deliberado, A4 executor≠binário), 3 corrigidos por mutação provada, 1 declarado UNVERIFIED-live."
+tags: [cross-audit, mundos-da-criacao, kpi, cognicao, briah]
+timestamp: 2026-08-30T21:45:00-03:00
+plan: /docs/plans/2026-08-30-mundos-da-criacao/
+---
+
 # Cross-audit 2026-08-30 — o delta completo da sessão (kpi.rs + Mundos da Criação)
 
 > **Escopo**: tudo que a sessão de 30/08 implementou — 7 commits auditados

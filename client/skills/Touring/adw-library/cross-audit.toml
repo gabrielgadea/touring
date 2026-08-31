@@ -136,7 +136,7 @@ on_fail = "__fail__"
 # arquivo (o X6 nega redirection no perfil Sandboxed).
 [node.report]
 type = "code"
-command = ["bash", "-c", "mkdir -p \"$1/docs/audits\"; f=\"$1/docs/audits/cross-audit-$(date +%F).md\"; { printf -- '---\\ntype: AuditReport\\ntitle: \"cross-audit %s\"\\ndate: %s\\nflow: cross-audit (adw)\\n---\\n\\n' \"$1\" \"$(date +%F)\"; printf '## PURPOSE AUDIT (FACT= por alvo)\\n\\n%s\\n\\n## MAP+HARMONY (harmony_map)\\n\\n```json\\n%s\\n```\\n\\n## DEBT (scan_debt)\\n\\n```json\\n%s\\n```\\n\\n## E2E PROOF (prove_invariants)\\n\\n```json\\n%s\\n```\\n' \"$2\" \"$3\" \"$4\" \"$5\"; } > \"$f\"; echo \"REPORT=$f\"; test -s \"$f\"", "--", "{{vars.target}}", "{{nodes.audit.summary}}", "{{nodes.map.summary}}", "{{nodes.debt.summary}}", "{{nodes.e2e.summary}}"]
+command = ["bash", "-c", "mkdir -p \"$1/docs/audits\"; f=\"$1/docs/audits/cross-audit-$(date +%F).md\"; { printf -- '---\\ntype: AuditReport\\ntitle: \"cross-audit %s\"\\ndescription: \"Painel cego do flow ADW cross-audit sobre %s — FACT= do auditor + MAP/DEBT/E2E deterministicos.\"\\ntimestamp: %s\\nflow: cross-audit (adw)\\n---\\n\\n' \"$1\" \"$1\" \"$(date -Iseconds)\"; printf '## PURPOSE AUDIT (FACT= por alvo)\\n\\n%s\\n\\n## MAP+HARMONY (harmony_map)\\n\\n```json\\n%s\\n```\\n\\n## DEBT (scan_debt)\\n\\n```json\\n%s\\n```\\n\\n## E2E PROOF (prove_invariants)\\n\\n```json\\n%s\\n```\\n' \"$2\" \"$3\" \"$4\" \"$5\"; } > \"$f\"; echo \"REPORT=$f\"; test -s \"$f\"", "--", "{{vars.target}}", "{{nodes.audit.summary}}", "{{nodes.map.summary}}", "{{nodes.debt.summary}}", "{{nodes.e2e.summary}}"]
 timeout_ms = 60000
 idempotent = true
 on_pass = "close.persist"
