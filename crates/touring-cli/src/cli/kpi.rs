@@ -623,7 +623,13 @@ enum ExternalStub {
     Missing,
     /// A measurement exists but is older than [`EXTERNAL_STALE_SECS`].
     Stale { days: u64 },
-    /// The file exists and is fresh but carries no numeric `value` field.
+    /// The producer measured and DECLARED no value yet (`value: null` plus a
+    /// `detalhe`/`note` string) — e.g. "sample n=6 below the minimum 20". An
+    /// honest unknown, not a defect (cross-audit 30/08, achado A3: the first
+    /// real producer did exactly this and `Malformed` would slander it).
+    Declared { detalhe: String },
+    /// The file exists and is fresh but carries no numeric `value` field
+    /// and no producer explanation.
     Malformed,
 }
 
@@ -637,6 +643,9 @@ impl ExternalStub {
             ),
             Self::Stale { days } => format!(
                 "stale — measured {days}d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/{id}.json"
+            ),
+            Self::Declared { detalhe } => format!(
+                "declared unmeasured by the producer — {detalhe}"
             ),
             Self::Malformed => format!(
                 "malformed — docs/kpi/external/{id}.json exists but has no numeric `value` field"
@@ -654,10 +663,29 @@ fn external_verdict(age_secs: u64, raw: Option<&str>) -> Result<f64, ExternalStu
         });
     }
     let raw = raw.ok_or(ExternalStub::Missing)?;
-    serde_json::from_str::<Value>(raw)
-        .ok()
-        .and_then(|v| v.pointer("/value").and_then(json_value_as_f64))
-        .ok_or(ExternalStub::Malformed)
+    let parsed = serde_json::from_str::<Value>(raw).ok();
+    if let Some(v) = parsed
+        .as_ref()
+        .and_then(|v| v.pointer("/value"))
+        .and_then(json_value_as_f64)
+    {
+        return Ok(v);
+    }
+    // No numeric value: an explicit `value: null` carrying a producer
+    // explanation is an honest unknown — surface THEIR words, never an
+    // accusation (E4/E5: display the absence with its real cause).
+    if let Some(v) = parsed.as_ref()
+        && v.pointer("/value").is_some_and(Value::is_null)
+        && let Some(detalhe) = ["/detalhe", "/note", "/nota"]
+            .iter()
+            .find_map(|p| v.pointer(p).and_then(Value::as_str))
+            .filter(|s| !s.trim().is_empty())
+    {
+        return Err(ExternalStub::Declared {
+            detalhe: detalhe.chars().take(160).collect(),
+        });
+    }
+    Err(ExternalStub::Malformed)
 }
 
 fn resolve_external_detailed(
@@ -2033,7 +2061,32 @@ mod tests {
         );
         assert_eq!(
             external_verdict(0, Some("{\"measured_at\": \"2026-08-28\"}")),
-            Err(ExternalStub::Malformed)
+            Err(ExternalStub::Malformed),
+            "no `value` key at all and no explanation — that IS malformed"
+        );
+        // A3 (cross-audit 30/08): value:null + producer explanation is an
+        // HONEST unknown — the dashboard repeats their words, never accuses.
+        assert_eq!(
+            external_verdict(
+                0,
+                Some("{\"value\": null, \"detalhe\": \"amostra n=6 abaixo do mínimo 20\"}")
+            ),
+            Err(ExternalStub::Declared {
+                detalhe: "amostra n=6 abaixo do mínimo 20".into()
+            })
+        );
+        assert_eq!(
+            external_verdict(0, Some("{\"value\": null}")),
+            Err(ExternalStub::Malformed),
+            "value:null WITHOUT an explanation stays malformed — silence is not honesty"
+        );
+        let d = ExternalStub::Declared {
+            detalhe: "amostra n=6".into(),
+        }
+        .teach("x");
+        assert!(
+            d.contains("declared unmeasured") && d.contains("amostra n=6"),
+            "got: {d}"
         );
         // The message carries the remedy and the exact drop path (A5) — the
         // operator acts on the dashboard line alone.

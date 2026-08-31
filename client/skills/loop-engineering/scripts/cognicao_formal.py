@@ -149,26 +149,82 @@ def journal_lines(kind: str | None = None, last_n: int = 200) -> list[dict[str, 
 # ---------------------------------------------------------------------------
 
 
+# Títulos canônicos das seções de um criacao.md (o template de Briah) —
+# normalizados sem acento para o casamento de headings.
+_TITULOS: dict[str, str] = {
+    "emanacao": "a emanacao",
+    "finalidade": "o telos",
+    "imagem": "a imagem",
+    "fronteira": "a fronteira",
+    "cadeia": "a cadeia",
+    "custo-invisivel": "o custo invisivel",
+    "pronto": "o pronto",
+}
+_MIN_SECAO_CHARS = 20
+
+
+def _sem_acento(s: str) -> str:
+    """Normaliza para comparação de headings (NFD, remove combinantes)."""
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", s)
+                   if not unicodedata.combining(c)).lower()
+
+
+def _secoes_estruturadas(texto: str) -> dict[str, str]:
+    """Mapeia operação → conteúdo da seção quando o texto usa os headings
+    canônicos do template de Briah. Vazio quando o texto não é estruturado."""
+    secoes: dict[str, str] = {}
+    atual: str | None = None
+    corpo: list[str] = []
+    for line in texto.splitlines() + ["# fim"]:
+        if line.lstrip().startswith("#"):
+            if atual is not None:
+                secoes[atual] = "\n".join(corpo).strip()
+            titulo = _sem_acento(line.lstrip("#").strip())
+            atual = next((ch for ch, t in _TITULOS.items() if titulo.startswith(t)), None)
+            corpo = []
+        elif atual is not None:
+            corpo.append(line)
+    return secoes
+
+
 def medir_texto(texto: str) -> dict[str, Any]:
     """Detecta quais das 7 operações formais o texto já cobre.
 
-    Retorna presentes/ausentes/ratio + o trecho que casou (transparência: o
-    sinal viaja com o veredito, nunca só o número — a régua se mostra).
+    Dois modos, declarados no campo `detector` (o achado A1 do cross-audit de
+    30/08: um criacao.md excelente media 0.143 porque prosa bem escrita não
+    usa as palavras das assinaturas — a régua ensinaria a escrever PARA ela,
+    o Goodhart estrutural):
+
+    - **prompt cru** (default): assinaturas lexicais — mede antecipação
+      espontânea, onde a formulação é o próprio sinal.
+    - **documento estruturado** (≥4 headings canônicos de Briah): a operação
+      conta presente se sua SEÇÃO tem conteúdo substantivo (≥20 chars) — a
+      estrutura preenchida é o sinal; a assinatura vira complemento.
+
+    Retorna presentes/ausentes/ratio + o sinal que decidiu (transparência: o
+    sinal viaja com o veredito, nunca só o número).
     """
+    secoes = _secoes_estruturadas(texto)
+    modo_doc = len(secoes) >= 4
     presentes: list[str] = []
     sinais: dict[str, str] = {}
     for op in ESQUEMA:
-        m = _COMPILADAS[op["chave"]].search(texto)
+        chave = op["chave"]
+        m = _COMPILADAS[chave].search(texto)
         if m:
-            presentes.append(op["chave"])
-            sinais[op["chave"]] = m.group(0)[:60]
+            presentes.append(chave)
+            sinais[chave] = m.group(0)[:60]
+        elif modo_doc and len(secoes.get(chave, "")) >= _MIN_SECAO_CHARS:
+            presentes.append(chave)
+            sinais[chave] = f"seção preenchida ({len(secoes[chave])} chars)"
     ausentes = [op["chave"] for op in ESQUEMA if op["chave"] not in presentes]
     return {
         "presentes": presentes,
         "ausentes": ausentes,
         "ratio": round(len(presentes) / len(ESQUEMA), 3),
         "sinais": sinais,
-        "detector": "heuristico-lexical-v0",
+        "detector": "estrutural+lexical-v0" if modo_doc else "heuristico-lexical-v0",
     }
 
 

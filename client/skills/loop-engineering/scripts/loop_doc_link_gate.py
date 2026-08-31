@@ -107,8 +107,11 @@ def check_doc(md, bundle, index_text, root_plan_id, report):
 
 # F2 Δ-Yetzirah (Mundos da Criação, gate humano 30/08/2026): a operação
 # "estruturar" é cobrada nos artefatos — advisory por padrão, blocking sob
-# --strict (a escada: nasce advisory, endurece por medição).
-_ELO_RE = re.compile(r"(?i)\bse\b.{3,200}?(→|->|ent[aã]o)")
+# --strict (a escada: nasce advisory, endurece por medição). O elo só conta
+# em ITEM DE LISTA (achado A2 do cross-audit 30/08: sem a âncora, a prosa
+# "esta regra se aplica ... então" inflava a contagem — FP a favor de passar).
+_ELO_RE = re.compile(
+    r"(?im)^\s*(?:[-*]|\d+[.)])\s.*?\bse\b.{3,200}?(→|->|ent[aã]o)")
 _MIN_ELOS = 5
 
 

@@ -66,6 +66,36 @@ class MedirTests(unittest.TestCase):
     def test_o_detector_se_declara_heuristico(self):
         self.assertEqual(cf.medir_texto("x")["detector"], "heuristico-lexical-v0")
 
+    CRIACAO_BEM_ESCRITA = (
+        "# App de receitas — a concepção (Briah)\n"
+        "## A Emanação\nUm aplicativo que sugere jantares com o que há na geladeira.\n"
+        "## O Telos\nCozinheiros caseiros cansados; menos desperdício às 19h.\n"
+        "## A Imagem\nFotografo a geladeira, recebo três sugestões com passos curtos.\n"
+        "## A Fronteira\nNada de rede social. Nada de assinatura. Nada de vídeos.\n"
+        "## A Cadeia\nFoto vira lista; lista vira busca; busca vira três receitas.\n"
+        "## O Custo Invisível\nReconhecimento falhar em embalagens; plano B: digitar.\n"
+        "## O Pronto\nDez jantares reais cozinhados por três pessoas em duas semanas.\n"
+    )
+
+    def test_criacao_bem_escrita_sem_palavras_magicas_da_ratio_1(self):
+        # Achado A1 do cross-audit 30/08: este documento media 0.143 no modo
+        # lexical — a régua ensinaria a escrever PARA ela (Goodhart). O modo
+        # documento-estruturado conta seção preenchida como operação presente.
+        r = cf.medir_texto(self.CRIACAO_BEM_ESCRITA)
+        self.assertEqual(r["ratio"], 1.0, f"ausentes: {r['ausentes']}")
+        self.assertEqual(r["detector"], "estrutural+lexical-v0")
+
+    def test_secao_vazia_no_documento_nao_conta(self):
+        doc = self.CRIACAO_BEM_ESCRITA.replace(
+            "Dez jantares reais cozinhados por três pessoas em duas semanas.", "")
+        r = cf.medir_texto(doc)
+        self.assertIn("pronto", r["ausentes"],
+                      "estrutura sem conteúdo é formulário, não operação")
+
+    def test_prompt_cru_continua_no_detector_lexical(self):
+        r = cf.medir_texto("quero que exista um app de receitas")
+        self.assertEqual(r["detector"], "heuristico-lexical-v0")
+
     def test_formulacoes_naturais_do_baseline_real_sao_detectadas(self):
         # Falsos negativos da estreia (30/08): estas formulações estavam no
         # prompt real de Gabriel e a régua v0 não as via.
