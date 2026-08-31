@@ -1,7 +1,8 @@
 ---
 type: AuditReport
 title: "cross-audit /home/gabrielgadea/projects/touring/scripts"
-date: 2026-08-28
+description: "Painel cego do flow ADW cross-audit sobre scripts/ (campos description/timestamp adicionados retroativamente em 30/08 — o template do flow gerava date: sem description; corrigido na library e no spec instanciado)."
+timestamp: 2026-08-28T12:00:00-03:00
 flow: cross-audit (adw)
 ---
 

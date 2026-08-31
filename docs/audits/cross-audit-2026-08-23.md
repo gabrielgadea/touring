@@ -1,3 +1,11 @@
+---
+type: AuditReport
+title: "Cross-audit 23/08/2026 — delta não-commitado do workspace touring"
+description: "Auditoria do delta não-commitado (frontmatter OKF adicionado retroativamente em 30/08 — REGRA #21 do censo de audits sem frontmatter)."
+tags: [cross-audit, delta, workspace]
+timestamp: 2026-08-23T12:00:00-03:00
+---
+
 # Cross-Audit 2026-08-23 — delta não-commitado do workspace touring
 
 > **Skill**: TACO-cross-audit (7 fases) · **Escopo**: os 457 paths não commitados

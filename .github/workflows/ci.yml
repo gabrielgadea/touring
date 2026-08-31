@@ -301,6 +301,12 @@ jobs:
         # e a suíte flaka (7 sítios corrigidos em 25/08/2026). O guard é
         # provado por mutação (remover o atributo → exit 1; restaurar → exit 0).
         run: python3 -m pytest scripts/test_ceg_serial_gate_metrics.py -q
+      - name: OKF audits — todo report de auditoria DEVE ser documento OKF
+        # 30/08/2026: o cross-audit do dia saiu sem frontmatter e o censo achou
+        # outros 5 (o template do flow ADW gerava date: sem description). A
+        # regra "every .md the loop writes is an OKF document" não tinha
+        # executor para docs/audits/ — este guard é o executor (D8).
+        run: python3 -m pytest scripts/test_okf_audit_reports.py -q
       - name: code-mode D8 — a seção declarada DEVE casar com o predicado do executor
         # Cross-audit 26/08/2026: este guard existia, era citado em
         # rules/touring-4-pillars.md como "o remédio institucional… texto e

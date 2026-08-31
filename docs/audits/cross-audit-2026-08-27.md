@@ -1,3 +1,11 @@
+---
+type: AuditReport
+title: "Cross-audit 27/08/2026 — code mode + CEG sandbox (commit a2ee48e)"
+description: "Auditoria do DAG S1-S10 do code mode + sandbox CEG (frontmatter OKF adicionado retroativamente em 30/08 — REGRA #21 do censo de audits sem frontmatter)."
+tags: [cross-audit, code-mode, ceg, sandbox]
+timestamp: 2026-08-27T12:00:00-03:00
+---
+
 # Cross-audit 2026-08-27 — code mode + CEG sandbox (commit a2ee48e)
 
 > **Skill**: TACO-cross-audit (7 fases) · **Escopo**: commit `a2ee48e` (146 arquivos,

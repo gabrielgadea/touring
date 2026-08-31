@@ -1,3 +1,11 @@
+---
+type: AuditReport
+title: "Cross-audit 03/06/2026 — CAH Roadmap Closure Verification"
+description: "Verificação de fechamento do roadmap CAH (frontmatter OKF adicionado retroativamente em 30/08 — REGRA #21 do censo de audits sem frontmatter)."
+tags: [cross-audit, cah, roadmap]
+timestamp: 2026-06-03T12:00:00-03:00
+---
+
 # TACO-cross-audit REPORT — CAH Roadmap Closure Verification
 
 > **Date**: 2026-06-03 | **Auditor**: TACO-cross-audit skill (L4+ deep audit)
