@@ -61,6 +61,21 @@ class WorldRitesTests(unittest.TestCase):
         r = self._report({"strategy-x.md": FM.format(t="Strategy") + quase})
         self.assertEqual(len(r["world_rites"]), 1)
 
+    def test_prosa_com_se_entao_acidental_nao_conta_como_elo(self):
+        # Achado A2 do cross-audit 30/08: sem âncora de item de lista, prosa
+        # como "se aplica ... então" inflava a contagem (FP a favor de passar).
+        prosa = ("Esta regra se aplica ao caso e então o gate decide. " * 5)
+        r = self._report({"strategy-x.md": FM.format(t="Strategy") + prosa})
+        self.assertEqual(len(r["world_rites"]), 1,
+                         "prosa corrida jamais satisfaz a cadeia causal")
+
+    def test_elos_numerados_tambem_contam(self):
+        numerada = "\n".join(
+            f"{i}. Se {c} → então {e}" for i, (c, e) in enumerate([
+                ("a", "b"), ("c", "d"), ("e", "f"), ("g", "h"), ("i", "j")], 1))
+        r = self._report({"strategy-x.md": FM.format(t="Strategy") + numerada})
+        self.assertEqual(r["world_rites"], [])
+
     def test_plan_sem_os_dois_niveis_recebe_2_avisos(self):
         r = self._report({"plan.md": FM.format(t="Plan") + "corpo sem nada"})
         self.assertEqual(len(r["world_rites"]), 2)
