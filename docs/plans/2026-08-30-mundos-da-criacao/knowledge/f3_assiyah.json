@@ -1,0 +1,45 @@
+{
+  "phase": "f3_assiyah",
+  "entities": [
+    {
+      "entity_id": "phase:f3_assiyah",
+      "type": "phase",
+      "description": "F1 Briah (skill, roteador I0-I3, fading, gate ratio 1.0) + F2 world_rites no doc_link_gate (cadeia >=5 elos, 3 niveis) + F3 --mundo no phase_close + painel v1 (DAGs via markers, par isomorfismo). 22 testes novos, bundle CLEAN."
+    },
+    {
+      "entity_id": "memory:loop:task_1788135201845450484:f3_assiyah:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788135201845450484",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788135201845450484",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:f3_assiyah|produces|memory:loop:task_1788135201845450484:f3_assiyah:done",
+      "source": "phase:f3_assiyah",
+      "type": "produces",
+      "target": "memory:loop:task_1788135201845450484:f3_assiyah:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788135201845450484:f3_assiyah:done|generated-by|loop:loop:task_1788135201845450484",
+      "source": "memory:loop:task_1788135201845450484:f3_assiyah:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788135201845450484"
+    },
+    {
+      "relation_id": "memory:loop:task_1788135201845450484:f3_assiyah:done|generated-by|dag:decomp:task_1788135201845450484",
+      "source": "memory:loop:task_1788135201845450484:f3_assiyah:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788135201845450484"
+    }
+  ]
+}

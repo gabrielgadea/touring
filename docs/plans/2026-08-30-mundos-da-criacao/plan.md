@@ -48,9 +48,17 @@ SessionStart próprio; duplicar é ruído).
   (fixture plantava ledger `{}` que não satisfaz `verdict.converged: true`
   do manifesto) — fixture corrigido, **68/68**.
 
-## O que fica para as próximas fases (aguardam nova ordem)
+## F1-F3 + painel v1 — ENTREGUES (ordem de Gabriel, 30/08, mesma noite)
 
-F1 Briah (skill com os 2 protocolos + roteador I0-I3 + oferta do modo
-profundo) · F2 Δ-Yetzirah (cadeia ≥5 elos cobrada; 3 níveis no doc-link
-gate) · F3 Δ-Assiyah (facetas de mundo) · painel v1 (fonte decompose,
-apontador de isomorfismo no espelho).
+DAG `task_1788135201845450484` (4/4 completed):
+
+| Fase | Artefato | Prova |
+|---|---|---|
+| **F1 Briah** | `~/.claude/skills/briah/SKILL.md` — os 2 protocolos (executivo default, profundo com lente junguiana), roteador I0-I3, **fading por construção** (medir antecipação ANTES; o rito cobre só as ausências; espelho invertido em I2+), oferta do profundo (nunca entrada), gate de saída executável (`cognicao_formal medir --arquivo criacao.md` → ratio 1.0) | skill descoberta pelo harness; gate é exit code |
+| **F2 Δ-Yetzirah** | `loop_doc_link_gate.py` ganhou `world_rites`: Strategy exige cadeia causal ≥5 elos se→então; Plan exige os 2 outros níveis (strategy-link + DAG). Advisory; blocking sob `--strict` (a escada) | suíte NOVA `test_doc_link_gate.py` 8/8 (o gate nunca teve teste — REGRA #0); dogfood: este bundle CLEAN |
+| **F3 Δ-Assiyah** | `loop_phase_close.py --mundo {atziluth,briah,yetzirah,assiyah}` → faceta `#process:<mundo>` na lição + transição no journal cognitivo | ESTE fechamento usou `--mundo assiyah`: `{"kind":"mundo","mundo":"assiyah",…}` no journal |
+| **Painel v1** | fonte DAGs (markers do loop → `decompose get`, etapa X/Y + próxima) + **apontador de isomorfismo** (par cross-domínio endereçado no espelho; o apontamento semântico é do turno de abertura) | testes 18/18 painel + 14/14 cognicao; smoke real |
+
+Dogfood F2 na própria estratégia: seção "Cadeia causal" (§5c, 6 elos) no
+strategy doc; `index.md` criado (o gate achou o bundle sem índice — 3
+broken_links + 5 órfãos, corrigido).

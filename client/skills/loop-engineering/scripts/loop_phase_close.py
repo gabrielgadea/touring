@@ -113,6 +113,19 @@ def update_dag(task, subtask, status):
     return rc == 0
 
 
+def _record_world_transition(mundo, task, phase, status):
+    """F3 Δ-Assiyah: a transição de mundo entra no journal cognitivo (a série
+    que o Painel de Atziluth agrega). Fail-open — jamais derruba o fechamento."""
+    try:
+        import time as _time
+
+        from cognicao_formal import journal_append
+        journal_append({"kind": "mundo", "mundo": mundo, "task": task,
+                        "phase": phase, "status": status, "ts": int(_time.time())})
+    except Exception:  # noqa: BLE001 — telemetria é enfeite do fechamento
+        pass
+
+
 def store_memory(task, phase, status, summary, tags=None):
     """Persist the phase lesson as a case, carrying the gate's verdict as its `r`.
 
@@ -463,13 +476,22 @@ def main(argv=None):
     ap.add_argument("--variant-parent", default=None,
                     help="variant_id this attempt was branched from")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--mundo", default=None,
+                    choices=["atziluth", "briah", "yetzirah", "assiyah"],
+                    help="F3 Δ-Assiyah (Mundos da Criação, 30/08/2026): faceta "
+                         "#process:<mundo> na lição + transição no journal cognitivo")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
+
+    tags = list(args.tag or [])
+    if args.mundo:
+        tags.append(f"#process:{args.mundo}")
+        _record_world_transition(args.mundo, args.task, args.phase, args.status)
 
     result = {
         "task": args.task, "phase": args.phase, "status": args.status,
         "dag_updated": update_dag(args.task, args.subtask or resolve_subtask_id(args.task, args.phase), args.status),
-        "memory_stored": store_memory(args.task, args.phase, args.status, args.summary, tags=args.tag),
+        "memory_stored": store_memory(args.task, args.phase, args.status, args.summary, tags=tags),
         # P4: provenance is created BY the executor at close time — clause 5
         # of the graph contract stops being a convention nobody follows.
         "provenance_links": link_provenance(args.task, args.phase, args.status),
