@@ -135,3 +135,22 @@ edits to this template require `cargo build -p touring-server --release`
 + `update-touring` (daemon embeds `touring-cli` via static link). Partial
 rebuilds leave the daemon running a stale `cli-kpi` handler that returns
 `null` for fields defined in the rebuilt sub-crate.
+
+### Wave PostToolUse-wiring P1/P2 (01/09/2026, v30.4.29)
+
+- **P1 — the template is Python that RUNS**: `try = None` shipped inside
+  `record_hook_call` and every `--orchestrate` run died with a SyntaxError
+  at template line 167 while 1572 unit tests stayed green — nothing handed
+  the rendered text to a real interpreter. Guard tests now do:
+  `orchestrate_python_sdk_compiles_as_real_python` (renders `py_sdk()` and
+  runs `python3 -m py_compile` on it) and
+  `orchestrate_python_sdk_avoids_dynamic_import` (`__import__` tripped the
+  CEG's own forbidden-call detector — the product flagging its own template).
+- **P2 — the mirror env is WIRED**: `run.rs` sets
+  `RunTunables.sdk_signal_mirror = default_mirror_path(HOME)` on every
+  `--orchestrate` run → `ctx_execute_impl` → `SandboxConfig.sdk_signal_mirror`
+  → the spawn funnel exports `TOURING_SDK_SIGNAL_MIRROR` + pre-creates the
+  file + grants a FILE-level Landlock write rule (`touring-ceg
+  sandbox_executor.rs`; `~/.claude/touring` itself stays read-only — proven
+  by the negative-control test). Before P2 nothing set the env, so
+  `record_hook_call` always no-oped in production.

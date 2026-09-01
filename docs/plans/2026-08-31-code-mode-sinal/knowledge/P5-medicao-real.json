@@ -1,0 +1,45 @@
+{
+  "phase": "P5-medicao-real",
+  "entities": [
+    {
+      "entity_id": "phase:P5-medicao-real",
+      "type": "phase",
+      "description": "P5 done: prova comportamental FAIL=0 nas 6 provas do p5_verify.sh \u2014 touring 30.4.29 (A), orchestrate executa com exit 0 onde era SyntaxError (B/P1), mirror 9->19 linhas com escrita REAL do sandbox atravessando o Landlock FILE-grant (C/P2), KPI code_mode_signal_use lido vivo (E), sat\u00e9lites 30.4.29 (F). A MEDI\u00c7\u00c3O REAL FEZ SEU TRABALHO e pegou o que os seeds escondiam: (1) o wrap do SDK grava o nome ALIASED do daemon (cli-index-find) e n\u00e3o o can\u00f4nico (index_find) \u2014 drift template vs HookName::ALL; (2) code_mode_signal_use conta strings distintas SEM validar contra os 8 can\u00f4nicos \u2014 ratio 1.0 atual est\u00e1 inflado (cobertura can\u00f4nica real ~4/8); (3) feeder post-bash provado correto por invoca\u00e7\u00e3o direta (payload -> mirror delta 1, linha can\u00f4nica index_find), mas o evento da SESS\u00c3O n\u00e3o o alcan\u00e7a \u2014 diagn\u00f3stico de entrega pendente. Os 3 achados entram como Fase 0 da wave signal-layer-tier-ab aprovada por Gabriel (mesmo subsistema), n\u00e3o ficam abertos sem dono."
+    },
+    {
+      "entity_id": "memory:loop:task_1788291732701800956:P5-medicao-real:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788291732701800956",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788291732701800956",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P5-medicao-real|produces|memory:loop:task_1788291732701800956:P5-medicao-real:done",
+      "source": "phase:P5-medicao-real",
+      "type": "produces",
+      "target": "memory:loop:task_1788291732701800956:P5-medicao-real:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P5-medicao-real:done|generated-by|loop:loop:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P5-medicao-real:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788291732701800956"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P5-medicao-real:done|generated-by|dag:decomp:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P5-medicao-real:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788291732701800956"
+    }
+  ]
+}
