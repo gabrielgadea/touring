@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.0,
+      "actual": 0.3333333333333333,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 13.0,
+      "actual": 680.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,18 +132,18 @@
       "threshold": 1000.0
     },
     {
-      "actual": 5091.0,
+      "actual": 527359.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
       "name": "Coupling hook dispatch latency p99 (D5, leading)",
       "rationale": "Tail-latency guard (cold-start/cargo). Calibrated to 50ms — not 1ms — to watch the real tail without false alarms (telemetry §1.4).",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 50000.0
     },
     {
-      "actual": 289.0,
+      "actual": 323839.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -187,25 +187,25 @@
       "threshold": 0.4
     },
     {
-      "actual": null,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.1
     },
     {
@@ -466,14 +466,14 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 360,
+      "exception": 361,
       "output-limit": 2,
       "proc-exit": 3,
       "timeout": 100
     },
     "by_language": {
       "?": 1,
-      "bash": 2879,
+      "bash": 2912,
       "go": 1,
       "js": 44,
       "perl": 4,
@@ -485,21 +485,21 @@
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 5231,
-    "runs_total": 5697,
+    "runs_ok": 5263,
+    "runs_total": 5730,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9182025627523258,
-    "wasted_attempts_retry_pairs": 279
+    "success_rate": 0.918499127399651,
+    "wasted_attempts_retry_pairs": 280
   },
   "project_root": "/home/gabrielgadea",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-01",
   "summary": {
-    "advisory": 8,
+    "advisory": 9,
     "failed": 0,
-    "passed": 18,
+    "passed": 19,
     "regressions": 0,
-    "stub": 15,
+    "stub": 13,
     "total": 41
   }
 }
