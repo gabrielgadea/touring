@@ -53,9 +53,18 @@ fn package_name_from_manifest(body: &str) -> Option<String> {
             let rest = rest.trim_start();
             if let Some(rest) = rest.strip_prefix('=') {
                 let v = rest.trim().trim_matches('"');
-                if !v.is_empty() {
+                // Security: the name is interpolated into a shell line by
+                // `spawn_check_for`, and the manifest is DATA from whatever
+                // repo the user edits. Only Cargo's own package grammar
+                // passes — anything else (quotes, `;`, spaces, unicode) is
+                // rejected here, so injection-shaped names never reach bash.
+                if !v.is_empty()
+                    && v.chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+                {
                     return Some(v.to_string());
                 }
+                return None;
             }
         }
     }
@@ -305,6 +314,32 @@ mod tests {
             "the evidence stays on disk"
         );
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// Security (commit review 01/09) — the manifest is attacker-shaped data
+    /// (any cloned repo); a name outside Cargo's grammar must never survive
+    /// the parse, because `spawn_check_for` interpolates it into a shell line.
+    #[test]
+    fn injection_shaped_package_names_are_rejected() {
+        for evil in [
+            "x; rm -rf $HOME",
+            "x\"; touch /tmp/pwn; \"",
+            "x`id`",
+            "x$(id)",
+            "nome com espaço",
+        ] {
+            let body = format!("[package]\nname = \"{evil}\"\n");
+            assert_eq!(
+                package_name_from_manifest(&body),
+                None,
+                "must reject: {evil}"
+            );
+        }
+        assert_eq!(
+            package_name_from_manifest("[package]\nname = \"ok_name-123\"\n").as_deref(),
+            Some("ok_name-123"),
+            "the legitimate grammar still passes"
+        );
     }
 
     #[test]
