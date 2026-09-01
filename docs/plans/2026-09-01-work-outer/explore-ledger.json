@@ -1,0 +1,322 @@
+{
+ "version": 2,
+ "topic": "code-mode-sinal F1-F6 deploy verify-by-behavior",
+ "scope": "/home/gabrielgadea/projects/touring",
+ "created_at": 1788262873.5887723,
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 13,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 12,
+     "new": 12,
+     "truncated": 7
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-01T08:41:14-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 12,
+     "new": 0,
+     "truncated": 7
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-01T08:41:14-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 12,
+     "new": 0,
+     "truncated": 7
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-01T08:41:14-0300"
+  }
+ ],
+ "findings": {
+  "f_e830c9623732": {
+   "id": "f_e830c9623732",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:phase:task_1788196388043002698:F3-post-tool-use-sync",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "OKF: F3-post-tool-use-sync — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F3-post-tool-use-sync.md",
+   "depth": "D1",
+   "stored_at": "2026-09-01 09:46:58",
+   "round": 1
+  },
+  "f_d9d53e2afb45": {
+   "id": "f_d9d53e2afb45",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:phase:task_1788196388043002698:F6-criterios-and-6",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "OKF: F6-criterios-and-6 — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F6-criterios-and-6.md",
+   "depth": "D1",
+   "stored_at": "2026-09-01 10:07:01",
+   "round": 1
+  },
+  "f_3bbb4ebbcdfd": {
+   "id": "f_3bbb4ebbcdfd",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:phase:task_1788196388043002698:F5-best-practices-gate-warn",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "OKF: F5-best-practices-gate-warn — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F5-best-practices-gate-warn.md",
+   "depth": "D1",
+   "stored_at": "2026-09-01 09:59:33",
+   "round": 1
+  },
+  "f_a0f0ae9f9ceb": {
+   "id": "f_a0f0ae9f9ceb",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:phase:task_1788196388043002698:F2-s4-surface-hibrido",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "OKF: F2-s4-surface-hibrido — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F2-s4-surface-hibrido.md",
+   "depth": "D1",
+   "stored_at": "2026-09-01 09:25:03",
+   "round": 1
+  },
+  "f_64e1926e800c": {
+   "id": "f_64e1926e800c",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "artifact:27",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "Task 27 artifact: F2-F6 execução code-mode-sinal — finalize=DAG partial (pending subtasks)",
+   "depth": "D1",
+   "stored_at": "2026-09-01 10:06:56",
+   "round": 1
+  },
+  "f_7604486d45af": {
+   "id": "f_7604486d45af",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:phase:task_1788196388043002698:F4-sdk-tipada-protocol",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "OKF: F4-sdk-tipada-protocol — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F4-sdk-tipada-protocol.md",
+   "depth": "D1",
+   "stored_at": "2026-09-01 09:56:52",
+   "round": 1
+  },
+  "f_52df6e011345": {
+   "id": "f_52df6e011345",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "strategy-yetzirah-code-mode-sinal-2026-08-31",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "Yetzirah strategy-doc consolidado — code mode canal de leitura read-only expondo sinais dos 24 hooks do touring. 6 fases (F1-F6) + 4 critérios AND. F1 inventário+tier; F2 S4 surface 8→N; F3 hook PostT",
+   "depth": "D1",
+   "stored_at": "2026-08-31 16:39:15",
+   "round": 1
+  },
+  "f_ceda72d105c5": {
+   "id": "f_ceda72d105c5",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "entrega-final-completa-code-mode-sinal-2026-08-31",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "ENTREGA FINAL COMPLETA code-mode-sinal 31/08 15:35 BRT. 7 marcos: F1.5 (cadeia 7-camadas), F1.6 (5 bridges 2325 LOC), F1.7 (9 crates → 30 funções SDK), F1.8 (42 crates → 45 funções), F1.9 (19 restante",
+   "depth": "D1",
+   "stored_at": "2026-08-31 18:32:48",
+   "round": 1
+  },
+  "f_ddd4cb87b08a": {
+   "id": "f_ddd4cb87b08a",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "strategy:implementar-code-mode-total:2026-08-24",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "Estratégia do turno de implementação (doc: docs/plans/2026-08-24-work-outer/strategy-2026-08-24-implementar-code-mode-total.md): executar o plano aprovado code-mode-total (task_1787614930715946363) wa",
+   "depth": "D1",
+   "stored_at": "2026-08-25 01:15:28",
+   "round": 1
+  },
+  "f_96ef8c7824f0": {
+   "id": "f_96ef8c7824f0",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "entrega-f1-code-mode-sinal-2026-08-31",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "ENTREGA FINAL code-mode-sinal 31/08 14:13 BRT — Gabriel decidiu parar em F1 (entrega limpa). F1 entregue (inventory-hooks.md validado): 27 eventos × 55 handlers com tier by-capability 9+1+17 (decisão ",
+   "depth": "D1",
+   "stored_at": "2026-08-31 17:16:16",
+   "round": 1
+  },
+  "f_7135bae277ff": {
+   "id": "f_7135bae277ff",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:diagnostic:touring-20260831T153703",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-08-31-code-mode-sinal/diagnostics/touring-20260831T153703.md",
+   "depth": "D1",
+   "stored_at": "2026-08-31 18:37:03",
+   "round": 1
+  },
+  "f_b93b3d7a610c": {
+   "id": "f_b93b3d7a610c",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:diagnostic:touring-20260831T152005",
+   "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/diagnostics/touring-20260831T152005.md",
+   "depth": "D1",
+   "stored_at": "2026-08-31 18:20:05",
+   "round": 1
+  },
+  "f_c3d2ecc572ac": {
+   "id": "f_c3d2ecc572ac",
+   "lens": "portfolio",
+   "kind": "gap",
+   "key": "nenhum artefato conhecido cobre \"code-mode-sinal F1-F6 deploy verify-by-behavior\" (11502 registros varridos) — o portfól",
+   "evidence": "touring portfolio code-mode-sinal F1-F6 deploy verify-by-behavior",
+   "detail": "nenhum artefato conhecido cobre \"code-mode-sinal F1-F6 deploy verify-by-behavior\" (11502 registros varridos) — o portfólio não tem prior-art para este intento",
+   "depth": "D0",
+   "round": 1
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 3,
+   "max_depth": "D1",
+   "truncated_total": 21
+  },
+  "antistaleness": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "quality": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "portfolio": {
+   "visits": 3,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 1,
+   "max_depth": null,
+   "truncated_total": 0,
+   "state": "visited",
+   "note": "F1-F6 code-mode-sinal deliverables + F2-deploy verify-by-behavior with bug-fix lesson 2026-09-01"
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": true,
+  "statement": "no new findings under current questions/lenses after 2 dry rounds — NOT a claim of completeness",
+  "clauses": {
+   "rounds_run": 3,
+   "dry_tail": true,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [],
+   "open_questions": 0,
+   "degraded_rounds": 0,
+   "echoes_suppressed": 0
+  },
+  "unmet": [],
+  "next_action": null,
+  "at": "2026-09-01T08:41:14-0300"
+ }
+}

@@ -102,6 +102,7 @@ cargo clippy -p touring-server -- -D warnings  # must be 0
 |------|---------|
 | `src/main.rs` | Binary entry point |
 | `src/cli/` | CLI subcommand implementations |
+| `src/cli/run.rs` | `--orchestrate` mode + code-mode-sinal F4 template (`record_hook_call` + `query()` wrap, lines ~298+) |
 | `src/server/` | MCP server + tools (86 tools) |
 | `src/plugins/` | WASM plugin runner |
 | `src/tools/` | Tool implementations (generator_tools, cluster_tools, etc.) |
@@ -110,3 +111,27 @@ cargo clippy -p touring-server -- -D warnings  # must be 0
 | `src/context_compiler.rs` | Context compression for LLM prompts |
 | `build.rs` | Build metadata (vergen-gix, build-info) |
 | `tests/binary_e2e.rs` | E2E tests that spawn the touring binary |
+
+## Code-mode-sinal F4 — `--orchestrate` template (01/09/2026)
+
+`src/cli/run.rs` owns the `touring run --orchestrate` prelude (Python
+Protocol stub auto-injected into the sandbox). **F4** added two methods:
+
+1. **`record_hook_call(hook, duration_ms, success=True)`** (line ~298):
+   append-only sink to `~/.claude/touring/sdk_signal_mirror.jsonl`.
+   No-op if `TOURING_SDK_SIGNAL_MIRROR` env is unset. Fail-soft on
+   write errors (never aborts the program).
+
+2. **Wrap of `query()`**: every RPC call now records its own duration
+   + success flag via `record_hook_call` — populating the per-hook
+   call counts that `touring kpi -j` exposes as `code_mode_signal_use`.
+
+The schema mirrors `crates/touring-code/src/sdk_signal_mirror.rs::HookCallEntry`
+byte-for-byte (Rust source of truth). Schema-drift fails the
+`signal_report_from_journal_and_mirror` roundtrip.
+
+**Critical lesson (lesson:executor-do-comando-nao-e-o-binario-buildado, applied 01/09)**:
+edits to this template require `cargo build -p touring-server --release`
++ `update-touring` (daemon embeds `touring-cli` via static link). Partial
+rebuilds leave the daemon running a stale `cli-kpi` handler that returns
+`null` for fields defined in the rebuilt sub-crate.
