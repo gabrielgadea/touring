@@ -1,0 +1,45 @@
+{
+  "phase": "F5-best-practices-gate-warn",
+  "entities": [
+    {
+      "entity_id": "phase:F5-best-practices-gate-warn",
+      "type": "phase",
+      "description": "F5 BestPracticesGate signal_use entregue: 4a regra em best_practices.rs (signal_use_counts + threshold 6/8 = 75%). Severity mantida em Warn (nao fail-closed; promocao requer decisao Gabriel). 5/5 best_practices tests verdes (2 novos: missing_file + distinct_hooks). CC=19 (threshold=15; refatorar quando gate tiver 5+ regras). Payload merged carrega signal_use {used,total,ratio,mirror}."
+    },
+    {
+      "entity_id": "memory:loop:task_1788196388043002698:F5-best-practices-gate-warn:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788196388043002698",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788196388043002698",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F5-best-practices-gate-warn|produces|memory:loop:task_1788196388043002698:F5-best-practices-gate-warn:done",
+      "source": "phase:F5-best-practices-gate-warn",
+      "type": "produces",
+      "target": "memory:loop:task_1788196388043002698:F5-best-practices-gate-warn:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F5-best-practices-gate-warn:done|generated-by|loop:loop:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F5-best-practices-gate-warn:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788196388043002698"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F5-best-practices-gate-warn:done|generated-by|dag:decomp:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F5-best-practices-gate-warn:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788196388043002698"
+    }
+  ]
+}

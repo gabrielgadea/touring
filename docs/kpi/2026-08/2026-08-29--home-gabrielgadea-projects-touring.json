@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 5443.0,
+      "actual": 5406.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.2820232100000001,
+      "actual": 0.4449582100000002,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -33,14 +33,14 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.8846153846153846,
+      "actual": 0.3333333333333333,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
       "name": "Query cache hit ratio (W17/W18)",
       "rationale": "Hit ratio >= 0.5 confirms cache is paying for itself. ADVISORY (2026-07-01): same structural pattern as ema_reward — the moka cache is in-memory and resets to 0.0 on every daemon restart (measured 0.0 → 0.71 post-warm, telemetry §1.4), so a non-advisory gate fails transiently after each restart without signalling anything. Re-arm if the ratio gains uptime-aware gating or persistence.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
@@ -66,7 +66,7 @@
       "threshold": 0.0
     },
     {
-      "actual": 0.0,
+      "actual": 2.0,
       "advisory": false,
       "direction": "gte",
       "id": "touring.gotcha.resolution",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 41.0,
+      "actual": 181.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 615935.0,
+      "actual": 171007.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 524287.0,
+      "actual": 2853.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -187,29 +187,29 @@
       "threshold": 0.4
     },
     {
-      "actual": 0.4,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 5.4,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.1
     },
     {
-      "actual": 0.8604651162790697,
+      "actual": 0.8260869565217391,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
@@ -242,7 +242,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.35537190082644626,
+      "actual": 0.3511450381679389,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -253,7 +253,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.3333333333333333,
+      "actual": 0.25,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -275,14 +275,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 8.0,
+      "actual": 8.069767441860465,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
       "name": "Explore rounds until CCE convergence (mean)",
       "rationale": "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 8.0
     },
     {
@@ -297,7 +297,7 @@
       "threshold": 2.0
     },
     {
-      "actual": 77.0,
+      "actual": 80.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -319,7 +319,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.013157894736842105,
+      "actual": 0.012658227848101266,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.zte_bypass_rate",
@@ -330,29 +330,29 @@
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 4.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.parallel_runs",
       "name": "Sandbox runs that used touring.parallel (distinct)",
       "rationale": "Adoption meter for in-sandbox fan-out: distinct runs whose sub-calls carry the ':par' origin stamp in run_subcalls.jsonl. STUB until the first parallel sub-call — zero adoption must be visible, never inferred.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 1.0
     },
     {
-      "actual": null,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.tiered_agent_share",
       "name": "ADW agent starts with a declared tier (executed share)",
       "rationale": "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": 0.5208333333333334,
+      "actual": 0.526829268292683,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -363,7 +363,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.9702609751163261,
+      "actual": 0.9554406206484981,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -374,7 +374,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.17894525632879643,
+      "actual": 0.17897514415089422,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -385,7 +385,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.17367995144648998,
+      "actual": 0.17067833698030635,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -410,38 +410,38 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 235,
+      "exception": 249,
       "output-limit": 1,
       "proc-exit": 3,
       "timeout": 85
     },
     "by_language": {
       "?": 1,
-      "bash": 2212,
+      "bash": 2298,
       "go": 1,
-      "js": 43,
+      "js": 44,
       "perl": 4,
       "php": 1,
-      "python": 1712,
+      "python": 1872,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 3710,
-    "runs_total": 4035,
+    "runs_ok": 3943,
+    "runs_total": 4282,
     "source": "run_journal.jsonl",
-    "success_rate": 0.919454770755886,
-    "wasted_attempts_retry_pairs": 191
+    "success_rate": 0.9208313872022419,
+    "wasted_attempts_retry_pairs": 200
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-08-29",
   "summary": {
-    "advisory": 7,
+    "advisory": 8,
     "failed": 0,
-    "passed": 23,
+    "passed": 22,
     "regressions": 0,
     "stub": 6,
     "total": 36

@@ -140,6 +140,33 @@ fn hooks_complement_wired(root: &Path) -> (usize, usize) {
     (hits.len().min(total), total)
 }
 
+/// F5 S4 (2026-09-01) — counts distinct canonical SDK hooks with at least
+/// one recorded invocation in the post-tool-use mirror. Mirrors live in
+/// `~/.claude/touring/sdk_signal_mirror.jsonl` (append-only JSONL sink
+/// written by F3/F4 — see `crates/touring-code/src/sdk_signal_mirror.rs`).
+///
+/// Returns `(used, total)` where `total` is the canonical 8-hook surface
+/// from `crates/touring-code/src/sdk.rs::HookName::ALL`. The mirror file
+/// may not exist yet (deployment race), in which case we return `(0, 8)`
+/// and the gate is `pass` for signal_use — fail-open at the data-source
+/// level, not at the gate level.
+fn signal_use_counts(mirror_path: &Path) -> (usize, usize) {
+    const TOTAL_HOOKS: usize = 8; // mirrors `HookName::ALL.len()`
+    let Ok(text) = std::fs::read_to_string(mirror_path) else {
+        return (0, TOTAL_HOOKS);
+    };
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        if let Some(name) = entry.get("hook_name").and_then(|v| v.as_str()) {
+            seen.insert(name.to_string());
+        }
+    }
+    (seen.len().min(TOTAL_HOOKS), TOTAL_HOOKS)
+}
+
 impl Gate for BestPracticesGate {
     fn id(&self) -> GateId {
         GateId::BestPractices
@@ -186,6 +213,23 @@ impl Gate for BestPracticesGate {
             "ratio": hc_wired as f64 / hc_total.max(1) as f64,
         });
 
+        // 4ª regra (F5 S4, 2026-09-01) — signal_use counts distinct canonical
+        // SDK hooks invoked at runtime, read from the post-tool-use sink
+        // (~/.claude/touring/sdk_signal_mirror.jsonl). Piso 6/8 = 75%.
+        // Abaixo → Warn-severo. Severity stays Warn (não fail-closed) por
+        // design do BestPracticesGate; promoção a Block requer decisão Gabriel.
+        let mirror_path = home
+            .as_ref()
+            .map(|h| h.join(".claude/touring/sdk_signal_mirror.jsonl"))
+            .unwrap_or_else(|| PathBuf::from(".claude/touring/sdk_signal_mirror.jsonl"));
+        let (su_used, su_total) = signal_use_counts(&mirror_path);
+        let su_payload = serde_json::json!({
+            "used": su_used,
+            "total": su_total,
+            "ratio": su_used as f64 / su_total.max(1) as f64,
+            "mirror": mirror_path.display().to_string(),
+        });
+
         let mut outcome = if declared.is_none() {
             GateOutcome::warn(
                 GateId::BestPractices,
@@ -224,9 +268,27 @@ impl Gate for BestPracticesGate {
             );
         }
 
+        // F5 4ª regra — signal_use threshold. 6/8 = 75%; abaixo disso, o
+        // operador está chamando menos da metade do SDK surface em produção.
+        let su_warn_threshold = (su_total * 75) / 100; // 6/8 = 75%
+        if su_used < su_warn_threshold
+            && su_total > 0
+            && !matches!(outcome.status, crate::gate::GateStatus::Warn)
+        {
+            outcome = GateOutcome::warn(
+                GateId::BestPractices,
+                GateSeverity::Warn,
+                format!(
+                    "signal_use {su_used}/{su_total} < 75% — menos da metade do SDK surface \
+                     apareceu no mirror post-tool-use; inspecione `~/.claude/touring/sdk_signal_mirror.jsonl`"
+                ),
+            );
+        }
+
         let mut merged = payload;
         if let serde_json::Value::Object(ref mut m) = merged {
             m.insert("hooks_complement_use".to_string(), hc_payload);
+            m.insert("signal_use".to_string(), su_payload);
         }
         outcome.with_payload(merged)
     }
@@ -264,6 +326,46 @@ mod tests {
             "{\"exit_code\":0}\n",
         );
         assert_eq!(adherence_counts(journal), (3, 2));
+    }
+
+    // F5 — signal_use counts distinct canonical SDK hooks in the mirror.
+    #[test]
+    fn signal_use_counts_missing_file_returns_zero() {
+        let p = std::env::temp_dir().join(format!(
+            "tq-bp-signal-nonexistent-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let (used, total) = signal_use_counts(&p);
+        assert_eq!(used, 0);
+        assert_eq!(total, 8);
+    }
+
+    #[test]
+    fn signal_use_counts_distinct_hooks_from_mirror() {
+        let p = std::env::temp_dir().join(format!(
+            "tq-bp-signal-{}-{}.jsonl",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let body = concat!(
+            "{\"hook_name\":\"ast_meta\",\"duration_ms\":10,\"success\":true}\n",
+            "{\"hook_name\":\"ast_meta\",\"duration_ms\":12,\"success\":true}\n", // dup, counts once
+            "{\"hook_name\":\"memory_recall\",\"duration_ms\":40,\"success\":true}\n",
+            "lixo\n", // skipped
+            "{\"hook_name\":\"parallel\",\"duration_ms\":100,\"success\":false}\n",
+        );
+        std::fs::write(&p, body).expect("write mirror");
+        let (used, total) = signal_use_counts(&p);
+        assert_eq!(used, 3); // ast_meta + memory_recall + parallel (dedup)
+        assert_eq!(total, 8);
+        std::fs::remove_file(&p).ok();
     }
 
     #[test]

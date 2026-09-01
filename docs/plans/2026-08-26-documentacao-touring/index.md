@@ -35,3 +35,13 @@ não planos, não trabalho operacional. Aprovado: F1–F3 + MkDocs; manter os
 Ledger CCE (fora do bundle, runtime):
 `.touring-explore/documentacao-do-sistema-repositorio-e-infraestrutura-.ledger.json`
 — convergido.
+
+## Drift Semântico Scan (31/08/2026)
+
+| Artefato | Path | Evidência |
+|---|---|---|
+| Script | `scripts/drift_semantic_scan.py` | Gate F2.1 Diamond (1.000) — CMDi remediado (zero `shell=True`) |
+| Output | `knowledge/scan-2026-08-31.json` | 110 KB, 1096 .md files varridos, 7 categorias |
+| Strategy revisada | `strategy-2026-08-31-retomar-decisao-drift.md` § Achados do Drift Semântico Scan | Classificação F4/F5 (subset cirúrgico) vs W6/W10 (amplo → guard automatizado) |
+
+**Conclusão do scan**: drift massivo em todas as 7 categorias. Recomendação revisada: F4/F5 manual (~89 arquivos) + W6/W10 vira guard automatizado no CI.

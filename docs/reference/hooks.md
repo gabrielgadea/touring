@@ -4,7 +4,7 @@
 
 Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 
-**Count: 234**
+**Count: 239**
 
 - `ceg-observe`
 - `cli-ast-blast`
@@ -34,6 +34,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-cascade-queue-drain`
 - `cli-cascade-queue-status`
 - `cli-change-contract`
+- `cli-code-mode-run`
 - `cli-cognitive-engines`
 - `cli-cognitive-metrics`
 - `cli-decompose-add`
@@ -62,6 +63,8 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-evolution-drift`
 - `cli-evolution-insights`
 - `cli-evolution-tools`
+- `cli-experiment-list`
+- `cli-experiment-record`
 - `cli-file-knowledge-audit`
 - `cli-file-knowledge-extended`
 - `cli-file-knowledge-populate`
@@ -74,6 +77,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-gotcha-init`
 - `cli-gotcha-list`
 - `cli-gotcha-match`
+- `cli-gotcha-resolve`
 - `cli-gotcha-stats`
 - `cli-gotcha-sync`
 - `cli-granularity-hint`
@@ -100,6 +104,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-jobs-poll`
 - `cli-jobs-spawn`
 - `cli-kpi`
+- `cli-learning-replay`
 - `cli-learning-reward`
 - `cli-learning-status`
 - `cli-mcts-search`

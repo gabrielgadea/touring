@@ -1,0 +1,45 @@
+{
+  "phase": "F3-post-tool-use-sync",
+  "entities": [
+    {
+      "entity_id": "phase:F3-post-tool-use-sync",
+      "type": "phase",
+      "description": "F3 PostToolUse-sync entregue: sdk_signal_mirror.rs (sink JSONL ~/.claude/touring/sdk_signal_mirror.jsonl + MirrorAggregate), record_hook_call em sdk.rs, examples/sdk_posttool_end_to_end.rs. Hook counts MATERIALIZAM via mirror (ast_meta 5 calls p50=8ms, memory_recall 3 calls p50=42ms, parallel 1 failure p50=100ms). 6/6 mirror tests + 687/687 lib tests verdes. PostToolUse handler agora sabe COMO escrever; falta WIRAR (deployment, nao codigo)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788196388043002698:F3-post-tool-use-sync:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788196388043002698",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788196388043002698",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F3-post-tool-use-sync|produces|memory:loop:task_1788196388043002698:F3-post-tool-use-sync:done",
+      "source": "phase:F3-post-tool-use-sync",
+      "type": "produces",
+      "target": "memory:loop:task_1788196388043002698:F3-post-tool-use-sync:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F3-post-tool-use-sync:done|generated-by|loop:loop:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F3-post-tool-use-sync:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788196388043002698"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F3-post-tool-use-sync:done|generated-by|dag:decomp:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F3-post-tool-use-sync:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788196388043002698"
+    }
+  ]
+}

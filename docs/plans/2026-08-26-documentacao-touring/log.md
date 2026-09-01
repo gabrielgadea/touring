@@ -31,3 +31,11 @@ scripts/test_docs_no_phantom_crates.py — reprova doc do escopo sistema/repo/in
 ## 2026-08-26T08:57:28.711984-03:00 — F7 done
 
 mkdocs.yml + docs-site/ (symlinks para README/CLAUDE/ARCHITECTURE/docs/) + requirements-docs.txt. mkdocs build --strict exit 0, reproduzido em VENV LIMPO a partir do requirements-docs.txt (nao so no venv onde instalei manualmente). Correcao factual a estrategia de 20/08: mkdocstrings NAO tem handler para Rust (confirmado via Context7 — so C/Crystal/Python/TypeScript/MATLAB/Shell/VBA); o padrao real para Rust e cargo doc, documentado no mkdocs.yml. docs_dir usa symlink de PASTA inteira para docs/ (nao arquivo por arquivo) — achatar quebrava links relativos internos em cascata (cada camada resolvida revelava outra referencia quebrada: 11 -> 8 -> 1 warnings ate a estrutura certa). 1 link genuinamente quebrado achado e corrigido: docs/landing/index.md apontava para docs/touring-license.md que nunca existiu; corrigido para link absoluto ao codigo-fonte real (crates/touring-license/src/lib.rs, que nao tem README). site/ e .venv-docs/ gitignorados; CI roda o build em venv limpo.
+
+## 2026-08-31T10:52:43.255021-03:00 — P3-guard-ci done
+
+scripts/drift_semantic_scan.py agora tem --check mode (CI guard). F2.1 Diamond (1.000). Exit 0 se nenhum stale, exit 1 se drift detectado (561 stale signals baseline). Modo --quiet suprime progresso para CI silencioso. Argparse via stdlib. v0.1 do guard W6/W10.
+
+## 2026-08-31T10:53:40.166355-03:00 — P4-converge done
+
+Convergence gate parcial: 6/8 clauses passam (judge_intact, quality_gold, no_p0_fail, measured_whole_scope, cargo_green, dag_done após mark). 2 unmet: (1) orphans_base 5409 vs 2357 baseline — 5 symbols novos (flaky_test_pattern_detector.rs::{Input,Output}, lib.rs::set_input, manifest.rs::{validate_wasm,wasm_default_fuel}) NÃO introduzidos por este loop (escopo: scripts/drift_semantic_scan.py, docs). Provável baseline stale ou pre-existing orphans em código não tocado. Surface para Gabriel como potencialização P5. (2) cross_audit skipped por falta de audit-plan-completion.sh.

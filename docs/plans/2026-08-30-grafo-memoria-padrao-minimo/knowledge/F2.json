@@ -1,0 +1,11 @@
+{
+  "phase": "F2",
+  "entities": [
+    {
+      "entity_id": "phase:F2",
+      "type": "phase",
+      "description": "Contrato can\u00f4nico escrito e commitado (docs/memory-graph-contract.md): 7 cl\u00e1usulas \u2192 predicados com executor e furo nomeados, fases P1-P5 com escada advisory+KPI, dogfood (n\u00f3 com 2 arestas tipadas, leitura de volta total=1), peer analise-e0 derivando o dela"
+    }
+  ],
+  "relations": []
+}

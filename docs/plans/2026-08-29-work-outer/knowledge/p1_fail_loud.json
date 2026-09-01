@@ -1,0 +1,11 @@
+{
+  "phase": "p1_fail_loud",
+  "entities": [
+    {
+      "entity_id": "phase:p1_fail_loud",
+      "type": "phase",
+      "description": "P1 fail-loud: store responde ignored_facets (sempre presente, raz\u00e3o ensina as 7 facetas + suggestion Levenshtein); query e recall respondem unknown_facets (token que caiu para texto declarado). 5 testes novos, 217 memory verdes."
+    }
+  ],
+  "relations": []
+}

@@ -35,3 +35,7 @@ R3: medição por CONTEXTO refeita com instrumento provado — família real é 
 ## 2026-08-29T14:11:59.642572-03:00 — p6_experiment_log done
 
 R4: superfície cli-experiment-{record,list} + LogRow.diagnostic potencializado + ponte no variant_archive.record (fail-open). Prova viva: 2 experimentos reais gravados e lidos de volta (a variante do detector python-inline, discard 0.0 + keep 0.9), best_reward 0.9. Provas vivas das demais: gotcha.resolution 0.0→1.0 (resolve do id=20 com why citando o fix do 34; idempotente; erro que ensina), inspect_burst_share STUB→0.5 via durable_gate_evidence.json nascido de rajada real, learning status 40KB→618 bytes ({len:1600, l2_norm:3.33}), access_count 2→3 na key servida com curadas nas posições 0/2 e traços em 15-19.
+
+## 2026-08-29T20:25:41.827008-03:00 — PreCompact snapshot
+
+Loop active. Pending: []. Resume: `touring decompose ready task_1788044656209829367`.

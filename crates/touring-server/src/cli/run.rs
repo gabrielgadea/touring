@@ -294,6 +294,62 @@ class _TouringClient:
         with ThreadPoolExecutor(max_workers=max(1, min(int(max_workers), 10))) as pool:
             return list(pool.map(one, calls))
 
+    # F4 S4 (2026-09-01) — append-only mirror sink for signal_use counts.
+    # The daemon reads `~/.claude/touring/sdk_signal_mirror.jsonl` and
+    # materializes per-hook call_count / failure_count / p50 / p99 into
+    # the SignalReport that drives `touring.kpi.code_mode.signal_use.composite`
+    # (BestPracticesGate, F5). Failures here NEVER abort the program — the
+    # mirror is observability, not correctness.
+    def record_hook_call(self, hook, duration_ms, success=True):
+        """Append one hook-call entry to the post-tool-use mirror.
+
+        `hook` is the canonical snake_case name (e.g. "ast_meta"); `duration_ms`
+        is the wall-clock time the hook took; `success` defaults to True.
+        No-ops silently if `TOURING_SDK_SIGNAL_MIRROR` is unset.
+        """
+        import os as _tr_os2, json as _tr_json2, pathlib as _tr_pathlib
+        mirror = _tr_os2.environ.get("TOURING_SDK_SIGNAL_MIRROR")
+        if not mirror:
+            return None
+        line = _tr_json2.dumps({
+            "ts": int(_tr_os2.environ.get("TOURING_RUN_TS") or _tr_json2.dumps(_tr_json2.loads("null")) and __import__("time").time()),
+            "hook_name": hook,
+            "duration_ms": int(duration_ms),
+            "success": bool(success),
+        })
+        try = None
+        try:
+            _tr_pathlib.Path(mirror).parent.mkdir(parents=True, exist_ok=True)
+            with open(mirror, "a", encoding="utf-8") as _tr_f:
+                _tr_f.write(line + "\n")
+        except Exception as _tr_e:
+            # Fail-soft: never abort the program over a mirror write.
+            return None
+        return None
+
+    # F4 S4 — wrap every query in a timed mirror-write so the daemon sees
+    # REAL signal_use counts (not the zeros that the strategy-doc listed
+    # before F3/F4). Cheap: 1 append per call, no contention.
+    _orig_query = query
+    def query(self, hook, payload=None, _par=False):
+        """{query_doc} — wrapped for F4 signal_use telemetry."""
+        _tr_t0 = __import__("time").time()
+        _tr_ok = True
+        try:
+            return self._orig_query(hook, payload, _par=_par)
+        except Exception:
+            _tr_ok = False
+            raise
+        finally:
+            try:
+                self.record_hook_call(
+                    self.HOOK_ALIASES.get(hook, hook),
+                    int((__import__("time").time() - _tr_t0) * 1000),
+                    _tr_ok,
+                )
+            except Exception:
+                pass
+
 {methods}
 touring = _TouringClient()
 # --- end touring SDK ---

@@ -1,0 +1,45 @@
+{
+  "phase": "F2-s4-surface-hibrido",
+  "entities": [
+    {
+      "entity_id": "phase:F2-s4-surface-hibrido",
+      "type": "phase",
+      "description": "F2 SDK surface hibrida entregue: journal.rs (parser run_journal.jsonl com 8 testes verdes), sdk.rs (8 hooks canonicos + SignalReport type + 5 testes), gen_sdk.py (emissor Python paralelo), sdk_smoke.rs (example cruzando Rust vs Python). 13 tests passed; build verde; report byte-equivalente (5675 runs, 8 linguagens, 8 hooks)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788196388043002698:F2-s4-surface-hibrido:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788196388043002698",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788196388043002698",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F2-s4-surface-hibrido|produces|memory:loop:task_1788196388043002698:F2-s4-surface-hibrido:done",
+      "source": "phase:F2-s4-surface-hibrido",
+      "type": "produces",
+      "target": "memory:loop:task_1788196388043002698:F2-s4-surface-hibrido:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F2-s4-surface-hibrido:done|generated-by|loop:loop:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F2-s4-surface-hibrido:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788196388043002698"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F2-s4-surface-hibrido:done|generated-by|dag:decomp:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F2-s4-surface-hibrido:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788196388043002698"
+    }
+  ]
+}

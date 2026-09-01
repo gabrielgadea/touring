@@ -48,8 +48,11 @@
 
 pub mod ast;
 pub mod error;
+pub mod journal;
 pub mod languages;
 pub mod polyglot;
+pub mod sdk;
+pub mod sdk_signal_mirror;
 pub mod semantics;
 pub mod types;
 

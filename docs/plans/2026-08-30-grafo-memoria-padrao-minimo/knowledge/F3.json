@@ -1,0 +1,11 @@
+{
+  "phase": "F3",
+  "entities": [
+    {
+      "entity_id": "phase:F3",
+      "type": "phase",
+      "description": "Adenda medida: supersedes N\u00c3O reaponta arestas (c\u00f3digo + sonda viva links(novo)=0/links(antigo)=1 \u2192 candidato P1.5), dois pontos de morte muda para tags, m\u00e9todo das 3 sondas da peer como cl\u00e1usula"
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "p2_feromonio",
+  "entities": [
+    {
+      "entity_id": "phase:p2_feromonio",
+      "type": "phase",
+      "description": "P2 ferom\u00f4nio estrutural: attach_one_hop_links movido para ANTES do rerank; rank key vira (classe_valor, \u00e9_tra\u00e7o, bucket_estrutura) \u2014 generated-by+>=2 arestas > alguma aresta > \u00f3rf\u00e3o, nunca cruzando classe de valor. 2 testes com contraprova."
+    }
+  ],
+  "relations": []
+}

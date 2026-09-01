@@ -77,3 +77,58 @@ assumir nenhuma das duas.
    internos** — symlink de pasta inteira preserva a cadeia; symlink arquivo
    por arquivo quebra em cascata (medido: 11→8→1 warnings até a estrutura
    certa).
+
+## Estado (31/08/2026, fim de sessão 2)
+
+Este item **foi retomado e o ciclo fechou com convergência** (Gabriel autorizou Opção (c) — Drift Semântico Scan + classificação + recommendation composta).
+
+**Fechado e arquivado.** Marker `task_1788183829765739732` (DAG 5/5 done) arquivado em `active-43224dc4d9af-933b00b6.archived.json`.
+
+### O que foi feito (loop 31/08)
+
+| Fase | Entregável | Evidência |
+|---|---|---|
+| **OUTER (strategy-outer)** | Refresh ground truth + 27 CCE findings + classificação F4/F5 vs W6/W10 | `strategy-2026-08-31-retomar-decisao-drift.md` (18.7 KB) |
+| **P0 Scan** | `scripts/drift_semantic_scan.py` (F2.1 Diamond) cobrindo 7 categorias (versões, paths, fused crates, CLI, code-fences, envvars, hooks) | script 9 KB, F2.1=1.000 |
+| **P1 Classify** | Tabela F4/F5 (89 arquivos subset) vs W6/W10 (amplo, governança) | strategy doc § Achados |
+| **P2 F4/F5 cleanup** | Trabalho já coberto por F2 do loop anterior (`fc95f28`); matches remanescentes em ARCHITECTURE.md/RFC-004 são **notas de reconciliação**, não drift real | marker phase-close |
+| **P3 Guard CI** | `--check` mode adicionado ao scan (argparse stdlib). Exit 0 se limpo, exit 1 se drift. Baseline: 561 stale signals | `scripts/drift_semantic_scan.py` |
+| **P4 Converge** | Convergence gate: 7/8 OK, 1 ❌ falso positivo (5 symbols FFI em `crates/inferlets/`), 1 ➖ skipped (cross-audit sem `audit-plan-completion.sh`) | `phases/P4-converge.md` |
+
+### Scan output
+
+| Path | Size |
+|---|---|
+| `scripts/drift_semantic_scan.py` | 9 KB |
+| `docs/plans/2026-08-26-documentacao-touring/knowledge/scan-2026-08-31.json` | 110 KB |
+| `docs/plans/2026-08-26-documentacao-touring/strategy-2026-08-31-retomar-decisao-drift.md` | 18.7 KB |
+| `docs/plans/2026-08-26-documentacao-touring/phases/P3-guard-ci.md` | PhaseReport |
+| `docs/plans/2026-08-26-documentacao-touring/phases/P4-converge.md` | PhaseReport |
+| `docs/plans/2026-08-26-documentacao-touring/knowledge/P3-guard-ci.json` | 4 entities, 3 relations |
+| `docs/plans/2026-08-26-documentacao-touring/knowledge/P4-converge.json` | 4 entities, 3 relations |
+| `docs/plans/2026-08-26-documentacao-touring/log.md` | 5590 B (atualizado) |
+
+### Achados críticos da investigação
+
+1. **Scan corrigido**: meu C3 original inflou o universo (incluiu crates que AINDA EXISTEM como "fused"). Drift REAL: **5 fused com mapping canônico** (ast/learning/core/cognitive/index) + **2 removidos** (generator/evolve).
+
+2. **F4/F5 já coberto**: matches remanescentes em ARCHITECTURE.md e RFC-004 são **NOTAS DE RECONCILIAÇÃO** do loop anterior (F2 do doc-loop 26/08, commit `fc95f28`).
+
+3. **5 orphans do convergence gate são FFI**: investigação provou que `flaky_test_pattern_detector::{Input,Output}`, `lib.rs::set_input`, `manifest.rs::{validate_wasm,wasm_default_fuel}` são **API FFI intencional** do crate `inferlets/` (WASM puro, runtime em `holon-wasm-components/`). **REGRA #0 não foi violada**.
+
+### Próximo trabalho: P6 (gate FFI-aware)
+
+`loop_converged.py` tem limitação: marca symbols FFI como orphans porque index Rust não cobre runtime WASM externo. Heurística sugerida:
+- `#[unsafe(no_mangle)]` + `extern "C"` → FFI export, ignorar
+- `crate-type = ["cdylib"]` em Cargo.toml → crate é WASM/FFI, ignorar módulo
+- Flag `--allowlist <path>` no convergence gate
+
+Memória: `potentialization:P6-convergence-gate-ffi-aware:2026-08-31`
+
+### State final do item #4
+
+- **DAG**: task_1788183829765739732 finalizada (5/5 subtasks)
+- **Marker**: arquivado (`active-43224dc4d9af-933b00b6.archived.json`)
+- **Memory**: 3 entries novos (`strategy:retomar-item-4-doc-touring:2026-08-31`, `scan:drift-semantico:2026-08-31`, `investigation:5-orphans-inferlets-ffi:2026-08-31`, `potentialization:P6-convergence-gate-ffi-aware:2026-08-31`)
+- **Platinum 0.9183 preservado** no workspace
+- **Próx. ação**: P6 (potencialização do convergence gate)
