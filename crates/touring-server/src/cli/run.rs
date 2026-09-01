@@ -307,17 +307,16 @@ class _TouringClient:
         is the wall-clock time the hook took; `success` defaults to True.
         No-ops silently if `TOURING_SDK_SIGNAL_MIRROR` is unset.
         """
-        import os as _tr_os2, json as _tr_json2, pathlib as _tr_pathlib
+        import os as _tr_os2, json as _tr_json2, pathlib as _tr_pathlib, time as _tr_time
         mirror = _tr_os2.environ.get("TOURING_SDK_SIGNAL_MIRROR")
         if not mirror:
             return None
         line = _tr_json2.dumps({
-            "ts": int(_tr_os2.environ.get("TOURING_RUN_TS") or _tr_json2.dumps(_tr_json2.loads("null")) and __import__("time").time()),
+            "ts": int(float(_tr_os2.environ.get("TOURING_RUN_TS") or _tr_time.time())),
             "hook_name": hook,
             "duration_ms": int(duration_ms),
             "success": bool(success),
         })
-        try = None
         try:
             _tr_pathlib.Path(mirror).parent.mkdir(parents=True, exist_ok=True)
             with open(mirror, "a", encoding="utf-8") as _tr_f:
@@ -333,7 +332,8 @@ class _TouringClient:
     _orig_query = query
     def query(self, hook, payload=None, _par=False):
         """{query_doc} — wrapped for F4 signal_use telemetry."""
-        _tr_t0 = __import__("time").time()
+        import time as _tr_time
+        _tr_t0 = _tr_time.time()
         _tr_ok = True
         try:
             return self._orig_query(hook, payload, _par=_par)
@@ -344,7 +344,7 @@ class _TouringClient:
             try:
                 self.record_hook_call(
                     self.HOOK_ALIASES.get(hook, hook),
-                    int((__import__("time").time() - _tr_t0) * 1000),
+                    int((_tr_time.time() - _tr_t0) * 1000),
                     _tr_ok,
                 )
             except Exception:
@@ -767,12 +767,25 @@ pub fn run(args: &[String]) -> Result<()> {
         })?),
         None => None,
     };
+    // F4 P2 (2026-09-01) — an orchestrate run carries the signal-mirror
+    // destination: the sandbox exports it as TOURING_SDK_SIGNAL_MIRROR with a
+    // FILE-level Landlock write grant, so `record_hook_call` materializes real
+    // per-hook counts instead of no-oping (the path comes from the SAME
+    // `default_mirror_path` the KPI reader uses — one source, no drift).
+    let sdk_signal_mirror = if cli.orchestrate {
+        std::env::var_os("HOME").map(|h| {
+            touring_code::sdk_signal_mirror::default_mirror_path(std::path::Path::new(&h))
+        })
+    } else {
+        None
+    };
     let tunables = if cli.compute_ms.is_some()
         || cli.max_stdout_bytes.is_some()
         || cli.max_stderr_bytes.is_some()
         || stdin_bytes.is_some()
         || !cli.allow_net_port.is_empty()
         || cli.stream
+        || sdk_signal_mirror.is_some()
     {
         Some(crate::tools::ctx_execute_tools::RunTunables {
             compute_ms: cli.compute_ms,
@@ -785,6 +798,7 @@ pub fn run(args: &[String]) -> Result<()> {
                 Some(cli.allow_net_port.clone())
             },
             stream: cli.stream,
+            sdk_signal_mirror,
         })
     } else {
         None
@@ -1914,6 +1928,43 @@ mod tests {
         for h in super::READONLY_HOOKS {
             assert!(sdk.contains(h), "allowlist gerada deve conter {h}");
         }
+    }
+
+    /// F4 P1 (2026-09-01) — the injected SDK is PYTHON THAT RUNS, not prose:
+    /// `try = None` shipped in the template and every `--orchestrate` run died
+    /// with a SyntaxError while the whole unit suite stayed green, because
+    /// nothing ever handed the rendered text to a real interpreter.
+    #[test]
+    fn orchestrate_python_sdk_compiles_as_real_python() {
+        if std::process::Command::new("python3").arg("--version").output().is_err() {
+            eprintln!("python3 not available — skipping interpreter-level check");
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("touring-sdk-compile-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("tmp dir");
+        let path = dir.join("sdk.py");
+        std::fs::write(&path, super::py_sdk()).expect("write rendered sdk");
+        let out = std::process::Command::new("python3")
+            .args(["-m", "py_compile"])
+            .arg(&path)
+            .output()
+            .expect("spawn python3");
+        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            out.status.success(),
+            "rendered --orchestrate SDK must be valid Python; py_compile said:\n{stderr}"
+        );
+    }
+
+    /// The CEG flags `__import__` as a forbidden dynamic import — the SDK the
+    /// product injects must not trip the very detector it runs on user code.
+    #[test]
+    fn orchestrate_python_sdk_avoids_dynamic_import() {
+        assert!(
+            !super::py_sdk().contains("__import__"),
+            "use `import time as _tr_time` style imports inside the template"
+        );
     }
 
     use super::*;

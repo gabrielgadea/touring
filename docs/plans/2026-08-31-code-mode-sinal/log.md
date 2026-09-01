@@ -43,3 +43,15 @@ F6 criterios AND entregue: kpi.rs +code_mode_signal_use() (mirror aggregator) + 
 ## 2026-09-01T07:07:00.995516-03:00 — F6-criterios-and-6 done
 
 F6 criterios AND entregue (retry): KPI code_mode_signal_use() + example kpi_f6_smoke (6 criterios + 2 KPIs secundarios). code_mode_adherence 5696 runs 91.8%. signal_use 3/8 ratio 0.375 (mirror seeded). 6 criterios: 1 FAIL signal_use<6, 5 PASS. 2 secondary KPIs null ate adoption medida.
+
+## 2026-09-01T16:46:29.832572-03:00 — P1-fix-template-orchestrate done
+
+P1 done: template --orchestrate corrigido (run.rs: 'try = None' removido, ts expression sane, __import__ eliminado em favor de import time as _tr_time). RED-GREEN provado: 2 testes novos (orchestrate_python_sdk_compiles_as_real_python via py_compile real + orchestrate_python_sdk_avoids_dynamic_import) falharam ANTES do fix no defeito exato e passam DEPOIS; suite 1574/1574 verde. Root cause: nenhum teste compilava o Python renderizado — o guard agora entrega o texto ao interpretador de verdade.
+
+## 2026-09-01T16:58:38.865333-03:00 — P2-env-sandbox-mirror done
+
+P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (novo campo) -> funil spawn_and_capture exporta TOURING_SDK_SIGNAL_MIRROR + pre-cria o arquivo + grant Landlock FILE-level (dir ~/.claude/touring segue RO); RunTunables.sdk_signal_mirror -> ctx_execute_impl; run.rs seta via default_mirror_path (fonte unica touring-code) quando --orchestrate. RED-GREEN: teste positivo (env+grant chegam ao filho) e controle negativo (kernel nega append sem grant) ambos verdes; ceg 579+2+2, server lib 1574, clippy 0. Bonus REGRA 21: collapsible-if em journal.rs corrigido (clippy bloqueava touring-code).
+
+## 2026-09-01T17:04:20.847331-03:00 — P3-posttooluse-feeder done
+
+P3 done: PostToolUse real alimenta o mirror. classify_bash_command (touring-code sdk.rs, precision-first: 7 shapes CLI, env-prefix e path de binario tolerados, falso positivo = None) + wiring no handler post_bash (touring-hook-handlers) via default_mirror_path + record_hook_call — o orfao record_hook_call ganhou consumidor real (REGRA #0). RED-GREEN: 3 testes classify falharam (E0425) antes e passam depois; touring-code 690/690, hook-handlers 103/103, clippy 0. Prova comportamental live fica para P4/P5 (exige deploy — daemon embute touring-cli estatico).

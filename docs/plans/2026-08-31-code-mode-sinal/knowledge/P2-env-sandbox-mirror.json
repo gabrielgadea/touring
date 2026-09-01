@@ -1,0 +1,45 @@
+{
+  "phase": "P2-env-sandbox-mirror",
+  "entities": [
+    {
+      "entity_id": "phase:P2-env-sandbox-mirror",
+      "type": "phase",
+      "description": "P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (novo campo) -> funil spawn_and_capture exporta TOURING_SDK_SIGNAL_MIRROR + pre-cria o arquivo + grant Landlock FILE-level (dir ~/.claude/touring segue RO); RunTunables.sdk_signal_mirror -> ctx_execute_impl; run.rs seta via default_mirror_path (fonte unica touring-code) quando --orchestrate. RED-GREEN: teste positivo (env+grant chegam ao filho) e controle negativo (kernel nega append sem grant) ambos verdes; ceg 579+2+2, server lib 1574, clippy 0. Bonus REGRA 21: collapsible-if em journal.rs corrigido (clippy bloqueava touring-code)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788291732701800956:P2-env-sandbox-mirror:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788291732701800956",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788291732701800956",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P2-env-sandbox-mirror|produces|memory:loop:task_1788291732701800956:P2-env-sandbox-mirror:done",
+      "source": "phase:P2-env-sandbox-mirror",
+      "type": "produces",
+      "target": "memory:loop:task_1788291732701800956:P2-env-sandbox-mirror:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P2-env-sandbox-mirror:done|generated-by|loop:loop:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P2-env-sandbox-mirror:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788291732701800956"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P2-env-sandbox-mirror:done|generated-by|dag:decomp:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P2-env-sandbox-mirror:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788291732701800956"
+    }
+  ]
+}

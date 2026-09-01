@@ -68,6 +68,20 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         return HookResponse::Allow;
     }
 
+    // F4 P3 (2026-09-01) — feed the signal mirror from REAL PostToolUse
+    // traffic: a native `touring <hook>` CLI call counts exactly like an
+    // in-sandbox SDK query. PostToolUse only fires on success (failures go
+    // to PostToolUseFailure), duration is not in the payload (0 = unknown),
+    // and a mirror error never touches the hook response — observability,
+    // not correctness.
+    if let Some(hook) = touring_code::sdk::classify_bash_command(command)
+        && let Some(home) = std::env::var_os("HOME")
+    {
+        let mirror =
+            touring_code::sdk_signal_mirror::default_mirror_path(std::path::Path::new(&home));
+        let _ = touring_code::sdk::record_hook_call(&mirror, hook, 0, true);
+    }
+
     let outcome = match build_bash_outcome(command, raw_output) {
         Some(o) => o,
         None => return HookResponse::Allow,

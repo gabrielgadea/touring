@@ -1,0 +1,45 @@
+{
+  "phase": "P1-fix-template-orchestrate",
+  "entities": [
+    {
+      "entity_id": "phase:P1-fix-template-orchestrate",
+      "type": "phase",
+      "description": "P1 done: template --orchestrate corrigido (run.rs: 'try = None' removido, ts expression sane, __import__ eliminado em favor de import time as _tr_time). RED-GREEN provado: 2 testes novos (orchestrate_python_sdk_compiles_as_real_python via py_compile real + orchestrate_python_sdk_avoids_dynamic_import) falharam ANTES do fix no defeito exato e passam DEPOIS; suite 1574/1574 verde. Root cause: nenhum teste compilava o Python renderizado \u2014 o guard agora entrega o texto ao interpretador de verdade."
+    },
+    {
+      "entity_id": "memory:loop:task_1788291732701800956:P1-fix-template-orchestrate:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788291732701800956",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788291732701800956",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P1-fix-template-orchestrate|produces|memory:loop:task_1788291732701800956:P1-fix-template-orchestrate:done",
+      "source": "phase:P1-fix-template-orchestrate",
+      "type": "produces",
+      "target": "memory:loop:task_1788291732701800956:P1-fix-template-orchestrate:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P1-fix-template-orchestrate:done|generated-by|loop:loop:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P1-fix-template-orchestrate:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788291732701800956"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P1-fix-template-orchestrate:done|generated-by|dag:decomp:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P1-fix-template-orchestrate:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788291732701800956"
+    }
+  ]
+}
