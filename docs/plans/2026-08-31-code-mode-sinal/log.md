@@ -55,3 +55,11 @@ P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (nov
 ## 2026-09-01T17:04:20.847331-03:00 — P3-posttooluse-feeder done
 
 P3 done: PostToolUse real alimenta o mirror. classify_bash_command (touring-code sdk.rs, precision-first: 7 shapes CLI, env-prefix e path de binario tolerados, falso positivo = None) + wiring no handler post_bash (touring-hook-handlers) via default_mirror_path + record_hook_call — o orfao record_hook_call ganhou consumidor real (REGRA #0). RED-GREEN: 3 testes classify falharam (E0425) antes e passam depois; touring-code 690/690, hook-handlers 103/103, clippy 0. Prova comportamental live fica para P4/P5 (exige deploy — daemon embute touring-cli estatico).
+
+## 2026-09-01T17:29:46.735806-03:00 — P4-propagacao-satelites done
+
+P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30.4.29 (daemon per-project restartado), konverter 30.4.28->30.4.29, PROVA COMPORTAMENTAL 39/39 asserções (eram 30/39+9 warns de manhã), verify por versão resolvida nos 2 projetos. Daemon global restartado com binário fresh; PID com binário deletado (auto-spawn durante build, gotcha conhecido) já não existe.
+
+## 2026-09-01T17:29:47.028192-03:00 — P5-medicao-real done
+
+P5 done: prova comportamental FAIL=0 nas 6 provas do p5_verify.sh — touring 30.4.29 (A), orchestrate executa com exit 0 onde era SyntaxError (B/P1), mirror 9->19 linhas com escrita REAL do sandbox atravessando o Landlock FILE-grant (C/P2), KPI code_mode_signal_use lido vivo (E), satélites 30.4.29 (F). A MEDIÇÃO REAL FEZ SEU TRABALHO e pegou o que os seeds escondiam: (1) o wrap do SDK grava o nome ALIASED do daemon (cli-index-find) e não o canônico (index_find) — drift template vs HookName::ALL; (2) code_mode_signal_use conta strings distintas SEM validar contra os 8 canônicos — ratio 1.0 atual está inflado (cobertura canônica real ~4/8); (3) feeder post-bash provado correto por invocação direta (payload -> mirror delta 1, linha canônica index_find), mas o evento da SESSÃO não o alcança — diagnóstico de entrega pendente. Os 3 achados entram como Fase 0 da wave signal-layer-tier-ab aprovada por Gabriel (mesmo subsistema), não ficam abertos sem dono.
