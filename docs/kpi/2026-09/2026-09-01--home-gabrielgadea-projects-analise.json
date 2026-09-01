@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.8381347770241974,
+      "actual": 0.626506877370802,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -110,7 +110,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 1462.4791666666667,
+      "actual": 1099.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 265.0,
+      "actual": 286.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 771071.0,
+      "actual": 626687.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 420095.0,
+      "actual": 561151.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -187,14 +187,14 @@
       "threshold": 0.4
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
@@ -396,7 +396,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.17579841216823822,
+      "actual": 0.17579050812185676,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -466,14 +466,14 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 362,
+      "exception": 363,
       "output-limit": 2,
       "proc-exit": 3,
       "timeout": 100
     },
     "by_language": {
       "?": 1,
-      "bash": 2913,
+      "bash": 2918,
       "go": 1,
       "js": 44,
       "perl": 4,
@@ -485,21 +485,28 @@
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 5263,
-    "runs_total": 5731,
+    "runs_ok": 5267,
+    "runs_total": 5736,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9183388588378991,
-    "wasted_attempts_retry_pairs": 280
+    "success_rate": 0.9182357043235704,
+    "wasted_attempts_retry_pairs": 282
+  },
+  "code_mode_signal_use": {
+    "available": true,
+    "ratio": 0.375,
+    "total": 8,
+    "total_calls": 9,
+    "used": 3
   },
   "project_root": "/home/gabrielgadea/projects/analise",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-01",
   "summary": {
-    "advisory": 12,
+    "advisory": 11,
     "failed": 0,
     "passed": 21,
     "regressions": 0,
-    "stub": 8,
+    "stub": 9,
     "total": 41
   }
 }
