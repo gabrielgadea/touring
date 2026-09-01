@@ -476,7 +476,6 @@ fn code_mode_adherence() -> Value {
 /// Returns `(used, total)` where `total = 8` mirrors `HookName::ALL.len()`.
 /// Fail-open: missing file → `(0, 8)` (consistent with the gate).
 fn code_mode_signal_use() -> Value {
-    const TOTAL_HOOKS: u64 = 8;
     let Some(home) = std::env::var_os("HOME") else {
         return json!({"available": false, "reason": "HOME unset"});
     };
@@ -484,26 +483,45 @@ fn code_mode_signal_use() -> Value {
     // so reader and sinks cannot drift apart on the path.
     let path = touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home));
     match std::fs::read_to_string(&path) {
-        Ok(content) => {
-            let mut seen: std::collections::BTreeSet<String> = Default::default();
-            let mut calls = 0u64;
-            for line in content.lines() {
-                let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
-                if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
-                    seen.insert(name.to_string());
-                    calls += 1;
-                }
-            }
-            json!({
-                "available": true,
-                "used": seen.len() as u64,
-                "total": TOTAL_HOOKS,
-                "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
-                "total_calls": calls,
-            })
-        }
+        Ok(content) => signal_use_from_lines(content.lines()),
         Err(_) => json!({"available": false, "reason": "no mirror yet"}),
     }
+}
+
+/// F0 wave signal-layer-tier-ab (01/09) — a agregação pura por trás de
+/// [`code_mode_signal_use`], testável sem FS. `used` cruza com os 8 canônicos
+/// de `HookName::ALL`; nomes fora do cânone (alias `cli-*` do daemon) contam
+/// em `non_canonical_calls` — visíveis, nunca somados ao ratio (E4: a
+/// ausência/anomalia é exibida, não escondida). Medido 01/09: sem o filtro o
+/// ratio leu 1.0 com só 3 hooks canônicos no mirror.
+fn signal_use_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
+    const TOTAL_HOOKS: u64 = 8;
+    let canonical: std::collections::BTreeSet<&'static str> = touring_code::sdk::HookName::ALL
+        .iter()
+        .map(|h| h.as_str())
+        .collect();
+    let mut seen: std::collections::BTreeSet<String> = Default::default();
+    let mut calls = 0u64;
+    let mut non_canonical = 0u64;
+    for line in lines {
+        let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+        if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
+            calls += 1;
+            if canonical.contains(name) {
+                seen.insert(name.to_string());
+            } else {
+                non_canonical += 1;
+            }
+        }
+    }
+    json!({
+        "available": true,
+        "used": seen.len() as u64,
+        "total": TOTAL_HOOKS,
+        "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
+        "total_calls": calls,
+        "non_canonical_calls": non_canonical,
+    })
 }
 
 /// A agregação pura por trás de [`code_mode_adherence`] — testável sem FS.
@@ -1582,6 +1600,24 @@ pub fn actuator_signals() -> (Option<f64>, Option<bool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// F0 wave signal-layer-tier-ab (01/09) — `used` counts only the 8
+    /// CANONICAL hook names: alias/daemon names (`cli-index-find`) raised the
+    /// measured ratio to 1.0 with only 3 canonical hooks in the mirror.
+    #[test]
+    fn signal_use_counts_only_canonical_hooks() {
+        let lines = [
+            r#"{"ts":1,"hook_name":"ast_meta","duration_ms":2,"success":true}"#,
+            r#"{"ts":2,"hook_name":"cli-index-find","duration_ms":0,"success":true}"#,
+            r#"{"ts":3,"hook_name":"cli-gate-metrics","duration_ms":0,"success":true}"#,
+            r#"{"ts":4,"hook_name":"index_find","duration_ms":1,"success":true}"#,
+            r#"{"ts":5,"hook_name":"index_find","duration_ms":1,"success":true}"#,
+        ];
+        let v = signal_use_from_lines(lines.iter().copied());
+        assert_eq!(v["used"], 2, "ast_meta + index_find; cli-* never count");
+        assert_eq!(v["total_calls"], 5, "every parsed line is a call");
+        assert_eq!(v["non_canonical_calls"], 2, "alias drift stays visible, never silently dropped");
+    }
 
     /// Cross-audit 2026-08-30 (F-1) — o contrato do grafo governa kinds por
     /// FACETA (cláusula 3), então o KPI filtra por memory_tags, nunca por

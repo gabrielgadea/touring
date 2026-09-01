@@ -342,8 +342,13 @@ class _TouringClient:
             raise
         finally:
             try:
+                # F0 (01/09) — record the CANONICAL name: the typed name as the
+                # caller passed it, or the reverse-alias of a daemon-form hook.
+                # Recording the aliased daemon name (cli-index-find) inflated
+                # signal_use: the KPI counts against HookName::ALL.
+                _tr_rev = {v: k for k, v in self.HOOK_ALIASES.items()}
                 self.record_hook_call(
-                    self.HOOK_ALIASES.get(hook, hook),
+                    hook if hook in self.HOOK_ALIASES else _tr_rev.get(hook, hook),
                     int((_tr_time.time() - _tr_t0) * 1000),
                     _tr_ok,
                 )
@@ -1964,6 +1969,26 @@ mod tests {
         assert!(
             !super::py_sdk().contains("__import__"),
             "use `import time as _tr_time` style imports inside the template"
+        );
+    }
+
+    /// F0 wave signal-layer-tier-ab (01/09) — the mirror carries CANONICAL
+    /// hook names: recording the aliased daemon form (`cli-index-find`)
+    /// inflated the measured signal_use ratio to 1.0 with 3 real hooks.
+    #[test]
+    fn query_wrap_records_the_canonical_hook_name() {
+        let sdk = super::py_sdk();
+        assert!(
+            sdk.contains("hook if hook in self.HOOK_ALIASES else _tr_rev.get(hook, hook)"),
+            "the wrap must keep the typed name and reverse-map a daemon-form hook"
+        );
+        // The forward alias (typed → daemon) belongs to the TRANSPORT alone
+        // (`_orig_query` resolves the RPC name). A second occurrence means the
+        // record path regressed to logging the daemon form.
+        let occurrences = sdk.matches("self.HOOK_ALIASES.get(hook, hook)").count();
+        assert_eq!(
+            occurrences, 1,
+            "only the transport resolves the forward alias; found {occurrences}"
         );
     }
 

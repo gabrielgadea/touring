@@ -79,7 +79,13 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     {
         let mirror =
             touring_code::sdk_signal_mirror::default_mirror_path(std::path::Path::new(&home));
-        let _ = touring_code::sdk::record_hook_call(&mirror, hook, 0, true);
+        // F0 (01/09) — LOUD on both arms (fail-soft kept): the info line is
+        // the delivery-path instrument — grep the daemon log to see WHICH
+        // process ran the feeder for a live session event.
+        match touring_code::sdk::record_hook_call(&mirror, hook, 0, true) {
+            Ok(_) => tracing::info!("post_bash feeder: {} -> signal mirror", hook.as_str()),
+            Err(e) => tracing::warn!("post_bash feeder: mirror write failed: {e}"),
+        }
     }
 
     let outcome = match build_bash_outcome(command, raw_output) {
