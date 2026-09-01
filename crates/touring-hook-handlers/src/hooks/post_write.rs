@@ -181,6 +181,23 @@ pub fn run(
 ///
 /// Used by the daemon to handle the hook without calling `process::exit`.
 pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookResponse {
+    let result = run_returning_impl(runtime, input);
+    // F-A1 (01/09) — check-compile signal: spawn a debounced `cargo check`
+    // for the written file and deliver any pending verdict (P9 verify-after
+    // measured at 17% — the loop closes by affordance, not persuasion).
+    let file_path = input
+        .pointer("/tool_input/file_path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    match super::check_compile::default_state_dir() {
+        Some(dir) if !file_path.is_empty() => {
+            super::check_compile::attach_check_signal(file_path, result, &dir)
+        }
+        _ => result,
+    }
+}
+
+fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookResponse {
     // D9: Validate payload with typed schema — fail fast on malformed input.
     // Extract /tool_input first since payload schemas model the inner object.
     // Note: Empty file_path is a skip case (return Allow), not a validation error.
