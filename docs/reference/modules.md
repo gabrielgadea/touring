@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 357**
+**Count: 360**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -95,6 +95,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::char_classes`
 - `touring-foundation::checkpoint`
 - `touring-foundation::chunker`
+- `touring-foundation::code_mode`
 - `touring-foundation::config`
 - `touring-foundation::conflict`
 - `touring-foundation::diagnostic`
@@ -115,6 +116,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::migration`
 - `touring-foundation::moka_policies`
 - `touring-foundation::mvkl`
+- `touring-foundation::orchestrate_allowlist`
 - `touring-foundation::plugin`
 - `touring-foundation::portfolio`
 - `touring-foundation::profile`
@@ -238,6 +240,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hooks-shared::forbidden_patterns`
 - `touring-hooks-shared::got_snapshot_store`
 - `touring-hooks-shared::hook_events`
+- `touring-hooks-shared::hooks_complement_journal`
 - `touring-hooks-shared::idempotency`
 - `touring-hooks-shared::isolation_mode`
 - `touring-hooks-shared::job_registry`

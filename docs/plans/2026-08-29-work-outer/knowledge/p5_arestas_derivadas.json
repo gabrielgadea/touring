@@ -1,0 +1,45 @@
+{
+  "phase": "p5_arestas_derivadas",
+  "entities": [
+    {
+      "entity_id": "phase:p5_arestas_derivadas",
+      "type": "phase",
+      "description": "P5: co-servi\u00e7o dur\u00e1vel (memory_coserved gravada pelo recall, top 10 served) + touring memory suggest-links (modo suggest do handler links: pares >= min_co sem aresta, marcados derived, apply command 1:1, nunca autom\u00e1tico) + KPI memory_edge_density (a r\u00e9gua da escada). Teste e2e 1/1."
+    },
+    {
+      "entity_id": "memory:loop:task_1788054456569794142:p5_arestas_derivadas:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788054456569794142",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788054456569794142",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:p5_arestas_derivadas|produces|memory:loop:task_1788054456569794142:p5_arestas_derivadas:done",
+      "source": "phase:p5_arestas_derivadas",
+      "type": "produces",
+      "target": "memory:loop:task_1788054456569794142:p5_arestas_derivadas:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788054456569794142:p5_arestas_derivadas:done|generated-by|loop:loop:task_1788054456569794142",
+      "source": "memory:loop:task_1788054456569794142:p5_arestas_derivadas:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788054456569794142"
+    },
+    {
+      "relation_id": "memory:loop:task_1788054456569794142:p5_arestas_derivadas:done|generated-by|dag:decomp:task_1788054456569794142",
+      "source": "memory:loop:task_1788054456569794142:p5_arestas_derivadas:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788054456569794142"
+    }
+  ]
+}

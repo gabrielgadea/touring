@@ -192,6 +192,10 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // MED-1 (28/08) — a régua de aderência do `touring run`, do journal
     // durável (o processo CLI morre; o journal fica). Ausência exibida (E4).
     out["code_mode_adherence"] = code_mode_adherence();
+    // F6 S4 (2026-09-01) — distinct SDK hooks invoked at runtime, do
+    // mirror (~/.claude/touring/sdk_signal_mirror.jsonl). Piso M3 ≥ 6/8
+    // antes de F5 promover a Block; por enquanto advisory.
+    out["code_mode_signal_use"] = code_mode_signal_use();
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),
@@ -465,6 +469,38 @@ fn code_mode_adherence() -> Value {
     match std::fs::read_to_string(&path) {
         Ok(content) => adherence_from_lines(content.lines()),
         Err(_) => json!({"available": false, "reason": "no journal yet"}),
+    }
+}
+
+/// F6 — aggregate per-canonical-hook stats from the post-tool-use mirror.
+/// Returns `(used, total)` where `total = 8` mirrors `HookName::ALL.len()`.
+/// Fail-open: missing file → `(0, 8)` (consistent with the gate).
+fn code_mode_signal_use() -> Value {
+    const TOTAL_HOOKS: u64 = 8;
+    let Some(home) = std::env::var_os("HOME") else {
+        return json!({"available": false, "reason": "HOME unset"});
+    };
+    let path = PathBuf::from(home).join(".claude/touring/sdk_signal_mirror.jsonl");
+    match std::fs::read_to_string(&path) {
+        Ok(content) => {
+            let mut seen: std::collections::BTreeSet<String> = Default::default();
+            let mut calls = 0u64;
+            for line in content.lines() {
+                let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+                if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
+                    seen.insert(name.to_string());
+                    calls += 1;
+                }
+            }
+            json!({
+                "available": true,
+                "used": seen.len() as u64,
+                "total": TOTAL_HOOKS,
+                "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
+                "total_calls": calls,
+            })
+        }
+        Err(_) => json!({"available": false, "reason": "no mirror yet"}),
     }
 }
 

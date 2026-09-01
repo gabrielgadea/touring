@@ -1,0 +1,11 @@
+{
+  "phase": "F1",
+  "entities": [
+    {
+      "entity_id": "phase:F1",
+      "type": "phase",
+      "description": "Grounding executado: tags.rs enum fechado/from_str_ci, rlm.rs supersedes retire (586-593) + warn mudo (604), attach_one_hop_links carrega 1-hop que o re-rank ignora, knowledge/P1.json degenerado (1 n\u00f3 0 arestas), moc STRONG_FACETS, LinkRel completo"
+    }
+  ],
+  "relations": []
+}

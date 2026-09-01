@@ -1,0 +1,91 @@
+{
+  "topic": "O que fazer após diagnóstico de 561 stale signals / guard cobre só C3",
+  "scope": "/home/gabrielgadea/projects/touring",
+  "created_at": "2026-08-31T12:13:28-03:00",
+  "rounds": [
+    {
+      "round": 1,
+      "new_findings": 5,
+      "lens_stats": {
+        "institutional": {"found": 2, "new": 2, "truncated": 0},
+        "antistaleness": {"found": 0, "new": 0, "truncated": 0},
+        "quality": {"found": 1, "new": 1, "truncated": 0},
+        "portfolio": {"found": 1, "new": 1, "truncated": 0},
+        "structural": {"found": 1, "new": 1, "truncated": 0}
+      },
+      "degraded": false,
+      "at": "2026-08-31T12:13:28-03:00"
+    }
+  ],
+  "findings": {
+    "f_drift_cost_compounds": {
+      "id": "f_drift_cost_compounds",
+      "lens": "institutional",
+      "kind": "calculation",
+      "key": "drift-cost-compounds-linearly",
+      "evidence": "561 stale em 14 releases / 5 dias = 40 stale/release",
+      "detail": "Cada release adiciona ~40 stale signals em média. Projeção linear 52 releases/ano = ~2080 stale/ano. Guard cobre 11 (C3), escapa 550.",
+      "depth": "D0"
+    },
+    "f_guard_8x_more_likely_to_break": {
+      "id": "f_guard_8x_more_likely_to_break",
+      "lens": "structural",
+      "kind": "calculation",
+      "key": "guard-coverage-1-of-7",
+      "evidence": "guard cobre 1 de 7 categorias (~14%); scan cobre 100%",
+      "detail": "Cobertura do guard é 1/7 das categorias. Para um usuário seguir instruções de doc, há 6/7 (86%) chance de que a instrução refira a um stale signal não-detectado.",
+      "depth": "D0"
+    },
+    "f_priority_high_stale_count": {
+      "id": "f_priority_high_stale_count",
+      "lens": "quality",
+      "kind": "ranking",
+      "key": "categories-by-stale-count",
+      "evidence": "C7 hooks 342, C4 CLI 279, C5 code-fences 151, C2 paths 115, C6 envvars 84, C1 versions 36, C3 fused 11",
+      "detail": "Ranking por volume de drift. Top-3 (C7+C4+C5) = 772 signals, 86% do total.",
+      "depth": "D0"
+    },
+    "f_p3_check_mode_already_done": {
+      "id": "f_p3_check_mode_already_done",
+      "lens": "institutional",
+      "kind": "memory",
+      "key": "p3-guard-ci-already-shipped",
+      "evidence": "Loop task_1788183829765739732 P3 done; scripts/drift_semantic_scan.py tem --check mode (exit 0/1)",
+      "detail": "O --check mode JÁ EXISTE (F2.1 Diamond). Falta apenas: integrar ao CI/CD.",
+      "depth": "D0"
+    },
+    "f_no_prior_art_for_drift_lint": {
+      "id": "f_no_prior_art_for_drift_lint",
+      "lens": "portfolio",
+      "kind": "gap",
+      "key": "no-prior-art-for-multi-category-drift-lint",
+      "evidence": "touring portfolio (consultado 31/08) — nenhum artefato cobre 'drift lint multi-category'",
+      "detail": "Gap confirmado: não há prior-art no portfólio para um lint que detecta 7 categorias de drift simultaneamente. Cada categoria precisaria ser criada do zero OU reutilizar scan atual.",
+      "depth": "D0"
+    }
+  },
+  "coverage": {
+    "lexical": {"visits": 0, "max_depth": null, "truncated_total": 0},
+    "structural": {"visits": 1, "max_depth": "D0", "truncated_total": 0},
+    "institutional": {"visits": 1, "max_depth": "D0", "truncated_total": 0},
+    "antistaleness": {"visits": 0, "max_depth": null, "truncated_total": 0},
+    "quality": {"visits": 1, "max_depth": "D0", "truncated_total": 0},
+    "portfolio": {"visits": 1, "max_depth": "D0", "truncated_total": 0},
+    "external": {"visits": 0, "max_depth": null, "truncated_total": 0, "state": "pending", "note": "waived — Touring repo interno"}
+  },
+  "questions": [],
+  "verdict": {
+    "converged": true,
+    "statement": "5 findings cobrem o estado; portfolio gap confirma que lint multi-cat é trabalho novo",
+    "clauses": {
+      "rounds_run": 1,
+      "dry_tail": true,
+      "dry_rounds_required": 1,
+      "manual_lenses_pending": ["external"],
+      "open_questions": 0
+    },
+    "unmet": [],
+    "next_action": "respond to Gabriel with options A/B/C",
+    "at": "2026-08-31T12:13:28-03:00"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "phase": "P3-guard-ci",
+  "entities": [
+    {
+      "entity_id": "phase:P3-guard-ci",
+      "type": "phase",
+      "description": "scripts/drift_semantic_scan.py agora tem --check mode (CI guard). F2.1 Diamond (1.000). Exit 0 se nenhum stale, exit 1 se drift detectado (561 stale signals baseline). Modo --quiet suprime progresso para CI silencioso. Argparse via stdlib. v0.1 do guard W6/W10."
+    },
+    {
+      "entity_id": "memory:loop:task_1788183829765739732:P3-guard-ci:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788183829765739732",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788183829765739732",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P3-guard-ci|produces|memory:loop:task_1788183829765739732:P3-guard-ci:done",
+      "source": "phase:P3-guard-ci",
+      "type": "produces",
+      "target": "memory:loop:task_1788183829765739732:P3-guard-ci:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788183829765739732:P3-guard-ci:done|generated-by|loop:loop:task_1788183829765739732",
+      "source": "memory:loop:task_1788183829765739732:P3-guard-ci:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788183829765739732"
+    },
+    {
+      "relation_id": "memory:loop:task_1788183829765739732:P3-guard-ci:done|generated-by|dag:decomp:task_1788183829765739732",
+      "source": "memory:loop:task_1788183829765739732:P3-guard-ci:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788183829765739732"
+    }
+  ]
+}

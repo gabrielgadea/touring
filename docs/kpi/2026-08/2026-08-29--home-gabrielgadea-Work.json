@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.3611111111111111,
+      "actual": 0.3333333333333333,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -110,18 +110,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 1297.3863636363635,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 800.0
     },
     {
-      "actual": 220.0,
+      "actual": 181.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 707583.0,
+      "actual": 171007.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 695807.0,
+      "actual": 2853.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,36 +176,36 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.29545454545454547,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.4
     },
     {
-      "actual": 0.9428571428571428,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 1.4339622641509433,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.1
     },
     {
@@ -253,14 +253,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
       "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
       "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.75
     },
     {
@@ -330,14 +330,14 @@
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 4.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.parallel_runs",
       "name": "Sandbox runs that used touring.parallel (distinct)",
       "rationale": "Adoption meter for in-sandbox fan-out: distinct runs whose sub-calls carry the ':par' origin stamp in run_subcalls.jsonl. STUB until the first parallel sub-call — zero adoption must be visible, never inferred.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 1.0
     },
     {
@@ -410,40 +410,40 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 234,
+      "exception": 249,
       "output-limit": 1,
       "proc-exit": 3,
       "timeout": 85
     },
     "by_language": {
       "?": 1,
-      "bash": 2194,
+      "bash": 2298,
       "go": 1,
-      "js": 43,
+      "js": 44,
       "perl": 4,
       "php": 1,
-      "python": 1693,
+      "python": 1872,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 3674,
-    "runs_total": 3998,
+    "runs_ok": 3943,
+    "runs_total": 4282,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9189594797398699,
-    "wasted_attempts_retry_pairs": 190
+    "success_rate": 0.9208313872022419,
+    "wasted_attempts_retry_pairs": 200
   },
   "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-08-29",
   "summary": {
-    "advisory": 8,
+    "advisory": 6,
     "failed": 0,
-    "passed": 15,
+    "passed": 14,
     "regressions": 0,
-    "stub": 13,
+    "stub": 16,
     "total": 36
   }
 }
