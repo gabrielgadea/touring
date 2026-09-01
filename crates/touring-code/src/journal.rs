@@ -197,12 +197,12 @@ where
         }
     }
 
-    if all_entries.is_empty() {
-        if let Some((line_no, e)) = first_err {
-            return Err(JournalError::Malformed { line: line_no, source: e });
-        }
-        // All lines empty / no parseable entries — return empty aggregate.
+    if all_entries.is_empty()
+        && let Some((line_no, e)) = first_err
+    {
+        return Err(JournalError::Malformed { line: line_no, source: e });
     }
+    // All lines empty / no parseable entries fall through to the empty aggregate.
 
     Ok(aggregate(&all_entries))
 }

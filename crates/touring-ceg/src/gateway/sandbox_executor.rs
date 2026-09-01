@@ -66,6 +66,13 @@ pub struct SandboxConfig {
     /// dono do stdout). Um run longo deixa de ser caixa-preta até o fim; o
     /// buffer capturado e seus caps não mudam.
     pub stream_output: bool,
+    /// F4 P2 (2026-09-01) — destination of the in-sandbox SDK's signal
+    /// mirror. Exported to the child as `TOURING_SDK_SIGNAL_MIRROR` and
+    /// granted a FILE-level Landlock write rule (`~/.claude/touring` itself
+    /// stays read-only — the daemon's state lives beside the mirror). `None`
+    /// exports nothing: the orchestrate template's `record_hook_call` then
+    /// no-ops by design.
+    pub sdk_signal_mirror: Option<PathBuf>,
 }
 
 impl Default for SandboxConfig {
@@ -76,6 +83,7 @@ impl Default for SandboxConfig {
             fallback_on_timeout: true,
             compute_ms: Some(60_000),
             run_id: None,
+            sdk_signal_mirror: None,
             stdin_bytes: None,
             allow_net_ports: Vec::new(),
             stream_output: false,
@@ -605,7 +613,11 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
 /// sem confinamento e o log diz isso — nunca em silêncio. Kill switch humano:
 /// `TOURING_SANDBOX_LANDLOCK_DISABLED=1`.
 #[cfg(target_os = "linux")]
-fn apply_landlock_to(cmd: &mut Command, connect_tcp_ports: &[u16]) {
+fn apply_landlock_to(
+    cmd: &mut Command,
+    connect_tcp_ports: &[u16],
+    extra_write_file: Option<&std::path::Path>,
+) {
     if std::env::var_os("TOURING_SANDBOX_LANDLOCK_DISABLED").is_some() {
         tracing::warn!(
             "CEG sandbox: confinamento landlock DESLIGADO por \
@@ -614,7 +626,13 @@ fn apply_landlock_to(cmd: &mut Command, connect_tcp_ports: &[u16]) {
         return;
     }
     let leitura = sandbox_read_roots();
-    let escrita = sandbox_write_roots();
+    let mut escrita = sandbox_write_roots();
+    // F4 P2 — write grant on the mirror FILE alone (never its dir: the
+    // daemon's own state lives beside it). `path_beneath_rules` reduces the
+    // rights to what the node type supports, so a file path is legitimate.
+    if let Some(f) = extra_write_file {
+        escrita.push(f.to_path_buf());
+    }
     // Cross-audit 27/08 (QW-5): IPC scope LIGADO — kernel 7.1 ≥ 6.12 suporta.
     // Sinais para processos fora do domínio (ex.: o daemon, mesmo UID) passam a
     // ser confinados pelo kernel (antes: só DAC); sockets unix por PATH — a base
@@ -650,8 +668,12 @@ fn apply_landlock_to(cmd: &mut Command, connect_tcp_ports: &[u16]) {
 
 /// Sem landlock fora do Linux: o confinamento é uma LSM do kernel Linux.
 #[cfg(not(target_os = "linux"))]
-fn apply_landlock_to(cmd: &mut Command, connect_tcp_ports: &[u16]) {
-    let _ = (cmd, connect_tcp_ports);
+fn apply_landlock_to(
+    cmd: &mut Command,
+    connect_tcp_ports: &[u16],
+    extra_write_file: Option<&std::path::Path>,
+) {
+    let _ = (cmd, connect_tcp_ports, extra_write_file);
 }
 
 /// SEG-1 (28/08) — registra o `pre_exec` que aplica o filtro seccomp de UDP
@@ -724,11 +746,34 @@ pub(crate) async fn spawn_and_capture(
         cmd.env("TOURING_RUN_ID", run_id);
     }
 
+    // F4 P2 — export the signal-mirror destination and pre-create the file so
+    // the FILE-level Landlock rule (below) targets an existing inode; the
+    // parent dir stays read-only. A failure is LOUD in the log but never
+    // aborts the run — the mirror is observability, not correctness.
+    if let Some(mirror) = &config.sdk_signal_mirror {
+        if let Some(parent) = mirror.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::OpenOptions::new().append(true).create(true).open(mirror) {
+            Ok(_) => {
+                cmd.env("TOURING_SDK_SIGNAL_MIRROR", mirror);
+            }
+            Err(e) => tracing::warn!(
+                "CEG sandbox: signal mirror {} indisponível ({e}) — record_hook_call ficará mudo",
+                mirror.display()
+            ),
+        }
+    }
+
     // Auditoria cruzada 27/08/2026 — mesmo funil, mesma razão: confinar aqui
     // cobre interpretado, Go e Rust de uma vez. Antes disto o caminho do code
     // mode aplicava só `rlimit`, e a linha de log "landlock: KernelEnforced"
     // vinha de um probe de DISPONIBILIDADE, não de um ruleset vivo.
-    apply_landlock_to(&mut cmd, &config.allow_net_ports);
+    apply_landlock_to(
+        &mut cmd,
+        &config.allow_net_ports,
+        config.sdk_signal_mirror.as_deref(),
+    );
     // SEG-1 (28/08): UDP negado no kernel (seccomp) — o canal que o Landlock
     // (FS+TCP) não modela. pre_exec empilha: rlimit, landlock e seccomp rodam
     // em ordem de registro, cada um independente do anterior.
@@ -2154,6 +2199,68 @@ mod tests {
         if let Some(p) = &res.stored_path {
             let _ = std::fs::remove_file(p);
         }
+    }
+
+    // ── F4 P2 (2026-09-01) — the signal mirror reaches the child ─────────
+
+    /// `SandboxConfig.sdk_signal_mirror` must (a) export the path as
+    /// `TOURING_SDK_SIGNAL_MIRROR` and (b) carry a FILE-level Landlock write
+    /// grant — `~/.claude/touring` is read-only in the sandbox, so without
+    /// the grant the append dies at the kernel and the mirror stays empty
+    /// forever (the measured signal_use ratio of 0.375 was exactly this
+    /// silence: seed lines from examples, zero from real runs).
+    #[tokio::test]
+    async fn sdk_signal_mirror_env_and_write_grant_reach_the_child() {
+        let home = std::env::var("HOME").expect("HOME set in tests");
+        let dir = std::path::PathBuf::from(home)
+            .join(".claude/touring")
+            .join(format!("test-mirror-{}", std::process::id()));
+        let mirror = dir.join("m.jsonl");
+        let args = json!({"command": "printf probe >> \"$TOURING_SDK_SIGNAL_MIRROR\""});
+        let config = SandboxConfig {
+            sdk_signal_mirror: Some(mirror.clone()),
+            ..SandboxConfig::default()
+        };
+        let res = execute_in_sandbox("Bash", args, config).await.expect("execute");
+        let written = std::fs::read_to_string(&mirror).unwrap_or_default();
+        let _ = std::fs::remove_dir_all(&dir);
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+        assert_eq!(
+            res.exit_code, 0,
+            "granted append must succeed, stderr: {:?}",
+            res.stderr
+        );
+        assert!(
+            written.contains("probe"),
+            "mirror file must carry the child's append, got: {written:?}"
+        );
+    }
+
+    /// Negative control: WITHOUT the config field the same append must be
+    /// denied by the kernel — proving the grant, not a hole, is what lets
+    /// the mirror live, and the daemon's own state beside it stays intact.
+    #[tokio::test]
+    async fn without_the_mirror_grant_claude_touring_stays_readonly() {
+        let home = std::env::var("HOME").expect("HOME set in tests");
+        let dir = std::path::PathBuf::from(home)
+            .join(".claude/touring")
+            .join(format!("test-noguard-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("parent dir");
+        let target = dir.join("m.jsonl");
+        let args =
+            json!({"command": format!("printf probe >> {} && printf wrote", target.display())});
+        let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
+            .await
+            .expect("execute");
+        let written = std::fs::read_to_string(&target).unwrap_or_default();
+        let _ = std::fs::remove_dir_all(&dir);
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+        assert_ne!(res.exit_code, 0, "kernel must deny the un-granted append");
+        assert!(written.is_empty(), "no grant → no bytes, got: {written:?}");
     }
 
     /// A child that writes far more than the 64 KiB Linux pipe buffer to

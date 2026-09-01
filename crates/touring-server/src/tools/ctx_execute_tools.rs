@@ -278,6 +278,11 @@ pub struct RunTunables {
     /// OUT-1 (28/08): espelha a saída do programa no stderr do pai CONFORME
     /// chega (`touring run --stream`); o envelope JSON continua no stdout.
     pub stream: bool,
+    /// F4 P2 (2026-09-01): destino do espelho de sinais do SDK orchestrate —
+    /// exportado ao filho como `TOURING_SDK_SIGNAL_MIRROR` com grant de
+    /// escrita Landlock no ARQUIVO (o dir `~/.claude/touring` segue
+    /// read-only). `None` = sem export (todo run não-orchestrate).
+    pub sdk_signal_mirror: Option<std::path::PathBuf>,
 }
 
 /// P1.3: Hybrid forbidden-call scanner.
@@ -526,6 +531,7 @@ pub async fn ctx_execute_impl(
             .and_then(|t| t.allow_net_ports.clone())
             .unwrap_or_default(),
         stream_output: tunables.as_ref().is_some_and(|t| t.stream),
+        sdk_signal_mirror: tunables.as_ref().and_then(|t| t.sdk_signal_mirror.clone()),
         ..SandboxConfig::default()
     };
     let tool_name = match lang {

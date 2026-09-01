@@ -480,7 +480,9 @@ fn code_mode_signal_use() -> Value {
     let Some(home) = std::env::var_os("HOME") else {
         return json!({"available": false, "reason": "HOME unset"});
     };
-    let path = PathBuf::from(home).join(".claude/touring/sdk_signal_mirror.jsonl");
+    // F4 P4 (2026-09-01) — same source the writers use (`default_mirror_path`),
+    // so reader and sinks cannot drift apart on the path.
+    let path = touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home));
     match std::fs::read_to_string(&path) {
         Ok(content) => {
             let mut seen: std::collections::BTreeSet<String> = Default::default();

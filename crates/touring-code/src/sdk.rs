@@ -270,6 +270,41 @@ pub fn record_hook_call(
     crate::sdk_signal_mirror::record(mirror_path, hook, duration_ms, success)
 }
 
+/// F4 P3 (2026-09-01) — classify a PostToolUse bash command line into the
+/// canonical hook it invokes, if any.
+///
+/// Deliberately precision-first: `touring` must be the command's FIRST
+/// program token (leading `VAR=value` assignments are skipped, a path prefix
+/// like `.touring/bin/touring` is accepted) and only the seven CLI-reachable
+/// hooks match (`parallel` is SDK-only). Anything else — other subcommands,
+/// `touring` as an argument, compound prefixes like `cd x && touring …` —
+/// returns `None`, because a false positive would inflate `signal_use`.
+#[must_use]
+pub fn classify_bash_command(command: &str) -> Option<HookName> {
+    let mut toks = command.split_whitespace();
+    let mut program = toks.next()?;
+    // Skip leading VAR=VALUE env assignments (the per-command relax idiom).
+    while program.contains('=') && !program.starts_with('/') && !program.starts_with('.') {
+        program = toks.next()?;
+    }
+    let base = program.rsplit('/').next().unwrap_or(program);
+    if base != "touring" {
+        return None;
+    }
+    let first = toks.next()?;
+    let second = toks.next();
+    match (first, second) {
+        ("ast", Some("meta")) => Some(HookName::AstMeta),
+        ("ast", Some("blast")) => Some(HookName::AstBlast),
+        ("index", Some("find")) => Some(HookName::IndexFind),
+        ("wiring", Some("orphans")) => Some(HookName::WiringOrphans),
+        ("memory", Some("recall")) => Some(HookName::MemoryRecall),
+        ("pre-edit", _) => Some(HookName::PreEdit),
+        ("tantivy", Some("search")) => Some(HookName::TantivySearch),
+        _ => None,
+    }
+}
+
 fn now_unix() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -299,6 +334,50 @@ mod tests {
     fn parse_hook_unknown_is_error() {
         let err = parse_hook("nonexistent").expect_err("must fail");
         assert!(matches!(err, SdkError::UnknownHook(_)));
+    }
+
+    // ── F4 P3 (2026-09-01) — PostToolUse feeder: bash command → hook ─────
+
+    #[test]
+    fn classify_maps_the_seven_cli_shapes() {
+        let cases = [
+            ("touring ast meta src/lib.rs --depth summary -j", HookName::AstMeta),
+            ("touring ast blast crates/x/src/lib.rs", HookName::AstBlast),
+            ("touring index find MySymbol -j", HookName::IndexFind),
+            ("touring wiring orphans -j", HookName::WiringOrphans),
+            ("touring memory recall \"topic\"", HookName::MemoryRecall),
+            ("touring pre-edit", HookName::PreEdit),
+            ("touring tantivy search \"query\"", HookName::TantivySearch),
+        ];
+        for (cmd, want) in cases {
+            assert_eq!(classify_bash_command(cmd), Some(want), "cmd: {cmd}");
+        }
+    }
+
+    #[test]
+    fn classify_sees_through_env_prefix_and_binary_path() {
+        assert_eq!(
+            classify_bash_command("TOURING_CODE_MODE=native touring ast meta f.rs"),
+            Some(HookName::AstMeta)
+        );
+        assert_eq!(
+            classify_bash_command("/home/u/.touring/bin/touring index find Sym"),
+            Some(HookName::IndexFind)
+        );
+    }
+
+    #[test]
+    fn classify_rejects_non_touring_and_other_subcommands() {
+        for cmd in [
+            "grep -rn touring",
+            "touring doctor -j",
+            "touring status -j",
+            "touring run --lang python --code 'x'",
+            "echo touring ast meta",
+            "",
+        ] {
+            assert_eq!(classify_bash_command(cmd), None, "cmd: {cmd}");
+        }
     }
 
     #[test]
