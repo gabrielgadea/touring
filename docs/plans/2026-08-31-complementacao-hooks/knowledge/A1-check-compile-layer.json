@@ -1,0 +1,45 @@
+{
+  "phase": "A1-check-compile-layer",
+  "entities": [
+    {
+      "entity_id": "phase:A1-check-compile-layer",
+      "type": "phase",
+      "description": "A1 done: modulo check_compile (touring-hook-handlers): resolve_crate_name (walk-up ate [package]), debounce 30s por crate, spawn detached de cargo check -p --message-format=short (reparent via disown, reaper anti-zombie), veredito entregue EXATAMENTE 1x (rename .delivered) como 1 linha densa; attach_check_signal wira post_edit (wrapper run_returning) e post_write (impl+wrapper) \u2014 Allow vira Context quando ha veredito. Fecha P9 verify-after (medido 17%) por afordancia (D8). 7 testes do modulo + suite 634/634 com --features post-hooks (descoberta: a suite default NAO compila post-hooks \u2014 gates finais devem usar a feature), clippy 0. Prova viva no proximo deploy (fim da wave)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:A1-check-compile-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:A1-check-compile-layer|produces|memory:loop:task_1788294728027014117:A1-check-compile-layer:done",
+      "source": "phase:A1-check-compile-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:A1-check-compile-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:A1-check-compile-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:A1-check-compile-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:A1-check-compile-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:A1-check-compile-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

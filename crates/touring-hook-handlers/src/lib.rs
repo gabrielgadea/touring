@@ -27,6 +27,9 @@ pub mod instructions_loaded;
 #[path = "hooks/permission_request.rs"]
 pub mod permission_request;
 #[cfg(feature = "post-hooks")]
+#[path = "hooks/check_compile.rs"]
+pub mod check_compile;
+#[cfg(feature = "post-hooks")]
 #[path = "hooks/post_bash.rs"]
 pub mod post_bash;
 #[path = "hooks/post_compact_handler.rs"]

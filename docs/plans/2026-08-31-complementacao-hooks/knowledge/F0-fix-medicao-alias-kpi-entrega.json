@@ -1,0 +1,45 @@
+{
+  "phase": "F0-fix-medicao-alias-kpi-entrega",
+  "entities": [
+    {
+      "entity_id": "phase:F0-fix-medicao-alias-kpi-entrega",
+      "type": "phase",
+      "description": "F0 done: (1) template orchestrate grava nome CANONICO (typed name ou reverse-alias; forward alias so no transporte \u2014 pin de 1 ocorrencia); (2) signal_use_from_lines pura: used = intersecao com HookName::ALL, non_canonical_calls visivel \u2014 PROVADO VIVO pos-deploy: mirror gravou ast_blast canonico e KPI leu {used:5, ratio:0.625, non_canonical:9} (era ratio 1.0 inflado); (3) feeder post_bash LOUD + diagnostico da entrega: handler correto por invocacao direta (payload realista -> mirror +1), shim resolve toolchain 30.4.29 correta, SEM overrides em settings.local \u2014 o evento da SESSAO viva nao alcanca o handler; proxima sonda GRATIS: sessao CC fresca (hipotese snapshot de hooks); fallback: wrapper tee no settings.json (gate humano). RED-GREEN nos 3 fixes; 1575+491+634 verdes."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:F0-fix-medicao-alias-kpi-entrega:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F0-fix-medicao-alias-kpi-entrega|produces|memory:loop:task_1788294728027014117:F0-fix-medicao-alias-kpi-entrega:done",
+      "source": "phase:F0-fix-medicao-alias-kpi-entrega",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:F0-fix-medicao-alias-kpi-entrega:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0-fix-medicao-alias-kpi-entrega:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0-fix-medicao-alias-kpi-entrega:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0-fix-medicao-alias-kpi-entrega:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0-fix-medicao-alias-kpi-entrega:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

@@ -103,7 +103,19 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     let result = run_returning_impl(runtime, input);
     let exit_us = crate::shared::span_context::timestamp_us();
     runtime.record_span_layer("post_edit", enter_us, exit_us);
-    result
+    // F-A1 (01/09) — check-compile signal: spawn a debounced `cargo check`
+    // for the edited file and deliver any pending verdict (P9 verify-after
+    // measured at 17% — the loop closes by affordance, not persuasion).
+    let file_path = input
+        .pointer("/tool_input/file_path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    match super::check_compile::default_state_dir() {
+        Some(dir) if !file_path.is_empty() => {
+            super::check_compile::attach_check_signal(file_path, result, &dir)
+        }
+        _ => result,
+    }
 }
 fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> HookResponse {
     let tool_name = input
