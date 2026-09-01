@@ -45,7 +45,7 @@ typed JSON in under 10 ms, so agents *and* humans use the same surface.
 Download the release, verify the checksum, run it:
 
 ```bash
-VERSION=v30.4.13
+VERSION=v30.4.28
 BASE="https://github.com/gabrielgadea/touring/releases/download/$VERSION"
 
 curl -fsSLO "$BASE/touring-x86_64-unknown-linux-gnu.tar.gz"
@@ -114,6 +114,23 @@ the ones you actually invoke.
 
 Parsing covers **13 languages** via tree-sitter — Rust, Python, TypeScript,
 JavaScript, Go, Java, Bash, HTML, CSS, JSON, YAML, TOML, Markdown.
+
+### Code-mode SDK (in-sandbox)
+
+When you run a program with `touring run --orchestrate`, the sandbox
+gets a typed Python Protocol that wraps the daemon's read-only RPCs.
+**8 hardcoded hooks** are always available: `ast_meta`, `ast_blast`,
+`index_find`, `wiring_orphans`, `memory_recall`, `pre_edit`,
+`tantivy_search`, `parallel`. Every call is timed and recorded in
+`~/.claude/touring/sdk_signal_mirror.jsonl` so the daemon's
+`code_mode_signal_use` KPI reflects what the program *actually called*
+(not zero). See `docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah-v1.1.md`
+for the design rationale (hybrid SDK = names hardcoded + types from journal).
+
+```bash
+touring run --orchestrate --lang python --code 'print(touring.ast_meta("src/main.rs"))'
+touring kpi -j | jq .code_mode_signal_use          # {used, total, ratio, total_calls}
+```
 
 ### Execution safety
 
@@ -238,7 +255,28 @@ orphan symbols, and TDG scoring.
 Start with [CONTRIBUTING.md](CONTRIBUTING.md); please also read the
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## License
+## Recent releases
+
+### v30.4.28 — 2026-09-01: Code-mode-sinal F1-F6 + deploy fix
+The full in-sandbox SDK surface wired end-to-end:
+- **F2** S4 hybrid SDK: 8 hardcoded hooks in `touring-code/src/sdk.rs` +
+  journal-derived types via `signal_report_from_journal` + `scripts/gen_sdk.py`
+- **F3** PostToolUse sync: append-only JSONL mirror sink at
+  `~/.claude/touring/sdk_signal_mirror.jsonl` via `sdk_signal_mirror.rs`
+- **F4** Python Protocol: `record_hook_call` + `query()` wrap injected
+  into the `--orchestrate` template
+- **F5** BestPracticesGate: 4th rule `signal_use` (counts distinct hooks
+  in mirror, threshold 6/8 = 75%, severity Warn by design)
+- **F6** `touring kpi -j` exposes `code_mode_signal_use` +
+  6-criteria-AND example `kpi_f6_smoke`
+
+**Lesson applied (memory:lesson:executor-do-comando-nao-e-o-binario-buildado, 01/09/2026)**:
+rebuilding `touring-cli` does NOT refresh the `touring` binary (it ships
+from `touring-server`); the daemon embeds `touring-cli` via static link
+and reloads handlers only on `update-touring` restart. Full propagation:
+`scripts/propagate-release.sh <version>` (L2 toolchain install + L4
+project update + verify). 3 pin targets (touring/analise/konverter) all
+on 30.4.28 after propagation commit `8d4cda0`.
 
 Licensed under either of
 

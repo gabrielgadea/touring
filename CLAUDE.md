@@ -217,9 +217,40 @@ timestamp: 2026-08-20T11:15:00-03:00
     `BestPracticesGate` (`crates/touring-quality/src/builtins/best_practices.rs`) verifica
     declaração + aderência M1.
 
+12. **Code-mode-sinal F1-F6 entregue (2026-09-01)**: a **superfície SDK híbrida** do
+    `--orchestrate` está wired fim-a-fim. **F2** S4 híbrida: 8 hooks canônicos
+    hardcoded em `crates/touring-code/src/sdk.rs` + tipos derivados do
+    `run_journal.jsonl` via `signal_report_from_journal` (Rust) + `scripts/gen_sdk.py`
+    (CI sem toolchain). **F3** PostToolUse-sync: sink JSONL em
+    `~/.claude/touring/sdk_signal_mirror.jsonl` via
+    `crates/touring-code/src/sdk_signal_mirror.rs` (6 testes). **F4** SDK Python
+    tipada: `record_hook_call` injetado no template in
+    `crates/touring-server/src/cli/run.rs:298` + wrap `query()` que cronometra cada
+    chamada. **F5** BestPracticesGate: 4ª regra `signal_use` em
+    `crates/touring-quality/src/builtins/best_practices.rs` (mirror counts distinct
+    hooks, threshold 6/8 = 75%, severity mantida em Warn-severo por design). **F6**
+    6 critérios AND + 2 KPIs secundários: `code_mode_signal_use()` em
+    `crates/touring-cli/src/cli/kpi.rs:478` + exemplo `kpi_f6_smoke.rs`. DAG
+    `task_1788196388043002698` todo done; bundle completo em
+    `docs/plans/2026-08-31-code-mode-sinal/` (5 phase reports, 5 typed abstracts,
+    4 signal reports). **Lesson (2026-08-30, exercitada)**: rebuild parcial de
+    `touring-cli` NÃO atualiza binário `touring`/`touring-daemon` (vêm de
+    `touring-server`); daemon embute `touring-cli` via linkagem estática e carrega
+    handlers uma vez no boot → após editar RPC handlers, sempre `cargo build -p
+    touring-server --release` + `update-touring` (kill+restart). Toolchain
+    `30.4.28` propagada nativamente em 01/09/2026 (commit `8d4cda0`); 3 projetos
+    pinados (touring + analise + konverter) em 30.4.28 com `code_mode_signal_use`
+    ativo em `touring kpi -j`. Próxima wave: PostToolUse wirar em satélites +
+    measurement adoption (F6 secondary KPIs).
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`
+- Instruções do crate de código inteligente: `crates/touring-code/.claude/CLAUDE.md`
+- Instruções do crate de qualidade: `crates/touring-quality/.claude/CLAUDE.md`
+- Instruções do crate CLI: `crates/touring-cli/.claude/CLAUDE.md`
 - Programa de produtização: `docs/plans/touring-productization-pln2/00-INDEX.md`
+- Bundle code-mode-sinal F1-F6: `docs/plans/2026-08-31-code-mode-sinal/` (artefatos: phases/, knowledge/, sdksignal-report-f*.json)
+- Estratégia canônica do bundle: `docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah-v1.1.md`
 - Guia da biblioteca de hashtags (facetas, codetags, MOCs): `docs/memory-hashtag-library.md`
 - Constituição TACO global: `~/.claude/CLAUDE.md` (autoridade: Gabriel)
