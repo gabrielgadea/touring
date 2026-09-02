@@ -74,7 +74,7 @@ touring decompose ready task_1788294728027014117
   do `post-bash` vivo dizem onde o sinal morre.
 - Próxima wave (com ok): S0 SignalContext v2 → TIER-1. `touring decompose ready task_1788294728027014117`.
 
-## Atualização 01/09 ~23:50 BRT — S0 (SignalContext v2) concluído; F9 em curso
+## Atualização 01/09 ~20:50 BRT — S0 (SignalContext v2) concluído; F9 em curso
 
 - **S0 done** (TDD, clippy limpo): `ProposedChange` + `tool_name`/`proposed` + `analysable_text()` em
   `touring-hooks-shared/src/signal_layer.rs`; call sites via `context_for_{write,edit,read}` em
@@ -84,7 +84,7 @@ touring decompose ready task_1788294728027014117
   (`hooks_complement_from`), implementação pendente se a sessão cair aqui.
 - Depois: S1, S2, S3, S5, S7 (TIER-1) — `touring decompose ready task_1788294728027014117`.
 
-## Atualização 02/09 ~01:10 BRT — Wave 1 quase completa
+## Atualização 01/09 ~22:10 BRT — Wave 1 quase completa
 
 - **Done (TDD, clippy limpo)**: F0.3a–d · S0 · F9 (`hooks_complement` em `touring kpi -j`) · S1 (ast-grep sobre conteúdo
   proposto, pre_write+pre_edit) · S7 (`PySyntaxSignalLayer`, Write .py) · S5 (antipatterns com `L{n}:`).
@@ -98,7 +98,7 @@ touring decompose ready task_1788294728027014117
   (crate sem default features) — os 106 testes eram só `shared/`. Sempre passar as features (ou testar pela fachada).
 - Nada commitado ainda; nenhum deploy/restart (binários vivos = toolchain 30.4.29).
 
-## Atualização 02/09 ~02:10 BRT — Wave 2: S3 · S10(B4) · A2 · A3 (ordem de Gabriel "prossiga")
+## Atualização 01/09 ~23:15 BRT (sessão 5ec1030b) — Wave 2: S3 · S10(B4) · A2 · A3 (ordem de Gabriel "prossiga")
 
 - **S3 `MissingImportsLayer` done** (TDD completo, revert-proof no teste de integração): imports do CONTEÚDO PROPOSTO
   (`extract_imports_resolved`; `expand_use_arg` achata `use a::{B, c::{D as E}, *}` — antes cada import agrupado lia como
@@ -118,5 +118,24 @@ touring decompose ready task_1788294728027014117
   call sites in M files: f:l …`. O pipeline do pre_edit agora roda também quando só este sinal existe.
 - Acesso ao índice nos hooks: `runtime.symbol_store()` (método, `Option<&SymbolStore>`), não campo.
 - DAG `task_1788294728027014117`: S3 e B4 fechados via `loop_phase_close.py`; A2/A3 fechados na sequência (ver log.md).
-- **Ainda pendente**: TIER-2 S4 (ApiCascadePreview ★) · S6 · S8 · S9; propagação da toolchain + leitura de
-  `~/.claude/touring/hook_trace.jsonl` (causa-raiz F0.3); commit da branch safety.
+- Convergência medida: `loop_converged.py` exit 0 (DAG 17/17, Platinum 0.937). Commit `4440fb1` (waves 0-2).
+
+## Atualização 01/09 ~23:45 BRT — propagação 30.4.30 + **causa-raiz F0.3 FECHADA**
+
+- `scripts/propagate-release.sh 30.4.30`: build release 6m45s → update-touring (daemon global reiniciado) → toolchain
+  congelada/default → `analise` e `konverter` 30.4.29→30.4.30 → prova comportamental **39/39** → verify OK.
+- **F0.3 — o `post-bash` vivo nunca era LANÇADO**: em `~/.claude/settings.json`, o registro
+  `touring-hook post-bash` (PostToolUse/Bash) carrega `"if": "Bash(cargo *|rustc *|touring *|cd *rust*|*touring*|*cargo*|*rustc*)"`
+  (o `pre-bash` tem o MESMO `if`). Prova pelo `hook_trace.jsonl` (F0.3a, 8 Bash após o restart): `post-bash` rodou em
+  **1** (heredoc python cujo texto continha `["touring", …]`/`projects/touring/`); `touring index status -j` e
+  `touring doctor -j | …` **não** dispararam (o prefixo `touring *` não casa como se esperaria — semântica do `if` do
+  Claude Code em comandos compostos/tokens); quando roda, o caminho funciona ponta a ponta (`route=daemon`,
+  `exit=daemon-json`, `post_bash_dispatched=1` no `hooks_complement`). As 34+ hipóteses da forense anterior (stdin,
+  circuit breaker, standalone morto — este último real e corrigido em F0.3c) eram a jusante de um hook que o CC nunca
+  lançava. Memória: `f0.3:causa-raiz-fechada:2026-09-02`.
+- **Fix proposto (settings.json = human gate, NÃO aplicado)**: remover o `if` do `post-bash` (o feeder
+  `classify_bash_command` é precision-first; comando não-touring = no-op de ~ms) e decidir o do `pre-bash`.
+- Refinamento F9 observado: `post_bash_delivery_ratio` = 5.0 (5 entregas ao mirror vindas do caminho CLI ÷ 1 dispatch do
+  post-bash) — o numerador mistura fontes; separar entregas originadas no `post-bash`.
+- **Ainda pendente**: decisão do Gabriel sobre o `if` (então 1 Bash vivo qualquer prova o mirror); TIER-2 S4
+  (ApiCascadePreview ★) · S6 · S8 · S9; F9 numerador por origem.
