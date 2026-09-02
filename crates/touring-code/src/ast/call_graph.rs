@@ -107,8 +107,26 @@ pub fn build_call_graph(source: &str, lang: Lang) -> CallGraph {
         Lang::Rust => build_rust_call_graph(source),
         Lang::Python => build_python_call_graph(source),
         Lang::TypeScript | Lang::JavaScript => build_ts_call_graph(source, lang),
-        _ => CallGraph::default(),
+        _ => {
+            debug_assert!(
+                !supports_call_graph(lang),
+                "`supports_call_graph` and the dispatch above disagree for {lang:?}"
+            );
+            CallGraph::default()
+        }
     }
+}
+
+/// Languages [`build_call_graph`] has a front-end for (S10, 2026-09-02).
+///
+/// The hooks gate on THIS instead of a local `.rs`/`.py` list — that list
+/// silently excluded TS/JS although the dispatch above always handled them.
+/// The `debug_assert!` in the fallback arm keeps the two in agreement.
+pub fn supports_call_graph(lang: Lang) -> bool {
+    matches!(
+        lang,
+        Lang::Rust | Lang::Python | Lang::TypeScript | Lang::JavaScript
+    )
 }
 
 impl CallGraph {

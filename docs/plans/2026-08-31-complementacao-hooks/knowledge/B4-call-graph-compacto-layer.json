@@ -1,0 +1,45 @@
+{
+  "phase": "B4-call-graph-compacto-layer",
+  "entities": [
+    {
+      "entity_id": "phase:B4-call-graph-compacto-layer",
+      "type": "phase",
+      "description": "B4 re-escopado como S10 entregue: callgraph dos hooks destravado para TS/JS \u2014 pre_edit.callgraph_signal_for_file e pre_write.callgraph_signal_for_write gateiam por touring_code::ast::call_graph::supports_call_graph (predicado unico ao lado do dispatch, debug_assert de concordancia) em vez da lista local .rs/.py; compactacao: enrich_with_callgraph agora devolve callers/callees DISTINTOS (main chamando helper 6x lia como HOTSPOT de 6 callers e 'callers: [main, main, main, main, main (+1 more)]')."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:B4-call-graph-compacto-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:B4-call-graph-compacto-layer|produces|memory:loop:task_1788294728027014117:B4-call-graph-compacto-layer:done",
+      "source": "phase:B4-call-graph-compacto-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:B4-call-graph-compacto-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:B4-call-graph-compacto-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:B4-call-graph-compacto-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:B4-call-graph-compacto-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:B4-call-graph-compacto-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

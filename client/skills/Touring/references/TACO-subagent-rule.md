@@ -178,6 +178,31 @@ AGREGAR → sequential-thinking PROCESSA → FASE N+1
 10. **Daemon degraded ≠ scout aborted** — if daemon socket fails, activate fallback (cargo+grep+read) and continue with `daemon_degraded: true` in output
 11. **SYMBOL VERIFICATION TABLE MANDATORY** (Wave TRM 2026-05-02) — Toda fase que cita símbolos DEVE incluir o campo `symbol_verification` com evidência CLI. Output sem este campo = checkpoint REJECT, composite=0.0
 12. **NO INVENTED SYMBOLS** (Wave TRM 2026-05-02) — Qualquer símbolo citado SEM `touring index find` output OR explicit `to_be_created` justification = `BLOCKED_INVENTED_SYMBOL`
+13. **MUST (E) — Verification before completion (transversal Marcel Point #1, 2026-09-01)** — NO COMPLETION CLAIMS WITHOUT FRESH EVIDENCE. Before stating "done", "fixed", "passes", "ready", "ship", or any success synonym, you MUST have run the verification command in **this turn** and seen the output. Red-green cycle for regressions: write test → run (pass) → revert fix → run (MUST FAIL) → restore → run (pass). Source: obra `superpowers:verification-before-completion` (Iron Law) cross-pollinated 2026-09-01; closes universal gap (E) RED-GREEN-REFACTOR across 7 skills (Marcel Point #1 do Gabriel — single MUST idêntico, single commit). Rationalization table (apply verbatim):
+
+| Excuse | Reality |
+|---|---|
+| "Should work now" | RUN the verification |
+| "I'm confident" | Confidence ≠ evidence |
+| "Just this once" | No exceptions |
+| "Linter passed" | Linter ≠ compiler |
+| "Agent said success" | Verify independently |
+| "I'm tired" | Exhaustion ≠ excuse |
+| "Partial check is enough" | Partial proves nothing |
+
+**Skip condition**: applies only to claims about code this skill produces/modifies/audits. Read-only reconnaissance (mapping, search, recall) is exempt.
+
+14. **Grilling integration (Marcel Point #2 do Gabriel, 2026-09-01)** — Before any architectural recommendation or implementation decision in this skill, invoke the `grilling` primitive (frontier-drain interview) to drain unknowns.
+
+**Trigger conditions in this skill**:
+- **FASE 2 ARCHITECT output** — before recommending the design, drain unknowns that would change the architecture
+- **FASE 3 CONTEXT7 decision** — before the implementation choice, drain unknowns the agent assumed
+- **CHECKPOINT GATE** — before claiming "checkpoint_passed", enumerate unknowns the validators didn't catch
+- **POST-AGENT VERIFICATION (V1-V4)** — before reporting "agent completed", drain unknowns about the verification itself
+
+**Skip conditions**: pure reconnaissance phases (FASE 1 SCOUT, READ-only VGP); subagent whose role is purely informational.
+
+**Companion**: `decision-canvas` (structured form for plan-authoring; grilling = conversational form). Cross-reference: `~/.claude/skills/grilling/SKILL.md`. Universal primitive — applied transversalmente em 5 skills per Marcel Point #2.
 
 ---
 

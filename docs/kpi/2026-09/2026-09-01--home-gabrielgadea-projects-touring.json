@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 5409.0,
+      "actual": 5405.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.8608831661911697,
+      "actual": 0.751707998652167,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.3333333333333333,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -110,18 +110,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 0.0,
+      "actual": 1059.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 800.0
     },
     {
-      "actual": 680.0,
+      "actual": 658.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 527359.0,
+      "actual": 501503.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 323839.0,
+      "actual": 433407.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,29 +176,29 @@
       "threshold": 0.7
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.4
     },
     {
-      "actual": 1.0,
+      "actual": 0.25,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
-      "actual": 1.0,
+      "actual": 0.2857142857142857,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -209,7 +209,7 @@
       "threshold": 0.1
     },
     {
-      "actual": 0.8305084745762712,
+      "actual": 0.8333333333333334,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
@@ -242,7 +242,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.33714285714285713,
+      "actual": 0.34554973821989526,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -253,7 +253,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.1965065502183406,
+      "actual": 0.21107266435986158,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -264,7 +264,7 @@
       "threshold": 0.75
     },
     {
-      "actual": 0.0,
+      "actual": 0.07692307692307693,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.pillar_induction_ratio",
@@ -275,7 +275,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 7.491803278688525,
+      "actual": 7.3538461538461535,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
@@ -297,7 +297,7 @@
       "threshold": 2.0
     },
     {
-      "actual": 95.0,
+      "actual": 101.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -319,7 +319,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.010638297872340425,
+      "actual": 0.010101010101010102,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.zte_bypass_rate",
@@ -352,7 +352,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.528052805280528,
+      "actual": 0.5299401197604791,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -374,7 +374,7 @@
       "threshold": 0.3
     },
     {
-      "actual": 0.9875283446712018,
+      "actual": 0.9921875,
       "advisory": true,
       "direction": "gte",
       "id": "touring.learning.replay_share",
@@ -385,7 +385,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.8801244997776789,
+      "actual": 0.8684485460560682,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -396,7 +396,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.3763408883318818,
+      "actual": 0.39835928809788657,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -407,7 +407,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.15082258781680746,
+      "actual": 0.14687445585930697,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -418,7 +418,7 @@
       "threshold": 0.25
     },
     {
-      "actual": 0.026352288488210817,
+      "actual": 0.024327784891165175,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.graph_contract_share",
@@ -429,7 +429,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.013435194942044258,
+      "actual": 0.015621125712868833,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
@@ -466,40 +466,47 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 361,
+      "exception": 391,
       "output-limit": 2,
       "proc-exit": 3,
-      "timeout": 100
+      "timeout": 102
     },
     "by_language": {
       "?": 1,
-      "bash": 2912,
+      "bash": 3073,
       "go": 1,
       "js": 44,
       "perl": 4,
       "php": 1,
-      "python": 2706,
+      "python": 2820,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 5263,
-    "runs_total": 5730,
+    "runs_ok": 5506,
+    "runs_total": 6005,
     "source": "run_journal.jsonl",
-    "success_rate": 0.918499127399651,
-    "wasted_attempts_retry_pairs": 280
+    "success_rate": 0.916902581182348,
+    "wasted_attempts_retry_pairs": 304
+  },
+  "code_mode_signal_use": {
+    "available": true,
+    "ratio": 1.125,
+    "total": 8,
+    "total_calls": 20,
+    "used": 9
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-01",
   "summary": {
-    "advisory": 11,
+    "advisory": 14,
     "failed": 0,
-    "passed": 26,
+    "passed": 24,
     "regressions": 0,
-    "stub": 4,
+    "stub": 3,
     "total": 41
   }
 }

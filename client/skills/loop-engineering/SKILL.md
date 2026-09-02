@@ -103,7 +103,9 @@ INNER (repeat per phase until CONVERGED)
   →  next = touring decompose claim <task> --owner <session-id>   (topological, deps
        satisfied, ATOMIC — `ready` only READS, so two sessions polling it receive the
        SAME subtask and run the same phase twice; the lease returns it if one dies)
-  12 Execute phase                Edit/Write + touring-engineer / touring index+ast+wiring
+  12 Execute phase                **tdd-enforcer gate** (red-green pre-conditional; mechanism
+                                  E + G — see "tdd-enforcer integration" below) →
+                                  Edit/Write + touring-engineer / touring index+ast+wiring
   13 Cross-audit + 50-dim         --use audit-pack:audit (skill = "TACO-cross-audit")
        + --use critic-panel:panel — ORTHOGONAL: audit-pack supplies the craft,
        critic-panel supplies the blindness. A skilled auditor who watched the
@@ -193,6 +195,56 @@ Three open standards stack into one knowledge pipeline (details + conventions in
 | `loop_doc_link_gate.py --bundle <dir> [--strict]` | OKF frontmatter/link validation + OpenKB contradiction lint | exit 0 clean / 1 blocking + JSON `{missing_type[], missing_plan_id[], broken_links[], orphan_docs[], contradictions[]}` |
 
 Every script: `--help`, `--json`, `--quiet`; fail-open when the daemon is degraded. Prefer the script over re-deriving its N-call sequence by hand.
+
+---
+
+## tdd-enforcer integration (Rank #2 do plano `docs/plans/2026-09-01-skill-aprimoramento/`, added 2026-09-01)
+
+INNER step 12 (Execute phase) is now **gated** by `tdd-enforcer` (mechanism E + G — pre-conditional + procedural RED-GREEN). The loop cannot write/edit production code without a failing test first.
+
+**Pre-conditional gate (G)** — before Edit/Write can run on production code, the agent MUST show a failing test that exercises the planned change. No failing test = no edit. This closes the universal gap (E) RED-GREEN-REFACTOR.
+
+**Sequential cycle (E)** — verbatim from obra `superpowers:test-driven-development`:
+
+1. Write the failing test (RED)
+2. Run test — MUST FAIL (proves the test is real, not vacuous)
+3. Apply minimal code change (GREEN)
+4. Run test — MUST PASS
+5. Revert fix → run test (MUST FAIL — proves the test catches the regression)
+6. Restore fix → run test (MUST PASS — proves the fix is correct)
+7. Run full test suite — no regressions
+8. Phase-close with verification evidence (test output before/after)
+
+**Cross-pollination sources**:
+- obra `superpowers:test-driven-development` (RED-GREEN-REFACTOR cycle verbatim)
+- mattpocock/skills `tdd` ("No test is written at an unconfirmed seam")
+- Universal MUST E (Marcel Point #1) — same MUST lives in 7 skills
+
+**Skip conditions** (gating exempts):
+- Documentation-only changes (`.md` files, comments, docstrings)
+- Pure refactors without behavior change (verified by `git diff --stat` showing no semantic diff)
+- Generated files (under `_generated/`, `target/`, `node_modules/`)
+- Configuration changes (non-executable files)
+
+**Invocation pattern**:
+
+```bash
+# Pre-edit gate (before any Edit/Write on production code)
+python3 ~/.claude/skills/tdd-enforcer/scripts/check_red.py \
+  --scope <path> --phase <phase_id>
+# exit 0 = failing test exists, proceed with Edit/Write
+# exit 1 = no failing test, BLOCK until one is written
+
+# Post-edit verification (after Edit/Write)
+python3 ~/.claude/skills/tdd-enforcer/scripts/verify_green.py \
+  --scope <path> --phase <phase_id>
+# exit 0 = test now passes (red→green transition verified)
+# exit 1 = test still fails (regression or incomplete fix)
+```
+
+The `tdd-enforcer` skill (criado como PHASE B candidato 4) owns the scripts; loop-engineering only references the contract. The skill is invoked by hook (PreToolUse for Edit/Write on production code) — see `tdd-enforcer/SKILL.md` for the full protocol.
+
+---
 
 **Touring Diagnostic Arsenal** (`~/.claude/skills/Touring/scripts/`, shared) feeds the loop's diagnose (step 2) and multi-axis convergence: `systemic_diag_v2.py [scope]` (50-dim × arch-blast × security fused → the integrated risk the convergence gate scores), `crate_50dim_matrix.py <crate>` (lossless per-dim evidence for a phase target), `workspace_arch_diag.py` / `crate_arch_diag.py` (cycles + God-objects, the architecture clauses), `clone_blocks.py <file>` (classify a dedup phase before acting). Each is scope-able (crate/dir/file) so a phase can converge on its own target. Set `DIAG_OUT=<bundle>/diagnostics` to file the matrices with the run. **Reporting Contract (MANDATORY)**: every arsenal diagnostic run is relayed as the full 7-section elite audit report (never a single-lever summary) — spec + enforcement in `~/.claude/skills/Touring/scripts/report_contract.py`, printed as each digest's footer.
 
@@ -338,6 +390,33 @@ Guide + facet vocabulary: `~/projects/touring/docs/memory-hashtag-library.md`.
 4. **Human-gate the irreversible** — plan, deploy, `git`, `settings.json`, external writes.
 5. **Every `.md` is an OKF doc linked to the plan** — the doc-link gate enforces it (step 17).
 6. **Persist the pheromone** — `memory store` + `learning reward` each phase (Learning Memory pillar).
+7. **MUST (E) — Verification before completion (transversal Marcel Point #1, 2026-09-01)** — NO COMPLETION CLAIMS WITHOUT FRESH EVIDENCE. Before stating "done", "fixed", "passes", "ready", "ship", or any success synonym, you MUST have run the verification command in **this turn** and seen the output. Red-green cycle for regressions: write test → run (pass) → revert fix → run (MUST FAIL) → restore → run (pass). Source: obra `superpowers:verification-before-completion` (Iron Law) cross-pollinated 2026-09-01; closes universal gap (E) RED-GREEN-REFACTOR across 7 skills (Marcel Point #1 do Gabriel — single MUST idêntico, single commit). Rationalization table (apply verbatim):
+
+| Excuse | Reality |
+|---|---|
+| "Should work now" | RUN the verification |
+| "I'm confident" | Confidence ≠ evidence |
+| "Just this once" | No exceptions |
+| "Linter passed" | Linter ≠ compiler |
+| "Agent said success" | Verify independently |
+| "I'm tired" | Exhaustion ≠ excuse |
+| "Partial check is enough" | Partial proves nothing |
+
+**Skip condition**: applies only to claims about code this skill produces/modifies/audits. Read-only reconnaissance (mapping, search, recall) is exempt.
+
+## Grilling integration (Marcel Point #2 do Gabriel, 2026-09-01)
+
+Before any plan/strategy recommendation in this skill, invoke the `grilling` primitive (frontier-drain interview) to drain unknowns before declaring convergence or requesting human approval. Pattern: enumerate bounded questions, ask one at a time, integrate, repeat.
+
+**Trigger conditions in this skill**:
+- **Step 6 (Strategy consolidation)** — before naming the intent, list the unknowns that would change it
+- **Step 9 (HUMAN GATE)** — before presenting the strategy, enumerate unknowns the human should resolve
+- **Step 14 (Phase-close)** — before claiming "phase done", drain unknowns that would invalidate the verdict
+- **Loop convergence** — before `loop_converged.py` reports PASS, drain the unknowns that the convergence gate didn't check
+
+**Skip conditions**: routine reconnaissance (mapping, search, recall) — read-only with no decision to recommend.
+
+**Companion**: `decision-canvas` (structured form for plan-authoring; grilling = conversational form). Cross-reference: `~/.claude/skills/grilling/SKILL.md`. Universal primitive — applied transversalmente em 5 skills per Marcel Point #2.
 
 ## Cross-references
 

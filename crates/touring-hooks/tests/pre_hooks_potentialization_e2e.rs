@@ -230,6 +230,8 @@ fn blast_radius_signal_layer_enrich_no_panic_for_unknown_file() {
         cila_level: 2,
         hook_name: "pre_read",
         extensions: &(),
+        tool_name: "Read",
+        proposed: None,
     };
     let signals = layer.enrich(&ctx);
     for (score, text) in &signals {

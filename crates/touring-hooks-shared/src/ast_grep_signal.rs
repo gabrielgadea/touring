@@ -262,9 +262,18 @@ impl SignalLayer for AstGrepRiskSignalLayer {
             Some(p) => p,
             None => return Vec::new(),
         };
-        let result = match scan_path_cached(&path, pset, DEFAULT_BUDGET) {
-            Some(r) => r,
-            None => return Vec::new(),
+        // S1 (2026-09-01): a pre-write/pre-edit hook runs BEFORE the change
+        // lands — scan the proposed text carried by `SignalContext` v2 when
+        // there is one; fall back to the file on disk (pre_read, or no
+        // proposal) exactly as before.
+        let proposed = ctx.analysable_text();
+        let result = if proposed.is_empty() {
+            match scan_path_cached(&path, pset, DEFAULT_BUDGET) {
+                Some(r) => r,
+                None => return Vec::new(),
+            }
+        } else {
+            scan_source_cached(proposed, pset, DEFAULT_BUDGET)
         };
         let summary = match format_matches(&result) {
             Some(s) => s,
@@ -316,6 +325,51 @@ mod layer_tests {
         assert!((score - 0.85).abs() < 0.01);
         assert!(text.contains("[risk]"));
         assert!(text.contains("unwrap=1"));
+    }
+
+    /// S1 (2026-09-01): a pre-write hook runs BEFORE the file exists — the
+    /// layer must scan the proposed content carried by `SignalContext` v2,
+    /// not only what is on disk.
+    #[test]
+    fn layer_scans_the_proposed_content_before_the_file_exists() {
+        let root = std::env::temp_dir().join("touring_ast_grep_layer_tests_s1_missing");
+        fs::create_dir_all(&root).expect("temp dir");
+        let _ = fs::remove_file(root.join("brand_new.rs"));
+        let layer = AstGrepRiskSignalLayer::with_root(root);
+        let proposed = "fn main() { let x: Option<i32> = Some(1); let _ = x.unwrap(); }";
+        let ctx = SignalContext::new("brand_new.rs", "")
+            .with_cila(3)
+            .with_hook("pre_write")
+            .with_tool_name("Write")
+            .with_proposed(crate::signal_layer::ProposedChange::Write { content: proposed });
+        let signals = layer.enrich(&ctx);
+        assert_eq!(signals.len(), 1, "expected 1 signal from the PROPOSED content, got {signals:?}");
+        assert!(signals[0].1.contains("[risk]") && signals[0].1.contains("unwrap=1"), "{signals:?}");
+    }
+
+    /// The proposal is what will be written: it wins over a clean file on disk.
+    #[test]
+    fn layer_prefers_the_proposed_edit_over_the_clean_file_on_disk() {
+        let path = write_temp_rs("layer_clean_then_edit.rs", "fn main() { let _ = 1 + 1; }");
+        let parent = path.parent().expect("parent dir").to_path_buf();
+        let rel = path
+            .file_name()
+            .expect("filename")
+            .to_str()
+            .expect("utf-8")
+            .to_string();
+        let layer = AstGrepRiskSignalLayer::with_root(parent);
+        let ctx = SignalContext::new(&rel, "")
+            .with_cila(3)
+            .with_hook("pre_edit")
+            .with_tool_name("Edit")
+            .with_proposed(crate::signal_layer::ProposedChange::Edit {
+                old_string: "let _ = 1 + 1;",
+                new_string: "let v: Option<u8> = None; let _ = v.unwrap();",
+            });
+        let signals = layer.enrich(&ctx);
+        assert_eq!(signals.len(), 1, "{signals:?}");
+        assert!(signals[0].1.contains("unwrap=1"), "{signals:?}");
     }
 
     #[test]

@@ -196,6 +196,10 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // mirror (~/.claude/touring/sdk_signal_mirror.jsonl). Piso M3 ≥ 6/8
     // antes de F5 promover a Block; por enquanto advisory.
     out["code_mode_signal_use"] = code_mode_signal_use();
+    // F9 (2026-09-01) — régua do complemento de hooks: despachos por hook no
+    // daemon (F0.3d) × entregas ao mirror na mesma janela. Nasce da sonda
+    // F0.3 (post-bash vivo 5/47 atendido, 0/47 no mirror) — ausência exibida.
+    out["hooks_complement"] = hooks_complement();
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),
@@ -521,6 +525,79 @@ fn signal_use_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
         "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
         "total_calls": calls,
         "non_canonical_calls": non_canonical,
+    })
+}
+
+/// F9 (2026-09-01) — régua do complemento de hooks.
+///
+/// Lado daemon: `hook_dispatch_by_name` (F0.3d) diz quantas vezes cada hook
+/// foi despachado desde `hook_dispatch_since_epoch`. Lado sinal: o mirror
+/// (`sdk_signal_mirror.jsonl`) diz quantas entregas canônicas chegaram no
+/// MESMO intervalo. A razão `post_bash_delivery_ratio` é o número que a sonda
+/// F0.3 não tinha: se post-bash quase não é despachado enquanto o Claude Code
+/// emite PostToolUse, o thin client não chega ao daemon; se é despachado e o
+/// mirror não cresce, o feeder/classificador é o suspeito. `cli_kpi` roda
+/// dentro do daemon, então os contadores lidos são os do processo vivo.
+fn hooks_complement() -> Value {
+    let by_name = touring_foundation::gate_metrics::hook_dispatch_by_name();
+    let since = touring_foundation::gate_metrics::hook_dispatch_since_epoch();
+    let mirror = std::env::var_os("HOME")
+        .map(|home| touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home)))
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .unwrap_or_default();
+    hooks_complement_from(&by_name, mirror.lines(), since)
+}
+
+/// A agregação pura por trás de [`hooks_complement`] — testável sem FS nem
+/// daemon. Linhas do mirror anteriores a `since_epoch` ficam fora (o mirror é
+/// cumulativo, os contadores do daemon não); nomes fora de `HookName::ALL`
+/// contam à parte (E4: visíveis, nunca somados). Sem despacho ainda, a razão
+/// não existe — e diz isso em vez de dividir por zero.
+fn hooks_complement_from<'a>(
+    by_name: &std::collections::BTreeMap<String, u64>,
+    mirror_lines: impl Iterator<Item = &'a str>,
+    since_epoch: Option<u64>,
+) -> Value {
+    let Some(since) = since_epoch else {
+        return json!({
+            "available": false,
+            "reason": "no hook dispatched yet in this daemon",
+        });
+    };
+    let canonical: std::collections::BTreeSet<&'static str> = touring_code::sdk::HookName::ALL
+        .iter()
+        .map(|h| h.as_str())
+        .collect();
+    let mut deliveries = 0u64;
+    let mut non_canonical = 0u64;
+    for line in mirror_lines {
+        let Ok(v) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        let ts = v.get("ts").and_then(Value::as_u64).unwrap_or(0);
+        if ts < since {
+            continue;
+        }
+        match v.get("hook_name").and_then(Value::as_str) {
+            Some(name) if canonical.contains(name) => deliveries += 1,
+            Some(_) => non_canonical += 1,
+            None => {}
+        }
+    }
+    let post_bash = by_name.get("post-bash").copied().unwrap_or(0);
+    let ratio = if post_bash > 0 {
+        json!(deliveries as f64 / post_bash as f64)
+    } else {
+        Value::Null
+    };
+    json!({
+        "available": true,
+        "since_epoch": since,
+        "dispatched": by_name,
+        "post_bash_dispatched": post_bash,
+        "mirror_deliveries_since": deliveries,
+        "mirror_non_canonical_since": non_canonical,
+        "post_bash_delivery_ratio": ratio,
     })
 }
 
@@ -1600,6 +1677,53 @@ pub fn actuator_signals() -> (Option<f64>, Option<bool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── F9 (2026-09-01): régua do complemento de hooks ──────────────────
+    // Despachos por hook (daemon, F0.3d) × entregas ao mirror na MESMA janela.
+    // Nasce da sonda F0.3: post-bash vivo 5/47 atendido, 0/47 no mirror — e
+    // nenhum número do daemon podia dizer isso.
+
+    #[test]
+    fn hooks_complement_reads_dispatches_and_mirror_deliveries_in_the_same_window() {
+        let mut by_name = std::collections::BTreeMap::new();
+        by_name.insert("post-bash".to_string(), 10u64);
+        by_name.insert("post-tool-rl".to_string(), 12u64);
+        by_name.insert("cli-suggest".to_string(), 30u64);
+        let epoch = 1_788_300_000u64;
+        let mirror = [
+            r#"{"ts":1788299999,"hook_name":"index_find"}"#, // antes do epoch: fora
+            r#"{"ts":1788300010,"hook_name":"index_find"}"#,
+            r#"{"ts":1788300020,"hook_name":"memory_recall"}"#,
+            r#"{"ts":1788300030,"hook_name":"cli-index-find"}"#, // alias: visível, à parte
+            "not json at all",
+        ];
+        let v = hooks_complement_from(&by_name, mirror.iter().copied(), Some(epoch));
+        assert_eq!(v["available"], true);
+        assert_eq!(v["since_epoch"], epoch);
+        assert_eq!(v["dispatched"]["post-bash"], 10);
+        assert_eq!(v["dispatched"]["post-tool-rl"], 12);
+        assert_eq!(v["post_bash_dispatched"], 10);
+        assert_eq!(v["mirror_deliveries_since"], 2);
+        assert_eq!(v["mirror_non_canonical_since"], 1);
+        assert_eq!(v["post_bash_delivery_ratio"], 0.2);
+    }
+
+    #[test]
+    fn hooks_complement_before_any_dispatch_is_visible_not_a_division() {
+        let v = hooks_complement_from(&Default::default(), std::iter::empty(), None);
+        assert_eq!(v["available"], false);
+        assert_eq!(v["reason"], "no hook dispatched yet in this daemon");
+    }
+
+    #[test]
+    fn hooks_complement_ratio_is_null_when_post_bash_never_dispatched() {
+        let mut by_name = std::collections::BTreeMap::new();
+        by_name.insert("cli-suggest".to_string(), 3u64);
+        let v = hooks_complement_from(&by_name, std::iter::empty(), Some(1));
+        assert_eq!(v["available"], true);
+        assert_eq!(v["post_bash_dispatched"], 0);
+        assert!(v["post_bash_delivery_ratio"].is_null(), "{v}");
+    }
 
     /// F0 wave signal-layer-tier-ab (01/09) — `used` counts only the 8
     /// CANONICAL hook names: alias/daemon names (`cli-index-find`) raised the

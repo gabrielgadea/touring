@@ -1,4 +1,9 @@
 # Fragment `critic-panel` — N blind critics with DISTINCT lenses; code counts the quorum.
+# Reverted 2026-09-01 from wrapper-forward (Opção C) to original agent pattern (Opção B)
+# because the wrapper's `type = "code"` + `Skill:` command string was never going to
+# work via subprocess.run. The skill body `~/.claude/skills/critic-panel-as-skill/`
+# remains canonical for direct Skill invocation; the fragment composes 3 blind
+# Claude agents + an arithmetic quorum gate.
 #
 # Three properties make this a panel rather than an echo chamber:
 #   · distinct lenses — N identical critics add cost and no information (the lint
@@ -110,7 +115,7 @@ emits = "VERDICT=PASS|REJECT|ESCALATE followed by REASON=<one line>"
 type = "gate"
 # 28/08/2026 (estreia cross-audit): SEM sandbox — o gate julga TEXTO DE AGENTE
 # posicional e o X6 classifica o programa inteiro (args inclusos): prosa com
-# cara de comando vira deny nao-deterministico. Predicado de string e leitor puro.
+# cara de comando vira deny nao-determinístico. Predicado de string e leitor puro.
 command = ["bash", "-c", "if [ -n \"$3\" ] && [ -r \"$3\" ]; then t=$(cat \"$3\"); else t=$1; fi; p=$(printf '%s' \"$t\" | grep -c '^VERDICT=PASS' || true); r=$(printf '%s' \"$t\" | grep -c '^VERDICT=REJECT' || true); e=$(printf '%s' \"$t\" | grep -c '^VERDICT=ESCALATE' || true); q=$2; if [ \"$e\" -gt 0 ]; then echo \"VERDICT=ESCALATE + REASON=$e critic(s) could not decide\"; exit 1; fi; if [ \"$r\" -ge \"$q\" ]; then echo \"VERDICT=REJECT + REASON=$r critic(s) rejected, quorum is $q\"; exit 1; fi; if [ \"$p\" -eq 0 ]; then echo 'VERDICT=ESCALATE + REASON=no critic returned a parseable verdict'; exit 1; fi; echo \"VERDICT=PASS + REASON=$p passed, $r rejected, quorum $q\"", "--", "{{nodes.panel.summary}}", "{{inputs.quorum}}", "{{nodes.panel.full_ref}}"]
 timeout_ms = 60000
 idempotent = true

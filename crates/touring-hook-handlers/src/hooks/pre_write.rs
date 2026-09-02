@@ -18,7 +18,7 @@ use super::knowledge::FileKnowledgeDB;
 use super::pre_edit_prevention;
 use super::runtime::{HookResponse, HookRuntime, make_relative};
 use crate::shared::signal_pipeline::{
-    FnSignalLayer, SignalContext, SignalPipeline, StaticSignalLayer,
+    FnSignalLayer, SignalPipeline, StaticSignalLayer, context_for_write,
 };
 use crate::shared::signals::{
     blast_radius_signal, enrich_with_cognitive, rank_gotchas_by_relevance, wilson_adjusted_score,
@@ -172,14 +172,63 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         let fp_owned = file_path.to_owned();
         let rel_path_for_ast = rel_path.clone();
 
+        // S3 (2026-09-02): the imports of a file that does not exist yet come
+        // from the PROPOSED content; the known types from ONE indexed lookup of
+        // the unresolved names (DB step at construction — layers are 'static,
+        // and a clean file never reaches the DB).
+        let missing_imports = crate::shared::missing_imports::MissingImportsLayer::for_write(
+            &rel_path,
+            content,
+            |names| {
+                runtime
+                    .ctx
+                    .knowledge
+                    .find_pub_symbols_by_name(names, Some(&rel_path))
+                    .unwrap_or_default()
+            },
+        );
+
+        // A3 (2026-09-02): names the PROPOSED file declares that the symbol
+        // index already defines elsewhere — the homonym (VP-Scout chain 4)
+        // BEFORE the write, with the file:line to reuse.
+        let related_symbols = crate::shared::related_symbols::RelatedSymbolsLayer::for_write(
+            &rel_path,
+            content,
+            |name| definition_sites(runtime, name),
+        );
+        tracing::debug!(
+            file = %rel_path,
+            missing_imports = !missing_imports.is_empty(),
+            related_symbols = !related_symbols.is_empty(),
+            "pre_write S3/A3 layers resolved"
+        );
+
         // ── Assemble via SignalPipeline (normalize + sort + budget-truncate) ──
         let pipeline = SignalPipeline::new(budget)
             .add_layer(StaticSignalLayer::new("up_front", up_front_signals))
             .add_layer(FnSignalLayer::new("ast_content", move |_ctx| {
                 with_hook_pool(|| ast_content_signals(&content_owned, &fp_owned, &rel_path_for_ast))
-            }));
+            }))
+            // S1 (2026-09-01): ast-grep risk patterns (unwrap/panic/eval/exec,
+            // 22 langs) over the PROPOSED content — the file may not exist yet.
+            .add_layer(crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
+                runtime.project_root.clone(),
+            ))
+            // S7 (2026-09-01): a proposed .py that does not parse is flagged
+            // BEFORE it is written (tree-sitter, <1 ms).
+            .add_layer(crate::shared::qa_syntax::PySyntaxSignalLayer)
+            // S2 (2026-09-01): F2.4 hardcoded secrets over the PROPOSED content
+            // (P0) — the on-disk gate cannot see a file that does not exist yet.
+            .add_layer(crate::shared::secrets_signal::SecretsSignalLayer)
+            // S3 (2026-09-02): `use` paths for known pub types the PROPOSED
+            // .rs uses without importing (E0412/E0433 before the write).
+            .add_layer(missing_imports)
+            // A3 (2026-09-02): homonyms of the names the PROPOSED file declares.
+            .add_layer(related_symbols);
 
-        match pipeline.execute(&SignalContext::new(&rel_path, "").with_cila(cila_level as usize)) {
+        // S0 v2: the proposed content travels with the context so SignalLayers
+        // can analyse the code about to be written (not only what is on disk).
+        match pipeline.execute(&context_for_write(&rel_path, content, cila_level as usize)) {
             Some(ctx) => ctx,
             None => {
                 // Pipeline produced zero signals — inject a baseline context
@@ -911,7 +960,20 @@ fn antipattern_signals(content: &str, rel_path: &str) -> Vec<(f32, String)> {
     }
 
     let lang = detect_language(rel_path);
-    let mut issues = crate::shared::antipatterns::detect_antipatterns(content, lang);
+    // S5 (2026-09-01): the actionable variant — each warning names its line, so
+    // the fix lands on the right spot of the PROPOSED content (A5: the message
+    // teaches the correction). Line 0 means "no position" and is left bare.
+    let mut issues: Vec<String> =
+        crate::shared::antipatterns::detect_antipatterns_with_lines(content, lang)
+            .into_iter()
+            .map(|(msg, line)| {
+                if line > 0 {
+                    format!("L{line}: {msg}")
+                } else {
+                    msg
+                }
+            })
+            .collect();
     // Wire maybe_add_eval_check: appends dynamic code execution warning for JS/TS languages.
     crate::shared::antipatterns::maybe_add_eval_check(content.as_bytes(), lang, &mut issues);
     if issues.is_empty() {
@@ -985,18 +1047,14 @@ fn quality_depth_signals(content: &str, file_path: &str) -> Vec<(f32, String)> {
 ///
 /// Budget: pure in-memory (no I/O). Negligible latency (<1ms typical).
 fn callgraph_signal_for_write(content: &str, file_path: &str) -> Option<(f32, String)> {
-    // Detect language from extension — only Rust and Python supported
-    let lang_str = match std::path::Path::new(file_path)
-        .extension()
-        .and_then(|e| e.to_str())
-    {
-        Some("rs") => "rust",
-        Some("py") => "python",
-        _ => return None,
-    };
+    // S10 (2026-09-02): gate on the library's own predicate, not on a local
+    // `.rs`/`.py` list — TS/JS were dispatched by `build_call_graph` and
+    // filtered out right here.
+    let lang = touring_code::ast::Lang::from_path(std::path::Path::new(file_path))
+        .filter(|l| touring_code::ast::call_graph::supports_call_graph(*l))?;
+    let lang_str = lang.as_str();
 
     // Find the top symbol by caller count, then enrich via the module.
-    let lang: touring_code::ast::Lang = lang_str.parse().ok()?;
     let graph = touring_code::ast::call_graph::build_call_graph(content, lang);
     if graph.sites.is_empty() {
         return None;
@@ -1028,6 +1086,20 @@ fn callgraph_signal_for_write(content: &str, file_path: &str) -> Option<(f32, St
         1.1,
         crate::callgraph_enrichment::format_callgraph_context(&info, sym),
     ))
+}
+
+/// `(file, line)` of every DEFINITION of `name` in the symbol index (A3).
+///
+/// Empty when the runtime has no symbol store (fresh project, init failure) —
+/// the layer then stays silent instead of guessing.
+fn definition_sites(runtime: &HookRuntime, name: &str) -> Vec<(String, usize)> {
+    runtime
+        .symbol_store()
+        .and_then(|store| store.find_symbol(name).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|loc| (loc.file_path, loc.line))
+        .collect()
 }
 
 /// Detect language from file extension.

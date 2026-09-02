@@ -21,7 +21,7 @@ use crate::shared::parser_cache_global::global_cache;
 #[allow(unused_imports)]
 // ResultExt trait needed in scope for .unwrap_or_debug() calls on deref
 use crate::shared::result_ext::{OptionExt, ResultExt};
-use crate::shared::signal_pipeline::{SignalContext, SignalPipeline, StaticSignalLayer};
+use crate::shared::signal_pipeline::{SignalPipeline, StaticSignalLayer, context_for_edit};
 use crate::shared::signals::{blast_radius_signal, merge_signals_rrf};
 use touring_foundation::diagnostic::DiagnosticCode;
 use touring_foundation::truncate_str;
@@ -451,20 +451,45 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Budget-aware assembly via SignalPipeline: sort by score, truncate to CILA budget.
     // Wrapping the assembled context in a single StaticSignalLayer gives consistent
     // budget enforcement across CILA levels without restructuring existing signal logic.
-    let context = if context.is_empty() {
+    // A2 (2026-09-02): analogous call sites of a call THIS edit changes —
+    // decision-matrix C08, before the edit lands (index step at construction;
+    // no changed call = no index work).
+    let cross_caller = crate::shared::cross_caller::CrossCallerLayer::for_edit(
+        &rel_path,
+        old_string,
+        new_string,
+        |name| call_sites(runtime, name),
+    );
+
+    let context = if context.is_empty() && cross_caller.is_empty() {
         String::new()
     } else {
         let budget = cila_budget_edit(cila_level);
-        let pipeline = SignalPipeline::new(budget).add_layer(StaticSignalLayer::new(
-            "pre_edit_assembled",
-            vec![(1.0_f32, context)],
-        ));
+        let assembled = if context.is_empty() {
+            Vec::new()
+        } else {
+            vec![(1.0_f32, context)]
+        };
+        let pipeline = SignalPipeline::new(budget)
+            .add_layer(StaticSignalLayer::new("pre_edit_assembled", assembled))
+            // S1 (2026-09-01): ast-grep risk patterns over the proposed
+            // `new_string` (SignalContext v2) — risk seen BEFORE the edit lands.
+            .add_layer(crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
+                runtime.project_root.clone(),
+            ))
+            // S2 (2026-09-01): F2.4 hardcoded secrets over the proposed
+            // `new_string` (P0) — before the edit lands.
+            .add_layer(crate::shared::secrets_signal::SecretsSignalLayer)
+            // A2 (2026-09-02): other call sites of a call this edit changes (C08).
+            .add_layer(cross_caller);
+        // S0 v2: old/new strings travel with the context (see signal_pipeline).
         pipeline
-            .execute(
-                &SignalContext::new(&rel_path, "")
-                    .with_cila(cila_level as usize)
-                    .with_hook("pre_edit"),
-            )
+            .execute(&context_for_edit(
+                &rel_path,
+                old_string,
+                new_string,
+                cila_level as usize,
+            ))
             .unwrap_or_default()
     };
 
@@ -1339,16 +1364,19 @@ fn detect_unresolved_types(
         return Vec::new();
     }
 
-    // Step 2: Get all pub symbols from wiring_map and build known_modules list
+    // Step 2 (S3, 2026-09-02): producer rows for exactly these names — one
+    // indexed `IN` lookup instead of `all_pub_symbols()` scanning the whole
+    // wiring map on every edit; same-crate producers first.
     let known_modules: Vec<(String, String)> = db
-        .all_pub_symbols()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|e| (e.symbol_name, e.module_file))
-        .collect();
+        .find_pub_symbols_by_name(&unresolved, Some(current_file))
+        .unwrap_or_default();
 
-    // Step 3: Use touring_code::ast::wiring::suggest_imports for suggestion construction (B2 fix)
-    let ast_suggestions = touring_code::ast::wiring::suggest_imports(&unresolved, &known_modules);
+    // Step 3: crate-aware `use` path (B2 fix → S3 `suggest_imports_for`)
+    let ast_suggestions = touring_code::ast::wiring::suggest_imports_for(
+        &unresolved,
+        &known_modules,
+        Some(current_file),
+    );
 
     // Step 4: Format as user-facing strings
     ast_suggestions
@@ -1364,40 +1392,23 @@ fn detect_unresolved_types(
 
 /// Check if a name is a common builtin type that does not need importing.
 fn is_rust_builtin(name: &str) -> bool {
-    matches!(
-        name,
-        "String"
-            | "Vec"
-            | "Option"
-            | "Result"
-            | "Box"
-            | "Arc"
-            | "Mutex"
-            | "RwLock"
-            | "HashMap"
-            | "HashSet"
-            | "BTreeMap"
-            | "BTreeSet"
-            | "VecDeque"
-            | "Path"
-            | "PathBuf"
-            | "Duration"
-            | "Instant"
-            | "Ok"
-            | "Err"
-            | "Some"
-            | "None"
-            | "Self"
-            | "Default"
-            | "Send"
-            | "Sync"
-            | "Clone"
-            | "Debug"
-            | "Display"
-            | "Serialize"
-            | "Deserialize"
-            | "Value"
-    )
+    // S3 (2026-09-02): one list for the three detectors (this copy, the
+    // `wiring.rs` one and the pre-write resolver) — they had drifted apart.
+    touring_code::ast::import_resolver::is_builtin_type_name(name)
+}
+
+/// `(file, line)` of every CALL SITE of `name` in the symbol index (A2).
+///
+/// Empty when the runtime has no symbol store or the index was built without
+/// reference extraction — the layer then stays silent instead of guessing.
+fn call_sites(runtime: &HookRuntime, name: &str) -> Vec<(String, usize)> {
+    runtime
+        .symbol_store()
+        .and_then(|store| store.find_references(name).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|loc| (loc.file_path, loc.line))
+        .collect()
 }
 
 /// Signal I-5: Build a callgraph context signal for a file being edited.
@@ -1406,23 +1417,21 @@ fn is_rust_builtin(name: &str) -> bool {
 /// delegates to `callgraph_enrichment::enrich_with_callgraph` for full
 /// caller/callee/hotspot enrichment, formatted via `format_callgraph_context`.
 ///
-/// Only fires for Rust and Python. Returns `None` on any I/O or parse error.
+/// Fires for every language the call graph has a front-end for (Rust, Python,
+/// TypeScript, JavaScript — `supports_call_graph`). Returns `None` on any I/O
+/// or parse error.
 fn callgraph_signal_for_file(file_path: &str) -> Option<String> {
-    // Detect language from extension — only Rust and Python supported
-    let lang_str = match std::path::Path::new(file_path)
-        .extension()
-        .and_then(|e| e.to_str())
-    {
-        Some("rs") => "rust",
-        Some("py") => "python",
-        _ => return None,
-    };
+    // S10 (2026-09-02): gate on the library's own predicate, not on a local
+    // `.rs`/`.py` list — TS/JS were dispatched by `build_call_graph` and
+    // filtered out right here.
+    let lang = touring_code::ast::Lang::from_path(std::path::Path::new(file_path))
+        .filter(|l| touring_code::ast::call_graph::supports_call_graph(*l))?;
+    let lang_str = lang.as_str();
 
     let source = std::fs::read_to_string(file_path).ok()?;
 
     // Find the symbol with the most callers — that's the highest-impact target.
     // Build call graph once to identify the hot symbol, then enrich it fully.
-    let lang: touring_code::ast::Lang = lang_str.parse().ok()?;
     let graph = touring_code::ast::call_graph::build_call_graph(&source, lang);
 
     let top_symbol: Option<String> = {

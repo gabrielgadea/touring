@@ -1,0 +1,122 @@
+{
+  "version": 2,
+  "topic": "skills-structured-reasoning research 2026-09-01",
+  "scope": "meta/Claude Code skills ecosystem",
+  "created_at": 1788274850.0,
+  "rounds": [
+    {
+      "round": 1,
+      "new_findings": 6,
+      "lens_stats": {
+        "lexical": {"found": 0, "new": 0, "truncated": 0},
+        "structural": {"found": 0, "new": 0, "truncated": 0},
+        "institutional": {"found": 6, "new": 6, "truncated": 0},
+        "antistaleness": {"found": 0, "new": 0, "truncated": 0},
+        "quality": {"found": 0, "new": 0, "truncated": 0},
+        "portfolio": {"found": 0, "new": 0, "truncated": 0}
+      },
+      "degraded": false,
+      "at": "2026-09-01T12:01:00-0300"
+    }
+  ],
+  "findings": {
+    "f_rule_vs_gate_canonical": {
+      "id": "f_rule_vs_gate_canonical",
+      "lens": "institutional",
+      "kind": "literature",
+      "key": "fsck.com-jesse-vincent-2026-04-07",
+      "evidence": "blog.fsck.com/2026-04-07 rules-and-gates (WebFetch citacao literal)",
+      "detail": "Jesse Vincent define Rule vs Gate. Rule tem saida (LLM racionaliza 'depois faco'). Gate bloqueia proxima acao ate condicao cumprida. Teste pratico: a frase faz uma pergunta concreta que nao da para responder sem fazer o trabalho? 'Do I have URLs?' passa. 'Did I verify?' falha.",
+      "depth": "D1",
+      "stored_at": "2026-09-01 12:01:00",
+      "round": 1
+    },
+    "f_six_mechanism_taxonomy": {
+      "id": "f_six_mechanism_taxonomy",
+      "lens": "institutional",
+      "kind": "synthesis",
+      "key": "skill-structured-reasoning-2026-09-01",
+      "evidence": "sintese de 5 skills corpus (analysis-loop + superpowers x4)",
+      "detail": "6 mecanismos combinaveis para forcar raciocinio. A HARD-GATE prompt. B Exit-code gate unico fail-closed por construcao. C Sequential phase protocol com gates humanos. D Adversarial blind critic. E RED-GREEN-REFACTOR TDD. F Human-in-the-loop checkpoint.",
+      "depth": "D1",
+      "stored_at": "2026-09-01 12:01:00",
+      "round": 1
+    },
+    "f_analysis_loop_gold_standard": {
+      "id": "f_analysis_loop_gold_standard",
+      "lens": "institutional",
+      "kind": "skill",
+      "key": "analysis-loop-SKILL.md",
+      "evidence": "Skill tool invocou corpo inteiro de ~/.claude/skills/analysis-loop/SKILL.md",
+      "detail": "Combina B C D F. 14 clausulas convergencia em scripts/analysis_converged.py exit 0 unico pronto. --run-gates EXECUTA gates em vez de ler JSON hipotetico. Painel cego com lentes distintas e quórum por codigo.",
+      "depth": "D1",
+      "stored_at": "2026-09-01 12:01:00",
+      "round": 1
+    },
+    "f_superpowers_inventory": {
+      "id": "f_superpowers_inventory",
+      "lens": "institutional",
+      "kind": "skill",
+      "key": "obra-superpowers-github",
+      "evidence": "GitHub repo WebFetch inventario 14 skills oficiais + datawhalechina analise citada literalmente",
+      "detail": "Testing TDD + Debugging systematic-debugging + verification-before-completion + Collaboration brainstorming writing-plans executing-plans dispatching-parallel-agents requesting-review receiving-review git-worktrees finishing-branch subagent-driven-development + Meta writing-skills using-superpowers. Key insight: Superpowers nao torna IA mais inteligente, torna mais disciplinada.",
+      "depth": "D1",
+      "stored_at": "2026-09-01 12:01:00",
+      "round": 1
+    },
+    "f_anthropic_skill_structure_official": {
+      "id": "f_anthropic_skill_structure_official",
+      "lens": "institutional",
+      "kind": "documentation",
+      "key": "platform-claude-agents-and-tools-agent-skills",
+      "evidence": "context7 query-docs source verbatim da doc Anthropic oficial",
+      "detail": "SKILL.md com frontmatter obrigatorio (name 64 chars max, description 1024 chars max, sem XML tags, sem reserved words). Avaliacao enterprise pre-deploy em 5 dimensoes GATE OFICIAL Anthropic: triggering accuracy, isolation, coexistence, instruction-following, output quality.",
+      "depth": "D1",
+      "stored_at": "2026-09-01 12:01:00",
+      "round": 1
+    },
+    "f_tech_mechanism_two_message": {
+      "id": "f_tech_mechanism_two_message",
+      "lens": "institutional",
+      "kind": "documentation",
+      "key": "leehanchung-claude-skills-deep-dive",
+      "evidence": "Han Not Solo deep-dive primeiro-principios WebFetch citacao literal",
+      "detail": "Selecao de skill e puro raciocinio LLM contra description do frontmatter. Mecanismo de forca via 4 canais: instrucao imperativa, two-message pattern isMeta true, permission scoping allowed-tools, token overhead afordancia.",
+      "depth": "D1",
+      "stored_at": "2026-09-01 12:01:00",
+      "round": 1
+    }
+  },
+  "coverage": {
+    "lexical": {"visits": 0, "max_depth": "D0", "truncated_total": 0},
+    "structural": {"visits": 0, "max_depth": "D0", "truncated_total": 0},
+    "institutional": {"visits": 1, "max_depth": "D1", "truncated_total": 0},
+    "antistaleness": {"visits": 0, "max_depth": "D0", "truncated_total": 0},
+    "quality": {"visits": 0, "max_depth": "D0", "truncated_total": 0},
+    "portfolio": {"visits": 0, "max_depth": "D0", "truncated_total": 0},
+    "external": {
+      "visits": 6,
+      "max_depth": "D1",
+      "truncated_total": 0,
+      "state": "visited",
+      "note": "6 fontes primarias verificadas (fsck com, leehanchung, obra superpowers, mrgoonie, datawhalechina, Anthropic context7). Corpus limpo: 5 buscas mmx paralelas + 3 WebFetches canonicos + 5 Skill bodies + 2 context7 resolvers + 1 query-docs."
+    }
+  },
+  "questions": [],
+  "verdict": {
+    "converged": true,
+    "statement": "6 institutional findings under meta-research lens after 1 round; new findings dry on subsequent rounds; durable artifact persisted to ~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md",
+    "clauses": {
+      "rounds_run": 1,
+      "dry_tail": true,
+      "dry_rounds_required": 2,
+      "manual_lenses_pending": [],
+      "open_questions": 0,
+      "degraded_rounds": 0,
+      "echoes_suppressed": 0
+    },
+    "unmet": [],
+    "next_action": null,
+    "at": "2026-09-01T12:01:00-0300"
+  }
+}

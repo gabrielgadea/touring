@@ -1,6 +1,6 @@
 ---
 name: taco-planning
-description: Create exponentially excellent implementation plans using Touring CLI intelligence + a deterministic Python toolkit. Toolkit — ground_truth_collector (Stage-1 unified Touring sweep), dimension_scorer (9 dims, schema/symbols/blast-aware), dimension_amplifier (concrete actions to lift each dim <7), gap_detector (undefined symbols, vague claims, missing evidence/blast), confidence_tagger (auto FACT/INFERENCE/SPECULATION on every claim), plan_validator (4-stage Pln2 structure + tag coverage), plan_scaffolder (Jinja2 Pln2 skeleton from intent + ground truth), dag_builder (Mermaid + parallel/sequential phase extraction), mcts_wrapper (multi-path planning via touring mcts search). Enforces 9 quality dimensions (precision, scalability, performance, functionality, quality, detail, integration, dependencies, potentiation) with mandatory VGP-verified ground truth. Use when — creating plans, writing blueprints, designing architectures, planning implementations, when keywords plan / plano / blueprint / roadmap / Pln1 / Pln2 / Pln^N appear. Produces Pln2-grade plans grounded in real codebase state. Complements TACO-wt — taco-planning AUTHORS plans; TACO-wt OPERATES them.
+description: Create exponentially excellent implementation plans using Touring CLI + deterministic Python toolkit (ground_truth_collector, dimension_scorer/amplifier, gap_detector, confidence_tagger, plan_validator, plan_scaffolder, dag_builder, mcts_wrapper — full toolkit in references/). Enforces 9 quality dimensions (precision, scalability, performance, functionality, quality, detail, integration, dependencies, potentiation) with mandatory VGP-verified ground truth. Use when creating plans / blueprints / architectures / implementations (keywords: plan, plano, blueprint, roadmap, Pln1, Pln2, Pln^N). Produces Pln2-grade plans grounded in real codebase state. Complements TACO-wt — taco-planning AUTHORS plans; TACO-wt OPERATES them.
 ---
 
 # taco-planning — Touring-Grounded Plan Excellence
@@ -304,6 +304,33 @@ Detail in [references/mcts-planning.md](references/mcts-planning.md).
    gerou é o exemplo: "a afirmativa que persegue código, não intenção" (P2.4 — e a
    reivindicação de 84,8% morreu nela).
 8. **50-dim acceptance gate in §5.** Every Pln2 plan encodes the delivery bar in its Verification Protocol: 6 BLOCK dims P0 (`touring-quality check --gate F2.1|F2.4|F2.5|F2.6|F4.3|F4.5`) + Gold floor (`touring-quality score --fail-below 0.80`). A plan without a measurable 50-dim gate ships prose, not a contract. Keystone: `~/.claude/rules/elite-50-quality.md`.
+9. **MUST (E) — Verification before completion (transversal Marcel Point #1, 2026-09-01)** — NO COMPLETION CLAIMS WITHOUT FRESH EVIDENCE. Before stating "done", "fixed", "passes", "ready", "ship", or any success synonym, you MUST have run the verification command in **this turn** and seen the output. Red-green cycle for regressions: write test → run (pass) → revert fix → run (MUST FAIL) → restore → run (pass). Source: obra `superpowers:verification-before-completion` (Iron Law) cross-pollinated 2026-09-01; closes universal gap (E) RED-GREEN-REFACTOR across 7 skills (Marcel Point #1 do Gabriel — single MUST idêntico, single commit). Rationalization table (apply verbatim):
+
+| Excuse | Reality |
+|---|---|
+| "Should work now" | RUN the verification |
+| "I'm confident" | Confidence ≠ evidence |
+| "Just this once" | No exceptions |
+| "Linter passed" | Linter ≠ compiler |
+| "Agent said success" | Verify independently |
+| "I'm tired" | Exhaustion ≠ excuse |
+| "Partial check is enough" | Partial proves nothing |
+
+**Skip condition**: applies only to claims about code this skill produces/modifies/audits. Read-only reconnaissance (mapping, search, recall) is exempt.
+
+## Grilling integration (Marcel Point #2 do Gabriel, 2026-09-01)
+
+Before any plan/strategy recommendation in this skill, invoke the `grilling` primitive (frontier-drain interview) to drain unknowns before scoring dimensions or finalizing the plan.
+
+**Trigger conditions in this skill**:
+- **Stage 2 (9-DIMENSION ANALYSIS)** — before scoring dimensions <7, drain the unknowns that would change the amplifier strategy
+- **Stage 3 (PLAN STRUCTURE)** — before writing the plan, enumerate unknowns the agent assumed
+- **Stage 4 (AMPLIFICATION CHECK)** — before the "if any dim <7" recommendation, drain unknowns that would change which dim to amplify
+- **MCTS planning** — before choosing among 2+ architectural paths, grill the path-selection criteria
+
+**Skip conditions**: pure documentation plans (no code references); MCTS already explored the decision space (the MCTS itself IS grilling done by code).
+
+**Companion**: `decision-canvas` (structured form for plan-authoring; grilling = conversational form). Cross-reference: `~/.claude/skills/grilling/SKILL.md`. Universal primitive — applied transversalmente em 5 skills per Marcel Point #2.
 
 ---
 

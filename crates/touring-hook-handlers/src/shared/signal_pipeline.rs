@@ -40,7 +40,9 @@ use touring_code::ast::{SymbolIndex, compute_enriched_blast_radius};
 // reaching back into this crate. Re-exported here so every historical
 // `crate::shared::signal_pipeline::{SignalContext, SignalLayer}` path — and the
 // `impl SignalLayer` blocks below — keep resolving unchanged.
-pub use touring_hooks_shared::signal_layer::{LayerMetrics, SignalContext, SignalLayer};
+pub use touring_hooks_shared::signal_layer::{
+    LayerMetrics, ProposedChange, SignalContext, SignalLayer,
+};
 
 // ─── Pipeline ───────────────────────────────────────────────────────────
 
@@ -612,11 +614,95 @@ impl SignalLayer for HnswSignalLayer {
     }
 }
 
+// ─── S0 (2026-09-01): the hook call sites' SignalContext v2 ─────────────
+//
+// The three pre-hooks used to run their pipelines on
+// `SignalContext::new(&rel_path, "")` — no tool, no proposed change — so no
+// `SignalLayer` could look at the code about to be written. These builders are
+// the single place the live contexts are assembled; a layer that needs the
+// proposal reads `ctx.proposed` / `ctx.analysable_text()`.
+
+/// Context for `pre_write`: the whole proposed file content travels with it.
+pub fn context_for_write<'a>(rel_path: &'a str, content: &'a str, cila: usize) -> SignalContext<'a> {
+    SignalContext::new(rel_path, "")
+        .with_cila(cila)
+        .with_hook("pre_write")
+        .with_tool_name("Write")
+        .with_proposed(ProposedChange::Write { content })
+}
+
+/// Context for `pre_edit`: the exact replacement travels with it.
+pub fn context_for_edit<'a>(
+    rel_path: &'a str,
+    old_string: &'a str,
+    new_string: &'a str,
+    cila: usize,
+) -> SignalContext<'a> {
+    SignalContext::new(rel_path, "")
+        .with_cila(cila)
+        .with_hook("pre_edit")
+        .with_tool_name("Edit")
+        .with_proposed(ProposedChange::Edit {
+            old_string,
+            new_string,
+        })
+}
+
+/// Context for `pre_read`: no mutation, only the tool identity.
+pub fn context_for_read(rel_path: &str, cila: usize) -> SignalContext<'_> {
+    SignalContext::new(rel_path, "")
+        .with_cila(cila)
+        .with_hook("pre_read")
+        .with_tool_name("Read")
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── S0 (2026-09-01): the three hook call sites build their context here ──
+
+    #[test]
+    fn context_for_write_carries_tool_and_proposed_content() {
+        let ctx = context_for_write("src/new.rs", "fn fresh() {}", 4);
+        assert_eq!(ctx.hook_name, "pre_write");
+        assert_eq!(ctx.tool_name, "Write");
+        assert_eq!(ctx.cila_level, 4);
+        assert_eq!(ctx.file_path, "src/new.rs");
+        assert_eq!(
+            ctx.proposed,
+            Some(ProposedChange::Write {
+                content: "fn fresh() {}"
+            })
+        );
+        assert_eq!(ctx.analysable_text(), "fn fresh() {}");
+    }
+
+    #[test]
+    fn context_for_edit_carries_old_and_new_strings() {
+        let ctx = context_for_edit("src/lib.rs", "fn a() {}", "fn a() { 1 }", 3);
+        assert_eq!(ctx.hook_name, "pre_edit");
+        assert_eq!(ctx.tool_name, "Edit");
+        assert_eq!(
+            ctx.proposed,
+            Some(ProposedChange::Edit {
+                old_string: "fn a() {}",
+                new_string: "fn a() { 1 }"
+            })
+        );
+        assert_eq!(ctx.analysable_text(), "fn a() { 1 }");
+    }
+
+    #[test]
+    fn context_for_read_has_tool_but_no_proposal() {
+        let ctx = context_for_read("src/lib.rs", 2);
+        assert_eq!(ctx.hook_name, "pre_read");
+        assert_eq!(ctx.tool_name, "Read");
+        assert!(ctx.proposed.is_none());
+        assert_eq!(ctx.analysable_text(), "", "nothing proposed, nothing on hand");
+    }
 
     #[test]
     fn test_empty_pipeline_returns_none() {

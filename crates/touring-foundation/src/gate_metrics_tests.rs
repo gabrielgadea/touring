@@ -6,6 +6,21 @@ fn fresh_metrics() -> GateMetrics {
     GateMetrics::default()
 }
 
+/// F0.3d (2026-09-01): a per-hook dispatch counter. `hook_dispatch_latency`
+/// aggregates every hook, so `post-bash` and `post-tool-rl` were
+/// indistinguishable while chasing the live post-bash deliveries that never
+/// reached the mirror (42/47 lost, no daemon-side evidence either way).
+#[test]
+fn hook_dispatch_by_name_counts_per_hook() {
+    record_hook_dispatch_named("f03d-test-post-bash");
+    record_hook_dispatch_named("f03d-test-post-bash");
+    record_hook_dispatch_named("f03d-test-post-tool-rl");
+    let by_name = hook_dispatch_by_name();
+    assert_eq!(by_name.get("f03d-test-post-bash").copied(), Some(2));
+    assert_eq!(by_name.get("f03d-test-post-tool-rl").copied(), Some(1));
+    assert!(!by_name.contains_key("f03d-never-dispatched"));
+}
+
 #[test]
 fn test_default_counters_are_zero() {
     let m = fresh_metrics();

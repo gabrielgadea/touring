@@ -141,7 +141,11 @@ pub use touring_cli::{cli_handlers, cli_handlers_decompose};
 /// historical `crate::shared::<submodule>` paths resolve byte-identically.
 pub mod shared {
     pub mod hook_helpers;
+    pub mod cross_caller;
     pub mod metadata_collector;
+    pub mod missing_imports;
+    pub mod related_symbols;
+    pub mod secrets_signal;
     pub mod signal_pipeline;
     #[cfg(feature = "tantivy-fts")]
     pub use touring_hook_runtime::shared::tantivy_stream;
@@ -149,7 +153,7 @@ pub mod shared {
     pub use touring_hooks_shared::{
         antipatterns, api_cascade_bridge, ast_grep_signal, bash_ast_validator, cila, command_hash,
         detect_language, feature_flags, gate_metrics, job_registry, metadata_dedup, mpatch_preview,
-        parser_cache_global, patterns, query_cache, result_ext, risk_patterns, span_context,
-        thread_pool,
+        parser_cache_global, patterns, qa_syntax, query_cache, result_ext, risk_patterns,
+        span_context, thread_pool,
     };
 }

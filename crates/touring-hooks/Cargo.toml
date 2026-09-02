@@ -28,7 +28,13 @@ hooks-active = ["touring-dispatch/hooks-active"]
 hooks-noop = ["touring-dispatch/hooks-noop"]
 default = ["hooks-active", "all-hooks", "templates", "shadow-workspace", "quantization", "u4-quantization", "persistence", "gpu-compute", "tantivy-fts", "inferlets-wasm", "rkyv-ipc", "nlp-enrichment", "inventory-registry", "capnp-server", "semantic-embeddings", "txn_lock_enforcement"]
 capnp-server = ["touring-dispatch/capnp-server"]
-all-hooks = ["touring-dispatch/all-hooks"]
+# F0.3c (2026-09-01): `all-hooks` MUST also enable this crate's OWN hook
+# features — the standalone `match` arms in `src/main.rs` are gated on
+# `cfg(feature = "pre-hooks" | "post-hooks" | …)` of THIS crate. Forwarding
+# only to touring-dispatch compiled every standalone arm out, so a hook that
+# missed the daemon fast-path answered `unknown subcommand` (silent loss of
+# 42/47 live post-bash deliveries). Guard: tests/feature_parity_standalone.rs.
+all-hooks = ["touring-dispatch/all-hooks", "pre-hooks", "post-hooks", "session-hooks", "utilities"]
 pre-hooks = ["touring-dispatch/pre-hooks"]
 post-hooks = ["touring-dispatch/post-hooks"]
 session-hooks = ["touring-dispatch/session-hooks"]

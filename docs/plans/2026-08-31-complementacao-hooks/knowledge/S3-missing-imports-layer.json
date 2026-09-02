@@ -1,0 +1,45 @@
+{
+  "phase": "S3-missing-imports-layer",
+  "entities": [
+    {
+      "entity_id": "phase:S3-missing-imports-layer",
+      "type": "phase",
+      "description": "S3 MissingImportsLayer entregue: imports do CONTEUDO PROPOSTO via extract_imports_resolved (use-lists agrupados agora achatados por expand_use_arg \u2014 antes cada import agrupado lia como faltante; alias conta pelo alias; ultimo segmento em vez de ends_with); fonte dos tipos conhecidos = find_pub_symbols_by_name (IN indexado por nome, same-crate first) em vez de all_pub_symbols (scan da wiring_map inteira por hook) \u2014 pre_edit migrado para a mesma fonte; suggest_imports_for gera use path crate-aware (touring_code::ast::x vs crate::x, lib.rs/mod.rs colapsados; legado crate::crates::touring-code::src corrigido); lista unica de builtins is_builtin_type_name para os 3 detectores; layer 'missing_imports' no pipeline do pre_write com lookup lazy (arquivo limpo = 0 DB); teste de integracao prova o sinal [import] com o path concreto."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:S3-missing-imports-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S3-missing-imports-layer|produces|memory:loop:task_1788294728027014117:S3-missing-imports-layer:done",
+      "source": "phase:S3-missing-imports-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:S3-missing-imports-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S3-missing-imports-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S3-missing-imports-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S3-missing-imports-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S3-missing-imports-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "phase": "F0.3c-standalone-post-bash-parity",
+  "entities": [
+    {
+      "entity_id": "phase:F0.3c-standalone-post-bash-parity",
+      "type": "phase",
+      "description": "Causa-raiz: all-hooks da fachada touring-hooks so encaminhava a touring-dispatch/all-hooks e nunca ligava pre-hooks/post-hooks/session-hooks/utilities proprias -> todos os bracos standalone de main.rs compilados fora (unknown subcommand em dev e toolchain). Fix no Cargo.toml + guard tests/feature_parity_standalone.rs (cfg + binario real spawnado com TOURING_NO_DAEMON=1: post-bash vivo, trace route=standalone, stdin ok, session_id)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:F0.3c-standalone-post-bash-parity:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F0.3c-standalone-post-bash-parity|produces|memory:loop:task_1788294728027014117:F0.3c-standalone-post-bash-parity:done",
+      "source": "phase:F0.3c-standalone-post-bash-parity",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:F0.3c-standalone-post-bash-parity:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3c-standalone-post-bash-parity:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3c-standalone-post-bash-parity:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3c-standalone-post-bash-parity:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3c-standalone-post-bash-parity:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}
