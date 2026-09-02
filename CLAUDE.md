@@ -255,9 +255,17 @@ timestamp: 2026-08-20T11:15:00-03:00
     (b) `read_stdin` tolera stdin não-bloqueante (`EAGAIN` esperado até EOF) e expõe o estado;
     (c) `all-hooks` liga `pre-hooks/post-hooks/session-hooks/utilities` + guard
     `tests/feature_parity_standalone.rs` (cfg + binário real com `TOURING_NO_DAEMON=1`);
-    (d) `hook_dispatch_by_name` em `touring gate-metrics -j`. Causa-raiz do vivo AINDA
-    aberta — o trace (a) é o instrumento: após propagar a toolchain, 1 Bash vivo e ler
-    `~/.claude/touring/hook_trace.jsonl`. Memórias: `f0.3:post-bash-entrega-viva:2026-09-01`,
+    (d) `hook_dispatch_by_name` em `touring gate-metrics -j`. **Causa-raiz do vivo FECHADA
+    (02/09, toolchain 30.4.30 propagada, trace vivo)**: o `post-bash` **nunca era lançado** — o
+    registro em `~/.claude/settings.json` (PostToolUse/Bash) carrega `"if": "Bash(cargo *|rustc *|
+    touring *|cd *rust*|*touring*|*cargo*|*rustc*)"` (o `pre-bash` tem o mesmo); em 8 Bash vivos o
+    trace mostrou `post-bash` em 1 (texto com `["touring", …]`), e `touring index status -j` /
+    `touring doctor -j | …` NÃO o dispararam, enquanto `post-tool-rl`/`post-tool-batch` (matcher
+    `*`, sem `if`) rodaram em todos; quando roda, o caminho é íntegro (`route=daemon`,
+    `exit=daemon-json`, `post_bash_dispatched` 0→1). Fix (settings.json, human gate): remover o
+    `if` do `post-bash`. Lição: 34+ hipóteses a jusante (stdin, breaker, standalone) de um
+    processo que não nascia — o primeiro instrumento deve provar que o processo EXISTE.
+    Memórias: `f0.3:causa-raiz-fechada:2026-09-02` (supersedes `f0.3:post-bash-entrega-viva:2026-09-01`),
     `licao:fachada-all-hooks-nao-liga-features-proprias:2026-09-01`.
     **Wave 1 (02/09, mesma sessão)**: `SignalContext` v2 (`ProposedChange` Write/Edit + `tool_name` +
     `analysable_text()`, `touring-hooks-shared/src/signal_layer.rs`) montado nos 3 pré-hooks por

@@ -151,3 +151,19 @@ A3 RelatedSymbolsLayer (pre_write) entregue com motor deterministico: nomes que 
 ## 2026-09-01T23:09:55.106126-03:00 — A2-assists-cross-caller-layer done
 
 A2 CrossCallerLayer (pre_edit) entregue: quando o Edit MUDA uma chamada (conjunto de expressoes name(...) sem whitespace difere entre old/new; definicoes fn/def/function e macros name!( nao sao chamadas; keywords e nomes <4 chars excluidos), o SymbolStore (find_references) responde os OUTROS call sites -> '[C08] total changes here and has N other call sites in M files: f:l …' (cap 5 callees, 4 sites nomeados). O pipeline do pre_edit passa a rodar tambem quando so este sinal existe (antes exigia contexto assembled nao-vazio). Motor deterministico; a rota ANN de sitios analogos fica como v2 com o mesmo gatilho.
+
+## 2026-09-01T23:20:00-03:00 — convergência medida, commit e propagação iniciada
+
+- `loop_converged.py` exit 0: DAG 17/17 · quality Platinum 0.937 · 0 P0 · escopo inteiro · orphans baseline (5389) · cargo check verde (test+clippy rodados à mão nos 4 crates tocados: touring-code 700, hooks-core 488, storage(knowledge) 247, handlers(prod) 674; clippy -D warnings limpo) · `touring e2e` 0.846.
+- Commit `4440fb1` na branch `safety/2026-08-31-audit-closure` (waves 0-2, 87 arquivos; working tree limpo).
+- Bump `Cargo.toml` 30.4.29 → 30.4.30 e `scripts/propagate-release.sh 30.4.30` disparado (gates → build release + update-touring → freeze → default → update por projeto → prova comportamental). Veredito do `hook_trace.jsonl` (causa-raiz F0.3) na entrada seguinte.
+- Instrumentos que só existem no binário novo: `hook_dispatch_by_name` em `touring gate-metrics -j` (vazio no daemon 30.4.29) e `hooks_complement` em `touring kpi -j` (null no 30.4.29) — medidos ANTES do restart para baseline honesta.
+
+## 2026-09-01T23:45:00-03:00 — propagação 30.4.30 verificada · causa-raiz F0.3 FECHADA
+
+- Propagação: build release 6m45s · update-touring (daemon global PID novo, 30.4.30) · toolchain congelada e default · `analise`/`konverter` 30.4.29→30.4.30 · prova comportamental 39/39 · verify OK. Doctor: `wiring_diagnostic` warning (pré-existente desde o início da sessão).
+- `hook_trace.jsonl` existe (a env `TOURING_HOOK_TRACE_FILE` do `settings.json` alcança os hooks) — 48 linhas ao fim da forense; `route/exit_reason/stdin_state` presentes em todas.
+- **Veredito**: o `post-bash` NÃO é lançado pelo Claude Code na maioria dos Bash. Registro em `~/.claude/settings.json`: `touring-hook post-bash` com `"if": "Bash(cargo *|rustc *|touring *|cd *rust*|*touring*|*cargo*|*rustc*)"` (idem `pre-bash`). Em 8 Bash após o restart, `post-bash` apareceu no trace em 1 (heredoc python com o texto `["touring", …]`/`projects/touring/`); `echo …` (probe A), `touring index status -j` (probe B) e `touring doctor -j | …` não o dispararam — `post-tool-rl`/`post-tool-batch` (matcher `*`, sem `if`) rodaram em todos. Quando roda: `route=daemon`, `exit=daemon-json`; `hooks_complement.post_bash_dispatched` 0→1.
+- Consequência: as hipóteses da forense de 01/09 (stdin não-bloqueante, circuit breaker, fallback standalone) estavam a jusante de um processo que nunca nascia; o fallback standalone morto (F0.3c) era real, mas não era a causa do vivo.
+- Fix proposto (settings.json → human gate, não aplicado): remover o `if` do `post-bash`; decidir o do `pre-bash`. Refinamento F9: `post_bash_delivery_ratio` = 5.0 porque o numerador conta entregas ao mirror de qualquer origem (CLI `index find` etc.) — separar por origem.
+- Memórias: `f0.3:causa-raiz-fechada:2026-09-02` (supersedes `f0.3:post-bash-entrega-viva:2026-09-01`).
