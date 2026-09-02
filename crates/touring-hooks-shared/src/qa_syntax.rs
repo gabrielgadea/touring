@@ -68,6 +68,46 @@ pub fn validate_python_file(path: &Path) -> SyntaxResult {
     }
 }
 
+/// S7 (2026-09-01) — `SignalLayer` that parses every proposed Python **file**
+/// before it is written (`SignalContext` v2 carries the content).
+///
+/// Scope, stated so the silence is honest (E4): only a `Write` proposal is a
+/// whole module and can be parsed; an `Edit`'s `new_string` is a fragment
+/// out of context and would only manufacture false positives, so it is
+/// skipped until the edit can be applied to the on-disk source. `pre_read`
+/// carries no proposal and is skipped too. Cost: tree-sitter parse, <1 ms.
+pub struct PySyntaxSignalLayer;
+
+impl crate::signal_layer::SignalLayer for PySyntaxSignalLayer {
+    fn name(&self) -> &'static str {
+        "py_syntax"
+    }
+
+    fn enrich(&self, ctx: &crate::signal_layer::SignalContext<'_>) -> Vec<(f32, String)> {
+        if !ctx.file_path.ends_with(".py") {
+            return Vec::new();
+        }
+        let Some(crate::signal_layer::ProposedChange::Write { content }) = ctx.proposed else {
+            return Vec::new();
+        };
+        if content.trim().is_empty() {
+            return Vec::new();
+        }
+        let result = validate_python_syntax(content);
+        if result.valid {
+            return Vec::new();
+        }
+        // 0.95: a file that will not even parse outranks every advisory signal.
+        vec![(
+            0.95,
+            format!(
+                "[py-syntax] {}: {} — the file would not import; fix the syntax before writing",
+                ctx.file_path, result.error
+            ),
+        )]
+    }
+}
+
 /// Compose JSON output matching the Python hook's contract.
 pub fn compose_json(file_path: &str, result: &SyntaxResult) -> serde_json::Value {
     let mut json = serde_json::json!({
@@ -282,5 +322,57 @@ if (n := len(data)) > 10:
 
         let result = validate_python_file(&file_path);
         assert!(!result.valid, "invalid temp file should fail");
+    }
+
+    // ── S7 (2026-09-01): PySyntaxSignalLayer — parse the proposed .py Write ──
+    use crate::signal_layer::{ProposedChange, SignalContext, SignalLayer};
+
+    #[test]
+    fn s7_layer_flags_a_proposed_python_file_with_a_syntax_error() {
+        let layer = PySyntaxSignalLayer;
+        let ctx = SignalContext::new("scripts/new_tool.py", "")
+            .with_hook("pre_write")
+            .with_tool_name("Write")
+            .with_proposed(ProposedChange::Write {
+                content: "def foo(:\n    return 1\n",
+            });
+        let signals = layer.enrich(&ctx);
+        assert_eq!(signals.len(), 1, "{signals:?}");
+        let (score, text) = &signals[0];
+        assert!(*score >= 0.9, "syntax error is a top-tier signal: {score}");
+        assert!(text.contains("[py-syntax]") && text.contains("scripts/new_tool.py"), "{text}");
+    }
+
+    #[test]
+    fn s7_layer_is_silent_for_valid_python_and_non_python() {
+        let layer = PySyntaxSignalLayer;
+        let ok = SignalContext::new("scripts/ok.py", "")
+            .with_hook("pre_write")
+            .with_proposed(ProposedChange::Write {
+                content: "def foo():\n    return 1\n",
+            });
+        assert!(layer.enrich(&ok).is_empty());
+        let rs = SignalContext::new("src/lib.rs", "")
+            .with_hook("pre_write")
+            .with_proposed(ProposedChange::Write {
+                content: "def foo(:\n",
+            });
+        assert!(layer.enrich(&rs).is_empty(), "not Python — never parsed as Python");
+    }
+
+    #[test]
+    fn s7_layer_skips_edit_fragments_and_empty_proposals() {
+        let layer = PySyntaxSignalLayer;
+        // An Edit's new_string is a fragment: out of context it is not a
+        // module, so parsing it would only manufacture false positives.
+        let edit = SignalContext::new("scripts/tool.py", "")
+            .with_hook("pre_edit")
+            .with_proposed(ProposedChange::Edit {
+                old_string: "    return 1",
+                new_string: "    return 2",
+            });
+        assert!(layer.enrich(&edit).is_empty());
+        let none = SignalContext::new("scripts/tool.py", "def foo(:\n").with_hook("pre_read");
+        assert!(layer.enrich(&none).is_empty(), "no proposal ⇒ nothing to gate");
     }
 }

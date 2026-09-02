@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.3333333333333333,
+      "actual": 0.20134228187919465,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -110,18 +110,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 0.0,
+      "actual": 1141.142857142857,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 800.0
     },
     {
-      "actual": 683.0,
+      "actual": 596.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 527359.0,
+      "actual": 598015.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 323839.0,
+      "actual": 990719.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,18 +176,18 @@
       "threshold": 0.7
     },
     {
-      "actual": null,
+      "actual": 0.2857142857142857,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.4
     },
     {
-      "actual": 1.0,
+      "actual": 0.6470588235294118,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
@@ -198,7 +198,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 1.0,
+      "actual": 1.7142857142857142,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -466,40 +466,47 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 361,
+      "exception": 391,
       "output-limit": 2,
       "proc-exit": 3,
-      "timeout": 100
+      "timeout": 102
     },
     "by_language": {
       "?": 1,
-      "bash": 2912,
+      "bash": 3071,
       "go": 1,
       "js": 44,
       "perl": 4,
       "php": 1,
-      "python": 2706,
+      "python": 2820,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 5263,
-    "runs_total": 5730,
+    "runs_ok": 5504,
+    "runs_total": 6003,
     "source": "run_journal.jsonl",
-    "success_rate": 0.918499127399651,
-    "wasted_attempts_retry_pairs": 280
+    "success_rate": 0.9168748958853906,
+    "wasted_attempts_retry_pairs": 304
+  },
+  "code_mode_signal_use": {
+    "available": true,
+    "ratio": 1.125,
+    "total": 8,
+    "total_calls": 20,
+    "used": 9
   },
   "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-01",
   "summary": {
-    "advisory": 8,
+    "advisory": 10,
     "failed": 0,
-    "passed": 17,
+    "passed": 16,
     "regressions": 0,
-    "stub": 16,
+    "stub": 15,
     "total": 41
   }
 }

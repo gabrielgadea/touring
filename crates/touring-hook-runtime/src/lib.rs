@@ -44,6 +44,7 @@ pub mod gotcha_loader;
 pub mod hook_memory;
 pub mod hook_runtime;
 pub mod hook_runtime_ext;
+pub mod hook_trace;
 pub mod inferlets;
 #[cfg(feature = "inferlets-wasm")]
 pub mod inferlets_assets;

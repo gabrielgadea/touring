@@ -40,17 +40,11 @@ pub fn enrich_with_callgraph(
     let graph: CallGraph = build_call_graph(source, lang);
     let target = target_symbol?;
 
-    let callers: Vec<String> = graph
-        .callers_of(target)
-        .iter()
-        .map(|s| s.caller.clone())
-        .collect();
-
-    let callees: Vec<String> = graph
-        .callees_of(target)
-        .iter()
-        .map(|s| s.callee.clone())
-        .collect();
+    // S10 (2026-09-02): DISTINCT callers/callees — a call site is not a
+    // caller. `main` calling `helper` six times used to read as a 6-caller
+    // HOTSPOT with `callers: [main, main, main, main, main (+1 more)]`.
+    let callers: Vec<String> = distinct(graph.callers_of(target).iter().map(|s| s.caller.clone()));
+    let callees: Vec<String> = distinct(graph.callees_of(target).iter().map(|s| s.callee.clone()));
 
     if callers.is_empty() && callees.is_empty() {
         return None;
@@ -65,6 +59,17 @@ pub fn enrich_with_callgraph(
         transitive_impact,
         is_hotspot,
     })
+}
+
+/// First-occurrence order, duplicates dropped.
+fn distinct(names: impl Iterator<Item = String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for name in names {
+        if !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    out
 }
 
 /// Format enriched blast info as a context string for injection.
@@ -126,6 +131,38 @@ def main():
         assert!(info.is_some());
         let info = info.unwrap();
         assert!(info.callers.contains(&"main".to_string()));
+    }
+
+    /// S10 (2026-09-02): one caller invoking the target six times is ONE
+    /// caller — before, every call site became an entry, so `main` calling
+    /// `helper` six times read as a 6-caller HOTSPOT and the context said
+    /// `callers: [main, main, main, main, main (+1 more)]`.
+    #[test]
+    fn callers_and_callees_are_distinct_so_hotspot_counts_callers_not_call_sites() {
+        let mut source = String::from("def helper():\n    pass\n\ndef main():\n");
+        for _ in 0..6 {
+            source.push_str("    helper()\n");
+        }
+        let info = enrich_with_callgraph(&source, "python", Some("helper")).expect("some");
+        assert_eq!(info.callers, vec!["main".to_string()], "{:?}", info.callers);
+        assert!(!info.is_hotspot, "6 call sites from 1 caller is not a hotspot");
+        assert_eq!(info.transitive_impact, 1);
+
+        let info = enrich_with_callgraph(&source, "python", Some("main")).expect("some");
+        assert_eq!(info.callees, vec!["helper".to_string()], "{:?}", info.callees);
+        assert_eq!(format_callgraph_context(&info, "main"), "calls: [helper]");
+    }
+
+    /// S10 (2026-09-02, ex-B4): TS/JS were always dispatched by
+    /// `build_call_graph`; the hooks' extension filter was the only gap.
+    #[test]
+    fn typescript_and_javascript_sources_enrich_like_python() {
+        let src = "function helper() { return 1; }\nfunction main() { helper(); helper(); }\n";
+        for lang in ["typescript", "javascript"] {
+            let info = enrich_with_callgraph(src, lang, Some("helper"))
+                .unwrap_or_else(|| panic!("{lang}: expected call graph data"));
+            assert_eq!(info.callers, vec!["main".to_string()], "{lang}");
+        }
     }
 
     #[test]

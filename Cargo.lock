@@ -13754,6 +13754,7 @@ dependencies = [
  "touring-hooks-shared",
  "touring-intelligence",
  "touring-orchestration",
+ "touring-quality",
  "touring-resilience",
  "touring-simd",
  "tracing",
@@ -13766,6 +13767,7 @@ version = "30.4.29"
 dependencies = [
  "blake3",
  "chrono",
+ "libc",
  "moka",
  "once_cell",
  "petgraph 0.6.5",

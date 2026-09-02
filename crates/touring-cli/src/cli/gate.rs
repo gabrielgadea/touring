@@ -8,8 +8,20 @@ use crate::runtime::HookRuntime;
 /// enrichment policy. Reports fast-path vs full-enrichment counts and ratios.
 pub fn cli_gate_metrics(_rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
     let snapshot = crate::shared::gate_metrics::GateMetricsSnapshot::capture();
-    serde_json::to_string(&snapshot)
-        .unwrap_or_else(|e| format!("{{\"error\":\"serialize failed: {e}\"}}"))
+    let mut value = match serde_json::to_value(&snapshot) {
+        Ok(v) => v,
+        Err(e) => return format!("{{\"error\":\"serialize failed: {e}\"}}"),
+    };
+    // F0.3d (2026-09-01): per-hook dispatch counts as a SIBLING key — the
+    // snapshot struct (and its golden JSON tests) stays untouched.
+    if let serde_json::Value::Object(map) = &mut value {
+        let by_name = touring_foundation::gate_metrics::hook_dispatch_by_name();
+        map.insert(
+            "hook_dispatch_by_name".to_string(),
+            serde_json::to_value(by_name).unwrap_or(serde_json::Value::Null),
+        );
+    }
+    value.to_string()
 }
 /// Mirror CEG counter increments from a CLI process into the daemon's
 /// process-local atomics. Closes the **observability boundary** so that

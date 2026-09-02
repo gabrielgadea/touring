@@ -128,46 +128,9 @@ pub fn detect_unresolved_references(
 
 /// Check if a name is a common builtin type (not needing import).
 fn is_builtin_type(name: &str) -> bool {
-    matches!(
-        name,
-        "String"
-            | "Vec"
-            | "Option"
-            | "Result"
-            | "Box"
-            | "Arc"
-            | "Mutex"
-            | "RwLock"
-            | "HashMap"
-            | "HashSet"
-            | "BTreeMap"
-            | "BTreeSet"
-            | "VecDeque"
-            | "Path"
-            | "PathBuf"
-            | "Duration"
-            | "Instant"
-            | "Ok"
-            | "Err"
-            | "Some"
-            | "None"
-            | "Self"
-            | "Default"
-            | "Send"
-            | "Sync"
-            | "Clone"
-            | "Debug"
-            | "Display"
-            | "Serialize"
-            | "Deserialize"
-            | "True"
-            | "False"
-            | "Array"
-            | "Object"
-            | "Map"
-            | "Set"
-            | "Promise"
-    )
+    // S3 (2026-09-02): one list for the three detectors — this copy and the
+    // `pre_edit` one had drifted apart.
+    crate::ast::import_resolver::is_builtin_type_name(name)
 }
 
 /// Detect pub use re-exports in source code.
@@ -216,18 +179,30 @@ pub fn suggest_imports(
     unresolved: &[String],
     known_modules: &[(String, String)],
 ) -> Vec<ImportSuggestion> {
+    suggest_imports_for(unresolved, known_modules, None)
+}
+
+/// [`suggest_imports`] with the CONSUMING file known, so the `use` path is
+/// crate-aware (S3, 2026-09-02).
+///
+/// The wiring map stores workspace-relative files (`crates/<crate>/src/…`);
+/// the legacy `trim_start_matches("src/")` left them intact and the
+/// suggestion read `crate::crates::touring-code::src::ast::…`. Now: same
+/// crate as `target_file` → `crate::…`; another crate → its snake_case
+/// package name; `lib.rs`/`main.rs`/`mod.rs` collapse to their module.
+pub fn suggest_imports_for(
+    unresolved: &[String],
+    known_modules: &[(String, String)],
+    target_file: Option<&str>,
+) -> Vec<ImportSuggestion> {
+    let target_crate = target_file.and_then(|t| split_crate_dir(t).0);
     let mut suggestions = Vec::new();
     for name in unresolved {
         for (sym_name, module_file) in known_modules {
             if sym_name == name {
-                // Convert module_file path to Rust module path for the suggestion
-                let module_path = module_file
-                    .trim_start_matches("src/")
-                    .trim_end_matches(".rs")
-                    .replace('/', "::");
                 suggestions.push(ImportSuggestion {
                     symbol_name: name.clone(),
-                    source_module: format!("crate::{module_path}"),
+                    source_module: use_path_for_module(module_file, target_crate),
                     confidence: 0.8,
                     reason: format!("pub symbol found in {module_file}"),
                 });
@@ -236,6 +211,41 @@ pub fn suggest_imports(
         }
     }
     suggestions
+}
+
+/// `("crates/touring-code", "ast/wiring.rs")` for a workspace path;
+/// `(None, "tfidf.rs")` for a bare `src/tfidf.rs`; `(None, path)` otherwise.
+fn split_crate_dir(path: &str) -> (Option<&str>, &str) {
+    if let Some(idx) = path.find("/src/") {
+        (Some(&path[..idx]), &path[idx + "/src/".len()..])
+    } else if let Some(rest) = path.strip_prefix("src/") {
+        (None, rest)
+    } else {
+        (None, path)
+    }
+}
+
+/// The `use` prefix for `module_file` as seen from a file in `target_crate`.
+fn use_path_for_module(module_file: &str, target_crate: Option<&str>) -> String {
+    let (crate_dir, rel) = split_crate_dir(module_file);
+    let root = match crate_dir {
+        Some(dir) if Some(dir) != target_crate => dir
+            .rsplit('/')
+            .next()
+            .unwrap_or(dir)
+            .replace('-', "_"),
+        _ => "crate".to_string(),
+    };
+    let rel = rel.trim_end_matches(".rs");
+    let rel = match rel {
+        "lib" | "main" | "mod" => "",
+        other => other.strip_suffix("/mod").unwrap_or(other),
+    };
+    if rel.is_empty() {
+        root
+    } else {
+        format!("{root}::{}", rel.replace('/', "::"))
+    }
 }
 
 // ── Workspace-wide feature/dependency analysis via cargo_metadata ──────
@@ -764,6 +774,61 @@ mod tests {
         // Should only produce one suggestion (first match)
         assert_eq!(suggestions.len(), 1);
         assert_eq!(suggestions[0].source_module, "crate::a");
+    }
+
+    // ── S3 (2026-09-02): crate-aware `use` paths. The wiring map stores
+    // workspace-relative files (`crates/<crate>/src/…`); `trim_start_matches("src/")`
+    // left them intact and the suggestion read `crate::crates::touring-code::src::…`.
+
+    #[test]
+    fn s3_suggest_imports_for_names_the_foreign_crate_by_its_snake_case_name() {
+        let unresolved = vec!["ImportResolver".to_string()];
+        let known = vec![(
+            "ImportResolver".to_string(),
+            "crates/touring-code/src/ast/import_resolver.rs".to_string(),
+        )];
+        let target = "crates/touring-hook-handlers/src/shared/missing_imports.rs";
+        let s = suggest_imports_for(&unresolved, &known, Some(target));
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].source_module, "touring_code::ast::import_resolver");
+    }
+
+    #[test]
+    fn s3_suggest_imports_for_uses_crate_root_inside_the_same_crate() {
+        let known = vec![(
+            "ImportResolver".to_string(),
+            "crates/touring-code/src/ast/import_resolver.rs".to_string(),
+        )];
+        let s = suggest_imports_for(
+            &["ImportResolver".to_string()],
+            &known,
+            Some("crates/touring-code/src/lib.rs"),
+        );
+        assert_eq!(s[0].source_module, "crate::ast::import_resolver");
+    }
+
+    #[test]
+    fn s3_suggest_imports_for_collapses_mod_rs_and_lib_rs_to_their_module() {
+        let known = vec![
+            ("Lang".to_string(), "crates/touring-code/src/ast/mod.rs".to_string()),
+            ("Root".to_string(), "crates/touring-code/src/lib.rs".to_string()),
+        ];
+        let s = suggest_imports_for(
+            &["Lang".to_string(), "Root".to_string()],
+            &known,
+            Some("crates/touring-cli/src/main.rs"),
+        );
+        assert_eq!(s[0].source_module, "touring_code::ast");
+        assert_eq!(s[1].source_module, "touring_code");
+    }
+
+    #[test]
+    fn s3_suggest_imports_without_a_target_keeps_the_legacy_single_crate_form() {
+        let known = vec![("TfIdfVectorizer".to_string(), "src/tfidf.rs".to_string())];
+        let legacy = suggest_imports(&["TfIdfVectorizer".to_string()], &known);
+        let explicit = suggest_imports_for(&["TfIdfVectorizer".to_string()], &known, None);
+        assert_eq!(legacy[0].source_module, "crate::tfidf");
+        assert_eq!(explicit[0].source_module, "crate::tfidf");
     }
 
     // ── WorkspaceInfo tests (cargo_metadata integration) ───────────────

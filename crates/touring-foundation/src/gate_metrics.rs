@@ -1852,6 +1852,52 @@ pub fn record_hook_dispatch_latency_us(micros: u64) {
     global().hook_dispatch_latency.record_us(micros);
 }
 
+/// F0.3d (2026-09-01): per-hook dispatch counts, keyed by hook name.
+///
+/// `hook_dispatch_latency` aggregates every hook, so while chasing live
+/// `post-bash` deliveries that never reached the signal mirror there was no
+/// daemon-side number that could say whether `post-bash` had been dispatched
+/// at all, or only its sibling `post-tool-rl`. Kept outside `GateMetrics`
+/// (a `Mutex<BTreeMap>` beside the atomics) so the snapshot struct and its
+/// golden JSON tests stay untouched; the CLI merges it as a sibling key
+/// `hook_dispatch_by_name` in `touring gate-metrics -j`.
+static HOOK_DISPATCH_BY_NAME: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::BTreeMap<String, u64>>,
+> = std::sync::OnceLock::new();
+
+/// Unix epoch (seconds) of the FIRST named dispatch in this process — the
+/// window the per-hook counts cover, so a reader can cut a cumulative sink
+/// (the signal mirror) to the same interval before dividing.
+static HOOK_DISPATCH_EPOCH: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+
+/// Count one daemon-side dispatch of `hook_name` (the actor's dispatch table
+/// lookup — counted whether or not the table has a handler for it).
+pub fn record_hook_dispatch_named(hook_name: &str) {
+    let _ = HOOK_DISPATCH_EPOCH.get_or_init(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    });
+    let map = HOOK_DISPATCH_BY_NAME.get_or_init(Default::default);
+    if let Ok(mut guard) = map.lock() {
+        *guard.entry(hook_name.to_string()).or_insert(0) += 1;
+    }
+}
+
+/// Epoch seconds of the first named dispatch (`None` before any dispatch).
+pub fn hook_dispatch_since_epoch() -> Option<u64> {
+    HOOK_DISPATCH_EPOCH.get().copied()
+}
+
+/// Snapshot of [`record_hook_dispatch_named`] counts (name → dispatches).
+pub fn hook_dispatch_by_name() -> std::collections::BTreeMap<String, u64> {
+    HOOK_DISPATCH_BY_NAME
+        .get()
+        .and_then(|m| m.lock().ok().map(|g| g.clone()))
+        .unwrap_or_default()
+}
+
 /// Record how long one `ProjectCommand::RunHook` waited in the per-project
 /// actor queue (enqueue → dequeue), in microseconds.
 ///

@@ -1,6 +1,7 @@
 use super::*;
 use crate::knowledge::{BashOutcome, FileKnowledge, FileKnowledgeDB, FileRelation};
 use tempfile::TempDir;
+use touring_code::ast::SymbolLocation;
 
 fn setup() -> (TempDir, FileKnowledgeDB) {
     let tmp = TempDir::new().unwrap();
@@ -13,6 +14,77 @@ fn test_compose_no_knowledge() {
     let (_tmp, db) = setup();
     let ctx = compose_edit_context(None, &db, "unknown.py");
     assert!(ctx.is_none());
+}
+
+/// A2 (2026-09-02): an Edit that CHANGES a call gets the other call sites of
+/// the same callee, BEFORE the edit lands (decision-matrix C08) — through the
+/// real hook entry point and the runtime's own symbol index.
+#[test]
+fn test_pre_edit_flags_analogous_call_sites_of_a_changed_call() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".claude/data")).expect("data dir");
+    std::fs::create_dir_all(root.join("src")).expect("src dir");
+    let file = root.join("src/calc.rs");
+    std::fs::write(
+        &file,
+        "fn main() {\n    let t = total(1, 2);\n    println!(\"{t}\");\n}\n",
+    )
+    .expect("write source");
+    let mut rt = HookRuntime::new(&root).expect("runtime");
+    rt.trigger_enrichment();
+    {
+        let store = rt.symbol_store().expect("runtime symbol store");
+        for (path, line) in [("src/report.rs", 12usize), ("src/summary.rs", 7usize)] {
+            store
+                .upsert_symbol(&SymbolLocation {
+                    symbol_name: "total".to_string(),
+                    file_path: path.to_string(),
+                    line,
+                    column: 4,
+                    is_definition: false,
+                    kind: Some("call".to_string()),
+                })
+                .expect("upsert call site");
+        }
+    }
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": file.display().to_string(),
+            "old_string": "total(1, 2)",
+            "new_string": "total(1, 2, 3)"
+        },
+        "tool_name": "Edit"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[C08] `total`"),
+                "pre_edit must name the analogous call sites, got: {context:?}"
+            );
+            assert!(
+                context.contains("src/report.rs:12") && context.contains("src/summary.rs:7"),
+                "{context:?}"
+            );
+        }
+        other => unreachable!("expected Context with [C08], got {other:?}"),
+    }
+}
+
+// ── S10 (2026-09-02, ex-B4): the call graph reaches TS/JS — the library
+// already dispatched them; only the hooks' `.rs`/`.py` filter kept them out.
+
+#[test]
+fn test_callgraph_signal_for_file_fires_for_typescript_and_javascript() {
+    let tmp = TempDir::new().expect("tmp");
+    let src = "function helper() { return 1; }\nfunction main() { helper(); helper(); }\n";
+    for name in ["app.ts", "app.js"] {
+        let p = tmp.path().join(name);
+        std::fs::write(&p, src).expect("write");
+        let sig = callgraph_signal_for_file(p.to_str().expect("utf8"))
+            .unwrap_or_else(|| panic!("{name}: the callgraph signal must fire for TS/JS"));
+        assert!(sig.contains("callers: [main]"), "{name}: {sig}");
+    }
 }
 
 // ── Signal 12 (Wave 5) — pre_edit rust workflow advisory ──

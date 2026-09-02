@@ -243,6 +243,43 @@ timestamp: 2026-08-20T11:15:00-03:00
     ativo em `touring kpi -j`. Próxima wave: PostToolUse wirar em satélites +
     measurement adoption (F6 secondary KPIs).
 
+13. **F0.3 — entrega viva do `post-bash` (01/09/2026, Wave 0 da strategy sinais-ativos)**:
+    sonda em sessão fresca provou que o PostToolUse(Bash) do Claude Code **não alimentava
+    o mirror** (0/47; daemon atendeu 5/47) e que o fallback standalone do `touring-hook`
+    estava **morto** em dev e toolchain — `all-hooks` da fachada `touring-hooks` só
+    encaminhava a `touring-dispatch/all-hooks` e nunca ligava as features PRÓPRIAS que
+    gateiam os braços standalone de `src/main.rs` (`_ => unknown subcommand`, exit 0, mudo).
+    Entregue sob TDD: (a) `TOURING_HOOK_TRACE_FILE` (armado no `settings.json env`) → 1 linha
+    JSON por invocação `{hook, route daemon|standalone|stateless, exit_reason, stdin_state,
+    stdin_bytes, elapsed_ms, session_id}` via `atexit` (`touring-hook-runtime/src/hook_trace.rs`);
+    (b) `read_stdin` tolera stdin não-bloqueante (`EAGAIN` esperado até EOF) e expõe o estado;
+    (c) `all-hooks` liga `pre-hooks/post-hooks/session-hooks/utilities` + guard
+    `tests/feature_parity_standalone.rs` (cfg + binário real com `TOURING_NO_DAEMON=1`);
+    (d) `hook_dispatch_by_name` em `touring gate-metrics -j`. Causa-raiz do vivo AINDA
+    aberta — o trace (a) é o instrumento: após propagar a toolchain, 1 Bash vivo e ler
+    `~/.claude/touring/hook_trace.jsonl`. Memórias: `f0.3:post-bash-entrega-viva:2026-09-01`,
+    `licao:fachada-all-hooks-nao-liga-features-proprias:2026-09-01`.
+    **Wave 1 (02/09, mesma sessão)**: `SignalContext` v2 (`ProposedChange` Write/Edit + `tool_name` +
+    `analysable_text()`, `touring-hooks-shared/src/signal_layer.rs`) montado nos 3 pré-hooks por
+    `context_for_{write,edit,read}` (`touring-hook-handlers/src/shared/signal_pipeline.rs`); layers que
+    agora veem o conteúdo PROPOSTO: `AstGrepRiskSignalLayer` (pre_write+pre_edit), `PySyntaxSignalLayer`
+    (Write .py), `SecretsSignalLayer` (F2.4 via `scan_text`, P0, pre_write+pre_edit), antipatterns com
+    `L{n}:`; KPI `hooks_complement` em `touring kpi -j`. **Gotcha**: `cargo test -p touring-hook-handlers`
+    exige `--features pre-hooks,post-hooks` (sem default features os handlers nem compilam).
+    **Wave 2 (02/09, ordem "prossiga")**: **S3** `MissingImportsLayer` (pre_write) — imports do conteúdo
+    PROPOSTO via `extract_imports_resolved` (`expand_use_arg` achata `use a::{B, c::{D as E}, *}`: antes cada
+    import agrupado lia como faltante; alias conta pelo alias; último segmento em vez de `ends_with`), tipos
+    conhecidos por `FileKnowledgeDB::find_pub_symbols_by_name` (IN por nome, same-crate first — `pre_edit`
+    migrado; antes `all_pub_symbols` varria a wiring_map inteira por edit), `use` crate-aware por
+    `suggest_imports_for` (`touring_code::ast::x`/`crate::x`; o legado gerava `crate::crates::touring-code::src::…`),
+    `is_builtin_type_name` única para os 3 detectores · **S10 (ex-B4)**: hooks gateiam o callgraph por
+    `call_graph::supports_call_graph` (TS/JS destravados) e `enrich_with_callgraph` devolve callers DISTINTOS
+    (6 chamadas de `main` liam como HOTSPOT de 6 callers) · **A3** `RelatedSymbolsLayer` (pre_write): nome que
+    o arquivo novo declara e o `SymbolStore` já define noutro arquivo → `[related] … homonym (VP-Scout chain 4)`
+    · **A2** `CrossCallerLayer` (pre_edit): chamada que o Edit MUDA × `find_references` → `[C08] … N other call
+    sites`; o pipeline do pre_edit roda mesmo sem contexto assembled. A2/A3 v1 são determinísticos (índice de
+    símbolos); a rota ANN é v2 com o mesmo gatilho. Índice nos hooks: `runtime.symbol_store()` (método).
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

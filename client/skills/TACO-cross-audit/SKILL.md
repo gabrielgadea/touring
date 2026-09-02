@@ -72,6 +72,65 @@ If a fix would shrink what the code can do, it is the wrong fix. Find the one
 that makes the code *more* of an orchestration instrument, not less. The full
 strategy catalog is in [references/potentialization.md](references/potentialization.md).
 
+## Hard rules — root-cause-before-fix + 1 human pause (added 2026-09-01, Rank #3 do plano `docs/plans/2026-09-01-skill-aprimoramento/`)
+
+Two cross-pollinated rules from `obra/superpowers:systematic-debugging` address the canonical failure modes observed in cross-audits: symptom-fix and silent-scope-reduction.
+
+### 1. **No fixes without root-cause investigation** (Iron Law, mechanism G — pre-conditional)
+
+Before proposing ANY fix in phase 5 (FIX & POTENTIALIZE), the audit MUST have completed root-cause investigation during phase 3 (DEBT SCAN). The four phases of investigation (verbatim from `systematic-debugging`):
+
+1. **Root cause** — read errors, reproduce, check changes, gather evidence
+2. **Pattern analysis** — find working examples, compare, identify differences
+3. **Hypothesis + testing** — single hypothesis, minimal test, verify
+4. **Implementation** — failing test → single fix → verify
+
+> **Red flags** (verbatim `systematic-debugging` rationalization table):
+> - "Quick fix for now, investigate later" → symptom fix
+> - "Just try changing X and see if it works" → guessing
+> - "Add multiple changes, run tests" → can't isolate
+> - "It's probably X, let me fix that" → no evidence
+> - "I've already tried 2+ fixes" → question the architecture
+>
+> The audit verdict gates on root cause being recorded. If you skipped Phase 1, you cannot propose fixes — return to phase 3 with the finding as feedback.
+
+### 2. **1 human pause before FIX phase** (gate F-mechanism)
+
+Between phase 4 (HARMONY CHECK) and phase 5 (FIX & POTENTIALIZE), the audit MUST pause for explicit human approval of the diagnosis + planned fixes. The pause is required because:
+
+- DEBT SCAN findings can be 10s or 100s of items; the human must triage
+- The plan to FIX (which items, in what order, with what tests) is a commitment that should not be auto-approved
+- Irreversible side-effects (file deletion, git operations, external API calls) require human sign-off even with REGRA #0 potentialization
+
+**Pause protocol**:
+
+```bash
+# After phase 4, before phase 5:
+echo "DEBT SCAN + HARMONY complete. N findings: <count>. Plan: <summary>"
+echo "Awaiting human approval to enter FIX phase..."
+# Stop. Wait for explicit "proceed" / "approve" / "continue".
+```
+
+If the human says "skip the pause", document the override in the phase-7 report — the absence of a recorded gate is a red flag for later audits (lesson: every gate that's overridden is a gate that wasn't).
+
+### 3. **MUST (E) — Verification before completion (transversal Marcel Point #1, 2026-09-01)**
+
+NO COMPLETION CLAIMS WITHOUT FRESH EVIDENCE. Before stating "done", "fixed", "passes", "ready", "ship", or any success synonym, you MUST have run the verification command in **this turn** and seen the output. Red-green cycle for regressions: write test → run (pass) → revert fix → run (MUST FAIL) → restore → run (pass). Source: obra `superpowers:verification-before-completion` (Iron Law) cross-pollinated 2026-09-01; closes universal gap (E) RED-GREEN-REFACTOR across 7 skills (Marcel Point #1 do Gabriel — single MUST idêntico, single commit). Rationalization table (apply verbatim):
+
+| Excuse | Reality |
+|---|---|
+| "Should work now" | RUN the verification |
+| "I'm confident" | Confidence ≠ evidence |
+| "Just this once" | No exceptions |
+| "Linter passed" | Linter ≠ compiler |
+| "Agent said success" | Verify independently |
+| "I'm tired" | Exhaustion ≠ excuse |
+| "Partial check is enough" | Partial proves nothing |
+
+**Skip condition**: applies only to claims about code this skill produces/modifies/audits. Read-only reconnaissance (mapping, search, recall) is exempt.
+
+---
+
 ## Proof discipline
 
 "Prove it in practice" is literal. A phase is not complete on assertion — it is

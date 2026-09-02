@@ -1,0 +1,45 @@
+{
+  "phase": "F0.3b-read-stdin-loud",
+  "entities": [
+    {
+      "entity_id": "phase:F0.3b-read-stdin-loud",
+      "type": "phase",
+      "description": "read_stdin tolera stdin nao-bloqueante (EAGAIN esperado ate EOF/deadline) via read_all_with_timeout; StdinReadState + last_stdin_read expostos para o trace; warn em empty/timeout/read-error/parse-error. 5 testes com socketpair (nonblocking+late shutdown, blocking, empty, timeout, nomes); revert-proof executado (sem o tratamento de WouldBlock o teste falha)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:F0.3b-read-stdin-loud:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F0.3b-read-stdin-loud|produces|memory:loop:task_1788294728027014117:F0.3b-read-stdin-loud:done",
+      "source": "phase:F0.3b-read-stdin-loud",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:F0.3b-read-stdin-loud:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3b-read-stdin-loud:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3b-read-stdin-loud:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3b-read-stdin-loud:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3b-read-stdin-loud:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

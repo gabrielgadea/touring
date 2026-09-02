@@ -1,0 +1,45 @@
+{
+  "phase": "A3-related-symbols-layer",
+  "entities": [
+    {
+      "entity_id": "phase:A3-related-symbols-layer",
+      "type": "phase",
+      "description": "A3 RelatedSymbolsLayer (pre_write) entregue com motor deterministico: nomes que o arquivo PROPOSTO declara (struct/enum/trait/type/union/fn; class/def; class/function/interface/type/enum) e que o SymbolStore (runtime.symbol_store().find_symbol) ja define em OUTRO arquivo viram '[related] X already defined in f:l (+N more) \u2014 homonym (VP-Scout chain 4)'; nomes genericos/curtos nunca chegam ao indice (MAX 8 nomes/arquivo); sinal so em Write. Rota ANN (embedding de sitios) fica como v2 \u2014 nada aqui a fecha. Modulo touring-hook-handlers/src/shared/related_symbols.rs."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:A3-related-symbols-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:A3-related-symbols-layer|produces|memory:loop:task_1788294728027014117:A3-related-symbols-layer:done",
+      "source": "phase:A3-related-symbols-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:A3-related-symbols-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:A3-related-symbols-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:A3-related-symbols-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:A3-related-symbols-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:A3-related-symbols-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

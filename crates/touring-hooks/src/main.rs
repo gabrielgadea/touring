@@ -60,8 +60,15 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let subcommand = args.get(1).map(String::as_str).unwrap_or("help");
 
+    // F0.3a (2026-09-01): one trace line per invocation when
+    // TOURING_HOOK_TRACE_FILE is set — flushed from an atexit handler so every
+    // `process::exit` below (and inside handlers) is covered.
+    touring_hook_runtime::hook_trace::install(subcommand);
+
     // Help does not need stdin
     if matches!(subcommand, "help" | "--help" | "-h") {
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason("help");
         print_help();
         process::exit(0);
     }
@@ -102,11 +109,17 @@ fn main() {
     let input: serde_json::Value = match HookRuntime::read_stdin() {
         Ok(v) => v,
         Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("stdin-error");
             eprintln!("[touring-hook] stdin error: {e}");
             // Fail open — don't block Claude Code
             process::exit(0);
         }
     };
+    // F0.3a: attribution for EVERY route (the daemon block below is skipped
+    // under TOURING_NO_DAEMON and for non-daemon subcommands).
+    touring_hook_runtime::hook_trace::set_session_id(
+        input.get("session_id").and_then(|v| v.as_str()),
+    );
 
     // ── Daemon fast-path ─────────────────────────────────────────────────
     // Pre-hooks and post-hooks that the daemon handles are attempted via socket
@@ -149,13 +162,17 @@ fn main() {
             // contamination, mixed prose+JSON) is silently swallowed and we
             // fall back to the canonical "{}" Allow shape — preserving the
             // "hooks never block CC" invariant.
+            touring_hook_runtime::hook_trace::set_route("daemon");
             if resp.output.is_empty() {
+                touring_hook_runtime::hook_trace::set_reason("daemon-empty");
                 process::exit(0);
             }
             let trimmed = resp.output.trim();
             if serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
+                touring_hook_runtime::hook_trace::set_reason("daemon-json");
                 println!("{}", resp.output);
             } else {
+                touring_hook_runtime::hook_trace::set_reason("daemon-nonjson");
                 eprintln!(
                     "[touring-hook] daemon returned non-JSON output ({} bytes), \
                      emitting canonical {{}} Allow instead",
@@ -166,16 +183,33 @@ fn main() {
             process::exit(0);
         }
         // Daemon unavailable — fall through to standalone execution below.
+        touring_hook_runtime::hook_trace::set_reason("daemon-unavailable");
         tracing::debug!(hook = subcommand, "daemon unavailable, running standalone");
     }
 
     // Stateless subcommands — no HookRuntime needed.
     // These diverge (call process::exit internally) so we match and never fall through.
     match subcommand {
-        "prompt-enhance" => run_prompt_enhance(&input),
+        "prompt-enhance" => {
+            touring_hook_runtime::hook_trace::set_route("stateless");
+            touring_hook_runtime::hook_trace::set_reason("prompt-enhance");
+            run_prompt_enhance(&input)
+        }
         #[cfg(feature = "utilities")]
-        "qa-syntax" => run_qa_syntax(&input),
+        "qa-syntax" => {
+            touring_hook_runtime::hook_trace::set_route("stateless");
+            touring_hook_runtime::hook_trace::set_reason("qa-syntax");
+            run_qa_syntax(&input)
+        }
         _ => {}
+    }
+
+    // F0.3a: from here on the hook executes STANDALONE — daemon skipped
+    // (`TOURING_NO_DAEMON`), unavailable, or a subcommand the daemon never
+    // handles. The exit reason is refined at each exit below.
+    touring_hook_runtime::hook_trace::set_route("standalone");
+    if std::env::var("TOURING_NO_DAEMON").is_ok() {
+        touring_hook_runtime::hook_trace::set_reason("no-daemon-env");
     }
 
     // Detect project root
@@ -186,6 +220,7 @@ fn main() {
     let mut runtime = match HookRuntime::new(&project_root) {
         Ok(rt) => rt,
         Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("runtime-init-err");
             eprintln!("[touring-hook] runtime init error: {e}");
             // Fail open
             process::exit(0);
@@ -317,6 +352,7 @@ fn main() {
         "decompose-event" => run_decompose_event(&mut runtime, &input),
 
         unknown => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-unknown");
             eprintln!("[touring-hook] unknown subcommand: {unknown}");
             eprintln!("Run `touring-hook help` for usage.");
             // Fail open — never block Claude Code, even for unknown hooks.
@@ -327,8 +363,12 @@ fn main() {
 
     // Handle result — post-hooks return Ok(()), pre-hooks exit internally
     match result {
-        Ok(()) => process::exit(0),
+        Ok(()) => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-ok");
+            process::exit(0)
+        }
         Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-err");
             eprintln!("[touring-hook] error in {subcommand}: {e}");
             // Fail open — never block Claude Code
             process::exit(0);

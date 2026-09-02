@@ -266,6 +266,9 @@ fn run_project_actor(mut runtime: HookRuntime, mut cmd_rx: mpsc::Receiver<Projec
                 // D1: Wire LatencyMarker — record hook entry, warn on spikes >60s.
                 let marker = LatencyMarker::new(hook_name.as_str());
                 let _ = marker.record();
+                // F0.3d: per-hook dispatch count — the only daemon-side number
+                // that tells `post-bash` apart from `post-tool-rl`.
+                touring_foundation::gate_metrics::record_hook_dispatch_named(hook_name.as_str());
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match table
                     .get(hook_name.as_str())
                 {

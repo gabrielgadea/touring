@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 25289.0,
+      "actual": 25308.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.626506877370802,
+      "actual": 0.775129886501677,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -110,7 +110,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 1099.0,
+      "actual": 1059.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -121,7 +121,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 286.0,
+      "actual": 658.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 626687.0,
+      "actual": 524287.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 561151.0,
+      "actual": 433407.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -187,29 +187,29 @@
       "threshold": 0.4
     },
     {
-      "actual": null,
+      "actual": 0.25,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": 0.2857142857142857,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.1
     },
     {
-      "actual": 0.7363636363636363,
+      "actual": 0.7394957983193278,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
@@ -242,18 +242,18 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.5238095238095238,
+      "actual": 0.47035573122529645,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
       "name": "Braço code-mode `code` — rota tomada / rota oferecida (colapso — a inspeção é negada com a rota escrita)",
       "rationale": "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
-      "actual": 0.2317596566523605,
+      "actual": 0.2512479201331115,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -264,18 +264,18 @@
       "threshold": 0.75
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.pillar_induction_ratio",
       "name": "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)",
       "rationale": "Task #6 compounding structure (the active hook layer): after the armed pillar-induction layer nudges a differential the upstream classifiers miss (master-cli or learning-memory), did the LLM's next same-session action take it (a master/recall command)? followed/emitted over the daemon lifetime, precise predicate. gte 0.50 = the master commands are reached for once nudged. DEFAULT-OFF (TOURING_PILLAR_INDUCTION_ARMED) — STUB until armed; if it stays low while armed, that is the affordance-over-persuasion evidence (telemetry thesis ①) pushing toward productization.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
-      "actual": 11.58974358974359,
+      "actual": 11.582278481012658,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
@@ -297,7 +297,7 @@
       "threshold": 2.0
     },
     {
-      "actual": 151.0,
+      "actual": 152.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -352,7 +352,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.4219948849104859,
+      "actual": 0.38927738927738925,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -385,7 +385,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.9973703351423936,
+      "actual": 0.9973773784945037,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -396,7 +396,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.17579050812185676,
+      "actual": 0.1821115779881537,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -407,7 +407,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.7788843506965815,
+      "actual": 0.7764633669996094,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -418,7 +418,7 @@
       "threshold": 0.25
     },
     {
-      "actual": 0.30663329161451813,
+      "actual": 0.33926453143534996,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.graph_contract_share",
@@ -429,7 +429,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.8633177570093458,
+      "actual": 0.876940133037694,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
@@ -466,47 +466,47 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 363,
+      "exception": 391,
       "output-limit": 2,
       "proc-exit": 3,
-      "timeout": 100
+      "timeout": 102
     },
     "by_language": {
       "?": 1,
-      "bash": 2918,
+      "bash": 3073,
       "go": 1,
       "js": 44,
       "perl": 4,
       "php": 1,
-      "python": 2706,
+      "python": 2820,
       "ruby": 4,
       "rust": 4,
       "shell": 46,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 5267,
-    "runs_total": 5736,
+    "runs_ok": 5506,
+    "runs_total": 6005,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9182357043235704,
-    "wasted_attempts_retry_pairs": 282
+    "success_rate": 0.916902581182348,
+    "wasted_attempts_retry_pairs": 304
   },
   "code_mode_signal_use": {
     "available": true,
-    "ratio": 0.375,
+    "ratio": 1.125,
     "total": 8,
-    "total_calls": 9,
-    "used": 3
+    "total_calls": 20,
+    "used": 9
   },
   "project_root": "/home/gabrielgadea/projects/analise",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-01",
   "summary": {
-    "advisory": 11,
+    "advisory": 13,
     "failed": 0,
     "passed": 21,
     "regressions": 0,
-    "stub": 9,
+    "stub": 7,
     "total": 41
   }
 }

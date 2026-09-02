@@ -664,6 +664,55 @@ fn scan(raw: &str) -> (bool, bool) {
     (false, weak)
 }
 
+/// File-level opt-out marker for fixtures that embed SAMPLE secrets on purpose
+/// (detect-secrets / gitleaks `pragma: allowlist secret` convention).
+pub const ALLOW_SECRETS_PRAGMA: &str = "touring-quality:allow-secrets";
+
+/// Text-level verdict of the F2.4 detector (S2, 2026-09-01).
+///
+/// The gate's `measure` scores a file on disk; a pre-write hook sees the
+/// content BEFORE it exists. This is the same detector over a `&str`, so
+/// the hook and the gate cannot drift apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SecretScan {
+    /// A hardcoded secret (P0): provider marker or token, connection-string
+    /// credentials, secret-named assignment, or a high-entropy literal.
+    pub strong: bool,
+    /// A secret keyword used as a code identifier, without an assigned value.
+    pub weak: bool,
+    /// 1-based line of the first strong per-line hit, when the hit is
+    /// line-addressable (`None` for a file-wide marker/token, or no hit).
+    pub first_line: Option<usize>,
+    /// The text carries [`ALLOW_SECRETS_PRAGMA`] — explicitly allowlisted.
+    pub allowlisted: bool,
+}
+
+/// Run the F2.4 detector over `raw` (the proposed content of a Write/Edit).
+pub fn scan_text(raw: &str) -> SecretScan {
+    if raw.contains(ALLOW_SECRETS_PRAGMA) {
+        return SecretScan {
+            strong: false,
+            weak: false,
+            first_line: None,
+            allowlisted: true,
+        };
+    }
+    let (strong, weak) = scan(raw);
+    let first_line = if strong {
+        raw.lines()
+            .position(line_has_strong_secret)
+            .map(|idx| idx + 1)
+    } else {
+        None
+    };
+    SecretScan {
+        strong,
+        weak,
+        first_line,
+        allowlisted: false,
+    }
+}
+
 /// Per-line strong-signal check: connection-string credentials, a secret-named
 /// assignment (quoted literal OR unquoted hex/high-entropy RHS), or a generic
 /// high-entropy quoted literal. Extracted from [`scan`] to keep its CC low.
@@ -1538,5 +1587,37 @@ mod tests {
         assert!(has_connstring_creds(
             "postgres://admin:s3cr3tP4ssw0rd@db.example.com:5432/app"
         ));
+    }
+
+    // ── S2 (2026-09-01): text-level API for the pre-write signal layer ──
+
+    #[test]
+    fn scan_text_flags_connection_string_credentials_with_the_line() {
+        let raw = "fn main() {\n    let url = \"postgres://admin:s3cr3tP4ssw0rd@db.example.com:5432/app\";\n}\n";
+        let s = scan_text(raw);
+        assert!(s.strong, "{s:?}");
+        assert!(!s.allowlisted);
+        assert_eq!(s.first_line, Some(2), "{s:?}");
+    }
+
+    #[test]
+    fn scan_text_is_clean_for_ordinary_code() {
+        let s = scan_text("pub fn add(a: i32, b: i32) -> i32 { a + b }\n");
+        assert_eq!(
+            s,
+            SecretScan {
+                strong: false,
+                weak: false,
+                first_line: None,
+                allowlisted: false
+            }
+        );
+    }
+
+    #[test]
+    fn scan_text_honours_the_allow_secrets_pragma() {
+        let raw = "// touring-quality:allow-secrets\nlet url = \"postgres://admin:s3cr3tP4ssw0rd@db.example.com/app\";\n";
+        let s = scan_text(raw);
+        assert!(s.allowlisted && !s.strong, "{s:?}");
     }
 }

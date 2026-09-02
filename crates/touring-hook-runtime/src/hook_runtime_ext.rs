@@ -5,7 +5,6 @@
 use crate::hook_runtime::{HookPersistError, HookResponse, HookRuntime, StdinError};
 use crate::hook_runtime::{find_cargo_workspace_root, hash_path};
 use serde_json::Value;
-use std::io::Read as _;
 use std::path::PathBuf;
 use touring_code::ast::IncrementalEditResult;
 use touring_code::ast::{SymbolIndex, SymbolStore};
@@ -433,23 +432,48 @@ impl HookRuntime {
     }
     /// Read and parse JSON from stdin with a 2-second timeout.
     ///
-    /// Returns `{}` if stdin is a terminal or no data arrives within timeout.
+    /// Returns `{}` if stdin is a terminal or no data arrives within timeout —
+    /// **loudly** (F0.3b, 2026-09-01): the outcome is recorded for the hook
+    /// trace ([`last_stdin_read`]) and warned, never swallowed. The reader
+    /// tolerates a non-blocking stdin (Claude Code hands hooks a libuv
+    /// socketpair) by waiting out `EAGAIN` until EOF or the deadline instead
+    /// of surfacing `WouldBlock` as "no input".
     pub fn read_stdin() -> Result<Value, StdinError> {
         use std::io::IsTerminal;
         if std::io::stdin().is_terminal() {
+            set_last_stdin_read(StdinReadState::Terminal, 0);
             return Ok(serde_json::json!({}));
         }
-        let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let mut input = String::new();
-            let result = std::io::stdin().read_to_string(&mut input);
-            let _ = tx.send((input, result));
-        });
-        match rx.recv_timeout(std::time::Duration::from_secs(2)) {
-            Ok((input, Ok(_))) if !input.trim().is_empty() => serde_json::from_str(&input)
-                .map_err(|e| StdinError(format!("JSON parse error: {e}"))),
-            Ok(_) => Ok(serde_json::json!({})),
-            Err(_) => Ok(serde_json::json!({})),
+        let (input, state) =
+            read_all_with_timeout(std::io::stdin(), std::time::Duration::from_secs(2));
+        let bytes = input.len() as u64;
+        match state {
+            StdinReadState::Ok if !input.trim().is_empty() => match serde_json::from_str(&input)
+            {
+                Ok(v) => {
+                    set_last_stdin_read(StdinReadState::Ok, bytes);
+                    Ok(v)
+                }
+                Err(e) => {
+                    set_last_stdin_read(StdinReadState::ParseError, bytes);
+                    tracing::warn!(bytes, error = %e, "hook stdin: JSON parse error");
+                    Err(StdinError(format!("JSON parse error: {e}")))
+                }
+            },
+            StdinReadState::Ok | StdinReadState::Empty => {
+                set_last_stdin_read(StdinReadState::Empty, bytes);
+                tracing::warn!("hook stdin: empty payload — handler runs on `{{}}`");
+                Ok(serde_json::json!({}))
+            }
+            degraded => {
+                set_last_stdin_read(degraded, bytes);
+                tracing::warn!(
+                    state = degraded.as_str(),
+                    bytes,
+                    "hook stdin degraded — handler runs on `{{}}`"
+                );
+                Ok(serde_json::json!({}))
+            }
         }
     }
     /// Emit hookSpecificOutput with additionalContext and explicit hookEventName.
@@ -536,5 +560,193 @@ impl HookRuntime {
         std::env::var("HOME")
             .map(|h| PathBuf::from(h).join(".claude"))
             .unwrap_or_else(|_| PathBuf::from("."))
+    }
+}
+
+/// How the hook payload read from stdin ended (F0.3b, 2026-09-01).
+///
+/// Exposed for the per-invocation trace ([`crate::hook_trace`]) so a live
+/// hook that ran on `{}` says WHY on disk instead of vanishing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StdinReadState {
+    /// `read_stdin` has not run in this process.
+    Unread,
+    /// stdin is a TTY — no payload expected.
+    Terminal,
+    /// Payload read to EOF and parsed.
+    Ok,
+    /// EOF with zero bytes.
+    Empty,
+    /// No EOF within the deadline.
+    Timeout,
+    /// A non-retryable I/O error while reading.
+    ReadError,
+    /// Bytes arrived but were not JSON.
+    ParseError,
+}
+
+impl StdinReadState {
+    /// Stable snake-ish names for the trace line.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            StdinReadState::Unread => "unread",
+            StdinReadState::Terminal => "terminal",
+            StdinReadState::Ok => "ok",
+            StdinReadState::Empty => "empty",
+            StdinReadState::Timeout => "timeout",
+            StdinReadState::ReadError => "read-error",
+            StdinReadState::ParseError => "parse-error",
+        }
+    }
+
+    fn from_u8(v: u8) -> Self {
+        match v {
+            1 => StdinReadState::Terminal,
+            2 => StdinReadState::Ok,
+            3 => StdinReadState::Empty,
+            4 => StdinReadState::Timeout,
+            5 => StdinReadState::ReadError,
+            6 => StdinReadState::ParseError,
+            _ => StdinReadState::Unread,
+        }
+    }
+}
+
+static LAST_STDIN_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static LAST_STDIN_BYTES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn set_last_stdin_read(state: StdinReadState, bytes: u64) {
+    LAST_STDIN_STATE.store(state as u8, std::sync::atomic::Ordering::Relaxed);
+    LAST_STDIN_BYTES.store(bytes, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Outcome of the last [`HookRuntime::read_stdin`] in this process:
+/// `(state, bytes_read)`. `Unread` until it runs.
+pub fn last_stdin_read() -> (StdinReadState, u64) {
+    (
+        StdinReadState::from_u8(LAST_STDIN_STATE.load(std::sync::atomic::Ordering::Relaxed)),
+        LAST_STDIN_BYTES.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
+
+/// Read `reader` to EOF on a helper thread, bounded by `timeout`.
+///
+/// Tolerates a **non-blocking** descriptor: `WouldBlock` (EAGAIN) is waited
+/// out, never surfaced as "no more input" — Claude Code hands hooks a libuv
+/// socketpair and the write side may be shut down after the child's first
+/// read, which is exactly where `read_to_string` used to drop the payload.
+/// On timeout the helper thread is abandoned (the process exits shortly
+/// after in every caller).
+pub fn read_all_with_timeout<R: std::io::Read + Send + 'static>(
+    mut reader: R,
+    timeout: std::time::Duration,
+) -> (String, StdinReadState) {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut buf: Vec<u8> = Vec::new();
+        let mut chunk = [0u8; 8192];
+        let outcome = loop {
+            match reader.read(&mut chunk) {
+                Ok(0) => break Ok(()),
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+                Err(e) => break Err(e),
+            }
+        };
+        let text = String::from_utf8_lossy(&buf).into_owned();
+        let _ = tx.send((text, outcome));
+    });
+    match rx.recv_timeout(timeout) {
+        Ok((text, Ok(()))) if text.is_empty() => (text, StdinReadState::Empty),
+        Ok((text, Ok(()))) => (text, StdinReadState::Ok),
+        Ok((text, Err(_))) => (text, StdinReadState::ReadError),
+        Err(_) => (String::new(), StdinReadState::Timeout),
+    }
+}
+
+/// F0.3b (2026-09-01) — `read_stdin` must survive the transport Claude Code
+/// actually uses (a libuv socketpair whose write side may be shut down AFTER
+/// the child's first read) and must never degrade to `{}` in silence.
+#[cfg(test)]
+mod stdin_read_tests {
+    use super::{StdinReadState, read_all_with_timeout};
+    use std::io::Write;
+    use std::os::unix::net::UnixStream;
+    use std::time::Duration;
+
+    fn payload(n: usize) -> String {
+        format!("{{\"tool_input\":{{\"command\":\"{}\"}}}}", "x".repeat(n))
+    }
+
+    /// The live failure shape: non-blocking fd, data arrives AFTER the first
+    /// read (EAGAIN with empty buffer), EOF arrives AFTER the data is consumed
+    /// (EAGAIN again). A `read_to_string` that surfaces `WouldBlock` loses the
+    /// payload; the reader must wait out EAGAIN until EOF or the deadline.
+    #[test]
+    fn nonblocking_socket_with_late_shutdown_is_read_whole() {
+        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
+        reader.set_nonblocking(true).expect("nonblocking child end");
+        let expected = payload(3000);
+        let sent = expected.clone();
+        let producer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(40));
+            writer.write_all(sent.as_bytes()).expect("write");
+            std::thread::sleep(Duration::from_millis(60));
+            writer
+                .shutdown(std::net::Shutdown::Write)
+                .expect("shutdown write side");
+        });
+        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
+        producer.join().expect("producer");
+        assert_eq!(state, StdinReadState::Ok, "input={input:?}");
+        assert_eq!(input, expected);
+    }
+
+    #[test]
+    fn blocking_socket_is_read_whole() {
+        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
+        let expected = payload(500);
+        writer.write_all(expected.as_bytes()).expect("write");
+        writer
+            .shutdown(std::net::Shutdown::Write)
+            .expect("shutdown write side");
+        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
+        assert_eq!(state, StdinReadState::Ok);
+        assert_eq!(input, expected);
+    }
+
+    #[test]
+    fn empty_input_is_reported_as_empty_not_ok() {
+        let (writer, reader) = UnixStream::pair().expect("socketpair");
+        writer
+            .shutdown(std::net::Shutdown::Write)
+            .expect("shutdown write side");
+        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
+        assert_eq!(state, StdinReadState::Empty);
+        assert!(input.is_empty());
+    }
+
+    #[test]
+    fn writer_that_never_closes_is_reported_as_timeout() {
+        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
+        writer.write_all(b"{\"partial\":").expect("write");
+        let started = std::time::Instant::now();
+        let (_input, state) = read_all_with_timeout(reader, Duration::from_millis(150));
+        assert_eq!(state, StdinReadState::Timeout);
+        assert!(started.elapsed() >= Duration::from_millis(150));
+        drop(writer);
+    }
+
+    #[test]
+    fn state_names_are_stable_for_the_trace_line() {
+        assert_eq!(StdinReadState::Ok.as_str(), "ok");
+        assert_eq!(StdinReadState::Empty.as_str(), "empty");
+        assert_eq!(StdinReadState::Timeout.as_str(), "timeout");
+        assert_eq!(StdinReadState::Terminal.as_str(), "terminal");
+        assert_eq!(StdinReadState::ReadError.as_str(), "read-error");
+        assert_eq!(StdinReadState::ParseError.as_str(), "parse-error");
     }
 }

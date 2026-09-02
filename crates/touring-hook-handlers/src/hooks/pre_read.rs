@@ -29,7 +29,7 @@ use crate::shared::metadata_collector::TokenBudget;
 use crate::shared::parser_cache_global::global_cache;
 use crate::shared::result_ext::{OptionExt, ResultExt};
 use crate::shared::signal_pipeline::{
-    SignalContext, SignalPipeline, StaticSignalLayer, build_graph_pipeline,
+    SignalPipeline, StaticSignalLayer, build_graph_pipeline, context_for_read,
 };
 use crate::shared::signals::{
     assemble_scored_context, blast_radius_signal, enrich_with_cognitive, normalize_scores,
@@ -965,11 +965,8 @@ fn build_parallel_signal_pipeline(
         ),
     );
 
-    pipeline.execute(
-        &SignalContext::new(rel_path, "")
-            .with_cila(cila_level)
-            .with_hook("pre_read"),
-    )
+    // S0 v2: tool identity travels with the context (no mutation on a read).
+    pipeline.execute(&context_for_read(rel_path, cila_level))
 }
 
 /// Default token budget for context injection (characters).

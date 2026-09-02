@@ -1,0 +1,45 @@
+{
+  "phase": "F0.3a-hook-trace-file",
+  "entities": [
+    {
+      "entity_id": "phase:F0.3a-hook-trace-file",
+      "type": "phase",
+      "description": "hook_trace.rs (touring-hook-runtime): 1 linha JSON por invocacao do touring-hook via atexit quando TOURING_HOOK_TRACE_FILE esta set (route daemon|standalone|stateless, exit_reason, stdin_state/bytes, elapsed_ms, session_id); wired em main.rs em todos os pontos de saida; env armado no settings.json (autorizado por Gabriel). 5 testes unitarios + 3 testes com o binario real."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:F0.3a-hook-trace-file:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F0.3a-hook-trace-file|produces|memory:loop:task_1788294728027014117:F0.3a-hook-trace-file:done",
+      "source": "phase:F0.3a-hook-trace-file",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:F0.3a-hook-trace-file:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3a-hook-trace-file:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3a-hook-trace-file:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3a-hook-trace-file:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3a-hook-trace-file:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

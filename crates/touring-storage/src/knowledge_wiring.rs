@@ -1605,6 +1605,63 @@ impl FileKnowledgeDB {
         Ok(entries)
     }
 
+    /// Producer rows for exactly these `names` — the per-name form of
+    /// [`Self::all_pub_symbols`] (S3, 2026-09-02).
+    ///
+    /// Returns `(symbol_name, module_file)` pairs, same-crate producers first
+    /// when `consumer_hint` (the file about to import) is under `crates/<x>/`.
+    /// Unlike [`Self::find_producer_modules_for_types`] it is NOT limited to
+    /// type kinds and applies no cap: the caller already narrowed `names` to
+    /// the handful of unresolved identifiers in one file, so a full-table scan
+    /// per hook call (what `all_pub_symbols` costs on a 190k-row map) is
+    /// replaced by one indexed `IN` lookup.
+    ///
+    pub fn find_pub_symbols_by_name(
+        &self,
+        names: &[String],
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders: String = (0..names.len())
+            .map(|i| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(",");
+        // Same-crate producers sort first: `crates/touring-x/…` prefix match
+        // (the ranking `find_producer_modules_with_kinds` applies).
+        let crate_prefix = consumer_hint
+            .and_then(|f| {
+                let mut it = f.split('/');
+                match (it.next(), it.next()) {
+                    (Some("crates"), Some(b)) => Some(format!("crates/{b}/%")),
+                    _ => None,
+                }
+            })
+            .unwrap_or_default();
+        // Same predicate as `all_pub_symbols` (producer rows = NULL consumer,
+        // public) so recall is identical — only the `IN` list is new.
+        let sql = format!(
+            "SELECT DISTINCT symbol_name, module_file FROM wiring_map
+             WHERE visibility = 'public'
+               AND consumer_file IS NULL
+               AND symbol_name IN ({placeholders})
+             ORDER BY (CASE WHEN '{crate_prefix}' != '' AND module_file LIKE '{crate_prefix}'
+                            THEN 0 ELSE 1 END),
+                      module_file, symbol_name"
+        );
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let params_vec: Vec<&dyn rusqlite::ToSql> =
+            names.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let rows = stmt
+            .query_map(params_vec.as_slice(), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
     /// Get ALL pub symbols (not just orphans) for import suggestion.
     ///
     /// Returns every registered public symbol in the wiring_map (the NULL-consumer
@@ -2030,6 +2087,61 @@ mod polyglot_gate_tests {
             off, "module_file LIKE '%.rs'",
             "OFF byte-identical, no go: clause"
         );
+    }
+}
+
+#[cfg(test)]
+mod s3_find_pub_symbols_by_name_tests {
+    use crate::knowledge::FileKnowledgeDB;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, FileKnowledgeDB) {
+        let tmp = TempDir::new().expect("tempdir");
+        let db = FileKnowledgeDB::new(&tmp.path().join("s3.db")).expect("open db");
+        (tmp, db)
+    }
+
+    /// The per-name lookup must see a symbol that ALREADY has a consumer —
+    /// the recall `all_pub_symbols` was introduced for (pre_edit "B4 fix").
+    #[test]
+    fn finds_wired_and_orphan_producers_by_exact_name_only() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/tfidf.rs", "TfIdfVectorizer", "struct", "public")
+            .expect("register");
+        db.record_consumer("crates/a/src/tfidf.rs", "TfIdfVectorizer", "crates/a/src/other.rs", Some(3))
+            .expect("consumer");
+        db.register_pub_symbol("crates/a/src/bm25.rs", "Bm25Scorer", "struct", "public")
+            .expect("register");
+        db.register_pub_symbol("crates/a/src/secret.rs", "Hidden", "struct", "private")
+            .expect("register");
+
+        let names = ["TfIdfVectorizer".to_string(), "Hidden".to_string(), "Nope".to_string()];
+        let found = db.find_pub_symbols_by_name(&names, None).expect("query");
+        assert_eq!(
+            found,
+            vec![("TfIdfVectorizer".to_string(), "crates/a/src/tfidf.rs".to_string())],
+            "exact name, public only, wired symbol still visible"
+        );
+        assert!(db.find_pub_symbols_by_name(&[], None).expect("query").is_empty());
+    }
+
+    /// `consumer_hint` ranks the same-crate producer first — the homonym in
+    /// another crate is still returned, but never as the first suggestion.
+    #[test]
+    fn same_crate_producer_sorts_first_under_a_consumer_hint() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/zeta/src/cfg.rs", "Config", "struct", "public")
+            .expect("register");
+        db.register_pub_symbol("crates/alpha/src/cfg.rs", "Config", "struct", "public")
+            .expect("register");
+        let names = ["Config".to_string()];
+        let hinted = db
+            .find_pub_symbols_by_name(&names, Some("crates/zeta/src/main.rs"))
+            .expect("query");
+        assert_eq!(hinted.len(), 2);
+        assert_eq!(hinted[0].1, "crates/zeta/src/cfg.rs", "{hinted:?}");
+        let plain = db.find_pub_symbols_by_name(&names, None).expect("query");
+        assert_eq!(plain[0].1, "crates/alpha/src/cfg.rs", "no hint → module_file order");
     }
 }
 

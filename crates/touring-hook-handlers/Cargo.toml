@@ -24,6 +24,9 @@ resource-monitor = ["touring-resilience/resource-monitor"]
 [dependencies]
 touring-cli = { path = "../touring-cli" }
 touring-hook-runtime = { path = "../touring-hook-runtime" }
+# S2 (2026-09-01): SecretsSignalLayer runs the F2.4 detector (`scan_text`) on the
+# proposed content — already in the graph via touring-hook-runtime → touring-ceg.
+touring-quality = { path = "../touring-quality" }
 touring-hooks-core = { path = "../touring-hooks-core" }
 touring-hooks-shared = { path = "../touring-hooks-shared" }
 touring-hooks-prediction = { path = "../touring-hooks-prediction" }

@@ -1,0 +1,45 @@
+{
+  "phase": "B5-tdg-grade-layer",
+  "entities": [
+    {
+      "entity_id": "phase:B5-tdg-grade-layer",
+      "type": "phase",
+      "description": "B5 resolvido por VERIFICACAO, sem codigo: pre_edit.rs:936-973 ja computa o TDG composite (TdgReport::from_components), emite Q-220 diagnostic APENAS em grades D/F (to_diagnostic_opt), com grade_letter + composite no tracing \u2014 exatamente a letra + acao STOP que a exploracao propunha, ja em producao desde a Wave 12 (2026-04-27). A exploracao tinha a ressalva certa: verificar antes de implementar (VP-Scout Cadeia 3, Already Implemented). Nenhuma mudanca necessaria; candidato encerrado como ja-coberto."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:B5-tdg-grade-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:B5-tdg-grade-layer|produces|memory:loop:task_1788294728027014117:B5-tdg-grade-layer:done",
+      "source": "phase:B5-tdg-grade-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:B5-tdg-grade-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:B5-tdg-grade-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:B5-tdg-grade-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:B5-tdg-grade-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:B5-tdg-grade-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

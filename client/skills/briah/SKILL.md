@@ -147,6 +147,20 @@ bundle>`. Nunca redigite a intenção — a externalização já foi feita e pag
 - Interpretar a psique em vez de devolver à criação (não sou analista; o
   material profundo vira INSUMO da obra, nunca diagnóstico).
 
+## Grilling integration (Marcel Point #2 do Gabriel, 2026-09-01)
+
+Before any creation decision in this skill, invoke the `grilling` primitive (frontier-drain interview) to drain unknowns that would change the rito or the criacao.md. Pattern: enumerate bounded questions, ask one at a time, integrate, repeat.
+
+**Trigger conditions in this skill**:
+- **I2/I3 decision** — before entering the protocolo executivo, drain unknowns about Gabriel's anticipation (a `medir` cobre o que está presente, mas o grilling cobre o que está AUSENTE sem nome)
+- **Deep lens offer (decisão d)** — before asking "quer o modo profundo?", enumerate unknowns that would change whether deep lens is appropriate
+- **Passo 0 ratio baixo** — when the ratio de entrada < 0.7, grilling is the conversational complement to the medir gate (não substitui medir — complementa)
+- **Criacao.md final synthesis** — before declaring `criacao.md` pronto, drain unknowns the medir gate couldn't detect (sensorial vs measured)
+
+**Skip conditions**: ratio de entrada = 1.0 (I0 path — declare pronto, skip rito); Gabriel explicit "para o grilling" command.
+
+**Companion**: `decision-canvas` (structured form for plan-authoring; grilling = conversational form). Cross-reference: `~/.claude/skills/grilling/SKILL.md`. Universal primitive — applied transversalmente em 5 skills per Marcel Point #2.
+
 ## Referências
 
 - Régua e journal: `~/.claude/skills/loop-engineering/scripts/cognicao_formal.py`
