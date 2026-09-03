@@ -374,7 +374,7 @@ pub use db_perf::{DbPerfReport, analyze_db_perf, score_db_perf};
 pub use dep_health::{DepHealthAnalyzer, DepHealthReport};
 pub use design_patterns::{DesignPatternReport, analyze_design_patterns, score_design_patterns};
 pub use doc_accuracy::{DocAccuracyReport, analyze_doc_accuracy, score_doc_accuracy};
-pub use duplication::{DuplicationReport, analyze_duplication};
+pub use duplication::{DuplicationReport, analyze_duplication, analyze_duplication_segmented};
 pub use edge_cases::{EdgeCasesReport, analyze_edge_cases, score_edge_cases};
 pub use fast_hash::fast_content_hash;
 pub use frontend::{FrontendReport, analyze_frontend, score_frontend};

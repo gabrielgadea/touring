@@ -128,6 +128,59 @@ pub fn non_executable_regions(src: &str, lang: &str) -> Vec<(usize, usize)> {
     merge(regions)
 }
 
+/// Regiões não-executáveis de um corpus **concatenado de arquivos heterogêneos**,
+/// cada segmento lido com a SUA linguagem e o seu estado léxico próprio.
+///
+/// # Por que existe
+///
+/// [`non_executable_regions`] assume um corpus de uma linguagem só. Quando o
+/// chamador concatena N arquivos e passa um único `lang`, dois defeitos aparecem —
+/// medidos em 03/09/2026 sobre o repositório `analise` (sessão analise-c1):
+///
+/// 1. **A linguagem é a errada.** O chamador deriva `lang` da extensão do ALVO, e
+///    um diretório não tem extensão: cai no default `"rust"`. Um corpus Python
+///    inteiro passa a ser lexado como Rust.
+/// 2. **O estado léxico atravessa a fronteira do arquivo.** [`PYTHON`] não tem
+///    comentário de bloco (`block: None`); [`RUST`] tem `/* */`. Um `/*` que vive
+///    dentro de uma string Python — CSS, JS, uma regex, um exemplo em docstring —
+///    abre um comentário que só fecha no próximo `*/`, **suprimindo todo o
+///    conteúdo dos arquivos seguintes** até lá.
+///
+/// Teste mínimo que reproduz (2 arquivos): `b.py` com 20 linhas triviais mede 20
+/// linhas significativas; precedido de um `a.py` de 3 linhas contendo `/*` numa
+/// string, o par mede **2**. Em escala o efeito é não-monotônico — 128 arquivos
+/// reais mediram 35.173 linhas e 512 mediram 15.615 — porque o resultado depende
+/// de onde caem os delimitadores na ordem de concatenação.
+///
+/// # Contrato
+///
+/// `segments` são `(offset, len, lang)` sobre `src`, tipicamente um por arquivo.
+/// Cada segmento é lexado isoladamente e os offsets voltam deslocados para o
+/// espaço de `src`, de modo que a detecção de clones **entre** arquivos — a razão
+/// de o corpus ser concatenado — continua intacta: só o lexer deixa de vazar.
+///
+/// Segmentos fora de `src` ou que não caiam em fronteira de caractere UTF-8 são
+/// ignorados em silêncio, jamais lexados a partir de um offset inválido.
+#[must_use]
+pub fn non_executable_regions_segmented(
+    src: &str,
+    segments: &[(usize, usize, &str)],
+) -> Vec<(usize, usize)> {
+    let mut all: Vec<(usize, usize)> = Vec::new();
+    for &(offset, len, lang) in segments {
+        let end = offset.saturating_add(len).min(src.len());
+        let Some(slice) = src.get(offset..end) else {
+            continue;
+        };
+        all.extend(
+            non_executable_regions(slice, lang)
+                .into_iter()
+                .map(|(s, e)| (s + offset, e + offset)),
+        );
+    }
+    merge(all)
+}
+
 /// True when `offset` falls inside one of the (sorted, non-overlapping) ranges.
 pub fn offset_suppressed(offset: usize, regions: &[(usize, usize)]) -> bool {
     regions.iter().any(|&(s, e)| offset >= s && offset < e)
