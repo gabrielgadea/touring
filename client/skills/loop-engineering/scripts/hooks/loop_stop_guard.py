@@ -185,19 +185,36 @@ def outer_phase_gate(path, marker):
             print(json.dumps({"decision": "block", "reason": reason}))
             return 0
         return 0  # complete and already handed off — nothing owed here
-    cap = int(report.get("max_continuations") or OUTER_MAX_CONTINUATIONS)
-    count = int(marker.get("continuations", 0)) + 1
-    if count > cap:
-        print(f"loop-stop-guard: OUTER continuation cap ({cap}) reached — allowing stop",
-              file=sys.stderr)
-        return 0
-    marker["continuations"] = count
-    save_marker(path, marker)
+    # ── Opção C (Gabriel, 03/09/2026): the OUTER phase NO LONGER BLOCKS here. ──
+    #
+    # A gate that lives on `Stop` can only inspect the past, so the only behaviour it
+    # can induce is a retroactive receipt. Measured over 936 real evaluations
+    # (compliance.jsonl, 23/08–03/09): 55.3% ended incomplete, 23.4% of sessions never
+    # completed, and the OUTER was the FIRST action of its turn in just 11% of turns
+    # (median 5 actions already taken before it — i.e. it INTERRUPTED work rather than
+    # preceding it, which is the one thing an OUTER exists to do). Blocking here also
+    # made the flow unwinnable whenever the contract moved under the agent (see
+    # loop_marker.write_marker) or the prescribed next_action could not satisfy its own
+    # artifact (see flow_manifests explore-ledger).
+    #
+    # The two purposes were split and each given the mechanism that can serve it:
+    #   * the ARTIFACT is now produced by the executor — `loop_outer_arm` spawns the
+    #     deterministic diagnose+explore in the background at arm time, costing the
+    #     model no context at all;
+    #   * the EFFECT is now induced by `loop_outer_effect.py` on PreToolUse, which
+    #     blocks the FIRST MUTATING action of the turn and hands the recall over
+    #     already assembled — at the decision point, blocking the advance, the way an
+    #     affordance works (thesis ①: affordance changes U(a); persuasion does not).
+    #
+    # What survives here is the RULER, not the toll booth: `loop_outer_gate.py` has
+    # already appended this evaluation to compliance.jsonl by the time we return (it
+    # runs as the subprocess above and emits unconditionally), so the KPI keeps its
+    # series uninterrupted while the turn is free to end.
     missing = [m.get("id") for m in report.get("missing", [])]
-    reason = (f"Flow guard [{report.get('flow')}]: OUTER evidence incomplete "
-              f"({count}/{cap}). Missing artifacts: {missing}. "
-              f"Next action: {report.get('next_action')}")
-    print(json.dumps({"decision": "block", "reason": reason}))
+    print(f"loop-stop-guard: OUTER incomplete (missing={missing}) — recorded in "
+          f"compliance.jsonl, not blocking (opção C, 03/09/2026). "
+          f"The effect gate runs on PreToolUse; the artifacts are spawned at arm time.",
+          file=sys.stderr)
     return 0
 
 

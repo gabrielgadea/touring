@@ -3,7 +3,7 @@
   "strategy-outer": {
     "description": "loop-engineering OUTER (steps 1-9): recall + deep diagnostic + CCE exploration + persisted strategy",
     "max_continuations": 5,
-    "preferred_next": "touring adw from-template strategy-loop 2>/dev/null; touring adw run strategy-loop --var topic='<topic>' --var scope='{scope}' --var bundle='{bundle}'",
+    "preferred_next": "touring adw from-template strategy-loop 2>/dev/null; touring adw run strategy-loop --var topic='<topic>' --var scope='{scope}' --var bundle='{bundle}' ; touring explore '<topic>' --scope '{scope}' --mark-lens external:waived --note '<why an external source does not apply>' ; touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 12",
     "artifacts": [
       {
         "id": "diagnostic-okf",
@@ -15,7 +15,7 @@
         "id": "explore-ledger",
         "glob": "{scope}/.touring-explore/*.ledger.json",
         "min": 1,
-        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 8   # must reach converged: true",
+        "next_action": "touring explore '<topic>' --scope '{scope}' --mark-lens external:waived --note '<why an external source does not apply here — or use external:visited with the source you consulted>' ; touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 12   # the 'external' lens is MANUAL: rounds alone NEVER reach converged:true",
         "require_json": {
           "verdict.converged": true
         }
@@ -29,9 +29,9 @@
     ]
   },
   "work-outer": {
-    "description": "DEFAULT modus operandi (2026-08-02): the deterministic OUTER — recall + diagnostic + CCE exploration — owed by any substantive engineering turn, even without a slash command. Deliberately smaller than strategy-outer: no strategy doc, so ONE `touring adw run strategy-loop` satisfies it.",
+    "description": "DEFAULT modus operandi (2026-08-02): the deterministic OUTER — recall + diagnostic + CCE exploration — owed by any substantive engineering turn, even without a slash command. Deliberately smaller than strategy-outer: no strategy doc. NOTE (03/09/2026): the earlier claim that ONE `touring adw run strategy-loop` satisfies it was FALSE and measured as such — the ADW leaves `explore-ledger` unconverged because the 'external' lens is manual. `preferred_next` below now carries the marking step; without it this flow was unsatisfiable by its own prescription (explore-ledger = 395 of 518 recorded incompletions).",
     "max_continuations": 2,
-    "preferred_next": "touring adw from-template strategy-loop 2>/dev/null; touring adw run strategy-loop --var topic='<the goal of this turn>' --var scope='{scope}' --var bundle='{bundle}'",
+    "preferred_next": "touring adw from-template strategy-loop 2>/dev/null; touring adw run strategy-loop --var topic='<the goal of this turn>' --var scope='{scope}' --var bundle='{bundle}' ; touring explore '<the goal of this turn>' --scope '{scope}' --mark-lens external:waived --note '<why an external source does not apply>' ; touring explore '<the goal of this turn>' --scope '{scope}' --until-dry --max-rounds 12",
     "artifacts": [
       {
         "id": "diagnostic-okf",
@@ -43,7 +43,7 @@
         "id": "explore-ledger",
         "glob": "{scope}/.touring-explore/*.ledger.json",
         "min": 1,
-        "next_action": "touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 8   # must reach converged: true",
+        "next_action": "touring explore '<topic>' --scope '{scope}' --mark-lens external:waived --note '<why an external source does not apply here — or use external:visited with the source you consulted>' ; touring explore '<topic>' --scope '{scope}' --until-dry --max-rounds 12   # the 'external' lens is MANUAL: rounds alone NEVER reach converged:true",
         "require_json": {
           "verdict.converged": true
         }

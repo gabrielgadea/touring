@@ -33,6 +33,8 @@ import datetime as _dt
 import json
 import os
 import re
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 
@@ -129,11 +131,29 @@ def is_default_work(prompt: str) -> bool:
 
 
 def detect_flow(prompt: str):
-    """Return the flow key the prompt invokes, or the default work flow, or None."""
+    """Return the flow key the prompt EXPLICITLY invokes, or None.
+
+    Opção D (Gabriel, 03/09/2026) retired the text-heuristic arm. `is_default_work`
+    above is kept — it still documents the old contract and its tests still pin the
+    behaviour — but `work-outer` is no longer armed from prompt wording. Measured on
+    the session that made this change, the heuristic scored 0/2 on the turns that
+    mattered:
+
+        "estou achando que a estratégia de escrever um .md…"  (a QUESTION)  → armed
+        "Execute D5 e D6 …"       (the turn that wrote ~10 files)           → silent
+
+    Both errors are structural, not tuning: a prompt is a CLAIM about the work, and no
+    word list reads intent reliably. `work-outer` is now armed by `loop_outer_effect`
+    from the MEASURED blast radius of the file about to change, via `touring route`
+    (see loop_task_signal). What stays here is what a human typed on purpose — an
+    explicit `/loop-engineering`, `/goal` or `/TACO-cross-audit` is a statement of
+    intent, not an inference from it, and those flows are exactly the ones the ledger
+    shows working (cross-audit: 3.1% incomplete against 55% for the inferred ones).
+    """
     for pattern, flow in FLOW_PATTERNS:
         if pattern.search(prompt or ""):
             return flow
-    return DEFAULT_FLOW if is_default_work(prompt) else None
+    return None
 
 
 def default_bundle(cwd: str) -> str:
@@ -149,7 +169,52 @@ def default_bundle(cwd: str) -> str:
     return str(parent / f"{_dt.date.today().isoformat()}-work-outer")
 
 
-def arm(cwd: str, flow: str, session_id=None):
+def topic_from_prompt(prompt: str, max_words: int = 12) -> str:
+    """A short, stable topic string for the background explore + the effect nudge.
+
+    The ledger is keyed by topic (`.touring-explore/<slug>.ledger.json`), so this must
+    be derived deterministically from the prompt and stay short enough that follow-up
+    turns on the same subject reuse the SAME ledger instead of spawning a new one.
+    """
+    words = re.sub(r"[^\w\s-]", " ", prompt or "").split()
+    return " ".join(words[:max_words]).strip().lower() or "trabalho do turno"
+
+
+def spawn_outer_artifacts(cwd: str, bundle: str, topic: str) -> None:
+    """Opção C (Gabriel, 03/09/2026): the EXECUTOR pays for the artifact, not the model.
+
+    The OUTER's two deterministic artifacts cost ~30s of wall clock and ZERO reasoning
+    (measured 03/09: loop_diagnose 26.4s, explore --until-dry 3.2s). Making the model
+    produce them mid-turn cost a context window and, worse, produced them at the WRONG
+    MOMENT — first action of the turn in only 11% of cases, median 5 actions already
+    taken. Detached and started at arm time, they are simply on disk by the time the
+    turn ends, informing nothing less than before and interrupting nothing.
+
+    Deliberately NOT marked `--mark-lens external:waived`: the external lens is the
+    one that asks whether an outside source was consulted, and no machine may answer
+    that on a human's behalf. A ledger that ends unconverged with `external` pending is
+    the HONEST state ("the automatic lenses ran dry; nobody consulted an outside
+    source"), and since the Stop gate no longer blocks, that honesty costs nothing.
+    """
+    log = Path(bundle) / "outer-executor.log"
+    script = (
+        f"python3 {Path(__file__).resolve().parent.parent / 'loop_diagnose.py'} "
+        f"--scope {shlex.quote(cwd)} --bundle {shlex.quote(bundle)} --json ; "
+        f"touring explore {shlex.quote(topic)} --scope {shlex.quote(cwd)} "
+        f"--until-dry --max-rounds 12"
+    )
+    try:
+        Path(bundle).mkdir(parents=True, exist_ok=True)
+        with open(log, "a") as fh:
+            subprocess.Popen(
+                ["bash", "-lc", script], stdout=fh, stderr=fh, stdin=subprocess.DEVNULL,
+                start_new_session=True, cwd=cwd,
+            )
+    except Exception:  # noqa: BLE001 — fail-open: the artifact is a nice-to-have now,
+        pass           # never a precondition for the turn.
+
+
+def arm(cwd: str, flow: str, session_id=None, topic=None):
     """Write/refresh the outer marker unless a real loop is already active.
 
     ``session_id`` comes from the hook payload — the authoritative identity —
@@ -172,9 +237,14 @@ def arm(cwd: str, flow: str, session_id=None):
     bundle = (existing or {}).get("bundle")
     if not bundle and flow == DEFAULT_FLOW:
         bundle = default_bundle(cwd)
+    # `effect_pending` is the one-shot sentinel loop_outer_effect.py consumes: the
+    # EFFECT half fires at most once per armed cycle, on the turn's first mutating
+    # action. Re-armed here on every arm, cleared there on delivery.
     return write_marker(task="OUTER", scope=cwd, bundle=bundle,
                         cwd=cwd, status="outer", flow=flow,
-                        session_id=session_id)
+                        session_id=session_id,
+                        effect_pending=True,
+                        topic=topic or (existing or {}).get("topic"))
 
 
 def main() -> int:
@@ -194,23 +264,31 @@ def main() -> int:
     flow = detect_flow(prompt)
     if not flow:
         return 0
+    topic = topic_from_prompt(prompt)
     try:
-        marker = arm(cwd, flow, session_id)
+        marker = arm(cwd, flow, session_id, topic=topic)
     except Exception:  # noqa: BLE001 — fail-open
         return 0
     if marker is None:
         return 0
     _, armed = active_marker(cwd, session_id)
     bundle = (armed or {}).get("bundle") or "<plan bundle dir>"
+    # The EXECUTOR pays for the artifact, starting now, detached. Nothing is owed by
+    # the model and nothing is waited on — by the time the turn ends the diagnostic
+    # and the CCE ledger are simply on disk.
+    if bundle and bundle != "<plan bundle dir>":
+        spawn_outer_artifacts(cwd, bundle, topic)
     context = (
-        f"[FLOW GUARD] flow '{flow}' armed (marker: {marker}). The Stop hook now "
-        f"verifies this flow's artifact manifest (flow_manifests.json) before any "
-        f"turn may end — artifacts on disk, never narrative (ADW Law L3). Run the "
-        f"deterministic OUTER in one command: touring adw from-template "
-        f"strategy-loop 2>/dev/null; touring adw run strategy-loop "
-        f"--var topic='<the goal of this turn>' --var scope='{cwd}' "
-        f"--var bundle='{bundle}'. Skipped steps surface as Stop blocks carrying "
-        f"the exact next_action."
+        f"[OUTER · flow '{flow}' armado] Opção C (Gabriel, 03/09/2026): este flow NÃO "
+        f"cobra documento nenhum de você. O diagnóstico determinístico e o ledger CCE "
+        f"já foram DISPARADOS em background pelo executor (bundle: {bundle}; log: "
+        f"{bundle}/outer-executor.log) e estarão em disco sem custo de contexto. "
+        f"O Stop hook não bloqueia mais o OUTER — ele apenas registra a avaliação em "
+        f"compliance.jsonl, como régua de KPI. "
+        f"O que resta é o EFEITO: na PRIMEIRA edição de código deste turno "
+        f"(Edit/Write), o hook loop_outer_effect nega uma única vez e entrega o "
+        f"recall de memória e os gotchas JÁ MONTADOS — leia e refaça a mesma edição. "
+        f"Tópico armado: '{topic}'. Kill switch humano: TOURING_WORK_OUTER_DISABLED=1."
     )
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "UserPromptSubmit", "additionalContext": context}}))

@@ -279,6 +279,15 @@ def write_marker(task, scope, bundle=None, cwd=None, status="active",
         now if (starts_new_cycle or not prev.get("flow_armed_at"))
         else prev["flow_armed_at"]
     )
+    # Carry the flow forward EXPLICITLY. `new_flow` above was computed only to decide
+    # `starts_new_cycle`, and `data` receives `flow` solely through `data.update(extra)`
+    # below — so a refresh without an explicit flow silently ERASED the armed contract.
+    # A flowless marker is not neutral: loop_outer_gate.py reads `marker.get("flow") or
+    # "strategy-outer"`, so erasing it PROMOTES the turn from the 2-artifact work-outer
+    # to the 5-artifact strategy-outer. Found 03/09/2026 by the positive assertion
+    # "armed work-outer + remedy → still work-outer", which returned None.
+    if new_flow:
+        data["flow"] = new_flow
     data.update(extra)
     try:
         p.write_text(json.dumps(data, indent=2))
@@ -325,6 +334,9 @@ def _main(argv=None):
                    help="owning session (default: CLAUDE_CODE_SESSION_ID / TOURING_SESSION_ID)")
     w.add_argument("--flow", default=None,
                    help="gated-flow key (flow_manifests.json) for status=outer markers")
+    w.add_argument("--flow-if-absent", default=None,
+                   help="set this flow ONLY when the marker has none — never promote an "
+                        "armed contract (see the write branch below)")
 
     sub.add_parser("show", help="print this (project, session)'s active marker (JSON) if any")
     sub.add_parser("path", help="print this (project, session)'s marker path")
@@ -336,6 +348,26 @@ def _main(argv=None):
 
     if args.cmd == "write":
         extra = {"flow": args.flow} if args.flow else {}
+        # `--flow-if-absent` exists because the SAME `strategy-loop` ADW is both the
+        # body of `strategy-outer` AND the prescribed remedy for `work-outer`. When it
+        # ran with a hard `--flow strategy-outer`, executing the remedy REWROTE the
+        # armed contract from 2 artifacts to 5 — measured live on 03/09/2026: the Stop
+        # hook blocked as `[work-outer] 1/2`, the agent ran the prescribed
+        # `touring adw run strategy-loop`, and the next block came back as
+        # `[strategy-outer] 3/5`, demanding a strategy-doc that `work-outer` explicitly
+        # waives. Complying with the prescription raised the bar — which is what turns a
+        # gate into an unwinnable toll booth (compliance.jsonl: runs of up to 63
+        # consecutive blocks, and `max_continuations` never bites because the counter
+        # is per-marker while the contract moves).
+        #
+        # `loop_outer_arm` already refuses the symmetric case (the default `work-outer`
+        # never DEMOTES an armed `strategy-outer`/`cross-audit`). This closes the
+        # promotion half. A human invoking `/loop-engineering` still arms
+        # `strategy-outer` through `--flow`, which is unaffected.
+        if not extra and args.flow_if_absent:
+            _, existing = active_marker(cwd=args.cwd, session_id=args.session_id)
+            if not (existing and existing.get("flow")):
+                extra = {"flow": args.flow_if_absent}
         p = write_marker(args.task, args.scope, args.bundle, cwd=args.cwd,
                          status=args.status, session_id=args.session_id, **extra)
         print(str(p))

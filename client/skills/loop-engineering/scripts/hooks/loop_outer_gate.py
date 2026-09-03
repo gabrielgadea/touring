@@ -140,6 +140,17 @@ def emit_compliance(marker: dict, report: dict) -> None:
             "complete": bool(report.get("complete")),
             "expected": report.get("expected", 0),
             "missing": [m.get("id") for m in report.get("missing", [])],
+            # Per-artifact gradient alongside the boolean (03/09/2026). `complete` is
+            # an AND over the manifest, so a single artifact that can never be
+            # satisfied automatically drags the whole series to False and the KPI stops
+            # discriminating — it would answer "was the OUTER done?" with "did anyone
+            # consult an external source?", which is a different question. Concretely:
+            # `explore-ledger` requires verdict.converged, whose `external` lens is
+            # MANUAL by design and which the background executor deliberately does not
+            # waive on a human's behalf. Keeping the boolean preserves the historical
+            # series; the gradient is what stays readable once the boolean saturates.
+            "present_ids": [p.get("id") for p in report.get("present", [])],
+            "satisfied": len(report.get("present", [])),
         }
         with COMPLIANCE_LOG.open("a") as fh:
             fh.write(json.dumps(record) + "\n")
