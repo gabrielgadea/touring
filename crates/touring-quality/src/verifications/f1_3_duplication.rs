@@ -41,15 +41,38 @@ impl Verification for F1_3_Duplication {
 // ── Real engine: Type-1 block clone detection ─────────────────────────────────
 #[cfg(feature = "workspace-integration")]
 fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
-    use touring_analysis::quality::analyze_duplication;
+    use touring_analysis::quality::analyze_duplication_segmented;
 
     // Machine-generated trees (openapi-generator markers) are excluded from the
     // DUPLICATION corpus only — their clones are the generator's signature, not
     // debt — and the exclusion is announced in the evidence (never silent).
-    let (raw, generated_excluded, truncated) =
-        crate::verifications::read_target_source_excluding_generated(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
-    let r = analyze_duplication(&raw, lang);
+    //
+    // A leitura vem SEGMENTADA desde 03/09/2026: cada arquivo carrega a própria
+    // linguagem, de modo que o lexer de comentários/strings não atravessa a
+    // fronteira do arquivo. A versão anterior derivava um único `lang` da extensão
+    // do ALVO — que num diretório não existe e caía no default `"rust"` — e então
+    // um `/*` dentro de uma string Python apagava da medição tudo até o próximo
+    // `*/`, em outros arquivos. Detalhe e teste mínimo em
+    // `read_target_segments_excluding_generated`.
+    let (raw, segments, generated_excluded, truncated) =
+        crate::verifications::read_target_segments_excluding_generated(target)?;
+    let r = analyze_duplication_segmented(&raw, &segments);
+
+    // Rótulo honesto: um diretório polyglot não TEM uma linguagem, e anunciar a
+    // do default fazia a evidência dizer "(rust)" sobre corpus Python.
+    let lang: std::borrow::Cow<'_, str> = match segments.as_slice() {
+        [] => std::borrow::Cow::Borrowed("vazio"),
+        [(_, _, only)] => std::borrow::Cow::Borrowed(only),
+        segs => {
+            let mut langs: Vec<&str> = segs.iter().map(|&(_, _, l)| l).collect();
+            langs.sort_unstable();
+            langs.dedup();
+            match langs.as_slice() {
+                [one] => std::borrow::Cow::Borrowed(one),
+                many => std::borrow::Cow::Owned(format!("polyglot: {}", many.join("+"))),
+            }
+        }
+    };
 
     let value = score_duplication(r.ratio, r.combined_ratio);
     let mut evidence = format!(
@@ -90,11 +113,18 @@ fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
     // score precisa saber que este é um recorte, e reescopar por crate para
     // obter um número confiável.
     if truncated {
-        evidence.push_str(
-            "; ⚠ TRUNCADO no teto de varredura (16 MiB) — este score cobre um PREFIXO do escopo, \
-             não o escopo inteiro, e é insensível a remediação feita depois do corte; \
+        // O sentinela vem da constante que [`finish`] também consome, e o teto vem
+        // do `const` que de fato corta: a mensagem dizia "16 MiB" enquanto
+        // `DIR_SCAN_BYTE_CAP` valia 128 MiB — drift descoberto em 03/09/2026, no
+        // próprio mecanismo que existe para não mentir sobre limites. Derivar os
+        // dois da fonte torna esse drift impossível de reaparecer.
+        evidence.push_str(&format!(
+            "; {sentinel} no teto de varredura ({cap} MiB) — este score cobre um PREFIXO do \
+             escopo, não o escopo inteiro, e é insensível a remediação feita depois do corte; \
              pontue por crate para um número confiável",
-        );
+            sentinel = crate::verifications::TRUNCATION_SENTINEL,
+            cap = crate::verifications::DIR_SCAN_BYTE_CAP / (1024 * 1024),
+        ));
     }
     Ok((value, evidence))
 }

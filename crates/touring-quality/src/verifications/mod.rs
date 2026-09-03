@@ -159,7 +159,7 @@ const SKIP_DIRS: &[&str] = &[
 ///
 /// Se ainda assim truncar, [`dir_scan_overflow`] deixa o fato visível na
 /// evidência — teto sem anúncio foi exatamente a falha de 02/08.
-const DIR_SCAN_BYTE_CAP: usize = 128 * 1024 * 1024;
+pub(crate) const DIR_SCAN_BYTE_CAP: usize = 128 * 1024 * 1024;
 
 /// Bytes totais do corpus de `target` quando ele ESTOURA
 /// [`DIR_SCAN_BYTE_CAP`] — `None` quando cabe (o caso normal).
@@ -258,6 +258,64 @@ pub fn read_target_source_excluding_generated(target: &Path) -> Result<(String, 
         }
     }
     Ok((out, excluded, false))
+}
+
+/// O corpus de [`read_target_source_excluding_generated`] **mais as fronteiras de
+/// arquivo**, cada uma com a linguagem daquele arquivo.
+///
+/// Devolve `(corpus, segmentos, excluídos, truncado)`, onde cada segmento é
+/// `(offset, len, lang)` sobre `corpus`.
+///
+/// # Por que a fronteira precisa viajar
+///
+/// A versão sem segmentos entrega uma `String` só, e o chamador então deriva UM
+/// `lang` da extensão do alvo — que num diretório não existe, caindo no default
+/// `"rust"` de [`lang_from_ext`]. Duas consequências, medidas em 03/09/2026 sobre
+/// o repositório `analise` (sessão analise-c1):
+///
+/// * um corpus Python inteiro é lexado como Rust; e
+/// * o estado do lexer **atravessa a fronteira do arquivo** — um `/*` que vive
+///   dentro de uma string Python (CSS, JS, regex, exemplo em docstring) abre um
+///   comentário de bloco que só fecha no próximo `*/`, apagando da medição tudo
+///   o que houver no caminho.
+///
+/// Efeito medido: `scripts/memoria` (4 arquivos, sem CSS) media 101 % do corpus;
+/// `scripts/process_analysis` (922 arquivos) media 10 %; `scripts` (3.854) media
+/// 0,98 %. E a contagem era **não-monotônica** — 128 arquivos reais mediam 35.173
+/// linhas e 512 mediam 15.615 — porque o resultado dependia de onde caíam os
+/// delimitadores na ordem de concatenação.
+///
+/// O corpus segue concatenado de propósito: é assim que um bloco copiado ENTRE
+/// arquivos aparece como clone. Só o lexer deixa de vazar.
+#[cfg(feature = "workspace-integration")]
+pub fn read_target_segments_excluding_generated(target: &Path) -> Result<SegmentedCorpus> {
+    if !target.is_dir() {
+        let src = read_target_source(target)?;
+        let seg = vec![(0usize, src.len(), lang_from_ext(target))];
+        return Ok((src, seg, 0, false));
+    }
+    let mut out = String::new();
+    let mut segments: Vec<(usize, usize, &'static str)> = Vec::new();
+    let mut excluded = 0usize;
+    for p in enumerate_source_files(target) {
+        if is_under_generated_tree(&p, target) {
+            excluded += 1;
+            continue;
+        }
+        if let Ok(s) = std::fs::read_to_string(&p) {
+            let offset = out.len();
+            out.push_str(&s);
+            out.push('\n');
+            // O `\n` de junção entra no segmento: ele fecha a última linha do
+            // arquivo, e deixá-lo de fora faria a última linha e a primeira do
+            // arquivo seguinte se lexarem como uma só.
+            segments.push((offset, out.len() - offset, lang_from_ext(&p)));
+            if out.len() >= DIR_SCAN_BYTE_CAP {
+                return Ok((out, segments, excluded, true));
+            }
+        }
+    }
+    Ok((out, segments, excluded, false))
 }
 
 /// Strip Rust line comments (`//…`) and block comments (`/* … */`) from `src`
@@ -501,6 +559,43 @@ pub fn absent_artifact_score(dim: &str, class: ArtifactClass) -> (f32, String) {
 /// consumidor — nenhum arquivo fora deste módulo a nomeia (verificado por grep).
 pub(crate) fn evidence_marks_not_applicable(evidence: &str) -> bool {
     evidence.starts_with("[N/A]")
+}
+
+/// Sentinela de TRUNCAGEM: produtor e consumidor derivam do MESMO literal.
+///
+/// [`DimScore::truncated`] existe desde 07/08/2026 e `loop_converged.py`
+/// (`clause_not_truncated`) já o lê — mas [`finish`] o preenchia com `false`
+/// constante, de modo que a cláusula que existe para impedir convergência sobre
+/// medição parcial passava **vacuamente**: o fato viajava só na prosa da
+/// `evidence` e o juiz procurava um campo. Medido em 03/09/2026 no repositório
+/// `analise` (sessão analise-c1).
+///
+/// A correção espelha [`evidence_marks_not_applicable`]: um sentinela que o
+/// produtor emite e [`finish`] consome. Ambos nomeiam esta constante, nunca uma
+/// cópia do texto — texto e predicado com uma fonte só é o remédio ao anti-padrão
+/// D8 (*enforcement mora no executor, não no anúncio*), e é o que impede o
+/// próximo editor de reescrever a mensagem e desligar o campo sem perceber.
+pub(crate) const TRUNCATION_SENTINEL: &str = "⚠ TRUNCADO";
+
+/// Um arquivo dentro de um corpus concatenado: `(offset, len, linguagem)`.
+///
+/// A linguagem viaja com o segmento — e não com o alvo — porque um diretório
+/// polyglot não tem uma linguagem só, e derivá-la da extensão do ALVO devolvia o
+/// default para todo diretório (que não tem extensão).
+pub type SourceSegment = (usize, usize, &'static str);
+
+/// O que [`read_target_segments_excluding_generated`] devolve:
+/// `(corpus, segmentos, arquivos gerados excluídos, truncado)`.
+pub type SegmentedCorpus = (String, Vec<SourceSegment>, usize, bool);
+
+/// Whether `evidence` declares that the score covers only a PREFIX of its corpus.
+///
+/// Asserção POSITIVA por construção: quem trunca **diz** que truncou. Um alvo que
+/// não emite o sentinela não é "presumido íntegro" por ausência de sinal — é
+/// simplesmente um alvo cujo produtor não sabe anunciar truncagem, e essa
+/// distinção pertence ao produtor, não a este predicado.
+pub(crate) fn evidence_marks_truncated(evidence: &str) -> bool {
+    evidence.contains(TRUNCATION_SENTINEL)
 }
 
 /// Resolve the on-disk files of a given [`ArtifactClass`] under `target`.
@@ -942,10 +1037,10 @@ pub fn finish(id: DimId, value: f32, evidence: String, target: &Path) -> DimScor
     DimScore {
         value,
         status,
+        truncated: evidence_marks_truncated(&evidence),
         evidence,
         suggestions,
         latency_ms: 0,
-        truncated: false,
     }
 }
 
@@ -1448,6 +1543,69 @@ mod tests {
         assert!(
             p3 && s3.contains("Changelog"),
             "explicit CHANGELOG.md reads verbatim"
+        );
+    }
+
+    /// A evidência que ANUNCIA truncagem produz `DimScore::truncated == true`.
+    ///
+    /// Asserção **positiva**: o que se afirma é que o sinal VIAJA, não que ele
+    /// esteja ausente. Um teste por ausência (`assert!(!score.truncated)` num
+    /// alvo qualquer) passaria igualmente com o campo apagado — foi assim que um
+    /// campo sumiu em silêncio no `write_marker` e o consumidor leu o default
+    /// como se fosse valor medido.
+    #[test]
+    fn evidence_announcing_truncation_reaches_the_dimscore_field() {
+        let alvo = Path::new("/tmp");
+        let evidencia = format!(
+            "F1.3: duplication ratio=5.0%; {} no teto de varredura (128 MiB)",
+            TRUNCATION_SENTINEL
+        );
+        let score = finish(DimId::F1_3, 0.5, evidencia, alvo);
+        assert!(
+            score.truncated,
+            "a truncagem anunciada na evidence TEM de chegar ao campo que \
+             loop_converged.py::clause_not_truncated lê"
+        );
+    }
+
+    /// O par negativo: sem anúncio, o campo não se acende sozinho.
+    #[test]
+    fn evidence_without_the_sentinel_leaves_truncated_unset() {
+        let score = finish(
+            DimId::F1_3,
+            0.9,
+            "F1.3: duplication ratio=1.0% (medido inteiro)".to_string(),
+            Path::new("/tmp"),
+        );
+        assert!(
+            !score.truncated,
+            "sem sentinela não há truncagem a declarar — o campo é afirmação, não default"
+        );
+    }
+
+    /// Guard D8 cruzado: o texto que o PRODUTOR emite contém o literal que o
+    /// CONSUMIDOR procura.
+    ///
+    /// O anti-padrão que este teste existe para barrar é a divergência silenciosa:
+    /// alguém reescreve a mensagem de truncagem do F1.3 para algo mais bonito, o
+    /// predicado deixa de casar, e o gate volta a passar vacuamente sem que uma
+    /// única linha de `finish` tenha mudado. Aqui os dois lados são lidos da
+    /// MESMA constante, e a reescrita quebra o teste em vez de quebrar o gate.
+    #[test]
+    fn producer_message_and_consumer_predicate_share_one_source() {
+        let mensagem_do_produtor = format!(
+            "; {sentinel} no teto de varredura ({cap} MiB) — este score cobre um PREFIXO do escopo",
+            sentinel = TRUNCATION_SENTINEL,
+            cap = DIR_SCAN_BYTE_CAP / (1024 * 1024),
+        );
+        assert!(
+            evidence_marks_truncated(&mensagem_do_produtor),
+            "a mensagem emitida pelo f1_3 tem de ser reconhecida pelo predicado de finish"
+        );
+        assert!(
+            mensagem_do_produtor.contains("128 MiB"),
+            "o teto anunciado deriva de DIR_SCAN_BYTE_CAP — a mensagem dizia 16 MiB \
+             enquanto a constante valia 128 MiB (drift corrigido em 03/09/2026)"
         );
     }
 }
