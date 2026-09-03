@@ -134,9 +134,24 @@ def test_prose_never_arms(prompt):
     "faça o CI auto-sincronizar com o sync_metrics comparando LOC vivo",
     "certifique-se de que o modus operandi padrão seja o do loop",
     "refactor the daemon socket resolution and add tests",
+    # The two that broke the heuristic in the wild, kept as regression anchors:
+    "Execute D5 e D6 e me explique melhor a pergunta que segue de pé",  # was a MISS
+    "estou achando que a estratégia de escrever um .md está saindo cara",  # was a HIT
 ])
-def test_substantive_work_arms_default_flow(prompt):
-    assert arm.detect_flow(prompt) == arm.DEFAULT_FLOW
+def test_no_prompt_wording_arms_the_default_flow(prompt):
+    """Opção D (03/09/2026): `work-outer` is never armed from prompt text again.
+
+    Was `test_substantive_work_arms_default_flow`, and its intent — "substantive work
+    gets gated" — did not disappear; it MOVED to a mechanism that can actually decide
+    it. The heuristic was retired because it scored 0/2 on the two turns that mattered
+    in the session that replaced it (both are parametrised above): it armed on a
+    QUESTION about the gate and stayed silent through the turn that wrote ten files.
+
+    Coverage for "substantive work gets gated" now lives in `test_task_signal.py`,
+    where the verdict comes from the measured blast radius of the file about to change
+    via `touring route`. A word list cannot read intent; an index can measure impact.
+    """
+    assert arm.detect_flow(prompt) is None
 
 
 @pytest.mark.parametrize("prompt", [
@@ -148,11 +163,20 @@ def test_default_flow_stays_out_of_conversation(prompt):
     assert arm.detect_flow(prompt) is None
 
 
-def test_default_flow_kill_switch(monkeypatch):
+def test_kill_switch_still_disarms_the_retired_heuristic(monkeypatch):
+    """`is_default_work` is kept as documentation of the retired contract.
+
+    Nothing arms from it any more (see `test_no_prompt_wording_arms_the_default_flow`),
+    but the kill switch it honours must keep working while the function exists — a
+    predicate that silently stops respecting `TOURING_WORK_OUTER_DISABLED` is exactly
+    how a disabled subsystem comes back to life unnoticed. The LIVE kill switch, on
+    the path that actually arms today, is covered by
+    `test_outer_effect.py::test_kill_switch_disarms`.
+    """
     prompt = "corrija todas as falhas do CI agora"
-    assert arm.detect_flow(prompt) == arm.DEFAULT_FLOW
+    assert arm.is_default_work(prompt) is True
     monkeypatch.setenv("TOURING_WORK_OUTER_DISABLED", "1")
-    assert arm.detect_flow(prompt) is None
+    assert arm.is_default_work(prompt) is False
 
 
 def test_default_flow_never_downgrades_an_invoked_flow(tmp_path):
@@ -239,8 +263,22 @@ def test_stop_of_session_b_is_not_held_by_session_a(tmp_path, monkeypatch):
                               capture_output=True, text=True, timeout=60,
                               stdin=subprocess.DEVNULL).stdout
 
-    assert guard_stdout("sess-B").strip() == ""          # B is free
-    assert json.loads(guard_stdout("sess-A"))["decision"] == "block"  # A still owes
+    # Opção C (03/09/2026): the OUTER no longer BLOCKS, so session isolation can no
+    # longer be read off a block decision. The property under test is unchanged — B
+    # must not see A's marker — and is now asserted on the ruler line: A's unmet OUTER
+    # is RECORDED (stderr), B's turn produces nothing at all.
+    def guard_streams(session: str):
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", session)
+        proc = subprocess.run([sys.executable, str(GUARD)], cwd=str(scope),
+                              capture_output=True, text=True, timeout=60,
+                              stdin=subprocess.DEVNULL)
+        return proc.stdout, proc.stderr
+
+    b_out, b_err = guard_streams("sess-B")
+    a_out, a_err = guard_streams("sess-A")
+    assert b_out.strip() == "" and "OUTER incomplete" not in b_err   # B is free
+    assert a_out.strip() == "" and "OUTER incomplete" in a_err       # A owes, recorded
+    assert "strategy-outer" not in b_err  # B never even resolves A's flow
 
 
 # ── recuperação de contexto: a chave do snapshot e o leitor (2026-08-02) ─────
@@ -363,13 +401,24 @@ def test_resume_fails_open_without_marker_or_stdin(tmp_path):
 
 
 def test_default_flow_derives_a_stable_bundle(tmp_path):
-    """The default flow must never leave `bundle` null — the manifest needs it."""
+    """The default flow must never leave `bundle` null, and it must be stable per DAY.
+
+    Same intent as before; the caller changed. `default_bundle` is now invoked by
+    `loop_outer_effect` when the structural signal arms (Opção D, 03/09/2026), not by
+    the retired prompt heuristic, so the function is exercised directly. Stability
+    matters for the same reason it always did: a task spanning several turns has to
+    accumulate its evidence in ONE bundle, or every follow-up would demand a fresh
+    diagnostic and the artifact floor would never be satisfiable.
+    """
     (tmp_path / "docs").mkdir()
-    run_arm("corrija todas as falhas do CI do projeto", tmp_path)
-    first = json.loads(marker_for(tmp_path).read_text())["bundle"]
+    first = arm.default_bundle(str(tmp_path))
     assert first and "docs/plans" in first and first.endswith("-work-outer")
-    run_arm("atualize também os testes desse modulo", tmp_path)
-    assert json.loads(marker_for(tmp_path).read_text())["bundle"] == first
+    assert arm.default_bundle(str(tmp_path)) == first, "must be stable within the day"
+    # Without a docs/ dir it lands under .touring/plans — never null, never cwd-relative.
+    other = tmp_path / "semdocs"
+    other.mkdir()
+    fallback = arm.default_bundle(str(other))
+    assert ".touring/plans" in fallback and fallback.endswith("-work-outer")
 
 
 # ── arming (subprocess E2E, per-project markers in tmp cwds) ─────────────────
@@ -458,16 +507,31 @@ def test_gate_fails_open_on_bad_manifests(tmp_path):
     assert proc.returncode == 0
 
 
-# ── the Stop guard (block → continue → allow) ────────────────────────────────
+# ── the Stop guard: RULER on the OUTER, gate only on the INNER ───────────────
 
-def test_stop_guard_blocks_then_allows(tmp_path):
+def test_stop_guard_records_the_unmet_outer_without_blocking(tmp_path):
+    """Opção C (Gabriel, 03/09/2026): the OUTER is a RULER on Stop, not a toll booth.
+
+    Was `test_stop_guard_blocks_then_allows`. Both halves of the original intent are
+    kept — an unmet OUTER is still DETECTED and still names its missing artifacts, a
+    satisfied one is still recognised as the human gate — but detection now lands in
+    compliance.jsonl + stderr instead of a block decision. A gate on `Stop` can only
+    inspect the past, so blocking there produced retroactive receipts rather than
+    preparation: measured over 936 evaluations, the OUTER was the turn's FIRST action
+    in 11% of turns, with a median of 5 actions already taken before it.
+    """
     scope, bundle = tmp_path / "p", tmp_path / "b"
     marker = write_outer_marker(scope, bundle)
-    blocked = subprocess.run([sys.executable, str(GUARD), "--marker", str(marker)],
-                             capture_output=True, text=True, timeout=60)
-    decision = json.loads(blocked.stdout)
-    assert decision["decision"] == "block" and "explore-ledger" in decision["reason"]
-    assert json.loads(marker.read_text())["continuations"] == 1
+    unmet = subprocess.run([sys.executable, str(GUARD), "--marker", str(marker)],
+                           capture_output=True, text=True, timeout=60)
+    assert unmet.stdout.strip() == "", "the OUTER must never block the turn"
+    assert "explore-ledger" in unmet.stderr, "but it must still NAME what is missing"
+    # The ruler survives: loop_outer_gate appended this evaluation for the KPI series.
+    log = lm.MARKER_DIR / "compliance.jsonl"
+    assert log.exists(), "the evaluation must still be recorded"
+    last = json.loads(log.read_text().strip().splitlines()[-1])
+    assert last["complete"] is False and "explore-ledger" in last["missing"]
+
     make_complete_artifacts(scope, bundle)
     allowed = subprocess.run([sys.executable, str(GUARD), "--marker", str(marker)],
                              capture_output=True, text=True, timeout=60)
@@ -475,14 +539,23 @@ def test_stop_guard_blocks_then_allows(tmp_path):
     assert json.loads(marker.read_text())["outer_complete"] is True
 
 
-def test_stop_guard_outer_cap_allows(tmp_path):
+def test_outer_never_blocks_whatever_the_continuation_count(tmp_path):
+    """Was `test_stop_guard_outer_cap_allows` — now asserting something STRONGER.
+
+    The cap existed to bound an unwinnable block loop, and it did not work: the ledger
+    holds runs of up to 63 consecutive blocks, because the contract moved under the
+    agent while the counter is per-marker. With the OUTER no longer blocking, the
+    invariant becomes unconditional — no continuation count, however absurd, can
+    produce a block.
+    """
     marker = write_outer_marker(tmp_path / "p", tmp_path / "b")
-    data = json.loads(marker.read_text())
-    data["continuations"] = 99
-    lm.save_marker(marker, data)
-    proc = subprocess.run([sys.executable, str(GUARD), "--marker", str(marker)],
-                          capture_output=True, text=True, timeout=60)
-    assert proc.stdout.strip() == "" and "cap" in proc.stderr
+    for count in (0, 1, 99):
+        data = json.loads(marker.read_text())
+        data["continuations"] = count
+        lm.save_marker(marker, data)
+        proc = subprocess.run([sys.executable, str(GUARD), "--marker", str(marker)],
+                              capture_output=True, text=True, timeout=60)
+        assert proc.stdout.strip() == "", f"blocked at continuations={count}"
 
 
 # ── registration regression: hooks must run AS REGISTERED ────────────────────

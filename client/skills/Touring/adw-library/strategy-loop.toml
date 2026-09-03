@@ -53,7 +53,12 @@ prior_art_verdict = "create_new"
 
 [node.arm_marker]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
+# `--flow-if-absent`, never `--flow`: this same ADW is BOTH the body of
+# `strategy-outer` AND the remedy `flow_manifests.json` prescribes for `work-outer`.
+# With a hard flow it rewrote the armed contract from 2 artifacts to 5 — measured
+# 03/09/2026, the Stop hook blocked as `[work-outer] 1/2`, the prescribed command ran,
+# and the next block came back `[strategy-outer] 3/5`. Obeying the gate raised the bar.
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow-if-absent strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
 timeout_ms = 30000
 idempotent = true
 on_pass = "ground"
