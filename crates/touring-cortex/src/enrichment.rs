@@ -605,13 +605,16 @@ pub fn truncate_at_semantic_boundary(text: &str, max_tokens: usize) -> &str {
 /// | L4-L5 | 3200 | Agent loops need rich context |
 /// | L6+ | 4800 | Multi-agent needs maximum context |
 pub fn compute_context_budget(cila_level: u8) -> usize {
-    match cila_level {
-        0..=1 => 800,
-        2 => 1200,
-        3 => 2000,
-        4..=5 => 3200,
-        _ => 4800, // L6+
-    }
+    // ONE source (P3/S-3.1, 04/09/2026). This computed its own scale until today
+    // — L2 = 1200, L4-5 = 3200, L6+ = 4800 — against `cila_budget_read`'s
+    // 800/2000/4000: two functions answering the same question with different
+    // numbers at 3 of 5 levels. The measured consequence was that tightening one
+    // scale never moved the other, so the CILA dial looked inert.
+    //
+    // Delegating (rather than deleting) keeps this name for its eleven call
+    // sites while the answer comes from one place, and the env overrides
+    // (`TOURING_CILA_BUDGET_L0/L2/L4`) now reach here too.
+    touring_foundation::cila::cila_budget_read(cila_level)
 }
 
 #[cfg(test)]
@@ -876,6 +879,21 @@ mod tests {
         );
     }
 
+    /// P3/S-3.1 (2026-09-04) — o guard que torna a divergencia impossivel de
+    /// voltar. As duas escalas viveram anos discordando em 3 de 5 niveis porque
+    /// nada as comparava; um guard que cruza as duas em TODO nivel e' o que
+    /// impede a proxima copia de nascer errada.
+    #[test]
+    fn the_budget_agrees_with_the_canonical_cila_scale_at_every_level() {
+        for level in 0..=255u8 {
+            assert_eq!(
+                compute_context_budget(level),
+                touring_foundation::cila::cila_budget_read(level),
+                "nivel {level}: duas fontes para o mesmo orcamento"
+            );
+        }
+    }
+
     // ── S4.2: compute_context_budget ────────────────────────────────
 
     #[test]
@@ -886,15 +904,17 @@ mod tests {
 
     #[test]
     fn test_context_budget_l2_moderate() {
-        assert_eq!(compute_context_budget(2), 1200);
+        // A escala unica (P3/S-3.1): estes numeros vinham de uma segunda funcao
+        // que discordava da canonica em 3 de 5 niveis. Agora ha' uma so'.
+        assert_eq!(compute_context_budget(2), 2000);
     }
 
     #[test]
     fn test_context_budget_l6_maximal() {
-        assert_eq!(compute_context_budget(6), 4800);
+        assert_eq!(compute_context_budget(6), 4000);
         // Values above L6 also get max budget
-        assert_eq!(compute_context_budget(7), 4800);
-        assert_eq!(compute_context_budget(255), 4800);
+        assert_eq!(compute_context_budget(7), 4000);
+        assert_eq!(compute_context_budget(255), 4000);
     }
 
     #[test]

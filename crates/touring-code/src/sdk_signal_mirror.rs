@@ -58,6 +58,36 @@ pub struct HookCallEntry {
     /// `true` if the hook returned a result the caller could consume;
     /// `false` if it errored / timed out / returned empty.
     pub success: bool,
+    /// Who wrote the line (F9-origem, 2026-09-02): `post_bash` for the
+    /// PostToolUse/PostToolUseFailure feeder, `sdk` for in-sandbox
+    /// `--orchestrate` queries. `None` on lines written before the field
+    /// existed — readers treat it as unknown, never as a post-bash delivery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+
+/// The writer of a mirror line. `hooks_complement` divides only the
+/// `PostBash` deliveries by the post-bash dispatch count; before this tag the
+/// SDK's own queries inflated that ratio to 5.0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MirrorOrigin {
+    /// The `post_bash` hook handler classifying a real `touring …` command.
+    PostBash,
+    /// The Python SDK injected by `touring run --orchestrate`.
+    Sdk,
+}
+
+impl MirrorOrigin {
+    /// Canonical snake_case string — the exact value written to the mirror
+    /// and matched by the KPI reader (`post_bash` / `sdk`).
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::PostBash => "post_bash",
+            Self::Sdk => "sdk",
+        }
+    }
 }
 
 /// Aggregate over the mirror — sums calls + failures + durations by hook.
@@ -135,6 +165,7 @@ pub fn record(
     hook: HookName,
     duration_ms: u32,
     success: bool,
+    origin: MirrorOrigin,
 ) -> Result<PathBuf, MirrorError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -144,6 +175,7 @@ pub fn record(
         hook_name: hook.as_str().to_string(),
         duration_ms,
         success,
+        origin: Some(origin.as_str().to_string()),
     };
     let mut file = OpenOptions::new()
         .create(true)
@@ -297,9 +329,9 @@ mod tests {
     fn record_appends_valid_jsonl() {
         let p = tmp_mirror("append");
         for _ in 0..3 {
-            record(&p, HookName::AstMeta, 12, true).expect("record ast_meta");
+            record(&p, HookName::AstMeta, 12, true, MirrorOrigin::Sdk).expect("record ast_meta");
         }
-        record(&p, HookName::Parallel, 5, false).expect("record parallel fail");
+        record(&p, HookName::Parallel, 5, false, MirrorOrigin::Sdk).expect("record parallel fail");
         let r = read(&p).expect("read after appends");
         assert_eq!(r.total_calls, 4);
         assert_eq!(r.total_failures, 1);
@@ -307,6 +339,40 @@ mod tests {
         assert_eq!(r.by_hook["ast_meta"].failure_count, 0);
         assert_eq!(r.by_hook["parallel"].call_count, 1);
         assert_eq!(r.by_hook["parallel"].failure_count, 1);
+        std::fs::remove_file(&p).ok();
+    }
+
+    // ── F9-origem (2026-09-02) ───────────────────────────────────────────
+    // The `hooks_complement` ratio divided EVERY mirror delivery by the
+    // post-bash dispatch count; the SDK's in-sandbox queries inflated it to
+    // 5.0. Each line now says who wrote it.
+
+    #[test]
+    fn record_writes_the_origin_of_the_delivery() {
+        let p = tmp_mirror("origin");
+        record(&p, HookName::IndexFind, 3, true, MirrorOrigin::PostBash).expect("record");
+        let raw = std::fs::read_to_string(&p).expect("mirror text");
+        assert!(raw.contains(r#""origin":"post_bash""#), "line: {raw}");
+        let entry: HookCallEntry = serde_json::from_str(raw.trim()).expect("entry parses");
+        assert_eq!(entry.origin.as_deref(), Some("post_bash"));
+        assert_eq!(MirrorOrigin::Sdk.as_str(), "sdk");
+        std::fs::remove_file(&p).ok();
+    }
+
+    #[test]
+    fn legacy_line_without_origin_still_parses_and_counts() {
+        let p = tmp_mirror("legacy");
+        std::fs::write(
+            &p,
+            "{\"ts\":1788300000,\"hook_name\":\"ast_meta\",\"duration_ms\":1,\"success\":true}\n",
+        )
+        .expect("write legacy line");
+        let entry: HookCallEntry =
+            serde_json::from_str(std::fs::read_to_string(&p).expect("text").trim())
+                .expect("legacy entry parses");
+        assert_eq!(entry.origin, None, "absent origin is unknown, never invented");
+        let r = read(&p).expect("read legacy mirror");
+        assert_eq!(r.total_calls, 1);
         std::fs::remove_file(&p).ok();
     }
 

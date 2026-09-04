@@ -53,7 +53,7 @@ _RE_STAGE_HEADERS = {
                                 re.MULTILINE | re.IGNORECASE),
 }
 _RE_PHASE_HEADING = re.compile(r"^###\s+Phase\s+\d+", re.MULTILINE | re.IGNORECASE)
-_RE_SUBTASK_HEADER = re.compile(r"S-\d+", re.MULTILINE)
+_RE_SUBTASK_HEADER = re.compile(r"^####\s+S-\d+", re.MULTILINE)  # header only — mentions in DAG/matrix are not subtasks (2026-09-02)
 _RE_CONFIDENCE = re.compile(r"\bconfidence[^\n]*?(?:FACT|INFERENCE|SPECULATION)", re.IGNORECASE)
 _RE_POTENTIATION = re.compile(r"^##\s+\d+\.\s*Potentiation", re.MULTILINE | re.IGNORECASE)
 

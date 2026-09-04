@@ -393,6 +393,16 @@ fn run_prompt_enhance(input: &Value) -> ! {
         process::exit(0);
     }
 
+    // P3/S-3.3 (2026-09-04) — a fronteira do turno. Este é o ÚNICO evento que
+    // significa "o humano falou de novo", então é aqui que o orçamento de
+    // injeção do turno recomeça. Funciona atravessando processos porque o
+    // estado vive em disco (ver `turn_budget::turn_file`): este binário é
+    // efêmero e o suggester vive no daemon.
+    if let Some(session) = input.get("session_id").and_then(|v| v.as_str()) {
+        let root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        touring_hook_runtime::turn_budget::reset_turn(&root, session);
+    }
+
     let output = touring_hooks::prompt_enhance::compose_json(prompt);
     println!("{}", serde_json::to_string(&output).unwrap_or_default());
     process::exit(0);
@@ -422,11 +432,10 @@ fn run_classify(
     runtime: &HookRuntime,
     input: &Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    let text = input
-        .get("text")
-        .or_else(|| input.get("input"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    // One source for the field name (`prompt_from_input`) — this entry point used to
+    // accept only "text"/"input" while every other consumer sent "userMessage"/"prompt",
+    // so it answered L0 with an empty pattern for every realistic payload.
+    let text = touring_hooks::classifier::prompt_from_input(input);
 
     let cila = runtime.ctx.classifier.classify(text);
     let techniques: Vec<touring_hooks::classifier::CognitiveTechnique> =

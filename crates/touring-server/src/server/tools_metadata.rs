@@ -193,7 +193,7 @@ impl TouringServer {
         name = "touring_ast_meta",
         description = "Consolidated file metadata at skeleton/summary/full depth. \
                        skeleton: file_path, language, line_count, pub symbol names. \
-                       summary: skeleton + cognitive_score, fan_in, fan_out, integration_score. \
+                       summary: skeleton + quality_score, fan_in, fan_out, integration_score. \
                        full: summary + imports, todos, feature_flags."
     )]
     async fn ast_meta(
@@ -265,10 +265,10 @@ impl TouringServer {
         }
 
         // Summary layer: cognitive + integration scores
-        let cognitive_score: f64 = conn
+        let quality_score: f64 = conn
             .query_row(
                 &format!(
-                    "SELECT cognitive_score FROM {} WHERE file_path = ?1",
+                    "SELECT quality_score FROM {} WHERE file_path = ?1",
                     schema_guard::TABLE_COGNITIVE_ENRICHMENT
                 ),
                 rusqlite::params![file_path],
@@ -300,8 +300,8 @@ impl TouringServer {
 
         if let Some(obj) = result.as_object_mut() {
             obj.insert(
-                "cognitive_score".to_string(),
-                serde_json::json!(cognitive_score),
+                "quality_score".to_string(),
+                serde_json::json!(quality_score),
             );
             obj.insert("fan_in_signal".to_string(), serde_json::json!(fan_in));
             obj.insert("fan_out_signal".to_string(), serde_json::json!(fan_out));

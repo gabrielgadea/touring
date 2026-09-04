@@ -394,7 +394,14 @@ pub async fn run_supervised(
     #[cfg(not(target_os = "linux"))]
     let enforcement = EnforcementLevel::Unsupported;
 
-    let result = spawn_and_capture(cmd, config).await?;
+    // B1 (2026-09-02): the funnel's own ruleset no longer grants the shared
+    // `/tmp`; the policy's write roots must reach it too, or the two stacked
+    // rulesets intersect to "nothing under /tmp" and a granted write fails.
+    let mut config = config.clone();
+    config
+        .extra_write_roots
+        .extend(policy.write_roots.iter().cloned());
+    let result = spawn_and_capture(cmd, &config).await?;
     Ok(SupervisedOutcome {
         result,
         enforcement,

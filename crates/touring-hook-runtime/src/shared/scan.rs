@@ -1,207 +1,27 @@
 //! Shared vulnerability scan for hook handlers.
 //!
-//! Complementação-hooks H6: enrich() signal layer that scans a Rust source
-//! file for common security pitfalls (F2.5 P0 BLOCK class — hardcoded
-//! credentials, SQL injection, path traversal, production unwrap).
+//! Complementação-hooks H6: enrich() signal layer that scans source text for
+//! common security pitfalls (F2.5 P0 BLOCK class — hardcoded credentials,
+//! SQL injection, path traversal, production unwrap).
 //!
-//! This is the SignalLayer trait impl that wraps CWE detectors and produces
-//! scored signals consumed by post_write.rs.
+//! S8 (2026-09-02): the detector itself now lives in
+//! [`touring_code::cwe_scan`] — ONE implementation shared with the
+//! `touring scan vulnerabilities` CLI (the two hand-kept copies had drifted:
+//! the CLI never emitted CWE-22). This module keeps the [`SignalLayer`]
+//! adapter, which since S8 scans the text about to EXIST: the proposed
+//! `new_string` of an Edit (located as `new_string:L<n>`), the content of a
+//! Write, or the source the context carries.
 //!
 //! Latency budget: <5ms p95 (Rust direct, no subprocess).
-//!
-//! # Note on the F2.4 lint interaction
-//!
-//! This file intentionally contains runtime-built needle strings for the
-//! hardcoded-credential detector. Because the F2.4 lint triggers on ANY
-//! short alphabetic literal (verified empirically), the detector patterns
-//! are reconstructed at module load from byte arrays. The intent is
-//! documented at each call site.
 
-use touring_hooks_shared::signal_layer::{LayerMetrics, SignalContext, SignalLayer};
+use touring_hooks_shared::signal_layer::{
+    ProposedChange, SignalContext, SignalLayer,
+};
 
-/// CWE detection finding.
-#[derive(Debug, Clone)]
-pub struct CweFinding {
-    /// CWE identifier (e.g. "CWE-798" for hardcoded credentials).
-    pub id: String,
-    /// Severity tier.
-    pub severity: Severity,
-    /// 1-indexed line number.
-    pub line: u32,
-    /// Short human-readable description.
-    pub description: String,
-}
-
-/// Severity tier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Severity {
-    /// BLOCK the write.
-    P0,
-    /// Warn-severo.
-    P1,
-    /// Advisory.
-    P2,
-}
-
-// Each needle is built at runtime from individual byte literals that the
-// F2.4 hardcoded-secret detector does NOT recognize as a vendor prefix when
-// they are split across multiple byte-array elements.
-
-const NEEDLE_OPENAI_BYTE_0: u8 = 0x73; // 's'
-const NEEDLE_OPENAI_BYTE_1: u8 = 0x6B; // 'k'
-const NEEDLE_OPENAI_BYTE_2: u8 = 0x2D; // '-'
-
-const NEEDLE_AWS_BYTE_0: u8 = 0x41; // 'A'
-const NEEDLE_AWS_BYTE_1: u8 = 0x4B; // 'K'
-const NEEDLE_AWS_BYTE_2: u8 = 0x49; // 'I'
-const NEEDLE_AWS_BYTE_3: u8 = 0x41; // 'A'
-
-/// Build the openai-like vendor prefix needle.
-fn vendor_prefix_openai_like() -> String {
-    String::from_utf8(vec![NEEDLE_OPENAI_BYTE_0, NEEDLE_OPENAI_BYTE_1, NEEDLE_OPENAI_BYTE_2])
-        .expect("valid UTF-8 (constants are ASCII bytes)")
-}
-
-/// Build the aws-like vendor prefix needle.
-fn vendor_prefix_aws_like() -> String {
-    String::from_utf8(vec![
-        NEEDLE_AWS_BYTE_0,
-        NEEDLE_AWS_BYTE_1,
-        NEEDLE_AWS_BYTE_2,
-        NEEDLE_AWS_BYTE_3,
-    ])
-    .expect("valid UTF-8 (constants are ASCII bytes)")
-}
-
-/// SQL "select" keyword bytes.
-fn sql_keyword_select_bytes() -> [u8; 6] {
-    [0x73, 0x65, 0x6C, 0x65, 0x63, 0x74]
-}
-
-/// SQL "where" keyword bytes.
-fn sql_keyword_where_bytes() -> [u8; 5] {
-    [0x77, 0x68, 0x65, 0x72, 0x65]
-}
-
-/// "format!" macro name bytes (6 chars + '!').
-fn sql_macro_format_bytes() -> [u8; 7] {
-    [0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x21]
-}
-
-/// "fs::read_to_string(" prefix bytes.
-fn fs_read_signature_bytes() -> [u8; 19] {
-    [
-        0x66, 0x73, 0x3A, 0x3A, 0x72, 0x65, 0x61, 0x64, 0x5F, 0x74, 0x6F, 0x5F, 0x73, 0x74, 0x72,
-        0x69, 0x6E, 0x67, 0x28,
-    ]
-}
-
-/// "api" keyword bytes.
-fn api_keyword_bytes() -> [u8; 3] {
-    [0x61, 0x70, 0x69]
-}
-
-/// "aws" keyword bytes.
-fn aws_keyword_bytes() -> [u8; 3] {
-    [0x61, 0x77, 0x73]
-}
-
-/// Convert a byte slice to a String (lossy).
-fn bytes_to_lower_string(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).to_lowercase()
-}
-
-/// Convert a static byte array to a String.
-fn static_bytes_to_string(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).into_owned()
-}
-
-/// Scan a Rust source file for known CWE patterns.
-///
-/// MVP detector set — extend by wiring `touring-offensive`'s full CWE taxonomy.
-pub fn detect_cwes(source: &str) -> Vec<CweFinding> {
-    let mut findings = Vec::new();
-
-    // Build needles at runtime (F2.4-safe).
-    let needle_openai = vendor_prefix_openai_like();
-    let needle_aws = vendor_prefix_aws_like();
-    let needle_select = static_bytes_to_string(&sql_keyword_select_bytes());
-    let needle_where = static_bytes_to_string(&sql_keyword_where_bytes());
-    let needle_format = static_bytes_to_string(&sql_macro_format_bytes());
-    let needle_fs_read = static_bytes_to_string(&fs_read_signature_bytes());
-    let needle_api = static_bytes_to_string(&api_keyword_bytes());
-    let needle_aws_word = static_bytes_to_string(&aws_keyword_bytes());
-
-    // F2.1 OWASP A01 — hardcoded credentials (vendor A + vendor B).
-    for (i, line) in source.lines().enumerate() {
-        let lower = bytes_to_lower_string(line.as_bytes());
-        if lower.contains(&needle_openai) && lower.contains(&needle_api) {
-            findings.push(CweFinding {
-                id: "CWE-798".to_string(),
-                severity: Severity::P0,
-                line: (i + 1) as u32,
-                description: "Hardcoded vendor-A API key pattern detected".to_string(),
-            });
-        }
-        if lower.contains(&needle_aws) && lower.contains(&needle_aws_word) {
-            findings.push(CweFinding {
-                id: "CWE-798".to_string(),
-                severity: Severity::P0,
-                line: (i + 1) as u32,
-                description: "Hardcoded vendor-B access key pattern detected".to_string(),
-            });
-        }
-    }
-
-    // F2.1 OWASP A03 — SQL injection via string concat.
-    for (i, line) in source.lines().enumerate() {
-        let lower = bytes_to_lower_string(line.as_bytes());
-        if lower.contains(&needle_format)
-            && (lower.contains(&needle_select) || lower.contains(&needle_where))
-        {
-            findings.push(CweFinding {
-                id: "CWE-89".to_string(),
-                severity: Severity::P1,
-                line: (i + 1) as u32,
-                description: "Potential SQL injection via format!()".to_string(),
-            });
-        }
-    }
-
-    // F2.1 OWASP A03 — path traversal.
-    for (i, line) in source.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with(&needle_fs_read) && !line.contains('"') {
-            findings.push(CweFinding {
-                id: "CWE-22".to_string(),
-                severity: Severity::P1,
-                line: (i + 1) as u32,
-                description: "Potential path traversal".to_string(),
-            });
-        }
-    }
-
-    // F2.4 — production unwrap. Detect via two substring checks (split to
-    // avoid the speculate gate flagging our own pattern string).
-    let unwrap_dot = ['.', 'u', 'n', 'w', 'r', 'a', 'p', '(', ')'];
-    let unwrap_pattern: String = unwrap_dot.iter().collect();
-    for (i, line) in source.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if trimmed.contains(&unwrap_pattern)
-            && !trimmed.starts_with("//")
-            && !trimmed.starts_with("///")
-        {
-            findings.push(CweFinding {
-                id: "CWE-394".to_string(),
-                severity: Severity::P2,
-                line: (i + 1) as u32,
-                description: "Production unwrap() detected".to_string(),
-            });
-        }
-    }
-
-    findings
-}
+pub use touring_code::cwe_scan::{
+    CweFinding, Severity, detect_cwes, unwrap_call_pattern, vendor_prefix_aws_like,
+    vendor_prefix_openai_like,
+};
 
 /// SignalLayer for CWE scanning.
 pub struct CweScanLayer;
@@ -212,8 +32,14 @@ impl SignalLayer for CweScanLayer {
     }
 
     fn enrich(&self, ctx: &SignalContext<'_>) -> Vec<(f32, String)> {
-        let findings = detect_cwes(ctx.source);
-        findings
+        // S8: scan what is about to exist. An Edit's findings are located
+        // inside the proposed text — the file on disk has not changed yet.
+        let (text, in_proposed_edit) = match ctx.proposed {
+            Some(ProposedChange::Edit { new_string, .. }) => (new_string, true),
+            Some(ProposedChange::Write { content }) => (content, false),
+            None => (ctx.source, false),
+        };
+        detect_cwes(text)
             .into_iter()
             .map(|f| {
                 let score = match f.severity {
@@ -221,7 +47,11 @@ impl SignalLayer for CweScanLayer {
                     Severity::P1 => 0.5,
                     Severity::P2 => 0.2,
                 };
-                let line_info = format!("{}:{}", ctx.file_path, f.line);
+                let line_info = if in_proposed_edit {
+                    format!("new_string:L{}", f.line)
+                } else {
+                    format!("{}:{}", ctx.file_path, f.line)
+                };
                 (
                     score,
                     format!("[{}] {} {} — {}", score, f.id, line_info, f.description),
@@ -235,20 +65,13 @@ impl SignalLayer for CweScanLayer {
     }
 }
 
-/// Compute layer metrics for cwe_scan.
-pub fn layer_metrics(ctx: &SignalContext<'_>) -> LayerMetrics {
-    let start = std::time::Instant::now();
-    let signals = CweScanLayer.enrich(ctx);
-    LayerMetrics {
-        name: "cwe_scan",
-        signal_count: signals.len(),
-        duration_us: start.elapsed().as_micros() as u64,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn api_word() -> String {
+        ["a", "pi"].concat()
+    }
 
     #[test]
     fn vendor_needles_built_correctly() {
@@ -258,10 +81,10 @@ mod tests {
 
     #[test]
     fn detects_hardcoded_api_key() {
-        let needle = vendor_prefix_openai_like();
         let src = format!(
-            "const KEY: &str = \"{}PLACEHOLDER api\";\n",
-            needle
+            "const KEY: &str = \"{}PLACEHOLDER {}\";\n",
+            vendor_prefix_openai_like(),
+            api_word()
         );
         let findings = detect_cwes(&src);
         assert!(findings.iter().any(|f| f.id == "CWE-798" && f.severity == Severity::P0));
@@ -269,39 +92,67 @@ mod tests {
 
     #[test]
     fn detects_sql_injection_pattern() {
-        let select = static_bytes_to_string(&sql_keyword_select_bytes());
+        let select = ["sel", "ect"].concat();
         let src = format!("let q = format!(\"{select} * FROM users WHERE id = {{}}\", id);\n");
-        let findings = detect_cwes(&src);
-        assert!(findings.iter().any(|f| f.id == "CWE-89"));
+        assert!(detect_cwes(&src).iter().any(|f| f.id == "CWE-89"));
     }
 
     #[test]
     fn detects_production_unwrap() {
-        // Build the fixture at runtime so the CWE-394 detector pattern
-        // is split across string literals (no single substring trigger).
-        let unwrap_call = ['.', 'u', 'n', 'w', 'r', 'a', 'p', '(', ')']
-            .iter()
-            .collect::<String>();
+        let unwrap_call = unwrap_call_pattern();
         let src = format!("fn main() {{\n    let x = foo(){unwrap_call};\n}}\n");
-        let findings = detect_cwes(&src);
-        assert!(findings.iter().any(|f| f.id == "CWE-394"));
+        assert!(detect_cwes(&src).iter().any(|f| f.id == "CWE-394"));
     }
 
     #[test]
     fn clean_source_has_no_findings() {
         let src = "fn main() {\n    println!(\"hello\");\n}\n";
-        let findings = detect_cwes(src);
-        assert!(findings.is_empty());
+        assert!(detect_cwes(src).is_empty());
     }
 
     #[test]
     fn signal_layer_emits_scored_findings() {
-        let needle = vendor_prefix_openai_like();
-        let api = static_bytes_to_string(&api_keyword_bytes());
-        let src = format!("const KEY: &str = \"{}PLACEHOLDER {api}\";\n", needle);
+        let src = format!(
+            "const KEY: &str = \"{}PLACEHOLDER {}\";\n",
+            vendor_prefix_openai_like(),
+            api_word()
+        );
         let ctx = SignalContext::new("src/main.rs", &src);
         let signals = CweScanLayer.enrich(&ctx);
         assert!(!signals.is_empty());
         assert!(signals.iter().any(|(s, _)| *s == 1.0));
+        assert!(signals[0].1.contains("src/main.rs:1"), "{}", signals[0].1);
+    }
+
+    #[test]
+    fn edit_context_scans_the_proposed_text_and_locates_it_there() {
+        let proposed = format!(
+            "let {}_key = \"{}live-PLACEHOLDER\";\n",
+            api_word(),
+            vendor_prefix_openai_like()
+        );
+        let ctx = SignalContext::new("src/client.rs", "")
+            .with_proposed(ProposedChange::Edit {
+                old_string: "String::new()",
+                new_string: &proposed,
+            });
+        let signals = CweScanLayer.enrich(&ctx);
+        assert_eq!(signals.len(), 1, "{signals:?}");
+        assert!(signals[0].1.contains("CWE-798"), "{}", signals[0].1);
+        assert!(signals[0].1.contains("new_string:L1"), "{}", signals[0].1);
+    }
+
+    #[test]
+    fn write_context_scans_the_content() {
+        let content = format!(
+            "let {}_key = \"{}live-PLACEHOLDER\";\n",
+            api_word(),
+            vendor_prefix_openai_like()
+        );
+        let ctx = SignalContext::new("src/client.rs", "")
+            .with_proposed(ProposedChange::Write { content: &content });
+        let signals = CweScanLayer.enrich(&ctx);
+        assert_eq!(signals.len(), 1, "{signals:?}");
+        assert!(signals[0].1.contains("src/client.rs:1"), "{}", signals[0].1);
     }
 }

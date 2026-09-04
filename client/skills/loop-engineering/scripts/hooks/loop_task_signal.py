@@ -35,6 +35,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from pathlib import Path
 
 CLI_TIMEOUT = 8
 # The floor was CALIBRATED, not guessed, and it moved once during calibration — the
@@ -71,6 +72,31 @@ def _cli(args, cwd=None):
         return None
 
 
+def _index_key(file_path: str, cwd) -> str:
+    """A chave que o índice usa: caminho RELATIVO à raiz do projeto.
+
+    O PreToolUse entrega `file_path` ABSOLUTO — sempre, por construção do Claude
+    Code. E `touring ast blast` responde `blast_radius: 0` para caminho absoluto,
+    em silêncio, sem erro, enquanto `touring ast meta` no MESMO caminho responde
+    corretamente (`enrichment_source: knowledge_db`, escores reais). Dois comandos
+    TIER-1 discordando sobre normalização de entrada, e nenhum dos dois erra alto.
+
+    O efeito medido: 0 de 188 turnos armaram em produção, porque todo arquivo
+    devolvia blast 0 e o predicado de "indexado" (`!= on_disk_fallback`, negativo)
+    dizia True — o veredito saía "folha indexada, ninguém depende" com confiança,
+    sobre o hook mais movimentado do workspace.
+
+    Fora da raiz o caminho segue absoluto de propósito: o índice não conhece esse
+    arquivo, e a resposta honesta é `index-silent`, nunca um número inventado.
+    """
+    if not file_path or not cwd:
+        return file_path
+    try:
+        return str(Path(file_path).resolve().relative_to(Path(cwd).resolve()))
+    except (ValueError, OSError):
+        return file_path
+
+
 def scope_vector(file_path: str, cwd=None):
     """The real scope of a change to `file_path`, taken from the index.
 
@@ -81,12 +107,19 @@ def scope_vector(file_path: str, cwd=None):
     the same size.
 
     Returns None when the index cannot answer, which the caller must read as "unknown"
-    and never as "small". On a cache miss `ast meta` falls back to `on_disk_fallback`,
-    where `cognitive_score` comes back as 1.0 for a 13-line markdown file; trusting
-    that number would arm the gate hardest on the most trivial edits.
+    and never as "small".
+
+    On the score `ast meta` reports (`quality_score` since 04/09/2026, `cognitive_score`
+    before it): a 13-line markdown file measures 1.0. That is CORRECT and not a fallback
+    artefact — the producer `analyze_quality` declares "[0.0, 1.0] where higher is
+    better" and computes penalties, so a file with no complex functions and no
+    antipatterns genuinely IS maximally clean. What was wrong was every consumer, this
+    one included, reading it as a complexity score. See `_scores_stay_out_of_the_vector`
+    below for why it still does not vote.
     """
     if not file_path:
         return None
+    file_path = _index_key(file_path, cwd)
     blast = _cli(["ast", "blast", file_path, "-j"], cwd)
     if blast is None:
         return None
@@ -109,25 +142,30 @@ def scope_vector(file_path: str, cwd=None):
                 "blast_radius": 0, "indexed": True, "no_consumers": True}
     symbols = len(meta.get("pub_symbols") or []) if indexed else 0
 
-    # `cognitive_score` and `integration_score` are DELIBERATELY not in the vector.
+    # `quality_score` and `integration_score` are DELIBERATELY not in the vector —
+    # for a reason that CHANGED on 04/09/2026, and the change is the lesson.
     #
-    # The calibration run over 108 historical edit-turns (P3, 03/09/2026) caught this
-    # and it is worth stating plainly: I assumed what `cognitive_score` means and used
-    # it backwards. Measured, indexed, no fallback involved:
+    # Original reason (03/09, calibration over 108 historical edit-turns): the scale
+    # produced a confident L3 on a markdown file with zero consumers, so I removed it
+    # as "direction unknown". Measured, indexed, no fallback involved:
     #
-    #     MEMORY.md          cognitive 1.000  coupling 1.000  blast 0   → came out L3
-    #     cli_suggester.rs   cognitive 0.352  coupling 0.733  blast 19  → L3
+    #     MEMORY.md          score 1.000  coupling 1.000  blast 0
+    #     cli_suggester.rs   score 0.352  coupling 0.733  blast 19
     #
-    # A plain list of notes scoring HIGHER than the busiest hook in the workspace means
-    # the scale does not run the way I read it — plausibly "simplicity", plausibly a
-    # default for unparsed languages; I did not verify, so it does not get a vote.
-    # Feeding a classifier a number whose DIRECTION is unknown is worse than feeding it
-    # nothing: it produced a confident L3 on a markdown file with zero consumers, which
-    # would have made the gate fire hardest exactly where it is least useful.
+    # Real reason (04/09, after READING the producer instead of inferring from the
+    # observation): the direction was never unknown. `analyze_quality`
+    # (`touring-code/src/ast/quality.rs`) declares on its first doc line "[0.0, 1.0]
+    # where higher is better" and computes penalties. The scale was right; every
+    # consumer read it backwards, this one included. It is a QUALITY score, so
+    # MEMORY.md at 1.000 means "maximally clean", which is true and useless as a proxy
+    # for task size. The field is now named `quality_score` so the name carries it.
     #
-    # What survives is what was verified by execution: counts of real consumers and
-    # real public symbols. When the semantics of these two scores are established, they
-    # can come back — with a test that pins the direction.
+    # Why it still does not vote: `route`'s vector wants a COMPLEXITY-ish signal, and
+    # `1 - quality` is a plausible candidate that has never been calibrated against
+    # anything. Feeding it now would repeat the original mistake in the opposite
+    # direction — a number whose MEANING is known but whose usefulness for THIS
+    # classifier is not. It comes back when the measured distribution says it should,
+    # with a test that pins it (blocked on the week of live compliance data, Q1).
     cognitive = 0.0
     coupling = 0.0
 

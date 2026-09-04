@@ -1,0 +1,67 @@
+{
+  "status": "OK",
+  "script": "dag_builder",
+  "timestamp": "2026-09-02T12:19:43+00:00",
+  "source": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+  "phase_count": 6,
+  "phases": [
+    {
+      "number": 1,
+      "name": "W0 · Identidade da telemetria",
+      "mode": "sequential",
+      "depends_on": []
+    },
+    {
+      "number": 2,
+      "name": "W1 · Régua por injeção",
+      "mode": "sequential",
+      "depends_on": [
+        1
+      ]
+    },
+    {
+      "number": 3,
+      "name": "W2 · Contrato de módulo",
+      "mode": "sequential",
+      "depends_on": [
+        2
+      ]
+    },
+    {
+      "number": 4,
+      "name": "W3 · Primeira filha",
+      "mode": "sequential",
+      "depends_on": [
+        3
+      ]
+    },
+    {
+      "number": 5,
+      "name": "W4 · Publicação",
+      "mode": "sequential",
+      "depends_on": [
+        4
+      ]
+    },
+    {
+      "number": 6,
+      "name": "W5 · Contínua",
+      "mode": "sequential",
+      "depends_on": [
+        5
+      ]
+    }
+  ],
+  "topological_order": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "cycle_nodes": [],
+  "mermaid": "graph LR\n  P1[W0 · Identidade da telemetria (sequential)]\n  P2[W1 · Régua por injeção (sequential)]\n  P3[W2 · Contrato de módulo (sequential)]\n  P4[W3 · Primeira filha (sequential)]\n  P5[W4 · Publicação (sequential)]\n  P6[W5 · Contínua (sequential)]\n  P1 --> P2\n  P2 --> P3\n  P3 --> P4\n  P4 --> P5\n  P5 --> P6",
+  "textual": "P1 (sequential: W0 · Identidade da telemetria) -> P2 (sequential: W1 · Régua por injeção) -> P3 (sequential: W2 · Contrato de módulo) -> P4 (sequential: W3 · Primeira filha) -> P5 (sequential: W4 · Publicação) -> P6 (sequential: W5 · Contínua)",
+  "mutated": true
+}

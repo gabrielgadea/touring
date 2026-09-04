@@ -135,7 +135,64 @@ touring decompose ready task_1788294728027014117
   lançava. Memória: `f0.3:causa-raiz-fechada:2026-09-02`.
 - **Fix proposto (settings.json = human gate, NÃO aplicado)**: remover o `if` do `post-bash` (o feeder
   `classify_bash_command` é precision-first; comando não-touring = no-op de ~ms) e decidir o do `pre-bash`.
+- **Mecanismo fechado (02/09 ~00:15 BRT, Context7 + prova controlada)**: o `if` do Claude Code aceita **uma única
+  regra de permissão, sem operadores lógicos** ("combining conditions requires separate hook handlers") e **falha
+  aberto quando o comando não é parseável** (docs `hooks` / `hooks-guide`). O `if` atual com `|` é sintaxe inválida:
+  como regra única nunca casa comando simples; o fail-open dispara em comando complexo. Sondas nesta sessão
+  (`stdin_bytes` como id no trace): `touring --version`, `cargo --version`, `echo cargo`, `echo <controle>` → 0
+  `pre-bash`/0 `post-bash`; `for … $(date) … | tr` **sem** cargo/touring → `pre-bash` disparou. Origem do filtro:
+  `docs/internal/sessions/PLAN-diagnostic-precision-pln2.md` FIX-S6 (RC9) — o próprio plano decidiu "fix no binário é
+  mais robusto, o settings.json filter é fragile"; os handlers atuais não spawnam `cargo` (`Command::new` = 0).
+  Edits em `settings.json` valem na sessão corrente (docs `debug-your-config`). Canvas de decisão entregue a Gabriel.
+  Memória: `f0.3:if-semantica-fechada:2026-09-02`.
 - Refinamento F9 observado: `post_bash_delivery_ratio` = 5.0 (5 entregas ao mirror vindas do caminho CLI ÷ 1 dispatch do
   post-bash) — o numerador mistura fontes; separar entregas originadas no `post-bash`.
-- **Ainda pendente**: decisão do Gabriel sobre o `if` (então 1 Bash vivo qualquer prova o mirror); TIER-2 S4
-  (ApiCascadePreview ★) · S6 · S8 · S9; F9 numerador por origem.
+- **APLICADO (02/09 ~00:55 BRT, opção B aprovada por Gabriel)**: as duas chaves `"if"` removidas de `touring-hook
+  pre-bash` e `touring-hook post-bash` em `~/.claude/settings.json` (round-trip JSON lossless, diff = 2 linhas, backup
+  `~/.claude/settings.json.bak-20260901T235541-if-removal`). **Prova pelo trace, na MESMA sessão, sem restart**:
+  `touring index find SignalPipeline` (payload 748 B) → `pre-bash`/`cli-suggest`/`ceg-observe` no PreToolUse e
+  `post-bash`/`post-tool-rl`/`post-tool-batch` no PostToolUse; mirror 75→76 linhas (`hook_name=index_find`);
+  `hook_dispatch_by_name` `pre-bash=11`/`post-bash=6`; `hooks_complement.post_bash_dispatched=6`. Memória:
+  `f0.3:if-removido-provado:2026-09-02`.
+- **Ainda pendente**: TIER-2 S4 (ApiCascadePreview ★) · S6 · S8 · S9; F9 numerador por origem; observar 1 semana de
+  denies do `pre-bash` (regex `rm -f\s+`) e latência por turno (`async: true` se p50 > 50 ms); decidir registro do
+  `post-bash` também em `PostToolUseFailure` (caminho de falha hoje morto por construção).
+
+## Atualização 02/09 ~01:05 BRT — Wave TIER-2 executada (DAG `task_1788318067626657742`, 6/6)
+
+Ordem de Gabriel: "próxima wave TIER-2 (S4, S6, S8, S9) e o ajuste do numerador do KPI hooks_complement" + "registrar o
+post-bash também em PostToolUseFailure". Tudo sob TDD (red → green → mutação flagrada → green). Strategy:
+`../2026-09-01-work-outer/strategy-2026-09-02-tier2-wave.md`.
+
+- **F10** `post_bash` lê o payload REAL: `tool_response.stdout/stderr` (PostToolUse) e `error` (PostToolUseFailure, exit
+  code da linha `Exit code N`; falha nunca lê como sucesso; `is_interrupt` não é outcome). Antes lia `tool_input.stdout`,
+  campo que o Claude Code não envia — todo outcome gravava exit 0 (`BashPayloadOutput`, `bash_payload_output`,
+  `build_bash_outcome_for_event`). **Registro em `PostToolUseFailure` no `settings.json` só após o deploy** (o daemon
+  30.4.30 gravaria falso sucesso).
+- **F9** origem no mirror: `HookCallEntry.origin` (`serde(default)`; legado = `null`) + `MirrorOrigin {PostBash, Sdk}`;
+  `record`/`record_hook_call` recebem a origem; `post_bash` grava `post_bash` e `success` real; template Python grava
+  `"origin": "sdk"` (guard cruzado lê `MirrorOrigin::Sdk.as_str()`); `hooks_complement` expõe
+  `mirror_deliveries_by_origin` e `post_bash_origin_deliveries_since`; a razão usa só `post_bash`.
+- **S6** `shared/quality_signal.rs`: `quality_baseline_signals` única (pre_write importa); `QualityBaselineLayer::for_edit`
+  aplica o edit em memória (`apply_edit`) e mede — `quality: CC>10: [f]` antes do edit.
+- **S8** detector único `touring_code::cwe_scan::detect_cwes` (hook-runtime re-exporta; `touring scan vulnerabilities`
+  delega — a cópia CLI nunca emitia CWE-22, flagrado pelo RED); `CweScanLayer` wired em pre_write e pre_edit, escaneia o
+  texto que vai existir (`new_string:L<n>` em Edit).
+- **S9 POLIGLOTA** (pergunta do Gabriel "o preview só pode ser rust?"): `shared/api_preview.rs` — `ApiPreview` constrói a
+  superfície pública via `extract_symbols` (tree-sitter: `signature` = cabeçalho, `is_public` por linguagem; entradas
+  `fn name(params) @Parent` / `type Name`) e faz o diff em nível de ASSINATURA; syn só para o número semântico. Badge
+  `[rust] semantic 0.31 · pub API 7 (+1/-0)` / `[python] pub API 3 (+1/-0)`. **Defeito corrigido em `touring-code`**:
+  `detect_visibility` TS/JS lia só a declaração — `export` mora no `export_statement` pai — toda função exportada era
+  privada (teste de regressão em `symbols_tests.rs`).
+- **S4 ★** `shared/api_cascade_preview.rs`: itens públicos que o edit remove/re-assina × call sites (in-file pelo call
+  graph do "after" via `plan_api_cascade`, dedup por change; cross-file por `find_references`) → `[cascade] \`total\`
+  signature changes — 2 call sites break: src/report.rs:12, src/summary.rs:7 — update them with this edit`. Poliglota
+  (Rust, Python provados; TS/JS pelo mesmo caminho). Cobre o que A2 não vê (edit só na definição).
+- Gates: `cargo check --workspace` verde; clippy limpo em touring-code, hook-runtime, touring-cli, touring-server (lib) e
+  handlers (features de produção); suítes: post_bash 37, sdk 15, kpi 4, server 3+7, quality 11, cwe_scan 7, scan 8,
+  api_preview 6, cascade 7, symbols 67, pre_edit 88, pre_write 75. `loop_converged`: 7/8 cláusulas; `orphans_base`
+  reprovou por índice stale (símbolos novos com consumidores aplicados por script) → reindex em curso.
+- **Pendências desta wave**: reindex + `loop_converged` exit 0 → bump `30.4.31` + `propagate-release.sh` → registrar
+  `post-bash` em `PostToolUseFailure` (settings.json) → provas vivas (Bash que falha no trace; mirror com
+  `origin=post_bash`; badge/cascata num Edit real). Achado colateral: `post_tool_failure.rs` (handler dedicado) não está
+  registrado e valida `tool_name`/`error` dentro de `tool_input` (onde o CC não os envia) — decisão à parte.

@@ -94,3 +94,6 @@ eval/autoresearch/corpus.json
 *.db
 *.sqlite
 *.sqlite3
+
+# artefatos de cobertura (cross-audit 03/09/2026)
+*.profraw

@@ -167,3 +167,66 @@ A2 CrossCallerLayer (pre_edit) entregue: quando o Edit MUDA uma chamada (conjunt
 - Consequência: as hipóteses da forense de 01/09 (stdin não-bloqueante, circuit breaker, fallback standalone) estavam a jusante de um processo que nunca nascia; o fallback standalone morto (F0.3c) era real, mas não era a causa do vivo.
 - Fix proposto (settings.json → human gate, não aplicado): remover o `if` do `post-bash`; decidir o do `pre-bash`. Refinamento F9: `post_bash_delivery_ratio` = 5.0 porque o numerador conta entregas ao mirror de qualquer origem (CLI `index find` etc.) — separar por origem.
 - Memórias: `f0.3:causa-raiz-fechada:2026-09-02` (supersedes `f0.3:post-bash-entrega-viva:2026-09-01`).
+
+## 2026-09-02T00:15:00-03:00 — F0.3: semântica do `if` fechada (Context7 + sondas) · canvas de decisão
+
+- Context7 (`/websites/code_claude`, páginas `hooks`, `hooks-guide`, `debug-your-config`): o `if` hook-level aceita **uma única regra de permissão sem operadores lógicos** (alternativas exigem handlers separados); **falha aberto** se o comando não é parseável; assignments iniciais são removidos antes do match; edits em `settings.json` valem na sessão corrente; existe `async: true`; `PostToolUse` só dispara em sucesso (`PostToolUseFailure` é evento próprio, não registrado para o `post-bash`).
+- Sondas controladas (trace, `stdin_bytes` como id): `touring --version` (694 B), `cargo --version` (693 B), `echo cargo` (690 B), `echo <controle>` (731 B) → nenhum `pre-bash`/`post-bash`; `for … $(date) … | tr …` sem cargo/touring (777 B) → `pre-bash` disparou. Antes: heredoc e for-loop com pipe → `post-bash` disparou. Conclusão: o filtro atual não seleciona por conteúdo, seleciona por parseabilidade.
+- Origem do filtro: `PLAN-diagnostic-precision-pln2.md` FIX-S6/RC9 (cargo check em dir sem Cargo.toml) — decisão do próprio plano: "fix no binário é mais robusto — o settings.json filter é fragile". Handlers atuais não spawnam cargo. Custo medido do `pre-bash` via shim: 14–17 ms/chamada.
+- Entregue: canvas 9 seções (decision-canvas) a Gabriel; memória `f0.3:if-semantica-fechada:2026-09-02`. Decisão humana pendente.
+
+## 2026-09-02T00:55:00-03:00 — opção B aplicada: `if` removido de pre-bash/post-bash · prova pelo trace
+
+- Ordem de Gabriel: "aprovo B, remova o if dos dois e prove com o trace".
+- Edição: script `remove_if_bash_hooks.py` (scratchpad) — round-trip JSON indent-2 **lossless** (texto canônico == original), 2 entradas tocadas (`PreToolUse/Bash: touring-hook pre-bash`, `PostToolUse/Bash: touring-hook post-bash`), diff textual = exatamente 2 linhas `"if": …` removidas, backup `~/.claude/settings.json.bak-20260901T235541-if-removal`, escrita atômica (`os.replace`), releitura com 0 `if` restantes nos alvos.
+- Prova (mesma sessão, sem restart — confirma docs `debug-your-config`): baseline trace 979 linhas / mirror 75. `touring index find SignalPipeline` (payload 748 B) → PreToolUse: `pre-bash` + `cli-suggest` + `ceg-observe` (stdin=748); PostToolUse: `post-bash` + `post-tool-rl` + `post-tool-batch` (stdin=1314). Mirror 76 (`{"hook_name":"index_find","success":true}`). `gate-metrics.hook_dispatch_by_name`: `pre-bash=11`, `post-bash=6`. `kpi.hooks_complement`: `post_bash_dispatched=6`, `mirror_deliveries_since=1`, ratio 0,17 (numerador por origem segue como refinamento F9).
+- Memórias: `f0.3:if-removido-provado:2026-09-02` (fecha o item F0.3 da strategy sinais-ativos).
+
+## 2026-09-02T01:05:00-03:00 — Wave TIER-2 (F10 · F9 · S6 · S8 · S9 · S4) — código fechado, gates de wave em curso
+
+- DAG `task_1788318067626657742` 6/6 done (fechos individuais abaixo). Ordem de Gabriel: TIER-2 + numerador do KPI + `post-bash` em `PostToolUseFailure`; pergunta mid-wave "o preview só pode ser rust?" → S9/S4 refeitos poliglotas (tree-sitter `extract_symbols`: assinatura + visibilidade por linguagem).
+- Defeitos pré-existentes flagrados pelos REDs e corrigidos: (a) `post_bash` lia `tool_input.stdout` (campo inexistente no payload do CC) — todo outcome exit 0; (b) `touring scan vulnerabilities` nunca emitia CWE-22 (cópia drifted); (c) `detect_visibility` TS/JS: `export` no nó pai — toda função exportada lida como privada; (d) `plan_api_cascade` duplica callers in-file numa re-assinatura (proposta por change) — dedup no consumidor.
+- Gates: `cargo check --workspace` OK; clippy 0 em code/hook-runtime/cli/server-lib/handlers-prod; suítes listadas no RETOMAR. `loop_converged` 7/8 — `orphans_base` com índice stale (consumidores aplicados por script, sem hook de reindex) → `touring index rebuild` em curso, re-julgar depois.
+- Próximos passos: bump `30.4.31` + `propagate-release.sh`; registrar `touring-hook post-bash` em `PostToolUseFailure` (settings.json); provas vivas.
+
+## 2026-09-02T00:20:37.025461-03:00 — F10 done
+
+F10 post-bash le o payload real: tool_response.stdout/stderr no PostToolUse e error no PostToolUseFailure (exit code da linha 'Exit code N'; falha nunca le como sucesso; is_interrupt ignorado). Antes lia tool_input.stdout, campo que o Claude Code nao envia — todo outcome gravava exit 0. 7 testes novos, mutacao flagrada (exit_code collapse), 37 post_bash verdes, clippy prod-features limpo. Registro em PostToolUseFailure no settings.json fica para depois do deploy (o daemon atual gravaria falso sucesso).
+
+## 2026-09-02T00:20:37.280790-03:00 — F9 done
+
+F9 origem no mirror: HookCallEntry.origin (serde default, legado=null) + MirrorOrigin{PostBash,Sdk}; record/record_hook_call recebem origem; post_bash grava post_bash e success real; template Python grava origin=sdk (guard cruzado le MirrorOrigin::Sdk.as_str()); KPI hooks_complement expoe mirror_deliveries_by_origin e post_bash_origin_deliveries_since e a razao usa so post_bash. Mutacao (sdk creditado a post_bash) flagrada. touring-code 15, kpi 4, server 3 testes verdes; clippy code/cli/handlers limpo.
+
+## 2026-09-02T00:37:50.167329-03:00 — S6 done
+
+S6 quality do conteudo PROPOSTO no pre_edit: quality_baseline_signals movido para shared/quality_signal.rs (pre_write importa a funcao unica); QualityBaselineLayer::for_edit aplica old->new em memoria (apply_edit, guard 200KB) e mede com analyze_file_quality — 'quality: CC>10: [f]' antes do edit (simetria com pre_write). RED: contexto so tinha 'complexity: medium (14)'. 4 testes unitarios + 1 runtime; mutacao (medir o disco) flagrada por 2 testes; pre_write 73 verdes; clippy prod limpo.
+
+## 2026-09-02T00:37:50.413170-03:00 — S8 done
+
+S8 CweScanLayer wired + detector unico: detect_cwes/CweFinding/Severity/needles movidos para touring_code::cwe_scan (leaf, sem ciclo); touring-hook-runtime scan.rs re-exporta e a layer passa a escanear o texto que vai existir (new_string de Edit localizado como new_string:L<n>, content de Write); touring-server cli/scan.rs delega (a copia CLI nunca emitia CWE-22 — drift flagrado pelo teste RED). Wired em pre_write e pre_edit. Testes: cwe_scan 7, hook-runtime scan 8 (2 novos), handlers 2 runtime, server scan 7; mutacao (ignorar texto proposto) flagrada em 2 crates; clippy code/hook-runtime/handlers limpo, server em curso.
+
+## 2026-09-02T00:53:50.281884-03:00 — S9 done
+
+S9 badge de API POLIGLOTA (Gabriel: 'o preview so pode ser rust?'): shared/api_preview.rs — ApiPreview::{for_write,for_edit} constroi a superficie publica via extract_symbols (tree-sitter: signature = cabecalho sem corpo, is_public por linguagem; entradas 'fn name(params) @Parent' / 'type Name'), diff em nivel de ASSINATURA (public_api_surface era so nome e so Rust); syn RustSemanticReport apenas para o numero semantico. Badge '[rust] semantic 0.31 · pub API 7 (+1/-0) · unsafe 2' / '[python] pub API 3 (+1/-0)'. ApiBadgeLayer em pre_write e pre_edit; current_source lido uma vez e compartilhado com S6. Defeito flagrado e corrigido em touring-code (TDD): detect_visibility TS/JS lia so o texto da declaracao — export mora no export_statement pai — toda funcao exportada era privada; teste de regressao em symbols_tests.rs. Mutacao S9 (delta suprimido) flagrada por 2 testes. Testes: api_preview 6, badge 3 runtime, symbols 67; clippy code+handlers prod limpo.
+
+## 2026-09-02T00:53:50.556039-03:00 — S4 done
+
+S4 ApiCascadePreviewLayer (pre_edit, CILA>=2, poliglota): itens publicos que o edit remove ou re-assina (diff de assinatura do ApiPreview) x call sites — in-file pelo call graph do 'after' (plan_api_cascade; proposta por change deduplicada) + cross-file por find_references (rota A2). Mensagem '[cascade]  signature changes — 2 call sites break: src/report.rs:12, src/summary.rs:7 — update them with this edit'. Cobre o que A2 nao ve (edit so na definicao). RED provado (contexto so trazia o badge); dedup flagrado pelo teste unitario. Testes: cascade 7 (unit Rust+Python, runtime Rust+Python); clippy handlers prod limpo.
+
+## 2026-09-02T11:00:00-03:00 — atestação do re-baseline de órfãos
+
+A cláusula `orphans_base` reprovou esta wave acusando **todos** os 1740 órfãos como novos contra um baseline de 5389. A causa é de formato, não de dívida: o baseline foi gravado com cada caminho prefixado por `./`, e a correção W3 (`canonicalize_module_path`, bundle `2026-09-02-tmp-sandbox-portfolio-afordancia`) passou a canonizar sem o prefixo. Nenhuma linha casava.
+
+Normalizando os dois lados, o baseline de 5388 linhas colapsa para **3148 únicas** — a assinatura do defeito que W3 corrigiu, o mesmo símbolo contado duas vezes. Contra esse número:
+
+- órfãos agora: **1740** (queda de 45%)
+- resolvidos pelo detector W: **1426**
+- realmente novos: **18**, todos triados (8 falsos por homonímia ou despacho por tabela, 7 `pub` demais já estreitados, 3 sem uso — dos quais 2 foram ligados ao KPI de sinal)
+
+Por isso o baseline nomeado é **regravado** com o conjunto atual. A atestação é esta entrada: o conjunto mudou porque a chave mudou por decisão de engenharia, a contagem CAIU, e cada símbolo que sobrou foi nomeado e classificado. Pendência declarada: `sdk::load_signal_report` segue sem consumidor, aguardando decisão de Gabriel entre integrar e remover.
+
+## 2026-09-02T11:18:00-03:00 — `post-bash` registrado também em PostToolUseFailure
+
+F10 lê `error` do payload de falha; sem o registro no evento `PostToolUseFailure`, todo comando que falha continuava invisível ao mirror — o hook só era chamado no caminho de sucesso. Registrado com `matcher: "Bash"` apontando para o mesmo `$HOME/.claude/hooks/touring-hook post-bash`, com backup em `settings.json.bak-20260902T101814-postfailure` e verificação de parse depois da escrita.
+
+Convergência desta wave: `loop_converged` **exit 0** após o re-baseline atestado (órfãos escopados 1734, gravados como o novo conjunto nomeado; o anterior preservado em `.baseline/orphans-scoped.pre-w3-2026-09-02.txt`).

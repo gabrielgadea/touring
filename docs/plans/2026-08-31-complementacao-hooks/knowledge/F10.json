@@ -1,0 +1,45 @@
+{
+  "phase": "F10",
+  "entities": [
+    {
+      "entity_id": "phase:F10",
+      "type": "phase",
+      "description": "F10 post-bash le o payload real: tool_response.stdout/stderr no PostToolUse e error no PostToolUseFailure (exit code da linha 'Exit code N'; falha nunca le como sucesso; is_interrupt ignorado). Antes lia tool_input.stdout, campo que o Claude Code nao envia \u2014 todo outcome gravava exit 0. 7 testes novos, mutacao flagrada (exit_code collapse), 37 post_bash verdes, clippy prod-features limpo. Registro em PostToolUseFailure no settings.json fica para depois do deploy (o daemon atual gravaria falso sucesso)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788318067626657742:F10:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788318067626657742",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788318067626657742",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F10|produces|memory:loop:task_1788318067626657742:F10:done",
+      "source": "phase:F10",
+      "type": "produces",
+      "target": "memory:loop:task_1788318067626657742:F10:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:F10:done|generated-by|loop:loop:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:F10:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788318067626657742"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:F10:done|generated-by|dag:decomp:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:F10:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788318067626657742"
+    }
+  ]
+}

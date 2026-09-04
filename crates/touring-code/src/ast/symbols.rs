@@ -507,7 +507,24 @@ impl Symbol {
                 }
             }
             Lang::TypeScript | Lang::JavaScript => {
-                if node_text.contains("export ") {
+                // S9 (2026-09-02): `export` lives on the wrapping
+                // `export_statement` node (one level further up for
+                // `export const f = () => …`), NOT on the declaration itself —
+                // reading only the declaration text reported every exported
+                // function/class as module-private.
+                let mut exported = node_text.contains("export ");
+                let mut cursor = node.parent();
+                for _ in 0..2 {
+                    match cursor {
+                        Some(p) if p.kind() == "export_statement" => {
+                            exported = true;
+                            break;
+                        }
+                        Some(p) => cursor = p.parent(),
+                        None => break,
+                    }
+                }
+                if exported {
                     (true, Some(Visibility::Public))
                 } else {
                     (false, Some(Visibility::Module))

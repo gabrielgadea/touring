@@ -1,0 +1,45 @@
+{
+  "phase": "S4",
+  "entities": [
+    {
+      "entity_id": "phase:S4",
+      "type": "phase",
+      "description": "S4 ApiCascadePreviewLayer (pre_edit, CILA>=2, poliglota): itens publicos que o edit remove ou re-assina (diff de assinatura do ApiPreview) x call sites \u2014 in-file pelo call graph do 'after' (plan_api_cascade; proposta por change deduplicada) + cross-file por find_references (rota A2). Mensagem '[cascade]  signature changes \u2014 2 call sites break: src/report.rs:12, src/summary.rs:7 \u2014 update them with this edit'. Cobre o que A2 nao ve (edit so na definicao). RED provado (contexto so trazia o badge); dedup flagrado pelo teste unitario. Testes: cascade 7 (unit Rust+Python, runtime Rust+Python); clippy handlers prod limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1788318067626657742:S4:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788318067626657742",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788318067626657742",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S4|produces|memory:loop:task_1788318067626657742:S4:done",
+      "source": "phase:S4",
+      "type": "produces",
+      "target": "memory:loop:task_1788318067626657742:S4:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S4:done|generated-by|loop:loop:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S4:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788318067626657742"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S4:done|generated-by|dag:decomp:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S4:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788318067626657742"
+    }
+  ]
+}

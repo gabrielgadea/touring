@@ -28,6 +28,11 @@
 // future bare unwrap in non-test code.
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
+/// Re-export: the turn injection budget lives in `touring-hooks-shared`, and the
+/// `touring-hook` binary cannot depend on it directly — `touring-hooks-shared`
+/// already depends on `touring-hooks`, so a direct edge would close a cycle.
+pub use touring_hooks_shared::turn_budget;
+
 pub mod auto_save_hook;
 // Wave H inversion (2026-06-10): 4 shared modules moved down from the dispatch
 // crate — each had consumers on BOTH sides of the hooks/ carve (dispatch-rest

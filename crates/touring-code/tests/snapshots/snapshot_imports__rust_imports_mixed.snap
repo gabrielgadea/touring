@@ -1,12 +1,16 @@
 ---
-source: crates/touring-ast/tests/snapshot_imports.rs
+source: crates/touring-code/tests/snapshot_imports.rs
 expression: project(&resolver.imports)
 ---
 - - "crate::error::*"
   - ~
   - true
   - 6
-- - "serde::{Deserialize, Serialize}"
+- - "serde::Deserialize"
+  - ~
+  - false
+  - 4
+- - "serde::Serialize"
   - ~
   - false
   - 4
@@ -14,11 +18,15 @@ expression: project(&resolver.imports)
   - ~
   - false
   - 2
-- - "std::sync::{Arc, Mutex}"
+- - "std::sync::Arc"
   - ~
   - false
   - 3
-- - "tokio::net::UnixStream as Stream"
+- - "std::sync::Mutex"
   - ~
+  - false
+  - 3
+- - "tokio::net::UnixStream"
+  - Stream
   - false
   - 5

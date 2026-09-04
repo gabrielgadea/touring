@@ -25,6 +25,13 @@ use touring_code::ast::{
 // Index handlers (5)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Um consumidor pendente do passe G3/W4: arquivo, nomes de método, refs de tipo
+/// e os pares `(módulo, nome)` das chamadas qualificadas (D2, 02/09/2026).
+///
+/// Alias porque a tupla de quatro coleções é o que o passe realmente carrega, e
+/// nomeá-la é mais barato que quatro vetores paralelos.
+type PendingConsumer = (String, Vec<String>, Vec<String>, Vec<(String, String)>);
+
 /// `cli-index-status` — returns symbol store health and statistics.
 ///
 /// Wave 22 (S-Q4a): wrapped in `query_cache` with a global key — the
@@ -450,7 +457,7 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     let mut wiring_entries: u32 = 0;
     // G3: pending (consumer_file, method-call names, type/const-ref names)
     // resolved against the COMPLETE wiring_map after the walk.
-    let mut pending_consumers: Vec<(String, Vec<String>, Vec<String>)> = Vec::new();
+    let mut pending_consumers: Vec<PendingConsumer> = Vec::new();
     let mut errors: u32 = 0;
     // Wave 2026-05-14 — root-cause fix for the "rebuild is additive only"
     // gotcha that forced manual SQL purges after every `rm -rf crates/X`.
@@ -790,8 +797,27 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                                 touring_code::ast::graph::extract_type_and_const_refs(&content, lang)
                             })
                             .unwrap_or_default();
-                        if !method_names.is_empty() || !type_refs.is_empty() {
-                            pending_consumers.push((rel_path.clone(), method_names, type_refs));
+                        // D2 (2026-09-02): pares (módulo, nome) das chamadas
+                        // qualificadas — `super::backup::run()` guarda `backup`,
+                        // e é o qualificador que torna o nome decidível.
+                        let qualified_calls =
+                            touring_code::ast::Lang::from_path(Path::new(&rel_path))
+                                .map(|lang| {
+                                    touring_code::ast::graph::extract_qualified_calls(
+                                        &content, lang,
+                                    )
+                                })
+                                .unwrap_or_default();
+                        if !method_names.is_empty()
+                            || !type_refs.is_empty()
+                            || !qualified_calls.is_empty()
+                        {
+                            pending_consumers.push((
+                                rel_path.clone(),
+                                method_names,
+                                type_refs,
+                                qualified_calls,
+                            ));
                         }
 
                         // P-H: Go package-aware wiring. Go producers key by the
@@ -822,39 +848,22 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // The walk is over, so every producer row now exists regardless of file
     // order. Match collected names against the complete wiring_map (cap 4 per
     // name, origin AstInferred — the same lossy-guess provenance as before).
-    for (consumer_file, method_names, type_refs) in &pending_consumers {
-        // Callable producers for call sites; type/const producers for
-        // type-position and const refs — the two producer sets are disjoint
-        // by kind, and mixing them would wire neither correctly.
-        let lookups = [
-            (method_names.clone(), true),
-            (type_refs.clone(), false),
-        ];
-        for (names, callable) in lookups {
-            if names.is_empty() {
-                continue;
-            }
-            let producers = if callable {
-                rt.ctx
-                    .knowledge
-                    .find_producer_modules_for_methods(&names, 4, Some(consumer_file))
-            } else {
-                rt.ctx
-                    .knowledge
-                    .find_producer_modules_for_types(&names, 4, Some(consumer_file))
-            };
-            if let Ok(producers) = producers {
-                for (module_file, symbol_name) in &producers {
-                    let _ = rt.ctx.knowledge.record_consumer_with_origin(
-                        module_file,
-                        symbol_name,
-                        consumer_file,
-                        None,
-                        touring_hooks_core::knowledge_wiring::WiringOrigin::AstInferred,
-                    );
-                }
-            }
-        }
+    // W4 (2026-09-02): the SAME inference step the hook path runs after an
+    // edit (`record_inferred_consumers`) — one method, two call sites, no
+    // C08 asymmetry between a rebuilt file and an edited one.
+    for (consumer_file, method_names, type_refs, qualified_calls) in &pending_consumers {
+        let _ = rt
+            .ctx
+            .knowledge
+            .record_inferred_consumers(
+                consumer_file,
+                method_names,
+                type_refs,
+                // D2 (2026-09-02) — pares (módulo, nome) das chamadas
+                // qualificadas: resolvem para UM produtor onde o nome
+                // nu enfrenta 130 homônimos.
+                qualified_calls,
+            );
     }
 
     // ── Wave 2026-05-14: sweep stale entries ───────────────────────────

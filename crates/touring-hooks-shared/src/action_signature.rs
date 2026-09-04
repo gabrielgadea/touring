@@ -35,14 +35,14 @@ use serde_json::Value;
 ///
 /// Rationale: `HiBlast` (structural coupling) outranks everything because blast-radius
 /// changes have the broadest impact regardless of per-file complexity. `HiComplexity`
-/// ranks second — a high cognitive-score file warrants extra care even when well-wired.
+/// ranks second — a low-quality file warrants extra care even when well-wired.
 /// `GotchaActive` follows because known pitfalls are actionable but file-scoped.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ContextQualifier {
     /// File has more than 10 dependents (callers). Highest priority.
     HiBlast,
-    /// File has high cognitive complexity score (> 0.7). Second priority.
-    /// Populated when `EnrichmentData::cognitive_score` is available.
+    /// File is hairy: its quality score is below [`QUALITY_LOW_THRESHOLD`].
+    /// Populated when `EnrichmentData::quality_score` is available.
     HiComplexity,
     /// File gotcha matches present — known pitfalls.
     GotchaActive,
@@ -53,6 +53,17 @@ pub enum ContextQualifier {
     /// No notable risk flags.
     Plain,
 }
+
+/// Below this quality score a file counts as hairy enough to qualify the action.
+///
+/// ONE source: the doc on [`ContextQualifier::from_enrichment_with_cognitive`] and the
+/// predicate inside it both read this constant, so the declared threshold and the
+/// enforced one cannot drift (anti-pattern D8 — declaration and executor deriving from
+/// the same source). 0.30 is the complement of the old 0.70 on a scale that runs the
+/// other way: a starting point to be calibrated against the measured distribution
+/// (`cli_suggester.rs` 0.352, `verifications/mod.rs` 0.339 — both hairy files sit just
+/// above it), not a law.
+pub const QUALITY_LOW_THRESHOLD: f32 = 0.30;
 
 impl ContextQualifier {
     /// Returns the canonical string representation used in storage keys.
@@ -72,7 +83,8 @@ impl ContextQualifier {
     /// Priority: hi-blast > hi-complexity > gotcha-active > no-index > new-symbol > plain.
     ///
     /// - `dependent_count`: number of inverse dependents for the file.
-    /// - `cognitive_score`: optional f32 in [0.0, 1.0]; threshold > 0.7 → `HiComplexity`.
+    /// - `quality_score`: optional f32 in [0.0, 1.0], **higher is better**; below
+    ///   [`QUALITY_LOW_THRESHOLD`] → `HiComplexity`. Absent → never flagged.
     /// - `gotcha_count`: number of gotcha matches for the file.
     /// - `file_is_indexed`: `Some(false)` → `NoIndex`.
     /// - `symbol_in_index`: `Some(false)` → `NewSymbol`.
@@ -93,13 +105,13 @@ impl ContextQualifier {
         )
     }
 
-    /// Extended constructor that also accepts an optional `cognitive_score`.
+    /// Extended constructor that also accepts an optional `quality_score`.
     ///
-    /// Prefer this over `from_enrichment` when `EnrichmentData::cognitive_score`
+    /// Prefer this over `from_enrichment` when `EnrichmentData::quality_score`
     /// is available (Slice 3 and later).
     pub fn from_enrichment_with_cognitive(
         dependent_count: Option<u32>,
-        cognitive_score: Option<f32>,
+        quality_score: Option<f32>,
         gotcha_count: usize,
         file_is_indexed: Option<bool>,
         symbol_in_index: Option<bool>,
@@ -107,7 +119,21 @@ impl ContextQualifier {
         if dependent_count.unwrap_or(0) > 10 {
             return Self::HiBlast;
         }
-        if cognitive_score.unwrap_or(0.0) > 0.7 {
+        // The producer emits QUALITY — `analyze_quality` (`touring-code/src/ast/
+        // quality.rs`) declares "All scores are in [0.0, 1.0] where higher is better"
+        // and computes PENALTIES: high cyclomatic complexity subtracts. So the hairy
+        // file is the one with a LOW score.
+        //
+        // This read `> 0.7` until 04/09/2026, which fired `HiComplexity` on the
+        // CLEANEST files and never on the messiest. Measured 03/09/2026: README.md
+        // 1.000, CLAUDE.md 1.000, `cli_suggester.rs` 0.352 (5791 lines, a CC=23
+        // function). The qualifier feeds the RL action signature, so the learning
+        // layer had been keyed on the inverted population.
+        //
+        // `unwrap_or(1.0)`, not `0.0`: absent enrichment must read as "nothing to
+        // flag". With the old default every unmeasured file tripped the gate — absence
+        // entering through the side that fires.
+        if quality_score.unwrap_or(1.0) < QUALITY_LOW_THRESHOLD {
             return Self::HiComplexity;
         }
         if gotcha_count > 0 {
@@ -150,8 +176,8 @@ impl ActionSignature {
     /// Enrichment signals come from `EnrichmentData` (already computed by `enrich()`).
     /// Pass `None` / `0.0` / `0` / `None` / `None` when enrichment is not available.
     ///
-    /// `cognitive_score` is `Some(f32)` when `EnrichmentData::cognitive_score` is
-    /// populated (Slice 3+). When `None`, the `HiComplexity` qualifier is never set.
+    /// `quality_score` is `Some(f32)` when `EnrichmentData::quality_score` is populated
+    /// (Slice 3+). When `None`, the `HiComplexity` qualifier is never set.
     ///
     /// Never panics. Always returns a valid signature.
     pub fn from_pre_tool(
@@ -173,17 +199,17 @@ impl ActionSignature {
         )
     }
 
-    /// Extended PreToolUse constructor that also accepts `cognitive_score`.
+    /// Extended PreToolUse constructor that also accepts `quality_score`.
     ///
-    /// Use this when `EnrichmentData::cognitive_score` is available (Slice 3+).
-    /// Backwards-compatible: `from_pre_tool` delegates here with `cognitive_score = None`.
+    /// Use this when `EnrichmentData::quality_score` is available (Slice 3+).
+    /// Backwards-compatible: `from_pre_tool` delegates here with `quality_score = None`.
     ///
     /// Never panics. Always returns a valid signature.
     pub fn from_pre_tool_with_cognitive(
         tool_name: &str,
         tool_input: &Value,
         dependent_count: Option<u32>,
-        cognitive_score: Option<f32>,
+        quality_score: Option<f32>,
         gotcha_count: usize,
         file_is_indexed: Option<bool>,
         symbol_in_index: Option<bool>,
@@ -192,7 +218,7 @@ impl ActionSignature {
         let intent_class = classify_intent_class(&tool_class, tool_name, tool_input);
         let context_qualifier = ContextQualifier::from_enrichment_with_cognitive(
             dependent_count,
-            cognitive_score,
+            quality_score,
             gotcha_count,
             file_is_indexed,
             symbol_in_index,
@@ -360,6 +386,49 @@ fn sanitize_intent(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    /// The direction of the scale, anchored to the PRODUCER's declaration.
+    ///
+    /// `analyze_quality` (`touring-code/src/ast/quality.rs`) declares "All scores are
+    /// in [0.0, 1.0] where higher is better" and computes penalties. This test asserts
+    /// that contract, not a relation between two real files: an assertion like
+    /// `quality(README.md) > quality(cli_suggester.rs)` would pass today, age with the
+    /// corpus, and — worse — would have FIXED THE BUG AS EXPECTED BEHAVIOUR, since the
+    /// inverted reading also satisfied it (analise-c1, 03/09/2026).
+    #[test]
+    fn quality_direction_is_the_producers_low_is_hairy_high_is_clean() {
+        let hairy = ContextQualifier::from_enrichment_with_cognitive(
+            Some(0), Some(0.05), 0, None, None);
+        assert_eq!(hairy, ContextQualifier::HiComplexity, "low quality must flag");
+
+        let clean = ContextQualifier::from_enrichment_with_cognitive(
+            Some(0), Some(1.0), 0, None, None);
+        assert_eq!(clean, ContextQualifier::Plain,
+                   "a pristine file must NOT be flagged — this is the bug that shipped");
+
+        // The boundary reads from the same constant the doc names: declaration and
+        // executor cannot drift (D8).
+        let just_below = ContextQualifier::from_enrichment_with_cognitive(
+            Some(0), Some(QUALITY_LOW_THRESHOLD - 0.01), 0, None, None);
+        let exactly_at = ContextQualifier::from_enrichment_with_cognitive(
+            Some(0), Some(QUALITY_LOW_THRESHOLD), 0, None, None);
+        assert_eq!(just_below, ContextQualifier::HiComplexity);
+        assert_eq!(exactly_at, ContextQualifier::Plain, "strictly below");
+    }
+
+    /// Absence must not enter through the side that fires.
+    ///
+    /// A file with no enrichment row is UNMEASURED, not maximally hairy. The old
+    /// `unwrap_or(0.0)` on an inverted predicate made every unmeasured file the
+    /// safest; on the corrected predicate the same default would make every one of
+    /// them the hairiest. Both are absence being read as a measurement.
+    #[test]
+    fn absent_quality_is_never_read_as_a_measurement() {
+        let unmeasured = ContextQualifier::from_enrichment_with_cognitive(
+            Some(0), None, 0, None, None);
+        assert_eq!(unmeasured, ContextQualifier::Plain,
+                   "no enrichment row means nothing to flag, not maximum risk");
+    }
     use super::*;
     use serde_json::json;
 
@@ -656,10 +725,13 @@ mod tests {
 
     #[test]
     fn qualifier_hi_complexity_above_threshold() {
-        // cognitive_score = 0.71 (strictly > 0.7) → HiComplexity
+        // quality 0.20 (strictly below the threshold) → HiComplexity.
+        // Was `Some(0.71)` — a CLEAN file — asserting that clean files get flagged.
+        // The test was not wrong about the code; it was faithful to a consumer that
+        // had inverted the producer's scale, which is how the defect survived review.
         let q = ContextQualifier::from_enrichment_with_cognitive(
             None,       // no dependents — HiBlast does NOT fire
-            Some(0.71), // cognitive_score
+            Some(0.20), // quality_score: low = hairy
             0,          // gotcha_count
             None,       // file_is_indexed
             None,       // symbol_in_index
@@ -669,17 +741,23 @@ mod tests {
 
     #[test]
     fn qualifier_hi_complexity_at_exact_threshold() {
-        // cognitive_score == 0.7 is NOT strictly > 0.7 → Plain
-        let q = ContextQualifier::from_enrichment_with_cognitive(None, Some(0.7), 0, None, None);
+        // quality exactly AT the threshold is not strictly below it → Plain.
+        // Reads the CONSTANT, not a literal: with a literal this test kept passing
+        // after the threshold moved (0.7 → 0.30) while no longer touching the
+        // boundary at all — green for the wrong reason.
+        let q = ContextQualifier::from_enrichment_with_cognitive(
+            None, Some(QUALITY_LOW_THRESHOLD), 0, None, None);
         assert_eq!(q, ContextQualifier::Plain);
     }
 
     #[test]
     fn qualifier_hi_blast_outranks_hi_complexity() {
-        // dependent_count = 11 (> 10) AND cognitive_score = 0.9 → HiBlast wins
+        // dependent_count = 11 (> 10) AND quality 0.05 (low → HiComplexity WOULD
+        // fire) → HiBlast wins. The old literal 0.9 is clean under the corrected
+        // predicate, so this test would have passed with nothing to outrank.
         let q = ContextQualifier::from_enrichment_with_cognitive(
             Some(11),  // blast — should win
-            Some(0.9), // also hi-complexity, but lower priority
+            Some(0.05), // also hi-complexity, but lower priority
             0,
             None,
             None,
@@ -689,10 +767,10 @@ mod tests {
 
     #[test]
     fn qualifier_hi_complexity_outranks_gotcha() {
-        // cognitive_score > 0.7 AND gotcha_count > 0 → HiComplexity outranks GotchaActive
+        // low quality AND gotcha_count > 0 → HiComplexity outranks GotchaActive
         let q = ContextQualifier::from_enrichment_with_cognitive(
             None,
-            Some(0.8),
+            Some(0.1),
             3, // gotcha hits — outranked by HiComplexity
             None,
             None,
@@ -707,7 +785,7 @@ mod tests {
             "Edit",
             &json!({"file_path": "src/complex.rs"}),
             None,       // no blast
-            Some(0.9),  // hi-complexity fires
+            Some(0.05), // low quality → hi-complexity fires
             0,          // no gotchas
             Some(true), // indexed
             None,
@@ -727,7 +805,7 @@ mod tests {
             "Bash",
             &json!({"command": "cargo check"}),
             None,
-            Some(0.75),
+            Some(0.05),
             0,
             None,
             None,

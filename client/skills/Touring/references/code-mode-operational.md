@@ -173,3 +173,62 @@ A afordância mora no executor, não no anúncio (D8, `rules/touring-4-pillars.m
 
 _v1.0 — 2026-08-25 | A estratégia por contexto: apresentação certa por projeto,
 por tarefa, por chamada — medida, nunca assumida._
+
+---
+
+## Item 10 do CLAUDE.md — calibração e histórico do code mode neste workspace
+
+> Removido do `CLAUDE.md` do projeto em 2026-09-02; preservado sem edição.
+
+10. **Code mode ATIVO neste workspace (v30.4.14+, 25/08)**: `.touring/touring.toml`
+    declara `[code_mode] mode = "code"` — este workspace é o **piloto** da apresentação
+    por escopo. Efeito (**recalibrado no S3, 27/08**): inspeção **ISOLADA PASSA**, de
+    qualquer classe — o que colapsa é a **RAJADA**: a 2ª chamada da mesma classe
+    (`grep`/`cat`/`find`/`ls`/`wc`/`sed-n`) dentro de **300s** volta negada com as duas
+    fundidas em 1 programa (a 1ª executou intacta). Medido em 115 transcripts: 77,5% do
+    volume de inspeção está em rajadas ≥2; a lista fixa anterior cobrava 100% da fricção
+    para capturar o mesmo, negando `find` (56% isolada) e isentando `sed-n`/`ls` (746
+    chamadas, ~76% em rajada). `cat >` heredoc é escrita e passa. Um `touring run` zera
+    a janela.
+    Resolução: prefixo `TOURING_CODE_MODE=<v>` no comando → env do hook → alias
+    `TOURING_CODE_ONLY=1` → `touring.toml` → default `both`. Relaxar por-comando:
+    prefixo `TOURING_CODE_MODE=native` (exportar no shell NÃO chega ao hook — processos
+    irmãos). Kill switch humano: `TOURING_CODE_GATES_DISABLED=1` (todos os gates).
+    O `TOURING_T3_FUSE_DISABLED=1` saiu com o T3-B no S10 (27/08): o gate de turno
+    media `t3_turn_fused = 0` em produção — o PostToolUse fecha o turno entre as
+    chamadas, então ele nunca acumulava; o predicado de rajada do S3 o absorveu.
+    **Efeito no handshake MCP (S1
+    TRANSPORT, 27/08)**: um escopo que declara `code` passa a anunciar só a fachada
+    search+execute — as tools MCP (nome de tool verificado no handshake, não é
+    crate) `touring_search`/`touring_ctx_execute`/`touring_memory_recall`
+    — em vez das ~23 curadas; antes a fachada existia mas exigia
+    `TOURING_MCP_CODE_MODE=1` por sessão, então a declaração ficava desligada em
+    silêncio. Só o ANÚNCIO estreita: todo tool escondido segue invocável por nome
+    via `tools/call`. Precedência: `TOURING_MCP_ALL_TOOLS` > `TOURING_MCP_CODE_MODE`
+    `=1` força / `=0` desliga > `touring.toml` > curada. O tipo e o parser da
+    declaração são ÚNICOS (`touring_foundation::code_mode`), consumidos pelos dois
+    executores — hook e handshake não podem divergir. Estratégia por contexto
+    completa: `~/.claude/skills/Touring/references/code-mode-operational.md`. **Propagação
+    (regra 2 ampliada)**: o rótulo da toolchain NÃO prova o build — 24/08 o lock dizia
+    `30.4.14` rodando binário de 24/08. Após propagar, a prova é SEMPRE comportamental
+    (um deny T3/modo-code ao vivo no projeto alvo), nunca por versão.
+    **S5 (30.4.19–20, 29/08)**: o G10 também vê o **par write→run** — `cat > script.py`
+    + `python3 script.py` do MESMO path (inclusive no MESMO tool_use multi-linha,
+    a forma real) na janela de 600s, negado com
+    `touring run --file <o próprio script>` (remédio 1:1). E dois furos fechados:
+    `2>&1`/`2>/dev/null` e prefixo `VAR=...\n` não cegam mais a classe exec
+    (origem: turno de 60 Bash do analise em que o replay negava só 2).
+    **Aperto geral 30.4.21 (29/08, ordem de Gabriel)**: G7 re-inspeção advisory
+    2ª/deny 3ª (era 3ª/5ª) · G1 rajada deny 3ª (era 4ª), hint na 2ª · G10
+    exec-burst deny 5ª (era 10ª) · par write→run deny no 2º (era 3º) · G3
+    edit-sem-read deny no 2º seguido (era 3º) · heredoc inline (`python3 -c`/
+    `- <<EOF`) entrou na rajada como classe `python-inline` com remédio 1:1 (o
+    corpo verbatim). Inalterados por medição/desenho: rajada de inspeção 2ª/300s
+    (janela calibrada no joelho), G2/G8/G9 (1ª), G6 (2ª), G5 (telemetria).
+    **Extensão 29/08 (ordem de Gabriel)**: python-inline READ-ONLY (corpo sem
+    escrita/rede/subprocesso/DB — classificado pelo CORPO, `open(` com modo
+    mutante detectado por posição do 2º arg) cai na PRÓPRIA rajada de inspeção
+    (deny 2ª/300s, corpos fundidos em `--lang python`); escritor segue só no
+    G10 — usado como leitura, o interpretador ganhava 4 passes onde `cat`
+    ganha 1.
+

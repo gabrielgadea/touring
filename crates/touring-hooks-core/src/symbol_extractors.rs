@@ -610,6 +610,50 @@ fn detect_crate_src_root(source_file: &str) -> Option<String> {
     None
 }
 
+/// Resolve a `super::…` / `self::…` import (or a bare `super`/`self`) relative
+/// to the importing file's place in the module tree (W, 2026-09-02).
+///
+/// Rust module semantics: `a/b.rs` is module `a::b`, whose children live in
+/// `a/b/`; `a/mod.rs` (and `lib.rs`/`main.rs`) IS module `a`, whose children
+/// live in `a/`. `self` names the module's own child directory, each `super`
+/// climbs one module, and the remainder is probed with
+/// [`resolve_module_layout`] — so a guess never becomes a phantom path. A bare
+/// `super`/`self` names the module itself: `<dir>.rs` or `<dir>/mod.rs`, or
+/// `lib.rs`/`main.rs` once the climb reached the crate root.
+fn resolve_scope_relative(import: &str, source_file: &str) -> Option<String> {
+    let path = std::path::Path::new(source_file);
+    let dir = path.parent()?;
+    let stem = path.file_stem()?.to_str()?;
+    let mut module_dir = if matches!(stem, "mod" | "lib" | "main") {
+        dir.to_path_buf()
+    } else {
+        dir.join(stem)
+    };
+    let mut segments = import.split("::").peekable();
+    while let Some(seg) = segments.peek().copied() {
+        match seg {
+            "self" => {
+                segments.next();
+            }
+            "super" => {
+                segments.next();
+                module_dir = module_dir.parent()?.to_path_buf();
+            }
+            _ => break,
+        }
+    }
+    let rest: Vec<&str> = segments.collect();
+    if rest.is_empty() {
+        let name = module_dir.file_name()?.to_str()?;
+        let parent = module_dir.parent()?.to_str()?;
+        return resolve_module_layout(parent, name).or_else(|| {
+            let root = module_dir.to_str()?;
+            resolve_module_layout(root, "lib").or_else(|| resolve_module_layout(root, "main"))
+        });
+    }
+    resolve_module_layout(module_dir.to_str()?, &rest.join("/"))
+}
+
 /// Lexically normalize a path — collapse `.` components and resolve `..`
 /// WITHOUT touching the filesystem (no symlink resolution). Used by the TS/JS
 /// resolver so a specifier like `./models` joined onto `src/app.ts` yields the
@@ -752,6 +796,24 @@ pub fn resolve_import_path_with_source(
             // Note: `crate::*` is intentionally NOT in this guard because the
             // existing fallback to `src/<rest>.rs` is a reasonable
             // project-root-relative resolution (legacy behaviour preserved).
+            // W (2026-09-02): `super::` / `self::` (and bare `super`/`self`) are
+            // relative to the MODULE HIERARCHY of the importing file, not to the
+            // crate root. The `crate::`/`super::` branch below strips the keyword
+            // and probes `<crate>/src/<rest>`, which is right only for a
+            // top-level module; measured on the live map: 4.519 imports filed as
+            // "scope_keyword" while the producers they name read orphan.
+            if let Some(src) = source_file
+                && (import == "super"
+                    || import == "self"
+                    || import.starts_with("super::")
+                    || import.starts_with("self::"))
+                && let Some(candidate) = resolve_scope_relative(import, src)
+            {
+                if is_keyword_filename(&candidate) {
+                    return None;
+                }
+                return Some(candidate);
+            }
             const RUST_SCOPE_KEYWORDS: &[&str] = &["super", "self", "Self"];
             if RUST_SCOPE_KEYWORDS.contains(&import) {
                 return None;
@@ -1031,6 +1093,98 @@ mod crate_map_and_reexport_tests {
                 None
             ),
             Some("crates/touring-analysis/src/pipeline.rs".to_string())
+        );
+    }
+
+    /// W (2026-09-02) fixture: a crate whose `capability` module has three files
+    /// plus a child module dir, so every scope keyword has a distinct target.
+    fn scope_fixture() -> std::path::PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "touring-scope-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let cap = base.join("crates/demo/src/capability");
+        std::fs::create_dir_all(cap.join("limits")).expect("fixture dirs");
+        for f in ["mod.rs", "limits.rs", "enforce_linux.rs"] {
+            std::fs::write(cap.join(f), "").expect("fixture file");
+        }
+        std::fs::write(cap.join("limits/helper.rs"), "").expect("fixture child");
+        std::fs::write(base.join("crates/demo/src/lib.rs"), "").expect("fixture lib");
+        std::fs::write(base.join("crates/demo/src/util.rs"), "").expect("fixture util");
+        base
+    }
+
+    /// `super::x` names the PARENT module's child, i.e. a sibling file of the
+    /// importing module — not a file at the crate root. Before W the resolver
+    /// stripped `super::` and probed `<crate>/src/enforce_linux.rs`, found
+    /// nothing, and filed 4.519 such imports as "scope_keyword, expected, not
+    /// debt" — while the producers they name read as orphans.
+    #[test]
+    fn super_import_resolves_to_a_sibling_of_the_importing_module() {
+        let base = scope_fixture();
+        let src = base.join("crates/demo/src/capability/limits.rs");
+        let got = resolve_import_path_with_source(
+            "super::enforce_linux",
+            "rust",
+            Some(src.to_str().expect("utf8")),
+        );
+        let _ = std::fs::remove_dir_all(&base);
+        assert!(
+            got.as_deref()
+                .is_some_and(|p| p.ends_with("crates/demo/src/capability/enforce_linux.rs")),
+            "got {got:?}"
+        );
+    }
+
+    /// `self::x` names the importing module's OWN child (`limits/helper.rs`).
+    #[test]
+    fn self_import_resolves_into_the_modules_child_directory() {
+        let base = scope_fixture();
+        let src = base.join("crates/demo/src/capability/limits.rs");
+        let got =
+            resolve_import_path_with_source("self::helper", "rust", Some(src.to_str().expect("utf8")));
+        let _ = std::fs::remove_dir_all(&base);
+        assert!(
+            got.as_deref()
+                .is_some_and(|p| p.ends_with("crates/demo/src/capability/limits/helper.rs")),
+            "got {got:?}"
+        );
+    }
+
+    /// From `capability/mod.rs` the module IS `capability`, so `super` is the
+    /// crate root; `super::super::util` from `capability/limits.rs` climbs twice
+    /// to the same place. Both land on `src/util.rs`.
+    #[test]
+    fn super_climbs_from_mod_rs_and_double_super_climbs_twice() {
+        let base = scope_fixture();
+        let from_mod = base.join("crates/demo/src/capability/mod.rs");
+        let from_leaf = base.join("crates/demo/src/capability/limits.rs");
+        let a = resolve_import_path_with_source("super::util", "rust", Some(from_mod.to_str().expect("utf8")));
+        let b = resolve_import_path_with_source(
+            "super::super::util",
+            "rust",
+            Some(from_leaf.to_str().expect("utf8")),
+        );
+        let _ = std::fs::remove_dir_all(&base);
+        assert!(a.as_deref().is_some_and(|p| p.ends_with("crates/demo/src/util.rs")), "mod.rs → {a:?}");
+        assert!(b.as_deref().is_some_and(|p| p.ends_with("crates/demo/src/util.rs")), "double super → {b:?}");
+    }
+
+    /// `use super::Foo;` arrives as module path "super" — the parent module
+    /// ITSELF (`capability/mod.rs`), which the old guard returned `None` for.
+    #[test]
+    fn bare_super_import_resolves_to_the_parent_modules_own_file() {
+        let base = scope_fixture();
+        let src = base.join("crates/demo/src/capability/limits.rs");
+        let got = resolve_import_path_with_source("super", "rust", Some(src.to_str().expect("utf8")));
+        let _ = std::fs::remove_dir_all(&base);
+        assert!(
+            got.as_deref().is_some_and(|p| p.ends_with("crates/demo/src/capability/mod.rs")),
+            "got {got:?}"
         );
     }
 

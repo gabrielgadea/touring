@@ -29,3 +29,15 @@
   function: (generic_function
     function: (scoped_identifier
       name: (identifier) @assoc_fn)))
+
+;; W (2026-09-02): free-function calls — `apply_landlock(&p)`, `execute_in_sandbox(x)`.
+;; A `use`-imported pub fn called bare is neither a method nor a scoped path, so
+;; none of the patterns above saw its call sites; measured after a full rebuild:
+;; 65 producers read as false orphans (36 with a cross-crate caller).
+(call_expression
+  function: (identifier) @free_fn)
+
+;; Generic free call: parse::<T>(x)
+(call_expression
+  function: (generic_function
+    function: (identifier) @free_fn))

@@ -1,54 +1,8 @@
-//! CILA (Cognitive Intent-Level Architecture) budget helpers.
-//!
-//! Centralises the three duplicated `cila_budget_*` functions from
-//! `pre_read`, `pre_edit`, and `pre_write` into a single generic helper.
+//! CILA enrichment gate. The token BUDGETS moved to `touring-foundation::cila`
+//! on 04/09/2026 — one source, because a second copy had drifted at 3 of 5
+//! levels. These re-exports keep every existing call site working unchanged.
 
-/// Resolve a CILA token budget given an env-var key prefix and default values.
-///
-/// Checks `<env_prefix>_L0`, `<env_prefix>_L2`, `<env_prefix>_L4` for overrides.
-/// Falls back to the provided defaults when no env var is set.
-#[inline]
-pub fn cila_budget(cila_level: u8, env_prefix: &str, low: usize, mid: usize, high: usize) -> usize {
-    let env_key = match cila_level {
-        0 | 1 => format!("{env_prefix}_L0"),
-        2 | 3 => format!("{env_prefix}_L2"),
-        _ => format!("{env_prefix}_L4"),
-    };
-    if let Ok(val) = std::env::var(&env_key)
-        && let Ok(n) = val.parse::<usize>()
-    {
-        return n;
-    }
-    match cila_level {
-        0 | 1 => low,
-        2 | 3 => mid,
-        _ => high,
-    }
-}
-
-/// Budget for `pre_read` hooks (conservative — read context is smaller).
-///
-/// L0-L1: 800 | L2-L3: 2000 | L4+: 4000
-#[inline]
-pub fn cila_budget_read(cila_level: u8) -> usize {
-    cila_budget(cila_level, "TOURING_CILA_BUDGET", 800, 2000, 4000)
-}
-
-/// Budget for `pre_edit` hooks (50% larger than read — edit context needs more).
-///
-/// L0-L1: 1200 | L2-L3: 3000 | L4+: 6000
-#[inline]
-pub fn cila_budget_edit(cila_level: u8) -> usize {
-    cila_budget(cila_level, "TOURING_CILA_BUDGET_EDIT", 1200, 3000, 6000)
-}
-
-/// Budget for `pre_write` hooks (same as edit).
-///
-/// L0-L1: 1200 | L2-L3: 3000 | L4+: 6000
-#[inline]
-pub fn cila_budget_write(cila_level: u8) -> usize {
-    cila_budget(cila_level, "TOURING_CILA_BUDGET_WRITE", 1200, 3000, 6000)
-}
+pub use touring_foundation::cila::{cila_budget, cila_budget_edit, cila_budget_read, cila_budget_write};
 
 // ── L7-B Alpha: Enrichment Gate ──────────────────────────────────────────
 

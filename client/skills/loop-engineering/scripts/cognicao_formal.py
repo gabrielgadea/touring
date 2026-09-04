@@ -313,7 +313,19 @@ def padrao_data(last_n: int = 50) -> dict[str, Any]:
         for m in medicoes:
             for chave in chaves - set(m.get("presentes", [])):
                 ausencias[chave] = ausencias.get(chave, 0) + 1
-        out["mais_ausentes"] = sorted(ausencias, key=lambda k: -ausencias[k])[:3]
+        # Desempate ESTAVEL. `chaves - set(...)` e' uma diferenca de SETS, e a
+        # ordem de iteracao de um set de strings depende do PYTHONHASHSEED: com
+        # todas as operacoes ausentes uma vez (o caso comum numa medicao unica),
+        # um top-N escolhia 3 das 5 ao acaso e o mesmo texto dava rankings
+        # diferentes entre execucoes. Um ranking que varia com entrada identica
+        # nao e' um ranking. Empate resolve pela ordem do ESQUEMA, que e' a ordem
+        # canonica das operacoes.
+        ordem = {op["chave"]: i for i, op in enumerate(ESQUEMA)}
+        out["mais_ausentes"] = [
+            k for k, _ in sorted(
+                ausencias.items(), key=lambda kv: (-kv[1], ordem.get(kv[0], 99))
+            )
+        ][:3]
         dominios: dict[str, int] = {}
         for m in medicoes:
             d = m.get("dominio") or "sem-dominio"

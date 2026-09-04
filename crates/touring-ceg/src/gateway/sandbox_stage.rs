@@ -246,6 +246,7 @@ mod tests {
             summary: OutputSummary::empty(0),
             stderr: String::new(),
             stderr_truncated: false,
+            tmp_bytes: 0,
         };
         let o = SandboxOutcome::from_result(&result, "readonly");
         assert_eq!(o.exit_code, 0);

@@ -97,59 +97,13 @@ impl SignalPipeline {
     ///
     /// Returns `None` if no signals were produced.
     pub fn execute(&self, ctx: &SignalContext<'_>) -> Option<String> {
-        let mut all_signals: Vec<(f32, String)> = Vec::with_capacity(self.layers.len() * 2);
-        let mut _metrics: Vec<LayerMetrics> = Vec::with_capacity(self.layers.len());
-
-        for layer in &self.layers {
-            if !layer.should_run(ctx.cila_level) {
-                continue;
-            }
-
-            let start = std::time::Instant::now();
-            let signals = layer.enrich(ctx);
-            let duration_us = start.elapsed().as_micros() as u64;
-
-            _metrics.push(LayerMetrics {
-                name: layer.name(),
-                signal_count: signals.len(),
-                duration_us,
-            });
-
-            all_signals.extend(signals);
-        }
-
-        if all_signals.is_empty() {
-            return None;
-        }
-
-        // Normalize if enabled
-        if self.normalize {
-            normalize_scores(&mut all_signals);
-        }
-
-        // Sort by score descending
-        all_signals.sort_by(score_cmp);
-
-        // P1 (SNR gating, default OFF): prune low-relevance signals before assembly.
-        super::signals::apply_relevance_cutoff(&mut all_signals);
-
-        // Budget-aware assembly
-        let mut output = String::new();
-        for (_, text) in &all_signals {
-            if output.len() + text.len() > self.budget && !output.is_empty() {
-                break;
-            }
-            if !output.is_empty() {
-                output.push_str(" | ");
-            }
-            output.push_str(text);
-        }
-
-        if output.is_empty() {
-            None
-        } else {
-            Some(output)
-        }
+        // Cross-audit 04/09/2026 — este corpo era uma COPIA integral de
+        // `execute_with_metrics`, e a sua copia media cada camada num
+        // `let mut _metrics` com underscore: a medicao era paga em toda invocacao
+        // de hook e descartada por construcao. Duas copias do mesmo laco divergem
+        // no primeiro dia em que alguem corrige so uma. Uma fonte, e quem nao quer
+        // as metricas descarta aqui.
+        self.execute_with_metrics(ctx).0
     }
 
     /// Execute and return metrics alongside the output.
@@ -709,6 +663,53 @@ mod tests {
         let pipeline = SignalPipeline::new(1000);
         let ctx = SignalContext::new("test.rs", "fn main() {}");
         assert!(pipeline.execute(&ctx).is_none());
+    }
+
+    /// Cross-audit 04/09/2026 — `execute` era uma COPIA integral de
+    /// `execute_with_metrics`, e media cada camada num `_metrics` descartado por
+    /// construcao. Agora delega. Este teste e' o que impede as duas de divergirem
+    /// de novo: duas copias do mesmo laco so ficam iguais enquanto ninguem corrige
+    /// uma delas.
+    #[test]
+    fn execute_e_execute_with_metrics_nunca_divergem() {
+        let pipeline = SignalPipeline::new(1000)
+            .with_normalize(false)
+            .add_layer(StaticSignalLayer::new(
+                "alta",
+                vec![(0.9, "sinal alto".to_string())],
+            ))
+            .add_layer(StaticSignalLayer::new(
+                "baixa",
+                vec![(0.2, "sinal baixo".to_string())],
+            ));
+        let ctx = SignalContext::new("test.rs", "");
+        let (com_metricas, metricas) = pipeline.execute_with_metrics(&ctx);
+        assert_eq!(
+            pipeline.execute(&ctx),
+            com_metricas,
+            "as duas rotas tem de dar a MESMA saida"
+        );
+        assert_eq!(metricas.len(), 2, "uma metrica por camada que rodou");
+        assert!(
+            metricas.iter().all(|m| m.signal_count == 1),
+            "cada camada estatica produz 1 sinal: {metricas:?}"
+        );
+    }
+
+    /// A medicao chegou a TODAS as camadas, nao so as duas que a tinham a mao.
+    /// `StaticSignalLayer` nunca teve um `layer_metrics` proprio e agora e' medivel
+    /// pelo metodo default do trait — a expansao que justificou nao inventar um
+    /// chamador de fachada para as duas orfas.
+    #[test]
+    fn qualquer_camada_e_medivel_pelo_default_do_trait() {
+        let camada = StaticSignalLayer::new("sem_metrica_propria", vec![
+            (0.7, "um".to_string()),
+            (0.3, "dois".to_string()),
+        ]);
+        let ctx = SignalContext::new("test.rs", "");
+        let m = camada.metrics(&ctx);
+        assert_eq!(m.name, "sem_metrica_propria");
+        assert_eq!(m.signal_count, 2, "conta os sinais que a camada produziu");
     }
 
     #[test]

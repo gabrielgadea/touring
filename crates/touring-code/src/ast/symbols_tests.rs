@@ -737,3 +737,30 @@ fn symbol_kind_iter_works() {
     assert!(kinds.contains(&SymbolKind::Struct));
     assert!(kinds.contains(&SymbolKind::Enum));
 }
+
+/// S8/S9 (2026-09-02): in TS/JS the `export` keyword lives on the wrapping
+/// `export_statement` node, NOT on the declaration — `detect_visibility` read
+/// only the declaration text, so every exported function/class was reported
+/// as non-public (the hooks' API preview then saw an empty public surface).
+#[test]
+fn typescript_and_javascript_exported_declarations_are_public() {
+    let ts = "export function total(a: number, b: number): number {\n  return a + b;\n}\n\
+function hidden() {}\n\
+export class Calc {\n  add(a: number, b: number): number {\n    return a + b;\n  }\n}\n\
+export const scale = (x: number) => x * 2;\n";
+    let syms = extract_symbols(ts, Lang::TypeScript).expect("ts symbols");
+    let public: Vec<&str> = syms.iter().filter(|s| s.is_public).map(|s| s.name.as_str()).collect();
+    assert!(public.contains(&"total"), "exported function must be public: {public:?}");
+    assert!(public.contains(&"Calc"), "exported class must be public: {public:?}");
+    assert!(!public.contains(&"hidden"), "non-exported function stays module-private: {public:?}");
+    if syms.iter().any(|s| s.name == "scale") {
+        assert!(public.contains(&"scale"), "exported arrow const must be public: {public:?}");
+    }
+
+    let js = "export function total(a, b) {\n  return a + b;\n}\nfunction hidden() {}\n";
+    let syms = extract_symbols(js, Lang::JavaScript).expect("js symbols");
+    let total = syms.iter().find(|s| s.name == "total").expect("total extracted");
+    assert!(total.is_public, "JS exported function must be public");
+    let hidden = syms.iter().find(|s| s.name == "hidden").expect("hidden extracted");
+    assert!(!hidden.is_public);
+}

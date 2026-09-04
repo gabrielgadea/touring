@@ -1,0 +1,45 @@
+{
+  "phase": "B5",
+  "entities": [
+    {
+      "entity_id": "phase:B5",
+      "type": "phase",
+      "description": "X6 WRITE_TOKENS so casava .write( \u2014 Path().write_bytes(b'x'*8192) escreveu 8KiB no sandbox com forbidden_calls vazio (medido ao vivo em 30.4.32). Lista agora cobre a familia pathlib/os/shutil; os.rename/os.replace ficam qualificados porque .rename(/.replace( nus sao dominados por pandas e string. Teste de precisao ao lado do de recall (licao B3, mesmo dia)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:B5:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:B5|produces|memory:loop:task_1788340910617776382:B5:done",
+      "source": "phase:B5",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:B5:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B5:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B5:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B5:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B5:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

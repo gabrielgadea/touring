@@ -357,13 +357,15 @@ impl FileKnowledgeDB {
     /// (`/home/...`) and the other via relative path (`crates/...`).
     #[must_use]
     pub(crate) fn canonicalize_module_path<'a>(&self, module_file: &'a str) -> Cow<'a, str> {
-        match self
+        let root_relative = self
             .workspace_root_ref()
             .and_then(|root| module_file.strip_prefix(root))
-        {
-            Some(stripped) => Cow::Borrowed(stripped),
-            None => Cow::Borrowed(module_file),
-        }
+            .unwrap_or(module_file);
+        // W (2026-09-02): `./crates/x` and `crates/x` are ONE key. Rows written
+        // before canonicalization existed carried the dot form; a rebuild that
+        // writes the plain form then saw its producers with no consumers under
+        // THEIR key — 78 false orphans, 115.986 edges one prefix away.
+        Cow::Borrowed(root_relative.strip_prefix("./").unwrap_or(root_relative))
     }
 }
 
@@ -1084,6 +1086,89 @@ impl FileKnowledgeDB {
     /// Performance: single SQL roundtrip via parameterized IN clause. Cost
     /// scales with the size of `names` (typical: 5-100 unique names per
     /// file) plus the number of producer rows returned (typical: 0-200).
+    /// Producers for qualified calls, one per `(qualifier, name)` pair.
+    ///
+    /// The qualifier is the module the call names (`super::backup::run()` →
+    /// `("backup", "run")`), so the producer is the public callable of that name
+    /// living in `…/backup.rs` or `…/backup/mod.rs`. That predicate is what makes
+    /// the match single-valued: resolving the bare name `run` faces 130 producers
+    /// in this workspace and the by-name path caps at 4 arbitrary ones (measured
+    /// 2026-09-02, which is why 94 dispatch handlers read as false orphans).
+    ///
+    /// Ties across crates are broken toward the consumer's own crate, then by
+    /// path, and only the FIRST row per pair is returned — an ambiguous qualifier
+    /// must never fan out into several edges.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure from statement preparation or query.
+    pub fn find_producer_modules_for_qualified(
+        &self,
+        pairs: &[(String, String)],
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        if pairs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let kind_list = CALLABLE_KINDS
+            .iter()
+            .map(|k| format!("'{k}'"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let ext_pred = wireable_ext_sql("module_file", self.polyglot());
+        let crate_prefix = consumer_hint
+            .and_then(|f| {
+                let mut it = f.split('/');
+                match (it.next(), it.next()) {
+                    (Some("crates"), Some(b)) => Some(format!("crates/{b}/%")),
+                    _ => None,
+                }
+            })
+            .unwrap_or_default();
+        let sql = format!(
+            "SELECT module_file, symbol_name FROM wiring_map
+             WHERE consumer_file IS NULL
+               AND visibility = 'public'
+               AND symbol_kind IN ({kind_list})
+               AND {ext_pred}
+               AND symbol_name = ?1
+               AND (module_file LIKE '%/' || ?2 || '.rs'
+                 OR module_file LIKE '%/' || ?2 || '/mod.rs'
+                 OR module_file = ?2 || '.rs')
+             ORDER BY (CASE WHEN '{crate_prefix}' != '' AND module_file LIKE '{crate_prefix}'
+                            THEN 0 ELSE 1 END),
+                      module_file
+             LIMIT 1"
+        );
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let mut out = Vec::new();
+        for (qualifier, name) in pairs {
+            let row = stmt
+                .query_map(rusqlite::params![name, qualifier], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                })?
+                .filter_map(Result::ok)
+                .next();
+            if let Some(pair) = row
+                && !out.contains(&pair)
+            {
+                out.push(pair);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Callable producers matched by BARE name, capped at `cap_per_name` each.
+    ///
+    /// The fallback path for calls that carry no qualifier. It cannot be exact:
+    /// `run` matches 130 producers in this workspace, so the cap decides which
+    /// four get the edge. Prefer
+    /// [`Self::find_producer_modules_for_qualified`] whenever the call names
+    /// its module.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure from the underlying query.
     pub fn find_producer_modules_for_methods(
         &self,
         names: &[String],
@@ -1105,6 +1190,77 @@ impl FileKnowledgeDB {
         consumer_hint: Option<&str>,
     ) -> Result<Vec<(String, String)>, rusqlite::Error> {
         self.find_producer_modules_with_kinds(names, cap_per_name, TYPE_KINDS, consumer_hint)
+    }
+
+    /// W4 (2026-09-02) — the ONE inference step both the rebuild and the hook
+    /// path run: match the call names and type/const refs a consumer file uses
+    /// against the producer rows, cap 4 per name, record with
+    /// [`WiringOrigin::AstInferred`]. Returns the number of edges recorded.
+    ///
+    /// Measured before: `index rebuild` inferred (68.641 edges) while
+    /// `update_wiring_after_edit` only re-recorded `use` imports after
+    /// `clear_consumer_entries` — so every file EDITED after a rebuild lost its
+    /// inferred edges until the next rebuild, and its callees read as orphans
+    /// (`limits.rs::apply_resource_caps_to` right after `sandbox_executor.rs`
+    /// was edited). Two call sites deriving the same edge differently is the
+    /// C08 asymmetry; one method is what removes it.
+    pub fn record_inferred_consumers(
+        &self,
+        consumer_file: &str,
+        method_names: &[String],
+        type_refs: &[String],
+        qualified_calls: &[(String, String)],
+    ) -> usize {
+        let mut recorded = 0usize;
+        // D2 (2026-09-02) — the qualified pass runs FIRST and is exact: one
+        // producer per (module, name) pair. The by-name passes below stay as the
+        // fallback for calls that carry no qualifier.
+        if let Ok(producers) =
+            self.find_producer_modules_for_qualified(qualified_calls, Some(consumer_file))
+        {
+            for (module_file, symbol_name) in &producers {
+                if self
+                    .record_consumer_with_origin(
+                        module_file,
+                        symbol_name,
+                        consumer_file,
+                        None,
+                        WiringOrigin::AstInferred,
+                    )
+                    .is_ok()
+                {
+                    recorded += 1;
+                }
+            }
+        }
+        for (names, callable) in [(method_names, true), (type_refs, false)] {
+            if names.is_empty() {
+                continue;
+            }
+            let producers = if callable {
+                self.find_producer_modules_for_methods(names, 4, Some(consumer_file))
+            } else {
+                self.find_producer_modules_for_types(names, 4, Some(consumer_file))
+            };
+            let Ok(producers) = producers else {
+                continue;
+            };
+            for (module_file, symbol_name) in &producers {
+                if self
+                    .record_consumer_with_origin(
+                        module_file,
+                        symbol_name,
+                        consumer_file,
+                        None,
+                        WiringOrigin::AstInferred,
+                    )
+                    .is_ok()
+                {
+                    recorded += 1;
+                }
+            }
+        }
+        recorded
     }
 
     /// Shared producer lookup: public producer rows whose `symbol_kind` is in
@@ -1321,8 +1477,43 @@ impl FileKnowledgeDB {
     /// could tell a foreign row from a local one — so it does nothing at all
     /// rather than guess with a deletion.
     pub fn migrate_canonicalize_paths(&self) -> Result<u64, rusqlite::Error> {
+        // W (2026-09-02): merge the legacy `./`-prefixed universe first. A `./`
+        // prefix has exactly one reading, so it needs no root to be safe;
+        // measured: 12.032 producer rows + 115.986 consumer edges under it,
+        // invisible to the plain-keyed producers the rebuild writes.
+        let has_unresolved: bool = self
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'wiring_unresolved'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .map(|n| n > 0)
+            .unwrap_or(false);
+        let mut dot_touched: u64 = 0;
+        let mut dot_targets = vec![("wiring_map", "module_file"), ("wiring_map", "consumer_file")];
+        if has_unresolved {
+            dot_targets.push(("wiring_unresolved", "consumer_file"));
+        }
+        for (table, col) in &dot_targets {
+            dot_touched += self.conn_ref().execute(
+                &format!("UPDATE OR IGNORE {table} SET {col} = SUBSTR({col}, 3) WHERE {col} LIKE './%'"),
+                [],
+            )? as u64;
+        }
+        // Collisions (OR IGNORE): the plain row already exists — drop the dot one.
+        dot_touched += self.conn_ref().execute(
+            "DELETE FROM wiring_map WHERE module_file LIKE './%' OR consumer_file LIKE './%'",
+            [],
+        )? as u64;
+        if has_unresolved {
+            dot_touched += self
+                .conn_ref()
+                .execute("DELETE FROM wiring_unresolved WHERE consumer_file LIKE './%'", [])?
+                as u64;
+        }
         let Some(root) = self.workspace_root_ref().map(str::to_owned) else {
-            return Ok(0);
+            return Ok(dot_touched);
         };
         let updated_modules = self.conn_ref().execute(
             "UPDATE OR IGNORE wiring_map
@@ -1350,7 +1541,7 @@ impl FileKnowledgeDB {
                 OR (consumer_file LIKE '/%' AND consumer_file NOT LIKE ?1 || '%')",
             params![&root],
         )?;
-        let touched = updated_modules + updated_consumers + deleted + foreign;
+        let touched = updated_modules + updated_consumers + deleted + foreign + dot_touched as usize;
         if touched > 0 {
             Self::invalidate_wiring_modules_cache();
         }
@@ -2437,6 +2628,161 @@ mod provenance_tests {
         assert_eq!(db.name_only_candidates().expect("count"), 3);
     }
 
+    /// W (2026-09-02): `./crates/…` and `crates/…` are ONE file. Measured after
+    /// a full rebuild: 12.032 producer rows and 115.986 consumer edges under the
+    /// dot form, the rebuild writing the plain form — 78 plain producers had all
+    /// their consumers one prefix away and read orphan.
+    #[test]
+    fn canonicalize_strips_a_leading_dot_slash() {
+        let (_tmp, db) = setup();
+        assert_eq!(
+            db.canonicalize_module_path("./crates/a/src/lib.rs").as_ref(),
+            "crates/a/src/lib.rs"
+        );
+    }
+
+    #[test]
+    fn migration_merges_the_dot_prefixed_universe_into_the_plain_one() {
+        let (_tmp, db) = setup();
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map
+                 (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES ('./crates/a/src/lib.rs', 'Alpha', 'struct', 'public', NULL, 'ast_declared'),
+                        ('./crates/a/src/lib.rs', 'Alpha', 'struct', 'public', './crates/b/src/use.rs', 'ast_inferred')",
+                [],
+            )
+            .expect("legacy rows");
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "struct", "public")
+            .expect("today's producer");
+
+        db.migrate_canonicalize_paths().expect("migration");
+
+        let dot: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map
+                 WHERE module_file LIKE './%' OR consumer_file LIKE './%'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(dot, 0, "no dot-prefixed key may survive the migration");
+        let merged: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map
+                 WHERE module_file = 'crates/a/src/lib.rs' AND symbol_name = 'Alpha'
+                   AND consumer_file = 'crates/b/src/use.rs'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(merged, 1, "the legacy consumer edge must now sit under the plain key");
+    }
+
+    /// W4 (2026-09-02): a bare call name and a type reference both reach their
+    /// producers through the shared inference step, recorded as `ast_inferred`
+    /// — the step the hook path lacked (edited files lost every inferred edge).
+    #[test]
+    fn record_inferred_consumers_wires_free_calls_and_type_refs() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/limits.rs", "apply_caps", "function", "public")
+            .expect("callable producer");
+        db.register_pub_symbol("crates/a/src/limits.rs", "Limits", "struct", "public")
+            .expect("type producer");
+        let n = db.record_inferred_consumers(
+            "crates/b/src/exec.rs",
+            &["apply_caps".to_string(), "no_such_fn".to_string()],
+            &["Limits".to_string()],
+            &[],
+        );
+        assert_eq!(n, 2, "one call edge + one type edge");
+        let rows: Vec<(String, String)> = db
+            .conn_ref()
+            .prepare(
+                "SELECT symbol_name, contract_source FROM wiring_map
+                 WHERE consumer_file = 'crates/b/src/exec.rs' ORDER BY symbol_name",
+            )
+            .and_then(|mut s| {
+                s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .map(|it| it.filter_map(Result::ok).collect())
+            })
+            .expect("rows");
+        assert_eq!(
+            rows,
+            vec![
+                ("Limits".to_string(), "ast_inferred".to_string()),
+                ("apply_caps".to_string(), "ast_inferred".to_string()),
+            ]
+        );
+        assert_eq!(db.record_inferred_consumers("crates/b/src/exec.rs", &[], &[], &[]), 0);
+    }
+
+
+    #[test]
+    fn a_qualified_pair_resolves_to_the_module_that_owns_the_name() {
+        let (_tmp, db) = setup();
+        for module in [
+            "crates/touring-server/src/cli/backup.rs",
+            "crates/touring-server/src/cli/cascade.rs",
+            "crates/touring-other/src/lib.rs",
+        ] {
+            db.register_pub_symbol(module, "run", "function", "public")
+                .expect("producer");
+        }
+        let got = db
+            .find_producer_modules_for_qualified(
+                &[("backup".to_string(), "run".to_string())],
+                Some("crates/touring-server/src/cli/command_table.rs"),
+            )
+            .expect("query");
+        assert_eq!(
+            got,
+            vec![(
+                "crates/touring-server/src/cli/backup.rs".to_string(),
+                "run".to_string()
+            )],
+            "esperava exatamente o produtor do módulo nomeado"
+        );
+    }
+
+    #[test]
+    fn an_unknown_qualifier_wires_nothing() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/cli/backup.rs", "run", "function", "public")
+            .expect("producer");
+        let got = db
+            .find_producer_modules_for_qualified(
+                &[("nao_existe".to_string(), "run".to_string())],
+                None,
+            )
+            .expect("query");
+        assert!(got.is_empty(), "{got:?}");
+    }
+
+    #[test]
+    fn each_pair_yields_at_most_one_edge() {
+        let (_tmp, db) = setup();
+        for module in [
+            "crates/a/src/cli/backup.rs",
+            "crates/a/src/cli/cascade.rs",
+        ] {
+            db.register_pub_symbol(module, "run", "function", "public")
+                .expect("producer");
+        }
+        let got = db
+            .find_producer_modules_for_qualified(
+                &[
+                    ("backup".to_string(), "run".to_string()),
+                    ("cascade".to_string(), "run".to_string()),
+                ],
+                None,
+            )
+            .expect("query");
+        assert_eq!(got.len(), 2, "{got:?}");
+    }
+
     #[test]
     fn provenance_is_written_per_tier_not_as_one_constant() {
         let (_tmp, db) = setup();
@@ -3040,3 +3386,4 @@ mod ungated_eviction_tests {
         assert_eq!(db.migrate_evict_ungated_rows().expect("second"), 0);
     }
 }
+

@@ -1,0 +1,45 @@
+{
+  "phase": "C2",
+  "entities": [
+    {
+      "entity_id": "phase:C2",
+      "type": "phase",
+      "description": "Scratch persistente: persist_scratch_block copia bloco do scratchpad do harness (/tmp/claude-*) com exit 0 para <cwd>/.touring/scratch/<YYYY-MM>/<basename> (.touring j\u00e1 git-ignorado) e o payload devolve persisted_as; month_stamp civil-from-days local (iso_date_from_unix do touring-cli n\u00e3o \u00e9 vis\u00edvel do touring-server)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:C2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:C2|produces|memory:loop:task_1788340910617776382:C2:done",
+      "source": "phase:C2",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:C2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:C2:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:C2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:C2:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:C2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

@@ -461,7 +461,52 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
         |name| call_sites(runtime, name),
     );
 
-    let context = if context.is_empty() && cross_caller.is_empty() {
+    // S6/S9 (2026-09-02): the file AS IT WILL BE — read once (guarded by
+    // size) and shared by the quality baseline (S6) and the Rust preview
+    // (S9, reused by the S4 cascade).
+    let current_source = {
+        let small_enough = std::fs::metadata(file_path)
+            .map(|m| m.len() as usize <= crate::shared::quality_signal::MAX_SOURCE_BYTES)
+            .unwrap_or(false);
+        if small_enough {
+            std::fs::read_to_string(file_path).unwrap_or_default()
+        } else {
+            String::new()
+        }
+    };
+    // S6: quality baseline of the file after the edit (symmetry with
+    // pre_write's `quality:`; `compose_quality_evolution` only sees the disk).
+    let quality_baseline = crate::shared::quality_signal::QualityBaselineLayer::for_edit(
+        &rel_path,
+        &current_source,
+        old_string,
+        new_string,
+    );
+    // S9: ONE parse of the file after the edit (public API surface, any
+    // tree-sitter language) — badge with the public API delta; the S4
+    // cascade reuses the same preview.
+    let api_preview = crate::shared::api_preview::ApiPreview::for_edit(
+        &rel_path,
+        &current_source,
+        old_string,
+        new_string,
+    );
+    let rust_badge = crate::shared::api_preview::ApiBadgeLayer::from_preview(api_preview.as_ref());
+    // S4 (2026-09-02, ★): public items this edit removes or re-signs, with
+    // their call sites (call graph of the "after" source + symbol index) —
+    // the callers A2 cannot see because no call expression changed.
+    let api_cascade = crate::shared::api_cascade_preview::ApiCascadePreviewLayer::for_edit(
+        &rel_path,
+        api_preview.as_ref(),
+        |name| call_sites(runtime, name),
+    );
+
+    let context = if context.is_empty()
+        && cross_caller.is_empty()
+        && quality_baseline.is_empty()
+        && rust_badge.is_empty()
+        && api_cascade.is_empty()
+    {
         String::new()
     } else {
         let budget = cila_budget_edit(cila_level);
@@ -481,7 +526,16 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
             // `new_string` (P0) — before the edit lands.
             .add_layer(crate::shared::secrets_signal::SecretsSignalLayer)
             // A2 (2026-09-02): other call sites of a call this edit changes (C08).
-            .add_layer(cross_caller);
+            .add_layer(cross_caller)
+            // S6 (2026-09-02): quality of the file after this edit.
+            .add_layer(quality_baseline)
+            // S8 (2026-09-02): CWE patterns over the proposed `new_string`
+            // (findings located as `new_string:L<n>`).
+            .add_layer(touring_hook_runtime::shared::scan::CweScanLayer)
+            // S9 (2026-09-02): semantic badge of the .rs after this edit.
+            .add_layer(rust_badge)
+            // S4 (2026-09-02, ★): API cascade of this edit (CILA ≥ 2).
+            .add_layer(api_cascade);
         // S0 v2: old/new strings travel with the context (see signal_pipeline).
         pipeline
             .execute(&context_for_edit(

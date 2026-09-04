@@ -147,7 +147,7 @@ fn test_knowledge_enrichment_query_extended() {
     assert_eq!(ext.file_path, "src/lib.rs");
     assert_eq!(ext.language.as_deref(), Some("rust"));
     // Enrichment fields are None when not explicitly enriched
-    assert!(ext.cognitive_score.is_none());
+    assert!(ext.quality_score.is_none());
     assert!(ext.integration_score.is_none());
 }
 

@@ -39,10 +39,17 @@ def analyze_one(path: Path, *, depth: int, timeout: float) -> dict[str, Any]:
     meta_data = meta.parsed if isinstance(meta.parsed, dict) else {}
     entry["meta"] = {
         "blast_radius": int(meta_data.get("blast_radius") or 0),
+        # One field, not two: `ast meta` emitted this same value under the name
+        # `cognitive_score` until 04/09/2026, so `quality_score` never resolved here
+        # and the pair reported one number twice — once as itself and once inverted.
         "quality_score": float(meta_data.get("quality_score") or 0.0),
-        "cognitive_score": float(meta_data.get("cognitive_score") or 0.0),
-        "fan_in": int(meta_data.get("fan_in") or 0),
-        "fan_out": int(meta_data.get("fan_out") or 0),
+        # `ast meta` emite SINAIS em [0,1] sob os nomes `fan_in_signal`/`fan_out_signal`
+        # — nunca `fan_in`/`fan_out`, e nunca contagens. Ler o nome errado devolvia 0
+        # em todo arquivo; ler como int achataria o sinal a 0 de qualquer forma.
+        # Ausencia agora chega como null (cross-audit 03/09/2026), nao como 0.0.
+        "summary_source": meta_data.get("summary_source"),
+        "fan_in_signal": meta_data.get("fan_in_signal"),
+        "fan_out_signal": meta_data.get("fan_out_signal"),
     }
 
     blast = touring_run(["ast", "blast", str(path)], timeout=timeout, parse_json=False)
@@ -157,14 +164,17 @@ def main() -> int:
     }
     for entry in report["files"]:
         m = entry.get("meta") or {}
-        if m.get("blast_radius") == 0 and m.get("quality_score") == 0.0:
-            emit_error(f"empty signals for {entry['file']} — daemon_degraded or unindexed?")
+        # Inferir "degradado" da ausencia de valores confunde duas causas (um arquivo
+        # folha REALMENTE tem blast 0). O payload declara a origem desde 03/09/2026 —
+        # usar a declaracao, nunca o buraco.
+        if m.get("summary_source") == "on_disk_fallback":
+            emit_error(f"sinais cognitivos vieram do disco para {entry['file']} — "
+                       "fan_in/fan_out sao null, nao medidos")
     if args.cycles:
         report["cycles"] = cycle_scan(args.timeout)
 
     any_degraded = any(
-        (e.get("meta") or {}).get("blast_radius") == 0
-        and (e.get("meta") or {}).get("quality_score") == 0.0
+        (e.get("meta") or {}).get("summary_source") == "on_disk_fallback"
         for e in report["files"]
     )
     mark_degraded(report, any_degraded)

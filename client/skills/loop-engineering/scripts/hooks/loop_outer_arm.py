@@ -196,6 +196,14 @@ def spawn_outer_artifacts(cwd: str, bundle: str, topic: str) -> None:
     the HONEST state ("the automatic lenses ran dry; nobody consulted an outside
     source"), and since the Stop gate no longer blocks, that honesty costs nothing.
     """
+    # Operational control: arm the gate WITHOUT launching the background executor.
+    # Two honest uses, neither of them test-only: a machine already under load, and
+    # the positive-control test that must exercise the ARMING path without spawning
+    # `touring explore` against a live project. A human/harness decision — the model
+    # never sets it at runtime, exactly like TOURING_WORK_OUTER_DISABLED.
+    if os.environ.get("TOURING_OUTER_NO_SPAWN") == "1":
+        return
+
     log = Path(bundle) / "outer-executor.log"
     script = (
         f"python3 {Path(__file__).resolve().parent.parent / 'loop_diagnose.py'} "

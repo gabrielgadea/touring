@@ -1,0 +1,45 @@
+{
+  "phase": "B4",
+  "entities": [
+    {
+      "entity_id": "phase:B4",
+      "type": "phase",
+      "description": "emit_output do CLI touring run nao emitia tmp_bytes \u2014 o campo existia so no CtxExecuteOutput do tool MCP, entao a medicao da limpeza do tmp privado (B1) era invisivel na rota que humano e agente usam. Montagem do payload extraida para full_payload (funcao pura; emit_output so imprime), 2 testes de elisao. Achado pela prova comportamental, nao pelos 1588 testes verdes."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:B4:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:B4|produces|memory:loop:task_1788340910617776382:B4:done",
+      "source": "phase:B4",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:B4:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B4:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B4:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B4:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B4:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

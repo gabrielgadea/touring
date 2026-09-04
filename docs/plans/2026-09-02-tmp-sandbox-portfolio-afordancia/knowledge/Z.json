@@ -1,0 +1,45 @@
+{
+  "phase": "Z",
+  "entities": [
+    {
+      "entity_id": "phase:Z",
+      "type": "phase",
+      "description": "REGRA #0 sobre a metade honesta dos 18 orfaos novos: 7 pub const lidas so no proprio arquivo foram estreitadas (o orfao some porque a decisao foi tomada, nao escondida) e duration_p50/p99 do MirrorAggregate \u2014 que computavam percentis que ninguem lia \u2014 foram ligados a code_mode_signal_use, que ja lia o MESMO mirror e descartava a duracao de cada entrada. Dois instrumentos mentiram no caminho: baseline com formato de chave obsoleto (./ removido pela W3) e clippy com features parciais inventando dead-code que --all-features nao ve."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:Z:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:Z|produces|memory:loop:task_1788340910617776382:Z:done",
+      "source": "phase:Z",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:Z:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:Z:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:Z:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:Z:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:Z:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

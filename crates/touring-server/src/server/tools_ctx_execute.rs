@@ -44,15 +44,13 @@ impl TouringServer {
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = serde_json::json!({
-            "stdout": out.stdout,
-            "stderr": out.stderr,
-            "exit_code": out.exit_code,
-            "duration_ms": out.duration_ms,
-            "forbidden_calls": out.forbidden_calls,
-            "stdout_truncated": out.stdout_truncated,
-            "stderr_truncated": out.stderr_truncated,
-        });
+        // Cross-audit 04/09/2026 — este adaptador montava o proprio envelope com
+        // apenas os 7 campos base, enquanto `format_output` (o serializador que a
+        // propria doc dele diz servir "MCP consumers") ficava sem NENHUM chamador.
+        // O custo era do consumidor MCP: sem `success`, sem taxonomia de falha, sem
+        // `stored_path`/`retrieval_hint` — o localizador do spill nunca chegava a
+        // quem precisava dele para ler a saida elidida.
+        let mut output = crate::tools::ctx_execute_tools::format_output(Ok(&out));
         let gctx = self.graph_svc.resolve_ctx(None).await;
         self.graph_svc.inject(&mut output, &gctx);
         crate::tools::suggestions::append_to_response(&mut output, "touring_ctx_execute", 2);

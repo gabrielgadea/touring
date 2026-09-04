@@ -22,3 +22,29 @@ Teste estrutural the_instruction_surface_is_readable_but_claude_secrets_stay_out
 ## TENSÃO ABERTA (decisão de Gabriel)
 
 G10 conta leituras nativas de alvo fora das read roots como rajada python-inline e nega na 5ª — antes do SEG-2, o caminho correto (ler fora do sandbox o que o sandbox não alcançava) era penalizado pelo gate que empurra para dentro. O SEG-2 remove o caso skills; a regra geral (isentar da rajada o comando cujo alvo está fora das read roots) fica registrada como candidata, não aplicada. ADENDO (30/08, retratação da fonte): a própria analise-94 corrigiu o dado — dos 8 usos de TOURING_GATE_OK dela, só os primeiros tinham base factual; após o SEG-2 o bypass foi comodidade, não bloqueio. O caso dela NÃO é evidência para afrouxar o G10; a candidata fica sem caso de suporte vivo.
+
+## Cadeia causal
+
+Elos derivados do que este documento já afirma — a cadeia existia na prosa e não
+na forma que o próprio rito cobra (dogfood do `loop_doc_link_gate`, 04/09/2026).
+Cada elo mantém `se … então` na MESMA linha: o `.` do regex do gate não casa
+quebra de linha, então um elo que envolve não é contado.
+
+1. **se** o Landlock nega `~/.claude` inteiro no sandbox (SEG-1, 28/08) **então**
+   `pathlib.rglob` ali dentro engole `PermissionError` e devolve `0` — sem exceção.
+2. **se** `rglob` devolve `0` com `exists()=True` **então** a varredura conclui
+   "não há perfis" sobre um perfil de 15.824 bytes presente e em uso (caso real,
+   peer analise-94, 30/08).
+3. **se** o gate de rajada empurra essa varredura para o sandbox **então** negar
+   ali quebra o caminho sancionado — o gate e a contenção passam a trabalhar um
+   contra o outro.
+4. **se** o grant fosse o diretório inteiro **então** `settings.json` (env com
+   chaves), `.credentials.json`, `projects/` e `history.jsonl` voltariam a ser
+   legíveis — a correção compraria a leitura ao preço do segredo.
+5. **se** o grant for por subcaminho explícito **então** a superfície de
+   instrução abre (`skills`, `rules`, `agents`, `commands`, `CLAUDE.md`) e os
+   oito portadores de segredo continuam negados — o que o teste estrutural fixa
+   nas duas direções.
+6. **se** o aceite for "não deu erro" **então** o deny mudo passa despercebido;
+   **se** for predicado POSITIVO (`rglob('*.md') > 0`) **então** só a leitura que
+   de fato aconteceu satisfaz — o idioma que enganou vira o idioma que prova.

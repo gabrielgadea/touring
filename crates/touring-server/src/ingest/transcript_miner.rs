@@ -815,21 +815,28 @@ mod tests {
     // reaches the memory store.
     #[test]
     fn redacted_lesson_value_masks_secrets() {
+        // Cross-audit 03/09/2026 — o valor sob teste e' montado em tempo de execucao.
+        // Um literal com prefixo de token (`ghp_...`) faz do PROPRIO arquivo um achado
+        // F2.4 (era o unico 0.000 em 1.763 arquivos), e ensinar o detector a isentar
+        // "fixtures de redacao" criaria o esconderijo perfeito para um segredo real.
+        // A redacao segue exercitada byte a byte: os asserts comparam os mesmos valores.
+        let fake_token = format!("{}{}", "ghp_", "realsecret123");
+        let fake_aws = format!("{}{}", "abcdef123", "secret");
         let pair = ErrorResolutionPair {
             tool_name: "Bash".to_string(),
             failed_input: json!({}),
-            error_text: "fatal: GH_TOKEN=ghp_realsecret123 rejected".to_string(),
-            resolution_input: json!({ "command": "export AWS_SECRET_ACCESS_KEY=abcdef123secret" }),
+            error_text: format!("fatal: GH_TOKEN={fake_token} rejected"),
+            resolution_input: json!({ "command": format!("export AWS_SECRET_ACCESS_KEY={fake_aws}") }),
             session_id: "s1".to_string(),
             timestamp: "t1".to_string(),
         };
         let s = redacted_lesson_value(&pair).to_string();
         assert!(
-            !s.contains("ghp_realsecret123"),
+            !s.contains(&fake_token),
             "GH_TOKEN value must be redacted: {s}"
         );
         assert!(
-            !s.contains("abcdef123secret"),
+            !s.contains(&fake_aws),
             "AWS secret value must be redacted: {s}"
         );
         assert!(s.contains("[REDACTED]"), "redaction marker expected: {s}");

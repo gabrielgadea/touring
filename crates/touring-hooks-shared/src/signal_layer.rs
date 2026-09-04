@@ -142,6 +142,23 @@ pub trait SignalLayer: Send + Sync {
     fn should_run(&self, _cila_level: usize) -> bool {
         true
     }
+
+    /// Roda a camada e devolve o [`LayerMetrics`] dela.
+    ///
+    /// Cross-audit 04/09/2026 — a medicao existia a mao em DUAS das doze camadas
+    /// (`drift.rs` e `scan.rs`), como funcoes livres sem nenhum chamador, e uma
+    /// terceira copia vivia no laco do pipeline. Como metodo default do trait a
+    /// capacidade passa a valer para TODAS as camadas — a expansao que a REGRA #0
+    /// pede, em vez de arranjar um chamador de fachada para duas orfas.
+    fn metrics(&self, ctx: &SignalContext<'_>) -> LayerMetrics {
+        let start = std::time::Instant::now();
+        let signals = self.enrich(ctx);
+        LayerMetrics {
+            name: self.name(),
+            signal_count: signals.len(),
+            duration_us: start.elapsed().as_micros() as u64,
+        }
+    }
 }
 
 /// S0 (2026-09-01) — `SignalContext` v2: the layers must be able to analyse

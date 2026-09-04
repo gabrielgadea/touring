@@ -1,0 +1,45 @@
+{
+  "phase": "C5",
+  "entities": [
+    {
+      "entity_id": "phase:C5",
+      "type": "phase",
+      "description": "A tag #origin:auto-harvest do snippet auto-colhido nomeia uma faceta que nao existe: as 7 canonicas sao kind/purpose/lang/domain/process/artifact/status, e faceta desconhecida e erro duro \u2014 a tag era descartada e a memoria so era achavel pela chave. Medido: query por #origin:auto-harvest devolveu 0 enquanto memory recall snippet:auto devolveu 1. Trocada por #process:auto-harvest (a origem E um processo) + guard que le as tags mintadas em settle_snippet_ladder e exige faceta canonica."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:C5:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:C5|produces|memory:loop:task_1788340910617776382:C5:done",
+      "source": "phase:C5",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:C5:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:C5:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:C5:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:C5:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:C5:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

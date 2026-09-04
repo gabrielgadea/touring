@@ -135,7 +135,7 @@ fn is_zero(v: &u64) -> bool {
 }
 
 /// Result of a sandboxed `ctx_execute` invocation.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CtxExecuteOutput {
     /// Captured standard output of the executed program.
@@ -174,6 +174,11 @@ pub struct CtxExecuteOutput {
     /// retransmite ao daemon, que é quem o `gate-metrics` lê.
     #[serde(skip_serializing_if = "is_zero", default)]
     pub bytes_elided: u64,
+    /// B1 (2026-09-02) — bytes the run left in its private temp dir, measured
+    /// before the dir was removed. Journaled by B2; surfaced so the caller
+    /// sees the cost of a run that scribbles.
+    #[serde(skip_serializing_if = "is_zero", default)]
+    pub tmp_bytes: u64,
     /// C2-W0 S-5.2 — this execution's identity (`run-<epoch_ms>-<pid>`).
     /// The same id keys `run_journal.jsonl`, reaches the sandbox child as
     /// `TOURING_RUN_ID`, and prefixes each orchestrate sub-call's `origin`
@@ -283,6 +288,40 @@ pub struct RunTunables {
     /// escrita Landlock no ARQUIVO (o dir `~/.claude/touring` segue
     /// read-only). `None` = sem export (todo run não-orchestrate).
     pub sdk_signal_mirror: Option<std::path::PathBuf>,
+    /// B2 (2026-09-02): where the body came from — journaled so the reuse
+    /// KPI can tell a script that lives somewhere from text typed inline.
+    pub source: Option<RunSource>,
+    /// B2: the `--harvest <slug>` of this run, journaled.
+    pub harvest: Option<String>,
+    /// B2: `--brief` requested, journaled.
+    pub brief: bool,
+    /// B2: `--orchestrate` SDK injected, journaled.
+    pub orchestrate: bool,
+}
+
+/// B2 — origin of the program body a run executed.
+#[derive(Debug, Clone, Default)]
+pub struct RunSource {
+    /// `"file"` | `"inline"` | `"stdin"`.
+    pub kind: &'static str,
+    /// The script path when `kind == "file"`.
+    pub path: Option<String>,
+}
+
+/// B2 — the per-run facts the journal carries beyond the outcome: origin,
+/// harvest, presentation flags and the bytes the run left in its private tmp.
+#[derive(Debug, Clone, Default)]
+pub struct JournalMeta {
+    /// Origin of the body (`None` when the caller did not declare it).
+    pub source: Option<RunSource>,
+    /// `--harvest <slug>`, if any.
+    pub harvest: Option<String>,
+    /// `--brief` requested.
+    pub brief: bool,
+    /// `--orchestrate` injected.
+    pub orchestrate: bool,
+    /// B1 `tmp_bytes` measured before the run's private tmp was removed.
+    pub tmp_bytes: u64,
 }
 
 /// P1.3: Hybrid forbidden-call scanner.
@@ -301,11 +340,14 @@ fn run_forbidden_scan(lang: SandboxLanguage, code: &str) -> Vec<String> {
     })
 }
 
-/// W4 d4/S-4.1 — append one JSONL record per execution to the run journal
-/// (`~/.claude/touring/run_journal.jsonl`). The journal is the durable trace
-/// the counterfactual KPI reads from; sub-call identity joins it in W5.
-/// Fail-open: any I/O error is swallowed — observability never blocks a run.
-fn journal_run(
+/// B2 (2026-09-02) — the journal record, built apart from the write so a test
+/// can hold it without touching `~/.claude/touring/run_journal.jsonl`. v2 adds
+/// `source`/`file`/`harvest`/`brief`/`orchestrate`/`tmp_bytes`: the M1 ruler
+/// counted 6.435 runs and could not say how many came from a file, how many
+/// were harvested or how much tmp they left — `harvest_flagged: 0` was a gap
+/// in the instrument, not a fact about the runs.
+#[allow(clippy::too_many_arguments)]
+fn journal_record(
     run_id: &str,
     language: &str,
     stdout_full: &str,
@@ -313,15 +355,9 @@ fn journal_run(
     duration_ms: u64,
     failure_kind: Option<RunFailureKind>,
     bytes_elided: u64,
-) {
-    let Some(home) = std::env::var_os("HOME") else {
-        return;
-    };
-    let dir = std::path::Path::new(&home).join(".claude/touring");
-    if std::fs::create_dir_all(&dir).is_err() {
-        return;
-    }
-    let record = serde_json::json!({
+    meta: &JournalMeta,
+) -> serde_json::Value {
+    serde_json::json!({
         "ts": std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -333,7 +369,47 @@ fn journal_run(
         "duration_ms": duration_ms,
         "failure_kind": failure_kind.map(|k| serde_json::to_value(k).ok()),
         "bytes_elided": bytes_elided,
-    });
+        "source": meta.source.as_ref().map(|s| s.kind),
+        "file": meta.source.as_ref().and_then(|s| s.path.clone()),
+        "harvest": meta.harvest,
+        "brief": meta.brief,
+        "orchestrate": meta.orchestrate,
+        "tmp_bytes": meta.tmp_bytes,
+    })
+}
+
+/// W4 d4/S-4.1 — append one JSONL record per execution to the run journal
+/// (`~/.claude/touring/run_journal.jsonl`). The journal is the durable trace
+/// the counterfactual KPI reads from; sub-call identity joins it in W5.
+/// Fail-open: any I/O error is swallowed — observability never blocks a run.
+#[allow(clippy::too_many_arguments)]
+fn journal_run(
+    run_id: &str,
+    language: &str,
+    stdout_full: &str,
+    exit_code: i32,
+    duration_ms: u64,
+    failure_kind: Option<RunFailureKind>,
+    bytes_elided: u64,
+    meta: &JournalMeta,
+) {
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let dir = std::path::Path::new(&home).join(".claude/touring");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let record = journal_record(
+        run_id,
+        language,
+        stdout_full,
+        exit_code,
+        duration_ms,
+        failure_kind,
+        bytes_elided,
+        meta,
+    );
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
@@ -341,6 +417,50 @@ fn journal_run(
         .open(dir.join("run_journal.jsonl"))
     {
         let _ = writeln!(f, "{record}");
+    }
+}
+
+#[cfg(test)]
+mod journal_v2_tests {
+    use super::*;
+
+    /// B2 (2026-09-02): the journal record carries WHERE the program came from,
+    /// whether it was harvested/brief/orchestrate, and the bytes it left in its
+    /// private tmp — the fields the reuse KPI (C4) reads. Pure builder, so the
+    /// real `~/.claude/touring/run_journal.jsonl` is never touched by a test.
+    #[test]
+    fn journal_record_carries_source_harvest_brief_orchestrate_and_tmp_bytes() {
+        let meta = JournalMeta {
+            source: Some(RunSource {
+                kind: "file",
+                path: Some("/tmp/claude-1000/s/scratchpad/probe.py".to_string()),
+            }),
+            harvest: Some("probe-tmp".to_string()),
+            brief: true,
+            orchestrate: false,
+            tmp_bytes: 4096,
+        };
+        let rec = journal_record("run-1", "python", "out", 0, 12, None, 3, &meta);
+        assert_eq!(rec["run_id"], "run-1");
+        assert_eq!(rec["source"], "file");
+        assert_eq!(rec["file"], "/tmp/claude-1000/s/scratchpad/probe.py");
+        assert_eq!(rec["harvest"], "probe-tmp");
+        assert_eq!(rec["brief"], true);
+        assert_eq!(rec["orchestrate"], false);
+        assert_eq!(rec["tmp_bytes"], 4096);
+        assert_eq!(rec["bytes_elided"], 3);
+    }
+
+    #[test]
+    fn journal_record_without_meta_keeps_v1_shape_plus_nulls() {
+        let rec = journal_record("run-2", "bash", "", 1, 5, None, 0, &JournalMeta::default());
+        assert!(rec["source"].is_null());
+        assert!(rec["file"].is_null());
+        assert!(rec["harvest"].is_null());
+        assert_eq!(rec["brief"], false);
+        assert_eq!(rec["orchestrate"], false);
+        assert_eq!(rec["tmp_bytes"], 0);
+        assert_eq!(rec["exit_code"], 1);
     }
 }
 
@@ -566,6 +686,8 @@ pub async fn ctx_execute_impl(
     let start = Instant::now();
     let result = execute_in_sandbox(tool_name, sandbox_args, config).await;
     let duration_ms = start.elapsed().as_millis() as u64;
+    // B1 — what the run left in its private tmp (0 on a spawn/timeout error).
+    let tmp_bytes = result.as_ref().map(|r| r.tmp_bytes).unwrap_or(0);
     let (stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure) =
         derive_run_outcome(result);
     let (env_stdout, env_stderr) = inline_caps();
@@ -602,6 +724,13 @@ pub async fn ctx_execute_impl(
     let bytes_elided = (stdout.len() + final_stderr.len())
         .saturating_sub(stdout_trunc.len() + stderr_trunc.len()) as u64;
     touring_hooks::shared::gate_metrics::record_code_mode_run(bytes_elided);
+    let journal_meta = JournalMeta {
+        source: tunables.as_ref().and_then(|t| t.source.clone()),
+        harvest: tunables.as_ref().and_then(|t| t.harvest.clone()),
+        brief: tunables.as_ref().is_some_and(|t| t.brief),
+        orchestrate: tunables.as_ref().is_some_and(|t| t.orchestrate),
+        tmp_bytes,
+    };
     journal_run(
         &run_id,
         &language,
@@ -610,6 +739,7 @@ pub async fn ctx_execute_impl(
         duration_ms,
         failure.as_ref().map(|f| f.kind),
         bytes_elided,
+        &journal_meta,
     );
     // W1 d3/S-1.2 — when the inline view lost bytes and the full output is on
     // disk, hand the model the locator + how to read it (P19).
@@ -621,6 +751,7 @@ pub async fn ctx_execute_impl(
     };
     Ok(CtxExecuteOutput {
         bytes_elided,
+        tmp_bytes,
         stdout: stdout_trunc,
         stderr: stderr_trunc,
         exit_code,
@@ -645,7 +776,7 @@ pub async fn ctx_execute_impl(
 /// Serialize a `ctx_execute` result (success or error) into the canonical
 /// JSON envelope returned to MCP consumers.
 pub fn format_output(
-    result: std::result::Result<CtxExecuteOutput, CtxExecuteError>,
+    result: std::result::Result<&CtxExecuteOutput, &CtxExecuteError>,
 ) -> serde_json::Value {
     match result {
         Ok(output) => {
@@ -671,6 +802,15 @@ pub fn format_output(
             if let Some(h) = &output.retrieval_hint {
                 v["retrieval_hint"] = serde_json::json!(h);
             }
+            // Cross-audit 04/09/2026 — `run_id` e `tmp_bytes` viviam só no envelope
+            // ad-hoc da CLI. Como este e' o serializador CANONICO, mante-los fora
+            // fazia o canal MCP perder a chave que junta run_journal.jsonl a
+            // run_subcalls.jsonl. `tmp_bytes` e' elidido quando zero: o comum e' nao
+            // sobrar nada, e um zero explicito seria ruido em toda resposta.
+            v["run_id"] = serde_json::json!(output.run_id);
+            if output.tmp_bytes > 0 {
+                v["tmp_bytes"] = serde_json::json!(output.tmp_bytes);
+            }
             v
         }
         Err(e) => serde_json::json!({
@@ -682,6 +822,68 @@ pub fn format_output(
 
 #[cfg(test)]
 mod tests {
+    /// Cross-audit 04/09/2026 — o envelope canonico e' UM, e os tres chamadores
+    /// (adaptador MCP, `full_payload` da CLI e este) leem dele.
+    ///
+    /// Ate hoje havia tres serializadores independentes para o mesmo resultado, e
+    /// eles divergiram nas DUAS direcoes: a CLI tinha `run_id`/`tmp_bytes` que o
+    /// canonico nao tinha, e o canonico tinha `success`/`retrieval_hint` que a CLI
+    /// nao tinha — enquanto o adaptador MCP, o consumidor que a doc de
+    /// `format_output` nomeia, emitia apenas os 7 campos base e nao chamava
+    /// `format_output` nenhuma vez. O prejuizo era do consumidor MCP: sem taxonomia
+    /// de falha e sem o localizador do spill, nao havia como ler a saida elidida.
+    ///
+    /// Este teste fixa o conjunto. Um campo novo que apareca em so um dos tres
+    /// caminhos reabre exatamente a divergencia que a unificacao fechou.
+    #[test]
+    fn envelope_canonico_carrega_o_conjunto_que_os_tres_caminhos_compartilham() {
+        let out = CtxExecuteOutput {
+            stdout: "ok".into(),
+            exit_code: 0,
+            duration_ms: 7,
+            stdout_truncated: true,
+            stored_path: Some("/tmp/spill.txt".into()),
+            retrieval_hint: Some("leia com sed -n '1,80p'".into()),
+            tmp_bytes: 4096,
+            run_id: "run-1-2".into(),
+            ..Default::default()
+        };
+        let v = format_output(Ok(&out));
+        for campo in [
+            "success",
+            "stdout",
+            "stderr",
+            "exit_code",
+            "duration_ms",
+            "stdout_truncated",
+            "stderr_truncated",
+            "stored_path",
+            "retrieval_hint",
+            "run_id",
+            "tmp_bytes",
+        ] {
+            assert!(
+                v.get(campo).is_some(),
+                "o envelope canonico perdeu `{campo}`: {v}"
+            );
+        }
+        assert_eq!(v["run_id"], "run-1-2");
+        assert_eq!(v["tmp_bytes"], 4096);
+    }
+
+    /// `tmp_bytes` e' elidido quando zero — o comum e' o run nao deixar nada, e um
+    /// zero explicito em toda resposta seria ruido que o leitor aprende a ignorar.
+    #[test]
+    fn tmp_bytes_zero_nao_entra_no_envelope() {
+        let out = CtxExecuteOutput {
+            run_id: "run-3-4".into(),
+            ..Default::default()
+        };
+        let v = format_output(Ok(&out));
+        assert!(v.get("tmp_bytes").is_none(), "zero nao deve aparecer: {v}");
+        assert!(v.get("run_id").is_some(), "run_id sempre viaja: {v}");
+    }
+
     use super::*;
 
     #[test]

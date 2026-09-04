@@ -640,13 +640,8 @@ impl Handler for ClassifyIntentHandler {
     }
 
     fn execute(&self, ctx: &mut CortexContext) -> HandlerResult {
-        // Claude Code sends "userMessage" for UserPromptSubmit; fall back to "prompt"
-        let prompt = ctx
-            .input
-            .get("userMessage")
-            .or_else(|| ctx.input.get("prompt"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        // One source for the field name — see `IntentClassifier::prompt_from_input`.
+        let prompt = hooks::classifier::prompt_from_input(&ctx.input);
 
         let result = self.classifier.classify(prompt);
         let techniques = hooks::IntentClassifier::get_techniques(result.level);

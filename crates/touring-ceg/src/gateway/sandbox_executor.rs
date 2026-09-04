@@ -73,6 +73,12 @@ pub struct SandboxConfig {
     /// exports nothing: the orchestrate template's `record_hook_call` then
     /// no-ops by design.
     pub sdk_signal_mirror: Option<PathBuf>,
+    /// B1 (2026-09-02): write roots a CALLER grants on top of the funnel's own
+    /// (run tmp, project, `/dev`, toolchain caches). The supervised X8 path
+    /// stacks its policy ruleset with the funnel's; Landlock intersects them,
+    /// so a root granted only by the policy must reach the funnel too — or a
+    /// write the policy allows under `/tmp` is denied by the funnel's ruleset.
+    pub extra_write_roots: Vec<PathBuf>,
 }
 
 impl Default for SandboxConfig {
@@ -84,6 +90,7 @@ impl Default for SandboxConfig {
             compute_ms: Some(60_000),
             run_id: None,
             sdk_signal_mirror: None,
+            extra_write_roots: Vec::new(),
             stdin_bytes: None,
             allow_net_ports: Vec::new(),
             stream_output: false,
@@ -114,6 +121,9 @@ pub struct SandboxResult {
     pub stderr: String,
     /// `true` if captured stderr hit `max_output_bytes` and was cut short.
     pub stderr_truncated: bool,
+    /// B1 (2026-09-02): bytes the run left in its PRIVATE temp dir, measured
+    /// before the dir is removed. `0` when the run had no private tmp.
+    pub tmp_bytes: u64,
 }
 
 /// Failure modes of a sandbox subprocess execution.
@@ -498,7 +508,19 @@ fn project_root_for_writes(cwd: &Path) -> Option<PathBuf> {
 /// programa do sandbox gravava em `~/.bashrc`, em `~/.claude/` (a constituição
 /// do próprio agente) e em `~/.local/bin/` — o diretório do binário `touring`
 /// que o executa. Um sandbox que reescreve o seu próprio juiz não é sandbox.
+#[cfg(test)]
 fn sandbox_write_roots() -> Vec<PathBuf> {
+    sandbox_write_roots_for_run(None)
+}
+
+/// B1 (2026-09-02): with a run tmp, the SHARED temp trees leave the grant and
+/// the run's own dir takes their place. One runaway can no longer fill the
+/// tmpfs every session shares (the 8 GiB incident of 02/09 — one `soffice`,
+/// all sessions' Bash dead), and what a run leaves behind is measured and
+/// removed with it. `/dev` stays (`/dev/null`); `/tmp` stays READABLE, and the
+/// daemon's path socket stays reachable — Landlock does not gate `connect()`
+/// on a path socket. Without a run tmp (legacy callers) the grant is the old.
+fn sandbox_write_roots_for_run(run_tmp: Option<&std::path::Path>) -> Vec<PathBuf> {
     let mut raizes: Vec<PathBuf> = Vec::new();
     if let Ok(cwd) = std::env::current_dir()
         && let Some(projeto) = project_root_for_writes(&cwd)
@@ -506,18 +528,91 @@ fn sandbox_write_roots() -> Vec<PathBuf> {
         raizes.push(projeto);
     }
     // Temporários e os nós de dispositivo que todo programa usa (`/dev/null`).
-    for p in ["/tmp", "/var/tmp", "/dev"] {
-        raizes.push(PathBuf::from(p));
+    match run_tmp {
+        Some(t) => {
+            raizes.push(t.to_path_buf());
+            raizes.push(PathBuf::from("/dev"));
+        }
+        None => {
+            for p in ["/tmp", "/var/tmp", "/dev"] {
+                raizes.push(PathBuf::from(p));
+            }
+        }
     }
     if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
         // Caches de toolchain: `cargo`/`rustc` gravam aqui para compilar.
         raizes.push(home.join(".cache"));
         raizes.push(home.join(".cargo"));
     }
-    if let Some(t) = std::env::var_os("TMPDIR") {
+    if run_tmp.is_none()
+        && let Some(t) = std::env::var_os("TMPDIR")
+    {
         raizes.push(PathBuf::from(t));
     }
     raizes
+}
+
+/// B1 — the private temp dir of one run (see [`spawn_and_capture`]).
+struct RunTmp(Option<tempfile::TempDir>);
+
+impl RunTmp {
+    /// Create `touring-run-*` under the daemon's own temp dir. Failure is loud
+    /// and degrades to the shared `/tmp` grant — never aborts the run.
+    fn create() -> Self {
+        match tempfile::Builder::new().prefix("touring-run-").tempdir() {
+            Ok(d) => Self(Some(d)),
+            Err(e) => {
+                tracing::warn!(
+                    "CEG sandbox: sem tmp privado para o run ({e}) — o filho herda o /tmp compartilhado"
+                );
+                Self(None)
+            }
+        }
+    }
+
+    fn path(&self) -> Option<&std::path::Path> {
+        self.0.as_ref().map(tempfile::TempDir::path)
+    }
+
+    /// Measure what the run left behind, then remove the dir — or keep it
+    /// under `TOURING_RUN_KEEP_TMP=1` (post-mortem), logging the path.
+    fn finish(self) -> u64 {
+        let Some(dir) = self.0 else {
+            return 0;
+        };
+        let bytes = dir_bytes(dir.path());
+        if std::env::var_os("TOURING_RUN_KEEP_TMP").is_some() {
+            let kept = dir.keep();
+            tracing::info!(
+                "CEG sandbox: tmp do run mantido em {} ({bytes} bytes)",
+                kept.display()
+            );
+        }
+        bytes
+    }
+}
+
+/// Logical bytes under `path` (recursive, symlinks not followed); `0` when it
+/// does not exist or cannot be read.
+fn dir_bytes(path: &std::path::Path) -> u64 {
+    fn walk(p: &std::path::Path, acc: &mut u64) {
+        let Ok(rd) = std::fs::read_dir(p) else {
+            return;
+        };
+        for entry in rd.flatten() {
+            let Ok(meta) = entry.metadata() else {
+                continue;
+            };
+            if meta.is_dir() {
+                walk(&entry.path(), acc);
+            } else {
+                *acc += meta.len();
+            }
+        }
+    }
+    let mut acc = 0;
+    walk(path, &mut acc);
+    acc
 }
 
 /// As raízes que o filho pode LER.
@@ -617,6 +712,8 @@ fn apply_landlock_to(
     cmd: &mut Command,
     connect_tcp_ports: &[u16],
     extra_write_file: Option<&std::path::Path>,
+    run_tmp: Option<&std::path::Path>,
+    extra_write_dirs: &[PathBuf],
 ) {
     if std::env::var_os("TOURING_SANDBOX_LANDLOCK_DISABLED").is_some() {
         tracing::warn!(
@@ -626,7 +723,8 @@ fn apply_landlock_to(
         return;
     }
     let leitura = sandbox_read_roots();
-    let mut escrita = sandbox_write_roots();
+    let mut escrita = sandbox_write_roots_for_run(run_tmp);
+    escrita.extend(extra_write_dirs.iter().cloned());
     // F4 P2 — write grant on the mirror FILE alone (never its dir: the
     // daemon's own state lives beside it). `path_beneath_rules` reduces the
     // rights to what the node type supports, so a file path is legitimate.
@@ -672,8 +770,10 @@ fn apply_landlock_to(
     cmd: &mut Command,
     connect_tcp_ports: &[u16],
     extra_write_file: Option<&std::path::Path>,
+    run_tmp: Option<&std::path::Path>,
+    extra_write_dirs: &[PathBuf],
 ) {
-    let _ = (cmd, connect_tcp_ports, extra_write_file);
+    let _ = (cmd, connect_tcp_ports, extra_write_file, run_tmp, extra_write_dirs);
 }
 
 /// SEG-1 (28/08) — registra o `pre_exec` que aplica o filtro seccomp de UDP
@@ -727,9 +827,47 @@ fn apply_seccomp_udp_to(cmd: &mut Command) {
 /// sandboxed subprocesses live at once; under saturation the acquire queues
 /// (backpressure) instead of spawning.
 pub(crate) async fn spawn_and_capture(
-    mut cmd: Command,
+    cmd: Command,
     config: &SandboxConfig,
 ) -> Result<SandboxResult, SandboxError> {
+    // B1 (2026-09-02): a PRIVATE temp dir per run. The child's `TMPDIR` points
+    // at it, Landlock grants it INSTEAD of the shared `/tmp`, and it is
+    // measured and removed when the run ends (`TOURING_RUN_KEEP_TMP=1` keeps
+    // it for a post-mortem, path logged). Every execution path — interpreted,
+    // Go, Rust — funnels through here, so one site covers them all.
+    let run_tmp = RunTmp::create();
+    let mut result = spawn_and_capture_in(cmd, config, run_tmp.path()).await;
+    let tmp_bytes = run_tmp.finish();
+    if let Ok(r) = result.as_mut() {
+        r.tmp_bytes = tmp_bytes;
+    }
+    result
+}
+
+async fn spawn_and_capture_in(
+    mut cmd: Command,
+    config: &SandboxConfig,
+    run_tmp: Option<&std::path::Path>,
+) -> Result<SandboxResult, SandboxError> {
+    // B1 — set AFTER `apply_credential_whitelist` (which declares `/tmp`), so
+    // the private dir wins: tools that honour `TMPDIR` (python `tempfile`,
+    // mktemp, LibreOffice…) land inside it by construction.
+    if let Some(t) = run_tmp {
+        cmd.env("TMPDIR", t);
+    }
+    // B1 — the compiled-language runners (Go, Rust) build inside a `TempDir`
+    // of their own and run with it as cwd; that dir left the grant together
+    // with `/tmp`, so it is granted back EXPLICITLY (only when it lives under
+    // the system temp dir — a project cwd is already the project root grant).
+    let mut extra_write_dirs: Vec<PathBuf> = config.extra_write_roots.clone();
+    if let Some(d) = cmd
+        .as_std()
+        .get_current_dir()
+        .filter(|d| d.starts_with(std::env::temp_dir()))
+        .map(std::path::Path::to_path_buf)
+    {
+        extra_write_dirs.push(d);
+    }
     // P4.4 — bound the daemon's live subprocesses: take an exec-pool slot
     // before the spawn and hold it (`_pool_slot`) for the whole capture; it
     // releases on every return path. Under saturation `acquire` queues for the
@@ -773,6 +911,8 @@ pub(crate) async fn spawn_and_capture(
         &mut cmd,
         &config.allow_net_ports,
         config.sdk_signal_mirror.as_deref(),
+        run_tmp,
+        &extra_write_dirs,
     );
     // SEG-1 (28/08): UDP negado no kernel (seccomp) — o canal que o Landlock
     // (FS+TCP) não modela. pre_exec empilha: rlimit, landlock e seccomp rodam
@@ -966,6 +1106,7 @@ pub(crate) async fn spawn_and_capture(
         summary,
         stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
         stderr_truncated,
+        tmp_bytes: 0,
     })
 }
 
@@ -1075,6 +1216,7 @@ fn timeout_outcome_with_cause(
             summary,
             stderr,
             stderr_truncated: false,
+            tmp_bytes: 0,
         })
     } else {
         Err(SandboxError::Timeout(config.timeout_ms))
@@ -2651,15 +2793,84 @@ mod tests {
 
     /// O que o programa legitimamente precisa continua concedido — sem isto,
     /// as asserções acima seriam satisfeitas por um confinamento que quebra
-    /// tudo.
+    /// tudo. Sem um tmp de run (chamador legado) a concessão antiga não muda.
     #[test]
     fn temp_and_device_roots_are_still_granted() {
-        let raizes = super::sandbox_write_roots();
+        let raizes = super::sandbox_write_roots_for_run(None);
         for necessario in ["/tmp", "/dev"] {
             assert!(
                 raizes.iter().any(|r| r == std::path::Path::new(necessario)),
                 "`{necessario}` não está concedido — /dev/null deixaria de funcionar"
             );
         }
+    }
+
+    /// B1 (2026-09-02): a run gets a PRIVATE temp dir. `/dev` stays granted
+    /// (`/dev/null`); the shared `/tmp` and `/var/tmp` do not — the 8 GiB
+    /// incident of 02/09 was one process filling the tmpfs every session
+    /// shares, and the CEG declared exactly that tree as its write root.
+    #[test]
+    fn a_run_tmp_replaces_the_shared_tmp_in_the_write_roots() {
+        let run_tmp = std::path::Path::new("/tmp/touring-run-test");
+        let raizes = super::sandbox_write_roots_for_run(Some(run_tmp));
+        assert!(
+            raizes.iter().any(|r| r == run_tmp),
+            "the run's own tmp must be writable: {raizes:?}"
+        );
+        assert!(
+            raizes.iter().any(|r| r == std::path::Path::new("/dev")),
+            "/dev/null must keep working: {raizes:?}"
+        );
+        for shared in ["/tmp", "/var/tmp"] {
+            assert!(
+                !raizes.iter().any(|r| r == std::path::Path::new(shared)),
+                "`{shared}` is shared across sessions and must NOT be a write root: {raizes:?}"
+            );
+        }
+    }
+
+    /// `tmp_bytes` is what the run left behind in its private tmp, measured
+    /// BEFORE the dir is removed — the number the journal needs.
+    #[test]
+    fn tmp_bytes_measures_the_runs_leftovers() {
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        std::fs::write(dir.path().join("a.bin"), vec![7u8; 10_000]).expect("write");
+        std::fs::create_dir_all(dir.path().join("sub")).expect("mkdir");
+        std::fs::write(dir.path().join("sub/b.bin"), vec![1u8; 5_000]).expect("write");
+        let bytes = super::dir_bytes(dir.path());
+        assert!(bytes >= 15_000, "expected at least the 15 000 logical bytes, got {bytes}");
+        assert_eq!(super::dir_bytes(std::path::Path::new("/nonexistent/touring-run-x")), 0);
+    }
+
+    /// End to end (Linux): the child sees `TMPDIR` = its private run dir,
+    /// writes there, the result reports the bytes, and the dir is gone after.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn python_run_gets_a_private_tmpdir_and_reports_tmp_bytes() {
+        let result = execute_in_sandbox_blocking(
+            "SandboxPython",
+            json!({
+                "script": "import os, tempfile\nd = tempfile.gettempdir()\nopen(os.path.join(d, 'left.bin'), 'wb').write(b'x' * 4096)\nprint(d)"
+            }),
+            SandboxConfig::default(),
+        )
+        .expect("python sandbox runs");
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        let path = result.stored_path.expect("stdout persisted");
+        let captured = std::fs::read_to_string(&path).expect("read stored output");
+        let seen = captured.trim();
+        assert!(
+            seen.contains("touring-run-"),
+            "child TMPDIR must be the private run dir, got {seen}"
+        );
+        assert!(
+            result.tmp_bytes >= 4096,
+            "tmp_bytes must count the 4096 bytes written, got {}",
+            result.tmp_bytes
+        );
+        assert!(
+            !std::path::Path::new(seen).exists(),
+            "the run tmp must be removed after the run: {seen}"
+        );
     }
 }

@@ -1,0 +1,1735 @@
+{
+ "status": "DEGRADED",
+ "script": "ground_truth_collector",
+ "timestamp": "2026-09-02T09:42:27+00:00",
+ "intent": "Touring próxima geração — harness modular com reinjeção medida (nível L4, aprovado por Gabriel em 02/09/2026 no HUMAN GATE). Fazer do Touring o Sistema 1 do agente: toda reinjeção de contexto carrega um InjectionId determinístico, respeita um teto de bytes por turno aplicado no executor e é medida pelo efeito no turno seguinte (outcome v1: sucesso/falha da próxima tool, adesão ao injetado, STR por injeção); um módulo novo entra por contrato PÚBLICO fora-de-processo (JSON-RPC sobre stdio + manifest .touring/modules/*.toml via BridgeModule) com diff zero no núcleo; built-ins do núcleo implementam o MESMO trait Module em Rust (5 estágios: subscribe/observe/process/inject/measure); taxonomia tipada de eventos com modo de despacho waterfall/serial/parallel/emit e mapa feature→mecanismo como obrigação de prova (modelo: dsh). Ondas medição-primeiro: W0 Identidade (esquema único {session_id, turn_id, hook, module, injection_id, bytes} nos 4 registros: hook trace, run_journal, sdk_signal_mirror, gate-metrics) → W1 Régua (InjectionId em toda emissão de additionalContext; atribuição no PostToolUse; KPI reinjection_effectiveness{module} em touring kpi -j; teto de bytes/turno no executor; desligamento por evidência) → W2 Contrato (trait Module + registry + BridgeModule + taxonomia documentada + 2 signal layers migradas como prova + touring module list/new/explain + mapa feature→mecanismo gerado) → W3 Filha analise-regulatorio (Python via bridge no projeto analise: lexhub + memória facetada; n≥30 injeções atribuídas em sessão real, efeito acima do piso, bytes/turno abaixo do teto) → W4 Publicação (spec do contrato, cookbook, template, 2º módulo com diff zero, README, KPIs gh stars/forks) → W5 contínua. Anti-goals: não é reescrita do Touring; não é o módulo do analise em si (é a filha); não é telemetria sem finalidade; não substitui o Claude Code. Invariantes: fail-open dos hooks; segredos nunca no processo do módulo (A11); enforcement no executor (D8); densidade de injeção; peer crates via subprocess. Risco único temido: morrer de contexto → antídoto na W1. Fontes no bundle: strategy-2026-09-02-touring-proxima-geracao.md (§2 evidência, §3 lacunas L1-L5, §4 decisões, §5 ondas, §7 riscos) e criacao.md (Prompt Perfeito).",
+ "duration_ms": 3100,
+ "daemon_degraded": true,
+ "extracted": {
+  "symbols": [
+   "BestPracticesGate",
+   "BlastRadiusSignalLayer",
+   "BridgeModule",
+   "CilaGatedLayer",
+   "CodeModePresentation",
+   "CouplingSignals",
+   "DEFAULT_CONTEXT_BUDGET",
+   "ENV_TRACE_FILE",
+   "EnrichmentData",
+   "EntityId",
+   "FnSignalLayer",
+   "HookCallEntry",
+   "HookTraceLine",
+   "InjectionId",
+   "LayerMetrics",
+   "MirrorAggregate",
+   "MirrorOrigin",
+   "PostToolUse",
+   "ProposedChange",
+   "QualityBaselineLayer",
+   "RefinementAction",
+   "RouteOffer",
+   "SignalContext",
+   "SignalLayer",
+   "SignalPipeline",
+   "StaticSignalLayer",
+   "Suggestion",
+   "actuator_signals",
+   "add_layer",
+   "append_line",
+   "augment_with_mirror",
+   "build_line",
+   "claim_route_reward",
+   "cli_kpi",
+   "compose_edit_context",
+   "compose_high_signal_context_budgeted",
+   "execute_with_metrics",
+   "injection_id",
+   "project_presentation",
+   "record_route_offer",
+   "reinjection_effectiveness",
+   "run_journal",
+   "sdk_signal_mirror",
+   "session_id",
+   "turn_id",
+   "with_budget"
+  ],
+  "paths": [
+   "criacao.md",
+   "strategy-2026-09-02-touring-proxima-geracao.md"
+  ]
+ },
+ "summary": {
+  "verified_symbols": 50,
+  "unverified_symbols": 9,
+  "gotchas_found": 0,
+  "lessons_applied": 10,
+  "orphan_count": 1,
+  "paths_inspected": 2
+ },
+ "doctor": {
+  "components": [
+   {
+    "name": "binary_version",
+    "status": "ok",
+    "detail": "touring 30.4.30"
+   },
+   {
+    "name": "daemon_socket",
+    "status": "ok",
+    "detail": "/tmp/touring-daemon-1000.sock"
+   },
+   {
+    "name": "daemon_health",
+    "status": "ok",
+    "detail": "status=healthy, projects=5"
+   },
+   {
+    "name": "circuit_breaker",
+    "status": "ok",
+    "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{},\"by_project\":{},\"by_session\":{}}"
+   },
+   {
+    "name": "project_db",
+    "status": "ok",
+    "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (382586880 bytes)"
+   },
+   {
+    "name": "project_actor",
+    "status": "ok",
+    "detail": "responsive (139 ms)"
+   },
+   {
+    "name": "wiring_diagnostic",
+    "status": "warning",
+    "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=204851 producers=24168 consumers=180683 pub=22486 kind_unknown=4 non_wireable=0 unread=0 abs_paths=0"
+   }
+  ]
+ },
+ "status_snapshot": {
+  "code_mode": {
+   "adoption_ratio": 0.6923076923076923,
+   "bash_calls": 143,
+   "gates": {
+    "g10_exec_burst": {
+     "denied": 0,
+     "followed": 0
+    },
+    "g1_burst": {
+     "denied": 8,
+     "followed": 3
+    },
+    "g2_pipe_exit": {
+     "denied": 0,
+     "followed": 0
+    },
+    "g3_edit_sem_read": {
+     "denied": 2,
+     "followed": 0
+    },
+    "g6_redundant": {
+     "denied": 0,
+     "followed": 0
+    },
+    "g7_reinspect": {
+     "denied": 0,
+     "followed": 0
+    },
+    "g8_loop_rewrite": {
+     "denied": 0,
+     "followed": 2
+    },
+    "g9_sed_inline": {
+     "denied": 1,
+     "followed": 1
+    }
+   },
+   "runs": 99
+  },
+  "composite_health_score": 0.6817,
+  "daemon_health": {
+   "components": [
+    {
+     "name": "knowledge_db",
+     "note": "always initialized",
+     "status": "healthy"
+    },
+    {
+     "name": "linucb_bandit",
+     "note": "loaded",
+     "status": "healthy"
+    },
+    {
+     "name": "symbol_store",
+     "note": "loaded",
+     "status": "healthy"
+    },
+    {
+     "name": "crdt_graph",
+     "note": "loaded",
+     "status": "healthy"
+    },
+    {
+     "name": "predictor",
+     "note": "loaded",
+     "status": "healthy"
+    },
+    {
+     "name": "cognitive_runtime",
+     "note": "initialized",
+     "status": "healthy"
+    },
+    {
+     "name": "enrichment_pipeline",
+     "note": "auto-triggered at session-start",
+     "status": "active"
+    },
+    {
+     "name": "gotcha_db",
+     "note": "integrated in knowledge_db",
+     "status": "healthy"
+    }
+   ],
+   "healthy_count": 7,
+   "total_count": 8
+  },
+  "gate_metrics": {
+   "activity_instructions_loaded_count": 0,
+   "activity_post_edit_count": 19,
+   "activity_post_write_count": 3,
+   "activity_pre_compact_count": 0,
+   "activity_pre_edit_count": 0,
+   "actor_budget_timeout_count": 0,
+   "actor_queue_wait": {
+    "count": 4720,
+    "max_us": 1494015,
+    "p50_us": 44,
+    "p90_us": 172,
+    "p999_us": 1233919,
+    "p99_us": 349439
+   },
+   "actor_send_timeout_count": 0,
+   "adoption_antipattern_count": 10,
+   "adoption_touring_count": 76,
+   "ann_search_latency": {
+    "count": 59,
+    "max_us": 17247,
+    "p50_us": 7767,
+    "p90_us": 12551,
+    "p999_us": 17247,
+    "p99_us": 17247
+   },
+   "antipattern_converted_count": 0,
+   "bash_calls_total_count": 143,
+   "blast_inject_count": 0,
+   "blast_mutation_count": 0,
+   "blast_timeout_count": 0,
+   "cargo_test_paused_count": 0,
+   "ceg_blocked_count": 0,
+   "ceg_captured_count": 143,
+   "ceg_fast_path_count": 143,
+   "ceg_sandboxed_count": 0,
+   "code_mode_arm_followed_both_count": 0,
+   "code_mode_arm_followed_code_count": 2,
+   "code_mode_arm_followed_native_count": 0,
+   "code_mode_arm_offered_both_count": 0,
+   "code_mode_arm_offered_code_count": 3,
+   "code_mode_arm_offered_native_count": 0,
+   "code_mode_bytes_elided_total": 173512,
+   "code_mode_runs_count": 99,
+   "code_mode_subcall_bytes_total": 0,
+   "code_mode_subcalls_count": 0,
+   "compression_bytes_in_total": 0,
+   "compression_bytes_out_total": 0,
+   "compression_profile_applied_count": 0,
+   "core_pinning_e_count": 0,
+   "core_pinning_p_count": 0,
+   "ctx_batch_execute_count": 0,
+   "ctx_batch_item_count": 0,
+   "ctx_budget_alert_emitted_count": 0,
+   "ctx_budget_warning_emitted_count": 0,
+   "ctx_discover_opportunities_found": 0,
+   "ctx_discover_session_count": 0,
+   "ctx_doctor_call_count": 0,
+   "ctx_execute_file_count": 0,
+   "ctx_explain_count": 0,
+   "ctx_gain_graph_count": 0,
+   "ctx_purge_count": 0,
+   "ctx_replay_count": 0,
+   "ctx_session_adoption_query_count": 0,
+   "ctx_smart_count": 0,
+   "ctx_upgrade_count": 0,
+   "diagnostic_b302_emitted_count": 0,
+   "diagnostic_q220_nonidempotent_emitted_count": 0,
+   "diagnostic_tdg_emitted_count": 0,
+   "diagnostic_w115_skipped_region_written_count": 0,
+   "diagnostic_wiring_finding_emitted_count": 5522,
+   "e3_counterfactual_observed_count": 0,
+   "enrichment_context_bytes_total": 114378,
+   "enrichment_emit_count": 89,
+   "enrichment_mean_bytes_per_emit": 1285.1460674157304,
+   "exec_heredoc_inline_seen_count": 7,
+   "g10_write_run_pair_denied_count": 0,
+   "g1_inspect_burst_denied_count": 3,
+   "g1_inspect_first_passed_count": 18,
+   "g1_post_deny_other_count": 2,
+   "g1_post_deny_same_class_count": 3,
+   "g4_observed_count": 46,
+   "g5_observed_count": 1,
+   "gate_events": {
+    "g10_exec_burst": {
+     "bypassed": 1,
+     "denied": 0,
+     "emitted": 0,
+     "followed": 0
+    },
+    "g1_burst": {
+     "bypassed": 1,
+     "denied": 8,
+     "emitted": 0,
+     "followed": 3
+    },
+    "g2_pipe_exit": {
+     "bypassed": 0,
+     "denied": 0,
+     "emitted": 0,
+     "followed": 0
+    },
+    "g3_edit_sem_read": {
+     "bypassed": 0,
+     "denied": 2,
+     "emitted": 1,
+     "followed": 0
+    },
+    "g6_redundant": {
+     "bypassed": 0,
+     "denied": 0,
+     "emitted": 0,
+     "followed": 0
+    },
+    "g7_reinspect": {
+     "bypassed": 0,
+     "denied": 0,
+     "emitted": 3,
+     "followed": 0
+    },
+    "g8_loop_rewrite": {
+     "bypassed": 0,
+     "denied": 0,
+     "emitted": 2,
+     "followed": 2
+    },
+    "g9_sed_inline": {
+     "bypassed": 0,
+     "denied": 1,
+     "emitted": 0,
+     "followed": 1
+    }
+   },
+   "gate_fatigue": {
+    "bypass_ratio": 0.15384615384615383,
+    "bypassed_total": 2,
+    "denied_total": 11,
+    "per_gate": [
+     {
+      "bypass_ratio": 0.1111111111111111,
+      "bypassed": 1,
+      "denied": 8,
+      "fp_candidate": false,
+      "gate": "g1_burst"
+     },
+     {
+      "bypass_ratio": null,
+      "bypassed": 0,
+      "denied": 0,
+      "fp_candidate": false,
+      "gate": "g2_pipe_exit"
+     },
+     {
+      "bypass_ratio": 0.0,
+      "bypassed": 0,
+      "denied": 2,
+      "fp_candidate": false,
+      "gate": "g3_edit_sem_read"
+     },
+     {
+      "bypass_ratio": null,
+      "bypassed": 0,
+      "denied": 0,
+      "fp_candidate": false,
+      "gate": "g6_redundant"
+     },
+     {
+      "bypass_ratio": null,
+      "bypassed": 0,
+      "denied": 0,
+      "fp_candidate": false,
+      "gate": "g7_reinspect"
+     },
+     {
+      "bypass_ratio": null,
+      "bypassed": 0,
+      "denied": 0,
+      "fp_candidate": false,
+      "gate": "g8_loop_rewrite"
+     },
+     {
+      "bypass_ratio": 0.0,
+      "bypassed": 0,
+      "denied": 1,
+      "fp_candidate": false,
+      "gate": "g9_sed_inline"
+     },
+     {
+      "bypass_ratio": 1.0,
+      "bypassed": 1,
+      "denied": 0,
+      "fp_candidate": false,
+      "gate": "g10_exec_burst"
+     }
+    ]
+   },
+   "gate_metrics_daily_flush_count": 0,
+   "health_delta_compute_count": 0,
+   "health_delta_improvement_count": 0,
+   "health_delta_outstanding": 0,
+   "health_delta_record_count": 0,
+   "health_delta_recovery_count": 0,
+   "health_delta_regression_count": 0,
+   "health_delta_streak_alert_count": 0,
+   "hook_dispatch_by_name": {
+    "ceg-observe": 143,
+    "cli-ast-blast": 2,
+    "cli-ast-find": 40,
+    "cli-ast-meta": 177,
+    "cli-ast-overview": 2,
+    "cli-code-mode-run": 99,
+    "cli-decompose-add": 28,
+    "cli-decompose-claim": 2,
+    "cli-decompose-create": 4,
+    "cli-decompose-frontier": 1,
+    "cli-decompose-get": 21,
+    "cli-decompose-ready": 3,
+    "cli-decompose-release": 1,
+    "cli-decompose-ticket": 1,
+    "cli-decompose-update": 9,
+    "cli-e2e": 1,
+    "cli-flywheel-status": 94,
+    "cli-gate-metrics": 95,
+    "cli-health-delta-status": 93,
+    "cli-incremental-status": 94,
+    "cli-index-find": 49,
+    "cli-index-status": 95,
+    "cli-kpi": 516,
+    "cli-learning-reward": 11,
+    "cli-learning-status": 1642,
+    "cli-memory-credit": 10,
+    "cli-memory-link": 61,
+    "cli-memory-query": 18,
+    "cli-memory-recall": 59,
+    "cli-memory-store": 48,
+    "cli-resource-monitor-status": 93,
+    "cli-session-list": 94,
+    "cli-suggest": 219,
+    "cli-wiring-chains": 1,
+    "cli-wiring-cycles": 1,
+    "cli-wiring-impact": 42,
+    "cli-wiring-modules": 1,
+    "cli-wiring-orphans": 14,
+    "cli-wiring-status": 94,
+    "instructions-loaded": 3,
+    "post-bash": 130,
+    "post-edit": 19,
+    "post-read": 48,
+    "post-tool-batch": 153,
+    "post-tool-failure": 4,
+    "post-tool-rl": 220,
+    "post-write": 3,
+    "pre-bash": 143,
+    "subagent-start": 6,
+    "subagent-stop": 7,
+    "teammate-idle": 6
+   },
+   "hook_dispatch_latency": {
+    "count": 4719,
+    "max_us": 1183743,
+    "p50_us": 657,
+    "p90_us": 133119,
+    "p999_us": 929279,
+    "p99_us": 289535
+   },
+   "jdm_class_a_count": 0,
+   "jdm_class_b_count": 0,
+   "jdm_class_c_count": 0,
+   "jdm_class_d_count": 0,
+   "linucb_route_generator_count": 0,
+   "linucb_route_hint_count": 0,
+   "linucb_route_manual_count": 0,
+   "m3_delegation_advised_count": 2,
+   "mcts_shadow_deadlock_detected_count": 0,
+   "mcts_shadow_run_count": 0,
+   "mcts_shadow_timeout_count": 0,
+   "measured_tokens_in_total": 0,
+   "measured_tokens_out_total": 0,
+   "memory_pressure_green_count": 0,
+   "memory_pressure_red_count": 0,
+   "memory_pressure_total_tick_count": 0,
+   "memory_pressure_yellow_count": 0,
+   "memory_rss_mb": 1690.234375,
+   "memory_virt_mb": 20646958.54296875,
+   "metadata_backpressure_dropped": 0,
+   "metadata_cache_hit": 0,
+   "native_injection_code_route_count": 57,
+   "native_injection_followed_count": 13,
+   "native_injection_resisted_count": 48,
+   "phrase_query_match_count": 6,
+   "pillar_induction_emitted_count": 1,
+   "pillar_induction_followed_count": 0,
+   "post_tool_l4_mandatory": 0,
+   "pre_edit_fast_path": 40,
+   "pre_edit_fast_ratio": 0.8,
+   "pre_edit_full": 10,
+   "pre_grep_enrichment_count": 0,
+   "pre_grep_zero_results_count": 0,
+   "pre_write_fast_path": 40,
+   "pre_write_fast_ratio": 0.8,
+   "pre_write_full": 10,
+   "prefetch_enqueued_count": 0,
+   "prefetch_warmed_count": 0,
+   "query_cache_hit_count": 63,
+   "query_cache_hit_ratio": 0.19325153374233128,
+   "query_cache_invalidate_count": 0,
+   "query_cache_miss_count": 263,
+   "read_aggressive_chunked_count": 0,
+   "read_aggressive_passthrough_count": 0,
+   "reindex_failure_count": 0,
+   "rkyv_dispatch_bytes": 446236,
+   "rkyv_dispatch_count": 3617,
+   "rkyv_dispatch_latency": {
+    "count": 3616,
+    "max_us": 1503231,
+    "p50_us": 831,
+    "p90_us": 152063,
+    "p999_us": 1492991,
+    "p99_us": 294911
+   },
+   "rkyv_mean_bytes": 123.37185512855956,
+   "rkyv_parse_error_count": 0,
+   "rkyv_response_count": 3616,
+   "routed_bytes_in_total": 0,
+   "routed_bytes_out_total": 0,
+   "sandbox_tee_persisted_count": 0,
+   "sandbox_timeout_fallback_count": 0,
+   "savings_event_count": 0,
+   "suggestion_uptake_emitted_count": 89,
+   "suggestion_uptake_followed_count": 30,
+   "swap_thrashing_detected_count": 0,
+   "tantivy_commit_count": 21,
+   "tantivy_query_latency": {
+    "count": 0,
+    "max_us": 0,
+    "p50_us": 0,
+    "p90_us": 0,
+    "p999_us": 0,
+    "p99_us": 0
+   },
+   "tantivy_query_latency_us": 0,
+   "tantivy_stream_backpressure_drop_count": 0,
+   "tantivy_stream_enqueued_count": 22,
+   "tantivy_stream_flush_count": 21,
+   "tantivy_stream_flush_docs_count": 22,
+   "tantivy_stream_index_unavailable_drop_count": 0,
+   "tantivy_trigram_query_count": 0,
+   "tantivy_upsert_count": 22,
+   "task_sync_create_count": 0,
+   "task_sync_deduped_count": 0,
+   "task_sync_update_propagated_count": 0,
+   "token_measured_event_count": 0,
+   "tokio_injection_queue_depth": 0,
+   "tokio_num_blocking_threads": 0,
+   "tokio_num_idle_threads": 0,
+   "tokio_num_workers": 0,
+   "tool_output_routed_count": 0,
+   "tool_outputs_cleanup_deleted_count": 0,
+   "tool_outputs_ttl_skip_count": 0,
+   "total_invocations": 100,
+   "touring_init_invocation_count": 0,
+   "wave3_t201_count": 0,
+   "wave3_t202_count": 0,
+   "wave3_t203_count": 0,
+   "wave3_t204_count": 0,
+   "wave3_t205_count": 0,
+   "wave3_t206_count": 0,
+   "wave3_t207_count": 0,
+   "wave3_t208_count": 0,
+   "wave3_t209_count": 0,
+   "wave3_t210_count": 0,
+   "wave3_t211_count": 0,
+   "wave3_t212_count": 0,
+   "wave3_t213_count": 0,
+   "wave3_t214_count": 0,
+   "wave3_t215_count": 0,
+   "wave3_t301_count": 0,
+   "wave3_t302_count": 0,
+   "wave3_t303_count": 0,
+   "wave3_t304_count": 0,
+   "wave3_t305_count": 0,
+   "wave3_t306_count": 0,
+   "wave3_t307_count": 0,
+   "wave3_t308_count": 0,
+   "wave3_t309_count": 0,
+   "wave3_t310_count": 0,
+   "workflow_advice_emitted_count": 89,
+   "workflow_antipattern_detected_count": 53
+  },
+  "health_delta": {
+   "alert_threshold": 3,
+   "compute_count": 0,
+   "improvement_count": 0,
+   "outstanding": 0,
+   "record_count": 0,
+   "recovery_count": 0,
+   "regression_count": 0,
+   "streak_alert_count": 0
+  },
+  "incremental": {
+   "backing_cache": "HookResultCache (moka, 5-min TTL)",
+   "cache_hit_rate": 0.02635431918008785,
+   "file_count": 9741,
+   "note": "cache_hit_rate measures HookResultCache (populated by pre_read/post_edit/etc), not parser/incremental cache. Direct CLI calls bypass it; hit_rate stays 0.0 in fresh sessions until hooks fire.",
+   "symbol_count": 680227,
+   "total_accesses": 0
+  },
+  "index": {
+   "file_count": 9741,
+   "initialized": true,
+   "symbol_count": 680227
+  },
+  "learning": {
+   "agentic_rl_state": {
+    "active": true,
+    "learning_phase_score": 0.990230950775552,
+    "update_count": 9
+   },
+   "arm_count": 8,
+   "bandit_type": "linucb",
+   "corpus_pending": 1,
+   "ema_reward": 0.7839670859929515,
+   "last_td_error": 0.08359467254727537,
+   "linucb_loaded": true,
+   "mean_td_error": 0.38978125,
+   "update_count": 10882
+  },
+  "quality_signal": {
+   "bottleneck": "acyclicity",
+   "raw": {
+    "complexity_gini": 0.4850763834557757,
+    "cycle_count": 16,
+    "max_depth": 12,
+    "modularity_q": 0.1684686912619078,
+    "redundancy_ratio": 0.0,
+    "total_edges": 2448,
+    "total_functions": 14589,
+    "total_nodes": 1367
+   },
+   "root": "/home/gabrielgadea/projects/touring",
+   "root_causes": {
+    "acyclicity": 0.058823529411764705,
+    "depth": 0.4,
+    "equality": 0.5149236165442244,
+    "modularity": 0.4456457941746052,
+    "redundancy": 1.0
+   },
+   "signal_0_10000": 3519,
+   "signal_normalized": 0.3519400882451669
+  },
+  "resource_monitor": "",
+  "sessions": {
+   "count": 20,
+   "sessions": [
+    {
+     "created_at": "2026-08-31T18:47:02.597085125+00:00",
+     "objective": "",
+     "session_id": "31",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:45:17.371599589+00:00"
+    },
+    {
+     "created_at": "2026-08-31T17:14:07.230842782+00:00",
+     "objective": "",
+     "session_id": "27",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:43:55.449751163+00:00"
+    },
+    {
+     "created_at": "2026-08-31T15:47:43.952933671+00:00",
+     "objective": "",
+     "session_id": "26",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:39:35.389687622+00:00"
+    },
+    {
+     "created_at": "2026-08-31T18:46:02.575573405+00:00",
+     "objective": "",
+     "session_id": "29",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:39:13.088781713+00:00"
+    },
+    {
+     "created_at": "2026-08-31T18:35:15.929264938+00:00",
+     "objective": "",
+     "session_id": "28",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:38:24.356049974+00:00"
+    },
+    {
+     "created_at": "2026-08-31T18:47:00.176903804+00:00",
+     "objective": "",
+     "session_id": "30",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:37:37.913050531+00:00"
+    },
+    {
+     "created_at": "2026-08-25T21:31:36.791698024+00:00",
+     "objective": "",
+     "session_id": "25",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:36:58.845654394+00:00"
+    },
+    {
+     "created_at": "2026-08-25T21:31:19.702827263+00:00",
+     "objective": "",
+     "session_id": "24",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:35:00.412769017+00:00"
+    },
+    {
+     "created_at": "2026-08-25T21:31:02.038133072+00:00",
+     "objective": "",
+     "session_id": "23",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:34:10.023717399+00:00"
+    },
+    {
+     "created_at": "2026-08-25T21:30:47.910615451+00:00",
+     "objective": "",
+     "session_id": "22",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:33:14.134498601+00:00"
+    },
+    {
+     "created_at": "2026-08-25T19:47:50.978686499+00:00",
+     "objective": "",
+     "session_id": "21",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:32:45.269227323+00:00"
+    },
+    {
+     "created_at": "2026-08-25T19:47:37.656923416+00:00",
+     "objective": "",
+     "session_id": "20",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:19:48.249461566+00:00"
+    },
+    {
+     "created_at": "2026-08-25T19:47:20.173475648+00:00",
+     "objective": "Verificar type=code em fragments ADW antes de recomendar C",
+     "session_id": "19",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:16:32.858191716+00:00"
+    },
+    {
+     "created_at": "2026-08-25T19:47:06.232865776+00:00",
+     "objective": "",
+     "session_id": "18",
+     "task_type": "task",
+     "updated_at": "2026-09-01T16:11:53.996622097+00:00"
+    },
+    {
+     "created_at": "2026-08-25T19:46:52.995482838+00:00",
+     "objective": "",
+     "session_id": "17",
+     "task_type": "task",
+     "updated_at": "2026-09-01T15:53:17.145950302+00:00"
+    },
+    {
+     "created_at": "2026-08-25T19:46:39.982530919+00:00",
+     "objective": "Persistir explanation.md + v4 digest em memória",
+     "session_id": "16",
+     "task_type": "task",
+     "updated_at": "2026-09-01T15:52:14.508842671+00:00"
+    },
+    {
+     "created_at": "2026-08-25T19:46:26.860222833+00:00",
+     "objective": "Explicar Top-5 Aprimoramentos + 5 Candidatas",
+     "session_id": "15",
+     "task_type": "task",
+     "updated_at": "2026-09-01T15:32:27.956670056+00:00"
+    },
+    {
+     "created_at": "2026-08-25T18:32:50.420715266+00:00",
+     "objective": "",
+     "session_id": "14",
+     "task_type": "task",
+     "updated_at": "2026-09-01T15:22:19.649507388+00:00"
+    },
+    {
+     "created_at": "2026-08-25T18:32:27.095782624+00:00",
+     "objective": "",
+     "session_id": "12",
+     "task_type": "task",
+     "updated_at": "2026-09-01T15:21:33.295885734+00:00"
+    },
+    {
+     "created_at": "2026-08-25T18:32:39.017334279+00:00",
+     "objective": "Propor 3 candidatas a NOVA skill",
+     "session_id": "13",
+     "task_type": "task",
+     "updated_at": "2026-09-01T15:21:06.703653733+00:00"
+    }
+   ]
+  },
+  "wiring": {
+   "hypergraph_cycles": {
+    "count": 3414,
+    "detail": {
+     "_elided_array_len": 2145
+    }
+   },
+   "knowledge_activity": {
+    "access_count": 7754,
+    "bash_count": 3942,
+    "coedit_pairs": 9109,
+    "edit_count": 3029,
+    "gotcha_count": 13,
+    "relation_count": 21384,
+    "task_metrics_count": 348
+   },
+   "module_count": 2903,
+   "multi_import_hyperedges": {
+    "count": 0
+   },
+   "orphan_count": 5522,
+   "total_consumers": 6208,
+   "total_pub_symbols": 8671
+  }
+ },
+ "e2e": {
+  "version": "30.4.30",
+  "target": "/home/gabrielgadea/projects/touring",
+  "depth": "standard",
+  "timestamp": "1788342145",
+  "overall_score": 0.8434082206264818,
+  "overall_status": "pass",
+  "total_duration_ms": 841,
+  "phases": [
+   {
+    "phase": "index",
+    "status": "pass",
+    "score": 1.0,
+    "weight": 2.0,
+    "duration_ms": 39,
+    "metrics": {
+     "coverage_pct": "100.0",
+     "disk_files": 6242,
+     "indexed_files": 9741,
+     "knowledge_files": 5067,
+     "relation_count": 21384,
+     "symbol_count": 680227,
+     "symbols_per_file": 69.83133148547377,
+     "tantivy_commits": 21,
+     "tantivy_docs": 85499,
+     "tantivy_pending": 0,
+     "tantivy_size_bytes": 6254,
+     "tantivy_upserts": 22
+    },
+    "issues": [],
+    "tests_run": 5,
+    "tests_passed": 5
+   },
+   {
+    "phase": "wiring",
+    "status": "warn",
+    "score": 0.6731084213905965,
+    "weight": 2.0,
+    "duration_ms": 552,
+    "metrics": {
+     "avg_integration_score": 0.8623853646640753,
+     "broken_chains": 0,
+     "churn_pattern_count": 0,
+     "consumer_coverage_pct": "60.3",
+     "functional_chains": 152,
+     "modules_below_threshold": 83,
+     "orphan_count": 9712,
+     "orphan_rate_pct": "39.7",
+     "total_consumers": 180683,
+     "total_pub_symbols": 24479,
+     "wiring_score": 0.6731084213905965
+    },
+    "issues": [
+     "High orphan rate: 9712/24479 (39.7%)"
+    ],
+    "tests_run": 4,
+    "tests_passed": 3
+   },
+   {
+    "phase": "knowledge",
+    "status": "pass",
+    "score": 0.8999999999999999,
+    "weight": 1.0,
+    "duration_ms": 7,
+    "metrics": {
+     "access_count": 7754,
+     "active_gotchas": 0,
+     "avg_line_count": 841.6360765739096,
+     "avg_symbol_density": 0.08099409788091179,
+     "bash_outcome_count": 3942,
+     "coedit_pairs": 9109,
+     "edit_history_count": 3029,
+     "file_knowledge_count": 5067,
+     "gotcha_hit_rate_pct": "2961123.1",
+     "gotcha_prevented_errors": 0,
+     "gotcha_total": 13,
+     "hot_files": 137,
+     "import_graph_health": 1.0,
+     "knowledge_activity": {
+      "access_count": 7754,
+      "bash_count": 3942,
+      "coedit_pairs": 9109,
+      "edit_count": 3029,
+      "gotcha_count": 13,
+      "relation_count": 21384,
+      "task_metrics_count": 348
+     },
+     "knowledge_score": 0.9945924610223011,
+     "language_distribution": {
+      "css": 7,
+      "example": 1,
+      "html": 4,
+      "javascript": 1086,
+      "json": 258,
+      "jsonc": 1,
+      "jsonl": 1,
+      "log": 1,
+      "markdown": 838,
+      "out": 6,
+      "output": 122,
+      "python": 362,
+      "rust": 2108,
+      "scm": 1,
+      "service": 3,
+      "shell": 59,
+      "timer": 1,
+      "toml": 139,
+      "txt": 14,
+      "typescript": 22,
+      "unknown": 4,
+      "yaml": 29
+     },
+     "languages": 22,
+     "memory_entries": 11806
+    },
+    "issues": [
+     "137 hot file(s) edited 3+ times in 7d"
+    ],
+    "tests_run": 7,
+    "tests_passed": 6
+   },
+   {
+    "phase": "ast",
+    "status": "warn",
+    "score": 0.7757999999999999,
+    "weight": 2.0,
+    "duration_ms": 221,
+    "metrics": {
+     "blast_radius_sample": 1,
+     "files_parsed": 30,
+     "files_sampled": 30,
+     "high_complexity_files": 0,
+     "languages": {
+      "json": 2,
+      "markdown": 7,
+      "python": 3,
+      "rust": 5,
+      "shell": 5,
+      "toml": 3,
+      "yaml": 5
+     },
+     "parse_rate_pct": "100.0",
+     "total_symbols": 758
+    },
+    "issues": [],
+    "tests_run": 31,
+    "tests_passed": 31
+   },
+   {
+    "phase": "quality",
+    "status": "pass",
+    "score": 0.9,
+    "weight": 1.5,
+    "duration_ms": 17,
+    "metrics": {
+     "antipattern_rate_pct": "10.0",
+     "avg_error_coverage": "0.052",
+     "avg_quality_score": "0.946",
+     "files_analyzed": 30,
+     "files_with_antipatterns": 3,
+     "max_complexity": 64,
+     "top_offenders": [
+      {
+       "count": 1,
+       "file": "client/omarchy/bin/cidata_gen.py"
+      },
+      {
+       "count": 1,
+       "file": "client/omarchy/bin/cidata_iso.py"
+      },
+      {
+       "count": 1,
+       "file": "client/omarchy/bin/hooks_runnable.py"
+      }
+     ],
+     "total_antipatterns": 3,
+     "total_unwraps": 9
+    },
+    "issues": [
+     "client/omarchy/bin/cidata_gen.py: 1 antipattern(s)",
+     "client/omarchy/bin/cidata_iso.py: 1 antipattern(s)",
+     "client/omarchy/bin/hooks_runnable.py: 1 antipattern(s)"
+    ],
+    "tests_run": 30,
+    "tests_passed": 27
+   },
+   {
+    "phase": "learning",
+    "status": "pass",
+    "score": 0.8857142857142857,
+    "weight": 0.5,
+    "duration_ms": 3,
+    "metrics": {
+     "bandit_active": false,
+     "blast_connections": 0,
+     "cognitive_enriched": true,
+     "crdt_active": true,
+     "ema_reward": 0.7839670859929515,
+     "linucb_arms": 8,
+     "linucb_health_injected": true,
+     "predictor_active": true,
+     "update_count": 10882
+    },
+    "issues": [],
+    "tests_run": 7,
+    "tests_passed": 6
+   }
+  ],
+  "summary": {
+   "total_phases": 6,
+   "phases_passed": 4,
+   "phases_warned": 2,
+   "phases_failed": 0,
+   "total_tests_run": 84,
+   "total_tests_passed": 78,
+   "total_issues": 5,
+   "top_issues": [
+    "[WIRING] High orphan rate: 9712/24479 (39.7%)",
+    "[KNOWLEDGE] 137 hot file(s) edited 3+ times in 7d",
+    "[QUALITY] client/omarchy/bin/cidata_gen.py: 1 antipattern(s)",
+    "[QUALITY] client/omarchy/bin/cidata_iso.py: 1 antipattern(s)",
+    "[QUALITY] client/omarchy/bin/hooks_runnable.py: 1 antipattern(s)"
+   ]
+  },
+  "cache_stats": {
+   "hook_result_cache": {
+    "entry_count": 2,
+    "hit_rate": 0.02635431918008785,
+    "hits": 18,
+    "misses": 665
+   }
+  }
+ },
+ "wiring_audit": {
+  "cycles": {
+   "count": 144,
+   "detail": {
+    "cycle_count": 144,
+    "cycles": {
+     "_elided_array_len": 144
+    }
+   }
+  },
+  "low_score_modules": {
+   "_elided_array_len": 2099
+  },
+  "orphans": {
+   "dead_patterns": [],
+   "diagnostic_count": 5522,
+   "diagnostics": {
+    "_elided_array_len": 5522
+   },
+   "orphan_count": 5522,
+   "orphans": {
+    "_elided_array_len": 5522
+   },
+   "resolution": {
+    "heuristic_edges": 175658,
+    "name_only_candidates": 16196,
+    "origin_breakdown": [
+     {
+      "origin": "scip_resolved",
+      "rows": 89
+     },
+     {
+      "origin": "ast_declared",
+      "rows": 24168
+     },
+     {
+      "origin": "ast_read",
+      "rows": 406
+     },
+     {
+      "origin": "ast_resolved",
+      "rows": 4530
+     },
+     {
+      "origin": "ast_inferred",
+      "rows": 175658
+     }
+    ],
+    "top_unresolved_modules_debt_only": {
+     "_elided_array_len": 10
+    },
+    "unresolved_by_class": [
+     {
+      "call_sites": 10939,
+      "class": "external"
+     },
+     {
+      "call_sites": 4519,
+      "class": "scope_keyword"
+     },
+     {
+      "call_sites": 710,
+      "class": "workspace_unresolved"
+     },
+     {
+      "call_sites": 28,
+      "class": "ambiguous_alias"
+     }
+    ],
+    "unresolved_samples": {
+     "_elided_array_len": 5
+    }
+   }
+  },
+  "rfc100_diagnostics": {
+   "count": 5522,
+   "findings": {
+    "_elided_array_len": 5522
+   }
+  }
+ },
+ "wiring_orphans": {
+  "_elided_array_len": 5522
+ },
+ "evolution_drift": {},
+ "memory_lessons": [
+  {
+   "key": "criacao:touring-proxima-geracao:2026-09-02",
+   "links": [
+    {
+     "direction": "in",
+     "dst": "criacao:touring-proxima-geracao:2026-09-02",
+     "rel": "extends",
+     "src": "decisao:touring-proxima-geracao:fronteira-modulo:2026-09-02"
+    }
+   ],
+   "score": 0.4093008663770467,
+   "source": "ann",
+   "stored_at": "2026-09-02 09:26:22",
+   "value": "criacao.md validado (ratio 1.0) em docs/plans/2026-09-02-touring-proxima-geracao/criacao.md — entrada de Yetzirah: touring adw run strategy-loop --var topic=<seção 'O Prompt Perfeito' verbatim> --var scope=$PWD --var bundle=docs/plans/2026-09-02-touring-proxima-geracao. Cadeia medição-primeiro; risco principal 'morreu de contexto'; modelo dsh microkernel Cordis."
+  },
+  {
+   "key": "strategy:touring-proxima-geracao:2026-09-02",
+   "links": [
+    {
+     "direction": "out",
+     "dst": "decisao:touring-proxima-geracao:fronteira-modulo:2026-09-02",
+     "rel": "extends",
+     "src": "strategy:touring-proxima-geracao:2026-09-02"
+    }
+   ],
+   "score": 0.383505060254927,
+   "source": "ann",
+   "stored_at": "2026-09-02 09:38:45",
+   "value": "OUTER (Yetzirah) da criação 'Touring próxima geração — harness modular com reinjeção medida' (docs/plans/2026-09-02-touring-proxima-geracao/strategy-2026-09-02-touring-proxima-geracao.md). Intenção: Touring como Sistema 1 do agente — toda reinjeção com id determinístico, teto de bytes/turno no executor, efeito medido no turno seguinte; módulo novo entra por contrato PÚBLICO fora-de-processo (JSON-RPC stdio + manifest .touring/modules/*.toml via BridgeModule) com diff zero no núcleo; built-ins Rust sob o mesmo trait Module (5 estágios: subscribe/observe/process/inject/measure). Modelo de forma: dsh (everything is a plugin; taxonomia tipada Cordis waterfall/serial/parallel/emit; loop como plugin; mapa feature→mecanismo como obrigação de prova). Evidência 02/09: health 0.6864, quality Platinum 0.937, orphans 5530 (baseline), hook_dispatch p50 0.65ms p90 133ms, enrichment 81 emissões/105KB só em agregado, régua por injeção NÃO existe, contrato NÃO existe. Lacunas L1-L5: identidade de telemetria, id de injeção, atribuição por módulo, contrato/registry, teto no executor. Ondas medição-primeiro: W0 Identidade → W1 Régua+teto+desligamento por evidência → W2 Contrato+Bridge+2 layers migradas → W3 Filha analise-regulatorio (Python via bridge, n≥30) → W4 Publicação (spec, cookbook, template, 2º módulo, gh KPIs) → W5 contínua. Pronto: filha viva (kpi n≥30 acima do piso) + gh stars/forks + módulos de terceiros (números propostos a calibrar). Risco único temido: 'morreu de contexto' → antídoto na W1. Próximo: HUMAN GATE → plan-excellence L4 → DAG."
+  },
+  {
+   "key": "f3-posttool-use-sync-2026-09-01",
+   "score": 0.3672152021866822,
+   "source": "ann",
+   "stored_at": "2026-09-01 09:47:07",
+   "value": "F3 do code-mode-sinal ENTREGUE. PostToolUse-side bridge: sdk_signal_mirror.rs (sink JSONL ~/.claude/touring/sdk_signal_mirror.jsonl, append-only crash-safe). Hook calls materializam: 5 ast_meta p50=8ms, 3 memory_recall p50=42ms, 1 parallel failure p50=100ms. augment_with_mirror NAO clobber existing entry (hardcoded base stats ganham prioridade). signal_report_from_journal_and_mirror junta journal + mirror em um SignalReport. 6 mirror tests + 687 lib tests verdes. Decisao D4 strategy v1.1 aplicada: PostToolUse replica o contrato de prompt-enhance (UserPromptSubmit injeta additionalContext). PostToolUse handler agora sabe COMO escrever; falta wirar (deployment) — F5/F6 gates vao detectar se PostToolUse REAL alimenta o sink."
+  },
+  {
+   "key": "strategy:geracao-sem-write:2026-08-25",
+   "score": 0.35386060109810213,
+   "source": "ann",
+   "stored_at": "2026-08-25 02:25:07",
+   "value": "Estratégia do programa geracao-sem-write (aprovado por Gabriel 25/08): LLM emite GeneratorPlan estruturado, executor typestate materializa/prova/commita; exercitar-infra é o método. DAG task_1787624211878968599: F1 fonte única do vocabulário (FEITA nesta wave: skeleton+serde(default)+5 testes da junta) → F2 pipeline ponta-a-ponta → F3 learning por gerador (Wilson/KS do aco) ∥ F4 harvest→template → F5 gate de novidade; F6 event-sourcing ESAA ∥ F7 reject-codes inventory. Doc: docs/plans/2026-08-25-geracao-sem-write/strategy-2026-08-25-geracao-sem-write.md"
+  },
+  {
+   "key": "grilling:touring-proxima-geracao:2026-09-02",
+   "score": 0.3990553676237709,
+   "source": "ann",
+   "stored_at": "2026-09-02 09:26:22",
+   "value": "Trilha Briah/grilling 02/09/2026 — criação 'Touring próxima geração — harness modular com reinjeção medida' (docs/plans/2026-09-02-touring-proxima-geracao/criacao.md). Medição de entrada ratio 0.286 (presentes telos+imagem fraca). Q1 intensidade: I2 executivo (I3 recusado, vale para a criação inteira). Q2 espelho invertido: 'só 4 — a emanação já está lá' = evoluir o Touring à próxima geração de harness do mercado. Q3 fronteira: os 4 anti-goals valem (não é reescrita; não é o módulo do analise em si — ele é a filha; não é telemetria sem finalidade; não substitui o Claude Code). Q4 cadeia: A) medição-primeiro (régua por injeção antes do 1º módulo) — descartadas módulo-primeiro e contrato-primeiro. Q5 pré-mortem: única manchete temida = 'morreu de contexto' (STR negativo; S1 gritando por cima do S2) → antídoto: teto de bytes/turno no executor + desligamento por evidência. Q6 pronto: primeira filha viva no analise + repo hypado no GitHub + viralização mundial — convertidos em medidas (kpi por injeção n≥30; gh repo view stars/forks; módulos de terceiros/países/instalações) com números PROPOSTOS a calibrar. Modelo de modularização: dsh (~/references/code-mode-2026-08-23/deepseek-harness) = everything is a plugin sobre taxonomia tipada de eventos Cordis (waterfall/serial/parallel/emit), loop como plugin substituível, mapa feature→mecanismo como obrigação de prova. Gate de saída ratio 1.0. Próximo: Yetzirah via strategy-loop com o Prompt Perfeito verbatim."
+  },
+  {
+   "key": "f4-sdk-tipada-protocol-2026-09-01",
+   "score": 0.31031790375709534,
+   "source": "tfidf:memory",
+   "stored_at": "2026-09-01 09:56:57",
+   "value": "f4-sdk-tipada-protocol-2026-09-01 F4 do code-mode-sinal ENTREGUE. SDK tipada com record_hook_call: injetado no template Python (crates/touring-server/src/cli/run.rs:298) + wrap do query() que cronometra + escreve mirror JSONL fail-soft. Build touring-server 4m45s verde; 1572/1572 lib tests verdes. Cada query do in-sandbox SDK agora materializa 1 linha no mirror ~/.claude/touring/sdk_signal_mirror.jsonl. signal_report_from_journal_and_mirror (F3) agora vera counts reais quando F5/F6 wirarem o Pos…"
+  },
+  {
+   "key": "report:diagnostic:touring-20260902T062959",
+   "score": 0.3840571618165605,
+   "source": "ann",
+   "stored_at": "2026-09-02 09:29:59",
+   "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-02-touring-proxima-geracao/diagnostics/touring-20260902T062959.md"
+  },
+  {
+   "key": "aprovacao:touring-proxima-geracao:strategy-l4:2026-09-02",
+   "score": 0.3734039775551685,
+   "source": "ann",
+   "stored_at": "2026-09-02 09:42:23",
+   "value": "HUMAN GATE passo 9 (02/09/2026): Gabriel aprovou a estratégia 'Touring próxima geração — harness modular com reinjeção medida' com ondas W0→W5 e nível L4 (opção 'Aprovar, plano L4'); descartadas 'só W0-W1 agora' e 'ajustar antes'. Próximo: touring adw run plan-excellence --var level=L4 → plan.md → DAG → marker active → INNER por onda."
+  },
+  {
+   "key": "f2-sdk-surface-hibrida-2026-09-01",
+   "score": 0.2756129205226898,
+   "source": "tfidf:memory",
+   "stored_at": "2026-09-01 09:25:13",
+   "value": "f2-sdk-surface-hibrida-2026-09-01 F2 code-mode-sinal ENTREGUE. SDK surface hibrida: 8 hooks hardcoded (ast_meta/ast_blast/index_find/wiring_orphans/memory_recall/pre_edit/tantivy_search/parallel) -> SignalReport do journal REAL (5675 runs, 8 linguagens). journal.rs (parser fail-soft), sdk.rs (SignalReport + parse_hook), gen_sdk.py (CI mode sem Rust toolchain), examples/sdk_smoke.rs (cross-emitter Rust==Python). 13/13 tests verdes. Decisao D3 strategy v1.1 aplicada: nomes hardcoded em sdk.rs, tip…"
+  },
+  {
+   "key": "strategy-recuperacao-sinais-hooks-2026-09-01",
+   "score": 0.3713769010012336,
+   "source": "ann",
+   "stored_at": "2026-09-01 19:36:34",
+   "value": "OKF: Recuperação e continuidade — sinais dos hooks do touring — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/strategy-2026-09-01-recuperacao-sinais-hooks.md"
+  }
+ ],
+ "gotcha_per_file": {},
+ "vgp_verifications": [
+  {
+   "name": "BridgeModule",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "injection_id",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "sdk_signal_mirror",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "InjectionId",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "session_id",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "turn_id",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "reinjection_effectiveness",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "run_journal",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "PostToolUse",
+   "verified": false,
+   "suggestion": ""
+  },
+  {
+   "name": "SignalLayer",
+   "verified": true,
+   "file": "./crates/touring-hooks-shared/src/signal_layer.rs",
+   "line": 68,
+   "kind": "trait",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "SignalContext",
+   "verified": true,
+   "file": "./crates/touring-hooks-shared/src/signal_layer.rs",
+   "line": 14,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "ProposedChange",
+   "verified": true,
+   "file": "crates/touring-hooks-shared/src/signal_layer.rs",
+   "line": 21,
+   "kind": "enum",
+   "count": 1,
+   "suggestion": ""
+  },
+  {
+   "name": "LayerMetrics",
+   "verified": true,
+   "file": "./crates/touring-hooks-shared/src/signal_layer.rs",
+   "line": 54,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "SignalPipeline",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/shared/signal_pipeline.rs",
+   "line": 48,
+   "kind": "struct",
+   "count": 4,
+   "suggestion": ""
+  },
+  {
+   "name": "StaticSignalLayer",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/shared/signal_pipeline.rs",
+   "line": 219,
+   "kind": "struct",
+   "count": 6,
+   "suggestion": ""
+  },
+  {
+   "name": "CilaGatedLayer",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/shared/signal_pipeline.rs",
+   "line": 244,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "FnSignalLayer",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/shared/signal_pipeline.rs",
+   "line": 269,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "BlastRadiusSignalLayer",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/shared/signal_pipeline.rs",
+   "line": 381,
+   "kind": "struct",
+   "count": 6,
+   "suggestion": ""
+  },
+  {
+   "name": "HookTraceLine",
+   "verified": true,
+   "file": "crates/touring-hook-runtime/src/hook_trace.rs",
+   "line": 32,
+   "kind": "struct",
+   "count": 1,
+   "suggestion": ""
+  },
+  {
+   "name": "HookCallEntry",
+   "verified": true,
+   "file": "crates/touring-code/src/sdk_signal_mirror.rs",
+   "line": 51,
+   "kind": "struct",
+   "count": 1,
+   "suggestion": ""
+  },
+  {
+   "name": "MirrorOrigin",
+   "verified": true,
+   "file": "crates/touring-code/src/sdk_signal_mirror.rs",
+   "line": 74,
+   "kind": "enum",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "MirrorAggregate",
+   "verified": true,
+   "file": "crates/touring-code/src/sdk_signal_mirror.rs",
+   "line": 98,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "EnrichmentData",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli_suggester.rs",
+   "line": 314,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "Suggestion",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli_suggester.rs",
+   "line": 362,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "RouteOffer",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli_suggester.rs",
+   "line": 3576,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "QualityBaselineLayer",
+   "verified": true,
+   "file": "crates/touring-hook-handlers/src/shared/quality_signal.rs",
+   "line": 73,
+   "kind": "struct",
+   "count": 3,
+   "suggestion": ""
+  },
+  {
+   "name": "EntityId",
+   "verified": true,
+   "file": "./crates/touring-identity/src/types.rs",
+   "line": 25,
+   "kind": "struct",
+   "count": 8,
+   "suggestion": ""
+  },
+  {
+   "name": "CodeModePresentation",
+   "verified": true,
+   "file": "./crates/touring-foundation/src/code_mode.rs",
+   "line": 29,
+   "kind": "enum",
+   "count": 4,
+   "suggestion": ""
+  },
+  {
+   "name": "BestPracticesGate",
+   "verified": true,
+   "file": "./crates/touring-quality/src/builtins/best_practices.rs",
+   "line": 7,
+   "kind": "struct",
+   "count": 4,
+   "suggestion": ""
+  },
+  {
+   "name": "CouplingSignals",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli/kpi.rs",
+   "line": 825,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "RefinementAction",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli/kpi.rs",
+   "line": 844,
+   "kind": "struct",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "DEFAULT_CONTEXT_BUDGET",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/hooks/pre_read.rs",
+   "line": 977,
+   "kind": "const",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "ENV_TRACE_FILE",
+   "verified": true,
+   "file": "crates/touring-hook-runtime/src/hook_trace.rs",
+   "line": 28,
+   "kind": "const",
+   "count": 1,
+   "suggestion": ""
+  },
+  {
+   "name": "cli_kpi",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli/kpi.rs",
+   "line": 116,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "compose_high_signal_context_budgeted",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/hooks/pre_read.rs",
+   "line": 1041,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "compose_edit_context",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/hooks/pre_edit.rs",
+   "line": 506,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "execute_with_metrics",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/shared/signal_pipeline.rs",
+   "line": 154,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "add_layer",
+   "verified": true,
+   "file": "./crates/touring-generator/src/validate/pipeline.rs",
+   "line": 328,
+   "kind": "function",
+   "count": 4,
+   "suggestion": ""
+  },
+  {
+   "name": "with_budget",
+   "verified": true,
+   "file": "./crates/touring-analysis/src/engine.rs",
+   "line": 91,
+   "kind": "function",
+   "count": 4,
+   "suggestion": ""
+  },
+  {
+   "name": "append_line",
+   "verified": true,
+   "file": "crates/touring-hook-runtime/src/hook_trace.rs",
+   "line": 153,
+   "kind": "function",
+   "count": 1,
+   "suggestion": ""
+  },
+  {
+   "name": "build_line",
+   "verified": true,
+   "file": "crates/touring-hook-runtime/src/hook_trace.rs",
+   "line": 123,
+   "kind": "function",
+   "count": 1,
+   "suggestion": ""
+  },
+  {
+   "name": "record_route_offer",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli_suggester.rs",
+   "line": 3755,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "claim_route_reward",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli_suggester.rs",
+   "line": 4052,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "augment_with_mirror",
+   "verified": true,
+   "file": "crates/touring-code/src/sdk_signal_mirror.rs",
+   "line": 228,
+   "kind": "function",
+   "count": 1,
+   "suggestion": ""
+  },
+  {
+   "name": "project_presentation",
+   "verified": true,
+   "file": "./crates/touring-foundation/src/code_mode.rs",
+   "line": 79,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "actuator_signals",
+   "verified": true,
+   "file": "./crates/touring-cli/src/cli/kpi.rs",
+   "line": 982,
+   "kind": "function",
+   "count": 2,
+   "suggestion": ""
+  },
+  {
+   "name": "MirrorError",
+   "verified": true,
+   "file": "crates/touring-code/src/sdk_signal_mirror.rs",
+   "line": 141,
+   "kind": "enum",
+   "suggestion": ""
+  },
+  {
+   "name": "ActionSignature",
+   "verified": true,
+   "file": "./crates/touring-hooks-shared/src/action_signature.rs",
+   "line": 128,
+   "kind": "struct",
+   "suggestion": ""
+  },
+  {
+   "name": "JournalEntry",
+   "verified": true,
+   "file": "crates/touring-code/src/journal.rs",
+   "line": 82,
+   "kind": "struct",
+   "suggestion": ""
+  },
+  {
+   "name": "Facet",
+   "verified": true,
+   "file": "./crates/touring-intelligence/src/rl/memory/tags.rs",
+   "line": 189,
+   "kind": "enum",
+   "suggestion": ""
+  },
+  {
+   "name": "cila_budget_read",
+   "verified": true,
+   "file": "./crates/touring-hooks-shared/src/cila.rs",
+   "line": 33,
+   "kind": "function",
+   "suggestion": ""
+  },
+  {
+   "name": "cila_budget_edit",
+   "verified": true,
+   "file": "./crates/touring-hooks-shared/src/cila.rs",
+   "line": 41,
+   "kind": "function",
+   "suggestion": ""
+  },
+  {
+   "name": "cila_budget_write",
+   "verified": true,
+   "file": "./crates/touring-hooks-shared/src/cila.rs",
+   "line": 49,
+   "kind": "function",
+   "suggestion": ""
+  },
+  {
+   "name": "record_enrichment_metrics",
+   "verified": true,
+   "file": "./crates/touring-hook-handlers/src/hooks/pre_read.rs",
+   "line": 392,
+   "kind": "function",
+   "suggestion": ""
+  },
+  {
+   "name": "ALL_DAEMON_HOOK_NAMES",
+   "verified": true,
+   "file": "./crates/touring-dispatch/src/hook_registry.rs",
+   "line": 397,
+   "kind": "const",
+   "suggestion": ""
+  },
+  {
+   "name": "record_ctx_budget_warning",
+   "verified": true,
+   "file": "./crates/touring-foundation/src/gate_metrics_snapshot.rs",
+   "line": 1484,
+   "kind": "function",
+   "suggestion": ""
+  },
+  {
+   "name": "record_ctx_budget_alert",
+   "verified": true,
+   "file": "./crates/touring-foundation/src/gate_metrics_snapshot.rs",
+   "line": 1490,
+   "kind": "function",
+   "suggestion": ""
+  },
+  {
+   "name": "apply_relevance_cutoff",
+   "verified": true,
+   "file": "./crates/touring-hook-runtime/src/shared/signals.rs",
+   "line": 158,
+   "kind": "function",
+   "suggestion": ""
+  },
+  {
+   "name": "JournalAggregate",
+   "verified": true,
+   "file": "crates/touring-code/src/journal.rs",
+   "line": 128,
+   "kind": "struct",
+   "suggestion": ""
+  }
+ ],
+ "ast_overviews": {
+  "strategy-2026-09-02-touring-proxima-geracao.md": {
+   "file_path": "strategy-2026-09-02-touring-proxima-geracao.md",
+   "language": "markdown",
+   "symbol_count": 0,
+   "symbols": []
+  },
+  "criacao.md": {
+   "file_path": "criacao.md",
+   "language": "markdown",
+   "symbol_count": 0,
+   "symbols": []
+  }
+ },
+ "ast_blasts": {
+  "criacao.md": {
+   "blast_radius": 0,
+   "consumers": [],
+   "file_path": "criacao.md"
+  },
+  "strategy-2026-09-02-touring-proxima-geracao.md": {
+   "blast_radius": 0,
+   "consumers": [],
+   "file_path": "strategy-2026-09-02-touring-proxima-geracao.md"
+  }
+ },
+ "augmented_by": "vgp_augment.py (native touring index find, 2026-09-02; sandbox nao alcanca o indice)"
+}

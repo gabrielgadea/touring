@@ -1,6 +1,6 @@
 //! Snapshot tests for `compute_complexity_for_source` output stability.
 //!
-//! Cyclomatic complexity feeds the cognitive_score enrichment pipeline
+//! Cyclomatic complexity feeds the quality_score enrichment pipeline
 //! (file_knowledge.db) and the Tantivy `cognitive_score_x1000` field.
 //! Drift in branch counting would ripple into wiring scoring and LinUCB
 //! reward shaping. Snapshots pin the contract against grammar bumps.

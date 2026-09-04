@@ -1,0 +1,45 @@
+{
+  "phase": "C3",
+  "entities": [
+    {
+      "entity_id": "phase:C3",
+      "type": "phase",
+      "description": "Prior-art pr\u00e9-write: intent_for_new_file ignora linhas #tags: e shebang, ent\u00e3o a inten\u00e7\u00e3o derivada para o portf\u00f3lio vem da docstring/prop\u00f3sito e n\u00e3o do codetag \u2014 o nudge de prior-art deixa de buscar 'kind:script purpose:\u2026'."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:C3:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:C3|produces|memory:loop:task_1788340910617776382:C3:done",
+      "source": "phase:C3",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:C3:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:C3:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:C3:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:C3:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:C3:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

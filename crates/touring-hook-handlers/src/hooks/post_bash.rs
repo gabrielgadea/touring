@@ -62,7 +62,14 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         Err(errors) => return validation_deny(&errors, "post_bash"),
     };
     let command = validated.command.as_str();
-    let raw_output = validated.stdout.as_deref().unwrap_or("");
+    // F10 (2026-09-02): the output lives in `tool_response` (PostToolUse) or
+    // in the top-level `error` (PostToolUseFailure) — `tool_input.stdout` is
+    // only the legacy/test shape. A user interrupt is not a failure to learn.
+    let payload = bash_payload_output(input, validated.stdout.as_deref());
+    if payload.interrupted {
+        return HookResponse::Allow;
+    }
+    let raw_output = payload.raw_output.as_str();
 
     if command.is_empty() {
         return HookResponse::Allow;
@@ -82,13 +89,21 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         // F0 (01/09) — LOUD on both arms (fail-soft kept): the info line is
         // the delivery-path instrument — grep the daemon log to see WHICH
         // process ran the feeder for a live session event.
-        match touring_code::sdk::record_hook_call(&mirror, hook, 0, true) {
+        // F10: a PostToolUseFailure delivery is a failed hook call — the
+        // mirror's `success` stops being unconditionally `true`.
+        match touring_code::sdk::record_hook_call(
+            &mirror,
+            hook,
+            0,
+            !payload.failure_event,
+            touring_code::sdk_signal_mirror::MirrorOrigin::PostBash,
+        ) {
             Ok(_) => tracing::info!("post_bash feeder: {} -> signal mirror", hook.as_str()),
             Err(e) => tracing::warn!("post_bash feeder: mirror write failed: {e}"),
         }
     }
 
-    let outcome = match build_bash_outcome(command, raw_output) {
+    let outcome = match build_bash_outcome_for_event(command, &payload) {
         Some(o) => o,
         None => return HookResponse::Allow,
     };
@@ -291,19 +306,120 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
 /// Returns `None` when `command_short` is empty (no recognisable command).
 /// Truncates `output` to the first 2 000 characters before analysis so that
 /// large outputs do not inflate detection cost.
+#[cfg(test)]
 fn build_bash_outcome(command: &str, raw_output: &str) -> Option<BashOutcome> {
+    let output = BashPayloadOutput {
+        raw_output: raw_output.to_string(),
+        failure_event: false,
+        exit_code_hint: None,
+        interrupted: false,
+    };
+    build_bash_outcome_for_event(command, &output)
+}
+
+/// What the hook learned about the command's output from the Claude Code
+/// payload (F10, 2026-09-02).
+///
+/// `PostToolUse` fires only on success and carries the output in
+/// `tool_response` (`stdout` + `stderr`); `PostToolUseFailure` carries the
+/// interleaved output in the top-level `error` string, which for Bash starts
+/// with an `Exit code N` line. `interrupted` mirrors `is_interrupt` — a user
+/// Ctrl-C is not a command failure to learn from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BashPayloadOutput {
+    /// Text handed to the exit-code / error-pattern detectors.
+    pub raw_output: String,
+    /// `true` when the event is `PostToolUseFailure` (or an `error` field
+    /// arrived without a `tool_response`).
+    pub failure_event: bool,
+    /// Exit code the payload states explicitly, when it does.
+    pub exit_code_hint: Option<i64>,
+    /// `true` when the tool run was interrupted by the user.
+    pub interrupted: bool,
+}
+
+/// Read the command output from the hook payload, in order of trust:
+/// failure `error` text → `tool_response.{stdout,stderr}` → the legacy
+/// `tool_input.stdout` shape (`legacy_stdout`, kept for older emitters/tests).
+pub(crate) fn bash_payload_output(
+    input: &serde_json::Value,
+    legacy_stdout: Option<&str>,
+) -> BashPayloadOutput {
+    let event_name = input
+        .get("hook_event_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let error_text = input.get("error").and_then(|v| v.as_str());
+    let response = input.get("tool_response");
+    let interrupted = input
+        .get("is_interrupt")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+        || response
+            .and_then(|r| r.get("interrupted"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+    let failure_event =
+        event_name == "PostToolUseFailure" || (response.is_none() && error_text.is_some());
+
+    let exit_code_hint = response
+        .and_then(|r| r.get("exit_code").or_else(|| r.get("returnCode")))
+        .or_else(|| input.pointer("/tool_input/exit_code"))
+        .and_then(|v| v.as_i64());
+
+    let raw_output = if failure_event {
+        error_text.unwrap_or("").to_string()
+    } else if let Some(resp) = response {
+        match resp {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Object(_) => {
+                let stdout = resp.get("stdout").and_then(|v| v.as_str()).unwrap_or("");
+                let stderr = resp.get("stderr").and_then(|v| v.as_str()).unwrap_or("");
+                match (stdout.is_empty(), stderr.is_empty()) {
+                    (_, true) => stdout.to_string(),
+                    (true, false) => stderr.to_string(),
+                    (false, false) => format!("{stdout}\n{stderr}"),
+                }
+            }
+            _ => String::new(),
+        }
+    } else {
+        legacy_stdout.unwrap_or("").to_string()
+    };
+
+    BashPayloadOutput {
+        raw_output,
+        failure_event,
+        exit_code_hint,
+        interrupted,
+    }
+}
+
+/// Build the outcome from what the payload said (F10). On a failure event
+/// the outcome can never read as success: an output with no `Exit code`
+/// line collapses to exit 1 rather than the detector's default 0.
+fn build_bash_outcome_for_event(
+    command: &str,
+    output: &BashPayloadOutput,
+) -> Option<BashOutcome> {
     let command_short = extract_command_short(command);
     if command_short.is_empty() {
         return None;
     }
 
+    let raw_output = output.raw_output.as_str();
     let output_head = truncate_str(raw_output, 2000);
-    let exit_code = detect_exit_code(output_head);
+    let mut exit_code = output
+        .exit_code_hint
+        .unwrap_or_else(|| detect_exit_code(output_head));
+    if output.failure_event && exit_code == 0 {
+        exit_code = 1;
+    }
     // FIX8: Also detect error indicators when exit_code==0 — some tools
     // (e.g. `cargo test` capturing panics) print "FAILED" or "error[" but
     // still exit 0. Checking indicators catches these false-success cases.
     let has_error_indicators = check_error_indicators(output_head) != 0;
-    let success = exit_code == 0 && !has_error_indicators;
+    let success = !output.failure_event && exit_code == 0 && !has_error_indicators;
     let error_pattern = if !success {
         extract_error_pattern(output_head)
     } else {
@@ -962,5 +1078,117 @@ mod tests {
         assert!(ctx.contains("[ruff]"), "extractor name: {ctx}");
         assert!(ctx.contains("errors=3"), "errors: {ctx}");
         assert!(ctx.contains("fixable=2"), "fixable: {ctx}");
+    }
+
+    // ── F10 (2026-09-02): PostToolUse / PostToolUseFailure payload shapes ──
+    //
+    // Claude Code delivers the command output in `tool_response` (PostToolUse,
+    // success only) or in the top-level `error` string (PostToolUseFailure).
+    // Before F10 the handler read `tool_input.stdout`, a field the live
+    // payload never carries — every outcome recorded as exit 0.
+
+    #[test]
+    fn f10_payload_output_reads_tool_response_on_success() {
+        let input = serde_json::json!({
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "cargo test"},
+            "tool_response": {
+                "stdout": "test result: ok. 3 passed",
+                "stderr": "warning: unused variable",
+                "interrupted": false
+            }
+        });
+        let out = bash_payload_output(&input, None);
+        assert!(!out.failure_event);
+        assert!(!out.interrupted);
+        assert!(out.raw_output.contains("3 passed"), "{}", out.raw_output);
+        assert!(
+            out.raw_output.contains("warning: unused variable"),
+            "stderr must reach the analysis: {}",
+            out.raw_output
+        );
+    }
+
+    #[test]
+    fn f10_payload_output_uses_error_text_on_failure_event() {
+        let input = serde_json::json!({
+            "hook_event_name": "PostToolUseFailure",
+            "tool_name": "Bash",
+            "tool_input": {"command": "npm test", "description": "Run test suite"},
+            "tool_use_id": "toolu_01ABC123",
+            "error": "Exit code 1\nError: Cannot find module 'express'",
+            "is_interrupt": false,
+            "duration_ms": 4187
+        });
+        let out = bash_payload_output(&input, None);
+        assert!(out.failure_event);
+        assert!(!out.interrupted);
+        assert_eq!(
+            out.raw_output,
+            "Exit code 1\nError: Cannot find module 'express'"
+        );
+    }
+
+    #[test]
+    fn f10_payload_output_flags_a_user_interrupt() {
+        let input = serde_json::json!({
+            "hook_event_name": "PostToolUseFailure",
+            "tool_name": "Bash",
+            "tool_input": {"command": "sleep 100"},
+            "error": "Command was interrupted",
+            "is_interrupt": true
+        });
+        let out = bash_payload_output(&input, None);
+        assert!(out.failure_event);
+        assert!(out.interrupted, "an interrupt is not a command failure to learn from");
+    }
+
+    #[test]
+    fn f10_payload_output_falls_back_to_legacy_tool_input_stdout() {
+        let input = serde_json::json!({
+            "tool_input": {"command": "ruff check src/main.py", "stdout": "Error: E501 line too long"}
+        });
+        let out = bash_payload_output(&input, Some("Error: E501 line too long"));
+        assert!(!out.failure_event);
+        assert_eq!(out.raw_output, "Error: E501 line too long");
+    }
+
+    #[test]
+    fn f10_failure_event_outcome_never_reads_as_success() {
+        let output = BashPayloadOutput {
+            raw_output: "boom".to_string(),
+            failure_event: true,
+            exit_code_hint: None,
+            interrupted: false,
+        };
+        let outcome = build_bash_outcome_for_event("make deploy", &output).unwrap();
+        assert!(!outcome.success);
+        assert_eq!(outcome.exit_code, 1, "unknown non-zero exit collapses to 1");
+    }
+
+    #[test]
+    fn f10_failure_event_outcome_parses_the_exit_code_line() {
+        let output = BashPayloadOutput {
+            raw_output: "Exit code 101\nthread 'main' panicked at src/lib.rs:4".to_string(),
+            failure_event: true,
+            exit_code_hint: None,
+            interrupted: false,
+        };
+        let outcome = build_bash_outcome_for_event("cargo run", &output).unwrap();
+        assert!(!outcome.success);
+        assert_eq!(outcome.exit_code, 101);
+    }
+
+    #[test]
+    fn f10_success_event_with_error_indicators_is_still_a_failure() {
+        let output = BashPayloadOutput {
+            raw_output: "error[E0308]: mismatched types".to_string(),
+            failure_event: false,
+            exit_code_hint: None,
+            interrupted: false,
+        };
+        let outcome = build_bash_outcome_for_event("cargo check", &output).unwrap();
+        assert!(!outcome.success);
     }
 }

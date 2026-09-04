@@ -71,6 +71,218 @@ fn test_pre_edit_flags_analogous_call_sites_of_a_changed_call() {
     }
 }
 
+/// S6 (2026-09-02): the quality baseline is measured on the PROPOSED content,
+/// not on the file on disk — an edit that pushes a function past CC>10 is
+/// named before it lands (symmetry with pre_write's `quality:` signal). The
+/// file on disk is trivial, so only the simulated edit can produce the signal.
+#[test]
+fn test_pre_edit_measures_quality_of_the_proposed_content() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".claude/data")).expect("data dir");
+    std::fs::create_dir_all(root.join("src")).expect("src dir");
+    let file = root.join("src/branchy.rs");
+    let current = "pub fn branchy(x: i32) -> i32 {\n    x\n}\n";
+    std::fs::write(&file, current).expect("write source");
+    let mut rt = HookRuntime::new(&root).expect("runtime");
+    rt.trigger_enrichment();
+    let mut proposed = String::from("pub fn branchy(x: i32) -> i32 {\n    let mut acc = 0;\n");
+    for i in 0..14 {
+        proposed.push_str(&format!("    if x > {i} {{ acc += {i}; }}\n"));
+    }
+    proposed.push_str("    acc\n}\n");
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": file.display().to_string(),
+            "old_string": current,
+            "new_string": proposed,
+        },
+        "tool_name": "Edit"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("quality: CC>10"),
+                "the proposed content pushes `branchy` past CC>10, got: {context:?}"
+            );
+            assert!(context.contains("branchy"), "{context:?}");
+        }
+        other => unreachable!("expected Context with a quality signal, got {other:?}"),
+    }
+}
+
+/// S8 (2026-09-02): the CWE scanner sees the PROPOSED text of an Edit — the
+/// finding is located inside `new_string` (`new_string:L<n>`), never as a line
+/// of the file on disk, which the edit has not touched yet.
+#[test]
+fn test_pre_edit_flags_a_hardcoded_credential_in_the_proposed_text() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".claude/data")).expect("data dir");
+    std::fs::create_dir_all(root.join("src")).expect("src dir");
+    let file = root.join("src/client.rs");
+    let current = "pub fn client() -> String {\n    String::new()\n}\n";
+    std::fs::write(&file, current).expect("write source");
+    let mut rt = HookRuntime::new(&root).expect("runtime");
+    rt.trigger_enrichment();
+    let prefix = ["s", "k", "-"].concat();
+    let proposed = format!("    let api_key = \"{prefix}live-PLACEHOLDER\";\n    api_key.to_string()\n");
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": file.display().to_string(),
+            "old_string": "    String::new()\n",
+            "new_string": proposed,
+        },
+        "tool_name": "Edit"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("CWE-798"),
+                "pre_edit must name the hardcoded credential before the edit, got: {context:?}"
+            );
+            assert!(
+                context.contains("new_string:L1"),
+                "the finding is located in the proposed text, got: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with CWE-798, got {other:?}"),
+    }
+}
+
+/// S9 (2026-09-02): the semantic badge of an Edit diffs the public API of the
+/// file as it WILL be against the file on disk — `pub API 2 (+1/-0)` names the
+/// new public item before the edit lands.
+#[test]
+fn test_pre_edit_badge_shows_the_public_api_delta_of_the_proposed_edit() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".claude/data")).expect("data dir");
+    std::fs::create_dir_all(root.join("src")).expect("src dir");
+    let file = root.join("src/lib_s9.rs");
+    std::fs::write(&file, "pub fn a() {}\n").expect("write source");
+    let mut rt = HookRuntime::new(&root).expect("runtime");
+    rt.trigger_enrichment();
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": file.display().to_string(),
+            "old_string": "pub fn a() {}\n",
+            "new_string": "pub fn a() {}\npub fn b() {}\n",
+        },
+        "tool_name": "Edit"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[rust] semantic "),
+                "pre_edit must carry the semantic badge, got: {context:?}"
+            );
+            assert!(
+                context.contains("pub API 2 (+1/-0)"),
+                "the badge must show the public API delta, got: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with the [rust] badge, got {other:?}"),
+    }
+}
+
+/// S4 (2026-09-02, ★): an edit that touches ONLY a public definition
+/// (`total(a, b)` → `total(a, b, c)`) changes no call expression — A2 stays
+/// silent — yet every caller is about to break. The cascade preview names
+/// them from the symbol index before the edit lands.
+#[test]
+fn test_pre_edit_previews_the_api_cascade_of_a_signature_change() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".claude/data")).expect("data dir");
+    std::fs::create_dir_all(root.join("src")).expect("src dir");
+    let file = root.join("src/calc.rs");
+    std::fs::write(&file, "pub fn total(a: i32, b: i32) -> i32 {\n    a + b\n}\n").expect("write source");
+    let mut rt = HookRuntime::new(&root).expect("runtime");
+    rt.trigger_enrichment();
+    {
+        let store = rt.symbol_store().expect("runtime symbol store");
+        for (path, line) in [("src/report.rs", 12usize), ("src/summary.rs", 7usize)] {
+            store
+                .upsert_symbol(&SymbolLocation {
+                    symbol_name: "total".to_string(),
+                    file_path: path.to_string(),
+                    line,
+                    column: 4,
+                    is_definition: false,
+                    kind: Some("call".to_string()),
+                })
+                .expect("upsert call site");
+        }
+    }
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": file.display().to_string(),
+            "old_string": "pub fn total(a: i32, b: i32) -> i32 {",
+            "new_string": "pub fn total(a: i32, b: i32, c: i32) -> i32 {",
+        },
+        "tool_name": "Edit"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                !context.contains("[C08]"),
+                "A2 must stay silent: no call expression changed, got: {context:?}"
+            );
+            assert!(
+                context.contains("[cascade] `total` signature changes"),
+                "the cascade preview must name the re-signed item, got: {context:?}"
+            );
+            assert!(
+                context.contains("src/report.rs:12") && context.contains("src/summary.rs:7"),
+                "{context:?}"
+            );
+        }
+        other => unreachable!("expected Context with [cascade], got {other:?}"),
+    }
+}
+
+/// S4 is polyglot: the same cascade for a Python definition, with the badge
+/// of its language (Gabriel, 02/09: "o preview só pode ser rust?").
+#[test]
+fn test_pre_edit_previews_the_api_cascade_for_python_too() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".claude/data")).expect("data dir");
+    std::fs::create_dir_all(root.join("src")).expect("src dir");
+    let file = root.join("src/calc.py");
+    std::fs::write(&file, "def total(a, b):\n    return a + b\n").expect("write source");
+    let mut rt = HookRuntime::new(&root).expect("runtime");
+    rt.trigger_enrichment();
+    rt.symbol_store()
+        .expect("runtime symbol store")
+        .upsert_symbol(&SymbolLocation {
+            symbol_name: "total".to_string(),
+            file_path: "src/report.py".to_string(),
+            line: 3,
+            column: 4,
+            is_definition: false,
+            kind: Some("call".to_string()),
+        })
+        .expect("upsert call site");
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": file.display().to_string(),
+            "old_string": "def total(a, b):",
+            "new_string": "def total(a, b, c):",
+        },
+        "tool_name": "Edit"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(context.contains("[cascade] `total` signature changes"), "{context:?}");
+            assert!(context.contains("src/report.py:3"), "{context:?}");
+            assert!(context.contains("[python] pub API 1"), "{context:?}");
+        }
+        other => unreachable!("expected Context with [cascade], got {other:?}"),
+    }
+}
+
 // ── S10 (2026-09-02, ex-B4): the call graph reaches TS/JS — the library
 // already dispatched them; only the hooks' `.rs`/`.py` filter kept them out.
 

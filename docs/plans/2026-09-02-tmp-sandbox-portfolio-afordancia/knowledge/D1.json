@@ -1,0 +1,45 @@
+{
+  "phase": "D1",
+  "entities": [
+    {
+      "entity_id": "phase:D1",
+      "type": "phase",
+      "description": "touring kpi --signal-baseline <path> compara o sinal VIVO com um SignalReport persistido, pela rota publica sdk::load_signal_report \u2014 que tinha zero consumidores e zero testes. O payload ganha baseline e baseline_delta: adocao que cai vira delta negativo em used, custo que sobe vira delta positivo no pior p99. Caminho ausente ou JSON invalido viram campo error, nunca KPI mudo. Escolhi o PIOR p99 entre hooks em vez de media porque media entre hooks de volumes diferentes esconde justamente o que se quer vigiar. Na estreia ao vivo ja acusou regressao real: adocao 8 -> 6 hooks, pior p99 +84ms."
+    },
+    {
+      "entity_id": "memory:loop:task_1788360579582461575:D1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788360579582461575",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788360579582461575",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:D1|produces|memory:loop:task_1788360579582461575:D1:done",
+      "source": "phase:D1",
+      "type": "produces",
+      "target": "memory:loop:task_1788360579582461575:D1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788360579582461575:D1:done|generated-by|loop:loop:task_1788360579582461575",
+      "source": "memory:loop:task_1788360579582461575:D1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788360579582461575"
+    },
+    {
+      "relation_id": "memory:loop:task_1788360579582461575:D1:done|generated-by|dag:decomp:task_1788360579582461575",
+      "source": "memory:loop:task_1788360579582461575:D1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788360579582461575"
+    }
+  ]
+}

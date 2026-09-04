@@ -94,6 +94,12 @@ fn sym(name: &str, file: &str, kind: &str, crate_n: &str) -> SymbolDoc {
         blake3_hash: None,
         import_count: None,
         export_count: None,
+        // `SymbolDoc.cognitive_score` — o campo POR SIMBOLO do indice tantivy, valor
+        // DIFERENTE do `quality_score` por arquivo (renomeado em 04/09/2026) e
+        // documentado com a direcao oposta ("Cognitive complexity score"). Mantem o
+        // nome de proposito: nenhum escritor de producao o preenche, e renomea-lo
+        // teria fundido um campo morto de complexidade com um vivo de qualidade —
+        // exatamente o defeito que o rename existe para corrigir.
         cognitive_score: None,
         functional_signature: None,
         community_id: None,
@@ -304,6 +310,13 @@ fn audit_i11_sandbox_language_resolution() {
 
 #[test]
 fn audit_i12_credential_redactor_pattern() {
+    // touring-quality:allow-secrets — the fixture below is a SYNTHETIC credential
+    // whose whole purpose is to prove `redact_secrets` removes it. Without the
+    // pragma F2.4 scores this file 0.000 and the PreToolUse gate blocks every edit
+    // to the redactor's own proof. W2 (2026-07-02) deliberately dropped the blanket
+    // `/tests/` allowlist, so this opt-out is per-file and explicit: a REAL secret
+    // landing in this file from now on will not block, which is the price of the
+    // convention (detect-secrets / gitleaks `pragma: allowlist secret`).
     let raw = "GH_TOKEN=ghp_supersecret\nuser=alice\nAWS_SECRET_ACCESS_KEY: dead";
     let red = redact_secrets(raw);
     assert!(red.contains("[REDACTED]"));

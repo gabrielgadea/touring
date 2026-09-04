@@ -73,19 +73,23 @@ def score_verdict(signals: dict[str, Any]) -> dict[str, Any]:
     """Build a triage verdict from blast_radius + quality_score thresholds."""
     meta = (signals.get("meta") or {}).get("data") or {}
     _qs50 = signals.get("quality_score_50d") or {}
+    # `meta.get("quality_score")` is the per-file score from `analyze_quality`,
+    # HIGHER IS BETTER. Until 04/09/2026 `ast meta` emitted it under the name
+    # `cognitive_score`, so this function read the SAME value twice: once as
+    # `quality` (through a key `ast meta` never actually emitted, so it always fell
+    # through to the 50-dim composite) and once as `cognitive`, which it then judged
+    # as if high meant complex. One value, two names, opposite readings.
     quality = float(_qs50.get("composite") or meta.get("quality_score") or 0.0)
     blast_radius = int(meta.get("blast_radius") or 0)
-    cognitive = float(meta.get("cognitive_score") or 0.0)
-    fan_in = int(meta.get("fan_in") or 0)
-    fan_out = int(meta.get("fan_out") or 0)
+    # sinais em [0,1] sob os nomes `*_signal` — ver cross-audit 03/09/2026
+    fan_in = float(meta.get("fan_in_signal") or 0.0)
+    fan_out = float(meta.get("fan_out_signal") or 0.0)
 
     reasons: list[str] = []
     if blast_radius > 10:
         reasons.append(f"blast_radius={blast_radius} > 10 — pause; consider scope reduction")
     if quality < 0.5:
         reasons.append(f"quality_score={quality:.2f} < 0.5 — robustness work first")
-    if cognitive > 0.7:
-        reasons.append(f"cognitive_score={cognitive:.2f} > 0.7 — high complexity")
     if blast_radius > 10 and quality < 0.5:
         decision = "NO_GO"
     elif reasons:
@@ -96,7 +100,6 @@ def score_verdict(signals: dict[str, Any]) -> dict[str, Any]:
         "decision": decision,
         "blast_radius": blast_radius,
         "quality_score": quality,
-        "cognitive_score": cognitive,
         "fan_in": fan_in,
         "fan_out": fan_out,
         "light": traffic_light(quality),
@@ -111,8 +114,7 @@ def emit_human(report: dict[str, Any]) -> None:
     verdict = report["verdict"]
     emit_kv("decision", f"{verdict['decision']}  ({verdict['light']})")
     emit_kv("blast_radius", verdict["blast_radius"])
-    emit_kv("quality_score", f"{verdict['quality_score']:.3f}")
-    emit_kv("cognitive_score", f"{verdict['cognitive_score']:.3f}")
+    emit_kv("quality_score", f"{verdict['quality_score']:.3f}  (higher is better)")
     emit_kv("fan_in / fan_out", f"{verdict['fan_in']} / {verdict['fan_out']}")
     if meta.get("language"):
         emit_kv("language", meta["language"])

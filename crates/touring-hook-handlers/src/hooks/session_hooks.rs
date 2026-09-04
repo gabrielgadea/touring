@@ -248,11 +248,14 @@ pub fn run_session_start(
 
     // S6: Classify session intent to inform pre-hook context budgets.
     // Store CILA level in result_cache so pre_read can adjust budget dynamically.
-    if let Some(context_text) = input
-        .get("context")
-        .or_else(|| input.get("message"))
-        .and_then(|v| v.as_str())
-    {
+    // One source for the field name — see `IntentClassifier::prompt_from_input`.
+    // This site read only "context"/"message", which the SessionStart payload does
+    // not carry, so `__session_cila_level__` was NEVER written: eight readers fell
+    // through to their hardcoded default and the CILA dial sat welded at 3 — the same
+    // budget (3000 chars) for a typo and for a 144-consumer refactor.
+    let context_text =
+        touring_hooks_prediction::classifier::prompt_from_input(input);
+    if !context_text.is_empty() {
         let cila_result = runtime.ctx.classifier.classify(context_text);
         runtime.ctx.result_cache.cache_result(
             "__meta__",

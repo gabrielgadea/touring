@@ -99,7 +99,13 @@ def evaluate(marker: dict, manifests: dict) -> dict:
     floor = float(marker.get("flow_armed_at")
                   or marker.get("created_at") or 0) - MTIME_SLACK_SECONDS
     missing, present = [], []
+    # P4/S-4.1 — a CLASSE decide se o artefato e' cobravel neste flow. Um sem
+    # `class` conta como A e continua exigido: esquecer de classificar erra para
+    # o lado da cobranca, nunca para o do buraco silencioso.
+    enforced = set(manifest.get("enforced_classes", ["A", "B", "C"]))
     for art in manifest.get("artifacts", []):
+        if art.get("class", "A") not in enforced:
+            continue
         pattern = _resolve_glob(str(art.get("glob", "")), scope, bundle)
         hits = []
         if pattern:
@@ -119,7 +125,12 @@ def evaluate(marker: dict, manifests: dict) -> dict:
                    else _fill(manifest.get("preferred_next", ""), scope, bundle))
     return {
         "applicable": True, "flow": flow, "complete": complete,
-        "expected": len(manifest.get("artifacts", [])),
+        "expected": sum(
+            1
+            for a in manifest.get("artifacts", [])
+            if a.get("class", "A")
+            in set(manifest.get("enforced_classes", ["A", "B", "C"]))
+        ),
         "present": present, "missing": missing, "next_action": next_action,
         "max_continuations": int(manifest.get("max_continuations", 5)),
     }

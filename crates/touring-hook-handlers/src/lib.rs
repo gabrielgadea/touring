@@ -141,10 +141,13 @@ pub use touring_cli::{cli_handlers, cli_handlers_decompose};
 /// historical `crate::shared::<submodule>` paths resolve byte-identically.
 pub mod shared {
     pub mod hook_helpers;
+    pub mod api_cascade_preview;
     pub mod cross_caller;
     pub mod metadata_collector;
     pub mod missing_imports;
+    pub mod quality_signal;
     pub mod related_symbols;
+    pub mod api_preview;
     pub mod secrets_signal;
     pub mod signal_pipeline;
     #[cfg(feature = "tantivy-fts")]

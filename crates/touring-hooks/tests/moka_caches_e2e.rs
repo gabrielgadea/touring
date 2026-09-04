@@ -112,7 +112,7 @@ fn cognitive_enrichment_write_invalidates_cache() {
         .query_extended(path)
         .expect("reload")
         .expect("row present");
-    assert_eq!(enriched.cognitive_score, Some(0.91));
+    assert_eq!(enriched.quality_score, Some(0.91));
     assert_eq!(enriched.complexity_signal, Some(0.55));
     assert_eq!(enriched.fan_in_signal, Some(0.33));
     assert_eq!(enriched.fan_out_signal, Some(0.11));

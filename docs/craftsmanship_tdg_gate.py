@@ -1,25 +1,35 @@
 #!/usr/bin/env python3
-"""craftsmanship_tdg_gate.py — TDG + cognitive-score gate for production sources.
+"""craftsmanship_tdg_gate.py — TDG + quality-score gate for production sources.
 
 Master Plan H1-B (2026-06-13). Closes the craftsmanship gap: touring exposes
-TDG (grade A-F) and cognitive_score, but neither runs in CI. This gate drives
-the existing tooling, parses its output, and fails the build on grade < B or
-cognitive_score > 0.7 for any non-test source file > 500 LOC.
+TDG (grade A-F) and a per-file quality score, but neither runs in CI. This gate
+drives the existing tooling, parses its output, and fails the build on grade < B
+or quality BELOW the floor for any non-test source file > 500 LOC.
+
+DIRECTION (04/09/2026 — this gate had it backwards):
+    `ast meta`'s score comes from `analyze_quality`, which declares
+    *"All scores are in [0.0, 1.0] where HIGHER IS BETTER"* and computes
+    penalties — high cyclomatic complexity subtracts. The field was named
+    `cognitive_score`, every consumer read that as "complexity", and this gate
+    failed the build when a file scored ABOVE 0.7 — i.e. it flagged the
+    CLEANEST files and passed the messiest (`cli_suggester.rs`: 5791 lines, a
+    CC=23 function, score 0.352). Renamed to `quality_score` so the name
+    carries the direction and the mistake cannot be repeated by reading it.
 
 Prereq (assumed installed + on PATH):
     touring ast tdg <file>      # prints JSON {grade, score, dimensions}
-    touring ast meta <file>     # prints JSON {quality_score, cognitive_score, ...}
+    touring ast meta <file>     # prints JSON {quality_score, ...}
 
 Exits:
   0  PASS  — every audited file meets thresholds
-  1  FAIL  — at least one file grade < B or cognitive > 0.7
+  1  FAIL  — at least one file grade < B or quality below the floor
   2  ADVISORY  — `touring` binary absent; step is skipped (fail-open)
 
 Usage
 -----
     docs/craftsmanship_tdg_gate.py --check
     docs/craftsmanship_tdg_gate.py --json
-    docs/craftsmanship_tdg_gate.py --min-grade B --max-cognitive 0.7 --min-loc 500
+    docs/craftsmanship_tdg_gate.py --min-grade B --min-quality 0.30 --min-loc 500
 """
 from __future__ import annotations
 
@@ -61,12 +71,12 @@ def run_touring(args: list[str], timeout: int = 30) -> dict | None:
         return None
 
 
-def audit_file(path: Path, min_grade: str, max_cognitive: float) -> dict | None:
+def audit_file(path: Path, min_grade: str, min_quality: float) -> dict | None:
     meta = run_touring(["ast", "meta", str(path), "--depth", "summary"])
     loc = 0
-    cognitive = None
+    quality = None
     if meta:
-        cognitive = meta.get("cognitive_score")
+        quality = meta.get("quality_score")
         loc = meta.get("loc", 0)
     if loc == 0:
         # fall back to line count
@@ -81,13 +91,16 @@ def audit_file(path: Path, min_grade: str, max_cognitive: float) -> dict | None:
     findings: list[str] = []
     if grade and not grade_at_least(grade, min_grade):
         findings.append(f"grade {grade} < {min_grade}")
-    if cognitive is not None and cognitive > max_cognitive:
-        findings.append(f"cognitive_score {cognitive:.3f} > {max_cognitive}")
+    # BELOW the floor is the finding: the score is quality, higher is better.
+    # This read `> max_cognitive` until 04/09/2026 and therefore failed the build
+    # on the cleanest files in the tree while letting the messiest through.
+    if quality is not None and quality < min_quality:
+        findings.append(f"quality_score {quality:.3f} < {min_quality}")
     return {
         "file": str(path.relative_to(ROOT)),
         "loc": loc,
         "grade": grade,
-        "cognitive_score": cognitive,
+        "quality_score": quality,
         "findings": findings,
     }
 
@@ -97,7 +110,8 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="CI mode (default)")
     parser.add_argument("--json", action="store_true", help="machine-readable JSON")
     parser.add_argument("--min-grade", default="B", help="minimum acceptable TDG grade (default B)")
-    parser.add_argument("--max-cognitive", type=float, default=0.7, help="max acceptable cognitive_score (default 0.7)")
+    parser.add_argument("--min-quality", type=float, default=0.30,
+                        help="minimum acceptable quality_score, higher is better (default 0.30)")
     parser.add_argument("--min-loc", type=int, default=500, help="minimum LOC to audit (default 500)")
     args = parser.parse_args()
 
@@ -114,10 +128,10 @@ def main() -> int:
         # `#[cfg(test)] mod tests` bodies are routinely relocated to sibling
         # `<file>_tests.rs` / `tests.rs` files (the test-module split idiom).
         # Those carry test code whose intentional verbosity must not be judged
-        # against production cognitive-complexity thresholds.
+        # against production quality thresholds.
         if path.name == "tests.rs" or path.name.endswith(("_tests.rs", "_test.rs")):
             continue
-        result = audit_file(path, args.min_grade, args.max_cognitive)
+        result = audit_file(path, args.min_grade, args.min_quality)
         if result is not None:
             audited.append(result)
 
@@ -130,7 +144,7 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        print(f"craftsmanship_tdg_gate: audited={len(audited)} failures={len(failures)} min_grade={args.min_grade} max_cog={args.max_cognitive}")
+        print(f"craftsmanship_tdg_gate: audited={len(audited)} failures={len(failures)} min_grade={args.min_grade} min_quality={args.min_quality}")
         for f in failures:
             for finding in f["findings"]:
                 print(f"  ::error::{f['file']} ({f['loc']} LOC) — {finding}", file=sys.stderr)

@@ -127,7 +127,17 @@ fn forward(args: &[String], script_file: &str) -> Result<()> {
 /// Look up the command's script via [`script_for`] and forward to it.
 fn forward_command(args: &[String], command: &str) -> Result<()> {
     let script_file = script_for(command).ok_or_else(|| {
-        anyhow::anyhow!("command '{}' is not registered — use one of: scout, read, health, guard, map, blast, investigate, explore, adw, factory", command)
+        // Cross-audit 04/09/2026 — a lista vem do registro. Os mesmos 10 nomes
+        // viviam em TRES lugares (o `match` de `script_for`, a const
+        // `MASTER_COMMANDS` e esta string), e a const — a que a doc declara como
+        // fonte — nao tinha nenhum consumidor de producao: era um dos 5 orfaos
+        // reais da auditoria. Um comando novo agora aparece nesta mensagem por
+        // construcao, em vez de depender de alguem lembrar de edita-la.
+        anyhow::anyhow!(
+            "command '{}' is not registered — use one of: {}",
+            command,
+            MASTER_COMMANDS.join(", ")
+        )
     })?;
     forward(args, script_file)
 }
@@ -210,6 +220,18 @@ mod tests {
             );
         }
     }
+    /// A mensagem de erro DERIVA do registro: um comando novo entra nela sozinho.
+    /// Antes a lista era uma terceira copia literal dos mesmos nomes, e nada
+    /// reconciliava as tres.
+    #[test]
+    fn erro_de_comando_desconhecido_lista_o_registro_inteiro() {
+        let e = forward_command(&[], "nao-existe").expect_err("comando invalido falha");
+        let msg = e.to_string();
+        for cmd in MASTER_COMMANDS {
+            assert!(msg.contains(cmd), "a mensagem omitiu `{cmd}`: {msg}");
+        }
+    }
+
     #[test]
     fn script_for_unknown_is_none() {
         assert!(script_for("definitely-not-a-command").is_none());

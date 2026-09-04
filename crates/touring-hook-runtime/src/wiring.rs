@@ -524,6 +524,25 @@ pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, c
     for path in extract_direct_path_expressions(content) {
         record_consumer_from_path(db, &path, consumer_file);
     }
+    // W4 (2026-09-02): the inference step the rebuild runs post-walk, now on
+    // the edit path too. `update_wiring_after_edit` cleared this file's
+    // consumer rows and re-recorded only `use` imports — every edited file
+    // lost its `ast_inferred` edges until the next full rebuild, and callees
+    // reached by a bare call or a type position read as orphans (measured on
+    // `sandbox_executor.rs` → `limits.rs::apply_resource_caps_to`, 02/09).
+    if let Some(lang) = touring_code::ast::Lang::from_path(std::path::Path::new(consumer_file)) {
+        let method_names = touring_code::ast::graph::extract_method_calls(content, lang);
+        let type_refs = touring_code::ast::graph::extract_type_and_const_refs(content, lang);
+        let qualified_calls =
+            touring_code::ast::graph::extract_qualified_calls(content, lang);
+        let _ = db.record_inferred_consumers(
+            consumer_file,
+            &method_names,
+            &type_refs,
+            // D2 (2026-09-02) — ver `index.rs`: o par qualificado é exato.
+            &qualified_calls,
+        );
+    }
     // FIX-4 (2026-04-13): also detect `pub use <submod>::<symbol>` and
     // `pub(crate) use <submod>::<symbol>` re-exports. When a parent
     // module (e.g. `lifecycle.rs`) re-exports a symbol from a co-located

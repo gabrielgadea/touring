@@ -198,7 +198,7 @@ pub fn cli_ast_features(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
 /// Payload: `{"file_path": "...", "depth": "skeleton|summary|full"}`
 ///
 /// - skeleton: file_path, language, line_count, pub symbol names
-/// - summary: skeleton + fan_in/fan_out signals, cognitive_score, integration_score
+/// - summary: skeleton + fan_in/fan_out signals, quality_score, integration_score
 /// - full: summary + imports, todos, feature_flags
 pub fn cli_ast_meta(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let file_path = payload
@@ -279,6 +279,7 @@ pub fn cli_ast_meta(rt: &mut HookRuntime, payload: &serde_json::Value) -> String
             Vec::new()
         }
     };
+    let pub_symbol_count = pub_symbols.len();
     let mut result = serde_json::json!(
         { "file_path" : file_path, "depth" : depth, "language" : language, "line_count" :
         line_count, "pub_symbols" : pub_symbols, "enrichment_source" : enrichment_source
@@ -292,8 +293,8 @@ pub fn cli_ast_meta(rt: &mut HookRuntime, payload: &serde_json::Value) -> String
         .knowledge
         .get_cognitive_enrichment(&file_path)
         .unwrap_or(None);
-    let (cognitive_score, fan_in, fan_out, summary_source) = match cog {
-        Some((cs, _, fi, fo, _)) => (cs, fi, fo, "knowledge_db"),
+    let (quality_score, fan_in, fan_out, summary_source) = match cog {
+        Some((cs, _, fi, fo, _)) => (cs, Some(fi), Some(fo), "knowledge_db"),
         None => {
             let abs_path = if std::path::Path::new(&file_path).is_absolute() {
                 std::path::PathBuf::from(&file_path)
@@ -307,7 +308,7 @@ pub fn cli_ast_meta(rt: &mut HookRuntime, payload: &serde_json::Value) -> String
                         .map(|c| touring_code::ast::analyze_quality(&c, lang).overall_score as f64)
                 })
                 .unwrap_or(0.0);
-            (score, 0.0, 0.0, "on_disk_fallback")
+            (score, None, None, "on_disk_fallback")
         }
     };
     let integration_score: f64 = conn
@@ -322,8 +323,8 @@ pub fn cli_ast_meta(rt: &mut HookRuntime, payload: &serde_json::Value) -> String
         .unwrap_or(0.0);
     if let Some(obj) = result.as_object_mut() {
         obj.insert(
-            "cognitive_score".to_string(),
-            serde_json::json!(cognitive_score),
+            "quality_score".to_string(),
+            serde_json::json!(quality_score),
         );
         obj.insert("fan_in_signal".to_string(), serde_json::json!(fan_in));
         obj.insert("fan_out_signal".to_string(), serde_json::json!(fan_out));
@@ -335,6 +336,27 @@ pub fn cli_ast_meta(rt: &mut HookRuntime, payload: &serde_json::Value) -> String
         obj.insert(
             "summary_source".to_string(),
             serde_json::json!(summary_source),
+        );
+        // Cross-audit 03/09/2026 — `blast_radius` aqui e' a MESMA grandeza de
+        // `ast blast` (arquivos consumidores). Ate hoje o campo nao existia neste
+        // payload e 34 sitios o liam assim mesmo, recebendo 0: `analyze_blast.py`
+        // classificava como LOW um arquivo com 60 consumidores, e `pre_edit_gate.py`
+        // decidia com blast zero. A contagem de simbolos publicos, que em
+        // `blast-enriched` usurpava este nome, ganha nome proprio.
+        let blast_radius: i64 = conn
+            .query_row(
+                &format!(
+                    "SELECT COUNT(DISTINCT consumer_file) FROM {} WHERE module_file = ?1 AND consumer_file IS NOT NULL",
+                    schema_guard::TABLE_WIRING_MAP
+                ),
+                params![file_path],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        obj.insert("blast_radius".to_string(), serde_json::json!(blast_radius));
+        obj.insert(
+            "pub_symbol_count".to_string(),
+            serde_json::json!(pub_symbol_count),
         );
     }
     if depth == "summary" {
@@ -566,12 +588,12 @@ pub fn cli_ast_blast_enriched(rt: &mut HookRuntime, payload: &serde_json::Value)
         .knowledge
         .get_cognitive_enrichment(file_path)
         .unwrap_or(None);
-    let (cognitive_score, complexity_signal, fan_in, fan_out, doc_signal) =
+    let (quality_score, complexity_signal, fan_in, fan_out, doc_signal) =
         cog.unwrap_or((0.0, 0.0, 0.0, 0.0, 0.0));
     serde_json::json!(
-        { "file_path" : file_path, "blast_radius" : pub_count, "consumer_count" :
-        consumer_count, "integration_score" : integration_score, "cognitive_score" :
-        cognitive_score, "complexity_signal" : complexity_signal, "fan_in_signal" :
+        { "file_path" : file_path, "blast_radius" : consumer_count,
+        "pub_symbol_count" : pub_count, "consumer_count" : consumer_count, "integration_score" : integration_score, "quality_score" :
+        quality_score, "complexity_signal" : complexity_signal, "fan_in_signal" :
         fan_in, "fan_out_signal" : fan_out, "doc_signal" : doc_signal }
     )
     .to_string()
@@ -633,5 +655,112 @@ pub fn cli_ast_blast_cross_feature(rt: &mut HookRuntime, payload: &serde_json::V
             "non-Rust file — cfg detection is Rust-specific", }
         )
         .to_string(),
+    }
+}
+
+#[cfg(test)]
+mod meta_contract_tests {
+    //! Guard cruzado do contrato de `ast meta` (cross-audit 03/09/2026).
+    //!
+    //! Antes deste guard, `cli_ast_meta` nao emitia `blast_radius` — e 34 sitios
+    //! liam esse campo do payload dele, entre eles `pre_edit_gate.py` e
+    //! `analyze_blast.py`, que por isso classificava como LOW um arquivo com 60
+    //! consumidores reais. O campo "existia" em `cli_ast_blast_enriched`, mas
+    //! com OUTRO significado (contagem de simbolos publicos), e era essa colisao
+    //! de nome que fazia o buraco passar despercebido.
+    //!
+    //! Os testes abaixo fixam UMA grandeza por nome: `blast_radius` e sempre o
+    //! numero de arquivos consumidores; a contagem de simbolos publicos se chama
+    //! `pub_symbol_count` nos dois produtores.
+    use super::*;
+
+    /// `idx_wiring_unique` cobre (module_file, symbol_name, consumer_file): a mesma
+    /// linha nao entra duas vezes. A duplicacao REAL — a que faz `COUNT(*)` divergir
+    /// de `COUNT(DISTINCT consumer_file)` — e' um consumidor que usa DOIS simbolos
+    /// do modulo. Por isso o fixture e' de pares, nao de nomes.
+    fn runtime_with_wiring(pairs: &[(&str, &str)]) -> (tempfile::TempDir, HookRuntime) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let src = tmp.path().join("src");
+        std::fs::create_dir_all(&src).expect("mkdir src");
+        std::fs::write(src.join("alvo.rs"), "pub fn um() {}\npub fn dois() {}\n").expect("write");
+        let rt = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        {
+            let conn = rt.ctx.knowledge.conn_ref();
+            for (sym, consumer) in pairs {
+                conn.execute(
+                    &format!(
+                        "INSERT INTO {} (module_file, symbol_name, consumer_file, visibility)
+                         VALUES ('src/alvo.rs', ?1, ?2, 'public')",
+                        schema_guard::TABLE_WIRING_MAP
+                    ),
+                    params![sym, consumer],
+                )
+                .expect("insert wiring");
+            }
+        }
+        (tmp, rt)
+    }
+
+    fn meta_summary(rt: &mut HookRuntime) -> serde_json::Value {
+        let out = cli_ast_meta(
+            rt,
+            &serde_json::json!({"file_path": "src/alvo.rs", "depth": "summary"}),
+        );
+        serde_json::from_str(&out).expect("meta emite JSON valido")
+    }
+
+    #[test]
+    fn meta_emite_blast_radius_como_numero_de_consumidores() {
+        let (_t, mut rt) = runtime_with_wiring(&[("um", "a.rs"), ("um", "b.rs"), ("um", "c.rs")]);
+        let v = meta_summary(&mut rt);
+        assert_eq!(
+            v["blast_radius"].as_u64(),
+            Some(3),
+            "34 sitios leem `blast_radius` daqui; sem o campo todos leem 0: {v}"
+        );
+    }
+
+    #[test]
+    fn consumidor_repetido_conta_uma_vez_so() {
+        let (_t, mut rt) = runtime_with_wiring(&[("um", "a.rs"), ("dois", "a.rs"), ("um", "b.rs")]);
+        let v = meta_summary(&mut rt);
+        assert_eq!(
+            v["blast_radius"].as_u64(),
+            Some(2),
+            "a.rs usa DOIS simbolos e ainda e' UM consumidor: {v}"
+        );
+    }
+
+    #[test]
+    fn os_dois_produtores_concordam_sobre_o_que_o_nome_significa() {
+        let (_t, mut rt) = runtime_with_wiring(&[("um", "a.rs"), ("um", "b.rs"), ("um", "c.rs"), ("um", "d.rs")]);
+        let meta = meta_summary(&mut rt);
+        let enr: serde_json::Value = serde_json::from_str(&cli_ast_blast_enriched(
+            &mut rt,
+            &serde_json::json!({"file_path": "src/alvo.rs"}),
+        ))
+        .expect("blast-enriched emite JSON valido");
+        assert_eq!(
+            meta["blast_radius"], enr["blast_radius"],
+            "um nome, uma grandeza — meta={meta} enriched={enr}"
+        );
+        assert!(
+            enr.get("pub_symbol_count").is_some(),
+            "a contagem de simbolos publicos tem nome proprio: {enr}"
+        );
+    }
+
+    #[test]
+    fn ausencia_de_sinal_cognitivo_e_null_nunca_zero() {
+        let (_t, mut rt) = runtime_with_wiring(&[("um", "a.rs")]);
+        let v = meta_summary(&mut rt);
+        assert_eq!(
+            v["summary_source"], "on_disk_fallback",
+            "o teste precisa do ramo de fallback para valer: {v}"
+        );
+        assert!(
+            v["fan_in_signal"].is_null() && v["fan_out_signal"].is_null(),
+            "0.0 fabricado e' indistinguivel de fan-in medido zero: {v}"
+        );
     }
 }

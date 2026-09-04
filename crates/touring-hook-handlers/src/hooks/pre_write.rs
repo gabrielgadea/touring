@@ -196,11 +196,18 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
             content,
             |name| definition_sites(runtime, name),
         );
+        // S9 (2026-09-02): ONE parse of the PROPOSED file (public API surface,
+        // any tree-sitter language; syn semantic number for Rust) — the badge
+        // speaks before the write; unknown languages yield no preview.
+        let api_preview = crate::shared::api_preview::ApiPreview::for_write(&rel_path, content);
+        let rust_badge =
+            crate::shared::api_preview::ApiBadgeLayer::from_preview(api_preview.as_ref());
         tracing::debug!(
             file = %rel_path,
             missing_imports = !missing_imports.is_empty(),
             related_symbols = !related_symbols.is_empty(),
-            "pre_write S3/A3 layers resolved"
+            rust_badge = !rust_badge.is_empty(),
+            "pre_write S3/A3/S9 layers resolved"
         );
 
         // ── Assemble via SignalPipeline (normalize + sort + budget-truncate) ──
@@ -224,7 +231,13 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
             // .rs uses without importing (E0412/E0433 before the write).
             .add_layer(missing_imports)
             // A3 (2026-09-02): homonyms of the names the PROPOSED file declares.
-            .add_layer(related_symbols);
+            .add_layer(related_symbols)
+            // S8 (2026-09-02): CWE patterns (credentials, SQL concat, path
+            // traversal, unwrap) over the PROPOSED content — the H6 layer,
+            // wired to a pipeline at last (REGRA #0).
+            .add_layer(touring_hook_runtime::shared::scan::CweScanLayer)
+            // S9 (2026-09-02): semantic badge of the PROPOSED .rs.
+            .add_layer(rust_badge);
 
         // S0 v2: the proposed content travels with the context so SignalLayers
         // can analyse the code about to be written (not only what is on disk).
@@ -789,36 +802,10 @@ fn speculative_validation_signals(
         .collect()
 }
 
-/// Collect quality-baseline signals (CC, async ratio) from AST metrics.
-///
-/// Returns a single scored signal at weight 0.8, or empty vec when within limits.
-fn quality_baseline_signals(content: &str, file_path: &str) -> Vec<(f32, String)> {
-    let Some(metrics) = super::ast_bridge::analyze_file_quality(content, file_path) else {
-        return Vec::new();
-    };
-    let mut quality_parts: Vec<String> = Vec::new();
-    if !metrics.complex_symbols.is_empty() {
-        let names = metrics
-            .complex_symbols
-            .iter()
-            .take(3)
-            .map(|s| s.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        quality_parts.push(format!("CC>10: [{}]", names));
-    }
-    if metrics.avg_complexity > 8.0 {
-        quality_parts.push(format!("avg_CC={:.1}", metrics.avg_complexity));
-    }
-    if metrics.async_count > 0 {
-        quality_parts.push(format!("async_ratio={:.0}%", metrics.async_ratio * 100.0));
-    }
-    if quality_parts.is_empty() {
-        Vec::new()
-    } else {
-        vec![(0.8, format!("quality: {}", quality_parts.join(", ")))]
-    }
-}
+// S6 (2026-09-02): the quality baseline is ONE function shared with
+// `pre_edit` (`shared/quality_signal.rs`) — both hooks measure the content
+// that is about to exist, with the same thresholds and the same wording.
+use crate::shared::quality_signal::quality_baseline_signals;
 
 /// AST-based content validation signals.
 ///

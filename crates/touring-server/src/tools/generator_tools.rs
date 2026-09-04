@@ -1219,7 +1219,7 @@ pub fn rollback_plan(plan_json: &str) -> Value {
 /// Query `FileKnowledgeEnriched` for the plan target path.
 ///
 /// Returns a JSON object with `coverage_pct`, `community_id`, `integration_score`,
-/// `fan_in`, `fan_out`, and `cognitive_score` extracted from the enrichment tables.
+/// `fan_in`, `fan_out`, and `quality_score` extracted from the enrichment tables.
 /// Returns [`Value::Null`] when the DB is unavailable or the target has no record.
 /// Used by `plan_status` (R4-S5) to surface file-level health signals before pipeline
 /// execution, complementing the pre-commit critique used by `collect_intelligence_critique`.
@@ -1241,7 +1241,7 @@ fn query_target_knowledge(target_path: &str) -> Value {
             "integration_score": ext.integration_score,
             "fan_in": ext.fan_in_signal,
             "fan_out": ext.fan_out_signal,
-            "cognitive_score": ext.cognitive_score,
+            "quality_score": ext.quality_score,
         }),
         _ => Value::Null,
     }

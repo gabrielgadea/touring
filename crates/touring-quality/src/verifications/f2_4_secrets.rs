@@ -329,7 +329,18 @@ fn has_connstring_creds(line: &str) -> bool {
         return false;
     };
     let pass = &userinfo[colon + 1..];
-    !pass.is_empty() && !pass.starts_with('$') && !pass.contains('{') && !pass.contains('}')
+    // Cross-audit 03/09/2026 — `$var` e `{placeholder}` ja eram descartados, mas
+    // `user:pass` de um exemplo de documentacao nao: `postgres.rs` zerou por causa
+    // de uma linha `/// …new("postgres://user:pass@localhost/touring")`. A regra
+    // segue lendo a linha CRUA de proposito (uma DSN real num comentario E'
+    // vazamento); o que faltava era a mesma disciplina que o resto do detector ja
+    // usa para separar credencial de stand-in. `Tr0ub4dor&3` mistura classes e
+    // continua bloqueando; `pass` e `changeme` nao.
+    !pass.is_empty()
+        && !pass.starts_with('$')
+        && !pass.contains('{')
+        && !pass.contains('}')
+        && !is_readable_placeholder(pass)
 }
 
 /// Value check used when the assignment target NAMES a secret. Following gitleaks'
@@ -624,49 +635,124 @@ fn blank_raw_string(bytes: &[u8], start: usize, out: &mut Vec<u8>) -> Option<usi
 /// Returns `None` when the hit is not attributable to one line on its own — the
 /// caller then omits the location rather than guessing.
 fn first_offending_line(raw: &str) -> Option<usize> {
-    raw.lines().position(|line| scan(line).0).map(|idx| idx + 1)
+    scan_lines(raw).0
+}
+
+/// Both per-line signals, computed over ONE raw↔projection pairing.
+///
+/// Returns `(1-based line of the first strong hit, weak)`. The projection
+/// ([`strip_strings_and_comments`]) is byte-length preserving, so a byte index
+/// found in a projection line addresses the SAME byte of the raw line — the
+/// invariant the delimiter resolution in [`line_has_strong_secret`] rests on,
+/// pinned by `the_code_projection_addresses_the_same_bytes_as_the_raw_source`.
+///
+/// One pairing site on purpose: [`scan`], [`scan_text`] and
+/// [`first_offending_line`] each ran their own `raw.lines().position(…)` until
+/// 04/09/2026, which is how the strong path came to disagree with the weak one
+/// about what a string literal is.
+fn scan_lines(raw: &str) -> (Option<usize>, bool) {
+    let code = strip_strings_and_comments(raw);
+    let mut codes = code.lines();
+    let mut first_strong = None;
+    for (idx, line) in raw.lines().enumerate() {
+        // Fail-CLOSED if the projection ever runs short: the raw line becomes its
+        // own projection, i.e. the pre-fix (strictly more sensitive) reading.
+        let code_line = codes.next().unwrap_or(line);
+        if line_is_strong(line, code_line) {
+            first_strong = Some(idx + 1);
+            break;
+        }
+    }
+    (first_strong, code.lines().any(names_secret))
+}
+
+/// (1) A known provider marker (`ghp_`, `AKIA`, a PEM header, …) appears in `text`.
+fn has_strong_marker(text: &str) -> bool {
+    STRONG_MARKERS.iter().any(|m| marker_carries_a_token(text, m))
+}
+
+/// Menor corpo que um token de provedor pode ter depois do prefixo. AWS usa
+/// `AKIA` + 16; GitHub, Slack e Stripe usam bem mais. Abaixo disso o que existe
+/// no texto e' uma citacao do prefixo, nao uma credencial.
+const MIN_TOKEN_BODY: usize = 16;
+
+/// `true` quando `marker` aparece em `text` **seguido de corpo de token**.
+///
+/// Cross-audit 03/09/2026 — antes disto a regra era `text.contains(marker)` puro,
+/// e por isso qualquer prosa que escrevesse o prefixo virava bloqueador P0: no
+/// censo de 1.763 arquivos o unico 0.000 foi `transcript_miner.rs`, acusado na
+/// linha de um COMENTARIO que citava `` `ghp_...` ``. Um repositorio que documenta
+/// os proprios padroes de seguranca nao pode ter um detector que confunde a
+/// citacao com o vazamento — e afrouxar seria pior: o comentario continua sendo
+/// varrido, porque um token colado num comentario e' vazamento de verdade. O que
+/// separa os dois casos e' o corpo, nao o lugar.
+///
+/// Cabecalhos PEM (`-----BEGIN …`) sao auto-contidos e nao trazem corpo na mesma
+/// posicao, entao seguem no teste de contencao simples.
+fn marker_carries_a_token(text: &str, marker: &str) -> bool {
+    if marker.contains("-----") {
+        return text.contains(marker);
+    }
+    text.match_indices(marker).any(|(at, _)| {
+        text[at + marker.len()..]
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+            .count()
+            >= MIN_TOKEN_BODY
+    })
+}
+
+/// (1b) A structural provider token that needs no entropy (JWT / SendGrid /
+/// OpenAI / Anthropic / Slack-app). Split on whitespace + literal delimiters so a
+/// token embedded in code or in a `.env` `KEY=value` line is isolated and
+/// shape-checked as a WHOLE token (no bare-substring false positives).
+fn has_structural_token(text: &str) -> bool {
+    text.split(|c: char| {
+        c.is_whitespace()
+            || matches!(
+                c,
+                '"' | '\'' | '`' | '=' | ',' | '(' | ')' | ';' | '[' | ']'
+            )
+    })
+    .any(|tok| is_jwt(tok) || is_sendgrid(tok) || is_provider_dashkey(tok))
+}
+
+/// Every strong signal a SINGLE line can carry on its own — the file-wide
+/// predicates applied to one line, plus the per-line paths.
+///
+/// This is what makes a hit LOCATABLE. Both file-wide predicates are evaluated
+/// here from the same functions [`scan`] uses, so "the file is dirty" and "this
+/// line is why" can never disagree. Before 04/09/2026 there were two rival
+/// locators — [`first_offending_line`] ran the whole `scan` per line (markers
+/// included) while `scan_text` ran only [`line_has_strong_secret`] (markers
+/// excluded), so the same `ghp_…` file reported line 3 through one call and
+/// `None` through the other.
+fn line_is_strong(line: &str, code: &str) -> bool {
+    has_strong_marker(line) || has_structural_token(line) || line_has_strong_secret(line, code)
 }
 
 fn scan(raw: &str) -> (bool, bool) {
-    // (1) provider markers anywhere in the file → strong.
-    if STRONG_MARKERS.iter().any(|m| raw.contains(m)) {
-        return (true, false);
-    }
-    // (1b) structural provider tokens that need no entropy (JWT / SendGrid /
-    // OpenAI / Anthropic / Slack-app). Split on whitespace + literal delimiters
-    // so a token embedded in code or a `.env`/`KEY=value` line is isolated and
-    // shape-checked as a whole token (no bare-substring false positives).
-    if raw
-        .split(|c: char| {
-            c.is_whitespace()
-                || matches!(
-                    c,
-                    '"' | '\'' | '`' | '=' | ',' | '(' | ')' | ';' | '[' | ']'
-                )
-        })
-        .any(|tok| is_jwt(tok) || is_sendgrid(tok) || is_provider_dashkey(tok))
-    {
+    // (1)/(1b) file-wide: a marker or a structural token anywhere → strong.
+    if has_strong_marker(raw) || has_structural_token(raw) {
         return (true, false);
     }
     // (2) per-line strong signals (connection strings, secret-named assignments,
     // generic high-entropy literals) — these MUST see string *values*, so they
-    // scan the raw source.
-    for line in raw.lines() {
-        if line_has_strong_secret(line) {
-            return (true, false);
-        }
+    // read the raw source; only the ASSIGNMENT DELIMITER is resolved on the
+    // projection. (3) weak: a secret keyword used as a real code identifier
+    // (e.g. a bare `let password;`), scanned on the code-only projection so a
+    // keyword appearing only in prose — a single- or MULTI-line string literal,
+    // or a comment — never fires it. Both come from one pass.
+    let (strong_line, weak) = scan_lines(raw);
+    if strong_line.is_some() {
+        return (true, false);
     }
-    // (3) weak: a secret keyword used as a real code identifier (e.g. a bare
-    // `let password;` declaration). Scanned on the code-only projection (string
-    // literals + comments blanked) so a keyword appearing only in prose — a
-    // single- or MULTI-line string literal, or a comment — never fires it.
-    let weak = strip_strings_and_comments(raw).lines().any(names_secret);
     (false, weak)
 }
 
 /// File-level opt-out marker for fixtures that embed SAMPLE secrets on purpose
 /// (detect-secrets / gitleaks `pragma: allowlist secret` convention).
-pub const ALLOW_SECRETS_PRAGMA: &str = "touring-quality:allow-secrets";
+const ALLOW_SECRETS_PRAGMA: &str = "touring-quality:allow-secrets";
 
 /// Text-level verdict of the F2.4 detector (S2, 2026-09-01).
 ///
@@ -680,8 +766,9 @@ pub struct SecretScan {
     pub strong: bool,
     /// A secret keyword used as a code identifier, without an assigned value.
     pub weak: bool,
-    /// 1-based line of the first strong per-line hit, when the hit is
-    /// line-addressable (`None` for a file-wide marker/token, or no hit).
+    /// 1-based line of the first strong hit when it is line-addressable
+    /// (`None` only when nothing hit, or when no single line carries the signal
+    /// on its own).
     pub first_line: Option<usize>,
     /// The text carries [`ALLOW_SECRETS_PRAGMA`] — explicitly allowlisted.
     pub allowlisted: bool,
@@ -698,13 +785,11 @@ pub fn scan_text(raw: &str) -> SecretScan {
         };
     }
     let (strong, weak) = scan(raw);
-    let first_line = if strong {
-        raw.lines()
-            .position(line_has_strong_secret)
-            .map(|idx| idx + 1)
-    } else {
-        None
-    };
+    // Same locator the gate's evidence uses. A marker hit is now LOCATABLE here
+    // too: this returned `None` for every `ghp_…` file until 04/09/2026 because
+    // it ran a narrower predicate than the gate did, so the pre-write hook could
+    // say "secret detected" without saying where.
+    let first_line = if strong { first_offending_line(raw) } else { None };
     SecretScan {
         strong,
         weak,
@@ -716,7 +801,7 @@ pub fn scan_text(raw: &str) -> SecretScan {
 /// Per-line strong-signal check: connection-string credentials, a secret-named
 /// assignment (quoted literal OR unquoted hex/high-entropy RHS), or a generic
 /// high-entropy quoted literal. Extracted from [`scan`] to keep its CC low.
-fn line_has_strong_secret(line: &str) -> bool {
+fn line_has_strong_secret(line: &str, code: &str) -> bool {
     // (1c) connection string with inline credentials (`scheme://u:pw@host`).
     if has_connstring_creds(line) {
         return true;
@@ -727,12 +812,7 @@ fn line_has_strong_secret(line: &str) -> bool {
     // it is itself a hex / high-entropy token (`.env` / shell `export` / YAML).
     // A line that merely *mentions* a keyword next to strings (a meta tuple, a
     // doc comment, `= std::env::var("…")`) is NOT a blocking assignment.
-    let delim = if line.contains('=') {
-        line.split_once('=')
-    } else {
-        line.split_once(':')
-    };
-    if let Some((lhs, rhs)) = delim
+    if let Some((lhs, rhs)) = split_at_code_delimiter(line, code)
         && names_secret(lhs)
     {
         let strong = if rhs.trim_start().starts_with('"') {
@@ -750,6 +830,39 @@ fn line_has_strong_secret(line: &str) -> bool {
     extract_quoted(line)
         .iter()
         .any(|l| looks_like_secret_value(l))
+}
+
+/// Split `line` at its first code-level `=` (else `:`), located in `code` — the
+/// string-and-comment-blanked projection of the SAME line, byte-for-byte aligned
+/// with it.
+///
+/// Why the position must come from the projection: until 04/09/2026 the split ran
+/// on the raw line, so a delimiter living INSIDE a string literal split it. The
+/// line
+///
+/// ```text
+/// for token in line.replace(":", " ").replace("=", " ").split():
+/// ```
+///
+/// split at the `=` inside `"="`, which put `token` on the left and a quoted value
+/// on the right and hard-blocked every edit to its file. A census over 592 files
+/// (skills + docs + hook crates) found 4 live blockers; 2 were this one idiom.
+///
+/// Why ONLY the position comes from the projection: a real secret lives inside a
+/// literal, and a JSON key names the secret inside one too (`"api_key": "…"`), so
+/// `names_secret` and the RHS value keep reading the RAW line.
+///
+/// Fail-CLOSED on a misaligned projection: fall back to the raw split, which is
+/// the strictly more sensitive pre-fix reading.
+fn split_at_code_delimiter<'a>(line: &'a str, code: &str) -> Option<(&'a str, &'a str)> {
+    if code.len() != line.len() {
+        return line.split_once('=').or_else(|| line.split_once(':'));
+    }
+    let at = code.find('=').or_else(|| code.find(':'))?;
+    // `=` and `:` are ASCII, so `at + 1` is a boundary whenever `at` is, and
+    // `at < code.len() == line.len()` keeps the tail slice in range.
+    line.is_char_boundary(at)
+        .then(|| (&line[..at], &line[at + 1..]))
 }
 
 /// The secrets detector's OWN source defines provider markers (`"ghp_"`, `"AKIA"`,
@@ -957,6 +1070,61 @@ mod tests {
     fn test_github_pat_blocks() {
         let s = score("let t = \"ghp_aBcDeF0123456789aBcDeF0123456789aBcD\";\n");
         assert_eq!(s.value, 0.0, "ghp_ token must block");
+    }
+
+    /// Cross-audit 03/09/2026 — um marcador de provedor CITADO em prosa nao e' um
+    /// segredo. `has_strong_marker` era `text.contains(m)` puro, entao qualquer
+    /// documentacao que escrevesse o prefixo virava bloqueador P0: foi assim que o
+    /// comentario que EXPLICA esta correcao zerou o arquivo hospedeiro (o unico
+    /// 0.000 em 1.763 arquivos do censo). Num repositorio que documenta os proprios
+    /// padroes de seguranca, um detector que nao distingue citacao de credencial
+    /// custa mais do que rende. O corpo do token e' o que separa os dois.
+    /// Cross-audit 03/09/2026 — irmao do teste de prefixo, outra regra. A regra de
+    /// connection-string tambem le a linha CRUA (e deve: uma DSN real colada num
+    /// comentario e' vazamento). O que faltava era distinguir credencial de
+    /// placeholder — disciplina que o arquivo ja tinha em `is_readable_placeholder`
+    /// e que esta regra nao consultava. Sintoma: `postgres.rs` zerou por um exemplo
+    /// de doc `postgres://user:pass@localhost/touring`.
+    #[test]
+    fn dsn_de_exemplo_com_credencial_obvia_nao_e_segredo() {
+        for doc in [
+            "/// let b = PostgresBackend::new(\"postgres://user:pass@localhost/touring\").await?;",
+            "// mysql://root:changeme@127.0.0.1/dev",
+        ] {
+            assert_eq!(score(&format!("{doc}\n")).value, 1.0, "exemplo nao bloqueia: {doc}");
+        }
+    }
+
+    /// O contrapositivo: credencial que mistura classes segue bloqueando.
+    #[test]
+    fn dsn_com_credencial_real_segue_bloqueando() {
+        let s = score("let dsn = \"postgres://admin:Tr0ub4dor&3@db.interno:5432/prod\";\n");
+        assert_eq!(s.value, 0.0, "senha com entropia bloqueia");
+    }
+
+    #[test]
+    fn prefixo_citado_em_prosa_nao_e_segredo() {
+        for prosa in [
+            "// um literal com prefixo de token (`ghp_...`) faz do arquivo um achado",
+            "/// AWS usa o prefixo AKIA para access key id",
+            "// o padrao Slack comeca em xoxb- e o GitLab em glpat-",
+        ] {
+            let s = score(&format!("{prosa}\n"));
+            assert_eq!(s.value, 1.0, "citacao nao bloqueia: {prosa}");
+        }
+    }
+
+    /// O contrapositivo — sem ele o teste acima seria licenca para vazar.
+    #[test]
+    fn marcador_com_corpo_de_token_segue_bloqueando_ate_em_comentario() {
+        for vazamento in [
+            "// deixei aqui: ghp_aBcDeF0123456789aBcDeF0123456789aBcD",
+            "let k = \"AKIAIOSFODNN7EXAMPLE\";",
+            "# slack: xoxb-2456789012-3456789012-aBcDeF0123456789aBcD",
+        ] {
+            let s = score(&format!("{vazamento}\n"));
+            assert_eq!(s.value, 0.0, "token com corpo bloqueia: {vazamento}");
+        }
     }
 
     #[test]
@@ -1619,5 +1787,88 @@ mod tests {
         let raw = "// touring-quality:allow-secrets\nlet url = \"postgres://admin:s3cr3tP4ssw0rd@db.example.com/app\";\n";
         let s = scan_text(raw);
         assert!(s.allowlisted && !s.strong, "{s:?}");
+    }
+
+    // ── 2026-09-04: the delimiter that decides "this line is an assignment" must
+    //    sit at CODE level. Until today the split ran on the RAW line, so an `=`
+    //    or `:` living INSIDE a string literal split the line in two, and any
+    //    line that (a) names a secret keyword anywhere to its left and (b) quotes
+    //    a delimiter hard-blocked every edit to its file. Census over 592 files
+    //    (skills + docs + hook crates): 2 of the 4 live blockers were this exact
+    //    shape — a loop variable called `token` on a line calling `.replace("=",
+    //    " ")`. The file already knew what a string literal is; the strong path
+    //    just never asked it.
+
+    #[test]
+    fn a_delimiter_inside_a_string_literal_is_not_an_assignment() {
+        // Verbatim from ~/.claude/skills/Touring/scripts/pre_edit_gate.py:127,
+        // which scored 0.000 and blocked every edit to that file.
+        let raw = "        for token in line.replace(\":\", \" \").replace(\"=\", \" \").split():\n";
+        let s = scan_text(raw);
+        assert!(
+            !s.strong,
+            "a loop variable plus quoted delimiters is not a secret: {s:?}"
+        );
+    }
+
+    #[test]
+    fn a_json_style_colon_assignment_still_blocks() {
+        // This colon IS at code level (it separates two literals). The fix must
+        // not buy the false positive back by disabling the colon path.
+        let raw = "{\"api_key\": \"aB3xQ9zL7pW2mK5t\"}\n";
+        assert!(
+            scan_text(raw).strong,
+            "a quoted secret-named assignment must still block"
+        );
+    }
+
+    #[test]
+    fn an_env_style_unquoted_assignment_still_blocks() {
+        let raw = "API_KEY=aB3xQ9zL7pW2mK5tR8vN1c\n";
+        assert!(
+            scan_text(raw).strong,
+            "an unquoted .env assignment must still block"
+        );
+    }
+
+    #[test]
+    fn a_typed_declaration_still_prefers_the_equals_split() {
+        let raw = "    let token: String = \"aB3xQ9zL7pW2mK5t\".into();\n";
+        assert!(
+            scan_text(raw).strong,
+            "`let token: T = \"...\"` must still block on the `=`, not the `:`"
+        );
+    }
+
+    #[test]
+    fn the_code_projection_addresses_the_same_bytes_as_the_raw_source() {
+        // The delimiter fix rests entirely on this invariant: a byte index found
+        // in the projection must address the SAME byte in the raw line. Asserted
+        // positively over every literal shape the blanker special-cases, so a
+        // future change to the blanker cannot silently misalign the strong path.
+        for raw in [
+            "let a = \"x=y\";\n",
+            "let b = r#\"a:b\"#;\n",
+            "// comment with = and :\nlet c = 1;\n",
+            "/* block = : */ let d: u8 = 2;\n",
+            "let e = \"multi\nline = value\";\n",
+            "let f = \"acentuação = ç\";\n",
+            "{\"api_key\": \"v\"}\n",
+        ] {
+            let code = strip_strings_and_comments(raw);
+            assert_eq!(
+                code.len(),
+                raw.len(),
+                "projection must preserve byte length for {raw:?}"
+            );
+            assert_eq!(
+                code.lines().count(),
+                raw.lines().count(),
+                "projection must preserve line count for {raw:?}"
+            );
+            for (r, c) in raw.lines().zip(code.lines()) {
+                assert_eq!(r.len(), c.len(), "line lengths must match: {r:?} vs {c:?}");
+            }
+        }
     }
 }

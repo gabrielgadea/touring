@@ -138,6 +138,14 @@ const NET_TOKENS: &[&str] = &[
 ];
 
 /// Source tokens that signal a filesystem write.
+///
+/// The `pathlib`/`os`/`shutil` entries below are the FAMILY, not a sample:
+/// measured live on 2026-09-02 (B5), `Path(...).write_bytes(b"x" * 8192)` wrote
+/// 8 KiB inside the sandbox and returned `forbidden_calls: []`, because only
+/// `.write(` was listed. Each added token is chosen for precision as well as
+/// recall — `os.rename`/`os.replace` stay qualified, since the bare `.rename(`
+/// and `.replace(` are dominated by `DataFrame.rename` and `str.replace`, which
+/// touch no filesystem (the B3 lesson, same day).
 const WRITE_TOKENS: &[&str] = &[
     ".write(",
     "writeFile",
@@ -149,9 +157,20 @@ const WRITE_TOKENS: &[&str] = &[
     "Files.write",
     "shutil.copy",
     "shutil.move",
+    "shutil.rmtree",
     "os.remove",
     "os.unlink",
     "os.mkdir",
+    "os.makedirs",
+    "os.rename",
+    "os.replace",
+    "os.rmdir",
+    "write_bytes(",
+    "write_text(",
+    "writelines(",
+    ".mkdir(",
+    ".touch(",
+    ".unlink(",
 ];
 
 /// Source tokens that signal an environment-variable read.
@@ -1281,6 +1300,58 @@ os.system(alguma_variavel)"#;
                 .iter()
                 .any(|n| matches!(n.capability, Capability::Env(_)))
         );
+    }
+
+    /// B5 (2026-09-02) — the family, not a single idiom.
+    ///
+    /// Measured live against 30.4.32: `pathlib.Path(...).write_bytes(b"x"*8192)`
+    /// wrote 8 KiB inside the sandbox and came back with `forbidden_calls: []`,
+    /// because `WRITE_TOKENS` carried only `.write(`. A capability detector that
+    /// covers one spelling of an idiom covers none of it.
+    #[test]
+    fn required_capabilities_code_covers_the_whole_write_family() {
+        for src in [
+            "pathlib.Path('o.bin').write_bytes(b'x')",
+            "pathlib.Path('o.txt').write_text('x')",
+            "open('o.txt', 'w').writelines(['a'])",
+            "pathlib.Path('d').mkdir(parents=True)",
+            "pathlib.Path('o.txt').touch()",
+            "pathlib.Path('o.txt').unlink()",
+            "os.makedirs('d')",
+            "os.rename('a', 'b')",
+            "os.replace('a', 'b')",
+            "os.rmdir('d')",
+            "shutil.rmtree('d')",
+        ] {
+            let needs = required_capabilities(src, ExecSurface::CtxExecute);
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| matches!(n.capability, Capability::FsWrite(_))),
+                "no FsWrite for {src:?}: {needs:?}"
+            );
+        }
+    }
+
+    /// The other half of the same decision: widening the family must not turn
+    /// pure computation into a denied write (the B3 lesson — a detector is
+    /// worth its precision, not only its recall).
+    #[test]
+    fn required_capabilities_code_write_family_stays_precise() {
+        for src in [
+            "df = df.rename(columns={'a': 'b'})",
+            "s = s.replace('a', 'b')",
+            "payload = json.dumps({'write': 1})",
+            "total = len(rows)",
+        ] {
+            let needs = required_capabilities(src, ExecSurface::CtxExecute);
+            assert!(
+                !needs
+                    .iter()
+                    .any(|n| matches!(n.capability, Capability::FsWrite(_))),
+                "false FsWrite for {src:?}: {needs:?}"
+            );
+        }
     }
 
     #[test]

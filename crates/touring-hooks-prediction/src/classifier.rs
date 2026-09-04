@@ -334,6 +334,34 @@ impl Default for IntentClassifier {
     }
 }
 
+/// The ONE list of field names that carry the user's prompt text.
+///
+/// Before this existed there were three, with no overlap between them, and each
+/// consumer had invented its own (03/09/2026):
+///
+/// ```text
+/// run_classify (the `classify` CLI)   "text" | "input"
+/// ClassifyIntent (UserPromptSubmit)   "userMessage" | "prompt"
+/// session_hooks (session level write) "context" | "message"
+/// ```
+///
+/// The measured effect: `touring-hook classify` returned L0/Direct with an empty
+/// `matched_pattern` for EVERY input shape the rest of the system uses — including
+/// `spawn team of agents`, a verbatim match for an L6 pattern. The classifier was
+/// never wrong; it was being handed an empty string, and the empty-prompt branch
+/// returns exactly the shape that a confident "nothing here" would.
+///
+/// Anyone adding a new entry point reads the prompt through here, so a fourth
+/// convention cannot be invented by accident.
+#[must_use]
+pub fn prompt_from_input(input: &serde_json::Value) -> &str {
+    const FIELDS: [&str; 5] = ["userMessage", "prompt", "text", "input", "message"];
+    FIELDS
+        .iter()
+        .find_map(|f| input.get(f).and_then(serde_json::Value::as_str))
+        .unwrap_or("")
+}
+
 impl IntentClassifier {
     /// Build a new classifier with all CILA patterns compiled.
     pub fn build() -> Self {
@@ -536,6 +564,29 @@ impl CachedIntentClassifier {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::indexing_slicing)]
+
+    /// Every field name the system has ever used for the prompt reaches the classifier.
+    ///
+    /// Positive assertion, one case per name — the shape that catches a REMOVAL. An
+    /// absence check ("no consumer invents its own list") would stay green if this
+    /// function silently stopped accepting `text`, which is the exact failure that
+    /// made `touring-hook classify` answer L0 for every realistic payload.
+    #[test]
+    fn prompt_from_input_accepts_every_field_the_system_uses() {
+        for field in ["userMessage", "prompt", "text", "input", "message"] {
+            let v = serde_json::json!({ field: "spawn team of agents" });
+            assert_eq!(
+                prompt_from_input(&v),
+                "spawn team of agents",
+                "field `{field}` must reach the classifier"
+            );
+            // …and end to end: the L6 pattern that this payload matches verbatim.
+            let r = IntentClassifier::build().classify_prompt(prompt_from_input(&v));
+            assert_eq!(r.level, 6, "field `{field}` must classify, not just parse");
+        }
+        assert_eq!(prompt_from_input(&serde_json::json!({"outro": "x"})), "");
+        assert_eq!(prompt_from_input(&serde_json::json!({})), "");
+    }
     use super::*;
 
     fn classifier() -> IntentClassifier {
