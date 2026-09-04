@@ -27,13 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
       - name: cargo fmt --check (RBP, 2026-06-13 — workspace is fmt-clean)
         run: cargo fmt --all --check
       - name: cargo check (workspace, all targets)
@@ -77,11 +77,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@stable
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
       - name: cargo test --doc
         run: cargo test --workspace --doc
 
@@ -95,13 +95,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
       # 2026-08-02: `dtolnay/rust-toolchain@stable` RESOLVES "stable" to the
       # concrete version and installs the toolchain under that name, so
       # llvm-tools-preview lands on e.g. `1.95.0-x86_64-...`. But this repo pins
@@ -119,7 +119,7 @@ jobs:
         # no `tool` input at all ("no tool specified"), so nothing was installed
         # and the next step died with `no such command`. The explicit `@v2` +
         # `tool:` form is the documented, dependabot-safe spelling.
-        uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        uses: taiki-e/install-action@0758d235715de2f3551eacc980d9ae8fce9342c3 # v2
         with:
           tool: cargo-llvm-cov
       - name: build the touring binary the E2E tests shell out to
@@ -149,7 +149,7 @@ jobs:
           RUSTC_WRAPPER: ""
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: upload lcov artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lcov-coverage
           path: lcov.info
@@ -163,7 +163,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Check out the branch itself, not the detached SHA — otherwise the
           # auto-sync step below would have nothing to push to.
@@ -273,7 +273,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # 2026-08-02: EmbarkStudios/cargo-deny-action runs inside a musl container,
       # where this repo's `rust-toolchain.toml` (channel = "stable") resolves to
       # `stable-x86_64-unknown-linux-musl` — a toolchain the image does not have:
@@ -283,7 +283,7 @@ jobs:
       # reproduced with `cargo deny check`. Running cargo-deny natively on the gnu
       # runner makes CI and local identical — the same binary, the same graph.
       - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+      - uses: taiki-e/install-action@0758d235715de2f3551eacc980d9ae8fce9342c3 # v2
         with:
           tool: cargo-deny
       - name: cargo deny check
@@ -301,12 +301,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@stable
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      - uses: taiki-e/install-action@0758d235715de2f3551eacc980d9ae8fce9342c3 # v2
         with:
           tool: nextest
       - name: cargo nextest (ci profile, full suite)
@@ -321,12 +321,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@nightly
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      - uses: taiki-e/install-action@0758d235715de2f3551eacc980d9ae8fce9342c3 # v2
         with:
           tool: cargo-fuzz
       - name: cargo fuzz build
@@ -363,11 +363,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@1.95
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@1.120
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
       # 2026-08-02: this job was a FALSE GREEN. The step was named `cargo +1.85
       # check` but ran plain `cargo check`, and rust-toolchain.toml
       # (channel = "stable") overrides the rustup default that
