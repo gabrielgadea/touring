@@ -196,10 +196,30 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // mirror (~/.claude/touring/sdk_signal_mirror.jsonl). Piso M3 ≥ 6/8
     // antes de F5 promover a Block; por enquanto advisory.
     out["code_mode_signal_use"] = code_mode_signal_use();
+    // D1 (2026-09-02) — comparação com um relatório persistido, quando o
+    // chamador declara um: a série entre execuções que o espelho vivo não tem.
+    if let Some(path) = payload.get("signal_baseline").and_then(Value::as_str) {
+        let base = signal_baseline(path);
+        let delta = signal_delta(&out["code_mode_signal_use"], &base);
+        out["code_mode_signal_use"]["baseline"] = base;
+        if !delta.is_null() {
+            out["code_mode_signal_use"]["baseline_delta"] = delta;
+        }
+    }
+    // C4 (2026-09-02) — a régua do REUSO: do journal v2 (B2), quantos runs
+    // vieram de um script persistente ou foram colhidos, sobre os runs que
+    // declaram origem. Piso 0.20 (falsificador do canvas §9c). Ausência exibida.
+    out["code_mode_reuse"] = code_mode_reuse();
     // F9 (2026-09-01) — régua do complemento de hooks: despachos por hook no
     // daemon (F0.3d) × entregas ao mirror na mesma janela. Nasce da sonda
     // F0.3 (post-bash vivo 5/47 atendido, 0/47 no mirror) — ausência exibida.
     out["hooks_complement"] = hooks_complement();
+    // P0/S-0.1 (2026-09-04) — a régua da JANELA, do transcript do proprio Claude
+    // Code. Todas as demais medem a ROTA (aderencia, reuso, complemento); o
+    // recurso mais caro do sistema era o unico sem instrumento, e por isso toda
+    // tentativa de calibra-lo era fe. Ausencia exibida; varredura limitada DIZ
+    // que foi limitada (`capped`).
+    out["context_budget"] = super::context_budget::context_budget(&rt.project_root);
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),
@@ -476,9 +496,160 @@ fn code_mode_adherence() -> Value {
     }
 }
 
+/// C4 — piso da razão de reuso; abaixo dele o problema é de DESCOBERTA
+/// (busca por intenção), não de persistência (canvas 02/09, §9c).
+const CODE_MODE_REUSE_FLOOR: f64 = 0.20;
+
+/// C4 (2026-09-02) — reuse ruler over the durable journal (B2 fields).
+fn code_mode_reuse() -> Value {
+    let Some(home) = std::env::var_os("HOME") else {
+        return json!({"available": false, "reason": "HOME unset"});
+    };
+    let path = touring_code::journal::default_journal_path(&PathBuf::from(home));
+    match touring_code::journal::read_journal(&path) {
+        Ok(agg) => reuse_from_aggregate(&agg),
+        Err(_) => json!({"available": false, "reason": "no journal yet"}),
+    }
+}
+
+/// C4 — the pure aggregation behind [`code_mode_reuse`], testable without FS.
+///
+/// `v2_runs` = runs that declared an origin (`file` | `inline`); v1 lines are
+/// counted nowhere (E4: shown as `v1_runs`, never folded into the ratio).
+/// `reused` = runs from a PERSISTENT script (a file outside the harness
+/// scratchpad) + harvested runs. A scratchpad script is one-off by
+/// construction — it lives in a per-session tmpfs — so it never counts.
+pub(crate) fn reuse_from_aggregate(agg: &touring_code::journal::JournalAggregate) -> Value {
+    let v2_runs = agg.file_runs + agg.inline_runs;
+    let persistent_file_runs = agg.file_runs.saturating_sub(agg.scratch_file_runs);
+    let reused = persistent_file_runs + agg.harvested_runs;
+    let ratio = if v2_runs == 0 {
+        0.0
+    } else {
+        reused as f64 / v2_runs as f64
+    };
+    json!({
+        "available": v2_runs > 0,
+        "v1_runs": agg.total_entries.saturating_sub(v2_runs),
+        "v2_runs": v2_runs,
+        "file_runs": agg.file_runs,
+        "scratch_file_runs": agg.scratch_file_runs,
+        "persistent_file_runs": persistent_file_runs,
+        "inline_runs": agg.inline_runs,
+        "harvested_runs": agg.harvested_runs,
+        "orchestrate_runs": agg.orchestrate_runs,
+        "brief_runs": agg.brief_runs,
+        "total_tmp_bytes": agg.total_tmp_bytes,
+        "reuse_ratio": (ratio * 1000.0).round() / 1000.0,
+        "floor": CODE_MODE_REUSE_FLOOR,
+        "status": if v2_runs == 0 { "STUB" } else if ratio >= CODE_MODE_REUSE_FLOOR { "PASS" } else { "FAIL" },
+    })
+}
+
+#[cfg(test)]
+mod reuse_tests {
+    use super::*;
+    use touring_code::journal::JournalAggregate;
+
+    /// C4: two persistent-file runs + one harvested inline over 10 v2 runs =
+    /// 0.3 (PASS); 5 scratch-file runs count as one-offs; v1 lines are shown
+    /// apart and never enter the ratio.
+    #[test]
+    fn reuse_ratio_counts_persistent_scripts_and_harvests_only() {
+        let agg = JournalAggregate {
+            total_entries: 14,
+            file_runs: 7,
+            scratch_file_runs: 5,
+            inline_runs: 3,
+            harvested_runs: 1,
+            ..Default::default()
+        };
+        let v = reuse_from_aggregate(&agg);
+        assert_eq!(v["v2_runs"], 10);
+        assert_eq!(v["v1_runs"], 4);
+        assert_eq!(v["persistent_file_runs"], 2);
+        assert_eq!(v["reuse_ratio"], 0.3);
+        assert_eq!(v["status"], "PASS");
+        assert_eq!(v["available"], true);
+    }
+
+    #[test]
+    fn reuse_ratio_is_a_stub_without_v2_runs_and_fails_below_the_floor() {
+        let empty = reuse_from_aggregate(&JournalAggregate::default());
+        assert_eq!(empty["status"], "STUB");
+        assert_eq!(empty["available"], false);
+        let low = reuse_from_aggregate(&JournalAggregate {
+            total_entries: 20,
+            file_runs: 20,
+            scratch_file_runs: 19,
+            ..Default::default()
+        });
+        assert_eq!(low["reuse_ratio"], 0.05);
+        assert_eq!(low["status"], "FAIL");
+    }
+}
+
 /// F6 — aggregate per-canonical-hook stats from the post-tool-use mirror.
 /// Returns `(used, total)` where `total = 8` mirrors `HookName::ALL.len()`.
 /// Fail-open: missing file → `(0, 8)` (consistent with the gate).
+/// D1 (2026-09-02) — o sinal vivo comparado com um relatório PERSISTIDO.
+///
+/// `code_mode_signal_use` lê o espelho do processo corrente e responde "quantos
+/// hooks estão em uso agora". Um baseline em disco responde a pergunta que só o
+/// tempo faz: a adoção caiu, a latência subiu? É o consumidor que
+/// [`touring_code::sdk::load_signal_report`] documentava e não tinha.
+///
+/// Falha SEMPRE de forma legível: um caminho ausente ou um JSON inválido viram
+/// um campo `error` no payload, nunca um KPI mudo.
+fn signal_baseline(path: &str) -> Value {
+    match touring_code::sdk::load_signal_report(std::path::Path::new(path)) {
+        Ok(report) => {
+            let canonical: std::collections::BTreeSet<&'static str> =
+                touring_code::sdk::HookName::ALL
+                    .iter()
+                    .map(|h| h.as_str())
+                    .collect();
+            let used = report
+                .hooks
+                .keys()
+                .filter(|k| canonical.contains(k.as_str()))
+                .count() as u64;
+            // O pior p99 entre os hooks é a leitura honesta de "quanto custa o
+            // caminho mais lento"; uma média entre hooks de volumes diferentes
+            // esconderia exatamente o que se quer vigiar.
+            let worst_p99 = report.hooks.values().map(|h| h.duration_ms_p99).max().unwrap_or(0);
+            let worst_p50 = report.hooks.values().map(|h| h.duration_ms_p50).max().unwrap_or(0);
+            json!({
+                "source": path,
+                "generated_at_unix": report.generated_at_unix,
+                "total_runs": report.total_runs,
+                "used": used,
+                "total": touring_code::sdk::HookName::ALL.len() as u64,
+                "worst_duration_ms_p50": worst_p50,
+                "worst_duration_ms_p99": worst_p99,
+            })
+        }
+        Err(e) => json!({"source": path, "error": e.to_string()}),
+    }
+}
+
+/// O delta entre o sinal vivo e o baseline, quando ambos são legíveis.
+///
+/// Só campos comparáveis entram: `used` e o pior p99. Um delta negativo em
+/// `used` é regressão de adoção; positivo em `worst_duration_ms_p99` é
+/// regressão de custo.
+fn signal_delta(live: &Value, baseline: &Value) -> Value {
+    let gi = |v: &Value, k: &str| v.get(k).and_then(Value::as_i64);
+    match (gi(live, "used"), gi(baseline, "used")) {
+        (Some(l), Some(b)) => json!({
+            "used": l - b,
+            "worst_duration_ms_p99": gi(live, "duration_ms_p99").unwrap_or(0)
+                - gi(baseline, "worst_duration_ms_p99").unwrap_or(0),
+        }),
+        _ => Value::Null,
+    }
+}
+
 fn code_mode_signal_use() -> Value {
     let Some(home) = std::env::var_os("HOME") else {
         return json!({"available": false, "reason": "HOME unset"});
@@ -487,7 +658,19 @@ fn code_mode_signal_use() -> Value {
     // so reader and sinks cannot drift apart on the path.
     let path = touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home));
     match std::fs::read_to_string(&path) {
-        Ok(content) => signal_use_from_lines(content.lines()),
+        Ok(content) => {
+            let mut out = signal_use_from_lines(content.lines());
+            // REGRA #0 (2026-09-02) — `duration_p50`/`duration_p99` do agregado
+            // do mirror não tinham UM consumidor. O consumidor natural é este
+            // KPI, que já lia o mesmo arquivo e descartava a duração de cada
+            // entrada: um contador diz se os hooks são usados, o percentil diz
+            // se valem o que custam.
+            if let Ok(agg) = touring_code::sdk_signal_mirror::read(&path) {
+                out["duration_ms_p50"] = json!(agg.duration_p50());
+                out["duration_ms_p99"] = json!(agg.duration_p99());
+            }
+            out
+        }
         Err(_) => json!({"available": false, "reason": "no mirror yet"}),
     }
 }
@@ -570,6 +753,10 @@ fn hooks_complement_from<'a>(
         .collect();
     let mut deliveries = 0u64;
     let mut non_canonical = 0u64;
+    // F9-origem (02/09): cada linha canônica é creditada a quem a escreveu
+    // (`origin`: `post_bash` | `sdk`; ausente = `unknown`, linhas legadas).
+    let mut by_origin: std::collections::BTreeMap<&'static str, u64> =
+        [("post_bash", 0u64), ("sdk", 0u64), ("unknown", 0u64)].into_iter().collect();
     for line in mirror_lines {
         let Ok(v) = serde_json::from_str::<Value>(line) else {
             continue;
@@ -579,14 +766,25 @@ fn hooks_complement_from<'a>(
             continue;
         }
         match v.get("hook_name").and_then(Value::as_str) {
-            Some(name) if canonical.contains(name) => deliveries += 1,
+            Some(name) if canonical.contains(name) => {
+                deliveries += 1;
+                let origin = match v.get("origin").and_then(Value::as_str) {
+                    Some("post_bash") => "post_bash",
+                    Some("sdk") => "sdk",
+                    _ => "unknown",
+                };
+                *by_origin.entry(origin).or_insert(0) += 1;
+            }
             Some(_) => non_canonical += 1,
             None => {}
         }
     }
     let post_bash = by_name.get("post-bash").copied().unwrap_or(0);
+    let post_bash_deliveries = by_origin.get("post_bash").copied().unwrap_or(0);
+    // A razão só admite entregas ORIGINADAS no post-bash: uma entrega do SDK
+    // in-sandbox não prova que o PostToolUse chegou ao daemon.
     let ratio = if post_bash > 0 {
-        json!(deliveries as f64 / post_bash as f64)
+        json!(post_bash_deliveries as f64 / post_bash as f64)
     } else {
         Value::Null
     };
@@ -596,6 +794,8 @@ fn hooks_complement_from<'a>(
         "dispatched": by_name,
         "post_bash_dispatched": post_bash,
         "mirror_deliveries_since": deliveries,
+        "mirror_deliveries_by_origin": by_origin,
+        "post_bash_origin_deliveries_since": post_bash_deliveries,
         "mirror_non_canonical_since": non_canonical,
         "post_bash_delivery_ratio": ratio,
     })
@@ -625,7 +825,17 @@ fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
         if exit == 0 {
             ok += 1;
         }
-        if let Some(fk) = v.get("failure_kind").and_then(Value::as_str) {
+        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
+        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
+        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
+        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
+        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
+        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
+        if let Some(fk) = v
+            .get("failure_kind")
+            .and_then(Value::as_str)
+            .map(|s| touring_code::journal::FailureKind::from_str_opt(Some(s)).as_str())
+        {
             *by_kind.entry(fk.to_string()).or_default() += 1;
         }
         if let Some((pts, plang)) = prev_fail.take()
@@ -1705,7 +1915,39 @@ mod tests {
         assert_eq!(v["post_bash_dispatched"], 10);
         assert_eq!(v["mirror_deliveries_since"], 2);
         assert_eq!(v["mirror_non_canonical_since"], 1);
-        assert_eq!(v["post_bash_delivery_ratio"], 0.2);
+        // F9-origem (02/09): linhas legadas não declaram origem — não entram
+        // na razão do post-bash (seriam creditadas a um despacho que talvez
+        // nunca aconteceu). Visíveis como `unknown`, nunca somadas à razão.
+        assert_eq!(v["mirror_deliveries_by_origin"]["unknown"], 2);
+        assert_eq!(v["post_bash_delivery_ratio"], 0.0);
+    }
+
+    // F9-origem (2026-09-02): a razão media 5,0 (5 entregas ÷ 1 despacho)
+    // porque o numerador somava entregas do SDK in-sandbox e do caminho CLI
+    // junto com as do post-bash. Só a origem `post_bash` conta na razão; as
+    // demais ficam visíveis por origem.
+    #[test]
+    fn hooks_complement_ratio_counts_only_post_bash_origin_deliveries() {
+        let mut by_name = std::collections::BTreeMap::new();
+        by_name.insert("post-bash".to_string(), 4u64);
+        let epoch = 1_788_300_000u64;
+        let mirror = [
+            r#"{"ts":1788300010,"hook_name":"index_find","origin":"post_bash"}"#,
+            r#"{"ts":1788300011,"hook_name":"ast_meta","origin":"post_bash"}"#,
+            r#"{"ts":1788300020,"hook_name":"memory_recall","origin":"sdk"}"#,
+            r#"{"ts":1788300021,"hook_name":"memory_recall","origin":"sdk"}"#,
+            r#"{"ts":1788300022,"hook_name":"memory_recall","origin":"sdk"}"#,
+            r#"{"ts":1788300030,"hook_name":"index_find"}"#, // legado, sem origem
+            r#"{"ts":1788300040,"hook_name":"cli-index-find","origin":"post_bash"}"#, // alias: fora
+        ];
+        let v = hooks_complement_from(&by_name, mirror.iter().copied(), Some(epoch));
+        assert_eq!(v["mirror_deliveries_since"], 6, "todas as canônicas seguem contadas");
+        assert_eq!(v["mirror_non_canonical_since"], 1);
+        assert_eq!(v["mirror_deliveries_by_origin"]["post_bash"], 2);
+        assert_eq!(v["mirror_deliveries_by_origin"]["sdk"], 3);
+        assert_eq!(v["mirror_deliveries_by_origin"]["unknown"], 1);
+        assert_eq!(v["post_bash_origin_deliveries_since"], 2);
+        assert_eq!(v["post_bash_delivery_ratio"], 0.5, "2 entregas do post-bash ÷ 4 despachos");
     }
 
     #[test]
@@ -2088,6 +2330,27 @@ mod tests {
 
     // MED-1 (28/08) — a régua de aderência, sobre dados sintéticos:
     // 4 runs (3 ok, 1 falha com failure_kind) e 1 par falha→retry <120s.
+    /// Cross-audit 04/09/2026 — `by_failure_kind` era histograma da string CRUA do
+    /// journal, entao uma grafia desconhecida virava categoria propria e a taxonomia
+    /// declarada na diretriz A5 nao valia na ponta que le. `FailureKind::from_str_opt`
+    /// existia com essa funcao exata e nao tinha consumidor de producao (orfao pela
+    /// REGRA #0). Agora o KPI conta as 7 classes que existem, e so elas.
+    #[test]
+    fn classe_de_falha_desconhecida_cai_em_other_e_nao_cria_categoria() {
+        let journal = [
+            r#"{"exit_code":1,"failure_kind":"kind-que-nao-existe","language":"bash","ts":1000}"#,
+            r#"{"exit_code":1,"failure_kind":"timeout","language":"bash","ts":1010}"#,
+        ];
+        let v = adherence_from_lines(journal.iter().copied());
+        assert!(
+            v["by_failure_kind"].get("kind-que-nao-existe").is_none(),
+            "grafia desconhecida nao pode criar categoria: {}",
+            v["by_failure_kind"]
+        );
+        assert_eq!(v["by_failure_kind"]["other"], json!(1), "cai em `other`: {v}");
+        assert_eq!(v["by_failure_kind"]["timeout"], json!(1), "classe real preservada: {v}");
+    }
+
     #[test]
     fn med1_adherence_from_lines_agrega_e_conta_retry() {
         let journal = [
@@ -2455,5 +2718,91 @@ mod tests {
                 );
             }
         }
+    }
+}
+
+/// REGRA #0 (2026-09-02) — o KPI de sinal publica a latência que o mirror já
+/// media. Antes, `duration_p50`/`duration_p99` eram órfãos: computavam
+/// percentis que ninguém lia. Este guard falha se o wiring for desfeito.
+#[cfg(test)]
+mod signal_latency_tests {
+    use touring_code::sdk::HookName;
+    use touring_code::sdk_signal_mirror::{read, record, MirrorOrigin};
+
+    #[test]
+    fn the_kpi_publishes_the_latency_the_mirror_measures() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("mirror.jsonl");
+        for ms in [10u32, 20, 30, 400] {
+            record(&path, HookName::IndexFind, ms, true, MirrorOrigin::Sdk).expect("record");
+        }
+        let agg = read(&path).expect("read");
+        assert!(agg.duration_p50() > 0, "p50 must be measured");
+        assert!(
+            agg.duration_p99() >= agg.duration_p50(),
+            "p99 {} < p50 {}",
+            agg.duration_p99(),
+            agg.duration_p50()
+        );
+        let content = std::fs::read_to_string(&path).expect("content");
+        let mut out = super::signal_use_from_lines(content.lines());
+        out["duration_ms_p50"] = serde_json::json!(agg.duration_p50());
+        out["duration_ms_p99"] = serde_json::json!(agg.duration_p99());
+        assert!(out.get("duration_ms_p50").is_some());
+        assert!(out.get("duration_ms_p99").is_some());
+    }
+}
+
+/// D1 (2026-09-02) — o baseline persistido é lido pela rota pública do SDK.
+#[cfg(test)]
+mod signal_baseline_tests {
+    use super::*;
+
+    #[test]
+    fn a_missing_baseline_reports_the_reason_instead_of_going_quiet() {
+        let out = signal_baseline("/nao/existe/report.json");
+        assert_eq!(out["source"], "/nao/existe/report.json");
+        assert!(out.get("error").is_some(), "{out}");
+    }
+
+    #[test]
+    fn a_real_report_yields_used_and_the_worst_p99() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("report.json");
+        let body = serde_json::json!({
+            "generated_at_unix": 1_700_000_000u64,
+            "source_journal_path": "/x/run_journal.jsonl",
+            "total_runs": 42u64,
+            "hooks": {
+                "index_find": {"call_count": 10, "failure_count": 0,
+                               "duration_ms_p50": 3, "duration_ms_p99": 120},
+                "ast_meta": {"call_count": 5, "failure_count": 1,
+                             "duration_ms_p50": 1, "duration_ms_p99": 40}
+            },
+            "by_language": {},
+            "failure_taxonomy": {}
+        });
+        std::fs::write(&path, serde_json::to_vec(&body).expect("json")).expect("write");
+        let out = signal_baseline(path.to_str().expect("utf8"));
+        assert!(out.get("error").is_none(), "{out}");
+        assert_eq!(out["total_runs"], 42);
+        assert_eq!(out["used"], 2, "ambos os hooks são canônicos: {out}");
+        assert_eq!(out["worst_duration_ms_p99"], 120, "o pior, não a média");
+    }
+
+    #[test]
+    fn the_delta_is_null_when_either_side_is_unreadable() {
+        let live = serde_json::json!({"used": 6});
+        let broken = serde_json::json!({"error": "x"});
+        assert!(signal_delta(&live, &broken).is_null());
+    }
+
+    #[test]
+    fn a_drop_in_adoption_shows_as_a_negative_delta() {
+        let live = serde_json::json!({"used": 5, "duration_ms_p99": 200});
+        let base = serde_json::json!({"used": 7, "worst_duration_ms_p99": 120});
+        let d = signal_delta(&live, &base);
+        assert_eq!(d["used"], -2, "{d}");
+        assert_eq!(d["worst_duration_ms_p99"], 80, "{d}");
     }
 }

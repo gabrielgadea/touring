@@ -7,14 +7,14 @@ use crate::salsa::db::DatabaseImpl;
 /// Compute extended knowledge metadata for a file.
 ///
 /// This is NOT a #[salsa::tracked] function. Real implementation would
-/// aggregate complexity_score, cognitive_score, fan_out/fan_in from
+/// aggregate complexity_score, quality_score, fan_out/fan_in from
 /// touring-analysis and touring-wiring.
 pub fn file_knowledge_extended(db: &DatabaseImpl, file_key: FileKey) -> ExtendedKnowledge {
     let _ = db;
     ExtendedKnowledge {
         file_id: file_key,
         complexity_score: 0.0,
-        cognitive_score: 0.0,
+        quality_score: 0.0,
         fan_out: 0,
         fan_in: 0,
         modularity_score: 0.0,

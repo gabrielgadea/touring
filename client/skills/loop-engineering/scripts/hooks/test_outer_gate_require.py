@@ -79,3 +79,43 @@ class RequireJsonTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+# ── P4/S-4.1 (2026-09-04): o contrato da CLASSE de custo ─────────────────────
+
+def _manifests():
+    import json, pathlib
+    return json.loads((pathlib.Path(__file__).parent / "flow_manifests.json").read_text())
+
+
+def test_every_artifact_declares_its_cost_class():
+    """Sem `class`, o gate assume A e cobra — mas um artefato caro nao declarado
+    seria cobrado do default, que e' exatamente o que P4 desfaz. A declaracao e'
+    obrigatoria, e este teste e' quem a torna obrigatoria."""
+    for flow, m in _manifests().items():
+        if not isinstance(m, dict) or "artifacts" not in m:
+            continue
+        for art in m["artifacts"]:
+            assert art.get("class") in {"A", "B", "C"}, (
+                f"{flow}/{art['id']} sem classe de custo declarada"
+            )
+
+
+def test_the_default_flow_never_charges_a_class_c_artifact():
+    """O achado que originou P4: 965 avaliacoes, 74% dos runs nunca completaram,
+    e o que faltava era sempre classe C — artefato que exige parar o raciocinio.
+    O flow DEFAULT (`work-outer`, 392 das 965) cobra so' o que codigo produz."""
+    m = _manifests()["work-outer"]
+    assert m["enforced_classes"] == ["A"], m["enforced_classes"]
+    cobrados = [a["id"] for a in m["artifacts"] if a["class"] in m["enforced_classes"]]
+    assert cobrados, "o default ainda precisa cobrar ALGO — senao nao e' gate"
+    assert "explore-ledger" not in cobrados, (
+        "explore-ledger faltou 418x e 56 de 79 bundles nunca o tiveram"
+    )
+
+
+def test_an_explicitly_invoked_flow_still_charges_everything():
+    """Quem digitou /loop-engineering PEDIU a exploracao: ali o documento e' o
+    entregavel, nao um desvio. O alivio e' do default, nunca do pedido."""
+    m = _manifests()["strategy-outer"]
+    assert set(m["enforced_classes"]) == {"A", "B", "C"}
+    assert any(a["id"] == "explore-ledger" for a in m["artifacts"])

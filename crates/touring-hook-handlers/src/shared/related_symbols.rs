@@ -17,7 +17,7 @@ use crate::shared::signal_pipeline::{ProposedChange, SignalContext, SignalLayer}
 use touring_code::ast::Lang;
 
 /// Score of a homonym signal: advisory, above the antipattern noise floor.
-pub const RELATED_SYMBOL_SCORE: f32 = 0.7;
+const RELATED_SYMBOL_SCORE: f32 = 0.7;
 
 /// Names an item declaration introduces in `content` for `lang`.
 ///

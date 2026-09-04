@@ -10,6 +10,7 @@
 //! touring kpi --check             # exit 1 when any commitment FAILs
 //! touring kpi --snapshot          # persist docs/kpi/YYYY-MM/YYYY-MM-DD.json
 //! touring kpi --refine            # F7: recommend refinement actuators (telemetry §12)
+//! touring kpi --signal-baseline docs/plans/…/sdksignal-report-f4.json  # série entre runs
 //! touring kpi --check --snapshot  # combine
 //! ```
 
@@ -29,6 +30,14 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     let check = args.iter().any(|a| a == "--check");
     let snapshot = args.iter().any(|a| a == "--snapshot");
     let refine = args.iter().any(|a| a == "--refine");
+    // D1 (2026-09-02) — `--signal-baseline <path>`: compara o sinal vivo com um
+    // `SignalReport` emitido antes. O caminho viaja no payload porque quem
+    // calcula o KPI é o daemon, não este cliente efêmero.
+    let signal_baseline = args
+        .iter()
+        .position(|a| a == "--signal-baseline")
+        .and_then(|i| args.get(i + 1))
+        .cloned();
 
     let mut payload = serde_json::Map::new();
     if check {
@@ -39,6 +48,12 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     }
     if refine {
         payload.insert("refine".to_string(), serde_json::Value::Bool(true));
+    }
+    if let Some(path) = signal_baseline {
+        payload.insert(
+            "signal_baseline".to_string(),
+            serde_json::Value::String(path),
+        );
     }
 
     let output = daemon_query("cli-kpi", serde_json::Value::Object(payload))?;

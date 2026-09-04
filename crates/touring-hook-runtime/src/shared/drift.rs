@@ -9,7 +9,7 @@
 //! MVP: file-count delta between sessions. Future iterations can extend
 //! to schema-version drift, KPI regression, etc.
 
-use touring_hooks_shared::signal_layer::{LayerMetrics, SignalContext, SignalLayer};
+use touring_hooks_shared::signal_layer::{SignalContext, SignalLayer};
 
 /// Drift tier reported to the LLM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -136,17 +136,6 @@ fn parse_snapshot_from_source(source: &str) -> DriftReport {
     detect_drift(
         nums[0], nums[1], nums[2], nums[3], nums[4], nums[5],
     )
-}
-
-/// Compute layer metrics for temporal_drift.
-pub fn layer_metrics(ctx: &SignalContext<'_>) -> LayerMetrics {
-    let start = std::time::Instant::now();
-    let signals = TemporalDriftLayer.enrich(ctx);
-    LayerMetrics {
-        name: "temporal_drift",
-        signal_count: signals.len(),
-        duration_us: start.elapsed().as_micros() as u64,
-    }
 }
 
 #[cfg(test)]

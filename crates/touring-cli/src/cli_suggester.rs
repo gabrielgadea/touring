@@ -92,6 +92,77 @@ fn cache() -> &'static moka::sync::Cache<u64, ()> {
     })
 }
 
+/// P1/S-1.1 (2026-09-04) — the ledger of what was already SAID, which the input
+/// cache structurally cannot be.
+///
+/// [`cache`] anti-spams identical `(tool_name, tool_input)` pairs: it asks *"same
+/// question?"*. The window is paid in ANSWERS, and the two diverge — the same
+/// text is reached from different inputs. Measured over 10 transcripts / 406 user
+/// turns (04/09/2026): **24,1 %** of this emitter's blocks were still
+/// byte-identical repeats despite that cache, and across all emitters repeats
+/// were **35,1 % of the whole injection — 948 KB**, with `past-lessons` at
+/// 86,4 %.
+///
+/// A second copy of the same bytes carries no proposition the first did not, so
+/// its information density is zero by construction (IDR, Eixo 4). Inside the TTL
+/// window — the window in which the first copy is demonstrably still in context —
+/// the repeat collapses to a one-line reference.
+///
+/// Keyed by `(session, content)`: another session never saw the first copy, and
+/// suppressing there would hide a block that context has never carried.
+fn emitted_content() -> &'static moka::sync::Cache<(String, u64), std::time::Instant> {
+    static EMITTED: OnceLock<moka::sync::Cache<(String, u64), std::time::Instant>> =
+        OnceLock::new();
+    EMITTED.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(SUGGESTION_TTL_SECS))
+            .build()
+    })
+}
+
+/// Human kill switch for the content dedup, in the shape the rest of this file
+/// uses (`TOURING_SUGGESTER_DISABLED`, `TOURING_CODE_GATES_DISABLED`). The model
+/// never sets it at run time.
+fn dedup_disabled() -> bool {
+    std::env::var("TOURING_DEDUP_DISABLED").is_ok_and(|v| v != "0")
+}
+
+/// `Some(reference)` when this exact text already reached this session inside the
+/// TTL window; `None` the first time (and the text is recorded).
+///
+/// A REFERENCE, never silence. Absence has two causes — "nothing to say" and
+/// "the emitter broke" — and a block that simply vanished is indistinguishable
+/// from the second. The line names how long ago and how many bytes it saved, so
+/// the elision is auditable in the transcript it appears in.
+fn repeat_reference(session: &str, context: &str) -> Option<String> {
+    if dedup_disabled() || context.is_empty() {
+        return None;
+    }
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    context.hash(&mut hasher);
+    let key = (session.to_string(), hasher.finish());
+    match emitted_content().get(&key) {
+        Some(first_seen) => {
+            let reference = format!(
+                "↑ repetido nesta sessão (há {}s, {} B elididos)",
+                first_seen.elapsed().as_secs(),
+                context.len()
+            );
+            // A dedup that costs more than it saves is not a dedup. Measured
+            // block sizes vary by two orders of magnitude — `touring-suggest`
+            // averages 1 399 B, but `past-lessons` averages 48 B and repeats
+            // 86,4 % of the time, which is precisely the family a long reference
+            // would make WORSE. The arithmetic decides, not the intention.
+            (reference.len() < context.len()).then_some(reference)
+        }
+        None => {
+            emitted_content().insert(key, std::time::Instant::now());
+            None
+        }
+    }
+}
+
 fn input_hash(project_root: &Path, tool_name: &str, tool_input: &Value) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     project_root.hash(&mut hasher);
@@ -327,7 +398,7 @@ pub struct EnrichmentData {
     pub dependent_count: Option<u32>,
     /// Number of pub symbols defined in the file.
     pub pub_symbol_count: Option<u32>,
-    /// Cognitive complexity score for the file in [0.0, 1.0].
+    /// Code-quality score for the file in [0.0, 1.0] — **higher is better**.
     ///
     /// Sourced from `knowledge.get_cognitive_enrichment(file_path)` (field 0 of
     /// the returned `CognitiveScores` tuple). `None` when the file has no
@@ -335,8 +406,18 @@ pub struct EnrichmentData {
     /// `file_hint` is present in the classifier output.
     ///
     /// Used by `ActionSignature::from_pre_tool_with_cognitive` to set the
-    /// `HiComplexity` qualifier when `cognitive_score > 0.7`.
-    pub cognitive_score: Option<f32>,
+    /// `HiComplexity` qualifier when the score is LOW (see `QUALITY_LOW_THRESHOLD`).
+    ///
+    /// The direction is the producer's, not this comment's: `analyze_quality`
+    /// (`touring-code/src/ast/quality.rs`) declares *"All scores are in [0.0, 1.0]
+    /// where higher is better"* and computes PENALTIES — high cyclomatic complexity
+    /// subtracts. This field used to be called `cognitive_score` and this doc used to
+    /// call it a "complexity score", which is how `ActionSignature` came to fire
+    /// `HiComplexity` on the CLEANEST files and never on the messiest (measured
+    /// 03/09/2026: README.md 1.000, cli_suggester.rs 0.352 at 5791 lines with a CC=23
+    /// function). A consumer that re-documents what it consumes creates a copy; this
+    /// one was born wrong. Read the producer, not this line.
+    pub quality_score: Option<f32>,
 
     /// Workflow-stage advice string injected by P8.7 (workflow intelligence).
     ///
@@ -1396,6 +1477,14 @@ fn intent_for_new_file(file: &str, content: Option<&str>) -> Option<String> {
     if let Some(body) = content {
         for line in body.lines().take(12) {
             let t = line.trim();
+            // C3 (2026-09-02): a codetag (`# #tags: kind:script …`) is a FACET
+            // line, not a purpose — used as the intent it sent the portfolio
+            // hunting for "kind:script purpose:diagnostic" and returned an
+            // unrelated `cofre.py` on every Write of a tagged script. Skip it
+            // (and the shebang) so the docstring below wins.
+            if t.contains("#tags:") || t.starts_with("#!") {
+                continue;
+            }
             let prose = t
                 .strip_prefix("//!")
                 .or_else(|| t.strip_prefix(TRIPLE_D))
@@ -1604,13 +1693,15 @@ fn enrich(rt: &HookRuntime, classifier: &ClassifierOutput) -> EnrichmentData {
             data.pub_symbol_count = Some(syms.len() as u32);
         }
 
-        // Cognitive complexity score — from `cognitive_enrichment` table.
-        // `get_cognitive_enrichment` returns `Option<CognitiveScores>` where
-        // CognitiveScores = (cognitive_score: f64, complexity_signal: f64,
-        //                     fan_in_signal: f64, fan_out_signal: f64, doc_signal: f64).
-        // We take field 0 and cast to f32.  Fail-open: any error → None.
+        // Code-QUALITY score (higher is better) — from the `cognitive_enrichment`
+        // table, field 0 of `CognitiveScores` = (quality_score, complexity_signal,
+        // fan_in_signal, fan_out_signal, doc_signal). Written by `post_edit` from
+        // `analyze_quality`, whose doc declares the direction; do not paraphrase it
+        // here — a consumer that re-documents what it consumes creates a copy, and
+        // that copy is how this value came to be read backwards until 04/09/2026.
+        // Fail-open: any error → None.
         if let Ok(Some(scores)) = rt.ctx.knowledge.get_cognitive_enrichment(&rel) {
-            data.cognitive_score = Some(scores.0 as f32);
+            data.quality_score = Some(scores.0 as f32);
         }
     }
 
@@ -2151,7 +2242,13 @@ fn retrieve_and_render_lessons(
     sig: &ActionSignature,
     enrichment: &EnrichmentData,
 ) -> Option<String> {
-    const LESSON_BUDGET: usize = 800;
+    // P3/S-3.2 (2026-09-04) — sob a escala canônica, não uma constante própria.
+    // Este é o ÚNICO orçamento de INJEÇÃO deste arquivo: `BUDGET` (rajada
+    // python-inline) e `G1_BODY_BUDGET` dimensionam o PROGRAMA que o remédio
+    // entrega, e encolhê-los cortaria a correção em vez do ruído — o plano os
+    // listava junto e a leitura desfez o engano. 800 é o mesmo valor de antes;
+    // o que muda é a fonte, agora com os overrides `TOURING_CILA_BUDGET_*`.
+    let lesson_budget = touring_foundation::cila::cila_budget_read(0);
 
     // Collect from all sources — each is independently fail-open.
     let mut all: Vec<LessonItem> = Vec::new();
@@ -2167,7 +2264,7 @@ fn retrieve_and_render_lessons(
     }
     all.extend(collect_gotcha_lessons(enrichment));
 
-    let ranked = rank_and_trim(all, LESSON_BUDGET);
+    let ranked = rank_and_trim(all, lesson_budget);
     if ranked.is_empty() {
         return None;
     }
@@ -3573,6 +3670,116 @@ fn record_adoption(tool_name: &str, tool_input: &Value) {
 // enforcement mora no executor; nudges MUST conf 0.95 foram ignorados na
 // própria sessão que os emitiu). Orçamento: < 1ms (scan de bytes + moka).
 
+// ── G11 (2026-09-02) — orçamento do bypass ──────────────────────────────────
+//
+// O token de bypass é por-comando e legítimo. O que não era medido é a SÉRIE:
+// medido no autor desta wave, 72 Bash num turno com zero `touring run` e 64
+// bypasses. Um desvio mais barato que a rota sancionada é uma afordância na
+// direção errada — e nenhum nudge corrige um custo. Este gate faz o segundo
+// bypass custar, e faz a rota sancionada ser o que recarrega o direito.
+
+/// Janela do orçamento, alinhada à do G10 (o gate de execução em rajada).
+const G11_WINDOW_SECS: u64 = 600;
+
+/// Bypasses ESTRITAMENTE seguidos tolerados. `1` significa: o primeiro passa, o
+/// segundo colado no primeiro não.
+const G11_MAX_STRICT_RUN: u32 = 1;
+
+/// Bypasses tolerados desde o último uso da rota sancionada, ainda que
+/// intercalados por comandos neutros. `2` significa: o terceiro não passa.
+const G11_MAX_SINCE_ROUTE: u32 = 2;
+
+/// Contas do orçamento de bypass de um escopo, dentro da janela.
+///
+/// São DUAS contas porque as duas regras são distintas, e uma só as confundia:
+/// medido na estreia, um bypass separado por um comando neutro era negado como
+/// "dois seguidos", que não era verdade.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct BypassBudget {
+    /// Bypasses colados um no outro; qualquer outro comando zera.
+    pub(crate) strict_run: u32,
+    /// Bypasses desde o último `touring run`; só a rota sancionada zera.
+    pub(crate) since_route: u32,
+}
+
+/// A decisão do G11 sobre um bypass que ACABOU de ser cobrado.
+///
+/// `None` libera. `Some(regra)` nega, e a regra nomeada entra na razão do deny —
+/// um gate mudo degrada o retry (a lição dos gates falantes, A5).
+#[must_use]
+pub(crate) fn bypass_verdict(budget: BypassBudget) -> Option<&'static str> {
+    if budget.strict_run > G11_MAX_STRICT_RUN {
+        return Some("dois bypasses seguidos");
+    }
+    if budget.since_route > G11_MAX_SINCE_ROUTE {
+        return Some("terceiro bypass sem usar a rota");
+    }
+    None
+}
+
+/// Ledger do orçamento, por escopo, com a mesma expiração dos demais gates.
+fn bypass_ledger() -> &'static moka::sync::Cache<u64, BypassBudget> {
+    static LEDGER: OnceLock<moka::sync::Cache<u64, BypassBudget>> = OnceLock::new();
+    LEDGER.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(256)
+            .time_to_live(std::time::Duration::from_secs(G11_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// Chave do ledger: o escopo, como nos demais gates deste módulo.
+fn bypass_key(project_root: &Path) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}code-mode-bypass\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Cobra um bypass e devolve as contas já atualizadas.
+fn charge_bypass(project_root: &Path) -> BypassBudget {
+    let key = bypass_key(project_root);
+    let prev = bypass_ledger().get(&key).unwrap_or_default();
+    let next = BypassBudget {
+        strict_run: prev.strict_run.saturating_add(1),
+        since_route: prev.since_route.saturating_add(1),
+    };
+    bypass_ledger().insert(key, next);
+    next
+}
+
+/// A rota sancionada foi usada: o crédito volta inteiro.
+fn credit_sanctioned_route(project_root: &Path) {
+    bypass_ledger().invalidate(&bypass_key(project_root));
+}
+
+/// Um comando que não é bypass quebra a sequência ESTRITA, e só ela.
+///
+/// A conta `since_route` sobrevive de propósito: caso contrário, bastaria
+/// intercalar um `echo` entre os bypasses para zerar o orçamento, que é
+/// exatamente a série espaçada que a R2 existe para impedir.
+fn break_strict_run(project_root: &Path) {
+    let key = bypass_key(project_root);
+    if let Some(prev) = bypass_ledger().get(&key)
+        && prev.strict_run > 0
+    {
+        bypass_ledger().insert(
+            key,
+            BypassBudget {
+                strict_run: 0,
+                since_route: prev.since_route,
+            },
+        );
+    }
+}
+
+/// `true` quando o comando É a rota sancionada (um programa único no sandbox).
+fn is_sanctioned_route(cmd: &str) -> bool {
+    let c = cmd.trim_start();
+    c.starts_with("touring run ") || c.contains(" touring run ") || c == "touring run"
+}
+
 /// Token de bypass POR-COMANDO: viaja no próprio comando (o padrão
 /// `GIT_DESTRUCTIVE_OK` — cada uso é uma decisão, nunca um estado exportado).
 const GATE_BYPASS_TOKEN: &str = "TOURING_GATE_OK=1";
@@ -4938,7 +5145,32 @@ pub(crate) fn code_mode_gates(
     if pending_g2().remove(session).is_some() && cmd.contains("pipefail") {
         record_gate_event(GateId::G2, GateEvent::Followed);
     }
+    // G11 — a rota sancionada devolve o crédito ANTES de qualquer cobrança, para
+    // que um turno que alterna programa e bypass nunca acumule dívida.
+    if is_sanctioned_route(cmd) {
+        credit_sanctioned_route(project_root);
+    } else if !cmd.contains(GATE_BYPASS_TOKEN) {
+        break_strict_run(project_root);
+    }
     if cmd.contains(GATE_BYPASS_TOKEN) {
+        // O orçamento é cobrado ANTES da isenção: o token continua legítimo, mas
+        // a SÉRIE passa a custar. O deny do G11 não é bypassável de propósito —
+        // um bypass que se auto-libera não é orçamento; a saída é o kill switch
+        // humano no env do daemon, que exige decisão fora do turno.
+        let budget = charge_bypass(project_root);
+        if !code_gates_disabled()
+            && let Some(rule) = bypass_verdict(budget)
+        {
+            record_gate_event(GateId::G1, GateEvent::Emitted);
+            return Some(deny_response(format!(
+                "[G11 orçamento de bypass] {rule}: {} seguido(s), {} desde a última rota, janela {}s. \
+                 O token é por-comando, não uma rota. Use a rota sancionada — funda a \
+                 família numa varredura única: `touring run --lang bash --file <script>` \
+                 — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é \
+                 humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).",
+                budget.strict_run, budget.since_route, G11_WINDOW_SECS
+            )));
+        }
         if exit_code_through_pipe(cmd) {
             record_gate_event(GateId::G2, GateEvent::Bypassed);
         }
@@ -5713,13 +5945,13 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // Compute the ActionSignature and append its key as an observable line.
     // `from_pre_tool_with_cognitive` / `to_key` are infallible pure functions (no error
     // path), so this additive step cannot affect the hook's normal output.
-    // Slice 3 Part 1: thread cognitive_score into the signature so HiComplexity
+    // Slice 3 Part 1: thread quality_score into the signature so HiComplexity
     // can trigger when no blast-radius signal is present.
     let sig = ActionSignature::from_pre_tool_with_cognitive(
         tool_name,
         tool_input,
         suggestion.enrichment.dependent_count,
-        suggestion.enrichment.cognitive_score,
+        suggestion.enrichment.quality_score,
         suggestion.enrichment.gotcha_matches.len(),
         suggestion.enrichment.file_is_indexed,
         suggestion.enrichment.symbol_in_index,
@@ -5741,9 +5973,37 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
 
     cache().insert(h, ());
 
+    // P1/S-1.1 — the same bytes twice in one session buy nothing the first time
+    // did not. Collapse to a reference AFTER the block is fully assembled (the
+    // `sig=` line and any lessons included), because it is the final text the
+    // window pays for, not the template it came from.
+    if let Some(reference) = repeat_reference(&session, &context) {
+        context = reference;
+    }
+
+    // P3/S-3.3 — o orçamento do TURNO. O teto por chamada (`cila_budget_*`) nunca
+    // limitou o custo real, porque um turno são muitas chamadas: 26,6 % da janela
+    // em injeção, 6 650 B/turno medidos, com nenhuma chamada perto do próprio
+    // teto. Estourado o orçamento, cai a racionalização e ficam as diretivas — a
+    // ordem declarada em `turn_budget`, não uma escolha caso a caso.
+    {
+        use touring_hooks_shared::turn_budget::{
+            charge_turn, directives_only, spent_this_turn, turn_budget,
+        };
+        let root = &rt.project_root;
+        if spent_this_turn(root, &session) + context.len() > turn_budget()
+            && let Some(cut) = directives_only(&context)
+        {
+            context = cut;
+        }
+        // Cobra o que a janela PAGOU, depois de qualquer elisão.
+        charge_turn(root, &session, context.len());
+    }
+
     // TR-2 — STR observability: record enrichment bytes only when context is
     // non-empty. `context.len()` is the UTF-8 byte length of additionalContext,
-    // used as a token-count proxy for the Signal-to-Token Ratio metric.
+    // used as a token-count proxy for the Signal-to-Token Ratio metric. Runs
+    // AFTER the dedup so the counter reports what the window actually paid.
     // Fail-open: the counter call is infallible (~1 ns, Relaxed atomic).
     if !context.is_empty() {
         record_emission(&rt.project_root, context.len(), session, is_pillar);
@@ -5781,3 +6041,176 @@ fn emit(tool_name: &str, tool_input: &Value, context: &str) -> String {
 #[cfg(test)]
 #[path = "cli_suggester_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod intent_codetag_tests {
+    use super::intent_for_new_file;
+
+    /// C3 (2026-09-02): the codetag line is a facet list, not a purpose. With
+    /// it first, the intent sent to the portfolio was "#tags: kind:script
+    /// purpose:diagnostic …" and the answer was an unrelated `cofre.py`; the
+    /// docstring is the purpose and must win, shebang or codetag before it.
+    #[test]
+    fn codetag_and_shebang_never_become_the_intent() {
+        let content = "#!/usr/bin/env python3\n# #tags: kind:script purpose:diagnostic domain:code-mode lang:python\n\"\"\"One-shot census of /tmp usage and code-mode adherence.\"\"\"\nimport os\n";
+        let intent = intent_for_new_file("/tmp/claude-1000/s/scratchpad/diag_tmp.py", Some(content))
+            .expect("docstring intent");
+        assert!(intent.starts_with("One-shot census"), "got {intent}");
+        assert!(!intent.contains("#tags:"), "got {intent}");
+    }
+
+    #[test]
+    fn without_a_docstring_the_stem_words_remain_the_intent() {
+        let content = "# #tags: kind:script lang:python\nprint(1)\n";
+        assert_eq!(
+            intent_for_new_file("scripts/generate_pdf_report.py", Some(content)).as_deref(),
+            Some("generate pdf report")
+        );
+    }
+}
+
+/// P1/S-1.1 (2026-09-04) — dedup por CONTEÚDO.
+///
+/// Cada teste usa uma sessão própria: o ledger é um cache global de processo e
+/// os testes correm em paralelo, então sessões partilhadas fariam um teste
+/// decidir o resultado do outro.
+#[cfg(test)]
+mod content_dedup_tests {
+    use super::*;
+
+    /// Um bloco do tamanho REAL medido para o `touring-suggest` (média 1 399 B).
+    const BLOCK: &str = "[TOURING SUGGEST · code-mode-loop · conf=0.95]\n  MUST    touring run --lang bash --code '<o programa fundido>'\n            // Code Mode without MCP — one call computes in the sandbox\n  MAY     touring run --lang python --orchestrate --code '<...>'\n  Reason: Explicit shell loop fans a per-item op across a set.\n  (cached 300s — set TOURING_SUGGESTER_DISABLED=1 to silence)\n  sig=outcome:bash:cat:plain";
+
+    #[test]
+    fn the_first_emission_passes_and_the_identical_second_becomes_a_reference() {
+        let session = "dedup-primeira-e-segunda";
+        assert_eq!(repeat_reference(session, BLOCK), None, "a 1a vez nunca elide");
+        let second = repeat_reference(session, BLOCK).expect("a 2a e' repeticao");
+        assert!(second.contains("repetido nesta sessão"), "{second}");
+        assert!(
+            second.len() < BLOCK.len(),
+            "a referencia ({} B) tem de custar menos que o bloco ({} B)",
+            second.len(),
+            BLOCK.len()
+        );
+        // A elisão é AUDITÁVEL: diz quantos bytes deixaram de ser pagos.
+        assert!(second.contains(&BLOCK.len().to_string()), "{second}");
+    }
+
+    /// O caso que a estreia deste dedup errou: `past-lessons` repete 86,4 % das
+    /// vezes com bloco médio de 48 B, e uma referência mais longa que o bloco
+    /// faria a PIOR família ficar pior. A aritmética decide.
+    #[test]
+    fn a_block_smaller_than_the_reference_is_never_collapsed() {
+        let session = "dedup-bloco-minusculo";
+        let tiny = "⚡ last fail: cd";
+        assert_eq!(repeat_reference(session, tiny), None, "1a vez");
+        assert_eq!(
+            repeat_reference(session, tiny),
+            None,
+            "elidir 15 B com uma referencia de ~45 B seria pessimizacao"
+        );
+    }
+
+    #[test]
+    fn another_session_never_inherits_the_first_sessions_ledger() {
+        // A sessão B nunca viu o bloco; elidir ali esconderia texto que aquele
+        // contexto jamais carregou — absence with two causes, de novo.
+        assert_eq!(repeat_reference("dedup-sessao-a", BLOCK), None);
+        assert_eq!(repeat_reference("dedup-sessao-a", BLOCK).is_some(), true);
+        assert_eq!(
+            repeat_reference("dedup-sessao-b", BLOCK),
+            None,
+            "outra sessao paga a primeira copia normalmente"
+        );
+    }
+
+    #[test]
+    fn a_block_that_differs_by_one_byte_is_not_a_repeat() {
+        let session = "dedup-um-byte";
+        assert_eq!(repeat_reference(session, BLOCK), None);
+        let quase = format!("{BLOCK} ");
+        assert_eq!(
+            repeat_reference(session, &quase),
+            None,
+            "so' o byte-identico e' repeticao; qualquer diferenca e' sinal novo"
+        );
+    }
+
+    #[test]
+    fn an_empty_context_is_never_recorded_as_something_said() {
+        assert_eq!(repeat_reference("dedup-vazio", ""), None);
+        assert_eq!(
+            repeat_reference("dedup-vazio", ""),
+            None,
+            "nao ha' bloco vazio para referenciar"
+        );
+    }
+}
+
+/// G11 (2026-09-02) — o orçamento do bypass, com as duas contas separadas.
+#[cfg(test)]
+mod g11_bypass_budget_tests {
+    use super::*;
+
+    #[test]
+    fn the_first_bypass_passes() {
+        let b = BypassBudget { strict_run: 1, since_route: 1 };
+        assert_eq!(bypass_verdict(b), None);
+    }
+
+    #[test]
+    fn two_in_a_row_are_denied_by_the_strict_rule() {
+        let b = BypassBudget { strict_run: 2, since_route: 2 };
+        assert_eq!(bypass_verdict(b), Some("dois bypasses seguidos"));
+    }
+
+    /// O caso que a conta estrita NÃO pega: um comando neutro entre os bypasses.
+    /// A estreia ao vivo negava este como "dois seguidos", que era falso — e um
+    /// gate falante que nomeia a regra errada ensina a correção errada.
+    #[test]
+    fn an_interleaved_pair_is_not_a_strict_run() {
+        let b = BypassBudget { strict_run: 1, since_route: 2 };
+        assert_eq!(bypass_verdict(b), None, "dois espaçados ainda passam");
+    }
+
+    #[test]
+    fn the_third_without_the_route_is_denied_even_when_spaced() {
+        let b = BypassBudget { strict_run: 1, since_route: 3 };
+        assert_eq!(bypass_verdict(b), Some("terceiro bypass sem usar a rota"));
+    }
+
+    #[test]
+    fn the_sanctioned_route_is_recognised() {
+        assert!(is_sanctioned_route("touring run --lang bash --file x.sh"));
+        assert!(is_sanctioned_route("  touring run --lang python --code 'x'"));
+        assert!(!is_sanctioned_route("touring index find X"));
+        assert!(!is_sanctioned_route("grep -rn foo src/"));
+    }
+
+    #[test]
+    fn a_neutral_command_breaks_only_the_strict_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        charge_bypass(root);
+        break_strict_run(root);
+        let after = charge_bypass(root);
+        assert_eq!(
+            after,
+            BypassBudget { strict_run: 1, since_route: 2 },
+            "o comando neutro zera a sequência estrita e preserva a conta da rota"
+        );
+        assert_eq!(bypass_verdict(after), None);
+    }
+
+    #[test]
+    fn the_route_credits_both_counts_back() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        charge_bypass(root);
+        charge_bypass(root);
+        credit_sanctioned_route(root);
+        let after = charge_bypass(root);
+        assert_eq!(after, BypassBudget { strict_run: 1, since_route: 1 });
+    }
+}

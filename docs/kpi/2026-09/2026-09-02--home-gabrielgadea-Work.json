@@ -22,18 +22,18 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.19887793838649148,
+      "actual": 0.3953828635696976,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
       "name": "RL EMA reward (OnlineRL engine)",
       "rationale": "EMA reward < 0.2 means the RL loop hasn't converged yet. HISTÓRICO (2026-07-01): o valor vivia só em memória e zerava a cada restart (0.179606 sintético observado byte-idêntico por dias) — por isso virou advisory. ATUALIZADO 29/08/2026 (P1 retenção, wave onlinerl-sinal-em-volume): update_count/EMA agora persistem em .claude/data/online_rl_state.json com restore monotônico no boot — medido 0.84 pós-restart, não mais o warmup sintético. Segue advisory por prudência; candidato a re-armar como blocking após dias de série durável.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.2
     },
     {
-      "actual": 0.2,
+      "actual": 0.3053435114503817,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -110,18 +110,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 976.0,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 800.0
     },
     {
-      "actual": 689.0,
+      "actual": 593.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -132,7 +132,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 557055.0,
+      "actual": 94143.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -143,7 +143,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 369151.0,
+      "actual": 156.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -176,14 +176,14 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.4
     },
     {
@@ -198,14 +198,14 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.0,
+      "actual": 566.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.1
     },
     {
@@ -330,7 +330,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 5.0,
+      "actual": 9.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.parallel_runs",
@@ -385,7 +385,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.006937561942517344,
+      "actual": 0.005932203389830509,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -396,7 +396,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.03180914512922465,
+      "actual": 0.02845709204090707,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -466,48 +466,119 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 405,
-      "output-limit": 2,
+      "exception": 494,
+      "output-limit": 3,
       "proc-exit": 3,
-      "timeout": 103
+      "timeout": 105
     },
     "by_language": {
       "?": 1,
-      "bash": 3189,
+      "bash": 3901,
       "go": 1,
       "js": 44,
       "perl": 4,
       "php": 1,
-      "python": 2908,
+      "python": 3723,
       "ruby": 4,
       "rust": 4,
-      "shell": 46,
+      "shell": 52,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 5695,
-    "runs_total": 6209,
+    "runs_ok": 7136,
+    "runs_total": 7742,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9172169431470446,
-    "wasted_attempts_retry_pairs": 317
+    "success_rate": 0.9217256522862309,
+    "wasted_attempts_retry_pairs": 375
+  },
+  "code_mode_reuse": {
+    "available": true,
+    "brief_runs": 66,
+    "file_runs": 342,
+    "floor": 0.2,
+    "harvested_runs": 0,
+    "inline_runs": 775,
+    "orchestrate_runs": 15,
+    "persistent_file_runs": 119,
+    "reuse_ratio": 0.107,
+    "scratch_file_runs": 223,
+    "status": "FAIL",
+    "total_tmp_bytes": 654212,
+    "v1_runs": 6624,
+    "v2_runs": 1117
   },
   "code_mode_signal_use": {
     "available": true,
-    "non_canonical_calls": 9,
-    "ratio": 0.625,
+    "duration_ms_p50": 0,
+    "duration_ms_p99": 1241,
+    "non_canonical_calls": 21,
+    "ratio": 0.75,
     "total": 8,
-    "total_calls": 67,
-    "used": 5
+    "total_calls": 159,
+    "used": 6
+  },
+  "hooks_complement": {
+    "available": true,
+    "dispatched": {
+      "ceg-observe": 1,
+      "cli-ast-find": 6,
+      "cli-code-mode-run": 566,
+      "cli-decompose-add": 7,
+      "cli-decompose-claim": 1,
+      "cli-decompose-create": 2,
+      "cli-decompose-get": 4,
+      "cli-decompose-ready": 1,
+      "cli-decompose-update": 3,
+      "cli-flywheel-status": 253,
+      "cli-gate-metrics": 253,
+      "cli-health-delta-status": 253,
+      "cli-incremental-status": 253,
+      "cli-index-find": 6,
+      "cli-index-status": 256,
+      "cli-kpi": 1441,
+      "cli-learning-reward": 4,
+      "cli-learning-status": 4573,
+      "cli-memory-credit": 4,
+      "cli-memory-link": 26,
+      "cli-memory-links": 1,
+      "cli-memory-query": 5,
+      "cli-memory-recall": 28,
+      "cli-memory-store": 13,
+      "cli-resource-monitor-status": 253,
+      "cli-session-list": 253,
+      "cli-suggest": 1,
+      "cli-wiring-impact": 6,
+      "cli-wiring-orphans": 2,
+      "cli-wiring-status": 253,
+      "instructions-loaded": 19,
+      "post-bash": 1,
+      "post-compact": 1,
+      "post-tool-batch": 1,
+      "post-tool-rl": 1,
+      "pre-bash": 1,
+      "subagent-stop": 1
+    },
+    "mirror_deliveries_by_origin": {
+      "post_bash": 1,
+      "sdk": 17,
+      "unknown": 0
+    },
+    "mirror_deliveries_since": 18,
+    "mirror_non_canonical_since": 0,
+    "post_bash_delivery_ratio": 1.0,
+    "post_bash_dispatched": 1,
+    "post_bash_origin_deliveries_since": 1,
+    "since_epoch": 1788366847
   },
   "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-02",
   "summary": {
-    "advisory": 11,
+    "advisory": 7,
     "failed": 0,
-    "passed": 15,
+    "passed": 18,
     "regressions": 0,
-    "stub": 15,
+    "stub": 16,
     "total": 41
   }
 }

@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use touring_code::sdk::HookName;
 use touring_code::sdk_signal_mirror::{
-    default_mirror_path, read, record, signal_report_from_journal_and_mirror,
+    MirrorOrigin, default_mirror_path, read, record, signal_report_from_journal_and_mirror,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -56,12 +56,12 @@ fn run(
     // Step 1 — seed the mirror with synthetic calls. A real PostToolUse
     // handler invokes `record()` exactly this way.
     for _ in 0..5 {
-        record(mirror, HookName::AstMeta, 8, true)?;
+        record(mirror, HookName::AstMeta, 8, true, MirrorOrigin::Sdk)?;
     }
     for _ in 0..3 {
-        record(mirror, HookName::MemoryRecall, 42, true)?;
+        record(mirror, HookName::MemoryRecall, 42, true, MirrorOrigin::Sdk)?;
     }
-    record(mirror, HookName::Parallel, 100, false)?;
+    record(mirror, HookName::Parallel, 100, false, MirrorOrigin::Sdk)?;
 
     // Step 2 — read what we just wrote.
     let agg = read(mirror)?;

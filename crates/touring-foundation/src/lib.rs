@@ -31,6 +31,7 @@
 // `unwrap_used = deny` march (RBP-01 fix-first remainder).
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
+pub mod cila;
 pub mod alloc;
 pub mod char_classes;
 pub mod checkpoint;

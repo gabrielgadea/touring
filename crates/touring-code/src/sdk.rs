@@ -266,8 +266,9 @@ pub fn record_hook_call(
     hook: HookName,
     duration_ms: u32,
     success: bool,
+    origin: crate::sdk_signal_mirror::MirrorOrigin,
 ) -> Result<PathBuf, crate::sdk_signal_mirror::MirrorError> {
-    crate::sdk_signal_mirror::record(mirror_path, hook, duration_ms, success)
+    crate::sdk_signal_mirror::record(mirror_path, hook, duration_ms, success, origin)
 }
 
 /// F4 P3 (2026-09-01) — classify a PostToolUse bash command line into the

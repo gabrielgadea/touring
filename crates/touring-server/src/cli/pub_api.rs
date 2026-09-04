@@ -253,7 +253,7 @@ mod tests {
         let old_set = extract_pub_symbols(old);
         let new_set = extract_pub_symbols(new);
         let added: Vec<_> = new_set.difference(&old_set).collect();
-        assert_eq!(added.len(), 0);
+        assert!(added.is_empty(), "símbolos públicos inesperados: {added:?}");
         assert_eq!(old_set.difference(&new_set).count(), 1);
         assert!(old_set.difference(&new_set).any(|s| s == "b"));
     }

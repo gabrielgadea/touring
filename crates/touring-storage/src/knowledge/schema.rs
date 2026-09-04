@@ -322,7 +322,7 @@ impl FileKnowledgeDB {
 
             CREATE TABLE IF NOT EXISTS {cog} (
                 file_path TEXT PRIMARY KEY,
-                cognitive_score REAL NOT NULL DEFAULT 0.0,
+                quality_score REAL NOT NULL DEFAULT 0.0,
                 complexity_signal REAL NOT NULL DEFAULT 0.0,
                 fan_in_signal REAL NOT NULL DEFAULT 0.0,
                 fan_out_signal REAL NOT NULL DEFAULT 0.0,
@@ -348,6 +348,33 @@ impl FileKnowledgeDB {
     ///
     /// Each migration is idempotent — safe to run multiple times.
     pub(super) fn migrate_schema(&self) -> Result<(), rusqlite::Error> {
+        // 04/09/2026 — `cognitive_enrichment.cognitive_score` → `quality_score`.
+        //
+        // The column holds `analyze_quality().overall_score`, which the producer
+        // declares as "[0.0, 1.0] where higher is better". Under the old name every
+        // reader called it a complexity score and `ActionSignature` flagged the
+        // CLEANEST files as `HiComplexity`. The name now carries the direction, so a
+        // future reader running `SELECT quality_score FROM cognitive_enrichment`
+        // cannot inherit the misunderstanding.
+        //
+        // Detected by probing for the NEW column, not the old one: a positive test
+        // ("is the target state present?") is idempotent and stays correct on a fresh
+        // database, where neither ALTER is needed and the old column never existed.
+        let cog = schema_guard::TABLE_COGNITIVE_ENRICHMENT;
+        let table_exists: bool = self
+            .conn
+            .prepare(&format!("SELECT file_path FROM {cog} LIMIT 0"))
+            .is_ok();
+        let has_quality: bool = self
+            .conn
+            .prepare(&format!("SELECT quality_score FROM {cog} LIMIT 0"))
+            .is_ok();
+        if table_exists && !has_quality {
+            self.conn.execute_batch(&format!(
+                "ALTER TABLE {cog} RENAME COLUMN cognitive_score TO quality_score;"
+            ))?;
+        }
+
         let has_error_pattern: bool = self
             .conn
             .prepare(&format!(

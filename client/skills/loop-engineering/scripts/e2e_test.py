@@ -15,6 +15,7 @@ Exit 0 ⟺ every assertion passed. Usage: `e2e_test.py [--verbose]`.
 """
 from __future__ import annotations
 
+import pytest
 import argparse
 import json
 import subprocess
@@ -78,6 +79,21 @@ def test_converged_fail_closed():
     check("converged_fail_closed", cv["converged"] is False and "dag_done" in cv["unmet"],
           "never converged without DAG evidence")
     check("converged_exit1", p.returncode == 1)
+
+
+@pytest.fixture
+def bundle(tmp_path):
+    """O bundle que `test_phase_close_and_gate` sempre exigiu e ninguem fornecia.
+
+    O arquivo e' um e2e dirigido por script, mas o nome casa o padrao de coleta
+    do pytest, entao a funcao era coletada como teste e morria em `fixture
+    'bundle' not found` — um ERRO de coleta que a suite carregava ha' tempo sem
+    executar a verificacao nenhuma vez. Uma verificacao que nunca roda e' pior
+    que uma ausente: ela conta como cobertura.
+    """
+    b = tmp_path / "bundle-e2e"
+    b.mkdir()
+    return b
 
 
 def test_phase_close_and_gate(bundle):

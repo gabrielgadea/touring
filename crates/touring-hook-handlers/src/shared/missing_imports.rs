@@ -23,7 +23,7 @@ use touring_code::ast::{Lang, extract_imports_resolved};
 /// Score of an import suggestion: advisory — a missing `use` is a compile
 /// error the author sees seconds later, not a security event — but above the
 /// antipattern noise floor so the budget keeps it.
-pub const MISSING_IMPORT_SCORE: f32 = 0.75;
+const MISSING_IMPORT_SCORE: f32 = 0.75;
 
 /// PascalCase type references in `content` that nothing in `content` brings
 /// into scope (imports incl. grouped/aliased/glob, own declarations, builtins,

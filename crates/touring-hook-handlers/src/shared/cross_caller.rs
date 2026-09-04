@@ -21,7 +21,7 @@ use crate::shared::signal_pipeline::{ProposedChange, SignalContext, SignalLayer}
 
 /// Score of a cross-caller signal: high — a forgotten analogous site is a
 /// latent bug, not a style remark.
-pub const CROSS_CALLER_SCORE: f32 = 0.8;
+const CROSS_CALLER_SCORE: f32 = 0.8;
 
 /// Callee names whose call text differs between `old` and `new`.
 ///

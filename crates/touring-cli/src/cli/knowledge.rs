@@ -261,7 +261,7 @@ pub fn cli_file_knowledge_extended(rt: &mut HookRuntime, payload: &serde_json::V
         if let Err(e) = db.conn_ref().execute_batch(
             "CREATE TABLE IF NOT EXISTS cognitive_enrichment (
                 file_path TEXT PRIMARY KEY,
-                cognitive_score REAL NOT NULL DEFAULT 0.0,
+                quality_score REAL NOT NULL DEFAULT 0.0,
                 complexity_signal REAL NOT NULL DEFAULT 0.0,
                 fan_in_signal REAL NOT NULL DEFAULT 0.0,
                 fan_out_signal REAL NOT NULL DEFAULT 0.0,

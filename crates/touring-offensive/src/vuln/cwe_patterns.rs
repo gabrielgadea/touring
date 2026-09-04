@@ -90,7 +90,31 @@ impl VulnerabilityPattern for XssPattern {
             )
             .expect("valid static regex")
         });
-        re.find(input)
+        /// `at` is inside an HTML tag opened before it and not yet closed:
+        /// the last `<` before `at` is followed by a letter and no `>`
+        /// follows it. `Vec<u8>` closes; `a < b` never opens.
+        fn inside_open_tag(input: &str, at: usize) -> bool {
+            let before = &input[..at];
+            let Some(lt) = before.rfind('<') else {
+                return false;
+            };
+            let opens_tag = before[lt + 1..]
+                .bytes()
+                .next()
+                .is_some_and(|b| b.is_ascii_alphabetic());
+            opens_tag && !before[lt..].contains('>')
+        }
+        re.find_iter(input)
+            .find(|m| {
+                let text = m.as_str();
+                // B3 (2026-09-02): the handler arm (`on<event>=`) is an HTML
+                // attribute — a sink only INSIDE an open tag. Bare, it is a
+                // keyword argument: `os.walk(top, onerror=…)` in a diagnostic
+                // script was blocked by the P0 gate (F2.1) as XSS.
+                text.starts_with("<script")
+                    || text.starts_with("javascript:")
+                    || inside_open_tag(input, m.start())
+            })
             .map(|m| VulnMatch::new("XSS".into(), (m.start(), m.end()), 8.1, 79))
     }
     fn name(&self) -> &str {
@@ -527,7 +551,10 @@ mod tests {
         assert!(p.detect("<script>").is_some());
         assert!(p.detect("<script src=\"evil.js\">").is_some());
         assert!(p.detect("javascript:").is_some());
-        assert!(p.detect("onerror=").is_some());
+        // B3 (02/09/2026): a bare `onerror=` fragment is no longer a sink — an
+        // event-handler attribute executes only inside a tag; bare, it is the
+        // shape of a keyword argument (`os.walk(top, onerror=…)`).
+        assert!(p.detect("onerror=").is_none());
         assert!(p.detect("<img src=x onerror=alert(1)>").is_some());
         assert!(p.detect("<svg/onload=alert(1)>").is_some());
         assert!(p.detect("<body onload=\"evil()\">").is_some());
@@ -546,6 +573,14 @@ mod tests {
         assert!(p.detect("const online = true;").is_none());
         assert!(p.detect("console.log(\"monitor=on\")").is_none());
         assert!(p.detect("<div class=\"foo\">").is_none());
+        // B3 (02/09/2026): a keyword ARGUMENT named like a DOM event is not a
+        // sink — `os.walk(top, onerror=…)` in a diagnostic script was blocked by
+        // the P0 gate as XSS. Only an attribute inside an OPEN tag counts, and
+        // the tag may have been opened on an earlier line.
+        assert!(p.detect("for root, dirs, files in os.walk(path, onerror=lambda e: None):").is_none());
+        assert!(p.detect("urlopen(url, onerror=handler)").is_none());
+        assert!(p.detect("<img src=x\n     onerror=alert(1)>").is_some());
+        assert!(p.detect("let v: Vec<u8> = f(onerror=1);").is_none());
         assert_eq!(p.name(), "XSS");
         assert_eq!(p.cwe_id(), 79);
     }

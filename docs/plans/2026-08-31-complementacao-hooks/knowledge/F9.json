@@ -1,0 +1,45 @@
+{
+  "phase": "F9",
+  "entities": [
+    {
+      "entity_id": "phase:F9",
+      "type": "phase",
+      "description": "F9 origem no mirror: HookCallEntry.origin (serde default, legado=null) + MirrorOrigin{PostBash,Sdk}; record/record_hook_call recebem origem; post_bash grava post_bash e success real; template Python grava origin=sdk (guard cruzado le MirrorOrigin::Sdk.as_str()); KPI hooks_complement expoe mirror_deliveries_by_origin e post_bash_origin_deliveries_since e a razao usa so post_bash. Mutacao (sdk creditado a post_bash) flagrada. touring-code 15, kpi 4, server 3 testes verdes; clippy code/cli/handlers limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1788318067626657742:F9:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788318067626657742",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788318067626657742",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F9|produces|memory:loop:task_1788318067626657742:F9:done",
+      "source": "phase:F9",
+      "type": "produces",
+      "target": "memory:loop:task_1788318067626657742:F9:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:F9:done|generated-by|loop:loop:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:F9:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788318067626657742"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:F9:done|generated-by|dag:decomp:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:F9:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788318067626657742"
+    }
+  ]
+}

@@ -476,7 +476,7 @@ impl FileKnowledgeDB {
     pub fn upsert_cognitive_enrichment(
         &self,
         file_path: &str,
-        cognitive_score: f64,
+        quality_score: f64,
         complexity_signal: f64,
         fan_in_signal: f64,
         fan_out_signal: f64,
@@ -484,7 +484,7 @@ impl FileKnowledgeDB {
     ) -> Result<(), rusqlite::Error> {
         let sql = format!(
             "INSERT OR REPLACE INTO {}
-             (file_path, cognitive_score, complexity_signal, fan_in_signal, fan_out_signal, doc_signal, updated_at)
+             (file_path, quality_score, complexity_signal, fan_in_signal, fan_out_signal, doc_signal, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
             schema_guard::TABLE_COGNITIVE_ENRICHMENT
         );
@@ -492,7 +492,7 @@ impl FileKnowledgeDB {
             &sql,
             params![
                 file_path,
-                cognitive_score,
+                quality_score,
                 complexity_signal,
                 fan_in_signal,
                 fan_out_signal,
@@ -508,7 +508,7 @@ impl FileKnowledgeDB {
         file_path: &str,
     ) -> crate::errors::Result<Option<CognitiveScores>> {
         let sql = format!(
-            "SELECT cognitive_score, complexity_signal, fan_in_signal, fan_out_signal, doc_signal
+            "SELECT quality_score, complexity_signal, fan_in_signal, fan_out_signal, doc_signal
              FROM {} WHERE file_path = ?1",
             schema_guard::TABLE_COGNITIVE_ENRICHMENT
         );

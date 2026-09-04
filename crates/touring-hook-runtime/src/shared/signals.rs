@@ -15,12 +15,58 @@
 //! - [`wilson_adjusted_score`]: WilsonRanker confidence-bounded scoring (E8, touring-simd).
 //! - RRF fusion via `touring_cortex::rrf_strings()` (E16) for multi-signal ranking.
 
+use touring_foundation::knowledge_source::BashOutcomeRecord;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use touring_code::ast::graph::SymbolIndex;
 use touring_intelligence::reasoning::BM25TfIdfVectorizer;
 use touring_simd::WilsonRanker;
+
+/// P2/S-2.2 (2026-09-04) — the failures that a later success has NOT already
+/// superseded, newest first, at most `take` of them.
+///
+/// A failure followed by a success of the SAME command is a resolved trace, and
+/// re-injecting it is precisely the error-cascade noise a harness exists to
+/// purge (Eixo 3: *expurgo seletivo de rastros superados* — once the failure is
+/// overcome, the debugging steps are replaced by a single sentence, not replayed).
+///
+/// Measured over 10 transcripts / 406 turns (04/09/2026): this echo was **86,4 %
+/// byte-identical repetition**, because the same failure sat in the 3-outcome
+/// window and was re-emitted on every hook invocation regardless of whether the
+/// command had since worked.
+///
+/// `outcomes` MUST be newest-first — which is what `recent_bash_outcomes`
+/// returns (`ORDER BY id DESC`). Reading it oldest-first would inverte the
+/// supersession test and suppress exactly the failures that still matter, so the
+/// ordering is an input contract, not a detail.
+///
+/// The rendered line carries the error pattern when the store has one: a bare
+/// `command_short` is often the shell head word (`cd`, `python3`), which names
+/// the invocation and not the failure.
+fn unresolved_failures(outcomes: &[BashOutcomeRecord], take: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    for (i, o) in outcomes.iter().enumerate() {
+        if o.success {
+            continue;
+        }
+        // Anything MORE RECENT than this failure lives at a lower index.
+        let superseded = outcomes[..i]
+            .iter()
+            .any(|later| later.success && later.command_short == o.command_short);
+        if superseded {
+            continue;
+        }
+        out.push(match o.error_pattern.as_deref().filter(|p| !p.is_empty()) {
+            Some(pattern) => format!("{} — {pattern}", o.command_short),
+            None => o.command_short.clone(),
+        });
+        if out.len() >= take {
+            break;
+        }
+    }
+    out
+}
 
 /// Compute a Wilson score lower bound adjustment for a signal based on hit history.
 ///
@@ -403,14 +449,9 @@ pub fn enrich_with_cognitive(
             }
         }
 
-        // EC22: Recent bash failures — surfaces past command failures as proactive context.
-        // Complements EnrichedCtx.bash_failures (EC21 async path) on the sync signal path.
-        let recent_failures: Vec<String> = knowledge
-            .recent_bash_outcomes(3)
-            .into_iter()
-            .filter(|o| !o.success)
-            .map(|o| o.command_short.clone())
-            .collect();
+        // EC22: Recent bash failures — surfaces past command failures as proactive
+        // context. Only the ones NOT yet superseded (P2/S-2.2, see below).
+        let recent_failures = unresolved_failures(&knowledge.recent_bash_outcomes(12), 3);
         if !recent_failures.is_empty() {
             signals.push(format!(
                 "\u{26a1} last fail: {}",
@@ -1505,5 +1546,78 @@ mod tests {
             "Score should be RRF-computed ({expected}), got {}",
             result[0].0
         );
+    }
+}
+
+#[cfg(test)]
+mod unresolved_failure_tests {
+    use super::*;
+
+    fn outcome(cmd: &str, success: bool) -> BashOutcomeRecord {
+        BashOutcomeRecord {
+            command_short: cmd.into(),
+            exit_code: if success { 0 } else { 1 },
+            success,
+            error_pattern: None,
+            file_context: None,
+        }
+    }
+
+    /// O caso medido: `cargo test` falhou, foi CORRIGIDO, e o eco continuava
+    /// reinjetando a falha a cada hook até ela rolar para fora da janela.
+    #[test]
+    fn a_failure_a_later_success_already_fixed_is_not_echoed() {
+        // Mais recente primeiro, como o `ORDER BY id DESC` entrega.
+        let outcomes = [
+            outcome("cargo test", true),  // o conserto
+            outcome("cargo test", false), // a falha ja' superada
+        ];
+        assert!(
+            unresolved_failures(&outcomes, 3).is_empty(),
+            "rastro superado nao volta para a janela"
+        );
+    }
+
+    /// O controle positivo: sem o conserto, a falha DEVE aparecer — senao o
+    /// filtro teria comprado silencio por cegueira.
+    #[test]
+    fn a_failure_with_no_later_success_is_still_echoed() {
+        let outcomes = [outcome("cargo clippy", true), outcome("cargo test", false)];
+        assert_eq!(unresolved_failures(&outcomes, 3), vec!["cargo test"]);
+    }
+
+    /// O contrato de ordenacao e' uma ENTRADA, nao um detalhe: lido ao contrario,
+    /// o teste de supersessao inverte e cala exatamente a falha que ainda importa.
+    #[test]
+    fn the_ordering_contract_is_newest_first_and_reversing_it_changes_the_verdict() {
+        let fixed = [outcome("cargo test", true), outcome("cargo test", false)];
+        let mut reversed = fixed.clone();
+        reversed.reverse(); // sucesso ANTES da falha = a falha e' a mais recente
+        assert!(unresolved_failures(&fixed, 3).is_empty());
+        assert_eq!(
+            unresolved_failures(&reversed, 3),
+            vec!["cargo test"],
+            "com a falha mais recente que o sucesso, ela continua aberta"
+        );
+    }
+
+    /// Um `command_short` como `cd` nomeia a invocacao, nao a falha. Quando o
+    /// armazenamento tem o padrao de erro, a linha o carrega.
+    #[test]
+    fn the_error_pattern_travels_with_the_command_when_one_exists() {
+        let mut o = outcome("python3", false);
+        o.error_pattern = Some("SyntaxError".into());
+        assert_eq!(unresolved_failures(&[o], 3), vec!["python3 — SyntaxError"]);
+    }
+
+    #[test]
+    fn the_take_limit_is_respected_and_the_newest_survive() {
+        let outcomes = [
+            outcome("a", false),
+            outcome("b", false),
+            outcome("c", false),
+            outcome("d", false),
+        ];
+        assert_eq!(unresolved_failures(&outcomes, 2), vec!["a", "b"]);
     }
 }

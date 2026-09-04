@@ -145,11 +145,32 @@ class JournalRoundtripTests(unittest.TestCase):
         self.assertEqual(cf.padrao_data()["n"], 1)
 
     def test_mais_ausentes_aponta_a_operacao_que_falta(self):
+        """O ranking tem de apontar a operacao REALMENTE mais ausente.
+
+        A versao anterior media UM texto com cinco operacoes ausentes, todas
+        empatadas em 1, e exigia que 'pronto' estivesse no top-3 — o que era uma
+        moeda: `chaves - set(...)` itera um SET, cuja ordem depende do
+        PYTHONHASHSEED, entao o mesmo texto dava rankings diferentes entre
+        execucoes. O produtor agora desempata pela ordem do ESQUEMA (deterministico),
+        e o teste passa a montar um caso onde 'pronto' e' inequivocamente o mais
+        ausente, em vez de torcer pelo empate.
+        """
+        # Duas medicoes. A segunda usa o vocabulario REAL do detector para as
+        # seis outras operacoes, deixando so' 'pronto' de fora — assim ele fica
+        # ausente 2x contra 1x das demais, e o topo do ranking e' um FATO da
+        # serie, nao um empate desempatado por convencao.
         cf.main(["medir", "--texto",
-                 "As etapas: primeiro a, depois b. Não deve tocar rede.",
+                 "As etapas: primeiro a, depois b. Nao deve tocar rede.",
+                 "--gravar"])
+        cf.main(["medir", "--texto",
+                 "A intencao e' medir. Para que a serie sirva ao operador. "
+                 "O resultado final deve conter o ranking. Nao deve tocar rede. "
+                 "As etapas: primeiro medir, depois agregar. "
+                 "Riscos: o detector e' lexical e pode errar.",
                  "--gravar"])
         pad = cf.padrao_data()
-        self.assertIn("pronto", pad["mais_ausentes"])
+        self.assertEqual(pad["mais_ausentes"][0], "pronto",
+                         f"ausente nas duas medicoes: {pad['mais_ausentes']}")
 
     def test_par_cross_dominio_junta_as_2_ultimas_de_dominios_distintos(self):
         cf.main(["medir", "--texto", "etapas: a depois b", "--gravar",

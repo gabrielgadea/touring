@@ -371,7 +371,12 @@ def cache_put(key: str, payload: dict[str, Any]) -> Path:
 # ── Regex validators ─────────────────────────────────────────────────────
 
 
-_KEBAB_VALID = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
+# The acervo decides the alphabet, not intuition (same census rule stated for
+# paths a few lines above, which this predicate had not inherited): a plan id
+# in this repo is `YYYY-MM-DD-slug`, so it STARTS WITH A DIGIT. Requiring a
+# leading letter warned on every dated bundle — 73 of 80 measured 04/09/2026 —
+# which is a warning nobody can act on and everybody learns to ignore.
+_KEBAB_VALID = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 _PLAN_LEVEL_VALID = re.compile(r"^L[0-5]$")
 
 

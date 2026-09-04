@@ -417,6 +417,65 @@ fn test_pre_write_flags_a_homonym_of_a_name_the_new_file_declares() {
     }
 }
 
+/// S8 (2026-09-02): the CWE scanner runs over the content about to be WRITTEN.
+/// `CweScanLayer` existed since H6 and was wired to no pipeline (REGRA #0).
+/// The fixture is assembled at runtime so the detector never fires on this
+/// test file itself.
+#[test]
+fn test_pre_write_flags_a_hardcoded_credential_in_the_new_content() {
+    let (_tmp, mut rt) = setup_runtime();
+    let prefix = ["s", "k", "-"].concat();
+    let content = format!(
+        "pub fn client() -> String {{\n    let api_key = \"{prefix}live-PLACEHOLDER\";\n    api_key.to_string()\n}}\n"
+    );
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/client_s8.rs").display().to_string(),
+            "new_file": true,
+            "content": content
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("CWE-798"),
+                "pre_write must name the hardcoded credential before the write, got: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with CWE-798, got {other:?}"),
+    }
+}
+
+/// S9 (2026-09-02): a proposed `.rs` carries its semantic badge — syn's
+/// `RustSemanticReport` (generics, trait impls, lifetimes) and the public API
+/// count, computed on the content BEFORE it is written.
+#[test]
+fn test_pre_write_shows_the_rust_semantic_badge_for_a_new_rs_file() {
+    let (_tmp, mut rt) = setup_runtime();
+    let content = "pub struct Holder<T: Clone> {\n    pub value: T,\n}\n\n\
+impl<T: Clone> Default for Holder<T> where T: Default {\n    fn default() -> Self {\n        Self { value: T::default() }\n    }\n}\n\n\
+pub fn make<T: Clone + Default>() -> Holder<T> {\n    Holder::default()\n}\n";
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/holder_s9.rs").display().to_string(),
+            "new_file": true,
+            "content": content
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[rust] semantic "),
+                "pre_write must carry the semantic badge for a new .rs, got: {context:?}"
+            );
+            assert!(context.contains("pub API"), "{context:?}");
+        }
+        other => unreachable!("expected Context with the [rust] badge, got {other:?}"),
+    }
+}
+
 /// S10 (2026-09-02, ex-B4): the call graph reaches TS/JS content — the library
 /// dispatched them already; only the hook's `.rs`/`.py` filter kept them out.
 #[test]

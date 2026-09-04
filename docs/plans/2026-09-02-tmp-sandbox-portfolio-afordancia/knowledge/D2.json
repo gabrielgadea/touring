@@ -1,0 +1,45 @@
+{
+  "phase": "D2",
+  "entities": [
+    {
+      "entity_id": "phase:D2",
+      "type": "phase",
+      "description": "A premissa do canvas caiu na investigacao: handlers passados como VALOR nu sao ZERO; a tabela despacha por closures que CHAMAM. O que se perdia era o QUALIFICADOR \u2014 a query guardava so o ultimo segmento de super::backup::run() e o workspace tem 130 produtores chamados run contra teto de 4. Entregue extract_qualified_calls (pares modulo,nome) + find_producer_modules_for_qualified (uma aresta por par, desempate para o crate do consumidor) + as duas rotas de inferencia alimentando o novo caminho. Segundo achado, o mais caro: o interior de macro e token_tree, nao codigo \u2014 as 132 chamadas da tabela vivem em vec![] e nenhuma aparece como call_expression; meu teste usava a forma conveniente e passava. Varredura textual dentro do token_tree fechou o caso."
+    },
+    {
+      "entity_id": "memory:loop:task_1788360579582461575:D2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788360579582461575",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788360579582461575",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:D2|produces|memory:loop:task_1788360579582461575:D2:done",
+      "source": "phase:D2",
+      "type": "produces",
+      "target": "memory:loop:task_1788360579582461575:D2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788360579582461575:D2:done|generated-by|loop:loop:task_1788360579582461575",
+      "source": "memory:loop:task_1788360579582461575:D2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788360579582461575"
+    },
+    {
+      "relation_id": "memory:loop:task_1788360579582461575:D2:done|generated-by|dag:decomp:task_1788360579582461575",
+      "source": "memory:loop:task_1788360579582461575:D2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788360579582461575"
+    }
+  ]
+}

@@ -47,6 +47,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
 pub mod ast;
+pub mod cwe_scan;
 pub mod error;
 pub mod journal;
 pub mod languages;

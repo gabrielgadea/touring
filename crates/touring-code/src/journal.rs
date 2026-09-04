@@ -75,6 +75,25 @@ impl FailureKind {
             None => Self::Exception, // unreachable: gated by Option
         }
     }
+
+    /// O nome canônico da classe — o mesmo que o journal grava.
+    ///
+    /// Cross-audit 04/09/2026: `by_failure_kind` no KPI era um histograma da string
+    /// CRUA do journal, então uma classe desconhecida (ou grafada errado) virava um
+    /// balde próprio em vez de cair em `Other`, e a taxonomia declarada na diretriz
+    /// A5 não valia na ponta que lê. Com `from_str_opt` + `as_str` o KPI passa a
+    /// contar as 7 classes que existem, e só elas.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Exception => "exception",
+            Self::Timeout => "timeout",
+            Self::Abort => "abort",
+            Self::ProcExit => "proc-exit",
+            Self::InvalidOutput => "invalid-output",
+            Self::OutputLimit => "output-limit",
+            Self::Other => "other",
+        }
+    }
 }
 
 /// One journal entry. Field order matches the on-disk JSON.
@@ -97,7 +116,31 @@ pub struct JournalEntry {
     /// Bytes omitted from the journal by the elision step (token-budget).
     #[serde(default)]
     pub bytes_elided: u64,
+    /// B2 (2026-09-02): where the body came from — `file` | `inline` | `stdin`.
+    /// `None` on v1 lines (written before the field existed).
+    #[serde(default)]
+    pub source: Option<String>,
+    /// B2: the script path when `source == "file"`.
+    #[serde(default)]
+    pub file: Option<String>,
+    /// B2: the `--harvest <slug>` this run enrolled, if any.
+    #[serde(default)]
+    pub harvest: Option<String>,
+    /// B2: `--brief` was requested.
+    #[serde(default)]
+    pub brief: bool,
+    /// B2: `--orchestrate` SDK was injected.
+    #[serde(default)]
+    pub orchestrate: bool,
+    /// B2: bytes the run left in its private temp dir (B1), measured before
+    /// removal.
+    #[serde(default)]
+    pub tmp_bytes: u64,
 }
+
+/// Prefix of the Claude Code per-session scratchpad — a script that lives
+/// there is one-off by construction (tmpfs, per session).
+pub const HARNESS_SCRATCH_PREFIX: &str = "/tmp/claude-";
 
 /// Aggregate over a slice of `JournalEntry`s. Cheap to compute (one pass).
 #[derive(Debug, Clone, Default, Serialize)]
@@ -116,6 +159,21 @@ pub struct JournalAggregate {
     pub duration_ms_p50: u64,
     /// 99th-percentile duration across all entries (ms).
     pub duration_ms_p99: u64,
+    /// B2: runs whose body came from a file (`--file`).
+    pub file_runs: u64,
+    /// B2: runs whose body was inline text (`--code`).
+    pub inline_runs: u64,
+    /// B2: file runs whose script lives under the harness scratchpad
+    /// (`/tmp/claude-*`) — one-off by construction.
+    pub scratch_file_runs: u64,
+    /// B2: runs that enrolled a `--harvest` slug.
+    pub harvested_runs: u64,
+    /// B2: runs that asked for `--brief`.
+    pub brief_runs: u64,
+    /// B2: runs with the `--orchestrate` SDK injected.
+    pub orchestrate_runs: u64,
+    /// B2: bytes left in private run temp dirs, summed (B1 `tmp_bytes`).
+    pub total_tmp_bytes: u64,
 }
 
 /// Per-language breakdown of journal runs. Cheap to compute (one pass).
@@ -214,6 +272,9 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
     let mut durations_all: Vec<u32> = Vec::with_capacity(entries.len());
     let mut total_bytes_elided: u64 = 0;
     let mut total_code_hash: u64 = 0;
+    let (mut file_runs, mut inline_runs, mut scratch_file_runs) = (0u64, 0u64, 0u64);
+    let (mut harvested_runs, mut brief_runs, mut orchestrate_runs) = (0u64, 0u64, 0u64);
+    let mut total_tmp_bytes: u64 = 0;
 
     for entry in entries {
         by_lang
@@ -226,6 +287,25 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
         durations_all.push(entry.duration_ms);
         total_bytes_elided += entry.bytes_elided;
         total_code_hash += entry.code_hash_stdout_bytes;
+        // B2 — the reuse axes. A v1 line (no `source`) counts in neither.
+        match entry.source.as_deref() {
+            Some("file") => {
+                file_runs += 1;
+                if entry
+                    .file
+                    .as_deref()
+                    .is_some_and(|f| f.starts_with(HARNESS_SCRATCH_PREFIX))
+                {
+                    scratch_file_runs += 1;
+                }
+            }
+            Some("inline") => inline_runs += 1,
+            _ => {}
+        }
+        harvested_runs += u64::from(entry.harvest.is_some());
+        brief_runs += u64::from(entry.brief);
+        orchestrate_runs += u64::from(entry.orchestrate);
+        total_tmp_bytes += entry.tmp_bytes;
     }
 
     let (p50_all, p99_all) = percentiles(&mut durations_all);
@@ -257,6 +337,13 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
         total_code_hash_stdout_bytes: total_code_hash,
         duration_ms_p50: p50_all,
         duration_ms_p99: p99_all,
+        file_runs,
+        inline_runs,
+        scratch_file_runs,
+        harvested_runs,
+        brief_runs,
+        orchestrate_runs,
+        total_tmp_bytes,
     }
 }
 
@@ -273,6 +360,45 @@ fn percentiles(values: &mut [u32]) -> (u64, u64) {
         values[idx.min(values.len() - 1)] as u64
     };
     (p(0.50), p(0.99))
+}
+
+#[cfg(test)]
+mod v2_tests {
+    use super::*;
+
+    /// B2 (2026-09-02): the journal is the M1 ruler and it was BLIND to reuse —
+    /// no field said whether a run came from a file or inline text, whether
+    /// it was harvested, brief, orchestrate, or how much tmp it left behind
+    /// (6.435 lines, `harvest_flagged: 0` was a measurement gap, not a fact).
+    /// v2 lines carry those fields; v1 lines still parse with defaults.
+    #[test]
+    fn v2_fields_parse_and_aggregate_while_v1_lines_still_read() {
+        let v1 = r#"{"ts":1,"language":"python","exit_code":0,"failure_kind":null,"duration_ms":5,"code_hash_stdout_bytes":10,"bytes_elided":0}"#;
+        let v2 = r#"{"ts":2,"language":"python","exit_code":0,"failure_kind":null,"duration_ms":7,"code_hash_stdout_bytes":10,"bytes_elided":0,"source":"file","file":"/tmp/claude-1000/x/scratchpad/probe.py","harvest":"probe-tmp","brief":true,"orchestrate":true,"tmp_bytes":4096}"#;
+        let v2b = r#"{"ts":3,"language":"bash","exit_code":1,"failure_kind":"exception","duration_ms":9,"code_hash_stdout_bytes":0,"bytes_elided":0,"source":"inline","file":null,"harvest":null,"brief":false,"orchestrate":false,"tmp_bytes":0}"#;
+        let agg = read_journal_iter([v1, v2, v2b].into_iter().enumerate().map(|(i, l)| (i + 1, Ok(l.to_string()))))
+            .expect("three parseable lines");
+        assert_eq!(agg.total_entries, 3);
+        assert_eq!(agg.file_runs, 1, "one run came from a file");
+        assert_eq!(agg.inline_runs, 1, "one run declared inline; the v1 line is unknown");
+        assert_eq!(agg.harvested_runs, 1);
+        assert_eq!(agg.brief_runs, 1);
+        assert_eq!(agg.orchestrate_runs, 1);
+        assert_eq!(agg.scratch_file_runs, 1, "a file under the harness scratchpad");
+        assert_eq!(agg.total_tmp_bytes, 4096);
+    }
+
+    #[test]
+    fn v2_entry_fields_are_typed() {
+        let line = r#"{"ts":2,"language":"python","exit_code":0,"duration_ms":7,"source":"file","file":"scripts/x.py","harvest":"slug","brief":true,"orchestrate":false,"tmp_bytes":12}"#;
+        let e: JournalEntry = serde_json::from_str(line).expect("parses");
+        assert_eq!(e.source.as_deref(), Some("file"));
+        assert_eq!(e.file.as_deref(), Some("scripts/x.py"));
+        assert_eq!(e.harvest.as_deref(), Some("slug"));
+        assert!(e.brief);
+        assert!(!e.orchestrate);
+        assert_eq!(e.tmp_bytes, 12);
+    }
 }
 
 /// The canonical journal path under the active user's `$HOME`.

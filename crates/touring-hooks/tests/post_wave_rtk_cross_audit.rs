@@ -189,6 +189,8 @@ fn cross_audit_new2_tee_redacts_secrets_before_disk() {
     // Even an unredacted failure stderr cannot leak credentials via tee.
     let (_tmp, _dir) = unique_tee_dir("rtk-redact");
 
+    // touring-quality:allow-secrets — synthetic credential proving the tee redacts
+    // before writing to disk; see the note in `master_plan_e2e.rs` for the trade-off.
     let leaky = b"GH_TOKEN=ghp_abcdef1234567890\nERROR: 401 Unauthorized\n";
     let hash = hash_output(leaky);
     let path = store_tee(&hash, leaky).expect("store_tee");

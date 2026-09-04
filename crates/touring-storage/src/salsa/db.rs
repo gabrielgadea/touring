@@ -99,7 +99,7 @@ pub struct SymbolUse {
 pub struct FileMeta {
     pub file: FileText,
     pub complexity_score: f64,
-    pub cognitive_score: f64,
+    pub quality_score: f64,
     pub fan_out: u32,
     pub fan_in: u32,
 }

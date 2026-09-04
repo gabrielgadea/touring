@@ -191,7 +191,15 @@ fn score_duplication(type1_ratio: f64, combined_ratio: f64) -> f32 {
 // ── Standalone fallback: isolated duplicate-line ratio (no block detection) ───
 #[cfg(not(feature = "workspace-integration"))]
 fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
-    let raw = crate::verifications::read_target_source(target)?;
+    // Cross-audit 04/09/2026 — o fallback lia o corpus SEM excluir árvore gerada,
+    // enquanto o caminho principal exclui desde sempre: os dois discordavam sobre o
+    // que é o corpus, e clone de gerador (a assinatura do gerador, não débito)
+    // entrava na conta só nesta build. `read_target_source_excluding_generated`
+    // existia exatamente para isto e não tinha consumidor — era um dos 5 órfãos
+    // reais da auditoria. A exclusão é ANUNCIADA: um filtro silencioso repetiria a
+    // falha do teto invisível de 02/08.
+    let (raw, generated_excluded, truncated) =
+        crate::verifications::read_target_source_excluding_generated(target)?;
 
     let lines: Vec<&str> = raw.lines().collect();
     let mut seen: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
@@ -205,10 +213,18 @@ fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
     let total_lines = lines.len().max(1);
     let dup_ratio = dup_lines as f32 / total_lines as f32;
     let value = (1.0 - dup_ratio.min(1.0)).clamp(0.0, 1.0);
-    let evidence = format!(
+    let mut evidence = format!(
         "Code Duplication: {dup_lines} repeated lines (isolated-line heuristic; build \
          --features workspace-integration for Type-1 block clone detection) — score={value:.3}"
     );
+    if generated_excluded > 0 {
+        evidence.push_str(&format!(
+            "; {generated_excluded} machine-generated file(s) excluded (openapi-generator markers)"
+        ));
+    }
+    if truncated {
+        evidence.push_str("; corpus TRUNCADO no teto de bytes — score de prefixo, não do escopo");
+    }
     Ok((value, evidence))
 }
 
@@ -334,6 +350,36 @@ mod tests {
         assert!(
             s.evidence.contains("machine-generated file(s) excluded"),
             "exclusion must be announced, got: {}",
+            s.evidence
+        );
+    }
+
+    /// Cross-audit 04/09/2026 — o MESMO contrato no caminho standalone. Ate hoje o
+    /// fallback lia o corpus sem excluir arvore gerada: os dois caminhos discordavam
+    /// sobre o que e o corpus, e a build sem features contava clone de gerador como
+    /// debito. O teste vive sob `cfg(not(...))` porque so essa build o compila —
+    /// `cargo test -p touring-quality --no-default-features`.
+    #[cfg(not(feature = "workspace-integration"))]
+    #[test]
+    fn fallback_standalone_tambem_exclui_arvore_gerada_e_anuncia() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let block = "    let a = step_one(input);\n    let b = step_two(a);\n    \
+                     let c = step_three(b);\n    let d = step_four(c);\n    \
+                     let e = step_five(d);\n    let g = step_six(e);\n    let h = step_seven(g);\n";
+        let sdk = dir.path().join("sdks").join("go");
+        std::fs::create_dir_all(&sdk).expect("mkdir");
+        std::fs::write(sdk.join(".openapi-generator-ignore"), "").expect("marker");
+        std::fs::write(
+            sdk.join("a.go"),
+            format!("func first() {{\n{block}}}\nfunc second() {{\n{block}}}\n"),
+        )
+        .expect("write");
+        std::fs::write(dir.path().join("clean.rs"), "fn f() -> i32 { 1 + 2 + 3 }\n")
+            .expect("write");
+        let s = F1_3_Duplication.check(dir.path()).expect("check");
+        assert!(
+            s.evidence.contains("machine-generated file(s) excluded"),
+            "a exclusao tem de ser anunciada tambem no fallback, evidencia: {}",
             s.evidence
         );
     }

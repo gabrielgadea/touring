@@ -88,7 +88,8 @@ def detect_invented_symbols(plan_md: str, ground_truth: dict[str, Any] | None) -
             continue
         seen.add(sym)
         # Heuristic: only flag symbols that look like code refs (mentioned in code-fence proximity)
-        if "`" + sym in plan_md or "::" + sym in plan_md or sym + "(" in plan_md:
+        # Word-boundary aware: a substring check flagged `Blast` from `BlastRadiusSignalLayer` (2026-09-02).
+        if re.search(r"(?:`|::)" + re.escape(sym) + r"\b", plan_md) or re.search(r"\b" + re.escape(sym) + r"\(", plan_md):
             gaps.append({
                 "id": f"G-INV-{sym}",
                 "severity": "P0",
@@ -189,6 +190,11 @@ def detect_orphan_not_addressed(plan_md: str, ground_truth: dict[str, Any] | Non
     if ground_truth is None:
         return []
     orphans = ground_truth.get("wiring_orphans") or []
+    # The collector stores the CLI envelope (dict: {orphans|symbols: [...], count}) — normalise to a list (2026-09-02).
+    if isinstance(orphans, dict):
+        orphans = orphans.get("orphans") or orphans.get("symbols") or orphans.get("items") or []
+    if not isinstance(orphans, list):
+        orphans = []
     gaps: list[dict[str, str]] = []
     for orphan in orphans[:20]:  # cap to keep output bounded
         name = orphan.get("name") or orphan.get("symbol", "")

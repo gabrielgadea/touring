@@ -18,6 +18,8 @@ their fail-open branch: these assert the HOOK's contract, not the daemon's.
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -215,3 +217,67 @@ def test_stop_guard_no_longer_blocks_the_outer():
     assert '"decision": "block"' not in incomplete.split("OUTER incomplete")[1], (
         "the OUTER incomplete path must not block — that is the toll booth"
     )
+
+
+# ── O CONTROLE POSITIVO (04/09/2026) ────────────────────────────────────────────
+#
+# Os 12 testes acima passaram enquanto o gate marcava 0 de 188 turnos em produção.
+# Nenhum deles é falso; eles cobrem etapas VIZINHAS e deixam descoberto o único
+# caminho que produção percorre — a extensão indevida de uma garantia real, a
+# sétima família da taxonomia cross-session (analise-c1, 03/09/2026):
+#
+#   test_task_signal.*      exercita assess() com caminho RELATIVO — produção
+#                           entrega ABSOLUTO, e `ast blast` responde 0 em silêncio
+#                           para absoluto enquanto `ast meta` responde certo;
+#   os testes com file_path SEMPRE pré-armam um marker, então o hook entra pelo
+#                           ramo "marker existe → deny" e assess() nunca roda;
+#   test_no_marker_means_no_gate  passa tool_input {} — sem arquivo. assess("")
+#                           retorna None na 1ª linha: o teste passa por CEGUEIRA;
+#   o guard estrutural      asserta a string "assess(" no fonte — controle TEXTUAL
+#                           lido como COMPORTAMENTAL.
+#
+# E a cegueira está no próprio fixture: `_env` esconde `touring` do PATH de
+# propósito, de modo que NENHUM teste deste arquivo poderia armar.
+#
+# A regra que sai disso: toda asserção NEGATIVA precisa de um irmão POSITIVO no
+# MESMO caminho, com a MESMA forma de entrada. `not deny` casa igualmente com
+# "funcionou certo", "não foi chamado" e "foi chamado com o instrumento mudo" —
+# indistinguíveis no verde.
+
+REPO = Path("/home/gabrielgadea/projects/touring")
+_VIVO = REPO.exists() and shutil.which("touring") is not None
+
+
+def _env_vivo(home, **extra):
+    """O PATH REAL. `_env` omite `touring` de propósito — e é exatamente por isso
+    que o caminho de armar nunca foi exercitado. `TOURING_OUTER_NO_SPAWN` mantém o
+    executor de fundo fora do teste sem tirar `assess` do circuito."""
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(home),
+           "LOOP_ENGINEERING_HOME": str(home), "TOURING_OUTER_NO_SPAWN": "1"}
+    env.update(extra)
+    return env
+
+
+@pytest.mark.skipif(not _VIVO, reason="exige o workspace touring e o CLI no PATH")
+@pytest.mark.parametrize("rel,deve_negar,porque", [
+    ("crates/touring-quality/src/verifications/mod.rs", True,
+     "144 consumidores — mudança que um recall deve preceder"),
+    ("crates/touring-server/src/cli/route.rs", False,
+     "1 consumidor — folha, o gate não pode custar nada aqui"),
+])
+def test_o_caminho_de_armar_pelo_payload_real(tmp_path, rel, deve_negar, porque):
+    """SEM marker, `file_path` ABSOLUTO, cwd real: a forma exata que o PreToolUse entrega.
+
+    O par é indivisível de propósito. O caso que NEGA falha quando o caminho quebra
+    (foi o que aconteceu: absoluto → blast 0 → L0 → nunca arma). O caso que SILENCIA
+    falha quando o sinal satura para cima — o modo pelo qual `cognitive_score` teria
+    armado o gate com mais força justamente sobre markdown. Um só dos dois não separa
+    "gate correto" de "gate cego".
+    """
+    home = tmp_path / "home"; home.mkdir()
+    payload = {"tool_name": "Edit", "cwd": str(REPO), "session_id": "controle-positivo",
+               "tool_input": {"file_path": str(REPO / rel)}}  # ABSOLUTO, como chega de fato
+    proc = subprocess.run([sys.executable, str(EFFECT)], input=json.dumps(payload),
+                          capture_output=True, text=True, env=_env_vivo(home), timeout=180)
+    assert proc.returncode == 0, f"fail-open: exit {proc.returncode} — {proc.stderr}"
+    assert _is_deny(proc.stdout.strip()) is deve_negar, porque

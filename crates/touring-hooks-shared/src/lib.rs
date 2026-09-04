@@ -11,6 +11,7 @@
 // S-13 (2026-06-06) — ActionSignature relocated here from touring-hooks (leaf-safe:
 // zero crate:: deps). Re-exported by the touring-hooks facade as
 // `crate::action_signature` so every call site + the public API stay unchanged.
+pub mod turn_budget;
 pub mod action_signature;
 pub mod hooks_complement_journal; // F6: instrumented emit counter for hooks-complement SignalLayers
 pub mod errors;

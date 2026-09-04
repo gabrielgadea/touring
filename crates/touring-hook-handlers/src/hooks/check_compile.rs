@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// Debounce window: a second check for the same crate within this many
 /// seconds is skipped (edit bursts must not queue N redundant checks).
-pub const DEBOUNCE_SECS: u64 = 30;
+const DEBOUNCE_SECS: u64 = 30;
 
 /// Walk up from `file` to the nearest `Cargo.toml` carrying a `[package]`
 /// section and return the package name. `None` outside a crate (or for a

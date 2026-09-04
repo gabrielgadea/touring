@@ -311,11 +311,14 @@ class _TouringClient:
         mirror = _tr_os2.environ.get("TOURING_SDK_SIGNAL_MIRROR")
         if not mirror:
             return None
+        # F9-origem (02/09): the line says who wrote it — the KPI's
+        # post-bash ratio ignores "sdk" deliveries (they inflated it to 5.0).
         line = _tr_json2.dumps({
             "ts": int(float(_tr_os2.environ.get("TOURING_RUN_TS") or _tr_time.time())),
             "hook_name": hook,
             "duration_ms": int(duration_ms),
             "success": bool(success),
+            "origin": "sdk",
         })
         try:
             _tr_pathlib.Path(mirror).parent.mkdir(parents=True, exist_ok=True)
@@ -700,6 +703,51 @@ struct RunCli {
     harvest: Option<String>,
 }
 
+/// B2 — the origin of the body `touring run` executes, as the journal names it.
+/// Exactly one of `--code` / `--file` / `--stdin` is set (clap enforces it);
+/// `file` wins when present because it is the only origin with an address.
+fn run_source_of(
+    file: Option<&str>,
+    code: Option<&str>,
+    stdin: bool,
+) -> crate::tools::ctx_execute_tools::RunSource {
+    use crate::tools::ctx_execute_tools::RunSource;
+    match (file, code, stdin) {
+        (Some(f), _, _) => RunSource {
+            kind: "file",
+            path: Some(f.to_string()),
+        },
+        (None, Some(_), _) => RunSource {
+            kind: "inline",
+            path: None,
+        },
+        _ => RunSource {
+            kind: "stdin",
+            path: None,
+        },
+    }
+}
+
+#[cfg(test)]
+mod run_source_tests {
+    use super::run_source_of;
+
+    /// B2 (2026-09-02): the CLI declares the ORIGIN of the body it runs, so the
+    /// journal can tell a script that lives somewhere from text typed inline.
+    #[test]
+    fn run_source_names_file_inline_and_stdin() {
+        let f = run_source_of(Some("scripts/census.py"), None, false);
+        assert_eq!(f.kind, "file");
+        assert_eq!(f.path.as_deref(), Some("scripts/census.py"));
+        let i = run_source_of(None, Some("print(1)"), false);
+        assert_eq!(i.kind, "inline");
+        assert!(i.path.is_none());
+        let s = run_source_of(None, None, true);
+        assert_eq!(s.kind, "stdin");
+        assert!(s.path.is_none());
+    }
+}
+
 /// Bridge the synchronous CLI dispatch to the async engine. `main.rs` builds a
 /// multi-thread runtime, so handlers run *inside* it; a fresh `Runtime::new()` would
 /// panic with "Cannot start a runtime from within a runtime". Reuse the current handle
@@ -784,30 +832,26 @@ pub fn run(args: &[String]) -> Result<()> {
     } else {
         None
     };
-    let tunables = if cli.compute_ms.is_some()
-        || cli.max_stdout_bytes.is_some()
-        || cli.max_stderr_bytes.is_some()
-        || stdin_bytes.is_some()
-        || !cli.allow_net_port.is_empty()
-        || cli.stream
-        || sdk_signal_mirror.is_some()
-    {
-        Some(crate::tools::ctx_execute_tools::RunTunables {
-            compute_ms: cli.compute_ms,
-            max_stdout_bytes: cli.max_stdout_bytes,
-            max_stderr_bytes: cli.max_stderr_bytes,
-            stdin_bytes,
-            allow_net_ports: if cli.allow_net_port.is_empty() {
-                None
-            } else {
-                Some(cli.allow_net_port.clone())
-            },
-            stream: cli.stream,
-            sdk_signal_mirror,
-        })
-    } else {
-        None
-    };
+    // B2 (2026-09-02): tunables are ALWAYS sent — the origin of the body,
+    // the harvest slug and the presentation flags travel with every run so
+    // the journal can measure reuse (before: `None` unless a cap/flag was set).
+    let tunables = Some(crate::tools::ctx_execute_tools::RunTunables {
+        compute_ms: cli.compute_ms,
+        max_stdout_bytes: cli.max_stdout_bytes,
+        max_stderr_bytes: cli.max_stderr_bytes,
+        stdin_bytes,
+        allow_net_ports: if cli.allow_net_port.is_empty() {
+            None
+        } else {
+            Some(cli.allow_net_port.clone())
+        },
+        stream: cli.stream,
+        sdk_signal_mirror,
+        source: Some(run_source_of(cli.file.as_deref(), cli.code.as_deref(), cli.stdin)),
+        harvest: cli.harvest.clone(),
+        brief: cli.brief,
+        orchestrate: cli.orchestrate,
+    });
     let ceg_advisory = gate_run(&cli.lang, &user_code, cli.allow_forbidden, &cli.allow_net_port)?;
 
     let args_json = match cli.args.as_deref() {
@@ -855,12 +899,18 @@ pub fn run(args: &[String]) -> Result<()> {
     // otherwise recognising a re-run of an already-harvested body. Both operate
     // on the USER's code, never the injected SDK (same rule as the hint).
     let trust = settle_snippet_ladder(&user_code, &cli.lang, out.exit_code, cli.harvest.as_deref());
+    // C2 (2026-09-02) — a scratchpad block that ran clean is copied into the
+    // project, where the next session can find it (the harness scratchpad is
+    // a per-session tmpfs: 560 scripts in 14 days, 82% ran once, none findable).
+    let persisted_as =
+        persist_scratch_block(cli.file.as_deref(), &user_code, &cli.lang, out.exit_code);
     emit_output(
         &out,
         cli.brief,
         harvest.as_deref(),
         trust.as_deref(),
         &snippet_report,
+        persisted_as.as_deref(),
         ceg_advisory.as_ref(),
     )?;
 
@@ -1122,12 +1172,89 @@ fn brief_pays_off(stdout: &str, truncated: bool) -> bool {
 
 /// Render the sandbox result to stdout: a C5 summary digest under `--brief`, otherwise
 /// the full JSON payload (mirrors the MCP adapter's field set in `tools_ctx_execute.rs`).
+/// Monta o payload completo do `touring run` (a rota não-`--brief`).
+///
+/// Função pura para que a REGRA DE ELISÃO seja testável sem capturar
+/// stdout: `emit_output` apenas imprime o que esta devolve. Extraída em
+/// B4 (02/09/2026), quando `tmp_bytes` entrou no payload — o campo existia
+/// só no `CtxExecuteOutput` do tool MCP e a rota que humano e agente usam
+/// de fato não o via.
+fn full_payload(
+    out: &CtxExecuteOutput,
+    brief: bool,
+    harvest: Option<&str>,
+    snippet_trust: Option<&str>,
+    snippet_report: &serde_json::Value,
+    persisted_as: Option<&str>,
+    ceg_advisory: Option<&CegRunAdvisory>,
+) -> serde_json::Value {
+    // Cross-audit 04/09/2026 — a base vem do serializador CANONICO. Antes havia
+    // TRES envelopes para o mesmo resultado (este, o do adaptador MCP e o
+    // `format_output` sem chamador), e eles divergiram nas duas direcoes: a CLI
+    // tinha `run_id`/`tmp_bytes` que o canonico nao tinha, e o canonico tinha
+    // `success`/`retrieval_hint` que a CLI nao tinha — o localizador do spill
+    // nunca chegava a quem le a saida elidida. Uma fonte, tres chamadores: campo
+    // novo aparece nos tres por construcao. Os campos ABAIXO sao os que so a rota
+    // CLI tem (advisory do gate, brief, harvest), e continuam aqui.
+    let mut payload = crate::tools::ctx_execute_tools::format_output(Ok(out));
+    // S5a — o advisory do exec-gate como campo estruturado (canal próprio,
+    // jamais o stderr que o programa sandboxed também usa)
+    if let Some(a) = ceg_advisory {
+        payload["ceg_advisory"] = ceg_advisory_json(a);
+    }
+    // S7 — pediram `--brief` e a saída veio inteira: DIZER isso é o mesmo
+    // contrato do `elided_lines` (o digest declara o que omitiu; aqui o
+    // payload declara que não omitiu nada e por quê). Silenciar deixaria o
+    // chamador achando que 12 linhas é o resumo de um volume maior.
+    if brief {
+        payload["brief_skipped"] = serde_json::json!({
+            "reason": "output below the summariser floor",
+            "lines": out.stdout.lines().count(),
+            "floor_lines": BRIEF_FLOOR_LINES,
+        });
+    }
+    // W1 d3 — taxonomy + spill locator reach the CLI surface too.
+    if let Some(f) = &out.failure {
+        payload["failure"] = serde_json::json!({
+            "kind": f.kind, "phase": f.phase, "message": f.message,
+        });
+    }
+    if let Some(p) = &out.stored_path {
+        payload["stored_path"] = serde_json::json!(p);
+    }
+    if let Some(h) = &out.retrieval_hint {
+        payload["retrieval_hint"] = serde_json::json!(h);
+    }
+    // W3 d2/S-3.3 — the harvest offer (threshold calibrated in P33).
+    if let Some(h) = harvest {
+        payload["harvest_hint"] = serde_json::json!(h);
+    }
+    // W3b — the MEASURED standing of a snippet that was just harvested or
+    // re-run. The badge is shown TO the model (the TanStack detail worth
+    // copying): a snippet that keeps failing visibly loses its ✓.
+    if let Some(t) = snippet_trust {
+        payload["snippet_trust"] = serde_json::json!(t);
+    }
+    // C2 — where a scratchpad block was persisted (a survivor of the
+    // session inside the project), so the caller can cite it next time.
+    if let Some(p) = persisted_as {
+        payload["persisted_as"] = serde_json::json!(p);
+    }
+    // W3b/S-3.4 — quais bindings `snippet_*` o programa tinha à disposição,
+    // o que o teto cortou, e o erro quando a biblioteca está inconsistente.
+    if !snippet_report.is_null() {
+        payload["snippet_bindings"] = snippet_report.clone();
+    }
+    payload
+}
+
 fn emit_output(
     out: &CtxExecuteOutput,
     brief: bool,
     harvest: Option<&str>,
     snippet_trust: Option<&str>,
     snippet_report: &serde_json::Value,
+    persisted_as: Option<&str>,
     ceg_advisory: Option<&CegRunAdvisory>,
 ) -> Result<()> {
     if brief && brief_pays_off(&out.stdout, out.stdout_truncated) {
@@ -1143,62 +1270,15 @@ fn emit_output(
         }
         println!("{}", serde_json::to_string(&v)?);
     } else {
-        let mut payload = serde_json::json!({
-            "stdout": out.stdout,
-            "stderr": out.stderr,
-            "exit_code": out.exit_code,
-            "duration_ms": out.duration_ms,
-            "forbidden_calls": out.forbidden_calls,
-            "stdout_truncated": out.stdout_truncated,
-            "stderr_truncated": out.stderr_truncated,
-            // C2-W0 S-5.2 — the identity that joins run_journal.jsonl and
-            // run_subcalls.jsonl; without it here the correlation key never
-            // reached the CLI caller.
-            "run_id": out.run_id,
-        });
-        // S5a — o advisory do exec-gate como campo estruturado (canal próprio,
-        // jamais o stderr que o programa sandboxed também usa)
-        if let Some(a) = ceg_advisory {
-            payload["ceg_advisory"] = ceg_advisory_json(a);
-        }
-        // S7 — pediram `--brief` e a saída veio inteira: DIZER isso é o mesmo
-        // contrato do `elided_lines` (o digest declara o que omitiu; aqui o
-        // payload declara que não omitiu nada e por quê). Silenciar deixaria o
-        // chamador achando que 12 linhas é o resumo de um volume maior.
-        if brief {
-            payload["brief_skipped"] = serde_json::json!({
-                "reason": "output below the summariser floor",
-                "lines": out.stdout.lines().count(),
-                "floor_lines": BRIEF_FLOOR_LINES,
-            });
-        }
-        // W1 d3 — taxonomy + spill locator reach the CLI surface too.
-        if let Some(f) = &out.failure {
-            payload["failure"] = serde_json::json!({
-                "kind": f.kind, "phase": f.phase, "message": f.message,
-            });
-        }
-        if let Some(p) = &out.stored_path {
-            payload["stored_path"] = serde_json::json!(p);
-        }
-        if let Some(h) = &out.retrieval_hint {
-            payload["retrieval_hint"] = serde_json::json!(h);
-        }
-        // W3 d2/S-3.3 — the harvest offer (threshold calibrated in P33).
-        if let Some(h) = harvest {
-            payload["harvest_hint"] = serde_json::json!(h);
-        }
-        // W3b — the MEASURED standing of a snippet that was just harvested or
-        // re-run. The badge is shown TO the model (the TanStack detail worth
-        // copying): a snippet that keeps failing visibly loses its ✓.
-        if let Some(t) = snippet_trust {
-            payload["snippet_trust"] = serde_json::json!(t);
-        }
-        // W3b/S-3.4 — quais bindings `snippet_*` o programa tinha à disposição,
-        // o que o teto cortou, e o erro quando a biblioteca está inconsistente.
-        if !snippet_report.is_null() {
-            payload["snippet_bindings"] = snippet_report.clone();
-        }
+        let payload = full_payload(
+            out,
+            brief,
+            harvest,
+            snippet_trust,
+            snippet_report,
+            persisted_as,
+            ceg_advisory,
+        );
         println!("{}", serde_json::to_string_pretty(&payload)?);
     }
     Ok(())
@@ -1262,12 +1342,202 @@ fn settle_snippet_ladder(
             }
             key
         }
-        // No explicit harvest: is this body one we already know?
-        None => snippet_stats::by_sig(&conn, &sig).ok().flatten()?,
+        // No explicit harvest: is this body one we already know? C1 (02/09):
+        // if not, but the program is a harvest CANDIDATE (the hint's own
+        // predicate) and it succeeded, enrol it silently under an auto key —
+        // the ladder counts from here and the 2nd success persists the memory
+        // (`should_auto_persist`). Measured over 14 days: 560 scratch scripts,
+        // 82% ran once; the ones that run twice are the blocks worth keeping,
+        // and nobody typed `--harvest` for them (29 times in 4.383 runs).
+        None => match snippet_stats::by_sig(&conn, &sig).ok().flatten() {
+            Some(key) => key,
+            None if auto_harvest_candidate(user_code, lang, exit_code) => auto_harvest_key(&sig),
+            None => return None,
+        },
     };
 
     let trust = snippet_stats::record_execution(&conn, &entry_key, exit_code == 0, &sig).ok()?;
+    if is_auto_harvest_key(&entry_key) {
+        let executions = snippet_stats::trust_of(&conn, &entry_key)
+            .ok()
+            .flatten()
+            .map_or(0, |s| s.executions);
+        if should_auto_persist(executions) {
+            let _ = crate::daemon_client::daemon_query(
+                "cli-memory-store",
+                serde_json::json!({
+                    "key": entry_key,
+                    "value": user_code,
+                    "tier": "semantic",
+                    "entry_type": "snippet",
+                    "reward": null,
+                    "tags": [
+                        "#kind:snippet",
+                        format!("#lang:{lang}"),
+                        "#process:code-mode",
+                        "#status:provisional",
+                        // C5 (2026-09-02) — `#origin:` is NOT one of the seven
+                        // canonical facets, and an unknown facet is a hard
+                        // error, so the tag was silently dropped and the
+                        // auto-harvested snippet was unreachable by it. The
+                        // origin IS a process, so it travels as one.
+                        "#process:auto-harvest",
+                    ],
+                }),
+            );
+        }
+    }
     Some(format!("{} {}", trust.badge(), trust.as_str()))
+}
+
+/// C1 — the ladder key of a body harvested WITHOUT a slug: the first 12 hex of
+/// its `code_sig`, so the same body always lands on the same key.
+pub(crate) fn auto_harvest_key(sig: &str) -> String {
+    format!("snippet:auto:{}", touring_foundation::truncate_str(sig, 12))
+}
+
+fn is_auto_harvest_key(key: &str) -> bool {
+    key.starts_with("snippet:auto:")
+}
+
+/// C1 — the memory is persisted on exactly the 2nd counted execution: one run
+/// is a one-off, two is a pattern; later runs only move the ladder.
+pub(crate) const AUTO_HARVEST_PERSIST_AT: u64 = 2;
+
+pub(crate) fn should_auto_persist(executions: u64) -> bool {
+    executions == AUTO_HARVEST_PERSIST_AT
+}
+
+/// C1 — a body worth auto-enrolling: the same predicate the harvest hint
+/// applies (successful, ≥5 lines, parametrized, no ephemeral identifiers).
+pub(crate) fn auto_harvest_candidate(code: &str, lang: &str, exit_code: i32) -> bool {
+    harvest_hint(code, lang, exit_code, false).is_some()
+}
+
+/// C2 (2026-09-02) — a scratchpad script that ran clean and looks reusable is
+/// copied into the project (`.touring/scratch/<YYYY-MM>/<name>`, git-ignored
+/// with the rest of `.touring/`), a place that survives the session and that
+/// the portfolio can index. Returns the persisted path, `None` when nothing
+/// qualified (not a scratchpad file, failed, or not a block by the hint's own
+/// predicate). Fail-open: an I/O error only means no copy.
+fn persist_scratch_block(
+    file: Option<&str>,
+    user_code: &str,
+    lang: &str,
+    exit_code: i32,
+) -> Option<String> {
+    let file = file?;
+    if !file.starts_with(touring_code::journal::HARNESS_SCRATCH_PREFIX) {
+        return None;
+    }
+    if !auto_harvest_candidate(user_code, lang, exit_code) {
+        return None;
+    }
+    let root = std::env::current_dir().ok()?;
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let ym = month_stamp(secs);
+    let target = scratch_persist_target(&root, file, &ym)?;
+    std::fs::create_dir_all(target.parent()?).ok()?;
+    std::fs::write(&target, user_code).ok()?;
+    Some(target.display().to_string())
+}
+
+/// C2 — `YYYY-MM` of a unix timestamp (Howard Hinnant civil-from-days; no
+/// chrono dependency in this crate). The month is the shelf: one directory per
+/// month keeps the persisted blocks browsable without a catalogue.
+pub(crate) fn month_stamp(secs: u64) -> String {
+    let z = (secs / 86_400) as i64 + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}")
+}
+
+/// C2 — pure: `<root>/.touring/scratch/<ym>/<basename of file>`; `None` for a
+/// path without a file name.
+pub(crate) fn scratch_persist_target(
+    root: &std::path::Path,
+    file: &str,
+    ym: &str,
+) -> Option<std::path::PathBuf> {
+    let name = std::path::Path::new(file).file_name()?.to_str()?;
+    Some(root.join(".touring").join("scratch").join(ym).join(name))
+}
+
+#[cfg(test)]
+mod scratch_persist_tests {
+    use super::*;
+
+    #[test]
+    fn target_lives_under_touring_scratch_by_month() {
+        let t = scratch_persist_target(
+            std::path::Path::new("/p"),
+            "/tmp/claude-1000/s/scratchpad/probe_tmp.py",
+            "2026-09",
+        )
+        .expect("target");
+        assert_eq!(t, std::path::PathBuf::from("/p/.touring/scratch/2026-09/probe_tmp.py"));
+        assert!(scratch_persist_target(std::path::Path::new("/p"), "/", "2026-09").is_none());
+    }
+
+    #[test]
+    fn month_stamp_is_civil_year_month() {
+        assert_eq!(month_stamp(0), "1970-01");
+        assert_eq!(month_stamp(1_788_343_644), "2026-09");
+        assert_eq!(month_stamp(951_782_400), "2000-02"); // 29/02/2000
+    }
+
+    #[test]
+    fn only_a_clean_reusable_scratchpad_run_is_persisted() {
+        let block = "import sys\n\ndef main(path):\n    data = open(path).read()\n    print(len(data))\n\nmain(sys.argv[1])\n";
+        assert!(persist_scratch_block(None, block, "python", 0).is_none(), "no file → nothing");
+        assert!(
+            persist_scratch_block(Some("scripts/keep.py"), block, "python", 0).is_none(),
+            "a project file already persists"
+        );
+        assert!(
+            persist_scratch_block(Some("/tmp/claude-1000/s/scratchpad/a.py"), block, "python", 1).is_none(),
+            "a failed run is not a block"
+        );
+    }
+}
+
+#[cfg(test)]
+mod auto_harvest_tests {
+    use super::*;
+
+    #[test]
+    fn auto_key_is_stable_and_prefixed() {
+        let sig = "abcdef0123456789deadbeef";
+        assert_eq!(auto_harvest_key(sig), "snippet:auto:abcdef012345");
+        assert_eq!(auto_harvest_key(sig), auto_harvest_key(sig));
+        assert!(is_auto_harvest_key(&auto_harvest_key(sig)));
+        assert!(!is_auto_harvest_key("snippet:my-slug"));
+    }
+
+    #[test]
+    fn memory_persists_on_the_second_execution_only() {
+        assert!(!should_auto_persist(1));
+        assert!(should_auto_persist(2));
+        assert!(!should_auto_persist(3));
+    }
+
+    #[test]
+    fn candidate_follows_the_hint_predicate() {
+        let block = "import sys\n\ndef main(path):\n    data = open(path).read()\n    print(len(data))\n\nmain(sys.argv[1])\n";
+        assert!(auto_harvest_candidate(block, "python", 0));
+        assert!(!auto_harvest_candidate(block, "python", 1), "a failing run is not a block");
+        assert!(!auto_harvest_candidate("print(1)", "python", 0), "a one-liner is not a block");
+        let ephemeral = "def f(p):\n    return p\n\nf('/tmp/claude-1000/x/scratchpad/a.py')\nprint(1)\nprint(2)\n";
+        assert!(!auto_harvest_candidate(ephemeral, "python", 0), "scratchpad path = one-off");
+    }
 }
 
 /// W3 d2/S-3.3 — offer to harvest a successful, GENERALIZABLE program as a
@@ -1962,6 +2232,23 @@ mod tests {
         );
     }
 
+    /// F9-origem (2026-09-02): every mirror line the SDK writes declares
+    /// `"origin": "sdk"` — the Rust reader (`MirrorOrigin::Sdk.as_str()`)
+    /// and this template must agree on the literal, or the KPI silently
+    /// files SDK deliveries under `unknown`.
+    #[test]
+    fn orchestrate_python_sdk_mirror_lines_declare_sdk_origin() {
+        let sdk = super::py_sdk();
+        let expected = format!(
+            "\"origin\": \"{}\"",
+            touring_code::sdk_signal_mirror::MirrorOrigin::Sdk.as_str()
+        );
+        assert!(
+            sdk.contains(&expected),
+            "rendered SDK must write {expected} in record_hook_call"
+        );
+    }
+
     /// The CEG flags `__import__` as a forbidden dynamic import — the SDK the
     /// product injects must not trip the very detector it runs on user code.
     #[test]
@@ -2214,5 +2501,92 @@ mod tests {
             py_sdk().contains(&format!("\"{marker}\"")),
             "o SDK Python deve cunhar exatamente SANDBOX_ORIGIN_MARKER ({marker})"
         );
+    }
+}
+
+/// B4 (2026-09-02) — the CLI payload carries the run's tmp footprint.
+///
+/// Measured live against 30.4.32: a program that wrote 8 KiB into its private
+/// tmp came back with no `tmp_bytes` at all, because only the MCP tool's
+/// `CtxExecuteOutput` carried the field — `touring run`, the route actually
+/// used, never printed it. A measurement nobody can read is not a measurement.
+#[cfg(test)]
+mod tmp_bytes_payload_tests {
+    use super::*;
+
+    fn out_with(tmp_bytes: u64) -> CtxExecuteOutput {
+        CtxExecuteOutput {
+            stdout: "ok\n".into(),
+            exit_code: 0,
+            tmp_bytes,
+            run_id: "run-1-2".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn leftovers_are_reported_to_the_caller() {
+        let p = full_payload(
+            &out_with(8192),
+            false,
+            None,
+            None,
+            &serde_json::Value::Null,
+            None,
+            None,
+        );
+        assert_eq!(p["tmp_bytes"], 8192, "{p}");
+    }
+
+    #[test]
+    fn a_clean_run_says_nothing_about_tmp() {
+        let p = full_payload(
+            &out_with(0),
+            false,
+            None,
+            None,
+            &serde_json::Value::Null,
+            None,
+            None,
+        );
+        assert!(p.get("tmp_bytes").is_none(), "{p}");
+    }
+}
+
+/// C5 (2026-09-02) — every tag the auto-harvest path mints names a canonical
+/// facet. `#origin:auto-harvest` did not: unknown facets are a hard error, so
+/// the tag was dropped and the memory it was supposed to make findable was
+/// only reachable by key. A vocabulary the store rejects is not a vocabulary.
+#[cfg(test)]
+mod auto_harvest_tag_tests {
+    /// The seven canonical facets (`touring_intelligence::rl::memory::tags`).
+    const CANONICAL: &[&str] = &[
+        "kind", "purpose", "lang", "domain", "process", "artifact", "status",
+    ];
+
+    #[test]
+    fn every_auto_harvest_tag_names_a_canonical_facet() {
+        let src = include_str!("run.rs");
+        let block = src
+            .split("fn settle_snippet_ladder")
+            .nth(1)
+            .expect("settle_snippet_ladder is where the auto tags are minted");
+        let mut seen = 0usize;
+        for raw in block.split("\"#").skip(1) {
+            let Some(tag) = raw.split('"').next() else {
+                continue;
+            };
+            let Some((facet, _value)) = tag.split_once(':') else {
+                continue;
+            };
+            // `format!("#lang:{lang}")` reaches here as `lang:{lang}` — still a
+            // facet name, which is exactly what this guard checks.
+            seen += 1;
+            assert!(
+                CANONICAL.contains(&facet),
+                "tag `#{tag}` names `{facet}`, which is not one of {CANONICAL:?}"
+            );
+        }
+        assert!(seen >= 4, "expected the minted tags to be found, saw {seen}");
     }
 }

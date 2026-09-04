@@ -84,3 +84,26 @@ class PathAlphabet(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_is_kebab_accepts_the_plan_ids_the_acervo_actually_uses():
+    """The alphabet is the acervo's, not intuition's — the same rule this file
+    already enforces for paths, which `is_kebab` had not inherited.
+
+    Measured 04/09/2026 over `docs/plans/`: 73 of 80 bundles are named
+    `YYYY-MM-DD-slug`, i.e. they START WITH A DIGIT. Requiring a leading letter
+    warned on 91% of the acervo — a warning nobody can act on, and therefore one
+    everybody learns to ignore, which is worse than no warning at all.
+    """
+    from lib import is_kebab
+
+    for real in (
+        "2026-09-04-economia-de-contexto",
+        "2026-08-31-code-mode-sinal",
+        "touring-productization-pln2",
+    ):
+        assert is_kebab(real), f"plan id from the acervo rejected: {real}"
+
+    # The predicate must still REFUSE what is genuinely not kebab-case, or the
+    # fix would have bought acceptance by blindness.
+    for bad in ("Economia-De-Contexto", "economia_de_contexto", "-leading", "trailing-", "com espaco"):
+        assert not is_kebab(bad), f"non-kebab accepted: {bad}"

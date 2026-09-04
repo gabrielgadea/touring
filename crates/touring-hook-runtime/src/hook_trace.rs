@@ -25,7 +25,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
 /// Environment variable naming the append-only JSONL sink.
-pub const ENV_TRACE_FILE: &str = "TOURING_HOOK_TRACE_FILE";
+const ENV_TRACE_FILE: &str = "TOURING_HOOK_TRACE_FILE";
 
 /// The single line a `touring-hook` process leaves behind.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

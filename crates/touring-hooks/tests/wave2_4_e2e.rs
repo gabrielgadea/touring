@@ -46,7 +46,7 @@ fn file_knowledge_enriched_from_base_enrichment_fields_are_none() {
         ..Default::default()
     };
     let enriched = FileKnowledgeEnriched::from_base(base);
-    assert!(enriched.cognitive_score.is_none());
+    assert!(enriched.quality_score.is_none());
     assert!(enriched.fan_in_signal.is_none());
     assert!(enriched.fan_out_signal.is_none());
     assert!(enriched.blake3_hash.is_none());
@@ -60,7 +60,7 @@ fn file_knowledge_enriched_from_base_enrichment_fields_are_none() {
 fn file_knowledge_enriched_default_is_all_none_or_zero() {
     let enriched = FileKnowledgeEnriched::default();
     assert!(enriched.file_path.is_empty());
-    assert!(enriched.cognitive_score.is_none());
+    assert!(enriched.quality_score.is_none());
     assert!(enriched.coverage_pct.is_none());
     assert!(enriched.modularity_score.is_none());
     assert!(enriched.complexity_signal.is_none());
@@ -70,13 +70,13 @@ fn file_knowledge_enriched_default_is_all_none_or_zero() {
 fn file_knowledge_enriched_serializes_to_json() {
     let enriched = FileKnowledgeEnriched {
         file_path: "test.rs".to_string(),
-        cognitive_score: Some(0.85),
+        quality_score: Some(0.85),
         fan_in_signal: Some(3.0),
         ..Default::default()
     };
     let json = serde_json::to_value(&enriched).unwrap();
     assert_eq!(json["file_path"], "test.rs");
-    assert!((json["cognitive_score"].as_f64().unwrap() - 0.85).abs() < 1e-9);
+    assert!((json["quality_score"].as_f64().unwrap() - 0.85).abs() < 1e-9);
     assert!((json["fan_in_signal"].as_f64().unwrap() - 3.0).abs() < 1e-9);
     assert!(json["blake3_hash"].is_null());
 }
@@ -124,7 +124,7 @@ fn query_extended_returns_base_fields_when_no_enrichment() {
     assert_eq!(enriched.line_count, 42);
     assert_eq!(enriched.symbol_count, 5);
     // No enrichment data → all enrichment fields None
-    assert!(enriched.cognitive_score.is_none());
+    assert!(enriched.quality_score.is_none());
     assert!(enriched.integration_score.is_none());
     assert!(enriched.blake3_hash.is_none());
 }
@@ -143,7 +143,7 @@ fn query_extended_includes_cognitive_enrichment_after_upsert() {
         .unwrap();
 
     let result = db.query_extended("src/enriched.rs").unwrap().unwrap();
-    assert!((result.cognitive_score.unwrap() - 0.75).abs() < 1e-9);
+    assert!((result.quality_score.unwrap() - 0.75).abs() < 1e-9);
     assert!((result.fan_in_signal.unwrap() - 3.0).abs() < 1e-9);
     assert!((result.fan_out_signal.unwrap() - 2.0).abs() < 1e-9);
     assert!((result.complexity_signal.unwrap() - 0.5).abs() < 1e-9);

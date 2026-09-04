@@ -5,10 +5,10 @@
 //! Complementação-hooks H6 (F1.5 + F4): handler PostToolUse(Write) needs this
 //! subcommand to inject `touring.scan_vulnerabilities` JSON via additionalContext.
 //!
-//! F4 (2026-08-31): wires real CWE detection — reads the source from disk and
-//! runs pattern detectors mirroring `touring-hook-runtime::shared::scan::detect_cwes`.
-//! Kept as a thin CLI wrapper (no dep on touring-hook-runtime to avoid cycle)
-//! with the same byte-array needle strategy for F2.4 lint safety.
+//! F4 (2026-08-31): wires real CWE detection — reads the source from disk.
+//! S8 (2026-09-02): the detector is `touring_code::cwe_scan::detect_cwes`, the
+//! SAME one the hook layer runs (the inline copy that lived here had drifted:
+//! it never emitted CWE-22). This module only maps findings to the CLI JSON.
 
 use super::common::{human_to_stderr, json_to_stdout, parse_global_flags};
 use anyhow::Context;
@@ -30,76 +30,22 @@ struct ScanResult {
     p0_block: bool,
 }
 
-// Pattern needles built at runtime to keep F2.4 (hardcoded-secret) lint happy.
-const NEEDLE_OPENAI_0: u8 = 0x73;
-const NEEDLE_OPENAI_1: u8 = 0x6B;
-const NEEDLE_OPENAI_2: u8 = 0x2D;
-const NEEDLE_AWS_0: u8 = 0x41;
-const NEEDLE_AWS_1: u8 = 0x4B;
-const NEEDLE_AWS_2: u8 = 0x49;
-const NEEDLE_AWS_3: u8 = 0x41;
-
-/// Convert byte slice to lowercase String (lossy).
-fn bytes_lower(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).to_lowercase()
-}
-
-/// Build runtime needle from a byte sequence.
-fn needle(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).into_owned()
-}
-
-/// Detect CWEs in source text. Mirrors `touring-hook-runtime::shared::scan::detect_cwes`
-/// but kept inline to avoid a workspace cycle (touring-server -> touring-hook-runtime).
+/// Detect CWEs in source text.
+///
+/// S8 (2026-09-02): delegates to the ONE shared detector
+/// (`touring_code::cwe_scan::detect_cwes`) — the inline copy that used to live
+/// here had drifted from the hook layer's (it never emitted CWE-22). The CLI
+/// only maps findings to its JSON shape.
 fn detect_cwes_in_source(source: &str) -> Vec<Cwe> {
-    let mut findings = Vec::new();
-
-    let n_openai = needle(&[NEEDLE_OPENAI_0, NEEDLE_OPENAI_1, NEEDLE_OPENAI_2]);
-    let n_aws = needle(&[NEEDLE_AWS_0, NEEDLE_AWS_1, NEEDLE_AWS_2, NEEDLE_AWS_3]);
-
-    for (i, line) in source.lines().enumerate() {
-        let lower = bytes_lower(line.to_lowercase().as_bytes());
-        // F2.1 OWASP A01 — hardcoded credentials (vendor A openai-like + vendor B AWS).
-        if lower.contains(&n_openai) && lower.contains("api") {
-            findings.push(Cwe {
-                id: "CWE-798".to_string(),
-                severity: "P0",
-                line: (i + 1) as u32,
-                description: "Hardcoded vendor-A API key pattern detected".to_string(),
-            });
-        }
-        if lower.contains(&n_aws) && lower.contains("aws") {
-            findings.push(Cwe {
-                id: "CWE-798".to_string(),
-                severity: "P0",
-                line: (i + 1) as u32,
-                description: "Hardcoded vendor-B access key pattern detected".to_string(),
-            });
-        }
-        // F2.1 OWASP A03 — SQL injection via string concat.
-        let lower_str = line.to_lowercase();
-        if lower_str.contains("format!") && (lower_str.contains("select ") || lower_str.contains("where ")) {
-            findings.push(Cwe {
-                id: "CWE-89".to_string(),
-                severity: "P1",
-                line: (i + 1) as u32,
-                description: "Potential SQL injection via format!()".to_string(),
-            });
-        }
-        // F2.4 — production unwrap.
-        let trimmed = line.trim_start();
-        let unwrap_call = needle(&[0x2E, 0x75, 0x6E, 0x77, 0x72, 0x61, 0x70, 0x28, 0x29]);
-        if trimmed.contains(&unwrap_call) && !trimmed.starts_with("//") && !trimmed.starts_with("///") {
-            findings.push(Cwe {
-                id: "CWE-394".to_string(),
-                severity: "P2",
-                line: (i + 1) as u32,
-                description: "Production unwrap() detected".to_string(),
-            });
-        }
-    }
-
-    findings
+    touring_code::cwe_scan::detect_cwes(source)
+        .into_iter()
+        .map(|f| Cwe {
+            id: f.id,
+            severity: f.severity.as_str(),
+            line: f.line,
+            description: f.description,
+        })
+        .collect()
 }
 
 /// CLI entry point — `touring scan vulnerabilities <file>`.
@@ -168,7 +114,7 @@ mod tests {
     fn detect_cwes_inline_finds_hardcoded_key() {
         // Build fixture at runtime so the detector pattern doesn't trigger on the
         // test source itself.
-        let needle = needle(&[NEEDLE_OPENAI_0, NEEDLE_OPENAI_1, NEEDLE_OPENAI_2]);
+        let needle = touring_code::cwe_scan::vendor_prefix_openai_like();
         let src = format!("const KEY: &str = \"{}PLACEHOLDER api\";\n", needle);
         let findings = detect_cwes_in_source(&src);
         assert!(findings.iter().any(|c| c.id == "CWE-798" && c.severity == "P0"));
@@ -183,7 +129,7 @@ mod tests {
 
     #[test]
     fn detect_cwes_inline_finds_unwrap() {
-        let unwrap_call = needle(&[0x2E, 0x75, 0x6E, 0x77, 0x72, 0x61, 0x70, 0x28, 0x29]);
+        let unwrap_call = touring_code::cwe_scan::unwrap_call_pattern();
         let src = format!("fn main() {{\n    let x = foo(){unwrap_call};\n}}\n");
         let findings = detect_cwes_in_source(&src);
         assert!(findings.iter().any(|c| c.id == "CWE-394"));
@@ -194,5 +140,15 @@ mod tests {
         let src = "fn main() {\n    println!(\"hello\");\n}\n";
         let findings = detect_cwes_in_source(src);
         assert!(findings.is_empty());
+    }
+
+    /// S8 (2026-09-02): the CLI copy of the detector had drifted from the hook
+    /// one — it never emitted CWE-22 (path traversal). One detector now serves
+    /// both (`touring_code::cwe_scan::detect_cwes`); this is the drift guard.
+    #[test]
+    fn detect_cwes_inline_finds_path_traversal_like_the_hook_detector() {
+        let src = "fn load(p: &str) -> String {\n    fs::read_to_string(p).unwrap_or_default()\n}\n";
+        let ids: Vec<String> = detect_cwes_in_source(src).into_iter().map(|c| c.id).collect();
+        assert!(ids.contains(&"CWE-22".to_string()), "{ids:?}");
     }
 }
