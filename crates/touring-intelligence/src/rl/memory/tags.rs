@@ -27,8 +27,7 @@ use std::fmt;
 /// `touring-hook-runtime` (CLI path). Adding a second hand-written copy of
 /// this DDL is the known "five sites write the same edge" failure mode; add
 /// columns/tables HERE instead.
-pub const TAG_TABLES_DDL: &str =
-    "CREATE TABLE IF NOT EXISTS memory_tags (
+pub const TAG_TABLES_DDL: &str = "CREATE TABLE IF NOT EXISTS memory_tags (
         entry_key TEXT NOT NULL,
         facet TEXT NOT NULL,
         value TEXT NOT NULL,
@@ -55,8 +54,7 @@ pub const TAG_TABLES_DDL: &str =
 /// FTS5 sidecar over `memory_tags` plus its sync triggers — same
 /// external-content pattern as `memories_fts` (triggers recreated every open,
 /// so this batch is safe to run on every startup).
-pub const TAG_FTS_DDL: &str =
-    "CREATE VIRTUAL TABLE IF NOT EXISTS tags_fts USING fts5(
+pub const TAG_FTS_DDL: &str = "CREATE VIRTUAL TABLE IF NOT EXISTS tags_fts USING fts5(
         full_tag, facet, value,
         content='memory_tags',
         content_rowid='rowid'
@@ -253,30 +251,80 @@ impl Facet {
     pub fn seed_values(self) -> &'static [&'static str] {
         match self {
             Facet::Kind => &[
-                "snippet", "doc", "script", "map", "plan", "strategy", "lesson", "gotcha",
-                "decision", "process", "module", "runbook",
+                "snippet",
+                "doc",
+                "script",
+                "map",
+                "plan",
+                "strategy",
+                "lesson",
+                "gotcha",
+                "decision",
+                "process",
+                "module",
+                "runbook",
                 // F4: the kinds the live store actually carries (measured
                 // 2026-08-11: transcript_lesson, insight, lesson, text, …).
-                "insight", "outcome", "case", "observation", "pattern", "reference",
-                "note", "project", "followup", "text",
+                "insight",
+                "outcome",
+                "case",
+                "observation",
+                "pattern",
+                "reference",
+                "note",
+                "project",
+                "followup",
+                "text",
             ],
             Facet::Purpose => &[
-                "blast-radius", "pre-edit-gate", "diagnose", "explore", "converge",
-                "map-rendering", "auto-tagging", "retrieval", "indexing", "wiring",
+                "blast-radius",
+                "pre-edit-gate",
+                "diagnose",
+                "explore",
+                "converge",
+                "map-rendering",
+                "auto-tagging",
+                "retrieval",
+                "indexing",
+                "wiring",
             ],
             Facet::Lang => &[
                 "rust", "python", "bash", "md", "toml", "yaml", "json", "sql", "svg", "ts", "js",
             ],
             Facet::Domain => &[
-                "memory", "wiring", "index", "hooks", "adw", "ceg", "portfolio", "quality",
-                "daemon", "cli", "generator", "intelligence",
+                "memory",
+                "wiring",
+                "index",
+                "hooks",
+                "adw",
+                "ceg",
+                "portfolio",
+                "quality",
+                "daemon",
+                "cli",
+                "generator",
+                "intelligence",
             ],
             Facet::Process => &[
-                "diagnose", "explore", "converge", "cross-audit", "decompose", "pre-edit",
-                "post-edit", "recall", "store", "reward",
+                "diagnose",
+                "explore",
+                "converge",
+                "cross-audit",
+                "decompose",
+                "pre-edit",
+                "post-edit",
+                "recall",
+                "store",
+                "reward",
             ],
             Facet::Artifact => &[
-                "map", "dashboard", "report", "diorama", "infographic", "deck", "table",
+                "map",
+                "dashboard",
+                "report",
+                "diorama",
+                "infographic",
+                "deck",
+                "table",
             ],
             Facet::Status => &["stable", "experimental", "deprecated"],
         }
@@ -375,7 +423,9 @@ fn edit_distance(a: &str, b: &str) -> usize {
     for (i, &ca) in a.iter().enumerate() {
         cur[0] = i + 1;
         for (j, &cb) in b.iter().enumerate() {
-            cur[j + 1] = (prev[j] + usize::from(ca != cb)).min(prev[j + 1] + 1).min(cur[j] + 1);
+            cur[j + 1] = (prev[j] + usize::from(ca != cb))
+                .min(prev[j + 1] + 1)
+                .min(cur[j] + 1);
         }
         std::mem::swap(&mut prev, &mut cur);
     }
@@ -412,7 +462,7 @@ pub fn parse_tag(raw: &str) -> Result<ParsedTag, Vec<TagViolation>> {
             return Err(vec![TagViolation::UnknownFacet {
                 raw: facet_raw.to_string(),
                 suggestion: suggest_facet(facet_raw),
-            }])
+            }]);
         }
     };
     let value = value_raw.trim().to_ascii_lowercase();
@@ -602,7 +652,11 @@ pub fn fetch_tags(conn: &rusqlite::Connection, key: &str) -> rusqlite::Result<Ve
 
 /// Removes one tag from an entry (code-sync tombstone path). Returns the
 /// number of rows removed.
-pub fn delete_tag(conn: &rusqlite::Connection, key: &str, full_tag: &str) -> rusqlite::Result<usize> {
+pub fn delete_tag(
+    conn: &rusqlite::Connection,
+    key: &str,
+    full_tag: &str,
+) -> rusqlite::Result<usize> {
     conn.execute(
         "DELETE FROM memory_tags WHERE entry_key = ?1 AND full_tag = ?2",
         rusqlite::params![key, full_tag],
@@ -692,22 +746,36 @@ pub fn describe_violations(raw: &str, errs: &[TagViolation]) -> IgnoredTag {
     };
     let mut suggestion = None;
     let reason = match errs.first() {
-        Some(TagViolation::UnknownFacet { raw: facet, suggestion: s }) => {
+        Some(TagViolation::UnknownFacet {
+            raw: facet,
+            suggestion: s,
+        }) => {
             suggestion = s.map(Facet::as_str);
             format!("unknown facet '{facet}' — canonical facets: {}", canon())
         }
         Some(TagViolation::MissingColon) => {
             format!("missing ':' — a tag is #facet:value (facets: {})", canon())
         }
-        Some(TagViolation::InvalidValue { facet, value, reason }) => {
-            format!("invalid value '{value}' for facet '{}': {reason}", facet.as_str())
+        Some(TagViolation::InvalidValue {
+            facet,
+            value,
+            reason,
+        }) => {
+            format!(
+                "invalid value '{value}' for facet '{}': {reason}",
+                facet.as_str()
+            )
         }
         Some(TagViolation::UnseededValue { facet, value }) => {
             format!("unseeded value '{value}' for facet '{}'", facet.as_str())
         }
         None => "unparseable tag".to_string(),
     };
-    IgnoredTag { raw: raw.to_string(), reason, suggestion }
+    IgnoredTag {
+        raw: raw.to_string(),
+        reason,
+        suggestion,
+    }
 }
 
 /// Contract clause 1 (memory-graph contract, 2026-08-30): a deterministic key
@@ -722,7 +790,11 @@ pub fn key_shape_ok(key: &str) -> bool {
     let d = parts[2];
     d.len() == 10
         && d.chars().enumerate().all(|(i, c)| {
-            if i == 4 || i == 7 { c == '-' } else { c.is_ascii_digit() }
+            if i == 4 || i == 7 {
+                c == '-'
+            } else {
+                c.is_ascii_digit()
+            }
         })
 }
 
@@ -823,7 +895,10 @@ pub fn fetch_links(conn: &rusqlite::Connection, key: &str) -> rusqlite::Result<V
 
 /// Removes one edge by its deterministic id. Returns rows removed (0 or 1).
 pub fn delete_link(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<usize> {
-    conn.execute("DELETE FROM memory_links WHERE id = ?1", rusqlite::params![id])
+    conn.execute(
+        "DELETE FROM memory_links WHERE id = ?1",
+        rusqlite::params![id],
+    )
 }
 
 #[cfg(test)]
@@ -853,8 +928,10 @@ mod tests {
     fn parse_missing_or_empty(#[case] raw: &str) {
         let errs = parse_tag(raw).unwrap_err();
         assert!(
-            errs.iter()
-                .any(|e| matches!(e, TagViolation::MissingColon | TagViolation::InvalidValue { .. })),
+            errs.iter().any(|e| matches!(
+                e,
+                TagViolation::MissingColon | TagViolation::InvalidValue { .. }
+            )),
             "expected MissingColon/InvalidValue, got {errs:?}"
         );
     }
@@ -965,10 +1042,12 @@ mod tests {
     fn unknown_facet_token_is_reported_and_falls_back_to_text() {
         // Mutation killed: dropping the third slot / not pushing the token
         // back into the text (the pre-P1 behaviour matched by accident).
-        let (tags, text, ignored) =
-            split_query_tags_reporting("#kind:lesson #classe:prova corpo");
+        let (tags, text, ignored) = split_query_tags_reporting("#kind:lesson #classe:prova corpo");
         assert_eq!(tags.len(), 1, "the canonical tag still filters");
-        assert_eq!(text, "#classe:prova corpo", "the rejected token stays searchable text");
+        assert_eq!(
+            text, "#classe:prova corpo",
+            "the rejected token stays searchable text"
+        );
         assert_eq!(ignored.len(), 1);
         assert_eq!(ignored[0].raw, "#classe:prova");
         assert!(

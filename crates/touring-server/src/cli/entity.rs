@@ -64,8 +64,12 @@ fn run_define(args: &[String]) -> anyhow::Result<()> {
     }
 
     let db_path = default_db_path()?;
-    let mut reg = IdentityRegistry::open_or_create(&db_path)
-        .map_err(|e| anyhow::anyhow!("failed to open registry — run `touring doctor -j` to check database health: {}", e))?;
+    let mut reg = IdentityRegistry::open_or_create(&db_path).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to open registry — run `touring doctor -j` to check database health: {}",
+            e
+        )
+    })?;
 
     let id_out = reg.define(&entity).map_err(|e| anyhow::anyhow!("{}", e))?;
 
@@ -100,12 +104,19 @@ fn run_resolve(args: &[String]) -> anyhow::Result<()> {
     let exact_only = args.iter().any(|a| a == "--exact-only");
 
     let db_path = default_db_path()?;
-    let mut reg = IdentityRegistry::open_or_create(&db_path)
-        .map_err(|e| anyhow::anyhow!("failed to open registry — run `touring doctor -j` to check database health: {}", e))?;
+    let mut reg = IdentityRegistry::open_or_create(&db_path).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to open registry — run `touring doctor -j` to check database health: {}",
+            e
+        )
+    })?;
 
-    let mut candidates = reg
-        .resolve(name, max_edit)
-        .map_err(|e| anyhow::anyhow!("entity operation failed: {} — run `touring doctor -j` to check registry integrity", e))?;
+    let mut candidates = reg.resolve(name, max_edit).map_err(|e| {
+        anyhow::anyhow!(
+            "entity operation failed: {} — run `touring doctor -j` to check registry integrity",
+            e
+        )
+    })?;
     if exact_only {
         candidates.retain(|c| matches!(c.match_kind, MatchKind::Exact));
     }
@@ -156,12 +167,21 @@ fn run_relate(args: &[String]) -> anyhow::Result<()> {
     let kind = parse_relation_kind(kind_str)?;
 
     let db_path = default_db_path()?;
-    let mut reg = IdentityRegistry::open_or_create(&db_path)
-        .map_err(|e| anyhow::anyhow!("failed to open registry — run `touring doctor -j` to check database health: {}", e))?;
+    let mut reg = IdentityRegistry::open_or_create(&db_path).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to open registry — run `touring doctor -j` to check database health: {}",
+            e
+        )
+    })?;
 
     let rel_id = reg
         .relate(&EntityId::from_str(from), kind, &EntityId::from_str(to))
-        .map_err(|e| anyhow::anyhow!("entity operation failed: {} — run `touring doctor -j` to check registry integrity", e))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "entity operation failed: {} — run `touring doctor -j` to check registry integrity",
+                e
+            )
+        })?;
 
     println!(
         "{}",
@@ -183,12 +203,21 @@ fn run_list(args: &[String]) -> anyhow::Result<()> {
     let kind_filter = extract_flag(args, "--kind").and_then(|s| parse_kind(&s).ok());
 
     let db_path = default_db_path()?;
-    let mut reg = IdentityRegistry::open_or_create(&db_path)
-        .map_err(|e| anyhow::anyhow!("failed to open registry — run `touring doctor -j` to check database health: {}", e))?;
+    let mut reg = IdentityRegistry::open_or_create(&db_path).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to open registry — run `touring doctor -j` to check database health: {}",
+            e
+        )
+    })?;
 
     let entities = reg
         .list(crate_filter.as_deref(), kind_filter)
-        .map_err(|e| anyhow::anyhow!("entity operation failed: {} — run `touring doctor -j` to check registry integrity", e))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "entity operation failed: {} — run `touring doctor -j` to check registry integrity",
+                e
+            )
+        })?;
 
     println!(
         "{}",
@@ -220,11 +249,19 @@ fn run_delete(args: &[String]) -> anyhow::Result<()> {
     let reason = extract_flag(args, "--reason").unwrap_or_else(|| "no reason given".to_string());
 
     let db_path = default_db_path()?;
-    let mut reg = IdentityRegistry::open_or_create(&db_path)
-        .map_err(|e| anyhow::anyhow!("failed to open registry — run `touring doctor -j` to check database health: {}", e))?;
+    let mut reg = IdentityRegistry::open_or_create(&db_path).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to open registry — run `touring doctor -j` to check database health: {}",
+            e
+        )
+    })?;
 
-    reg.delete(&EntityId::from_str(id), &reason)
-        .map_err(|e| anyhow::anyhow!("entity operation failed: {} — run `touring doctor -j` to check registry integrity", e))?;
+    reg.delete(&EntityId::from_str(id), &reason).map_err(|e| {
+        anyhow::anyhow!(
+            "entity operation failed: {} — run `touring doctor -j` to check registry integrity",
+            e
+        )
+    })?;
 
     println!(
         "{}",
@@ -256,12 +293,21 @@ fn run_bootstrap(args: &[String]) -> anyhow::Result<()> {
     let dry_run = args.contains(&"--dry-run".to_string());
 
     eprintln!("[bootstrap] Opening symbols DB: {:?}", symbols_db);
-    let sym_conn = rusqlite::Connection::open(&symbols_db)
-        .map_err(|e| anyhow::anyhow!("Cannot open symbols DB: {} — verify database exists; run `touring doctor`", e))?;
+    let sym_conn = rusqlite::Connection::open(&symbols_db).map_err(|e| {
+        anyhow::anyhow!(
+            "Cannot open symbols DB: {} — verify database exists; run `touring doctor`",
+            e
+        )
+    })?;
 
     let count: i64 = sym_conn
         .query_row("SELECT COUNT(*) FROM symbols", [], |r| r.get(0))
-        .map_err(|e| anyhow::anyhow!("Cannot count symbols: {} — run `touring index rebuild --dir .` to repair index", e))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Cannot count symbols: {} — run `touring index rebuild --dir .` to repair index",
+                e
+            )
+        })?;
     eprintln!("[bootstrap] Found {} symbols in source index", count);
 
     let limit_clause = limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
@@ -282,7 +328,12 @@ fn run_bootstrap(args: &[String]) -> anyhow::Result<()> {
                 row.get::<_, i64>(2)?,
             ))
         })
-        .map_err(|e| anyhow::anyhow!("Cannot query symbols: {} — run `touring index rebuild --dir .` to repair index", e))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Cannot query symbols: {} — run `touring index rebuild --dir .` to repair index",
+                e
+            )
+        })?;
 
     let mut entities: Vec<Entity> = Vec::new();
     for row in rows {
@@ -320,12 +371,19 @@ fn run_bootstrap(args: &[String]) -> anyhow::Result<()> {
     }
 
     let db_path = default_db_path()?;
-    let mut reg = IdentityRegistry::open_or_create(&db_path)
-        .map_err(|e| anyhow::anyhow!("failed to open registry — run `touring doctor -j` to check database health: {}", e))?;
+    let mut reg = IdentityRegistry::open_or_create(&db_path).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to open registry — run `touring doctor -j` to check database health: {}",
+            e
+        )
+    })?;
 
-    let count = reg
-        .define_batch(&entities)
-        .map_err(|e| anyhow::anyhow!("batch insert failed — run `touring doctor -j` to check registry database health: {}", e))?;
+    let count = reg.define_batch(&entities).map_err(|e| {
+        anyhow::anyhow!(
+            "batch insert failed — run `touring doctor -j` to check registry database health: {}",
+            e
+        )
+    })?;
 
     println!(
         "{}",

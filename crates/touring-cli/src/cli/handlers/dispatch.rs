@@ -229,7 +229,6 @@ pub use crate::cli::gotcha::cli_gotcha_list;
 pub use crate::cli::gotcha::cli_gotcha_match;
 pub use crate::cli::gotcha::cli_gotcha_resolve;
 pub use crate::cli::gotcha::cli_gotcha_stats;
-pub use crate::cli::learning::{cli_experiment_list, cli_experiment_record, cli_learning_replay};
 pub use crate::cli::gotcha::cli_gotcha_sync;
 pub use crate::cli::granularity::cli_granularity_hint;
 pub use crate::cli::granularity::cli_granularity_reset;
@@ -251,22 +250,23 @@ pub use crate::cli::knowledge::cli_metadata_backfill;
 pub use crate::cli::knowledge::cli_session_summary;
 pub use crate::cli::learning::cli_learning_reward;
 pub use crate::cli::learning::cli_learning_status;
+pub use crate::cli::learning::{cli_experiment_list, cli_experiment_record, cli_learning_replay};
+pub use crate::cli::memory::cli_memory_backfill_tags;
+pub use crate::cli::memory::cli_memory_communities;
 pub use crate::cli::memory::cli_memory_credit;
+pub use crate::cli::memory::cli_memory_link;
+pub use crate::cli::memory::cli_memory_links;
 pub use crate::cli::memory::cli_memory_list;
+pub use crate::cli::memory::cli_memory_moc;
+pub use crate::cli::memory::cli_memory_query;
 pub use crate::cli::memory::cli_memory_recall;
 pub use crate::cli::memory::cli_memory_reindex;
 pub use crate::cli::memory::cli_memory_stats;
 pub use crate::cli::memory::cli_memory_store;
-pub use crate::cli::memory::cli_memory_backfill_tags;
-pub use crate::cli::memory::cli_memory_communities;
-pub use crate::cli::memory::cli_memory_moc;
-pub use crate::cli::memory::cli_memory_unlink;
-pub use crate::cli::memory::cli_memory_link;
-pub use crate::cli::memory::cli_memory_links;
-pub use crate::cli::memory::cli_memory_query;
 pub use crate::cli::memory::cli_memory_sync_tags;
 pub use crate::cli::memory::cli_memory_tag_add;
 pub use crate::cli::memory::cli_memory_tags;
+pub use crate::cli::memory::cli_memory_unlink;
 pub use crate::cli::metrics::cli_mcp_overhead;
 pub use crate::cli::metrics::cli_profile_status;
 pub use crate::cli::metrics::cli_tokio_metrics;
@@ -303,7 +303,7 @@ pub use crate::cli::shared::touring_claude_dir;
 pub(crate) use crate::cli::shared::{
     ARCTIC_QUERY_PREFIX, discover_canonical_dbs, ensure_decompose_tables,
     inject_synthetic_tool_rewards, keyword_skill_match, memory_recall_sql_federated,
-    semantic_or_hash_embedding, semantic_text_embedding,
+    semantic_or_hash_embeddings, semantic_text_embedding,
 };
 pub use crate::cli::skip::cli_skip_list;
 pub use crate::cli::skip::cli_skip_validate;

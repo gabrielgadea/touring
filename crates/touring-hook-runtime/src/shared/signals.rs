@@ -15,11 +15,11 @@
 //! - [`wilson_adjusted_score`]: WilsonRanker confidence-bounded scoring (E8, touring-simd).
 //! - RRF fusion via `touring_cortex::rrf_strings()` (E16) for multi-signal ranking.
 
-use touring_foundation::knowledge_source::BashOutcomeRecord;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use touring_code::ast::graph::SymbolIndex;
+use touring_foundation::knowledge_source::BashOutcomeRecord;
 use touring_intelligence::reasoning::BM25TfIdfVectorizer;
 use touring_simd::WilsonRanker;
 

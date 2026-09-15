@@ -90,6 +90,8 @@ pub use touring_hooks_rl as agentic_rl;
 /// Mirror of the dispatch crate's `shared/` facade, re-exporting the leaf and
 /// runtime submodules the cli layer consumes at their byte-identical paths.
 pub mod shared {
+    #[cfg(feature = "tantivy-fts")]
+    pub use touring_hook_runtime::shared::tantivy_docs;
     pub use touring_hook_runtime::shared::{quality, reindex, signals};
     pub use touring_hooks_shared::{
         detect_language, feature_flags, gate_metrics, job_registry, memory_stats_probe,

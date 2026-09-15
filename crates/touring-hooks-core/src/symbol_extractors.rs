@@ -856,6 +856,17 @@ pub fn resolve_import_path_with_source(
 
             // First, check for cross-crate imports (e.g., touring_analysis::pipeline::Builder)
             for (crate_name, crate_path) in TOURING_CRATE_MAP.iter() {
+                // `use touring_foo::{A, B}` reaches here as the module path
+                // `touring_foo` alone: the symbols live at the crate root, defined
+                // in `lib.rs` or re-exported there. Only `{crate}::…` was matched,
+                // so every crate-root import went to `wiring_unresolved` (307 in
+                // the workspace, 14/09/2026) and the producers behind them read as
+                // orphans once the name-inference pass stopped covering imported
+                // types (cross-audit R2-5). The full `touring_` name only: a bare
+                // short alias (`storage`) can be a local module.
+                if import == crate_name.as_str() && crate_name.starts_with("touring_") {
+                    return resolve_module_layout(crate_path, "lib");
+                }
                 if let Some(rest) = import.strip_prefix(&format!("{}::", crate_name)) {
                     // `rest` is a MODULE path: `extract_file_imports` returns
                     // `(module_path, symbols)` with the symbols already split
@@ -1003,6 +1014,25 @@ mod crate_map_and_reexport_tests {
         resolve_import_path_with_source,
     };
 
+    /// Cross-audit 14/09/2026 (R2-5): `use touring_assists::{ALL_HANDLERS, …}`
+    /// hands the resolver the bare crate name. It resolves to the crate root, and
+    /// the root's `pub use handlers::*;` leads to the file that defines the symbol.
+    #[test]
+    fn a_crate_root_import_resolves_through_the_root_to_the_definer() {
+        let consumer = Some("crates/touring-server/src/cli/assist.rs");
+        let root = resolve_import_path_with_source("touring_assists", "rust", consumer);
+        assert_eq!(root.as_deref(), Some("crates/touring-assists/src/lib.rs"));
+        assert_eq!(
+            super::definer_module("crates/touring-assists/src/lib.rs", "ALL_HANDLERS"),
+            "crates/touring-assists/src/handlers/mod.rs"
+        );
+        assert_eq!(
+            resolve_import_path_with_source("storage", "rust", consumer),
+            None,
+            "a bare short alias may be a local module and is never taken for a crate root"
+        );
+    }
+
     /// Defect 1 — the literal map named 6 live crates out of 41, so an import
     /// of any other crate resolved to `None` and its producers looked orphan.
     #[test]
@@ -1145,8 +1175,11 @@ mod crate_map_and_reexport_tests {
     fn self_import_resolves_into_the_modules_child_directory() {
         let base = scope_fixture();
         let src = base.join("crates/demo/src/capability/limits.rs");
-        let got =
-            resolve_import_path_with_source("self::helper", "rust", Some(src.to_str().expect("utf8")));
+        let got = resolve_import_path_with_source(
+            "self::helper",
+            "rust",
+            Some(src.to_str().expect("utf8")),
+        );
         let _ = std::fs::remove_dir_all(&base);
         assert!(
             got.as_deref()
@@ -1163,15 +1196,27 @@ mod crate_map_and_reexport_tests {
         let base = scope_fixture();
         let from_mod = base.join("crates/demo/src/capability/mod.rs");
         let from_leaf = base.join("crates/demo/src/capability/limits.rs");
-        let a = resolve_import_path_with_source("super::util", "rust", Some(from_mod.to_str().expect("utf8")));
+        let a = resolve_import_path_with_source(
+            "super::util",
+            "rust",
+            Some(from_mod.to_str().expect("utf8")),
+        );
         let b = resolve_import_path_with_source(
             "super::super::util",
             "rust",
             Some(from_leaf.to_str().expect("utf8")),
         );
         let _ = std::fs::remove_dir_all(&base);
-        assert!(a.as_deref().is_some_and(|p| p.ends_with("crates/demo/src/util.rs")), "mod.rs → {a:?}");
-        assert!(b.as_deref().is_some_and(|p| p.ends_with("crates/demo/src/util.rs")), "double super → {b:?}");
+        assert!(
+            a.as_deref()
+                .is_some_and(|p| p.ends_with("crates/demo/src/util.rs")),
+            "mod.rs → {a:?}"
+        );
+        assert!(
+            b.as_deref()
+                .is_some_and(|p| p.ends_with("crates/demo/src/util.rs")),
+            "double super → {b:?}"
+        );
     }
 
     /// `use super::Foo;` arrives as module path "super" — the parent module
@@ -1180,10 +1225,12 @@ mod crate_map_and_reexport_tests {
     fn bare_super_import_resolves_to_the_parent_modules_own_file() {
         let base = scope_fixture();
         let src = base.join("crates/demo/src/capability/limits.rs");
-        let got = resolve_import_path_with_source("super", "rust", Some(src.to_str().expect("utf8")));
+        let got =
+            resolve_import_path_with_source("super", "rust", Some(src.to_str().expect("utf8")));
         let _ = std::fs::remove_dir_all(&base);
         assert!(
-            got.as_deref().is_some_and(|p| p.ends_with("crates/demo/src/capability/mod.rs")),
+            got.as_deref()
+                .is_some_and(|p| p.ends_with("crates/demo/src/capability/mod.rs")),
             "got {got:?}"
         );
     }

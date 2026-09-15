@@ -6,6 +6,7 @@
 use crate::{DimId, DimScore, DimStatus};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
+use touring_foundation::gitignore::GitIgnoreRules;
 
 pub mod f1_10_data_model;
 pub mod f1_11_patterns;
@@ -108,7 +109,6 @@ const SKIP_DIRS: &[&str] = &[
     ".pytest_cache",
     "htmlcov",
     ".tox",
-    "vendor",
     ".idea",
     ".vs",
     "coverage",
@@ -120,6 +120,30 @@ const SKIP_DIRS: &[&str] = &[
     "mutants",
     "mutants.out",
 ];
+
+/// Whether a directory named `name` is skipped by every walk that decides what
+/// the score reads — file enumeration and crate discovery ask this same
+/// question, so a vendored tree cannot leave one while staying in the other.
+#[must_use]
+pub(crate) fn is_skipped_dir_name(name: &str) -> bool {
+    name.starts_with('.') || SKIP_DIRS.contains(&name) || VENDORED_DIRS.contains(&name)
+}
+
+/// Vendored upstream code: `vendor/` and `third_party/` (Chromium, Bazel, and
+/// touring's own patched tree-sitter grammars). Skipped by the STYLE corpus —
+/// complexity, duplication and the rest measure maintenance, and upstream code is
+/// not ours to maintain (the generated markdown parser has 68% clones) — but
+/// scanned by the SECURITY corpus: vendored code is compiled into the binary, and
+/// a secret or an injection sink there is ours to ship. Until 14/09/2026 one list
+/// fed both, so `third_party/` left F2.1 and F2.4 too (cross-audit D3).
+const VENDORED_DIRS: &[&str] = &["vendor", "third_party"];
+
+/// Whether the SECURITY corpus skips a directory named `name`: build output, VCS,
+/// dependency caches and dot-dirs, never vendored code.
+#[must_use]
+pub(crate) fn is_security_skipped_dir_name(name: &str) -> bool {
+    name.starts_with('.') || SKIP_DIRS.contains(&name)
+}
 
 /// Upper bound on concatenated directory source scanned per verifier (keeps large
 /// monorepos bounded; single-file scoring is always unbounded).
@@ -162,7 +186,7 @@ const SKIP_DIRS: &[&str] = &[
 pub(crate) const DIR_SCAN_BYTE_CAP: usize = 128 * 1024 * 1024;
 
 /// Bytes totais do corpus de `target` quando ele ESTOURA
-/// [`DIR_SCAN_BYTE_CAP`] — `None` quando cabe (o caso normal).
+/// `DIR_SCAN_BYTE_CAP` — `None` quando cabe (o caso normal).
 ///
 /// Só consulta metadata (`len()`), nunca lê conteúdo, então serve para anotar a
 /// evidência sem duplicar o custo da varredura. Existe para que um score de
@@ -188,12 +212,23 @@ pub fn dir_scan_overflow(target: &Path) -> Option<u64> {
 ///   replaces the legacy "first `.rs` file" scan that silently ignored Python /
 ///   TypeScript / other polyglot projects (Rust-bias fix, 2026-06-20).
 pub fn read_target_source(target: &Path) -> Result<String> {
+    concatenate(target, enumerate_source_files)
+}
+
+/// [`read_target_source`] over the SECURITY corpus ([`enumerate_security_files`]):
+/// a directory target includes its vendored code. Used by F2.1 and F2.4.
+pub fn read_security_source(target: &Path) -> Result<String> {
+    concatenate(target, enumerate_security_files)
+}
+
+/// A file's contents, or the bounded concatenation of `enumerate(target)`.
+fn concatenate(target: &Path, enumerate: fn(&Path) -> Vec<std::path::PathBuf>) -> Result<String> {
     if !target.is_dir() {
         return std::fs::read_to_string(target)
             .map_err(|e| anyhow::anyhow!("failed to read {}: {}", target.display(), e));
     }
     let mut out = String::new();
-    for p in enumerate_source_files(target) {
+    for p in enumerate(target) {
         if let Ok(s) = std::fs::read_to_string(&p) {
             out.push_str(&s);
             out.push('\n');
@@ -270,7 +305,7 @@ pub fn read_target_source_excluding_generated(target: &Path) -> Result<(String, 
 ///
 /// A versão sem segmentos entrega uma `String` só, e o chamador então deriva UM
 /// `lang` da extensão do alvo — que num diretório não existe, caindo no default
-/// `"rust"` de [`lang_from_ext`]. Duas consequências, medidas em 03/09/2026 sobre
+/// `"rust"` de `lang_from_ext`. Duas consequências, medidas em 03/09/2026 sobre
 /// o repositório `analise` (sessão analise-c1):
 ///
 /// * um corpus Python inteiro é lexado como Rust; e
@@ -610,6 +645,7 @@ pub fn resolve_artifacts(target: &Path, class: ArtifactClass) -> Vec<PathBuf> {
         return vec![target.to_path_buf()];
     }
     let mut files = Vec::new();
+    let git = GitIgnoreRules::for_path(target);
     let mut stack = vec![target.to_path_buf()];
     while let Some(dir) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -621,11 +657,13 @@ pub fn resolve_artifacts(target: &Path, class: ArtifactClass) -> Vec<PathBuf> {
                 let dname = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
                 // Artifact resolution needs a few dot-dirs the source walk skips.
                 let allowed_dot = matches!(dname, ".github" | ".circleci");
-                let skip = (dname.starts_with('.') && !allowed_dot) || SKIP_DIRS.contains(&dname);
+                let skip = (dname.starts_with('.') && !allowed_dot)
+                    || SKIP_DIRS.contains(&dname)
+                    || git.ignored_abs(&p, true).is_some();
                 if !skip {
                     stack.push(p);
                 }
-            } else if class.matches(&p) {
+            } else if class.matches(&p) && git.ignored_abs(&p, false).is_none() {
                 files.push(p);
             }
         }
@@ -744,6 +782,7 @@ fn resolve_artifacts_shallow(root: &Path, class: ArtifactClass, max_depth: usize
         return vec![root.to_path_buf()];
     }
     let mut files = Vec::new();
+    let git = GitIgnoreRules::for_path(root);
     let mut stack = vec![(root.to_path_buf(), 0usize)];
     while let Some((dir, depth)) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -757,11 +796,13 @@ fn resolve_artifacts_shallow(root: &Path, class: ArtifactClass, max_depth: usize
                 }
                 let dname = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
                 let allowed_dot = matches!(dname, ".github" | ".circleci");
-                let skip = (dname.starts_with('.') && !allowed_dot) || SKIP_DIRS.contains(&dname);
+                let skip = (dname.starts_with('.') && !allowed_dot)
+                    || SKIP_DIRS.contains(&dname)
+                    || git.ignored_abs(&p, true).is_some();
                 if !skip {
                     stack.push((p, depth + 1));
                 }
-            } else if class.matches(&p) {
+            } else if class.matches(&p) && git.ignored_abs(&p, false).is_none() {
                 files.push(p);
             }
         }
@@ -783,29 +824,52 @@ fn resolve_artifacts_shallow(root: &Path, class: ArtifactClass, max_depth: usize
 /// dropped by a byte cap, closing the fail-open hole where a secret/CVE past the
 /// 2 MiB mark would silently pass a BLOCK dimension.
 pub fn enumerate_source_files(root: &Path) -> Vec<std::path::PathBuf> {
+    enumerate_source_and_vendored_files(root).0
+}
+
+/// The SECURITY corpus of `root`: every source file [`enumerate_source_files`]
+/// returns plus the files under vendored directories (see [`VENDORED_DIRS`]),
+/// sorted. F2.1 (OWASP), F2.4 (secrets) and F2.6 (config) read this one.
+pub fn enumerate_security_files(root: &Path) -> Vec<std::path::PathBuf> {
+    let (mut files, vendored) = enumerate_source_and_vendored_files(root);
+    files.extend(vendored);
+    files.sort();
+    files
+}
+
+/// One walk, two corpora: `(source files, files under vendored directories)`,
+/// each sorted. A vendored directory is walked like any other — only its files
+/// land in the second list — so both corpora share every other rule (skipped
+/// build/VCS dirs, `SOURCE_EXTS`, minified bundles) by construction.
+pub(crate) fn enumerate_source_and_vendored_files(
+    root: &Path,
+) -> (Vec<std::path::PathBuf>, Vec<std::path::PathBuf>) {
     if !root.is_dir() {
-        return vec![root.to_path_buf()];
+        return (vec![root.to_path_buf()], Vec::new());
     }
     let mut files = Vec::new();
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
+    let mut vendored = Vec::new();
+    // What git ignores is not the project's source: the MkDocs build under
+    // `site/` carried a stale copy of a fixed file into the F2.1 score
+    // (cross-audit 14/09/2026, R2-2). Same rules as the symbol index.
+    let git = GitIgnoreRules::for_path(root);
+    let mut stack = vec![(root.to_path_buf(), false)];
+    while let Some((dir, under_vendored)) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
             continue;
         };
         for entry in rd.flatten() {
             let p = entry.path();
             if p.is_dir() {
-                let skip = p
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| n.starts_with('.') || SKIP_DIRS.contains(&n));
-                if !skip {
-                    stack.push(p);
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if !is_security_skipped_dir_name(name) && git.ignored_abs(&p, true).is_none() {
+                    stack.push((p.clone(), under_vendored || VENDORED_DIRS.contains(&name)));
                 }
             } else if p
                 .extension()
                 .and_then(|e| e.to_str())
                 .is_some_and(|e| SOURCE_EXTS.contains(&e))
+                && git.ignored_abs(&p, false).is_none()
             {
                 // Vendored/minified bundles (`lunr.pt.min.js`, `app.min.css`…)
                 // are machine-written single-line blobs, not project source —
@@ -821,13 +885,18 @@ pub fn enumerate_source_files(root: &Path) -> Vec<std::path::PathBuf> {
                 // also blind the secrets/CVE scans. Generated-but-committed SDKs
                 // therefore stay in scope; their duplication is visible debt.
                 if !minified {
-                    files.push(p);
+                    if under_vendored {
+                        vendored.push(p);
+                    } else {
+                        files.push(p);
+                    }
                 }
             }
         }
     }
     files.sort(); // global deterministic order → reproducible scope scores
-    files
+    vendored.sort();
+    (files, vendored)
 }
 
 /// Durable wildcard: auto-categorise any DimId (including future F5+) by its
@@ -1021,7 +1090,7 @@ pub(crate) fn auto_remediation(dim: DimId, target: &Path, status: DimStatus) -> 
 
 /// Fold the shared `check()` tail every verifier ends with: derive the status
 /// (`NotApplicable` when `evidence` carries the conditional-artifact `[N/A]`
-/// sentinel — see [`evidence_marks_not_applicable`] — otherwise Pass/Warn/Fail
+/// sentinel — see `evidence_marks_not_applicable` — otherwise Pass/Warn/Fail
 /// from the score), attach the canonical remediation suggestion, and stamp a
 /// zero latency. Single definition that replaced the ~7-line tail duplicated
 /// across all 50 verifiers (dedup, F1.3). Behaviour-preserving: the 44 plain
@@ -1116,6 +1185,39 @@ pub(crate) fn lang_from_ext(target: &Path) -> &'static str {
         // Default to rust (the primary workspace language).
         _ => "rust",
     }
+}
+
+/// Language of a file for the security scan: [`lang_from_ext`], plus shell
+/// scripts by extension and extensionless scripts by their shebang.
+///
+/// `lang_from_ext` sends `.sh` and extensionless files to `"rust"`. For the
+/// security analyzer that decides what is a comment and whether `&& curl` is
+/// shell syntax or a smuggled payload: `scripts/install.sh` and the
+/// extensionless `scripts/touring-quality-score` failed F2.1 as Rust
+/// (cross-audit R2, 14/09/2026). The other dimensions keep `lang_from_ext`
+/// until their own analyzers learn shell.
+#[cfg(feature = "workspace-integration")]
+pub(crate) fn lang_for_source(target: &Path, raw: &str) -> &'static str {
+    match target.extension().and_then(|e| e.to_str()) {
+        Some("sh" | "bash" | "zsh") => "shell",
+        Some(_) => lang_from_ext(target),
+        None => match shebang_interpreter(raw) {
+            Some(i) if i.starts_with("python") => "python",
+            Some("bash" | "sh" | "zsh" | "dash" | "ksh") => "shell",
+            Some(i) if i.starts_with("node") => "javascript",
+            _ => lang_from_ext(target),
+        },
+    }
+}
+
+/// The interpreter a `#!` line names: `#!/bin/bash` → `bash`,
+/// `#!/usr/bin/env -S python3 -u` → `python3`.
+#[cfg(feature = "workspace-integration")]
+fn shebang_interpreter(raw: &str) -> Option<&str> {
+    let line = raw.lines().next()?.strip_prefix("#!")?;
+    line.split_whitespace()
+        .map(|word| word.rsplit('/').next().unwrap_or(word))
+        .find(|word| *word != "env" && !word.starts_with('-'))
 }
 
 /// Locate a byte span in `src`, returning `(line_number, excerpt)`.
@@ -1260,6 +1362,21 @@ mod tests {
         }
         let files = enumerate_source_files(root);
         assert_eq!(files, vec![root.join("real.py")]);
+    }
+
+    /// A vendored upstream crate under `third_party/` is not project source: the
+    /// generated tree-sitter-md parser (140k lines, 68% Type-1 clones) made F1.3
+    /// block the touring workspace at Silver (14/09/2026).
+    #[test]
+    fn test_enumerate_skips_vendored_third_party_trees() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::write(root.join("real.rs"), "fn a() {}\n").expect("write");
+        let vendored = root.join("third_party").join("tree-sitter-md").join("src");
+        std::fs::create_dir_all(&vendored).expect("mkdir");
+        std::fs::write(vendored.join("parser.c"), "int x;\n").expect("write");
+        let files = enumerate_source_files(root);
+        assert_eq!(files, vec![root.join("real.rs")]);
     }
 
     /// Vendored minified bundles are machine-written blobs, not project source
@@ -1607,5 +1724,47 @@ mod tests {
             "o teto anunciado deriva de DIR_SCAN_BYTE_CAP — a mensagem dizia 16 MiB \
              enquanto a constante valia 128 MiB (drift corrigido em 03/09/2026)"
         );
+    }
+
+    /// Cross-audit 14/09/2026 (R2-2): the MkDocs build under `site/` is ignored by
+    /// git and still reached every corpus, so a stale copy failed the workspace's
+    /// F2.1 gate. Source, security and artifact walks read git's rules; an
+    /// explicit file target is scored as given.
+    #[test]
+    fn what_git_ignores_is_in_no_corpus() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        for (rel, body) in [
+            (".git/HEAD", "ref: refs/heads/main\n"),
+            (".gitignore", "/site/\n*.gen.py\n"),
+            ("src/app.py", "x = 1\n"),
+            ("src/table.gen.py", "x = 1\n"),
+            ("site/docs/app.py", "x = 1\n"),
+            ("CHANGELOG.md", "# Changelog\n"),
+            ("site/CHANGELOG.md", "# stale\n"),
+        ] {
+            let path = root.join(rel);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+            std::fs::write(path, body).expect("write");
+        }
+        let under_site = |files: &[PathBuf]| files.iter().filter(|f| f.starts_with(root.join("site"))).count();
+
+        let source = enumerate_source_files(root);
+        assert_eq!(under_site(&source), 0, "{source:?}");
+        assert!(source.iter().any(|f| f.ends_with("src/app.py")), "{source:?}");
+        assert!(
+            !source.iter().any(|f| f.ends_with("src/table.gen.py")),
+            "a file rule refuses a file inside a walked directory: {source:?}"
+        );
+        assert_eq!(under_site(&enumerate_security_files(root)), 0);
+        let changelogs = resolve_artifacts(root, ArtifactClass::Changelog);
+        assert_eq!(under_site(&changelogs), 0, "{changelogs:?}");
+        assert_eq!(changelogs.len(), 1, "{changelogs:?}");
+
+        // A subdirectory scope reads the rules of the working tree above it.
+        assert!(enumerate_source_files(&root.join("site")).is_empty());
+        // An explicit file is what the caller asked for.
+        let explicit = root.join("site/docs/app.py");
+        assert_eq!(enumerate_source_files(&explicit), vec![explicit]);
     }
 }

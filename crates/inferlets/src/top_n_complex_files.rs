@@ -57,7 +57,7 @@ pub struct ComplexFile {
 
 /// Output structure for top_n_complex_files.
 #[derive(Debug, Serialize)]
-pub struct Output {
+pub(crate) struct Output {
     /// The top-N most complex files, ordered by complexity.
     pub files: Vec<ComplexFile>,
     /// Total number of files analyzed.

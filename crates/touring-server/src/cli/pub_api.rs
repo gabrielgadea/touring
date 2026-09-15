@@ -10,7 +10,7 @@
 //! declarations to compute additive vs breaking counts.
 
 use super::common::{human_to_stderr, json_to_stdout, parse_global_flags};
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use std::collections::BTreeSet;
 use std::process::Command;
 

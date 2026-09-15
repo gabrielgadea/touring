@@ -66,7 +66,10 @@ async fn run_serve() -> anyhow::Result<()> {
 
     let server = touring_server::server::TouringServer::new().map_err(|e| {
         error!("Failed to initialize Touring server: {}", e);
-        anyhow::anyhow!("Touring server init failed: {} — check `touring doctor -j` for subsystem status", e)
+        anyhow::anyhow!(
+            "Touring server init failed: {} — check `touring doctor -j` for subsystem status",
+            e
+        )
     })?;
 
     server.spawn_background_tasks();
@@ -309,6 +312,16 @@ async fn async_main() -> anyhow::Result<()> {
             Err(e) => {
                 error!("{} failed: {}", cmd.name, e);
                 if cmd.error_policy == cli::common::ErrorPolicy::ExitOnError {
+                    // A handler over budget is not a failure of the request: its JSON
+                    // goes to stdout and the exit code says what to do — 75
+                    // (EX_TEMPFAIL, retry later) or 79 (heavy work still running,
+                    // poll instead) — so a script never reads it as a semantic error.
+                    if let Some(busy) =
+                        e.downcast_ref::<touring_server::daemon_client::DaemonBusy>()
+                    {
+                        println!("{}", busy.payload);
+                        std::process::exit(busy.exit_code());
+                    }
                     std::process::exit(1);
                 }
                 // HookSilent: swallow error, exit 0

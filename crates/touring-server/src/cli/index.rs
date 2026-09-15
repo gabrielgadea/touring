@@ -63,6 +63,12 @@ enum IndexCmd {
         /// Path of the file to reindex.
         path: String,
     },
+    /// Why a path is, or is not, in the index — the walker's own rules applied to
+    /// one file (skipped dir, unsupported extension, over the size ceiling, …).
+    Why {
+        /// Repo-relative or absolute path to explain.
+        path: String,
+    },
 }
 
 /// Run the `index` CLI subcommand dispatcher.
@@ -108,12 +114,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             println!("{output}");
         }
         IndexCmd::Rebuild { dir } => {
-            // A full rebuild walks the whole tree; on this workspace (2065 source
-            // files) it runs past the 120s default, and the client used to give up
-            // on a rebuild that was progressing normally — reporting the raw
-            // `WouldBlock` errno as "Resource temporarily unavailable". An explicit
-            // `--timeout` still wins over this floor.
-            crate::daemon_client::raise_timeout_floor(touring_foundation::HEAVY_OP_BUDGET_SECS);
+            // A full rebuild runs past the 120s default; `daemon_query` waits past
+            // the heavy budget for every hook in `touring_foundation::is_heavy_hook`
+            // (an explicit `--timeout` still wins).
             let payload = match dir {
                 Some(d) => serde_json::json!({ "dir": d }),
                 None => serde_json::json!({}),
@@ -123,10 +126,20 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         IndexCmd::Ingest { path } => {
             if path.is_empty() {
-                anyhow::bail!("index ingest requires <file>: usage `touring index ingest <path>` — run `touring help` for details");
+                anyhow::bail!(
+                    "index ingest requires <file>: usage `touring index ingest <path>` — run `touring help` for details"
+                );
             }
             let payload = serde_json::json!({ "path": path });
             let output = daemon_query("cli-index-ingest", payload)?;
+            println!("{output}");
+        }
+        IndexCmd::Why { path } => {
+            if path.is_empty() {
+                anyhow::bail!("index why requires <path>: usage `touring index why <path>`");
+            }
+            let payload = serde_json::json!({ "path": path });
+            let output = daemon_query("cli-index-why", payload)?;
             println!("{output}");
         }
     }
@@ -161,6 +174,18 @@ mod tests {
     fn explicit_status_parses() {
         let cli = parse(&["index", "status"]);
         assert!(matches!(cli.cmd, Some(IndexCmd::Status)));
+    }
+
+    #[test]
+    fn why_takes_one_path() {
+        let cli = parse(&["index", "why", "crates/x/src/big.rs"]);
+        assert!(
+            matches!(cli.cmd, Some(IndexCmd::Why { ref path }) if path == "crates/x/src/big.rs")
+        );
+        assert!(
+            IndexCli::try_parse_from(s(&["index", "why"])).is_err(),
+            "the path is required"
+        );
     }
 
     #[test]

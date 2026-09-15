@@ -229,11 +229,9 @@ fn split_crate_dir(path: &str) -> (Option<&str>, &str) {
 fn use_path_for_module(module_file: &str, target_crate: Option<&str>) -> String {
     let (crate_dir, rel) = split_crate_dir(module_file);
     let root = match crate_dir {
-        Some(dir) if Some(dir) != target_crate => dir
-            .rsplit('/')
-            .next()
-            .unwrap_or(dir)
-            .replace('-', "_"),
+        Some(dir) if Some(dir) != target_crate => {
+            dir.rsplit('/').next().unwrap_or(dir).replace('-', "_")
+        }
         _ => "crate".to_string(),
     };
     let rel = rel.trim_end_matches(".rs");
@@ -810,8 +808,14 @@ mod tests {
     #[test]
     fn s3_suggest_imports_for_collapses_mod_rs_and_lib_rs_to_their_module() {
         let known = vec![
-            ("Lang".to_string(), "crates/touring-code/src/ast/mod.rs".to_string()),
-            ("Root".to_string(), "crates/touring-code/src/lib.rs".to_string()),
+            (
+                "Lang".to_string(),
+                "crates/touring-code/src/ast/mod.rs".to_string(),
+            ),
+            (
+                "Root".to_string(),
+                "crates/touring-code/src/lib.rs".to_string(),
+            ),
         ];
         let s = suggest_imports_for(
             &["Lang".to_string(), "Root".to_string()],

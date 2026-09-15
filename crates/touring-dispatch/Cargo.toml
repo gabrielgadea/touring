@@ -125,7 +125,7 @@ touring-orchestration = { path = "../touring-orchestration" }
 touring-foundation = { path = "../touring-foundation" }
 # S-04 (2026-05-29) — optional, lean: ONLY the fastembed provider (no qdrant /
 # candle / voyage / hybrid). Gated by the `semantic-embeddings` feature.
-touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed"] }
+touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed", "storage-emb-cuda"] }
 # W8 pragmatic split — internal sub-crates re-exported verbatim by this façade
 # (see lib.rs `pub use touring_hooks_{shared,prediction}::*`).
 touring-hooks-shared = { path = "../touring-hooks-shared" }

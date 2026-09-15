@@ -23,7 +23,6 @@ use touring_server::tools::generator_tools::build_consumer_generator_plans;
 mod private_daemon;
 use private_daemon::private_daemon_env;
 
-
 /// Helper: run the `touring` binary with given args and capture output.
 /// Mirrors the pattern in `binary_e2e.rs`.
 fn run_touring(args: &[&str], stdin_data: &str) -> (i32, String, String) {

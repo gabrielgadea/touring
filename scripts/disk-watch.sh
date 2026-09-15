@@ -45,7 +45,7 @@ for entry in "${TARGETS[@]}"; do
   primeiro=0
   json="${json}{\"name\":\"${nome}\",\"path\":\"${caminho}\",\"size_gb\":${gb}}"
   if awk -v g="$gb" -v t="$THRESHOLD_GB" 'BEGIN{exit !(g>t)}'; then
-    echo "[${ts}] WARN ${nome} ${gb}GB > ${THRESHOLD_GB}GB — considerar safe-clean.sh sweep" | tee -a "$LOG" >&2
+    echo "[${ts}] WARN ${nome} ${gb}GB > ${THRESHOLD_GB}GB — rodar safe-clean.sh incremental; se target/debug seguir grande, cargo clean --profile dev sem build ativo (sweep aborta com o daemon vivo)" | tee -a "$LOG" >&2
   fi
 done
 json="${json}],\"total_gb\":${total_gb}}"

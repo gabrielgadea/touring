@@ -302,7 +302,8 @@ fn test_pre_write_flags_python_syntax_error_in_proposed_file() {
 /// names the line, so Claude can fix the proposed content before writing it.
 #[test]
 fn test_pre_write_antipattern_signal_carries_line_numbers() {
-    let content = "fn main() {\n    let a = 1;\n    let x: Option<i32> = None;\n    let _ = x.unwrap();\n}\n";
+    let content =
+        "fn main() {\n    let a = 1;\n    let x: Option<i32> = None;\n    let _ = x.unwrap();\n}\n";
     let signals = antipattern_signals(content, "src/main.rs");
     assert_eq!(signals.len(), 1, "{signals:?}");
     let text = &signals[0].1;
@@ -338,7 +339,10 @@ fn test_pre_write_flags_hardcoded_secret_in_proposed_new_file() {
                 context.contains("[secret] P0 F2.4"),
                 "pre_write context must carry the F2.4 verdict on the PROPOSED content, got: {context:?}"
             );
-            assert!(!context.contains("P4ssw0rd"), "never echo the value: {context:?}");
+            assert!(
+                !context.contains("P4ssw0rd"),
+                "never echo the value: {context:?}"
+            );
         }
         other => unreachable!("expected Context with [secret], got {other:?}"),
     }

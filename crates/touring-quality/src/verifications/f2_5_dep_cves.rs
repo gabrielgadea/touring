@@ -60,23 +60,104 @@ mod real_engine {
             )
     }
 
-    /// Walk up from the manifest's directory to the nearest `Cargo.lock` (the
-    /// workspace root holds the single resolved lockfile).
-    fn find_lockfile(target: &Path) -> Option<PathBuf> {
-        let mut dir = if target.is_dir() {
+    /// The `Cargo.lock` cargo resolves for `target`: the lockfile at the root of
+    /// the workspace that owns the manifest — the nearest ancestor `Cargo.toml`
+    /// with a `[workspace]` table that does not `exclude` the target — else the
+    /// nearest lockfile.
+    ///
+    /// The old walk stopped at the NEAREST lockfile, on the comment that "the
+    /// workspace root holds the single resolved lockfile". A member can carry a
+    /// stale one of its own that cargo never reads: `crates/touring-quality/
+    /// Cargo.lock` (24/07/2026) blocked the crate on 8 CVEs whose versions the
+    /// workspace lock had long patched (cross-audit 14/09/2026, O2).
+    pub(super) fn find_lockfile(target: &Path) -> Option<PathBuf> {
+        let start = if target.is_dir() {
             target.to_path_buf()
         } else {
             target.parent()?.to_path_buf()
         };
+        let start = start.canonicalize().unwrap_or(start);
+        let mut nearest: Option<PathBuf> = None;
+        let mut dir = start.clone();
         loop {
             let candidate = dir.join("Cargo.lock");
-            if candidate.is_file() {
-                return Some(candidate);
+            if nearest.is_none() && candidate.is_file() {
+                nearest = Some(candidate.clone());
+            }
+            if owns_as_workspace(&dir, &start) {
+                return if candidate.is_file() {
+                    Some(candidate)
+                } else {
+                    nearest
+                };
             }
             if !dir.pop() {
-                return None;
+                return nearest;
             }
         }
+    }
+
+    /// Whether `dir/Cargo.toml` declares a `[workspace]` that `member` belongs to:
+    /// `member` is `dir` or lies under it, and no `exclude` entry covers it.
+    fn owns_as_workspace(dir: &Path, member: &Path) -> bool {
+        let Ok(text) = std::fs::read_to_string(dir.join("Cargo.toml")) else {
+            return false;
+        };
+        let Some(section) = workspace_section(&text) else {
+            return false;
+        };
+        let Ok(rel) = member.strip_prefix(dir) else {
+            return false;
+        };
+        !workspace_excludes(section)
+            .iter()
+            .any(|excluded| rel.starts_with(excluded))
+    }
+
+    /// The body of the `[workspace]` table: from its header to the next table
+    /// header (`[workspace.*]` sub-tables included — they are not the table).
+    fn workspace_section(manifest: &str) -> Option<&str> {
+        let start = manifest
+            .match_indices("[workspace]")
+            .find(|(at, _)| manifest[..*at].ends_with('\n') || *at == 0)?
+            .0
+            + "[workspace]".len();
+        let body = &manifest[start..];
+        let end = body
+            .match_indices("\n[")
+            .map(|(at, _)| at)
+            .next()
+            .unwrap_or(body.len());
+        Some(&body[..end])
+    }
+
+    /// The quoted paths of the `exclude = [...]` array of a `[workspace]` body.
+    fn workspace_excludes(section: &str) -> Vec<String> {
+        let Some(key) = section
+            .match_indices("exclude")
+            .find(|(at, _)| section[..*at].ends_with('\n') || *at == 0)
+        else {
+            return Vec::new();
+        };
+        let rest = &section[key.0..];
+        let (Some(open), Some(close)) = (rest.find('['), rest.find(']')) else {
+            return Vec::new();
+        };
+        if close < open {
+            return Vec::new();
+        }
+        rest[open + 1..close]
+            .split(',')
+            .filter_map(|item| {
+                let item = item
+                    .split('#')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .trim_matches('"');
+                (!item.is_empty()).then(|| item.to_string())
+            })
+            .collect()
     }
 
     /// Per-lockfile scan-result cache: every crate manifest in a workspace
@@ -119,9 +200,16 @@ mod real_engine {
             );
         }
         let Some(lockfile) = find_lockfile(target) else {
+            // FAIL-SAFE, like the offline advisory DB below: a Cargo project
+            // with no lockfile has no resolved dependency tree, so nothing was
+            // checked. This returned 1.0 "pass" until 14/09/2026 (cross-audit
+            // R2-3) — a P0 gate passing on the absence of its evidence.
             return (
-                1.0,
-                "F2.5: no Cargo.lock found (manifest unresolved) — pass".to_string(),
+                0.5,
+                "F2.5: UNVERIFIED — no Cargo.lock for this manifest, so the dependency \
+                 tree was never resolved and no advisory was checked. Fix: \
+                 `cargo generate-lockfile` (commit it for binaries). Not a clean pass."
+                    .to_string(),
             );
         };
         let key = lockfile.canonicalize().unwrap_or_else(|_| lockfile.clone());
@@ -420,16 +508,22 @@ mod tests {
             );
         }
 
+        /// Cross-audit 14/09/2026 (R2-3): no lockfile means no resolved tree and
+        /// no advisory checked — reported UNVERIFIED below the Gold floor, never
+        /// a pass. (The old test asserted only that the score was in [0, 1].)
         #[test]
-        fn manifest_without_lockfile_passes_gracefully() {
+        fn a_manifest_without_a_lockfile_is_unverified_not_a_pass() {
             let dir = tempfile::tempdir().expect("tmpdir");
             let toml = dir.path().join("Cargo.toml");
             std::fs::write(&toml, "[package]\nname=\"x\"\nversion=\"0.1.0\"\n").expect("write");
-            // /tmp ancestry has no Cargo.lock → graceful pass. (If a runner's
-            // /tmp happens to sit under a Rust project the score is still a
-            // valid [0,1] and the call never panics.)
+            assert!(
+                super::super::real_engine::find_lockfile(&toml).is_none(),
+                "the fixture needs an ancestry without Cargo.lock"
+            );
             let s = F2_5_DepCves.check(&toml).expect("check");
-            assert!((0.0..=1.0).contains(&s.value));
+            assert_eq!(s.value, 0.5, "{}", s.evidence);
+            assert!(s.evidence.contains("UNVERIFIED"), "{}", s.evidence);
+            assert_ne!(s.status, crate::DimStatus::Pass, "{}", s.evidence);
         }
 
         #[test]
@@ -609,6 +703,73 @@ ignore = [\n\
             let ignored = real_engine::load_advisories_ignore(&lockfile);
             assert_eq!(ignored.len(), 1);
             assert_eq!(ignored[0], "RUSTSEC-2026-0185");
+        }
+    }
+
+    /// Cross-audit 14/09/2026 (O2): the lockfile is the one cargo resolves — the
+    /// owning workspace's — never a member's stale copy; an excluded crate keeps
+    /// its own; a crate outside any workspace keeps the nearest.
+    #[cfg(feature = "workspace-integration")]
+    mod lockfile_resolution_tests {
+        use super::super::real_engine::find_lockfile;
+
+        fn write(root: &std::path::Path, rel: &str, body: &str) {
+            let path = root.join(rel);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+            std::fs::write(path, body).expect("write");
+        }
+
+        #[test]
+        fn a_member_resolves_the_workspace_lock_not_its_stale_copy() {
+            let tmp = tempfile::tempdir().expect("tmpdir");
+            let root = tmp.path().canonicalize().expect("canonical");
+            write(
+                &root,
+                "Cargo.toml",
+                "[workspace]\nmembers = [\n    \"crates/foo\",\n]\nexclude = [\"vendored/up\"]  # upstream\n\n[workspace.package]\nversion = \"1.0.0\"\n",
+            );
+            write(&root, "Cargo.lock", "# workspace lock\n");
+            write(
+                &root,
+                "crates/foo/Cargo.toml",
+                "[package]\nname = \"foo\"\n",
+            );
+            write(&root, "crates/foo/Cargo.lock", "# stale member lock\n");
+            write(
+                &root,
+                "vendored/up/Cargo.toml",
+                "[package]\nname = \"up\"\n",
+            );
+            write(&root, "vendored/up/Cargo.lock", "# excluded crate lock\n");
+
+            assert_eq!(
+                find_lockfile(&root.join("crates/foo")),
+                Some(root.join("Cargo.lock")),
+                "a member never reads its own lock"
+            );
+            assert_eq!(
+                find_lockfile(&root.join("crates/foo/Cargo.toml")),
+                Some(root.join("Cargo.lock")),
+                "a manifest target resolves the same way"
+            );
+            assert_eq!(
+                find_lockfile(&root.join("vendored/up")),
+                Some(root.join("vendored/up/Cargo.lock")),
+                "an excluded crate is its own workspace"
+            );
+            assert_eq!(find_lockfile(&root), Some(root.join("Cargo.lock")));
+        }
+
+        #[test]
+        fn a_crate_outside_any_workspace_keeps_the_nearest_lock() {
+            let tmp = tempfile::tempdir().expect("tmpdir");
+            let root = tmp.path().canonicalize().expect("canonical");
+            write(&root, "solo/Cargo.toml", "[package]\nname = \"solo\"\n");
+            write(&root, "solo/Cargo.lock", "# solo lock\n");
+            assert_eq!(
+                find_lockfile(&root.join("solo")),
+                Some(root.join("solo/Cargo.lock"))
+            );
         }
     }
 }

@@ -124,7 +124,9 @@ static WRITE_DEDUP: OnceLock<MetadataDedup> = OnceLock::new();
 /// Flush the post_write dedup cache at session boundaries.
 ///
 /// Called from `run_session_stop` to drain stale mtime entries so the next
-/// session starts with a clean dedup state (no false-positive skips).
+/// session starts with a clean dedup state (no false-positive skips). Its only
+/// caller lives in `session_hooks`, so it exists under the same feature.
+#[cfg(feature = "session-hooks")]
 pub(crate) fn flush_dedup() {
     if let Some(dedup) = WRITE_DEDUP.get() {
         dedup.clear();
@@ -293,16 +295,20 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
         // Tantivy FTS: upsert the written file into the full-text index.
         // Runs only on BLAKE3 miss (content actually changed). Graceful — failure
         // is logged and never propagates to the hook caller.
+        // The file document is stored under the index key — project-relative or
+        // `@companion/<name>/<rel>` — and never for a path the walker refuses: a
+        // raw `make_relative` spelling left absolute-path documents no rebuild
+        // could retire (2026-09-13).
         #[cfg(feature = "tantivy-fts")]
-        {
+        if let Ok(key) = crate::shared::reindex::admission_refusal(runtime, &rel_path) {
             let doc = crate::tantivy_index::SymbolDoc {
-                symbol_name: rel_path.to_string(),
-                file_path: rel_path.to_string(),
+                symbol_name: key.clone(),
+                file_path: key.clone(),
                 symbol_kind: "file".to_string(),
                 module_path: None,
                 docstring: None,
                 line_number: 0,
-                language: crate::tantivy_index::extension_to_language(&rel_path),
+                language: crate::tantivy_index::extension_to_language(&key),
                 visibility: None,
                 crate_name: None,
                 blake3_hash: None,
@@ -323,7 +329,7 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
                 crate::tantivy_index::tantivy_for(Some(&runtime.project_root))
                 && let Err(e) = tantivy_idx.upsert_symbol(&doc)
             {
-                tracing::debug!("tantivy upsert failed for {rel_path}: {e}");
+                tracing::debug!("tantivy upsert failed for {key}: {e}");
             }
         }
     }
@@ -407,7 +413,10 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
         collect_quality_issues(runtime, file_path, &rel_path, input_content.as_deref());
 
     // ── Wave 18 (2026-04-18): Invalidate query cache for the written file ──
-    crate::shared::query_cache::invalidate_by_path(file_path);
+    // By the RELATIVE path: `ast meta` keys it relative, `ast overview` keys what
+    // the caller sent (often absolute) — the absolute path contains the relative
+    // one, the reverse is false, so only this form reaches both.
+    crate::shared::query_cache::invalidate_by_path(&rel_path);
 
     // ── Wave 12 (2026-04-18): Health-delta hint via cache cleanup ─────
     // Mirror of post_edit V7. The Write tool may fire pre_write
@@ -772,7 +781,8 @@ fn check_block_gate(issues: &[String], rel_path: &str) -> Option<HookResponse> {
 ///
 /// Checks the block gate first — if 4+ anti-patterns are detected, the write
 /// is blocked entirely. Otherwise returns Context feedback.
-fn build_response(all_issues: Vec<String>, rel_path: &str) -> HookResponse {    if all_issues.is_empty() {
+fn build_response(all_issues: Vec<String>, rel_path: &str) -> HookResponse {
+    if all_issues.is_empty() {
         return HookResponse::Allow;
     }
 
@@ -1167,15 +1177,19 @@ mod tests {
         let knowledge = FileKnowledge {
             file_path: "src/new_module.rs".into(),
             language: Some("rust".into()),
-            symbols_json: Some(
-                r#"[{"name":"NewService","kind":"struct","is_public":true}]"#.into(),
-            ),
+            symbols_json: None,
             imports_json: Some(r#"[]"#.into()),
             ..Default::default()
         };
         db.upsert(&knowledge).unwrap();
 
         // Registration must happen first (in production, reindex_file does this).
+        crate::wiring::refresh_file_producers(
+            &db,
+            "src/new_module.rs",
+            "rust",
+            "pub struct NewService;\n",
+        );
         crate::wiring::update_wiring_after_edit(&db, "src/new_module.rs");
         let issues = verify_wiring_status(&db, "src/new_module.rs");
         assert!(

@@ -343,8 +343,15 @@ mod layer_tests {
             .with_tool_name("Write")
             .with_proposed(crate::signal_layer::ProposedChange::Write { content: proposed });
         let signals = layer.enrich(&ctx);
-        assert_eq!(signals.len(), 1, "expected 1 signal from the PROPOSED content, got {signals:?}");
-        assert!(signals[0].1.contains("[risk]") && signals[0].1.contains("unwrap=1"), "{signals:?}");
+        assert_eq!(
+            signals.len(),
+            1,
+            "expected 1 signal from the PROPOSED content, got {signals:?}"
+        );
+        assert!(
+            signals[0].1.contains("[risk]") && signals[0].1.contains("unwrap=1"),
+            "{signals:?}"
+        );
     }
 
     /// The proposal is what will be written: it wins over a clean file on disk.

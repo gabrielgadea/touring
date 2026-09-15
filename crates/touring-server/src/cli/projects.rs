@@ -97,7 +97,10 @@ fn run_add(args: &[String]) -> Result<()> {
     let path = PathBuf::from(path_str);
 
     if !path.exists() {
-        anyhow::bail!("path {} does not exist; create with `mkdir -p` or verify the path is correct", path.display());
+        anyhow::bail!(
+            "path {} does not exist; create with `mkdir -p` or verify the path is correct",
+            path.display()
+        );
     }
 
     let mut registry = ProjectRegistry::with_default_path();

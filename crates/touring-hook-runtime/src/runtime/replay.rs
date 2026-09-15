@@ -32,8 +32,12 @@ pub fn cursor_read(project_root: &Path) -> (i64, u64, bool) {
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
     {
         Some(v) => (
-            v.pointer("/last_rowid").and_then(serde_json::Value::as_i64).unwrap_or(0),
-            v.pointer("/replayed_total").and_then(serde_json::Value::as_u64).unwrap_or(0),
+            v.pointer("/last_rowid")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(0),
+            v.pointer("/replayed_total")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
             false,
         ),
         None => (0, 0, true),
@@ -44,11 +48,9 @@ pub fn cursor_read(project_root: &Path) -> (i64, u64, bool) {
 /// cannot be opened — absence displayed, never coerced to zero (E4).
 pub fn corpus_pending(project_root: &Path, last_rowid: i64) -> Option<i64> {
     let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
-    let conn = rusqlite::Connection::open_with_flags(
-        &db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    )
-    .ok()?;
+    let conn =
+        rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .ok()?;
     conn.query_row(
         "SELECT COUNT(*) FROM memory_entries WHERE outcome_reward IS NOT NULL AND rowid > ?1",
         rusqlite::params![last_rowid],
@@ -164,8 +166,7 @@ pub fn replay_outcomes_into(
         if let Some(ref qt) = rt.learning.qtable_cache {
             let qtable_path = rt.project_root.join(".claude/data/qtable.rkyv");
             let _ = qt.save_rkyv(&qtable_path, 0);
-            let graph_db =
-                touring_foundation::TouringConfig::graph_db_canonical(&rt.project_root);
+            let graph_db = touring_foundation::TouringConfig::graph_db_canonical(&rt.project_root);
             let persistence = touring_intelligence::rl::LearningPersistence::new(&graph_db);
             let _ = persistence.save_qtable(qt);
         }

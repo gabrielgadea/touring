@@ -3,10 +3,10 @@
 //! Parses the selected match expression, inspects existing arm patterns,
 //! and emits stub arms for variants that appear to be missing.
 
-use touring_foundation::truncate_str;
 use crate::{AssistContext, AssistHandler, AssistId, Assists, LazySourceChange};
 use quote::ToTokens;
 use syn::{Expr, Pat};
+use touring_foundation::truncate_str;
 
 /// Stable identifier for the add-missing-match-arms assist.
 pub const ADD_MISSING_MATCH_ARMS_ID: AssistId = "add_missing_match_arms";
@@ -93,10 +93,7 @@ pub const ADD_MISSING_MATCH_ARMS: AssistHandler = |assists: &mut Assists, ctx: &
             truncate_str(&discriminant_str, 25)
         )
     } else {
-        format!(
-            "Add match arm for: {}",
-            truncate_str(&discriminant_str, 25)
-        )
+        format!("Add match arm for: {}", truncate_str(&discriminant_str, 25))
     };
 
     let lazy = LazySourceChange::new(move || {

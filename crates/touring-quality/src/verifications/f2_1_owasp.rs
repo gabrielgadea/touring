@@ -73,7 +73,7 @@ fn is_detector_own_source(target: &Path) -> bool {
 #[cfg(feature = "workspace-integration")]
 fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
     use touring_analysis::quality::SecurityAnalyzer;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_for_source(target, raw);
     let report = SecurityAnalyzer::new().analyze(raw, lang);
     let value = if report.vuln_matches.is_empty() {
         1.0
@@ -136,10 +136,48 @@ impl Verification for F2_1_Owasp {
                     .to_string(),
             ));
         }
-        let raw = crate::verifications::read_target_source(target)?;
+        let raw = crate::verifications::read_security_source(target)?;
+        // File-level opt-out for fixtures that embed attack payloads ON PURPOSE —
+        // a benchmark scenario asserting that `UNION SELECT …` is blocked must
+        // hold the payload (cross-audit 14/09/2026: `docs/agentic-bench/run_bench.py`
+        // zeroed F2.1). Same convention as `touring-quality:allow-secrets`:
+        // narrow, auditable, grep-able — and honoured only for a FILE target, so
+        // one fixture in a directory never allowlists the directory's other files,
+        // and only as a header comment (`carries_attack_fixture_pragma`).
+        if target.is_file() && carries_attack_fixture_pragma(&raw) {
+            return Ok((
+                1.0,
+                format!(
+                    "OWASP Top 10: file carries `{ALLOW_ATTACK_FIXTURE_PRAGMA}` \
+                     (attack-payload fixture, explicitly allowlisted) — score=1.000"
+                ),
+            ));
+        }
         let (value, evidence) = analyze_owasp(&raw, target);
         Ok((value, evidence))
     }
+}
+
+/// File-level opt-out marker for fixtures that embed OWASP attack payloads on
+/// purpose (benchmarks and detector corpora).
+pub(crate) const ALLOW_ATTACK_FIXTURE_PRAGMA: &str = "touring-quality:allow-attack-fixture";
+
+/// How many leading lines may carry the pragma.
+const PRAGMA_HEADER_LINES: usize = 5;
+
+/// Whether the file declares itself an attack fixture: the pragma in a COMMENT
+/// line among the first [`PRAGMA_HEADER_LINES`].
+///
+/// A bare substring match let any production file silence this P0 gate with the
+/// string in a literal, a docstring or a log message, anywhere in the file
+/// (cross-audit 14/09/2026, R2-4). A declaration sits at the top, in a comment.
+fn carries_attack_fixture_pragma(raw: &str) -> bool {
+    const COMMENT_PREFIXES: &[&str] = &["#", "//", "--", "/*", "*", "<!--", ";"];
+    raw.lines().take(PRAGMA_HEADER_LINES).any(|line| {
+        let line = line.trim_start();
+        COMMENT_PREFIXES.iter().any(|p| line.starts_with(p))
+            && line.contains(ALLOW_ATTACK_FIXTURE_PRAGMA)
+    })
 }
 
 #[cfg(test)]
@@ -191,5 +229,109 @@ mod tests {
         let f = write_temp("");
         let s = F2_1_Owasp.check(f.path()).expect("check");
         assert!((0.0..=1.0).contains(&s.value));
+    }
+
+    /// Cross-audit 14/09/2026: an attack-payload fixture opts out with
+    /// `touring-quality:allow-attack-fixture` — as a FILE; the pragma never
+    /// allowlists the directory it sits in.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn the_attack_fixture_pragma_is_a_file_opt_out_only() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let payload = "let q = \"' OR '1'='1\"; let u = \"UNION SELECT password FROM users\";\n";
+        std::fs::write(
+            dir.path().join("bench.py"),
+            format!("# touring-quality:allow-attack-fixture\n{payload}"),
+        )
+        .expect("fixture");
+        std::fs::write(dir.path().join("handler.py"), payload).expect("real sink");
+        let (fixture, _) = F2_1_Owasp
+            .measure(&dir.path().join("bench.py"))
+            .expect("fixture");
+        assert_eq!(fixture, 1.0, "the fixture opts out");
+        let (real, _) = F2_1_Owasp
+            .measure(&dir.path().join("handler.py"))
+            .expect("real");
+        assert!(real < 0.5, "the same payload without the pragma fails");
+        let (whole, evidence) = F2_1_Owasp.measure(dir.path()).expect("dir");
+        assert!(
+            whole < 0.5,
+            "the directory is not allowlisted by one fixture: {evidence}"
+        );
+    }
+
+    /// Cross-audit 14/09/2026 (R2-4): the pragma is a header comment. In a
+    /// string literal, or in a comment far below the top, it allowlists nothing.
+    #[test]
+    fn only_a_header_comment_declares_an_attack_fixture() {
+        let pragma = ALLOW_ATTACK_FIXTURE_PRAGMA;
+        assert!(carries_attack_fixture_pragma(&format!("#!/usr/bin/env python3\n# {pragma}\nx = 1\n")));
+        assert!(carries_attack_fixture_pragma(&format!("// {pragma} — benchmark payloads\n")));
+        assert!(carries_attack_fixture_pragma(&format!("<!-- {pragma} -->\n")));
+        assert!(
+            !carries_attack_fixture_pragma(&format!("SKIP = \"{pragma}\"\nq = f\"SELECT {{x}}\"\n")),
+            "a string literal is not a declaration"
+        );
+        assert!(
+            !carries_attack_fixture_pragma(&format!("{}# {pragma}\n", "x = 1\n".repeat(PRAGMA_HEADER_LINES))),
+            "a comment below the header is not a declaration"
+        );
+    }
+
+    /// Cross-audit R2 (14/09/2026): the shapes of the seven workspace files that
+    /// failed this P0 gate without a vulnerability, measured through `measure`
+    /// on real files, next to the sink of the same class that must still fail.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn r2_workspace_false_positives_pass_and_real_sinks_still_fail() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let score = |name: &str, body: &str| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, body).expect("write");
+            F2_1_Owasp.measure(&path).expect("measure")
+        };
+        let clean = [
+            // scripts/touring-quality-score: extensionless bash, `case` glob.
+            ("touring-quality-score", "#!/usr/bin/env bash\nfor arg in \"$@\"; do\n  case \"$arg\" in\n    -o|--output|--output=*)\n      take_lock ;;\n  esac\ndone\n"),
+            // scripts/install.sh: `&& curl` is the script, not a payload.
+            ("install.sh", "if curl -fSL -o \"${tmp}/a.sig\" \"${url}.sig\" \\\n   && curl -fSL -o \"${tmp}/a.pem\" \"${url}.pem\"; then\n  log ok\nfi\n"),
+            // client/omarchy/bin/cc_build.py: module docstring.
+            ("cc_build.py", "#!/usr/bin/env python3\n\"\"\"Builder.\n\nNo external requests: only 127.0.0.1 URLs and inline <script> (test-enforced).\n\"\"\"\nimport html as _html\n_JS = \"document.body.dataset.ready = 1;\"\n\ndef page(name):\n    return f\"\"\"<!DOCTYPE html>\n<html><body><h1>{_html.escape(name)}</h1>\n<script>\n{_JS}\n</script>\n</body></html>\"\"\"\n"),
+            // holon-wasm-components/*/src/lib.rs: the WIT path a macro reads at build time.
+            ("lib.rs", "wit_bindgen::generate!({\n    path: \"../../crates/touring-wasm/wit/holon-core.wit\",\n    world: \"holon-component\",\n});\n"),
+            // crates/touring-cli/src/cli_suggester.rs: a flag placeholder in usage text.
+            ("suggest.rs", "const HINT: &str = \"rode `touring run --lang bash --file <script>` de uma vez\";\n"),
+            // scripts/_archive/generate_w0_premium_artifacts.py: a symlink in a tree listing.
+            ("layout.py", "LAYOUT = \"\"\"\n├── bin/\n│   ├── touring -> ../../../~/.touring/toolchains/1.0.0/bin/touring\n\"\"\"\n"),
+        ];
+        for (name, body) in clean {
+            let (value, evidence) = score(name, body);
+            assert_eq!(value, 1.0, "{name}: {evidence}");
+        }
+        let sinks = [
+            ("deploy", "#!/bin/sh\nsh -c \"$1\"\npython3 -c 'import os; os.system(f\"ping {h}\")'\n"),
+            ("handler.py", "\"\"\"Doc.\"\"\"\ncur.execute(\n    \"\"\"SELECT a FROM t UNION SELECT password FROM users\"\"\"\n)\n"),
+            ("page.rs", "// the template used to say <script>\nfn page() -> String { format!(\"<script>{}</script>\", user_input()) }\n"),
+            ("read.rs", "fn read(p: &str) -> String { std::fs::read_to_string(format!(\"../../{p}\")).unwrap_or_default() }\n"),
+        ];
+        for (name, body) in sinks {
+            let (value, evidence) = score(name, body);
+            assert!(value < 0.5, "{name} must still fail: {evidence}");
+        }
+    }
+
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn the_security_scan_reads_shell_and_shebangs() {
+        use crate::verifications::lang_for_source;
+        use std::path::Path;
+        assert_eq!(lang_for_source(Path::new("install.sh"), ""), "shell");
+        assert_eq!(lang_for_source(Path::new("run.bash"), ""), "shell");
+        assert_eq!(lang_for_source(Path::new("tool"), "#!/usr/bin/env bash\n"), "shell");
+        assert_eq!(lang_for_source(Path::new("tool"), "#!/bin/sh -e\n"), "shell");
+        assert_eq!(lang_for_source(Path::new("tool"), "#!/usr/bin/env -S python3 -u\n"), "python");
+        assert_eq!(lang_for_source(Path::new("tool"), "#!/usr/bin/node\n"), "javascript");
+        assert_eq!(lang_for_source(Path::new("tool"), "no shebang\n"), "rust");
+        assert_eq!(lang_for_source(Path::new("a.py"), "#!/bin/bash\n"), "python", "the extension wins");
     }
 }

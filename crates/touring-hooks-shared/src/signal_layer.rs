@@ -172,7 +172,11 @@ mod signal_context_v2_tests {
         let ctx = SignalContext::new("src/lib.rs", "fn on_disk() {}");
         assert_eq!(ctx.tool_name, "");
         assert!(ctx.proposed.is_none());
-        assert_eq!(ctx.analysable_text(), "fn on_disk() {}", "no proposal ⇒ source");
+        assert_eq!(
+            ctx.analysable_text(),
+            "fn on_disk() {}",
+            "no proposal ⇒ source"
+        );
     }
 
     #[test]

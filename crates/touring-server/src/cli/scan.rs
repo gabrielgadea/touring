@@ -117,7 +117,11 @@ mod tests {
         let needle = touring_code::cwe_scan::vendor_prefix_openai_like();
         let src = format!("const KEY: &str = \"{}PLACEHOLDER api\";\n", needle);
         let findings = detect_cwes_in_source(&src);
-        assert!(findings.iter().any(|c| c.id == "CWE-798" && c.severity == "P0"));
+        assert!(
+            findings
+                .iter()
+                .any(|c| c.id == "CWE-798" && c.severity == "P0")
+        );
     }
 
     #[test]
@@ -147,8 +151,12 @@ mod tests {
     /// both (`touring_code::cwe_scan::detect_cwes`); this is the drift guard.
     #[test]
     fn detect_cwes_inline_finds_path_traversal_like_the_hook_detector() {
-        let src = "fn load(p: &str) -> String {\n    fs::read_to_string(p).unwrap_or_default()\n}\n";
-        let ids: Vec<String> = detect_cwes_in_source(src).into_iter().map(|c| c.id).collect();
+        let src =
+            "fn load(p: &str) -> String {\n    fs::read_to_string(p).unwrap_or_default()\n}\n";
+        let ids: Vec<String> = detect_cwes_in_source(src)
+            .into_iter()
+            .map(|c| c.id)
+            .collect();
         assert!(ids.contains(&"CWE-22".to_string()), "{ids:?}");
     }
 }

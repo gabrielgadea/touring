@@ -75,13 +75,13 @@ pub fn record_emit(layer_name: &str, file_path: &str, cila_level: usize, hook_na
         .map(|d| d.as_secs())
         .unwrap_or(0);
     let line = serde_json::json!({
-            "ts": ts,
-            "layer": layer_name,
-            "file": file_path,
-            "cila": cila_level,
-            "hook": hook_name,
-        })
-        .to_string();
+        "ts": ts,
+        "layer": layer_name,
+        "file": file_path,
+        "cila": cila_level,
+        "hook": hook_name,
+    })
+    .to_string();
     if let Err(e) = writeln!(w, "{line}") {
         eprintln!("hooks_complement_journal: write failed: {e}");
     }
@@ -131,10 +131,7 @@ mod tests {
     #[test]
     fn round_trip_emit_count_after_record() {
         // Use a tempdir for the journal to avoid polluting $HOME.
-        let dir = std::env::temp_dir().join(format!(
-            "touring-hcj-test-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("touring-hcj-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("tempdir");
         let path = dir.join("hooks_complement.jsonl");
         std::fs::write(&path, "").expect("init");

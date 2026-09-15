@@ -83,7 +83,7 @@ impl Distribution {
 
 /// Output structure for tdg_grade_distribution inferlet.
 #[derive(Debug, Serialize)]
-pub struct Output {
+pub(crate) struct Output {
     /// Total number of files included in the distribution.
     pub total_files: usize,
     /// Count of files per grade bucket.

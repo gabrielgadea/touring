@@ -273,8 +273,14 @@ pub fn sync_file(
     let key_prefix = format!("snippet:{relpath}#L");
     for key in existing {
         if key.starts_with(&key_prefix) && !live.contains(&key) {
-            conn.execute("DELETE FROM memory_tags WHERE entry_key = ?1", rusqlite::params![key])?;
-            conn.execute("DELETE FROM memory_entries WHERE key = ?1", rusqlite::params![key])?;
+            conn.execute(
+                "DELETE FROM memory_tags WHERE entry_key = ?1",
+                rusqlite::params![key],
+            )?;
+            conn.execute(
+                "DELETE FROM memory_entries WHERE key = ?1",
+                rusqlite::params![key],
+            )?;
             report.tombstoned += 1;
         }
     }
@@ -325,10 +331,7 @@ fn upsert_hit(
 /// never re-sync it and the stale snippet would survive forever (D1,
 /// cross-audit 2026-08-23). Callers use this to decide whether a markerless
 /// file still needs a sync pass (which will tombstone everything).
-pub fn has_snippet_entries(
-    conn: &rusqlite::Connection,
-    relpath: &str,
-) -> rusqlite::Result<bool> {
+pub fn has_snippet_entries(conn: &rusqlite::Connection, relpath: &str) -> rusqlite::Result<bool> {
     let mut stmt = conn.prepare(
         "SELECT 1 FROM memory_entries WHERE entry_type = 'snippet' AND file_path = ?1 LIMIT 1",
     )?;
@@ -406,7 +409,10 @@ mod tests {
         assert!(hits[0].tags.iter().any(|t| t.full_tag == "kind:snippet"));
         assert!(hits[0].block.contains("pub fn blast()"));
         assert!(hits[0].block.contains("x"));
-        assert!(!hits[0].block.contains("fn other"), "block stops at brace match");
+        assert!(
+            !hits[0].block.contains("fn other"),
+            "block stops at brace match"
+        );
     }
 
     #[rstest]
@@ -463,10 +469,15 @@ mod tests {
     /// signature with generics still has its braces counted).
     #[rstest]
     fn lifetimes_survive_literal_stripping() {
-        let src = "// #tags: kind:snippet\nfn parse<'a>(input: &'a str) -> &'a str {\n    input\n}\n";
+        let src =
+            "// #tags: kind:snippet\nfn parse<'a>(input: &'a str) -> &'a str {\n    input\n}\n";
         let hits = scan_source("a.rs", src);
         assert_eq!(hits.len(), 1);
-        assert!(hits[0].block.contains("input"), "block complete: {}", hits[0].block);
+        assert!(
+            hits[0].block.contains("input"),
+            "block complete: {}",
+            hits[0].block
+        );
     }
 
     /// A-2 (cross-audit 2026-08-12): syncing a SUBDIRECTORY must still write
@@ -536,7 +547,10 @@ mod tests {
         // The last (only) anchor disappears from the source.
         std::fs::write(&file, "def f():\n    return 1\n").unwrap();
         let r2 = sync_tree(&conn, &project, &project).unwrap();
-        assert_eq!(r2.tombstoned, 1, "markerless file with entries must tombstone");
+        assert_eq!(
+            r2.tombstoned, 1,
+            "markerless file with entries must tombstone"
+        );
         let survivors: i64 = conn
             .query_row("SELECT COUNT(*) FROM memory_entries", [], |r| r.get(0))
             .unwrap();

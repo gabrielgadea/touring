@@ -19,7 +19,7 @@
 | **#2** | sccache global ativado | `~/.cargo/config.toml` com `rustc-wrapper = "sccache"` + `SCCACHE_CACHE_SIZE=25G` + `SCCACHE_IDLE_TIMEOUT=0`. Hit rate alvo ≥ 60% **para C/C++** (medido 47%); **Rust local mede ~2%** (bins/proc-macros non-cacheable) → ver EXCEÇÃO acima (workspace touring desativa sccache). |
 | **#3** | mold linker (Linux) | `apt install mold` + `[target.x86_64-unknown-linux-gnu] linker="clang", rustflags=["-C","link-arg=-fuse-ld=mold"]`. Link 5-10× mais rápido. Preservar `[build] rustflags` existentes (cargo concatena). |
 | **#4** | Limpeza CIRÚRGICA, nunca cega | **PROIBIDO**: `rm -rf target/`. **USE**: `~/.claude/tools/safe-clean.sh {incremental,sweep,stats}` OR `cargo clean {--doc,--release,--profile <X>,-p <crate>,--dry-run}`. safe-clean tem gates anti-build-vivo + preserva binário do daemon. |
-| **#5** | Observabilidade contínua | Cron diário 03:00 → `disk-watch.sh`; cron semanal Dom 04:00 → `safe-clean.sh sweep`. Output em `~/.claude/touring/disk_{baseline.json,watch.log,cleanup.log}`. |
+| **#5** | Observabilidade contínua | Cron diário 03:00 → `disk-watch.sh`; cron semanal Dom 04:00 → `safe-clean.sh incremental` (14/09/2026: o `sweep` agendado abortou todo domingo desde 30/08 porque o daemon vive 24 h, e `target/debug` chegou a 647 GB; `sweep` só manual, com o daemon parado). Output em `~/.claude/touring/disk_{baseline.json,watch.log,cleanup.log}`. |
 | **#6** | Workspace novo → adicionar ao monitor | Editar `TARGETS` array em `~/.claude/tools/disk-watch.sh` + lista em `safe-clean.sh::mode_incremental()`. |
 | **#7** | Anti-padrões a evitar | Ver tabela abaixo. |
 

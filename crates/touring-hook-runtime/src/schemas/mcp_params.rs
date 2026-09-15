@@ -24,27 +24,6 @@ pub struct DecomposeCreateParams {
     pub cila_level: Option<u8>,
 }
 
-/// Parameters for `decompose add` MCP tool / CLI.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct DecomposeAddParams {
-    /// Identifier of the parent task in the DAG.
-    #[validate(length(min = 1, message = "task_id cannot be empty"))]
-    pub task_id: String,
-
-    /// Identifier of the subtask being added.
-    #[validate(length(min = 1, message = "subtask_id cannot be empty"))]
-    pub subtask_id: String,
-
-    /// Human-readable description of the subtask.
-    #[validate(length(min = 1, max = 1000, message = "description must be 1-1000 chars"))]
-    pub description: String,
-
-    /// Identifiers of subtasks this one depends on.
-    pub depends_on: Option<Vec<String>>,
-    /// Scheduling priority of the subtask.
-    pub priority: Option<u8>,
-}
-
 /// Parameters for `memory store` MCP tool / CLI.
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct MemoryStoreParams {
@@ -75,39 +54,6 @@ pub struct MemoryRecallParams {
     pub tier: Option<String>,
 }
 
-/// Parameters for `decompose update` MCP tool / CLI.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct DecomposeUpdateParams {
-    /// Identifier of the task or subtask to update.
-    #[validate(length(min = 1, message = "task_id cannot be empty"))]
-    pub task_id: String,
-
-    /// New status to set.
-    pub status: Option<String>,
-    /// Updated quality score, in `[0.0, 1.0]`.
-    pub quality_score: Option<f64>,
-    /// Error message to record, if the task failed.
-    pub error: Option<String>,
-}
-
-/// Parameters for `decompose finalize` MCP tool / CLI.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct DecomposeFinalizeParams {
-    /// Identifier of the task to finalize.
-    #[validate(length(min = 1, message = "task_id cannot be empty"))]
-    pub task_id: String,
-
-    /// Minimum quality score required to finalize the task.
-    pub quality_threshold: Option<f64>,
-}
-
-/// Parameters for `decompose ready` MCP tool / CLI.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct DecomposeReadyParams {
-    /// Identifier of the task whose ready subtasks to list; omit for all tasks.
-    pub task_id: Option<String>,
-}
-
 /// Parameters for `touring index find` MCP tool.
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct IndexFindParams {
@@ -118,17 +64,6 @@ pub struct IndexFindParams {
     /// Restrict the lookup to a specific file.
     pub file_path: Option<String>,
     /// Maximum number of matches to return.
-    pub limit: Option<usize>,
-}
-
-/// Parameters for `touring index search` MCP tool.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct IndexSearchParams {
-    /// Search query to match against indexed symbols.
-    #[validate(length(min = 1, message = "query cannot be empty"))]
-    pub query: String,
-
-    /// Maximum number of results to return.
     pub limit: Option<usize>,
 }
 
@@ -154,21 +89,6 @@ pub struct TantivyFuzzyParams {
     pub distance: Option<usize>,
     /// Number of top-ranked hits to return.
     pub top_k: Option<usize>,
-}
-
-/// Parameters for `touring gotcha add` MCP tool.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct GotchaAddParams {
-    /// Pattern that identifies the pitfall.
-    #[validate(length(min = 1, message = "pattern cannot be empty"))]
-    pub pattern: String,
-
-    /// Human-readable description of the gotcha.
-    #[validate(length(min = 1, message = "description cannot be empty"))]
-    pub description: String,
-
-    /// Severity bucket (e.g. low, medium, high).
-    pub severity: Option<String>,
 }
 
 /// Parameters for `touring learning reward` MCP tool.

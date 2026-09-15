@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 TOURING = os.environ.get("TOURING_BIN", "touring")
@@ -329,20 +330,17 @@ def prova_rajada():
             return ""
         return v.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
 
-    # O ledger de rajada é chaveado por (project_root, classe) com janela de
-    # 300s — NÃO por sessão. Duas execuções desta prova em menos de 5 minutos
-    # (o gate de release roda uma por projeto propagado) herdariam a contagem
-    # uma da outra, e a asserção "classe diferente não soma" falharia por
-    # herança, não por defeito.
-    #
-    # Quem zera o ledger é o PRÓPRIO hook ao ver um `touring run` — a condição
-    # "a rota foi seguida". Por isso o reset tem de ser um evento de hook, e não
-    # uma execução de CLI: o CLI fala com o daemon, mas não emite o PreToolUse
-    # que o ledger observa. A prova declara sua pré-condição em vez de depender
-    # da sorte de escalonamento.
-    pre("touring run --lang bash --code 'true'", "prova-reset")
+    # O ledger de rajada é chaveado por (project_root, SESSÃO, classe), janela de
+    # 300s (`inspect_burst_key`, cli_suggester.rs). Esta prova dizia "NÃO por
+    # sessão" e zerava o ledger com um `touring run` na sessão "prova-reset" —
+    # que não toca as sessões da prova. O `cat` que passava numa execução ficava
+    # contado 300s, a execução seguinte o herdava, e o deny apagava a chave: as
+    # execuções alternavam reprova/passa (medido 13/09/2026, na propagação da
+    # 30.4.41, com retry reprovando pela mesma herança). Sessões com nonce por
+    # execução: nenhuma herda de outra, por construção.
+    nonce = f"{os.getpid()}-{time.monotonic_ns()}"
 
-    s = "prova-rajada-1"
+    s = f"prova-rajada-1-{nonce}"
     r1 = pre("grep -rn alfa src/", s)
     afirma("CODE MODE · rajada" not in r1, "1ª inspeção da classe PASSA (o caso comum não é taxado)",
            r1[:70] or "(sem deny)")
@@ -350,8 +348,14 @@ def prova_rajada():
     afirma("CODE MODE · rajada" in r2, "2ª da mesma classe é NEGADA", r2[:70])
     afirma("alfa" in r2 and "beta" in r2, "o deny entrega as DUAS chamadas fundidas num programa",
            "ambos os comandos presentes na rota" if ("alfa" in r2 and "beta" in r2) else r2[:90])
-    r3 = pre("cat README.md", "prova-rajada-2")
+    r3 = pre("cat README.md", f"prova-rajada-2-{nonce}")
     afirma("CODE MODE · rajada" not in r3, "classe diferente não soma à rajada", r3[:70] or "(sem deny)")
+    # A rota seguida zera a janela DAQUELA sessão: a próxima inspeção passa.
+    pre("grep -rn gama src/", s)
+    pre("touring run --lang bash --code 'true'", s)
+    r4 = pre("grep -rn delta src/", s)
+    afirma("CODE MODE · rajada" not in r4, "um `touring run` na mesma sessão zera a janela",
+           r4[:70] or "(sem deny)")
 
 
 # ══ 8. O T3-B foi enterrado (S10) ══════════════════════════════════════════

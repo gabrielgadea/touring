@@ -39,7 +39,10 @@ use crate::sdk::{HookName, HookSignal, SignalReport};
 
 /// Canonical mirror file path under the active user's `$HOME.
 pub fn default_mirror_path(home_dir: &Path) -> PathBuf {
-    home_dir.join(".claude").join("touring").join("sdk_signal_mirror.jsonl")
+    home_dir
+        .join(".claude")
+        .join("touring")
+        .join("sdk_signal_mirror.jsonl")
 }
 
 /// One mirror entry — one hook call observed by PostToolUse.
@@ -177,12 +180,9 @@ pub fn record(
         success,
         origin: Some(origin.as_str().to_string()),
     };
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)?;
-    let line = serde_json::to_string(&entry)
-        .map_err(|e| MirrorError::Malformed { line: 0, source: e })?;
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    let line =
+        serde_json::to_string(&entry).map_err(|e| MirrorError::Malformed { line: 0, source: e })?;
     writeln!(file, "{}", line)?;
     Ok(path.to_path_buf())
 }
@@ -199,12 +199,11 @@ pub fn read(path: &Path) -> Result<MirrorAggregate, MirrorError> {
         if trimmed.is_empty() {
             continue;
         }
-        let entry: HookCallEntry = serde_json::from_str(trimmed).map_err(|e| {
-            MirrorError::Malformed {
+        let entry: HookCallEntry =
+            serde_json::from_str(trimmed).map_err(|e| MirrorError::Malformed {
                 line: line_no,
                 source: e,
-            }
-        })?;
+            })?;
         let counts = agg.by_hook.entry(entry.hook_name).or_default();
         counts.call_count += 1;
         if !entry.success {
@@ -244,8 +243,8 @@ pub fn signal_report_from_journal_and_mirror(
     journal_path: &Path,
     mirror_path: &Path,
 ) -> Result<SignalReport, Box<dyn std::error::Error>> {
-    let mut report = journal::read_journal(journal_path)
-        .map_err(|e| anyhow::anyhow!("journal: {e}"))?;
+    let mut report =
+        journal::read_journal(journal_path).map_err(|e| anyhow::anyhow!("journal: {e}"))?;
     // Bridge: we only need the aggregate bits — build a SignalReport
     // shape on the fly and call augment.
     let mut partial = SignalReport {
@@ -269,10 +268,9 @@ pub fn signal_report_from_journal_and_mirror(
         partial.failure_taxonomy.insert(kind.clone(), *count);
     }
     for hook in HookName::ALL {
-        partial.hooks.insert(
-            hook.as_str().to_string(),
-            HookSignal::default(),
-        );
+        partial
+            .hooks
+            .insert(hook.as_str().to_string(), HookSignal::default());
     }
 
     let agg = read(mirror_path)?;
@@ -311,7 +309,11 @@ mod tests {
 
     fn tmp_mirror(name: &str) -> PathBuf {
         let mut p = std::env::temp_dir();
-        p.push(format!("sdk-mirror-{}-{}-{name}.jsonl", std::process::id(), now_unix()));
+        p.push(format!(
+            "sdk-mirror-{}-{}-{name}.jsonl",
+            std::process::id(),
+            now_unix()
+        ));
         p
     }
 
@@ -370,7 +372,10 @@ mod tests {
         let entry: HookCallEntry =
             serde_json::from_str(std::fs::read_to_string(&p).expect("text").trim())
                 .expect("legacy entry parses");
-        assert_eq!(entry.origin, None, "absent origin is unknown, never invented");
+        assert_eq!(
+            entry.origin, None,
+            "absent origin is unknown, never invented"
+        );
         let r = read(&p).expect("read legacy mirror");
         assert_eq!(r.total_calls, 1);
         std::fs::remove_file(&p).ok();
@@ -380,7 +385,9 @@ mod tests {
     fn augment_zeroed_hooks_get_mirror_counts() {
         let mut report = SignalReport::default();
         for h in HookName::ALL {
-            report.hooks.insert(h.as_str().to_string(), HookSignal::default());
+            report
+                .hooks
+                .insert(h.as_str().to_string(), HookSignal::default());
         }
         let mut agg = MirrorAggregate::default();
         let counts = agg.by_hook.entry("ast_meta".to_string()).or_default();
@@ -433,7 +440,7 @@ mod tests {
     #[test]
     fn read_missing_returns_default_not_error() {
         let r = read(std::path::Path::new("/nonexistent/mirror.jsonl"))
-        .expect("read missing mirror is empty aggregate");
+            .expect("read missing mirror is empty aggregate");
         assert_eq!(r.total_calls, 0);
     }
 }

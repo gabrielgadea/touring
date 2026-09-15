@@ -220,6 +220,31 @@ pub(crate) fn memory_recall_row_to_json(
     Ok(out)
 }
 
+/// Opens a database for READING only — the one opener of every federated read.
+///
+/// Opening read-write cost two defects, both observed:
+///
+/// 1. **Deadlock under concurrency.** The `Drop` of a read-write connection on a
+///    WAL database enters `sqlite3WalClose` → `unixLock` for the checkpoint's
+///    exclusive lock, and threads that only read the same file fight it until
+///    the process stops. Captured under gdb on 24/08/2026 and fixed then in
+///    `cli_suggester` alone; the federated memory recall kept
+///    `Connection::open`, and on 14/09/2026 the `touring-dispatch` test binary
+///    hung again with threads in `sqlite3WalClose` / `sqlite3PagerSharedLock`
+///    and 123 descriptors on `~/.claude/touring/memory.db` (cross-audit R2).
+///    The daemon is multi-threaded too, so this is not a test-only hazard.
+/// 2. **Silent creation of another project's database**: `Connection::open`
+///    carries `SQLITE_OPEN_CREATE`, so probing a federated path that does not
+///    exist made an empty database there.
+pub(crate) fn open_db_readonly(db: &std::path::Path) -> Result<rusqlite::Connection, rusqlite::Error> {
+    rusqlite::Connection::open_with_flags(
+        db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+    )
+}
+
 /// Backfills `stored_at` (by key, from the federated memory DBs) onto merged
 /// recall entries that lack it.
 ///
@@ -249,7 +274,7 @@ pub(crate) fn memory_backfill_stored_at(
         if missing.is_empty() {
             break;
         }
-        let Ok(conn) = rusqlite::Connection::open(db) else {
+        let Ok(conn) = open_db_readonly(db) else {
             continue;
         };
         if !memory_column_present(&conn, "created_at") {
@@ -397,7 +422,7 @@ pub(crate) fn memory_recall_sql(
     memory_db_path: &std::path::Path,
     query: &str,
 ) -> Vec<serde_json::Value> {
-    let conn = match rusqlite::Connection::open(memory_db_path) {
+    let conn = match open_db_readonly(memory_db_path) {
         Ok(c) => c,
         Err(e) => {
             tracing::debug!("memory recall connection failed: {}", e);
@@ -419,12 +444,12 @@ pub(crate) fn memory_recall_sql(
 // `touring_hook_runtime::embeddings` — re-imported here so every
 // `cli::shared::semantic_*` consumer path is unchanged.
 pub(crate) use touring_hook_runtime::embeddings::{
-    semantic_or_hash_embedding, semantic_text_embedding,
+    semantic_or_hash_embeddings, semantic_text_embedding,
 };
 
 /// arctic-embed-m query instruction prefix (Snowflake/snowflake-arctic-embed-m
 /// model card). Applied to the QUERY only — documents are embedded verbatim by
-/// [`semantic_or_hash_embedding`] — to preserve the query↔document asymmetry the
+/// [`touring_hook_runtime::embeddings::semantic_or_hash_embedding`] — to preserve the query↔document asymmetry the
 /// model was trained on. Without it, query and corpus vectors drift into the
 /// same region and cosine scores compress, degrading ranking.
 pub(crate) const ARCTIC_QUERY_PREFIX: &str =

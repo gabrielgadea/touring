@@ -1,0 +1,45 @@
+{
+  "phase": "E2",
+  "entities": [
+    {
+      "entity_id": "phase:E2",
+      "type": "phase",
+      "description": "Busca por prosa do Touring (I9): instrumento provado (bench com cwd no scratchpad ca\u00eda no \u00edndice GLOBAL; tantivy search real = 7/10 hit@1); causa-raiz cli_search_symbols/docs com LIKE '%frase inteira%' e unified sem tantivy; fix: LIKE por token ranqueado + BM25 tantivy com fallback + normalize_path na fus\u00e3o RRF; testes 6/6 + 32/32, clippy limpo, update-touring deploy (PID 376309); search unified 0/10 -> 8/10 hit@1, bm25 0/10 -> 6/10; doctor 7/7."
+    },
+    {
+      "entity_id": "memory:loop:task_1789263655655762620:E2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789263655655762620",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789263655655762620",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:E2|produces|memory:loop:task_1789263655655762620:E2:done",
+      "source": "phase:E2",
+      "type": "produces",
+      "target": "memory:loop:task_1789263655655762620:E2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789263655655762620:E2:done|generated-by|loop:loop:task_1789263655655762620",
+      "source": "memory:loop:task_1789263655655762620:E2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789263655655762620"
+    },
+    {
+      "relation_id": "memory:loop:task_1789263655655762620:E2:done|generated-by|dag:decomp:task_1789263655655762620",
+      "source": "memory:loop:task_1789263655655762620:E2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789263655655762620"
+    }
+  ]
+}

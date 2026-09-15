@@ -493,20 +493,34 @@ impl SymbolStore {
     /// Get summary statistics about the store.
     pub fn stats(&self) -> Result<StoreStats, rusqlite::Error> {
         let conn = self.conn.lock().expect("symbol store conn lock");
-        let symbol_count: i64 = conn.query_row("SELECT COUNT(*) FROM symbols", [], |r| r.get(0))?;
-        let file_count: i64 =
-            conn.query_row("SELECT COUNT(DISTINCT file_path) FROM symbols", [], |r| {
-                r.get(0)
-            })?;
-        let dependency_count: i64 =
-            conn.query_row("SELECT COUNT(*) FROM dependencies", [], |r| r.get(0))?;
-        Ok(StoreStats {
-            symbol_count: symbol_count as usize,
-            file_count: file_count as usize,
-            dependency_count: dependency_count as usize,
-        })
+        store_stats(&conn)
     }
+}
 
+/// [`SymbolStore::stats`] over any connection to a symbol store — including a
+/// read-only one opened outside the daemon's project actor, which is how
+/// `index status` answers while a rebuild holds the actor (decision 3-A,
+/// 14/09/2026). One query set, so both answers always agree.
+///
+/// # Errors
+///
+/// Propagates any `rusqlite` failure (a database without the tables included).
+pub fn store_stats(conn: &Connection) -> Result<StoreStats, rusqlite::Error> {
+    let symbol_count: i64 = conn.query_row("SELECT COUNT(*) FROM symbols", [], |r| r.get(0))?;
+    let file_count: i64 =
+        conn.query_row("SELECT COUNT(DISTINCT file_path) FROM symbols", [], |r| {
+            r.get(0)
+        })?;
+    let dependency_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM dependencies", [], |r| r.get(0))?;
+    Ok(StoreStats {
+        symbol_count: symbol_count as usize,
+        file_count: file_count as usize,
+        dependency_count: dependency_count as usize,
+    })
+}
+
+impl SymbolStore {
     /// Return up to `limit` symbols starting at `offset`, ordered by id.
     ///
     /// Used by the Tantivy bulk-reindex pipeline to iterate the full symbol
@@ -760,7 +774,6 @@ pub struct SymbolChangeSet {
     /// When a rename is detected, the old symbol is still in `remove`
     /// and the new symbol is still in `upsert`. The `renames` field
     /// provides the higher-level interpretation.
-    #[allow(dead_code)] // consumed by observers and diagnostic tooling
     pub renames: Vec<RenameCandidate>,
 }
 

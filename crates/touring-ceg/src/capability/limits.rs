@@ -65,7 +65,7 @@ impl ResourceLimits {
     }
 
     /// SEG-1 (28/08, decisão de Gabriel: híbrido) — o piso de memória: tudo de
-    /// [`sandboxed`] **mais** `RLIMIT_AS` = 80% do RAM físico lido de
+    /// `sandboxed` **mais** `RLIMIT_AS` = 80% do RAM físico lido de
     /// `/proc/meminfo`.
     ///
     /// A gotcha de 18/05 segue valendo e foi MEDIDA de novo nesta máquina:

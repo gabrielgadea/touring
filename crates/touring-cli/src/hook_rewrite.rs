@@ -213,7 +213,9 @@ mod tests {
 
     #[test]
     fn an_unknown_mode_degrades_to_enrich_never_to_rewrite() {
-        let _env = crate::hook_rewrite::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env = crate::hook_rewrite::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // A mode nobody recognises must not be handed the power to change
         // commands — fail-safe, not fail-open.
         for raw in ["deny", "suppress", "REWRITE", "yes", "1"] {

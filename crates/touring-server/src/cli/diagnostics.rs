@@ -40,7 +40,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     };
     let file_path = cli.file.as_str();
     if !Path::new(file_path).exists() {
-        return Err(anyhow::anyhow!("file not found: {file_path} — provide valid file path or use `-` for stdin"));
+        return Err(anyhow::anyhow!(
+            "file not found: {file_path} — provide valid file path or use `-` for stdin"
+        ));
     }
     let source = std::fs::read_to_string(file_path)?;
     let diagnostics = collect_diagnostics(&source, file_path, cli.with_fixes);

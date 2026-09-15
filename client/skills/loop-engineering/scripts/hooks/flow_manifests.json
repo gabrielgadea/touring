@@ -49,6 +49,14 @@
     "class": "A"
    },
    {
+    "id": "turn-record",
+    "class": "B",
+    "materializer": "loop_turn_record",
+    "glob": "",
+    "min": 1,
+    "next_action": "nada a fazer manualmente: `loop_turn_record.py` escreve este registro a partir do turno JA concluido (classe B — custo de contexto zero). Se aparecer em `class_b_unmaterialized`, o executor falhou e o gate seguiu em frente de proposito."
+   },
+   {
     "id": "explore-ledger",
     "glob": "{scope}/.touring-explore/*.ledger.json",
     "min": 1,
@@ -60,7 +68,8 @@
    }
   ],
   "enforced_classes": [
-   "A"
+   "A",
+   "B"
   ]
  },
  "cross-audit": {

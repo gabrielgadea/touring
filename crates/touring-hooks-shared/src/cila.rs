@@ -2,7 +2,9 @@
 //! on 04/09/2026 — one source, because a second copy had drifted at 3 of 5
 //! levels. These re-exports keep every existing call site working unchanged.
 
-pub use touring_foundation::cila::{cila_budget, cila_budget_edit, cila_budget_read, cila_budget_write};
+pub use touring_foundation::cila::{
+    cila_budget, cila_budget_edit, cila_budget_read, cila_budget_write,
+};
 
 // ── L7-B Alpha: Enrichment Gate ──────────────────────────────────────────
 

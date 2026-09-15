@@ -60,11 +60,21 @@ fn extract_method_calls_inner(
     lang: Lang,
     query_src: &str,
 ) -> Option<HashSet<String>> {
+    extract_captures_where(source, lang, query_src, |_| true)
+}
+
+/// Runs `query_src` and keeps the text of every capture `keep` accepts.
+fn extract_captures_where(
+    source: &str,
+    lang: Lang,
+    query_src: &str,
+    keep: impl Fn(tree_sitter::Node<'_>) -> bool,
+) -> Option<HashSet<String>> {
     use tree_sitter::{Parser, Query, QueryCursor};
 
     let mut parser = Parser::new();
     parser.set_language(&lang.tree_sitter_language()).ok()?;
-    let tree = parser.parse(source, None)?;
+    let tree = crate::ast::parser::parse_bounded(&mut parser, source, None)?;
 
     let ts_lang = lang.tree_sitter_language();
     let query = Query::new(&ts_lang, query_src).ok()?;
@@ -75,6 +85,9 @@ fn extract_method_calls_inner(
     let mut names: HashSet<String> = HashSet::new();
     while let Some(m) = matches.next() {
         for capture in m.captures {
+            if !keep(capture.node) {
+                continue;
+            }
             if let Ok(text) = capture.node.utf8_text(source.as_bytes())
                 && !text.is_empty()
             {
@@ -85,10 +98,49 @@ fn extract_method_calls_inner(
     Some(names)
 }
 
+/// True when `node` is the name a type declaration introduces
+/// (`pub struct TfIdfVectorizer;`). Cross-audit 14/09/2026: the query's bare
+/// `(type_identifier)` also matched that name, so every public type consumed
+/// itself and no declared-but-unused type could ever be reported as an orphan.
+fn is_declared_type_name(node: tree_sitter::Node<'_>) -> bool {
+    node.parent().is_some_and(|parent| {
+        matches!(
+            parent.kind(),
+            "struct_item" | "enum_item" | "union_item" | "trait_item" | "type_item"
+        ) && parent
+            .child_by_field_name("name")
+            .is_some_and(|name| name.id() == node.id())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::indexing_slicing)]
     use super::*;
+
+    /// The text scan walks BYTES but slices `&str`: every cut must land on a char
+    /// boundary. Measured 13/09/2026: a Romanian `ș` right before `::` aborted
+    /// the konverter daemon mid-rebuild ("start byte index 17 is not a char
+    /// boundary; it is inside 'ș'"), and a text ending in `::` sliced past the end.
+    #[test]
+    fn the_text_scan_never_cuts_inside_a_character_or_past_the_end() {
+        assert_eq!(
+            scan_qualified_calls_text("fie că așa::ceva(1)"),
+            Vec::<(String, String)>::new(),
+            "`așa` is not an ASCII identifier; the scan must skip it, not panic"
+        );
+        assert_eq!(
+            scan_qualified_calls_text("ș mod_a::run_b(x)"),
+            vec![("mod_a".to_string(), "run_b".to_string())]
+        );
+        assert!(scan_qualified_calls_text("mod_a::ș(").is_empty());
+        assert!(scan_qualified_calls_text("trailing mod_a::").is_empty());
+        assert!(scan_qualified_calls_text("::").is_empty());
+        assert_eq!(
+            scan_qualified_calls_text("ção::x() então mod_c::go_d()"),
+            vec![("mod_c".to_string(), "go_d".to_string())]
+        );
+    }
 
     #[test]
     fn extracts_field_method_call() {
@@ -278,7 +330,8 @@ fn scan_qualified_calls_text(text: &str) -> Vec<(String, String)> {
     fn is_lower_ident(s: &str) -> bool {
         !s.is_empty()
             && s.starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
-            && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+            && s.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
     }
 
     let bytes = text.as_bytes();
@@ -287,9 +340,13 @@ fn scan_qualified_calls_text(text: &str) -> Vec<(String, String)> {
     while let Some(pos) = text[i..].find("::") {
         let sep = i + pos;
         // o identificador à esquerda de `::`
+        // Past the last non-identifier char by ITS width: `+ 1` lands inside a
+        // multi-byte char (`ș` before `::` aborted a daemon, 13/09/2026).
         let start = text[..sep]
-            .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-            .map_or(0, |p| p + 1);
+            .char_indices()
+            .rev()
+            .find(|&(_, c)| !(c.is_ascii_alphanumeric() || c == '_'))
+            .map_or(0, |(p, c)| p + c.len_utf8());
         let qualifier = &text[start..sep];
         // o identificador à direita, e o parêntese que faz dele uma chamada
         let rest = &text[sep + 2..];
@@ -298,11 +355,27 @@ fn scan_qualified_calls_text(text: &str) -> Vec<(String, String)> {
             .unwrap_or(rest.len());
         let name = &rest[..end];
         let after = rest[end..].trim_start();
-        i = sep + 2 + end.max(1);
+        // Always move forward, by whole chars: an empty `name` steps over the next
+        // char (not one byte), and a text ending in `::` stops at its end.
+        let step = if end > 0 {
+            end
+        } else {
+            rest.chars().next().map_or(0, char::len_utf8)
+        };
+        i = sep + 2 + step;
         if !after.starts_with('(') {
             continue;
         }
         if !is_lower_ident(qualifier) || !is_lower_ident(name) {
+            continue;
+        }
+        // A letter right before the qualifier means it is the tail of a longer,
+        // non-ASCII word (`așa::` yields `a`), not an identifier of its own.
+        if text[..start]
+            .chars()
+            .next_back()
+            .is_some_and(char::is_alphanumeric)
+        {
             continue;
         }
         if matches!(qualifier, "super" | "self" | "crate") {
@@ -372,6 +445,7 @@ fn extract_qualified_calls_inner(source: &str, lang: Lang) -> Option<Vec<(String
 /// rows. `scoped_identifier` captures also fire on call paths
 /// (`tags::derive_tags(...)`) — harmless: the consumer edge they would add
 /// already exists from the call pass, and consumer recording is idempotent.
+/// The name a declaration introduces is never a reference to itself.
 pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
     const TYPE_REF_QUERY: &str = r"
         (type_identifier) @ref
@@ -381,10 +455,154 @@ pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
     if lang != Lang::Rust {
         return Vec::new();
     }
-    let Some(names) = extract_method_calls_inner(source, lang, TYPE_REF_QUERY) else {
+    let Some(mut names) = extract_captures_where(source, lang, TYPE_REF_QUERY, |node| {
+        !is_declared_type_name(node) && !is_std_family_path_segment(node, source)
+    }) else {
         return Vec::new();
     };
+    // A name the file imports from another crate is decided by that import: the
+    // resolver wires it when the crate is in the workspace, and a guess by name
+    // can only land on a homonym (`criterion::Criterion` on a workspace
+    // `Criterion`, cross-audit 14/09/2026, B12).
+    for imported in names_imported_from_other_crates(source) {
+        names.remove(&imported);
+    }
     names.into_iter().collect()
+}
+
+/// Path roots that are never a workspace crate.
+const STD_FAMILY_ROOTS: [&str; 5] = ["std", "core", "alloc", "proc_macro", "test"];
+
+/// True when `node` names the last segment of an inline path rooted in the
+/// standard library (`std::path::Path` in a signature).
+fn is_std_family_path_segment(node: tree_sitter::Node<'_>, source: &str) -> bool {
+    let Some(parent) = node.parent() else {
+        return false;
+    };
+    if !matches!(
+        parent.kind(),
+        "scoped_type_identifier" | "scoped_identifier"
+    ) {
+        return false;
+    }
+    parent
+        .child_by_field_name("path")
+        .and_then(|path| path_root(path, source))
+        .is_some_and(|root| STD_FAMILY_ROOTS.contains(&root.as_str()))
+}
+
+/// The leftmost segment of a Rust path node (`a` in `a::b::c`).
+fn path_root(node: tree_sitter::Node<'_>, source: &str) -> Option<String> {
+    match node.kind() {
+        "scoped_identifier" | "scoped_type_identifier" => node
+            .child_by_field_name("path")
+            .and_then(|path| path_root(path, source)),
+        _ => node.utf8_text(source.as_bytes()).ok().map(str::to_string),
+    }
+}
+
+/// Names brought in by `use` from a path whose root is another crate: neither
+/// `crate`, `super` nor `self`, nor a module this file declares with `mod`. The
+/// alias is what the code writes, so `use x::A as B` yields `B`.
+fn names_imported_from_other_crates(source: &str) -> HashSet<String> {
+    let mut parser = tree_sitter::Parser::new();
+    let mut out = HashSet::new();
+    if parser
+        .set_language(&Lang::Rust.tree_sitter_language())
+        .is_err()
+    {
+        return out;
+    }
+    let Some(tree) = parser.parse(source, None) else {
+        return out;
+    };
+    let root = tree.root_node();
+    let mut local_modules = HashSet::new();
+    let mut uses = Vec::new();
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        match node.kind() {
+            "mod_item" => {
+                if let Some(name) = node
+                    .child_by_field_name("name")
+                    .and_then(|n| n.utf8_text(source.as_bytes()).ok())
+                {
+                    local_modules.insert(name.to_string());
+                }
+            }
+            "use_declaration" => uses.push(node),
+            _ => {}
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    let is_other_crate =
+        |root: &str| !matches!(root, "crate" | "super" | "self") && !local_modules.contains(root);
+    for decl in uses {
+        if let Some(argument) = decl.child_by_field_name("argument") {
+            collect_use_names(argument, source, None, &is_other_crate, &mut out);
+        }
+    }
+    out
+}
+
+/// Walks one `use` tree. `list_root` is the root of the enclosing
+/// `path::{...}` list, which every item inside it inherits.
+fn collect_use_names(
+    node: tree_sitter::Node<'_>,
+    source: &str,
+    list_root: Option<&str>,
+    is_other_crate: &dyn Fn(&str) -> bool,
+    out: &mut HashSet<String>,
+) {
+    let text = |n: tree_sitter::Node<'_>| n.utf8_text(source.as_bytes()).ok().map(str::to_string);
+    match node.kind() {
+        "scoped_identifier" => {
+            let root = list_root
+                .map(str::to_string)
+                .or_else(|| path_root(node, source));
+            if root.as_deref().is_some_and(is_other_crate)
+                && let Some(name) = node.child_by_field_name("name").and_then(text)
+            {
+                out.insert(name);
+            }
+        }
+        // A bare item inside a list (`{A, B}`); a bare `use foo;` names a crate.
+        "identifier" => {
+            if list_root.is_some_and(is_other_crate)
+                && let Some(name) = text(node)
+            {
+                out.insert(name);
+            }
+        }
+        "use_as_clause" => {
+            let root = list_root.map(str::to_string).or_else(|| {
+                node.child_by_field_name("path")
+                    .and_then(|path| path_root(path, source))
+            });
+            if root.as_deref().is_some_and(is_other_crate)
+                && let Some(alias) = node.child_by_field_name("alias").and_then(text)
+            {
+                out.insert(alias);
+            }
+        }
+        "scoped_use_list" => {
+            let root = list_root.map(str::to_string).or_else(|| {
+                node.child_by_field_name("path")
+                    .and_then(|path| path_root(path, source))
+            });
+            if let (Some(root), Some(list)) = (root, node.child_by_field_name("list")) {
+                collect_use_names(list, source, Some(&root), is_other_crate, out);
+            }
+        }
+        "use_list" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_use_names(child, source, list_root, is_other_crate, out);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[cfg(test)]
@@ -397,6 +615,44 @@ mod type_ref_tests {
         let names = extract_type_and_const_refs(src, Lang::Rust);
         for want in ["ParsedTag", "Facet", "TAG_TABLES_DDL"] {
             assert!(names.iter().any(|n| n == want), "{want} missing: {names:?}");
+        }
+    }
+
+    /// Cross-audit 14/09/2026: a declaration is not a use. The declared name
+    /// was captured as a reference, so a public type consumed itself.
+    #[test]
+    fn a_declared_type_name_is_not_a_reference_to_itself() {
+        let src = "pub struct TfIdfVectorizer;\npub enum Mode { A }\npub trait Scorer {}\npub type Alias = u8;\npub union Bits { a: u8 }\n";
+        let names = extract_type_and_const_refs(src, Lang::Rust);
+        for declared in ["TfIdfVectorizer", "Mode", "Scorer", "Alias", "Bits"] {
+            assert!(
+                !names.iter().any(|n| n == declared),
+                "{declared} is only declared: {names:?}"
+            );
+        }
+        let used = "pub struct TfIdfVectorizer;\nfn f(x: &TfIdfVectorizer) {}\n";
+        let names = extract_type_and_const_refs(used, Lang::Rust);
+        assert!(
+            names.iter().any(|n| n == "TfIdfVectorizer"),
+            "a use in a signature still counts: {names:?}"
+        );
+    }
+
+    /// Cross-audit 14/09/2026 (B12): a type imported from another crate, or
+    /// written as a std path, never becomes a by-name guess; workspace-relative
+    /// imports and local modules keep feeding the inference.
+    #[test]
+    fn types_from_other_crates_are_left_to_the_import_resolver() {
+        let src = "use std::path::Path;\nuse criterion::{Criterion, black_box as bb};\nuse super::tags::Facet;\nmod local;\nuse local::Thing;\nuse serde::Serialize as Ser;\nfn f(p: &Path, c: Criterion, x: Facet, t: Thing, q: std::collections::HashMap<u8, u8>, r: crate::x::Own, s: Ser) {}\n";
+        let names = extract_type_and_const_refs(src, Lang::Rust);
+        for kept in ["Facet", "Thing", "Own"] {
+            assert!(names.iter().any(|n| n == kept), "{kept} missing: {names:?}");
+        }
+        for dropped in ["Path", "Criterion", "HashMap", "Ser"] {
+            assert!(
+                !names.iter().any(|n| n == dropped),
+                "{dropped} belongs to another crate: {names:?}"
+            );
         }
     }
 
@@ -457,9 +713,6 @@ mod type_ref_tests {
         assert!(pairs.is_empty(), "{pairs:?}");
     }
 
-
-
-
     /// A forma REAL da tabela de comandos: a chamada vive dentro de uma closure,
     /// dentro de um literal de struct, dentro de um `vec![]`. O teste anterior
     /// usava a chamada solta no corpo de uma fn, e os dois casos não são o mesmo
@@ -490,5 +743,4 @@ mod type_ref_tests {
             "{pairs:?}"
         );
     }
-
 }

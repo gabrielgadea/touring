@@ -52,11 +52,15 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     };
     match cli.cmd {
         None => {
-            anyhow::bail!("missing file path; run `touring file-knowledge --help` or use: touring file-knowledge extended <file>");
+            anyhow::bail!(
+                "missing file path; run `touring file-knowledge --help` or use: touring file-knowledge extended <file>"
+            );
         }
         Some(FileKnowledgeCmd::Extended { file_path }) => {
             if file_path.is_empty() {
-                anyhow::bail!("missing file path; run `touring file-knowledge --help` or use: touring file-knowledge extended <file>");
+                anyhow::bail!(
+                    "missing file path; run `touring file-knowledge --help` or use: touring file-knowledge extended <file>"
+                );
             }
             let output = daemon_query(
                 "cli-file-knowledge-extended",

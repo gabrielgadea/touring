@@ -2059,30 +2059,11 @@ fn query_edit_failures(
 /// `(command_short, error_pattern, executed_at)` tuples, at most `limit` rows
 /// per DB; the caller derives age via [`age_days_from_sqlite`]. Fail-open per
 /// DB.
-/// Abre um DB de lições para LEITURA APENAS.
-///
-/// Os três consumidores deste módulo só fazem `SELECT`, e abrir em modo de
-/// escrita custou dois defeitos, ambos observados:
-///
-/// 1. **Deadlock sob concorrência** (capturado sob gdb em 24/08/2026, 3 travas
-///    em 40 execuções): o `Drop` de uma conexão de escrita sobre um DB em WAL
-///    entra em `sqlite3WalClose` → `unixLock`, pedindo lock EXCLUSIVO de arquivo
-///    para o checkpoint. Threads que apenas liam o mesmo arquivo disputavam esse
-///    lock com quem fechava, e o processo parava com todas as threads em
-///    `pthread_mutex_lock`. Uma conexão read-only não faz checkpoint no close,
-///    então não pede o lock exclusivo. Isto NÃO é um problema só de teste: o
-///    `cli-suggest` roda in-daemon, e o daemon é multi-thread.
-/// 2. **Criação silenciosa de DB alheio**: `Connection::open` traz
-///    `SQLITE_OPEN_CREATE`, então consultar um caminho federado inexistente
-///    fabricava um banco vazio no lugar. Sem `CREATE`, o caminho ausente
-///    simplesmente falha e o chamador segue para o próximo.
+/// Abre um DB de lições para LEITURA APENAS: o abridor único
+/// [`crate::cli::shared::open_db_readonly`], cuja doc registra os dois defeitos
+/// (deadlock no `sqlite3WalClose` e criação silenciosa de DB alheio).
 fn open_lessons_db_readonly(db: &std::path::Path) -> Result<rusqlite::Connection, rusqlite::Error> {
-    rusqlite::Connection::open_with_flags(
-        db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
-            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
-            | rusqlite::OpenFlags::SQLITE_OPEN_URI,
-    )
+    crate::cli::shared::open_db_readonly(db)
 }
 
 fn query_bash_failures(
@@ -2378,7 +2359,10 @@ enum CodeModeKind {
 /// do comando executado, não do ambiente que o precede. Predicado idêntico ao
 /// que `scan_class_of` sempre usou — extraído para os 5 sítios dividirem.
 fn is_env_assignment(t: &str) -> bool {
-    t.contains('=') && t.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+    t.contains('=')
+        && t.chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
 }
 
 /// Wrapper de execução reconhecido pelo resolvedor: flags que tomam valor +
@@ -2402,24 +2386,41 @@ fn wrapper_spec(verb: &str) -> Option<WrapperSpec> {
             value_flags: &["-o", "--output", "-f", "--format"],
             positionals: 0,
         },
-        "nice" => WrapperSpec { value_flags: &["-n", "--adjustment"], positionals: 0 },
-        "ionice" => WrapperSpec { value_flags: &["-c", "-n", "-p", "-P"], positionals: 0 },
+        "nice" => WrapperSpec {
+            value_flags: &["-n", "--adjustment"],
+            positionals: 0,
+        },
+        "ionice" => WrapperSpec {
+            value_flags: &["-c", "-n", "-p", "-P"],
+            positionals: 0,
+        },
         "sudo" => WrapperSpec {
             value_flags: &[
-                "-u", "-g", "-h", "-p", "-C", "-r", "-t", "-T", "-U", "-D", "-R",
-                "--user", "--group", "--host", "--prompt", "--role", "--type",
-                "--chdir", "--chroot",
+                "-u", "-g", "-h", "-p", "-C", "-r", "-t", "-T", "-U", "-D", "-R", "--user",
+                "--group", "--host", "--prompt", "--role", "--type", "--chdir", "--chroot",
             ],
             positionals: 0,
         },
-        "command" | "builtin" => WrapperSpec { value_flags: &[], positionals: 0 },
+        "command" | "builtin" => WrapperSpec {
+            value_flags: &[],
+            positionals: 0,
+        },
         "timeout" => WrapperSpec {
             value_flags: &["-s", "--signal", "-k", "--kill-after"],
             positionals: 1,
         },
-        "stdbuf" => WrapperSpec { value_flags: &["-i", "-o", "-e"], positionals: 0 },
-        "taskset" => WrapperSpec { value_flags: &["-c", "--cpu-list"], positionals: 1 },
-        "chrt" => WrapperSpec { value_flags: &[], positionals: 1 },
+        "stdbuf" => WrapperSpec {
+            value_flags: &["-i", "-o", "-e"],
+            positionals: 0,
+        },
+        "taskset" => WrapperSpec {
+            value_flags: &["-c", "--cpu-list"],
+            positionals: 1,
+        },
+        "chrt" => WrapperSpec {
+            value_flags: &[],
+            positionals: 1,
+        },
         _ => return None,
     })
 }
@@ -2520,7 +2521,9 @@ fn resolved_verb(command: &str) -> Option<&str> {
 
 fn is_scan_command(command: &str) -> bool {
     let rest = effective_tokens(command);
-    let Some(&verb) = rest.first() else { return false };
+    let Some(&verb) = rest.first() else {
+        return false;
+    };
     match verb {
         "grep" | "rg" | "egrep" | "fgrep" | "ag" => rest.len() > 1,
         "find" => rest[1..].iter().any(|t| t.contains("-name")),
@@ -2618,7 +2621,6 @@ fn campaign_code_mode_command(command: &str) -> Option<String> {
          may print METRIC=<float>>' --max-rounds 8"
     ))
 }
-
 
 /// Render the real shell command verbatim as a `touring run --lang bash` sandbox call.
 /// The density-correct fallback for an arbitrary loop whose glob is not mechanically
@@ -2823,8 +2825,14 @@ fn mutation_scan_view(cmd: &str) -> String {
     // 2) neutraliza redirects que não gravam nada (ordem: os prefixados por FD
     // antes do genérico, senão o replace parcial deixa o dígito para trás).
     for inofensivo in [
-        "2>&1", "1>&2", "2>/dev/null", "2> /dev/null", "&>/dev/null",
-        "&> /dev/null", ">/dev/null", "> /dev/null",
+        "2>&1",
+        "1>&2",
+        "2>/dev/null",
+        "2> /dev/null",
+        "&>/dev/null",
+        "&> /dev/null",
+        ">/dev/null",
+        "> /dev/null",
     ] {
         s = s.replace(inofensivo, " ");
     }
@@ -2833,9 +2841,24 @@ fn mutation_scan_view(cmd: &str) -> String {
 
 fn exec_class_of(cmd: &str) -> Option<&'static str> {
     const MUTATING: &[&str] = &[
-        ">", "| tee", "pip install", "setup.py install", "rm ", "mv ", "cp ",
-        "git ", "kill", "chmod", "chown", "curl", "wget", "ssh", "docker",
-        "systemctl", "touch ", "mkdir",
+        ">",
+        "| tee",
+        "pip install",
+        "setup.py install",
+        "rm ",
+        "mv ",
+        "cp ",
+        "git ",
+        "kill",
+        "chmod",
+        "chown",
+        "curl",
+        "wget",
+        "ssh",
+        "docker",
+        "systemctl",
+        "touch ",
+        "mkdir",
     ];
     let scan = mutation_scan_view(cmd);
     if MUTATING.iter().any(|m| scan.contains(m)) {
@@ -2946,8 +2969,7 @@ fn script_write_target(cmd: &str) -> Option<String> {
                         {
                             return Some(clean_script_path(p));
                         }
-                    } else if let Some(p) =
-                        t.strip_prefix(">>").or_else(|| t.strip_prefix('>'))
+                    } else if let Some(p) = t.strip_prefix(">>").or_else(|| t.strip_prefix('>'))
                         && !p.is_empty()
                         && is_script_path(p)
                     {
@@ -3041,8 +3063,7 @@ fn python_inline_remedy(cmd: &str) -> String {
             "touring run --lang python --code '{}'",
             b.replace('\'', "'\\''")
         ),
-        _ => "touring run --lang python --code '<o corpo do seu heredoc/-c, verbatim>'"
-            .to_string(),
+        _ => "touring run --lang python --code '<o corpo do seu heredoc/-c, verbatim>'".to_string(),
     }
 }
 
@@ -3206,7 +3227,11 @@ fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<
     // (medido pela peer analise-a2, 30/08 — clap rejeita e o deny vira erro
     // opaco, o antipadrão E4 cometido pelo próprio enforcement). is_script_path
     // só aceita .py/.sh, então o else é python.
-    let lang = if path.ends_with(".sh") { " --lang bash" } else { " --lang python" };
+    let lang = if path.ends_with(".sh") {
+        " --lang bash"
+    } else {
+        " --lang python"
+    };
     Some(deny_response(format!(
         "[G10 write→run] {n}º script escrito-e-executado na janela de \
          {WRITE_RUN_WINDOW_SECS}s (`{path}`) — o loop execute-observe manual \
@@ -3364,9 +3389,7 @@ fn exec_burst_intent(class: &str, cmds: &[String]) -> String {
     /// artefato certo na prateleira).
     fn push_componente(t: &str, termos: &mut Vec<String>) {
         let t = t.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
-        if t.len() >= 2
-            && !t.chars().all(|c| c.is_ascii_digit())
-            && !termos.iter().any(|x| x == t)
+        if t.len() >= 2 && !t.chars().all(|c| c.is_ascii_digit()) && !termos.iter().any(|x| x == t)
         {
             termos.push(t.to_string());
         }
@@ -3805,7 +3828,9 @@ const G6_LIVE_STATE_ALLOWLIST: &[&str] = &[
 
 fn g6_allowlisted(cmd: &str) -> bool {
     let trimmed = cmd.trim_start();
-    G6_LIVE_STATE_ALLOWLIST.iter().any(|p| trimmed.starts_with(p))
+    G6_LIVE_STATE_ALLOWLIST
+        .iter()
+        .any(|p| trimmed.starts_with(p))
 }
 
 /// W1 S-1.2 — ledger de repetição exata: input-hash → (repetições, época de
@@ -4144,8 +4169,14 @@ pub(crate) use touring_foundation::code_mode::CodeModePresentation;
 /// negava TODA classe, `ls` inclusive.
 fn code_mode_presentation(project_root: &Path, cmd: &str) -> CodeModePresentation {
     for token in cmd.split_whitespace() {
-        let Some((nome, valor)) = token.split_once('=') else { break };
-        if !nome.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_') {
+        let Some((nome, valor)) = token.split_once('=') else {
+            break;
+        };
+        if !nome
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        {
             break;
         }
         if nome == "TOURING_CODE_MODE" {
@@ -4217,7 +4248,6 @@ fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
     (corpo.replace('\'', "'\\''"), omitidos)
 }
 
-
 /// A rota escrita que a apresentação entregou ao modelo, com o braço que a produziu.
 ///
 /// Contadores de FREQUÊNCIA dizem com que assiduidade um gate age e nada sobre
@@ -4233,18 +4263,12 @@ pub struct RouteOffer {
     pub offered_secs: u64,
 }
 
-
 fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
 }
-
-
-
-
-
 
 /// Reivindica a rota pendente deste (projeto, sessão) — UMA vez.
 ///
@@ -4333,7 +4357,10 @@ pub(crate) fn program_shape(body: &str) -> ProgramShape {
         // Dispositivos e descritores não são alvos de inspeção: `2>/dev/null`
         // é plumbing do shell, e contá-lo fazia um programa de um arquivo
         // parecer que tocava dois (medido ao vivo em 26/08).
-        .filter(|t| !t.trim_start_matches(['>', '<', '&', '1', '2']).starts_with("/dev/"))
+        .filter(|t| {
+            !t.trim_start_matches(['>', '<', '&', '1', '2'])
+                .starts_with("/dev/")
+        })
         .collect();
     let fundido = ops.max(alvos.len());
     if fundido <= 1 {
@@ -4410,7 +4437,10 @@ pub(crate) fn record_route_offer(project_root: &Path, session: &str, mode: CodeM
     let key = format!("{}\u{2}{session}", project_root.display());
     route_offers().insert(
         key,
-        RouteOffer { mode: label.to_string(), offered_secs: now_secs() },
+        RouteOffer {
+            mode: label.to_string(),
+            offered_secs: now_secs(),
+        },
     );
     // `bump_arm` é o escritor único: ele grava a vista durável E a volátil.
     bump_arm(project_root, label, ArmAxis::Offered);
@@ -4684,9 +4714,7 @@ pub(crate) fn resolve_with_policy(
     if let Some(d) = declarado {
         return d;
     }
-    if armada
-        && let Some(escolhido) = arm_choice_from_counts(counts)
-    {
+    if armada && let Some(escolhido) = arm_choice_from_counts(counts) {
         return escolhido;
     }
     CodeModePresentation::Both
@@ -4768,7 +4796,6 @@ pub fn claim_route_reward(
     Some((offer, value))
 }
 
-
 /// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
 /// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
 /// Fração de tokens que dois comandos compartilham (Jaccard sobre o multiconjunto
@@ -4822,7 +4849,9 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
         .get(&project_root.display().to_string())
         .unwrap_or(0);
     let (count, mut cmds, epoca_anterior) =
-        burst_ledger().get(&key).unwrap_or((0, Vec::new(), epoca_atual));
+        burst_ledger()
+            .get(&key)
+            .unwrap_or((0, Vec::new(), epoca_atual));
     let count = count.saturating_add(1);
     // O comando entra INTEIRO. Quem decide o que cabe é `fuse_burst_program`,
     // na renderização, descartando comando inteiro — nunca cortando um pela
@@ -4957,9 +4986,33 @@ pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
     }
     // Qualquer verbo com efeito colateral tira o comando do escopo.
     const EFFECTFUL: &[&str] = &[
-        "kill", "pkill", "git ", "cargo", "rm ", "mv ", "cp ", "install", "update-touring",
-        "npm", "make ", "chmod", "chown", "mkdir", "touch ", "tee ", "curl", "wget", "ssh",
-        "docker", "systemctl", "sudo", "python3 -c", "python3 -m", "pip", ">>", "> /",
+        "kill",
+        "pkill",
+        "git ",
+        "cargo",
+        "rm ",
+        "mv ",
+        "cp ",
+        "install",
+        "update-touring",
+        "npm",
+        "make ",
+        "chmod",
+        "chown",
+        "mkdir",
+        "touch ",
+        "tee ",
+        "curl",
+        "wget",
+        "ssh",
+        "docker",
+        "systemctl",
+        "sudo",
+        "python3 -c",
+        "python3 -m",
+        "pip",
+        ">>",
+        "> /",
     ];
     if EFFECTFUL.iter().any(|verb| trimmed.contains(verb)) {
         return None;
@@ -5005,7 +5058,10 @@ pub(crate) fn code_mode_gates(
         if let Some(fp) = tool_input.get("file_path").and_then(Value::as_str) {
             if tool_name == "Write" {
                 g3_read_files().insert(g3_read_key(project_root, session, fp), ());
-            } else if g3_read_files().get(&g3_read_key(project_root, session, fp)).is_some() {
+            } else if g3_read_files()
+                .get(&g3_read_key(project_root, session, fp))
+                .is_some()
+            {
                 g3_streak().insert(session.to_string(), 0);
             } else if !code_gates_disabled() {
                 let n = g3_streak().get(session).unwrap_or(0).saturating_add(1);
@@ -5128,8 +5184,14 @@ pub(crate) fn code_mode_gates(
     if g5 > 0 {
         g5_edit_streak().insert(session.to_string(), 0);
         const VALIDA: &[&str] = &[
-            "cargo check", "cargo test", "cargo clippy", "pytest", "touring e2e",
-            "npm test", "adw lint", "adw test",
+            "cargo check",
+            "cargo test",
+            "cargo clippy",
+            "pytest",
+            "touring e2e",
+            "npm test",
+            "adw lint",
+            "adw test",
         ];
         if g5 >= 3 && !VALIDA.iter().any(|m| cmd.contains(m)) {
             crate::shared::gate_metrics::record_g5_observed();
@@ -5372,7 +5434,11 @@ pub(crate) fn code_mode_gates(
         // S5 — a rota seguida zera o par write→run junto (mesma razão do S3
         // abaixo: sem isto o próximo script legítimo herdaria uma contagem de
         // um loop que o modelo JÁ converteu em programa).
-        write_run_pair_ledger().invalidate(&write_run_key(project_root, session, "\u{0}write-run-pares"));
+        write_run_pair_ledger().invalidate(&write_run_key(
+            project_root,
+            session,
+            "\u{0}write-run-pares",
+        ));
         // S3 — a rota foi seguida: a janela de inspeção zera junto. Sem isto o
         // ledger seguiria contando uma rajada que o modelo JÁ converteu em
         // programa, e o próximo `grep` legítimo levaria um deny herdado de uma
@@ -5380,8 +5446,11 @@ pub(crate) fn code_mode_gates(
         for class in CODE_MODE_COLLAPSED_CLASSES {
             inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, session, class));
         }
-        inspect_burst_ledger()
-            .invalidate(&inspect_burst_key(project_root, session, PY_INLINE_INSPECT_CLASS));
+        inspect_burst_ledger().invalidate(&inspect_burst_key(
+            project_root,
+            session,
+            PY_INLINE_INSPECT_CLASS,
+        ));
     }
     // S3 (27/08/2026) — o colapso do modo `code` deixou de ser POR CLASSE e
     // passou a ser POR RAJADA. A 1ª inspeção de uma classe na janela executa
@@ -6053,8 +6122,9 @@ mod intent_codetag_tests {
     #[test]
     fn codetag_and_shebang_never_become_the_intent() {
         let content = "#!/usr/bin/env python3\n# #tags: kind:script purpose:diagnostic domain:code-mode lang:python\n\"\"\"One-shot census of /tmp usage and code-mode adherence.\"\"\"\nimport os\n";
-        let intent = intent_for_new_file("/tmp/claude-1000/s/scratchpad/diag_tmp.py", Some(content))
-            .expect("docstring intent");
+        let intent =
+            intent_for_new_file("/tmp/claude-1000/s/scratchpad/diag_tmp.py", Some(content))
+                .expect("docstring intent");
         assert!(intent.starts_with("One-shot census"), "got {intent}");
         assert!(!intent.contains("#tags:"), "got {intent}");
     }
@@ -6084,7 +6154,11 @@ mod content_dedup_tests {
     #[test]
     fn the_first_emission_passes_and_the_identical_second_becomes_a_reference() {
         let session = "dedup-primeira-e-segunda";
-        assert_eq!(repeat_reference(session, BLOCK), None, "a 1a vez nunca elide");
+        assert_eq!(
+            repeat_reference(session, BLOCK),
+            None,
+            "a 1a vez nunca elide"
+        );
         let second = repeat_reference(session, BLOCK).expect("a 2a e' repeticao");
         assert!(second.contains("repetido nesta sessão"), "{second}");
         assert!(
@@ -6155,13 +6229,19 @@ mod g11_bypass_budget_tests {
 
     #[test]
     fn the_first_bypass_passes() {
-        let b = BypassBudget { strict_run: 1, since_route: 1 };
+        let b = BypassBudget {
+            strict_run: 1,
+            since_route: 1,
+        };
         assert_eq!(bypass_verdict(b), None);
     }
 
     #[test]
     fn two_in_a_row_are_denied_by_the_strict_rule() {
-        let b = BypassBudget { strict_run: 2, since_route: 2 };
+        let b = BypassBudget {
+            strict_run: 2,
+            since_route: 2,
+        };
         assert_eq!(bypass_verdict(b), Some("dois bypasses seguidos"));
     }
 
@@ -6170,20 +6250,28 @@ mod g11_bypass_budget_tests {
     /// gate falante que nomeia a regra errada ensina a correção errada.
     #[test]
     fn an_interleaved_pair_is_not_a_strict_run() {
-        let b = BypassBudget { strict_run: 1, since_route: 2 };
+        let b = BypassBudget {
+            strict_run: 1,
+            since_route: 2,
+        };
         assert_eq!(bypass_verdict(b), None, "dois espaçados ainda passam");
     }
 
     #[test]
     fn the_third_without_the_route_is_denied_even_when_spaced() {
-        let b = BypassBudget { strict_run: 1, since_route: 3 };
+        let b = BypassBudget {
+            strict_run: 1,
+            since_route: 3,
+        };
         assert_eq!(bypass_verdict(b), Some("terceiro bypass sem usar a rota"));
     }
 
     #[test]
     fn the_sanctioned_route_is_recognised() {
         assert!(is_sanctioned_route("touring run --lang bash --file x.sh"));
-        assert!(is_sanctioned_route("  touring run --lang python --code 'x'"));
+        assert!(is_sanctioned_route(
+            "  touring run --lang python --code 'x'"
+        ));
         assert!(!is_sanctioned_route("touring index find X"));
         assert!(!is_sanctioned_route("grep -rn foo src/"));
     }
@@ -6197,7 +6285,10 @@ mod g11_bypass_budget_tests {
         let after = charge_bypass(root);
         assert_eq!(
             after,
-            BypassBudget { strict_run: 1, since_route: 2 },
+            BypassBudget {
+                strict_run: 1,
+                since_route: 2
+            },
             "o comando neutro zera a sequência estrita e preserva a conta da rota"
         );
         assert_eq!(bypass_verdict(after), None);
@@ -6211,6 +6302,12 @@ mod g11_bypass_budget_tests {
         charge_bypass(root);
         credit_sanctioned_route(root);
         let after = charge_bypass(root);
-        assert_eq!(after, BypassBudget { strict_run: 1, since_route: 1 });
+        assert_eq!(
+            after,
+            BypassBudget {
+                strict_run: 1,
+                since_route: 1
+            }
+        );
     }
 }

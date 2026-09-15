@@ -21,7 +21,6 @@ use std::process::Command;
 mod private_daemon;
 use private_daemon::private_daemon_env;
 
-
 /// The product binary: prefer `release` when it exists, else `debug`.
 ///
 /// Release-only resolution made this file's tests pass on a developer box (where
@@ -47,7 +46,8 @@ fn binary_available() -> bool {
 }
 
 fn entity_define(id: &str, name: &str, kind: &str, crate_name: &str) -> serde_json::Value {
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["entity", "define", id, name, kind, crate_name])
         .output()
         .expect("spawn touring entity define");
@@ -73,7 +73,8 @@ fn entity_resolve(
     if exact_only {
         args.push("--exact-only".to_string());
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(&args)
         .output()
         .expect("spawn touring entity resolve");
@@ -83,7 +84,8 @@ fn entity_resolve(
 }
 
 fn entity_relate(from: &str, kind: &str, to: &str) -> serde_json::Value {
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["entity", "relate", from, kind, to])
         .output()
         .expect("spawn touring entity relate");
@@ -110,7 +112,8 @@ fn entity_list(
         args.push("--limit".to_string());
         args.push(l.to_string());
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(&args)
         .output()
         .expect("spawn touring entity list");
@@ -120,7 +123,8 @@ fn entity_list(
 }
 
 fn entity_delete(id: &str) -> serde_json::Value {
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["entity", "delete", id])
         .output()
         .expect("spawn touring entity delete");

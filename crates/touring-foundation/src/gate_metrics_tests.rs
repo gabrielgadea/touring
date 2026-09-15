@@ -83,16 +83,40 @@ fn gate_fatigue_computa_ratio_por_gate_e_autoconsiste() {
 fn native_injection_counters_are_additive_and_snapshotted() {
     // N5 — família completa: field + init + record + capture (mesma prova do
     // bash_calls_denominator).
-    let bf = global().native_injection_followed_count.load(Ordering::Relaxed);
-    let br = global().native_injection_resisted_count.load(Ordering::Relaxed);
-    let bc = global().native_injection_code_route_count.load(Ordering::Relaxed);
+    let bf = global()
+        .native_injection_followed_count
+        .load(Ordering::Relaxed);
+    let br = global()
+        .native_injection_resisted_count
+        .load(Ordering::Relaxed);
+    let bc = global()
+        .native_injection_code_route_count
+        .load(Ordering::Relaxed);
     record_native_injection_followed();
     record_native_injection_resisted();
     record_native_injection_code_route();
     record_native_injection_code_route();
-    assert_eq!(global().native_injection_followed_count.load(Ordering::Relaxed) - bf, 1);
-    assert_eq!(global().native_injection_resisted_count.load(Ordering::Relaxed) - br, 1);
-    assert_eq!(global().native_injection_code_route_count.load(Ordering::Relaxed) - bc, 2);
+    assert_eq!(
+        global()
+            .native_injection_followed_count
+            .load(Ordering::Relaxed)
+            - bf,
+        1
+    );
+    assert_eq!(
+        global()
+            .native_injection_resisted_count
+            .load(Ordering::Relaxed)
+            - br,
+        1
+    );
+    assert_eq!(
+        global()
+            .native_injection_code_route_count
+            .load(Ordering::Relaxed)
+            - bc,
+        2
+    );
     let snap = GateMetricsSnapshot::capture();
     assert!(snap.native_injection_followed_count >= 1);
     assert!(snap.native_injection_resisted_count >= 1);
@@ -163,6 +187,12 @@ fn test_snapshot_zero_ratio_when_no_calls() {
         mcts_shadow_timeout_count: 0,
         mcts_shadow_deadlock_detected_count: 0,
         ann_search_latency: LatencySnapshot::default(),
+        embedding_latency: LatencySnapshot::default(),
+        embedding_texts_cuda_count: 0,
+        embedding_texts_cpu_count: 0,
+        embedding_cuda_fallback_count: 0,
+        embedding_cuda_fallback_reason: String::new(),
+        embedding_device: String::new(),
         memory_rss_mb: 0.0,
         memory_virt_mb: 0.0,
         tantivy_stream_enqueued_count: 0,
@@ -335,6 +365,12 @@ fn test_snapshot_ratio_50_percent() {
         mcts_shadow_timeout_count: 0,
         mcts_shadow_deadlock_detected_count: 0,
         ann_search_latency: LatencySnapshot::default(),
+        embedding_latency: LatencySnapshot::default(),
+        embedding_texts_cuda_count: 0,
+        embedding_texts_cpu_count: 0,
+        embedding_cuda_fallback_count: 0,
+        embedding_cuda_fallback_reason: String::new(),
+        embedding_device: String::new(),
         memory_rss_mb: 0.0,
         memory_virt_mb: 0.0,
         tantivy_stream_enqueued_count: 0,
@@ -704,6 +740,42 @@ fn snapshot_missing_memory_fields_deserializes_with_defaults() {
         serde_json::from_str(legacy_json).expect("legacy JSON must deserialize");
     assert_eq!(snap.memory_rss_mb, 0.0);
     assert_eq!(snap.memory_virt_mb, 0.0);
+}
+
+#[test]
+fn test_embedding_runs_are_counted_per_device_and_labelled() {
+    let cuda_before = global().embedding_texts_cuda_count.load(Ordering::Relaxed);
+    let cpu_before = global().embedding_texts_cpu_count.load(Ordering::Relaxed);
+    let fallback_before = global().embedding_cuda_fallback_count.load(Ordering::Relaxed);
+
+    record_embedding_run_cuda(32, 28_000);
+    assert!(global().embedding_texts_cuda_count.load(Ordering::Relaxed) >= cuda_before + 32);
+    record_embedding_run_cpu(1, 8_000);
+    assert!(global().embedding_texts_cpu_count.load(Ordering::Relaxed) >= cpu_before + 1);
+    record_embedding_cuda_fallback("cuda: Failed to load library /x/libonnxruntime_providers_shared.so");
+    assert!(global().embedding_cuda_fallback_count.load(Ordering::Relaxed) >= fallback_before + 1);
+    assert!(
+        GateMetricsSnapshot::capture()
+            .embedding_cuda_fallback_reason
+            .contains("libonnxruntime_providers_shared.so"),
+        "the snapshot must carry the reason verbatim"
+    );
+
+    assert_eq!(embedding_device_label(0), "none");
+    assert_eq!(embedding_device_label(EMBEDDING_DEVICE_CPU), "cpu");
+    assert_eq!(embedding_device_label(EMBEDDING_DEVICE_CUDA), "cuda");
+
+    let json = serde_json::to_string(&GateMetricsSnapshot::capture()).expect("serialize");
+    for key in [
+        "embedding_latency",
+        "embedding_texts_cuda_count",
+        "embedding_texts_cpu_count",
+        "embedding_cuda_fallback_count",
+        "embedding_cuda_fallback_reason",
+        "embedding_device",
+    ] {
+        assert!(json.contains(key), "gate-metrics JSON must carry {key}");
+    }
 }
 
 #[test]

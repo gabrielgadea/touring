@@ -67,7 +67,7 @@ fn unquote(literal: &str) -> &str {
 fn parse_go(source: &str) -> Option<tree_sitter::Tree> {
     let mut parser = Parser::new();
     parser.set_language(&Lang::Go.tree_sitter_language()).ok()?;
-    parser.parse(source, None)
+    crate::ast::parser::parse_bounded(&mut parser, source, None)
 }
 
 /// Collect the `name:`-field children of a spec node. A single `var_spec` /

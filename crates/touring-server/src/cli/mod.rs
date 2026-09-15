@@ -85,8 +85,8 @@ pub mod handlers_inferlet; // `touring inferlets install` subcommand
 pub mod harness_metric;
 pub mod health_delta;
 pub mod highlight;
-pub mod incremental;
 pub mod identity_derive; // complementacao-hooks H12 (F1.5) — REGRA #17 EntityId derivation
+pub mod incremental;
 pub mod index;
 pub mod inferlets;
 pub mod init;
@@ -120,8 +120,8 @@ pub mod repo_score;
 pub mod resolve_def;
 pub mod route; // C7 — RGAO task routing
 pub mod run; // R1 — touring run: code-mode via CLI over the ctx_execute sandbox
-pub mod sandbox_runtimes; // RUN-1 (27/08) — touring sandbox-runtimes: preflight + setup-venv
 pub mod saga;
+pub mod sandbox_runtimes; // RUN-1 (27/08) — touring sandbox-runtimes: preflight + setup-venv
 pub mod scan; // complementacao-hooks H6 (F1.5) — CWE vulnerability scan
 pub mod search_tools; // C3 — intent-ranked tool discovery
 pub mod search_unified;

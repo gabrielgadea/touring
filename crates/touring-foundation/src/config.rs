@@ -20,6 +20,35 @@ mod detect;
 static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 mod paths;
 
+/// A directory OUTSIDE the project root whose files the index carries under the
+/// stable key `@companion/<name>/<relative path>` — the global rules, skills,
+/// agents and commands under `~/.claude`, and the Claude Code auto-memory of the
+/// project and of `~`. Resolved per project by
+/// [`TouringConfig::companion_roots_for`]; `name` is the key alphabet
+/// (`[A-Za-z0-9_-]`) and `path` exists on disk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompanionRoot {
+    /// The segment after `@companion/` in every key under this root.
+    pub name: String,
+    /// The directory walked; keys are relative to it.
+    pub path: PathBuf,
+}
+
+/// The prefix of every index key under a companion root.
+pub const COMPANION_KEY_PREFIX: &str = "@companion/";
+
+/// Whether `key` names a file under a companion root rather than a project file.
+///
+/// Companion files are searchable and never wiring (decision 1-A, 14/09/2026):
+/// the same `~/.claude` skills sit in every project's index, so their producers
+/// would count as orphans in every project's judge, and their imports resolve to
+/// absolute paths no project row matches. One predicate for the wiring write
+/// gate (`touring-storage`) and for the rebuild that skips the work.
+#[must_use]
+pub fn is_companion_key(key: &str) -> bool {
+    key.starts_with(COMPANION_KEY_PREFIX)
+}
+
 /// Global configuration for the Touring runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TouringConfig {
@@ -418,7 +447,9 @@ mod tests {
 
     #[test]
     fn test_detect_uses_env_overrides() {
-        let _env = crate::config::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env = crate::config::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // Save and restore env vars
         let old_db = std::env::var("TOURING_DB_PATH").ok();
         let old_mem = std::env::var("TOURING_MEMORY_PATH").ok();
@@ -487,7 +518,9 @@ mod tests {
 
     #[test]
     fn test_gpu_url_default() {
-        let _env = crate::config::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env = crate::config::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // When GPU_SERVICE_URL is not set, should use localhost:8200
         let old = std::env::var("GPU_SERVICE_URL").ok();
         // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.

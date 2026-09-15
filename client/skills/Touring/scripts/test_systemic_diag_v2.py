@@ -372,3 +372,22 @@ class TestE2E(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class HelpDoesNotRunTheDiagnostic(unittest.TestCase):
+    """Cross-audit 14/09/2026 (O5): `--help` printed nothing and ran the whole
+    workspace diagnostic. It prints the usage and touches nothing else."""
+
+    def test_help_prints_usage_without_scoring(self):
+        import io
+        import sys
+        from contextlib import redirect_stdout
+
+        for flag in ("--help", "-h"):
+            buf = io.StringIO()
+            with mock.patch.object(sys, "argv", ["systemic_diag_v2.py", flag]), \
+                    mock.patch.object(mod, "workspace_fan_in", side_effect=AssertionError("ran the diagnostic")), \
+                    redirect_stdout(buf):
+                mod.main()
+            self.assertIn("Usage", buf.getvalue())
+

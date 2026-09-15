@@ -137,7 +137,9 @@ pub(crate) fn persist_qtable_batched(runtime: &HookRuntime) -> u32 {
         if let Some(ref engine) = runtime.learning.online_rl
             && let Ok(json) = serde_json::to_string(&engine.export_stats())
         {
-            let stats_path = runtime.project_root.join(".claude/data/online_rl_state.json");
+            let stats_path = runtime
+                .project_root
+                .join(".claude/data/online_rl_state.json");
             let _ = std::fs::write(&stats_path, json);
         }
         let _ = std::fs::write(&counter_path, "0");
@@ -299,7 +301,11 @@ pub fn run(
             runtime.learning.inject_reward(
                 &format!("code_mode:{}", offer.mode),
                 value,
-                if seguida { "t3_route_followed" } else { "t3_route_bypassed" },
+                if seguida {
+                    "t3_route_followed"
+                } else {
+                    "t3_route_bypassed"
+                },
             );
             tracing::debug!(
                 arm = %offer.mode,

@@ -1,0 +1,45 @@
+{
+  "phase": "R9-decisoes",
+  "entities": [
+    {
+      "entity_id": "phase:R9-decisoes",
+      "type": "phase",
+      "description": "Rodada 9: 1-A companheiras fora do wiring, 2-A daemon em scope systemd pr\u00f3prio, 3-A index status fora do ator; 4.988 testes, 6 mutantes mortos, release 30.4.46 com prova 40/40, scope provado nos 3 daemons, status 75/75 em at\u00e9 42 ms durante o rebuild"
+    },
+    {
+      "entity_id": "memory:loop:task_1789400493234474462:R9-decisoes:completed",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789400493234474462",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789400493234474462",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R9-decisoes|produces|memory:loop:task_1789400493234474462:R9-decisoes:completed",
+      "source": "phase:R9-decisoes",
+      "type": "produces",
+      "target": "memory:loop:task_1789400493234474462:R9-decisoes:completed"
+    },
+    {
+      "relation_id": "memory:loop:task_1789400493234474462:R9-decisoes:completed|generated-by|loop:loop:task_1789400493234474462",
+      "source": "memory:loop:task_1789400493234474462:R9-decisoes:completed",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789400493234474462"
+    },
+    {
+      "relation_id": "memory:loop:task_1789400493234474462:R9-decisoes:completed|generated-by|dag:decomp:task_1789400493234474462",
+      "source": "memory:loop:task_1789400493234474462:R9-decisoes:completed",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789400493234474462"
+    }
+  ]
+}

@@ -273,9 +273,7 @@ fn code_mode_economy_ratio(rt: &HookRuntime) -> Option<f64> {
 /// `None` abaixo do piso ⇒ STUB, nunca um 0 falso: amostra insuficiente é
 /// desconhecido, e o KPI reporta ADVISORY em vez de acusar adesão nula.
 fn code_mode_arm_rate(rt: &HookRuntime, arm: &str) -> Option<f64> {
-    let path = rt
-        .project_root
-        .join(".claude/touring/code_mode_arm.json");
+    let path = rt.project_root.join(".claude/touring/code_mode_arm.json");
     let v: Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
     let node = v.get(arm)?;
     let offered = node.get("offered").and_then(Value::as_f64)?;
@@ -329,11 +327,9 @@ fn inspect_burst_share(denied: f64, first_passed: f64) -> Option<f64> {
 /// tabela rasa é desconhecido, nunca "política constante".
 fn policy_discrimination(project_root: &Path) -> Option<f64> {
     let db = touring_foundation::TouringConfig::graph_db_canonical(project_root);
-    let conn = rusqlite::Connection::open_with_flags(
-        &db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    )
-    .ok()?;
+    let conn =
+        rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .ok()?;
     let rows: Vec<(String, f64)> = conn
         .prepare("SELECT state_action, q_value FROM learning_qtable")
         .ok()?
@@ -368,11 +364,9 @@ fn policy_discrimination(project_root: &Path) -> Option<f64> {
 fn graph_contract_share(project_root: &Path) -> Option<f64> {
     use touring_intelligence::rl::memory::tags;
     let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
-    let conn = rusqlite::Connection::open_with_flags(
-        &db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    )
-    .ok()?;
+    let conn =
+        rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .ok()?;
     // Cross-audit 2026-08-30 (F-1): the contract governs kinds by FACET
     // (clause 3), so the filter reads memory_tags — the governed vocabulary —
     // never entry_type (a legacy field that diverges: ~39 semantic nodes
@@ -421,11 +415,9 @@ fn graph_contract_share(project_root: &Path) -> Option<f64> {
 /// become automatic. `None` = STUB when the window has no new entries.
 fn memory_edge_density(project_root: &Path) -> Option<f64> {
     let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
-    let conn = rusqlite::Connection::open_with_flags(
-        &db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    )
-    .ok()?;
+    let conn =
+        rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .ok()?;
     let entries: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM memory_entries
@@ -617,8 +609,18 @@ fn signal_baseline(path: &str) -> Value {
             // O pior p99 entre os hooks é a leitura honesta de "quanto custa o
             // caminho mais lento"; uma média entre hooks de volumes diferentes
             // esconderia exatamente o que se quer vigiar.
-            let worst_p99 = report.hooks.values().map(|h| h.duration_ms_p99).max().unwrap_or(0);
-            let worst_p50 = report.hooks.values().map(|h| h.duration_ms_p50).max().unwrap_or(0);
+            let worst_p99 = report
+                .hooks
+                .values()
+                .map(|h| h.duration_ms_p99)
+                .max()
+                .unwrap_or(0);
+            let worst_p50 = report
+                .hooks
+                .values()
+                .map(|h| h.duration_ms_p50)
+                .max()
+                .unwrap_or(0);
             json!({
                 "source": path,
                 "generated_at_unix": report.generated_at_unix,
@@ -691,7 +693,9 @@ fn signal_use_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
     let mut calls = 0u64;
     let mut non_canonical = 0u64;
     for line in lines {
-        let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(v) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
             calls += 1;
             if canonical.contains(name) {
@@ -756,7 +760,9 @@ fn hooks_complement_from<'a>(
     // F9-origem (02/09): cada linha canônica é creditada a quem a escreveu
     // (`origin`: `post_bash` | `sdk`; ausente = `unknown`, linhas legadas).
     let mut by_origin: std::collections::BTreeMap<&'static str, u64> =
-        [("post_bash", 0u64), ("sdk", 0u64), ("unknown", 0u64)].into_iter().collect();
+        [("post_bash", 0u64), ("sdk", 0u64), ("unknown", 0u64)]
+            .into_iter()
+            .collect();
     for line in mirror_lines {
         let Ok(v) = serde_json::from_str::<Value>(line) else {
             continue;
@@ -885,7 +891,11 @@ fn days_to_ymd(mut days: i64) -> (i32, u32, u32) {
 // Per-commitment checking
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn check_one(rt: &mut HookRuntime, c: &Commitment, external_dir: &std::path::Path) -> CommitmentCheck {
+fn check_one(
+    rt: &mut HookRuntime,
+    c: &Commitment,
+    external_dir: &std::path::Path,
+) -> CommitmentCheck {
     let (kind, actual) = resolve_source(rt, &c.source, &c.id, external_dir);
     let mut status = match (kind, actual) {
         ("daemon" | "derived" | "external", Some(v)) => {
@@ -990,9 +1000,9 @@ impl ExternalStub {
             Self::Stale { days } => format!(
                 "stale — measured {days}d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/{id}.json"
             ),
-            Self::Declared { detalhe } => format!(
-                "declared unmeasured by the producer — {detalhe}"
-            ),
+            Self::Declared { detalhe } => {
+                format!("declared unmeasured by the producer — {detalhe}")
+            }
             Self::Malformed => format!(
                 "malformed — docs/kpi/external/{id}.json exists but has no numeric `value` field"
             ),
@@ -1187,13 +1197,16 @@ fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
             // ilegível): amostra ausente é desconhecido, nunca zero.
             let (last_rowid, replayed_total, _) =
                 crate::cli::learning::replay_cursor_read(&rt.project_root);
-            let pending =
-                crate::cli::learning::replay_corpus_pending(&rt.project_root, last_rowid);
+            let pending = crate::cli::learning::replay_corpus_pending(&rt.project_root, last_rowid);
             match (replayed_total, pending) {
                 (0, None) => None,
                 (r, p) => {
                     let total = r as f64 + p.unwrap_or(0).max(0) as f64;
-                    if total <= 0.0 { None } else { Some(r as f64 / total) }
+                    if total <= 0.0 {
+                        None
+                    } else {
+                        Some(r as f64 / total)
+                    }
                 }
             }
         }
@@ -1941,13 +1954,19 @@ mod tests {
             r#"{"ts":1788300040,"hook_name":"cli-index-find","origin":"post_bash"}"#, // alias: fora
         ];
         let v = hooks_complement_from(&by_name, mirror.iter().copied(), Some(epoch));
-        assert_eq!(v["mirror_deliveries_since"], 6, "todas as canônicas seguem contadas");
+        assert_eq!(
+            v["mirror_deliveries_since"], 6,
+            "todas as canônicas seguem contadas"
+        );
         assert_eq!(v["mirror_non_canonical_since"], 1);
         assert_eq!(v["mirror_deliveries_by_origin"]["post_bash"], 2);
         assert_eq!(v["mirror_deliveries_by_origin"]["sdk"], 3);
         assert_eq!(v["mirror_deliveries_by_origin"]["unknown"], 1);
         assert_eq!(v["post_bash_origin_deliveries_since"], 2);
-        assert_eq!(v["post_bash_delivery_ratio"], 0.5, "2 entregas do post-bash ÷ 4 despachos");
+        assert_eq!(
+            v["post_bash_delivery_ratio"], 0.5,
+            "2 entregas do post-bash ÷ 4 despachos"
+        );
     }
 
     #[test]
@@ -1982,7 +2001,10 @@ mod tests {
         let v = signal_use_from_lines(lines.iter().copied());
         assert_eq!(v["used"], 2, "ast_meta + index_find; cli-* never count");
         assert_eq!(v["total_calls"], 5, "every parsed line is a call");
-        assert_eq!(v["non_canonical_calls"], 2, "alias drift stays visible, never silently dropped");
+        assert_eq!(
+            v["non_canonical_calls"], 2,
+            "alias drift stays visible, never silently dropped"
+        );
     }
 
     /// Cross-audit 2026-08-30 (F-1) — o contrato do grafo governa kinds por
@@ -2095,7 +2117,10 @@ mod tests {
         // only a pre-instrumentation line (no tier key) → STUB, never "0% tiered"
         std::fs::write(
             &journal,
-            concat!(r#"{"event":"node_started","type":"agent","node":"old"}"#, "\n"),
+            concat!(
+                r#"{"event":"node_started","type":"agent","node":"old"}"#,
+                "\n"
+            ),
         )
         .expect("write journal");
         assert_eq!(
@@ -2347,8 +2372,16 @@ mod tests {
             "grafia desconhecida nao pode criar categoria: {}",
             v["by_failure_kind"]
         );
-        assert_eq!(v["by_failure_kind"]["other"], json!(1), "cai em `other`: {v}");
-        assert_eq!(v["by_failure_kind"]["timeout"], json!(1), "classe real preservada: {v}");
+        assert_eq!(
+            v["by_failure_kind"]["other"],
+            json!(1),
+            "cai em `other`: {v}"
+        );
+        assert_eq!(
+            v["by_failure_kind"]["timeout"],
+            json!(1),
+            "classe real preservada: {v}"
+        );
     }
 
     #[test]
@@ -2493,8 +2526,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kpi-external-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir");
         assert_eq!(resolve_external(&dir, "a.b"), None, "missing file is STUB");
-        std::fs::write(dir.join("a.b.json"), r#"{"value": 15786, "measured_at": "x"}"#)
-            .expect("write fresh");
+        std::fs::write(
+            dir.join("a.b.json"),
+            r#"{"value": 15786, "measured_at": "x"}"#,
+        )
+        .expect("write fresh");
         assert_eq!(resolve_external(&dir, "a.b"), Some(15786.0));
         std::fs::write(dir.join("c.d.json"), "not json").expect("write malformed");
         assert_eq!(resolve_external(&dir, "c.d"), None, "malformed is STUB");
@@ -2556,13 +2592,16 @@ mod tests {
         // operator acts on the dashboard line alone.
         let m = ExternalStub::Missing.teach("touring.test.count");
         assert!(
-            m.contains("never measured")
-                && m.contains("docs/kpi/external/touring.test.count.json"),
+            m.contains("never measured") && m.contains("docs/kpi/external/touring.test.count.json"),
             "got: {m}"
         );
         let s = ExternalStub::Stale { days: 15 }.teach("x");
         assert!(s.contains("15d ago"), "got: {s}");
-        assert!(ExternalStub::Malformed.teach("x").contains("numeric `value`"));
+        assert!(
+            ExternalStub::Malformed
+                .teach("x")
+                .contains("numeric `value`")
+        );
     }
 
     /// Only an `external:` source that resolved to no value carries a reason —
@@ -2727,7 +2766,7 @@ mod tests {
 #[cfg(test)]
 mod signal_latency_tests {
     use touring_code::sdk::HookName;
-    use touring_code::sdk_signal_mirror::{read, record, MirrorOrigin};
+    use touring_code::sdk_signal_mirror::{MirrorOrigin, read, record};
 
     #[test]
     fn the_kpi_publishes_the_latency_the_mirror_measures() {

@@ -655,8 +655,14 @@ fn auto_tag_entry(key: &str) {
         let graph = build_call_graph(src, Lang::Rust);
         let callees: Vec<&str> = graph.sites.iter().map(|s| s.callee.as_str()).collect();
         println!("CALLEES: {callees:?}");
-        assert!(callees.contains(&"derive_tags"), "scoped call missing: {callees:?}");
+        assert!(
+            callees.contains(&"derive_tags"),
+            "scoped call missing: {callees:?}"
+        );
         assert!(callees.contains(&"now"), "Utc::now missing: {callees:?}");
-        assert!(callees.contains(&"compute"), "direct call missing: {callees:?}");
+        assert!(
+            callees.contains(&"compute"),
+            "direct call missing: {callees:?}"
+        );
     }
 }

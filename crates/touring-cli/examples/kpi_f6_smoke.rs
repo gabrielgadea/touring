@@ -22,19 +22,21 @@ fn code_mode_signal_use() -> serde_json::Value {
             let mut seen: std::collections::BTreeSet<String> = Default::default();
             let mut calls = 0u64;
             for line in content.lines() {
-                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                    continue;
+                };
                 if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
                     seen.insert(name.to_string());
                     calls += 1;
                 }
             }
             json!({
-                    "available": true,
-                    "used": seen.len() as u64,
-                    "total": TOTAL_HOOKS,
-                    "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
-                    "total_calls": calls,
-                })
+                "available": true,
+                "used": seen.len() as u64,
+                "total": TOTAL_HOOKS,
+                "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
+                "total_calls": calls,
+            })
         }
         Err(_) => json!({"available": false, "reason": "no mirror yet"}),
     }
@@ -50,7 +52,9 @@ fn code_mode_adherence() -> serde_json::Value {
             let mut total = 0u64;
             let mut ok = 0u64;
             for line in content.lines() {
-                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                    continue;
+                };
                 total += 1;
                 if v.get("exit_code").and_then(serde_json::Value::as_i64) == Some(0) {
                     ok += 1;

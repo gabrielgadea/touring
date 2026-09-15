@@ -182,6 +182,8 @@ impl FileKnowledgeDB {
                 ON {wm}(consumer_file) WHERE consumer_file IS NULL;
             CREATE INDEX IF NOT EXISTS idx_wiring_module
                 ON {wm}(module_file);
+            CREATE INDEX IF NOT EXISTS idx_wiring_consumer
+                ON {wm}(consumer_file);
 
             CREATE TABLE IF NOT EXISTS {wu} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -597,6 +599,14 @@ impl FileKnowledgeDB {
             ),
             [],
         );
+        // v10 → v11 (13/09/2026): `consumer_file` equality needs its own index.
+        // The only one on the column was partial (`WHERE consumer_file IS NULL`),
+        // so every `DELETE … WHERE consumer_file = ?` scanned the table: a rebuild
+        // purging ~18k files scanned 99.310 rows per file on the analise project.
+        self.conn.execute_batch(&format!(
+            "CREATE INDEX IF NOT EXISTS idx_wiring_consumer ON {wm}(consumer_file);",
+            wm = schema_guard::TABLE_WIRING_MAP
+        ))?;
         Ok(())
     }
 }

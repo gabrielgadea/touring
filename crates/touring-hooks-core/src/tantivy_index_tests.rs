@@ -46,6 +46,302 @@ fn test_upsert_and_search() {
     assert_eq!(hits[0].symbol_name, "HookRuntime");
 }
 
+/// A commit invalidates every cached answer: the same query asked before and
+/// after new documents land returns the new documents.
+#[test]
+fn a_commit_invalidates_the_query_cache() {
+    let (idx, _dir) = make_index();
+    idx.upsert_symbol(&symbol("FirstProbe", "src/a.rs", "struct"))
+        .expect("upsert");
+    idx.commit().expect("commit");
+    let before = idx.search("FirstProbe", 10).expect("search");
+    assert_eq!(before.len(), 1);
+    idx.upsert_symbol(&SymbolDoc {
+        line_number: 7,
+        ..symbol("FirstProbe", "src/b.rs", "struct")
+    })
+    .expect("upsert second");
+    idx.commit().expect("commit");
+    let after = idx.search("FirstProbe", 10).expect("search again");
+    assert_eq!(
+        after.len(),
+        2,
+        "the cached one-hit answer did not survive the commit"
+    );
+}
+
+/// The text lane ranks what documents SAY: a name match alone never enters it.
+#[test]
+fn the_text_lane_searches_text_only() {
+    let (idx, _dir) = make_index();
+    let prose = SymbolDoc {
+        docstring: Some("the gateway pipeline for a tool call".to_string()),
+        language: "markdown".to_string(),
+        ..symbol("notes", "docs/notes.md", "definition")
+    };
+    let code = SymbolDoc {
+        docstring: None,
+        ..symbol("gateway_pipeline", "src/gateway.rs", "function")
+    };
+    idx.upsert_symbol(&prose).expect("upsert prose");
+    idx.upsert_symbol(&code).expect("upsert code");
+    idx.commit().expect("commit");
+    let text: Vec<String> = idx
+        .search_text("gateway pipeline", 10)
+        .expect("text")
+        .into_iter()
+        .map(|h| h.file_path)
+        .collect();
+    assert_eq!(text, vec!["docs/notes.md".to_string()]);
+    let names: Vec<String> = idx
+        .search("gateway_pipeline", 10)
+        .expect("bm25")
+        .into_iter()
+        .map(|h| h.file_path)
+        .collect();
+    assert!(names.contains(&"src/gateway.rs".to_string()), "{names:?}");
+}
+
+/// A long document holding EVERY query word beats a short one holding three of
+/// them, which plain BM25 over OR ranks first by length normalization (proved:
+/// `TOURING_TANTIVY_COVERAGE_BOOST=0` makes this test fail).
+#[test]
+fn coverage_lifts_the_document_holding_every_query_word() {
+    let (idx, _dir) = make_index();
+    let filler = "unrelated prose about other matters ".repeat(80);
+    let whole = SymbolDoc {
+        docstring: Some(format!(
+            "{filler} zebrafinch {filler} kingfisher {filler} ornitorrinco {filler} viveiro"
+        )),
+        language: "markdown".to_string(),
+        ..symbol("whole", "memory/whole.md", "definition")
+    };
+    let short = SymbolDoc {
+        docstring: Some("zebrafinch kingfisher ornitorrinco".to_string()),
+        language: "markdown".to_string(),
+        ..symbol("short", "memory/short.md", "definition")
+    };
+    idx.upsert_symbol(&whole).expect("upsert whole");
+    idx.upsert_symbol(&short).expect("upsert short");
+    idx.commit().expect("commit");
+    let terms = idx.coverage_clauses(
+        &[idx.fields.docstring],
+        "zebrafinch kingfisher ornitorrinco viveiro",
+        5.0,
+        0.25,
+    );
+    assert_eq!(terms.len(), 5, "the full set plus four all-but-one subsets");
+    assert!(
+        idx.coverage_clauses(&[idx.fields.docstring], "zebrafinch kingfisher", 5.0, 0.25)
+            .is_empty(),
+        "two words are a phrase question, not a coverage one"
+    );
+    let first = idx
+        .search_with_community_boost("zebrafinch kingfisher ornitorrinco viveiro", 5, None)
+        .expect("search")
+        .into_iter()
+        .map(|h| h.file_path)
+        .next();
+    assert_eq!(first.as_deref(), Some("memory/whole.md"));
+}
+
+/// Identifier-shaped queries are told apart from words.
+#[test]
+fn identifier_queries_are_recognized_by_their_marks() {
+    for q in [
+        "HookRuntime",
+        "cli_index_why",
+        "ast::markdown_text",
+        "  SymbolDoc ",
+    ] {
+        assert!(is_identifier_query(q), "{q}");
+    }
+    for q in [
+        "classify",
+        "classify a command",
+        "HTTP",
+        "o pipe engole",
+        "",
+        "daemon-ctl",
+        "v2",
+    ] {
+        assert!(!is_identifier_query(q), "{q}");
+    }
+}
+
+/// The analyzer folds diacritics and drops stopwords without renumbering, so a
+/// query without accents meets accented prose and a phrase across a removed
+/// word still matches.
+#[test]
+fn the_analyzer_folds_accents_and_keeps_phrases_across_stopwords() {
+    let (idx, _dir) = make_index();
+    let prose = SymbolDoc {
+        docstring: Some("grep num binário não encontra o literal curto".to_string()),
+        language: "markdown".to_string(),
+        ..symbol("nota", "@companion/memory/binario.md", "definition")
+    };
+    idx.upsert_symbol(&prose).expect("upsert");
+    idx.commit().expect("commit");
+    let files = |q: &str| -> Vec<String> {
+        idx.search_text(q, 5)
+            .expect("text")
+            .into_iter()
+            .map(|h| h.file_path)
+            .collect()
+    };
+    assert_eq!(
+        files("binario"),
+        vec!["@companion/memory/binario.md".to_string()],
+        "folded query meets accented text"
+    );
+    let terms = idx.analyzed_terms(idx.fields.docstring, "encontra o literal");
+    let positions: Vec<usize> = terms.iter().map(|(p, _)| *p).collect();
+    assert_eq!(
+        positions,
+        vec![0, 2],
+        "the stopword `o` is gone and its position is kept"
+    );
+    let searcher = idx.reader.searcher();
+    let phrase = idx
+        .phrase_on(idx.fields.docstring, "encontra o literal")
+        .expect("two terms");
+    assert_eq!(
+        searcher
+            .search(&*phrase, &tantivy::collector::Count)
+            .expect("count"),
+        1,
+        "phrase across the removed word"
+    );
+}
+
+fn hit(file: &str) -> SearchHit {
+    SearchHit {
+        symbol_name: "s".to_string(),
+        file_path: file.to_string(),
+        symbol_kind: "definition".to_string(),
+        line_number: 1,
+        score: 0.0,
+        crate_name: None,
+        visibility: None,
+        functional_signature: None,
+        cognitive_score: None,
+        community_id: None,
+    }
+}
+
+/// Compaction merges segments and drops deleted documents, so BM25 statistics
+/// stop counting them; searching afterwards still finds every live document.
+#[test]
+fn compact_merges_segments_and_forgets_deleted_documents() {
+    let (idx, _dir) = make_index();
+    for round in 0..3 {
+        for n in 0..20 {
+            idx.upsert_symbol(&symbol(&format!("Probe{n}"), &format!("src/p{n}.rs"), "fn"))
+                .expect("upsert");
+        }
+        idx.commit().expect("commit");
+        let _ = round;
+    }
+    // Tantivy's own merge policy may already have folded small segments, so the
+    // starting state varies; what compact guarantees is the end state.
+    let before = idx.reader.searcher();
+    let segments_before = before.segment_readers().len();
+    let deleted_before: u32 = before
+        .segment_readers()
+        .iter()
+        .map(|r| r.num_deleted_docs())
+        .sum();
+    let merged = idx.compact().expect("compact");
+    if segments_before > 1 || deleted_before > 0 {
+        assert!(
+            merged >= 1,
+            "there was something to merge ({segments_before} segments, {deleted_before} deleted)"
+        );
+    }
+    let searcher = idx.reader.searcher();
+    assert_eq!(searcher.segment_readers().len(), 1);
+    assert_eq!(
+        searcher
+            .segment_readers()
+            .iter()
+            .map(|r| r.num_deleted_docs())
+            .sum::<u32>(),
+        0
+    );
+    assert_eq!(idx.stats().total_docs, 20);
+    assert_eq!(idx.compact().expect("again"), 0, "nothing left to compact");
+    assert!(!idx.search("Probe7", 5).expect("search").is_empty());
+}
+
+/// The file aggregation lifts a file whose second document also answers.
+#[test]
+fn file_aggregation_adds_the_best_other_hit_of_the_same_file() {
+    let mut hits = vec![
+        SearchHit {
+            score: 10.0,
+            ..hit("lucky.rs")
+        },
+        SearchHit {
+            score: 9.0,
+            ..hit("module.rs")
+        },
+        SearchHit {
+            score: 8.0,
+            ..hit("module.rs")
+        },
+        SearchHit {
+            score: 1.0,
+            ..hit("lucky.rs")
+        },
+    ];
+    // λ comes from the environment default (0.25): 9 + 0.25·8 = 11 beats 10 + 0.25·1.
+    aggregate_by_file(&mut hits);
+    assert_eq!(hits[0].file_path, "module.rs");
+    assert!((hits[0].score - 11.0).abs() < 1e-4, "{}", hits[0].score);
+}
+
+/// Markdown text is prose: a quoted span and a URL survive into the index, while
+/// the same text on a code symbol still goes through `code_only` (strings and
+/// comments stay out of a code symbol's searchable text).
+#[test]
+fn markdown_text_is_indexed_as_written_and_code_text_is_still_filtered() {
+    let (idx, _dir) = make_index();
+    let text = "o \"pipefail\" engole https://example.org/zebrafinch e o status";
+    let md = SymbolDoc {
+        symbol_name: "exit-code".to_string(),
+        file_path: "@companion/memory/exit-code.md".to_string(),
+        docstring: Some(text.to_string()),
+        line_number: 0,
+        language: "markdown".to_string(),
+        ..symbol("exit-code", "@companion/memory/exit-code.md", "definition")
+    };
+    let rs = SymbolDoc {
+        docstring: Some(text.to_string()),
+        ..symbol("run_probe", "src/probe.rs", "definition")
+    };
+    idx.upsert_symbol(&md).expect("upsert md");
+    idx.upsert_symbol(&rs).expect("upsert rs");
+    idx.commit().expect("commit");
+
+    let files = |q: &str| -> Vec<String> {
+        idx.search(q, 10)
+            .expect("search")
+            .into_iter()
+            .map(|h| h.file_path)
+            .collect()
+    };
+    assert_eq!(
+        files("pipefail"),
+        vec!["@companion/memory/exit-code.md".to_string()],
+        "the quoted word is in the markdown text only"
+    );
+    assert_eq!(
+        files("zebrafinch"),
+        vec!["@companion/memory/exit-code.md".to_string()],
+        "the URL after `//` is not a comment in prose"
+    );
+}
+
 #[test]
 fn test_stats_after_upsert() {
     let (idx, _dir) = make_index();
@@ -937,12 +1233,34 @@ fn test_i02_phrase_query_only_for_multi_term() {
     idx.upsert_symbol(&symbol("foo", "src/a.rs", "fn"))
         .expect("upsert");
     idx.commit().expect("commit");
-    // Single-term: try_build_phrase_query returns None
-    let phrase = idx.try_build_phrase_query("foo");
+    // Single-term: no proximity clause
+    let phrase = idx.phrase_on(idx.fields.symbol_name, "foo");
     assert!(phrase.is_none(), "single-term MUST NOT build PhraseQuery");
     // Multi-term: returns Some
-    let phrase = idx.try_build_phrase_query("foo bar");
+    let phrase = idx.phrase_on(idx.fields.symbol_name, "foo bar");
     assert!(phrase.is_some(), "multi-term MUST build PhraseQuery");
+}
+
+/// The proximity clause uses the field's analyzer: a stemmed word in the query
+/// meets the stemmed word in the index (`classify` → `classifi`). Built from raw
+/// lowercased words, the phrase matched nothing on a stemmed field.
+#[test]
+fn the_name_phrase_matches_through_the_stemmer() {
+    let (idx, _dir) = make_index();
+    let doc = SymbolDoc {
+        docstring: None,
+        ..symbol("classify_commands_into_classes", "src/classify.rs", "fn")
+    };
+    idx.upsert_symbol(&doc).expect("upsert");
+    idx.commit().expect("commit");
+    let searcher = idx.reader.searcher();
+    let phrase = idx
+        .phrase_on(idx.fields.symbol_name, "classify commands")
+        .expect("two terms");
+    let found = searcher
+        .search(&*phrase, &tantivy::collector::Count)
+        .expect("search");
+    assert_eq!(found, 1, "the analyzed phrase meets the analyzed name");
 }
 
 #[test]
@@ -1136,4 +1454,116 @@ fn test_i05_cleanup_expired_removes_old_docs() {
     // retention=1s means anything older than 1s gets cleaned
     let deleted = idx.cleanup_expired(1).expect("cleanup");
     assert!(deleted >= 1, "cleanup MUST delete the ancient doc");
+}
+
+/// A question is words, not query syntax. `rm -rf` must not EXCLUDE every
+/// document holding `rf`, and `open()` must not turn the whole search into a
+/// parse error. Both happened live on 14/09/2026: "safe-clean.sh … sem rm -rf"
+/// lost its truth to the negation and "open() do rusqlite …" returned nothing.
+#[test]
+fn query_syntax_characters_are_searched_as_words() {
+    let (idx, _dir) = make_index();
+    let doc = SymbolDoc {
+        docstring: Some(
+            "never rm -rf the target directory; open() takes an exclusive lock on drop".to_string(),
+        ),
+        language: "markdown".to_string(),
+        ..symbol("hygiene", "rules/hygiene.md", "definition")
+    };
+    idx.upsert_symbol(&doc).expect("upsert");
+    idx.commit().expect("commit");
+    for q in [
+        "target sem rm -rf",
+        "open() exclusive lock",
+        "Bash(a|b) lock",
+        "AND target",
+        "lock: exclusive",
+        "+target -rf",
+        "\"unbalanced quote lock",
+    ] {
+        let files: Vec<String> = idx
+            .search_with_community_boost(q, 5, None)
+            .unwrap_or_else(|e| panic!("{q}: {e}"))
+            .into_iter()
+            .map(|h| h.file_path)
+            .collect();
+        assert_eq!(
+            files.first().map(String::as_str),
+            Some("rules/hygiene.md"),
+            "{q}: {files:?}"
+        );
+    }
+    let text = idx.search_text("open() lock -rf", 5).expect("text");
+    assert_eq!(
+        text.first().map(|h| h.file_path.as_str()),
+        Some("rules/hygiene.md")
+    );
+}
+
+/// A command or identifier token among prose words is a MIXED query; one
+/// identifier alone or plain words are not.
+#[test]
+fn mixed_queries_are_told_apart_from_identifiers_and_prose() {
+    for q in [
+        "cascading kill multi-sessão daemon-ctl",
+        "TOURING_DAEMON_SOCKET vence o walk-up",
+        "loop_converged.py é o único pronto",
+        "open() do rusqlite pede lock",
+    ] {
+        assert!(is_mixed_query(q), "{q}");
+    }
+    for q in [
+        "HookRuntime",
+        "cli_index_why",
+        "classify a command into risk classes",
+        "o sweep apagou o binário",
+        "daemon-ctl restart",
+    ] {
+        assert!(!is_mixed_query(q), "{q}");
+    }
+}
+
+/// The document holding every word of a long question beats the one whose NAME
+/// holds a single rare word of it. BM25 alone ranked the name match first — a file
+/// named `google-fonts` over the one holding all ten words (14/09/2026). Proved by
+/// mutation: `TOURING_TANTIVY_WORD_COVERAGE=0` makes this test fail.
+#[test]
+fn word_coverage_lifts_the_document_holding_the_whole_question() {
+    let (idx, _dir) = make_index();
+    let filler = "unrelated prose about other matters ".repeat(60);
+    let whole = SymbolDoc {
+        docstring: Some(format!(
+            "{filler} the mirror is generated {filler} direction is single {filler} \
+             the live side is the source {filler} sync client skills"
+        )),
+        language: "markdown".to_string(),
+        ..symbol("workspace rules", "CLAUDE.md", "definition")
+    };
+    let named = SymbolDoc {
+        docstring: None,
+        language: "markdown".to_string(),
+        ..symbol("source", "docs/source.md", "definition")
+    };
+    idx.upsert_symbol(&whole).expect("upsert whole");
+    idx.upsert_symbol(&named).expect("upsert named");
+    for i in 0..40 {
+        let other = SymbolDoc {
+            docstring: Some(format!("{filler} padding document {i}")),
+            language: "markdown".to_string(),
+            ..symbol("padding", &format!("docs/pad{i}.md"), "definition")
+        };
+        idx.upsert_symbol(&other).expect("upsert padding");
+    }
+    idx.commit().expect("commit");
+    let first = idx
+        .search_with_community_boost(
+            "mirror generated single direction live source sync client skills",
+            5,
+            None,
+        )
+        .expect("search")
+        .into_iter()
+        .map(|h| h.file_path)
+        .next();
+    assert_eq!(first.as_deref(), Some("CLAUDE.md"));
 }

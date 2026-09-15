@@ -34,15 +34,20 @@ pub fn run(args: &[String]) -> Result<()> {
         match flag {
             "--pre" | "--post" | "--invariants" => {
                 let key = flag.trim_start_matches("--").to_string();
-                let raw = args
-                    .get(i + 1)
-                    .ok_or_else(|| anyhow!("{flag} requires a value; example: {flag} '{{\"key\":\"value\"}}'"))?;
-                let parsed: serde_json::Value = serde_json::from_str(raw)
-                    .map_err(|e| anyhow!("invalid JSON for {flag}: {e} — use valid JSON like '{{\"k\":\"v\"}}'"))?;
+                let raw = args.get(i + 1).ok_or_else(|| {
+                    anyhow!("{flag} requires a value; example: {flag} '{{\"key\":\"value\"}}'")
+                })?;
+                let parsed: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+                    anyhow!("invalid JSON for {flag}: {e} — use valid JSON like '{{\"k\":\"v\"}}'")
+                })?;
                 payload.insert(key, parsed);
                 i += 2;
             }
-            other => return Err(anyhow!("unknown argument '{other}' — use --pre, --post, or --invariants")),
+            other => {
+                return Err(anyhow!(
+                    "unknown argument '{other}' — use --pre, --post, or --invariants"
+                ));
+            }
         }
     }
     if !payload.contains_key("pre") || !payload.contains_key("post") {

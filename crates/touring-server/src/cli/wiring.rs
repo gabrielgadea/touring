@@ -193,7 +193,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         } => {
             if let Some(syms) = symbols {
                 if syms.is_empty() {
-                    anyhow::bail!("--symbols=<csv> requires at least one symbol — run `touring help` for details");
+                    anyhow::bail!(
+                        "--symbols=<csv> requires at least one symbol — run `touring help` for details"
+                    );
                 }
                 let payload = serde_json::json!({ "orphan_symbols": syms });
                 query_and_print("cli-wiring-suggest", payload)

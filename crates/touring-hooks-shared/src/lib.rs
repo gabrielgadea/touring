@@ -11,12 +11,12 @@
 // S-13 (2026-06-06) — ActionSignature relocated here from touring-hooks (leaf-safe:
 // zero crate:: deps). Re-exported by the touring-hooks facade as
 // `crate::action_signature` so every call site + the public API stay unchanged.
-pub mod turn_budget;
 pub mod action_signature;
-pub mod hooks_complement_journal; // F6: instrumented emit counter for hooks-complement SignalLayers
 pub mod errors;
 pub mod got_snapshot_store;
+pub mod hooks_complement_journal; // F6: instrumented emit counter for hooks-complement SignalLayers
 pub mod idempotency;
+pub mod turn_budget;
 // S-13 (2026-06-06) — IsolationMode policy enum relocated from touring-hooks
 // hook_runtime (leaf-safe, std-only). Re-exported by hook_runtime for compat.
 pub mod isolation_mode;
@@ -46,6 +46,13 @@ pub mod workflow;
 // every historical path keeps resolving.
 pub mod ast_grep_signal;
 pub mod bash_ast_validator;
+// S2 (2026-09-05, plano substrato-de-artefato do `analise`): símbolos documentais com
+// relevância por nó, via provedor Python do projeto consumidor (U10a) — sem crate cruzado.
+pub mod doc_symbol_signal;
+// I13/I16 (2026-09-13, Graft analysis): the index admission policy — the walker's
+// rule tables + the per-path verdict — hoisted from touring-cli so the hook
+// writers (touring-hook-runtime) and the rebuild sweep ask ONE predicate.
+pub mod index_policy;
 // gate_metrics relocated to touring-foundation (A5 Path-A step-2, 2026-06-16);
 // re-exported so `touring_hooks_shared::gate_metrics::*` resolves unchanged for all
 // ~73 consumers (incl. no-touch touring-cli + this crate's own query_cache, which

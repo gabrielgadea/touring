@@ -1,0 +1,45 @@
+{
+  "phase": "R2",
+  "entities": [
+    {
+      "entity_id": "phase:R2",
+      "type": "phase",
+      "description": "Escala: workspace Touring inteiro 2.211 arquivos \u2192 47.055 n\u00f3s/58.252 arestas em 15 s, RSS 1,74 GB, ask 0,8 s, sonda \u224890 ms, check 7,7 s. LSP: +607 calls/lsp_resolved, 1.010 inferred intactas, hub falso path 260\u2190 sobrevive; callers n\u00e3o exp\u00f5e confidence (PR #336). Freshness: touch n\u00e3o reconstr\u00f3i; edi\u00e7\u00e3o real reconstr\u00f3i 1 arquivo em ~170 ms; nota vai para stderr."
+    },
+    {
+      "entity_id": "memory:loop:task_1789259381190412574:R2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789259381190412574",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789259381190412574",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R2|produces|memory:loop:task_1789259381190412574:R2:done",
+      "source": "phase:R2",
+      "type": "produces",
+      "target": "memory:loop:task_1789259381190412574:R2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789259381190412574:R2:done|generated-by|loop:loop:task_1789259381190412574",
+      "source": "memory:loop:task_1789259381190412574:R2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789259381190412574"
+    },
+    {
+      "relation_id": "memory:loop:task_1789259381190412574:R2:done|generated-by|dag:decomp:task_1789259381190412574",
+      "source": "memory:loop:task_1789259381190412574:R2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789259381190412574"
+    }
+  ]
+}

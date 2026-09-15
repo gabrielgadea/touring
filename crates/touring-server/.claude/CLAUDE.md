@@ -96,6 +96,43 @@ cargo clippy -p touring-server -- -D warnings  # must be 0
 
 `touring` — not `touring-server`. The package name is `touring-server` but the binary is `touring`.
 
+## Exit codes (14/09/2026)
+
+| Code | Meaning |
+|---|---|
+| `0` | success |
+| `1` | any other failure (message on stderr) |
+| `75` | `EX_TEMPFAIL`: a LIGHT daemon handler exceeded its 15 s budget (`retryable: true`) — retry later. stdout carries the daemon payload `{"error":…,"error_kind":"budget_exceeded","handler":…,"budget_secs":…,"still_running":true,"retryable":true}`. The daemon never cancels: the work may still complete, so check the result before repeating. `touring exec` also uses 75 when another execution holds its lock. |
+| `79` | A HEAVY handler (`index rebuild`, `mutation-test`) exceeded its 1800 s budget (`HEAVY_OP_BUDGET_SECS`) and keeps running (`retryable: false`, same payload on stdout). Do not re-run: a second call waits for the running walk and then repeats it. Poll `touring index status`. Outside the sysexits range on purpose (decision H2, 14/09/2026). |
+
+A script tells "busy" from a semantic error by the exit code, never by parsing
+the stderr text (`DAEMON_BUSY_EXIT_CODE` / `DAEMON_STILL_RUNNING_EXIT_CODE` in
+`src/daemon_client.rs`). A heavy call waits `HEAVY_OP_CLIENT_FLOOR_SECS` (the
+budget plus 60 s) so the typed reply arrives before the socket read gives up;
+if the read still times out, the message says to poll, never to retry. Memory
+commands (`cli-memory-*` except `reindex`) no longer queue behind `index
+rebuild`: the project actor serves them between files
+(`touring_hook_runtime::actor_yield`). `index status` never enters the actor
+queue at all (decision 3-A, 14/09/2026): the dispatch answers it from committed
+state through read-only SQLite connections, so it answers during the rebuild's
+sealing phase too, where no yield point exists.
+
+## Logs, OTLP and learning state (cross-audit 14/09/2026, rodada 2)
+
+- **File logs** (`file-logs`): `TOURING_LOG_DIR`, else `~/.claude/touring/logs`,
+  daily rotation, 7 files kept (`LOG_FILES_KEPT`). The default was `/tmp`, a tmpfs:
+  the index watcher logged one `ERROR` per dropped event and wrote 25,5 GB in a day,
+  filling `/tmp` for every process on the machine (R2-1).
+- **OTLP** exports only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; with no collector
+  the batch processor logged an `ExportError` per flush (R2-16).
+- **Learning state** (Wilson, drift, QTable) and the hook events it learns from live
+  in graph.db (`learning_db_path`), for the loader and the evolution loop alike. The
+  loop used the RLM memory path: it never found an event and every save failed with
+  `no such table: learning_qtable` (R2-10).
+- **Client wait** (`daemon_client::wait_plan`) is computed per call. The heavy floor
+  and flag used to live in process statics, so in the long-lived MCP server one heavy
+  call left every later light call waiting ~31 min (R2-7).
+
 ## File layout
 
 | Path | Purpose |

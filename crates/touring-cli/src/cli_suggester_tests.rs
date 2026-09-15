@@ -1,7 +1,6 @@
 use super::*;
 use serde_json::json;
 
-
 #[test]
 fn looks_like_symbol_accepts_pascal_case() {
     assert!(looks_like_symbol("DomainCircuitBreaker"));
@@ -206,7 +205,9 @@ fn classify_bash_git_destructive_demands_the_ritual() {
         assert_eq!(out.cluster, "regra-11-git-destructive", "cmd: {cmd_str}");
         assert!(out.confidence >= 0.95, "cmd: {cmd_str}");
         assert!(
-            out.must.iter().any(|c| c.command.contains("GIT_DESTRUCTIVE_OK=1")),
+            out.must
+                .iter()
+                .any(|c| c.command.contains("GIT_DESTRUCTIVE_OK=1")),
             "ritual token missing for {cmd_str}"
         );
         assert!(
@@ -275,7 +276,9 @@ fn every_declared_destructive_verb_is_actually_gated() {
 /// upstream — re-gating it would make the approved path unusable.
 #[test]
 fn git_destructive_respects_the_completed_ritual_token() {
-    assert!(!git_is_destructive("GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD~1"));
+    assert!(!git_is_destructive(
+        "GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD~1"
+    ));
     let input = json!({"command": "GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD~1"});
     let out = classify_bash(&input);
     assert!(
@@ -1272,11 +1275,26 @@ fn crosses_threshold_fires_only_on_edge() {
 fn detect_code_mode_fires_on_explicit_loop() {
     // A loop fires immediately (counter-independent, deterministic).
     let loop_cmd = json!({"command": "for f in *.rs; do grep X \"$f\"; done"});
-    let out = detect_code_mode(Path::new("/t/cm-loop"), "Bash", &loop_cmd).expect("loop should fire");
+    let out =
+        detect_code_mode(Path::new("/t/cm-loop"), "Bash", &loop_cmd).expect("loop should fire");
     assert_eq!(out.cluster, "code-mode-loop");
     // A non-scan/non-loop tool never fires.
-    assert!(detect_code_mode(Path::new("/t/cm-cargo"), "Bash", &json!({"command": "cargo build"})).is_none());
-    assert!(detect_code_mode(Path::new("/t/cm-edit"), "Edit", &json!({"file_path": "x.rs"})).is_none());
+    assert!(
+        detect_code_mode(
+            Path::new("/t/cm-cargo"),
+            "Bash",
+            &json!({"command": "cargo build"})
+        )
+        .is_none()
+    );
+    assert!(
+        detect_code_mode(
+            Path::new("/t/cm-edit"),
+            "Edit",
+            &json!({"file_path": "x.rs"})
+        )
+        .is_none()
+    );
 }
 
 // ── Task #6: pillar induction (the active compounding layer) ──────────────────
@@ -1893,7 +1911,10 @@ fn ordinary_loops_do_not_nudge_campaign() {
     // and the flow name never comes from a flag
     let out = super::campaign_code_mode_command("while true; do touring adw run --mock x; done")
         .expect("still a campaign");
-    assert!(out.contains("<flow>"), "flag is not a flow name, got: {out}");
+    assert!(
+        out.contains("<flow>"),
+        "flag is not a flow name, got: {out}"
+    );
 }
 
 // ── Guard estrutural: escopo por projeto de TODO cache do suggester ──────────
@@ -1988,12 +2009,36 @@ fn no_lessons_db_is_opened_for_writing() {
         "abertura de DB em modo de escrita (traz CREATE e checkpoint no Drop) — \
          use `open_lessons_db_readonly`: {diretas:?}"
     );
-    // Âncora: o helper precisa existir e pedir READ_ONLY de fato.
+    // Âncora: o helper existe e delega ao abridor único, que pede READ_ONLY de fato.
+    let shared = include_str!("cli/shared.rs");
     assert!(
         src.contains("fn open_lessons_db_readonly")
-            && src.contains("SQLITE_OPEN_READ_ONLY"),
-        "o helper read-only sumiu — o guard acima passaria por vácuo"
+            && src.contains("crate::cli::shared::open_db_readonly")
+            && shared.contains("fn open_db_readonly")
+            && shared.contains("SQLITE_OPEN_READ_ONLY"),
+        "o helper read-only sumiu ou deixou de delegar — o guard acima passaria por vácuo"
     );
+    // A leitura federada da memória repetia o defeito que este guard fechou só
+    // aqui (cross-audit 14/09/2026, R2: o binário de teste do touring-dispatch
+    // travou em `sqlite3WalClose`). Toda função que só LÊ bancos federados usa
+    // o mesmo abridor.
+    let memory = include_str!("cli/memory.rs");
+    for (arquivo, fonte, funcoes) in [
+        ("cli/shared.rs", shared, &["fn memory_recall_sql(", "fn memory_backfill_stored_at("][..]),
+        ("cli/memory.rs", memory, &["fn compute_tag_filter(", "fn fetch_tagged_entries(", "fn memory_metrics("][..]),
+    ] {
+        for funcao in funcoes {
+            let inicio = fonte
+                .find(funcao)
+                .unwrap_or_else(|| panic!("{arquivo}: {funcao} sumiu — o guard virou vácuo"));
+            let corpo = &fonte[inicio..];
+            let fim = corpo.find("\n}\n").map_or(corpo.len(), |i| i + 3);
+            assert!(
+                !corpo[..fim].contains("Connection::open("),
+                "{arquivo}: {funcao} lê bancos federados e abre em modo de escrita"
+            );
+        }
+    }
 }
 
 // ── W1 (plano code-mode-total): G2 deny + G6 escalada ─────────────────────────
@@ -2002,9 +2047,9 @@ fn no_lessons_db_is_opened_for_writing() {
 // (o hash e a época são por projeto) para não interferir nos vizinhos.
 
 mod code_mode_gates_w1 {
-    use serial_test::serial;
     use super::super::code_mode_gates;
     use serde_json::json;
+    use serial_test::serial;
     use std::path::Path;
 
     fn bash(cmd: &str) -> serde_json::Value {
@@ -2018,8 +2063,7 @@ mod code_mode_gates_w1 {
         // com o comando REAL prefixado; o deny fica atrás do env de fallback.
         let proj = Path::new("/tmp/w1-g2-deny");
         let cmd = "cargo test 2>&1 | tail -3; echo EXIT=$?";
-        let resp = code_mode_gates(proj, "s1", "Bash", &bash(cmd))
-            .expect("G2 deve falar");
+        let resp = code_mode_gates(proj, "s1", "Bash", &bash(cmd)).expect("G2 deve falar");
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "allow");
         assert_eq!(
@@ -2028,13 +2072,18 @@ mod code_mode_gates_w1 {
         );
         // fallback deny (env no MESMO teste — sequencial, sem corrida entre testes)
         unsafe { std::env::set_var("TOURING_G2_REWRITE_DISABLED", "1") };
-        let resp = code_mode_gates(proj, "s1", "Bash", &bash(cmd))
-            .expect("G2 deve negar sob fallback");
+        let resp =
+            code_mode_gates(proj, "s1", "Bash", &bash(cmd)).expect("G2 deve negar sob fallback");
         unsafe { std::env::remove_var("TOURING_G2_REWRITE_DISABLED") };
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
-        let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
-        assert!(reason.contains(&format!("set -o pipefail; {cmd}")), "{reason}");
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap();
+        assert!(
+            reason.contains(&format!("set -o pipefail; {cmd}")),
+            "{reason}"
+        );
     }
 
     #[test]
@@ -2068,10 +2117,19 @@ mod code_mode_gates_w1 {
             .as_str()
             .unwrap();
         assert!(reason.contains("Edit tool"), "{reason}");
-        assert!(reason.contains("src/foo.rs"), "alvo real, não placeholder: {reason}");
+        assert!(
+            reason.contains("src/foo.rs"),
+            "alvo real, não placeholder: {reason}"
+        );
         // a rota sandbox carrega o comando REAL com aspas escapadas (lição G8)
-        assert!(reason.contains("sed -i '\\''s/old/new/'\\'' src/foo.rs"), "{reason}");
-        assert!(!reason.contains("<o arquivo>"), "placeholder só sem alvo derivável: {reason}");
+        assert!(
+            reason.contains("sed -i '\\''s/old/new/'\\'' src/foo.rs"),
+            "{reason}"
+        );
+        assert!(
+            !reason.contains("<o arquivo>"),
+            "placeholder só sem alvo derivável: {reason}"
+        );
         // a conversão (Edit) fecha o continuation-check sem pânico
         let edit = json!({"file_path": "src/foo.rs", "old_string": "old", "new_string": "new"});
         let _ = code_mode_gates(proj, "g9-a", "Edit", &edit);
@@ -2095,8 +2153,8 @@ mod code_mode_gates_w1 {
             );
         }
         for cmd in [
-            "sed -n '5p' f.rs",          // leitura
-            "sed 's/a/b/' f.rs",         // sem -i: stdout, não escrita
+            "sed -n '5p' f.rs",                            // leitura
+            "sed 's/a/b/' f.rs",                           // sem -i: stdout, não escrita
             "echo \"rode sed -i aqui\"", // prosa, não invocação (âncora de posição)
             "cat >> s.sh <<'EOF'\nsed -i 's/a/b/' f\nEOF", // heredoc é dado
         ] {
@@ -2164,7 +2222,10 @@ mod code_mode_gates_w1 {
         );
         // fora do eixo
         assert_eq!(native_injection_class("Bash", &bash("cargo test")), None);
-        assert_eq!(native_injection_class("Edit", &json!({"file_path": "f"})), None);
+        assert_eq!(
+            native_injection_class("Edit", &json!({"file_path": "f"})),
+            None
+        );
     }
 
     // ── S4 (26/08): G10 exec-burst — a rajada desenrolada vira 1 programa ──
@@ -2172,8 +2233,14 @@ mod code_mode_gates_w1 {
     #[test]
     fn g10_exec_class_reconhece_o_executor_e_exclui_o_resto() {
         use super::super::exec_class_of;
-        assert_eq!(exec_class_of(".venv/bin/python3 scripts/verifica.py"), Some("python"));
-        assert_eq!(exec_class_of("python3 -m pytest tests/test_a.py"), Some("python"));
+        assert_eq!(
+            exec_class_of(".venv/bin/python3 scripts/verifica.py"),
+            Some("python")
+        );
+        assert_eq!(
+            exec_class_of("python3 -m pytest tests/test_a.py"),
+            Some("python")
+        );
         assert_eq!(exec_class_of("python3.11 runner.py"), Some("python"));
         assert_eq!(exec_class_of("pytest tests/test_a.py -x"), Some("pytest"));
         assert_eq!(exec_class_of(".venv/bin/pytest tests/ -q"), Some("pytest"));
@@ -2182,7 +2249,10 @@ mod code_mode_gates_w1 {
         // inline entrou na rajada como classe PRÓPRIA (aperto 29/08): o
         // remédio é 1:1 (o corpo verbatim), não a fusão R9 que justificava a
         // exclusão histórica
-        assert_eq!(exec_class_of("python3 -c 'print(1)'"), Some("python-inline"));
+        assert_eq!(
+            exec_class_of("python3 -c 'print(1)'"),
+            Some("python-inline")
+        );
         assert_eq!(
             exec_class_of("python3 - <<'EOF'\nprint(1)\nEOF"),
             Some("python-inline")
@@ -2209,7 +2279,10 @@ mod code_mode_gates_w1 {
             exec_class_of("cd /tmp && python3 medir.py 2>&1 | head -5"),
             Some("python")
         );
-        assert_eq!(exec_class_of("python3 medir.py 2>/dev/null"), Some("python"));
+        assert_eq!(
+            exec_class_of("python3 medir.py 2>/dev/null"),
+            Some("python")
+        );
         assert_eq!(exec_class_of("pytest tests/ -q 2>&1"), Some("pytest"));
         // Redirect REAL de saída segue fora — escrita não é rajada exec.
         assert_eq!(exec_class_of("python3 runner.py > out.txt"), None);
@@ -2284,16 +2357,17 @@ mod code_mode_gates_w1 {
 
     #[test]
     fn s5_par_write_run_nega_no_segundo_par_com_o_proprio_arquivo() {
-        use super::super::{
-            write_run_key, write_run_pair_gate, written_scripts_ledger,
-        };
+        use super::super::{write_run_key, write_run_pair_gate, written_scripts_ledger};
         let root = std::path::Path::new("/tmp/s5-par-teste-isolado");
         // Simula as escritas: 2 scripts registrados na janela DESTA sessão.
         for p in ["/tmp/s5/a.py", "/tmp/s5/b.py"] {
             written_scripts_ledger().insert(write_run_key(root, "sess-s5", p), ());
         }
         let d1 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/a.py");
-        assert!(d1.is_none(), "1º par passa (criar e testar UM script é legítimo)");
+        assert!(
+            d1.is_none(),
+            "1º par passa (criar e testar UM script é legítimo)"
+        );
         // O 2º par na forma canônica do analise: write+run no MESMO comando —
         // nega (aperto 29/08: era o 3º).
         let deny = write_run_pair_gate(
@@ -2310,9 +2384,7 @@ mod code_mode_gates_w1 {
             "o remédio é o PRÓPRIO script, com --lang executável: {deny}"
         );
         // Um script que NÃO foi escrito na janela nunca conta como par.
-        assert!(
-            write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/alheio.py").is_none()
-        );
+        assert!(write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/alheio.py").is_none());
     }
 
     #[test]
@@ -2405,7 +2477,9 @@ mod code_mode_gates_w1 {
         let resp = code_mode_gates(proj, sess, "Bash", &bash(cmd5)).expect("5ª nega");
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
-        let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap();
         // 30/08: o R9 é bash verbatim (o template python+subprocess era negado
         // pelo próprio X6 — rota inexecutável).
         assert!(
@@ -2414,7 +2488,10 @@ mod code_mode_gates_w1 {
         );
         for i in 1..=5 {
             let verbatim = format!("pytest tests/test_{i}.py -x");
-            assert!(reason.contains(&verbatim), "programa sem a chamada {i}: {reason}");
+            assert!(
+                reason.contains(&verbatim),
+                "programa sem a chamada {i}: {reason}"
+            );
         }
         // ledger zerado após o deny: a próxima rajada recomeça do zero
         assert!(
@@ -2433,7 +2510,12 @@ mod code_mode_gates_w1 {
             let _ = code_mode_gates(proj, sess, "Bash", &bash(&cmd));
         }
         // a rota tomada entre elas zera a condição "0 run"
-        let _ = code_mode_gates(proj, sess, "Bash", &bash("touring run --lang bash --code 'ls'"));
+        let _ = code_mode_gates(
+            proj,
+            sess,
+            "Bash",
+            &bash("touring run --lang bash --code 'ls'"),
+        );
         // mais 4: sem o reset, a acumulada (4+4=8) teria negado na 5ª absoluta
         for i in 11..=14 {
             let cmd = format!("pytest tests/test_{i}.py -x");
@@ -2473,13 +2555,19 @@ mod code_mode_gates_w1 {
         // eles que casam o propósito do artefato (required_matches do BM25)
         assert!(intent.contains("tests"), "{intent}");
         assert!(intent.contains("test"), "{intent}");
-        assert!(!intent.contains("test_a.py"), "caminho inteiro dilui: {intent}");
+        assert!(
+            !intent.contains("test_a.py"),
+            "caminho inteiro dilui: {intent}"
+        );
         assert_eq!(
             intent.split(' ').filter(|t| *t == "test").count(),
             1,
             "dedup exato (substring não conta — `pytest` e `tests` contêm `test`): {intent}"
         );
-        assert!(!intent.contains("-x"), "flags não são termo de trabalho: {intent}");
+        assert!(
+            !intent.contains("-x"),
+            "flags não são termo de trabalho: {intent}"
+        );
         // classe solitária quando a rajada não tem alvos
         assert_eq!(exec_burst_intent("python", &[]), "python");
     }
@@ -2525,11 +2613,16 @@ mod code_mode_gates_w1 {
         use super::super::portfolio_remedy_for_burst;
         let dir = monta_portfolio_scratch();
         unsafe { std::env::set_var("TOURING_PORTFOLIO_DIR", &dir) };
-        let cmds = (1..=3).map(|i| format!("pytest tests/test_{i}.py -x")).collect::<Vec<_>>();
+        let cmds = (1..=3)
+            .map(|i| format!("pytest tests/test_{i}.py -x"))
+            .collect::<Vec<_>>();
         let remedy = portfolio_remedy_for_burst("pytest", &cmds);
         unsafe { std::env::remove_var("TOURING_PORTFOLIO_DIR") };
         let remedy = remedy.expect("prior art encontrado para a rajada de pytest");
-        assert!(remedy.contains("python3 ~/x/rodar_suite.py --fast"), "{remedy}");
+        assert!(
+            remedy.contains("python3 ~/x/rodar_suite.py --fast"),
+            "{remedy}"
+        );
         assert!(remedy.contains("~/x/rodar_suite.py"), "{remedy}");
     }
 
@@ -2548,13 +2641,18 @@ mod code_mode_gates_w1 {
             .expect("5ª nega");
         unsafe { std::env::remove_var("TOURING_PORTFOLIO_DIR") };
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
-        let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap();
         assert!(
             reason.contains("touring run --lang bash --timeout-ms 120000 --code '"),
             "R9 presente: {reason}"
         );
         assert!(reason.contains("prior art"), "prior art presente: {reason}");
-        assert!(reason.contains("python3 ~/x/rodar_suite.py --fast"), "instanciado: {reason}");
+        assert!(
+            reason.contains("python3 ~/x/rodar_suite.py --fast"),
+            "instanciado: {reason}"
+        );
     }
 
     #[test]
@@ -2611,12 +2709,8 @@ mod code_mode_gates_w1 {
         let cmd = bash("sed -n '10,20p' src/lib.rs");
         assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
         // Edit no projeto → época avança (Read antes, para o G3 — W3 — ficar quieto).
-        assert!(code_mode_gates(proj, "s1", "Read",
-                &json!({"file_path": "src/lib.rs"})).is_none());
-        assert!(
-            code_mode_gates(proj, "s1", "Edit", &json!({"file_path": "src/lib.rs"}))
-                .is_none()
-        );
+        assert!(code_mode_gates(proj, "s1", "Read", &json!({"file_path": "src/lib.rs"})).is_none());
+        assert!(code_mode_gates(proj, "s1", "Edit", &json!({"file_path": "src/lib.rs"})).is_none());
         // mesma leitura: época mudou → fresh, sem advisory.
         assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
     }
@@ -2625,9 +2719,9 @@ mod code_mode_gates_w1 {
 // ── W2 (plano code-mode-total): G1 teeth — rajada nega na 3ª (aperto 29/08) ──
 
 mod burst_gate_w2 {
-    use serial_test::serial;
     use super::super::{code_mode_gates, g1_should_deny};
     use serde_json::json;
+    use serial_test::serial;
     use std::path::Path;
 
     fn bash(cmd: &str) -> serde_json::Value {
@@ -2640,7 +2734,12 @@ mod burst_gate_w2 {
     fn inspecoes_com_base(base: usize, n: usize, proj: &Path, sess: &str) -> Vec<Option<String>> {
         (base..base + n)
             .map(|i| {
-                let r = code_mode_gates(proj, sess, "Bash", &bash(&format!("rg -n 'p{i}' src/f{i}.rs")));
+                let r = code_mode_gates(
+                    proj,
+                    sess,
+                    "Bash",
+                    &bash(&format!("rg -n 'p{i}' src/f{i}.rs")),
+                );
                 r
             })
             .collect()
@@ -2654,18 +2753,28 @@ mod burst_gate_w2 {
     fn g1_segunda_passa_terceira_nega_com_a_rajada_no_remedio() {
         let proj = Path::new("/tmp/w2-g1-escala");
         let r = inspecoes(3, proj, "s1");
-        assert!(r[0].is_none() && r[1].is_none(),
-                "1ª-2ª ficam com o advisory legado");
+        assert!(
+            r[0].is_none() && r[1].is_none(),
+            "1ª-2ª ficam com o advisory legado"
+        );
         let deny = r[2].as_ref().expect("3ª mesma classe nega");
         let v: serde_json::Value = serde_json::from_str(deny).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
-        let reason = v["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap();
         // o remédio carrega a RAJADA REAL como corpo do programa
         assert!(reason.contains("touring run --lang bash"), "{reason}");
         // as aspas do corpo vão escapadas para dentro do '...' externo —
         // asserimos o conteúdo, não a forma escapada
-        assert!(reason.contains("p0") && reason.contains("src/f0.rs"), "{reason}");
-        assert!(reason.contains("p2") && reason.contains("src/f2.rs"), "{reason}");
+        assert!(
+            reason.contains("p0") && reason.contains("src/f0.rs"),
+            "{reason}"
+        );
+        assert!(
+            reason.contains("p2") && reason.contains("src/f2.rs"),
+            "{reason}"
+        );
     }
 
     #[test]
@@ -2693,8 +2802,15 @@ mod burst_gate_w2 {
         let proj = Path::new("/tmp/w2-g1-bypass");
         let _ = inspecoes(2, proj, "s1");
         // bypass consciente na borda → reseta
-        assert!(code_mode_gates(proj, "s1", "Bash",
-                &bash("TOURING_GATE_OK=1 rg -n 'w' src/z.rs")).is_none());
+        assert!(
+            code_mode_gates(
+                proj,
+                "s1",
+                "Bash",
+                &bash("TOURING_GATE_OK=1 rg -n 'w' src/z.rs")
+            )
+            .is_none()
+        );
         // recomeça do zero: mais 2 passam (padrões NOVOS — repetir os mesmos
         // acionaria o G6, que é outro gate fazendo o trabalho dele)
         let r = inspecoes_com_base(10, 2, proj, "s1");
@@ -2706,33 +2822,41 @@ mod burst_gate_w2 {
     fn g1_continuation_check_fecha_o_ab() {
         use crate::shared::gate_metrics as gm;
         let proj = Path::new("/tmp/w2-g1-continuation");
-        let base_same = gm::global().g1_post_deny_same_class_count
+        let base_same = gm::global()
+            .g1_post_deny_same_class_count
             .load(std::sync::atomic::Ordering::Relaxed);
         let r = inspecoes(3, proj, "sess-cont");
         assert!(r[2].is_some(), "3ª negou");
         // a PRÓXIMA chamada da sessão é a MESMA classe → same_class++
         // (o deny do G1 já fechou o turno — ela chega ao burst_gate por desenho)
         let _ = code_mode_gates(proj, "sess-cont", "Bash", &bash("rg -n 'de novo' src/a.rs"));
-        let depois = gm::global().g1_post_deny_same_class_count
+        let depois = gm::global()
+            .g1_post_deny_same_class_count
             .load(std::sync::atomic::Ordering::Relaxed);
         assert!(depois > base_same, "continuation same_class contado");
     }
 
     #[test]
     fn g1_autodemote_e_puro_e_exige_volume() {
-        assert!(g1_should_deny(None), "sem dado → deny (o simulado 90% sustenta)");
+        assert!(
+            g1_should_deny(None),
+            "sem dado → deny (o simulado 90% sustenta)"
+        );
         assert!(g1_should_deny(Some((0.9, 200))), "precisão alta → deny");
         assert!(g1_should_deny(Some((0.5, 50))), "pouco volume nunca demove");
-        assert!(!g1_should_deny(Some((0.5, 150))), "precisão < 0.70 com 100+ → advisory");
+        assert!(
+            !g1_should_deny(Some((0.5, 150))),
+            "precisão < 0.70 com 100+ → advisory"
+        );
     }
 }
 
 // ── W3 (plano code-mode-total): G3/G7 gates de modo + G4/G5 telemetria + E3 ──
 
 mod mode_gates_w3 {
-    use serial_test::serial;
     use super::super::code_mode_gates;
     use serde_json::json;
+    use serial_test::serial;
     use std::path::Path;
 
     fn edit(fp: &str) -> serde_json::Value {
@@ -2751,7 +2875,10 @@ mod mode_gates_w3 {
         // 1º Edit sem Read: advisory (aperto 29/08: o 2º seguido nega)
         let r = code_mode_gates(proj, s, "Edit", &edit("src/a.rs")).expect("advisory");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
-        assert!(v["hookSpecificOutput"]["permissionDecision"].is_null(), "1º é advisory");
+        assert!(
+            v["hookSpecificOutput"]["permissionDecision"].is_null(),
+            "1º é advisory"
+        );
         // 2º: deny
         let r = code_mode_gates(proj, s, "Edit", &edit("src/a.rs")).expect("deny");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
@@ -2771,7 +2898,12 @@ mod mode_gates_w3 {
         let r = code_mode_gates(proj, "sess-b", "Edit", &edit("src/x.rs")).expect("advisory");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
         assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
-        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/1"));
+        assert!(
+            v["hookSpecificOutput"]["additionalContext"]
+                .as_str()
+                .unwrap()
+                .contains("1/1")
+        );
     }
 
     #[test]
@@ -2812,7 +2944,9 @@ mod mode_gates_w3 {
             v["hookSpecificOutput"]["permissionDecision"].is_null(),
             "advisory, nunca deny"
         );
-        let ctx = v["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap();
         assert!(
             ctx.contains("M3 delegação") && ctx.contains("subagentes read-only"),
             "{ctx}"
@@ -2833,7 +2967,10 @@ mod mode_gates_w3 {
         // releitura do 1º: arquivo_novo=false → cai no G7 (2ª leitura), nunca M3
         let r = code_mode_gates(proj, s, "Read", &read("src/r0.rs"));
         if let Some(r) = &r {
-            assert!(r.contains("G7") && !r.contains("M3"), "releitura fala G7: {r}");
+            assert!(
+                r.contains("G7") && !r.contains("M3"),
+                "releitura fala G7: {r}"
+            );
         }
         // o próximo DISTINTO é o 9º, não o 10º — silêncio
         assert!(code_mode_gates(proj, s, "Read", &read("src/r8.rs")).is_none());
@@ -2849,7 +2986,10 @@ mod mode_gates_w3 {
         let cmd = r#"for f in a.rs b.rs; do grep -n "fn main" $f; done"#;
         let got = loop_rewrite_candidate(cmd).expect("laço de inspeção é candidato");
         assert!(got.starts_with("touring run --lang bash --code '"));
-        assert!(got.contains("for f in a.rs b.rs"), "carrega o comando REAL, não placeholder");
+        assert!(
+            got.contains("for f in a.rs b.rs"),
+            "carrega o comando REAL, não placeholder"
+        );
     }
 
     #[test]
@@ -2902,7 +3042,10 @@ mod mode_gates_w3 {
         let got = loop_rewrite_candidate(cmd).expect("candidato");
         // O corpo entra escapado, de modo que o shell externo reentregue o
         // comando original ao sandbox — o rewrite não pode alterar semântica.
-        assert!(got.contains(r"'\''fn main'\''"), "aspas internas escapadas: {got}");
+        assert!(
+            got.contains(r"'\''fn main'\''"),
+            "aspas internas escapadas: {got}"
+        );
     }
 
     #[test]
@@ -2914,7 +3057,10 @@ mod mode_gates_w3 {
         // não tem o que ler — o FP vivo de 24/08 negou um Write de strategy doc)
         for f in ["docs/a.md", "docs/b.md", "docs/c.md"] {
             let w = json!({ "file_path": f, "content": "conteudo novo" });
-            assert!(code_mode_gates(proj, s, "Write", &w).is_none(), "Write de {f} não dispara G3");
+            assert!(
+                code_mode_gates(proj, s, "Write", &w).is_none(),
+                "Write de {f} não dispara G3"
+            );
         }
         // Edit do arquivo recém-escrito passa sem Read: o Write valeu como Read
         assert!(code_mode_gates(proj, s, "Edit", &edit("docs/a.md")).is_none());
@@ -2922,7 +3068,12 @@ mod mode_gates_w3 {
         let r = code_mode_gates(proj, s, "Edit", &edit("src/nunca_visto.rs")).expect("advisory");
         let v: serde_json::Value = serde_json::from_str(&r).unwrap();
         assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
-        assert!(v["hookSpecificOutput"]["additionalContext"].as_str().unwrap().contains("1/1"));
+        assert!(
+            v["hookSpecificOutput"]["additionalContext"]
+                .as_str()
+                .unwrap()
+                .contains("1/1")
+        );
     }
 
     #[test]
@@ -2968,8 +3119,9 @@ mod mode_gates_w3 {
             assert!(code_mode_gates(proj, s, "Read", &read(f)).is_none());
             assert!(code_mode_gates(proj, s, "Edit", &edit(f)).is_none());
         }
-        assert!(code_mode_gates(proj, s, "Bash",
-                &json!({"command": "cargo check -p x"})).is_none());
+        assert!(
+            code_mode_gates(proj, s, "Bash", &json!({"command": "cargo check -p x"})).is_none()
+        );
     }
 
     #[test]
@@ -3079,13 +3231,17 @@ mod apresentacao_por_escopo {
         let s = "s3-burst-2";
         assert!(code_mode_gates(tmp.path(), s, "Bash", &bash("cat a.md")).is_none());
         let d2 = code_mode_gates(tmp.path(), s, "Bash", &bash("cat b.md")).expect("2ª nega");
-        assert!(d2.contains("[CODE MODE · rajada]"), "o deny é o do S3: {d2}");
+        assert!(
+            d2.contains("[CODE MODE · rajada]"),
+            "o deny é o do S3: {d2}"
+        );
         // A 3ª: o predicado do S3 tem de deixá-la passar (o lote zerou). O
         // T3-B ainda fala aqui — turno nunca fecha em teste unitário —, por
         // isso a asserção é sobre o marcador do S3, não sobre o silêncio total.
         let d3 = code_mode_gates(tmp.path(), s, "Bash", &bash("cat c.md"));
         assert!(
-            d3.as_deref().is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
+            d3.as_deref()
+                .is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
             "após o deny o lote zera — um deny por rajada, nunca fadiga: {d3:?}"
         );
     }
@@ -3112,7 +3268,8 @@ mod apresentacao_por_escopo {
         for cmd in ["cat README.md", "ls -la src/"] {
             let d = code_mode_gates(tmp.path(), s, "Bash", &bash(cmd));
             assert!(
-                d.as_deref().is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
+                d.as_deref()
+                    .is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
                 "`{cmd}` é classe diferente — o predicado do S3 não pode somá-la \
                  à rajada do `grep`: {d:?}"
             );
@@ -3157,7 +3314,8 @@ mod apresentacao_por_escopo {
         assert!(code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn x src/")).is_none());
         let d2 = code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn y src/"));
         assert!(
-            d2.as_deref().is_none_or(|d| !d.contains("[CODE MODE · rajada]")),
+            d2.as_deref()
+                .is_none_or(|d| !d.contains("[CODE MODE · rajada]")),
             "fora do modo `code` o deny de rajada não existe: {d2:?}"
         );
     }
@@ -3170,10 +3328,16 @@ mod apresentacao_por_escopo {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
         let s = "s3-burst-mutacao";
-        for cmd in ["cargo build", "cargo build", "cat > out.txt <<EOF", "cat >> out.txt <<EOF"] {
+        for cmd in [
+            "cargo build",
+            "cargo build",
+            "cat > out.txt <<EOF",
+            "cat >> out.txt <<EOF",
+        ] {
             let d = code_mode_gates(tmp.path(), s, "Bash", &bash(cmd));
             assert!(
-                d.as_deref().is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
+                d.as_deref()
+                    .is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
                 "`{cmd}` não é inspeção e não pode colapsar: {d:?}"
             );
         }
@@ -3204,7 +3368,10 @@ mod apresentacao_por_escopo {
             "o remédio da rajada python é python, não bash: {d2}"
         );
         assert!(d2.contains("json.load"), "a rota funde o CORPO da 1ª: {d2}");
-        assert!(d2.contains("re.findall"), "a rota funde o CORPO da 2ª: {d2}");
+        assert!(
+            d2.contains("re.findall"),
+            "a rota funde o CORPO da 2ª: {d2}"
+        );
     }
 
     /// Escritor NÃO entra: qualquer indício de escrita/rede/subprocesso no
@@ -3221,7 +3388,8 @@ mod apresentacao_por_escopo {
         assert!(code_mode_gates(tmp.path(), s, "Bash", &w1).is_none());
         let d2 = code_mode_gates(tmp.path(), s, "Bash", &w2);
         assert!(
-            d2.as_deref().is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
+            d2.as_deref()
+                .is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
             "escritor não soma na rajada de inspeção: {d2:?}"
         );
     }
@@ -3241,7 +3409,11 @@ mod apresentacao_por_escopo {
             "python3 -c 'eval(input())'",
             "python3 -c 'import shutil; shutil.rmtree(\"d\")'",
         ] {
-            assert_eq!(python_inline_readonly_class(w), None, "escritor tem de ficar fora: {w}");
+            assert_eq!(
+                python_inline_readonly_class(w),
+                None,
+                "escritor tem de ficar fora: {w}"
+            );
         }
         assert_eq!(
             python_inline_readonly_class("grep -rn foo src/"),
@@ -3263,12 +3435,24 @@ mod apresentacao_por_escopo {
         bump_durable_evidence(tmp.path(), "pillar", "emitted");
         let v = read_durable_evidence(tmp.path());
         assert_eq!(v.pointer("/s3/denied").and_then(|x| x.as_u64()), Some(2));
-        assert_eq!(v.pointer("/s3/first_passed").and_then(|x| x.as_u64()), Some(1));
-        assert_eq!(v.pointer("/pillar/emitted").and_then(|x| x.as_u64()), Some(1));
+        assert_eq!(
+            v.pointer("/s3/first_passed").and_then(|x| x.as_u64()),
+            Some(1)
+        );
+        assert_eq!(
+            v.pointer("/pillar/emitted").and_then(|x| x.as_u64()),
+            Some(1)
+        );
         // corrupção: leitura volta objeto vazio; o próximo bump recomeça de 1
-        let path = tmp.path().join(".claude/touring/durable_gate_evidence.json");
+        let path = tmp
+            .path()
+            .join(".claude/touring/durable_gate_evidence.json");
         std::fs::write(&path, "{ nao-e-json").expect("write");
-        assert!(read_durable_evidence(tmp.path()).as_object().is_some_and(|o| o.is_empty()));
+        assert!(
+            read_durable_evidence(tmp.path())
+                .as_object()
+                .is_some_and(|o| o.is_empty())
+        );
         bump_durable_evidence(tmp.path(), "s3", "denied");
         let v2 = read_durable_evidence(tmp.path());
         assert_eq!(v2.pointer("/s3/denied").and_then(|x| x.as_u64()), Some(1));
@@ -3302,8 +3486,11 @@ mod apresentacao_por_escopo {
     /// Declara `[code_mode] mode = "code"` na raiz temporária.
     fn escopo_code(root: &std::path::Path) {
         std::fs::create_dir_all(root.join(".touring")).expect("mkdir");
-        std::fs::write(root.join(".touring/touring.toml"), "[code_mode]\nmode = \"code\"\n")
-            .expect("write");
+        std::fs::write(
+            root.join(".touring/touring.toml"),
+            "[code_mode]\nmode = \"code\"\n",
+        )
+        .expect("write");
     }
 
     fn bash(cmd: &str) -> serde_json::Value {
@@ -3372,10 +3559,7 @@ mod apresentacao_por_escopo {
         assert_eq!(scan_class_of("command grep x f"), Some("grep"));
         assert_eq!(scan_class_of("sudo -u root env A=1 wc -l f"), Some("wc"));
         assert_eq!(scan_class_of("time sed -n 5p f"), Some("sed-n"));
-        assert_eq!(
-            scan_class_of("chrt -f 10 nice -n 5 grep x f"),
-            Some("grep")
-        );
+        assert_eq!(scan_class_of("chrt -f 10 nice -n 5 grep x f"), Some("grep"));
     }
 
     /// As exclusões pré-S1 atravessam o invólucro: escrita continua escrita,
@@ -3411,7 +3595,10 @@ mod apresentacao_por_escopo {
         assert_eq!(scan_class_of("cd /tmp && grep foo f"), Some("grep"));
         assert_eq!(scan_class_of("cd /x; cat f"), Some("cat"));
         assert_eq!(scan_class_of("cd /x\ncat f"), Some("cat"));
-        assert_eq!(scan_class_of("cd /x && cd /y && find . -name z"), Some("find"));
+        assert_eq!(
+            scan_class_of("cd /x && cd /y && find . -name z"),
+            Some("find")
+        );
         assert_eq!(scan_class_of("time cd /x && grep p f"), Some("grep"));
         assert_eq!(scan_class_of("cd /x && timeout 30 ls"), Some("ls"));
         // navegação pura e não-inspeção seguem sem classe
@@ -3518,16 +3705,20 @@ mod apresentacao_por_escopo {
         // Rodar o programa É a rota. O VALOR carrega a economia (P5b): uma casca
         // sobre uma operação vale 0.5; o que importa aqui é que é positivo,
         // enquanto recusar vale 0.0.
-        assert_eq!(classify_route_outcome("touring run --lang bash --code 'ls'"), Some(0.5));
         assert_eq!(
-            classify_route_outcome(
-                "touring run --lang bash --code 'cat /a/x.rs /a/y.rs /a/z.rs'"
-            ),
+            classify_route_outcome("touring run --lang bash --code 'ls'"),
+            Some(0.5)
+        );
+        assert_eq!(
+            classify_route_outcome("touring run --lang bash --code 'cat /a/x.rs /a/y.rs /a/z.rs'"),
             Some(1.0),
             "o programa que funde vale a rota inteira"
         );
         // Relaxar o gate é recusá-la.
-        assert_eq!(classify_route_outcome("TOURING_CODE_MODE=native grep -rn foo ."), Some(0.0));
+        assert_eq!(
+            classify_route_outcome("TOURING_CODE_MODE=native grep -rn foo ."),
+            Some(0.0)
+        );
         assert_eq!(classify_route_outcome("TOURING_GATE_OK=1 cat x"), Some(0.0));
     }
 
@@ -3544,10 +3735,9 @@ mod apresentacao_por_escopo {
     #[test]
     fn relaxar_o_gate_e_ainda_assim_rodar_conta_como_rota_tomada() {
         use crate::cli_suggester::classify_route_outcome;
-        let v = classify_route_outcome(
-            "TOURING_CODE_MODE=native touring run --lang bash --code 'ls'",
-        )
-        .expect("rodar o programa é um desfecho legível");
+        let v =
+            classify_route_outcome("TOURING_CODE_MODE=native touring run --lang bash --code 'ls'")
+                .expect("rodar o programa é um desfecho legível");
         assert!(
             v > 0.0,
             "rodar o programa domina o token de relaxamento — senão o braço \
@@ -3567,7 +3757,10 @@ mod apresentacao_por_escopo {
         turn_ledger_insert_for_test(
             raiz,
             &payload,
-            RouteOffer { mode: "code".into(), offered_secs: 7 },
+            RouteOffer {
+                mode: "code".into(),
+                offered_secs: 7,
+            },
         );
 
         // Um `Read` não carrega comando: nada a classificar.
@@ -3577,7 +3770,10 @@ mod apresentacao_por_escopo {
             claim_route_reward(raiz, &payload, "touring run --lang bash --code 'ls'")
                 .expect("a oferta sobreviveu ao desfecho ilegível");
         assert_eq!(offer.mode, "code");
-        assert_eq!(value, 0.5, "programa de um alvo: rota tomada, economia nula");
+        assert_eq!(
+            value, 0.5,
+            "programa de um alvo: rota tomada, economia nula"
+        );
         // E agora sim ela some.
         assert!(claim_route_reward(raiz, &payload, "touring run --code 'x'").is_none());
     }
@@ -3592,7 +3788,10 @@ mod apresentacao_por_escopo {
         turn_ledger_insert_for_test(
             raiz,
             &payload,
-            RouteOffer { mode: "code".into(), offered_secs: 42 },
+            RouteOffer {
+                mode: "code".into(),
+                offered_secs: 42,
+            },
         );
         let primeira = take_route_offer(raiz, &payload);
         assert_eq!(primeira.map(|o| o.mode), Some("code".to_string()));
@@ -3601,8 +3800,6 @@ mod apresentacao_por_escopo {
             "a segunda leitura não pode reencontrar a oferta já creditada"
         );
     }
-
-
 
     /// Chamada sem classe fan-out não abre turno nem é negada: mutação/build
     /// nunca é rajada (o desenho §T3-B é sobre inspeção).
@@ -3661,11 +3858,20 @@ mod apresentacao_por_escopo {
         use super::super::burst_gate;
         let proj = std::path::Path::new("/tmp/g1-sim-1");
         let s = "g1-sim-1";
-        assert!(burst_gate(proj, s, "grep alfa /x/a.rs").is_none(), "a 1ª passa");
+        assert!(
+            burst_gate(proj, s, "grep alfa /x/a.rs").is_none(),
+            "a 1ª passa"
+        );
         let d = burst_gate(proj, s, "grep alfa /x/b.rs")
             .expect("a 2ª quase-idêntica é negada pela similaridade");
-        assert!(d.contains("touring run --lang bash --code"), "a rota é um programa: {d}");
-        assert!(d.contains("/x/a.rs") && d.contains("/x/b.rs"), "funde as duas: {d}");
+        assert!(
+            d.contains("touring run --lang bash --code"),
+            "a rota é um programa: {d}"
+        );
+        assert!(
+            d.contains("/x/a.rs") && d.contains("/x/b.rs"),
+            "funde as duas: {d}"
+        );
     }
 
     /// E uma 2ª chamada DIFERENTE da mesma classe continua passando — a
@@ -3677,7 +3883,12 @@ mod apresentacao_por_escopo {
         let s = "g1-sim-2";
         assert!(burst_gate(proj, s, "grep alfa /x/a.rs").is_none());
         assert!(
-            burst_gate(proj, s, "grep beta_totalmente_outro /y/z/outro_arquivo.toml").is_none(),
+            burst_gate(
+                proj,
+                s,
+                "grep beta_totalmente_outro /y/z/outro_arquivo.toml"
+            )
+            .is_none(),
             "propósito diferente não é repetição"
         );
     }
@@ -3731,7 +3942,10 @@ mod apresentacao_por_escopo {
         // Sem a env, o caminho é byte-idêntico ao de antes: nenhum sinal lido.
         let vazio = tmpdir("arm-desarmado");
         std::fs::create_dir_all(&vazio).expect("mkdir");
-        assert_eq!(code_mode_presentation(&vazio, "grep x"), CodeModePresentation::Both);
+        assert_eq!(
+            code_mode_presentation(&vazio, "grep x"),
+            CodeModePresentation::Both
+        );
         let _ = std::fs::remove_dir_all(&vazio);
     }
 
@@ -3772,7 +3986,10 @@ mod apresentacao_por_escopo {
     fn programa_de_um_alvo_e_uma_operacao_nao_fundiu_nada() {
         use super::super::{ProgramShape, program_shape};
         assert_eq!(program_shape("cat /a/b/c.rs"), ProgramShape::Trivial);
-        assert_eq!(program_shape("sed -n 1,20p /a/b/c.rs"), ProgramShape::Trivial);
+        assert_eq!(
+            program_shape("sed -n 1,20p /a/b/c.rs"),
+            ProgramShape::Trivial
+        );
     }
 
     #[test]
@@ -3810,8 +4027,14 @@ mod apresentacao_por_escopo {
     #[test]
     fn dispositivos_nao_contam_como_alvo() {
         use super::super::{ProgramShape, program_shape};
-        assert_eq!(program_shape("cat /a/b.rs 2>/dev/null"), ProgramShape::Trivial);
-        assert_eq!(program_shape("cat /a/b.rs >/dev/null"), ProgramShape::Trivial);
+        assert_eq!(
+            program_shape("cat /a/b.rs 2>/dev/null"),
+            ProgramShape::Trivial
+        );
+        assert_eq!(
+            program_shape("cat /a/b.rs >/dev/null"),
+            ProgramShape::Trivial
+        );
     }
 
     #[test]
@@ -3864,7 +4087,11 @@ mod apresentacao_por_escopo {
         // (daemon reiniciado) faria. Contadores em memória zeraram de 2 para 0
         // em dois minutos hoje; a decisão não pode depender deles.
         let do_disco = read_arm_file(&proj);
-        assert_eq!(do_disco[2], (3, 1, 1), "o braço `code` tem de estar no disco");
+        assert_eq!(
+            do_disco[2],
+            (3, 1, 1),
+            "o braço `code` tem de estar no disco"
+        );
         assert_eq!(arm_counts_durable(&proj)[2], (3, 1));
 
         let _ = std::fs::remove_dir_all(&proj);
@@ -4122,7 +4349,8 @@ mod inducao_nao_reincide_sobre_si {
         assert!(code_mode_kind("Bash", &com_laco).is_none());
 
         // Uma varredura dentro do sandbox, idem.
-        let com_scan = bash("touring run --lang python --code 'import glob; print(glob.glob(\"**/*.rs\"))'");
+        let com_scan =
+            bash("touring run --lang python --code 'import glob; print(glob.glob(\"**/*.rs\"))'");
         assert!(code_mode_kind("Bash", &com_scan).is_none());
 
         // `touring exec` é o outro canal do mesmo transporte.
@@ -4175,7 +4403,9 @@ mod autoresearch_replay {
             let mut ultima_por_classe: std::collections::HashMap<&str, &str> =
                 std::collections::HashMap::new();
             for cmd in cmds {
-                let Some(classe) = scan_class_of(cmd) else { continue };
+                let Some(classe) = scan_class_of(cmd) else {
+                    continue;
+                };
                 inspecoes += 1;
                 if let Some(anterior) = ultima_por_classe.get(classe) {
                     let sim = command_similarity(anterior, cmd);
@@ -4187,7 +4417,11 @@ mod autoresearch_replay {
                 ultima_por_classe.insert(classe, cmd);
             }
         }
-        let media = if colapsadas > 0 { soma_sim / colapsadas as f64 } else { 0.0 };
+        let media = if colapsadas > 0 {
+            soma_sim / colapsadas as f64
+        } else {
+            0.0
+        };
         (inspecoes, colapsadas, media)
     }
 
@@ -4195,26 +4429,48 @@ mod autoresearch_replay {
     #[ignore = "experimento sob demanda — precisa do corpus extraído"]
     fn varre_o_limiar_de_similaridade_sobre_corpus_congelado() {
         let raiz = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent().unwrap().parent().unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
             .join("eval/autoresearch/corpus.json");
         let Ok(txt) = std::fs::read_to_string(&raiz) else {
-            println!("CORPUS AUSENTE em {} — rode eval/autoresearch/extract_corpus.py",
-                     raiz.display());
+            println!(
+                "CORPUS AUSENTE em {} — rode eval/autoresearch/extract_corpus.py",
+                raiz.display()
+            );
             return;
         };
         let v: serde_json::Value = serde_json::from_str(&txt).expect("corpus json");
-        let sessoes: Vec<Vec<String>> = v["sessions"].as_array().unwrap().iter()
-            .map(|s| s.as_array().unwrap().iter()
-                 .map(|c| c.as_str().unwrap_or("").to_string()).collect())
+        let sessoes: Vec<Vec<String>> = v["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| {
+                s.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|c| c.as_str().unwrap_or("").to_string())
+                    .collect()
+            })
             .collect();
 
         println!("corpus: {} sessões, meta={}", sessoes.len(), v["meta"]);
-        println!("{:>7} {:>12} {:>12} {:>10}", "limiar", "inspeções", "colapsadas", "sim_média");
+        println!(
+            "{:>7} {:>12} {:>12} {:>10}",
+            "limiar", "inspeções", "colapsadas", "sim_média"
+        );
         for passo in 0..=10 {
             let limiar = passo as f64 / 10.0;
             let (insp, col, media) = varre(&sessoes, limiar);
-            let pct = if insp > 0 { 100.0 * col as f64 / insp as f64 } else { 0.0 };
-            println!("{limiar:>7.1} {insp:>12} {col:>12} {media:>10.3}   ({pct:.1}% das inspeções)");
+            let pct = if insp > 0 {
+                100.0 * col as f64 / insp as f64
+            } else {
+                0.0
+            };
+            println!(
+                "{limiar:>7.1} {insp:>12} {col:>12} {media:>10.3}   ({pct:.1}% das inspeções)"
+            );
         }
         // O escalar que uma campanha leria. DECLARADO como proxy: maximizá-lo
         // sozinho empurra o limiar para 0 (colapsar tudo), então o keep/discard

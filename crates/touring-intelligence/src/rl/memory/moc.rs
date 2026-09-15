@@ -43,8 +43,16 @@ fn add_shared_tag_edges(graph: &mut Graph, by_tag: &BTreeMap<String, Vec<String>
     for members in by_tag.values() {
         for (i, a) in members.iter().enumerate() {
             for b in &members[i + 1..] {
-                *graph.entry(a.clone()).or_default().entry(b.clone()).or_insert(0) += 1;
-                *graph.entry(b.clone()).or_default().entry(a.clone()).or_insert(0) += 1;
+                *graph
+                    .entry(a.clone())
+                    .or_default()
+                    .entry(b.clone())
+                    .or_insert(0) += 1;
+                *graph
+                    .entry(b.clone())
+                    .or_default()
+                    .entry(a.clone())
+                    .or_insert(0) += 1;
             }
         }
     }
@@ -64,8 +72,16 @@ fn add_link_edges(
         {
             continue;
         }
-        *graph.entry(src.clone()).or_default().entry(dst.clone()).or_insert(0) += LINK_WEIGHT;
-        *graph.entry(dst.clone()).or_default().entry(src.clone()).or_insert(0) += LINK_WEIGHT;
+        *graph
+            .entry(src.clone())
+            .or_default()
+            .entry(dst.clone())
+            .or_insert(0) += LINK_WEIGHT;
+        *graph
+            .entry(dst.clone())
+            .or_default()
+            .entry(src.clone())
+            .or_insert(0) += LINK_WEIGHT;
     }
 }
 
@@ -134,8 +150,7 @@ fn build_graph(conn: &rusqlite::Connection, domain: Option<&str>) -> rusqlite::R
     add_shared_tag_edges(&mut graph, &by_tag);
     let links = read_links(conn)?;
     // In a sliced graph a link only counts when both ends belong to the slice.
-    let node_set: Option<BTreeSet<String>> =
-        domain.map(|_| graph.keys().cloned().collect());
+    let node_set: Option<BTreeSet<String>> = domain.map(|_| graph.keys().cloned().collect());
     add_link_edges(&mut graph, &links, node_set.as_ref());
     Ok(graph)
 }
@@ -146,10 +161,8 @@ fn build_graph(conn: &rusqlite::Connection, domain: Option<&str>) -> rusqlite::R
 /// result is deterministic (REGRA #17 discipline: same store → same
 /// communities). Caps at 25 rounds.
 pub(crate) fn label_propagate(graph: &Graph) -> Vec<Community> {
-    let mut label_of: BTreeMap<String, String> = graph
-        .keys()
-        .map(|k| (k.clone(), k.clone()))
-        .collect();
+    let mut label_of: BTreeMap<String, String> =
+        graph.keys().map(|k| (k.clone(), k.clone())).collect();
     // Iteration order changes the winner in oscillating clusters, and HashMap
     // order is per-process random — without a fixed order the same store can
     // yield a different label per run. Sorted keys make the result a pure
@@ -264,7 +277,9 @@ pub fn render_moc(conn: &rusqlite::Connection, topic: &str) -> rusqlite::Result<
         md.push('\n');
     }
 
-    md.push_str("## Cobertura por faceta\n\n| faceta | valores distintos | entradas |\n|---|---|---|\n");
+    md.push_str(
+        "## Cobertura por faceta\n\n| faceta | valores distintos | entradas |\n|---|---|---|\n",
+    );
     for (facet, values, count) in facet_coverage(conn, &corpus)? {
         md.push_str(&format!("| {facet} | {values} | {count} |\n"));
     }
@@ -305,7 +320,9 @@ fn topic_corpus(conn: &rusqlite::Connection, topic: &str) -> rusqlite::Result<BT
     {
         let fts_query = format!("\"{}\"", topic.replace('"', "\"\""));
         let mut fstmt = conn.prepare("SELECT key FROM memories_fts WHERE memories_fts MATCH ?1")?;
-        if let Ok(iter) = fstmt.query_map(rusqlite::params![fts_query], |row| row.get::<_, String>(0)) {
+        if let Ok(iter) =
+            fstmt.query_map(rusqlite::params![fts_query], |row| row.get::<_, String>(0))
+        {
             for k in iter.flatten() {
                 keys.insert(k);
             }
@@ -317,7 +334,10 @@ fn topic_corpus(conn: &rusqlite::Connection, topic: &str) -> rusqlite::Result<BT
 /// The induced subgraph over one corpus (edges as in [`build_graph`], but
 /// only between corpus members).
 fn subgraph_for(conn: &rusqlite::Connection, corpus: &BTreeSet<String>) -> rusqlite::Result<Graph> {
-    let mut graph: Graph = corpus.iter().map(|k| (k.clone(), BTreeMap::new())).collect();
+    let mut graph: Graph = corpus
+        .iter()
+        .map(|k| (k.clone(), BTreeMap::new()))
+        .collect();
     let mut by_tag: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut stmt = conn.prepare("SELECT entry_key, facet, full_tag FROM memory_tags")?;
     let rows = stmt
@@ -374,8 +394,7 @@ fn facet_coverage(
 ) -> rusqlite::Result<Vec<(String, usize, usize)>> {
     let mut by_facet: BTreeMap<String, (BTreeSet<String>, usize)> = BTreeMap::new();
     for key in corpus {
-        let mut stmt =
-            conn.prepare("SELECT facet, value FROM memory_tags WHERE entry_key = ?1")?;
+        let mut stmt = conn.prepare("SELECT facet, value FROM memory_tags WHERE entry_key = ?1")?;
         let rows = stmt
             .query_map(rusqlite::params![key], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
@@ -495,7 +514,10 @@ mod tests {
 
         let communities = detect_communities(&conn, Some("wiring")).unwrap();
         let all: Vec<&String> = communities.iter().flat_map(|c| &c.members).collect();
-        assert!(!all.iter().any(|m| *m == "other"), "slice keeps only the domain");
+        assert!(
+            !all.iter().any(|m| *m == "other"),
+            "slice keeps only the domain"
+        );
         assert_eq!(
             communities.len(),
             2,

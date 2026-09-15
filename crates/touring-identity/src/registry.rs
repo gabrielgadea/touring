@@ -569,7 +569,11 @@ mod tests {
 
         // max_edit_distance = 0 keeps Tier 3 out of the result set.
         let candidates = reg.resolve("mycrate::Bar", 0).unwrap();
-        assert_eq!(candidates.len(), 1, "expected the context-scoped match only");
+        assert_eq!(
+            candidates.len(),
+            1,
+            "expected the context-scoped match only"
+        );
         assert_eq!(candidates[0].match_kind, MatchKind::ContextScoped);
         assert!(
             (candidates[0].confidence - 0.98).abs() < f64::EPSILON,

@@ -257,21 +257,66 @@ impl RlmMemory {
         // arXiv 2508.16153): nullable on purpose — an entry whose outcome was
         // never observed is NOT the same as one that scored zero (04/08/2026).
         const COLUMN_MIGRATIONS: &[(&str, &str)] = &[
-            ("tier", "ALTER TABLE memory_entries ADD COLUMN tier TEXT NOT NULL DEFAULT 'local'"),
-            ("entry_type", "ALTER TABLE memory_entries ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'insight'"),
-            ("access_count", "ALTER TABLE memory_entries ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0"),
-            ("accessed_at", "ALTER TABLE memory_entries ADD COLUMN accessed_at INTEGER NOT NULL DEFAULT 0"),
-            ("last_accessed_at", "ALTER TABLE memory_entries ADD COLUMN last_accessed_at TEXT"),
-            ("created_at", "ALTER TABLE memory_entries ADD COLUMN created_at TEXT"),
-            ("embedding", "ALTER TABLE memory_entries ADD COLUMN embedding BLOB"),
-            ("file_path", "ALTER TABLE memory_entries ADD COLUMN file_path TEXT"),
-            ("graph_blast_radius", "ALTER TABLE memory_entries ADD COLUMN graph_blast_radius INTEGER"),
-            ("palace_path", "ALTER TABLE memory_entries ADD COLUMN palace_path TEXT"),
-            ("outcome_reward", "ALTER TABLE memory_entries ADD COLUMN outcome_reward REAL"),
-            ("outcome_context", "ALTER TABLE memory_entries ADD COLUMN outcome_context TEXT"),
-            ("importance", "ALTER TABLE memory_entries ADD COLUMN importance INTEGER"),
-            ("pinned", "ALTER TABLE memory_entries ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"),
-            ("superseded_by", "ALTER TABLE memory_entries ADD COLUMN superseded_by TEXT"),
+            (
+                "tier",
+                "ALTER TABLE memory_entries ADD COLUMN tier TEXT NOT NULL DEFAULT 'local'",
+            ),
+            (
+                "entry_type",
+                "ALTER TABLE memory_entries ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'insight'",
+            ),
+            (
+                "access_count",
+                "ALTER TABLE memory_entries ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0",
+            ),
+            (
+                "accessed_at",
+                "ALTER TABLE memory_entries ADD COLUMN accessed_at INTEGER NOT NULL DEFAULT 0",
+            ),
+            (
+                "last_accessed_at",
+                "ALTER TABLE memory_entries ADD COLUMN last_accessed_at TEXT",
+            ),
+            (
+                "created_at",
+                "ALTER TABLE memory_entries ADD COLUMN created_at TEXT",
+            ),
+            (
+                "embedding",
+                "ALTER TABLE memory_entries ADD COLUMN embedding BLOB",
+            ),
+            (
+                "file_path",
+                "ALTER TABLE memory_entries ADD COLUMN file_path TEXT",
+            ),
+            (
+                "graph_blast_radius",
+                "ALTER TABLE memory_entries ADD COLUMN graph_blast_radius INTEGER",
+            ),
+            (
+                "palace_path",
+                "ALTER TABLE memory_entries ADD COLUMN palace_path TEXT",
+            ),
+            (
+                "outcome_reward",
+                "ALTER TABLE memory_entries ADD COLUMN outcome_reward REAL",
+            ),
+            (
+                "outcome_context",
+                "ALTER TABLE memory_entries ADD COLUMN outcome_context TEXT",
+            ),
+            (
+                "importance",
+                "ALTER TABLE memory_entries ADD COLUMN importance INTEGER",
+            ),
+            (
+                "pinned",
+                "ALTER TABLE memory_entries ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
+            ),
+            (
+                "superseded_by",
+                "ALTER TABLE memory_entries ADD COLUMN superseded_by TEXT",
+            ),
         ];
         for (column, ddl) in COLUMN_MIGRATIONS {
             if self.add_column_if_missing(column, ddl)? {
@@ -333,16 +378,18 @@ impl RlmMemory {
              DROP TABLE memory_entries_pk_migration;"
         ))?;
         tx.commit()?;
-        tracing::info!("memory_entries: legacy composite (key, tier) PK rebuilt into canonical key-only shape");
+        tracing::info!(
+            "memory_entries: legacy composite (key, tier) PK rebuilt into canonical key-only shape"
+        );
         Ok(true)
     }
 
     /// Returns whether `memory_entries` carries the legacy composite
     /// `PRIMARY KEY (key, tier)` (both columns flagged in `pragma_table_info`).
     fn has_composite_pk(&self) -> Result<bool> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT name FROM pragma_table_info('memory_entries') WHERE pk > 0 ORDER BY pk")?;
+        let mut stmt = self.conn.prepare(
+            "SELECT name FROM pragma_table_info('memory_entries') WHERE pk > 0 ORDER BY pk",
+        )?;
         let pk_cols: Vec<String> = stmt
             .query_map([], |row| row.get::<_, String>(0))?
             .collect::<std::result::Result<_, _>>()?;
@@ -603,14 +650,19 @@ impl RlmMemory {
                     if e.src == entry.key || e.dst == entry.key {
                         continue;
                     }
-                    let src = if e.src == old_key { entry.key } else { e.src.as_str() };
-                    let dst = if e.dst == old_key { entry.key } else { e.dst.as_str() };
+                    let src = if e.src == old_key {
+                        entry.key
+                    } else {
+                        e.src.as_str()
+                    };
+                    let dst = if e.dst == old_key {
+                        entry.key
+                    } else {
+                        e.dst.as_str()
+                    };
                     tags::upsert_link(&self.conn, src, e.rel, dst).ok();
                     self.conn
-                        .execute(
-                            "DELETE FROM memory_links WHERE id = ?1",
-                            params![e.id],
-                        )
+                        .execute("DELETE FROM memory_links WHERE id = ?1", params![e.id])
                         .ok();
                 }
             }
@@ -635,7 +687,11 @@ impl RlmMemory {
                     }
                 }
                 Err(errs) => {
-                    tracing::warn!(key = entry.key, tag = raw, "invalid explicit tag skipped: {errs:?}");
+                    tracing::warn!(
+                        key = entry.key,
+                        tag = raw,
+                        "invalid explicit tag skipped: {errs:?}"
+                    );
                     ignored.push(tags::describe_violations(raw, &errs));
                 }
             }
@@ -847,7 +903,11 @@ impl RlmMemory {
     /// filter — the L1 bipartite lookup of the hashtag library), most recently
     /// accessed first. Text ranking fuses on top in F3; this is the exact
     /// half of the hybrid.
-    pub fn query_tags(&self, required: &[tags::ParsedTag], limit: usize) -> Result<Vec<MemoryMatch>> {
+    pub fn query_tags(
+        &self,
+        required: &[tags::ParsedTag],
+        limit: usize,
+    ) -> Result<Vec<MemoryMatch>> {
         let keys = tags::entry_keys_with_all_tags(&self.conn, required, limit)?;
         let mut out = Vec::with_capacity(keys.len());
         for key in keys {
@@ -1288,7 +1348,10 @@ mod tests {
         );
         assert!(row.last_accessed_at.as_deref().unwrap().contains('-'));
         assert!(row.accessed_at > 1_000_000_000, "accessed_at is epoch");
-        assert!(row.outcome_reward.is_none(), "unobserved outcome stays NULL");
+        assert!(
+            row.outcome_reward.is_none(),
+            "unobserved outcome stays NULL"
+        );
     }
 
     #[test]
@@ -1326,7 +1389,8 @@ mod tests {
     fn store_rich_supersedes_retires_old_entry() {
         let dir = TempDir::new().unwrap();
         let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
-        mem.store_rich(&RichMemoryEntry::new("old", "local", "stale")).unwrap();
+        mem.store_rich(&RichMemoryEntry::new("old", "local", "stale"))
+            .unwrap();
         let mut new_entry = RichMemoryEntry::new("new", "local", "corrected");
         new_entry.supersedes = Some("old");
         mem.store_rich(&new_entry).unwrap();
@@ -1355,11 +1419,17 @@ mod tests {
         assert_eq!(ignored.len(), 2, "one valid tag, two rejected");
         assert_eq!(ignored[0].raw, "#classe:prova");
         assert!(
-            ignored[0].reason.contains("kind, purpose, lang, domain, process, artifact, status"),
+            ignored[0]
+                .reason
+                .contains("kind, purpose, lang, domain, process, artifact, status"),
             "the reason must TEACH the canonical vocabulary: {}",
             ignored[0].reason
         );
-        assert_eq!(ignored[1].suggestion, Some("kind"), "near-miss suggests the canonical facet");
+        assert_eq!(
+            ignored[1].suggestion,
+            Some("kind"),
+            "near-miss suggests the canonical facet"
+        );
         // The accepted tag really persisted (the report is additive, not a veto).
         // full_tag, not facet: auto-tagging also derives a kind:* row from
         // the entry_type, so counting by facet would see both.
@@ -1381,8 +1451,10 @@ mod tests {
         // correction silently orphaned.
         let dir = TempDir::new().unwrap();
         let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
-        mem.store_rich(&RichMemoryEntry::new("old", "local", "v1")).unwrap();
-        mem.store_rich(&RichMemoryEntry::new("other", "local", "peer")).unwrap();
+        mem.store_rich(&RichMemoryEntry::new("old", "local", "v1"))
+            .unwrap();
+        mem.store_rich(&RichMemoryEntry::new("other", "local", "peer"))
+            .unwrap();
         tags::upsert_link(&mem.conn, "old", tags::LinkRel::RelatesTo, "other").unwrap();
         // An edge BETWEEN old and its successor must be kept, never turned
         // into a self-loop by the re-point.
@@ -1805,7 +1877,10 @@ mod tests {
              VALUES ('mem:x|extends|mem:y', 'mem:x', 'mem:y', 'extends')",
             [],
         );
-        assert!(dup.is_err(), "duplicate deterministic link id must conflict");
+        assert!(
+            dup.is_err(),
+            "duplicate deterministic link id must conflict"
+        );
     }
 
     #[test]
@@ -1875,11 +1950,19 @@ mod tests {
         }
         let rust = tags::parse_tag("#lang:rust").unwrap();
         let lesson = tags::parse_tag("#kind:lesson").unwrap();
-        memory.tag_entry("a.rs-lesson", &rust, tags::TagSource::Explicit).unwrap();
-        memory.tag_entry("a.rs-lesson", &lesson, tags::TagSource::Explicit).unwrap();
-        memory.tag_entry("b.md-note", &rust, tags::TagSource::Explicit).unwrap();
+        memory
+            .tag_entry("a.rs-lesson", &rust, tags::TagSource::Explicit)
+            .unwrap();
+        memory
+            .tag_entry("a.rs-lesson", &lesson, tags::TagSource::Explicit)
+            .unwrap();
+        memory
+            .tag_entry("b.md-note", &rust, tags::TagSource::Explicit)
+            .unwrap();
 
-        let both = memory.query_tags(&[rust.clone(), lesson.clone()], 10).unwrap();
+        let both = memory
+            .query_tags(&[rust.clone(), lesson.clone()], 10)
+            .unwrap();
         assert_eq!(both.len(), 1, "only the entry with BOTH tags matches");
         assert_eq!(both[0].key, "a.rs-lesson");
 
@@ -1900,7 +1983,11 @@ mod tests {
         let removed = memory.remove_tag("k", "kind:lesson").unwrap();
         assert_eq!(removed, 1);
         assert!(
-            memory.tags_of("k").unwrap().iter().all(|t| t.full_tag != "kind:lesson"),
+            memory
+                .tags_of("k")
+                .unwrap()
+                .iter()
+                .all(|t| t.full_tag != "kind:lesson"),
             "removed tag must be gone"
         );
         // And the FTS trigger dropped it too (tombstone propagates).

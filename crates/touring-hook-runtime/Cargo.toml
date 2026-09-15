@@ -37,7 +37,7 @@ touring-intelligence = { path = "../touring-intelligence" }
 touring-foundation = { path = "../touring-foundation" }
 libc = { workspace = true } # F0.3a hook_trace: atexit + getppid
 touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
-touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed"] }
+touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed", "storage-emb-cuda"] }
 touring-bindings = { path = "../touring-bindings", features = ["bind-wasm"] }
 blake3 = { workspace = true }
 chrono = { workspace = true }

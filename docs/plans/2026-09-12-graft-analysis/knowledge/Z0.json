@@ -1,0 +1,45 @@
+{
+  "phase": "Z0",
+  "entities": [
+    {
+      "entity_id": "phase:Z0",
+      "type": "phase",
+      "description": "Passo zero do I16: politica de admissao hoisted para touring_hooks_shared::index_policy (uma copia: walker, varredura, escritores de hook, why); varredura do rebuild purga pelo predicado do walker (skipped_dir/outside_root/unsupported/oversized/missing/duplicate_spelling) e reporta policy_purged_by_reason; reindex_file_with_old recusa o que o walker recusa (140 arquivos absolutos e 306 sob .claude/ nao voltam a entrar); index why reporta residue; --dir . deixa de duplicar o store (4.483 arquivos/331.997 linhas dobradas desde 04/09). Testes: index_policy 4/4, e2e in-process why+reindex+purga, 557 touring-cli x3, clippy limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1789298251281030189:Z0:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789298251281030189",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789298251281030189",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:Z0|produces|memory:loop:task_1789298251281030189:Z0:done",
+      "source": "phase:Z0",
+      "type": "produces",
+      "target": "memory:loop:task_1789298251281030189:Z0:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789298251281030189:Z0:done|generated-by|loop:loop:task_1789298251281030189",
+      "source": "memory:loop:task_1789298251281030189:Z0:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789298251281030189"
+    },
+    {
+      "relation_id": "memory:loop:task_1789298251281030189:Z0:done|generated-by|dag:decomp:task_1789298251281030189",
+      "source": "memory:loop:task_1789298251281030189:Z0:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789298251281030189"
+    }
+  ]
+}

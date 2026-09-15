@@ -79,6 +79,7 @@ pub fn cli_tantivy_search(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
                 .map(|id| id as u64)
         });
         let cache_key = crate::shared::query_cache::make_key(
+            &rt.project_root,
             "cli_tantivy_search",
             &format!("{query}|top={top_k}|cid={source_community_id:?}"),
         );
@@ -277,6 +278,8 @@ pub fn cli_tantivy_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 )
                 .to_string();
             }
+            let policy =
+                touring_hooks_shared::index_policy::IndexPolicy::for_root(&rt.project_root);
             const PAGE_SIZE: usize = 5_000;
             let mut offset = batch_offset;
             let end_offset = if mode == "batch" && batch_limit > 0 {
@@ -303,44 +306,38 @@ pub fn cli_tantivy_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                     }
                 };
                 let fewer_than_requested = page.len() < page_size;
-                for sym in &page {
-                    let language = crate::tantivy_index::extension_to_language(&sym.file_path);
-                    let crate_name = sym
-                        .file_path
-                        .split('/')
-                        .collect::<Vec<_>>()
-                        .windows(2)
-                        .find(|w| w.first().copied() == Some("crates"))
-                        .and_then(|w| w.get(1).map(|s| (*s).to_owned()));
-                    let doc = crate::tantivy_index::SymbolDoc {
-                        symbol_name: sym.symbol_name.clone(),
-                        file_path: sym.file_path.clone(),
-                        symbol_kind: if sym.is_definition {
-                            "definition".to_owned()
+                // One builder for every writer of the search index
+                // (`shared::tantivy_docs`): rows grouped by file (a page is ordered by
+                // id, so a file's rows are contiguous), markdown text read from the
+                // path the key denotes — `@companion/<name>/…` included. A reindex
+                // that copied names only erased the text a rebuild had indexed.
+                let mut start = 0;
+                while start < page.len() {
+                    let key = page[start].file_path.clone();
+                    let end = page[start..]
+                        .iter()
+                        .position(|s| s.file_path != key)
+                        .map_or(page.len(), |n| start + n);
+                    // Every file's text: markdown chunks AND code doc comments come from
+                    // it. Reading only markdown here made a full reindex strip the doc
+                    // comments a rebuild had indexed (found 13/09/2026 comparing the live
+                    // index with the offline evaluator: 48 vs 50 of 55).
+                    let content = std::fs::read_to_string(policy.path_for_key(&key)).ok();
+                    for doc in crate::shared::tantivy_docs::docs_for_file(
+                        &key,
+                        &page[start..end],
+                        content.as_deref(),
+                    ) {
+                        if let Err(e) = idx.upsert_symbol(&doc) {
+                            tracing::warn!(
+                                "tantivy_reindex: upsert failed for {}: {e}",
+                                doc.symbol_name
+                            );
                         } else {
-                            "reference".to_owned()
-                        },
-                        module_path: None,
-                        docstring: None,
-                        line_number: sym.line as u64,
-                        language,
-                        visibility: None,
-                        crate_name,
-                        blake3_hash: None,
-                        import_count: None,
-                        export_count: None,
-                        cognitive_score: None,
-                        functional_signature: None,
-                        community_id: None,
-                    };
-                    if let Err(e) = idx.upsert_symbol(&doc) {
-                        tracing::warn!(
-                            "tantivy_reindex: upsert failed for {}: {e}",
-                            sym.symbol_name
-                        );
-                    } else {
-                        total_upserted += 1;
+                            total_upserted += 1;
+                        }
                     }
+                    start = end;
                 }
                 offset = offset.saturating_add(page_size);
                 if fewer_than_requested {
@@ -355,9 +352,25 @@ pub fn cli_tantivy_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 )
                 .to_string();
             }
+            // A finished pass compacts: deleted documents skew BM25 statistics until
+            // their segment is merged (see `TantivyIndex::compact`). A batch that is
+            // not the last one leaves it to the pass that ends the reindex.
+            let finished = done_early || mode == "full";
+            let (segments_merged, compact_error) = if finished {
+                match idx.compact() {
+                    Ok(n) => (n, None),
+                    Err(e) => {
+                        tracing::warn!("tantivy_reindex: compact failed: {e}");
+                        (0, Some(e.to_string()))
+                    }
+                }
+            } else {
+                (0, None)
+            };
             return serde_json::json!(
-                { "reindexed" : true, "done" : done_early || (mode == "full"), "mode" :
-                mode, "upserted" : total_upserted, "next_offset" : offset, "stats" : idx
+                { "reindexed" : true, "done" : finished, "mode" :
+                mode, "upserted" : total_upserted, "next_offset" : offset,
+                "segments_merged" : segments_merged, "compact_error" : compact_error, "stats" : idx
                 .stats(), }
             )
             .to_string();

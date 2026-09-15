@@ -44,10 +44,6 @@ impl WiringModuleWithConsumers {
     }
 }
 
-/// Enrichment for wiring modules — each module augmented with its consumers.
-/// This is the S-3 deliverable for the touring-web wiring graph viewer.
-pub type WiringModulesWithConsumersReport = Vec<WiringModuleWithConsumers>;
-
 #[cfg(test)]
 mod tests {
     use super::*;

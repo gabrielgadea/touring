@@ -398,10 +398,7 @@ pub(crate) fn bash_payload_output(
 /// Build the outcome from what the payload said (F10). On a failure event
 /// the outcome can never read as success: an output with no `Exit code`
 /// line collapses to exit 1 rather than the detector's default 0.
-fn build_bash_outcome_for_event(
-    command: &str,
-    output: &BashPayloadOutput,
-) -> Option<BashOutcome> {
+fn build_bash_outcome_for_event(command: &str, output: &BashPayloadOutput) -> Option<BashOutcome> {
     let command_short = extract_command_short(command);
     if command_short.is_empty() {
         return None;
@@ -1141,7 +1138,10 @@ mod tests {
         });
         let out = bash_payload_output(&input, None);
         assert!(out.failure_event);
-        assert!(out.interrupted, "an interrupt is not a command failure to learn from");
+        assert!(
+            out.interrupted,
+            "an interrupt is not a command failure to learn from"
+        );
     }
 
     #[test]

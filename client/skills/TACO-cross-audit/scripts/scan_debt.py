@@ -9,16 +9,26 @@ To stay honest, the scanner does not flag its own examples: it skips
 triple-quoted string blocks, and counts textual markers only when they appear
 inside an actual line comment — never inside a string literal or a regex.
 
+For Python files the ``suppression`` category (``# type: ignore``) is decided by
+the real tokenizer: only a COMMENT token counts. A ``"… # type: ignore"`` planted
+inside a string literal (a test fixture proving that an import regex tolerates a
+trailing comment) is data, not debt — the 05/09/2026 cross-audit found two such
+strings reported as live suppressions. When the file does not tokenize the scan
+falls back to the textual heuristic, and that fallback is declared here rather
+than hidden.
+
 Output is a human report, or JSON with --json.
 Exit code: 0 = no debt found, 1 = debt found, 2 = bad arguments.
 """
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
 import sys
+import tokenize
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 
@@ -73,6 +83,25 @@ def iter_auditable_lines(text: str) -> Iterator[tuple[int, str]]:
             yield lineno, line
 
 
+def python_comments(text: str) -> dict[int, str] | None:
+    """Map ``lineno -> comment text`` using the real Python tokenizer.
+
+    Returns ``None`` when the source does not tokenize (unterminated
+    triple-quoted string, bad indentation), so the caller can fall back to the
+    textual heuristic and say so. A tokenizer that swallowed its own failure
+    would report a broken file as clean.
+    """
+    comments: dict[int, str] = {}
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+            if tok.type == tokenize.COMMENT:
+                lineno = tok.start[0]
+                comments[lineno] = comments.get(lineno, "") + tok.string
+    except (tokenize.TokenError, SyntaxError):
+        return None
+    return comments
+
+
 def scan_file(path: Path) -> list[dict[str, Any]]:
     """Return every debt hit in one file as ``{category, line, text}``."""
     hits: list[dict[str, Any]] = []
@@ -81,6 +110,8 @@ def scan_file(path: Path) -> list[dict[str, Any]]:
     except OSError:
         return hits
     marker = LINE_COMMENT.get(path.suffix, "//")
+    # Python: the tokenizer decides what is a comment; None = textual fallback.
+    tokenized = python_comments(text) if path.suffix == ".py" else None
     for lineno, line in iter_auditable_lines(text):
         comment_idx = line.find(marker)
         comment = line[comment_idx:] if comment_idx != -1 else ""
@@ -89,7 +120,10 @@ def scan_file(path: Path) -> list[dict[str, Any]]:
                 hits.append({"category": category, "line": lineno,
                              "text": line.strip()[:160]})
         for category, pattern in CODE_PATTERNS.items():
-            if pattern.search(line):
+            haystack = line
+            if category == "suppression" and tokenized is not None:
+                haystack = tokenized.get(lineno, "")
+            if pattern.search(haystack):
                 hits.append({"category": category, "line": lineno,
                              "text": line.strip()[:160]})
     return hits

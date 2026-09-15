@@ -356,8 +356,7 @@ pub fn validate_syntax(content: &str, lang: Lang) -> SurgeryResult<bool> {
         .set_language(&lang.tree_sitter_language())
         .map_err(|e| SurgeryError::InvalidLanguage(format!("{:?}", e)))?;
 
-    let tree = parser
-        .parse(content, None)
+    let tree = crate::ast::parser::parse_bounded(&mut parser, content, None)
         .ok_or_else(|| SurgeryError::ParseError("Failed to parse source".to_string()))?;
 
     // Check for error nodes

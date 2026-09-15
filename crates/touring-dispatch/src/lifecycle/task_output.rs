@@ -142,15 +142,20 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
     // When a task output mentions modified files (e.g. "crates/foo/src/lib.rs"),
     // we proactively update wiring so orphan tracking stays current without waiting
     // for the next file-changed hook.
-    let wiring_count = {
-        let paths = extract_file_paths(output_text);
-        let mut updated = 0usize;
-        for path in &paths {
-            crate::wiring::update_wiring_after_edit(&rt.ctx.knowledge, path);
-            updated += 1;
-        }
-        updated
-    };
+    // Two counts, kept apart (cross-audit 14/09/2026): the paths the output
+    // NAMES are the task's artifacts (memory mapping, DAG advance); the files
+    // actually re-verified are the ones present on disk and admitted by the
+    // walker. One number used to serve both, so a named-but-absent file was
+    // reported as re-verified.
+    let artifact_paths = extract_file_paths(output_text);
+    let artifact_count = artifact_paths.len();
+    let wiring_count = artifact_paths
+        .iter()
+        // Same single refresh as an edit: inferred edges survive (B2).
+        .filter(|path| {
+            crate::wiring::refresh_file_wiring_from_disk(&rt.ctx.knowledge, &rt.project_root, path)
+        })
+        .count();
     let wiring_hint = if wiring_count > 0 {
         format!(" | wiring: {wiring_count} file(s) re-verified")
     } else {
@@ -162,28 +167,24 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
     // Enables `touring memory recall "artifact:<task_id>:files"` to return exact files produced
     // by this task, without needing to re-read the full output or DAG state.
     // Complements R143 (raw output recall), R17-S2 (wiring update), and R135 (subject at complete).
-    // Only fires when wiring_count > 0 (file paths were already detected by R17-S2).
-    // Re-calls extract_file_paths (cheap pure fn) to avoid restructuring the wiring block.
+    // Fires when the output names file paths (the same list R17-S2 refreshed).
     // Capped at 5 paths in the memory value to keep it concise (wiring handles all paths).
-    if wiring_count > 0 {
-        let artifact_paths = extract_file_paths(output_text);
-        if !artifact_paths.is_empty() {
-            let files_csv: String = artifact_paths
-                .iter()
-                .take(5)
-                .map(|p| p.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let _ = crate::cli_handlers::cli_memory_store(
-                rt,
-                &serde_json::json!({
-                    "key": format!("artifact:{task_id}:files"),
-                    "value": format!("Files produced by task {task_id}: {files_csv}"),
-                    "tier": "semantic",
-                    "entry_type": "lesson",
-                }),
-            );
-        }
+    if artifact_count > 0 {
+        let files_csv: String = artifact_paths
+            .iter()
+            .take(5)
+            .map(|p| p.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = crate::cli_handlers::cli_memory_store(
+            rt,
+            &serde_json::json!({
+                "key": format!("artifact:{task_id}:files"),
+                "value": format!("Files produced by task {task_id}: {files_csv}"),
+                "tier": "semantic",
+                "entry_type": "lesson",
+            }),
+        );
     }
 
     // R24-S3: Keyword-map output text to a GeneratorKind — surfaces the right artifact type
@@ -196,7 +197,7 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
     // R31-S2: Auto-advance validate subtask in Touring DAG when success signal confirmed.
     let dag_advance = advance_dag_validate_on_success(rt, &outcome_hint, task_id);
     // R32-S2: Auto-advance implement subtask when artifacts (file paths) detected in output.
-    let impl_advance = advance_dag_implement_on_artifact(rt, wiring_count, task_id);
+    let impl_advance = advance_dag_implement_on_artifact(rt, artifact_count, task_id);
     // R34-S3: Detect plan.json or plan-submit in output → surface validate + submit commands.
     let plan_hint = maybe_plan_validate_from_output(output_text);
     // R35-S1: Detect Rust compilation errors → surface generate verify + render hints.

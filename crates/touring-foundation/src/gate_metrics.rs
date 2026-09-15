@@ -16,7 +16,7 @@
 //! `gate_metrics` key.
 
 use hdrhistogram::Histogram;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 /// Latency histogram wrapped in a `Mutex` for cross-thread recording.
@@ -359,6 +359,26 @@ pub struct GateMetrics {
     /// Provides a distribution over the HNSW k-NN search time — expected
     /// P50 < 500μs for the 64-dim U4-quantized index at typical sizes.
     pub ann_search_latency: LatencyHistogram,
+
+    // ── GPU embeddings (15/09/2026) ───────────────────────────────────────
+    //
+    // Which device the fastembed runtime of this process runs on, and what it
+    // costs. The ONNX CUDA provider falls back to CPU in silence unless told
+    // otherwise, so the device an embedding actually ran on is recorded per run
+    // instead of being inferred from configuration.
+    /// Latency of one embedding run (a query or a batch), on either device.
+    pub embedding_latency: LatencyHistogram,
+    /// Texts embedded on the CUDA execution provider.
+    pub embedding_texts_cuda_count: AtomicU64,
+    /// Texts embedded on the CPU execution provider.
+    pub embedding_texts_cpu_count: AtomicU64,
+    /// Times the embedder left CUDA for CPU (at load or after an inference error).
+    pub embedding_cuda_fallback_count: AtomicU64,
+    /// Reason of the latest CUDA→CPU fallback, verbatim. ONNX Runtime's message
+    /// names the exact library it failed to open, which is the remedy.
+    pub embedding_cuda_fallback_reason: Mutex<String>,
+    /// Device of the most recent embedding run: 0 none yet, 1 cpu, 2 cuda.
+    pub embedding_device: AtomicU8,
 
     // ── Tantivy Stream Actor (Suggestion 2 — 2026-04-20) ──────────────────
     //
@@ -973,6 +993,12 @@ impl Default for GateMetrics {
             mcts_shadow_timeout_count: AtomicU64::new(0),
             mcts_shadow_deadlock_detected_count: AtomicU64::new(0),
             ann_search_latency: LatencyHistogram::new(),
+            embedding_latency: LatencyHistogram::new(),
+            embedding_texts_cuda_count: AtomicU64::new(0),
+            embedding_texts_cpu_count: AtomicU64::new(0),
+            embedding_cuda_fallback_count: AtomicU64::new(0),
+            embedding_cuda_fallback_reason: Mutex::new(String::new()),
+            embedding_device: AtomicU8::new(0),
             tantivy_stream_enqueued_count: AtomicU64::new(0),
             tantivy_stream_backpressure_drop_count: AtomicU64::new(0),
             tantivy_stream_flush_count: AtomicU64::new(0),
@@ -1455,7 +1481,16 @@ impl GateId {
 
     /// All gates, for snapshot iteration.
     pub fn all() -> &'static [GateId] {
-        &[Self::G1, Self::G2, Self::G3, Self::G6, Self::G7, Self::G8, Self::G9, Self::G10]
+        &[
+            Self::G1,
+            Self::G2,
+            Self::G3,
+            Self::G6,
+            Self::G7,
+            Self::G8,
+            Self::G9,
+            Self::G10,
+        ]
     }
 }
 
@@ -1503,7 +1538,9 @@ pub fn record_g4_observed() {
 
 /// M3 (29/08/2026) — record one delegation advisory (10th distinct file read).
 pub fn record_m3_delegation_advised() {
-    global().m3_delegation_advised_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .m3_delegation_advised_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// W3 S-3.3 — record one G5 observation (an edit burst ended unvalidated).
@@ -1523,7 +1560,8 @@ pub fn record_e3_counterfactual() {
 pub fn record_g1_continuation(same_class: bool) {
     let g = global();
     if same_class {
-        g.g1_post_deny_same_class_count.fetch_add(1, Ordering::Relaxed);
+        g.g1_post_deny_same_class_count
+            .fetch_add(1, Ordering::Relaxed);
     } else {
         g.g1_post_deny_other_count.fetch_add(1, Ordering::Relaxed);
     }
@@ -1564,8 +1602,10 @@ pub fn record_code_mode_run(bytes_elided: u64) {
 pub fn record_code_mode_subcall(payload_bytes: u64, output_bytes: u64) {
     let g = global();
     g.code_mode_subcalls_count.fetch_add(1, Ordering::Relaxed);
-    g.code_mode_subcall_bytes_total
-        .fetch_add(payload_bytes.saturating_add(output_bytes), Ordering::Relaxed);
+    g.code_mode_subcall_bytes_total.fetch_add(
+        payload_bytes.saturating_add(output_bytes),
+        Ordering::Relaxed,
+    );
 }
 
 /// NEW-1 — record a compression profile application.
@@ -1708,6 +1748,56 @@ pub fn record_mcts_shadow_deadlock_detected() {
 #[inline]
 pub fn record_ann_search_latency_us(micros: u64) {
     global().ann_search_latency.record_us(micros);
+}
+
+// ── GPU embeddings recording (15/09/2026) ─────────────────────────────────
+
+/// `embedding_device` value for a run on the CPU execution provider.
+const EMBEDDING_DEVICE_CPU: u8 = 1;
+/// `embedding_device` value for a run on the CUDA execution provider.
+const EMBEDDING_DEVICE_CUDA: u8 = 2;
+
+/// Record one embedding run of `texts` texts on the CUDA execution provider.
+#[inline]
+pub fn record_embedding_run_cuda(texts: usize, micros: u64) {
+    let m = global();
+    m.embedding_latency.record_us(micros);
+    m.embedding_texts_cuda_count
+        .fetch_add(texts as u64, Ordering::Relaxed);
+    m.embedding_device
+        .store(EMBEDDING_DEVICE_CUDA, Ordering::Relaxed);
+}
+
+/// Record one embedding run of `texts` texts on the CPU execution provider.
+#[inline]
+pub fn record_embedding_run_cpu(texts: usize, micros: u64) {
+    let m = global();
+    m.embedding_latency.record_us(micros);
+    m.embedding_texts_cpu_count
+        .fetch_add(texts as u64, Ordering::Relaxed);
+    m.embedding_device
+        .store(EMBEDDING_DEVICE_CPU, Ordering::Relaxed);
+}
+
+/// Record that the embedder left CUDA for CPU, and why.
+pub fn record_embedding_cuda_fallback(reason: &str) {
+    let m = global();
+    m.embedding_cuda_fallback_count
+        .fetch_add(1, Ordering::Relaxed);
+    let mut slot = m
+        .embedding_cuda_fallback_reason
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    reason.clone_into(&mut slot);
+}
+
+/// Label of an `embedding_device` value, as `touring gate-metrics` prints it.
+pub fn embedding_device_label(code: u8) -> &'static str {
+    match code {
+        EMBEDDING_DEVICE_CPU => "cpu",
+        EMBEDDING_DEVICE_CUDA => "cuda",
+        _ => "none",
+    }
 }
 
 // ── Tantivy Stream Actor recording functions (Suggestion 2 — 2026-04-20) ──
@@ -2279,20 +2369,19 @@ pub use crate::gate_metrics_snapshot::{
     record_ctx_execute_file, record_ctx_execute_file_count, record_ctx_explain,
     record_ctx_gain_graph, record_ctx_purge, record_ctx_replay, record_ctx_session_adoption_query,
     record_ctx_smart, record_ctx_upgrade, record_enrichment_emitted,
-    record_exec_heredoc_inline_seen, record_g1_inspect_burst_denied, record_g1_inspect_first_passed,
-    record_g10_write_run_pair_denied,
-    record_gate_metrics_daily_flush, record_pillar_induction_emitted,
-    record_pillar_induction_followed, record_read_aggressive_chunked,
-    record_read_aggressive_passthrough, record_suggestion_emitted, record_suggestion_followed,
-    record_native_injection_code_route, record_native_injection_followed,
-    record_native_injection_resisted,     record_touring_init_invocation,
-    record_wave3_t201, record_wave3_t202, record_wave3_t203,
-    record_wave3_t204, record_wave3_t205, record_wave3_t206, record_wave3_t207, record_wave3_t208,
-    record_wave3_t209, record_wave3_t210, record_wave3_t211, record_wave3_t212, record_wave3_t213,
-    record_wave3_t214, record_wave3_t215, record_wave3_t301, record_wave3_t302, record_wave3_t303,
-    record_wave3_t304, record_wave3_t305, record_wave3_t306, record_wave3_t307, record_wave3_t308,
-    record_wave3_t309, record_wave3_t310, record_workflow_advice_emitted,
-    record_workflow_antipattern_detected,
+    record_exec_heredoc_inline_seen, record_g1_inspect_burst_denied,
+    record_g1_inspect_first_passed, record_g10_write_run_pair_denied,
+    record_gate_metrics_daily_flush, record_native_injection_code_route,
+    record_native_injection_followed, record_native_injection_resisted,
+    record_pillar_induction_emitted, record_pillar_induction_followed,
+    record_read_aggressive_chunked, record_read_aggressive_passthrough, record_suggestion_emitted,
+    record_suggestion_followed, record_touring_init_invocation, record_wave3_t201,
+    record_wave3_t202, record_wave3_t203, record_wave3_t204, record_wave3_t205, record_wave3_t206,
+    record_wave3_t207, record_wave3_t208, record_wave3_t209, record_wave3_t210, record_wave3_t211,
+    record_wave3_t212, record_wave3_t213, record_wave3_t214, record_wave3_t215, record_wave3_t301,
+    record_wave3_t302, record_wave3_t303, record_wave3_t304, record_wave3_t305, record_wave3_t306,
+    record_wave3_t307, record_wave3_t308, record_wave3_t309, record_wave3_t310,
+    record_workflow_advice_emitted, record_workflow_antipattern_detected,
 };
 
 #[cfg(test)]

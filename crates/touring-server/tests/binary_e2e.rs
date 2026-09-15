@@ -15,7 +15,6 @@ use std::process::Command;
 mod private_daemon;
 use private_daemon::private_daemon_env;
 
-
 /// Helper: run touring binary with stdin and capture output.
 fn run_touring(args: &[&str], stdin_data: &str) -> (i32, String, String) {
     let binary = std::env::var("TOURING_BINARY").unwrap_or_else(|_| {

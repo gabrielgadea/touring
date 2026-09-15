@@ -90,6 +90,10 @@ pub struct ScipIngestReport {
     /// Repeat references to an already-written (producer, consumer, symbol)
     /// edge — one row per triple is the whole signal.
     pub duplicate_edges_skipped: usize,
+    /// Edges the wiring write gate refuses (a producer outside every wiring
+    /// vocabulary, or a companion on either side) — the ingest used to write
+    /// them straight past the gate (cross-audit 14/09/2026, B11).
+    pub gated_edges_skipped: usize,
 }
 
 /// Extracts the human-readable descriptor from a SCIP symbol string:
@@ -196,6 +200,14 @@ fn write_edges(
                 report.self_edges_skipped += 1;
                 continue;
             }
+            // The write gate the other writers pass through, under the maximal
+            // vocabulary the open-time eviction also uses.
+            if !crate::knowledge_wiring::is_wireable_source(producer, true, &[])
+                || touring_foundation::config::is_companion_key(&doc.relative_path)
+            {
+                report.gated_edges_skipped += 1;
+                continue;
+            }
             let symbol = identifier_of(descriptor_of(&occ.symbol));
             if !seen.insert((*producer, doc.relative_path.as_str(), symbol)) {
                 report.duplicate_edges_skipped += 1;
@@ -252,8 +264,7 @@ mod tests {
         index.encode_to_vec()
     }
 
-    #[test]
-    fn ingest_writes_only_the_true_cross_file_edge() {
+    fn wiring_conn() -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch(
             "CREATE TABLE wiring_map (
@@ -271,11 +282,53 @@ mod tests {
             )",
         )
         .unwrap();
+        conn
+    }
 
+    /// Cross-audit 14/09/2026 (B11): the ingest passes the write gate the other
+    /// writers use — a producer under `tests/` or a companion consumer is skipped.
+    #[test]
+    fn ingest_skips_the_edges_the_write_gate_refuses() {
+        let def = "rust-analyzer cargo probe 0.1.0 it/helper().";
+        let doc = |path: &str, roles| ScipDocumentIngest {
+            relative_path: path.to_string(),
+            occurrences: vec![ScipOccurrenceIngest {
+                symbol: def.to_string(),
+                symbol_roles: roles,
+            }],
+        };
+        let index = ScipIndexIngest {
+            documents: vec![
+                doc("crates/a/tests/it.rs", SCIP_ROLE_DEFINITION),
+                doc("src/uses.rs", 0),
+            ],
+        };
+        let conn = wiring_conn();
+        let report = ingest_scip_bytes(&conn, &index.encode_to_vec(), "/ws").unwrap();
+        assert_eq!(report.edges_written, 0, "{report:?}");
+        assert_eq!(report.gated_edges_skipped, 1);
+
+        let index = ScipIndexIngest {
+            documents: vec![
+                doc("src/a.rs", SCIP_ROLE_DEFINITION),
+                doc("@companion/skills/x/b.rs", 0),
+            ],
+        };
+        let report = ingest_scip_bytes(&conn, &index.encode_to_vec(), "/ws").unwrap();
+        assert_eq!(report.edges_written, 0, "{report:?}");
+        assert_eq!(report.gated_edges_skipped, 1);
+    }
+
+    #[test]
+    fn ingest_writes_only_the_true_cross_file_edge() {
+        let conn = wiring_conn();
         let report = ingest_scip_bytes(&conn, &fixture_index(), "/ws").unwrap();
         assert_eq!(report.documents, 2);
         assert_eq!(report.definitions, 1);
-        assert_eq!(report.edges_written, 1, "only the resolved call becomes an edge");
+        assert_eq!(
+            report.edges_written, 1,
+            "only the resolved call becomes an edge"
+        );
         assert_eq!(report.external_refs_skipped, 2, "std macro + local skipped");
         assert_eq!(report.self_edges_skipped, 0);
 
@@ -310,18 +363,23 @@ mod tests {
     #[test]
     #[ignore = "requires a generated index.scip at the workspace root"]
     fn decode_real_rust_analyzer_index() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../index.scip");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../index.scip");
         let data = std::fs::read(&path).expect("index.scip at workspace root");
         let index = ScipIndexIngest::decode(data.as_slice()).expect("real SCIP decodes");
-        assert!(index.documents.len() > 1_000, "workspace has thousands of documents");
+        assert!(
+            index.documents.len() > 1_000,
+            "workspace has thousands of documents"
+        );
         let defs = index
             .documents
             .iter()
             .flat_map(|d| d.occurrences.iter())
             .filter(|o| o.is_definition())
             .count();
-        assert!(defs > 10_000, "workspace has tens of thousands of definitions");
+        assert!(
+            defs > 10_000,
+            "workspace has tens of thousands of definitions"
+        );
         println!("documents={} definitions={defs}", index.documents.len());
     }
 

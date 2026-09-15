@@ -20,8 +20,6 @@ use serde_json::Value;
 use std::process::Command;
 
 use touring_hooks::health_delta::{
-
-
     STREAK_ALERT_THRESHOLD, compute_signals_delta, discard_pre_health, improvement_streak_hint,
     record_pre_signals, regression_streak, reset_streak, streak_warning_hint,
 };
@@ -121,7 +119,8 @@ fn axis3_cli_status_aggregate_returns_valid_json() {
         eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta", "status"])
         .output()
         .expect("spawn touring");
@@ -159,7 +158,8 @@ fn axis4_cli_status_with_path_returns_per_path_json() {
         return;
     }
     let path = "/tmp/wave15e2e_axis4.rs";
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta", "status", path])
         .output()
         .expect("spawn touring");
@@ -190,7 +190,8 @@ fn axis5_cli_reset_without_path_errors() {
         eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta", "reset"])
         .output()
         .expect("spawn touring");
@@ -214,7 +215,8 @@ fn axis6_cli_reset_with_path_returns_success() {
         return;
     }
     let path = "/tmp/wave15e2e_axis6.rs";
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta", "reset", path])
         .output()
         .expect("spawn touring");
@@ -234,7 +236,8 @@ fn axis7_cli_unknown_subcommand_fails() {
         eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta", "bogus"])
         .output()
         .expect("spawn touring");
@@ -255,7 +258,8 @@ fn axis8_cli_status_is_default_subcommand() {
         return;
     }
     // `touring health-delta` (no sub) must default to status (aggregate).
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta"])
         .output()
         .expect("spawn touring");

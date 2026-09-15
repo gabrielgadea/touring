@@ -1,5 +1,4 @@
 use super::*;
-use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
@@ -45,8 +44,9 @@ fn e2e_scan_due_after_window() {
 
 #[test]
 fn test_flock_acquire_and_hold() {
-    let lock_path = Path::new("/tmp/test-touring-daemon-flock.lock");
-    let socket_path = Path::new("/tmp/test-touring-daemon-flock.sock");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let lock_path = &dir.path().join("daemon-flock.lock");
+    let socket_path = &dir.path().join("daemon-flock.sock");
     let _ = std::fs::remove_file(lock_path);
     let _ = std::fs::remove_file(socket_path);
 
@@ -108,8 +108,9 @@ fn test_already_alive_via_socket_probe() {
     // to AlreadyAlive before even touching the lock file. Simulate this by
     // creating a fake socket that accepts connections. We use a temporary
     // path so we don't race with the real daemon.
-    let socket_path = Path::new("/tmp/test-touring-already-alive-probe.sock");
-    let lock_path = Path::new("/tmp/test-touring-already-alive-probe.lock");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let socket_path = &dir.path().join("already-alive-probe.sock");
+    let lock_path = &dir.path().join("already-alive-probe.lock");
     let _ = std::fs::remove_file(socket_path);
     let _ = std::fs::remove_file(lock_path);
 
@@ -128,16 +129,59 @@ fn test_already_alive_via_socket_probe() {
     let _ = std::fs::remove_file(lock_path);
 }
 
+/// Cross-audit 14/09/2026 (A2): dropping the handle the daemon keeps per project
+/// is what evicts it, so nothing the actor owns may hold a strong sender to its
+/// own channel. Before the fix the runtime stored one, the channel never closed,
+/// and every actor the LRU "evicted" kept running with its databases open.
 #[test]
-#[ignore]
-// Ignored as it requires manual verification (spawns real process)
+fn dropping_a_project_runtime_closes_its_actor_channel() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let runtime = HookRuntime::new(tmp.path()).expect("runtime");
+    let project = ProjectRuntime::new(runtime);
+    let weak = project.cmd_sender().downgrade();
+    assert!(
+        weak.upgrade().is_some(),
+        "the channel is open while the handle lives"
+    );
+    drop(project);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while weak.upgrade().is_some() {
+        assert!(
+            Instant::now() < deadline,
+            "a strong sender outlived the ProjectRuntime: the actor can never exit"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// The handler-facing accessor follows the channel: absent before the actor
+/// spawns, present while a dispatch-side sender lives, absent after.
+#[test]
+fn the_runtime_sender_never_outlives_the_dispatch_side() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let runtime = HookRuntime::new(tmp.path()).expect("runtime");
+    assert!(runtime.ctx.cmd_tx().is_none(), "no actor yet");
+    let (tx, _rx) = mpsc::channel::<ProjectCommand>(1);
+    runtime.ctx.set_cmd_tx(&tx);
+    assert!(
+        runtime.ctx.cmd_tx().is_some(),
+        "the actor's channel is reachable"
+    );
+    drop(tx);
+    assert!(runtime.ctx.cmd_tx().is_none(), "the dispatch side is gone");
+}
+
+#[test]
 // `collect` into a Vec is required to force eager spawn — without materialising
 // the handles, the thread-spawning iterator would be consumed lazily and the
 // concurrent-startup scenario under test would never actually race.
 #[allow(clippy::needless_collect)]
 fn test_concurrent_daemon_startup() {
-    let lock_path = Path::new("/tmp/test-touring-concurrent.lock");
-    let socket_path = Path::new("/tmp/test-touring-concurrent.sock");
+    // A private dir per run: fixed /tmp names collided across concurrent test
+    // runs, which is why this test used to be #[ignore]d (cross-audit 14/09, O3).
+    let dir = tempfile::tempdir().expect("tempdir");
+    let lock_path = &dir.path().join("concurrent.lock");
+    let socket_path = &dir.path().join("concurrent.sock");
     let _ = std::fs::remove_file(lock_path);
     let _ = std::fs::remove_file(socket_path);
 
@@ -244,19 +288,21 @@ fn a_protocol_failure_never_echoes_an_unbounded_payload() {
 // that made the constant necessary — a shared constant that one side quietly
 // stops using is back to two numbers.
 
-/// A heavy handler must never be cut off before the client stops waiting.
-/// Anything else reports "failed" for work that is still progressing.
+/// The client must still be listening when the server's typed budget reply goes
+/// out. Cross-audit 14/09/2026 (A3): the old version of this test compared the
+/// constant with itself; the floor equalled the budget and started earlier, so
+/// the socket read gave up first and the reply that says "still running" was lost.
 #[test]
-fn heavy_op_budget_is_never_below_the_client_floor() {
-    // The floor `cli/index.rs` raises for `index rebuild`, and the budget
-    // `dispatch_request_async` grants a heavy hook — the same value, by
-    // construction rather than by two people remembering.
-    let client_floor = touring_foundation::HEAVY_OP_BUDGET_SECS;
+fn the_client_outwaits_the_heavy_budget_and_every_wait_before_it() {
     let server_budget = touring_foundation::HEAVY_OP_BUDGET_SECS;
+    let client_floor = touring_foundation::HEAVY_OP_CLIENT_FLOOR_SECS;
+    // Global slot, project slot and channel send each wait up to REQUEST_TIMEOUT
+    // before `handler_budget` starts counting.
+    let pre_budget_waits = 3 * REQUEST_TIMEOUT.as_secs();
     assert!(
-        server_budget >= client_floor,
-        "server budget {server_budget}s < client floor {client_floor}s — the server would \
-         abandon work the client is still waiting for, and report it as a failure"
+        client_floor > server_budget + pre_budget_waits,
+        "client floor {client_floor}s must exceed the server budget {server_budget}s plus \
+         {pre_budget_waits}s of queueing, or the typed budget reply never reaches the client"
     );
     assert!(
         server_budget >= 300,
@@ -287,19 +333,8 @@ fn the_server_budget_reads_the_shared_constant_not_a_literal() {
 /// the canonical route (rodada 4, 2026-08-20 — fixed 2026-08-28).
 #[test]
 fn mutation_test_is_classified_heavy() {
-    let source = include_str!("daemon.rs");
-    // Window = the whole fn body, ending at the first column-zero `}`.
-    // Anything narrower proved fragile twice in one sitting: cutting at the
-    // first `)` stopped at the signature's own paren, and cutting at the
-    // first `)` after `matches!` stopped inside a comment's parenthetical —
-    // both excluded the arm regardless of the list's real content.
-    let heavy_list = source
-        .split("fn is_heavy_hook")
-        .nth(1)
-        .and_then(|rest| rest.split("\n}").next())
-        .unwrap_or("");
     assert!(
-        heavy_list.contains("\"cli-mutation-test\""),
+        is_heavy_hook("cli-mutation-test"),
         "cli-mutation-test must be in the is_heavy_hook class — under the light \
          budget a real mutation run dies in transport and the kill_rate KPI \
          can only ever see a cache_miss"
@@ -393,4 +428,75 @@ fn peer_label_for_a_dead_pid_keeps_the_pid_and_marks_comm_unknown() {
     // pid 2^22+1 is above the default pid_max; no such process exists.
     let label = super::peer_label(Some(4_194_305));
     assert_eq!(label, "pid=4194305 comm=?");
+}
+
+/// Decision 3-A (14/09/2026): `index status` is answered before the runtime map
+/// is touched. A project whose databases exist gets its status with NO project
+/// actor created — the property that lets it answer while that actor seals a
+/// rebuild (a status call timed out at 15 s in the analise at 09:08:32).
+#[test]
+fn index_status_is_served_without_the_project_actor() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let root = tmp.path().to_path_buf();
+    // A project marker, so the dispatch's root normalization stays on the tmpdir.
+    std::fs::create_dir(root.join(".git")).expect(".git");
+    drop(crate::HookRuntime::new(&root).expect("create the project databases"));
+
+    let map: RuntimeMap = tokio::sync::RwLock::new(HashMap::new());
+    let tokio_rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("tokio");
+    let req = DaemonRequest {
+        peer_pid: None,
+        hook: "cli-index-status".to_string(),
+        payload: serde_json::json!({}),
+        project_root: root.display().to_string(),
+        session_id: None,
+        priority: 0,
+        origin: None,
+    };
+    let dispatched = || {
+        touring_foundation::gate_metrics::hook_dispatch_by_name()
+            .get("cli-index-status")
+            .copied()
+            .unwrap_or(0)
+    };
+    let before = dispatched();
+    let resp = tokio_rt.block_on(dispatch_request_async(req, &map));
+
+    assert!(resp.success, "{}", resp.output);
+    assert!(
+        dispatched() > before,
+        "the off-actor route counts in the per-hook dispatch counter too (A8)"
+    );
+    let status: serde_json::Value = serde_json::from_str(&resp.output).expect("status json");
+    assert_eq!(status["initialized"], true, "{status}");
+    assert_eq!(
+        status["symbol_count"], 0,
+        "the tmp project's own empty store answered: {status}"
+    );
+    assert_eq!(status["index_generation"]["state"], "none", "{status}");
+    assert!(
+        tokio_rt.block_on(map.read()).is_empty(),
+        "no project runtime was created to answer the status"
+    );
+}
+
+/// Cross-audit 14/09/2026 (C12): the spawner is read before the boot waits on
+/// anything (lock, bind), so a launcher that exits meanwhile is still the one
+/// named — not the subreaper that adopted the daemon.
+#[test]
+fn the_spawner_is_read_before_the_lock_and_the_bind() {
+    let source = include_str!("daemon.rs");
+    let body = source
+        .split("pub async fn run_daemon_async()")
+        .nth(1)
+        .expect("run_daemon_async");
+    let read = body.find("parent_id()").expect("the spawner is read");
+    let lock = body.find("acquire_lock(&lock_path").expect("the lock");
+    assert!(
+        read < lock,
+        "the parent pid must be read before acquiring the lock"
+    );
 }

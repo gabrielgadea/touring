@@ -197,10 +197,7 @@ pub fn scan_secrets(code: &str) -> Vec<String> {
             };
             let value = rest[assign + 1..].trim_start();
             let value_lower = value.to_ascii_lowercase();
-            if FROM_ENVIRONMENT
-                .iter()
-                .any(|p| value_lower.starts_with(p))
-            {
+            if FROM_ENVIRONMENT.iter().any(|p| value_lower.starts_with(p)) {
                 continue;
             }
             // Literal não-vazio entre aspas.
@@ -582,8 +579,11 @@ mod tests {
 
     #[test]
     fn collision_is_refused_instead_of_last_one_wins() {
-        let err = render_preamble(&[snip("snippet:foo-bar", "x=1"), snip("snippet:foo.bar", "y=2")])
-            .expect_err("two keys mapping to one identifier must be refused");
+        let err = render_preamble(&[
+            snip("snippet:foo-bar", "x=1"),
+            snip("snippet:foo.bar", "y=2"),
+        ])
+        .expect_err("two keys mapping to one identifier must be refused");
         match err {
             BindingsError::NameCollision { binding, keys } => {
                 assert_eq!(binding, "snippet_foo_bar");
@@ -705,10 +705,16 @@ mod tests {
 
     #[test]
     fn multiline_literal_is_refused_because_indenting_would_change_it() {
-        let err = render_preamble(&[snip("snippet:doc", "x = \"\"\"line1\nline2\"\"\"\nprint(x)")])
-            .expect_err("indenting the inner line would silently rewrite the string");
+        let err = render_preamble(&[snip(
+            "snippet:doc",
+            "x = \"\"\"line1\nline2\"\"\"\nprint(x)",
+        )])
+        .expect_err("indenting the inner line would silently rewrite the string");
         assert!(matches!(err, BindingsError::MultilineLiteral { .. }));
-        assert!(format!("{err}").contains("indenting"), "error must explain why");
+        assert!(
+            format!("{err}").contains("indenting"),
+            "error must explain why"
+        );
 
         assert!(has_multiline_literal("x = '''a\nb'''"));
         assert!(has_multiline_literal("x = \"\"\"unclosed"));

@@ -399,6 +399,9 @@ pub fn compose_content_warnings(
     {
         warnings.push(s);
     }
+    // The related-docs signal is the only reader of the root.
+    #[cfg(not(feature = "tantivy-fts"))]
+    let _ = project_root;
 
     (warnings, Some(spec_result))
 }

@@ -34,9 +34,10 @@ pub fn detect_language(file_path: &str) -> Option<&'static str> {
 /// Whether the detected language is a "code" language (has functions, classes,
 /// imports — as opposed to data/markup like JSON, YAML, TOML, Markdown, HTML, CSS).
 ///
-/// Used by the wiring system to skip registration of data-file keys as pub symbols,
-/// which would otherwise generate massive false-positive orphan counts.
-pub fn is_code_language(language: &str) -> bool {
+/// Backs [`is_code_file`]. The wiring system keeps its own predicate
+/// (`touring_hook_runtime::wiring`, renamed in cross-audit B9) because it
+/// classifies a different set.
+pub(crate) fn is_code_language(language: &str) -> bool {
     matches!(
         language,
         "rust"

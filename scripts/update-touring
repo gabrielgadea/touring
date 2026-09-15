@@ -64,13 +64,22 @@ readonly BIN_TARGETS=(
     "${HOME}/.claude/hooks"
 )
 readonly BINARIES=(touring touring-hook touring-daemon)
+# ONNX Runtime provider libraries (GPU embeddings, 15/09/2026). ONNX Runtime
+# opens them from the directory of the path the daemon was LAUNCHED by (argv[0],
+# e.g. ~/.local/bin), not of the resolved binary, so each dir that exposes a
+# binary link gets them too. Must equal PROJECT_RUNTIME_LIBS in
+# crates/touring-server/src/cli/project_toolchain.rs (scripts/test_update_touring.py).
+readonly RUNTIME_LIBS=(libonnxruntime_providers_shared.so libonnxruntime_providers_cuda.so)
 # UID derived, never hardcoded (cross-audit 2026-08-23): a literal `-1000`
 # breaks every socket/lock/PID resolution on any machine whose uid differs —
 # global_daemon_pid would never find the socket and the kill/verify paths
 # would silently act on nothing (the exact drift class §2.2 exists to close).
 DAEMON_SOCKET="/tmp/touring-daemon-$(id -u).sock"
 DAEMON_LOCK="/tmp/touring-daemon-$(id -u).lock"
-readonly DAEMON_SOCKET DAEMON_LOCK
+# One JSON entry per live daemon, written on every bind
+# (`TouringConfig::daemon_registry_dir`): the source `daemon-ctl` resolves by.
+DAEMON_REGISTRY_DIR="/tmp/touring-daemons-$(id -u)"
+readonly DAEMON_SOCKET DAEMON_LOCK DAEMON_REGISTRY_DIR
 readonly LOG_FILE="${HOME}/.claude/touring/update.log"
 # Sprint 4.5 (2026-05-23): dedicated stderr capture for daemon — separate
 # from LOG_FILE so panics + RUST_BACKTRACE land in a clean, isolated stream
@@ -132,11 +141,46 @@ err() {
 # Prints the pid and returns 0 when a live global daemon exists; returns 1
 # otherwise (and prints nothing).
 global_daemon_pid() {
-    local pid pidfile
+    local pid pidfile candidate start newest="" newest_start=-1
+    # 1. The registry entry the owner writes when it binds, the same source
+    #    `daemon-ctl` reads (`pid_for_socket`). The socket path alone can name
+    #    two processes: right after a restart the predecessor is still flushing
+    #    KPIs with its listener open, and it has the lower pid. On 14/09/2026
+    #    `lsof | head -1` picked it and the verify reported the fresh deploy as
+    #    a deleted binary.
+    pid="$(python3 -c '
+import json, pathlib, sys
+for entry in sorted(pathlib.Path(sys.argv[1]).glob("*.json")):
+    try:
+        data = json.loads(entry.read_text())
+    except (OSError, ValueError):
+        continue
+    if data.get("socket") == sys.argv[2] and isinstance(data.get("pid"), int):
+        print(data["pid"])
+        break
+' "${DAEMON_REGISTRY_DIR}" "${DAEMON_SOCKET}" 2>/dev/null || true)"
+    # A stale entry whose pid was recycled by ANOTHER daemon passes the `comm`
+    # test, so when lsof can tell, the pid must also hold this socket (R2-11).
+    if [[ -n "${pid}" && "$(cat "/proc/${pid}/comm" 2>/dev/null || true)" == "touring-daemon" ]] \
+        && { ! command -v lsof >/dev/null 2>&1 || [[ ! -S "${DAEMON_SOCKET}" ]] \
+            || lsof -t "${DAEMON_SOCKET}" 2>/dev/null | grep -qx "${pid}"; }; then
+        printf '%s' "${pid}"
+        return 0
+    fi
+    # 2. No usable entry: of the daemons holding the socket, the one started
+    #    last is the one that bound it.
     if command -v lsof >/dev/null 2>&1 && [[ -S "${DAEMON_SOCKET}" ]]; then
-        pid="$(lsof -t "${DAEMON_SOCKET}" 2>/dev/null | head -1 || true)"
-        if [[ -n "${pid}" && -d "/proc/${pid}" ]]; then
-            printf '%s' "${pid}"
+        for candidate in $(lsof -t "${DAEMON_SOCKET}" 2>/dev/null || true); do
+            [[ "$(cat "/proc/${candidate}/comm" 2>/dev/null || true)" == "touring-daemon" ]] || continue
+            start="$(awk '{print $22}' "/proc/${candidate}/stat" 2>/dev/null || true)"
+            [[ "${start}" =~ ^[0-9]+$ ]] || continue
+            if (( start > newest_start )); then
+                newest="${candidate}"
+                newest_start="${start}"
+            fi
+        done
+        if [[ -n "${newest}" ]]; then
+            printf '%s' "${newest}"
             return 0
         fi
     fi
@@ -272,6 +316,21 @@ install_symlinks() {
             ln -sf "${src}" "${dst}"
             log "  ${dst} -> ${src}"
         done
+        for lib in "${RUNTIME_LIBS[@]}"; do
+            local lib_src="${RELEASE_DIR}/${lib}"
+            local lib_dst="${target_dir}/${lib}"
+            if [[ ! -e "${lib_src}" ]]; then
+                # Never leave a link to a provider this build does not carry: the
+                # new daemon would load another ONNX Runtime build's library.
+                if [[ -L "${lib_dst}" ]]; then
+                    rm -f "${lib_dst}"
+                fi
+                log "  [SKIP] ${lib_src} absent — GPU embeddings will run on CPU"
+                continue
+            fi
+            ln -sf "${lib_src}" "${lib_dst}"
+            log "  ${lib_dst} -> ${lib_src}"
+        done
     done
 }
 
@@ -333,31 +392,108 @@ start_daemon() {
         daemon_launcher="${HOME}/.local/bin/touring-daemon"
     fi
 
+    # Its own cgroup (decision 2-A, 14/09/2026): a process inherits its parent's
+    # cgroup, and systemd kills a unit's whole cgroup when the unit ends. This
+    # script run by a oneshot service (the release pipeline, a timer) left the
+    # daemon inside that service — release 30.4.45 survived only through
+    # `KillMode=process`. `systemd-run --user --scope` moves the launch into a
+    # transient scope and then execs the daemon (same pid, env and cwd); the
+    # Rust spawn sites use the same launcher (`touring_foundation::daemon_spawn`).
+    # No user manager, or TOURING_DAEMON_SCOPE=0|false|off (the values the Rust
+    # launcher accepts) → the direct launch, as before.
+    # `--expand-environment=no`: systemd-run expands `$VAR`/`${VAR}` in the argv
+    # by default, which would rewrite a path that contains them.
+    local scope_opt_out=false
+    case "${TOURING_DAEMON_SCOPE:-}" in
+        0|false|off) scope_opt_out=true ;;
+    esac
+    local -a scope=()
+    if [[ "${scope_opt_out}" == false ]] \
+        && command -v systemd-run >/dev/null 2>&1 \
+        && [[ -S "${XDG_RUNTIME_DIR:-/nonexistent}/systemd/private" ]]; then
+        scope=(systemd-run --user --scope --quiet --collect --expand-environment=no
+            "--description=touring-daemon ${DAEMON_SOCKET}" --)
+    fi
+    local rc=0
+    launch_daemon_and_wait "${daemon_launcher}" "${scope[@]}" || rc=$?
+    (( rc == 0 )) && return 0
+    # Retry directly only when the scope launch itself ended (cross-audit
+    # 14/09/2026, C4). A daemon still booting past 5 s is left alone: a second,
+    # direct one could win the flock and put the daemon back in the caller's cgroup.
+    if (( rc == 2 && ${#scope[@]} > 0 )); then
+        err "the scope launch exited before the daemon answered — retrying the direct launch"
+        rc=0
+        launch_daemon_and_wait "${daemon_launcher}" || rc=$?
+        (( rc == 0 )) && return 0
+    fi
+    if (( rc == 1 )); then
+        err "daemon is running but its socket accepted no connection within 5s — not starting a second one; check ${DAEMON_STDERR}"
+    else
+        err "daemon exited before its socket accepted a connection — check ${DAEMON_STDERR}"
+    fi
+    return 4
+}
+
+# socket_accepts <path> — whether something accepts a connection on the unix
+# socket. `-S` only says a socket FILE exists, and a daemon that died leaves one.
+socket_accepts() {
+    python3 -c '
+import socket, sys
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.settimeout(0.5)
+try:
+    s.connect(sys.argv[1])
+except OSError:
+    sys.exit(1)
+' "$1" 2>/dev/null
+}
+
+# process_running <pid> — alive and not a zombie (a dead child the shell has not
+# reaped yet still answers `kill -0`).
+process_running() {
+    local state
+    state=$(sed -E 's/^.*\) ([A-Za-z]).*$/\1/' "/proc/$1/stat" 2>/dev/null) || return 1
+    [[ -n "${state}" && "${state}" != "Z" ]]
+}
+
+# launch_daemon_and_wait <launcher> [prefix argv...] — one detached launch of the
+# daemon, then up to 5 s for its socket to accept a connection. The prefix (a
+# `systemd-run … --` scope launcher, or nothing) runs between `setsid` and the
+# daemon's environment. Returns 0 when the socket answers, 2 when the launched
+# process ended first (the launcher or the daemon failed), 1 when it is still
+# running but not answering yet.
+launch_daemon_and_wait() {
+    local launcher="$1"
+    shift
     # setsid: new session → daemon survives parent SIGHUP / shell exit.
     # </dev/null: explicit stdin close.
     # 2>>: append stderr to dedicated file (unbuffered when daemon flushes).
     # RUST_BACKTRACE=full: full panic backtrace (Rust profile keeps line-tables-only,
     #   which is sufficient for file:line — full traces still resolve to readable text).
     # RUST_LOG: per-call override via TOURING_DAEMON_LOG; default = info + daemon=debug.
-    setsid env \
+    setsid "$@" env \
         RUST_BACKTRACE=full \
         RUST_LOG="${TOURING_DAEMON_LOG:-info,touring_hooks::daemon=debug}" \
         TOURING_CRASH_LOG_PATH="${DAEMON_CRASH_LOG}" \
-        nohup "${daemon_launcher}" \
+        nohup "${launcher}" \
         </dev/null \
         >>"${LOG_FILE}" \
         2>>"${DAEMON_STDERR}" &
+    # setsid, systemd-run --scope, env and nohup all exec in place: this pid
+    # becomes the daemon's, or ends when one of them fails.
+    local launched=$!
     disown
-    # Wait up to 5s for socket to appear (daemon boot).
     for _ in $(seq 1 10); do
-        if [[ -S "${DAEMON_SOCKET}" ]]; then
+        if socket_accepts "${DAEMON_SOCKET}"; then
             log "daemon socket ready"
             return 0
         fi
+        if ! process_running "${launched}"; then
+            return 2
+        fi
         sleep 0.5
     done
-    err "daemon socket did not appear within 5s — check ${DAEMON_STDERR}"
-    return 4
+    return 1
 }
 
 # Verify daemon health + binary mtime sync.
@@ -436,10 +572,14 @@ verify_or_restart() {
     local max_attempts=2
     local attempt=1
     while (( attempt <= max_attempts )); do
-        if verify_health; then
+        # Capture the status on the call itself. `local rc=$?` after an `if`
+        # without `else` reads the `if`, which is always 0: a stale daemon was
+        # reported, never healed, and the deploy exited 0 (14/09/2026).
+        local rc=0
+        verify_health || rc=$?
+        if (( rc == 0 )); then
             return 0
         fi
-        local rc=$?
         if (( rc == 4 )) && (( attempt < max_attempts )); then
             log "verify_or_restart: attempt ${attempt}/${max_attempts} failed — restarting daemon"
             force_daemon_restart || return 4

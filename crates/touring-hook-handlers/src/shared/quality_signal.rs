@@ -10,7 +10,7 @@
 //! memory and measures the result BEFORE it lands.
 //!
 //! Latency: one `analyze_file_quality` pass over the simulated file (the
-//! same cost `pre_write` already pays). Files above [`MAX_SOURCE_BYTES`]
+//! same cost `pre_write` already pays). Files above `MAX_SOURCE_BYTES`
 //! are skipped — the signal is a nudge, not a gate.
 
 use crate::shared::signal_pipeline::{ProposedChange, SignalContext, SignalLayer};
@@ -121,8 +121,16 @@ mod tests {
     #[test]
     fn apply_edit_replaces_the_first_occurrence_only() {
         assert_eq!(apply_edit("a b a", "a", "z").as_deref(), Some("z b a"));
-        assert_eq!(apply_edit("a b", "", "z"), None, "empty old cannot be simulated");
-        assert_eq!(apply_edit("a b", "q", "z"), None, "absent old cannot be simulated");
+        assert_eq!(
+            apply_edit("a b", "", "z"),
+            None,
+            "empty old cannot be simulated"
+        );
+        assert_eq!(
+            apply_edit("a b", "q", "z"),
+            None,
+            "absent old cannot be simulated"
+        );
     }
 
     #[test]
@@ -149,6 +157,9 @@ mod tests {
         let proposed = branchy(14);
         let layer = QualityBaselineLayer::for_edit("src/b.rs", current, current, &proposed);
         let ctx = crate::shared::signal_pipeline::context_for_write("src/b.rs", &proposed, 2);
-        assert!(layer.enrich(&ctx).is_empty(), "an Edit measurement never speaks for a Write");
+        assert!(
+            layer.enrich(&ctx).is_empty(),
+            "an Edit measurement never speaks for a Write"
+        );
     }
 }

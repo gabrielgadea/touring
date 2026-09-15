@@ -14,33 +14,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 mod common;
-
-/// Locate the touring binary (preferring release over debug).
-fn locate_binary(name: &str) -> Option<PathBuf> {
-    let workspace_target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|p| p.join("target"))?;
-
-    // `cargo llvm-cov` redirects the build to `target/llvm-cov-target/`, so a
-    // binary from a plain `cargo build` is invisible inside a coverage run —
-    // exactly how the CI coverage job failed on 2026-08-02. An explicit
-    // CARGO_TARGET_DIR wins for the same reason.
-    let roots = [
-        std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from),
-        Some(workspace_target.join("llvm-cov-target")),
-        Some(workspace_target),
-    ];
-    for root in roots.into_iter().flatten() {
-        for profile in ["release", "debug"] {
-            let candidate = root.join(profile).join(name);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-        }
-    }
-    None
-}
+use common::private_daemon::locate_binary;
 
 /// Resolve the binary or SKIP the test — never panic with a "skipping" message.
 ///
@@ -56,8 +30,8 @@ fn touring_bin_or_skip() -> Option<PathBuf> {
             let test = std::thread::current().name().unwrap_or("test").to_string();
             eprintln!(
                 "SKIP {test}: touring binary not built. Build it first: \
-                 `cargo build -p touring-server` (looked in $CARGO_TARGET_DIR, \
-                 target/llvm-cov-target/{{release,debug}} and target/{{release,debug}})."
+                 `cargo build -p touring-server` (looked in $CARGO_TARGET_DIR, this test's own build root, \
+                 target/ and target/llvm-cov-target/)."
             );
             None
         }
@@ -280,7 +254,14 @@ fn b310_path_wired_when_predictive_blast_injects_symbols() {
     // real) estourava o budget de 15s do cliente e o teste morria em
     // "EOF while parsing a value". O daemon compartilhado já foi aquecido pelos
     // outros testes deste binário e tem a raiz do projeto pinada.
-    let Some(daemon) = common::private_daemon::shared() else {
+    // `shared_warm`, não `shared` (04/09/2026): este teste é o único do binário
+    // que faz uma consulta PESADA (blast preditivo sobre o workspace real), e
+    // era ele que pagava a montagem do índice dentro do próprio orçamento —
+    // verde isolado, vermelho na suíte completa. O aquecimento é explícito aqui
+    // porque é aqui que ele é preciso; escondê-lo em `shared()` cobrava-o de
+    // quem chegasse primeiro, e uma vez isso foi um teste de latência (P99 de
+    // 10.952ms contra teto de 2.000ms).
+    let Some(daemon) = common::private_daemon::shared_warm() else {
         eprintln!("SKIP b310: touring-daemon não compilado");
         return;
     };

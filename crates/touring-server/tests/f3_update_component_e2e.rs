@@ -22,7 +22,6 @@ use tempfile::TempDir;
 mod private_daemon;
 use private_daemon::private_daemon_env;
 
-
 /// The product binary: prefer `release` when it exists, else `debug`.
 ///
 /// Release-only resolution made these tests pass on a developer box (where
@@ -72,7 +71,8 @@ fn make_project(root: &Path, channel: &str) {
 
 /// Run `touring <args>` with HOME/TOURING_HOME pinned to the sandbox.
 fn run_touring(home: &Path, touring_home: &Path, args: &[&str]) -> Output {
-    Command::new(touring_bin()).envs(private_daemon_env())
+    Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(args)
         .env("HOME", home)
         .env("TOURING_HOME", touring_home)

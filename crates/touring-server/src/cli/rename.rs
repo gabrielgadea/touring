@@ -64,14 +64,19 @@ fn print_help() {
 fn parse_position(s: &str) -> anyhow::Result<(String, usize, usize)> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 3 {
-        anyhow::bail!("Position must be <file>:<line>:<col>, got: {} — use `touring ast find <symbol>` to get exact location", s);
+        anyhow::bail!(
+            "Position must be <file>:<line>:<col>, got: {} — use `touring ast find <symbol>` to get exact location",
+            s
+        );
     }
     let file = parts[0].to_string();
     let line = parts[1]
         .parse()
         .map_err(|_| anyhow::anyhow!("Invalid line number — expected a numeric value, e.g. touring rename src/lib.rs:42:1 NewName"))?;
-    let col = parts[2]
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid column — expected a numeric value, e.g. touring rename src/lib.rs:42:1 NewName"))?;
+    let col = parts[2].parse().map_err(|_| {
+        anyhow::anyhow!(
+            "Invalid column — expected a numeric value, e.g. touring rename src/lib.rs:42:1 NewName"
+        )
+    })?;
     Ok((file, line, col))
 }

@@ -70,6 +70,221 @@ fn code_only(source: &str) -> String {
     out
 }
 
+// ─── Query shape ──────────────────────────────────────────────────────────────
+
+/// Most distinct terms a coverage clause considers (see `coverage_clauses`).
+const COVERAGE_MAX_TERMS: usize = 8;
+
+/// Whether `query` is one identifier rather than words: a single token of
+/// `[A-Za-z0-9_:]` that carries an identifier mark — `_`, `::`, or a lowercase
+/// letter followed by an uppercase one (`HookRuntime`, `cli_index_why`,
+/// `ast::markdown_text`). A plain word (`classify`) is not.
+fn is_identifier_query(query: &str) -> bool {
+    let q = query.trim();
+    if q.is_empty() || q.chars().any(char::is_whitespace) {
+        return false;
+    }
+    if !q
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':')
+    {
+        return false;
+    }
+    let camel = q
+        .chars()
+        .zip(q.chars().skip(1))
+        .any(|(a, b)| a.is_ascii_lowercase() && b.is_ascii_uppercase());
+    q.contains('_') || q.contains("::") || camel
+}
+
+/// Whether `query` mixes a command or identifier token with prose: at least
+/// three tokens, at least one carrying a mark (`_`, `::`, `()`, a `-` or `.`
+/// joining two alphanumerics, a lowercase letter followed by an uppercase one)
+/// and at least two unmarked words. `cascading kill multi-sessão daemon-ctl` is
+/// mixed; `classify a command` and `HookRuntime` are not.
+fn is_mixed_query(query: &str) -> bool {
+    fn marked(token: &str) -> bool {
+        let core = token.trim_matches(|c: char| !c.is_alphanumeric());
+        let joined = core.char_indices().any(|(i, c)| {
+            (c == '-' || c == '.')
+                && core[..i]
+                    .chars()
+                    .next_back()
+                    .is_some_and(char::is_alphanumeric)
+                && core[i + c.len_utf8()..]
+                    .chars()
+                    .next()
+                    .is_some_and(char::is_alphanumeric)
+        });
+        let camel = core
+            .chars()
+            .zip(core.chars().skip(1))
+            .any(|(a, b)| a.is_lowercase() && b.is_uppercase());
+        core.contains('_') || core.contains("::") || token.contains("()") || joined || camel
+    }
+    let tokens: Vec<&str> = query
+        .split_whitespace()
+        .filter(|t| t.chars().any(char::is_alphanumeric))
+        .collect();
+    let marks = tokens.iter().filter(|t| marked(t)).count();
+    tokens.len() >= 3 && marks >= 1 && tokens.len() - marks >= 2
+}
+
+/// A query matching a document holding ANY of `alternatives` (one word as the
+/// analyzers of several fields spell it).
+fn any_term_of(alternatives: &[Term]) -> Box<dyn tantivy::query::Query> {
+    use tantivy::query::{BooleanQuery, Occur, TermQuery};
+    use tantivy::schema::IndexRecordOption;
+    let mut shoulds: Vec<(Occur, Box<dyn tantivy::query::Query>)> = alternatives
+        .iter()
+        .map(|t| {
+            let q: Box<dyn tantivy::query::Query> =
+                Box::new(TermQuery::new(t.clone(), IndexRecordOption::Basic));
+            (Occur::Should, q)
+        })
+        .collect();
+    if shoulds.len() == 1 {
+        shoulds.pop().map(|(_, q)| q).expect("one alternative")
+    } else {
+        Box::new(BooleanQuery::new(shoulds))
+    }
+}
+
+/// Characters the query parser reads as syntax (`+a`, `-a`, `f:v`, `(a)`, `"a"`,
+/// `a^2`, `a~1`, `a*`, `[a TO b]`, `{a}`, `!a`) or that break its grammar.
+const QUERY_SYNTAX: &[char] = &[
+    '+', '-', '^', ':', '{', '}', '"', '[', ']', '(', ')', '~', '!', '\\', '*', '|', '<', '>', '=',
+    '\'', '/', '`', ';',
+];
+
+/// `query` as the parser must receive a question: words. A token carrying a
+/// syntax character becomes a quoted phrase of itself, which the field analyzer
+/// splits into the same words the indexed text produced (`daemon-ctl`, `rm -rf`,
+/// `open()`); the boolean keywords are quoted; a token without a letter or digit
+/// is dropped. Before this, `rm -rf` EXCLUDED every document holding `rf`,
+/// `lock:` named a field that does not exist and `open()` failed the whole
+/// search with a parse error (14/09/2026).
+fn plain_words(query: &str) -> String {
+    query
+        .split_whitespace()
+        .filter(|token| token.chars().any(char::is_alphanumeric))
+        .map(|token| {
+            if token.contains(QUERY_SYNTAX) || matches!(token, "AND" | "OR" | "NOT" | "IN") {
+                let inner: String = token
+                    .chars()
+                    .map(|c| if c == '"' || c == '\\' { ' ' } else { c })
+                    .collect();
+                format!("\"{}\"", inner.trim())
+            } else {
+                token.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+// ─── File aggregation ─────────────────────────────────────────────────────────
+
+/// Candidates collected before the file aggregation re-ranks them. A FIXED pool:
+/// sized by the request, the re-ranking changed with it — `tantivy search q 60`
+/// and the evaluator's 200 ordered the same query differently (measured
+/// 13/09/2026). Any request up to half the pool now sees the same ordering.
+const CANDIDATE_POOL: usize = 400;
+
+/// Candidates to collect: the fixed pool when aggregation is on (or the request,
+/// when it is larger), the request otherwise.
+fn candidate_pool(requested: usize) -> usize {
+    if crate::shared::feature_flags::tantivy_file_aggregation() > 0.0 {
+        requested.max(CANDIDATE_POOL)
+    } else {
+        requested
+    }
+}
+
+/// `score + λ · (the file's best other candidate score)`, then re-sorted
+/// (stable, so equal scores keep the engine's order). No-op when λ is 0.
+fn aggregate_by_file(hits: &mut [SearchHit]) {
+    let lambda = crate::shared::feature_flags::tantivy_file_aggregation();
+    if lambda <= 0.0 {
+        return;
+    }
+    // Per file: its two best candidate scores.
+    let mut per_file: std::collections::HashMap<String, (f32, f32)> =
+        std::collections::HashMap::new();
+    for h in hits.iter() {
+        let e = per_file
+            .entry(h.file_path.clone())
+            .or_insert((f32::MIN, f32::MIN));
+        if h.score > e.0 {
+            e.1 = e.0;
+            e.0 = h.score;
+        } else if h.score > e.1 {
+            e.1 = h.score;
+        }
+    }
+    for h in hits.iter_mut() {
+        let (best, second) = per_file
+            .get(&h.file_path)
+            .copied()
+            .unwrap_or((h.score, f32::MIN));
+        // The file's best OTHER document: the second best when this hit is the best.
+        let other = if (h.score - best).abs() <= f32::EPSILON {
+            second
+        } else {
+            best
+        };
+        h.score += lambda * other.max(0.0);
+    }
+    hits.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+}
+
+// ─── Text analyzer ────────────────────────────────────────────────────────────
+
+/// Re-registers `en_stem` — the analyzer of `symbol_name`, `docstring`,
+/// `module_path` and `functional_signature` — as tantivy's own chain (split on
+/// non-alphanumerics, drop tokens over 40 bytes, lowercase, English stem) plus
+/// diacritic folding (`binário` = `binario`: slugs, headings and prose of the
+/// Portuguese memories disagreed on accents) and English + Portuguese stopwords
+/// (a short name like `into_string` outranked every answer on `into`). Stopword
+/// removal keeps token positions, so proximity clauses still align. The schema
+/// stores only the analyzer's NAME: no schema version changes, and a rebuild
+/// re-analyzes every document. Measured on 13/09/2026 over 55 questions (see
+/// `examples/search_eval.rs`); case splitting (`HookRegistry` → `hook registry`)
+/// was measured too and gained nothing, so it is not here.
+fn register_text_analyzer(index: &Index) {
+    use tantivy::tokenizer::{
+        AsciiFoldingFilter, Language, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer,
+        StopWordFilter, TextAnalyzer,
+    };
+    let analyzer = TextAnalyzer::builder(SimpleTokenizer::default())
+        .filter(RemoveLongFilter::limit(40))
+        .filter(LowerCaser)
+        .filter(AsciiFoldingFilter)
+        .filter(StopWordFilter::remove(stopwords()))
+        .filter(Stemmer::new(Language::English))
+        .build();
+    index.tokenizers().register("en_stem", analyzer);
+}
+
+/// English and Portuguese function words — lowercase and folded, because the
+/// filter runs after `LowerCaser` and `AsciiFoldingFilter`.
+fn stopwords() -> Vec<String> {
+    const WORDS: &[&str] = &[
+        "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "in", "into", "is", "it",
+        "of", "on", "or", "that", "the", "this", "to", "was", "with", "o", "os", "as", "um", "uma",
+        "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "para", "por", "com",
+        "que", "e", "ou", "se", "ao", "aos", "um", "sem",
+    ];
+    let mut v: Vec<String> = WORDS.iter().map(|w| (*w).to_string()).collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
 // ─── Public Types ────────────────────────────────────────────────────────────
 
 /// A symbol to index in Tantivy (schema v3 — 16 fields).
@@ -422,6 +637,7 @@ impl TantivyIndex {
         std::fs::create_dir_all(path).map_err(|e| format!("create_dir_all: {e}"))?;
         let index = Self::open_index_dir(path, schema)?;
         Self::register_trigram_tokenizer(&index)?;
+        register_text_analyzer(&index);
 
         // A LEITURA é o caminho crítico e não depende do writer lock — por isso
         // vem primeiro e é a única etapa fatal. O writer é BEST-EFFORT: com N
@@ -644,6 +860,11 @@ impl TantivyIndex {
         self.reader
             .reload()
             .map_err(|e| format!("reader reload: {e}"))?;
+        // Every cached answer predates this commit. The cache had no TTL and was
+        // never cleared, so a query asked before a rebuild kept its pre-rebuild
+        // hits for the daemon's whole life (found 13/09/2026 while proving that
+        // companion text became searchable — the proof had to dodge it).
+        self.query_cache.invalidate_all();
         self.pending_count.store(0, Ordering::Relaxed);
         let mut last = self
             .last_commit
@@ -654,6 +875,74 @@ impl TantivyIndex {
         crate::shared::gate_metrics::record_tantivy_commit();
         tracing::debug!(total_commits = prev + 1, "tantivy committed");
         Ok(())
+    }
+
+    /// Merges every searchable segment into one, dropping deleted documents, and
+    /// reloads the reader. Returns how many segments were merged (0 when there was
+    /// nothing to merge).
+    ///
+    /// BM25 statistics (document frequency, average field length) still count a
+    /// deleted document until its segment is merged. After a full reindex over a
+    /// live index the live daemon held 12 segments for 146.788 documents and 369.360
+    /// writes, and ranked the same questions differently from a freshly built index
+    /// (48 vs 50 of 55, measured 13/09/2026). Compacting after every full write
+    /// makes the ranking a function of the documents alone — not of their history.
+    ///
+    /// # Errors
+    ///
+    /// A read-only handle, or a merge / reload the engine refuses.
+    pub fn compact(&self) -> Result<usize, TantivyIndexError> {
+        // Every commit lets tantivy's merge policy start background merges, and a
+        // segment already being merged cannot join ours: inside the daemon — where
+        // the stream actor commits every 2 s — the first attempt failed and the live
+        // index kept 20 segments (measured 13/09/2026). Retry on a fresh segment
+        // list until the in-flight merges finish, within a bounded wait.
+        const ATTEMPTS: u32 = 40;
+        const PAUSE: Duration = Duration::from_millis(250);
+        let mut last_error = String::new();
+        for attempt in 0..ATTEMPTS {
+            let ids = self
+                .index
+                .searchable_segment_ids()
+                .map_err(|e| format!("segment ids: {e}"))?;
+            let has_deletes = self
+                .reader
+                .searcher()
+                .segment_readers()
+                .iter()
+                .any(|r| r.num_deleted_docs() > 0);
+            if ids.len() <= 1 && !has_deletes {
+                return Ok(0);
+            }
+            let merged = {
+                let mut guard = self.writer_guard()?;
+                let writer = guard.as_mut().ok_or_else(read_only_error)?;
+                let outcome = writer.merge(&ids).wait();
+                if outcome.is_ok() {
+                    let _ = writer.garbage_collect_files().wait();
+                }
+                outcome
+            };
+            match merged {
+                Ok(_) => {
+                    self.reader
+                        .reload()
+                        .map_err(|e| format!("reader reload: {e}"))?;
+                    self.query_cache.invalidate_all();
+                    return Ok(ids.len());
+                }
+                Err(e) => {
+                    last_error = format!(
+                        "merge {} segments (attempt {}): {e}",
+                        ids.len(),
+                        attempt + 1
+                    );
+                    std::thread::sleep(PAUSE);
+                    let _ = self.reader.reload();
+                }
+            }
+        }
+        Err(last_error.into())
     }
 
     /// Execute a BM25 search query and return the top `top_k` hits.
@@ -667,38 +956,10 @@ impl TantivyIndex {
 
         let searcher = self.reader.searcher();
         // I-03 — 5× heading boost: matches no symbol_name pesam mais que
-        // matches em docstring, replicando 'title field 5x weighting' do
-        // context-mode. Configurável via env TOURING_TANTIVY_NAME_BOOST.
-        let name_boost = crate::shared::feature_flags::tantivy_name_boost();
-        let mut query_parser = tantivy::query::QueryParser::for_index(
-            &self.index,
-            vec![
-                self.fields.symbol_name,
-                self.fields.docstring,
-                self.fields.functional_signature,
-            ],
-        );
-        query_parser.set_field_boost(self.fields.symbol_name, name_boost);
-        query_parser.set_field_boost(self.fields.functional_signature, 1.5);
-        // docstring permanece com boost 1.0 (default)
-        let parsed = query_parser
-            .parse_query(query)
-            .map_err(|e| format!("parse_query: {e}"))?;
-
-        // I-02 — PhraseQuery proximity boost para multi-term queries.
-        // Detecta `query.split_whitespace().count() >= 2` e combina BM25
-        // plain com PhraseQuery em BooleanQuery::SHOULD union.
-        let final_query: Box<dyn tantivy::query::Query> = match self.try_build_phrase_query(query) {
-            Some(phrase_q) => {
-                let union: Vec<(tantivy::query::Occur, Box<dyn tantivy::query::Query>)> = vec![
-                    (tantivy::query::Occur::Should, parsed),
-                    (tantivy::query::Occur::Should, phrase_q),
-                ];
-                crate::shared::gate_metrics::record_phrase_query_match();
-                Box::new(tantivy::query::BooleanQuery::new(union))
-            }
-            _ => parsed,
-        };
+        // matches em docstring (context-mode 'title field 5x weighting').
+        // Configurável via env TOURING_TANTIVY_NAME_BOOST.
+        let final_query =
+            self.ranked_query(query, crate::shared::feature_flags::tantivy_name_boost())?;
 
         let top_docs = searcher
             .search(
@@ -720,24 +981,281 @@ impl TantivyIndex {
         Ok(hits)
     }
 
-    /// I-02 helper — constrói PhraseQuery em `symbol_name` quando a query
-    /// tem ≥ 2 termos. Slop default 2 (env-tunável).
-    /// Retorna None para single-term queries (no-op).
-    fn try_build_phrase_query(&self, query: &str) -> Option<Box<dyn tantivy::query::Query>> {
-        let terms: Vec<&str> = query.split_whitespace().filter(|s| !s.is_empty()).collect();
+    /// BM25 over the TEXT alone (`docstring`): what a memory, a rule or a skill
+    /// says, never what a symbol is named. The lane `search unified` fuses next to
+    /// the name lanes, so prose competes with prose and identifiers with
+    /// identifiers — one index, two rankings, RRF on ranks (2026-09-13).
+    ///
+    /// # Errors
+    ///
+    /// A query the parser rejects or a failing searcher.
+    pub fn search_text(
+        &self,
+        query: &str,
+        top_k: usize,
+    ) -> Result<Vec<SearchHit>, TantivyIndexError> {
+        let cache_key = format!("text:{query}:{top_k}");
+        if let Some(hits) = self.query_cache.get(&cache_key) {
+            self.query_cache_hits.fetch_add(1, Ordering::Relaxed);
+            return Ok(hits.as_ref().clone());
+        }
+        self.query_cache_misses.fetch_add(1, Ordering::Relaxed);
+        let searcher = self.reader.searcher();
+        let query_parser =
+            tantivy::query::QueryParser::for_index(&self.index, vec![self.fields.docstring]);
+        let parsed = query_parser
+            .parse_query(&plain_words(query))
+            .map_err(|e| format!("parse_query: {e}"))?;
+        let top_docs = searcher
+            .search(&parsed, &tantivy::collector::TopDocs::with_limit(top_k))
+            .map_err(|e| format!("search: {e}"))?;
+        let hits: Vec<SearchHit> = top_docs
+            .into_iter()
+            .filter_map(|(score, doc_address)| {
+                let doc: TantivyDocument = searcher.doc(doc_address).ok()?;
+                Some(self.doc_to_hit(&doc, score))
+            })
+            .collect();
+        self.query_cache
+            .insert(cache_key, std::sync::Arc::new(hits.clone()));
+        Ok(hits)
+    }
+
+    /// The terms `text` becomes in `field`, produced by the field's OWN analyzer.
+    /// A phrase built from raw lowercased words never matched a stemmed field:
+    /// `classify` is indexed as `classifi`, so the I-02 proximity clause over
+    /// `symbol_name` silently matched nothing for most queries (found 13/09/2026).
+    ///
+    /// Each term keeps the POSITION the analyzer gave it: a stopword filter drops
+    /// tokens without renumbering, and a phrase built on `0, 1, 2` would then miss
+    /// the gaps the index holds.
+    fn analyzed_terms(&self, field: Field, text: &str) -> Vec<(usize, Term)> {
+        let Ok(mut analyzer) = self.index.tokenizer_for_field(field) else {
+            return Vec::new();
+        };
+        let mut stream = analyzer.token_stream(text);
+        let mut terms = Vec::new();
+        while stream.advance() {
+            let token = stream.token();
+            terms.push((token.position, Term::from_field_text(field, &token.text)));
+        }
+        terms
+    }
+
+    /// A proximity clause over `field` for a query of ≥ 2 analyzed terms (slop
+    /// from `TOURING_TANTIVY_PHRASE_SLOP`, default 2); `None` otherwise.
+    fn phrase_on(&self, field: Field, query: &str) -> Option<Box<dyn tantivy::query::Query>> {
+        let terms = self.analyzed_terms(field, query);
         if terms.len() < 2 {
             return None;
         }
         let slop = crate::shared::feature_flags::tantivy_phrase_slop();
-        let term_objs: Vec<tantivy::Term> = terms
-            .iter()
-            .map(|t| tantivy::Term::from_field_text(self.fields.symbol_name, &t.to_lowercase()))
-            .collect();
-        let phrase = tantivy::query::PhraseQuery::new_with_offset_and_slop(
-            term_objs.into_iter().enumerate().collect(),
-            slop,
-        );
-        Some(Box::new(phrase))
+        let first = terms.first().map_or(0, |(p, _)| *p);
+        Some(Box::new(
+            tantivy::query::PhraseQuery::new_with_offset_and_slop(
+                terms.into_iter().map(|(p, t)| (p - first, t)).collect(),
+                slop,
+            ),
+        ))
+    }
+
+    /// The distinct words of `query`, split by the analyzer of `fields[0]`, each
+    /// with the terms it becomes in every listed field — the analyzers differ
+    /// (text stems, names split identifiers), so a word is present in a document
+    /// when ANY of its field terms is.
+    fn covered_words(&self, fields: &[Field], query: &str) -> Vec<Vec<Term>> {
+        let Some((&anchor, others)) = fields.split_first() else {
+            return Vec::new();
+        };
+        let Ok(mut analyzer) = self.index.tokenizer_for_field(anchor) else {
+            return Vec::new();
+        };
+        let mut stream = analyzer.token_stream(query);
+        let mut words: Vec<Vec<Term>> = Vec::new();
+        while stream.advance() {
+            let token = stream.token();
+            let anchor_term = Term::from_field_text(anchor, &token.text);
+            if words.iter().any(|w| w.first() == Some(&anchor_term)) {
+                continue;
+            }
+            let surface = query.get(token.offset_from..token.offset_to).unwrap_or("");
+            let mut alternatives = vec![anchor_term];
+            for &field in others {
+                for (_, term) in self.analyzed_terms(field, surface) {
+                    if !alternatives.contains(&term) {
+                        alternatives.push(term);
+                    }
+                }
+            }
+            words.push(alternatives);
+        }
+        words
+    }
+
+    /// Constant-score clauses rewarding COVERAGE of the query words over
+    /// `fields`: `boost` for a document holding every distinct word (in any of
+    /// the fields), and `boost × partial` for each all-but-one subset it holds.
+    /// Empty below 3 words, and capped at [`COVERAGE_MAX_TERMS`] so the subset
+    /// count stays small.
+    fn coverage_clauses(
+        &self,
+        fields: &[Field],
+        query: &str,
+        boost: f32,
+        partial: f32,
+    ) -> Vec<Box<dyn tantivy::query::Query>> {
+        use tantivy::query::{BooleanQuery, ConstScoreQuery, Occur};
+        let words = self.covered_words(fields, query);
+        if words.len() < 3 || words.len() > COVERAGE_MAX_TERMS {
+            return Vec::new();
+        }
+        let conjunction = |skip: Option<usize>| -> Box<dyn tantivy::query::Query> {
+            let musts = words
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| Some(*i) != skip)
+                .map(|(_, alternatives)| (Occur::Must, any_term_of(alternatives)))
+                .collect();
+            Box::new(BooleanQuery::new(musts))
+        };
+        let mut clauses: Vec<Box<dyn tantivy::query::Query>> =
+            vec![Box::new(ConstScoreQuery::new(conjunction(None), boost))];
+        if partial > 0.0 && words.len() >= 4 {
+            for skip in 0..words.len() {
+                clauses.push(Box::new(ConstScoreQuery::new(
+                    conjunction(Some(skip)),
+                    boost * partial,
+                )));
+            }
+        }
+        clauses
+    }
+
+    /// The ranked query every BM25 route shares: names (`name_boost`), text
+    /// (`TOURING_TANTIVY_DOCSTRING_BOOST`), signatures (1.5) and — when their
+    /// boost is non-zero — file-path words (`TOURING_TANTIVY_PATH_BOOST`), plus
+    /// proximity clauses over names and over text
+    /// (`TOURING_TANTIVY_TEXT_PHRASE_BOOST`). One builder, so the routes differ
+    /// only by the name weight they pass — never by accident of who wrote which.
+    ///
+    /// # Errors
+    ///
+    /// A query the parser rejects.
+    fn ranked_query(
+        &self,
+        query: &str,
+        name_boost: f32,
+    ) -> Result<Box<dyn tantivy::query::Query>, TantivyIndexError> {
+        use crate::shared::feature_flags as ff;
+        let mixed_factor = if is_mixed_query(query) {
+            ff::tantivy_mixed_name_factor()
+        } else {
+            1.0
+        };
+        let name_boost = name_boost * mixed_factor;
+        let path_boost = ff::tantivy_path_boost() * mixed_factor;
+        let mut fields = vec![
+            self.fields.symbol_name,
+            self.fields.docstring,
+            self.fields.functional_signature,
+        ];
+        if path_boost > 0.0 {
+            fields.push(self.fields.module_path);
+        }
+        let mut parser = tantivy::query::QueryParser::for_index(&self.index, fields);
+        parser.set_field_boost(self.fields.symbol_name, name_boost);
+        parser.set_field_boost(self.fields.functional_signature, 1.5);
+        parser.set_field_boost(self.fields.docstring, ff::tantivy_docstring_boost());
+        if path_boost > 0.0 {
+            parser.set_field_boost(self.fields.module_path, path_boost);
+        }
+        let parsed = parser
+            .parse_query(&plain_words(query))
+            .map_err(|e| format!("parse_query: {e}"))?;
+        let mut clauses: Vec<(tantivy::query::Occur, Box<dyn tantivy::query::Query>)> =
+            vec![(tantivy::query::Occur::Should, parsed)];
+        if let Some(name_phrase) = self.phrase_on(self.fields.symbol_name, query) {
+            crate::shared::gate_metrics::record_phrase_query_match();
+            clauses.push((
+                tantivy::query::Occur::Should,
+                Box::new(tantivy::query::BoostQuery::new(name_phrase, name_boost)),
+            ));
+        }
+        // An identifier asks for its definition: prose that merely MENTIONS it (a
+        // plan citing `resolve_consumer_kinds_from_producers`) must not win on the
+        // text proximity clause — measured 13/09/2026, it did at boost 4.
+        let text_phrase_boost = if is_identifier_query(query) {
+            0.0
+        } else {
+            ff::tantivy_text_phrase_boost()
+        };
+        if text_phrase_boost > 0.0
+            && let Some(text_phrase) = self.phrase_on(self.fields.docstring, query)
+        {
+            clauses.push((
+                tantivy::query::Occur::Should,
+                Box::new(tantivy::query::BoostQuery::new(
+                    text_phrase,
+                    text_phrase_boost,
+                )),
+            ));
+        }
+        let coverage_boost = ff::tantivy_coverage_boost();
+        // A query word counts as present in whichever field holds it: text, name,
+        // signature or path (the analyzers differ, see `covered_words`).
+        let coverage_fields = [
+            self.fields.docstring,
+            self.fields.symbol_name,
+            self.fields.functional_signature,
+            self.fields.module_path,
+        ];
+        let word_coverage = ff::tantivy_word_coverage();
+        if word_coverage > 0.0 && !is_identifier_query(query) {
+            let words = self.covered_words(&coverage_fields, query);
+            if words.len() >= 3 {
+                let searcher = self.reader.searcher();
+                let docs = searcher.num_docs() as f32;
+                let idf: Vec<f32> = words
+                    .iter()
+                    .map(|alternatives| {
+                        alternatives
+                            .iter()
+                            .map(|t| {
+                                let df = searcher.doc_freq(t).unwrap_or(0) as f32;
+                                (1.0 + docs / (df + 1.0)).ln()
+                            })
+                            .fold(0.0, f32::max)
+                    })
+                    .collect();
+                let total: f32 = idf.iter().sum();
+                if total > 0.0 {
+                    for (alternatives, weight) in words.iter().zip(&idf) {
+                        clauses.push((
+                            tantivy::query::Occur::Should,
+                            Box::new(tantivy::query::ConstScoreQuery::new(
+                                any_term_of(alternatives),
+                                word_coverage * weight / total,
+                            )),
+                        ));
+                    }
+                }
+            }
+        }
+        if coverage_boost > 0.0 && !is_identifier_query(query) {
+            for clause in self.coverage_clauses(
+                &coverage_fields,
+                query,
+                coverage_boost,
+                ff::tantivy_coverage_partial(),
+            ) {
+                clauses.push((tantivy::query::Occur::Should, clause));
+            }
+        }
+        Ok(if clauses.len() == 1 {
+            clauses.pop().map(|(_, q)| q).expect("one clause")
+        } else {
+            Box::new(tantivy::query::BooleanQuery::new(clauses))
+        })
     }
 
     /// Execute a fuzzy search allowing up to `distance` edit-distance typos.
@@ -957,7 +1475,7 @@ impl TantivyIndex {
             vec![self.fields.symbol_name, self.fields.docstring],
         );
         let text_query = query_parser
-            .parse_query(query)
+            .parse_query(&plain_words(query))
             .map_err(|e| format!("parse_query: {e}"))?;
         let top_docs = searcher
             .search(&text_query, &tantivy::collector::TopDocs::with_limit(top_k))
@@ -991,23 +1509,17 @@ impl TantivyIndex {
     /// Rebuild the entire index from an explicit list of documents.
     /// Removes all existing documents and inserts the provided list.
     pub fn reindex(&self, docs: Vec<SymbolDoc>) -> Result<IndexStats, TantivyIndexError> {
-        // Delete all existing documents by committing with a match-all delete
+        // Delete EVERY existing document. Until 2026-09-13 this collected the first
+        // 10.000 hits of a match-all query and deleted their files — on a 150k-doc
+        // index a "clear" kept over 90% of the documents, which is how paths purged
+        // from symbols.db stayed searchable (Graft analysis §29). The writer's own
+        // delete-all is total and costs one term-less operation.
         {
             let guard = self.writer_guard()?;
             let writer = guard.as_ref().ok_or_else(read_only_error)?;
-            // Delete all docs using a match-all query approach
-            let searcher = self.reader.searcher();
-            let all_query = tantivy::query::AllQuery;
-            let top_docs = searcher
-                .search(&all_query, &tantivy::collector::TopDocs::with_limit(10_000))
-                .map_err(|e| format!("all docs query: {e}"))?;
-            for (_, doc_address) in top_docs {
-                if let Ok(doc) = searcher.doc::<TantivyDocument>(doc_address) {
-                    let file_path = extract_str(&doc, self.fields.file_path);
-                    let term = Term::from_field_text(self.fields.file_path, &file_path);
-                    writer.delete_term(term);
-                }
-            }
+            writer
+                .delete_all_documents()
+                .map_err(|e| format!("delete all documents: {e}"))?;
         }
         // Add all new documents
         for doc in &docs {
@@ -1032,15 +1544,15 @@ impl TantivyIndex {
         community_id: Option<u64>,
     ) -> Result<Vec<SearchHit>, TantivyIndexError> {
         let searcher = self.reader.searcher();
-        let query_parser = tantivy::query::QueryParser::for_index(
-            &self.index,
-            vec![self.fields.symbol_name, self.fields.docstring],
-        );
-        let parsed = query_parser
-            .parse_query(query)
-            .map_err(|e| format!("parse_query: {e}"))?;
+        let parsed = self.ranked_query(
+            query,
+            crate::shared::feature_flags::tantivy_community_name_boost(),
+        )?;
         let top_docs = searcher
-            .search(&parsed, &tantivy::collector::TopDocs::with_limit(top_k * 2))
+            .search(
+                &parsed,
+                &tantivy::collector::TopDocs::with_limit(candidate_pool(top_k * 2)),
+            )
             .map_err(|e| format!("search: {e}"))?;
 
         let mut hits: Vec<SearchHit> = top_docs
@@ -1068,9 +1580,12 @@ impl TantivyIndex {
                     .partial_cmp(&score_a)
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            hits.truncate(top_k);
         }
-
+        // The candidate pool feeds the file aggregation and the community re-sort;
+        // the caller asked for `top_k` either way (`tantivy search q 10` used to
+        // print 20).
+        aggregate_by_file(&mut hits);
+        hits.truncate(top_k);
         Ok(hits)
     }
 
@@ -1107,7 +1622,15 @@ impl TantivyIndex {
             tantivy_doc.add_text(fields.module_path, mp);
         }
         if let Some(ref ds) = doc.docstring {
-            let filtered = code_only(ds);
+            // Prose is indexed as written: `code_only` lexes its input as code, so
+            // a quote or an apostrophe opens a "string" and a `//` in a URL opens a
+            // "comment" — measured 13/09/2026, the text of a memory lost every
+            // quoted span. Markdown text is documentation, never code to filter.
+            let filtered = if doc.language == "markdown" {
+                ds.clone()
+            } else {
+                code_only(ds)
+            };
             if !filtered.is_empty() {
                 tantivy_doc.add_text(fields.docstring, &filtered);
             }
@@ -1167,8 +1690,34 @@ impl TantivyIndex {
         }
     }
 
-    /// Inserts or replaces the index entry for the given symbol document.
+    /// Inserts or replaces the index entry for the given symbol document, and
+    /// commits when the batch is full.
+    ///
+    /// For ONE symbol updated on its own. A commit here can land between two
+    /// symbols of the same file, so a whole-file refresh stages every document
+    /// with [`Self::stage_symbol`] and calls [`Self::commit_if_due`] at the file
+    /// boundary instead (cross-audit 14/09/2026, A10 and R2-13).
     pub fn upsert_symbol(&self, doc: &SymbolDoc) -> Result<(), TantivyIndexError> {
+        self.stage_symbol(doc)?;
+        let _ = self.commit_if_due();
+        Ok(())
+    }
+
+    /// Commits when the staged writes reached the batch size; `true` when it did.
+    ///
+    /// Call it only where a reader may see the index: between whole files, never
+    /// between a file's delete and its additions (cross-audit 14/09/2026, A10).
+    pub fn commit_if_due(&self) -> Result<bool, TantivyIndexError> {
+        if self.pending_count.load(Ordering::Relaxed) < self.batch_size {
+            return Ok(false);
+        }
+        self.commit()?;
+        Ok(true)
+    }
+
+    /// [`Self::upsert_symbol`] without the batch commit: the document waits for
+    /// the caller's [`Self::commit_if_due`] or [`Self::commit`].
+    pub fn stage_symbol(&self, doc: &SymbolDoc) -> Result<(), TantivyIndexError> {
         let (tantivy_doc, doc_id) = Self::build_tantivy_doc(&self.fields, doc);
         {
             let guard = self.writer_guard()?;
@@ -1182,9 +1731,6 @@ impl TantivyIndex {
         self.pending_count.fetch_add(1, Ordering::Relaxed);
         self.total_upserts.fetch_add(1, Ordering::Relaxed);
         crate::shared::gate_metrics::record_tantivy_upsert();
-        if self.pending_count.load(Ordering::Relaxed) >= self.batch_size {
-            let _ = self.commit();
-        }
         Ok(())
     }
 }
@@ -1315,6 +1861,34 @@ static LAST_ATTEMPT: OnceLock<dashmap::DashMap<PathBuf, Instant>> = OnceLock::ne
 /// Intervalo mínimo entre tentativas de abrir um índice que falhou.
 const GLOBAL_INIT_RETRY_INTERVAL: Duration = Duration::from_secs(30);
 
+/// A raiz normalizada de `raw`, ou `None` quando a normalização desistiu e caiu
+/// em `$HOME` para uma raiz que NÃO é o `$HOME`.
+///
+/// Cross-audit 14/09/2026 (D4): `$HOME` guarda o índice **legado global**, e um
+/// chamador que nomeou uma raiz sem marcador (um tempdir de teste, uma raiz
+/// derivada de um arquivo avulso) escrevia ali os documentos dele — a mesma
+/// contaminação que as fixtures do lifecycle só evitavam criando um `.git`.
+/// O próprio `$HOME` segue válido: é a raiz que o daemon passa para um cliente
+/// fora de qualquer projeto.
+fn scoped_root(raw: &Path) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    scoped_root_inner(raw, home.as_deref())
+}
+
+/// Núcleo puro de [`scoped_root`], com `home` explícito para os testes.
+fn scoped_root_inner(raw: &Path, home: Option<&Path>) -> Option<PathBuf> {
+    let normalized =
+        touring_foundation::config::TouringConfig::normalize_project_root_inner(raw, home);
+    if home == Some(normalized.as_path()) && normalized.as_path() != raw {
+        tracing::debug!(
+            root = %raw.display(),
+            "no project marker up to $HOME — a named root never falls back to the global index"
+        );
+        return None;
+    }
+    Some(normalized)
+}
+
 /// Diretório do índice de `root`, ou o índice **legado global** quando `None`.
 ///
 /// A raiz passa por [`TouringConfig::normalize_project_root`] em vez de um
@@ -1325,7 +1899,7 @@ const GLOBAL_INIT_RETRY_INTERVAL: Duration = Duration::from_secs(30);
 fn index_dir_for(root: Option<&Path>) -> Option<PathBuf> {
     match root {
         Some(raw) => {
-            let normalized = touring_foundation::config::TouringConfig::normalize_project_root(raw);
+            let normalized = scoped_root(raw)?;
             Some(normalized.join(".claude").join("touring").join("tantivy"))
         }
         None => {
@@ -2136,7 +2710,7 @@ pub fn reset_tool_outputs_global() {
 fn tool_outputs_dir_for(root: Option<&Path>) -> Option<PathBuf> {
     match root {
         Some(raw) => {
-            let normalized = touring_foundation::config::TouringConfig::normalize_project_root(raw);
+            let normalized = scoped_root(raw)?;
             Some(
                 normalized
                     .join(".claude")
@@ -2192,18 +2766,40 @@ pub fn tool_outputs_for(root: Option<&Path>) -> Option<&'static ToolOutputsIndex
     }
 }
 
-/// Fachada histórica — o índice de tool-outputs compartilhado.
-#[deprecated(
-    since = "30.3.0",
-    note = "use `tool_outputs_for(Some(&project_root))`; para o legado compartilhado, \
-            `tool_outputs_for(None)` explicitamente"
-)]
-pub fn global_tool_outputs() -> Option<&'static ToolOutputsIndex> {
-    tool_outputs_for(None)
-}
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 #[path = "tantivy_index_tests.rs"]
 mod tests;
+
+/// Cross-audit 14/09/2026 (D4): a named root never borrows the global index.
+#[cfg(test)]
+mod scoped_root_tests {
+    use super::scoped_root_inner;
+
+    #[test]
+    fn a_named_root_without_a_marker_gets_no_index_instead_of_the_global_one() {
+        let home = tempfile::tempdir().expect("home");
+        let stray = tempfile::tempdir().expect("stray");
+        assert_eq!(scoped_root_inner(stray.path(), Some(home.path())), None);
+        let unmarked_child = home.path().join("notes");
+        std::fs::create_dir_all(&unmarked_child).expect("child");
+        assert_eq!(scoped_root_inner(&unmarked_child, Some(home.path())), None);
+    }
+
+    #[test]
+    fn home_itself_and_marked_projects_keep_their_index() {
+        let home = tempfile::tempdir().expect("home");
+        assert_eq!(
+            scoped_root_inner(home.path(), Some(home.path())).as_deref(),
+            Some(home.path())
+        );
+        let project = home.path().join("proj");
+        std::fs::create_dir_all(project.join(".git")).expect("marker");
+        std::fs::create_dir_all(project.join("src")).expect("src");
+        assert_eq!(
+            scoped_root_inner(&project.join("src"), Some(home.path())).as_deref(),
+            Some(project.as_path())
+        );
+    }
+}

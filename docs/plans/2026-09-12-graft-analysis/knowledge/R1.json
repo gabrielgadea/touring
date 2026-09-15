@@ -1,0 +1,45 @@
+{
+  "phase": "R1",
+  "entities": [
+    {
+      "entity_id": "phase:R1",
+      "type": "phase",
+      "description": "Rodada 2 \u2014 viabilidade: rust-analyzer 1.98 dispon\u00edvel; nenhum runtime LLM local (sem ollama/llama-server, sem chaves no ambiente; GPU RAG :8200 s\u00f3 embeddings) \u2192 --deep segue imposs\u00edvel; DAG R1-R7 criado."
+    },
+    {
+      "entity_id": "memory:loop:task_1789259381190412574:R1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789259381190412574",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789259381190412574",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R1|produces|memory:loop:task_1789259381190412574:R1:done",
+      "source": "phase:R1",
+      "type": "produces",
+      "target": "memory:loop:task_1789259381190412574:R1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789259381190412574:R1:done|generated-by|loop:loop:task_1789259381190412574",
+      "source": "memory:loop:task_1789259381190412574:R1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789259381190412574"
+    },
+    {
+      "relation_id": "memory:loop:task_1789259381190412574:R1:done|generated-by|dag:decomp:task_1789259381190412574",
+      "source": "memory:loop:task_1789259381190412574:R1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789259381190412574"
+    }
+  ]
+}

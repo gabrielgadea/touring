@@ -258,7 +258,9 @@ pub fn run(args: &[String]) -> Result<()> {
             println!("    touring toolchain install --from-source <workspace> <version> [--force]");
             println!("    touring toolchain install --from-url <url> <version> [--force]");
             println!("    touring toolchain remove <version>");
-            return Err(anyhow!("unknown toolchain subcommand; run `touring toolchain --help` or use: init, list, default, install, remove"));
+            return Err(anyhow!(
+                "unknown toolchain subcommand; run `touring toolchain --help` or use: init, list, default, install, remove"
+            ));
         }
     }
     Ok(())
@@ -292,10 +294,15 @@ fn install_toolchain_from_tarball_labeled(
     source_label: &str,
 ) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
+        return Err(anyhow!(
+            "version cannot be empty; provide a version string like '30.4.13'"
+        ));
     }
     if !tarball.is_file() {
-        return Err(anyhow!("tarball {} does not exist or is not readable; verify path with `ls -l` or download with `touring toolchain install --from-url`", tarball.display()));
+        return Err(anyhow!(
+            "tarball {} does not exist or is not readable; verify path with `ls -l` or download with `touring toolchain install --from-url`",
+            tarball.display()
+        ));
     }
     let dest = prepare_toolchain_dest(home, version, force)?;
 
@@ -321,11 +328,18 @@ fn install_toolchain_from_tarball_labeled(
 
     // Sanity check: extracted at least one entry
     let entries = std::fs::read_dir(&dest)
-        .map_err(|e| anyhow!("read_dir {}: {e} — run `touring help` for details", dest.display()))?
+        .map_err(|e| {
+            anyhow!(
+                "read_dir {}: {e} — run `touring help` for details",
+                dest.display()
+            )
+        })?
         .count();
     if entries == 0 {
         let _ = std::fs::remove_dir_all(&dest);
-        return Err(anyhow!("tarball is empty or corrupt; run `tar -tzf <tarball>` to verify contents or download a new version with `touring toolchain install --from-url`"));
+        return Err(anyhow!(
+            "tarball is empty or corrupt; run `tar -tzf <tarball>` to verify contents or download a new version with `touring toolchain install --from-url`"
+        ));
     }
 
     write_toolchain_meta(&dest, version, source_label)
@@ -337,7 +351,8 @@ const OPTIONAL_SOURCE_BINARIES: &[&str] = &["touring-quality"];
 
 /// F3 (3.3) — install a toolchain from a BUILT canonical-source workspace:
 /// copies `<source_dir>/target/release/{touring,touring-hook,touring-daemon}`
-/// (+ known optionals) into `~/.touring/toolchains/<version>/bin/`.
+/// (+ known optionals and the ONNX Runtime provider libraries the build carries)
+/// into `~/.touring/toolchains/<version>/bin/`.
 ///
 /// Copies, not symlinks: an installed toolchain is an immutable versioned
 /// snapshot — the next `cargo build` in the source must NOT silently mutate
@@ -350,7 +365,9 @@ pub fn install_toolchain_from_source(
     force: bool,
 ) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
+        return Err(anyhow!(
+            "version cannot be empty; provide a version string like '30.4.13'"
+        ));
     }
     let release = source_dir.join("target").join("release");
     if !release.is_dir() {
@@ -372,18 +389,47 @@ pub fn install_toolchain_from_source(
             missing.join(", ")
         ));
     }
+    // `copy-dylibs` leaves the provider libraries in target/release as links into
+    // the ort-sys download cache; a cleared cache leaves them dangling. Copying
+    // skips nothing silently: a dangling one would ship a toolchain whose
+    // daemons can never reach the GPU.
+    let runtime_libs = super::project_toolchain::PROJECT_RUNTIME_LIBS;
+    let dangling: Vec<&str> = runtime_libs
+        .iter()
+        .filter(|l| release.join(l).is_symlink() && !release.join(l).exists())
+        .copied()
+        .collect();
+    if !dangling.is_empty() {
+        return Err(anyhow!(
+            "dangling ONNX Runtime provider links in {}: {} — the ort-sys download cache was removed; rebuild (cargo build --release -p touring-server) so it is fetched again",
+            release.display(),
+            dangling.join(", ")
+        ));
+    }
     let dest = prepare_toolchain_dest(home, version, force)?;
     let bin = dest.join("bin");
-    std::fs::create_dir_all(&bin).map_err(|e| anyhow!("create_dir_all {}: {e} — run `touring help` for details", bin.display()))?;
+    std::fs::create_dir_all(&bin).map_err(|e| {
+        anyhow!(
+            "create_dir_all {}: {e} — run `touring help` for details",
+            bin.display()
+        )
+    })?;
     let optionals = OPTIONAL_SOURCE_BINARIES
         .iter()
         .filter(|b| release.join(b).is_file());
-    for name in core.iter().chain(optionals) {
+    let present_libs = runtime_libs.iter().filter(|l| release.join(l).is_file());
+    // fs::copy follows a link, so the toolchain gets the library itself.
+    for name in core.iter().chain(optionals).chain(present_libs) {
         let from = release.join(name);
         let to = bin.join(name);
         // fs::copy preserves the executable bit on Unix.
-        std::fs::copy(&from, &to)
-            .map_err(|e| anyhow!("copy {} -> {}: {e} — run `touring help` for details", from.display(), to.display()))?;
+        std::fs::copy(&from, &to).map_err(|e| {
+            anyhow!(
+                "copy {} -> {}: {e} — run `touring help` for details",
+                from.display(),
+                to.display()
+            )
+        })?;
     }
     write_toolchain_meta(
         &dest,
@@ -403,7 +449,9 @@ pub fn install_toolchain_from_url(
     force: bool,
 ) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
+        return Err(anyhow!(
+            "version cannot be empty; provide a version string like '30.4.13'"
+        ));
     }
     let tmp = std::env::temp_dir().join(format!(
         "touring-toolchain-{version}-{}.tar.gz",
@@ -417,7 +465,9 @@ pub fn install_toolchain_from_url(
         .map_err(|e| anyhow!("spawn curl: {e} — run `touring help` for details"))?;
     if !status.success() {
         let _ = std::fs::remove_file(&tmp);
-        return Err(anyhow!("download failed from {url} (status {status}) — verify URL is correct and accessible"));
+        return Err(anyhow!(
+            "download failed from {url} (status {status}) — verify URL is correct and accessible"
+        ));
     }
     let result =
         install_toolchain_from_tarball_labeled(home, version, &tmp, force, &format!("url:{url}"));
@@ -443,11 +493,19 @@ fn prepare_toolchain_dest(home: &Path, version: &str, force: bool) -> Result<Pat
                 version
             ));
         }
-        std::fs::remove_dir_all(&dest)
-            .map_err(|e| anyhow!("remove existing {}: {e} — run `touring help` for details", dest.display()))?;
+        std::fs::remove_dir_all(&dest).map_err(|e| {
+            anyhow!(
+                "remove existing {}: {e} — run `touring help` for details",
+                dest.display()
+            )
+        })?;
     }
-    std::fs::create_dir_all(&dest)
-        .map_err(|e| anyhow!("create_dir_all {}: {e} — run `touring help` for details", dest.display()))?;
+    std::fs::create_dir_all(&dest).map_err(|e| {
+        anyhow!(
+            "create_dir_all {}: {e} — run `touring help` for details",
+            dest.display()
+        )
+    })?;
     Ok(dest)
 }
 
@@ -462,7 +520,8 @@ fn write_toolchain_meta(dest: &Path, version: &str, source_label: &str) -> Resul
             .unwrap_or(0),
         source_label,
     );
-    std::fs::write(dest.join("meta.toml"), meta).map_err(|e| anyhow!("write meta.toml: {e} — run `touring help` for details"))
+    std::fs::write(dest.join("meta.toml"), meta)
+        .map_err(|e| anyhow!("write meta.toml: {e} — run `touring help` for details"))
 }
 
 /// Remove an installed toolchain. Refuses to remove the currently-active
@@ -470,7 +529,9 @@ fn write_toolchain_meta(dest: &Path, version: &str, source_label: &str) -> Resul
 /// first, or rerun this with the default-clearing follow-up).
 pub fn remove_toolchain(home: &Path, version: &str) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
+        return Err(anyhow!(
+            "version cannot be empty; provide a version string like '30.4.13'"
+        ));
     }
     let toolchain = home.join(TOOLCHAINS_DIR).join(version);
     if !toolchain.exists() {
@@ -488,8 +549,12 @@ pub fn remove_toolchain(home: &Path, version: &str) -> Result<()> {
             version
         ));
     }
-    std::fs::remove_dir_all(&toolchain)
-        .map_err(|e| anyhow!("remove_dir_all {}: {e} — run `touring help` for details", toolchain.display()))?;
+    std::fs::remove_dir_all(&toolchain).map_err(|e| {
+        anyhow!(
+            "remove_dir_all {}: {e} — run `touring help` for details",
+            toolchain.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -505,8 +570,12 @@ pub fn init_toolchain_root(home: &Path, force: bool) -> Result<()> {
                 home.display()
             ));
         }
-        std::fs::remove_dir_all(home)
-            .map_err(|e| anyhow!("remove_dir_all {}: {e} — run `touring help` for details", home.display()))?;
+        std::fs::remove_dir_all(home).map_err(|e| {
+            anyhow!(
+                "remove_dir_all {}: {e} — run `touring help` for details",
+                home.display()
+            )
+        })?;
     }
     std::fs::create_dir_all(home.join(TOOLCHAINS_DIR)).map_err(|e| {
         anyhow!(
@@ -515,8 +584,12 @@ pub fn init_toolchain_root(home: &Path, force: bool) -> Result<()> {
         )
     })?;
     let cfg = home.join(CONFIG_FILE);
-    std::fs::write(&cfg, DEFAULT_USER_CONFIG)
-        .map_err(|e| anyhow!("write {}: {e} — run `touring help` for details", cfg.display()))?;
+    std::fs::write(&cfg, DEFAULT_USER_CONFIG).map_err(|e| {
+        anyhow!(
+            "write {}: {e} — run `touring help` for details",
+            cfg.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -530,7 +603,12 @@ pub fn list_installed_toolchains(home: &Path) -> Result<Vec<String>> {
         return Ok(Vec::new());
     }
     let mut versions: Vec<String> = std::fs::read_dir(&dir)
-        .map_err(|e| anyhow!("read_dir {}: {e} — run `touring help` for details", dir.display()))?
+        .map_err(|e| {
+            anyhow!(
+                "read_dir {}: {e} — run `touring help` for details",
+                dir.display()
+            )
+        })?
         .filter_map(|entry| {
             let entry = entry.ok()?;
             if entry.file_type().ok()?.is_dir() {
@@ -551,8 +629,12 @@ pub fn current_default(home: &Path) -> Result<Option<String>> {
     if !path.exists() {
         return Ok(None);
     }
-    let content =
-        std::fs::read_to_string(&path).map_err(|e| anyhow!("read {}: {e} — run `touring help` for details", path.display()))?;
+    let content = std::fs::read_to_string(&path).map_err(|e| {
+        anyhow!(
+            "read {}: {e} — run `touring help` for details",
+            path.display()
+        )
+    })?;
     let trimmed = content.trim();
     if trimmed.is_empty() {
         Ok(None)
@@ -568,7 +650,9 @@ pub fn current_default(home: &Path) -> Result<Option<String>> {
 /// cause the shim to silently fall through to the global fallback.
 pub fn set_default(home: &Path, version: &str) -> Result<()> {
     if version.trim().is_empty() {
-        return Err(anyhow!("version cannot be empty; provide a version string like '30.4.13'"));
+        return Err(anyhow!(
+            "version cannot be empty; provide a version string like '30.4.13'"
+        ));
     }
     let installed = home.join(TOOLCHAINS_DIR).join(version);
     if !installed.is_dir() {
@@ -1088,6 +1172,50 @@ mod tests {
         assert_ne!(mode & 0o111, 0, "executable bit must survive the copy");
         let meta = std::fs::read_to_string(home.join("toolchains/vdev/meta.toml")).unwrap();
         assert!(meta.contains("local-source:"), "meta: {meta}");
+    }
+
+    #[test]
+    fn install_from_source_copies_runtime_libs_as_real_files() {
+        let tmp = tempfile::tempdir().expect("home tmpdir");
+        let home = tmp.path().join("dot-touring");
+        init_toolchain_root(&home, false).expect("init");
+        let src = make_fake_source(false);
+        let release = src.path().join("target/release");
+        // What `copy-dylibs` leaves behind: links into the download cache.
+        let cache = tmp.path().join("dfbin");
+        std::fs::create_dir_all(&cache).unwrap();
+        for lib in super::super::project_toolchain::PROJECT_RUNTIME_LIBS {
+            std::fs::write(cache.join(lib), format!("elf-{lib}")).unwrap();
+            std::os::unix::fs::symlink(cache.join(lib), release.join(lib)).unwrap();
+        }
+
+        install_toolchain_from_source(&home, "vgpu", src.path(), false).expect("install");
+
+        let bin = home.join("toolchains/vgpu/bin");
+        for lib in super::super::project_toolchain::PROJECT_RUNTIME_LIBS {
+            let installed = bin.join(lib);
+            assert!(!installed.is_symlink(), "{lib} must be a copy, not a link into the cache");
+            assert_eq!(std::fs::read_to_string(&installed).unwrap(), format!("elf-{lib}"));
+        }
+    }
+
+    #[test]
+    fn install_from_source_refuses_dangling_runtime_lib_links() {
+        let tmp = tempfile::tempdir().expect("home tmpdir");
+        let home = tmp.path().join("dot-touring");
+        init_toolchain_root(&home, false).expect("init");
+        let src = make_fake_source(false);
+        let lib = super::super::project_toolchain::PROJECT_RUNTIME_LIBS[1];
+        std::os::unix::fs::symlink(
+            tmp.path().join("cleared-cache").join(lib),
+            src.path().join("target/release").join(lib),
+        )
+        .unwrap();
+
+        let err = install_toolchain_from_source(&home, "vgpu", src.path(), false)
+            .expect_err("a toolchain that can never reach the GPU must be refused");
+        assert!(format!("{err}").contains(lib), "must name the dangling lib: {err}");
+        assert!(!home.join("toolchains/vgpu/bin/touring").exists(), "nothing installed");
     }
 
     #[test]

@@ -1,0 +1,45 @@
+{
+  "phase": "S-4.3-classe-b",
+  "entities": [
+    {
+      "entity_id": "phase:S-4.3-classe-b",
+      "type": "phase",
+      "description": "Classe B construida: loop_turn_record.py escreve o registro do turno no Stop hook (turno ja concluido), _materialize_class_b o invoca antes de cobrar, work-outer exige [A,B]. Lei L3 intacta: muda o autor, nao a exigencia. Prova viva 10.817 B / 64 acoes / zero escritas manuais; fail-open exercitado."
+    },
+    {
+      "entity_id": "memory:loop:task_1788534325883539352:S-4.3-classe-b:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788534325883539352",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788534325883539352",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-4.3-classe-b|produces|memory:loop:task_1788534325883539352:S-4.3-classe-b:done",
+      "source": "phase:S-4.3-classe-b",
+      "type": "produces",
+      "target": "memory:loop:task_1788534325883539352:S-4.3-classe-b:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788534325883539352:S-4.3-classe-b:done|generated-by|loop:loop:task_1788534325883539352",
+      "source": "memory:loop:task_1788534325883539352:S-4.3-classe-b:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788534325883539352"
+    },
+    {
+      "relation_id": "memory:loop:task_1788534325883539352:S-4.3-classe-b:done|generated-by|dag:decomp:task_1788534325883539352",
+      "source": "memory:loop:task_1788534325883539352:S-4.3-classe-b:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788534325883539352"
+    }
+  ]
+}

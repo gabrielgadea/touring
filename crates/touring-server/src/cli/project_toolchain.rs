@@ -21,6 +21,21 @@ use std::path::{Path, PathBuf};
 /// never removable via `touring component remove` (potentialize, never reduce).
 pub(crate) const PROJECT_BINARIES: &[&str] = &["touring", "touring-hook", "touring-daemon"];
 
+/// ONNX Runtime provider libraries `touring-daemon` opens to embed on the GPU.
+///
+/// ONNX Runtime opens them from the directory of the path the process was
+/// LAUNCHED by (`argv[0]`), not of the resolved binary: a daemon started as
+/// `<proj>/.touring/bin/touring-daemon` looks in `<proj>/.touring/bin/`
+/// (measured 15/09/2026 — the same test binary found them in `target/debug/deps`
+/// and failed through a symlink elsewhere). So they are linked wherever a
+/// binary is. Optional: a build without `storage-emb-cuda` has none, and a
+/// missing one costs the GPU only (the embedder falls back to CPU).
+/// Must equal `RUNTIME_LIBS` in `scripts/update-touring`.
+pub(crate) const PROJECT_RUNTIME_LIBS: &[&str] = &[
+    "libonnxruntime_providers_shared.so",
+    "libonnxruntime_providers_cuda.so",
+];
+
 /// Lockfile name under `.touring/`.
 pub(crate) const LOCK_FILE: &str = "toolchain.lock";
 
@@ -82,7 +97,12 @@ impl ToolchainLock {
         body.push_str(&format!("reason = \"{}\"\n", self.reason.replace('"', "'")));
         let path = dot_touring.join(LOCK_FILE);
         let tmp = dot_touring.join(format!("{LOCK_FILE}.tmp"));
-        std::fs::write(&tmp, body).map_err(|e| anyhow!("write {}: {e} — run `df -h .` to check disk space", tmp.display()))?;
+        std::fs::write(&tmp, body).map_err(|e| {
+            anyhow!(
+                "write {}: {e} — run `df -h .` to check disk space",
+                tmp.display()
+            )
+        })?;
         std::fs::rename(&tmp, &path)
             .map_err(|e| anyhow!("rename {} -> {}: {e} — run `ls -la` on the parent directory to check write permissions", tmp.display(), path.display()))?;
         Ok(())
@@ -165,6 +185,32 @@ pub(crate) fn relink_bins_inner(
             )),
         }
     }
+    // Provider libraries come from the directory the daemon link resolved to and
+    // from nowhere else: a pinned toolchain without them must not borrow the dev
+    // channel's, which belong to another ONNX Runtime build.
+    let daemon_dir = resolve_binary_target(
+        "touring-daemon",
+        channel.as_deref(),
+        touring_home,
+        dev_bin_dir,
+    )
+    .and_then(|daemon| daemon.parent().map(Path::to_path_buf));
+    for name in PROJECT_RUNTIME_LIBS {
+        let link = dot_touring.join("bin").join(name);
+        // A link left by the previous channel would load its provider into the
+        // new daemon.
+        let _ = std::fs::remove_file(&link);
+        let Some(target) = daemon_dir.as_ref().map(|d| d.join(name)).filter(|p| p.exists())
+        else {
+            continue;
+        };
+        match std::os::unix::fs::symlink(&target, &link) {
+            Ok(()) => notes.push(format!("bin/{name} -> {}", target.display())),
+            Err(e) => notes.push(format!(
+                "bin/{name}: symlink failed ({e}) — GPU embeddings will run on CPU"
+            )),
+        }
+    }
     notes
 }
 
@@ -243,6 +289,63 @@ mod tests {
         );
         // The two binaries present nowhere are skipped with a note, not an error.
         assert_eq!(notes.iter().filter(|n| n.contains("not found")).count(), 2);
+    }
+
+    #[test]
+    fn relink_bins_links_runtime_libs_from_the_daemon_s_own_toolchain() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let dot = tmp.path().join("proj/.touring");
+        std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
+        std::fs::write(dot.join("touring.toml"), "[toolchain]\nchannel = \"9.9.9\"\n")
+            .expect("write");
+        let th = tmp.path().join("touring-home");
+        let tc_bin = th.join("toolchains/9.9.9/bin");
+        let dev = tmp.path().join("dev-bin");
+        for b in PROJECT_BINARIES {
+            fake_bin(&tc_bin, b);
+        }
+        for lib in PROJECT_RUNTIME_LIBS {
+            fake_bin(&tc_bin, lib);
+            fake_bin(&dev, lib);
+        }
+        relink_bins_inner(&dot, &th, &dev);
+        for lib in PROJECT_RUNTIME_LIBS {
+            assert_eq!(
+                std::fs::read_link(dot.join("bin").join(lib)).expect("symlink"),
+                tc_bin.join(lib),
+                "bin/{lib} must come from the toolchain the daemon comes from"
+            );
+        }
+    }
+
+    #[test]
+    fn relink_bins_never_pairs_a_toolchain_daemon_with_dev_libs() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let dot = tmp.path().join("proj/.touring");
+        std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
+        std::fs::write(dot.join("touring.toml"), "[toolchain]\nchannel = \"9.9.9\"\n")
+            .expect("write");
+        let th = tmp.path().join("touring-home");
+        let tc_bin = th.join("toolchains/9.9.9/bin");
+        let dev = tmp.path().join("dev-bin");
+        for b in PROJECT_BINARIES {
+            fake_bin(&tc_bin, b);
+        }
+        for lib in PROJECT_RUNTIME_LIBS {
+            fake_bin(&dev, lib);
+        }
+        // A link left by a previous channel that did carry the libs.
+        let stale = dot.join("bin").join(PROJECT_RUNTIME_LIBS[0]);
+        std::os::unix::fs::symlink(dev.join(PROJECT_RUNTIME_LIBS[0]), &stale).expect("stale");
+
+        let notes = relink_bins_inner(&dot, &th, &dev);
+        for lib in PROJECT_RUNTIME_LIBS {
+            assert!(
+                std::fs::symlink_metadata(dot.join("bin").join(lib)).is_err(),
+                "bin/{lib} must not point at another build's provider"
+            );
+        }
+        assert_eq!(notes.len(), 3, "absent optional libs add no note: {notes:?}");
     }
 
     #[test]

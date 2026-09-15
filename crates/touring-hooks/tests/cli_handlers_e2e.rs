@@ -755,11 +755,20 @@ fn test_gotcha_resolve_feeds_the_resolution_channel() {
         "o meter que estava em 0.0 agora tem produtor"
     );
     // idempotente e declarado
-    let again = parse_json(&cli_gotcha_resolve(&mut rt, &serde_json::json!({ "id": id })));
+    let again = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": id }),
+    ));
     assert_eq!(again["already_resolved"], true, "payload: {again}");
     // id fantasma → erro que ensina
-    let ghost = parse_json(&cli_gotcha_resolve(&mut rt, &serde_json::json!({ "id": 999_999 })));
-    assert!(ghost["error"].is_string() && ghost["hint"].is_string(), "payload: {ghost}");
+    let ghost = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": 999_999 }),
+    ));
+    assert!(
+        ghost["error"].is_string() && ghost["hint"].is_string(),
+        "payload: {ghost}"
+    );
     // reopen (achado F-2 do cross-audit 29/08): o inverso existe e o meter volta
     let reopened = parse_json(&cli_gotcha_resolve(
         &mut rt,
@@ -901,10 +910,9 @@ fn test_learning_replay_consumes_the_outcome_corpus_once() {
         "cada outcome vira exatamente 1 update no engine"
     );
     // (e) identidade persistida em disco (a retenção que faltava).
-    let stats_raw = std::fs::read_to_string(
-        rt.project_root.join(".claude/data/online_rl_state.json"),
-    )
-    .expect("snapshot de identidade no disco");
+    let stats_raw =
+        std::fs::read_to_string(rt.project_root.join(".claude/data/online_rl_state.json"))
+            .expect("snapshot de identidade no disco");
     let stats: serde_json::Value = serde_json::from_str(&stats_raw).expect("json");
     assert_eq!(stats["update_count"].as_u64(), Some(count_after));
     // (b) cursor durável: nada resta para a 2ª chamada.
@@ -923,7 +931,10 @@ fn test_experiment_record_teaches_on_invalid_decision_and_round_trips() {
         &mut rt,
         &serde_json::json!({ "variant": "v", "target": "t", "decision": "banana" }),
     ));
-    assert!(bad["error"].is_string() && bad["hint"].is_string(), "payload: {bad}");
+    assert!(
+        bad["error"].is_string() && bad["hint"].is_string(),
+        "payload: {bad}"
+    );
     let ok = parse_json(&cli_experiment_record(
         &mut rt,
         &serde_json::json!({
@@ -932,10 +943,16 @@ fn test_experiment_record_teaches_on_invalid_decision_and_round_trips() {
         }),
     ));
     assert_eq!(ok["recorded"], true, "payload: {ok}");
-    let listed = parse_json(&cli_experiment_list(&mut rt, &serde_json::json!({ "limit": 5 })));
+    let listed = parse_json(&cli_experiment_list(
+        &mut rt,
+        &serde_json::json!({ "limit": 5 }),
+    ));
     let first = &listed["entries"][0];
     assert_eq!(first["target"], "alvo-e2e");
-    assert_eq!(first["variant"], "variante de prova", "diagnostic volta no reader: {listed}");
+    assert_eq!(
+        first["variant"], "variante de prova",
+        "diagnostic volta no reader: {listed}"
+    );
     assert_eq!(listed["best_reward"], 0.7);
 }
 
@@ -2199,7 +2216,10 @@ fn releasing_finished_work_gives_up_the_lease_not_the_completion() {
     ));
     let still_ready = ready["ready_subtasks"]
         .as_array()
-        .map(|a| a.iter().any(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-00")))
+        .map(|a| {
+            a.iter()
+                .any(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-00"))
+        })
         .unwrap_or(false);
     assert!(
         !still_ready,

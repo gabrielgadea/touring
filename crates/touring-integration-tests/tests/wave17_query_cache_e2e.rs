@@ -10,7 +10,7 @@
 //! ```text
 //! ┌──────────────────────────────────────────────────────────────────┐
 //! │ touring-hooks::shared::query_cache (moka, 4096 cap, 60s TTL)    │
-//! │   ├── make_key(kind, payload) → "kind::payload"                 │
+//! │   ├── make_key(scope, kind, payload) → "kind::scope::payload"            │
 //! │   ├── get(key)            → Option<String>  + hit/miss counter  │
 //! │   ├── put(key, value)     → store                                │
 //! │   ├── get_or_compute(key, f) → memoize f                        │
@@ -39,7 +39,6 @@ use touring_hooks::shared::query_cache;
 #[allow(dead_code)]
 mod private_daemon;
 use private_daemon::private_daemon_env;
-
 
 /// The product binary: prefer `release` when it exists, else `debug`.
 ///
@@ -163,8 +162,9 @@ fn axis5_invalidate_drops_single_entry() {
 
 #[test]
 fn axis6_keys_are_payload_specific() {
-    let k_a = query_cache::make_key("axis6", "alpha");
-    let k_b = query_cache::make_key("axis6", "beta");
+    let scope = std::path::Path::new("/wave17");
+    let k_a = query_cache::make_key(scope, "axis6", "alpha");
+    let k_b = query_cache::make_key(scope, "axis6", "beta");
     query_cache::put(k_a.clone(), r#"{"who":"alpha"}"#.to_string());
     query_cache::put(k_b.clone(), r#"{"who":"beta"}"#.to_string());
     assert_eq!(query_cache::get(&k_a).expect("alpha"), r#"{"who":"alpha"}"#,);
@@ -185,7 +185,8 @@ fn axis7_subprocess_index_find_benefits_from_cache() {
     let symbol = "RustQualitySignals";
     let mut outputs = Vec::with_capacity(3);
     for _ in 0..3 {
-        let out = Command::new(touring_bin()).envs(private_daemon_env())
+        let out = Command::new(touring_bin())
+            .envs(private_daemon_env())
             .args(["index", "find", symbol])
             .output()
             .expect("spawn touring");
@@ -206,7 +207,8 @@ fn axis8_gate_metrics_cli_exposes_query_cache() {
         eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["gate-metrics", "-j"])
         .output()
         .expect("spawn touring");

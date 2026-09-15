@@ -68,6 +68,9 @@ pub struct FileKnowledgeDB {
     /// resolved once from the project's own config. See
     /// [`touring_foundation::config::TouringConfig::polyglot_wiring_for_root`].
     polyglot: bool,
+    /// Top-level `docs/`/`scripts/` that are Python packages, hence source —
+    /// resolved once per open (see `knowledge_wiring::python_source_packages`).
+    source_packages: Vec<String>,
 }
 
 // Schema version is defined in touring-core::migration (single source of truth).
@@ -101,6 +104,11 @@ impl FileKnowledgeDB {
                     .as_deref()
                     .map(std::path::Path::new),
             ),
+            source_packages: crate::knowledge_wiring::python_source_packages(
+                crate::knowledge_wiring::derive_workspace_root(db_path)
+                    .as_deref()
+                    .map(std::path::Path::new),
+            ),
         };
         let version: u32 = db
             .conn
@@ -129,6 +137,11 @@ impl FileKnowledgeDB {
         self.polyglot
     }
 
+    /// The resolved source packages, read by the wiring layer's inherent impls.
+    pub(crate) fn source_packages_ref(&self) -> &[String] {
+        &self.source_packages
+    }
+
     /// Test-only constructor — wraps an existing Connection directly.
     ///
     /// The caller must ensure `ensure_schema()` has been run (or pass a
@@ -140,6 +153,7 @@ impl FileKnowledgeDB {
             // A bare Connection carries no location to derive from.
             workspace_root: crate::knowledge_wiring::env_workspace_root(),
             polyglot: touring_foundation::config::TouringConfig::polyglot_wiring_for_root(None),
+            source_packages: Vec::new(),
         }
     }
     /// Invalidate a single file's entry in the extended-query cache.

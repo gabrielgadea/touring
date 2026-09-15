@@ -5,6 +5,7 @@ description: Plano de aperfeiçoamento do Touring sob a lei da janela como mana;
 tags: [context-engineering, harness, cila, injecao, outer, kpi]
 timestamp: 2026-09-04
 plan: 2026-09-04-economia-de-contexto
+plan_id: 2026-09-04-economia-de-contexto
 intent: fazer cada token da janela atingir o maximo de utilidade e convergencia com o objetivo da tarefa
 okf_version: 1
 ---
@@ -18,6 +19,9 @@ okf_version: 1
 > **Fonte teórica**: `agent-harness/Engenharia de Contexto e Harness.md` (696 L,
 > 4 eixos). **Fonte empírica**: 10 transcripts, 406 turnos, 965 avaliações do Stop
 > hook, censo F2.4 sobre 592 arquivos — tudo medido nesta sessão.
+> **Nível operacional**: DAG `task_1788534325883539352` (2ª rodada — S-5.1b e
+> S-4.3, 2/2 done). A 1ª rodada correu por `/goal`, sem DAG registrada.
+> **Veredito**: `loop_converged.py` exit 0, 8 cláusulas (Platinum 0,937).
 
 ---
 
@@ -305,13 +309,25 @@ Otimizar antes de medir é o anti-padrão que este plano diagnostica em D4.
   encerrados pelo runaway guard (hoje há markers em `cont=30`, o cap).
 - **Enables**: o default deixa de gastar 74% das suas avaliacoes num artefato que nunca sai.
 
-#### S-4.3: A classe B — a interação como gate [P1] [confidence: INFERENCE 0,85]
+#### S-4.3: A classe B — a interação como gate [P1] [confidence: FACT 1.0 — CONSTRUÍDO 04/09]
 - **Change**: para exigência de **decisão** (não de evidência), o gate aceita a
   resposta estruturada e o **executor materializa** o registro do turno.
 - **Por que não é regressão da Lei L3**: o artefato continua obrigatório e
   continua sendo escrito por código; muda o autor, não a exigência.
-- **Test**: `test_the_turn_record_exists_on_disk_with_no_mid_reasoning_write` — o registro existe em disco após o turno, sem nenhuma escrita manual
-  do modelo no meio do raciocínio (verificável pelo `hook_trace`).
+- **Entregue**: `hooks/loop_turn_record.py` (novo) + `_materialize_class_b` em
+  `loop_outer_gate.py` + artefato `turn-record` no `work-outer`, que passa a
+  exigir `["A","B"]`. Roda no **Stop hook**, com o turno já concluído: não há
+  raciocínio a interromper, porque o texto de que o registro é feito já foi
+  escrito, para o humano, pelo motivo do humano.
+- **Prova viva**: registro de **10.817 B** materializado nesta sessão — 21
+  blocos, 12 linhas de espinha, **64 ações** (`Bash` 29× · `Edit` 28× · `Read`
+  6× · `Write` 1×) — com **zero** bytes escritos à mão.
+- **Fail-open é a razão de ser**: executor que falha sai do caminho crítico e
+  aparece em `class_b_unmaterialized`; cobrar seria devolver a escrita manual
+  que a classe elimina. Exercitado: `missing=[]`, `complete=True`.
+- **Test**: `test_the_turn_record_exists_on_disk_with_no_mid_reasoning_write` +
+  `test_class_b_never_becomes_a_manual_write_when_the_executor_fails` +
+  `test_a_working_turn_is_not_an_empty_record` (130 testes verdes na suíte).
 - **Enables**: a interacao estruturada vira gate reusavel — o padrao que `decision-canvas` ja prova em prosa passa a ter executor.
 
 ### Phase 5 — Tool results (51,3% da janela)
@@ -331,9 +347,40 @@ Otimizar antes de medir é o anti-padrão que este plano diagnostica em D4.
   | Edit | 122.148 | 2,3% | 574 | 212 |
   | Write | 44.363 | 0,8% | 212 | 209 |
 
-  Bash + Read = **90,7%**; Edit/Write são ~210 B e não valem instrumentação. A
-  fração LIDA da saída continua não medida — o digest ainda não é decidível.
+  Bash + Read = **90,7%**; Edit/Write são ~210 B e não valem instrumentação.
 - **Test**: `test_tool_output_volume_is_attributed_per_tool`
+
+#### S-5.1b: A fração USADA — e a ação que ela refuta [P1] [confidence: FACT 1.0 — MEDIDO]
+
+**Resultado (04/09/2026, 2ª rodada): o digest por TRUNCAGEM está refutado; o
+digest DERIVADO DO CONTEÚDO, que já existe, está confirmado.**
+
+"O modelo leu?" não é mensurável. A pergunta que decide a mesma coisa é
+**quantos bytes um digest teria de carregar para preservar todo fato que o
+modelo USOU** — as linhas e identificadores do resultado que reaparecem no que
+o assistente escreveu ou nos argumentos das chamadas seguintes, até o próximo
+turno humano. Piso do uso, portanto teto do que se pode descartar.
+
+| grandeza | valor |
+|---|---:|
+| reuso global dos tool results | **0,067** |
+| zero-reuso (Read / Bash) | **2,0% / 5,5%** |
+| joelho da economia (digest de 2 KB) | **limiar 2 KB → 44,4%** |
+| cabeça+cauda(40) cobre ≥90% do reuso | **45% dos resultados grandes** |
+
+Decis da posição das linhas reusadas — 9,6% · 5,7% · 6,3% · 6,6% · 7,4% · 6,8%
+· 6,0% · 6,3% · 6,8% · 5,9%: **uniformes**. Cortar por posição perde o que foi
+usado, e não há população descartável (quase todo resultado contribui algo).
+Logo a ação correta é a que o workspace já tem — agregado calculado pelo
+programa (`--brief`) e spill com `retrieval_hint` — e não um segundo digest por
+limiar, que criaria a segunda fonte que este plano inteiro diagnostica.
+
+- **Test**: `o_prefixo_de_numeracao_do_read_nao_zera_o_reuso` (red→green por
+  mutação: sem a normalização do `cat -n` a métrica inteira lê 0,0%),
+  `um_fato_citado_depois_do_turno_humano_nao_conta`,
+  `resultado_que_ninguem_tocou_conta_como_zero_reuso` + sonda viva.
+- **Enables**: a maior fatia da janela (51,3%) entra sob a régua; e o resultado
+  NEGATIVO fica registrado como resultado, nunca como fase pendente.
 
 ### Phase 6 — Estabilidade de prefixo (CUR)
 

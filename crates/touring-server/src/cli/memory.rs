@@ -24,6 +24,10 @@ use clap::{Parser, Subcommand};
 struct MemoryCli {
     #[command(subcommand)]
     cmd: Option<MemoryCmd>,
+    /// Accepted after any memory subcommand for parity with the rest of the CLI;
+    /// every memory response is JSON already.
+    #[arg(short = 'j', long = "json", global = true)]
+    _json: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -411,7 +415,9 @@ fn run_tag_query(cmd: MemoryCmd) -> anyhow::Result<()> {
             serde_json::json!({ "domain": domain }),
         ),
         MemoryCmd::Unlink { id } => ("cli-memory-unlink", serde_json::json!({ "id": id })),
-        other => anyhow::bail!("internal: unhandled memory subcommand {other:?}; run `touring memory --help` or file a bug report"),
+        other => anyhow::bail!(
+            "internal: unhandled memory subcommand {other:?}; run `touring memory --help` or file a bug report"
+        ),
     };
     let output = daemon_query(name, payload)?;
     println!("{output}");
@@ -650,5 +656,32 @@ mod tests {
     fn collect_value_args_flag_at_end_without_value() {
         let args = s(&["touring", "memory", "store", "k", "val", "--tier"]);
         assert_eq!(collect_value_args(&args, 4), "val");
+    }
+}
+
+/// `-j/--json` is accepted after any memory subcommand, as elsewhere in the CLI.
+/// The analise session got "unexpected argument '-j'" from `memory recall … -j`
+/// (14/09/2026) while every other subcommand took it; the output is JSON already.
+#[cfg(test)]
+mod json_flag_tests {
+    use super::MemoryCli;
+    use clap::Parser;
+
+    #[test]
+    fn every_memory_subcommand_accepts_the_json_flag() {
+        for argv in [
+            vec!["memory", "recall", "grafo", "memoria", "-j"],
+            vec!["memory", "-j", "recall", "grafo"],
+            vec!["memory", "store", "k", "v", "--json"],
+            vec!["memory", "link", "a", "b", "--rel", "extends", "-j"],
+            vec!["memory", "query", "#kind:lesson", "-j"],
+            vec!["memory", "stats", "-j"],
+        ] {
+            assert!(
+                MemoryCli::try_parse_from(&argv).is_ok(),
+                "{argv:?}: {:?}",
+                MemoryCli::try_parse_from(&argv).err()
+            );
+        }
     }
 }

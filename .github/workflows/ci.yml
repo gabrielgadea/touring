@@ -294,6 +294,13 @@ jobs:
         # congelada, e nenhum check de processo largo o bastante para
         # matar o daemon de outro projeto (REGRA #19).
         run: python3 -m pytest scripts/test_update_touring.py -q
+      - name: touring-quality-score — o wrapper que o juiz chama é versionado e testado
+        # Viveu até 14/09/2026 só em ~/.local/bin. Seu `flock -n` saía 1 mudo
+        # com outra pontuação ativa, e o juiz de convergência lia "qualidade
+        # não medida". Os testes rodam o script REAL contra um motor falso,
+        # cache e lock temporários: espera e recusa com 75, cache vazio nunca
+        # servido, falha do motor nunca cacheada, motor derivado do checkout.
+        run: python3 -m pytest scripts/test_touring_quality_score.py -q
       - name: ceg serial(gate_metrics) — teste no pipeline do gateway DEVE ser serial
         # Os testes de gateway/metrics.rs medem DELTAS exatos dos contadores
         # globais de processo; um teste que chama run_gateway* fora do grupo
@@ -329,6 +336,23 @@ jobs:
         # acervo, não da intuição — a varredura de `git ls-files` faz uma
         # convenção nova de nome falhar no dia em que entra, não meses depois.
         run: python3 -m pytest scripts/test_path_alphabet_universe.py -q
+      - name: turno humano D8 — o predicado tem UMA fonte, em Rust e em Python
+        # 04/09/2026: 35 de 172 records contados como turno humano (20,3%) eram
+        # do harness — saída de slash command, banner de caveat, resumo de
+        # compactação. O denominador de `injected_bytes_per_turn` estava inflado
+        # 25,5%, e a régua subestimava em ~25% o custo que existe para expor.
+        # Duas implementações da mesma regra em línguas diferentes divergem em
+        # silêncio; este guard lê o EXECUTOR Rust e exige que a declaração
+        # Python case com ele. Provado por mutação: remover um marcador reprova
+        # dois testes (declaração E comportamento).
+        run: python3 -m pytest scripts/test_human_turn_predicate_parity.py -q
+      - name: sonda viva da régua de contexto (roda, e PULA sem corpus)
+        # A sonda `#[ignore]` era o único instrumento que já pegou um erro de
+        # 12x na régua — e `--ignored` não aparecia em NENHUM workflow nem
+        # script, então ela nunca rodava sozinha (auditoria 04/09/2026). Um
+        # guard que existe e não roda é certificado, não guard. Em ambiente sem
+        # transcript ela PULA dizendo isso; onde houver corpus, ela assere.
+        run: cargo test -p touring-cli --lib live_probe -- --ignored --nocapture
       - name: docs — nenhuma doc de sistema/repo/infra cita crate inexistente
         # 26/08/2026: 63 de 93 arquivos citavam crates fundidos meses atrás
         # (touring-ast, touring-learning, touring-core...), 500+ menções. A

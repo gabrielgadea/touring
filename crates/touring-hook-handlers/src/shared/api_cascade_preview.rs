@@ -3,7 +3,7 @@
 //!
 //! `diff_api_surfaces` + `plan_api_cascade` existed since Wave C2 and ran only
 //! AFTER an edit (`api_cascade_bridge::analyze_rust_edit`, consumed by
-//! `post_edit`). Here they run on the [`ApiPreview`] of the edit — the file as
+//! `post_edit`). Here they run on the `ApiPreview` of the edit — the file as
 //! it will be — so a public item that this edit removes or re-signs is named
 //! together with its call sites: the in-file ones from the call graph of the
 //! "after" source (same move as the post path) and the cross-file ones from
@@ -15,7 +15,7 @@
 //! layer speaks exactly there.
 //!
 //! Pure additions have no callers to break and produce no signal. Runs at
-//! CILA ≥ [`MIN_CILA`]; the parse is already paid by the preview (any tree-sitter language).
+//! CILA ≥ `MIN_CILA`; the parse is already paid by the preview (any tree-sitter language).
 
 use std::collections::BTreeMap;
 
@@ -53,7 +53,11 @@ pub(crate) struct CascadeItem {
 /// Compute the cascade of an edit from its preview. `lookup(symbol)` returns
 /// the cross-file references of a symbol as `(file, line)`; `rel_path` is the
 /// edited file, whose own sites come from the call graph instead.
-pub(crate) fn cascade_items<F>(rel_path: &str, preview: &ApiPreview, mut lookup: F) -> Vec<CascadeItem>
+pub(crate) fn cascade_items<F>(
+    rel_path: &str,
+    preview: &ApiPreview,
+    mut lookup: F,
+) -> Vec<CascadeItem>
 where
     F: FnMut(&str) -> Vec<(String, usize)>,
 {
@@ -139,7 +143,12 @@ pub(crate) fn cascade_signal(item: &CascadeItem) -> (f32, String) {
         "is removed from the public API"
     };
     let n = item.sites.len();
-    let shown: Vec<&str> = item.sites.iter().take(MAX_SITES_SHOWN).map(String::as_str).collect();
+    let shown: Vec<&str> = item
+        .sites
+        .iter()
+        .take(MAX_SITES_SHOWN)
+        .map(String::as_str)
+        .collect();
     let more = if n > MAX_SITES_SHOWN {
         format!(" (+{} more)", n - MAX_SITES_SHOWN)
     } else {
@@ -212,13 +221,25 @@ mod tests {
 
     #[test]
     fn python_resigned_function_cascades_to_its_call_sites() {
-        let before = "def total(a, b):\n    return a + b\n\n\ndef twice(x):\n    return total(x, x)\n";
-        let p = ApiPreview::for_edit("src/calc.py", before, "def total(a, b):", "def total(a, b, c):")
-            .expect("python preview");
-        let items = cascade_items("src/calc.py", &p, |_| vec![("src/report.py".to_string(), 3)]);
+        let before =
+            "def total(a, b):\n    return a + b\n\n\ndef twice(x):\n    return total(x, x)\n";
+        let p = ApiPreview::for_edit(
+            "src/calc.py",
+            before,
+            "def total(a, b):",
+            "def total(a, b, c):",
+        )
+        .expect("python preview");
+        let items = cascade_items("src/calc.py", &p, |_| {
+            vec![("src/report.py".to_string(), 3)]
+        });
         assert_eq!(items.len(), 1, "{items:?}");
         assert!(items[0].resigned);
-        assert!(items[0].sites.contains(&"src/report.py:3".to_string()), "{:?}", items[0].sites);
+        assert!(
+            items[0].sites.contains(&"src/report.py:3".to_string()),
+            "{:?}",
+            items[0].sites
+        );
     }
 
     #[test]
@@ -229,24 +250,51 @@ mod tests {
         );
         let items = cascade_items("src/calc.rs", &p, |name| {
             assert_eq!(name, "total");
-            vec![("src/report.rs".to_string(), 12), ("src/calc.rs".to_string(), 6)]
+            vec![
+                ("src/report.rs".to_string(), 12),
+                ("src/calc.rs".to_string(), 6),
+            ]
         });
         assert_eq!(items.len(), 1, "{items:?}");
         let item = &items[0];
         assert_eq!(item.symbol, "total");
         assert!(item.resigned);
-        assert!(item.sites.iter().any(|s| s.starts_with("src/calc.rs:") && s.contains("twice")), "{:?}", item.sites);
-        assert!(item.sites.contains(&"src/report.rs:12".to_string()), "{:?}", item.sites);
-        assert_eq!(item.sites.iter().filter(|s| s.starts_with("src/calc.rs:")).count(), 1, "own file only via the graph: {:?}", item.sites);
+        assert!(
+            item.sites
+                .iter()
+                .any(|s| s.starts_with("src/calc.rs:") && s.contains("twice")),
+            "{:?}",
+            item.sites
+        );
+        assert!(
+            item.sites.contains(&"src/report.rs:12".to_string()),
+            "{:?}",
+            item.sites
+        );
+        assert_eq!(
+            item.sites
+                .iter()
+                .filter(|s| s.starts_with("src/calc.rs:"))
+                .count(),
+            1,
+            "own file only via the graph: {:?}",
+            item.sites
+        );
         let (score, text) = cascade_signal(item);
         assert_eq!(score, CASCADE_SCORE);
-        assert!(text.contains("[cascade] `total` signature changes"), "{text}");
+        assert!(
+            text.contains("[cascade] `total` signature changes"),
+            "{text}"
+        );
         assert!(text.contains("2 call sites break"), "{text}");
     }
 
     #[test]
     fn pure_addition_has_nothing_to_break() {
-        let p = preview("pub fn twice(x: i32) -> i32 {", "pub fn thrice(x: i32) -> i32 {\n    total(x, total(x, x))\n}\n\npub fn twice(x: i32) -> i32 {");
+        let p = preview(
+            "pub fn twice(x: i32) -> i32 {",
+            "pub fn thrice(x: i32) -> i32 {\n    total(x, total(x, x))\n}\n\npub fn twice(x: i32) -> i32 {",
+        );
         // `thrice` is added; `twice` unchanged → only `twice`'s signature survives; nothing removed.
         let items = cascade_items("src/calc.rs", &p, |_| vec![("src/other.rs".to_string(), 1)]);
         assert!(items.iter().all(|i| i.symbol != "thrice"), "{items:?}");
@@ -256,7 +304,10 @@ mod tests {
     fn removed_item_without_callers_is_silent() {
         let p = preview("pub fn twice(x: i32) -> i32 {\n    total(x, x)\n}\n", "");
         let items = cascade_items("src/calc.rs", &p, |_| Vec::new());
-        assert!(items.is_empty(), "no caller anywhere → nothing breaks: {items:?}");
+        assert!(
+            items.is_empty(),
+            "no caller anywhere → nothing breaks: {items:?}"
+        );
     }
 
     #[test]
@@ -265,7 +316,9 @@ mod tests {
             "pub fn total(a: i32, b: i32) -> i32 {",
             "pub fn total(a: i32, b: i32, c: i32) -> i32 {",
         );
-        let layer = ApiCascadePreviewLayer::for_edit("src/calc.rs", Some(&p), |_| vec![("src/r.rs".to_string(), 3)]);
+        let layer = ApiCascadePreviewLayer::for_edit("src/calc.rs", Some(&p), |_| {
+            vec![("src/r.rs".to_string(), 3)]
+        });
         assert!(!layer.is_empty());
         assert!(!layer.should_run(1) && layer.should_run(2));
         let ctx = crate::shared::signal_pipeline::context_for_edit("src/calc.rs", "a", "b", 2);

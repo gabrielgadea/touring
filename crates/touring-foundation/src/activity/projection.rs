@@ -3,19 +3,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Projection result for a single event.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventProjection {
-    /// Event sequence number.
-    pub seq: u64,
-    /// Entity this event affects.
-    pub entity: EntityKey,
-    /// Action that was performed.
-    pub action: String,
-    /// Timestamp of projection computation.
-    pub computed_at_ns: u64,
-}
-
 /// Key for grouping entities.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub struct EntityKey {

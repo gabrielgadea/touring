@@ -61,6 +61,10 @@ candle-nn = { workspace = true, optional = true }
 candle-transformers = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 fastembed = { workspace = true, optional = true }
+# `copy-dylibs` puts the ONNX Runtime provider libraries (downloaded by ort-sys)
+# next to every binary and test executable under target/: ONNX Runtime opens
+# them from the directory of the launched executable, never from a search path.
+ort = { workspace = true, optional = true, features = ["std", "api-24", "cuda", "copy-dylibs"] }
 notify = { workspace = true, optional = true }
 notify-debouncer-mini = { workspace = true, optional = true }
 # `rkyv` direto continua necessário para os DERIVES: os atributos auxiliares
@@ -80,7 +84,7 @@ rand = { workspace = true }
 
 [features]
 # Default: light modules + sqlite vector backend + fastembed + hybrid search.
-default = ["storage-vfs", "storage-salsa", "storage-vec-sqlite", "storage-emb-fastembed", "storage-hybrid"]
+default = ["storage-vfs", "storage-salsa", "storage-vec-sqlite", "storage-emb-fastembed", "storage-emb-cuda", "storage-hybrid"]
 
 # --- Public storage-* feature surface (W5 deliverable) ---
 storage-vfs = []
@@ -92,6 +96,11 @@ storage-vec-postgres = ["postgres"]
 storage-vec-mem = []
 storage-emb-candle = ["candle-bge"]
 storage-emb-fastembed = ["fastembed"]
+# ONNX CUDA execution provider for the fastembed runtime. Compiling it in never
+# requires a GPU: the provider library is only opened when a session asks for
+# CUDA, and a machine without CUDA/cuDNN falls back to CPU at load time
+# (`TOURING_EMBED_DEVICE=auto`, see providers/fastembed.rs).
+storage-emb-cuda = ["fastembed", "dep:ort"]
 storage-emb-voyage = ["voyage"]
 # GPU embedding client relocated from touring-foundation (A4 P4). Gates `pub mod embedding`
 # and pulls reqwest (HTTP client to the embedding service); tracing/rkyv/async-trait/tokio

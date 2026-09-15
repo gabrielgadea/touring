@@ -17,16 +17,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Default daemon socket read timeout, in seconds.
 ///
-/// Kept modest so a genuinely wedged daemon surfaces quickly. Operations known
-/// to outlast it raise their own budget via [`raise_timeout_floor`], which never
-/// overrides an explicit `--timeout`.
+/// Kept modest so a genuinely wedged daemon surfaces quickly. Heavy hooks
+/// ([`touring_foundation::is_heavy_hook`]) wait past the server budget instead
+/// ([`wait_plan`]), which never overrides an explicit `--timeout`.
 pub(crate) const DEFAULT_DAEMON_READ_TIMEOUT_SECS: u64 = 120;
 
 /// Daemon socket read timeout in seconds. Set by `--timeout` CLI flag.
 /// Default: 120s (was 30s — caused EOF on heavy ops like index rebuild).
 pub static DAEMON_READ_TIMEOUT_SECS: AtomicU64 = AtomicU64::new(DEFAULT_DAEMON_READ_TIMEOUT_SECS);
 
-/// Set by `--timeout`, so [`raise_timeout_floor`] can tell an operator's choice
+/// Set by `--timeout`, so [`wait_plan`] can tell an operator's choice
 /// from the untouched default.
 ///
 /// A sentinel comparison against `DEFAULT_DAEMON_READ_TIMEOUT_SECS` cannot:
@@ -41,17 +41,41 @@ pub fn mark_timeout_explicit() {
     TIMEOUT_SET_BY_OPERATOR.store(true, Ordering::Relaxed);
 }
 
-/// Raise the read timeout to `secs` **unless the operator set one** — an
-/// explicit `--timeout` always wins, including `--timeout 120`.
+/// How one daemon call waits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct WaitPlan {
+    /// Socket read timeout for this call.
+    read_timeout_secs: u64,
+    /// The daemon keeps working after the client stops waiting, so a read
+    /// timeout must say "poll", never "retry".
+    heavy: bool,
+}
+
+/// The wait of one call to `hook`, from the configured timeout (`base`) and
+/// whether the operator set it.
 ///
-/// For a known-heavy call, a default tuned for "is the daemon alive?" is the
-/// wrong budget. `index rebuild` on this very workspace (2065 files) ran past
-/// 120s and the CLI abandoned a rebuild that was progressing normally.
-pub fn raise_timeout_floor(secs: u64) {
-    if TIMEOUT_SET_BY_OPERATOR.load(Ordering::Relaxed) {
-        return;
+/// A heavy hook ([`touring_foundation::is_heavy_hook`], the same list the daemon
+/// budgets by) waits past the server budget
+/// ([`touring_foundation::HEAVY_OP_CLIENT_FLOOR_SECS`]) so the typed
+/// `budget_exceeded` reply arrives; `index rebuild` on this workspace ran past
+/// 120 s and the CLI abandoned a rebuild that was progressing. An explicit
+/// `--timeout` always wins, `--timeout 120` included.
+///
+/// Computed per call and never stored: the floor and the heavy flag used to be
+/// written into process statics that nothing reset, so in the long-lived MCP
+/// server one heavy call left every later light call waiting ~31 minutes and
+/// told to poll instead of retry (cross-audit 14/09/2026, R2-7).
+fn wait_plan(hook: &str, base: u64, set_by_operator: bool) -> WaitPlan {
+    let heavy = touring_foundation::is_heavy_hook(hook);
+    let read_timeout_secs = if heavy && !set_by_operator {
+        base.max(touring_foundation::HEAVY_OP_CLIENT_FLOOR_SECS)
+    } else {
+        base
+    };
+    WaitPlan {
+        read_timeout_secs,
+        heavy,
     }
-    DAEMON_READ_TIMEOUT_SECS.store(secs, Ordering::Relaxed);
 }
 
 // ── Socket client ───────────────────────────────────────────────────────
@@ -93,12 +117,17 @@ pub(crate) unsafe fn libc_getuid() -> u32 {
 ///
 /// Retries with exponential backoff on E11 (socket backlog full).
 pub fn daemon_query(hook: &str, payload: serde_json::Value) -> anyhow::Result<String> {
+    let plan = wait_plan(
+        hook,
+        DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed),
+        TIMEOUT_SET_BY_OPERATOR.load(Ordering::Relaxed),
+    );
     let socket_path = daemon_socket_path();
     let mut last_err = None;
     for attempt in 0..5 {
         match UnixStream::connect(&socket_path) {
             Ok(stream) => {
-                return send_daemon_request(stream, hook, payload);
+                return send_daemon_request(stream, hook, payload, plan);
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 last_err = Some(e);
@@ -108,7 +137,7 @@ pub fn daemon_query(hook: &str, payload: serde_json::Value) -> anyhow::Result<St
                     continue;
                 }
             }
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(connect_failure(hook, &socket_path, &e)),
         }
     }
     Err(last_err
@@ -127,8 +156,9 @@ fn send_daemon_request(
     mut stream: UnixStream,
     hook: &str,
     payload: serde_json::Value,
+    plan: WaitPlan,
 ) -> anyhow::Result<String> {
-    let read_timeout = DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed);
+    let read_timeout = plan.read_timeout_secs;
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(read_timeout)))
         .ok();
@@ -176,14 +206,88 @@ fn send_daemon_request(
     }
     let mut response_bytes = Vec::new();
     if let Err(e) = stream.read_to_end(&mut response_bytes) {
-        return Err(read_failure(hook, &e, read_timeout));
+        return Err(read_failure(hook, &e, read_timeout, plan.heavy));
     }
-    let response: DaemonResponse = parse_daemon_response(&response_bytes)
-        .map_err(|e| anyhow::anyhow!("Failed to parse daemon response: {} — run `touring doctor -j` to verify daemon health", e))?;
+    let response: DaemonResponse = parse_daemon_response(&response_bytes).map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to parse daemon response: {} — run `touring doctor -j` to verify daemon health",
+            e
+        )
+    })?;
     if !response.success {
-        anyhow::bail!("{}", daemon_failure_message(&response.output));
+        return Err(failure_error(&response.output));
     }
     Ok(response.output)
+}
+
+/// Exit code of a CLI command whose handler exceeded its budget: `EX_TEMPFAIL`
+/// from sysexits — the daemon is busy and the work may still complete, so the
+/// caller retries later instead of reading it as a semantic error.
+pub(crate) const DAEMON_BUSY_EXIT_CODE: i32 = 75;
+
+/// Exit code of a CLI command whose HEAVY handler exceeded its budget and keeps
+/// running (`retryable: false`). Not 75: a retry of `index rebuild` waits for the
+/// running walk and then repeats it, so "try again later" is the wrong advice.
+/// The caller polls `touring index status` instead. Outside the sysexits range
+/// (64-78) so no tool reads it as one of those (decision H2, 14/09/2026).
+pub(crate) const DAEMON_STILL_RUNNING_EXIT_CODE: i32 = 79;
+
+/// A handler that exceeded its execution budget (`error_kind: budget_exceeded`).
+/// Kept apart from every other failure so `main` can exit with
+/// [`DaemonBusy::exit_code`] and print the daemon's JSON payload on stdout.
+#[derive(Debug)]
+pub struct DaemonBusy {
+    /// The daemon's JSON failure payload, verbatim.
+    pub payload: String,
+    /// The human message (`Daemon returned success=false: …`).
+    pub message: String,
+    /// The payload's `retryable`. A daemon that predates the field only sent it
+    /// for light hooks, so its absence reads as `true`.
+    pub retryable: bool,
+}
+
+impl DaemonBusy {
+    /// [`DAEMON_BUSY_EXIT_CODE`] when a retry is safe, otherwise
+    /// [`DAEMON_STILL_RUNNING_EXIT_CODE`].
+    pub fn exit_code(&self) -> i32 {
+        if self.retryable {
+            DAEMON_BUSY_EXIT_CODE
+        } else {
+            DAEMON_STILL_RUNNING_EXIT_CODE
+        }
+    }
+}
+
+impl std::fmt::Display for DaemonBusy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for DaemonBusy {}
+
+/// The error for a failed daemon response: [`DaemonBusy`] for a budget failure,
+/// a plain message otherwise.
+fn failure_error(output: &str) -> anyhow::Error {
+    let message = daemon_failure_message(output);
+    let parsed = serde_json::from_str::<serde_json::Value>(output.trim()).ok();
+    let busy = parsed
+        .as_ref()
+        .is_some_and(|v| v.get("error_kind").and_then(|k| k.as_str()) == Some("budget_exceeded"));
+    if busy {
+        let retryable = parsed
+            .as_ref()
+            .and_then(|v| v.get("retryable"))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true);
+        anyhow::Error::new(DaemonBusy {
+            payload: output.trim().to_string(),
+            message,
+            retryable,
+        })
+    } else {
+        anyhow::anyhow!("{message}")
+    }
 }
 
 /// Name the cause of a failed socket read instead of forwarding the bare errno.
@@ -196,8 +300,20 @@ fn send_daemon_request(
 ///
 /// Same lesson as [`daemon_failure_message`] one branch over: the failure path
 /// that carries no context is the one that costs the hours.
-fn read_failure(hook: &str, err: &std::io::Error, timeout_secs: u64) -> anyhow::Error {
+///
+/// A heavy call is the exception to "retry with a larger budget": the daemon never
+/// cancels, so a re-run waits for the running walk and then repeats it. There the
+/// message says to poll (cross-audit 14/09/2026, A3).
+fn read_failure(hook: &str, err: &std::io::Error, timeout_secs: u64, heavy: bool) -> anyhow::Error {
     use std::io::ErrorKind;
+    if heavy && matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) {
+        return anyhow::anyhow!(
+            "`{hook}` returned no response within {timeout_secs}s (socket read timeout). \
+             The daemon never cancels a heavy operation, so it is most likely still running. \
+             Do not re-run it: a second call waits for the running work and then repeats it. \
+             Poll `touring index status` (or `touring daemon-ctl status`) until it finishes."
+        );
+    }
     if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) {
         return anyhow::anyhow!(
             "`{hook}` returned no response within {timeout_secs}s (socket read timeout). \
@@ -206,7 +322,33 @@ fn read_failure(hook: &str, err: &std::io::Error, timeout_secs: u64) -> anyhow::
              budget: `touring --timeout <secs> …`."
         );
     }
-    anyhow::anyhow!("reading the daemon response for `{hook}`: {err} — verify daemon is running with `touring daemon-ctl status`")
+    anyhow::anyhow!(
+        "reading the daemon response for `{hook}`: {err} — verify daemon is running with `touring daemon-ctl status`"
+    )
+}
+
+/// Name the cause of a failed socket CONNECT instead of forwarding the bare errno.
+///
+/// A per-project daemon is spawned by the hook of a session opened in that
+/// project, never by the CLI — so a project nobody opened has no socket, and
+/// `touring index rebuild` there failed with "No such file or directory (os error
+/// 2)", naming neither the socket nor the remedy (measured 13/09/2026 on
+/// konverter, right after `touring update` reported "daemon: not running").
+fn connect_failure(hook: &str, socket: &std::path::Path, err: &std::io::Error) -> anyhow::Error {
+    use std::io::ErrorKind;
+    let socket = socket.display();
+    match err.kind() {
+        ErrorKind::NotFound => anyhow::anyhow!(
+            "`{hook}`: no daemon is listening — the socket {socket} does not exist. \
+             Start it with `touring daemon-ctl restart --socket {socket}`."
+        ),
+        ErrorKind::ConnectionRefused => anyhow::anyhow!(
+            "`{hook}`: the socket {socket} exists but nothing accepts connections (a daemon \
+             that died without cleaning up). Start a fresh one with \
+             `touring daemon-ctl restart --socket {socket}`."
+        ),
+        _ => anyhow::anyhow!("`{hook}`: connecting to the daemon at {socket}: {err}"),
+    }
 }
 
 /// Build a *diagnosable* failure message from the daemon's response payload.
@@ -242,11 +384,35 @@ fn daemon_failure_message(output: &str) -> String {
 
 #[cfg(test)]
 mod read_failure_tests {
-    use super::{
-        DAEMON_READ_TIMEOUT_SECS, DEFAULT_DAEMON_READ_TIMEOUT_SECS, mark_timeout_explicit,
-        raise_timeout_floor, read_failure,
-    };
-    use std::sync::atomic::Ordering;
+    use super::{DEFAULT_DAEMON_READ_TIMEOUT_SECS, WaitPlan, connect_failure, read_failure, wait_plan};
+    use touring_foundation::HEAVY_OP_CLIENT_FLOOR_SECS;
+
+    /// A missing or dead socket names the socket and the exact command that starts
+    /// the daemon; the bare "os error 2" is what must not reach the operator.
+    #[test]
+    fn a_missing_or_dead_socket_names_the_socket_and_the_remedy() {
+        let socket = std::path::Path::new("/proj/k/.touring/daemon.sock");
+        for kind in [
+            std::io::ErrorKind::NotFound,
+            std::io::ErrorKind::ConnectionRefused,
+        ] {
+            let err = std::io::Error::from(kind);
+            let msg = connect_failure("cli-index-rebuild", socket, &err).to_string();
+            assert!(msg.contains("/proj/k/.touring/daemon.sock"), "{msg}");
+            assert!(
+                msg.contains("touring daemon-ctl restart --socket /proj/k/.touring/daemon.sock"),
+                "{msg}"
+            );
+            assert!(msg.contains("cli-index-rebuild"), "{msg}");
+            assert!(!msg.contains("os error"), "{msg}");
+        }
+        let other = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied here");
+        let msg = connect_failure("cli-status", socket, &other).to_string();
+        assert!(
+            msg.contains("denied here") && msg.contains("daemon.sock"),
+            "{msg}"
+        );
+    }
 
     /// The bug: a read timeout surfaces as `WouldBlock`, whose Display is
     /// "Resource temporarily unavailable (os error 11)". Verbatim, that reads as
@@ -254,11 +420,11 @@ mod read_failure_tests {
     #[test]
     fn a_read_timeout_says_timeout_and_names_the_knob() {
         let err = std::io::Error::new(std::io::ErrorKind::WouldBlock, "eagain");
-        let msg = read_failure("cli-index-rebuild", &err, 120).to_string();
+        let msg = read_failure("cli-memory-recall", &err, 120, false).to_string();
         assert!(msg.contains("120s"), "{msg}");
         assert!(msg.contains("timeout"), "{msg}");
         assert!(msg.contains("--timeout"), "{msg}");
-        assert!(msg.contains("cli-index-rebuild"), "{msg}");
+        assert!(msg.contains("cli-memory-recall"), "{msg}");
         assert!(
             !msg.contains("Resource temporarily unavailable"),
             "the raw errno is exactly what must not reach the operator: {msg}"
@@ -270,59 +436,87 @@ mod read_failure_tests {
     #[test]
     fn other_read_failures_keep_their_cause() {
         let err = std::io::Error::new(std::io::ErrorKind::ConnectionReset, "peer reset");
-        let msg = read_failure("cli-status", &err, 120).to_string();
+        let msg = read_failure("cli-status", &err, 120, false).to_string();
         assert!(msg.contains("peer reset"), "{msg}");
         assert!(!msg.contains("--timeout"), "{msg}");
     }
 
-    /// The floor lifts the default, and an operator's explicit `--timeout` wins.
-    ///
-    /// Serializado com [`explicit_timeout_equal_to_the_default_still_wins`]: ambos
-    /// mexem no MESMO par de estáticos, e `cargo test` roda testes em paralelo —
-    /// sem o mutex um zeraria a premissa do outro de forma intermitente.
+    /// Cross-audit 14/09/2026 (A3): "retry with a larger budget" on a heavy call
+    /// started a second walk behind the first. A heavy timeout says to poll.
     #[test]
-    fn timeout_floor_lifts_the_default_but_never_an_explicit_choice() {
-        let _g = TIMEOUT_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        reset_timeout_state();
-        raise_timeout_floor(1800);
-        assert_eq!(DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed), 1800);
-
-        reset_timeout_state();
-        DAEMON_READ_TIMEOUT_SECS.store(45, Ordering::Relaxed); // as if `--timeout 45`
-        mark_timeout_explicit();
-        raise_timeout_floor(1800);
-        assert_eq!(DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed), 45);
-
-        reset_timeout_state();
-    }
-
-    /// O caso de borda que a versão por sentinela ERRAVA em silêncio.
-    ///
-    /// `raise_timeout_floor` comparava o valor atual com `DEFAULT_…_SECS`; um
-    /// `--timeout 120` é byte-idêntico ao default, então a escolha explícita do
-    /// operador era sobrescrita por 1800 — o oposto do contrato documentado. O
-    /// teste anterior usava 45 e passava: cobria o caso que o autor pensou, não o
-    /// que o PROPÓSITO implica.
-    #[test]
-    fn explicit_timeout_equal_to_the_default_still_wins() {
-        let _g = TIMEOUT_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        reset_timeout_state();
-        DAEMON_READ_TIMEOUT_SECS.store(DEFAULT_DAEMON_READ_TIMEOUT_SECS, Ordering::Relaxed);
-        mark_timeout_explicit(); // `--timeout 120`
-        raise_timeout_floor(1800);
-        assert_eq!(
-            DAEMON_READ_TIMEOUT_SECS.load(Ordering::Relaxed),
-            DEFAULT_DAEMON_READ_TIMEOUT_SECS,
-            "--timeout 120 é uma escolha do operador, não o default intocado"
+    fn a_heavy_read_timeout_says_poll_never_retry() {
+        let err = std::io::Error::new(std::io::ErrorKind::WouldBlock, "eagain");
+        let msg = read_failure("cli-index-rebuild", &err, 1860, true).to_string();
+        assert!(msg.contains("1860s"), "{msg}");
+        assert!(msg.contains("touring index status"), "{msg}");
+        assert!(msg.contains("Do not re-run"), "{msg}");
+        assert!(
+            !msg.contains("--timeout"),
+            "the knob is the wrong advice here: {msg}"
         );
-        reset_timeout_state();
     }
 
-    static TIMEOUT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// Cross-audit 14/09/2026 (A3): the client listens past the server budget for
+    /// every heavy hook, not only the two call sites that remembered to raise it
+    /// (`ast blast` or `pre-task-scout` used to give up at 120 s under a 1800 s
+    /// budget); a light hook keeps the quick default.
+    #[test]
+    fn every_heavy_hook_waits_past_the_server_budget_and_light_ones_do_not() {
+        let base = DEFAULT_DAEMON_READ_TIMEOUT_SECS;
+        for hook in ["cli-index-rebuild", "cli-ast-blast", "cli-pre-task-scout"] {
+            assert_eq!(
+                wait_plan(hook, base, false),
+                WaitPlan {
+                    read_timeout_secs: HEAVY_OP_CLIENT_FLOOR_SECS,
+                    heavy: true
+                },
+                "{hook}"
+            );
+        }
+        assert_eq!(
+            wait_plan("cli-memory-store", base, false),
+            WaitPlan {
+                read_timeout_secs: base,
+                heavy: false
+            }
+        );
+    }
 
-    fn reset_timeout_state() {
-        DAEMON_READ_TIMEOUT_SECS.store(DEFAULT_DAEMON_READ_TIMEOUT_SECS, Ordering::Relaxed);
-        super::TIMEOUT_SET_BY_OPERATOR.store(false, Ordering::Relaxed);
+    /// Cross-audit 14/09/2026 (R2-7): the plan of one call never leaks into the
+    /// next. The floor and the heavy flag used to live in process statics, so a
+    /// long-lived MCP server kept both after its first heavy call.
+    #[test]
+    fn a_heavy_call_leaves_the_next_light_call_as_it_was() {
+        let base = DEFAULT_DAEMON_READ_TIMEOUT_SECS;
+        assert!(wait_plan("cli-index-rebuild", base, false).heavy);
+        let light = wait_plan("cli-memory-recall", base, false);
+        assert_eq!(light.read_timeout_secs, base);
+        assert!(!light.heavy);
+    }
+
+    /// The floor lifts the default, and an operator's explicit `--timeout` wins,
+    /// including one equal to the default: the sentinel version compared against
+    /// `DEFAULT_…_SECS` and overwrote `--timeout 120` with the floor.
+    #[test]
+    fn an_explicit_timeout_always_wins_over_the_heavy_floor() {
+        assert_eq!(
+            wait_plan("cli-index-rebuild", 45, true).read_timeout_secs,
+            45
+        );
+        assert_eq!(
+            wait_plan("cli-index-rebuild", DEFAULT_DAEMON_READ_TIMEOUT_SECS, true).read_timeout_secs,
+            DEFAULT_DAEMON_READ_TIMEOUT_SECS,
+            "--timeout 120 is the operator's choice, not the untouched default"
+        );
+        assert!(
+            wait_plan("cli-index-rebuild", 45, true).heavy,
+            "an explicit timeout changes the wait, never what a timeout means"
+        );
+        assert_eq!(
+            wait_plan("cli-index-rebuild", 4000, false).read_timeout_secs,
+            4000,
+            "a floor never lowers a longer configured wait"
+        );
     }
 }
 
@@ -398,8 +592,11 @@ fn parse_daemon_response(bytes: &[u8]) -> anyhow::Result<DaemonResponse> {
         }
     }
     let trimmed = trim_trailing_newline(bytes);
-    serde_json::from_slice::<DaemonResponse>(trimmed)
-        .map_err(|e| anyhow::anyhow!("json parse: {e} — daemon response malformed, restart: `touring daemon-ctl restart`"))
+    serde_json::from_slice::<DaemonResponse>(trimmed).map_err(|e| {
+        anyhow::anyhow!(
+            "json parse: {e} — daemon response malformed, restart: `touring daemon-ctl restart`"
+        )
+    })
 }
 
 /// Strip a single trailing `\n` (and optional `\r`) from a byte slice
@@ -414,4 +611,55 @@ fn trim_trailing_newline(bytes: &[u8]) -> &[u8] {
         }
     }
     bytes.get(..end).unwrap_or(bytes)
+}
+
+#[cfg(test)]
+mod daemon_busy_tests {
+    use super::{DAEMON_BUSY_EXIT_CODE, DAEMON_STILL_RUNNING_EXIT_CODE, DaemonBusy, failure_error};
+
+    /// A budget failure surfaces as `DaemonBusy` (exit code 75, payload kept);
+    /// every other failure stays a plain error.
+    #[test]
+    fn only_a_budget_failure_is_daemon_busy() {
+        let busy = failure_error(
+            r#"{"error":"handler `cli-memory-store` exceeded its 15s budget","error_kind":"budget_exceeded","handler":"cli-memory-store","budget_secs":15,"retryable":true}"#,
+        );
+        let typed = busy.downcast_ref::<DaemonBusy>().expect("typed busy error");
+        assert!(typed.payload.contains("\"error_kind\":\"budget_exceeded\""));
+        assert!(busy.to_string().contains("exceeded its 15s budget"));
+        assert_eq!(DAEMON_BUSY_EXIT_CODE, 75);
+        let plain = failure_error(r#"{"error":"key not found"}"#);
+        assert!(plain.downcast_ref::<DaemonBusy>().is_none());
+        assert!(plain.to_string().contains("key not found"));
+    }
+
+    /// Decision H2 (14/09/2026): only a retryable budget failure exits 75. A heavy
+    /// hook still running exits with its own code, because a retry repeats the walk.
+    #[test]
+    fn the_exit_code_follows_retryable() {
+        let exit_of = |payload: &str| {
+            failure_error(payload)
+                .downcast_ref::<DaemonBusy>()
+                .expect("typed busy error")
+                .exit_code()
+        };
+        assert_eq!(
+            exit_of(
+                r#"{"error":"x","error_kind":"budget_exceeded","handler":"cli-index-rebuild","still_running":true,"retryable":false}"#
+            ),
+            DAEMON_STILL_RUNNING_EXIT_CODE
+        );
+        assert_eq!(
+            exit_of(
+                r#"{"error":"x","error_kind":"budget_exceeded","handler":"cli-memory-store","still_running":true,"retryable":true}"#
+            ),
+            DAEMON_BUSY_EXIT_CODE
+        );
+        assert_eq!(
+            exit_of(r#"{"error":"x","error_kind":"budget_exceeded","handler":"cli-memory-store"}"#),
+            DAEMON_BUSY_EXIT_CODE,
+            "a daemon that predates `retryable` only reported light hooks"
+        );
+        assert_ne!(DAEMON_STILL_RUNNING_EXIT_CODE, DAEMON_BUSY_EXIT_CODE);
+    }
 }

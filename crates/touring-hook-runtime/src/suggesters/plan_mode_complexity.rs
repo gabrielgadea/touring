@@ -15,9 +15,9 @@
 //!
 //! Added: 2026-04-13 (Pln3-P4 — enter_plan_mode bidirectional via Suggester trait)
 
-use touring_foundation::truncate_str;
 use crate::bidirectional::{PendingSuggestion, Suggester};
 use crate::runtime::HookRuntime;
+use touring_foundation::truncate_str;
 
 /// CILA threshold: tasks at this level or above need structured planning.
 const L4_THRESHOLD: i64 = 4;

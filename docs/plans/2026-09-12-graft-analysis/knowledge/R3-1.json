@@ -1,0 +1,45 @@
+{
+  "phase": "R3-1",
+  "entities": [
+    {
+      "entity_id": "phase:R3-1",
+      "type": "phase",
+      "description": "Delta upstream + OUTER (re-fechamento para a DAG): 0 commits ap\u00f3s f9e6539, npm 0.18.0, 7.302 estrelas, issues #360-#368 confirmam \u00a717; strategy-loop pass."
+    },
+    {
+      "entity_id": "memory:loop:task_1789261519392597087:R3-1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789261519392597087",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789261519392597087",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R3-1|produces|memory:loop:task_1789261519392597087:R3-1:done",
+      "source": "phase:R3-1",
+      "type": "produces",
+      "target": "memory:loop:task_1789261519392597087:R3-1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-1:done|generated-by|loop:loop:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789261519392597087"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-1:done|generated-by|dag:decomp:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789261519392597087"
+    }
+  ]
+}

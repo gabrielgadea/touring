@@ -5,13 +5,13 @@
 //! session-stop: Generates final quality report and persists session summary
 //!   for cross-session intelligence.
 
-use touring_foundation::truncate_str;
 use super::error_predictor::ErrorPredictor;
 use super::runtime::HookRuntime;
 use super::session_insights::{self, SessionInsights};
 use crate::cross_agent_ledger::{ActorId, CrossAgentLedger};
 use crate::gateway::harness_contract::HarnessContract;
 use crate::schemas::validate_payload;
+use touring_foundation::truncate_str;
 
 use touring_analysis::e2e::schema_guard;
 use touring_intelligence::rl::aco::tracker::TrackerStatus;
@@ -114,7 +114,10 @@ pub fn run_session_start(
         if let Some(n) = drained.get("replayed").and_then(serde_json::Value::as_u64)
             && n > 0
         {
-            tracing::info!(replayed = n, "session-start replay drain: outcomes → OnlineRL");
+            tracing::info!(
+                replayed = n,
+                "session-start replay drain: outcomes → OnlineRL"
+            );
         }
     }
 
@@ -253,8 +256,7 @@ pub fn run_session_start(
     // not carry, so `__session_cila_level__` was NEVER written: eight readers fell
     // through to their hardcoded default and the CILA dial sat welded at 3 — the same
     // budget (3000 chars) for a typo and for a 144-consumer refactor.
-    let context_text =
-        touring_hooks_prediction::classifier::prompt_from_input(input);
+    let context_text = touring_hooks_prediction::classifier::prompt_from_input(input);
     if !context_text.is_empty() {
         let cila_result = runtime.ctx.classifier.classify(context_text);
         runtime.ctx.result_cache.cache_result(
@@ -709,7 +711,9 @@ fn wire_complementacao_session_signals(runtime: &HookRuntime) -> String {
                 m.avg_reward()
             )
         })
-        .unwrap_or_else(|| "{\"converging\":false,\"total_updates\":0,\"avg_reward\":0.0}".to_string());
+        .unwrap_or_else(|| {
+            "{\"converging\":false,\"total_updates\":0,\"avg_reward\":0.0}".to_string()
+        });
 
     format!(
         "complementacao=[h7_code_mode={};h12_entity_id={};h15_evolution={}]",

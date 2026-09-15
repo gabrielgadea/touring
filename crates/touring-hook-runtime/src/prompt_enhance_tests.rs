@@ -1,6 +1,6 @@
 #![allow(clippy::indexing_slicing)]
-use touring_foundation::truncate_str;
 use super::*;
+use touring_foundation::truncate_str;
 
 #[test]
 fn test_classify_debug() {

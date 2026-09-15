@@ -39,10 +39,12 @@ fn task_in_db(db: &crate::knowledge::FileKnowledgeDB, task_id: &str) -> bool {
         .is_ok()
 }
 
-/// The store a task-addressed operation must run against.
+/// The store a task-addressed operation must run against. The owned global
+/// store is boxed: the enum is built once per call, and an inline database
+/// handle made every `Local` borrow as large as the handle.
 enum TaskStore<'a> {
     Local(&'a crate::knowledge::FileKnowledgeDB),
-    Global(crate::knowledge::FileKnowledgeDB),
+    Global(Box<crate::knowledge::FileKnowledgeDB>),
 }
 
 impl TaskStore<'_> {
@@ -73,7 +75,7 @@ fn locate_task_store<'a>(
         return None;
     }
     let global = crate::knowledge::FileKnowledgeDB::new(&global_path).ok()?;
-    task_in_db(&global, task_id).then_some(TaskStore::Global(global))
+    task_in_db(&global, task_id).then(|| TaskStore::Global(Box::new(global)))
 }
 
 /// Creates a new decomposition task (DAG root) from a task type and description, returning its id as JSON.

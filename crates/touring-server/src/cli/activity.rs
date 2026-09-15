@@ -57,7 +57,9 @@ fn parse_action(s: &str) -> Result<touring_foundation::activity::event::EventAct
         "wire_integrated" => Ok(touring_foundation::activity::event::EventAction::WireIntegrated),
         "index_rebuilt" => Ok(touring_foundation::activity::event::EventAction::IndexRebuilt),
         "daemon_health" => Ok(touring_foundation::activity::event::EventAction::DaemonHealth),
-        other => anyhow::bail!("unknown action: {other} — expected one of: task_started, task_completed, code_change, decision_made, learning_signal, memory_stored, error_occurred, wire_integrated, index_rebuilt, daemon_health"),
+        other => anyhow::bail!(
+            "unknown action: {other} — expected one of: task_started, task_completed, code_change, decision_made, learning_signal, memory_stored, error_occurred, wire_integrated, index_rebuilt, daemon_health"
+        ),
     }
 }
 
@@ -69,8 +71,9 @@ fn activity_append(args: &[String]) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("action required; use format: touring activity append --actor <name> (e.g., task_started, vgp_verify)"))?;
     let actor = flag_value(args, "--actor").unwrap_or("Orchestrator");
     let payload_str = flag_value(args, "--payload").unwrap_or("{}");
-    let payload: serde_json::Value = serde_json::from_str(payload_str)
-        .map_err(|e| anyhow::anyhow!("invalid JSON payload: {e} — use `--payload '{{}}'` for valid JSON string"))?;
+    let payload: serde_json::Value = serde_json::from_str(payload_str).map_err(|e| {
+        anyhow::anyhow!("invalid JSON payload: {e} — use `--payload '{{}}'` for valid JSON string")
+    })?;
 
     let store = open_store()?;
     store
@@ -79,7 +82,11 @@ fn activity_append(args: &[String]) -> Result<()> {
             touring_foundation::activity::event::Actor::Agent(actor.to_string()),
             Some(payload),
         )
-        .map_err(|e| anyhow::anyhow!("append failed: {e} — run `touring activity status` to check store health"))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "append failed: {e} — run `touring activity status` to check store health"
+            )
+        })?;
 
     println!(
         "{}",
@@ -235,8 +242,12 @@ fn open_store() -> Result<touring_foundation::activity::store::EventStore> {
         std::fs::create_dir_all(parent)?;
     }
     let path_str = path.display().to_string();
-    touring_foundation::activity::store::EventStore::open(path)
-        .map_err(|e| anyhow::anyhow!("cannot open event store: {e} — run `touring activity status` or check {} exists", path_str))
+    touring_foundation::activity::store::EventStore::open(path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot open event store: {e} — run `touring activity status` or check {} exists",
+            path_str
+        )
+    })
 }
 
 fn store_path() -> Result<PathBuf> {

@@ -63,6 +63,7 @@ pub mod hook_response;
 pub mod inventory_registry;
 pub mod ipc;
 pub use touring_storage::knowledge;
+pub use touring_storage::knowledge_index_generation;
 pub use touring_storage::knowledge_wiring;
 pub mod mutation_test;
 pub mod output_capture;

@@ -67,6 +67,12 @@ touring index find <symbol>                  # symbol exists? (VGP)
 # DIAGNOSTICS
 touring doctor -j                            # health check
 touring status -j | jq '{index, orphans, rl, composite_health_score}'
+touring index why <file|@companion/key>      # why a file is/isn't indexed: skipped_dir, oversized, unsupported_extension, companion_not_configured… + residue:true se o store ainda guarda linhas (I13)
+# Memórias, rules, skills, agents, commands (~/.claude) e a auto-memory do projeto são INDEXADAS como raízes-companheiras
+# (`@companion/<nome>/<rel>`; config `[index]` do `.touring/touring.toml`) — `search unified`/`tantivy search`/`find` as devolvem por essa chave.
+touring tantivy search "<pergunta ou símbolo>" 10  # ranking medido (nomes+texto+caminho+proximidade): acha código E o que memórias/regras/skills DIZEM
+touring search text "<frase>"                # só o texto (memórias, regras, docs de código); `search unified` = ranking do tantivy + BM25 de desempate
+touring index status                         # index_generation.state: complete | building | partial (rebuild interrompido → `touring index rebuild`) (I16)
 touring synergy -j                           # wired_pairs + opportunities
 touring gate-metrics -j                     # L7-B metrics
 

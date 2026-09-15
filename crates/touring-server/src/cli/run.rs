@@ -134,7 +134,8 @@ const SDK_METHODS: &[SdkMethod] = &[
         hook: None,
         args: "",
         stub_args: "self, hook: str, payload: dict",
-        payload: "",        doc: "Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS); typed method names (e.g. 'memory_recall') are accepted as aliases.",
+        payload: "",
+        doc: "Escape hatch: any hook in the read-only allowlist (see READONLY_HOOKS); typed method names (e.g. 'memory_recall') are accepted as aliases.",
     },
     SdkMethod {
         name: "search",
@@ -609,7 +610,6 @@ fn py_sdk_stub() -> &'static str {
     })
 }
 
-
 /// `touring run` — execute code in the deny-by-default sandbox (11 languages,
 /// forbidden-call detection, 1 MB output cap). The code-mode channel without MCP.
 #[derive(Parser, Debug)]
@@ -802,9 +802,7 @@ pub fn run(args: &[String]) -> Result<()> {
     // a tool que executa código arbitrário era a ÚNICA sem gate de aprovação.
     // `--allow-forbidden` eleva a Trusted; a decisão é POR-COMANDO (o padrão
     // GIT_DESTRUCTIVE_OK — cada uso é uma escolha, nunca um estado exportado).
-    if cli.allow_forbidden
-        && std::env::var("TOURING_TRUSTED_OK").map(|v| v == "1") != Ok(true)
-    {
+    if cli.allow_forbidden && std::env::var("TOURING_TRUSTED_OK").map(|v| v == "1") != Ok(true) {
         anyhow::bail!(
             "--allow-forbidden eleva a execução a Trusted (capacidades sem sandbox) e \
              exige decisão por-comando: prefixe TOURING_TRUSTED_OK=1 no PRÓPRIO comando \
@@ -815,9 +813,9 @@ pub fn run(args: &[String]) -> Result<()> {
     // QW-2/3/4 + NET-1 (cross-audit 27-28/08) — tunables por chamada: só valem
     // Some quando o operador passou a flag; `None` preserva o engine default.
     let stdin_bytes = match &cli.input {
-        Some(path) => Some(std::fs::read(path).map_err(|e| {
-            anyhow::anyhow!("--input {path}: {e}")
-        })?),
+        Some(path) => {
+            Some(std::fs::read(path).map_err(|e| anyhow::anyhow!("--input {path}: {e}"))?)
+        }
         None => None,
     };
     // F4 P2 (2026-09-01) — an orchestrate run carries the signal-mirror
@@ -826,9 +824,8 @@ pub fn run(args: &[String]) -> Result<()> {
     // per-hook counts instead of no-oping (the path comes from the SAME
     // `default_mirror_path` the KPI reader uses — one source, no drift).
     let sdk_signal_mirror = if cli.orchestrate {
-        std::env::var_os("HOME").map(|h| {
-            touring_code::sdk_signal_mirror::default_mirror_path(std::path::Path::new(&h))
-        })
+        std::env::var_os("HOME")
+            .map(|h| touring_code::sdk_signal_mirror::default_mirror_path(std::path::Path::new(&h)))
     } else {
         None
     };
@@ -847,12 +844,21 @@ pub fn run(args: &[String]) -> Result<()> {
         },
         stream: cli.stream,
         sdk_signal_mirror,
-        source: Some(run_source_of(cli.file.as_deref(), cli.code.as_deref(), cli.stdin)),
+        source: Some(run_source_of(
+            cli.file.as_deref(),
+            cli.code.as_deref(),
+            cli.stdin,
+        )),
         harvest: cli.harvest.clone(),
         brief: cli.brief,
         orchestrate: cli.orchestrate,
     });
-    let ceg_advisory = gate_run(&cli.lang, &user_code, cli.allow_forbidden, &cli.allow_net_port)?;
+    let ceg_advisory = gate_run(
+        &cli.lang,
+        &user_code,
+        cli.allow_forbidden,
+        &cli.allow_net_port,
+    )?;
 
     let args_json = match cli.args.as_deref() {
         Some(s) => Some(serde_json::from_str(s).context("parsing --args as a JSON array")?),
@@ -889,12 +895,7 @@ pub fn run(args: &[String]) -> Result<()> {
     );
 
     // W3 d2/S-3.3 — offer harvest on the USER's code (never the injected SDK).
-    let harvest = harvest_hint(
-        &user_code,
-        &cli.lang,
-        out.exit_code,
-        cli.harvest.is_some(),
-    );
+    let harvest = harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some());
     // W3b — the executor settles the ladder itself: harvesting when asked, and
     // otherwise recognising a re-run of an already-harvested body. Both operate
     // on the USER's code, never the injected SDK (same rule as the hint).
@@ -952,11 +953,16 @@ fn ceg_advisory_json(a: &CegRunAdvisory) -> serde_json::Value {
     })
 }
 
-fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u16]) -> Result<Option<CegRunAdvisory>> {
+fn gate_run(
+    lang: &str,
+    code: &str,
+    allow_forbidden: bool,
+    allow_net_ports: &[u16],
+) -> Result<Option<CegRunAdvisory>> {
     use touring_hooks::capability::builtins;
     use touring_hooks::gateway::{
-        ExecutionOutcomePredictor, GatewayDeps, SandboxCapabilities, Verdict,
-        deferred_dry_run, neutral_outcome_history, run_gateway, soft_pass_symbol,
+        ExecutionOutcomePredictor, GatewayDeps, SandboxCapabilities, Verdict, deferred_dry_run,
+        neutral_outcome_history, run_gateway, soft_pass_symbol,
     };
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let profile = if allow_forbidden {
@@ -1009,7 +1015,9 @@ fn gate_run(lang: &str, code: &str, allow_forbidden: bool, allow_net_ports: &[u1
             // advisory e o kernel (Landlock NetPort) restringe a essas portas.
             // Residual aceito e documentado: a concessão é por PORTA; 443 fala
             // com qualquer host (Landlock não filtra host).
-            Verdict::Deny if !allow_net_ports.is_empty() && only_network_denials(&outcome.decision) => {
+            Verdict::Deny
+                if !allow_net_ports.is_empty() && only_network_denials(&outcome.decision) =>
+            {
                 let advisory = CegRunAdvisory {
                     composite: outcome.decision.composite_score,
                     reason: format!(
@@ -1483,7 +1491,10 @@ mod scratch_persist_tests {
             "2026-09",
         )
         .expect("target");
-        assert_eq!(t, std::path::PathBuf::from("/p/.touring/scratch/2026-09/probe_tmp.py"));
+        assert_eq!(
+            t,
+            std::path::PathBuf::from("/p/.touring/scratch/2026-09/probe_tmp.py")
+        );
         assert!(scratch_persist_target(std::path::Path::new("/p"), "/", "2026-09").is_none());
     }
 
@@ -1497,13 +1508,22 @@ mod scratch_persist_tests {
     #[test]
     fn only_a_clean_reusable_scratchpad_run_is_persisted() {
         let block = "import sys\n\ndef main(path):\n    data = open(path).read()\n    print(len(data))\n\nmain(sys.argv[1])\n";
-        assert!(persist_scratch_block(None, block, "python", 0).is_none(), "no file → nothing");
+        assert!(
+            persist_scratch_block(None, block, "python", 0).is_none(),
+            "no file → nothing"
+        );
         assert!(
             persist_scratch_block(Some("scripts/keep.py"), block, "python", 0).is_none(),
             "a project file already persists"
         );
         assert!(
-            persist_scratch_block(Some("/tmp/claude-1000/s/scratchpad/a.py"), block, "python", 1).is_none(),
+            persist_scratch_block(
+                Some("/tmp/claude-1000/s/scratchpad/a.py"),
+                block,
+                "python",
+                1
+            )
+            .is_none(),
             "a failed run is not a block"
         );
     }
@@ -1533,10 +1553,19 @@ mod auto_harvest_tests {
     fn candidate_follows_the_hint_predicate() {
         let block = "import sys\n\ndef main(path):\n    data = open(path).read()\n    print(len(data))\n\nmain(sys.argv[1])\n";
         assert!(auto_harvest_candidate(block, "python", 0));
-        assert!(!auto_harvest_candidate(block, "python", 1), "a failing run is not a block");
-        assert!(!auto_harvest_candidate("print(1)", "python", 0), "a one-liner is not a block");
+        assert!(
+            !auto_harvest_candidate(block, "python", 1),
+            "a failing run is not a block"
+        );
+        assert!(
+            !auto_harvest_candidate("print(1)", "python", 0),
+            "a one-liner is not a block"
+        );
         let ephemeral = "def f(p):\n    return p\n\nf('/tmp/claude-1000/x/scratchpad/a.py')\nprint(1)\nprint(2)\n";
-        assert!(!auto_harvest_candidate(ephemeral, "python", 0), "scratchpad path = one-off");
+        assert!(
+            !auto_harvest_candidate(ephemeral, "python", 0),
+            "scratchpad path = one-off"
+        );
     }
 }
 
@@ -1560,9 +1589,8 @@ fn harvest_hint(code: &str, lang: &str, exit_code: i32, already_harvested: bool)
     if !parametrized {
         return None;
     }
-    let ephemeral = code.contains("/tmp/claude-")
-        || code.contains("task_1")
-        || regex_lite_date(code);
+    let ephemeral =
+        code.contains("/tmp/claude-") || code.contains("task_1") || regex_lite_date(code);
     if ephemeral {
         return None;
     }
@@ -1600,7 +1628,9 @@ fn resolve_code(cli: &RunCli) -> Result<String> {
             .context("reading code from stdin")?;
         Ok(buf)
     } else {
-        anyhow::bail!("provide the code body with one of --code, --file, or --stdin — run `touring help` for details")
+        anyhow::bail!(
+            "provide the code body with one of --code, --file, or --stdin — run `touring help` for details"
+        )
     }
 }
 
@@ -1682,7 +1712,10 @@ mod tests {
         let code = "import sys\ndef clean(path):\n    return path.strip()\nfor a in sys.argv[1:]:\n    print(clean(a))";
         let hint = super::harvest_hint(code, "python", 0, false)
             .expect("parametrized multi-line code is offerable");
-        assert!(hint.contains("#kind:snippet"), "offer carries the facet tag");
+        assert!(
+            hint.contains("#kind:snippet"),
+            "offer carries the facet tag"
+        );
         assert!(hint.contains("#lang:python"), "offer carries the real lang");
         // W3b — the offer must teach the form that ENTERS the ladder. Teaching
         // a bare `memory store <slug>` minted a key the trust bridge could not
@@ -1745,12 +1778,29 @@ mod tests {
         // too short
         assert!(super::harvest_hint("print(1)", "python", 0, false).is_none());
         // not parametrized
-        assert!(super::harvest_hint("a=1\nb=2\nc=3\nd=4\nprint(a+b+c+d)", "python", 0, false).is_none());
+        assert!(
+            super::harvest_hint("a=1\nb=2\nc=3\nd=4\nprint(a+b+c+d)", "python", 0, false).is_none()
+        );
         // ephemeral identifiers (session path / absolute date)
-        assert!(super::harvest_hint(
-            "def f(x):\n    return x\nopen('/tmp/claude-1000/x')\nf(1)\nf(2)", "python", 0, false).is_none());
+        assert!(
+            super::harvest_hint(
+                "def f(x):\n    return x\nopen('/tmp/claude-1000/x')\nf(1)\nf(2)",
+                "python",
+                0,
+                false
+            )
+            .is_none()
+        );
         // failed execution
-        assert!(super::harvest_hint("def f(x):\n    return x\nf(1)\nf(2)\nf(3)", "python", 3, false).is_none());
+        assert!(
+            super::harvest_hint(
+                "def f(x):\n    return x\nf(1)\nf(2)\nf(3)",
+                "python",
+                3,
+                false
+            )
+            .is_none()
+        );
     }
 
     /// 2026-08-27 — o waiver do shell é SELETIVO.
@@ -1822,8 +1872,7 @@ mod tests {
         let mut d = decisao(vec!["subprocess", "fs-write"], false);
         d.reasons = vec![
             "X6 denied the subprocess capability 'sed' under profile 'Sandboxed'".into(),
-            "X6 denied the file-write capability 'redirection' under profile 'Sandboxed'"
-                .into(),
+            "X6 denied the file-write capability 'redirection' under profile 'Sandboxed'".into(),
         ];
         assert!(
             super::blocking_reason(&d).contains("file-write"),
@@ -1963,8 +2012,14 @@ mod tests {
             .collect();
         let mut sorted = methods.clone();
         sorted.sort_unstable();
-        assert_eq!(methods, sorted, "stub methods must be lexicographically ordered");
-        assert!(!methods.is_empty(), "um stub vazio anunciaria superfície nenhuma");
+        assert_eq!(
+            methods, sorted,
+            "stub methods must be lexicographically ordered"
+        );
+        assert!(
+            !methods.is_empty(),
+            "um stub vazio anunciaria superfície nenhuma"
+        );
     }
 
     /// S4 — o invariante central: a superfície ANUNCIADA e a IMPOSTA saem da
@@ -2082,10 +2137,17 @@ mod tests {
                 "SDK JS deve declarar {}",
                 m.name
             );
-            assert!(js.contains(m.doc), "a doc de {} é a MESMA nos dois SDKs", m.name);
+            assert!(
+                js.contains(m.doc),
+                "a doc de {} é a MESMA nos dois SDKs",
+                m.name
+            );
         }
         for hook in super::READONLY_HOOKS {
-            assert!(js.contains(&format!("\"{hook}\"")), "allowlist JS sem {hook}");
+            assert!(
+                js.contains(&format!("\"{hook}\"")),
+                "allowlist JS sem {hook}"
+            );
         }
         // byte-stável entre chamadas (P21, KV-cache do provider)
         assert_eq!(super::js_sdk(), super::js_sdk());
@@ -2135,12 +2197,45 @@ mod tests {
     #[test]
     fn no_mutating_verb_in_the_readonly_allowlist() {
         const MUTANTES: &[&str] = &[
-            "-add", "-create", "-update", "-delete", "-reset", "-store", "-write",
-            "-rebuild", "-ingest", "-spawn", "-drop", "-begin", "-abort", "-commit",
-            "-apply", "-purge", "-flush", "-install", "-init", "-sync", "-import",
-            "-reindex", "-populate", "-repair", "-rename", "-run", "-claim",
-            "-release", "-finalize", "-reload", "-unregister", "-gc", "-warmstart",
-            "-drain", "-consumed", "-checkpoint", "-start", "-edit", "-backfill",
+            "-add",
+            "-create",
+            "-update",
+            "-delete",
+            "-reset",
+            "-store",
+            "-write",
+            "-rebuild",
+            "-ingest",
+            "-spawn",
+            "-drop",
+            "-begin",
+            "-abort",
+            "-commit",
+            "-apply",
+            "-purge",
+            "-flush",
+            "-install",
+            "-init",
+            "-sync",
+            "-import",
+            "-reindex",
+            "-populate",
+            "-repair",
+            "-rename",
+            "-run",
+            "-claim",
+            "-release",
+            "-finalize",
+            "-reload",
+            "-unregister",
+            "-gc",
+            "-warmstart",
+            "-drain",
+            "-consumed",
+            "-checkpoint",
+            "-start",
+            "-edit",
+            "-backfill",
         ];
         for h in super::READONLY_HOOKS {
             for m in MUTANTES {
@@ -2175,8 +2270,14 @@ mod tests {
             super::READONLY_HOOKS.len()
         );
         for hook in [
-            "cli-index-find", "cli-ast-blast", "cli-ast-overview", "cli-wiring-status",
-            "cli-search-docs", "cli-memory-recall", "cli-tantivy-search", "cli-wiring-impact",
+            "cli-index-find",
+            "cli-ast-blast",
+            "cli-ast-overview",
+            "cli-wiring-status",
+            "cli-search-docs",
+            "cli-memory-recall",
+            "cli-tantivy-search",
+            "cli-wiring-impact",
         ] {
             assert!(
                 super::READONLY_HOOKS.contains(&hook),
@@ -2190,7 +2291,10 @@ mod tests {
     #[test]
     fn sdk_states_what_it_saves() {
         let sdk = super::py_sdk();
-        assert!(sdk.contains("READONLY_HOOKS"), "o guard client-side deve existir");
+        assert!(
+            sdk.contains("READONLY_HOOKS"),
+            "o guard client-side deve existir"
+        );
         assert!(
             sdk.contains("ONE turn instead of N"),
             "o SDK deve declarar a economia, não só a API"
@@ -2211,7 +2315,11 @@ mod tests {
     /// nothing ever handed the rendered text to a real interpreter.
     #[test]
     fn orchestrate_python_sdk_compiles_as_real_python() {
-        if std::process::Command::new("python3").arg("--version").output().is_err() {
+        if std::process::Command::new("python3")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             eprintln!("python3 not available — skipping interpreter-level check");
             return;
         }
@@ -2402,7 +2510,9 @@ mod tests {
     #[test]
     fn shell_subprocess_deny_vira_advisory_estruturado() {
         assert!(
-            gate_run("bash", "echo hi", false, &[]).expect("builtin passa").is_none(),
+            gate_run("bash", "echo hi", false, &[])
+                .expect("builtin passa")
+                .is_none(),
             "`echo` é builtin — advisory aqui seria o ruído que o S6 eliminou"
         );
         let adv = gate_run("bash", "python3 -c 1", false, &[])
@@ -2413,7 +2523,10 @@ mod tests {
         let v = ceg_advisory_json(&adv);
         assert_eq!(v["composite"], serde_json::json!(adv.composite));
         assert!(
-            v["note"].as_str().expect("note").contains("subprocess-only"),
+            v["note"]
+                .as_str()
+                .expect("note")
+                .contains("subprocess-only"),
             "a nota declara que o waiver é seletivo: {}",
             v["note"]
         );
@@ -2427,7 +2540,8 @@ mod tests {
     /// HTTP 200 — enquanto o `socket` equivalente em Python era recusado.
     #[test]
     fn shell_network_deny_is_not_waived() {
-        let r = gate_run("bash", "curl https://example.com", false, &[]);        let msg = match r {
+        let r = gate_run("bash", "curl https://example.com", false, &[]);
+        let msg = match r {
             Err(e) => e.to_string(),
             Ok(_) => panic!("rede em shell tem de negar DURO, como no Python"),
         };
@@ -2587,6 +2701,9 @@ mod auto_harvest_tag_tests {
                 "tag `#{tag}` names `{facet}`, which is not one of {CANONICAL:?}"
             );
         }
-        assert!(seen >= 4, "expected the minted tags to be found, saw {seen}");
+        assert!(
+            seen >= 4,
+            "expected the minted tags to be found, saw {seen}"
+        );
     }
 }

@@ -277,13 +277,15 @@ pub struct ContextRuntime {
     /// Always enabled. Manages Register/Prepare/Decide/Delta protocol with remote
     /// subagents over the daemon socket using rkyv zero-copy framing.
     pub distributed_saga: crate::saga::DistributedSagaCoordinator,
-    /// WASM inferlet evaluation channel — sender to the project actor so that
-    /// `cli_inferlets_exec` (which runs on the bare actor thread) can dispatch
-    /// `RunInferlet` commands and await the result synchronously via oneshot.
-    /// `Arc<Mutex<Option<...>>>` allows None before actor spawn and safe mutation
-    /// through `&HookRuntime` shared reference post-spawn.
+    /// Weak handle to the project actor's own command channel, injected at spawn.
+    ///
+    /// Weak on purpose (cross-audit 14/09/2026, A2): the actor owns this runtime,
+    /// so a strong sender stored here kept the channel open for the actor's whole
+    /// life, and an actor evicted by the LRU never saw `recv()` return `None`.
+    /// `Arc<Mutex<Option<...>>>` allows `None` before the actor spawns and safe
+    /// mutation through a shared `&HookRuntime`.
     cmd_tx: std::sync::Arc<
-        std::sync::Mutex<Option<mpsc::Sender<crate::daemon_protocol::ProjectCommand>>>,
+        std::sync::Mutex<Option<mpsc::WeakSender<crate::daemon_protocol::ProjectCommand>>>,
     >,
     /// Wave 13 (2026-04-27): distributed tracing context for hook chain observability.
     /// Records per-hop timing across `pre_read → pre_edit → post_edit → post_write`.
@@ -293,20 +295,20 @@ pub struct ContextRuntime {
 }
 
 impl ContextRuntime {
-    /// Returns the actor command sender injected at spawn time.
-    /// Used by `cli_inferlets_exec` to dispatch RunInferlet from the bare actor thread.
-    pub fn cmd_tx(&self) -> mpsc::Sender<crate::daemon_protocol::ProjectCommand> {
+    /// A sender to the project actor's command channel: `None` before the actor
+    /// spawns, and `None` once every dispatch-side sender is gone (the project was
+    /// evicted or the daemon is shutting down), so a handler never keeps a dying
+    /// actor alive.
+    pub fn cmd_tx(&self) -> Option<mpsc::Sender<crate::daemon_protocol::ProjectCommand>> {
         let guard = self.cmd_tx.lock().expect("cmd_tx mutex poisoned");
-        guard
-            .as_ref()
-            .expect("cmd_tx not initialized — actor not yet spawned")
-            .clone()
+        guard.as_ref().and_then(mpsc::WeakSender::upgrade)
     }
 
-    /// Inject the command sender at actor spawn time. Called from `ProjectRuntime::new`.
-    pub fn set_cmd_tx(&self, tx: mpsc::Sender<crate::daemon_protocol::ProjectCommand>) {
+    /// Record the actor's command channel at spawn time, as a weak handle.
+    /// Called from `ProjectRuntime::new`.
+    pub fn set_cmd_tx(&self, tx: &mpsc::Sender<crate::daemon_protocol::ProjectCommand>) {
         let mut guard = self.cmd_tx.lock().expect("cmd_tx mutex poisoned");
-        *guard = Some(tx);
+        *guard = Some(tx.downgrade());
     }
 }
 /// Learning layer — RL models, bandits, predictors.
@@ -1811,9 +1813,7 @@ pub fn sync_codetag_anchors(project_root: &std::path::Path, rel_path: &str, cont
     {
         return;
     }
-    if let Err(e) =
-        touring_intelligence::rl::memory::codetag::sync_file(&conn, rel_path, content)
-    {
+    if let Err(e) = touring_intelligence::rl::memory::codetag::sync_file(&conn, rel_path, content) {
         tracing::debug!(error = %e, path = rel_path, "codetag sync failed (fail-open)");
     }
 }

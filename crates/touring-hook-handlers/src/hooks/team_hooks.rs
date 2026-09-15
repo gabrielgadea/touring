@@ -15,11 +15,11 @@
 //! - `teammate-idle-gate` → anti-limbo gate with context injection + exit code
 //! - `subagent-bootstrap` → minimal bootstrap context for SubagentStart
 
-use touring_foundation::truncate_str;
 use crate::hook_decompose_bridge::bridge_idle_gate_queue_state;
 use crate::runtime::HookRuntime;
 use crate::schemas::validate_payload;
 use serde_yaml;
+use touring_foundation::truncate_str;
 
 /// Result from gate hooks that control teammate behavior.
 /// `context`: additionalContext to inject (empty = none).
@@ -831,11 +831,7 @@ pub fn run_task_completed(
             .ctx
             .knowledge
             .record_bash_outcome(&crate::knowledge::BashOutcome {
-                command: format!(
-                    "task_completion:{}:{}",
-                    task_id,
-                    truncate_str(summary, 200)
-                ),
+                command: format!("task_completion:{}:{}", task_id, truncate_str(summary, 200)),
                 command_short: "task_completion".to_string(),
                 exit_code: if success { 0 } else { 1 },
                 success,

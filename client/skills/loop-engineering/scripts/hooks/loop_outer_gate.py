@@ -85,6 +85,49 @@ def _satisfies(path: str, require: dict | None) -> bool:
     return True
 
 
+def _materialize_class_b(art: dict, scope: str, bundle, marker: dict) -> str | None:
+    """Classe B: o artefato é SUBPRODUTO do turno, então quem o escreve é código.
+
+    P4/S-4.3. A exigência continua sendo um arquivo em disco — a Lei L3 fica
+    intacta, nada de "eu digo que raciocinei". O que muda é o AUTOR: em vez de o
+    modelo parar no meio do raciocínio para escrever um `.md`, este gate roda no
+    Stop hook (quando o turno JÁ terminou) e deriva o registro do que o turno
+    produziu. Custo de contexto: zero, por construção.
+
+    Fail-open sem exceção. Se o executor falha, o artefato não vira cobrança —
+    porque a cobrança seria exatamente a escrita manual que a classe B existe
+    para eliminar. A falha aparece no relatório como `class_b_unmaterialized`,
+    nunca some (E4: ausência exibida).
+
+    Exercitado em 04/09/2026, não presumido: com `materializer` inexistente a
+    avaliação real devolveu `missing=[]`, `complete=True`,
+    `class_b_unmaterialized=["turn-record"]`; com o executor bom, um registro de
+    10.817 B em disco. Guard permanente:
+    `test_class_b_never_becomes_a_manual_write_when_the_executor_fails`.
+    """
+    if art.get("materializer") != "loop_turn_record":
+        return None
+    try:
+        import sys
+
+        here = str(Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        from loop_turn_record import default_out, materialize
+
+        out = default_out(scope, bundle, marker)
+        # Idempotente por ARMAÇÃO: a segunda avaliação do mesmo run encontra o
+        # arquivo da primeira. Sem isto o gate reescrevia a cada avaliação — o
+        # diretório crescia sem limite E a cláusula ficava vacuamente verdadeira,
+        # porque o artefato "aparecia" só por ter acabado de ser criado.
+        if out.exists():
+            return str(out)
+        res = materialize({**marker, "scope": scope, "bundle": bundle}, out)
+        return str(out) if res.get("written") and out.exists() else None
+    except Exception:  # noqa: BLE001 — um executor de gate jamais derruba o turno
+        return None
+
+
 def evaluate(marker: dict, manifests: dict) -> dict:
     """Check every manifest artifact against disk; deterministic, narrative-free."""
     flow = marker.get("flow") or "strategy-outer"
@@ -103,8 +146,10 @@ def evaluate(marker: dict, manifests: dict) -> dict:
     # `class` conta como A e continua exigido: esquecer de classificar erra para
     # o lado da cobranca, nunca para o do buraco silencioso.
     enforced = set(manifest.get("enforced_classes", ["A", "B", "C"]))
+    unmaterialized = []
     for art in manifest.get("artifacts", []):
-        if art.get("class", "A") not in enforced:
+        cls = art.get("class", "A")
+        if cls not in enforced:
             continue
         pattern = _resolve_glob(str(art.get("glob", "")), scope, bundle)
         hits = []
@@ -117,6 +162,15 @@ def evaluate(marker: dict, manifests: dict) -> dict:
                 hits = []
         if len(hits) >= int(art.get("min", 1)):
             present.append({"id": art.get("id"), "files": sorted(hits)[-3:]})
+        elif cls == "B":
+            # Não cobra: PRODUZ. O turno já escreveu o conteúdo; o executor só o
+            # materializa. Se falhar, o artefato sai do caminho crítico em vez
+            # de virar a escrita manual que a classe B existe para eliminar.
+            made = _materialize_class_b(art, scope, bundle, marker)
+            if made:
+                present.append({"id": art.get("id"), "files": [made]})
+            else:
+                unmaterialized.append(art.get("id"))
         else:
             missing.append({"id": art.get("id"),
                             "next_action": _fill(art.get("next_action", ""), scope, bundle)})
@@ -132,6 +186,10 @@ def evaluate(marker: dict, manifests: dict) -> dict:
             in set(manifest.get("enforced_classes", ["A", "B", "C"]))
         ),
         "present": present, "missing": missing, "next_action": next_action,
+        # Classe B que o executor não conseguiu escrever. Não bloqueia (seria a
+        # escrita manual de volta), mas aparece — uma ausência que some é a
+        # forma mais cara de erro num instrumento (E4).
+        "class_b_unmaterialized": unmaterialized,
         "max_continuations": int(manifest.get("max_continuations", 5)),
     }
 

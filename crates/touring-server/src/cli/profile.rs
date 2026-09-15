@@ -168,18 +168,24 @@ fn profile_validate(args: &[String]) -> Result<()> {
 
     let profile_text = match std::fs::read_to_string(&profile_path) {
         Ok(t) => t,
-        Err(e) => bail!("cannot read PARCER profile {profile_path}: {e} — check file exists and is readable"),
+        Err(e) => bail!(
+            "cannot read PARCER profile {profile_path}: {e} — check file exists and is readable"
+        ),
     };
     let profile: serde_json::Value = match serde_yaml::from_str(&profile_text) {
         Ok(v) => v,
-        Err(e) => bail!("PARCER profile {profile_path} is not valid YAML: {e} — verify syntax with `yamllint`"),
+        Err(e) => bail!(
+            "PARCER profile {profile_path} is not valid YAML: {e} — verify syntax with `yamllint`"
+        ),
     };
 
     let schema_path = parcer_schema_path();
-    let schema_text = std::fs::read_to_string(&schema_path)
-        .map_err(|e| anyhow::anyhow!("cannot read schema {schema_path}: {e} — verify schema file exists"))?;
-    let schema: serde_json::Value = serde_json::from_str(&schema_text)
-        .map_err(|e| anyhow::anyhow!("invalid JSON schema: {e} — verify schema format is valid JSON"))?;
+    let schema_text = std::fs::read_to_string(&schema_path).map_err(|e| {
+        anyhow::anyhow!("cannot read schema {schema_path}: {e} — verify schema file exists")
+    })?;
+    let schema: serde_json::Value = serde_json::from_str(&schema_text).map_err(|e| {
+        anyhow::anyhow!("invalid JSON schema: {e} — verify schema format is valid JSON")
+    })?;
 
     // Wire `schema` into the validator: prefer the `required` array declared
     // by the JSON schema (single source of truth) over a hardcoded fallback.
@@ -363,9 +369,9 @@ fn take_pprof_snapshot() -> Result<Vec<u8>> {
     tokio::task::block_in_place(|| {
         let mut guard = ctl_arc.blocking_lock();
         if !guard.activated() {
-            guard
-                .activate()
-                .map_err(|e| anyhow::anyhow!("activate profiler: {e}; set MALLOC_CONF=prof:true is set"))?;
+            guard.activate().map_err(|e| {
+                anyhow::anyhow!("activate profiler: {e}; set MALLOC_CONF=prof:true is set")
+            })?;
         }
         guard
             .dump_pprof()
@@ -397,12 +403,12 @@ fn take_flamegraph() -> Result<Vec<u8>> {
     tokio::task::block_in_place(|| {
         let mut guard = ctl_arc.blocking_lock();
         if !guard.activated() {
-            guard
-                .activate()
-                .map_err(|e| anyhow::anyhow!("activate profiler: {e}; set MALLOC_CONF=prof:true is set"))?;
+            guard.activate().map_err(|e| {
+                anyhow::anyhow!("activate profiler: {e}; set MALLOC_CONF=prof:true is set")
+            })?;
         }
-        guard
-            .dump_flamegraph()
-            .map_err(|e| anyhow::anyhow!("dump_flamegraph: {e} — run `df -h /tmp` to check disk space"))
+        guard.dump_flamegraph().map_err(|e| {
+            anyhow::anyhow!("dump_flamegraph: {e} — run `df -h /tmp` to check disk space")
+        })
     })
 }

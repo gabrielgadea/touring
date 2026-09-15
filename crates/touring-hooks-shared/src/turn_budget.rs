@@ -26,8 +26,7 @@ use std::path::{Path, PathBuf};
 /// 3 000 halves the 6 650 measured on 04/09/2026. Overridable per environment
 /// (`TOURING_TURN_BUDGET`) exactly like the per-call budgets, so calibration is
 /// a decision someone makes and not a constant someone edits.
-pub const TURN_BUDGET_DEFAULT: usize =
-    touring_foundation::cila::INJECTION_CEIL_BYTES_PER_TURN;
+pub const TURN_BUDGET_DEFAULT: usize = touring_foundation::cila::INJECTION_CEIL_BYTES_PER_TURN;
 
 /// A turn with no observed end is bounded by this instead, so a session that
 /// never fires the reset cannot hold a budget open forever.
@@ -46,7 +45,8 @@ fn turn_file(root: &Path, session: &str) -> PathBuf {
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect();
-    root.join(".claude/touring").join(format!("turn-{safe}.txt"))
+    root.join(".claude/touring")
+        .join(format!("turn-{safe}.txt"))
 }
 
 /// Read `(spent, age_secs)`; a file older than the TTL reads as a fresh turn.
@@ -182,9 +182,15 @@ mod tests {
         let cut = directives_only(block).expect("ha' diretivas");
         assert!(cut.contains("MUST touring doctor -j"));
         assert!(cut.contains("SHOULD touring status -j"));
-        assert!(!cut.contains("Reason: prosa"), "a racionalizacao e' a 1a a cair");
+        assert!(
+            !cut.contains("Reason: prosa"),
+            "a racionalizacao e' a 1a a cair"
+        );
         assert!(!cut.contains("MAY grep"), "MAY cai antes de MUST/SHOULD");
-        assert!(cut.contains("orçamento do turno esgotado"), "a elisao e' declarada");
+        assert!(
+            cut.contains("orçamento do turno esgotado"),
+            "a elisao e' declarada"
+        );
         assert!(cut.len() < block.len());
     }
 

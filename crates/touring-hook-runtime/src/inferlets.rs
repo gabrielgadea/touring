@@ -31,7 +31,6 @@ use std::sync::Arc;
 
 use moka::sync::Cache;
 use serde_json::Value;
-use tokio::sync::mpsc;
 use touring_bindings::wasm::{AsyncInferletPool, PluginContext, PluginResult, WasmRunner};
 
 /// Inferlet identifiers available in the system.
@@ -111,12 +110,6 @@ pub struct InferletService {
     ///   bumps on hit, instead of holding a read-guard across await points
     ///   (which forced the prior code to drop the guard before `.await`).
     pools: Cache<InferletKind, Arc<InferletPool>>,
-    /// Command sender injected at actor spawn so that `evaluate_sync` can
-    /// dispatch `RunInferlet` through the actor mpsc channel (safe from
-    /// the bare-thread actor context where Tokio runtime is unavailable).
-    ctx_tx: std::sync::Arc<
-        std::sync::Mutex<Option<mpsc::Sender<crate::daemon_protocol::ProjectCommand>>>,
-    >,
 }
 
 impl std::fmt::Debug for InferletService {
@@ -139,7 +132,6 @@ impl InferletService {
         Ok(Self {
             runner: Arc::new(runner),
             pools: Self::build_pool_cache(),
-            ctx_tx: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
     }
 
@@ -150,16 +142,6 @@ impl InferletService {
     /// when explicitly replaced via `load_inferlet`.
     fn build_pool_cache() -> Cache<InferletKind, Arc<InferletPool>> {
         Cache::builder().max_capacity(16).build()
-    }
-
-    /// Return a sender for dispatching `RunInferlet` commands to the project actor.
-    /// The sender is stored in `ContextRuntime::cmd_tx` at actor spawn time.
-    pub fn cmd_tx(&self) -> mpsc::Sender<crate::daemon_protocol::ProjectCommand> {
-        let ctx_tx = self.ctx_tx.lock().expect("ctx_tx mutex poisoned");
-        ctx_tx
-            .as_ref()
-            .expect("cmd_tx not initialized — actor not yet spawned")
-            .clone()
     }
 
     /// Load an inferlet into a pool of the specified size.
@@ -348,7 +330,6 @@ impl Default for InferletService {
             Self {
                 runner: Arc::new(runner),
                 pools: Self::build_pool_cache(),
-                ctx_tx: std::sync::Arc::new(std::sync::Mutex::new(None)),
             }
         })
     }

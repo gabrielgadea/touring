@@ -218,9 +218,17 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
             }))
             // S1 (2026-09-01): ast-grep risk patterns (unwrap/panic/eval/exec,
             // 22 langs) over the PROPOSED content — the file may not exist yet.
-            .add_layer(crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
-                runtime.project_root.clone(),
-            ))
+            .add_layer(
+                crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
+            )
+            // S2-doc (2026-09-05): símbolos documentais do conteúdo PROPOSTO, relevância por nó.
+            .add_layer(
+                crate::shared::doc_symbol_signal::DocSymbolSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
+            )
             // S7 (2026-09-01): a proposed .py that does not parse is flagged
             // BEFORE it is written (tree-sitter, <1 ms).
             .add_layer(crate::shared::qa_syntax::PySyntaxSignalLayer)

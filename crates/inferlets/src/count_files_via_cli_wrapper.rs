@@ -43,15 +43,6 @@ pub struct Input {
     pub extensions: Vec<String>,
 }
 
-/// Extension count entry.
-#[derive(Debug, Serialize)]
-pub struct ExtensionCount {
-    /// The file extension this count applies to.
-    pub extension: String,
-    /// Number of files matching the extension.
-    pub count: usize,
-}
-
 /// Output structure for count_files_via_cli_wrapper.
 #[derive(Debug, Serialize)]
 pub struct Output {

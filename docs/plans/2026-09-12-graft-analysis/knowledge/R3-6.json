@@ -1,0 +1,45 @@
+{
+  "phase": "R3-6",
+  "entities": [
+    {
+      "entity_id": "phase:R3-6",
+      "type": "phase",
+      "description": "--deep sob servidor OpenAI-compat\u00edvel simulado: summarize (texto, arquivo inteiro \u226424k) + record_symbols (tool for\u00e7ada, arquivo numerado \u226418k) por arquivo + record_graph (\u226460k) por build; rust-probe 125 arquivos \u2192 251 requisi\u00e7\u00f5es, 3,57 MB (~0,9 M tokens), m\u00e1x 4 em voo, 0 cache_control; build repetido 0 chamadas; 1 edi\u00e7\u00e3o = 2 chamadas + s\u00edntese inteira (41,7 KB); HTTP 500 \u2192 5 tentativas, exit 1, --allow-partial exit 0, 'nothing computed was lost'; escreve n\u00f3s conceituais YAML+prosa, cards com [[link]] e resumos, manifest.json; ask devolve conceito, check reporta meaning tier, viz --export 57 KB; extrapola\u00e7\u00e3o Touring \u2248 16 M tokens."
+    },
+    {
+      "entity_id": "memory:loop:task_1789261519392597087:R3-6:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789261519392597087",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789261519392597087",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R3-6|produces|memory:loop:task_1789261519392597087:R3-6:done",
+      "source": "phase:R3-6",
+      "type": "produces",
+      "target": "memory:loop:task_1789261519392597087:R3-6:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-6:done|generated-by|loop:loop:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-6:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789261519392597087"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-6:done|generated-by|dag:decomp:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-6:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789261519392597087"
+    }
+  ]
+}

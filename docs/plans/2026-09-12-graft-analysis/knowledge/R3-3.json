@@ -1,0 +1,45 @@
+{
+  "phase": "R3-3",
+  "entities": [
+    {
+      "entity_id": "phase:R3-3",
+      "type": "phase",
+      "description": "Seguran\u00e7a de conte\u00fado por execu\u00e7\u00e3o: repo sint\u00e9tico (4 segredos, 3 can\u00e1rios de inje\u00e7\u00e3o, .env, symlink externo, unicode/espa\u00e7o/latin-1, 3,9 MB, bin\u00e1rio); 6/11 indexados, big.ts >1 MB e symlinks pulados em sil\u00eancio, nada lido fora do repo; cards s\u00f3 assinaturas, segredos/inje\u00e7\u00e3o s\u00f3 em .cache/extract.*.json; grep devolve literais verbatim; hook UserPromptSubmit injeta 519 B s\u00f3 de assinaturas (0/7 can\u00e1rios), SessionStart 3.151 B; com grafo --deep o hook injeta prosa do modelo; --deep envia arquivo inteiro (todos os 7 can\u00e1rios chegaram ao endpoint)."
+    },
+    {
+      "entity_id": "memory:loop:task_1789261519392597087:R3-3:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789261519392597087",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789261519392597087",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R3-3|produces|memory:loop:task_1789261519392597087:R3-3:done",
+      "source": "phase:R3-3",
+      "type": "produces",
+      "target": "memory:loop:task_1789261519392597087:R3-3:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-3:done|generated-by|loop:loop:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-3:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789261519392597087"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-3:done|generated-by|dag:decomp:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-3:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789261519392597087"
+    }
+  ]
+}

@@ -88,7 +88,9 @@ pub fn vendor_prefix_aws_like() -> String {
 /// not flag this file for its own detector pattern.
 #[must_use]
 pub fn unwrap_call_pattern() -> String {
-    ['.', 'u', 'n', 'w', 'r', 'a', 'p', '(', ')'].iter().collect()
+    ['.', 'u', 'n', 'w', 'r', 'a', 'p', '(', ')']
+        .iter()
+        .collect()
 }
 
 fn sql_keyword_select_bytes() -> [u8; 6] {
@@ -219,15 +221,28 @@ mod tests {
 
     #[test]
     fn vendor_needles_are_built_from_bytes() {
-        assert_eq!(vendor_prefix_openai_like().as_str(), "\u{0073}\u{006B}\u{002D}");
-        assert_eq!(vendor_prefix_aws_like().as_str(), "\u{0041}\u{004B}\u{0049}\u{0041}");
+        assert_eq!(
+            vendor_prefix_openai_like().as_str(),
+            "\u{0073}\u{006B}\u{002D}"
+        );
+        assert_eq!(
+            vendor_prefix_aws_like().as_str(),
+            "\u{0041}\u{004B}\u{0049}\u{0041}"
+        );
     }
 
     #[test]
     fn detects_hardcoded_api_key() {
-        let src = format!("const KEY: &str = \"{}PLACEHOLDER api\";\n", vendor_prefix_openai_like());
+        let src = format!(
+            "const KEY: &str = \"{}PLACEHOLDER api\";\n",
+            vendor_prefix_openai_like()
+        );
         let findings = detect_cwes(&src);
-        assert!(findings.iter().any(|f| f.id == "CWE-798" && f.severity == Severity::P0));
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.id == "CWE-798" && f.severity == Severity::P0)
+        );
         assert_eq!(findings[0].line, 1);
     }
 
@@ -239,10 +254,14 @@ mod tests {
 
     #[test]
     fn detects_path_traversal() {
-        let src = "fn load(p: &str) -> String {\n    fs::read_to_string(p).unwrap_or_default()\n}\n";
+        let src =
+            "fn load(p: &str) -> String {\n    fs::read_to_string(p).unwrap_or_default()\n}\n";
         let f = detect_cwes(src);
         assert!(f.iter().any(|f| f.id == "CWE-22" && f.line == 2), "{f:?}");
-        assert!(!f.iter().any(|f| f.id == "CWE-394"), "unwrap_or_default is not unwrap(): {f:?}");
+        assert!(
+            !f.iter().any(|f| f.id == "CWE-394"),
+            "unwrap_or_default is not unwrap(): {f:?}"
+        );
     }
 
     #[test]
@@ -250,7 +269,11 @@ mod tests {
         let call = unwrap_call_pattern();
         let src = format!("fn main() {{\n    // foo(){call}\n    let x = foo(){call};\n}}\n");
         let f = detect_cwes(&src);
-        let lines: Vec<u32> = f.iter().filter(|f| f.id == "CWE-394").map(|f| f.line).collect();
+        let lines: Vec<u32> = f
+            .iter()
+            .filter(|f| f.id == "CWE-394")
+            .map(|f| f.line)
+            .collect();
         assert_eq!(lines, vec![3], "{f:?}");
     }
 

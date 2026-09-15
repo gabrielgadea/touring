@@ -27,6 +27,8 @@ SUBTASKS = [
     "task_1::B10-something-else",
     "task_1::P2 plan step",
     "task_1::C4",
+    "task_1::R3-1: Delta upstream + OUTER",
+    "task_1::R3-10: something longer",
 ]
 
 
@@ -56,6 +58,17 @@ class ResolveSubtaskIdTest(unittest.TestCase):
         """`B1` is not a prefix match for `B10-...` — the separator is required."""
         self.assertEqual(pc.resolve_subtask_id(TASK, "B10"), "task_1::B10-something-else")
         self.assertNotEqual(pc.resolve_subtask_id(TASK, "B1"), "task_1::B10-something-else")
+
+    def test_colon_separated_slug_resolves(self):
+        """The 2026-09-12 miss: ids registered as `R3-1: <title>` (the shape a
+        `decompose add "R3-1: …"` produces) closed five phases with
+        `dag_updated: false`; `R3-1` must find `R3-1: …`, never `R3-10: …`."""
+        self.assertEqual(
+            pc.resolve_subtask_id(TASK, "R3-1"), "task_1::R3-1: Delta upstream + OUTER"
+        )
+        self.assertEqual(
+            pc.resolve_subtask_id(TASK, "R3-10"), "task_1::R3-10: something longer"
+        )
 
     def test_unknown_phase_is_returned_verbatim(self):
         self.assertEqual(pc.resolve_subtask_id(TASK, "Z9"), "Z9")

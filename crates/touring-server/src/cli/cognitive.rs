@@ -61,7 +61,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         CognitiveCmd::Search { query } => {
             let q = query.join(" ");
             if q.is_empty() {
-                anyhow::bail!("missing query; run `touring cognitive --help` or use: touring cognitive search <query>");
+                anyhow::bail!(
+                    "missing query; run `touring cognitive --help` or use: touring cognitive search <query>"
+                );
             }
             let payload = serde_json::json!({ "query": q, "mode": "mcts_rl" });
             let output = daemon_query("cli-mcts-search", payload)?;
@@ -70,7 +72,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         CognitiveCmd::Explore { query } => {
             let q = query.join(" ");
             if q.is_empty() {
-                anyhow::bail!("missing query; run `touring cognitive --help` or use: touring cognitive explore <query>");
+                anyhow::bail!(
+                    "missing query; run `touring cognitive --help` or use: touring cognitive explore <query>"
+                );
             }
             let payload = serde_json::json!({ "query": q, "mode": "got_parallel" });
             let output = daemon_query("cli-mcts-search", payload)?;

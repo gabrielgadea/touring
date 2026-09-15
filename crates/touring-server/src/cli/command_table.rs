@@ -30,7 +30,9 @@ fn hook_commands() -> Vec<CommandDescriptor> {
                         json_to_stdout(&json);
                         Ok(())
                     }
-                    Err(e) => Err(anyhow::anyhow!("prompt-enhance JSON serialization failed: {e} — run `touring doctor` to verify system health")),
+                    Err(e) => Err(anyhow::anyhow!(
+                        "prompt-enhance JSON serialization failed: {e} — run `touring doctor` to verify system health"
+                    )),
                 }
             },
         },

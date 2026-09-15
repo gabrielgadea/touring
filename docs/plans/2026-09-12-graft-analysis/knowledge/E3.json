@@ -1,0 +1,45 @@
+{
+  "phase": "E3",
+  "entities": [
+    {
+      "entity_id": "phase:E3",
+      "type": "phase",
+      "description": "--deep com MiniMax-M3 (wire Anthropic) em 125 arquivos: 979 s, cobertura 84% (2.400/2.857), 10 arquivos empty-parsed/truncated, 13x HTTP 429 do plano, passe de conceitos parou ap\u00f3s 12 falhas; 33 n\u00f3s conceituais, 2.732 resumos, 0% eco de fonte, mediana 16 palavras; prosa precisa (constantes, invariantes, 'why'); retrieval hit@1 6/10 (s\u00f3-wiring 8/10), hit@3 10/10; can\u00e1rios tratados como can\u00e1rios, valores de segredo n\u00e3o copiados para a prosa."
+    },
+    {
+      "entity_id": "memory:loop:task_1789263655655762620:E3:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789263655655762620",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789263655655762620",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:E3|produces|memory:loop:task_1789263655655762620:E3:done",
+      "source": "phase:E3",
+      "type": "produces",
+      "target": "memory:loop:task_1789263655655762620:E3:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789263655655762620:E3:done|generated-by|loop:loop:task_1789263655655762620",
+      "source": "memory:loop:task_1789263655655762620:E3:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789263655655762620"
+    },
+    {
+      "relation_id": "memory:loop:task_1789263655655762620:E3:done|generated-by|dag:decomp:task_1789263655655762620",
+      "source": "memory:loop:task_1789263655655762620:E3:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789263655655762620"
+    }
+  ]
+}

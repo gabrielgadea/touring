@@ -59,7 +59,8 @@ Public surface:
   Precision-first: any ambiguity returns `None` (a false positive would
   inflate `signal_use`). Consumed by the `post_bash` handler in
   `touring-hook-handlers` to feed the mirror from CLI traffic.
-- `pub type SdkValue = serde_json::Value`
+- (`SdkValue`, an alias of `serde_json::Value` that no function returned, was
+  removed in the cross-audit R2 orphan census, 15/09/2026.)
 
 Tests: 8 (journal) + 5 (sdk) + 6 (mirror) = **19 unit tests**.
 

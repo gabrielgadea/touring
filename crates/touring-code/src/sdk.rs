@@ -22,7 +22,8 @@
 //!
 //! ## Fail-soft
 //!
-//! Every public function returns `Result<SdkValue, SdkError>`. A failing hook
+//! The fallible functions here return `Result<_, SdkError>` (the SDK hooks
+//! themselves run in the Python prelude). A failing hook
 //! does NOT panic — it surfaces the error to the calling program, which can
 //! `try`/`except` in Python or `?` in Rust and continue. This matches the
 //! E/A/M directives (`rules/code-elaboration-directives.md` A5: errors teach
@@ -88,11 +89,6 @@ impl HookName {
         }
     }
 }
-
-/// Returned by every SDK hook. The shape is `serde_json::Value` so the
-/// in-sandbox Python/Rust program parses it uniformly — no per-hook type
-/// dance. The strategy-doc calls this "JSON canônico TIPADO".
-pub type SdkValue = serde_json::Value;
 
 /// Per-hook execution stats derived from the journal. Emitted by
 /// `scripts/gen_sdk.py` and consumed by `SignalReport::load`.
@@ -342,7 +338,10 @@ mod tests {
     #[test]
     fn classify_maps_the_seven_cli_shapes() {
         let cases = [
-            ("touring ast meta src/lib.rs --depth summary -j", HookName::AstMeta),
+            (
+                "touring ast meta src/lib.rs --depth summary -j",
+                HookName::AstMeta,
+            ),
             ("touring ast blast crates/x/src/lib.rs", HookName::AstBlast),
             ("touring index find MySymbol -j", HookName::IndexFind),
             ("touring wiring orphans -j", HookName::WiringOrphans),

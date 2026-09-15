@@ -530,7 +530,14 @@ impl IncrementalPipeline {
             return Vec::new();
         };
 
-        self.run_query(&query, tree, source, file_path, lang)
+        // A markdown file is also ONE searchable document (its frontmatter name,
+        // else its first heading, else its stem) — a memory with no heading is
+        // otherwise invisible to every search (`ast::markdown_text`).
+        crate::ast::markdown_text::with_document_symbol(
+            file_path,
+            source,
+            self.run_query(&query, tree, source, file_path, lang),
+        )
     }
 
     /// Execute a compiled query against a tree and return symbol locations.

@@ -1196,10 +1196,48 @@ fn test_migrate_schema_directly_is_idempotent() {
 #[test]
 fn test_schema_version_drift_guard() {
     assert_eq!(
-        SCHEMA_VERSION, 10,
+        SCHEMA_VERSION, 11,
         "SCHEMA_VERSION changed to {} — bump this guard AND add a fixture/migration test \
              (see Master Plan C.W2.P3.T9: build_v7_fixture + \
              test_migration_v7_to_v8_upgrades_schema_and_preserves_data)",
         SCHEMA_VERSION
     );
+}
+
+/// v11 (13/09/2026): every `WHERE consumer_file = ?` on `wiring_map` ran a full
+/// scan — the column's only index was partial (`WHERE consumer_file IS NULL`),
+/// which equality cannot use. The analise rebuild purging ~18k files scanned
+/// 99.310 rows per file and read 268 GB through the page cache in under an
+/// hour. Fresh and upgraded databases must both answer these filters from an
+/// index.
+#[test]
+fn consumer_file_filters_on_wiring_map_use_an_index() {
+    fn plans(conn: &Connection) -> Vec<String> {
+        let t = schema_guard::TABLE_WIRING_MAP;
+        [
+            format!("DELETE FROM {t} WHERE consumer_file = 'x'"),
+            format!("DELETE FROM {t} WHERE consumer_file = 'x' AND contract_source != 'y'"),
+            format!("SELECT contract_source FROM {t} WHERE consumer_file = 'x' ORDER BY 1"),
+        ]
+        .iter()
+        .map(|sql| {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+            stmt.query_map([], |r| r.get::<_, String>(3))
+                .unwrap()
+                .map(Result::unwrap)
+                .collect::<Vec<_>>()
+                .join(" | ")
+        })
+        .collect()
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let fresh = FileKnowledgeDB::new(&tmp.path().join("fresh.db")).unwrap();
+    for plan in plans(&fresh.conn) {
+        assert!(!plan.contains("SCAN"), "fresh database scans: {plan}");
+    }
+    let (_tmp8, v8) = build_v8_fixture();
+    let upgraded = FileKnowledgeDB::new(&v8).unwrap();
+    for plan in plans(&upgraded.conn) {
+        assert!(!plan.contains("SCAN"), "upgraded database scans: {plan}");
+    }
 }

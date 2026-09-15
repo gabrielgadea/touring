@@ -102,7 +102,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 .and_then(|v| v.get("error").cloned())
                 .is_some()
             {
-                anyhow::bail!("tantivy stats error (see output above) — run `touring help` for details");
+                anyhow::bail!(
+                    "tantivy stats error (see output above) — run `touring help` for details"
+                );
             }
         }
         TantivyCmd::Search { query, top } => {
@@ -119,7 +121,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 .and_then(|v| v.get("error").cloned())
                 .is_some()
             {
-                anyhow::bail!("tantivy search error (see output above) — run `touring help` for details");
+                anyhow::bail!(
+                    "tantivy search error (see output above) — run `touring help` for details"
+                );
             }
         }
         TantivyCmd::Fuzzy {
@@ -140,7 +144,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 .and_then(|v| v.get("error").cloned())
                 .is_some()
             {
-                anyhow::bail!("tantivy fuzzy error (see output above) — run `touring help` for details");
+                anyhow::bail!(
+                    "tantivy fuzzy error (see output above) — run `touring help` for details"
+                );
             }
         }
         TantivyCmd::Suggest { prefix, top } => {
@@ -157,7 +163,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 .and_then(|v| v.get("error").cloned())
                 .is_some()
             {
-                anyhow::bail!("tantivy suggest error (see output above) — run `touring help` for details");
+                anyhow::bail!(
+                    "tantivy suggest error (see output above) — run `touring help` for details"
+                );
             }
         }
         TantivyCmd::Reindex {
@@ -200,7 +208,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     .unwrap_or(false);
                 if !reindexed {
                     println!("{output}");
-                    anyhow::bail!("batch reindex failed at offset {off} — run `touring help` for details");
+                    anyhow::bail!(
+                        "batch reindex failed at offset {off} — run `touring help` for details"
+                    );
                 }
                 let upserted = parsed.get("upserted").and_then(|v| v.as_u64()).unwrap_or(0);
                 let next_offset = parsed

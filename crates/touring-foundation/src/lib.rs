@@ -31,13 +31,16 @@
 // `unwrap_used = deny` march (RBP-01 fix-first remainder).
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
-pub mod cila;
 pub mod alloc;
 pub mod char_classes;
 pub mod checkpoint;
 pub mod chunker;
+pub mod cila;
 pub mod code_mode;
 pub mod config;
+/// Where a spawned daemon lives: its own session and, with a systemd user
+/// manager, its own scope (decision 2-A, 14/09/2026).
+pub mod daemon_spawn;
 // conflict peeled to touring-resilience crate (A4 P1, 2026-06-15)
 pub mod diagnostic;
 pub mod drift;
@@ -50,6 +53,7 @@ pub mod feedback;
 /// `crate::` dep is `memory_stats_probe` (also in the kernel now) — belongs in the kernel.
 pub mod gate_metrics;
 pub mod gate_metrics_snapshot;
+pub mod gitignore;
 pub mod governor;
 
 /// Shared BM25 ranking math (one scorer for every intent-ranked corpus).
@@ -76,15 +80,15 @@ pub mod migration;
 /// Generic moka cache builders + stats (relocated from touring-hooks-shared in
 /// A5 step-2, 2026-06-15; generic infra belongs in the kernel).
 pub mod moka_policies;
-pub mod plugin;
 pub mod orchestrate_allowlist;
+pub mod plugin;
 /// Capability Portfolio — prior-art discovery keyed by purpose.
 pub mod portfolio;
 pub mod profile;
 /// Process-wide moka-backed query result cache (string-keyed memoization +
 /// single-flight `get_with` + path-scoped invalidation). Generic cache infra
 /// relocated from touring-hooks-shared (A5 Path-A step-3, 2026-06-16): its only
-/// `crate::` dep is `gate_metrics` (now in the kernel); `SymbolEntry` is local.
+/// `crate::` dep is `gate_metrics` (now in the kernel). Keys carry the scope.
 pub mod query_cache;
 pub mod schema;
 /// DDL table-validation helpers (relocated from touring-analysis::e2e in A5, 2026-06-15;
@@ -180,7 +184,10 @@ pub use shared::domain_circuit::{
     SharedDomainCircuitBreaker,
 };
 pub use shared::pool::ConnectionPool;
-pub use types::{CILALevel, HEAVY_OP_BUDGET_SECS, MemoryTier, truncate_str};
+pub use types::{
+    CILALevel, HEAVY_OP_BUDGET_SECS, HEAVY_OP_CLIENT_FLOOR_SECS, MemoryTier, is_heavy_hook,
+    truncate_str,
+};
 
 /// Result type alias for Touring operations.
 pub type Result<T> = std::result::Result<T, TouringError>;

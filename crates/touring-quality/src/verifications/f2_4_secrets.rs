@@ -668,7 +668,9 @@ fn scan_lines(raw: &str) -> (Option<usize>, bool) {
 
 /// (1) A known provider marker (`ghp_`, `AKIA`, a PEM header, …) appears in `text`.
 fn has_strong_marker(text: &str) -> bool {
-    STRONG_MARKERS.iter().any(|m| marker_carries_a_token(text, m))
+    STRONG_MARKERS
+        .iter()
+        .any(|m| marker_carries_a_token(text, m))
 }
 
 /// Menor corpo que um token de provedor pode ter depois do prefixo. AWS usa
@@ -770,7 +772,7 @@ pub struct SecretScan {
     /// (`None` only when nothing hit, or when no single line carries the signal
     /// on its own).
     pub first_line: Option<usize>,
-    /// The text carries [`ALLOW_SECRETS_PRAGMA`] — explicitly allowlisted.
+    /// The text carries `ALLOW_SECRETS_PRAGMA` — explicitly allowlisted.
     pub allowlisted: bool,
 }
 
@@ -789,7 +791,11 @@ pub fn scan_text(raw: &str) -> SecretScan {
     // too: this returned `None` for every `ghp_…` file until 04/09/2026 because
     // it ran a narrower predicate than the gate did, so the pre-write hook could
     // say "secret detected" without saying where.
-    let first_line = if strong { first_offending_line(raw) } else { None };
+    let first_line = if strong {
+        first_offending_line(raw)
+    } else {
+        None
+    };
     SecretScan {
         strong,
         weak,
@@ -931,14 +937,18 @@ impl Verification for F2_4_Secrets {
                     .to_string(),
             ));
         }
-        let raw = crate::verifications::read_target_source(target)?;
+        let raw = crate::verifications::read_security_source(target)?;
 
         // File-level opt-out for legitimate fixtures that embed SAMPLE secrets to
         // exercise the redactor (detect-secrets / gitleaks `pragma: allowlist
         // secret` convention). Auditable and grep-able — unlike the removed
         // blanket `/tests/` allowlist. A real secret in a test file WITHOUT this
         // marker is now correctly flagged.
-        if raw.contains("touring-quality:allow-secrets") {
+        //
+        // FILE targets only (cross-audit 14/09/2026): a directory target is read
+        // as the concatenation of its files, so one fixture carrying the pragma
+        // allowlisted every other file of the directory, real secrets included.
+        if target.is_file() && raw.contains(ALLOW_SECRETS_PRAGMA) {
             return Ok((
                 1.0,
                 "Cryptographic Issues: file carries `touring-quality:allow-secrets` \
@@ -1091,7 +1101,11 @@ mod tests {
             "/// let b = PostgresBackend::new(\"postgres://user:pass@localhost/touring\").await?;",
             "// mysql://root:changeme@127.0.0.1/dev",
         ] {
-            assert_eq!(score(&format!("{doc}\n")).value, 1.0, "exemplo nao bloqueia: {doc}");
+            assert_eq!(
+                score(&format!("{doc}\n")).value,
+                1.0,
+                "exemplo nao bloqueia: {doc}"
+            );
         }
     }
 
@@ -1803,7 +1817,8 @@ mod tests {
     fn a_delimiter_inside_a_string_literal_is_not_an_assignment() {
         // Verbatim from ~/.claude/skills/Touring/scripts/pre_edit_gate.py:127,
         // which scored 0.000 and blocked every edit to that file.
-        let raw = "        for token in line.replace(\":\", \" \").replace(\"=\", \" \").split():\n";
+        let raw =
+            "        for token in line.replace(\":\", \" \").replace(\"=\", \" \").split():\n";
         let s = scan_text(raw);
         assert!(
             !s.strong,
@@ -1870,5 +1885,32 @@ mod tests {
                 assert_eq!(r.len(), c.len(), "line lengths must match: {r:?} vs {c:?}");
             }
         }
+    }
+
+    /// Cross-audit 14/09/2026: a directory target is scored as the concatenation
+    /// of its files, and the pragma used to be honoured on that concatenation —
+    /// one sample-secret fixture allowlisted every other file of the directory.
+    #[test]
+    fn the_pragma_of_one_fixture_never_allowlists_its_directory() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("fixture.rs"),
+            "// touring-quality:allow-secrets\nconst SAMPLE: &str = \"ghp_0123456789abcdef0123456789abcdef0123\";\n",
+        )
+        .expect("fixture");
+        std::fs::write(
+            dir.path().join("config.rs"),
+            "pub const TOKEN: &str = \"ghp_fedcba9876543210fedcba9876543210fedc\";\n",
+        )
+        .expect("real secret");
+        let (dir_value, evidence) = F2_4_Secrets.measure(dir.path()).expect("measure dir");
+        assert!(
+            dir_value < 0.5,
+            "the real secret beside the fixture is found: {evidence}"
+        );
+        let (fixture_value, _) = F2_4_Secrets
+            .measure(&dir.path().join("fixture.rs"))
+            .expect("measure fixture");
+        assert_eq!(fixture_value, 1.0, "the fixture itself stays allowlisted");
     }
 }

@@ -102,10 +102,11 @@ fn hook_registry_has_cascade_queue_handlers() {
     // 2026-08-29 (R1): +1 cli-gotcha-resolve.
     // 2026-08-29 (R4): +2 cli-experiment-{record,list}.
     // 2026-08-29 (P2 replay): +1 cli-learning-replay.
+    // 2026-09-13 (I13): +1 cli-index-why.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 245;
+    const EXPECTED_NAMES: usize = 246;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 243;
+    const EXPECTED_NAMES: usize = 244;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

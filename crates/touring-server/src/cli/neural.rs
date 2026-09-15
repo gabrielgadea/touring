@@ -38,47 +38,59 @@ pub fn run(subcommand: &str) -> anyhow::Result<()> {
     // a reason that had nothing to do with what it tests. Validation that
     // needs no I/O must not be sequenced behind I/O.
     if !NEURAL_SUBCOMMANDS.contains(&subcommand) {
-        return Err(anyhow::anyhow!("Unknown neural hook: {subcommand} — run `touring neural --help` to see valid hooks"));
+        return Err(anyhow::anyhow!(
+            "Unknown neural hook: {subcommand} — run `touring neural --help` to see valid hooks"
+        ));
     }
 
     let project_root = HookRuntime::detect_project_root();
-    let mut runtime = HookRuntime::new(&project_root)
-        .map_err(|e| anyhow::anyhow!("HookRuntime init failed: {e} — check `touring doctor -j` and verify hook config"))?;
+    let mut runtime = HookRuntime::new(&project_root).map_err(|e| {
+        anyhow::anyhow!(
+            "HookRuntime init failed: {e} — check `touring doctor -j` and verify hook config"
+        )
+    })?;
 
     let input = HookRuntime::read_stdin().unwrap_or_else(|_| serde_json::json!({}));
 
     match subcommand {
-        "pre-read" => {
-            crate::hooks::pre_read::run(&runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
-        "post-read" => {
-            crate::hooks::post_read::run(&runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
-        "pre-bash" => {
-            crate::hooks::pre_bash::run(&runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
-        "post-bash" => {
-            crate::hooks::post_bash::run(&mut runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
-        "pre-edit" => {
-            crate::hooks::pre_edit::run(&runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
-        "post-edit" => {
-            crate::hooks::post_edit::run(&mut runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
-        "pre-write" => {
-            crate::hooks::pre_write::run(&mut runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
-        "post-write" => {
-            crate::hooks::post_write::run(&runtime, &input).map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state"))
-        }
+        "pre-read" => crate::hooks::pre_read::run(&runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        "post-read" => crate::hooks::post_read::run(&runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        "pre-bash" => crate::hooks::pre_bash::run(&runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        "post-bash" => crate::hooks::post_bash::run(&mut runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        "pre-edit" => crate::hooks::pre_edit::run(&runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        "post-edit" => crate::hooks::post_edit::run(&mut runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        "pre-write" => crate::hooks::pre_write::run(&mut runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        "post-write" => crate::hooks::post_write::run(&runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
         "session-start" => crate::hooks::session_hooks::run_session_start(&mut runtime, &input)
-            .map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")),
+            .map_err(|e| {
+                anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+            }),
         "session-stop" => crate::hooks::session_hooks::run_session_stop(&mut runtime, &input)
-            .map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")),
-        "post-tool-rl" => crate::hooks::post_tool_rl::run(&mut runtime, &input)
-            .map_err(|e| anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")),
-        _ => Err(anyhow::anyhow!("Unknown neural hook: {subcommand} — run `touring neural --help` to see valid hooks")),
+            .map_err(|e| {
+                anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+            }),
+        "post-tool-rl" => crate::hooks::post_tool_rl::run(&mut runtime, &input).map_err(|e| {
+            anyhow::anyhow!("hook failed: {e} — run `touring doctor -j` to verify hook state")
+        }),
+        _ => Err(anyhow::anyhow!(
+            "Unknown neural hook: {subcommand} — run `touring neural --help` to see valid hooks"
+        )),
     }
 }
 

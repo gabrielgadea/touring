@@ -79,7 +79,7 @@ impl ContextTemplate {
 
 /// Mutation type applied during template evolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MutationType {
+pub(crate) enum MutationType {
     /// Rotate sections: move first to last.
     Rotate,
     /// Drop one section from the template.

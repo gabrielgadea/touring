@@ -1,6 +1,6 @@
 //! MinHash signatures + LSH banding for near-duplicate set detection.
 //!
-//! Companion to [`super::jaccard`]: MinHash *finds* the candidate pairs that are
+//! Companion to `super::jaccard`: MinHash *finds* the candidate pairs that are
 //! plausibly similar in near-linear time, and `JaccardComputer` decides. Neither
 //! replaces the other — MinHash alone gives an estimate with real variance, so
 //! every candidate this module proposes must be confirmed exactly before being

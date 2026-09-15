@@ -77,6 +77,22 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
     // basta.
     let scan_overflow = crate::verifications::dir_scan_overflow(&scope.root);
 
+    // The security corpus: the scope's files plus its vendored code, weighed the
+    // same way (cross-audit 14/09/2026, D3 — `third_party/` had left F2.1/F2.4).
+    let security_loc_pairs: Vec<(PathBuf, usize)> = if scope.vendored_files.is_empty() {
+        file_loc_pairs.clone()
+    } else {
+        let mut pairs = file_loc_pairs.clone();
+        pairs.extend(
+            scope
+                .vendored_files
+                .par_iter()
+                .map(|f| (f.clone(), file_loc(f)))
+                .collect::<Vec<_>>(),
+        );
+        pairs
+    };
+
     // Each dim: ScopeNative → once on the root; otherwise score-per-file → roll up.
     let dimensions: BTreeMap<DimId, DimScore> = dims_to_score
         .par_iter()
@@ -84,6 +100,7 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
             let score = match dim.agg_kind() {
                 AggKind::ScopeNative => score_scope_native(dim, scope, scan_overflow),
                 AggKind::PerCrateNative => score_per_crate_native(dim, scope),
+                kind if reads_vendored_code(dim) => score_rolled_up(dim, kind, &security_loc_pairs),
                 kind => score_rolled_up(dim, kind, &file_loc_pairs),
             };
             (dim, score)
@@ -91,6 +108,12 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
         .collect();
 
     Ok(build_report(scope, dimensions))
+}
+
+/// Whether `dim` scores vendored code: the per-file security dims. F2.6 is
+/// scope-native and reads its own security corpus (`enumerate_security_files`).
+fn reads_vendored_code(dim: DimId) -> bool {
+    matches!(dim, DimId::F2_1 | DimId::F2_4)
 }
 
 /// ScopeNative dim: run the verifier **once** on the scope root. At sub-repo
@@ -132,6 +155,7 @@ fn crate_roots(root: &std::path::Path) -> Vec<PathBuf> {
         return vec![root.to_path_buf()];
     }
     let mut found = Vec::new();
+    let git = touring_foundation::gitignore::GitIgnoreRules::for_path(root);
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -139,13 +163,16 @@ fn crate_roots(root: &std::path::Path) -> Vec<PathBuf> {
         };
         for entry in rd.flatten() {
             let p = entry.path();
-            if !p.is_dir() {
+            if !p.is_dir() || git.ignored_abs(&p, true).is_some() {
                 continue;
             }
+            // The same predicate file enumeration reads (`SKIP_DIRS` + dot-dirs):
+            // a private copy here kept `third_party/` and `vendor/` crates in the
+            // workspace score after enumeration had dropped them.
             let skip = p
                 .file_name()
                 .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with('.') || n == "target" || n == "node_modules");
+                .is_some_and(crate::verifications::is_skipped_dir_name);
             if skip {
                 continue;
             }
@@ -320,6 +347,34 @@ mod tests {
     use super::*;
     use crate::ScopeKind;
 
+    /// Crate discovery skips what file enumeration skips (14/09/2026): the
+    /// vendored `third_party/tree-sitter-md` (140k LOC, F1.3 0.100) stayed a
+    /// crate of the workspace score because this walk kept its own skip list
+    /// while `enumerate_source_files` read `SKIP_DIRS`, and it pulled the
+    /// LOC-weighted F1.3 from 0.536 to 0.470.
+    #[test]
+    fn crate_roots_skip_the_directories_file_enumeration_skips() {
+        let manifest = "[package]\nname = \"x\"\n";
+        let root = fixture(
+            "tq_crate_roots_skip_dirs",
+            &[
+                ("crates/a/Cargo.toml", manifest),
+                ("crates/a/src/lib.rs", "fn a() {}\n"),
+                ("crates/b/Cargo.toml", manifest),
+                ("crates/b/src/lib.rs", "fn b() {}\n"),
+                ("third_party/tree-sitter-md/Cargo.toml", manifest),
+                ("third_party/tree-sitter-md/src/lib.rs", "fn v() {}\n"),
+                ("vendor/dep/Cargo.toml", manifest),
+                ("vendor/dep/src/lib.rs", "fn d() {}\n"),
+            ],
+        );
+        assert_eq!(
+            crate_roots(&root),
+            vec![root.join("crates/a"), root.join("crates/b")]
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// Build a small fixture tree and return its root.
     fn fixture(name: &str, files: &[(&str, &str)]) -> PathBuf {
         let dir = std::env::temp_dir().join(name);
@@ -386,14 +441,61 @@ mod tests {
         let ds = Scope::resolve(&dirty, Some(ScopeKind::Path), &[], &[]).unwrap();
         let cr = score_scope(&cs, &[DimId::F2_4]).unwrap();
         let dr = score_scope(&ds, &[DimId::F2_4]).unwrap();
-        let clean_f24 = cr.dimensions[&DimId::F2_4].value;
-        let dirty_f24 = dr.dimensions[&DimId::F2_4].value;
+        let clean_f24 = &cr.dimensions[&DimId::F2_4];
+        let dirty_f24 = &dr.dimensions[&DimId::F2_4];
+        // This test only asserted `dirty <= clean` — which the LOC-weighted mean
+        // satisfied while scoring the secret tree Warn, with no blocker
+        // (cross-audit 14/09/2026, D2). A BLOCK dim must FAIL the scope.
+        assert_eq!(
+            clean_f24.status,
+            crate::DimStatus::Pass,
+            "{}",
+            clean_f24.evidence
+        );
+        assert_eq!(
+            dirty_f24.status,
+            crate::DimStatus::Fail,
+            "one hardcoded token fails the scope: {}",
+            dirty_f24.evidence
+        );
         assert!(
-            dirty_f24 <= clean_f24,
-            "secret tree F2.4 ({dirty_f24}) must not exceed clean ({clean_f24})"
+            dr.blockers.contains(&DimId::F2_4),
+            "F2.4 blocks: {:?}",
+            dr.blockers
         );
         let _ = std::fs::remove_dir_all(&clean);
         let _ = std::fs::remove_dir_all(&dirty);
+    }
+
+    /// Cross-audit 14/09/2026, D3: `third_party/` left the security corpus with the
+    /// style one, so a secret in `src/third_party/` scored Pass. Vendored code is
+    /// skipped by the style dims and scanned by the security dims.
+    #[test]
+    fn a_secret_in_vendored_code_fails_the_security_dims_but_not_the_style_corpus() {
+        let dir = fixture(
+            "tq_sr_vendored_secret",
+            &[
+                ("src/lib.rs", "pub fn a() {}\n"),
+                (
+                    "src/third_party/keys.rs",
+                    "pub const TOKEN: &str = \"ghp_0123456789abcdef0123456789abcdef0123\";\n",
+                ),
+                ("vendor/dep/lib.rs", "pub fn upstream() {}\n"),
+            ],
+        );
+        let scope = Scope::resolve(&dir, Some(ScopeKind::Path), &[], &[]).unwrap();
+        assert_eq!(scope.files.len(), 1, "style corpus: {:?}", scope.files);
+        assert_eq!(
+            scope.vendored_files.len(),
+            2,
+            "vendored corpus: {:?}",
+            scope.vendored_files
+        );
+        let report = score_scope(&scope, &[DimId::F2_4]).unwrap();
+        let f24 = &report.dimensions[&DimId::F2_4];
+        assert_eq!(f24.status, crate::DimStatus::Fail, "{}", f24.evidence);
+        assert!(f24.evidence.contains("keys.rs"), "{}", f24.evidence);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

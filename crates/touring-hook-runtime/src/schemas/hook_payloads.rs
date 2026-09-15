@@ -62,25 +62,6 @@ pub struct PreWritePayload {
     pub content: Option<String>,
 }
 
-/// Payload for the `post_edit` hook.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct PostEditPayload {
-    /// Path of the file that was edited.
-    #[validate(length(min = 1, message = "file_path cannot be empty"))]
-    pub file_path: String,
-
-    /// Text that was replaced.
-    #[validate(length(min = 1, message = "old_string cannot be empty"))]
-    pub old_string: String,
-
-    /// Text that replaced it.
-    #[validate(length(min = 1, message = "new_string cannot be empty"))]
-    pub new_string: String,
-
-    /// Cursor offset after the edit.
-    pub cursor_position: Option<u32>,
-}
-
 /// Payload for the `post_read` hook.
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct PostReadPayload {
@@ -176,19 +157,6 @@ pub struct SessionStopPayload {
     pub quality_score: Option<f64>,
 }
 
-/// Payload for the `pre_task_scout` hook.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct PreTaskScoutPayload {
-    /// Identifier of the task being scouted.
-    pub task_id: Option<String>,
-    /// Short subject line of the task.
-    pub task_subject: Option<String>,
-    /// Longer description of the task.
-    pub task_description: Option<String>,
-    /// Full prompt text for the task.
-    pub task_prompt: Option<String>,
-}
-
 /// Payload for the `task_created` hook.
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct TaskCreatedPayload {
@@ -248,17 +216,6 @@ pub struct DecomposeEventPayload {
     pub status: Option<String>,
     /// Quality score reported with the event, in `[0.0, 1.0]`.
     pub quality_score: Option<f64>,
-}
-
-/// Payload for the `cortex` hook.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct CortexPayload {
-    /// Name of the cortex event being dispatched.
-    #[validate(length(min = 1, message = "event cannot be empty"))]
-    pub event: String,
-
-    /// Event-specific payload as a JSON string.
-    pub payload_json: Option<String>,
 }
 
 /// Payload for the `instructions_loaded` hook.
