@@ -291,8 +291,8 @@ mod tests {
                 reasons: vec!["a sample reason".to_owned()],
                 canonical_fix: Some("a sample fix".to_owned()),
                 evidence: EvidenceBundle::default(),
-            denied_classes: Vec::new(),
-            static_blocked: false,
+                denied_classes: Vec::new(),
+                static_blocked: false,
             },
             evidence: Evidence::default(),
         }

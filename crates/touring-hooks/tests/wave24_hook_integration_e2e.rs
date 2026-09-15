@@ -17,22 +17,12 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-/// Locate a workspace binary, preferring release over debug.
-fn locate_binary(name: &str) -> Option<PathBuf> {
-    // tests run from `crates/touring-hooks/`; bins live at `../../target/{release,debug}/`.
-    let workspace_target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|p| p.join("target"))?;
-
-    for profile in ["release", "debug"] {
-        let candidate = workspace_target.join(profile).join(name);
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-    None
-}
+// The one `locate_binary` of the E2E tests: it prefers this test's own build
+// root, so a plain run never picks a stale coverage binary (cross-audit R2).
+#[path = "common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::locate_binary;
 
 /// A daemon bound to a socket private to one test, killed on drop.
 ///

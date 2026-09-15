@@ -85,7 +85,7 @@ const F2_6_ARTIFACT_BYTE_CAP: usize = 8 * 1024 * 1024;
 /// 2026-07-02: F2.6 ranked `touring-quality` itself `Unranked` by matching its
 /// own rule fixtures.
 fn read_production_config_surface(target: &Path) -> Result<String> {
-    use crate::verifications::{ArtifactClass, enumerate_source_files, resolve_artifacts};
+    use crate::verifications::{ArtifactClass, enumerate_security_files, resolve_artifacts};
     if !target.is_dir() {
         // A file target reaches here only when it is NOT detector-own (the guard
         // in `check` returns early otherwise): read it verbatim.
@@ -112,7 +112,9 @@ fn read_production_config_surface(target: &Path) -> Result<String> {
     //     cap applies to the SOURCE bytes alone, so the artifacts already read
     //     neither consume this budget nor are consumed by it.
     let artifact_bytes = out.len();
-    for p in enumerate_source_files(target) {
+    // The security corpus: vendored code ships in the binary too (cross-audit
+    // 14/09/2026, D3).
+    for p in enumerate_security_files(target) {
         if is_detector_own_source(&p) {
             continue;
         }

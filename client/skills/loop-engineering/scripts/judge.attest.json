@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "attested_at": "2026-08-29T22:46:49-03:00",
+  "attested_at": "2026-09-14T01:35:38-03:00",
   "attested_by": "gabrielgadea",
-  "why": "quality_gold remedy now names blockers when they cap the tier (peer-measured: composite=0.932 tier=Silver via blockers=[F1_3]; old fixed message pointed at composite which already passed) \u2014 A5/D8, +5 tests",
+  "why": "Atesta\u00e7\u00e3o por ordem expressa de Gabriel (14/09/2026), ap\u00f3s auditoria: (1) loop_converged.py \u2014 cl\u00e1usula orphans_base corrigida nos dois sentidos (resolvia module_file relativo ao escopo e contava 6.488 \u00f3rf\u00e3os de .claude/ em scripts/eleitoral; depois lia zero num corpus sem nenhum registro sob scripts/) e passa a devolver N/A 'unmeasured' quando o corpus n\u00e3o alcan\u00e7a a \u00e1rvore do escopo \u2014 6 testes red\u2192green em test_orphans_scope.py; (2) hooks/loop_outer_gate.py \u2014 classe B (artefato materializado por loop_turn_record a partir do turno conclu\u00eddo, fail-open com class_b_unmaterialized vis\u00edvel), mudan\u00e7a de 04/09 12:41 posterior \u00e0 atesta\u00e7\u00e3o das 12:07; o delta 12:07\u219212:41 n\u00e3o \u00e9 isol\u00e1vel (sem c\u00f3pia), ent\u00e3o o conte\u00fado atual foi auditado inteiro contra o HEAD a51a834 do reposit\u00f3rio touring. As 8 cl\u00e1usulas seguem id\u00eanticas. Evid\u00eancia: su\u00edte loop-engineering 233 passed, 1 skipped.",
   "files": {
-    "loop_converged.py": "2fd68e7bdad023d4c0eb4060aac13c737ad4415571e32175f191c4fadf7fae32",
-    "hooks/loop_outer_gate.py": "be1f9b404eecbf52dbea072b6fef0bf4fb9f8b5e35ffde2327d5783327b4b1f6",
-    "hooks/flow_manifests.json": "d395ef1790b0ff0e74f6d336d0925521b5b5fc340b14b35d9e662665af7029fb"
+    "loop_converged.py": "c7baa0c2a5ed0f37505c01776aae4995fcdf493adb8584f4eea885d86cae50e6",
+    "hooks/loop_outer_gate.py": "25670d570e001735b60e888d3ae593f7cf64f63805216993f9dd6b3c1e4f0534",
+    "hooks/flow_manifests.json": "541e2e879098b22f5cfb9263dd3ee29ba131b441b5392637f4ce006b89442675"
   },
   "clauses": [
     "judge_intact",

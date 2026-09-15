@@ -182,6 +182,25 @@ pub struct GateMetricsSnapshot {
     /// 64-dim U4-quantized index at typical daemon workload sizes.
     pub ann_search_latency: LatencySnapshot,
 
+    /// GPU embeddings (15/09/2026): latency of one embedding run, either device.
+    #[serde(default)]
+    pub embedding_latency: LatencySnapshot,
+    /// Texts embedded on the CUDA execution provider.
+    #[serde(default)]
+    pub embedding_texts_cuda_count: u64,
+    /// Texts embedded on the CPU execution provider.
+    #[serde(default)]
+    pub embedding_texts_cpu_count: u64,
+    /// Times the embedder left CUDA for CPU.
+    #[serde(default)]
+    pub embedding_cuda_fallback_count: u64,
+    /// Reason of the latest CUDA→CPU fallback, verbatim; empty when none.
+    #[serde(default)]
+    pub embedding_cuda_fallback_reason: String,
+    /// Device of the most recent embedding run: `none` | `cpu` | `cuda`.
+    #[serde(default)]
+    pub embedding_device: String,
+
     /// Process memory footprint at snapshot time (2026-04-20).
     ///
     /// Sourced from `shared::memory_stats_probe::snapshot()`. Both fields
@@ -838,6 +857,19 @@ impl GateMetricsSnapshot {
                 .mcts_shadow_deadlock_detected_count
                 .load(Ordering::Relaxed),
             ann_search_latency: m.ann_search_latency.snapshot(),
+            embedding_latency: m.embedding_latency.snapshot(),
+            embedding_texts_cuda_count: m.embedding_texts_cuda_count.load(Ordering::Relaxed),
+            embedding_texts_cpu_count: m.embedding_texts_cpu_count.load(Ordering::Relaxed),
+            embedding_cuda_fallback_count: m.embedding_cuda_fallback_count.load(Ordering::Relaxed),
+            embedding_cuda_fallback_reason: m
+                .embedding_cuda_fallback_reason
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone(),
+            embedding_device: crate::gate_metrics::embedding_device_label(
+                m.embedding_device.load(Ordering::Relaxed),
+            )
+            .to_string(),
             // memory_stats_probe hits `/proc/self/statm` (Linux) or the
             // equivalent syscall; <5μs in steady state, acceptable to run
             // on every snapshot() call.
@@ -917,9 +949,7 @@ impl GateMetricsSnapshot {
             sandbox_tee_persisted_count: m.sandbox_tee_persisted_count.load(Ordering::Relaxed),
             code_mode_runs_count: m.code_mode_runs_count.load(Ordering::Relaxed),
             bash_calls_total_count: m.bash_calls_total_count.load(Ordering::Relaxed),
-            g1_post_deny_same_class_count: m
-                .g1_post_deny_same_class_count
-                .load(Ordering::Relaxed),
+            g1_post_deny_same_class_count: m.g1_post_deny_same_class_count.load(Ordering::Relaxed),
             g1_post_deny_other_count: m.g1_post_deny_other_count.load(Ordering::Relaxed),
             g4_observed_count: m.g4_observed_count.load(Ordering::Relaxed),
             g5_observed_count: m.g5_observed_count.load(Ordering::Relaxed),
@@ -937,8 +967,7 @@ impl GateMetricsSnapshot {
                             .map(|e| {
                                 (
                                     e.label().to_string(),
-                                    m.gate_events[*g as usize][*e as usize]
-                                        .load(Ordering::Relaxed),
+                                    m.gate_events[*g as usize][*e as usize].load(Ordering::Relaxed),
                                 )
                             })
                             .collect(),
@@ -950,7 +979,8 @@ impl GateMetricsSnapshot {
                 let mut bypassed_total = 0u64;
                 let mut per_gate = Vec::new();
                 for g in crate::gate_metrics::GateId::all() {
-                    let denied = m.gate_events[*g as usize][crate::gate_metrics::GateEvent::Denied as usize]
+                    let denied = m.gate_events[*g as usize]
+                        [crate::gate_metrics::GateEvent::Denied as usize]
                         .load(Ordering::Relaxed);
                     let bypassed = m.gate_events[*g as usize]
                         [crate::gate_metrics::GateEvent::Bypassed as usize]
@@ -977,9 +1007,7 @@ impl GateMetricsSnapshot {
             },
             code_mode_bytes_elided_total: m.code_mode_bytes_elided_total.load(Ordering::Relaxed),
             code_mode_subcalls_count: m.code_mode_subcalls_count.load(Ordering::Relaxed),
-            code_mode_subcall_bytes_total: m
-                .code_mode_subcall_bytes_total
-                .load(Ordering::Relaxed),
+            code_mode_subcall_bytes_total: m.code_mode_subcall_bytes_total.load(Ordering::Relaxed),
             compression_profile_applied_count: m
                 .compression_profile_applied_count
                 .load(Ordering::Relaxed),
@@ -1050,27 +1078,41 @@ impl GateMetricsSnapshot {
             wave3_t310_count: m.wave3_t310_count.load(Ordering::Relaxed),
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: m.ceg_captured_count.load(Ordering::Relaxed),
-            g1_inspect_first_passed_count: m
-                .g1_inspect_first_passed_count
-                .load(Ordering::Relaxed),
-            g1_inspect_burst_denied_count: m
-                .g1_inspect_burst_denied_count
-                .load(Ordering::Relaxed),
+            g1_inspect_first_passed_count: m.g1_inspect_first_passed_count.load(Ordering::Relaxed),
+            g1_inspect_burst_denied_count: m.g1_inspect_burst_denied_count.load(Ordering::Relaxed),
             g10_write_run_pair_denied_count: m
                 .g10_write_run_pair_denied_count
                 .load(Ordering::Relaxed),
             exec_heredoc_inline_seen_count: m
                 .exec_heredoc_inline_seen_count
                 .load(Ordering::Relaxed),
-            native_injection_followed_count: m.native_injection_followed_count.load(Ordering::Relaxed),
-            native_injection_resisted_count: m.native_injection_resisted_count.load(Ordering::Relaxed),
-            native_injection_code_route_count: m.native_injection_code_route_count.load(Ordering::Relaxed),
-            code_mode_arm_offered_native_count: m.code_mode_arm_offered_native_count.load(Ordering::Relaxed),
-            code_mode_arm_followed_native_count: m.code_mode_arm_followed_native_count.load(Ordering::Relaxed),
-            code_mode_arm_offered_both_count: m.code_mode_arm_offered_both_count.load(Ordering::Relaxed),
-            code_mode_arm_followed_both_count: m.code_mode_arm_followed_both_count.load(Ordering::Relaxed),
-            code_mode_arm_offered_code_count: m.code_mode_arm_offered_code_count.load(Ordering::Relaxed),
-            code_mode_arm_followed_code_count: m.code_mode_arm_followed_code_count.load(Ordering::Relaxed),
+            native_injection_followed_count: m
+                .native_injection_followed_count
+                .load(Ordering::Relaxed),
+            native_injection_resisted_count: m
+                .native_injection_resisted_count
+                .load(Ordering::Relaxed),
+            native_injection_code_route_count: m
+                .native_injection_code_route_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_offered_native_count: m
+                .code_mode_arm_offered_native_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_followed_native_count: m
+                .code_mode_arm_followed_native_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_offered_both_count: m
+                .code_mode_arm_offered_both_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_followed_both_count: m
+                .code_mode_arm_followed_both_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_offered_code_count: m
+                .code_mode_arm_offered_code_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_followed_code_count: m
+                .code_mode_arm_followed_code_count
+                .load(Ordering::Relaxed),
             ceg_blocked_count: m.ceg_blocked_count.load(Ordering::Relaxed),
             ceg_sandboxed_count: m.ceg_sandboxed_count.load(Ordering::Relaxed),
             ceg_fast_path_count: m.ceg_fast_path_count.load(Ordering::Relaxed),
@@ -1224,43 +1266,57 @@ pub fn record_ceg_captured() {
 /// N5 — injeção nativa seguida (Bash onde tool dedicada existia).
 #[inline]
 pub fn record_native_injection_followed() {
-    global().native_injection_followed_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .native_injection_followed_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// N5 — injeção resistida (Grep/Glob/Read na oportunidade).
 #[inline]
 pub fn record_native_injection_resisted() {
-    global().native_injection_resisted_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .native_injection_resisted_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// N5 — terceira via (touring run/exec escolhido).
 #[inline]
 pub fn record_native_injection_code_route() {
-    global().native_injection_code_route_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .native_injection_code_route_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// S3 — inspeção isolada passou intacta (a 1ª da classe na janela).
 #[inline]
 pub fn record_g1_inspect_first_passed() {
-    global().g1_inspect_first_passed_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .g1_inspect_first_passed_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// S3 — rajada de inspeção negada com a rota fundida (a 2ª em diante).
 #[inline]
 pub fn record_g1_inspect_burst_denied() {
-    global().g1_inspect_burst_denied_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .g1_inspect_burst_denied_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// S5 — par write→run negado: N execuções de um script escrito na mesma janela.
 #[inline]
 pub fn record_g10_write_run_pair_denied() {
-    global().g10_write_run_pair_denied_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .g10_write_run_pair_denied_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// S5 — heredoc inline (`python3 -`/`-c`) visto fora da rajada (calibração).
 #[inline]
 pub fn record_exec_heredoc_inline_seen() {
-    global().exec_heredoc_inline_seen_count.fetch_add(1, Ordering::Relaxed);
+    global()
+        .exec_heredoc_inline_seen_count
+        .fetch_add(1, Ordering::Relaxed);
 }
 
 /// P2 — a apresentação entregou uma rota escrita sob o braço `mode`.
@@ -1271,9 +1327,15 @@ pub fn record_exec_heredoc_inline_seen() {
 /// ignorado: contar num balde errado é pior que não contar.
 pub fn record_code_mode_arm_offered(mode: &str) {
     match mode {
-        "native" => global().code_mode_arm_offered_native_count.fetch_add(1, Ordering::Relaxed),
-        "both" => global().code_mode_arm_offered_both_count.fetch_add(1, Ordering::Relaxed),
-        "code" => global().code_mode_arm_offered_code_count.fetch_add(1, Ordering::Relaxed),
+        "native" => global()
+            .code_mode_arm_offered_native_count
+            .fetch_add(1, Ordering::Relaxed),
+        "both" => global()
+            .code_mode_arm_offered_both_count
+            .fetch_add(1, Ordering::Relaxed),
+        "code" => global()
+            .code_mode_arm_offered_code_count
+            .fetch_add(1, Ordering::Relaxed),
         _ => return,
     };
 }
@@ -1281,9 +1343,15 @@ pub fn record_code_mode_arm_offered(mode: &str) {
 /// P2 — a rota oferecida sob `mode` foi de fato tomada.
 pub fn record_code_mode_arm_followed(mode: &str) {
     match mode {
-        "native" => global().code_mode_arm_followed_native_count.fetch_add(1, Ordering::Relaxed),
-        "both" => global().code_mode_arm_followed_both_count.fetch_add(1, Ordering::Relaxed),
-        "code" => global().code_mode_arm_followed_code_count.fetch_add(1, Ordering::Relaxed),
+        "native" => global()
+            .code_mode_arm_followed_native_count
+            .fetch_add(1, Ordering::Relaxed),
+        "both" => global()
+            .code_mode_arm_followed_both_count
+            .fetch_add(1, Ordering::Relaxed),
+        "code" => global()
+            .code_mode_arm_followed_code_count
+            .fetch_add(1, Ordering::Relaxed),
         _ => return,
     };
 }
@@ -1296,12 +1364,19 @@ pub fn record_code_mode_arm_followed(mode: &str) {
 pub fn code_mode_arm_counts() -> [(u64, u64); 3] {
     let m = global();
     [
-        (m.code_mode_arm_offered_native_count.load(Ordering::Relaxed),
-         m.code_mode_arm_followed_native_count.load(Ordering::Relaxed)),
-        (m.code_mode_arm_offered_both_count.load(Ordering::Relaxed),
-         m.code_mode_arm_followed_both_count.load(Ordering::Relaxed)),
-        (m.code_mode_arm_offered_code_count.load(Ordering::Relaxed),
-         m.code_mode_arm_followed_code_count.load(Ordering::Relaxed)),
+        (
+            m.code_mode_arm_offered_native_count.load(Ordering::Relaxed),
+            m.code_mode_arm_followed_native_count
+                .load(Ordering::Relaxed),
+        ),
+        (
+            m.code_mode_arm_offered_both_count.load(Ordering::Relaxed),
+            m.code_mode_arm_followed_both_count.load(Ordering::Relaxed),
+        ),
+        (
+            m.code_mode_arm_offered_code_count.load(Ordering::Relaxed),
+            m.code_mode_arm_followed_code_count.load(Ordering::Relaxed),
+        ),
     ]
 }
 

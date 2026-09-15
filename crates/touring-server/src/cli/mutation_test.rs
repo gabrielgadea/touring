@@ -56,15 +56,12 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     if args.iter().any(|a| a == "--force") {
         payload.insert("force".into(), serde_json::Value::Bool(true));
     }
+    // A real run is ~19 min for one crate (134 mutants measured); under the 120s
+    // default read timeout the client abandoned a run the daemon was still
+    // executing (observed 2026-08-28). `cli-mutation-test` is a heavy hook, so
+    // `daemon_query` waits past its budget; an explicit `--timeout` still wins.
     if args.iter().any(|a| a == "--cache-only") {
         payload.insert("cache_only".into(), serde_json::Value::Bool(true));
-    } else {
-        // A real run is ~19 min for one crate (134 mutants measured); under
-        // the 120s default read timeout the client abandoned a run the daemon
-        // was still executing (observed 2026-08-28, the server side had just
-        // gained the heavy budget). Same floor as `index rebuild`; an explicit
-        // `--timeout` still wins. Cache-only reads keep the fast default.
-        crate::daemon_client::raise_timeout_floor(touring_foundation::HEAVY_OP_BUDGET_SECS);
     }
 
     let output = daemon_query("cli-mutation-test", serde_json::Value::Object(payload))?;

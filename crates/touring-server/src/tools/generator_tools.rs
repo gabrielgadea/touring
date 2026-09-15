@@ -1494,8 +1494,9 @@ pub fn suggest_plan(intent: &str, kind_str: Option<&str>) -> Value {
 /// rejected until 2026-08-25 (`gotcha:generate-suggest-valida-drift`).
 fn build_skeleton_plan(intent: &str, kind: &GeneratorKind) -> Value {
     let plan = GeneratorPlan::skeleton(intent, kind.clone(), "src/generated.rs");
-    serde_json::to_value(&plan)
-        .unwrap_or_else(|e| serde_json::json!({"error": format!("skeleton serialization failed: {e}")}))
+    serde_json::to_value(&plan).unwrap_or_else(
+        |e| serde_json::json!({"error": format!("skeleton serialization failed: {e}")}),
+    )
 }
 
 // ── template_list ────────────────────────────────────────────────────────────
@@ -1825,9 +1826,18 @@ pub fn build_consumer_generator_plans(limit: usize) -> Value {
         .iter()
         .enumerate()
         .map(|(i, s)| {
-            let module_file = s.get("module_file").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let symbol_name = s.get("symbol_name").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let symbol_kind = s.get("symbol_kind").and_then(|v| v.as_str()).unwrap_or("any");
+            let module_file = s
+                .get("module_file")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let symbol_name = s
+                .get("symbol_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let symbol_kind = s
+                .get("symbol_kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("any");
             build_consumer_plan(module_file, symbol_name, symbol_kind, i)
         })
         .collect();
@@ -1848,7 +1858,12 @@ pub fn build_consumer_generator_plans(limit: usize) -> Value {
 /// suggest↔serde junta is testable; the shape comes from
 /// `GeneratorPlan::skeleton` (the single source of truth), never
 /// hand-written JSON.
-fn build_consumer_plan(module_file: &str, symbol_name: &str, symbol_kind: &str, index: usize) -> Value {
+fn build_consumer_plan(
+    module_file: &str,
+    symbol_name: &str,
+    symbol_kind: &str,
+    index: usize,
+) -> Value {
     let mut plan = GeneratorPlan::skeleton(
         format!("Wire orphan {symbol_kind} '{symbol_name}' from '{module_file}' into a consumer"),
         GeneratorKind::ConsumerGenerator,
@@ -1862,9 +1877,14 @@ fn build_consumer_plan(module_file: &str, symbol_name: &str, symbol_kind: &str, 
     plan.plan_id = uuid::Uuid::from_u128((u128::from(nanos) << 64) | index as u128);
     plan.contracts.symbols_must_exist = vec![touring_generator::SymbolRef::named(symbol_name)];
     plan.contracts.files_must_exist = vec![module_file.to_owned()];
-    plan.metadata.tags = vec!["wiring".to_owned(), "consumer".to_owned(), symbol_name.to_owned()];
-    serde_json::to_value(&plan)
-        .unwrap_or_else(|e| serde_json::json!({"error": format!("consumer plan serialization failed: {e}")}))
+    plan.metadata.tags = vec![
+        "wiring".to_owned(),
+        "consumer".to_owned(),
+        symbol_name.to_owned(),
+    ];
+    serde_json::to_value(&plan).unwrap_or_else(
+        |e| serde_json::json!({"error": format!("consumer plan serialization failed: {e}")}),
+    )
 }
 
 /// All GeneratorKind variants in declaration order.

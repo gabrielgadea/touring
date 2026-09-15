@@ -40,7 +40,10 @@ pub fn declared_item_names(lang: Lang, content: &str) -> Vec<String> {
     for pair in tokens.windows(2) {
         let (keyword, name) = (pair[0], pair[1]);
         if keywords.contains(&keyword)
-            && name.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_')
+            && name
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_alphabetic() || c == '_')
             && !out.iter().any(|o| o == name)
         {
             out.push(name.to_string());
@@ -100,10 +103,10 @@ const MAX_NAMES: usize = 8;
 const GENERIC_NAMES: &[&str] = &[
     "main", "new", "run", "test", "tests", "setup", "init", "default", "build", "from", "into",
     "load", "save", "parse", "render", "handle", "apply", "execute", "call", "open", "close",
-    "start", "stop", "reset", "clear", "update", "insert", "remove", "get", "set", "next",
-    "iter", "name", "kind", "value", "data", "index", "config", "state", "error", "result",
-    "context", "options", "client", "server", "handler", "service", "manager", "helper",
-    "utils", "util", "args", "cli", "app", "item", "entry", "node", "edge",
+    "start", "stop", "reset", "clear", "update", "insert", "remove", "get", "set", "next", "iter",
+    "name", "kind", "value", "data", "index", "config", "state", "error", "result", "context",
+    "options", "client", "server", "handler", "service", "manager", "helper", "utils", "util",
+    "args", "cli", "app", "item", "entry", "node", "edge",
 ];
 
 /// PascalCase names need ≥ 4 chars, snake/camel names ≥ 6; generic and
@@ -195,7 +198,11 @@ mod tests {
 
         let ts = "export class Store {}\nfunction parseManifest() {}\ninterface Options {}\ntype Id = string;\nenum Mode { A }\n";
         let names = declared_item_names(Lang::TypeScript, ts);
-        assert_eq!(names, vec!["Store", "parseManifest", "Options", "Id", "Mode"], "{names:?}");
+        assert_eq!(
+            names,
+            vec!["Store", "parseManifest", "Options", "Id", "Mode"],
+            "{names:?}"
+        );
 
         assert!(declared_item_names(Lang::Markdown, "# struct Foo").is_empty());
     }
@@ -208,22 +215,36 @@ mod tests {
         let (score, text) = &signals[0];
         assert!((*score - RELATED_SYMBOL_SCORE).abs() < f32::EPSILON);
         assert!(text.starts_with("[related] `TfIdfVectorizer`"), "{text}");
-        assert!(text.contains("crates/touring-code/src/tfidf.rs:12"), "{text}");
+        assert!(
+            text.contains("crates/touring-code/src/tfidf.rs:12"),
+            "{text}"
+        );
         assert!(text.contains("(+1 more)"), "{text}");
-        assert!(signals[1].1.contains("`parse_manifest`") && signals[1].1.contains("manifest.rs:88"));
+        assert!(
+            signals[1].1.contains("`parse_manifest`") && signals[1].1.contains("manifest.rs:88")
+        );
     }
 
     #[test]
     fn ignores_the_file_itself_and_never_looks_up_short_or_generic_names() {
         let seen: RefCell<Vec<String>> = RefCell::new(Vec::new());
-        let content = "pub struct TfIdfVectorizer;\nfn main() {}\nfn new() {}\nfn run() {}\nstruct Ab;\n";
+        let content =
+            "pub struct TfIdfVectorizer;\nfn main() {}\nfn new() {}\nfn run() {}\nstruct Ab;\n";
         let signals = homonym_signals("crates/touring-code/src/tfidf.rs", content, |name| {
             seen.borrow_mut().push(name.to_string());
             // the index knows the name — in THIS file (a rewrite re-declares it)
             vec![("crates/touring-code/src/tfidf.rs".to_string(), 12)]
         });
-        assert!(signals.is_empty(), "own definitions are not homonyms: {signals:?}");
-        assert_eq!(*seen.borrow(), vec!["TfIdfVectorizer".to_string()], "{:?}", seen.borrow());
+        assert!(
+            signals.is_empty(),
+            "own definitions are not homonyms: {signals:?}"
+        );
+        assert_eq!(
+            *seen.borrow(),
+            vec!["TfIdfVectorizer".to_string()],
+            "{:?}",
+            seen.borrow()
+        );
     }
 
     #[test]

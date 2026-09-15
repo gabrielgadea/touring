@@ -107,8 +107,13 @@ impl SnapshotData {
     fn load(name: &str) -> anyhow::Result<Self> {
         let path = snapshot_dir().join(format!("{name}.json"));
         let content = fs::read_to_string(&path)?;
-        serde_json::from_str(&content)
-            .map_err(|e| anyhow::anyhow!("snapshot {} is malformed JSON ({}); run `touring snapshot list` to verify", name, e))
+        serde_json::from_str(&content).map_err(|e| {
+            anyhow::anyhow!(
+                "snapshot {} is malformed JSON ({}); run `touring snapshot list` to verify",
+                name,
+                e
+            )
+        })
     }
 
     /// Save snapshot to disk.
@@ -202,7 +207,9 @@ fn extract_json_strings(value: &serde_json::Value, key: &str) -> Vec<String> {
 /// `snapshot create <name>` — capture current graph state.
 fn run_create(name: &str) -> anyhow::Result<()> {
     if name.is_empty() || name.contains('/') || name.contains('\\') {
-        anyhow::bail!("invalid snapshot name: use alphanumeric and dashes only — run `touring help` for details");
+        anyhow::bail!(
+            "invalid snapshot name: use alphanumeric and dashes only — run `touring help` for details"
+        );
     }
 
     let project_root = std::env::current_dir()

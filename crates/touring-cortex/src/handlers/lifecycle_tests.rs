@@ -618,3 +618,48 @@ fn test_lifecycle_registration() {
     register(&mut pipeline);
     assert_eq!(pipeline.handler_count(), 21); // 15 original + 6 new (H77-H82)
 }
+
+/// 14/09/2026: the handler spawned `touring index rebuild --dir <worktree>` with
+/// the PARENT project as cwd, so the rebuild sealed an empty "complete"
+/// generation over the parent's index — three times per test run, because the
+/// worktree tests pass paths that do not exist. The rebuild now runs inside the
+/// worktree, as its own project, and only when the worktree is there.
+#[test]
+fn a_worktree_rebuild_runs_inside_the_worktree_and_only_when_it_exists() {
+    assert!(
+        worktree_rebuild_command("/tmp/touring-missing-worktree-7c1e").is_none(),
+        "a worktree that does not exist gets no rebuild"
+    );
+    let worktree = TempDir::new().unwrap();
+    let cmd = worktree_rebuild_command(&worktree.path().to_string_lossy())
+        .expect("an existing worktree gets a rebuild");
+    assert_eq!(cmd.get_current_dir(), Some(worktree.path()));
+    let args: Vec<String> = cmd
+        .get_args()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(
+        args,
+        ["index", "rebuild"],
+        "the worktree is the project, not a --dir of the parent"
+    );
+}
+
+/// Cross-audit 14/09/2026 (B6/B10): the command's shape was all the test above
+/// checked. What makes "runs inside the worktree" true is that the client
+/// resolves the rebuild's cwd to the WORKTREE — whose `.git` is a file — and
+/// not to the parent project that holds the `.git` directory.
+#[test]
+fn the_worktree_cwd_resolves_to_the_worktree_not_its_parent() {
+    let parent = TempDir::new().unwrap();
+    std::fs::create_dir_all(parent.path().join(".git")).unwrap();
+    let worktree = parent.path().join("wt");
+    std::fs::create_dir_all(&worktree).unwrap();
+    std::fs::write(worktree.join(".git"), "gitdir: ../.git/worktrees/wt\n").unwrap();
+    let cmd = worktree_rebuild_command(&worktree.to_string_lossy()).expect("rebuild");
+    let cwd = cmd.get_current_dir().expect("cwd").to_path_buf();
+    assert_eq!(
+        touring_foundation::TouringConfig::normalize_project_root(&cwd),
+        worktree
+    );
+}

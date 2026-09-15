@@ -75,17 +75,12 @@ pub(crate) fn summarize_numeric_arrays(v: serde_json::Value) -> serde_json::Valu
     const KEEP: usize = 16;
     match v {
         serde_json::Value::Array(items) => {
-            let nums: Vec<f64> = items
-                .iter()
-                .filter_map(serde_json::Value::as_f64)
-                .collect();
+            let nums: Vec<f64> = items.iter().filter_map(serde_json::Value::as_f64).collect();
             if nums.len() == items.len() && items.len() > KEEP {
                 let l2 = nums.iter().map(|x| x * x).sum::<f64>().sqrt();
                 serde_json::json!({ "len": items.len(), "l2_norm": l2 })
             } else {
-                serde_json::Value::Array(
-                    items.into_iter().map(summarize_numeric_arrays).collect(),
-                )
+                serde_json::Value::Array(items.into_iter().map(summarize_numeric_arrays).collect())
             }
         }
         serde_json::Value::Object(map) => serde_json::Value::Object(
@@ -192,7 +187,9 @@ pub fn cli_experiment_record(rt: &mut HookRuntime, payload: &serde_json::Value) 
         action: 0,
         reward,
         decision,
-        composite_score: payload.get("composite_score").and_then(serde_json::Value::as_f64),
+        composite_score: payload
+            .get("composite_score")
+            .and_then(serde_json::Value::as_f64),
         diagnostic: Some(variant.to_string()),
         tool_name: Some(target.to_string()),
         latency_ms: None,

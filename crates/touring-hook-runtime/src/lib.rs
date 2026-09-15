@@ -33,6 +33,7 @@
 /// already depends on `touring-hooks`, so a direct edge would close a cycle.
 pub use touring_hooks_shared::turn_budget;
 
+pub mod actor_yield;
 pub mod auto_save_hook;
 // Wave H inversion (2026-06-10): 4 shared modules moved down from the dispatch
 // crate — each had consumers on BOTH sides of the hooks/ carve (dispatch-rest
@@ -42,7 +43,6 @@ pub mod auto_save_hook;
 pub mod bidirectional;
 pub mod ceg_adapter;
 pub mod ceg_impls;
-pub mod scip_ingest;
 pub mod daemon_protocol;
 pub mod embeddings;
 pub mod gotcha_loader;
@@ -53,6 +53,7 @@ pub mod hook_trace;
 pub mod inferlets;
 #[cfg(feature = "inferlets-wasm")]
 pub mod inferlets_assets;
+pub mod scip_ingest;
 // Wave C2 inversion (2026-06-10): ACP shim layer moved down from the dispatch
 // crate so cli/acp.rs (touring-cli) and daemon.rs (dispatch) both reach it.
 #[cfg(feature = "acp-protocol")]
@@ -96,6 +97,7 @@ pub use touring_hooks_core::knowledge::{
     BashOutcome, EditEvent, FileKnowledge, FileKnowledgeDB, FileKnowledgeEnriched, FileRelation,
     Gotcha, KnowledgeStats, ThreadSafeKnowledgeDB, WeightedErrorPattern,
 };
+pub use touring_hooks_core::knowledge_index_generation;
 pub use touring_hooks_core::knowledge_symbol_bridge;
 pub use touring_hooks_core::knowledge_wiring;
 pub use touring_hooks_core::pre_tool_validator;

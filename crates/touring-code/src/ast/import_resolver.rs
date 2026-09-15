@@ -119,7 +119,11 @@ impl ImportResolver {
     /// S3 (2026-09-02): the pre-write form of `pre_edit`'s detector — the
     /// imports come from the text itself, so a file that does not exist yet
     /// (no FileKnowledgeDB row) is analysable.
-    pub fn unresolved_type_references(&self, source: &str, local_declared: &[String]) -> Vec<String> {
+    pub fn unresolved_type_references(
+        &self,
+        source: &str,
+        local_declared: &[String],
+    ) -> Vec<String> {
         let mut candidates: Vec<&str> = Vec::new();
         for (start, word) in identifier_tokens(source) {
             if !looks_like_type_name(word) || is_builtin_type_name(word) {
@@ -774,7 +778,11 @@ const x = 1;
             .iter()
             .find(|i| i.path == "crate::ast::wiring::Bar")
             .expect("Bar entry");
-        assert_eq!(bar.alias.as_deref(), Some("Baz"), "alias travels with the entry");
+        assert_eq!(
+            bar.alias.as_deref(),
+            Some("Baz"),
+            "alias travels with the entry"
+        );
         let glob = resolver
             .imports
             .iter()
@@ -819,7 +827,10 @@ const x = 1;
         for n in ["Foo", "Bar", "Baz", "Qux", "U"] {
             assert!(names.iter().any(|d| d == n), "{n} missing in {names:?}");
         }
-        assert!(!names.iter().any(|d| d == "make_thing" || d == "Other"), "{names:?}");
+        assert!(
+            !names.iter().any(|d| d == "make_thing" || d == "Other"),
+            "{names:?}"
+        );
     }
 
     #[test]
@@ -838,9 +849,16 @@ const x = 1;
     fn s3_unresolved_type_references_count_a_name_used_unqualified_at_least_once() {
         let src = "fn f() {\n    let a = search::Foo::new();\n    let b: Foo = a;\n}\n";
         let resolver = extract_imports_resolved(src, Lang::Rust);
-        assert_eq!(resolver.unresolved_type_references(src, &[]), vec!["Foo".to_string()]);
+        assert_eq!(
+            resolver.unresolved_type_references(src, &[]),
+            vec!["Foo".to_string()]
+        );
         let only_qualified = "fn f() {\n    let a = search::Foo::new();\n}\n";
         let resolver = extract_imports_resolved(only_qualified, Lang::Rust);
-        assert!(resolver.unresolved_type_references(only_qualified, &[]).is_empty());
+        assert!(
+            resolver
+                .unresolved_type_references(only_qualified, &[])
+                .is_empty()
+        );
     }
 }

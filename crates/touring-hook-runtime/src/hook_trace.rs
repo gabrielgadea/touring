@@ -226,8 +226,28 @@ mod tests {
     fn append_line_writes_exactly_one_parseable_json_line_and_creates_parents() {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("nested/deeper/hook_trace.jsonl");
-        let a = build_line("cli-suggest", "daemon", "daemon-json", "ok", 9, 1, None, 1, 0);
-        let b = build_line("post-bash", "standalone", "standalone-unknown", "empty", 0, 2, None, 2, 0);
+        let a = build_line(
+            "cli-suggest",
+            "daemon",
+            "daemon-json",
+            "ok",
+            9,
+            1,
+            None,
+            1,
+            0,
+        );
+        let b = build_line(
+            "post-bash",
+            "standalone",
+            "standalone-unknown",
+            "empty",
+            0,
+            2,
+            None,
+            2,
+            0,
+        );
         append_line(&path, &a).expect("append a");
         append_line(&path, &b).expect("append b");
         let text = std::fs::read_to_string(&path).expect("read back");
@@ -242,7 +262,10 @@ mod tests {
     #[test]
     fn append_line_to_an_unwritable_path_is_an_error_not_a_panic() {
         let line = build_line("help", "stateless", "help", "unread", 0, 0, None, 1, 0);
-        let err = append_line(Path::new("/proc/definitely/not/writable/trace.jsonl"), &line);
+        let err = append_line(
+            Path::new("/proc/definitely/not/writable/trace.jsonl"),
+            &line,
+        );
         assert!(err.is_err());
     }
 

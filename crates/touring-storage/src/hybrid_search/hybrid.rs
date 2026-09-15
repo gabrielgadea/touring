@@ -116,23 +116,6 @@ impl RankedResult {
     }
 }
 
-/// Debug/info representation of fusion state.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FusionDebug {
-    /// Number of candidates returned by the BM25 keyword stage.
-    pub keyword_results: usize,
-    /// Number of candidates returned by the vector semantic stage.
-    pub semantic_results: usize,
-    /// Number of candidates remaining after reciprocal-rank fusion.
-    pub fused_results: usize,
-    /// Number of candidates remaining after the reranking stage.
-    pub reranked_results: usize,
-    /// Minimum and maximum fused scores, as a `(min, max)` pair.
-    pub fusion_score_range: (f32, f32),
-    /// Display name of the query intent applied to weight the fusion.
-    pub intent_applied: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

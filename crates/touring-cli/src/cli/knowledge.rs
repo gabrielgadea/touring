@@ -35,61 +35,16 @@ pub fn cli_metadata_backfill(rt: &mut HookRuntime, payload: &serde_json::Value) 
         .get("force")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    const SUPPORTED_EXTS: &[&str] = &[
-        "rs", "py", "pyi", "ts", "tsx", "js", "jsx", "mjs", "cjs", "sh", "bash", "html", "css",
-        "scss", "md", "mdx", "json", "toml", "yaml", "yml",
-    ];
-    const SKIP_DIRS: &[&str] = &[
-        "target",
-        ".git",
-        "node_modules",
-        ".cargo",
-        ".venv",
-        "venv",
-        "__pycache__",
-        "dist",
-        "build",
-        ".tox",
-        ".mypy_cache",
-        ".pytest_cache",
-        ".ruff_cache",
-        ".eggs",
-        ".nox",
-        ".cache",
-        "data",
-        "datasets",
-        "dataset",
-        "raw_data",
-        "processed_data",
-        "downloaded_files",
-        "downloads",
-        "uploads",
-        "attachments",
-        "coverage",
-        "coverage_html",
-        "htmlcov",
-        "lcov-report",
-        "migrations",
-        "generated",
-        "benchmarks",
-        "tmp",
-        "temp",
-        "logs",
-        "log",
-    ];
-    fn should_skip_dir(name: &str) -> bool {
-        if SKIP_DIRS.contains(&name) {
-            return true;
-        }
-        if name.starts_with(".venv") || name.starts_with("venv") {
-            return true;
-        }
-        if name.starts_with('.') && name != ".claude" {
-            return true;
-        }
-        false
-    }
-    fn walk(dir: &std::path::Path, acc: &mut Vec<std::path::PathBuf>) {
+    // 2026-09-13: this walker carried its OWN copy of the rule tables (and, alone
+    // in the codebase, already let `.claude/` in). One predicate for every
+    // walker — `touring_hooks_shared::index_policy` — or `why` starts lying.
+    use touring_hooks_shared::index_policy;
+    fn walk(
+        dir: &std::path::Path,
+        parents: &mut Vec<String>,
+        policy: &index_policy::IndexPolicy,
+        acc: &mut Vec<std::path::PathBuf>,
+    ) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
         };
@@ -97,12 +52,22 @@ pub fn cli_metadata_backfill(rt: &mut HookRuntime, payload: &serde_json::Value) 
             let path = entry.path();
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             if path.is_dir() {
-                if !should_skip_dir(name) {
-                    walk(&path, acc);
+                let mut components: Vec<&str> = parents.iter().map(String::as_str).collect();
+                components.push(name);
+                if index_policy::excluded_dir_reason(policy.excluded_dirs(), &components)
+                    .or_else(|| index_policy::dir_skip_reason(&components))
+                    .or_else(|| policy.gitignored(&path, true))
+                    .is_none()
+                {
+                    parents.push(name.to_string());
+                    walk(&path, parents, policy, acc);
+                    parents.pop();
                 }
             } else {
                 let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                if SUPPORTED_EXTS.contains(&ext) {
+                if index_policy::INDEX_SUPPORTED_EXTS.contains(&ext)
+                    && policy.gitignored(&path, false).is_none()
+                {
                     acc.push(path);
                 }
             }
@@ -111,7 +76,8 @@ pub fn cli_metadata_backfill(rt: &mut HookRuntime, payload: &serde_json::Value) 
     let project_root = rt.project_root.clone();
     let start = std::time::Instant::now();
     let mut paths: Vec<std::path::PathBuf> = Vec::new();
-    walk(&project_root, &mut paths);
+    let policy = index_policy::IndexPolicy::for_root(&project_root);
+    walk(&project_root, &mut Vec::new(), &policy, &mut paths);
     let existing: std::collections::HashSet<String> = if force {
         std::collections::HashSet::new()
     } else {
@@ -319,3 +285,39 @@ pub fn cli_file_knowledge_extended(rt: &mut HookRuntime, payload: &serde_json::V
         }
     }
 }
+
+#[cfg(test)]
+mod metadata_backfill_tests {
+    use super::cli_metadata_backfill;
+    use crate::runtime::HookRuntime;
+
+    /// Cross-audit 14/09/2026 (R2-2): the backfill walker asks the same policy
+    /// as the rebuild, git's ignore rules included. It had no test of its own.
+    #[test]
+    fn the_backfill_walks_what_git_keeps_and_nothing_it_ignores() {
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let root = proj.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        std::fs::create_dir_all(root.join("site/docs")).expect("site");
+        std::fs::write(root.join("src/lib.rs"), "pub fn backfill_probe_live() {}").expect("lib.rs");
+        std::fs::write(root.join("src/table.gen.rs"), "pub fn backfill_probe_gen() {}")
+            .expect("table.gen.rs");
+        std::fs::write(root.join("site/docs/copy.rs"), "pub fn backfill_probe_site() {}")
+            .expect("copy.rs");
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        let discovered = |rt: &mut HookRuntime| -> u64 {
+            let out = cli_metadata_backfill(rt, &serde_json::json!({"force": true}));
+            let v: serde_json::Value = serde_json::from_str(&out).expect("backfill json");
+            v["files_discovered"].as_u64().expect("files_discovered")
+        };
+
+        assert_eq!(discovered(&mut rt), 3, "without a rule every file is walked");
+        std::fs::write(root.join(".gitignore"), "/site/\n*.gen.rs\n").expect(".gitignore");
+        assert_eq!(
+            discovered(&mut rt),
+            1,
+            "neither the ignored copy nor the ignored file inside src/ is walked"
+        );
+    }
+}
+

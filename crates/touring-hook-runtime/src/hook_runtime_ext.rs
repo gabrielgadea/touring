@@ -448,8 +448,7 @@ impl HookRuntime {
             read_all_with_timeout(std::io::stdin(), std::time::Duration::from_secs(2));
         let bytes = input.len() as u64;
         match state {
-            StdinReadState::Ok if !input.trim().is_empty() => match serde_json::from_str(&input)
-            {
+            StdinReadState::Ok if !input.trim().is_empty() => match serde_json::from_str(&input) {
                 Ok(v) => {
                     set_last_stdin_read(StdinReadState::Ok, bytes);
                     Ok(v)

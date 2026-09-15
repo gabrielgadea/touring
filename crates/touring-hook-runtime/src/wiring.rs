@@ -436,6 +436,134 @@ pub fn find_all_cycles(
         .collect()
 }
 
+/// Whether `language` declares an API the wiring map tracks: data and markup
+/// files do not. The rebuild, the edit path and the read path share this
+/// predicate.
+///
+/// Renamed from `is_code_language` (cross-audit 14/09/2026, B9): the name was
+/// also `touring_hooks_shared::detect_language::is_code_language`, an ALLOW-list
+/// with the opposite default for an unknown language, and `post_read` kept a
+/// third, inline copy.
+#[must_use]
+pub fn declares_wireable_api(language: &str) -> bool {
+    !matches!(
+        language,
+        "toml" | "json" | "yaml" | "markdown" | "html" | "css"
+    )
+}
+
+/// Register every public symbol of `symbols` as a producer row of `file_path`,
+/// with its REAL visibility: `pub(crate)` is stored as `crate`, never as
+/// `public`, because the orphan queries count only `visibility = 'public'`.
+/// Does not clear — the caller owns the clear and the transaction. Returns the
+/// rows actually written (a refused file or an existing row counts zero).
+pub fn register_public_symbols(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    symbols: &[touring_code::ast::symbols::Symbol],
+) -> u32 {
+    let mut registered = 0;
+    for sym in symbols.iter().filter(|sym| sym.is_public) {
+        let visibility = sym
+            .visibility
+            .as_ref()
+            .map_or("public", touring_code::ast::Visibility::as_str);
+        if db
+            .register_pub_symbol_counted(
+                file_path,
+                &sym.name,
+                sym.kind.as_str(),
+                visibility,
+                crate::knowledge_wiring::WiringOrigin::AstDeclared,
+            )
+            .unwrap_or(false)
+        {
+            registered += 1;
+        }
+    }
+    registered
+}
+
+/// Replace the producer rows of `file_path` with the public symbols its current
+/// `content` declares — the same extraction and visibility the rebuild uses.
+///
+/// Returns `None` and touches nothing when the language declares no API or the
+/// file cannot be parsed: rows that cannot be re-derived are kept, never
+/// cleared. Clearing and re-registering from the stored `symbols_json` — which
+/// carries no visibility — wiped the producers of every edited file
+/// (14/09/2026).
+pub fn refresh_file_producers(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    language: &str,
+    content: &str,
+) -> Option<u32> {
+    if !declares_wireable_api(language) {
+        return None;
+    }
+    // A companion file produces nothing (decision 1-A): the write gate would
+    // refuse every row anyway, so its residue is cleared and nothing is counted.
+    if touring_foundation::config::is_companion_key(file_path) {
+        let _ = db.clear_wiring(file_path);
+        return Some(0);
+    }
+    let symbols = crate::ast_bridge::extract_enriched_symbols(content, file_path)?;
+    let _ = db.clear_wiring(file_path);
+    Some(register_public_symbols(db, file_path, &symbols))
+}
+
+/// Every wiring row `file_path` owns, re-derived from its current `content`: its
+/// producers (real visibility), then its consumer rows — `use` imports, direct
+/// paths, and the INFERRED edges (bare calls, type positions, qualified calls).
+///
+/// The hook-path twin of the rebuild's per-file pass, and the ONE function the
+/// edit, read, file-changed and task-output paths call. Until 14/09/2026 they
+/// were four sequences: the edit path ran all three steps, the read path cleared
+/// every consumer row and re-recorded only `use` imports plus an obsolete
+/// name-only pass that labelled guesses `ast_resolved` (reading `dep_health.rs`
+/// once took it from 79 inferred edges to 0), and file-changed/task-output ran
+/// the first two steps, losing the inferred edges the same way — orphans that
+/// grew with every read and vanished at the next rebuild (cross-audit B1/B2).
+pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str, content: &str) {
+    let _ = refresh_file_producers(db, file_path, language, content);
+    update_wiring_after_edit(db, file_path);
+    // `update_wiring_after_edit` clears consumer rows only for a file with stored
+    // imports; the inferred edges are re-derived below either way, so the stale
+    // ones of calls the file no longer makes are dropped first.
+    let _ = db.clear_inferred_consumer_entries(file_path);
+    record_direct_path_consumers(db, file_path, content);
+}
+
+/// [`refresh_file_wiring`] for a caller that holds only the path (relative to
+/// `project_root`, or absolute). `false`, touching nothing, when the walker would
+/// refuse the file or it is missing or unreadable.
+///
+/// Cross-audit 14/09/2026 (B3): the admission policy used to live only in the
+/// edit path, so `file_changed` and `task_output` wrote wiring under keys the
+/// rebuild never produces — absolute paths, excluded directories. The file is
+/// stored under the ONE key the walker gives it.
+pub fn refresh_file_wiring_from_disk(
+    db: &FileKnowledgeDB,
+    project_root: &std::path::Path,
+    file_path: &str,
+) -> bool {
+    let rel = crate::hook_runtime::make_relative(file_path, project_root);
+    let Ok(key) = crate::shared::reindex::admission_key_for_root(project_root, &rel) else {
+        return false;
+    };
+    let abs = if std::path::Path::new(&rel).is_absolute() {
+        std::path::PathBuf::from(&rel)
+    } else {
+        project_root.join(&rel)
+    };
+    let Ok(content) = std::fs::read_to_string(abs) else {
+        return false;
+    };
+    let language = crate::shared::detect_language::detect_language_owned(&key);
+    refresh_file_wiring(db, &key, &language, &content);
+    true
+}
+
 /// Update wiring map after a file is edited.
 ///
 /// Re-scans the file's knowledge to update pub symbol registrations
@@ -445,28 +573,11 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
     let previous_score = db.integration_score(file_path).unwrap_or(1.0);
 
     if let Ok(Some(knowledge)) = db.lookup(file_path) {
-        // Re-register pub symbols (clear + re-add to catch added/removed)
-        if let Some(ref symbols_json) = knowledge.symbols_json
-            && let Ok(symbols) = serde_json::from_str::<Vec<serde_json::Value>>(symbols_json)
-        {
-            let _ = db.clear_wiring(file_path);
-            for sym in &symbols {
-                let is_public = sym
-                    .get("is_public")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                if is_public {
-                    let name = sym.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    let kind = sym
-                        .get("kind")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown");
-                    if !name.is_empty() {
-                        let _ = db.register_pub_symbol(file_path, name, kind, "public");
-                    }
-                }
-            }
-        }
+        // Producer rows are NOT touched here. The stored `symbols_json` carries no
+        // visibility, and clearing them to re-register from it wiped the producers
+        // of every edited file (14/09/2026: 10 of 15 touring files edited after
+        // the rebuild had none). Callers holding the content refresh them with
+        // `refresh_file_producers`; the rest leave them as the last parse saw them.
 
         // Re-register consumer entries (this file as consumer).
         //
@@ -533,8 +644,7 @@ pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, c
     if let Some(lang) = touring_code::ast::Lang::from_path(std::path::Path::new(consumer_file)) {
         let method_names = touring_code::ast::graph::extract_method_calls(content, lang);
         let type_refs = touring_code::ast::graph::extract_type_and_const_refs(content, lang);
-        let qualified_calls =
-            touring_code::ast::graph::extract_qualified_calls(content, lang);
+        let qualified_calls = touring_code::ast::graph::extract_qualified_calls(content, lang);
         let _ = db.record_inferred_consumers(
             consumer_file,
             &method_names,
@@ -734,55 +844,162 @@ fn record_consumer_from_path(db: &FileKnowledgeDB, import_path: &str, consumer_f
 /// `hook_registry.rs`.
 ///
 /// Returns the path up to but not including the first trailing non-path
-/// token (like `(`, `;`, or whitespace). Deduplicated via HashSet.
+/// token (like `(`, `;`, or whitespace). Deduplicated via HashSet. Comments,
+/// string and char literals are skipped, and `super::` segments consumed by
+/// inline `mod x { … }` blocks of the same file are removed first.
 fn extract_direct_path_expressions(content: &str) -> Vec<String> {
     let mut out: std::collections::HashSet<String> = std::collections::HashSet::new();
     let bytes = content.as_bytes();
     let len = bytes.len();
+    let at = |k: usize| bytes.get(k).copied().unwrap_or(0);
+    let is_ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+    // Brace depth of the code, and the depths at which inline `mod x {` blocks
+    // opened. A `super::` written inside N inline modules climbs those N modules
+    // first — all within THIS file — before it reaches the file's parent
+    // (cross-audit 14/09/2026: `use super::super::real_engine;` two modules deep
+    // in `f2_5_dep_cves.rs` was resolved against the crate root, `lib.rs`).
+    let mut depth = 0usize;
+    let mut inline_mods: Vec<usize> = Vec::new();
+    let mut pending_mod = false;
     let mut i = 0usize;
     while i < len {
-        // Skip over any byte that isn't a char boundary — UTF-8 multibyte
-        // continuation bytes must never be treated as start positions. Using
-        // `content.get(i..)` returns None on non-boundaries without panicking.
-        let Some(tail) = content.get(i..) else {
-            i += 1;
+        let b = at(i);
+        // Comments, strings and char literals are not code: a path quoted in a
+        // comment wired a consumer to a symbol that does not exist
+        // (`crate::shared::feature_flags::f()` in a `wiring.rs` comment).
+        if b == b'/' && at(i + 1) == b'/' {
+            while i < len && at(i) != b'\n' {
+                i += 1;
+            }
             continue;
-        };
-        // Word-boundary check: previous byte must not be alphanumeric or `_`.
-        let prev_ok = i == 0 || {
-            let p = bytes.get(i - 1).copied().unwrap_or(0);
-            !p.is_ascii_alphanumeric() && p != b'_'
-        };
-        let starts_crate = prev_ok && tail.starts_with("crate::");
-        let starts_super = prev_ok && tail.starts_with("super::");
-        if !(starts_crate || starts_super) {
+        }
+        if b == b'/' && at(i + 1) == b'*' {
+            let mut nest = 1usize;
+            i += 2;
+            while i < len && nest > 0 {
+                if at(i) == b'/' && at(i + 1) == b'*' {
+                    nest += 1;
+                    i += 2;
+                } else if at(i) == b'*' && at(i + 1) == b'/' {
+                    nest -= 1;
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+            continue;
+        }
+        let prev_ident = i > 0 && is_ident(at(i - 1));
+        if b == b'r' && !prev_ident && (at(i + 1) == b'"' || at(i + 1) == b'#') {
+            let mut k = i + 1;
+            let mut hashes = 0usize;
+            while at(k) == b'#' {
+                hashes += 1;
+                k += 1;
+            }
+            if at(k) == b'"' {
+                k += 1;
+                'raw: while k < len {
+                    if at(k) == b'"' && (1..=hashes).all(|h| at(k + h) == b'#') {
+                        k += 1 + hashes;
+                        break 'raw;
+                    }
+                    k += 1;
+                }
+                i = k;
+                continue;
+            }
+        }
+        if b == b'"' {
+            i += 1;
+            while i < len && at(i) != b'"' {
+                i += if at(i) == b'\\' { 2 } else { 1 };
+            }
             i += 1;
             continue;
         }
+        if b == b'\'' {
+            // `'x'` or `'\n'` is a char literal; `'a` (a lifetime) has no close.
+            let close = if at(i + 1) == b'\\' {
+                (i + 2..(i + 12).min(len)).find(|&k| at(k) == b'\'')
+            } else {
+                content
+                    .get(i + 1..)
+                    .and_then(|t| t.chars().next())
+                    .map(|c| i + 1 + c.len_utf8())
+                    .filter(|&k| at(k) == b'\'')
+            };
+            i = close.map_or(i + 1, |k| k + 1);
+            continue;
+        }
+        if b == b'{' {
+            depth += 1;
+            if pending_mod {
+                inline_mods.push(depth);
+                pending_mod = false;
+            }
+            i += 1;
+            continue;
+        }
+        if b == b'}' {
+            if inline_mods.last() == Some(&depth) {
+                inline_mods.pop();
+            }
+            depth = depth.saturating_sub(1);
+            i += 1;
+            continue;
+        }
+        if b == b';' {
+            // `mod x;` declares a file module, not an inline block.
+            pending_mod = false;
+            i += 1;
+            continue;
+        }
+        if !prev_ident && content.get(i..).is_some_and(|t| t.starts_with("mod ")) {
+            pending_mod = true;
+            i += 4;
+            continue;
+        }
+        let tail = content.get(i..).unwrap_or("");
+        let starts_path =
+            !prev_ident && (tail.starts_with("crate::") || tail.starts_with("super::"));
+        if !starts_path {
+            // Advance by a whole character so a multibyte byte is never a start.
+            i += tail.chars().next().map_or(1, char::len_utf8);
+            continue;
+        }
         let start = i;
-        // Advance through identifier chars and `::` separators (all ASCII).
         let mut j = i;
         while j < len {
-            let b = bytes.get(j).copied().unwrap_or(0);
-            if b.is_ascii_alphanumeric() || b == b'_' {
+            if is_ident(at(j)) {
                 j += 1;
-            } else if j + 1 < len && b == b':' && bytes.get(j + 1).copied().unwrap_or(0) == b':' {
+            } else if at(j) == b':' && at(j + 1) == b':' {
                 j += 2;
             } else {
                 break;
             }
         }
-        // Strip any trailing `::` so `path` always ends on an identifier.
         let mut end = j;
-        while end > start + 2 && bytes.get(end - 1).copied().unwrap_or(0) == b':' {
+        while end > start + 2 && at(end - 1) == b':' {
             end -= 1;
         }
-        // The span [start..end] is guaranteed ASCII (only identifier chars
-        // and `:`), so slicing is safe.
-        if let Some(path) = content.get(start..end)
-            && path.matches("::").count() >= 2
-        {
-            out.insert(path.to_string());
+        if let Some(path) = content.get(start..end) {
+            let supers = path.split("::").take_while(|s| *s == "super").count();
+            let inside = inline_mods.len();
+            let resolved = if supers == 0 {
+                Some(path.to_string())
+            } else if supers <= inside {
+                // Every `super` climbs an inline module of this same file: the
+                // path names this file's own items, which it does not consume.
+                None
+            } else {
+                Some(path.split("::").skip(inside).collect::<Vec<_>>().join("::"))
+            };
+            if let Some(path) = resolved
+                && path.matches("::").count() >= 2
+            {
+                out.insert(path);
+            }
         }
         i = j.max(start + 1);
     }

@@ -107,10 +107,13 @@ def resolve_subtask_id(task, phase):
     Sem candidato, devolve o phase como veio (o veredito honesto do
     `subtask_updated` continuará dizendo a verdade).
 
-    Separadores aceitos após o phase: espaço ("P2 plan") E hífen ("B1-ceg-…",
-    a forma que o loop registra via `decompose add`). Medido 02/09/2026: sete
-    fases fecharam com `dag_updated:false` porque só o espaço era aceito. O
-    separador é obrigatório — `B1` não casa `B10-…`.
+    Separadores aceitos após o phase: espaço ("P2 plan"), hífen ("B1-ceg-…",
+    a forma que o loop registra via `decompose add`) E dois-pontos ("R3-1: …",
+    a forma de um `decompose add "<fase>: <título>"`). Medido 02/09/2026: sete
+    fases fecharam com `dag_updated:false` porque só o espaço era aceito;
+    medido 12/09/2026: cinco fases `R3-n: …` fecharam com `dag_updated:false`
+    porque o dois-pontos não era aceito. O separador é obrigatório — `B1` não
+    casa `B10-…`, `R3-1` não casa `R3-10: …`.
     """
     rc, out, _err = run(["touring", "decompose", "get", task])
     if rc != 0:
@@ -122,7 +125,7 @@ def resolve_subtask_id(task, phase):
     for s in d.get("subtasks", []):
         sid = str(s.get("subtask_id", ""))
         suffix = sid.split("::", 1)[1] if "::" in sid else sid
-        if suffix == phase or suffix.startswith((phase + " ", phase + "-")):
+        if suffix == phase or suffix.startswith((phase + " ", phase + "-", phase + ":")):
             return sid
     return phase
 

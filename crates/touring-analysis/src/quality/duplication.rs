@@ -126,7 +126,7 @@ fn collect_meaningful_lines(source: &str, regions: &[(usize, usize)]) -> Vec<Lin
 /// Chosen from the arithmetic, not from taste. With `SHINGLE_K = 4`, each
 /// changed token destroys up to 4 shingles on each side, so a window of `m`
 /// shingles with `d` destroyed has `J = (m - d) / (m + d)`. Over the
-/// [`NEAR_BLOCK_LINES`]-line window (~117 shingles) that puts the tolerated
+/// `NEAR_BLOCK_LINES`-line window (~117 shingles) that puts the tolerated
 /// edit at ~4 tokens: J = 0.934 at 1 token, 0.872 at 2, 0.708 at 5.
 ///
 /// The same 0.75 over a 6-line window would tolerate barely ONE token
@@ -580,7 +580,7 @@ pub fn analyze_duplication(source: &str, lang: &str) -> DuplicationReport {
 /// vazar de um arquivo para o seguinte.
 ///
 /// Motivação medida e teste mínimo: ver
-/// [`non_executable_regions_segmented`](super::code_regions::non_executable_regions_segmented).
+/// [`non_executable_regions_segmented`].
 #[must_use]
 pub fn analyze_duplication_segmented(
     source: &str,

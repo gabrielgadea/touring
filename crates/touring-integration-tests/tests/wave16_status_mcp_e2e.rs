@@ -16,8 +16,6 @@
 use std::process::Command;
 
 use touring_hooks::health_delta::{
-
-
     STREAK_ALERT_THRESHOLD, compute_signals_delta, discard_pre_health, record_pre_signals,
     regression_streak, reset_streak, status_json,
 };
@@ -115,7 +113,8 @@ fn axis3_touring_status_includes_health_delta_key() {
         eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["status", "-j"])
         .output()
         .expect("spawn touring status");
@@ -192,7 +191,8 @@ fn axis6_single_source_of_truth_invariant() {
         eprintln!("skipping CLI half: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta", "status", path])
         .output()
         .expect("spawn touring");
@@ -232,7 +232,8 @@ fn axis7_touring_status_parses_full_dashboard() {
         eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["status", "-j"])
         .output()
         .expect("spawn");

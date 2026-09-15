@@ -365,21 +365,15 @@ pub fn build_landlock_ruleset(
 #[cfg(target_os = "linux")]
 pub fn build_udp_deny_bpf() -> Option<seccompiler::BpfProgram> {
     use seccompiler::{
-        SeccompAction, SeccompCmpArgLen, SeccompCmpOp, SeccompCondition, SeccompFilter,
-        SeccompRule,
+        SeccompAction, SeccompCmpArgLen, SeccompCmpOp, SeccompCondition, SeccompFilter, SeccompRule,
     };
     use std::collections::BTreeMap;
     use std::convert::TryInto;
 
     let udp = |domain: i32| {
         SeccompRule::new(vec![
-            SeccompCondition::new(
-                0,
-                SeccompCmpArgLen::Dword,
-                SeccompCmpOp::Eq,
-                domain as u64,
-            )
-            .ok()?,
+            SeccompCondition::new(0, SeccompCmpArgLen::Dword, SeccompCmpOp::Eq, domain as u64)
+                .ok()?,
             // type & 0xF == SOCK_DGRAM (bits altos podem trazer CLOEXEC/NONBLOCK)
             SeccompCondition::new(
                 1,

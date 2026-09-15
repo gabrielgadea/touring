@@ -3,30 +3,7 @@
 //! Provides style functions that map graph properties (quality, safety,
 //! feature gates, node type, edge kind) to DOT/Mermaid attributes.
 
-use serde::{Deserialize, Serialize};
 use touring_intelligence::reasoning::semantic_graph::NodeType;
-
-/// Node visual style derived from graph properties.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeStyle {
-    /// DOT shape attribute.
-    pub shape: String,
-    /// Fillcolor attribute.
-    pub fillcolor: String,
-    /// Style attribute (solid, dashed, dotted, double).
-    pub style: String,
-    /// Font size in points.
-    pub fontsize: u8,
-}
-
-/// Edge visual style derived from edge kind.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EdgeStyle {
-    /// Color attribute.
-    pub color: String,
-    /// Style attribute (solid, dashed, dotted, bold).
-    pub style: String,
-}
 
 /// Determine node shape based on node type.
 ///

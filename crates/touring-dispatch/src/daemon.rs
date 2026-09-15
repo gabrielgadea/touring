@@ -52,8 +52,10 @@
 //!   inside its thread (panic-guarded per step) and acks via oneshot. Then
 //!   `std::process::exit(0)` after 5s timeout per actor.
 
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -66,6 +68,8 @@ use tokio::time::{interval, timeout};
 use crate::ipc::{DaemonRequest, DaemonResponse, daemon_lock_path_for, daemon_socket_path};
 use crate::runtime::HookRuntime;
 use crate::shared::latency_marker::LatencyMarker;
+use touring_foundation::is_heavy_hook;
+use touring_hook_runtime::actor_yield;
 
 /// Maximum projects in memory before LRU eviction kicks in.
 /// Prevents unbounded memory growth in multi-project scenarios.
@@ -167,10 +171,10 @@ impl ProjectRuntime {
     fn new(rt: HookRuntime) -> Self {
         let (cmd_tx, cmd_rx) = mpsc::channel::<ProjectCommand>(PROJECT_CHANNEL_DEPTH);
 
-        // Inject the actor's command sender into the runtime so that handlers
-        // (running on the bare actor thread) can dispatch sub-commands and await
-        // responses synchronously without needing a Tokio runtime.
-        rt.ctx.set_cmd_tx(cmd_tx.clone());
+        // The runtime keeps only a weak handle to its own channel: the actor owns
+        // the runtime, so a strong one would keep the channel open after this
+        // handle is dropped, and an evicted actor would never exit.
+        rt.ctx.set_cmd_tx(&cmd_tx);
 
         std::thread::Builder::new()
             .name("touring-project-actor".into())
@@ -220,9 +224,17 @@ impl ProjectRuntime {
 /// # Tracing
 /// Each command is wrapped in a tracing span with hook_name + latency, so
 /// slow / failing handlers are identifiable from logs without extra state.
-fn run_project_actor(mut runtime: HookRuntime, mut cmd_rx: mpsc::Receiver<ProjectCommand>) {
+fn run_project_actor(runtime: HookRuntime, cmd_rx: mpsc::Receiver<ProjectCommand>) {
     let table = HOOK_TABLE.get_or_init(crate::hook_registry::build_dispatch_table);
+    run_project_actor_with(runtime, cmd_rx, table);
+}
 
+/// [`run_project_actor`] over an explicit dispatch table (tests pass their own).
+fn run_project_actor_with(
+    mut runtime: HookRuntime,
+    cmd_rx: mpsc::Receiver<ProjectCommand>,
+    table: &'static HashMap<&'static str, HookHandler>,
+) {
     // ES4 P1: Warm-load the durable action world model when this project actor
     // spawns in the daemon — so a daemon (re)start immediately inherits the X4
     // PREDICT online model from disk, not only at the next CC session-start. The
@@ -236,7 +248,9 @@ fn run_project_actor(mut runtime: HookRuntime, mut cmd_rx: mpsc::Receiver<Projec
     // Last time the debounced inline E2E quick scan ran on this actor (perf F1/F2).
     let mut last_e2e_scan: Option<Instant> = None;
 
-    while let Some(cmd) = cmd_rx.blocking_recv() {
+    let cmd_rx = Rc::new(RefCell::new(cmd_rx));
+    let deferred: Rc<RefCell<VecDeque<ProjectCommand>>> = Rc::default();
+    while let Some(cmd) = next_command(&cmd_rx, &deferred) {
         match cmd {
             ProjectCommand::RunHook {
                 hook_name,
@@ -244,106 +258,20 @@ fn run_project_actor(mut runtime: HookRuntime, mut cmd_rx: mpsc::Receiver<Projec
                 response,
                 enqueued_at,
             } => {
-                // Queue-wait first: time parked in the bounded mpsc behind
-                // earlier commands. Separates serialized-actor backpressure
-                // (another session's heavy hook, same project) from handler
-                // execution time — `hook_dispatch_latency` starts only here.
-                crate::shared::gate_metrics::record_actor_queue_wait_us(
-                    enqueued_at.elapsed().as_micros() as u64,
+                // A heavy hook may yield to queued light commands while it runs
+                // (see `install_light_yield`; only `index rebuild` has yield
+                // points today); the guard uninstalls on return or panic.
+                let _light_yield = is_heavy_hook(&hook_name)
+                    .then(|| install_light_yield(table, &cmd_rx, &deferred));
+                run_hook_command(
+                    &mut runtime,
+                    table,
+                    hook_name,
+                    payload,
+                    response,
+                    enqueued_at,
+                    &mut last_e2e_scan,
                 );
-                let span = tracing::debug_span!("hook", name = %hook_name);
-                let _enter = span.enter();
-                let start = Instant::now();
-
-                // Panic-safe handler invocation. `AssertUnwindSafe` is sound
-                // here because: (a) we own `runtime` and if it panics mid-op
-                // we may have partial state, but since rusqlite uses
-                // transactions for mutating ops and we're serialized per
-                // project, the worst case is a transaction rollback — the
-                // handler's own error path — not cross-request corruption;
-                // (b) the only shared mutable state (static metrics counters,
-                // hook table) is Sync, so a panic during their use is safe.
-                // D1: Wire LatencyMarker — record hook entry, warn on spikes >60s.
-                let marker = LatencyMarker::new(hook_name.as_str());
-                let _ = marker.record();
-                // F0.3d: per-hook dispatch count — the only daemon-side number
-                // that tells `post-bash` apart from `post-tool-rl`.
-                touring_foundation::gate_metrics::record_hook_dispatch_named(hook_name.as_str());
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match table
-                    .get(hook_name.as_str())
-                {
-                    Some(handler) => handler(&mut runtime, &payload),
-                    None => {
-                        tracing::warn!(hook = %hook_name, "unhandled hook");
-                        String::new()
-                    }
-                }));
-                if let Some(elapsed) = marker.elapsed_ms()
-                    && elapsed > 60_000
-                {
-                    tracing::warn!(hook = %hook_name, elapsed_ms = elapsed, "hook latency spike");
-                }
-
-                let output = match result {
-                    Ok(s) => s,
-                    Err(panic_payload) => {
-                        let msg = panic_payload
-                            .downcast_ref::<&'static str>()
-                            .copied()
-                            .or_else(|| panic_payload.downcast_ref::<String>().map(|s| s.as_str()))
-                            .unwrap_or("<non-string panic");
-                        tracing::error!(
-                            hook = %hook_name,
-                            panic = %msg,
-                            "handler panicked — actor continuing"
-                        );
-                        String::new()
-                    }
-                };
-
-                let elapsed = start.elapsed();
-                let elapsed_ms = elapsed.as_millis() as u64;
-                if let Some((inv, lat)) = hook_metrics_map().get(hook_name.as_str()) {
-                    inv.fetch_add(1, Ordering::Relaxed);
-                    lat.fetch_add(elapsed_ms, Ordering::Relaxed);
-                }
-                // 2026-04-17: also feed the hook dispatch histogram — the
-                // per-hook counters above expose sum/count (→ mean), while
-                // the histogram surfaces P50/P99/max across ALL hooks so
-                // tail-latency spikes become visible without per-hook
-                // aggregation downstream.
-                crate::shared::gate_metrics::record_hook_dispatch_latency_us(
-                    elapsed.as_micros() as u64
-                );
-
-                if elapsed_ms > 1_000 {
-                    tracing::warn!(hook = %hook_name, elapsed_ms, "slow handler (>1s)");
-                }
-
-                // Reply to the client FIRST so hook latency never includes the
-                // post-edit maintenance scan below (perf F1, 2026-06-13: the free
-                // `cli_e2e` has no TTL cache, so it used to run a full workspace
-                // walk on the response path of every edit → the p99/p999 dispatch
-                // tail). Ignore send error: the client may have timed out and
-                // dropped the oneshot receiver — that's an expected race.
-                let _ = response.send(output);
-
-                // Debounced inline E2E quick scan after post-edit / post-write.
-                // The actor owns `runtime` (!Sync rusqlite) so the scan must run
-                // on this thread, but it now runs (a) AFTER the reply and (b) at
-                // most once per `E2E_SCAN_DEBOUNCE`, so an edit burst can't convoy
-                // the actor on every keystroke (perf F2: bounds head-of-line
-                // blocking of the next queued hook). Panic-guarded so a broken
-                // scan can't take the actor down.
-                if (hook_name == "post_edit" || hook_name == "post_write")
-                    && e2e_scan_due(last_e2e_scan, Instant::now(), E2E_SCAN_DEBOUNCE)
-                {
-                    last_e2e_scan = Some(Instant::now());
-                    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        let e2e_payload = serde_json::json!({ "depth": "quick" });
-                        crate::cli_e2e::cli_e2e(&mut runtime, &e2e_payload);
-                    }));
-                }
             }
             ProjectCommand::RunSaga {
                 hook_name,
@@ -532,37 +460,204 @@ const IDLE_CHECK_INTERVAL: Duration = Duration::from_secs(30);
 /// (`docs/kpi/YYYY-MM/YYYY-MM-DD.json`), last-write-wins.
 const KPI_SNAPSHOT_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 
-/// Hooks classified as "heavy" operations.
-/// Heavy hooks receive a much larger handler-execution budget
-/// (see [`dispatch_request_async`]) because they legitimately run for tens of
-/// seconds (tantivy reindex of 1M+ symbols, full index rebuild, blast radius
-/// over large files). Without this flag, the light-path 15s budget fires
-/// prematurely and the client sees a spurious failure even though the actor
-/// continues working.
-fn is_heavy_hook(hook_name: &str) -> bool {
-    matches!(
-        hook_name,
-        "cli-index-rebuild"
-            | "cli-ast-blast"
-            | "cli-ast-blast-cross-feature"
-            | "cli-mcts-search"
-            | "cli-session-start"
-            | "cli-session-assess"
-            | "cli-tantivy-reindex"
-            | "cli-wiring-chains"
-            | "cli-wiring-audit"
-            | "cli-e2e"
-            // cargo-mutants over one crate is ~19 min measured (134 mutants,
-            // touring-identity, mutants profile). Under the light 15s budget
-            // every real run died in transport — the KPI could only ever see
-            // a cache_miss (rodada 4, 2026-08-20; fixed 2026-08-28).
-            | "cli-mutation-test"
-            // Backfilling ~1,000 missing 768-dim embeddings legitimately runs
-            // for tens of seconds; under the light budget the client gave up
-            // at 15s while the actor kept working (observed 29/08/2026 during
-            // the ANN p50 7.86s→596µs remediation).
-            | "cli-memory-reindex"
-    )
+/// Run one `RunHook` command on the actor thread: queue-wait metric, panic-safe
+/// handler call, latency metrics, the reply, then the debounced E2E scan. The
+/// main loop and a heavy hook's yield both come here, so a command served during
+/// a yield is measured and answered like any other.
+fn run_hook_command(
+    runtime: &mut HookRuntime,
+    table: &HashMap<&'static str, HookHandler>,
+    hook_name: String,
+    payload: serde_json::Value,
+    response: oneshot::Sender<String>,
+    enqueued_at: Instant,
+    last_e2e_scan: &mut Option<Instant>,
+) {
+    // Queue-wait first: time parked in the bounded mpsc behind
+    // earlier commands. Separates serialized-actor backpressure
+    // (another session's heavy hook, same project) from handler
+    // execution time — `hook_dispatch_latency` starts only here.
+    crate::shared::gate_metrics::record_actor_queue_wait_us(
+        enqueued_at.elapsed().as_micros() as u64
+    );
+    let span = tracing::debug_span!("hook", name = %hook_name);
+    let _enter = span.enter();
+    let start = Instant::now();
+
+    // Panic-safe handler invocation. `AssertUnwindSafe` is sound
+    // here because: (a) we own `runtime` and if it panics mid-op
+    // we may have partial state, but since rusqlite uses
+    // transactions for mutating ops and we're serialized per
+    // project, the worst case is a transaction rollback — the
+    // handler's own error path — not cross-request corruption;
+    // (b) the only shared mutable state (static metrics counters,
+    // hook table) is Sync, so a panic during their use is safe.
+    // D1: Wire LatencyMarker — record hook entry, warn on spikes >60s.
+    let marker = LatencyMarker::new(hook_name.as_str());
+    let _ = marker.record();
+    // F0.3d: per-hook dispatch count — the only daemon-side number
+    // that tells `post-bash` apart from `post-tool-rl`.
+    touring_foundation::gate_metrics::record_hook_dispatch_named(hook_name.as_str());
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        match table.get(hook_name.as_str()) {
+            Some(handler) => handler(runtime, &payload),
+            None => {
+                tracing::warn!(hook = %hook_name, "unhandled hook");
+                String::new()
+            }
+        }
+    }));
+    if let Some(elapsed) = marker.elapsed_ms()
+        && elapsed > 60_000
+    {
+        tracing::warn!(hook = %hook_name, elapsed_ms = elapsed, "hook latency spike");
+    }
+
+    let output = match result {
+        Ok(s) => s,
+        Err(panic_payload) => {
+            let msg = panic_payload
+                .downcast_ref::<&'static str>()
+                .copied()
+                .or_else(|| panic_payload.downcast_ref::<String>().map(|s| s.as_str()))
+                .unwrap_or("<non-string panic");
+            tracing::error!(
+                hook = %hook_name,
+                panic = %msg,
+                "handler panicked — actor continuing"
+            );
+            String::new()
+        }
+    };
+
+    let elapsed = start.elapsed();
+    let elapsed_ms = elapsed.as_millis() as u64;
+    if let Some((inv, lat)) = hook_metrics_map().get(hook_name.as_str()) {
+        inv.fetch_add(1, Ordering::Relaxed);
+        lat.fetch_add(elapsed_ms, Ordering::Relaxed);
+    }
+    // 2026-04-17: also feed the hook dispatch histogram — the
+    // per-hook counters above expose sum/count (→ mean), while
+    // the histogram surfaces P50/P99/max across ALL hooks so
+    // tail-latency spikes become visible without per-hook
+    // aggregation downstream.
+    crate::shared::gate_metrics::record_hook_dispatch_latency_us(elapsed.as_micros() as u64);
+
+    if elapsed_ms > 1_000 {
+        tracing::warn!(hook = %hook_name, elapsed_ms, "slow handler (>1s)");
+    }
+
+    // Reply to the client FIRST so hook latency never includes the
+    // post-edit maintenance scan below (perf F1, 2026-06-13: the free
+    // `cli_e2e` has no TTL cache, so it used to run a full workspace
+    // walk on the response path of every edit → the p99/p999 dispatch
+    // tail). Ignore send error: the client may have timed out and
+    // dropped the oneshot receiver — that's an expected race.
+    let _ = response.send(output);
+
+    // Debounced inline E2E quick scan after post-edit / post-write.
+    // The actor owns `runtime` (!Sync rusqlite) so the scan must run
+    // on this thread, but it now runs (a) AFTER the reply and (b) at
+    // most once per `E2E_SCAN_DEBOUNCE`, so an edit burst can't convoy
+    // the actor on every keystroke (perf F2: bounds head-of-line
+    // blocking of the next queued hook). Panic-guarded so a broken
+    // scan can't take the actor down.
+    if (hook_name == "post_edit" || hook_name == "post_write")
+        && e2e_scan_due(*last_e2e_scan, Instant::now(), E2E_SCAN_DEBOUNCE)
+    {
+        *last_e2e_scan = Some(Instant::now());
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let e2e_payload = serde_json::json!({ "depth": "quick" });
+            crate::cli_e2e::cli_e2e(runtime, &e2e_payload);
+        }));
+    }
+}
+
+/// The actor's next command: those deferred during a heavy hook's yields first,
+/// in arrival order (they reached the channel before anything still in it), then
+/// the channel. `None` once every sender is gone and nothing is deferred.
+fn next_command(
+    rx: &RefCell<mpsc::Receiver<ProjectCommand>>,
+    deferred: &RefCell<VecDeque<ProjectCommand>>,
+) -> Option<ProjectCommand> {
+    if let Some(cmd) = deferred.borrow_mut().pop_front() {
+        return Some(cmd);
+    }
+    rx.borrow_mut().blocking_recv()
+}
+
+/// Most commands a single yield serves before handing the thread back to the
+/// heavy hook, so a steady stream of light commands cannot stall the heavy one.
+const MAX_SERVED_PER_YIELD: usize = 32;
+
+/// Install the yield function a heavy hook may call between units of work (A1,
+/// 14/09/2026): during a 15-minute `index rebuild` of the analise project,
+/// `memory store` from another session queued behind it until its 15 s budget
+/// expired. The function drains the channel without blocking. A light command
+/// ([`may_run_during_heavy`]) runs at once, through [`run_hook_command`]; any
+/// other command waits in `deferred`, which the loop consumes before reading the
+/// channel again, so their order is preserved. One runtime, one thread: the
+/// function runs against the `&mut HookRuntime` the heavy hook yields.
+fn install_light_yield(
+    table: &'static HashMap<&'static str, HookHandler>,
+    rx: &Rc<RefCell<mpsc::Receiver<ProjectCommand>>>,
+    deferred: &Rc<RefCell<VecDeque<ProjectCommand>>>,
+) -> actor_yield::YieldGuard {
+    let rx = Rc::clone(rx);
+    let deferred = Rc::clone(deferred);
+    actor_yield::install(Box::new(move |runtime| {
+        // Light commands never trigger the post-edit scan; a local keeps the
+        // loop's debounce clock untouched.
+        let mut last_e2e_scan = None;
+        // Deferred commands never outnumber the channel's own capacity. Every
+        // `try_recv` frees a channel slot, so an unbounded `deferred` erased the
+        // backpressure the bounded channel exists for: during a 30-minute rebuild
+        // every hook of every session was accepted at once, held with its whole
+        // payload, and replayed after the heavy hook with its clients long gone
+        // (cross-audit 14/09/2026, A1). At the bound the rest stays in the
+        // channel, and senders park as they did before the yield existed.
+        let bound = rx.borrow().max_capacity();
+        for _ in 0..MAX_SERVED_PER_YIELD {
+            if deferred.borrow().len() >= bound {
+                break;
+            }
+            let Ok(cmd) = rx.borrow_mut().try_recv() else {
+                break;
+            };
+            match cmd {
+                ProjectCommand::RunHook {
+                    hook_name,
+                    payload,
+                    response,
+                    enqueued_at,
+                } if may_run_during_heavy(&hook_name) => {
+                    run_hook_command(
+                        runtime,
+                        table,
+                        hook_name,
+                        payload,
+                        response,
+                        enqueued_at,
+                        &mut last_e2e_scan,
+                    );
+                }
+                other => deferred.borrow_mut().push_back(other),
+            }
+        }
+    }))
+}
+
+/// Hooks that may run while a heavy hook yields. Only the memory family (minus
+/// `cli-memory-reindex`, itself heavy), the hook-memory pair (`hook_events` rows)
+/// and `cli-index-status`: none of them writes the symbol, wiring or search index,
+/// which a heavy hook may be halfway through rebuilding. Every other hook waits
+/// for the heavy one to finish. `__health__` is answered before the actor and
+/// needs no entry. `cli-hook-memory-*` used to wait while `cli-memory-*` ran, so
+/// the two memory families were reordered against each other (A11).
+fn may_run_during_heavy(hook_name: &str) -> bool {
+    (hook_name.starts_with("cli-memory-") && hook_name != "cli-memory-reindex")
+        || hook_name.starts_with("cli-hook-memory-")
+        || hook_name == "cli-index-status"
 }
 
 /// Per-request timeout — prevents a hung request from blocking forever.
@@ -584,8 +679,28 @@ fn peer_label(pid: Option<i32>) -> String {
     }
 }
 
+/// Who started this daemon and which cgroup it lives in, for the startup line:
+/// `spawner=(pid=<n> comm=<name>) cgroup=<path>`. On 14/09/2026 the global daemon
+/// died mid-rebuild with no log, no core and no OOM, and nothing said whose
+/// process tree or systemd unit it belonged to — a daemon spawned inside a
+/// oneshot service is killed when the unit ends. `cgroup` is the v2 line
+/// (`0::<path>`); `?` when unreadable.
+fn startup_identity(spawner: &str, cgroup_file: &str) -> String {
+    let cgroup = cgroup_file
+        .lines()
+        .find_map(|line| line.strip_prefix("0::"))
+        .filter(|path| !path.is_empty())
+        .unwrap_or("?");
+    format!("spawner=({spawner}) cgroup={cgroup}")
+}
+
 /// Run the async daemon server loop.
 pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Who spawned us, read FIRST (cross-audit 14/09/2026, C12): a launcher that
+    // exits while the boot is still acquiring the lock and binding reparents
+    // this process, and a later read named the subreaper instead of the spawner.
+    let spawner_at_start = peer_label(i32::try_from(std::os::unix::process::parent_id()).ok());
+    let cgroup_at_start = std::fs::read_to_string("/proc/self/cgroup").unwrap_or_default();
     let socket_path = daemon_socket_path();
     // W12.5: the lock scopes to THIS socket — N per-project daemons coexist;
     // same-socket races still serialize on one lock (REGRA #19).
@@ -651,11 +766,6 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
     // the actor warms the global parser cache via spawn_blocking, cutting the
     // pre_read hit penalty from ~15ms (cold parse) to <1ms (cache hit).
     crate::shared::file_prefetch::spawn_prefetch_actor();
-
-    // Pre-warm the query cache with top-20 hot symbols (Wave 26 — 2026-04-21).
-    // Eliminates cold-start cache misses for the first few minutes after daemon start.
-    // Non-blocking and best-effort — failures log but never propagate.
-    crate::shared::query_cache::warm_cache_async();
 
     // THSF Phase 5 Opt A (2026-04-24) — embed the touring-capnp RPC server
     // inside this daemon. Preserves the in-process
@@ -730,9 +840,10 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
     }
 
     eprintln!(
-        "[touring-daemon] pid={} socket={} async=true",
+        "[touring-daemon] pid={} socket={} async=true {}",
         std::process::id(),
-        socket_path.display()
+        socket_path.display(),
+        startup_identity(&spawner_at_start, &cgroup_at_start)
     );
 
     // Lazily-initialized per-project runtime map.
@@ -1086,6 +1197,45 @@ fn protocol_failure(reason: impl std::fmt::Display) -> DaemonResponse {
     }
 }
 
+/// The failure for a handler that exceeded its budget. Typed
+/// (`error_kind: budget_exceeded`, `still_running: true`, `retryable` = not
+/// heavy) so a caller can tell "the daemon is busy, the work may still
+/// complete" from a semantic error, and a light hook it may repeat from a heavy
+/// walk it must wait for; the CLI maps it to exit code 75 (retryable) or 79
+/// (heavy, still running).
+fn budget_exceeded_failure(hook: &str, budget_secs: u64, heavy: bool) -> DaemonResponse {
+    // The actor never cancels a command: after the client gives up, the handler
+    // still runs (or still waits its turn). `still_running` says so; `retryable`
+    // separates a light hook, safe to repeat, from a heavy walk, where a re-run
+    // queues behind the first and starts a SECOND walk when it ends (a 51k-file
+    // analise rebuild outlived its 1800 s budget, 14/09/2026).
+    let error = if heavy {
+        format!(
+            "handler `{hook}` exceeded its {budget_secs}s budget and this client gave up, but the \
+             work continues in the daemon — do not re-run it: a second call waits for the first \
+             and then repeats the whole job. Poll its status instead (`touring index status` for \
+             a rebuild)"
+        )
+    } else {
+        format!(
+            "handler `{hook}` exceeded its {budget_secs}s budget and this client gave up — the \
+             actor may still be finishing the work, so check the result before re-running"
+        )
+    };
+    DaemonResponse {
+        output: serde_json::json!({
+            "error": error,
+            "error_kind": "budget_exceeded",
+            "handler": hook,
+            "budget_secs": budget_secs,
+            "still_running": true,
+            "retryable": !heavy,
+        })
+        .to_string(),
+        success: false,
+    }
+}
+
 /// Legacy JSON path — reads a newline-delimited JSON `DaemonRequest`.
 async fn handle_json_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
@@ -1119,10 +1269,8 @@ where
             // sandbox-origin requests get the convenience: aliases are an SDK
             // contract, not a wire one — and an alias can only ever name a
             // hook the allowlist already permits (asserted in foundation).
-            if touring_foundation::orchestrate_allowlist::is_sandbox_origin(req.origin.as_deref())
-            {
-                let resolvido =
-                    touring_foundation::orchestrate_allowlist::resolve_hook(&req.hook);
+            if touring_foundation::orchestrate_allowlist::is_sandbox_origin(req.origin.as_deref()) {
+                let resolvido = touring_foundation::orchestrate_allowlist::resolve_hook(&req.hook);
                 if resolvido != req.hook {
                     req.hook = resolvido.to_string();
                 }
@@ -1132,10 +1280,13 @@ where
             // BEFORE dispatch consumes the request; the common path (no
             // origin) pays nothing — `payload.to_string()` only runs for
             // sub-calls. The JSON path is the only wire the SDK speaks.
-            let subcall = req
-                .origin
-                .as_ref()
-                .map(|o| (o.clone(), req.hook.clone(), req.payload.to_string().len() as u64));
+            let subcall = req.origin.as_ref().map(|o| {
+                (
+                    o.clone(),
+                    req.hook.clone(),
+                    req.payload.to_string().len() as u64,
+                )
+            });
             // S5 — o par start/settle. O `start` é gravado ANTES do dispatch,
             // então uma sub-chamada que nunca volta (daemon morto, hook travado)
             // deixa um start ÓRFÃO no journal. Sem ele, uma sub-chamada que não
@@ -1155,8 +1306,7 @@ where
                 if touring_foundation::orchestrate_allowlist::is_sandbox_origin(Some(origin))
                     && !touring_foundation::orchestrate_allowlist::sandbox_may_call(hook)
                 {
-                    let motivo =
-                        touring_foundation::orchestrate_allowlist::refusal(hook);
+                    let motivo = touring_foundation::orchestrate_allowlist::refusal(hook);
                     tracing::warn!(
                         hook = hook.as_str(),
                         origin = origin.as_str(),
@@ -1705,6 +1855,20 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     let hook_name = req.hook.clone();
     let priority = req.priority;
 
+    // Decision 3-A (14/09/2026): `index status` never waits in the actor queue.
+    // It reads committed state through read-only connections on the blocking
+    // pool, so it answers while a rebuild seals (the inferred-consumer
+    // transaction and the search compaction cannot yield). Only a project whose
+    // databases do not exist yet falls through to the actor, which creates them.
+    if hook_name == OFF_ACTOR_STATUS_HOOK
+        && let Some(output) = serve_status_off_actor(client_root.clone()).await
+    {
+        return DaemonResponse {
+            output,
+            success: true,
+        };
+    }
+
     // ── Get or create per-project runtime ────────────────────────────────
     // RwLock.read() allows CONCURRENT reads from multiple projects.
     // Only one project accesses the map at a time per lock acquisition,
@@ -1912,10 +2076,10 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     // in production: Python direct reindex of 1.1M symbols = ~90s; full
     // blast-radius over a large file = ~30s; MCTS deep search = ~60s.
     let handler_budget = if is_heavy {
-        // Shared with the CLIENT (`cli/index.rs` raises its read floor to the
-        // same value). Two independently calibrated numbers here is what let a
-        // 300 s server quit under a client willing to wait 1800 s — see
-        // `HEAVY_OP_BUDGET_SECS`.
+        // Shared with the CLIENT, which waits `HEAVY_OP_CLIENT_FLOOR_SECS` (this
+        // budget plus the queueing before it) so the typed reply reaches it. Two
+        // independently calibrated numbers here is what let a 300 s server quit
+        // under a client willing to wait 1800 s — see `HEAVY_OP_BUDGET_SECS`.
         Duration::from_secs(touring_foundation::HEAVY_OP_BUDGET_SECS)
     } else {
         Duration::from_secs(15)
@@ -1952,12 +2116,11 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
             // The distinction that matters to the caller: the WORK may still be
             // completing. Only this client gave up, so re-running the same
             // command can race the in-flight one.
-            protocol_failure(format_args!(
-                "handler `{hook_for_diag}` exceeded its {}s budget and this client gave up — the \
-                 actor may still be finishing the work, so check the result before re-running \
-                 (a large project can legitimately exceed the budget for `index rebuild`)",
-                handler_budget.as_secs()
-            ))
+            budget_exceeded_failure(
+                &hook_for_diag.to_string(),
+                handler_budget.as_secs(),
+                is_heavy,
+            )
         }
     }
 }
@@ -1976,6 +2139,31 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
 /// gate-metrics, not per-project state (the same convention as the JDM/MCP
 /// self-dispatch sites). Pure + deterministic so it can be unit-tested without a
 /// live runtime.
+/// The one hook the dispatch answers without the project actor (decision 3-A).
+const OFF_ACTOR_STATUS_HOOK: &str = "cli-index-status";
+
+/// `index status` from committed state on the blocking pool — `None` when the
+/// project has no databases yet (the actor creates them). Counted in the same
+/// per-hook metrics and dispatch histogram as an actor-served call, so the
+/// latency the route exists to cut stays visible.
+async fn serve_status_off_actor(project_root: PathBuf) -> Option<String> {
+    let start = Instant::now();
+    let output = tokio::task::spawn_blocking(move || {
+        crate::cli_handlers_index::index_status_from_disk(&project_root)
+    })
+    .await
+    .ok()??;
+    let elapsed = start.elapsed();
+    // The same per-hook dispatch counter an actor-served call bumps (A8).
+    touring_foundation::gate_metrics::record_hook_dispatch_named(OFF_ACTOR_STATUS_HOOK);
+    if let Some((inv, lat)) = hook_metrics_map().get(OFF_ACTOR_STATUS_HOOK) {
+        inv.fetch_add(1, Ordering::Relaxed);
+        lat.fetch_add(elapsed.as_millis() as u64, Ordering::Relaxed);
+    }
+    crate::shared::gate_metrics::record_hook_dispatch_latency_us(elapsed.as_micros() as u64);
+    Some(output)
+}
+
 fn kpi_snapshot_request(project_root: String) -> DaemonRequest {
     DaemonRequest {
         peer_pid: None,
@@ -2283,6 +2471,10 @@ unsafe extern "C" {
 mod tests;
 
 #[cfg(test)]
+#[path = "daemon_yield_tests.rs"]
+mod yield_tests;
+
+#[cfg(test)]
 mod s5_journal_tests {
     /// S5 — o par start/settle é o que torna uma sub-chamada travada VISÍVEL.
     ///
@@ -2340,5 +2532,71 @@ mod s5_journal_tests {
         for campo in ["payload_bytes", "output_bytes", "duration_ms", "ok"] {
             assert!(corpo.contains(&format!("\"{campo}\":")), "falta `{campo}`");
         }
+    }
+}
+
+/// A handler over budget answers with a failure the client can tell apart from a
+/// semantic error: the analise session read "handler `cli-memory-store` exceeded its
+/// 15s budget" as "destino inexistente?" because the payload carried only text
+/// (14/09/2026).
+#[cfg(test)]
+mod startup_identity_tests {
+    use super::startup_identity;
+
+    #[test]
+    fn the_startup_line_names_the_spawner_and_the_unit_that_owns_the_daemon() {
+        let line = startup_identity(
+            "pid=42 comm=touring-hook",
+            "0::/user.slice/user-1000.slice/user@1000.service/app.slice/routine-inbox-digest.service\n",
+        );
+        assert_eq!(
+            line,
+            "spawner=(pid=42 comm=touring-hook) cgroup=/user.slice/user-1000.slice/user@1000.service/app.slice/routine-inbox-digest.service"
+        );
+        assert_eq!(
+            startup_identity("unknown", ""),
+            "spawner=(unknown) cgroup=?"
+        );
+    }
+}
+
+#[cfg(test)]
+mod budget_failure_tests {
+    #[test]
+    fn a_budget_failure_is_typed_and_retryable() {
+        let response = super::budget_exceeded_failure("cli-memory-store", 15, false);
+        assert!(!response.success);
+        let v: serde_json::Value = serde_json::from_str(&response.output).expect("json");
+        assert_eq!(v["error_kind"], "budget_exceeded");
+        assert_eq!(v["handler"], "cli-memory-store");
+        assert_eq!(v["budget_secs"], 15);
+        assert_eq!(v["retryable"], true);
+        assert!(
+            v["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("exceeded its 15s budget")
+        );
+        assert_eq!(
+            v["still_running"], true,
+            "the actor never cancels: a light hook still runs, or waits its turn"
+        );
+    }
+
+    /// 14/09/2026: a 51k-file analise rebuild outlived its 1800 s budget and the
+    /// client got `retryable: true` while the walk went on. A re-run would wait in
+    /// the actor queue and start a SECOND full walk once the first ended. A heavy
+    /// hook's timeout says the work continues and must be waited for, not repeated.
+    #[test]
+    fn a_heavy_budget_failure_says_the_work_continues_and_is_not_retryable() {
+        let response = super::budget_exceeded_failure("cli-index-rebuild", 1800, true);
+        let v: serde_json::Value = serde_json::from_str(&response.output).expect("json");
+        assert_eq!(v["error_kind"], "budget_exceeded");
+        assert_eq!(v["retryable"], false, "{v}");
+        assert_eq!(v["still_running"], true, "{v}");
+        assert!(
+            v["error"].as_str().unwrap_or("").contains("do not re-run"),
+            "the message tells the caller to wait: {v}"
+        );
     }
 }

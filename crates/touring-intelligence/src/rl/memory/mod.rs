@@ -47,8 +47,7 @@ pub use recall_cache::{
     CacheStats as RecallCacheStats, RecallCache, RecallEntry as CachedRecallEntry,
 };
 pub use rlm::{
-    GraphMeta, MEMORY_ENTRIES_DDL, MemoryMatch, MemoryStats, MemoryTier, RichMemoryEntry,
-    RlmMemory,
+    GraphMeta, MEMORY_ENTRIES_DDL, MemoryMatch, MemoryStats, MemoryTier, RichMemoryEntry, RlmMemory,
 };
 pub use tags::{
     Facet, LinkEdge, LinkRel, ParsedTag, TagSource, TagViolation, delete_link, fetch_links,

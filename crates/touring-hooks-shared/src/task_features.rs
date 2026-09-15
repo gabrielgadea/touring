@@ -24,8 +24,8 @@
 //! All feature values are normalized to [0, 1]. Unknown or missing fields default to 0.
 //! LinUCB is robust to zero-padded dimensions — theta learns zero weights when no signal.
 
-use touring_foundation::truncate_str;
 use serde_json::Value;
+use touring_foundation::truncate_str;
 use touring_intelligence::rl::bandit::linucb::FEATURE_DIM;
 
 // ── Keyword sets for routing signal extraction ──────────────────────────────

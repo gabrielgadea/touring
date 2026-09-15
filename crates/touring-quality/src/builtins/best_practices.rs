@@ -100,19 +100,26 @@ fn collect_wired_signals(root: &Path) -> std::collections::BTreeSet<&'static str
     if !src.exists() {
         return hits;
     }
+    let git = touring_foundation::gitignore::GitIgnoreRules::for_path(root);
     let queue = std::cell::RefCell::new(vec![src]);
     while let Some(dir) = {
         let mut q = queue.borrow_mut();
         q.pop()
     } {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
                 continue;
             };
             if path.is_dir() {
-                if matches!(name, "target" | ".git" | "node_modules" | "dist") {
+                // The crate's one skip predicate, not a private list that drifts
+                // from it (cross-audit 14/09/2026, D8).
+                if crate::verifications::is_skipped_dir_name(name)
+                    || git.ignored_abs(&path, true).is_some()
+                {
                     continue;
                 }
                 queue.borrow_mut().push(path);
@@ -120,7 +127,9 @@ fn collect_wired_signals(root: &Path) -> std::collections::BTreeSet<&'static str
                 if ext != "rs" && ext != "py" {
                     continue;
                 }
-                let Ok(text) = std::fs::read_to_string(&path) else { continue };
+                let Ok(text) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
                 for (sym, _desc) in HOOKS_COMPLEMENT_SIGNALS {
                     if text.contains(sym) {
                         hits.insert(*sym);
@@ -257,7 +266,10 @@ impl Gate for BestPracticesGate {
         // hooks_complement low > pass). Se outcome atual já é WARN por motivos
         // mais sérios, mantemos. Caso contrário, avaliamos hc_use.
         let hc_warn_threshold = (hc_total * 80) / 100; // 12/15 = 80%
-        if hc_wired < hc_warn_threshold && hc_total > 0 && !matches!(outcome.status, crate::gate::GateStatus::Warn) {
+        if hc_wired < hc_warn_threshold
+            && hc_total > 0
+            && !matches!(outcome.status, crate::gate::GateStatus::Warn)
+        {
             outcome = GateOutcome::warn(
                 GateId::BestPractices,
                 GateSeverity::Warn,
@@ -311,10 +323,34 @@ mod tests {
         let hit = declaration_site(&dir, None).expect("doc declara o catálogo");
         assert!(hit.ends_with("docs/code-mode.md"));
         // sem o marcador A14, a seção velha (pré-catálogo) NÃO conta
-        std::fs::write(docs.join("code-mode.md"), "## Diretrizes de elaboração de código\n")
-            .expect("rewrite");
+        std::fs::write(
+            docs.join("code-mode.md"),
+            "## Diretrizes de elaboração de código\n",
+        )
+        .expect("rewrite");
         assert!(declaration_site(&dir, None).is_none());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Cross-audit 14/09/2026 (D8): the signal scan skips exactly what the
+    /// crate's one predicate skips. Its private list missed vendored trees, so a
+    /// wired signal named only inside `third_party/` counted as wired.
+    #[test]
+    fn the_wired_signal_scan_skips_what_the_crate_skips() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let src = dir.path().join("src");
+        for skipped in ["third_party/g", "vendor/v", ".hidden", "target"] {
+            std::fs::create_dir_all(src.join(skipped)).expect("dir");
+            std::fs::write(src.join(skipped).join("x.rs"), "fn detect_cwes() {}\n").expect("x.rs");
+        }
+        assert!(collect_wired_signals(dir.path()).is_empty());
+        std::fs::write(src.join("lib.rs"), "fn reindex_file() {}\n").expect("lib.rs");
+        assert_eq!(
+            collect_wired_signals(dir.path())
+                .into_iter()
+                .collect::<Vec<_>>(),
+            ["reindex_file"]
+        );
     }
 
     #[test]

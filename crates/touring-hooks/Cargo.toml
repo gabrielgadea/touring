@@ -20,7 +20,7 @@ path = "src/daemon_main.rs"
 # consumers (the server crate pins 6 of these explicitly). NOTE: the server's
 # architecture guard greps this file for its own crate name as a raw
 # substring, so do not name it here.
-# hooks-active gates the HOOKS_MODE flag here (B.4) AND forwards so the
+# hooks-active forwards so the
 # dispatch default set stays feature-controlled (the dep is declared with
 # default-features = false — without that, `--no-default-features` on this
 # façade could never reproduce the monolith's stubs-only benchmark build).

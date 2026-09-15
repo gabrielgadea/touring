@@ -173,8 +173,27 @@ where
     Ok(())
 }
 
+/// Days of rotated `touring.log.<date>` files kept on disk.
 #[cfg(feature = "file-logs")]
-fn build_file_layer<S>() -> impl tracing_subscriber::Layer<S>
+const LOG_FILES_KEPT: usize = 7;
+
+/// Directory of the rotated log files: `TOURING_LOG_DIR`, else
+/// `~/.claude/touring/logs`, else the system temp dir.
+///
+/// The default used to be `/tmp`, a tmpfs here: a watcher logging every
+/// dropped event filled it with 25 GB in a day, and every writer on the
+/// machine started leaving zero-byte files (cross-audit 14/09/2026, R2-1).
+#[cfg(feature = "file-logs")]
+fn log_dir(env_dir: Option<String>, home: Option<std::path::PathBuf>) -> std::path::PathBuf {
+    match (env_dir.filter(|d| !d.is_empty()), home) {
+        (Some(dir), _) => std::path::PathBuf::from(dir),
+        (None, Some(home)) => home.join(".claude").join("touring").join("logs"),
+        (None, None) => std::env::temp_dir(),
+    }
+}
+
+#[cfg(feature = "file-logs")]
+fn build_file_layer<S>() -> Option<impl tracing_subscriber::Layer<S>>
 where
     S: tracing::Subscriber + for<'span> tracing_subscriber::registry::LookupSpan<'span>,
 {
@@ -187,22 +206,42 @@ where
     // keep flushing on every record until the process exits.
     static GUARD: OnceLock<WorkerGuard> = OnceLock::new();
 
-    let dir = std::env::var("TOURING_LOG_DIR").unwrap_or_else(|_| "/tmp".to_string());
-    let appender = RollingFileAppender::new(Rotation::DAILY, dir, "touring.log");
+    let dir = log_dir(
+        std::env::var("TOURING_LOG_DIR").ok(),
+        std::env::var_os("HOME").map(std::path::PathBuf::from),
+    );
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        eprintln!("[telemetry] file logs disabled: cannot create {}: {e}", dir.display());
+        return None;
+    }
+    let appender = match RollingFileAppender::builder()
+        .rotation(Rotation::DAILY)
+        .filename_prefix("touring.log")
+        .max_log_files(LOG_FILES_KEPT)
+        .build(&dir)
+    {
+        Ok(appender) => appender,
+        Err(e) => {
+            eprintln!("[telemetry] file logs disabled: {e}");
+            return None;
+        }
+    };
     let (non_blocking, guard) = tracing_appender::non_blocking(appender);
     let _ = GUARD.set(guard);
 
-    tracing_subscriber::fmt::layer()
-        .with_writer(non_blocking)
-        // ANSI codes leak into rotated files and confuse log aggregators
-        // (Loki, Datadog, ELK) — strip them on the file path only.
-        .with_ansi(false)
-        .with_target(true)
+    Some(
+        tracing_subscriber::fmt::layer()
+            .with_writer(non_blocking)
+            // ANSI codes leak into rotated files and confuse log aggregators
+            // (Loki, Datadog, ELK) — strip them on the file path only.
+            .with_ansi(false)
+            .with_target(true),
+    )
 }
 
 #[cfg(feature = "otlp")]
 fn build_otel_layer<S>()
--> tracing_opentelemetry::OpenTelemetryLayer<S, opentelemetry_sdk::trace::Tracer>
+-> Option<tracing_opentelemetry::OpenTelemetryLayer<S, opentelemetry_sdk::trace::Tracer>>
 where
     S: tracing::Subscriber + for<'span> tracing_subscriber::registry::LookupSpan<'span>,
 {
@@ -211,15 +250,23 @@ where
 
     let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "touring".to_string());
 
-    // Build exporter via tonic — honors OTEL_EXPORTER_OTLP_ENDPOINT env var.
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
+    // Export only to a collector someone configured. Defaulting to
+    // localhost:4317 with nothing listening made the batch processor log an
+    // ExportError on every flush (cross-audit 14/09/2026, R2-16).
+    let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+        .ok()
+        .filter(|e| !e.is_empty())?;
+    let exporter = match opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
-        .with_endpoint(
-            std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:4317".to_string()),
-        )
+        .with_endpoint(endpoint)
         .build()
-        .expect("OTLP exporter build (tonic)");
+    {
+        Ok(exporter) => exporter,
+        Err(e) => {
+            eprintln!("[telemetry] OTLP export disabled: {e}");
+            return None;
+        }
+    };
 
     let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
@@ -232,7 +279,7 @@ where
     // all span creation flows through the tracing framework anyway.
     let tracer = provider.tracer(service_name);
 
-    tracing_opentelemetry::layer().with_tracer(tracer)
+    Some(tracing_opentelemetry::layer().with_tracer(tracer))
 }
 
 /// Build a `TracyLayer` that forwards span durations to a running Tracy
@@ -254,6 +301,31 @@ pub fn shutdown() {
     // OTel 0.31 drains spans on Drop of the SdkTracerProvider held inside the
     // tracing layer. Nothing to do here unless we switch back to the global
     // provider model.
+}
+
+#[cfg(all(test, feature = "file-logs"))]
+mod log_dir_tests {
+    use super::log_dir;
+    use std::path::PathBuf;
+
+    #[test]
+    fn logs_go_to_the_home_state_dir_never_to_the_tmpfs() {
+        let home = PathBuf::from("/home/someone");
+        assert_eq!(
+            log_dir(None, Some(home.clone())),
+            home.join(".claude/touring/logs")
+        );
+        assert_eq!(
+            log_dir(Some(String::new()), Some(home.clone())),
+            home.join(".claude/touring/logs"),
+            "an empty TOURING_LOG_DIR is unset, not the current directory"
+        );
+        assert_eq!(
+            log_dir(Some("/var/log/touring".into()), Some(home)),
+            PathBuf::from("/var/log/touring")
+        );
+        assert_eq!(log_dir(None, None), std::env::temp_dir());
+    }
 }
 
 #[cfg(all(test, feature = "dhat-heap"))]

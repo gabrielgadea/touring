@@ -27,7 +27,10 @@ struct FindReferencesCli {
 fn parse_position(s: &str) -> anyhow::Result<(String, usize, usize)> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 3 {
-        anyhow::bail!("position must be <file>:<line>:<col> (e.g., src/lib.rs:42:5), got: {} — run `touring help` for details", s);
+        anyhow::bail!(
+            "position must be <file>:<line>:<col> (e.g., src/lib.rs:42:5), got: {} — run `touring help` for details",
+            s
+        );
     }
     let file = parts[0].to_string();
     let line = parts[1]

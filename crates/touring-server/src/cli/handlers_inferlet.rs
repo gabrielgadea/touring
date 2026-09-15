@@ -200,7 +200,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     let manifest_path = PathBuf::from(manifest_path);
     if !manifest_path.exists() {
-        anyhow::bail!("manifest file not found at {}; verify path with `ls -l` or provide valid --manifest path provide a valid --manifest path", manifest_path.display());
+        anyhow::bail!(
+            "manifest file not found at {}; verify path with `ls -l` or provide valid --manifest path provide a valid --manifest path",
+            manifest_path.display()
+        );
     }
 
     // ── 1. Load manifest ────────────────────────────────────────────────
@@ -237,8 +240,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     // ── 5. Write wasm file ──────────────────────────────────────────────
     let wasm_path = install_dir.join("inferlet.wasm");
-    std::fs::write(&wasm_path, &wasm_bytes)
-        .map_err(|e| anyhow::anyhow!("failed to write wasm file {} — run `df -h .` to check disk space: {}", wasm_path.display(), e))?;
+    std::fs::write(&wasm_path, &wasm_bytes).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to write wasm file {} — run `df -h .` to check disk space: {}",
+            wasm_path.display(),
+            e
+        )
+    })?;
 
     // ── 6. Write manifest alongside ────────────────────────────────────
     let manifest_path_on_disk = install_dir.join("inferlet.manifest.toml");
@@ -298,17 +306,30 @@ fn resolve_wasm(manifest: &InferletManifest) -> anyhow::Result<Vec<u8>> {
 /// Read wasm bytes from local filesystem.
 fn read_local_wasm(path: PathBuf) -> anyhow::Result<Vec<u8>> {
     if !path.exists() {
-        anyhow::bail!("wasm file not found at {} — run `ls -la` on that path to verify it exists", path.display());
+        anyhow::bail!(
+            "wasm file not found at {} — run `ls -la` on that path to verify it exists",
+            path.display()
+        );
     }
-    std::fs::read(&path)
-        .map_err(|e| anyhow::anyhow!("failed to read wasm file {} — run `ls -la` on that path to check permissions: {}", path.display(), e))
+    std::fs::read(&path).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to read wasm file {} — run `ls -la` on that path to check permissions: {}",
+            path.display(),
+            e
+        )
+    })
 }
 
 /// Fetch wasm bytes from a remote URL via reqwest.
 fn fetch_remote_wasm(url: &str) -> anyhow::Result<Vec<u8>> {
     // reqwest is available via touring-server dependency
-    let response = reqwest::blocking::get(url)
-        .map_err(|e| anyhow::anyhow!("failed to fetch wasm from {} — check network and URL: {}", url, e))?;
+    let response = reqwest::blocking::get(url).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to fetch wasm from {} — check network and URL: {}",
+            url,
+            e
+        )
+    })?;
     if !response.status().is_success() {
         anyhow::bail!(
             "HTTP fetch failed for {}: status {} — run `curl -I {}` to diagnose",
@@ -319,7 +340,13 @@ fn fetch_remote_wasm(url: &str) -> anyhow::Result<Vec<u8>> {
     }
     response
         .bytes()
-        .map_err(|e| anyhow::anyhow!("failed to read bytes from {} — check network and content-type: {}", url, e))
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "failed to read bytes from {} — check network and content-type: {}",
+                url,
+                e
+            )
+        })
         .map(|b| b.to_vec())
 }
 

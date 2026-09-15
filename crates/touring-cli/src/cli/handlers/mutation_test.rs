@@ -311,8 +311,14 @@ mod tests {
     /// deliberate opt-in for the whole-workspace run.
     #[test]
     fn workspace_run_needs_force_truth_table() {
-        assert!(workspace_run_needs_force(None, false), "bare payload refused");
-        assert!(!workspace_run_needs_force(None, true), "forced workspace runs");
+        assert!(
+            workspace_run_needs_force(None, false),
+            "bare payload refused"
+        );
+        assert!(
+            !workspace_run_needs_force(None, true),
+            "forced workspace runs"
+        );
         assert!(!workspace_run_needs_force(Some("touring-identity"), false));
         assert!(!workspace_run_needs_force(Some("touring-identity"), true));
     }
@@ -329,6 +335,9 @@ mod tests {
         assert_eq!(v["kind"], "workspace_requires_force");
         let msg = v["error"].as_str().unwrap_or("");
         assert!(msg.contains("package"), "must teach the scoped-run remedy");
-        assert!(msg.contains("force:true"), "must teach the deliberate opt-in");
+        assert!(
+            msg.contains("force:true"),
+            "must teach the deliberate opt-in"
+        );
     }
 }

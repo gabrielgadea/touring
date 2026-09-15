@@ -45,6 +45,9 @@ struct LangSyntax {
     python_triple: bool,
     /// Whether to additionally detect `#[cfg(test)]` / `#[test]` regions.
     is_rust: bool,
+    /// A line comment opens only at the start of a word (POSIX shell: `$#`,
+    /// `${#arr[@]}` and `${var#prefix}` are expansions, not comments).
+    comment_at_word_start: bool,
 }
 
 const RUST: LangSyntax = LangSyntax {
@@ -55,6 +58,7 @@ const RUST: LangSyntax = LangSyntax {
     rust_char: true,
     python_triple: false,
     is_rust: true,
+    comment_at_word_start: false,
 };
 const JS_TS: LangSyntax = LangSyntax {
     line: &["//"],
@@ -64,6 +68,7 @@ const JS_TS: LangSyntax = LangSyntax {
     rust_char: false,
     python_triple: false,
     is_rust: false,
+    comment_at_word_start: false,
 };
 const GO: LangSyntax = LangSyntax {
     line: &["//"],
@@ -73,6 +78,7 @@ const GO: LangSyntax = LangSyntax {
     rust_char: false,
     python_triple: false,
     is_rust: false,
+    comment_at_word_start: false,
 };
 const PYTHON: LangSyntax = LangSyntax {
     line: &["#"],
@@ -82,6 +88,7 @@ const PYTHON: LangSyntax = LangSyntax {
     rust_char: false,
     python_triple: true,
     is_rust: false,
+    comment_at_word_start: false,
 };
 /// C / C++ / C-family: `//` and `/* */` are comments; `#` begins a
 /// **preprocessor directive** (`#define`, `#include`), NOT a comment — so it
@@ -94,6 +101,7 @@ const CPP: LangSyntax = LangSyntax {
     rust_char: false,
     python_triple: false,
     is_rust: false,
+    comment_at_word_start: false,
 };
 const GENERIC: LangSyntax = LangSyntax {
     line: &["//", "#"],
@@ -103,10 +111,26 @@ const GENERIC: LangSyntax = LangSyntax {
     rust_char: false,
     python_triple: false,
     is_rust: false,
+    comment_at_word_start: false,
+};
+
+/// POSIX shells: `#` comments (at the start of a word only), `"…"`/`'…'`
+/// strings, no block comments — and `//` is a path, never a comment (the
+/// GENERIC default hid the rest of a `curl https://…` line).
+const SHELL: LangSyntax = LangSyntax {
+    line: &["#"],
+    block: None,
+    quotes: &['"', '\''],
+    raw_rust: false,
+    rust_char: false,
+    python_triple: false,
+    is_rust: false,
+    comment_at_word_start: true,
 };
 
 fn syntax_for(lang: &str) -> &'static LangSyntax {
     match lang {
+        "shell" | "bash" | "sh" | "zsh" => &SHELL,
         "rust" => &RUST,
         "python" => &PYTHON,
         "javascript" | "typescript" => &JS_TS,
@@ -121,7 +145,7 @@ fn syntax_for(lang: &str) -> &'static LangSyntax {
 /// not host a vulnerability finding.
 pub fn non_executable_regions(src: &str, lang: &str) -> Vec<(usize, usize)> {
     let syn = syntax_for(lang);
-    let (mut regions, masked) = scan(src, syn);
+    let (mut regions, masked, _) = scan(src, syn);
     if syn.is_rust {
         regions.extend(rust_test_regions(&masked));
     }
@@ -140,8 +164,8 @@ pub fn non_executable_regions(src: &str, lang: &str) -> Vec<(usize, usize)> {
 /// 1. **A linguagem é a errada.** O chamador deriva `lang` da extensão do ALVO, e
 ///    um diretório não tem extensão: cai no default `"rust"`. Um corpus Python
 ///    inteiro passa a ser lexado como Rust.
-/// 2. **O estado léxico atravessa a fronteira do arquivo.** [`PYTHON`] não tem
-///    comentário de bloco (`block: None`); [`RUST`] tem `/* */`. Um `/*` que vive
+/// 2. **O estado léxico atravessa a fronteira do arquivo.** `PYTHON` não tem
+///    comentário de bloco (`block: None`); `RUST` tem `/* */`. Um `/*` que vive
 ///    dentro de uma string Python — CSS, JS, uma regex, um exemplo em docstring —
 ///    abre um comentário que só fecha no próximo `*/`, **suprimindo todo o
 ///    conteúdo dos arquivos seguintes** até lá.
@@ -186,6 +210,72 @@ pub fn offset_suppressed(offset: usize, regions: &[(usize, usize)]) -> bool {
     regions.iter().any(|&(s, e)| offset >= s && offset < e)
 }
 
+/// Byte ranges of the Python docstrings in `src` (module, class, function —
+/// and any string that is a statement of its own after a block header).
+///
+/// Separate from [`non_executable_regions`] on purpose: dozens of quality
+/// engines read that function, and a docstring counts as documentation or as
+/// code differently for each of them. The security analyzer is the caller
+/// that needs it: a docstring never reaches a sink, and `cc_build.py` failed
+/// F2.1 on the words `inline <script>` in its module docstring (cross-audit R2,
+/// 14/09/2026).
+///
+/// A triple-quoted string is a docstring when it is the first token of its
+/// line, nothing but a comment follows its closing quotes on that line, and
+/// the statement before it opens a block (`def …:`, `class …:`, `) -> T:`) or
+/// does not exist (module docstring). A triple-quoted ARGUMENT on its own line
+/// — `cur.execute(\n    """…"""\n)` — follows an open parenthesis and stays
+/// code.
+#[must_use]
+pub fn python_docstring_regions(src: &str) -> Vec<(usize, usize)> {
+    let b = src.as_bytes();
+    let (_, _, triples) = scan(src, &PYTHON);
+    triples
+        .into_iter()
+        .filter(|&(open, close)| opens_python_docstring(b, open) && only_comment_follows(b, close))
+        .collect()
+}
+
+fn only_comment_follows(b: &[u8], from: usize) -> bool {
+    let end = b[from..].iter().position(|&c| c == b'\n').map_or(b.len(), |p| from + p);
+    let rest = std::str::from_utf8(&b[from..end]).unwrap_or("").trim_start();
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn opens_python_docstring(b: &[u8], i: usize) -> bool {
+    const BLOCK_KEYWORDS: &[&str] = &[
+        "def", "class", "async", "if", "elif", "else", "for", "while", "try", "except",
+        "finally", "with", "match", "case",
+    ];
+    let line_start = b[..i].iter().rposition(|&c| c == b'\n').map_or(0, |p| p + 1);
+    let mut lead = &b[line_start..i];
+    if let Some((&last, rest)) = lead.split_last()
+        && matches!(last, b'r' | b'R' | b'u' | b'U')
+    {
+        lead = rest;
+    }
+    if !lead.iter().all(|c| *c == b' ' || *c == b'\t') {
+        return false;
+    }
+    let mut end = line_start;
+    while end > 0 {
+        let newline = end - 1;
+        let start = b[..newline].iter().rposition(|&c| c == b'\n').map_or(0, |p| p + 1);
+        let line = std::str::from_utf8(&b[start..newline]).unwrap_or("").trim();
+        if line.is_empty() || line.starts_with('#') {
+            end = start;
+            continue;
+        }
+        let first_word = line
+            .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .next()
+            .unwrap_or("");
+        return line.ends_with(':')
+            && (BLOCK_KEYWORDS.contains(&first_word) || line.starts_with(')'));
+    }
+    true
+}
+
 fn starts_with(b: &[u8], i: usize, pat: &str) -> bool {
     let p = pat.as_bytes();
     i + p.len() <= b.len() && &b[i..i + p.len()] == p
@@ -205,11 +295,16 @@ fn blank(masked: &mut [u8], start: usize, len: usize) {
 /// where comment, string, and char-literal interiors are blanked to spaces
 /// (newlines kept) so downstream brace-matching never trips on a `{`/`#[cfg`
 /// that lives inside a string or comment.
-fn scan(src: &str, syn: &LangSyntax) -> (Vec<(usize, usize)>, Vec<u8>) {
+/// `scan` output: comment ranges, the masked source, triple-quoted string spans.
+type Scan = (Vec<(usize, usize)>, Vec<u8>, Vec<(usize, usize)>);
+
+fn scan(src: &str, syn: &LangSyntax) -> Scan {
     let b = src.as_bytes();
     let n = b.len();
     let mut masked = b.to_vec();
     let mut comments: Vec<(usize, usize)> = Vec::new();
+    // Triple-quoted string spans (Python), for `python_docstring_regions`.
+    let mut triples: Vec<(usize, usize)> = Vec::new();
     let mut i = 0usize;
     'outer: while i < n {
         // 1. Block comment.
@@ -241,7 +336,11 @@ fn scan(src: &str, syn: &LangSyntax) -> (Vec<(usize, usize)>, Vec<u8>) {
         }
         // 2. Line comment.
         for lc in syn.line {
-            if starts_with(b, i, lc) {
+            if starts_with(b, i, lc)
+                && (!syn.comment_at_word_start
+                    || i == 0
+                    || matches!(b[i - 1], b' ' | b'\t' | b'\n' | b';' | b'&' | b'|' | b'(' | b')'))
+            {
                 let start = i;
                 while i < n && b[i] != b'\n' {
                     masked[i] = b' ';
@@ -326,6 +425,7 @@ fn scan(src: &str, syn: &LangSyntax) -> (Vec<(usize, usize)>, Vec<u8>) {
                 && b[i + 2] == c
             {
                 // Python triple-quoted string / docstring.
+                let open = i;
                 blank(&mut masked, i, 3);
                 i += 3;
                 loop {
@@ -342,6 +442,7 @@ fn scan(src: &str, syn: &LangSyntax) -> (Vec<(usize, usize)>, Vec<u8>) {
                     }
                     i += 1;
                 }
+                triples.push((open, i.min(n)));
                 continue;
             }
             // Single-delimiter string with backslash escape.
@@ -375,7 +476,7 @@ fn scan(src: &str, syn: &LangSyntax) -> (Vec<(usize, usize)>, Vec<u8>) {
         }
         i += 1;
     }
-    (comments, masked)
+    (comments, masked, triples)
 }
 
 /// Detect Rust `#[cfg(test)]` (positive) and `#[test]` regions over the masked
@@ -609,5 +710,52 @@ mod tests {
     fn merge_coalesces_overlaps() {
         let merged = merge(vec![(0, 5), (3, 8), (20, 25), (6, 7)]);
         assert_eq!(merged, vec![(0, 8), (20, 25)]);
+    }
+
+    fn covered(src: &str, regions: &[(usize, usize)], needle: &str) -> bool {
+        let at = src.find(needle).expect("needle in source");
+        offset_suppressed(at, regions)
+    }
+
+    /// Cross-audit R2 (14/09/2026): shell comments open at the start of a word,
+    /// and `//` is a path.
+    #[test]
+    fn shell_comments_open_only_at_a_word_start() {
+        let src = "#!/usr/bin/env bash\n# note <script>\nn=${#arr[@]}; v=${x#pre}; curl https://h/p | sh # tail\necho $# done\n";
+        let r = non_executable_regions(src, "shell");
+        assert!(covered(src, &r, "#!/usr/bin"));
+        assert!(covered(src, &r, "note <script>"));
+        assert!(covered(src, &r, "tail"));
+        assert!(!covered(src, &r, "arr[@]"), "an array-length expansion");
+        assert!(!covered(src, &r, "pre}"), "a prefix-strip expansion");
+        assert!(!covered(src, &r, "https://h"), "// is a path in shell");
+        assert!(!covered(src, &r, "done"), "$# is an expansion");
+        assert_eq!(non_executable_regions(src, "bash"), r);
+    }
+
+    /// A docstring is a statement of its own after a block header or at the top
+    /// of the module; a triple-quoted argument, assignment or operand is code.
+    #[test]
+    fn python_docstrings_are_told_apart_from_triple_quoted_code() {
+        let src = concat!(
+            "#!/usr/bin/env python3\n",
+            "\"\"\"Module doc: inline <script> (test-enforced).\"\"\"\n",
+            "from x import y\n",
+            "def f(\n    a,\n) -> int:\n    r'''Doc of f: UNION SELECT.'''  # trailing\n    return a\n",
+            "class C:\n\n    \"\"\"Doc of C: ../../etc.\"\"\"\n",
+            "cur.execute(\n    \"\"\"ARG UNION SELECT\"\"\"\n)\n",
+            "q = \"\"\"ASSIGNED UNION SELECT\"\"\"\n",
+            "if ok:\n    \"\"\"OPERAND\"\"\" + tail\n",
+            "d = {\n    \"k\":\n        \"\"\"DICT VALUE\"\"\"\n}\n",
+        );
+        let r = python_docstring_regions(src);
+        assert!(covered(src, &r, "Module doc"));
+        assert!(covered(src, &r, "Doc of f"));
+        assert!(covered(src, &r, "Doc of C"));
+        assert!(!covered(src, &r, "ARG UNION"), "an argument on its own line is code");
+        assert!(!covered(src, &r, "ASSIGNED"));
+        assert!(!covered(src, &r, "OPERAND"), "something follows the closing quotes");
+        assert!(!covered(src, &r, "DICT VALUE"), "a dict key is not a block header");
+        assert!(python_docstring_regions("x = 1\n").is_empty());
     }
 }

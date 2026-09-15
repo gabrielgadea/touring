@@ -33,7 +33,7 @@ cmdline contém "touring" SEM antes:
 
 | Processo | Papel | Multiplicidade | Como spawnado |
 |---|---|---|---|
-| `touring-daemon` (canonical pós Sprint 4 PD 2026-05-23) | Backend RPC, segura socket via flock LOCK_EX|LOCK_NB + comm-based idempotency | **Singleton/user** | `update-touring` ou auto-spawn por client |
+| `touring-daemon` (canonical pós Sprint 4 PD 2026-05-23) | Backend RPC, segura socket via flock LOCK_EX|LOCK_NB + comm-based idempotency | **Singleton/user** | `update-touring` ou auto-spawn por client — em scope systemd próprio (`run-*.scope`, `touring_foundation::daemon_spawn`, 14/09/2026): não morre com a unit/terminal que o subiu; `TOURING_DAEMON_SCOPE=0` = spawn direto |
 | `touring serve` (cmdline) / `touring-mcp` (comm pós PC-1) | MCP bridge stdio↔socket | 1 por sessão CC | Claude Code spawn como MCP server |
 | `touring <subcmd>` / `touring-cli` (comm pós PC-1) | CLI client RPC efêmero | N por sessão CC | invoked manualmente ou por scripts |
 | `touring-hook <event>` (cmdline) / `touring-hook` (comm) | Hook handler efêmero | N por sessão CC | Claude Code lifecycle events |

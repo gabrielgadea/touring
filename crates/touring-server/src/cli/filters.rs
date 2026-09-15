@@ -27,7 +27,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             println!("{USAGE}");
             Ok(())
         }
-        other => anyhow::bail!("unknown filters subcommand: {}; run `touring filters --help` or use: list, reload, validate", other),
+        other => anyhow::bail!(
+            "unknown filters subcommand: {}; run `touring filters --help` or use: list, reload, validate",
+            other
+        ),
     }
 }
 
@@ -83,8 +86,11 @@ fn cmd_validate(args: &[String]) -> anyhow::Result<()> {
         .get(3)
         .ok_or_else(|| anyhow::anyhow!("missing <file> argument; run `touring filters --help` or use: touring filters validate <file>"))?;
     let json_mode = args.iter().any(|a| a == "-j" || a == "--json");
-    let content =
-        std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("cannot read {path}: {e} — run `ls -la {path}` to check existence and permissions"))?;
+    let content = std::fs::read_to_string(path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read {path}: {e} — run `ls -la {path}` to check existence and permissions"
+        )
+    })?;
     // Lint via daemon (uses canonical parser path).
     let raw = daemon_query(
         "cli-filters-validate",
@@ -161,7 +167,8 @@ mod tests {
     #[test]
     fn rejects_unknown_subcommand() {
         let err = run(&s(&["touring", "filters", "wat"])).expect_err("rejects");
-        let err_msg = err.to_string(); assert!(err_msg.contains("unknown") || err_msg.contains("subcommand"));
+        let err_msg = err.to_string();
+        assert!(err_msg.contains("unknown") || err_msg.contains("subcommand"));
     }
 
     #[test]
@@ -170,7 +177,7 @@ mod tests {
         // let err_msg = err.to_string(); assert!(err_msg.contains("--file") || err_msg.contains("Missing"));
     }
 
-         #[test]
+    #[test]
     fn path_prints_canonical_location() {
         let p = user_filters_path_display();
         assert!(p.contains(".config/touring/filters.toml"));

@@ -4,7 +4,6 @@
 //! Nao e teste unitario — e auditoria de contratos, invariantes, edge cases,
 //! e integracao do pipeline completo de orquestracao de codigo.
 
-use touring_foundation::truncate_str;
 use touring_code::ast::{
     // Strategy 7: LearningLoop
     GenerationEvent,
@@ -27,6 +26,7 @@ use touring_code::ast::{
     // Strategy 5: Speculate v2
     speculate_v2,
 };
+use touring_foundation::truncate_str;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDITORIA 1: VGP v2 — symbol_detail.rs

@@ -76,9 +76,9 @@ pub fn parse_position(s: &str) -> anyhow::Result<(String, usize, usize)> {
         anyhow::bail!("position {} is invalid; use format like src/lib.rs:42:5", s);
     }
     let file = parts[0].to_string();
-    let line = parts[1]
-        .parse::<usize>()
-        .map_err(|_| anyhow::anyhow!("Invalid line number: {} — expected numeric value", parts[1]))?;
+    let line = parts[1].parse::<usize>().map_err(|_| {
+        anyhow::anyhow!("Invalid line number: {} — expected numeric value", parts[1])
+    })?;
     let col = parts[2]
         .parse::<usize>()
         .map_err(|_| anyhow::anyhow!("Invalid column: {} — expected a numeric value, e.g. touring resolve-def src/lib.rs:42:5", parts[2]))?;

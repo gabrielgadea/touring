@@ -99,7 +99,7 @@ pub struct SnippetStats {
 }
 
 impl SnippetStats {
-    /// Success rate in [0,1]; 0 when never executed.
+    /// Success rate in `0,1`; 0 when never executed.
     pub fn success_rate(&self) -> f64 {
         if self.executions == 0 {
             return 0.0;
@@ -147,20 +147,18 @@ pub fn record_execution(
             "SELECT executions, successes, trust_level, sig_hash, failure_window
              FROM snippet_stats WHERE entry_key = ?1",
             params![entry_key],
-            |r| {
-                Ok((
-                    r.get(0)?,
-                    r.get(1)?,
-                    r.get(2)?,
-                    r.get(3)?,
-                    r.get(4)?,
-                ))
-            },
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .optional()?;
 
     let (mut executions, mut successes, mut trust, stored_sig, window_json) = match row {
-        Some((e, s, t, sig, w)) => (e.max(0) as u64, s.max(0) as u64, TrustLevel::from_str_ci(&t), sig, w),
+        Some((e, s, t, sig, w)) => (
+            e.max(0) as u64,
+            s.max(0) as u64,
+            TrustLevel::from_str_ci(&t),
+            sig,
+            w,
+        ),
         None => (0, 0, TrustLevel::Untrusted, String::new(), "[]".into()),
     };
 
@@ -321,7 +319,11 @@ mod tests {
         for _ in 0..10 {
             last = record_execution(&conn, "snippet:a", true, "sig1").expect("record");
         }
-        assert_eq!(last, TrustLevel::Provisional, "10 successes at 100% promote");
+        assert_eq!(
+            last,
+            TrustLevel::Provisional,
+            "10 successes at 100% promote"
+        );
         for _ in 0..90 {
             last = record_execution(&conn, "snippet:a", true, "sig1").expect("record");
         }

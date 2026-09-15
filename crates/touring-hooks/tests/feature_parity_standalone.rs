@@ -90,15 +90,31 @@ fn standalone_post_bash_is_alive_and_traced() {
     );
 
     let lines = read_trace_lines(&trace);
-    assert_eq!(lines.len(), 1, "exactly one trace line per invocation, got {lines:?}");
+    assert_eq!(
+        lines.len(),
+        1,
+        "exactly one trace line per invocation, got {lines:?}"
+    );
     let t = &lines[0];
     assert_eq!(t["hook"], "post-bash");
-    assert_eq!(t["route"], "standalone", "daemon skipped ⇒ route must be standalone: {t}");
+    assert_eq!(
+        t["route"], "standalone",
+        "daemon skipped ⇒ route must be standalone: {t}"
+    );
     assert_eq!(t["stdin_state"], "ok", "payload was delivered whole: {t}");
-    assert!(t["stdin_bytes"].as_u64().unwrap_or(0) as usize == payload.len(), "{t}");
+    assert!(
+        t["stdin_bytes"].as_u64().unwrap_or(0) as usize == payload.len(),
+        "{t}"
+    );
     assert_ne!(t["exit_reason"], "standalone-unknown", "{t}");
-    assert_eq!(t["session_id"], "f03c-guard", "session id travels for attribution: {t}");
-    assert!(t["elapsed_ms"].is_u64() && t["pid"].is_u64() && t["ppid"].is_u64(), "{t}");
+    assert_eq!(
+        t["session_id"], "f03c-guard",
+        "session id travels for attribution: {t}"
+    );
+    assert!(
+        t["elapsed_ms"].is_u64() && t["pid"].is_u64() && t["ppid"].is_u64(),
+        "{t}"
+    );
 }
 
 /// A stateless subcommand (no stdin, exits before any runtime) still leaves

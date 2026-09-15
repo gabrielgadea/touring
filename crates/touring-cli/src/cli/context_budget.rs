@@ -29,8 +29,8 @@
 //! file, or a scan that hit the byte cap all say so in the payload.
 
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
@@ -60,6 +60,34 @@ pub struct FamilyStats {
     pub zero_proposition_blocks: u64,
 }
 
+/// Per-tool accounting for the largest single share of the window (tool results,
+/// 51,3% measured 04/09/2026).
+///
+/// `reused_*` answers the only question that decides a digest. "Did the model
+/// read this?" is not measurable; "how many bytes would a digest have to carry
+/// to preserve every fact the model demonstrably USED?" is — the lines and
+/// identifiers of the result that reappear in what the assistant wrote, or in
+/// the arguments of its next calls, before the next human turn.
+///
+/// It is a FLOOR on use (content can inform without being quoted) and therefore
+/// a CEILING on what a digest may safely discard, which is the conservative
+/// direction for this decision.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct ToolStats {
+    /// Results this tool returned.
+    pub results: u64,
+    /// Bytes it returned.
+    pub bytes: u64,
+    /// Of those bytes, the ones in lines that reappear downstream.
+    pub reused_bytes: u64,
+    /// Informative lines it returned (see `REUSE_MIN_LINE`).
+    pub lines: u64,
+    /// Of those lines, the ones that reappear downstream.
+    pub reused_lines: u64,
+    /// Results with no observable reuse at all — neither a line nor a token.
+    pub zero_reuse_results: u64,
+}
+
 /// The pure aggregate behind the payload — everything the ruler counts, with no
 /// filesystem in sight, so the arithmetic is testable on synthetic lines.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -68,7 +96,7 @@ pub struct ContextBudgetAggregate {
     pub transcripts: u64,
     /// Bytes of transcript read — the denominator of how much was inspected.
     pub bytes_scanned: u64,
-    /// The scan stopped at [`MAX_BYTES`]: this is a PARTIAL measurement.
+    /// The scan stopped at `MAX_BYTES`: this is a PARTIAL measurement.
     pub capped: bool,
     /// User messages carrying real text — the unit the per-turn ceiling divides by.
     pub user_turns: u64,
@@ -95,7 +123,14 @@ pub struct ContextBudgetAggregate {
     pub tool_calls: u64,
     /// The same accounting, split by emitter (see [`injection_family`]).
     pub by_family: BTreeMap<String, FamilyStats>,
+    /// Tool results split by the tool that produced them, with how much of each
+    /// is observably reused (see [`ToolStats`]).
+    pub by_tool: BTreeMap<String, ToolStats>,
 }
+
+/// Shortest line that can carry a fact worth keeping in a digest. Below this a
+/// match is noise — `}` and `---` appear in every file and would inflate reuse.
+const REUSE_MIN_LINE: usize = 8;
 
 /// Which emitter a block of injected context came from.
 ///
@@ -236,6 +271,230 @@ fn must_target(text: &str) -> Option<String> {
     })
 }
 
+/// Shortest token that identifies something rather than being a common word.
+const TOKEN_MIN: usize = 6;
+
+/// Marks a `user` record that the HARNESS wrote, not the person.
+///
+/// Claude Code files several machine-authored things as user records: the output
+/// of a slash command, its caveat banner, and the summary injected when a
+/// context is compacted. They carry no `tool_result`, so the obvious predicate
+/// ("a user record without tool results is a human turn") counts them — and
+/// `user_turns` is the DENOMINATOR of the ruler's headline metric.
+///
+/// Measured 04/09/2026 over 5 real transcripts: **35 of 172** counted turns
+/// (20,3%) were one of these — 13 caveats, 13 command outputs, 9 compaction
+/// summaries. The denominator was inflated 25,5%, so `injected_bytes_per_turn`
+/// read ~25% LOWER than the truth: the ruler understated the very cost it
+/// exists to expose.
+///
+/// This is the complement of the defect the bundle already records for this
+/// file (a user message whose `content` is a bare STRING was not counted at
+/// all, and the rate read 12x high). One correction stopped dropping real
+/// turns; this one stops adding fake ones. A denominator has two ways to be
+/// wrong and both were live.
+///
+/// A genuine turn may carry an appended `<system-reminder>`, so that is
+/// deliberately NOT a marker — the predicate stays narrow, and a doubtful
+/// record counts as human (erring toward a larger denominator understates the
+/// problem, which is the conservative direction for a cost metric).
+// Private since 2026-09-13: every reader lives in this file (five references, none
+// outside), so `pub` only made it an orphan in the wiring audit (REGRA #0).
+const NON_HUMAN_TURN_MARKERS: [&str; 4] = [
+    "This session is being continued from a previous conversation",
+    "<local-command-stdout>",
+    "<local-command-caveat>",
+    "Caveat: The messages below were generated by the user while running local commands",
+];
+
+/// Did a person write this, or the harness? See `NON_HUMAN_TURN_MARKERS`.
+#[must_use]
+pub fn is_human_turn_text(text: &str) -> bool {
+    !NON_HUMAN_TURN_MARKERS.iter().any(|m| text.contains(m))
+}
+
+/// One result line, in the form reuse is matched on.
+///
+/// `Read` returns `cat -n` output, so every line arrives prefixed with `<n>\t`
+/// and NEVER matches a quotation of it. The first run of this measurement
+/// reported 0,0% reuse for every tool because of exactly that; probed against a
+/// known case, the same result gave 0 raw hits and 17 after stripping the
+/// prefix. The normalization is not cosmetic — without it the metric reads zero
+/// and the zero looks like a finding.
+fn normalize_result_line(line: &str) -> String {
+    let body = match line.find('\t') {
+        Some(at) if line[..at].trim().chars().all(|c| c.is_ascii_digit()) && at > 0 => {
+            &line[at + 1..]
+        }
+        _ => line,
+    };
+    body.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Identifier-ish tokens — the unit a fact travels in when the model uses a
+/// result without quoting the whole line (a symbol name lifted out of a 3 KB
+/// file). Collected into `out` so one window is scanned once.
+fn distinctive_tokens(text: &str, out: &mut BTreeSet<String>) {
+    let bytes = text.as_bytes();
+    let mut start: Option<usize> = None;
+    for (i, &c) in bytes.iter().enumerate() {
+        let head = c.is_ascii_alphabetic() || c == b'_';
+        let body = head || c.is_ascii_digit() || matches!(c, b'.' | b'/' | b':' | b'-' | b'_');
+        match start {
+            None if head => start = Some(i),
+            Some(s) if !body => {
+                if i - s >= TOKEN_MIN {
+                    out.insert(text[s..i].to_string());
+                }
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(s) = start
+        && bytes.len() - s >= TOKEN_MIN
+    {
+        out.insert(text[s..].to_string());
+    }
+}
+
+/// One tool result waiting for the window that will say how much of it was used.
+struct PendingResult {
+    tool: String,
+    bytes: u64,
+    lines: BTreeSet<String>,
+    tokens: BTreeSet<String>,
+    /// How much assistant output already existed when this result arrived.
+    ///
+    /// Without it the window was everything the assistant produced in the WHOLE
+    /// turn, so a result arriving late was measured against text written before
+    /// it existed — co-occurrence, not use. Proven 04/09/2026 by
+    /// `sonda_texto_anterior_ao_resultado_nao_pode_contar_como_uso`, which read
+    /// `1` where the contract demands `0`. The metric called itself a FLOOR on
+    /// use while over-counting; a bound that is wrong in the direction it
+    /// claims to be safe is worse than no bound.
+    after: usize,
+}
+
+/// Measures how much of each tool result reappears downstream.
+///
+/// The window is everything the assistant produced — prose and the arguments of
+/// its next calls — until the next HUMAN turn. A fact used three calls later
+/// still counts; one quoted after the human speaks again does not, because by
+/// then it belongs to a different task.
+///
+/// A line counts as reused when the window carries it verbatim, or when every
+/// distinctive token it holds reached the window — the second arm is what
+/// catches a line quoted inside a sentence, which exact matching alone misses.
+#[derive(Default)]
+struct ReuseTracker {
+    tool_of: BTreeMap<String, String>,
+    pending: Vec<PendingResult>,
+    /// The assistant's output for this turn, IN ORDER — prose and call
+    /// arguments, one entry per block. Order is the whole point: a result is
+    /// measured only against the entries that come after it.
+    window: Vec<String>,
+}
+
+impl ReuseTracker {
+    fn observe_call(&mut self, id: &str, name: &str) {
+        self.tool_of.insert(id.to_string(), name.to_string());
+    }
+
+    fn extend_window(&mut self, text: &str) {
+        self.window.push(text.to_string());
+    }
+
+    fn observe_result(&mut self, id: Option<&str>, text: &str) {
+        let tool = id
+            .and_then(|i| self.tool_of.get(i))
+            .cloned()
+            .unwrap_or_else(|| "unattributed".to_string());
+        let mut lines = BTreeSet::new();
+        for line in text.lines() {
+            let n = normalize_result_line(line);
+            if n.len() >= REUSE_MIN_LINE {
+                lines.insert(n);
+            }
+        }
+        let mut tokens = BTreeSet::new();
+        distinctive_tokens(text, &mut tokens);
+        let after = self.window.len();
+        self.pending.push(PendingResult {
+            tool,
+            bytes: text.len() as u64,
+            lines,
+            tokens,
+            after,
+        });
+    }
+
+    /// Close every pending result against the output that came AFTER it.
+    ///
+    /// Walks the pending list backwards, growing the suffix sets as it goes: the
+    /// last result sees only the tail, the one before it sees that tail plus its
+    /// own, and so on. One pass over the window in total — the naive form (a
+    /// fresh set per result) is quadratic on a turn with many calls, and this
+    /// ruler runs inside `touring kpi`.
+    fn flush(&mut self, agg: &mut ContextBudgetAggregate) {
+        let window = std::mem::take(&mut self.window);
+        let mut pending = std::mem::take(&mut self.pending);
+        let mut suffix_lines: BTreeSet<String> = BTreeSet::new();
+        let mut suffix_tokens: BTreeSet<String> = BTreeSet::new();
+        let mut boundary = window.len();
+        while let Some(p) = pending.pop() {
+            let start = p.after.min(window.len());
+            for chunk in &window[start..boundary] {
+                for line in chunk.lines() {
+                    let n = normalize_result_line(line);
+                    if n.len() >= REUSE_MIN_LINE {
+                        suffix_lines.insert(n);
+                    }
+                }
+                distinctive_tokens(chunk, &mut suffix_tokens);
+            }
+            boundary = start;
+
+            let mut reused_bytes = 0u64;
+            let mut reused_lines = 0u64;
+            for line in &p.lines {
+                if line_reached(line, &suffix_lines, &suffix_tokens) {
+                    reused_bytes += line.len() as u64;
+                    reused_lines += 1;
+                }
+            }
+            let reused_tokens = p
+                .tokens
+                .iter()
+                .filter(|t| suffix_tokens.contains(*t))
+                .count();
+            let e = agg.by_tool.entry(p.tool).or_default();
+            e.results += 1;
+            e.bytes += p.bytes;
+            e.lines += p.lines.len() as u64;
+            e.reused_bytes += reused_bytes;
+            e.reused_lines += reused_lines;
+            if reused_lines == 0 && reused_tokens == 0 {
+                e.zero_reuse_results += 1;
+            }
+        }
+    }
+}
+
+/// Is this line's content in the window — verbatim, or by all of its tokens?
+///
+/// The second arm is what catches a line quoted inside a sentence, which exact
+/// matching alone misses; two distinctive tokens is the floor at which the match
+/// stops being a coincidence.
+fn line_reached(line: &str, lines: &BTreeSet<String>, tokens: &BTreeSet<String>) -> bool {
+    if lines.contains(line) {
+        return true;
+    }
+    let mut toks = BTreeSet::new();
+    distinctive_tokens(line, &mut toks);
+    toks.len() >= 2 && toks.iter().all(|t| tokens.contains(t))
+}
+
 /// Aggregate one transcript's lines. Pure: the caller supplies the lines.
 ///
 /// `seen` is threaded ACROSS transcripts by the caller, because the duplication
@@ -247,6 +506,7 @@ pub fn aggregate_lines<'a>(
     seen: &mut BTreeMap<u64, u64>,
 ) {
     let mut pending_must: Option<String> = None;
+    let mut reuse = ReuseTracker::default();
     for line in lines {
         let Ok(rec) = serde_json::from_str::<Value>(line) else {
             continue;
@@ -294,9 +554,15 @@ pub fn aggregate_lines<'a>(
         if let Some(text) = content.as_str() {
             if kind == "assistant" {
                 agg.assistant_bytes += text.len() as u64;
+                reuse.extend_window(text);
             } else if kind == "user" {
+                // Os bytes contam sempre — eles ocuparam a janela. O TURNO só
+                // conta se uma pessoa o escreveu (ver `NON_HUMAN_TURN_MARKERS`).
                 agg.user_bytes += text.len() as u64;
-                agg.user_turns += 1;
+                if is_human_turn_text(text) {
+                    agg.user_turns += 1;
+                    reuse.flush(agg);
+                }
             }
             continue;
         }
@@ -304,27 +570,40 @@ pub fn aggregate_lines<'a>(
             continue;
         };
         let mut counted_turn = false;
+        let mut carried_result = false;
         for b in blocks {
             match b.get("type").and_then(Value::as_str) {
                 Some("tool_result") => {
+                    carried_result = true;
                     if let Some(c) = b.get("content") {
-                        agg.tool_result_bytes += match c.as_str() {
-                            Some(s) => s.len() as u64,
-                            None => c.to_string().len() as u64,
+                        let text = match c.as_str() {
+                            Some(s) => s.to_string(),
+                            None => c.to_string(),
                         };
+                        agg.tool_result_bytes += text.len() as u64;
+                        reuse.observe_result(b.get("tool_use_id").and_then(Value::as_str), &text);
                     }
                 }
                 Some("text") => {
-                    let len = b.get("text").and_then(Value::as_str).unwrap_or("").len() as u64;
+                    let text = b.get("text").and_then(Value::as_str).unwrap_or("");
+                    let len = text.len() as u64;
                     if kind == "assistant" {
                         agg.assistant_bytes += len;
+                        reuse.extend_window(text);
                     } else if kind == "user" {
                         agg.user_bytes += len;
-                        counted_turn = true;
+                        counted_turn = counted_turn || is_human_turn_text(text);
                     }
                 }
                 Some("tool_use") if kind == "assistant" => {
                     agg.tool_calls += 1;
+                    if let Some(id) = b.get("id").and_then(Value::as_str) {
+                        reuse
+                            .observe_call(id, b.get("name").and_then(Value::as_str).unwrap_or("?"));
+                    }
+                    if let Some(input) = b.get("input") {
+                        reuse.extend_window(&input.to_string());
+                    }
                     if b.get("name").and_then(Value::as_str) == Some("Bash")
                         && let Some(target) = pending_must.take()
                     {
@@ -347,7 +626,18 @@ pub fn aggregate_lines<'a>(
         if counted_turn {
             agg.user_turns += 1;
         }
+        // A human turn closes the reuse window: a fact quoted after the person
+        // speaks again belongs to the next task, not to this result. A record
+        // that carries results is never a human turn, however much text rides
+        // along with them.
+        if counted_turn && !carried_result {
+            reuse.flush(agg);
+        }
     }
+    // The transcript ends: whatever is still pending is measured against the
+    // window it did get, never dropped — a result with no window is a result
+    // with zero observed reuse, which is a measurement, not a gap.
+    reuse.flush(agg);
 }
 
 fn round3(v: f64) -> f64 {
@@ -374,8 +664,8 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
     // A floor over zero emissions would read as a failure of adherence when it
     // is an absence of data — `null`, never 0.0 (the `ratio_absent_reads_as_null`
     // rule this file's neighbours already follow).
-    let follow_ratio = (agg.must_emitted > 0)
-        .then(|| round3(agg.must_followed as f64 / agg.must_emitted as f64));
+    let follow_ratio =
+        (agg.must_emitted > 0).then(|| round3(agg.must_followed as f64 / agg.must_emitted as f64));
 
     let families: BTreeMap<String, Value> = agg
         .by_family
@@ -396,6 +686,31 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
                     "propositions_per_kb": if f.bytes == 0 { 0.0 } else { round3(f.propositions as f64 * 1024.0 / f.bytes as f64) },
                 }),
             )
+        })
+        .collect();
+
+    // Tool results, attributed. Ordered by bytes so the dominant emitter is the
+    // first row a reader meets, which is the whole point of the attribution.
+    let mut tools: Vec<(&String, &ToolStats)> = agg.by_tool.iter().collect();
+    tools.sort_by(|a, b| b.1.bytes.cmp(&a.1.bytes).then(a.0.cmp(b.0)));
+    let tool_bytes: u64 = agg.by_tool.values().map(|t| t.bytes).sum();
+    let tool_reused: u64 = agg.by_tool.values().map(|t| t.reused_bytes).sum();
+    let by_tool: Vec<Value> = tools
+        .iter()
+        .map(|(name, t)| {
+            json!({
+                "tool": name,
+                "results": t.results,
+                "bytes": t.bytes,
+                "share": if tool_bytes == 0 { 0.0 } else { round3(t.bytes as f64 / tool_bytes as f64) },
+                "mean_bytes": t.bytes.checked_div(t.results).unwrap_or(0),
+                "reused_bytes": t.reused_bytes,
+                "reused_line_ratio": if t.lines == 0 { Value::Null } else { json!(round3(t.reused_lines as f64 / t.lines as f64)) },
+                // A result nothing downstream touched — the only population a
+                // digest could drop outright. Measured at 3–6%: almost every
+                // result contributes something, so truncation is the wrong tool.
+                "zero_reuse_results": t.zero_reuse_results,
+            })
         })
         .collect();
 
@@ -443,6 +758,16 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
         // needs an outcome the transcript does not carry.
         "tpcd_proxy_bytes_per_tool_call": if agg.tool_calls == 0 { Value::Null } else { json!(round3(window_total as f64 / agg.tool_calls as f64)) },
         "tool_calls": agg.tool_calls,
+        // The 51,3% of the window nobody was measuring. `reuse_ratio` is the
+        // number that decides a digest: the share of returned bytes that
+        // demonstrably reached the model's next words or arguments. A FLOOR on
+        // use, therefore a CEILING on what a digest may discard.
+        "tool_output": {
+            "bytes": tool_bytes,
+            "reused_bytes": tool_reused,
+            "reuse_ratio": if tool_bytes == 0 { Value::Null } else { json!(round3(tool_reused as f64 / tool_bytes as f64)) },
+            "by_tool": by_tool,
+        },
         "by_family": families,
         "status": if !available { "STUB" } else if failing.is_empty() { "PASS" } else { "FAIL" },
         "failing": failing,
@@ -529,6 +854,200 @@ mod tests {
         ]
     }
 
+    /// A call and the result that answers it, as Claude Code writes them.
+    fn call(id: &str, tool: &str, input: Value) -> String {
+        json!({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": id, "name": tool, "input": input}
+        ]}})
+        .to_string()
+    }
+    fn result(id: &str, text: &str) -> String {
+        json!({"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": id, "content": text}
+        ]}})
+        .to_string()
+    }
+    fn says(text: &str) -> String {
+        json!({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}})
+            .to_string()
+    }
+    fn human(text: &str) -> String {
+        json!({"type": "user", "message": {"content": [{"type": "text", "text": text}]}})
+            .to_string()
+    }
+
+    /// O denominador da métrica-manchete tem DUAS formas de errar, e as duas
+    /// estiveram vivas neste arquivo: deixar de contar turno real (a mensagem
+    /// cujo `content` é string crua — a taxa lia 12× alto) e contar o que não é
+    /// turno (saída de slash command, banner de caveat, resumo de compactação —
+    /// 35 de 172 medidos, 20,3%). Este teste fixa os dois lados de uma vez.
+    #[test]
+    fn so_a_fala_humana_conta_como_turno() {
+        // O que a MÁQUINA escreveu, arquivado como record de usuário.
+        for marker in NON_HUMAN_TURN_MARKERS {
+            assert!(
+                !is_human_turn_text(&format!("prefixo {marker} sufixo")),
+                "{marker} e' texto do harness, nao turno humano"
+            );
+        }
+        // Um turno legítimo, inclusive carregando um system-reminder anexado —
+        // o predicado fica ESTREITO de propósito: a dúvida conta como humana,
+        // que é a direção que subestima o problema em vez de inflá-lo.
+        assert!(is_human_turn_text("faca a auditoria"));
+        assert!(is_human_turn_text(
+            "faca a auditoria\n<system-reminder>contexto</system-reminder>"
+        ));
+
+        let agg = run(&[
+            human("tarefa de verdade"),
+            human("<local-command-stdout>[2mCompacted[22m</local-command-stdout>"),
+            human("This session is being continued from a previous conversation. O resumo segue."),
+        ]);
+        assert_eq!(
+            agg.user_turns, 1,
+            "so o primeiro e' fala humana; os outros dois sao do harness"
+        );
+        assert!(
+            agg.user_bytes > 0,
+            "os BYTES contam sempre — eles ocuparam a janela; so o TURNO nao"
+        );
+    }
+
+    /// SONDA DE AUDITORIA (04/09): o contrato diz que uma linha conta como
+    /// reusada quando ela REAPARECE DEPOIS. A janela, porém, acumula desde o
+    /// início do turno — então um resultado que chega TARDE é medido contra
+    /// texto escrito ANTES de ele existir. Se este teste vir reuso, o número
+    /// não é o piso que a doc promete: é co-ocorrência no turno.
+    #[test]
+    fn sonda_texto_anterior_ao_resultado_nao_pode_contar_como_uso() {
+        let agg = run(&[
+            human("faca"),
+            says("vou olhar alvo_especifico_xyz no arquivo caminho/do/modulo.rs"),
+            call("c1", "Bash", json!({"command": "ls"})),
+            result("c1", "alvo_especifico_xyz caminho/do/modulo.rs"),
+            human("outra tarefa"),
+        ]);
+        assert_eq!(
+            agg.by_tool["Bash"].reused_lines, 0,
+            "texto que PRECEDE o resultado nao pode contar como uso dele"
+        );
+    }
+
+    /// `distinctive_tokens` slices by BYTE index, so a boundary landing inside a
+    /// multi-byte char would panic — on a codebase whose comments and doc
+    /// strings are in Portuguese, that is the common case, not the exotic one.
+    /// The reasoning says it is safe (a token only starts at an ASCII letter and
+    /// only ends at a non-ASCII-body byte, and a UTF-8 lead byte is neither), but
+    /// reasoning is not a test.
+    #[test]
+    fn acentuacao_nao_quebra_a_fatia_por_byte() {
+        let mut out = BTreeSet::new();
+        distinctive_tokens("função contexto_orçamento é medição — ré", &mut out);
+        assert!(
+            out.contains("contexto_or"),
+            "parou no acento, sem cortá-lo: {out:?}"
+        );
+        let mut out2 = BTreeSet::new();
+        distinctive_tokens("日本語 identifier_longo 中文", &mut out2);
+        assert!(out2.contains("identifier_longo"));
+        // O caminho inteiro, com um resultado acentuado de ponta a ponta.
+        let agg = run(&[
+            call("c1", "Bash", json!({"command": "grep função"})),
+            result("c1", "  1\tfn medição_do_orçamento() {\n  2\t    ação();"),
+            says("a função e\nfn medição_do_orçamento() {"),
+        ]);
+        assert_eq!(agg.by_tool["Bash"].reused_lines, 1);
+    }
+
+    /// The plan's P5 contract: the 51,3% of the window that tool results occupy
+    /// is attributed to the tool that produced it, or the dominant emitter
+    /// cannot be named — and an unnamed dominant emitter cannot be acted on.
+    #[test]
+    fn tool_output_volume_is_attributed_per_tool() {
+        let big = "a".repeat(300);
+        let agg = run(&[
+            call("c1", "Bash", json!({"command": "ls"})),
+            result("c1", &big),
+            call("c2", "Read", json!({"file_path": "/x.rs"})),
+            result("c2", "curto"),
+        ]);
+        assert_eq!(agg.by_tool["Bash"].bytes, 300, "Bash carrega os 300 B");
+        assert_eq!(agg.by_tool["Bash"].results, 1);
+        assert_eq!(agg.by_tool["Read"].bytes, 5, "Read carrega os seus 5 B");
+        assert_eq!(
+            agg.tool_result_bytes, 305,
+            "a soma por ferramenta e o total: uma fonte, nao duas"
+        );
+    }
+
+    /// The defect the live probe caught, kept as a test because it made the
+    /// whole metric read 0,0% and the zero looked like a finding: `Read` returns
+    /// `cat -n`, so every line carries a `<n>\t` prefix and never matches the
+    /// quotation of it. Reverting `normalize_result_line` to the identity turns
+    /// this assertion red.
+    #[test]
+    fn o_prefixo_de_numeracao_do_read_nao_zera_o_reuso() {
+        assert_eq!(
+            normalize_result_line("  12\tfn alvo_da_medicao() {"),
+            "fn alvo_da_medicao() {",
+            "o prefixo do cat -n sai; sem isso nada casa"
+        );
+        assert_eq!(
+            normalize_result_line("abc\tdef"),
+            "abc def",
+            "so numero antes da tabulacao e prefixo — texto e conteudo"
+        );
+        let agg = run(&[
+            call("c1", "Read", json!({"file_path": "/x.rs"})),
+            result(
+                "c1",
+                "  12\tfn alvo_da_medicao() {\n  13\t    outra_coisa();",
+            ),
+            says("a funcao e\nfn alvo_da_medicao() {\ne resolve"),
+        ]);
+        let read = &agg.by_tool["Read"];
+        assert_eq!(read.lines, 2, "duas linhas informativas voltaram");
+        assert_eq!(read.reused_lines, 1, "a citada conta, a outra nao");
+        assert_eq!(read.zero_reuse_results, 0);
+    }
+
+    /// The window closes at the human turn: a fact quoted after the person
+    /// speaks again belongs to the next task, and counting it would inflate
+    /// reuse with work this result never informed.
+    #[test]
+    fn um_fato_citado_depois_do_turno_humano_nao_conta() {
+        let agg = run(&[
+            call("c1", "Read", json!({"file_path": "/x.rs"})),
+            result("c1", "  12\tfn alvo_da_medicao() {"),
+            human("outra tarefa"),
+            says("fn alvo_da_medicao() {"),
+        ]);
+        assert_eq!(
+            agg.by_tool["Read"].reused_lines, 0,
+            "a janela fechou antes da citacao"
+        );
+        assert_eq!(agg.by_tool["Read"].zero_reuse_results, 1);
+    }
+
+    /// The only population a digest could drop outright, counted separately —
+    /// measured at 3–6% live, which is why truncation is the wrong instrument
+    /// and spill-with-retrieval is the right one.
+    #[test]
+    fn resultado_que_ninguem_tocou_conta_como_zero_reuso() {
+        let agg = run(&[
+            call("c1", "Bash", json!({"command": "ls"})),
+            result("c1", "zzqqx_inexistente_um\nzzqqx_inexistente_dois"),
+            says("segui por outro caminho"),
+        ]);
+        let bash = &agg.by_tool["Bash"];
+        assert_eq!(bash.reused_lines, 0);
+        assert_eq!(bash.reused_bytes, 0);
+        assert_eq!(bash.zero_reuse_results, 1);
+        let payload = budget_from_aggregate(&agg);
+        assert_eq!(payload["tool_output"]["reuse_ratio"], json!(0.0));
+        assert_eq!(payload["tool_output"]["by_tool"][0]["tool"], "Bash");
+    }
+
     fn run(lines: &[String]) -> ContextBudgetAggregate {
         let mut agg = ContextBudgetAggregate::default();
         let mut seen = BTreeMap::new();
@@ -540,14 +1059,23 @@ mod tests {
     fn the_aggregate_counts_injection_turns_and_the_byte_identical_repeat() {
         let agg = run(&synthetic());
         assert_eq!(agg.injected_blocks, 3, "3 hook blocks");
-        assert_eq!(agg.duplicate_blocks, 1, "the 2nd identical block is the repeat");
-        assert_eq!(agg.user_turns, 1, "only the text-carrying user message is a turn");
+        assert_eq!(
+            agg.duplicate_blocks, 1,
+            "the 2nd identical block is the repeat"
+        );
+        assert_eq!(
+            agg.user_turns, 1,
+            "only the text-carrying user message is a turn"
+        );
         assert_eq!(agg.tool_calls, 2);
         assert_eq!(agg.must_emitted, 2);
         assert_eq!(agg.must_followed, 1, "1st MUST matched, 2nd did not");
         assert_eq!(agg.tool_result_bytes, "saida grande".len() as u64);
         assert!(agg.by_family.contains_key("touring-suggest"));
-        assert!(agg.by_family.contains_key("other"), "[generic] has no family");
+        assert!(
+            agg.by_family.contains_key("other"),
+            "[generic] has no family"
+        );
     }
 
     #[test]
@@ -555,7 +1083,10 @@ mod tests {
         let agg = run(&synthetic());
         let other = &agg.by_family["other"];
         assert_eq!(other.propositions, 0);
-        assert_eq!(other.zero_proposition_blocks, 1, "[generic] carries no instruction");
+        assert_eq!(
+            other.zero_proposition_blocks, 1,
+            "[generic] carries no instruction"
+        );
         let sug = &agg.by_family["touring-suggest"];
         assert_eq!(sug.propositions, 2, "one MUST line per block");
         assert_eq!(sug.zero_proposition_blocks, 0);
@@ -591,13 +1122,21 @@ mod tests {
             duplicate_bytes: 500, // metade da injecao > teto 0,05
             ..base.clone()
         });
-        assert_eq!(repetitive["failing"], json!(["duplicate_injection_ratio"]), "{repetitive}");
+        assert_eq!(
+            repetitive["failing"],
+            json!(["duplicate_injection_ratio"]),
+            "{repetitive}"
+        );
 
         let ignored = budget_from_aggregate(&ContextBudgetAggregate {
             must_followed: 1, // 0,25 < piso 0,60
             ..base.clone()
         });
-        assert_eq!(ignored["failing"], json!(["injection_follow_ratio"]), "{ignored}");
+        assert_eq!(
+            ignored["failing"],
+            json!(["injection_follow_ratio"]),
+            "{ignored}"
+        );
     }
 
     /// The synthetic transcript end-to-end: a 1-in-3 byte-identical repeat and a
@@ -621,7 +1160,10 @@ mod tests {
         let v = budget_from_aggregate(&ContextBudgetAggregate::default());
         assert_eq!(v["status"], "STUB");
         assert_eq!(v["available"], false);
-        assert!(!v["reason"].is_null(), "absence must be displayed, not silent");
+        assert!(
+            !v["reason"].is_null(),
+            "absence must be displayed, not silent"
+        );
         // Never a fabricated 0.0 for a ratio nobody measured.
         assert!(v["injection_follow_ratio"].is_null());
         assert!(v["tpcd_proxy_bytes_per_tool_call"].is_null());
@@ -691,6 +1233,19 @@ mod tests {
         }
         let v = context_budget(root);
         eprintln!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
+        // Um ambiente SEM corpus (CI limpo, container) não é um instrumento
+        // quebrado — é um ambiente sem dado, e a resposta honesta é pular
+        // dizendo isso. Sem esta saída a sonda não podia entrar em CI, e por
+        // isso não entrava: `--ignored` não aparecia em nenhum workflow nem
+        // script, então o único instrumento que já pegou um erro de 12x nunca
+        // rodava sozinho. Guard que existe e não roda é certificado, não guard.
+        if v["available"] != true {
+            eprintln!(
+                "SKIP live_probe: sem corpus de transcript neste ambiente ({})",
+                v["reason"]
+            );
+            return;
+        }
         assert_eq!(v["available"], true, "a regua nao achou transcript: {v}");
         assert!(
             v["transcripts_scanned"].as_u64().unwrap_or(0) > 0,
@@ -703,6 +1258,33 @@ mod tests {
         assert!(
             v["window_bytes"]["injection"].as_u64().unwrap_or(0) > 0,
             "zero injecao medida — o predicado de bloco de hook nao casou nada"
+        );
+        // P5: the tool-result attribution, against real data. Nine synthetic
+        // tests were green while the ruler still reported 12x the true rate;
+        // only the live probe caught it. The same discipline applies here — a
+        // reuse ratio of exactly zero over real transcripts is the signature of
+        // a broken matcher, not of a model that ignores what it asks for.
+        let tools = v["tool_output"]["by_tool"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            !tools.is_empty(),
+            "zero ferramentas atribuidas — a atribuicao nao casou nada: {}",
+            v["tool_output"]
+        );
+        assert!(
+            v["tool_output"]["reuse_ratio"].as_f64().unwrap_or(0.0) > 0.0,
+            "reuso exatamente zero sobre dados reais e assinatura de matcher \
+             quebrado (foi o que o prefixo do cat -n causou): {}",
+            v["tool_output"]
+        );
+        assert!(
+            tools
+                .iter()
+                .any(|t| t["zero_reuse_results"].as_u64().unwrap_or(u64::MAX)
+                    < t["results"].as_u64().unwrap_or(0)),
+            "toda ferramenta com 100% de zero-reuso: o instrumento, nao o sistema"
         );
     }
     /// O defeito que a sonda viva pegou: `content` como STRING crua e' a forma
@@ -721,7 +1303,10 @@ mod tests {
         ];
         let agg = run(&lines);
         assert_eq!(agg.user_turns, 2, "as DUAS formas de conteudo sao turnos");
-        assert_eq!(agg.user_bytes, "faca a coisa".len() as u64 + "e depois esta".len() as u64);
+        assert_eq!(
+            agg.user_bytes,
+            "faca a coisa".len() as u64 + "e depois esta".len() as u64
+        );
         assert_eq!(agg.assistant_bytes, "prosa do modelo".len() as u64);
     }
 }

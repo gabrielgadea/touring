@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+# touring-quality-score — singleton lock + content-hash cache around `touring-quality score`.
+#
+# Reached on PATH as `touring-quality` through two symlinks
+# (~/.local/bin/touring-quality → touring-quality-score → this file), the same
+# shape `update-touring` uses. Until 14/09/2026 it lived ONLY in ~/.local/bin,
+# outside version control — which is how a mute `flock -n` failure fed the
+# convergence judge "quality unmeasured" with nobody able to review the tool.
+# Origin: docs/plans/2026-08-31-cpu-otimizacao-notebook/strategy.md (FASE 2) —
+# a full score holds 250%+ CPU, so an unchanged target is served from cache and
+# only one score runs at a time.
+#
+# Cache: $TOURING_QUALITY_CACHE_DIR/<sha256>.json, the key hashing the ENGINE
+# (mtime+size), the ARGUMENTS, and the target listing (mtime+size+path of tracked
+# AND untracked files, capped at 100k).
+#
+# Environment:
+#   TOURING_QUALITY_BIN              engine (default: <this workspace>/target/release/touring-quality)
+#   TOURING_QUALITY_CACHE_DIR        cache directory (default ~/.claude/touring/quality_cache)
+#   TOURING_QUALITY_CACHE_TTL_HOURS  cache lifetime (default 24)
+#   TOURING_QUALITY_CACHE_DISABLE=1  never READ the cache (a success is still written)
+#   TOURING_QUALITY_LOCK             lock file (default $XDG_RUNTIME_DIR, else ~/.cache)
+#   TOURING_QUALITY_LOCK_WAIT_SECS   how long to wait for a running score (default 900)
+#
+# Exit codes: the engine's own · 2 usage · 3 empty/unreadable target ·
+# 75 busy or lock unusable (nothing was measured, the message says which).
+
+set -euo pipefail
+
+# The workspace is derived from THIS file's real path, never written in: a
+# hard-coded /home/<user>/projects/touring broke on any other checkout (the
+# `update-touring` lesson of 18/08/2026).
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+WORKSPACE="$(cd "$(dirname "$SELF")/.." && pwd)"
+BIN="${TOURING_QUALITY_BIN:-$WORKSPACE/target/release/touring-quality}"
+# The lock lives in the user's runtime directory: a fixed name in the shared,
+# sticky /tmp could be pre-created by another user (EACCES), and the failure used
+# to surface as exit 1 with no JSON — the code of "below --fail-below" (14/09/2026).
+LOCK="${TOURING_QUALITY_LOCK:-${XDG_RUNTIME_DIR:-$HOME/.cache}/touring-quality.lock}"
+CACHE_DIR="${TOURING_QUALITY_CACHE_DIR:-$HOME/.claude/touring/quality_cache}"
+TTL_HOURS="${TOURING_QUALITY_CACHE_TTL_HOURS:-24}"
+DISABLE="${TOURING_QUALITY_CACHE_DISABLE:-0}"
+WAIT_SECS="${TOURING_QUALITY_LOCK_WAIT_SECS:-900}"
+
+# --- pass-through for non-score subcommands (--help, check, list) ---
+if [[ "${1:-}" != "score" ]]; then
+  exec "$BIN" "$@"
+fi
+shift  # consume "score"; $1 is now the target
+
+# `score --help` asks the engine for its usage; read as a target it failed
+# `readlink` and exited 3 "unreadable target" (cross-audit 14/09/2026, R2-12).
+case "${1:-}" in
+  -h|--help) exec "$BIN" score "$@" ;;
+esac
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: touring-quality score <TARGET> [flags]" >&2
+  exit 2
+fi
+TARGET="$1"; shift
+
+# Canonical target, so two spellings of one path share one cache entry.
+TARGET_REAL="$(readlink -f "$TARGET" 2>/dev/null || realpath "$TARGET" 2>/dev/null || echo "$TARGET")"
+
+# Take the single-score lock on fd 9: wait for a running score instead of failing
+# on the spot. `flock -n` exited 1, MUTE and without JSON, whenever another score
+# was running — and the convergence judge read that empty output as "quality
+# unmeasured" (tier=None), identical to a measurement that never happened
+# (14/09/2026). Running out of patience, or a lock that cannot be opened, is busy,
+# not a semantic error: 75 (EX_TEMPFAIL), named.
+take_lock() {
+  mkdir -p "$(dirname "$LOCK")" 2>/dev/null || true
+  if ! { : >>"$LOCK"; } 2>/dev/null; then
+    echo "touring-quality-score: cannot open the lock $LOCK (permissions?) — nothing was measured (exit 75)" >&2
+    exit 75
+  fi
+  exec 9>>"$LOCK"
+  if ! flock -w "$WAIT_SECS" 9; then
+    echo "touring-quality-score: another score holds $LOCK for more than ${WAIT_SECS}s — nothing was measured (exit 75)" >&2
+    exit 75
+  fi
+}
+
+# Run the engine WITHOUT the lock fd (`9>&-`): the wrapper holds the lock until
+# the engine exits, and a descendant the engine leaves behind (a build server, a
+# daemon) must never inherit the lock and turn every later score into exit 75.
+# nice -n 19: never competes with foreground work. timeout 600: no permanent hang.
+run_engine() {
+  nice -n 19 timeout 600 env TOURING_QUALITY_CACHE_DISABLE=1 "$BIN" score "$TARGET_REAL" "$@" 9>&-
+}
+
+# --- a report written to a file is never cached -----------------------------
+# With `--output`, the engine writes the report and prints nothing on stdout: a
+# cache hit would never write the file, and an empty stdout is not a failure.
+for arg in "$@"; do
+  case "$arg" in
+    -o|--output|--output=*)
+      take_lock
+      rc=0
+      run_engine "$@" || rc=$?
+      exit "$rc"
+      ;;
+  esac
+done
+
+# --- content hash ---
+#
+# The key carries the ENGINE, not only the target. A score depends on what is
+# measured and on WHO measures: keyed by the target alone, a corrected engine kept
+# serving the old engine's verdict for up to TTL_HOURS (found 03/09/2026 when the
+# F1.3 lexer leak was fixed — commits faec96d / a1ef7ab — and the new binary
+# measured 97× more lines of Python while the cache answered with the old number).
+# It carries the ARGUMENTS too: keyed without them, a cached report answered
+# `--fail-below 0.95` with exit 0 on a composite of 0.85, and `--dims F2.1` with
+# the full report of another invocation (cross-audit 14/09/2026, C1).
+compute_hash() {
+  local target="$TARGET_REAL"
+  local listing=""
+  # The engine stamp joins the key at the end, so it cannot defeat the
+  # empty-target guard below: a `listing` born non-empty would turn an unreadable
+  # target into a cache entry instead of exit 3 («Diamond constant, 0 files»,
+  # fixed 02/09/2026).
+  local bin_stamp
+  bin_stamp="$(stat -c 'BIN %Y %s' "$BIN" 2>/dev/null || echo 'BIN unknown')"
+  if [[ -d "$target" ]]; then
+    # `git ls-files` paths are RELATIVE to the target, so the stat runs THERE.
+    # Run from the caller's cwd, every stat failed for any subdirectory of a
+    # repository: xargs exited 123 and `set -e` aborted mute (fixed 02/09/2026).
+    # `--others --exclude-standard`: an untracked file is scored by the engine,
+    # so it must move the key — tracked-only listings served the score of the
+    # tree before a new module existed (cross-audit 14/09/2026, C2).
+    if command -v git >/dev/null && git -C "$target" rev-parse --git-dir >/dev/null 2>&1; then
+      listing="$(cd "$target" && git ls-files -z --cached --others --exclude-standard 2>/dev/null | xargs -0 stat -c '%Y %s %n' 2>/dev/null | head -n 100000 || true)"
+    fi
+    if [[ -z "$listing" ]]; then
+      listing="$(find "$target" -type f -printf '%T@ %s %p\n' 2>/dev/null | head -n 100000 || true)"
+    fi
+  else
+    listing="$(stat -c '%Y %s %n' "$target" 2>/dev/null || true)"
+  fi
+  if [[ -z "$listing" ]]; then
+    echo "touring-quality-score: empty or unreadable target, nothing to score: $target" >&2
+    return 3
+  fi
+  { printf '%s\n' "$bin_stamp"; printf 'ARG %s\0' "$@"; printf '\n%s\n' "$listing"; } | sha256sum | awk '{print $1}'
+}
+
+HASH="$(compute_hash "$@")" || exit 3
+CACHE_FILE="$CACHE_DIR/$HASH.json"
+
+# A cache entry is served only when it holds something (`-s`): an empty file is
+# the mute lie this tool was fixed for, deferred by a TTL.
+cache_fresh() {
+  [[ "$DISABLE" != "1" && -s "$CACHE_FILE" ]] || return 1
+  local age_hours=$(( ( $(date +%s) - $(stat -c %Y "$CACHE_FILE") ) / 3600 ))
+  (( age_hours < TTL_HOURS ))
+}
+
+if cache_fresh; then
+  cat "$CACHE_FILE"
+  exit 0
+fi
+
+mkdir -p "$CACHE_DIR"
+take_lock
+# The holder may have just cached this very state.
+if cache_fresh; then
+  cat "$CACHE_FILE"
+  exit 0
+fi
+
+rc=0
+run_engine "$@" > "$CACHE_FILE.tmp" || rc=$?
+# One filter for what is printed AND what is cached, so a cache hit prints exactly
+# what the measurement printed (the version banner and blank lines are dropped).
+grep -Ev '^touring [0-9]|^$' "$CACHE_FILE.tmp" > "$CACHE_FILE.out" || true
+cat "$CACHE_FILE.out"
+rm -f "$CACHE_FILE.tmp"
+# Only a successful, non-empty measurement is cached; a failed `--fail-below`
+# (rc 1 with JSON) is printed but never cached.
+if (( rc == 0 )) && [[ -s "$CACHE_FILE.out" ]]; then
+  mv -f "$CACHE_FILE.out" "$CACHE_FILE"
+else
+  rm -f "$CACHE_FILE.out"
+  if (( rc == 0 )); then
+    echo "touring-quality-score: the engine produced no output for $TARGET_REAL" >&2
+    rc=1
+  fi
+fi
+exit "$rc"

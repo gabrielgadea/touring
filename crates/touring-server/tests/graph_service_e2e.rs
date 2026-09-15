@@ -25,7 +25,6 @@ use touring_server::graph_service::{GraphCtxSource, GraphService};
 mod private_daemon;
 use private_daemon::private_daemon_env;
 
-
 /// The workspace this test was COMPILED from.
 ///
 /// These tests used to hardcode `/home/gabrielgadea/.claude/rust` — a developer's
@@ -515,7 +514,8 @@ fn test_graph_svg_output() {
 
     // Test SVG output for workspace graph - the viz command produces SVG
     // when graphviz dot is available and the DOT input is valid
-    let output = std::process::Command::new(&binary).envs(private_daemon_env())
+    let output = std::process::Command::new(&binary)
+        .envs(private_daemon_env())
         .args(["viz", "workspace", "--format", "svg"])
         .current_dir(workspace_root())
         .output()
@@ -576,7 +576,8 @@ fn run_touring(args: &[&str]) -> (i32, String, String) {
         }
     });
 
-    let output = Command::new(&binary).envs(private_daemon_env())
+    let output = Command::new(&binary)
+        .envs(private_daemon_env())
         .args(args)
         .current_dir(workspace_root())
         .output()

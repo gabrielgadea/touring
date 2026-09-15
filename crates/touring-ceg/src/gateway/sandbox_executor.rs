@@ -226,7 +226,11 @@ fn which(bin: &str) -> Option<PathBuf> {
 const LANGUAGE_CANDIDATES: &[(&str, SandboxLanguage, &[&str])] = &[
     ("python", SandboxLanguage::Python, &["python3", "python"]),
     ("js", SandboxLanguage::JavaScript, &["bun", "node", "deno"]),
-    ("ts", SandboxLanguage::TypeScript, &["bun", "tsx", "ts-node", "deno"]),
+    (
+        "ts",
+        SandboxLanguage::TypeScript,
+        &["bun", "tsx", "ts-node", "deno"],
+    ),
     ("ruby", SandboxLanguage::Ruby, &["ruby"]),
     ("go", SandboxLanguage::Go, &["go"]),
     ("rust", SandboxLanguage::Rust, &["cargo"]),
@@ -252,7 +256,7 @@ pub fn detect_language_runtimes() -> Vec<(&'static str, SandboxLanguage, Option<
 }
 
 /// I-11 — Detect the preferred runtime binary for a language (ordem em
-/// [`LANGUAGE_CANDIDATES`]: moderno primeiro, alias comum depois, e como
+/// `LANGUAGE_CANDIDATES`: moderno primeiro, alias comum depois, e como
 /// last-resort o próprio nome — o PATH pode surfar alternativas; se nada
 /// existir, o spawn Err mostra o ENOENT).
 pub fn resolve_language_runtime(lang: SandboxLanguage) -> PathBuf {
@@ -286,11 +290,7 @@ pub fn resolve_language_args(lang: SandboxLanguage, code: &str) -> Vec<String> {
 /// presente em /usr/bin/deno sem ser candidato — fala `eval` (JS) e
 /// `eval --ext=ts` (TS). Formas medidas ao vivo: `deno eval`, `deno eval
 /// --ext=ts`, `deno run -` (stdin).
-pub fn resolve_language_args_for(
-    lang: SandboxLanguage,
-    code: &str,
-    runtime: &Path,
-) -> Vec<String> {
+pub fn resolve_language_args_for(lang: SandboxLanguage, code: &str, runtime: &Path) -> Vec<String> {
     let is_deno = runtime.file_name().and_then(|f| f.to_str()) == Some("deno");
     match (lang, is_deno) {
         (SandboxLanguage::JavaScript, true) => vec!["eval".into(), code.to_string()],
@@ -334,7 +334,8 @@ fn resolve_language_args_legacy(lang: SandboxLanguage, code: &str) -> Vec<String
 ///
 /// Translates structured args into shell-safe argv (no shell interpolation —
 /// passed directly to `execve`).
-pub fn resolve_args(tool_name: &str, args: &Value) -> Result<Vec<String>, SandboxError> {    match tool_name {
+pub fn resolve_args(tool_name: &str, args: &Value) -> Result<Vec<String>, SandboxError> {
+    match tool_name {
         "Bash" => {
             let cmd = args
                 .get("command")
@@ -468,7 +469,10 @@ pub async fn execute_in_sandbox(
     // SEG-1 (28/08): o piso inclui o teto de memória. 30/08: o cap de CPU
     // escala com o wall pedido — fixo em 30s ele matava runs legítimos de
     // `--timeout-ms` maiores (SIGKILL, stderr vazio, lido como timeout).
-    apply_resource_caps_to(&mut cmd, &ResourceLimits::sandboxed_for_timeout(config.timeout_ms));
+    apply_resource_caps_to(
+        &mut cmd,
+        &ResourceLimits::sandboxed_for_timeout(config.timeout_ms),
+    );
 
     spawn_and_capture(cmd, &config).await
 }
@@ -648,8 +652,8 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
         return vec![PathBuf::from("/")];
     }
     let mut roots: Vec<PathBuf> = [
-        "/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc", "/opt", "/dev", "/proc", "/sys",
-        "/tmp", "/var/tmp",
+        "/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc", "/opt", "/dev", "/proc", "/sys", "/tmp",
+        "/var/tmp",
     ]
     .iter()
     .map(PathBuf::from)
@@ -666,6 +670,13 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
             ".cargo",
             ".rustup",
             ".local/share/mise",
+            // O shim do mise lê a própria config e o registro de confiança antes
+            // de executar o interpretador: com `~/.config/mise/config.toml`
+            // presente (criado em 15/09/2026), `node` no sandbox saía 1 com
+            // "Permission denied" e o `test_js_execution` reprovou. Subcaminhos
+            // explícitos — `~/.config` inteiro traria `gh/hosts.yml` (token).
+            ".config/mise",
+            ".local/state/mise",
             ".local/share/uv",
             ".nvm",
             ".pyenv",
@@ -738,7 +749,11 @@ fn apply_landlock_to(
     // NET-1 (28/08): as portas de `connect_tcp_ports` viram regras NetPort;
     // vazio = deny-all (o default de sempre).
     let ruleset = match crate::capability::enforce_linux::build_landlock_ruleset_with_net_and_scope(
-        &leitura, &escrita, &[], connect_tcp_ports, true,
+        &leitura,
+        &escrita,
+        &[],
+        connect_tcp_ports,
+        true,
     ) {
         Ok(rs) => rs,
         Err(e) => {
@@ -773,7 +788,13 @@ fn apply_landlock_to(
     run_tmp: Option<&std::path::Path>,
     extra_write_dirs: &[PathBuf],
 ) {
-    let _ = (cmd, connect_tcp_ports, extra_write_file, run_tmp, extra_write_dirs);
+    let _ = (
+        cmd,
+        connect_tcp_ports,
+        extra_write_file,
+        run_tmp,
+        extra_write_dirs,
+    );
 }
 
 /// SEG-1 (28/08) — registra o `pre_exec` que aplica o filtro seccomp de UDP
@@ -892,7 +913,11 @@ async fn spawn_and_capture_in(
         if let Some(parent) = mirror.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        match std::fs::OpenOptions::new().append(true).create(true).open(mirror) {
+        match std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(mirror)
+        {
             Ok(_) => {
                 cmd.env("TOURING_SDK_SIGNAL_MIRROR", mirror);
             }
@@ -984,7 +1009,9 @@ async fn spawn_and_capture_in(
     /// OUT-1 — drain a shared sink into an owned buffer (timeout salvage and
     /// the happy path read the same way).
     fn take_buf(sink: &std::sync::Arc<std::sync::Mutex<Vec<u8>>>) -> Vec<u8> {
-        sink.lock().map(|mut b| std::mem::take(&mut *b)).unwrap_or_default()
+        sink.lock()
+            .map(|mut b| std::mem::take(&mut *b))
+            .unwrap_or_default()
     }
 
     // QW-4 — write do stdin concorrente aos drains: um filho que não lê
@@ -1065,7 +1092,10 @@ async fn spawn_and_capture_in(
         _ => {
             let _ = child.kill().await;
             return timeout_outcome_with_cause(
-                config, TimeoutCause::Wall, output_bytes, stderr_bytes,
+                config,
+                TimeoutCause::Wall,
+                output_bytes,
+                stderr_bytes,
             );
         }
     };
@@ -1205,7 +1235,10 @@ fn timeout_outcome_with_cause(
         let stderr = if partial_stderr.is_empty() {
             stderr
         } else {
-            format!("{}\n{stderr}", String::from_utf8_lossy(&partial_stderr).trim_end())
+            format!(
+                "{}\n{stderr}",
+                String::from_utf8_lossy(&partial_stderr).trim_end()
+            )
         };
         Ok(SandboxResult {
             exit_code: -2,
@@ -1525,7 +1558,11 @@ fn runtime_python_version(runtime: &Path) -> Option<(u32, u32)> {
         .output()
         .ok()
         .and_then(|o| {
-            let raw = if o.stdout.is_empty() { o.stderr } else { o.stdout };
+            let raw = if o.stdout.is_empty() {
+                o.stderr
+            } else {
+                o.stdout
+            };
             let s = String::from_utf8_lossy(&raw).to_string();
             let num = s.split_whitespace().nth(1)?.to_string();
             let mut it = num.split('.');
@@ -2032,7 +2069,11 @@ mod tests {
         );
         assert_eq!(
             resolve_language_args_for(SandboxLanguage::TypeScript, "const x: number = 1;", deno),
-            vec!["eval".to_string(), "--ext=ts".to_string(), "const x: number = 1;".to_string()]
+            vec![
+                "eval".to_string(),
+                "--ext=ts".to_string(),
+                "const x: number = 1;".to_string()
+            ]
         );
         // node/bun seguem na convenção -e
         let node = std::path::Path::new("/usr/bin/node");
@@ -2048,7 +2089,10 @@ mod tests {
     fn run1_preflight_distingue_ausente_de_resolvido() {
         let rows = detect_language_runtimes();
         assert_eq!(rows.len(), 11, "as 11 linguagens anunciadas");
-        let py = rows.iter().find(|(n, _, _)| *n == "python").expect("linha python");
+        let py = rows
+            .iter()
+            .find(|(n, _, _)| *n == "python")
+            .expect("linha python");
         assert!(py.2.is_some(), "python resolve neste host");
         let sh = rows.iter().find(|(n, _, _)| *n == "sh").expect("linha sh");
         assert!(sh.2.is_some(), "sh/bash resolve neste host");
@@ -2363,7 +2407,9 @@ mod tests {
             sdk_signal_mirror: Some(mirror.clone()),
             ..SandboxConfig::default()
         };
-        let res = execute_in_sandbox("Bash", args, config).await.expect("execute");
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("execute");
         let written = std::fs::read_to_string(&mirror).unwrap_or_default();
         let _ = std::fs::remove_dir_all(&dir);
         if let Some(p) = &res.stored_path {
@@ -2735,7 +2781,30 @@ mod tests {
     /// A raiz `/` também não: um `cwd` sem projeto acima não vira grant total.
     #[test]
     fn the_filesystem_root_is_never_a_write_root() {
-        assert_eq!(super::project_root_for_writes(std::path::Path::new("/")), None);
+        assert_eq!(
+            super::project_root_for_writes(std::path::Path::new("/")),
+            None
+        );
+    }
+
+    /// 15/09/2026: o shim do mise precisa da própria config para executar o
+    /// interpretador; o grant é o subcaminho, nunca `~/.config` inteiro.
+    #[test]
+    fn the_mise_shim_reads_its_config_but_the_config_dir_stays_out() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return;
+        };
+        let raizes = super::sandbox_read_roots();
+        for sub in [".config/mise", ".local/state/mise"] {
+            let p = home.join(sub);
+            if p.exists() {
+                assert!(raizes.contains(&p), "`{}` fora das raízes: {raizes:?}", p.display());
+            }
+        }
+        assert!(
+            !raizes.contains(&home.join(".config")),
+            "~/.config INTEIRO virou raiz de leitura — tokens de CLI (gh/hosts.yml) reabrem"
+        );
     }
 
     /// SEG-2 (30/08/2026): a superfície de instrução do agente é LEGÍVEL pelo
@@ -2838,8 +2907,14 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("sub")).expect("mkdir");
         std::fs::write(dir.path().join("sub/b.bin"), vec![1u8; 5_000]).expect("write");
         let bytes = super::dir_bytes(dir.path());
-        assert!(bytes >= 15_000, "expected at least the 15 000 logical bytes, got {bytes}");
-        assert_eq!(super::dir_bytes(std::path::Path::new("/nonexistent/touring-run-x")), 0);
+        assert!(
+            bytes >= 15_000,
+            "expected at least the 15 000 logical bytes, got {bytes}"
+        );
+        assert_eq!(
+            super::dir_bytes(std::path::Path::new("/nonexistent/touring-run-x")),
+            0
+        );
     }
 
     /// End to end (Linux): the child sees `TMPDIR` = its private run dir,

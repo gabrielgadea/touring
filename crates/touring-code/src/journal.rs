@@ -258,7 +258,10 @@ where
     if all_entries.is_empty()
         && let Some((line_no, e)) = first_err
     {
-        return Err(JournalError::Malformed { line: line_no, source: e });
+        return Err(JournalError::Malformed {
+            line: line_no,
+            source: e,
+        });
     }
     // All lines empty / no parseable entries fall through to the empty aggregate.
 
@@ -376,15 +379,26 @@ mod v2_tests {
         let v1 = r#"{"ts":1,"language":"python","exit_code":0,"failure_kind":null,"duration_ms":5,"code_hash_stdout_bytes":10,"bytes_elided":0}"#;
         let v2 = r#"{"ts":2,"language":"python","exit_code":0,"failure_kind":null,"duration_ms":7,"code_hash_stdout_bytes":10,"bytes_elided":0,"source":"file","file":"/tmp/claude-1000/x/scratchpad/probe.py","harvest":"probe-tmp","brief":true,"orchestrate":true,"tmp_bytes":4096}"#;
         let v2b = r#"{"ts":3,"language":"bash","exit_code":1,"failure_kind":"exception","duration_ms":9,"code_hash_stdout_bytes":0,"bytes_elided":0,"source":"inline","file":null,"harvest":null,"brief":false,"orchestrate":false,"tmp_bytes":0}"#;
-        let agg = read_journal_iter([v1, v2, v2b].into_iter().enumerate().map(|(i, l)| (i + 1, Ok(l.to_string()))))
-            .expect("three parseable lines");
+        let agg = read_journal_iter(
+            [v1, v2, v2b]
+                .into_iter()
+                .enumerate()
+                .map(|(i, l)| (i + 1, Ok(l.to_string()))),
+        )
+        .expect("three parseable lines");
         assert_eq!(agg.total_entries, 3);
         assert_eq!(agg.file_runs, 1, "one run came from a file");
-        assert_eq!(agg.inline_runs, 1, "one run declared inline; the v1 line is unknown");
+        assert_eq!(
+            agg.inline_runs, 1,
+            "one run declared inline; the v1 line is unknown"
+        );
         assert_eq!(agg.harvested_runs, 1);
         assert_eq!(agg.brief_runs, 1);
         assert_eq!(agg.orchestrate_runs, 1);
-        assert_eq!(agg.scratch_file_runs, 1, "a file under the harness scratchpad");
+        assert_eq!(
+            agg.scratch_file_runs, 1,
+            "a file under the harness scratchpad"
+        );
         assert_eq!(agg.total_tmp_bytes, 4096);
     }
 
@@ -406,7 +420,10 @@ mod v2_tests {
 /// Pure function of `home_dir` — no env-reading side effect, so tests can
 /// pass a `tempfile` cleanly.
 pub fn default_journal_path(home_dir: &Path) -> std::path::PathBuf {
-    home_dir.join(".claude").join("touring").join("run_journal.jsonl")
+    home_dir
+        .join(".claude")
+        .join("touring")
+        .join("run_journal.jsonl")
 }
 
 #[cfg(test)]
@@ -419,8 +436,8 @@ mod tests {
 
     #[test]
     fn empty_input_is_empty_aggregate() {
-        let agg = read_journal_iter(lines_iter(""))
-            .expect("empty input must parse to empty aggregate");
+        let agg =
+            read_journal_iter(lines_iter("")).expect("empty input must parse to empty aggregate");
         assert_eq!(agg.total_entries, 0);
         assert!(agg.by_language.is_empty());
     }
@@ -430,8 +447,8 @@ mod tests {
         let s = r#"{"ts":1,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":35,"code_hash_stdout_bytes":0,"bytes_elided":0}
 {"ts":2,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":47,"code_hash_stdout_bytes":0,"bytes_elided":0}
 {"ts":3,"language":"bash","exit_code":1,"failure_kind":"exception","duration_ms":61,"code_hash_stdout_bytes":0,"bytes_elided":0}"#;
-        let agg = read_journal_iter(lines_iter(s))
-            .expect("valid single-language journal must parse");
+        let agg =
+            read_journal_iter(lines_iter(s)).expect("valid single-language journal must parse");
         assert_eq!(agg.total_entries, 3);
         let stats = &agg.by_language["bash"];
         assert_eq!(stats.count, 3);
@@ -447,8 +464,8 @@ mod tests {
         let s = r#"{"ts":1,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":10,"code_hash_stdout_bytes":0,"bytes_elided":0}
 {"ts":2,"language":"python","exit_code":0,"failure_kind":null,"duration_ms":20,"code_hash_stdout_bytes":0,"bytes_elided":0}
 {"ts":3,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":15,"code_hash_stdout_bytes":0,"bytes_elided":0}"#;
-        let agg = read_journal_iter(lines_iter(s))
-            .expect("valid multi-language journal must parse");
+        let agg =
+            read_journal_iter(lines_iter(s)).expect("valid multi-language journal must parse");
         assert_eq!(agg.total_entries, 3);
         assert_eq!(agg.by_language["bash"].count, 2);
         assert_eq!(agg.by_language["python"].count, 1);
@@ -456,9 +473,18 @@ mod tests {
 
     #[test]
     fn failure_kind_taxonomy() {
-        assert_eq!(FailureKind::from_str_opt(Some("exception")), FailureKind::Exception);
-        assert_eq!(FailureKind::from_str_opt(Some("timeout")), FailureKind::Timeout);
-        assert_eq!(FailureKind::from_str_opt(Some("unknown-kind")), FailureKind::Other);
+        assert_eq!(
+            FailureKind::from_str_opt(Some("exception")),
+            FailureKind::Exception
+        );
+        assert_eq!(
+            FailureKind::from_str_opt(Some("timeout")),
+            FailureKind::Timeout
+        );
+        assert_eq!(
+            FailureKind::from_str_opt(Some("unknown-kind")),
+            FailureKind::Other
+        );
     }
 
     #[test]
@@ -483,8 +509,8 @@ mod tests {
     fn bytes_aggregate_correct() {
         let s = r#"{"ts":1,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":35,"code_hash_stdout_bytes":1024,"bytes_elided":512}
 {"ts":2,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":35,"code_hash_stdout_bytes":2048,"bytes_elided":256}"#;
-        let agg = read_journal_iter(lines_iter(s))
-            .expect("valid bytes-aggregate journal must parse");
+        let agg =
+            read_journal_iter(lines_iter(s)).expect("valid bytes-aggregate journal must parse");
         assert_eq!(agg.total_code_hash_stdout_bytes, 3072);
         assert_eq!(agg.total_bytes_elided, 768);
     }

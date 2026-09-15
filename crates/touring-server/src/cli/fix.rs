@@ -41,7 +41,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     let file_path = cli.file.as_str();
     let code = cli.code.as_str();
     if !Path::new(file_path).exists() {
-        return Err(anyhow::anyhow!("file not found: {file_path} — run `ls -la {file_path}` to verify path"));
+        return Err(anyhow::anyhow!(
+            "file not found: {file_path} — run `ls -la {file_path}` to verify path"
+        ));
     }
     let assist_id: &str = match code {
         "Q-201" | "W-100" | "W-101" | "W-102" | "W-103" => "auto_wire",
@@ -50,7 +52,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         "B-301" => "extract_function",
         other => {
             eprintln!("no fix known for code: {other}");
-            return Err(anyhow::anyhow!("unknown diagnostic code: {other} — run `touring assist list-kinds` to see available fixes"));
+            return Err(anyhow::anyhow!(
+                "unknown diagnostic code: {other} — run `touring assist list-kinds` to see available fixes"
+            ));
         }
     };
     let content = std::fs::read_to_string(file_path)?;
@@ -61,7 +65,11 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         .iter()
         .find(|(id, _)| *id == assist_id)
         .map(|(_, h)| *h)
-        .ok_or_else(|| anyhow::anyhow!("assist not registered: {assist_id} — run `touring doctor` to verify system state"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "assist not registered: {assist_id} — run `touring doctor` to verify system state"
+            )
+        })?;
     handler(&mut assists, &ctx);
     let finished = assists.finish();
     if finished.is_empty() {

@@ -3,7 +3,7 @@
 //! A static index answers the same way forever. What makes the portfolio an
 //! organism is the pheromone: each time an intent is served, the agent records
 //! which artifact it chose and how ([`Verdict`]), and the next answer carries
-//! that history as [`Evidence`]. This is the ACO feedback the workspace already
+//! that history as `Evidence`. This is the ACO feedback the workspace already
 //! names as a pillar — *consultar → executar → observar → registrar → reforçar*.
 //!
 //! Storage is an append-only JSONL beside the index. Append-only because a

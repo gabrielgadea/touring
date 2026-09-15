@@ -80,4 +80,3 @@ pub fn cila_budget_edit(cila_level: u8) -> usize {
 pub fn cila_budget_write(cila_level: u8) -> usize {
     cila_budget(cila_level, "TOURING_CILA_BUDGET_WRITE", 1200, 3000, 6000)
 }
-

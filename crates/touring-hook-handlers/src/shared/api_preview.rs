@@ -11,10 +11,12 @@
 //!
 //! Cost: one tree-sitter parse of the "after" text (plus one of the "before"
 //! text for an Edit) and, for Rust, one syn parse. Files above
-//! [`MAX_PREVIEW_BYTES`] and languages without an extractor yield no preview.
+//! `MAX_PREVIEW_BYTES` and languages without an extractor yield no preview.
 
 use touring_code::ast::languages::Lang;
-use touring_code::ast::rust_semantic::{ApiChange, ApiChangeKind, RustSemanticReport, diff_api_surfaces};
+use touring_code::ast::rust_semantic::{
+    ApiChange, ApiChangeKind, RustSemanticReport, diff_api_surfaces,
+};
 use touring_code::ast::symbols::extract_symbols;
 
 use crate::shared::quality_signal::apply_edit;
@@ -56,7 +58,11 @@ pub(crate) fn api_surface(lang: Lang, source: &str) -> Option<Vec<String>> {
                     .as_deref()
                     .map(|p| format!(" @{p}"))
                     .unwrap_or_default();
-                Some(format!("fn {}({}){parent}", s.name, params_of(&s.signature)))
+                Some(format!(
+                    "fn {}({}){parent}",
+                    s.name,
+                    params_of(&s.signature)
+                ))
             } else if s.kind.is_type_definition() {
                 Some(format!("type {}", s.name))
             } else {
@@ -212,7 +218,10 @@ pub fn make<T: Clone + Default>() -> Holder<T> {\n    Holder::default()\n}\n";
 
     #[test]
     fn params_are_normalised_and_nested_parens_survive() {
-        assert_eq!(params_of("fn f(a: i32,\n    b: Vec<(u8, u8)>) -> i32"), "a: i32, b: Vec<(u8, u8)>");
+        assert_eq!(
+            params_of("fn f(a: i32,\n    b: Vec<(u8, u8)>) -> i32"),
+            "a: i32, b: Vec<(u8, u8)>"
+        );
         assert_eq!(params_of("def f():"), "");
         assert_eq!(params_of("struct S"), "");
     }
@@ -220,9 +229,23 @@ pub fn make<T: Clone + Default>() -> Holder<T> {\n    Holder::default()\n}\n";
     #[test]
     fn rust_write_preview_has_semantic_number_and_surface() {
         let p = ApiPreview::for_write("src/holder.rs", RUST_SRC).expect("preview");
-        assert!(p.rust.as_ref().map(|r| r.semantic_complexity()).unwrap_or(0.0) > 0.0);
-        assert!(p.surface_after.iter().any(|e| e.starts_with("fn make(")), "{:?}", p.surface_after);
-        assert!(p.surface_after.iter().any(|e| e == "type Holder"), "{:?}", p.surface_after);
+        assert!(
+            p.rust
+                .as_ref()
+                .map(|r| r.semantic_complexity())
+                .unwrap_or(0.0)
+                > 0.0
+        );
+        assert!(
+            p.surface_after.iter().any(|e| e.starts_with("fn make(")),
+            "{:?}",
+            p.surface_after
+        );
+        assert!(
+            p.surface_after.iter().any(|e| e == "type Holder"),
+            "{:?}",
+            p.surface_after
+        );
         let badge = p.badge();
         assert!(badge.starts_with("[rust] semantic "), "{badge}");
         assert!(badge.contains("pub API 2"), "{badge}");
@@ -232,8 +255,13 @@ pub fn make<T: Clone + Default>() -> Holder<T> {\n    Holder::default()\n}\n";
     #[test]
     fn rust_edit_preview_sees_an_added_item_and_a_resigned_one() {
         let current = "pub fn a() {}\n";
-        let p = ApiPreview::for_edit("src/lib.rs", current, "pub fn a() {}\n", "pub fn a() {}\npub fn b() {}\n")
-            .expect("preview");
+        let p = ApiPreview::for_edit(
+            "src/lib.rs",
+            current,
+            "pub fn a() {}\n",
+            "pub fn a() {}\npub fn b() {}\n",
+        )
+        .expect("preview");
         assert_eq!(p.api_changes().len(), 1);
         assert!(p.badge().contains("pub API 2 (+1/-0)"), "{}", p.badge());
 
@@ -247,22 +275,40 @@ pub fn make<T: Clone + Default>() -> Holder<T> {\n    Holder::default()\n}\n";
         .expect("preview");
         let changes = p.api_changes();
         assert_eq!(changes.len(), 2, "re-sign = removed + added: {changes:?}");
-        assert!(changes.iter().any(|c| c.kind == ApiChangeKind::Removed && c.item.starts_with("fn total(")));
+        assert!(
+            changes
+                .iter()
+                .any(|c| c.kind == ApiChangeKind::Removed && c.item.starts_with("fn total("))
+        );
         assert!(p.badge().contains("(+1/-1)"), "{}", p.badge());
     }
 
     #[test]
     fn python_and_typescript_previews_see_a_resigned_function() {
         let py_before = "def total(a, b):\n    return a + b\n\n\ndef _hidden():\n    pass\n";
-        let p = ApiPreview::for_edit("src/calc.py", py_before, "def total(a, b):", "def total(a, b, c):")
-            .expect("python preview");
+        let p = ApiPreview::for_edit(
+            "src/calc.py",
+            py_before,
+            "def total(a, b):",
+            "def total(a, b, c):",
+        )
+        .expect("python preview");
         assert!(p.rust.is_none());
-        assert!(p.surface_after.iter().any(|e| e.starts_with("fn total(")), "{:?}", p.surface_after);
-        assert!(!p.surface_after.iter().any(|e| e.contains("_hidden")), "private stays out: {:?}", p.surface_after);
+        assert!(
+            p.surface_after.iter().any(|e| e.starts_with("fn total(")),
+            "{:?}",
+            p.surface_after
+        );
+        assert!(
+            !p.surface_after.iter().any(|e| e.contains("_hidden")),
+            "private stays out: {:?}",
+            p.surface_after
+        );
         assert_eq!(p.api_changes().len(), 2, "{:?}", p.api_changes());
         assert!(p.badge().starts_with("[python] pub API "), "{}", p.badge());
 
-        let ts_before = "export function total(a: number, b: number): number {\n  return a + b;\n}\n";
+        let ts_before =
+            "export function total(a: number, b: number): number {\n  return a + b;\n}\n";
         let p = ApiPreview::for_edit(
             "src/calc.ts",
             ts_before,
@@ -288,12 +334,16 @@ pub fn make<T: Clone + Default>() -> Holder<T> {\n    Holder::default()\n}\n";
         let p = ApiPreview::for_write("src/holder.rs", RUST_SRC).expect("preview");
         let layer = ApiBadgeLayer::from_preview(Some(&p));
         assert!(!layer.is_empty());
-        let write_ctx = crate::shared::signal_pipeline::context_for_write("src/holder.rs", RUST_SRC, 2);
+        let write_ctx =
+            crate::shared::signal_pipeline::context_for_write("src/holder.rs", RUST_SRC, 2);
         let out = layer.enrich(&write_ctx);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].0, API_BADGE_SCORE);
         let plain = SignalContext::new("src/holder.rs", RUST_SRC);
-        assert!(layer.enrich(&plain).is_empty(), "no proposed change, no badge");
+        assert!(
+            layer.enrich(&plain).is_empty(),
+            "no proposed change, no badge"
+        );
         assert!(ApiBadgeLayer::from_preview(None).is_empty());
     }
 }

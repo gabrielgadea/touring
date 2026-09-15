@@ -12,7 +12,7 @@
 //! granularity — file, module, path, feature, crate, repo, project, system,
 //! workspace.
 
-use crate::verifications::enumerate_source_files;
+use crate::verifications::enumerate_source_and_vendored_files;
 use anyhow::Result;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -127,6 +127,10 @@ pub struct Scope {
     pub root: PathBuf,
     /// The concrete source files in this scope (deterministically sorted).
     pub files: Vec<PathBuf>,
+    /// Files under vendored directories (`vendor/`, `third_party/`) that `files`
+    /// leaves out: the style dims skip upstream code, the security dims
+    /// (F2.1, F2.4) score `files` plus these (cross-audit 14/09/2026, D3).
+    pub vendored_files: Vec<PathBuf>,
 }
 
 impl Scope {
@@ -147,14 +151,15 @@ impl Scope {
             // an explicit include-glob narrows any scope into a feature slice
             kind = ScopeKind::Feature;
         }
-        let (root, mut files) = if kind == ScopeKind::Module {
+        let (root, mut files, mut vendored_files) = if kind == ScopeKind::Module {
             resolve_module_files(target)
         } else {
-            (target.to_path_buf(), enumerate_source_files(target))
+            let (files, vendored) = enumerate_source_and_vendored_files(target);
+            (target.to_path_buf(), files, vendored)
         };
 
         if !include.is_empty() || !exclude.is_empty() {
-            files.retain(|f| {
+            let keep = |f: &PathBuf| {
                 let rel = f
                     .strip_prefix(&root)
                     .unwrap_or(f)
@@ -163,9 +168,16 @@ impl Scope {
                 let included = include.is_empty() || include.iter().any(|g| glob_match(g, &rel));
                 let excluded = exclude.iter().any(|g| glob_match(g, &rel));
                 included && !excluded
-            });
+            };
+            files.retain(keep);
+            vendored_files.retain(keep);
         }
-        Ok(Scope { kind, root, files })
+        Ok(Scope {
+            kind,
+            root,
+            files,
+            vendored_files,
+        })
     }
 
     /// Total physical lines of code across the scope's files.
@@ -193,11 +205,11 @@ impl Scope {
 ///
 /// The returned `root` is the nearest common ancestor of the file-set so that
 /// glob include/exclude stripping in [`Scope::resolve`] stays well-defined.
-fn resolve_module_files(target: &Path) -> (PathBuf, Vec<PathBuf>) {
+fn resolve_module_files(target: &Path) -> (PathBuf, Vec<PathBuf>, Vec<PathBuf>) {
     // Directory target: the module directory subtree, plus the sibling root
     // file `P/foo.rs` when the module uses the flat (non-`mod.rs`) layout.
     if target.is_dir() {
-        let mut files = enumerate_source_files(target);
+        let (mut files, vendored) = enumerate_source_and_vendored_files(target);
         let root = match (target.parent(), target.file_name().and_then(|n| n.to_str())) {
             (Some(parent), Some(name)) => {
                 let root_file = parent.join(format!("{name}.rs"));
@@ -212,7 +224,7 @@ fn resolve_module_files(target: &Path) -> (PathBuf, Vec<PathBuf>) {
         };
         files.sort();
         files.dedup();
-        return (root, files);
+        return (root, files, vendored);
     }
 
     // File target.
@@ -220,23 +232,26 @@ fn resolve_module_files(target: &Path) -> (PathBuf, Vec<PathBuf>) {
     let stem = target.file_stem().and_then(|s| s.to_str()).unwrap_or("");
     if stem == "mod" {
         // `foo/mod.rs` roots the whole `foo/` directory (parent of `mod.rs`).
-        let mut files = enumerate_source_files(parent);
+        let (mut files, vendored) = enumerate_source_and_vendored_files(parent);
         files.sort();
         files.dedup();
-        return (parent.to_path_buf(), files);
+        return (parent.to_path_buf(), files, vendored);
     }
     // `P/foo.rs` (+ `P/foo/**` when the submodule directory exists).
     let mut files = vec![target.to_path_buf()];
+    let mut vendored = Vec::new();
     if !stem.is_empty() {
         let sibling = parent.join(stem);
         if sibling.is_dir() {
-            files.extend(enumerate_source_files(&sibling));
+            let (sub, sub_vendored) = enumerate_source_and_vendored_files(&sibling);
+            files.extend(sub);
+            vendored = sub_vendored;
         }
     }
     files.sort();
     files.dedup();
     // `root = parent` so both `foo.rs` and `foo/**` strip cleanly.
-    (parent.to_path_buf(), files)
+    (parent.to_path_buf(), files, vendored)
 }
 
 /// Auto-detect the scope kind for a target path.

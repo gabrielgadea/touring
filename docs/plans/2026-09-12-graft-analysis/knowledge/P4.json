@@ -1,0 +1,45 @@
+{
+  "phase": "P4",
+  "entities": [
+    {
+      "entity_id": "phase:P4",
+      "type": "phase",
+      "description": "Pesquisa externa (coletada diretamente ap\u00f3s o agente web ficar mudo): issues 54/54 mediana 5,3 dias; PRs 110 merged/64 abertos; npm 30 vers\u00f5es, 11.632 downloads/semana; Show HN 39 pts/44 coment\u00e1rios com cr\u00edtica de p=0,22 e amostras arbitr\u00e1rias; site trailhq.com/graft afirma 'No telemetry' contradizendo TELEMETRY.md; categoria com CodeGraph 47k e GitNexus 42k estrelas."
+    },
+    {
+      "entity_id": "memory:loop:task_1789257125505670436:P4:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789257125505670436",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789257125505670436",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P4|produces|memory:loop:task_1789257125505670436:P4:done",
+      "source": "phase:P4",
+      "type": "produces",
+      "target": "memory:loop:task_1789257125505670436:P4:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789257125505670436:P4:done|generated-by|loop:loop:task_1789257125505670436",
+      "source": "memory:loop:task_1789257125505670436:P4:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789257125505670436"
+    },
+    {
+      "relation_id": "memory:loop:task_1789257125505670436:P4:done|generated-by|dag:decomp:task_1789257125505670436",
+      "source": "memory:loop:task_1789257125505670436:P4:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789257125505670436"
+    }
+  ]
+}

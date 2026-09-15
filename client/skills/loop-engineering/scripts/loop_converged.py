@@ -35,6 +35,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 try:
     from judge_attest import verdict as judge_verdict
@@ -191,6 +192,48 @@ def clause_not_truncated(truncated_dims):
     return False, f"partial measurement in {len(truncated_dims)} dim(s): {','.join(truncated_dims)}"
 
 
+def _index_root(scope: Path) -> Path:
+    """The nearest ancestor (or the scope) marked as an index root by `.touring/` or `.git`."""
+    return next((b for b in (scope, *scope.parents) if (b / ".touring").is_dir() or (b / ".git").exists()), scope)
+
+
+def _resolve_record(raw: str, scope: Path, index_root: Path) -> Path:
+    """A wiring `module_file` on disk: absolute as is; relative against the nearest base where it EXISTS
+    (scope first — a crate records `src/…`); a file gone from disk falls back to the index root.
+
+    `Path.resolve()` does not require existence, so joining a root-relative path to the scope made
+    `relative_to(scope)` accept everything (6488 `.claude/` orphans reported in `scripts/eleitoral`).
+    """
+    p = Path(raw)
+    if p.is_absolute():
+        return p
+    return next((b / p for b in (scope, *scope.parents) if (b / p).exists()), index_root / p)
+
+
+def _is_under(path: Path, base: Path) -> bool:
+    try:
+        path.resolve().relative_to(base.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _top_tree(scope: Path, index_root: Path) -> Path:
+    """The first-level directory of the index root that contains the scope (the scope itself at the root)."""
+    try:
+        partes = scope.resolve().relative_to(index_root.resolve()).parts
+    except ValueError:
+        return scope
+    return index_root / partes[0] if partes else scope
+
+
+def _baseline_names_the_scope(baseline, scope: Path, index_root: Path) -> bool:
+    """Whether at least one baseline entry (``path::symbol``) resolves under the scope."""
+    return any(
+        _is_under(_resolve_record(entrada.split("::", 1)[0], scope, index_root), scope) for entrada in baseline if entrada
+    )
+
+
 def clause_orphans(scope, bundle: Path):
     """SCOPED, NAMED orphan gate (2026-08-02 rewrite).
 
@@ -233,16 +276,12 @@ def clause_orphans(scope, bundle: Path):
     def _record_path(o):
         return str(o.get("module_file") or o.get("file") or "")
 
+    # 2026-09-14 (test_orphans_scope.py): `module_file` is relative to the INDEX root — see
+    # `_resolve_record`. The old join-to-scope accepted every relative path as in scope.
+    index_root = _index_root(scope)
+
     def _in_scope(raw: str) -> bool:
-        if not raw:
-            return False
-        p = Path(raw)
-        candidate = p if p.is_absolute() else (scope / p)
-        try:
-            candidate.resolve().relative_to(scope)
-            return True
-        except ValueError:
-            return False
+        return bool(raw) and _is_under(_resolve_record(raw, scope, index_root), scope)
 
     in_scope = sorted(
         {
@@ -254,9 +293,28 @@ def clause_orphans(scope, bundle: Path):
             if isinstance(o, dict) and _in_scope(_record_path(o))
         }
     )
+    if not in_scope:
+        # REGRA ZERO: zero orphans in scope is only a measurement if the corpus reaches the scope's
+        # top-level tree at all. Measured 2026-09-14: 20830 orphan records, NONE under scripts/ —
+        # a PASS there certified a tree the wiring corpus never saw.
+        tree = _top_tree(scope, index_root)
+        if not any(isinstance(o, dict) and _is_under(_resolve_record(_record_path(o), scope, index_root), tree)
+                   for o in orphans if _record_path(o)):
+            return None, (f"unmeasured: {len(orphans)} orphan records in the wiring corpus, none under "
+                          f"{tree} — absence of records is not absence of orphans")
     base_file = bundle / ".baseline" / "orphans-scoped.txt"
     if base_file.exists():
         baseline = set(base_file.read_text().splitlines())
+        # 2026-09-14 (test_orphans_scope.py): a baseline that names NOTHING in the scope was recorded blind —
+        # by a corpus that never reached it or by the old filter — and comparing against it reads every in-scope
+        # orphan as NEW (analise/scripts/eleitoral: 24860 names, none in scope; 1329 "NEW", 1200 pre-existing).
+        # It is not a baseline for this scope: re-record it, declared, exactly like the first run.
+        if in_scope and not _baseline_names_the_scope(baseline, scope, index_root):
+            base_file.write_text("\n".join(in_scope))
+            return True, (
+                f"scoped orphans={len(in_scope)} (previous baseline had {len(baseline)} names, none in scope — "
+                "re-recorded; wire new public symbols by your own consumer sweep this round)"
+            )
         new = [s for s in in_scope if s not in baseline]
         ok = not new
         detail = f"scoped orphans={len(in_scope)} baseline={len(baseline)}"
@@ -451,10 +509,39 @@ def _cargo_diagnosis(step: str, stdout: str, stderr: str) -> str:
         return tail_lines[-1].strip() if tail_lines else ""
 
 
+def _stop_private_daemon(env) -> None:
+    """Stop the judge's private gate daemon once the cargo clause is done.
+
+    Cross-audit 14/09/2026 (C9): the daemon was spawned per run and never
+    stopped, so it outlived the judge — a PID still alive after the verdict,
+    holding an actor and the project DBs open. Its lifetime is the clause's:
+    `touring daemon-ctl stop` (REGRA #19, never a signal by name), fail-open.
+    """
+    sock = env.get("TOURING_DAEMON_SOCKET")
+    if not sock:
+        return
+    try:
+        subprocess.run(
+            ["touring", "daemon-ctl", "stop", "--socket", sock],
+            capture_output=True,
+            timeout=30,
+            env=env,
+        )
+    except Exception:  # noqa: BLE001 — cleanup never changes a verdict
+        pass
+
+
 def clause_cargo(scope: Path, rust_full):
     # cwd=scope (2026-08-02): cargo used to run in the *invoker's* CWD, so the
     # clause measured whatever workspace the shell happened to sit in.
     cargo_env = _isolated_daemon_env(scope)
+    try:
+        return _clause_cargo_with(scope, rust_full, cargo_env)
+    finally:
+        _stop_private_daemon(cargo_env)
+
+
+def _clause_cargo_with(scope: Path, rust_full, cargo_env):
     rc, out, err = run(
         ["cargo", "check", "--workspace"], timeout=1800, cwd=scope, env=cargo_env
     )
@@ -564,7 +651,7 @@ def _gather_clauses(task, scope: Path, bundle: Path, rust_full, rust):
     yield ("cross_audit", *clause_cross_audit(bundle), "resolve cross-audit findings")
 
 
-def evaluate(task, scope: Path, bundle: Path, rust_full):
+def evaluate(task, scope: Path, bundle: Path, rust_full) -> dict[str, Any]:
     rust = is_rust_scope(scope)
     clauses, unmet, next_action = {}, [], None
     for name, ok, evidence, action in _gather_clauses(task, scope, bundle, rust_full, rust):

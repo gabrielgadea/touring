@@ -47,9 +47,7 @@ fn package_name_from_manifest(body: &str) -> Option<String> {
             in_package = t == "[package]";
             continue;
         }
-        if in_package
-            && let Some(rest) = t.strip_prefix("name")
-        {
+        if in_package && let Some(rest) = t.strip_prefix("name") {
             let rest = rest.trim_start();
             if let Some(rest) = rest.strip_prefix('=') {
                 let v = rest.trim().trim_matches('"');
@@ -143,7 +141,10 @@ pub fn spawn_check_for(file: &Path, state_dir: &Path) -> bool {
     }
     mark_spawned(&state, &krate, now);
     let verdict = state_dir.join("check_verdict.txt");
-    let cwd = file.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+    let cwd = file
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
     // The subshell reparents to init (`& disown`) and writes atomically via
     // rename; the intermediate bash exits in milliseconds and is reaped by a
     // throwaway thread so the long-running daemon never accumulates zombies.
@@ -198,7 +199,10 @@ pub fn attach_check_signal(
         return response;
     };
     match response {
-        HookResponse::Context { context, event_name } => HookResponse::Context {
+        HookResponse::Context {
+            context,
+            event_name,
+        } => HookResponse::Context {
             context: format!("⚙ {verdict} | {context}"),
             event_name,
         },
@@ -218,11 +222,7 @@ mod tests {
     fn pending_verdict_upgrades_allow_to_context() {
         let d = tmp();
         std::fs::write(d.join("check_verdict.txt"), "ok minha-crate\n").expect("verdict");
-        let out = attach_check_signal(
-            "README.md",
-            super::super::runtime::HookResponse::Allow,
-            &d,
-        );
+        let out = attach_check_signal("README.md", super::super::runtime::HookResponse::Allow, &d);
         match out {
             super::super::runtime::HookResponse::Context { context, .. } => {
                 assert!(context.contains("check(minha-crate): OK"), "{context}");
@@ -235,11 +235,7 @@ mod tests {
     #[test]
     fn no_verdict_leaves_the_response_untouched() {
         let d = tmp();
-        let out = attach_check_signal(
-            "README.md",
-            super::super::runtime::HookResponse::Allow,
-            &d,
-        );
+        let out = attach_check_signal("README.md", super::super::runtime::HookResponse::Allow, &d);
         assert!(
             matches!(out, super::super::runtime::HookResponse::Allow),
             "silence stays silent"
@@ -295,8 +291,14 @@ mod tests {
         assert!(should_spawn(&state, "x", 1000, 30), "missing state is open");
         mark_spawned(&state, "x", 1000);
         assert!(!should_spawn(&state, "x", 1010, 30), "inside window blocks");
-        assert!(should_spawn(&state, "y", 1010, 30), "other crate unaffected");
-        assert!(should_spawn(&state, "x", 1031, 30), "window elapsed reopens");
+        assert!(
+            should_spawn(&state, "y", 1010, 30),
+            "other crate unaffected"
+        );
+        assert!(
+            should_spawn(&state, "x", 1031, 30),
+            "window elapsed reopens"
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 
@@ -306,7 +308,10 @@ mod tests {
         let v = d.join("check_verdict.txt");
         std::fs::write(&v, "fail minha-crate\nerror[E0308]: mismatched types\n").expect("verdict");
         let msg = take_pending_verdict(&v).expect("first read delivers");
-        assert!(msg.contains("FALHOU"), "failure verdict names itself: {msg}");
+        assert!(
+            msg.contains("FALHOU"),
+            "failure verdict names itself: {msg}"
+        );
         assert!(msg.contains("E0308"), "the first error line travels: {msg}");
         assert!(take_pending_verdict(&v).is_none(), "second read is silent");
         assert!(

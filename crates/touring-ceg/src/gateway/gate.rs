@@ -87,10 +87,10 @@ const NET_COMMANDS: &[&str] = &[
 /// attacker reaches for. `command`/`builtin` are excluded for the same reason:
 /// they take a real command as argument.
 const SHELL_BUILTINS: &[&str] = &[
-    ":", "[", "[[", "alias", "break", "case", "cd", "continue", "declare", "do", "done",
-    "echo", "elif", "else", "esac", "export", "false", "fi", "for", "function", "if",
-    "in", "let", "local", "printf", "pwd", "read", "readonly", "return", "select", "set",
-    "shift", "test", "then", "true", "typeset", "unalias", "unset", "until", "while",
+    ":", "[", "[[", "alias", "break", "case", "cd", "continue", "declare", "do", "done", "echo",
+    "elif", "else", "esac", "export", "false", "fi", "for", "function", "if", "in", "let", "local",
+    "printf", "pwd", "read", "readonly", "return", "select", "set", "shift", "test", "then",
+    "true", "typeset", "unalias", "unset", "until", "while",
 ];
 
 /// Whether `command` is a shell builtin that runs in-process (see
@@ -229,7 +229,11 @@ fn leading_command(segment: &str) -> Option<&str> {
 /// legítimo somar `subprocess` + `fs-write` e negar DURO depois que o waiver
 /// passou a ser seletivo (27/08/2026) — o waiver cego anterior escondia isso.
 const NON_PERSISTENT_TARGETS: &[&str] = &[
-    "/dev/null", "/dev/stdout", "/dev/stderr", "/dev/tty", "/dev/fd/",
+    "/dev/null",
+    "/dev/stdout",
+    "/dev/stderr",
+    "/dev/tty",
+    "/dev/fd/",
 ];
 
 /// Whether the redirection target starting at `rest` merely discards output.
@@ -249,18 +253,20 @@ fn redirects_to_the_void(rest: &str) -> bool {
 /// decidir certo.
 fn writes_via_argument(code: &str) -> bool {
     const POR_ARGUMENTO: &[&str] = &[
-        "of=",        // dd
-        "--output=",  // curl, sort, objcopy…
+        "of=",       // dd
+        "--output=", // curl, sort, objcopy…
         "--output ",
-        "-o ",        // curl -o, gcc -o, sort -o
+        "-o ", // curl -o, gcc -o, sort -o
         "--out-file=",
     ];
     // `-o` só conta depois de um verbo que realmente grava — senão `ls -o`
     // (formato longo sem grupo) viraria escrita.
     let tem_o_de_saida = code.contains(" -o ")
-        && ["curl", "wget", "sort", "gcc", "cc", "objcopy", "ffmpeg", "tar"]
-            .iter()
-            .any(|v| code.contains(v));
+        && [
+            "curl", "wget", "sort", "gcc", "cc", "objcopy", "ffmpeg", "tar",
+        ]
+        .iter()
+        .any(|v| code.contains(v));
     POR_ARGUMENTO
         .iter()
         .filter(|p| **p != "-o ")
@@ -644,13 +650,11 @@ fn call_site_args<'a>(token: &str, linha: &'a str) -> Option<&'a str> {
     if token.ends_with('(') {
         return Some(linha);
     }
-    let cadeia = linha
-        .find('(')
-        .filter(|abre| {
-            linha[..*abre]
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':'))
-        })?;
+    let cadeia = linha.find('(').filter(|abre| {
+        linha[..*abre]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':'))
+    })?;
     Some(&linha[cadeia + 1..])
 }
 
@@ -685,7 +689,10 @@ fn code_capability_needs(code: &str) -> Vec<CapabilityNeed> {
         for bin in &bins {
             push_unique(
                 &mut needs,
-                CapabilityNeed::new(Capability::Run(CmdScope::new(bin)), format!("{tok} → {bin}")),
+                CapabilityNeed::new(
+                    Capability::Run(CmdScope::new(bin)),
+                    format!("{tok} → {bin}"),
+                ),
             );
         }
         if bins.is_empty() || underivable {
@@ -938,10 +945,15 @@ mod tests {
             super::ExecSurface::BashCommand,
         );
         assert!(
-            needs.iter().any(|n| matches!(n.capability, super::Capability::Net(_))),
+            needs
+                .iter()
+                .any(|n| matches!(n.capability, super::Capability::Net(_))),
             "o `curl` continua sendo rede: {needs:?}"
         );
-        let needs = super::required_capabilities("rm -rf /tmp/x 2>/dev/null", super::ExecSurface::BashCommand);
+        let needs = super::required_capabilities(
+            "rm -rf /tmp/x 2>/dev/null",
+            super::ExecSurface::BashCommand,
+        );
         assert!(
             needs.iter().any(|n| matches!(&n.capability,
                 super::Capability::Run(sc) if sc.matches(&super::CmdScope::new("rm")))),
@@ -996,7 +1008,14 @@ mod tests {
     /// de rede junto.
     #[test]
     fn shell_builtins_do_not_require_a_subprocess_grant() {
-        for cmd in ["echo oi", "cd /tmp", "pwd", "true", "export X=1", "printf %s x"] {
+        for cmd in [
+            "echo oi",
+            "cd /tmp",
+            "pwd",
+            "true",
+            "export X=1",
+            "printf %s x",
+        ] {
             let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
             assert!(
                 !needs
@@ -1011,7 +1030,12 @@ mod tests {
     /// desligado o gate em vez de calibrá-lo.
     #[test]
     fn real_commands_still_require_a_subprocess_grant() {
-        for cmd in ["rm -rf /tmp/x", "curl http://x", "python3 -c 1", "dd if=/dev/zero"] {
+        for cmd in [
+            "rm -rf /tmp/x",
+            "curl http://x",
+            "python3 -c 1",
+            "dd if=/dev/zero",
+        ] {
             let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
             assert!(
                 needs
@@ -1042,7 +1066,8 @@ mod tests {
     /// é segmentado, e o `rm` tem o seu próprio need.
     #[test]
     fn a_builtin_prefix_does_not_hide_the_next_segment() {
-        let needs = super::required_capabilities("cd /tmp && rm -rf /", super::ExecSurface::BashCommand);
+        let needs =
+            super::required_capabilities("cd /tmp && rm -rf /", super::ExecSurface::BashCommand);
         assert!(
             needs.iter().any(|n| matches!(&n.capability,
                 super::Capability::Run(s) if s.matches(&super::CmdScope::new("rm")))),
@@ -1122,8 +1147,10 @@ mod tests {
 out = subprocess.run(["rg", "-l", "foo", "crates/"], capture_output=True)"#;
         let vereditos = resolve_no_sandbox(code);
         assert!(
-            vereditos.iter().any(|(c, d)| matches!(c, Capability::Run(s) if s.matches(&CmdScope::new("rg")))
-                && *d == Decision::Allow),
+            vereditos.iter().any(
+                |(c, d)| matches!(c, Capability::Run(s) if s.matches(&CmdScope::new("rg")))
+                    && *d == Decision::Allow
+            ),
             "o binário `rg` tinha de ser derivado E concedido: {vereditos:?}"
         );
         assert!(
@@ -1541,12 +1568,14 @@ os.system(alguma_variavel)"#;
     fn the_real_call_is_still_classified() {
         let rede = code_capability_needs("import socket\ns = socket.socket()\n");
         assert!(
-            rede.iter().any(|n| capability_class(&n.capability) == "network"),
+            rede.iter()
+                .any(|n| capability_class(&n.capability) == "network"),
             "uso real de socket deixou de pedir rede: {rede:?}"
         );
         let sub = code_capability_needs("import subprocess\nsubprocess.run(['rg', 'x'])\n");
         assert!(
-            sub.iter().any(|n| capability_class(&n.capability) == "subprocess"),
+            sub.iter()
+                .any(|n| capability_class(&n.capability) == "subprocess"),
             "uso real de subprocess deixou de pedir subprocesso: {sub:?}"
         );
     }
@@ -1563,7 +1592,11 @@ os.system(alguma_variavel)"#;
             .filter(|n| capability_class(&n.capability) == "subprocess")
             .map(|n| n.operation.clone())
             .collect();
-        assert_eq!(programas, vec!["grep".to_string()], "programas: {programas:?}");
+        assert_eq!(
+            programas,
+            vec!["grep".to_string()],
+            "programas: {programas:?}"
+        );
     }
 
     /// E o `curl` citado dentro de um literal não é uma conexão de rede — quem

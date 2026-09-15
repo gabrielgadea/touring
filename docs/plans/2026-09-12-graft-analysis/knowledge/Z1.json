@@ -1,0 +1,45 @@
+{
+  "phase": "Z1",
+  "entities": [
+    {
+      "entity_id": "phase:Z1",
+      "type": "phase",
+      "description": "I16-a atomicidade: selo index_generation (building/complete/aborted, tabela sob demanda; partial quando o dono morreu) exposto em index status/find/search/why e no doctor (server+cli); transacao por arquivo no wiring; arestas inferidas limpas e regravadas so na transacao pos-caminhada (a 1a aceitacao perdeu 91 por limpa-las na caminhada). Aceite i16_accept.sh (deploy 2): kill -9 aos 3 s -> 84.698 vs 84.695 arestas (0 perdidas, +3 fantasmas), partial explicito em 5 leitores, recuperacao 0/0 vs quente, geracao complete. Evento sem causa: daemon da copia morreu aos 61 s na 1a rodada, nao reproduzido em 4 rebuilds; o selo o tornou partial explicito."
+    },
+    {
+      "entity_id": "memory:loop:task_1789298251281030189:Z1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789298251281030189",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789298251281030189",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:Z1|produces|memory:loop:task_1789298251281030189:Z1:done",
+      "source": "phase:Z1",
+      "type": "produces",
+      "target": "memory:loop:task_1789298251281030189:Z1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789298251281030189:Z1:done|generated-by|loop:loop:task_1789298251281030189",
+      "source": "memory:loop:task_1789298251281030189:Z1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789298251281030189"
+    },
+    {
+      "relation_id": "memory:loop:task_1789298251281030189:Z1:done|generated-by|dag:decomp:task_1789298251281030189",
+      "source": "memory:loop:task_1789298251281030189:Z1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789298251281030189"
+    }
+  ]
+}

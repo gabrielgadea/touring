@@ -60,7 +60,7 @@ pub struct Orphan {
 
 /// Output structure for unused_pub_symbols inferlet.
 #[derive(Debug, Serialize)]
-pub struct Output {
+pub(crate) struct Output {
     /// The orphan symbols that passed the threshold and module filters.
     pub orphans: Vec<Orphan>,
     /// Number of orphan symbols reported.

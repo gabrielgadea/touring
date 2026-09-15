@@ -1,11 +1,12 @@
-//! `touring search unified|exact|fuzzy|bm25|index|overlay` — Unified search with RRF fusion.
+//! `touring search unified|exact|fuzzy|bm25|text|index|overlay` — Unified search with RRF fusion.
 //!
 //! RRF (Reciprocal Rank Fusion) combines multiple result rankings using the formula:
 //! `score(d) = sum_i(1 / (k + rank_i(d)))` where k=60 is the standard constant.
 //!
 //! Wave P3-1.3 W5b (2026-06-11): migrated from manual `arg_or` / `flag_value` parsing
-//! to clap derive. The `run` signature is unchanged. All business logic (rrf_fuse,
-//! parse_symbols_response, hybrid pipeline, VFS overlay, etc.) is preserved verbatim (G6).
+//! to clap derive. The `run` signature is unchanged. 2026-09-13: `unified` fuses the
+//! `tantivy search` ranking with the BM25 docs lane (weighted, one vote per file per
+//! lane) — the weights and the lanes left out are measured, see `run_unified`.
 
 use super::daemon_query;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -13,12 +14,40 @@ use ignore::WalkBuilder;
 use std::sync::Arc;
 use touring_storage::embeddings::{FastEmbedModel, FastEmbedProvider};
 use touring_storage::hybrid_search::{
-    HybridConfig, HybridQuery, HybridQueryIntent, IntentQueryIntent, SearchPipeline, detect_intent,
+    HybridConfig, IntentQueryIntent, SearchPipeline, detect_intent,
 };
 use touring_storage::vec::InMemoryVectorStore;
 use touring_storage::vfs::{AbsPath, FileSet, VfsOverlay};
 
 const RRF_K: f32 = 60.0;
+
+/// The `cli-search-docs` ranking the unified search fuses: `bm25` (plain) or
+/// `fuzzy` (BM25 ⊕ edit-distance ⊕ trigram, RRF). Decided by the retrieval bench
+/// of 2026-09-13 (docs/plans/2026-09-12-graft-analysis §29), not by taste.
+const UNIFIED_DOCS_MODE: &str = "bm25";
+
+/// `touring search text`: BM25 over document TEXT only — what a memory, a rule or
+/// a skill says, never what a symbol is named.
+const TEXT_MODE: &str = "text";
+
+/// The primary lane of `search unified`: the `tantivy search` ranking.
+const UNIFIED_RANKED_MODE: &str = "ranked";
+
+/// RRF weight of the ranked lane (the reference, 1.0).
+const UNIFIED_RANKED_WEIGHT: f32 = 1.0;
+
+/// RRF weight of the BM25 docs lane: a tie-breaker (49 of 55 vs 48 without it).
+const UNIFIED_DOCS_WEIGHT: f32 = 0.05;
+
+/// Hits asked of each lane before fusion, whatever `--limit` shows: a file's
+/// place in the fusion must not depend on how many rows the caller prints.
+const UNIFIED_LANE_DEPTH: usize = 60;
+
+/// The payload `cli-search-docs` takes. `mode` is what tells `search fuzzy`
+/// apart from `search bm25` — until 2026-09-13 both sent the same bytes.
+fn docs_payload(query: &str, limit: usize, mode: &str) -> serde_json::Value {
+    serde_json::json!({ "query": query, "top": limit, "mode": mode })
+}
 
 /// A search result from a single backend.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -120,8 +149,20 @@ enum SearchCmd {
         #[arg(long, default_value_t = 20usize)]
         limit: usize,
     },
-    /// Fuzzy document search via daemon `cli-search-docs`.
+    /// Fuzzy document search via daemon `cli-search-docs` in `mode = fuzzy`:
+    /// BM25 ⊕ edit-distance-2 ⊕ trigram, fused by RRF (`search_rrf`). Until
+    /// 2026-09-13 this was the same route as `bm25` under a different name.
     Fuzzy {
+        /// Query string.
+        query: String,
+        /// Maximum number of results (default: 20).
+        #[arg(long, default_value_t = 20usize)]
+        limit: usize,
+    },
+    /// Text search via daemon `cli-search-docs` in `mode = text`: BM25 over what
+    /// documents SAY (markdown sections and documents — memories, rules, skills),
+    /// never over symbol names.
+    Text {
         /// Query string.
         query: String,
         /// Maximum number of results (default: 20).
@@ -202,14 +243,17 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             Ok(())
         }
         SearchCmd::Fuzzy { query, limit } => {
-            let payload = serde_json::json!({ "query": query, "top": limit });
-            let output = daemon_query("cli-search-docs", payload)?;
+            let output = daemon_query("cli-search-docs", docs_payload(&query, limit, "fuzzy"))?;
+            println!("{output}");
+            Ok(())
+        }
+        SearchCmd::Text { query, limit } => {
+            let output = daemon_query("cli-search-docs", docs_payload(&query, limit, TEXT_MODE))?;
             println!("{output}");
             Ok(())
         }
         SearchCmd::Bm25 { query, limit } => {
-            let payload = serde_json::json!({ "query": query, "top": limit });
-            let output = daemon_query("cli-search-docs", payload)?;
+            let output = daemon_query("cli-search-docs", docs_payload(&query, limit, "bm25"))?;
             println!("{output}");
             Ok(())
         }
@@ -258,87 +302,50 @@ fn run_unified(query: &str, limit: usize, intent_opt: Option<SearchIntent>) -> a
         }
     };
 
-    // Query daemon backends.
-    let symbols_out = daemon_query(
-        "cli-search-symbols",
-        serde_json::json!({
-            "query": query_str, "top": limit, "intent": intent_str
-        }),
+    // Query daemon backends. 13/09/2026: the lanes and their weights come from a
+    // replay of the live lanes over 55 questions (`docs/plans/2026-09-12-graft-
+    // analysis/bench/`). Fusing the symbols LIKE lane, the BM25 docs lane and the
+    // text lane with equal weight scored 27; the `tantivy search` ranking alone
+    // scored 48, and adding the BM25 lane as a tie-breaker (weight 0.05) 49. The
+    // LIKE and text lanes lowered every mix they joined (identifiers 14 → 6 with
+    // the text lane), so they are subcommands of their own (`search exact`,
+    // `search text`), not fusion inputs.
+    let mut ranked_payload = docs_payload(
+        &query_str,
+        limit.max(UNIFIED_LANE_DEPTH),
+        UNIFIED_RANKED_MODE,
     );
-    let docs_out = daemon_query(
+    if let Some(obj) = ranked_payload.as_object_mut() {
+        obj.insert(
+            "intent".into(),
+            serde_json::Value::String(intent_str.clone()),
+        );
+    }
+    let ranked_out = daemon_query("cli-search-docs", ranked_payload);
+    let bm25_out = daemon_query(
         "cli-search-docs",
-        serde_json::json!({
-            "query": query_str, "top": limit, "intent": intent_str
-        }),
+        docs_payload(&query_str, limit.max(UNIFIED_LANE_DEPTH), UNIFIED_DOCS_MODE),
     );
-
-    let exact_results = symbols_out
+    let ranked_results = ranked_out
         .as_ref()
         .ok()
-        .map(|s| parse_symbols_response(s, "symbols"))
+        .map(|s| parse_docs_response(s, "ranked"))
         .unwrap_or_default();
-    let fuzzy_results = docs_out
+    let bm25_results = bm25_out
         .as_ref()
         .ok()
         .map(|s| parse_docs_response(s, "docs"))
         .unwrap_or_default();
 
-    // Also call the hybrid search fusion pipeline for semantic results.
-    let hybrid_out = std::thread::spawn({
-        let query = query_str.clone();
-        let intent_clone = intent_str.clone();
-        let limit_inner = limit;
-        move || {
-            let intent_h = match intent_clone.as_str() {
-                "understand" => HybridQueryIntent::Understand,
-                "lookup" => HybridQueryIntent::Lookup,
-                "navigate" => HybridQueryIntent::Navigate,
-                _ => HybridQueryIntent::Explore,
-            };
-            let provider = FastEmbedProvider::with_model(FastEmbedModel::BgeSmall);
-            let store = Arc::new(InMemoryVectorStore::default());
-            let config = HybridConfig::default();
-            let pipeline =
-                SearchPipeline::with_provider_and_store(config, Arc::new(provider), store);
-            let rt = tokio::runtime::Runtime::new().expect("tokio runtime for hybrid search");
-            let hybrid_query = HybridQuery {
-                query: query.to_string(),
-                intent: intent_h,
-                top_k: limit_inner,
-                rerank: false,
-            };
-            rt.block_on(pipeline.search(hybrid_query)).0
-        }
-    })
-    .join()
-    .unwrap_or_default();
-
-    let hybrid_results: Vec<BackendResult> = hybrid_out
-        .into_iter()
-        .map(|sr| BackendResult {
-            rank: 0,
-            file_path: sr.doc_id.clone(),
-            line: None,
-            col: None,
-            symbol: None,
-            context: None,
-            backend: "hybrid".to_string(),
-        })
-        .collect();
-
-    let all_backends: Vec<Vec<BackendResult>> =
-        if exact_results.is_empty() && fuzzy_results.is_empty() {
-            vec![hybrid_results]
-        } else {
-            let mut backs = Vec::new();
-            if !exact_results.is_empty() {
-                backs.push(exact_results);
-            }
-            if !fuzzy_results.is_empty() {
-                backs.push(fuzzy_results);
-            }
-            backs
-        };
+    // 2A (2026-09-13, Graft analysis §29): the "hybrid" backend that used to run
+    // here was an EMPTY `InMemoryVectorStore` built per call — it could never
+    // return a hit. A semantic backend returns the day a persisted, populated
+    // store exists (`SqliteVecStore` is the candidate) and a paraphrase bench
+    // shows the gap.
+    let all_backends = vec![
+        (UNIFIED_RANKED_WEIGHT, ranked_results),
+        (UNIFIED_DOCS_WEIGHT, bm25_results),
+    ];
 
     let fused = rrf_fuse(all_backends);
     let limited: Vec<_> = fused
@@ -537,20 +544,50 @@ fn run_overlay(root: &str, pattern: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Fuse multiple ranked result lists using Reciprocal Rank Fusion.
-/// k=60 is the standard constant.
-fn rrf_fuse(backend_results: Vec<Vec<BackendResult>>) -> Vec<SearchResult> {
-    use std::collections::HashMap;
+/// Bring every backend's path into one alphabet so the RRF keys of the same file
+/// fuse instead of competing: the daemon's `/project/` root alias, a leading `./`
+/// (the wiring tables) and the absolute path of the current workspace all become
+/// the workspace-relative form the Tantivy index already uses. Measured 12/09/2026:
+/// the three backends reported the same file in three spellings.
+fn normalize_path(p: &str) -> String {
+    let mut s = p.strip_prefix("/project/").unwrap_or(p);
+    while let Some(rest) = s.strip_prefix("./") {
+        s = rest;
+    }
+    if s.starts_with('/')
+        && let Ok(cwd) = std::env::current_dir()
+        && let Ok(rel) = std::path::Path::new(s).strip_prefix(&cwd)
+    {
+        return rel.to_string_lossy().into_owned();
+    }
+    s.to_string()
+}
+
+/// Weighted Reciprocal Rank Fusion: each lane adds `weight / (k + rank)` to a
+/// key, where `rank` counts DISTINCT keys in that lane (k = 60). A lane lists a
+/// file once per matching symbol; counting every row let a file with many weak
+/// symbols outrank a file with one strong answer (measured 13/09/2026), so a
+/// lane votes for each file once, at its best rank.
+fn rrf_fuse(lanes: Vec<(f32, Vec<BackendResult>)>) -> Vec<SearchResult> {
+    use std::collections::{HashMap, HashSet};
     let mut scored: HashMap<String, f32> = HashMap::new();
-    for backend in &backend_results {
-        for (rank, result) in backend.iter().enumerate() {
+    for (weight, lane) in &lanes {
+        let mut seen: HashSet<String> = HashSet::new();
+        for result in lane {
             let key = result.rrf_key();
-            let contribution = 1.0 / (RRF_K + rank as f32);
-            *scored.entry(key).or_insert(0.0) += contribution;
+            if !seen.insert(key.clone()) {
+                continue;
+            }
+            let rank = seen.len() - 1;
+            *scored.entry(key).or_insert(0.0) += weight / (RRF_K + rank as f32);
         }
     }
     let mut sorted: Vec<_> = scored.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Less));
+    sorted.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Less)
+            .then_with(|| a.0.cmp(&b.0))
+    });
     sorted
         .into_iter()
         .enumerate()
@@ -570,38 +607,6 @@ fn rrf_fuse(backend_results: Vec<Vec<BackendResult>>) -> Vec<SearchResult> {
         .collect()
 }
 
-/// Parse daemon response from `cli_search_symbols` into BackendResult list.
-fn parse_symbols_response(raw: &str, backend: &str) -> Vec<BackendResult> {
-    let parsed: serde_json::Value = match serde_json::from_str(raw) {
-        Ok(v) => v,
-        Err(_) => return Vec::new(),
-    };
-    let results = parsed.get("results").and_then(|v| v.as_array());
-    let Some(results_arr) = results else {
-        return Vec::new();
-    };
-    results_arr
-        .iter()
-        .enumerate()
-        .map(|(i, obj)| BackendResult {
-            rank: i + 1,
-            file_path: obj
-                .get("file_path")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string(),
-            line: None,
-            col: None,
-            symbol: obj
-                .get("symbol_name")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            context: None,
-            backend: backend.to_string(),
-        })
-        .collect()
-}
-
 /// Parse daemon response from `cli_search_docs` into BackendResult list.
 fn parse_docs_response(raw: &str, backend: &str) -> Vec<BackendResult> {
     let parsed: serde_json::Value = match serde_json::from_str(raw) {
@@ -617,14 +622,17 @@ fn parse_docs_response(raw: &str, backend: &str) -> Vec<BackendResult> {
         .enumerate()
         .map(|(i, obj)| BackendResult {
             rank: i + 1,
-            file_path: obj
-                .get("file_path")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string(),
+            file_path: normalize_path(
+                obj.get("file_path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default(),
+            ),
             line: None,
             col: None,
-            symbol: None,
+            symbol: obj
+                .get("symbol_name")
+                .and_then(|v| v.as_str())
+                .map(String::from),
             context: obj
                 .get("context_value")
                 .and_then(|v| v.as_str())
@@ -647,6 +655,59 @@ pub(super) fn command() -> clap::Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── path alphabets (12/09/2026) ──────────────────────────────────────────
+
+    #[test]
+    fn normalize_path_strips_the_daemon_alias_and_dot_slash() {
+        assert_eq!(
+            normalize_path("/project/crates/x/src/a.rs"),
+            "crates/x/src/a.rs"
+        );
+        assert_eq!(normalize_path("./crates/x/src/a.rs"), "crates/x/src/a.rs");
+        assert_eq!(normalize_path("././crates/x/src/a.rs"), "crates/x/src/a.rs");
+        assert_eq!(normalize_path("crates/x/src/a.rs"), "crates/x/src/a.rs");
+    }
+
+    #[test]
+    fn normalize_path_makes_the_workspace_absolute_form_relative() {
+        let cwd = std::env::current_dir().expect("cwd");
+        let abs = cwd.join("crates/x/src/a.rs");
+        assert_eq!(normalize_path(&abs.to_string_lossy()), "crates/x/src/a.rs");
+        assert_eq!(
+            normalize_path("/somewhere/else/a.rs"),
+            "/somewhere/else/a.rs",
+            "a path outside the workspace is left alone"
+        );
+    }
+
+    #[test]
+    fn the_same_file_from_two_backends_fuses_into_one_key() {
+        let symbols = parse_docs_response(
+            r#"{"results":[{"symbol_name":"run_gateway","file_path":"./crates/x/a.rs"}]}"#,
+            "ranked",
+        );
+        let docs = parse_docs_response(
+            r#"{"results":[{"file_path":"/project/crates/x/a.rs","context_value":"fn run_gateway"}]}"#,
+            "docs",
+        );
+        assert_eq!(symbols[0].file_path, docs[0].file_path);
+        let fused = rrf_fuse(vec![(1.0, symbols), (1.0, docs)]);
+        assert_eq!(fused.len(), 1, "one file, one fused row");
+        assert!(
+            (fused[0].rrf_score - 2.0 / RRF_K).abs() < 1e-6,
+            "both backends contributed"
+        );
+    }
+
+    #[test]
+    fn docs_response_carries_the_symbol_when_the_backend_names_one() {
+        let docs = parse_docs_response(
+            r#"{"results":[{"file_path":"crates/x/a.rs","context_value":"fn a()","symbol_name":"a"}]}"#,
+            "docs",
+        );
+        assert_eq!(docs[0].symbol.as_deref(), Some("a"));
+    }
 
     // ── clap parse smoke tests (W5b) ─────────────────────────────────────────
 
@@ -764,8 +825,7 @@ mod tests {
 
     #[test]
     fn test_rrf_fuse_empty() {
-        let results: Vec<Vec<BackendResult>> = vec![];
-        let fused = rrf_fuse(results);
+        let fused = rrf_fuse(Vec::new());
         assert!(fused.is_empty());
     }
 
@@ -791,7 +851,7 @@ mod tests {
                 backend: "exact".to_string(),
             },
         ];
-        let fused = rrf_fuse(vec![backend]);
+        let fused = rrf_fuse(vec![(1.0, backend)]);
         assert_eq!(fused.len(), 2);
         assert_eq!(fused[0].file_path, "a.rs");
         assert_eq!(fused[0].rank, 1);
@@ -818,7 +878,7 @@ mod tests {
             context: Some("documentation".to_string()),
             backend: "fuzzy".to_string(),
         }];
-        let fused = rrf_fuse(vec![exact, fuzzy]);
+        let fused = rrf_fuse(vec![(1.0, exact), (1.0, fuzzy)]);
         assert_eq!(fused.len(), 1);
         let expected = 2.0 / RRF_K;
         assert!((fused[0].rrf_score - expected).abs() < 0.0001);
@@ -844,7 +904,7 @@ mod tests {
             context: Some("doc".to_string()),
             backend: "fuzzy".to_string(),
         }];
-        let fused = rrf_fuse(vec![exact, fuzzy]);
+        let fused = rrf_fuse(vec![(1.0, exact), (1.0, fuzzy)]);
         assert_eq!(fused.len(), 2);
         assert!((fused[0].rrf_score - fused[1].rrf_score).abs() < 0.0001);
     }
@@ -854,21 +914,87 @@ mod tests {
         assert_eq!(RRF_K, 60.0);
     }
 
+    /// `search fuzzy` and `search bm25` differ by the `mode` the daemon reads —
+    /// the byte that was missing while both subcommands answered identically.
     #[test]
-    fn test_parse_symbols_response_valid() {
-        let raw = r#"{"query":"test","results":[{"symbol_name":"Foo","file_path":"a.rs","symbol_kind":"fn"}],"count":1}"#;
-        let results = parse_symbols_response(raw, "exact");
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].file_path, "a.rs");
-        assert_eq!(results[0].symbol, Some("Foo".to_string()));
-        assert_eq!(results[0].backend, "exact");
+    fn docs_payload_carries_the_mode_that_tells_fuzzy_from_bm25() {
+        let fuzzy = docs_payload("HokRuntime", 5, "fuzzy");
+        let bm25 = docs_payload("HokRuntime", 5, "bm25");
+        assert_eq!(fuzzy["mode"], "fuzzy");
+        assert_eq!(bm25["mode"], "bm25");
+        assert_eq!(fuzzy["query"], "HokRuntime");
+        assert_eq!(fuzzy["top"], 5);
+        assert_ne!(
+            fuzzy, bm25,
+            "the two subcommands must not send the same bytes"
+        );
+        assert!(
+            matches!(UNIFIED_DOCS_MODE, "bm25" | "fuzzy"),
+            "the unified docs backend names a mode the daemon understands"
+        );
+        assert_eq!(docs_payload("x", 5, TEXT_MODE)["mode"], "text");
+        assert_eq!(docs_payload("x", 5, UNIFIED_RANKED_MODE)["mode"], "ranked");
+    }
+
+    fn row(file: &str, backend: &str) -> BackendResult {
+        BackendResult {
+            rank: 0,
+            file_path: file.to_string(),
+            line: None,
+            col: None,
+            symbol: None,
+            context: None,
+            backend: backend.to_string(),
+        }
+    }
+
+    /// A lane votes for a file once, at its best rank: many weak rows of one file
+    /// never outrank one strong row of another.
+    #[test]
+    fn a_lane_votes_once_per_file_and_weights_scale_the_vote() {
+        let noisy = vec![
+            row("a.rs", "ranked"),
+            row("b.rs", "ranked"),
+            row("b.rs", "ranked"),
+            row("b.rs", "ranked"),
+        ];
+        let fused = rrf_fuse(vec![(1.0, noisy)]);
+        assert_eq!(
+            fused[0].file_path, "a.rs",
+            "b.rs repeated three times still ranks second"
+        );
+        assert!(
+            (fused[1].rrf_score - 1.0 / (RRF_K + 1.0)).abs() < 1e-6,
+            "b.rs scored once, at distinct rank 1"
+        );
+        // A 0.05 lane breaks near-ties (neighbours may swap — that is the measured
+        // gain) but cannot lift a file from far down the primary lane.
+        let primary: Vec<BackendResult> = ["x.rs", "a.rs", "b.rs", "c.rs", "d.rs", "y.rs"]
+            .iter()
+            .map(|f| row(f, "ranked"))
+            .collect();
+        let fused = rrf_fuse(vec![(1.0, primary), (0.05, vec![row("y.rs", "docs")])]);
+        assert_eq!(
+            fused[0].file_path, "x.rs",
+            "rank 5 plus a tie-breaker stays below rank 0"
+        );
+        let near = rrf_fuse(vec![
+            (1.0, vec![row("x.rs", "ranked"), row("y.rs", "ranked")]),
+            (0.05, vec![row("y.rs", "docs")]),
+        ]);
+        assert_eq!(
+            near[0].file_path, "y.rs",
+            "adjacent files: the second lane decides"
+        );
     }
 
     #[test]
-    fn test_parse_symbols_response_empty() {
-        let raw = r#"{"query":"test","results":[],"count":0}"#;
-        let results = parse_symbols_response(raw, "exact");
-        assert!(results.is_empty());
+    fn parses_text_subcommand() {
+        let cli = SearchCli::try_parse_from(["search", "text", "o pipe engole", "--limit", "7"])
+            .expect("parse");
+        assert!(
+            matches!(cli.cmd, Some(SearchCmd::Text { ref query, limit: 7 }) if query == "o pipe engole")
+        );
     }
 
     #[test]
@@ -883,7 +1009,7 @@ mod tests {
 
     #[test]
     fn test_parse_invalid_json() {
-        let results = parse_symbols_response("not json", "exact");
+        let results = parse_docs_response("not json", "ranked");
         assert!(results.is_empty());
     }
 

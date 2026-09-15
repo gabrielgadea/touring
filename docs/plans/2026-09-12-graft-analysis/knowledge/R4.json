@@ -1,0 +1,45 @@
+{
+  "phase": "R4",
+  "entities": [
+    {
+      "entity_id": "phase:R4",
+      "type": "phase",
+      "description": "Retrieval determin\u00edstico: graft ask TS hit@1 9/12 hit@3 12/12; Rust breadth 8/10 e 10/10; touring tantivy 0/10 nas mesmas perguntas NL (search unified/bm25/fuzzy vazios; \u00edndice mistura mem\u00f3ria/DAG/docs; tr\u00eas alfabetos de caminho) \u2014 lacuna do Touring registrada."
+    },
+    {
+      "entity_id": "memory:loop:task_1789259381190412574:R4:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789259381190412574",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789259381190412574",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R4|produces|memory:loop:task_1789259381190412574:R4:done",
+      "source": "phase:R4",
+      "type": "produces",
+      "target": "memory:loop:task_1789259381190412574:R4:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789259381190412574:R4:done|generated-by|loop:loop:task_1789259381190412574",
+      "source": "memory:loop:task_1789259381190412574:R4:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789259381190412574"
+    },
+    {
+      "relation_id": "memory:loop:task_1789259381190412574:R4:done|generated-by|dag:decomp:task_1789259381190412574",
+      "source": "memory:loop:task_1789259381190412574:R4:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789259381190412574"
+    }
+  ]
+}

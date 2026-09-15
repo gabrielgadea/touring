@@ -14,9 +14,7 @@
 //!
 //! Latency budget: <5ms p95 (Rust direct, no subprocess).
 
-use touring_hooks_shared::signal_layer::{
-    ProposedChange, SignalContext, SignalLayer,
-};
+use touring_hooks_shared::signal_layer::{ProposedChange, SignalContext, SignalLayer};
 
 pub use touring_code::cwe_scan::{
     CweFinding, Severity, detect_cwes, unwrap_call_pattern, vendor_prefix_aws_like,
@@ -75,8 +73,14 @@ mod tests {
 
     #[test]
     fn vendor_needles_built_correctly() {
-        assert_eq!(vendor_prefix_openai_like().as_str(), "\u{0073}\u{006B}\u{002D}");
-        assert_eq!(vendor_prefix_aws_like().as_str(), "\u{0041}\u{004B}\u{0049}\u{0041}");
+        assert_eq!(
+            vendor_prefix_openai_like().as_str(),
+            "\u{0073}\u{006B}\u{002D}"
+        );
+        assert_eq!(
+            vendor_prefix_aws_like().as_str(),
+            "\u{0041}\u{004B}\u{0049}\u{0041}"
+        );
     }
 
     #[test]
@@ -87,7 +91,11 @@ mod tests {
             api_word()
         );
         let findings = detect_cwes(&src);
-        assert!(findings.iter().any(|f| f.id == "CWE-798" && f.severity == Severity::P0));
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.id == "CWE-798" && f.severity == Severity::P0)
+        );
     }
 
     #[test]
@@ -131,11 +139,10 @@ mod tests {
             api_word(),
             vendor_prefix_openai_like()
         );
-        let ctx = SignalContext::new("src/client.rs", "")
-            .with_proposed(ProposedChange::Edit {
-                old_string: "String::new()",
-                new_string: &proposed,
-            });
+        let ctx = SignalContext::new("src/client.rs", "").with_proposed(ProposedChange::Edit {
+            old_string: "String::new()",
+            new_string: &proposed,
+        });
         let signals = CweScanLayer.enrich(&ctx);
         assert_eq!(signals.len(), 1, "{signals:?}");
         assert!(signals[0].1.contains("CWE-798"), "{}", signals[0].1);

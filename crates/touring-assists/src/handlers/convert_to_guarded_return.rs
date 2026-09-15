@@ -3,9 +3,9 @@
 //! Rewrites:  if CONDITION { BODY }  →  if !CONDITION { return; } BODY
 //! i.e., moves the body after a negated guard that returns early when the condition is FALSE.
 
-use touring_foundation::truncate_str;
 use crate::{AssistContext, AssistHandler, AssistId, Assists, LazySourceChange};
 use quote::ToTokens;
+use touring_foundation::truncate_str;
 
 /// Stable identifier for the convert-to-guarded-return assist.
 pub const CONVERT_TO_GUARDED_RETURN_ID: AssistId = "convert_to_guarded_return";
@@ -57,10 +57,7 @@ pub const CONVERT_TO_GUARDED_RETURN: AssistHandler =
         let file_id = ctx.file_id;
         let range = ctx.range.clone();
 
-        let label = format!(
-            "Convert to guarded return: {}",
-            truncate_str(&cond_str, 25)
-        );
+        let label = format!("Convert to guarded return: {}", truncate_str(&cond_str, 25));
 
         let lazy = LazySourceChange::new(move || {
             let negated = negate_cond(&cond_str);

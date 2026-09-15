@@ -235,7 +235,7 @@ const SEMANTIC_WEIGHT: f64 = 0.4;
 
 /// Facet filter for the hashtag-library query grammar (`#facet:value` tokens
 /// in a portfolio intent). Maps the facets the index actually carries —
-/// `kind` → [`CapabilityKind::tag`], `lang` → `language` (with the vocabulary
+/// `kind` → `CapabilityKind::tag`, `lang` → `language` (with the vocabulary
 /// bridge `bash`↔`shell`, `md`↔`markdown`), `domain` → provenance and path
 /// segments — and reports the rest as `ignored`, never silently applied.
 ///
@@ -259,7 +259,11 @@ pub fn filter_entries_by_tags(
     }
     let kept = entries
         .iter()
-        .filter(|e| applicable.iter().all(|t| entry_matches_facet(e, &t.0, &t.1)))
+        .filter(|e| {
+            applicable
+                .iter()
+                .all(|t| entry_matches_facet(e, &t.0, &t.1))
+        })
         .cloned()
         .collect();
     (kept, ignored)
@@ -486,8 +490,7 @@ mod tests {
     fn facet_lang_bridges_vocabularies() {
         let mut e = entry("x", "y", &[]);
         e.language = "shell".to_string();
-        let (kept, _) =
-            filter_entries_by_tags(&[e], &[("lang".to_string(), "bash".to_string())]);
+        let (kept, _) = filter_entries_by_tags(&[e], &[("lang".to_string(), "bash".to_string())]);
         assert_eq!(kept.len(), 1, "bash == shell in the portfolio vocabulary");
     }
 

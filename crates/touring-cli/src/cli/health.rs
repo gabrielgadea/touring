@@ -329,8 +329,15 @@ pub fn cli_doctor(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
             // only meaningful once you know what the rows are relative to.
             let detail = format!(
                 "root={} polyglot={} rows={} producers={} consumers={} pub={} distinct={} unknown_kind={} non_wireable={} unread={}",
-                rt.ctx.knowledge.workspace_root().unwrap_or("<não derivável>"),
-                if rt.ctx.knowledge.polyglot() { "on" } else { "off" },
+                rt.ctx
+                    .knowledge
+                    .workspace_root()
+                    .unwrap_or("<não derivável>"),
+                if rt.ctx.knowledge.polyglot() {
+                    "on"
+                } else {
+                    "off"
+                },
                 diag.total_rows,
                 diag.producer_rows,
                 diag.consumer_rows,
@@ -355,13 +362,29 @@ pub fn cli_doctor(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
         Err(e) => ("error", format!("wiring_db_diagnostic: {}", e)),
     };
 
+    // I16 (2026-09-13): the seal on the latest rebuild, in step with
+    // `touring-server`'s `check_index_generation` (the handler operators reach).
+    let (gen_status, gen_detail) = match rt.ctx.knowledge.index_generation_state(std::process::id())
+    {
+        Ok(state) => (
+            match state.state {
+                "complete" | "none" => "ok",
+                "building" => "building",
+                _ => "partial",
+            },
+            state.detail,
+        ),
+        Err(e) => ("error", format!("index_generation: {e}")),
+    };
+
     let checks = serde_json::json!(
         [{ "name" : "binary_version", "status" : "ok", "detail" : binary_version }, {
         "name" : "daemon_socket", "status" : socket_status, "detail" : socket_detail }, {
         "name" : "daemon_health", "status" : daemon_health_status, "detail" :
         daemon_health_detail }, { "name" : "circuit_breaker", "status" : circuit_status,
         "detail" : circuit_detail }, { "name" : "knowledge_db", "status" : kdb_status,
-        "detail" : kdb_detail }]
+        "detail" : kdb_detail }, { "name" : "index_generation", "status" : gen_status,
+        "detail" : gen_detail }]
     );
     serde_json::to_string(&checks).unwrap_or_else(|_| {
         r#"[{"name":"error","status":"error","detail":"serialization failed"}]"#.to_string()

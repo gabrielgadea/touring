@@ -483,7 +483,7 @@ pub struct DimScore {
     /// Whether this score covers only a **prefix** of its target.
     ///
     /// The scope-native dims concatenate the whole root and stop at
-    /// [`verifications::DIR_SCAN_BYTE_CAP`]; a score computed over the prefix is not a
+    /// `verifications::DIR_SCAN_BYTE_CAP`; a score computed over the prefix is not a
     /// score of the scope, and it is *insensitive to remediation performed past the
     /// cut* — removing duplication inside the window only admits more content at the
     /// edge. Until 2026-08-07 that fact reached the reader only as prose inside

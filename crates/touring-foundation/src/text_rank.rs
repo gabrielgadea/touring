@@ -1,6 +1,6 @@
 //! Shared BM25 ranking math — the single scoring implementation in the crate.
 //!
-//! Extracted from [`crate::tool_catalog`] (2026-08-08) so that intent-ranked
+//! Extracted from `crate::tool_catalog` (2026-08-08) so that intent-ranked
 //! discovery over *any* corpus reuses one scorer instead of growing a second
 //! copy. The tokenizer is deliberately **not** shared: `tool_catalog` ranks a
 //! curated English catalog, while [`crate::portfolio`] ranks mined prose that

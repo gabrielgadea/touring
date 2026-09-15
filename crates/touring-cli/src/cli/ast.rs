@@ -213,8 +213,11 @@ pub fn cli_ast_meta(rt: &mut HookRuntime, payload: &serde_json::Value) -> String
         return serde_json::json!({ "error" : "file_path required" }).to_string();
     }
     let file_path = normalize_to_relative(file_path, &rt.project_root);
-    let cache_key =
-        crate::shared::query_cache::make_key("cli_ast_meta", &format!("{file_path}|{depth}"));
+    let cache_key = crate::shared::query_cache::make_key(
+        &rt.project_root,
+        "cli_ast_meta",
+        &format!("{file_path}|{depth}"),
+    );
     if let Some(cached) = crate::shared::query_cache::get(&cache_key) {
         return cached;
     }
@@ -733,7 +736,12 @@ mod meta_contract_tests {
 
     #[test]
     fn os_dois_produtores_concordam_sobre_o_que_o_nome_significa() {
-        let (_t, mut rt) = runtime_with_wiring(&[("um", "a.rs"), ("um", "b.rs"), ("um", "c.rs"), ("um", "d.rs")]);
+        let (_t, mut rt) = runtime_with_wiring(&[
+            ("um", "a.rs"),
+            ("um", "b.rs"),
+            ("um", "c.rs"),
+            ("um", "d.rs"),
+        ]);
         let meta = meta_summary(&mut rt);
         let enr: serde_json::Value = serde_json::from_str(&cli_ast_blast_enriched(
             &mut rt,

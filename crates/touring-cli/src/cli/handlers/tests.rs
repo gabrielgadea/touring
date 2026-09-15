@@ -5,6 +5,25 @@
 use super::{
     discover_canonical_dbs, memory_recall_fts5_expr, memory_recall_sql, memory_recall_sql_federated,
 };
+/// Cross-audit 14/09/2026 (R2): every federated read opens READ-ONLY. A
+/// read-write open of a WAL database checkpoints on close and fought readers
+/// for the exclusive lock (the `touring-dispatch` test binary hung with threads
+/// in `sqlite3WalClose`), and its `CREATE` flag made an empty database at every
+/// federated path that did not exist. The file's absence is the witness: only a
+/// read-write open creates it.
+#[test]
+fn federated_memory_reads_never_create_the_database_they_probe() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let ghost = dir.path().join("other/.claude/touring/memory.db");
+    std::fs::create_dir_all(ghost.parent().expect("parent")).expect("mkdir");
+
+    assert!(memory_recall_sql(&ghost, "any lesson").is_empty());
+    let mut entries = vec![serde_json::json!({"key": "k"})];
+    crate::cli::shared::memory_backfill_stored_at(std::slice::from_ref(&ghost), &mut entries);
+    assert!(memory_recall_sql_federated(std::slice::from_ref(&ghost), "any lesson").is_empty());
+    assert!(!ghost.exists(), "a read must never create the database it probes");
+}
+
 #[test]
 fn keyword_skill_match_symbol_query_boosts_index_find() {
     let results = super::keyword_skill_match("find this symbol definition");
@@ -477,9 +496,9 @@ fn memory_recall_rows_expose_stored_at_in_both_column_shapes() {
         .expect("schema+insert");
         let hits = crate::cli::shared::memory_recall_sql(&db, "echo probe lesson");
         assert_eq!(hits.len(), 1, "{name}: one row recalled");
-        let stored = hits[0].get("stored_at").unwrap_or_else(|| {
-            panic!("{name}: row must carry stored_at when created_at exists")
-        });
+        let stored = hits[0]
+            .get("stored_at")
+            .unwrap_or_else(|| panic!("{name}: row must carry stored_at when created_at exists"));
         match name {
             "text.db" => assert_eq!(
                 stored.as_str(),
@@ -511,10 +530,19 @@ fn learning_status_policy_is_summarized_not_dumped() {
     let s = summarize_numeric_arrays(v);
     assert_eq!(s["learning_phase_score"], 0.99, "escalares intactos");
     assert_eq!(s["policy"]["input_size"], 25);
-    assert_eq!(s["short"], serde_json::json!([1.0, 2.0, 3.0]), "array curto intacto");
+    assert_eq!(
+        s["short"],
+        serde_json::json!([1.0, 2.0, 3.0]),
+        "array curto intacto"
+    );
     assert_eq!(s["policy"]["hidden_weights"]["len"], 100);
-    let l2 = s["policy"]["hidden_weights"]["l2_norm"].as_f64().unwrap_or(0.0);
-    assert!((l2 - l2_expected).abs() < 1e-9, "l2 real: {l2} vs {l2_expected}");
+    let l2 = s["policy"]["hidden_weights"]["l2_norm"]
+        .as_f64()
+        .unwrap_or(0.0);
+    assert!(
+        (l2 - l2_expected).abs() < 1e-9,
+        "l2 real: {l2} vs {l2_expected}"
+    );
     assert!(
         s.to_string().len() < 2048,
         "o resumo cabe num status (<2KB): {} bytes",
@@ -532,7 +560,12 @@ fn memory_backfill_stored_at_covers_scored_arms_and_never_overwrites() {
     let dir = tempfile::TempDir::new().expect("tempdir");
     let mut dbs = vec![];
     for (name, decl, key, val) in [
-        ("text.db", "created_at TEXT", "ann:echo", "'2026-08-29 15:00:00'"),
+        (
+            "text.db",
+            "created_at TEXT",
+            "ann:echo",
+            "'2026-08-29 15:00:00'",
+        ),
         ("int.db", "created_at INTEGER", "tfidf:echo", "1788016909"),
     ] {
         let db = dir.path().join(name);

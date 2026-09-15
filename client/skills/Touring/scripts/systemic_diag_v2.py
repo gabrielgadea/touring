@@ -188,6 +188,12 @@ def resolve_targets(
 
 def main() -> None:
     """Score the target (or whole workspace), fuse the 50-dim × arch matrix, write + print."""
+    # `--help` used to fall through to the full workspace diagnostic (minutes of
+    # cargo + touring-quality) because every dash argument was simply skipped
+    # (cross-audit 14/09/2026, O5).
+    if any(a in ("-h", "--help") for a in sys.argv[1:]):
+        print(__doc__)
+        return
     target = next((a for a in sys.argv[1:] if not a.startswith("-")), None)
     members, mdir, fan_in = workspace_fan_in()
     units = resolve_targets(target, members, mdir, fan_in)

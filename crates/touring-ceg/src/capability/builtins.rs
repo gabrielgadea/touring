@@ -125,7 +125,7 @@ const READ_ONLY_BINARIES: &[&str] = &[
 /// `Sandboxed` — the default profile for any generic or unverified script.
 ///
 /// Default `Deny`; grants read of `workspace`, the [`ENV_ALLOWLIST`], e a
-/// invocação dos [`READ_ONLY_BINARIES`]. Escrita, rede e qualquer outro
+/// invocação dos `READ_ONLY_BINARIES`. Escrita, rede e qualquer outro
 /// executável seguem negados.
 pub fn sandboxed(workspace: &Path) -> CapabilityProfile {
     let mut profile = grant_env_allowlist(
@@ -169,7 +169,9 @@ mod tests {
     #[test]
     fn sandboxed_segue_negando_mutacao_e_rede() {
         let p = sandboxed(ws());
-        for perigoso in ["rm", "mv", "cp", "sudo", "kill", "pkill", "curl", "wget", "cargo", "sh"] {
+        for perigoso in [
+            "rm", "mv", "cp", "sudo", "kill", "pkill", "curl", "wget", "cargo", "sh",
+        ] {
             assert!(
                 !p.allows(&Capability::Run(CmdScope::new(perigoso))),
                 "`{perigoso}` jamais pode ser concedido pelo perfil Sandboxed"

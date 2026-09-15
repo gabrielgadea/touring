@@ -18,9 +18,8 @@ use crate::shared::cila::cila_budget_edit;
 use crate::shared::hook_helpers;
 use crate::shared::metadata_collector::FastMetadata;
 use crate::shared::parser_cache_global::global_cache;
-#[allow(unused_imports)]
-// ResultExt trait needed in scope for .unwrap_or_debug() calls on deref
-use crate::shared::result_ext::{OptionExt, ResultExt};
+// Extension trait in scope for the `.unwrap_or_debug()` calls below.
+use crate::shared::result_ext::OptionExt;
 use crate::shared::signal_pipeline::{SignalPipeline, StaticSignalLayer, context_for_edit};
 use crate::shared::signals::{blast_radius_signal, merge_signals_rrf};
 use touring_foundation::diagnostic::DiagnosticCode;
@@ -29,7 +28,9 @@ use touring_foundation::truncate_str;
 /// Flush the pre_edit parser cache at session boundaries.
 ///
 /// Called from `run_session_stop` to release all cached `Arc<SharedPipeline>`
-/// entries so the next session starts fresh (avoids stale pipeline state).
+/// entries so the next session starts fresh (avoids stale pipeline state). Its
+/// only caller lives in `session_hooks`, so it exists under the same feature.
+#[cfg(feature = "session-hooks")]
 pub(crate) fn flush_cache() {
     global_cache().clear();
 }
@@ -519,9 +520,17 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
             .add_layer(StaticSignalLayer::new("pre_edit_assembled", assembled))
             // S1 (2026-09-01): ast-grep risk patterns over the proposed
             // `new_string` (SignalContext v2) — risk seen BEFORE the edit lands.
-            .add_layer(crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
-                runtime.project_root.clone(),
-            ))
+            .add_layer(
+                crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
+            )
+            // S2-doc (2026-09-05): símbolos documentais do `new_string` proposto, relevância por nó.
+            .add_layer(
+                crate::shared::doc_symbol_signal::DocSymbolSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
+            )
             // S2 (2026-09-01): F2.4 hardcoded secrets over the proposed
             // `new_string` (P0) — before the edit lands.
             .add_layer(crate::shared::secrets_signal::SecretsSignalLayer)
@@ -910,24 +919,24 @@ fn compose_edit_context_impl(
     // Mirrors pre_read/pre_write: surface related docstrings, symbol kinds, and
     // crate-origin siblings so Claude edits in context of the surrounding module.
     // Feature-gated (tantivy-fts is ON by default in touring-hooks).
+    // Only with a project root: `None` resolves to the legacy GLOBAL index that
+    // every project shares, so an edit with no runtime got "related docs" from
+    // another project (analise documents for `unknown.py`, 14/09/2026).
     #[cfg(feature = "tantivy-fts")]
-    {
-        if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(
-            runtime.map(|r| r.project_root.as_path()),
-            file_path,
-        ) {
+    if let Some(root) = runtime.map(|r| r.project_root.as_path()) {
+        if let Some((_, s)) =
+            crate::shared::signals::tantivy_related_docs_signal(Some(root), file_path)
+        {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_kind_context_signal(
-            runtime.map(|r| r.project_root.as_path()),
-            file_path,
-        ) {
+        if let Some((_, s)) =
+            crate::shared::signals::tantivy_kind_context_signal(Some(root), file_path)
+        {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_crate_origin_signal(
-            runtime.map(|r| r.project_root.as_path()),
-            file_path,
-        ) {
+        if let Some((_, s)) =
+            crate::shared::signals::tantivy_crate_origin_signal(Some(root), file_path)
+        {
             parts.push(s);
         }
     }

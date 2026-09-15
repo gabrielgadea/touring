@@ -217,6 +217,238 @@ pub fn tantivy_name_boost() -> f32 {
         .unwrap_or(5.0)
 }
 
+/// Boost applied to `docstring` matches (the TEXT of markdown documents and
+/// sections) in the BM25 routes that also search names. Chosen by the retrieval
+/// benches of 2026-09-13, not by taste — see `DEFAULT_TANTIVY_DOCSTRING_BOOST`.
+/// Tunable via `TOURING_TANTIVY_DOCSTRING_BOOST=<f32>`.
+pub fn tantivy_docstring_boost() -> f32 {
+    std::env::var("TOURING_TANTIVY_DOCSTRING_BOOST")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_DOCSTRING_BOOST)
+}
+
+/// Default of [`tantivy_docstring_boost`]: 0.25, the knee of the sweep run on
+/// 13/09/2026 over the live touring workspace (10 code questions, 11 questions
+/// whose answer is a memory, rule or skill body; `tantivy search`, hit@1):
+///
+/// | boost | code | content |
+/// |------:|-----:|--------:|
+/// | 1.0   | 1    | 4       |
+/// | 0.5   | 6    | 3       |
+/// | 0.25  | 7    | 3       |
+/// | 0.1   | 7    | 0       |
+///
+/// 7 is the code score before markdown text entered the index: at 0.25 code
+/// retrieval is unchanged and prose is still found; below it prose disappears,
+/// above it prose buries code. The BM25-with-name-boost route (`search bm25`) and
+/// `search unified` scored the same code at every value.
+const DEFAULT_TANTIVY_DOCSTRING_BOOST: f32 = 0.25;
+
+/// Boost of the file-path words (`module_path`: `crates/touring-ceg/src/gateway/
+/// classify.rs` → `crates touring ceg src gateway classify`) in the ranked query.
+/// 0 leaves the field out. Tunable via `TOURING_TANTIVY_PATH_BOOST=<f32>`.
+pub fn tantivy_path_boost() -> f32 {
+    std::env::var("TOURING_TANTIVY_PATH_BOOST")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_PATH_BOOST)
+}
+
+const DEFAULT_TANTIVY_PATH_BOOST: f32 = 1.0;
+
+/// Boost of the proximity clause over document TEXT (a phrase query on
+/// `docstring`, slop [`tantivy_phrase_slop`]). 0 leaves it out. Tunable via
+/// `TOURING_TANTIVY_TEXT_PHRASE_BOOST=<f32>`.
+pub fn tantivy_text_phrase_boost() -> f32 {
+    std::env::var("TOURING_TANTIVY_TEXT_PHRASE_BOOST")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_TEXT_PHRASE_BOOST)
+}
+
+const DEFAULT_TANTIVY_TEXT_PHRASE_BOOST: f32 = 6.0;
+
+/// Query-time: constant bonus for a text document holding EVERY analyzed query
+/// term (queries of ≥ 3 terms that do not look like an identifier). BM25 over OR
+/// rewards a short chunk with two rare words over the file that holds all five,
+/// because length normalization punishes the long document; a constant bonus is
+/// immune to length. 0 leaves it out. Default 5, measured 13/09/2026 with
+/// `partial` 0.25: two mechanically generated keyword-bag sets went 2 → 7 and
+/// 4 → 6 of 10 at rank 1 (the second never used for tuning), every other set
+/// unchanged; a per-subset bonus of 2.5 or more started costing code questions.
+/// `TOURING_TANTIVY_COVERAGE_BOOST=<f32>`.
+pub fn tantivy_coverage_boost() -> f32 {
+    std::env::var("TOURING_TANTIVY_COVERAGE_BOOST")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_COVERAGE_BOOST)
+}
+
+const DEFAULT_TANTIVY_COVERAGE_BOOST: f32 = 5.0;
+
+/// Query-time: a constant score spread over the distinct query words by IDF and
+/// granted per word a document holds, in any field (0 = off). BM25 rewards a
+/// word by frequency and punishes length, so one name match of one rare word
+/// buried the document holding the whole question: a file whose name held
+/// `fonts` outranked the one holding all ten words of "sync-client-skills.py
+/// espelho gerado …" (14/09/2026). Queries of 3+ words, never identifiers.
+/// Default 12, measured over 93 questions with `examples/search_eval.rs`: 70 →
+/// 77 at rank 1, every set equal or better, held-out code 6 → 8 and the two
+/// keyword-bag sets 7 → 9 and 6 → 9; 17 and above start costing code-train.
+/// `TOURING_TANTIVY_WORD_COVERAGE=<f32>`.
+pub fn tantivy_word_coverage() -> f32 {
+    std::env::var("TOURING_TANTIVY_WORD_COVERAGE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_WORD_COVERAGE)
+}
+
+const DEFAULT_TANTIVY_WORD_COVERAGE: f32 = 12.0;
+
+/// Query-time: factor on the name and path boosts for a MIXED query — a command
+/// or identifier token among prose words (`cascading kill multi-sessão
+/// daemon-ctl`). The prose carries the question and the token names what it is
+/// about, so the file NAMED by the token must not win on its name alone.
+/// Default 0.6, measured 14/09/2026 with word coverage on: the mixed held-out
+/// set 5 → 6 of 6, no set lower than at 1.0; 0.45 and below cost the second
+/// mixed held-out set. `TOURING_TANTIVY_MIXED_NAME_FACTOR=<f32>`.
+pub fn tantivy_mixed_name_factor() -> f32 {
+    std::env::var("TOURING_TANTIVY_MIXED_NAME_FACTOR")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_MIXED_NAME_FACTOR)
+}
+
+const DEFAULT_TANTIVY_MIXED_NAME_FACTOR: f32 = 0.6;
+
+/// Query-time: fraction of [`tantivy_coverage_boost`] granted for each
+/// all-but-one subset of the query terms (queries of ≥ 4 terms). 0 rewards only
+/// full coverage. `TOURING_TANTIVY_COVERAGE_PARTIAL=<f32>`.
+pub fn tantivy_coverage_partial() -> f32 {
+    std::env::var("TOURING_TANTIVY_COVERAGE_PARTIAL")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_COVERAGE_PARTIAL)
+}
+
+const DEFAULT_TANTIVY_COVERAGE_PARTIAL: f32 = 0.25;
+
+/// Name boost of the route `touring tantivy search` runs
+/// (`search_with_community_boost`) — historically 1.0, lower than the 5.0 of
+/// `search`. Tunable via `TOURING_TANTIVY_COMMUNITY_NAME_BOOST=<f32>`.
+pub fn tantivy_community_name_boost() -> f32 {
+    std::env::var("TOURING_TANTIVY_COMMUNITY_NAME_BOOST")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_COMMUNITY_NAME_BOOST)
+}
+
+const DEFAULT_TANTIVY_COMMUNITY_NAME_BOOST: f32 = 1.0;
+
+/// Index-time: character budget of one markdown chunk. BM25 normalizes by
+/// field length, so a 4.000-character chunk holding the exact phrase lost to
+/// short documents (measured: `MEMORY.md` never ranked for its own first line);
+/// 400 and 600 tied as the best. Needs a rebuild.
+/// `TOURING_TANTIVY_CHUNK_CHARS=<usize>` (minimum 80).
+pub fn tantivy_chunk_chars() -> usize {
+    std::env::var("TOURING_TANTIVY_CHUNK_CHARS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|n: &usize| *n >= 80)
+        .unwrap_or(DEFAULT_TANTIVY_CHUNK_CHARS)
+}
+
+const DEFAULT_TANTIVY_CHUNK_CHARS: usize = 600;
+
+/// Anonymous-memory budget, in MB, past which `index rebuild` stops its walk.
+/// The budget counts the whole daemon, not only the rebuild: an idle daemon
+/// already holds ~1,3 GB. The fixed 3000 MB of May 2026 stopped the analise
+/// rebuild twice (18.821 of 51.671 files at 3.215 MB on 13/09; 17.052 of 51.727
+/// at 3.064 MB on 14/09/2026, on a 64 GB machine), so the default follows the
+/// machine: a quarter of its RAM, clamped to 3000..=16000 MB. That still stops
+/// the runaway class the guard exists for (a converted PDF drove one rebuild
+/// toward 48 GB). Floor 500; `TOURING_REBUILD_MEMORY_HARD_MB=<MB>` overrides.
+pub fn rebuild_memory_hard_mb() -> f64 {
+    let total = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|text| mem_total_mb_from_meminfo(&text));
+    parse_memory_hard_mb(
+        std::env::var("TOURING_REBUILD_MEMORY_HARD_MB")
+            .ok()
+            .as_deref(),
+        default_memory_hard_mb(total),
+    )
+}
+
+/// The budget [`rebuild_memory_hard_mb`] reads: a number of MB, floored at 500;
+/// anything else is `default`.
+fn parse_memory_hard_mb(raw: Option<&str>, default: f64) -> f64 {
+    raw.and_then(|v| v.trim().parse::<f64>().ok())
+        .filter(|mb| mb.is_finite())
+        .map_or(default, |mb| mb.max(500.0))
+}
+
+/// A quarter of the machine's RAM, clamped to 3000..=16000 MB; 3000 when the
+/// RAM is unknown.
+fn default_memory_hard_mb(mem_total_mb: Option<f64>) -> f64 {
+    mem_total_mb.map_or(REBUILD_MEMORY_HARD_MIN_MB, |total| {
+        (total / 4.0).clamp(REBUILD_MEMORY_HARD_MIN_MB, REBUILD_MEMORY_HARD_MAX_MB)
+    })
+}
+
+/// `MemTotal` of a `/proc/meminfo` text, in MB.
+fn mem_total_mb_from_meminfo(meminfo: &str) -> Option<f64> {
+    meminfo
+        .lines()
+        .find_map(|l| l.strip_prefix("MemTotal:"))
+        .and_then(|rest| rest.split_whitespace().next())
+        .and_then(|kb| kb.parse::<f64>().ok())
+        .map(|kb| kb / 1024.0)
+}
+
+const REBUILD_MEMORY_HARD_MIN_MB: f64 = 3000.0;
+const REBUILD_MEMORY_HARD_MAX_MB: f64 = 16000.0;
+
+/// Whether `index rebuild` writes each walked file's search documents (default
+/// on). Off, the rebuild still purges and compacts the search index, and
+/// `touring tantivy reindex --full` fills it from the sealed store afterwards.
+/// `TOURING_REBUILD_SEARCH_DOCS=0|false`.
+pub fn rebuild_search_docs() -> bool {
+    std::env::var("TOURING_REBUILD_SEARCH_DOCS")
+        .map(|v| v != "0" && !v.eq_ignore_ascii_case("false"))
+        .unwrap_or(true)
+}
+
+/// Index-time: characters of the markdown BODY the file-level document carries
+/// next to its frontmatter description (0 = description only). Chunks answer a
+/// localized phrase; the whole-file document answers words spread across the
+/// file, which no single chunk holds. Needs a rebuild. Default 20 000, measured
+/// 13/09/2026: 8 000 lost a code held-out question, and nothing moved above 20 000.
+/// `TOURING_TANTIVY_MD_DOC_TEXT_CHARS=<usize>`.
+pub fn tantivy_markdown_document_chars() -> usize {
+    std::env::var("TOURING_TANTIVY_MD_DOC_TEXT_CHARS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_MD_DOC_TEXT_CHARS)
+}
+
+const DEFAULT_TANTIVY_MD_DOC_TEXT_CHARS: usize = 20_000;
+
+/// Query-time: weight of the file's best OTHER candidate added to a hit's score
+/// (`score + λ · second best of the file`), over a pool of candidates. A file
+/// whose module doc and functions both answer the query outranks a file with
+/// one lucky name; summing ALL of a file's candidates instead measured worse (a
+/// big file wins on volume). 0 disables. `TOURING_TANTIVY_FILE_AGG=<f32>`.
+pub fn tantivy_file_aggregation() -> f32 {
+    std::env::var("TOURING_TANTIVY_FILE_AGG")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TANTIVY_FILE_AGG)
+}
+
+const DEFAULT_TANTIVY_FILE_AGG: f32 = 0.25;
+
 /// I-02: PhraseQuery slop value for multi-term proximity boost. Default 2
 /// (one word allowed between adjacent query terms). Tunable via
 /// `TOURING_TANTIVY_PHRASE_SLOP=<u32>`.
@@ -372,6 +604,42 @@ pub fn extract_features_auto(path: &Path, content: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_rebuild_memory_budget_parses_floors_and_defaults() {
+        assert_eq!(parse_memory_hard_mb(None, 3000.0), 3000.0);
+        assert_eq!(parse_memory_hard_mb(Some("6000"), 3000.0), 6000.0);
+        assert_eq!(parse_memory_hard_mb(Some(" 4500 "), 3000.0), 4500.0);
+        assert_eq!(
+            parse_memory_hard_mb(Some("10"), 3000.0),
+            500.0,
+            "floored: a typo never aborts every rebuild"
+        );
+        assert_eq!(parse_memory_hard_mb(Some("lots"), 16000.0), 16000.0);
+        assert_eq!(parse_memory_hard_mb(Some("inf"), 16000.0), 16000.0);
+    }
+
+    /// The default budget follows the machine: a quarter of its RAM, never below
+    /// the 3000 MB that fits a small workstation, never above 16 GB. The analise
+    /// rebuild (51.727 files) aborted at 3.064 MB on a 64 GB machine with the old
+    /// fixed 3000 (14/09/2026), 1,3 GB of which the idle daemon already held.
+    #[test]
+    fn the_default_rebuild_budget_is_a_quarter_of_the_machine() {
+        assert_eq!(
+            default_memory_hard_mb(None),
+            3000.0,
+            "unknown RAM keeps the old budget"
+        );
+        assert_eq!(default_memory_hard_mb(Some(8_000.0)), 3000.0);
+        assert_eq!(default_memory_hard_mb(Some(16_000.0)), 4000.0);
+        assert_eq!(default_memory_hard_mb(Some(64_024.0)), 16_000.0);
+        assert_eq!(default_memory_hard_mb(Some(256_000.0)), 16_000.0);
+        assert_eq!(
+            mem_total_mb_from_meminfo("MemTotal:       65560980 kB\nMemFree: 1 kB\n"),
+            Some(65_560_980.0 / 1024.0)
+        );
+        assert_eq!(mem_total_mb_from_meminfo("garbage"), None);
+    }
 
     #[test]
     fn rust_extractor_basic() {

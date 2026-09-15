@@ -241,6 +241,38 @@ mod http_impl {
         }
     "#;
 
+    /// Rank of a compute adapter, lower wins: discrete beats integrated, and a
+    /// software (CPU) adapter is the last resort.
+    pub(crate) fn adapter_preference(device_type: wgpu::DeviceType) -> u8 {
+        match device_type {
+            wgpu::DeviceType::DiscreteGpu => 0,
+            wgpu::DeviceType::IntegratedGpu => 1,
+            wgpu::DeviceType::VirtualGpu => 2,
+            wgpu::DeviceType::Other => 3,
+            wgpu::DeviceType::Cpu => 4,
+        }
+    }
+
+    #[cfg(test)]
+    mod adapter_preference_tests {
+        use super::adapter_preference;
+        use wgpu::DeviceType;
+
+        #[test]
+        fn discrete_gpu_is_chosen_over_integrated_and_software() {
+            let listed = [DeviceType::IntegratedGpu, DeviceType::Cpu, DeviceType::DiscreteGpu];
+            let chosen = listed.iter().copied().min_by_key(|t| adapter_preference(*t));
+            assert_eq!(chosen, Some(DeviceType::DiscreteGpu));
+        }
+
+        #[test]
+        fn integrated_gpu_is_chosen_over_software_when_alone() {
+            let listed = [DeviceType::Cpu, DeviceType::Other, DeviceType::IntegratedGpu];
+            let chosen = listed.iter().copied().min_by_key(|t| adapter_preference(*t));
+            assert_eq!(chosen, Some(DeviceType::IntegratedGpu));
+        }
+    }
+
     /// GPU device and resource manager
     #[derive(Clone)]
     pub struct GpuResources {
@@ -279,10 +311,13 @@ mod http_impl {
             memory_budget_thresholds: Default::default(),
         });
 
-        let adapters = instance.enumerate_adapters(wgpu::Backends::VULKAN);
-        let adapter = adapters
+        // Hybrid laptops enumerate the integrated GPU first (Intel before the
+        // RTX 4060 on this machine), so the first adapter was never the
+        // discrete one every shader here was sized for.
+        let adapter = instance
+            .enumerate_adapters(wgpu::Backends::VULKAN)
             .into_iter()
-            .next()
+            .min_by_key(|a| adapter_preference(a.get_info().device_type))
             .ok_or("No Vulkan GPU adapter found — ensure NVIDIA driver is loaded")?;
 
         let (device, queue) = pollster::block_on(adapter.request_device(&DeviceDescriptor {

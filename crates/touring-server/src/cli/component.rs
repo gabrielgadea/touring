@@ -158,7 +158,9 @@ pub fn run(args: &[String]) -> Result<()> {
             if requested {
                 Ok(())
             } else {
-                Err(anyhow!("missing or unknown subcommand — use `touring component --help` for available commands"))
+                Err(anyhow!(
+                    "missing or unknown subcommand — use `touring component --help` for available commands"
+                ))
             }
         }
     }
@@ -281,7 +283,9 @@ pub(crate) fn add_component(
     dev_bin_dir: &Path,
 ) -> Result<()> {
     if name.trim().is_empty() {
-        return Err(anyhow!("component name cannot be empty — use `touring component add <name>`"));
+        return Err(anyhow!(
+            "component name cannot be empty — use `touring component add <name>`"
+        ));
     }
     if PROJECT_BINARIES.contains(&name) {
         return Err(anyhow!(
@@ -316,9 +320,16 @@ pub(crate) fn remove_component(dot_touring: &Path, name: &str) -> Result<()> {
     }
     let link = dot_touring.join("bin").join(name);
     if !link.is_symlink() && !link.exists() {
-        return Err(anyhow!("component {name} is not linked in this project — use `touring component list` to see installed components"));
+        return Err(anyhow!(
+            "component {name} is not linked in this project — use `touring component list` to see installed components"
+        ));
     }
-    std::fs::remove_file(&link).map_err(|e| anyhow!("failed to remove {}: {e} — run `ls -la` on the parent directory to check ownership", link.display()))?;
+    std::fs::remove_file(&link).map_err(|e| {
+        anyhow!(
+            "failed to remove {}: {e} — run `ls -la` on the parent directory to check ownership",
+            link.display()
+        )
+    })?;
     Ok(())
 }
 

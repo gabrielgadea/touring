@@ -445,10 +445,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "rust-semantic requires a file path: touring ast rust-semantic <file.rs>"
                 );
             }
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path")
+            })?;
             let report = touring_code::ast::rust_semantic::RustSemanticReport::from_source(&source)
-                .map_err(|e| anyhow::anyhow!("failed to parse Rust: {e} — check syntax; run `cargo check`"))?;
+                .map_err(|e| {
+                    anyhow::anyhow!("failed to parse Rust: {e} — check syntax; run `cargo check`")
+                })?;
             let json = serde_json::json!({
                 "file_path": file_path,
                 "item_count": report.item_count,
@@ -479,8 +482,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                             "unknown language for {file_path} (expected .py/.ts/.tsx/.js/.jsx)"
                         )
                     })?;
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path")
+            })?;
             let report = touring_code::ast::polyglot_semantic::PolyglotSemanticReport::from_source(
                 lang, &source,
             )
@@ -512,14 +516,19 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "format-rust requires a file path: touring ast format-rust [--preserve] <file.rs>"
                 );
             }
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path")
+            })?;
             let formatted = if preserve {
-                touring_code::ast::format_preserve(&source)
-                    .map_err(|e| anyhow::anyhow!("preserve format failed: {e} — run `touring ast format-rust` for Rust only"))?
+                touring_code::ast::format_preserve(&source).map_err(|e| {
+                    anyhow::anyhow!(
+                        "preserve format failed: {e} — run `touring ast format-rust` for Rust only"
+                    )
+                })?
             } else {
-                touring_code::ast::format_rust_code(&source)
-                    .map_err(|e| anyhow::anyhow!("Rust format failed: {e} — verify syntax and run `cargo fmt`"))?
+                touring_code::ast::format_rust_code(&source).map_err(|e| {
+                    anyhow::anyhow!("Rust format failed: {e} — verify syntax and run `cargo fmt`")
+                })?
             };
             print!("{formatted}");
         }
@@ -596,10 +605,18 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             return super::highlight::run(&full_args);
         }
         AstCmd::Workflow { file_path } => {
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("cannot read workflow {}: {e} — run `ls -l {}` to check", file_path, file_path))?;
-            let report = touring_code::ast::CodeGenWorkflow::analyze(&source)
-                .map_err(|e| anyhow::anyhow!("workflow analysis failed: {e} — check YAML syntax with `touring adw explain`"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!(
+                    "cannot read workflow {}: {e} — run `ls -l {}` to check",
+                    file_path,
+                    file_path
+                )
+            })?;
+            let report = touring_code::ast::CodeGenWorkflow::analyze(&source).map_err(|e| {
+                anyhow::anyhow!(
+                    "workflow analysis failed: {e} — check YAML syntax with `touring adw explain`"
+                )
+            })?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
     }

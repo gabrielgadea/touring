@@ -49,6 +49,16 @@ pub enum AggKind {
     PerCrateNative,
     /// Plain mean — durable fallback.
     Mean,
+    /// LOC-weighted like [`AggKind::WeightedLoc`], except that a file in `Fail`
+    /// (< 0.5) makes the scope take that file's value.
+    ///
+    /// For BLOCK dims whose per-file scores also carry soft signals: a secret
+    /// keyword with no value scores 0.5, and a strict worst-of would turn every
+    /// such mention into a scope-wide warning. A real finding, though, must never
+    /// be averaged away — as `WeightedLoc`, one hardcoded AWS key beside a clean
+    /// file scored the directory 0.5 Warn with no blocker, and in a crate of a
+    /// hundred files it scored Pass (cross-audit 14/09/2026, D2).
+    FailClosedLoc,
 }
 
 impl AggKind {
@@ -61,6 +71,7 @@ impl AggKind {
             AggKind::ScopeNative => "scope-native",
             AggKind::PerCrateNative => "per-crate-native",
             AggKind::Mean => "mean",
+            AggKind::FailClosedLoc => "fail-closed-loc",
         }
     }
 }
@@ -104,41 +115,20 @@ pub(crate) const AGG_TABLE: [AggKind; 50] = [
     // WeightedLoc). Now per-file + LOC-weighted, matching its real granularity.
     AggKind::WeightedLoc, // F1.12 arch-consistency
     // F2.1-F2.13
-    AggKind::WeightedLoc, // F2.1 owasp (BLOCK) — workspace rollup uses
-    // LOC-weighted: the workspace is a mix of
-    // production code (Rust, Python tools) AND
-    // plan validators / audit scripts / e2e test
-    // fixtures that legitimately embed literal
-    // command strings (e.g. `subprocess.run(cmd,
-    // shell=False)` after the W8 refactor, but
-    // some legacy `shell=True` patterns remain in
-    // archived `docs/plans/*` scripts that never
-    // execute in production). Per-file scoring
-    // (`touring-quality score <file>`) still
-    // applies WorstOf semantics and BLOCKs
-    // each file individually, so any new code
-    // with command-injection is still blocked
-    // at the file scope. The workspace rollup
-    // absorbs the historical `docs/plans/`
-    // archive so the BLOCK signal still works
-    // for current code.
-    AggKind::WorstOf,     // F2.2 input-validation
-    AggKind::WorstOf,     // F2.3 authz
-    AggKind::WeightedLoc, // F2.4 secrets (BLOCK) — workspace rollup uses
-    // LOC-weighted: same rationale as F2.1 above.
-    // The Touring repo is a test-harness target:
-    // every `tests/*.rs` legitimately embeds sample
-    // secrets (`ghp_…`, `xoxb-…`, `sk_live_…`) to
-    // verify the redactor works (those tests
-    // would have to either be deleted or have
-    // their sample data replaced with non-
-    // matching strings, both of which would
-    // defeat the safety invariant under test).
-    // Per-file scoring still applies WorstOf and
-    // BLOCKs each file individually, so any new
-    // production code with a hardcoded secret is
-    // still caught at the file scope.
-    AggKind::ScopeNative, // F2.5 dep-cves (BLOCK, manifest)
+    // F2.1 owasp (BLOCK): WeightedLoc → FailClosedLoc (cross-audit 14/09/2026, D2).
+    // The mean existed to absorb fixtures that embed payloads on purpose; they
+    // now opt out per file (`touring-quality:allow-attack-fixture`, and
+    // tests/benches by path), so the mean only hid real findings. A census of the
+    // 624 candidate files found 2 zeros: one detector false positive (fixed in the
+    // SQLi pattern) and one benchmark fixture (pragma).
+    AggKind::FailClosedLoc, // F2.1 owasp (BLOCK)
+    AggKind::WorstOf,       // F2.2 input-validation
+    AggKind::WorstOf,       // F2.3 authz
+    // F2.4 secrets (BLOCK): WeightedLoc → FailClosedLoc, same reason. The sample
+    // secrets of redactor tests carry `touring-quality:allow-secrets` since the
+    // blanket `/tests/` allowlist was removed; the census found no file at 0.
+    AggKind::FailClosedLoc, // F2.4 secrets (BLOCK)
+    AggKind::ScopeNative,   // F2.5 dep-cves (BLOCK, manifest)
     // F2.6 config (BLOCK): W2 (2026-07-02) WorstOf → ScopeNative. As WorstOf the
     // scope layer only enumerated SOURCE_EXTS files, so real config files
     // (yaml/env/ini/conf) were NEVER scored — a "config security" gate blind to
@@ -217,6 +207,7 @@ pub fn aggregate(kind: AggKind, per_file: &[FileScore<'_>]) -> DimScore {
         AggKind::WeightedLoc => agg_weighted(per_file, "LOC-weighted"),
         AggKind::CoverageRatio => agg_weighted(per_file, "coverage-ratio≈LOC-weighted"),
         AggKind::Mean => agg_mean(per_file),
+        AggKind::FailClosedLoc => agg_fail_closed_loc(per_file),
     }
 }
 
@@ -234,7 +225,7 @@ fn agg_worst_of(per_file: &[FileScore<'_>]) -> DimScore {
         format!(
             "worst-of {} files: {} = {:.3}",
             per_file.len(),
-            short(worst_path),
+            scope_relative(worst_path, per_file),
             worst
         ),
     )
@@ -264,9 +255,27 @@ fn agg_weighted(per_file: &[FileScore<'_>], label: &str) -> DimScore {
             label,
             per_file.len(),
             value,
-            short(worst_p),
+            scope_relative(worst_p, per_file),
             worst_v,
             p10
+        ),
+    )
+}
+
+/// [`AggKind::FailClosedLoc`]: the worst file when any file fails, the
+/// LOC-weighted mean otherwise.
+fn agg_fail_closed_loc(per_file: &[FileScore<'_>]) -> DimScore {
+    let failing = per_file.iter().filter(|(_, v, _)| *v < 0.5).count();
+    if failing == 0 {
+        return agg_weighted(per_file, "LOC-weighted (fail-closed: no file fails)");
+    }
+    let worst = agg_worst_of(per_file);
+    DimScore::from_value(
+        worst.value,
+        format!(
+            "fail-closed: {failing} of {} files fail — {}",
+            per_file.len(),
+            worst.evidence
         ),
     )
 }
@@ -279,10 +288,27 @@ fn agg_mean(per_file: &[FileScore<'_>]) -> DimScore {
     )
 }
 
-fn short(p: &Path) -> String {
-    p.file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| p.to_string_lossy().into_owned())
+/// `p` relative to the deepest directory holding every file of the scope.
+///
+/// The basename alone could not tell `site/docs/agentic-bench/run_bench.py` from
+/// `docs/agentic-bench/run_bench.py`, and a stale copy was blamed on the file that
+/// had been fixed (cross-audit 14/09/2026, R2-2).
+fn scope_relative(p: &Path, per_file: &[FileScore<'_>]) -> String {
+    let mut base = p.parent();
+    for (other, _, _) in per_file {
+        while let Some(dir) = base {
+            if other.starts_with(dir) {
+                break;
+            }
+            base = dir.parent();
+        }
+    }
+    base.and_then(|dir| p.strip_prefix(dir).ok())
+        .filter(|rel| !rel.as_os_str().is_empty())
+        .map_or_else(
+            || p.to_string_lossy().into_owned(),
+            |rel| rel.to_string_lossy().into_owned(),
+        )
 }
 
 #[cfg(test)]
@@ -290,6 +316,26 @@ mod tests {
     use super::*;
     use crate::DimId;
     use std::path::PathBuf;
+
+    #[test]
+    fn the_worst_file_is_named_by_its_path_in_the_scope_not_its_basename() {
+        let fixed = PathBuf::from("/ws/docs/agentic-bench/run_bench.py");
+        let stale = PathBuf::from("/ws/site/docs/agentic-bench/run_bench.py");
+        let pf: Vec<FileScore<'_>> = vec![(fixed.as_path(), 1.0, 10), (stale.as_path(), 0.0, 10)];
+        let s = aggregate(AggKind::FailClosedLoc, &pf);
+        assert!(
+            s.evidence.contains("site/docs/agentic-bench/run_bench.py = 0.000"),
+            "{}",
+            s.evidence
+        );
+        let w = aggregate(AggKind::WorstOf, &pf);
+        assert!(w.evidence.contains("site/docs/agentic-bench/run_bench.py"), "{}", w.evidence);
+        let single = [(fixed.as_path(), 0.5, 1)];
+        assert!(
+            aggregate(AggKind::WorstOf, &single).evidence.contains("run_bench.py"),
+            "one file is named relative to its own directory"
+        );
+    }
 
     fn paths(n: usize) -> Vec<PathBuf> {
         (0..n).map(|i| PathBuf::from(format!("f{i}.rs"))).collect()
@@ -330,7 +376,13 @@ mod tests {
             3,
             "3 per-crate-native (F1.3 + F1.8 + F4.12)"
         );
-        assert_eq!(count(AggKind::WeightedLoc), 27, "27 weighted-loc");
+        // 14/09/2026 (cross-audit D2): F2.1 e F2.4 WeightedLoc → FailClosedLoc. 27→25.
+        assert_eq!(count(AggKind::WeightedLoc), 25, "25 weighted-loc");
+        assert_eq!(
+            count(AggKind::FailClosedLoc),
+            2,
+            "2 fail-closed-loc (F2.1 + F2.4)"
+        );
         // A soma tem de fechar os 50 — guarda contra uma migração futura que
         // mova uma dimensão de categoria e esqueça de atualizar as contagens.
         assert_eq!(
@@ -339,6 +391,7 @@ mod tests {
                 + count(AggKind::ScopeNative)
                 + count(AggKind::PerCrateNative)
                 + count(AggKind::WeightedLoc)
+                + count(AggKind::FailClosedLoc)
                 + count(AggKind::Mean),
             50,
             "toda dimensão tem exatamente uma categoria"
@@ -359,20 +412,48 @@ mod tests {
         // MUST stay fail-closed (WorstOf/ScopeNative). Today only F2.5 (cargo-deny
         // manifest) qualifies; the rest moved to WeightedLoc to avoid FP cascades.
         // Kept as a loop so re-promoting a dim back to ScopeNative is a one-line add.
-        #[allow(clippy::single_element_loop)]
-        for d in [DimId::F2_5] {
+        // 14/09/2026 (cross-audit D2): no BLOCK dim may use a plain mean. The
+        // comment above says "per-file scoring still applies WorstOf" — true for
+        // `score <file>`, false for every directory scope, which is what the
+        // convergence judge and the elite gate score. F2.1/F2.4 are fail-closed
+        // means now; every BLOCK dim is in the loop.
+        for d in [
+            DimId::F2_1,
+            DimId::F2_4,
+            DimId::F2_5,
+            DimId::F2_6,
+            DimId::F4_3,
+            DimId::F4_5,
+        ] {
             let k = AGG_TABLE[d as usize];
             assert!(
-                matches!(k, AggKind::WorstOf | AggKind::ScopeNative),
-                "BLOCK dim {} must be WorstOf/ScopeNative, got {:?}",
+                matches!(
+                    k,
+                    AggKind::WorstOf | AggKind::ScopeNative | AggKind::FailClosedLoc
+                ),
+                "BLOCK dim {} must be fail-closed (WorstOf/ScopeNative/FailClosedLoc), got {:?}",
                 d.as_str(),
                 k
             );
         }
-        // F2.1, F2.6, F4.3, F4.5 may use WeightedLoc to avoid whack-a-mole
-        // FP cascades (plan generators / policy modules / test fixtures that
-        // are LOC-light but fail heuristic gate per-file). Per-file scoring
-        // still applies WorstOf semantics via score_target().
+    }
+
+    #[test]
+    fn a_failing_file_is_never_averaged_away_but_a_soft_signal_is() {
+        let p = paths(101);
+        // One hardcoded secret among a hundred clean files.
+        let mut pf: Vec<FileScore<'_>> = p.iter().map(|path| (path.as_path(), 1.0, 100)).collect();
+        pf[42].1 = 0.0;
+        let s = aggregate(AggKind::FailClosedLoc, &pf);
+        assert_eq!(s.value, 0.0, "the secret fails the scope: {}", s.evidence);
+        assert!(s.evidence.contains("f42.rs"), "{}", s.evidence);
+        // A single-match OWASP finding scores 0.22 — still Fail, still blocking.
+        pf[42].1 = 0.22;
+        assert!((aggregate(AggKind::FailClosedLoc, &pf).value - 0.22).abs() < 1e-6);
+        // A keyword without a value (0.5, Warn) is weighed, not promoted to the scope.
+        pf[42].1 = 0.5;
+        let soft = aggregate(AggKind::FailClosedLoc, &pf);
+        assert!(soft.value > 0.99, "{}", soft.evidence);
     }
 
     #[test]

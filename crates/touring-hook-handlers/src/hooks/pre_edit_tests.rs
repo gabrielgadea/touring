@@ -13,7 +13,10 @@ fn setup() -> (TempDir, FileKnowledgeDB) {
 fn test_compose_no_knowledge() {
     let (_tmp, db) = setup();
     let ctx = compose_edit_context(None, &db, "unknown.py");
-    assert!(ctx.is_none());
+    assert!(
+        ctx.is_none(),
+        "an unknown file with no knowledge got context: {ctx:?}"
+    );
 }
 
 /// A2 (2026-09-02): an Edit that CHANGES a call gets the other call sites of
@@ -126,7 +129,8 @@ fn test_pre_edit_flags_a_hardcoded_credential_in_the_proposed_text() {
     let mut rt = HookRuntime::new(&root).expect("runtime");
     rt.trigger_enrichment();
     let prefix = ["s", "k", "-"].concat();
-    let proposed = format!("    let api_key = \"{prefix}live-PLACEHOLDER\";\n    api_key.to_string()\n");
+    let proposed =
+        format!("    let api_key = \"{prefix}live-PLACEHOLDER\";\n    api_key.to_string()\n");
     let input = serde_json::json!({
         "tool_input": {
             "file_path": file.display().to_string(),
@@ -197,7 +201,11 @@ fn test_pre_edit_previews_the_api_cascade_of_a_signature_change() {
     std::fs::create_dir_all(root.join(".claude/data")).expect("data dir");
     std::fs::create_dir_all(root.join("src")).expect("src dir");
     let file = root.join("src/calc.rs");
-    std::fs::write(&file, "pub fn total(a: i32, b: i32) -> i32 {\n    a + b\n}\n").expect("write source");
+    std::fs::write(
+        &file,
+        "pub fn total(a: i32, b: i32) -> i32 {\n    a + b\n}\n",
+    )
+    .expect("write source");
     let mut rt = HookRuntime::new(&root).expect("runtime");
     rt.trigger_enrichment();
     {
@@ -275,7 +283,10 @@ fn test_pre_edit_previews_the_api_cascade_for_python_too() {
     });
     match run_returning(&mut rt, &input) {
         HookResponse::Context { context, .. } => {
-            assert!(context.contains("[cascade] `total` signature changes"), "{context:?}");
+            assert!(
+                context.contains("[cascade] `total` signature changes"),
+                "{context:?}"
+            );
             assert!(context.contains("src/report.py:3"), "{context:?}");
             assert!(context.contains("[python] pub API 1"), "{context:?}");
         }

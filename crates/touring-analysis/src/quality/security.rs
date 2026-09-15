@@ -75,14 +75,16 @@ impl SecurityAnalyzer {
         // 1. Antipattern detection (SIMD memchr, touring-analysis native)
         let antipattern_hits = super::antipatterns::detect_antipatterns(source, lang);
 
-        // 2. Vulnerability pattern detection: built-in registry + custom patterns.
-        let mut vuln_matches: Vec<VulnMatch> = self.registry.detect_all(source);
-        let custom: Vec<VulnMatch> = self
-            .custom_patterns
-            .iter()
-            .filter_map(|p| p.detect(source))
-            .collect();
-        vuln_matches.extend(custom);
+        // 2. Vulnerability pattern detection: built-in registry + custom patterns,
+        // EVERY match of each (cross-audit R2, 14/09/2026). With one match per
+        // pattern, the precision pass below dropped a payload quoted in a comment
+        // at the top of a file and took the real sink further down with it.
+        let mut vuln_matches: Vec<VulnMatch> = self.registry.detect_every(source);
+        vuln_matches.extend(
+            self.custom_patterns
+                .iter()
+                .flat_map(|p| p.detect_every(source)),
+        );
 
         // 2b. AST-aware precision pass (2026-06-21): a vulnerability literal
         // living in a comment or a `#[cfg(test)]` corpus is documentation /
@@ -93,12 +95,29 @@ impl SecurityAnalyzer {
         // Guarded on non-empty so the lexer runs only for the ~1% of files that
         // actually produced a match. See `super::code_regions`.
         if !vuln_matches.is_empty() {
-            let regions = super::code_regions::non_executable_regions(source, lang);
+            let mut regions = super::code_regions::non_executable_regions(source, lang);
+            if lang == "python" {
+                // A docstring documents; it never reaches a sink (cross-audit R2).
+                regions.extend(super::code_regions::python_docstring_regions(source));
+            }
             if !regions.is_empty() {
                 vuln_matches
                     .retain(|v| !super::code_regions::offset_suppressed(v.span.0, &regions));
             }
         }
+        if is_shell(lang) {
+            vuln_matches.retain(|v| !is_shell_syntax_payload(source, v));
+        }
+        // One finding per pattern, the first that survived: the score keeps the
+        // meaning it had when each pattern reported a single match.
+        let mut seen: Vec<String> = Vec::new();
+        vuln_matches.retain(|v| {
+            let first = !seen.contains(&v.pattern_name);
+            if first {
+                seen.push(v.pattern_name.clone());
+            }
+            first
+        });
 
         // 3. Combined scoring
         let antipattern_score = if antipattern_hits.is_empty() {
@@ -121,6 +140,26 @@ impl SecurityAnalyzer {
             lang: lang.to_string(),
         }
     }
+}
+
+/// Whether `lang` names a POSIX-shell dialect.
+fn is_shell(lang: &str) -> bool {
+    matches!(lang, "shell" | "bash" | "sh" | "zsh")
+}
+
+/// A CMDi match that is ordinary shell syntax in a shell script.
+///
+/// The metacharacter arms of the CWE-78 pattern (`; rm`, `| ncat`, `&& curl`)
+/// describe a payload smuggled INTO a command string from another language. In
+/// a shell script they are the script itself: `install.sh` downloading its
+/// signature with `&& curl -fSL …` failed F2.1 (cross-audit R2, 14/09/2026).
+/// The dynamic-exec arms (`os.system(f"…")`, `shell=True`, `exec(`${…}`)`)
+/// never start with a metacharacter and still count.
+fn is_shell_syntax_payload(source: &str, m: &VulnMatch) -> bool {
+    m.pattern_name == "CMDi"
+        && source
+            .get(m.span.0..m.span.1)
+            .is_some_and(|text| text.starts_with([';', '|', '&']))
 }
 
 impl Default for SecurityAnalyzer {

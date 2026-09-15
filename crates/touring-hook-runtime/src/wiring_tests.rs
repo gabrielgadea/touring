@@ -23,6 +23,25 @@ fn test_register_pub_symbol() {
 }
 
 // PLT-2026-06-02 — workspace_root filter validation.
+/// Cross-audit 14/09/2026 (R2-15): the cycle tests below insert rows by hand
+/// (they need rows the write gate refuses, such as absolute cross-tree paths).
+/// This one builds the cycle through the production writers, so a change to
+/// what they store is seen by cycle detection.
+#[test]
+fn a_cycle_written_through_the_production_writers_is_found() {
+    let (_tmp, db) = test_db();
+    for (module, symbol) in [("crates/a/src/one.rs", "One"), ("crates/a/src/two.rs", "Two")] {
+        db.register_pub_symbol(module, symbol, "struct", "public").unwrap();
+    }
+    db.record_consumer("crates/a/src/one.rs", "One", "crates/a/src/two.rs", None)
+        .unwrap();
+    db.record_consumer("crates/a/src/two.rs", "Two", "crates/a/src/one.rs", None)
+        .unwrap();
+
+    let cycles = find_all_cycles(&db, None, false, false);
+    assert_eq!(cycles.len(), 1, "{cycles:?}");
+}
+
 // Establishes that `find_all_cycles` can scope the wiring graph to a
 // single workspace and rejects cross-tree phantom edges (the source of
 // the konverter ↔ analise/kazuba false-positive 136-mod cycle).
@@ -250,21 +269,20 @@ fn test_private_symbols_not_orphaned() {
 fn test_update_wiring_after_edit() {
     let (_tmp, db) = test_db();
 
-    // Simulate a file with pub symbols being "read" (upserted)
+    // The edit path: producers from the file's content, consumers from its imports.
     use crate::knowledge::FileKnowledge;
-    let knowledge = FileKnowledge {
-            file_path: "src/tfidf.rs".into(),
-            language: Some("rust".into()),
-            symbols_json: Some(
-                r#"[{"name":"TfIdfVectorizer","kind":"struct","is_public":true},{"name":"internal_fn","kind":"function","is_public":false}]"#
-                    .into(),
-            ),
-            imports_json: Some(r#"["crate::metrics::CognitiveMetrics"]"#.into()),
-            ..Default::default()
-        };
-    db.upsert(&knowledge).unwrap();
-
-    // Run wiring update
+    db.upsert(&FileKnowledge {
+        file_path: "src/tfidf.rs".into(),
+        language: Some("rust".into()),
+        imports_json: Some(r#"["crate::metrics::CognitiveMetrics"]"#.into()),
+        ..Default::default()
+    })
+    .unwrap();
+    let content = "pub struct TfIdfVectorizer;\nfn internal_fn() {}\n";
+    assert_eq!(
+        refresh_file_producers(&db, "src/tfidf.rs", "rust", content),
+        Some(1)
+    );
     update_wiring_after_edit(&db, "src/tfidf.rs");
 
     // Verify: TfIdfVectorizer should be registered as orphan pub symbol
@@ -871,6 +889,63 @@ fn extract_direct_path_survives_multibyte_content() {
     assert!(paths.contains(&"crate::hook_registry::register".to_string()));
 }
 
+/// Cross-audit 14/09/2026: a path quoted in a comment, a doc comment, a string
+/// or a raw string is not a consumer. The `wiring.rs` comment
+/// `crate::shared::feature_flags::f()` wired a row to a symbol `f` that does not
+/// exist, and `touring doctor` reported `kind_unknown`.
+#[test]
+fn extract_direct_path_ignores_comments_and_literals() {
+    let src = r##"
+// crate::shared::feature_flags::f()
+/// crate::doc::only::Thing
+/* crate::block::comment::x() /* nested crate::n::m::k */ */
+let s = "crate::in::a::string";
+let r = r#"crate::in::raw::string"#;
+let c = '"'; crate::after::char_literal::works();
+fn f<'a>(x: &'a str) { crate::after::lifetime::works(x) }
+"##;
+    let paths = extract_direct_path_expressions(src);
+    let mut sorted = paths.clone();
+    sorted.sort();
+    assert_eq!(
+        sorted,
+        [
+            "crate::after::char_literal::works",
+            "crate::after::lifetime::works"
+        ],
+        "only code paths survive: {paths:?}"
+    );
+}
+
+/// Cross-audit 14/09/2026: `use super::super::real_engine;` two inline modules
+/// deep names an item of THIS file; resolved against the file's parents it wired
+/// `lib.rs::real_engine`, a symbol that does not exist. Supers beyond the inline
+/// depth still climb out of the file.
+#[test]
+fn extract_direct_path_discounts_supers_of_inline_modules() {
+    let src = "mod engine;
+mod tests {
+    mod inner {
+        use super::super::real_engine::scan;
+        fn t() { super::super::super::types::Entry::new(); }
+    }
+    fn u() { super::super::sibling::Kind::A; }
+}
+fn top() { super::outer::Thing::go(); }
+";
+    let mut paths = extract_direct_path_expressions(src);
+    paths.sort();
+    assert_eq!(
+        paths,
+        [
+            "super::outer::Thing::go",
+            "super::sibling::Kind::A",
+            "super::types::Entry::new",
+        ],
+        "{paths:?}"
+    );
+}
+
 #[test]
 fn extract_direct_path_dedupes_repeated_occurrences() {
     let src = "crate::lifecycle::handle_get(a);\n    crate::lifecycle::handle_get(b);\n";
@@ -1226,5 +1301,227 @@ fn directory_style_modules_resolve_like_file_style_ones() {
     assert!(
         db.orphan_symbols().unwrap().is_empty(),
         "submódulo em subdiretório tem de resolver"
+    );
+}
+
+/// Producer rows as the wiring map holds them: `(symbol_name, visibility)`.
+fn producer_rows(db: &FileKnowledgeDB, module_file: &str) -> Vec<(String, String)> {
+    let mut stmt = db
+        .conn_ref()
+        .prepare(
+            "SELECT symbol_name, visibility FROM wiring_map \
+             WHERE module_file = ?1 AND consumer_file IS NULL ORDER BY symbol_name",
+        )
+        .expect("prepare");
+    stmt.query_map([module_file], |r| Ok((r.get(0)?, r.get(1)?)))
+        .expect("query")
+        .collect::<Result<_, _>>()
+        .expect("rows")
+}
+
+/// 14/09/2026: `update_wiring_after_edit` cleared a file's producer rows and
+/// re-registered them from `symbols_json`, reading `name` and `is_public` —
+/// fields the stored JSON never carries (it holds `symbol_name`, `kind`,
+/// `is_definition`). Every edited file lost its producers: 10 of the 15 touring
+/// files with `pub` items edited after the last rebuild had none. The fixture is
+/// the schema production writes, not the one the old tests invented.
+#[test]
+fn an_edit_never_wipes_producers_it_cannot_rederive() {
+    use crate::knowledge::FileKnowledge;
+    let (_tmp, db) = test_db();
+    db.register_pub_symbol(
+        "src/flags.rs",
+        "rebuild_memory_hard_mb",
+        "function",
+        "public",
+    )
+    .unwrap();
+    db.upsert(&FileKnowledge {
+        file_path: "src/flags.rs".into(),
+        language: Some("rust".into()),
+        symbols_json: Some(
+            r#"[{"file_path":"src/flags.rs","symbol_name":"rebuild_memory_hard_mb","line":3,"column":0,"is_definition":true,"kind":"function"}]"#
+                .into(),
+        ),
+        imports_json: Some("[]".into()),
+        ..Default::default()
+    })
+    .unwrap();
+
+    update_wiring_after_edit(&db, "src/flags.rs");
+
+    assert_eq!(
+        producer_rows(&db, "src/flags.rs"),
+        [("rebuild_memory_hard_mb".to_string(), "public".to_string())]
+    );
+}
+
+#[test]
+fn producers_are_refreshed_from_the_content_with_their_real_visibility() {
+    let (_tmp, db) = test_db();
+    db.register_pub_symbol("src/flags.rs", "removed_fn", "function", "public")
+        .unwrap();
+    let content =
+        "pub fn kept() {}\npub(crate) fn internal() {}\nfn private() {}\npub struct Config;\n";
+
+    assert_eq!(
+        refresh_file_producers(&db, "src/flags.rs", "rust", content),
+        Some(3)
+    );
+
+    assert_eq!(
+        producer_rows(&db, "src/flags.rs"),
+        [
+            ("Config".to_string(), "public".to_string()),
+            ("internal".to_string(), "crate".to_string()),
+            ("kept".to_string(), "public".to_string()),
+        ],
+        "the removed symbol is gone, the private one never enters, pub(crate) stays crate"
+    );
+}
+
+/// Decision 1-A (14/09/2026): a companion file produces nothing on the edit path
+/// either — its residue is cleared and the refresh reports zero rows, never the
+/// count of rows the write gate then refused.
+#[test]
+fn a_companion_file_is_refreshed_to_no_producers() {
+    let (_tmp, db) = test_db();
+    let key = "@companion/skills/probe/src/lib.rs";
+    // Residue from before the gate: the write path refuses the key, so it is
+    // seeded directly (B10: the test used to start from an empty table and could
+    // not tell "cleared" from "never there").
+    db.conn_ref()
+        .execute(
+            "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+             VALUES (?1, 'stale', 'function', 'public', 'ast_declared')",
+            [key],
+        )
+        .unwrap();
+    assert_eq!(producer_rows(&db, key).len(), 1, "the residue is in place");
+    assert_eq!(
+        refresh_file_producers(&db, key, "rust", "pub fn api() {}\npub struct Probe;\n"),
+        Some(0)
+    );
+    assert!(
+        producer_rows(&db, key).is_empty(),
+        "no producer row under a companion key"
+    );
+}
+
+#[test]
+fn a_file_that_declares_no_api_keeps_its_producer_rows() {
+    let (_tmp, db) = test_db();
+    db.register_pub_symbol("src/flags.rs", "kept", "function", "public")
+        .unwrap();
+
+    assert_eq!(
+        refresh_file_producers(&db, "src/flags.rs", "markdown", "# kept\n"),
+        None
+    );
+    assert_eq!(
+        refresh_file_producers(&db, "src/flags.unknown", "rust", "pub fn x() {}"),
+        None
+    );
+
+    assert_eq!(
+        producer_rows(&db, "src/flags.rs"),
+        [("kept".to_string(), "public".to_string())]
+    );
+}
+
+/// Cross-audit 14/09/2026 (B3): a path the walker refuses gets no wiring from
+/// the lifecycle refresh, and a file inside the root is keyed by its relative
+/// path whichever spelling reached the hook.
+#[test]
+fn the_disk_refresh_obeys_the_walkers_admission_and_key() {
+    let (tmp, db) = test_db();
+    let root = tmp.path();
+    std::fs::create_dir_all(root.join(".venv/lib")).unwrap();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join(".venv/lib/vendored.rs"), "pub fn vendored() {}\n").unwrap();
+    std::fs::write(root.join("src/lib.rs"), "pub fn kept() {}\n").unwrap();
+    let outside = TempDir::new().unwrap();
+    std::fs::write(outside.path().join("elsewhere.rs"), "pub fn stray() {}\n").unwrap();
+
+    assert!(!refresh_file_wiring_from_disk(
+        &db,
+        root,
+        ".venv/lib/vendored.rs"
+    ));
+    assert!(!refresh_file_wiring_from_disk(
+        &db,
+        root,
+        &outside.path().join("elsewhere.rs").to_string_lossy()
+    ));
+    let absolute_inside = root.join("src/lib.rs");
+    assert!(refresh_file_wiring_from_disk(
+        &db,
+        root,
+        &absolute_inside.to_string_lossy()
+    ));
+
+    let keys: Vec<String> = db
+        .conn_ref()
+        .prepare("SELECT DISTINCT module_file FROM wiring_map ORDER BY module_file")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(
+        keys,
+        ["src/lib.rs"],
+        "one key, the walker's; nothing refused"
+    );
+}
+
+fn inferred_rows(db: &FileKnowledgeDB, consumer_file: &str) -> i64 {
+    db.conn_ref()
+        .query_row(
+            "SELECT COUNT(*) FROM wiring_map WHERE consumer_file = ?1 AND contract_source = 'ast_inferred'",
+            [consumer_file],
+            |r| r.get(0),
+        )
+        .expect("count")
+}
+
+/// Cross-audit 14/09/2026 (B1/B2): the read, file-changed and task-output paths
+/// cleared every consumer row of a file and re-recorded only `use` imports, so the
+/// inferred edges of the rebuild vanished until the next rebuild. The one refresh
+/// re-derives them — and drops the edge of a call the file no longer makes.
+#[test]
+fn a_refresh_rederives_inferred_edges_instead_of_dropping_them() {
+    let (_tmp, db) = test_db();
+    db.register_pub_symbol(
+        "crates/a/src/util.rs",
+        "compute_total",
+        "function",
+        "public",
+    )
+    .unwrap();
+    db.register_pub_symbol("crates/a/src/types.rs", "Invoice", "struct", "public")
+        .unwrap();
+    let consumer = "crates/b/src/main.rs";
+    let calls = "fn main() {\n    let x: Invoice = compute_total(1);\n}\n";
+
+    refresh_file_wiring(&db, consumer, "rust", calls);
+    let first = inferred_rows(&db, consumer);
+    assert!(
+        first >= 1,
+        "the bare call and the type position are inferred edges"
+    );
+
+    refresh_file_wiring(&db, consumer, "rust", calls);
+    assert_eq!(
+        inferred_rows(&db, consumer),
+        first,
+        "a second refresh is idempotent"
+    );
+
+    refresh_file_wiring(&db, consumer, "rust", "fn main() {}\n");
+    assert_eq!(
+        inferred_rows(&db, consumer),
+        0,
+        "the edges of calls the file no longer makes are dropped"
     );
 }

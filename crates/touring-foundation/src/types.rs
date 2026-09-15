@@ -538,8 +538,62 @@ pub fn truncate_str(s: &str, max_bytes: usize) -> &str {
 /// resolver arms that never learned each other's lesson.
 ///
 /// One constant removes the possibility rather than re-synchronising the two
-/// values. [`heavy_op_budget_is_never_below_the_client_floor`] holds the line.
+/// values. The client waits a margin past it ([`HEAVY_OP_CLIENT_FLOOR_SECS`]);
+/// `the_client_outwaits_the_heavy_budget_and_every_wait_before_it` holds the line.
 pub const HEAVY_OP_BUDGET_SECS: u64 = 1800;
+
+/// How long the CLIENT waits on a heavy call: [`HEAVY_OP_BUDGET_SECS`] plus the
+/// time a request may spend before its budget starts (global slot, project slot
+/// and channel send, 5 s each) and a margin for the reply to cross the socket.
+///
+/// Cross-audit 14/09/2026 (A3): the floor used to EQUAL the budget and start
+/// earlier, so the socket read gave up first and the typed `budget_exceeded`
+/// reply — the one that says the work is still running — never arrived.
+pub const HEAVY_OP_CLIENT_FLOOR_SECS: u64 = HEAVY_OP_BUDGET_SECS + 60;
+
+/// Hooks classified as "heavy" operations.
+/// Heavy hooks receive a much larger handler-execution budget
+/// (`dispatch_request_async` in touring-dispatch) because they legitimately run for tens of
+/// seconds (tantivy reindex of 1M+ symbols, full index rebuild, blast radius
+/// over large files). Without this flag, the light-path 15s budget fires
+/// prematurely and the client sees a spurious failure even though the actor
+/// continues working.
+///
+/// Shared with the CLIENT (cross-audit 14/09/2026, A3): `daemon_query` waits
+/// [`HEAVY_OP_CLIENT_FLOOR_SECS`] for exactly these hooks, so the budget the server
+/// grants and the time the client listens come from one list.
+pub fn is_heavy_hook(hook_name: &str) -> bool {
+    matches!(
+        hook_name,
+        "cli-index-rebuild"
+            | "cli-ast-blast"
+            | "cli-ast-blast-cross-feature"
+            | "cli-mcts-search"
+            | "cli-session-start"
+            | "cli-session-assess"
+            | "cli-tantivy-reindex"
+            | "cli-wiring-chains"
+            | "cli-wiring-audit"
+            | "cli-e2e"
+            // cargo-mutants over one crate is ~19 min measured (134 mutants,
+            // touring-identity, mutants profile). Under the light 15s budget
+            // every real run died in transport — the KPI could only ever see
+            // a cache_miss (rodada 4, 2026-08-20; fixed 2026-08-28).
+            | "cli-mutation-test"
+            // Backfilling ~1,000 missing 768-dim embeddings legitimately runs
+            // for tens of seconds; under the light budget the client gave up
+            // at 15s while the actor kept working (observed 29/08/2026 during
+            // the ANN p50 7.86s→596µs remediation).
+            | "cli-memory-reindex"
+            // Predictive blast over the whole workspace, the same work as
+            // `cli-ast-blast`. Under a saturated CPU (a clean workspace test
+            // build) it passed the light 15 s budget and the client got a
+            // failure while the actor kept working (14/09/2026). The client's
+            // `--timeout` does not reach this budget: it only sets the socket
+            // read timeout.
+            | "cli-pre-task-scout"
+    )
+}
 
 #[cfg(test)]
 mod tests_truncate {

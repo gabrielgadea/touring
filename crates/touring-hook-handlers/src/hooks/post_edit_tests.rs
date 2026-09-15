@@ -451,15 +451,13 @@ fn test_reindex_file_updates_wiring_map() {
     let knowledge = crate::knowledge::FileKnowledge {
         file_path: "src/analyzer.rs".into(),
         language: Some("rust".into()),
-        symbols_json: Some(
-            r#"[{"name":"Analyzer","kind":"struct","is_public":true},
-                    {"name":"helper","kind":"function","is_public":false}]"#
-                .into(),
-        ),
+        symbols_json: None,
         imports_json: Some(r#"["crate::core::Config"]"#.into()),
         ..Default::default()
     };
     db.upsert(&knowledge).unwrap();
+    let content = "pub struct Analyzer;\nfn helper() {}\n";
+    crate::wiring::refresh_file_producers(&db, "src/analyzer.rs", "rust", content);
     crate::wiring::update_wiring_after_edit(&db, "src/analyzer.rs");
     let status = db.module_wiring_status("src/analyzer.rs").unwrap();
     assert_eq!(status.total_pub_symbols, 1, "only 1 pub symbol");

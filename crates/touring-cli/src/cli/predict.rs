@@ -253,8 +253,14 @@ mod predict_feature_tests {
             cargo, python,
             "a cargo command and a python command must not share a bucket"
         );
-        assert_ne!(cargo, ls, "a cargo command and `ls` must not share a bucket");
-        assert_ne!(python, ls, "a python command and `ls` must not share a bucket");
+        assert_ne!(
+            cargo, ls,
+            "a cargo command and `ls` must not share a bucket"
+        );
+        assert_ne!(
+            python, ls,
+            "a python command and `ls` must not share a bucket"
+        );
     }
 
     /// The envelope shape — the exact defect — must produce the degenerate case.
@@ -265,7 +271,8 @@ mod predict_feature_tests {
     #[test]
     fn the_double_wrapped_envelope_is_what_collapses_the_classes() {
         let enveloped = |cmd: &str| -> ActionFeatures {
-            let input = serde_json::json!({ "tool_name": "Bash", "tool_input": { "command": cmd } });
+            let input =
+                serde_json::json!({ "tool_name": "Bash", "tool_input": { "command": cmd } });
             ActionFeatures::from_signature(&ActionSignature::from_pre_tool(
                 "Bash", &input, None, 0, None, None,
             ))

@@ -216,7 +216,16 @@ fn main() {
     let project_root = HookRuntime::detect_project_root();
 
     // Initialize HookRuntime (shared state: SQLite, classifier, PII scanner)
-    #[allow(unused_mut)] // mut needed only when session-hooks feature is enabled
+    // `&mut runtime` is taken only by feature-gated arms (pre/post/session hooks):
+    // the allow applies exactly when none of them is compiled in.
+    #[cfg_attr(
+        not(any(
+            feature = "pre-hooks",
+            feature = "post-hooks",
+            feature = "session-hooks"
+        )),
+        allow(unused_mut)
+    )]
     let mut runtime = match HookRuntime::new(&project_root) {
         Ok(rt) => rt,
         Err(e) => {
@@ -343,6 +352,7 @@ fn main() {
         // Utility subcommands
         "classify" => run_classify(&runtime, &input),
         "pii-scan" => run_pii_scan(&runtime, &input),
+        #[cfg(feature = "utilities")]
         "session-audit" => run_session_audit(&input),
         "metrics" => run_metrics(&runtime),
         #[cfg(feature = "session-hooks")]
@@ -476,7 +486,9 @@ fn run_pii_scan(
     Ok(())
 }
 
-/// Session audit — hash CLAUDE.md and .claude/rules/ and report drift.
+/// Session audit — hash CLAUDE.md and .claude/rules/ and report drift. Gated
+/// like `touring_hooks_core::audit`, the module it drives.
+#[cfg(feature = "utilities")]
 fn run_session_audit(
     input: &Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
@@ -890,7 +902,6 @@ fn cleanup_orphan_daemon_state() {
 
 unsafe extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
-    fn setsid() -> i32;
 }
 
 #[inline]
@@ -964,53 +975,52 @@ fn try_autostart_daemon() {
         .or(sibling)
         .unwrap_or_else(|| std::path::PathBuf::from("touring-daemon"));
 
-    // Daemon lifetime fix (2026-07-01) — mirrors touring-server
-    // `cli/daemon_ctl.rs::spawn_daemon`; keep both call-sites in sync (C08).
-    // The old comment here PROMISED detachment but no code implemented it:
-    // the daemon inherited the spawner's process group/session and could die
-    // with the invoking Claude Code session's cleanup (observed 2026-07-01 —
-    // alive at session end, Connection refused when the next session began).
-    // setsid(2) gives it a fresh session; stdout/stderr append to
-    // ~/.claude/touring/daemon.stderr.log so daemon tracing + exit markers
-    // stop being discarded.
-    let (stdout_io, stderr_io) = daemon_spawn_log_stdio();
-    let mut cmd = std::process::Command::new(daemon_bin);
-    cmd.env("TOURING_DAEMON_SOCKET", &socket_path)
-        .stdin(std::process::Stdio::null())
-        .stdout(stdout_io)
-        .stderr(stderr_io);
+    // Daemon lifetime fix (2026-07-01): the old comment here PROMISED
+    // detachment but no code implemented it — the daemon inherited the
+    // spawner's process group/session and could die with the invoking Claude
+    // Code session's cleanup (alive at session end, Connection refused when the
+    // next session began). Stdout/stderr append to
+    // ~/.claude/touring/daemon.stderr.log so daemon tracing + exit markers stop
+    // being discarded.
     // PILOT finding (2026-07-25, 3rd spawn-site): a per-project daemon must
     // resolve ITS OWN root — derived from the socket, never inherited from
     // the invoker's env. Mirrors daemon_ctl::project_root_for_socket (C08:
     // keep all spawn sites in sync). Without this, a hook running with a
     // foreign CLAUDE_PROJECT_DIR/TOURING_PROJECT_ROOT would seed the wrong
     // data root (cross-contamination).
-    if let Some(root) = socket_path
+    let project_root = socket_path
         .parent()
         .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
         .and_then(|d| d.parent())
-    {
-        cmd.env("CLAUDE_PROJECT_DIR", root);
-        cmd.env("TOURING_PROJECT_ROOT", root);
-        // C08 — mirrors daemon_ctl::spawn_daemon_with_bin: `TOURING_WORKSPACE_ROOT`
-        // is NOT pinned, because it names the touring source tree (asset
-        // lookups), not this daemon's project. See the long note there.
-        cmd.current_dir(root);
-    }
-    // SAFETY: pre_exec runs in the forked child before exec; setsid(2) is
-    // async-signal-safe and cannot fail with EPERM there — the freshly forked
-    // child is never a process-group leader.
-    unsafe {
-        use std::os::unix::process::CommandExt;
-        cmd.pre_exec(|| {
-            // Direct syscall, no memory access; covered by the SAFETY note above.
-            if setsid() == -1 {
-                return Err(std::io::Error::last_os_error());
+        .map(std::path::Path::to_path_buf);
+    // Session (setsid) AND cgroup (decision 2-A, 14/09/2026): a hook run by a
+    // oneshot systemd service used to start a daemon inside that service's
+    // cgroup, and the service's end killed it. The launcher is shared with
+    // `daemon_ctl::spawn_daemon_with_bin`, so the detachment has one copy.
+    let description = format!("touring-daemon {}", socket_path.display());
+    // A hook answers the harness: a slow user manager may hold it a quarter
+    // second, not the 2 s the operator's `daemon-ctl` accepts (C8).
+    let _ = touring_foundation::daemon_spawn::spawn_daemon_detached_within(
+        &daemon_bin,
+        &description,
+        std::time::Duration::from_millis(250),
+        &|cmd| {
+            let (stdout_io, stderr_io) = daemon_spawn_log_stdio();
+            cmd.env("TOURING_DAEMON_SOCKET", &socket_path)
+                .stdin(std::process::Stdio::null())
+                .stdout(stdout_io)
+                .stderr(stderr_io);
+            if let Some(root) = &project_root {
+                cmd.env("CLAUDE_PROJECT_DIR", root);
+                cmd.env("TOURING_PROJECT_ROOT", root);
+                // C08 — mirrors daemon_ctl::spawn_daemon_with_bin:
+                // `TOURING_WORKSPACE_ROOT` is NOT pinned, because it names the
+                // touring source tree (asset lookups), not this daemon's project.
+                // See the long note there.
+                cmd.current_dir(root);
             }
-            Ok(())
-        });
-    }
-    let _ = cmd.spawn();
+        },
+    );
 }
 
 /// Append-mode logfile stdio for the spawned daemon, prefixed with a

@@ -475,8 +475,14 @@ fn failure_kind_timeout_is_not_exception() {
         cwd: None,
     };
     let out = run_ctx(input);
-    let f = out.failure.expect("timeout must carry a structured failure");
-    assert_eq!(f.kind, RunFailureKind::Timeout, "a budget expiry is not an exception");
+    let f = out
+        .failure
+        .expect("timeout must carry a structured failure");
+    assert_eq!(
+        f.kind,
+        RunFailureKind::Timeout,
+        "a budget expiry is not an exception"
+    );
     assert_eq!(f.phase, RunPhase::Execute);
     assert!(!f.message.is_empty(), "message must teach the correction");
 }
@@ -527,8 +533,13 @@ fn spill_locator_present_when_inline_view_truncated() {
     let out = run_ctx(input);
     assert_eq!(out.exit_code, 0);
     assert!(out.stdout_truncated, "inline view must be truncated");
-    assert!(out.stdout.contains("bytes elided"), "head/tail marker present");
-    let path = out.stored_path.expect("locator must point at the full bytes");
+    assert!(
+        out.stdout.contains("bytes elided"),
+        "head/tail marker present"
+    );
+    let path = out
+        .stored_path
+        .expect("locator must point at the full bytes");
     assert!(std::path::Path::new(&path).exists(), "stored file exists");
     let hint = out.retrieval_hint.expect("hint teaches how to read it");
     assert!(hint.contains(&path), "hint names the real path");

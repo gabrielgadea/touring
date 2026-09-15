@@ -133,9 +133,7 @@ fn parse_snapshot_from_source(source: &str) -> DriftReport {
             files_removed: 0,
         };
     }
-    detect_drift(
-        nums[0], nums[1], nums[2], nums[3], nums[4], nums[5],
-    )
+    detect_drift(nums[0], nums[1], nums[2], nums[3], nums[4], nums[5])
 }
 
 #[cfg(test)]

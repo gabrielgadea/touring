@@ -67,7 +67,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
         if failed > 0 {
-            anyhow::bail!("kpi check: {failed} commitment(s) below threshold — run `touring status -j` to diagnose");
+            anyhow::bail!(
+                "kpi check: {failed} commitment(s) below threshold — run `touring status -j` to diagnose"
+            );
         }
     }
 

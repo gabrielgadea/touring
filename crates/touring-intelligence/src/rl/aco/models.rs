@@ -193,19 +193,6 @@ impl SuccessCriterion {
     }
 }
 
-/// Impact analysis across system boundaries.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SystemicImpact {
-    /// Components the change depends on or affects upstream.
-    pub upstream: Vec<String>,
-    /// Components affected downstream by the change.
-    pub downstream: Vec<String>,
-    /// Peer components affected laterally.
-    pub lateral: Vec<String>,
-    /// Future capabilities the change enables.
-    pub future_enablement: Vec<String>,
-}
-
 // --- N1: Generator Contracts ---
 
 /// Triad of scripts produced by a generator.
@@ -304,40 +291,6 @@ pub struct GeneratorGraphModel {
 }
 
 // --- N2: Goal Tracking ---
-
-/// Score for one of the 9 quality dimensions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DimensionScore {
-    /// Name of the quality dimension.
-    pub name: String,
-    /// Aggregate score for the dimension.
-    pub score: f64,
-    /// Breakdown of contributing sub-scores by name.
-    pub sub_scores: HashMap<String, f64>,
-    /// Minimum acceptable score for the dimension.
-    pub threshold: f64,
-    /// Drift classification relative to the threshold.
-    pub drift_level: DriftLevel,
-}
-
-/// Snapshot of goal tracking state.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GoalTrackerState {
-    /// Stable hash identifying the objective.
-    pub objective_hash: String,
-    /// Current orchestration phase.
-    pub phase: String,
-    /// Per-dimension quality scores.
-    pub dimension_scores: Vec<DimensionScore>,
-    /// Aggregate score across all dimensions.
-    pub overall_score: f64,
-    /// Overall drift classification.
-    pub drift_level: DriftLevel,
-    /// Diagnostic messages accumulated so far.
-    pub messages: Vec<String>,
-    /// Current iteration count.
-    pub iteration: u32,
-}
 
 // --- N3: Evolution & Learning ---
 

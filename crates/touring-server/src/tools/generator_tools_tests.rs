@@ -163,11 +163,17 @@ fn suggest_skeleton_deserializes_as_generator_plan() {
 #[test]
 fn consumer_plan_deserializes_as_generator_plan() {
     let v = build_consumer_plan("crates/x/src/lib.rs", "orphan_sym", "function", 3);
-    let plan: GeneratorPlan =
-        serde_json::from_value(v).expect("o plan do consumer-wiring DEVE parsear como GeneratorPlan");
+    let plan: GeneratorPlan = serde_json::from_value(v)
+        .expect("o plan do consumer-wiring DEVE parsear como GeneratorPlan");
     assert_eq!(plan.kind, GeneratorKind::ConsumerGenerator);
     assert_eq!(plan.contracts.symbols_must_exist.len(), 1);
-    assert_eq!(plan.contracts.files_must_exist, vec!["crates/x/src/lib.rs".to_owned()]);
+    assert_eq!(
+        plan.contracts.files_must_exist,
+        vec!["crates/x/src/lib.rs".to_owned()]
+    );
     assert!(plan.metadata.tags.contains(&"orphan_sym".to_owned()));
-    assert!(!plan.plan_id.is_nil(), "consumer plan carrega id único, não o placeholder");
+    assert!(
+        !plan.plan_id.is_nil(),
+        "consumer plan carrega id único, não o placeholder"
+    );
 }

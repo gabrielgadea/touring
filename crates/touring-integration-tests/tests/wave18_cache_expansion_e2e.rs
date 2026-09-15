@@ -37,7 +37,6 @@ use touring_hooks::shared::query_cache;
 mod private_daemon;
 use private_daemon::private_daemon_env;
 
-
 /// The product binary: prefer `release` when it exists, else `debug`.
 ///
 /// Release-only resolution made this file's tests pass on a developer box (where
@@ -68,9 +67,10 @@ fn binary_available() -> bool {
 fn axis1_invalidate_removes_matching_entries() {
     let target = "/wave18e2e/axis1_target.rs";
     let other = "/wave18e2e/axis1_other.rs";
-    let key_a = query_cache::make_key("cli_ast_meta", &format!("{target}|skeleton"));
-    let key_b = query_cache::make_key("cli_ast_blast", target);
-    let key_c = query_cache::make_key("cli_ast_meta", &format!("{other}|skeleton"));
+    let scope = std::path::Path::new("/wave18");
+    let key_a = query_cache::make_key(scope, "cli_ast_meta", &format!("{target}|skeleton"));
+    let key_b = query_cache::make_key(scope, "cli_ast_blast", target);
+    let key_c = query_cache::make_key(scope, "cli_ast_meta", &format!("{other}|skeleton"));
 
     query_cache::put(key_a.clone(), "a".to_string());
     query_cache::put(key_b.clone(), "b".to_string());
@@ -91,7 +91,11 @@ fn axis1_invalidate_removes_matching_entries() {
 #[test]
 fn axis2_invalidate_counter_advances() {
     let path = "/wave18e2e/axis2.rs";
-    let key = query_cache::make_key("cli_ast_meta", &format!("{path}|skeleton"));
+    let key = query_cache::make_key(
+        std::path::Path::new("/wave18"),
+        "cli_ast_meta",
+        &format!("{path}|skeleton"),
+    );
     query_cache::put(key, "v".to_string());
 
     let before = global()
@@ -137,7 +141,8 @@ fn axis5_subprocess_ast_meta_benefits_from_cache() {
 
     let mut outputs = Vec::with_capacity(3);
     for _ in 0..3 {
-        let out = Command::new(touring_bin()).envs(private_daemon_env())
+        let out = Command::new(touring_bin())
+            .envs(private_daemon_env())
             .args(["ast", "meta", path, "--depth", "skeleton", "-j"])
             .output()
             .expect("spawn touring");
@@ -165,7 +170,8 @@ fn axis6_subprocess_ast_blast_benefits_from_cache() {
     let path = "crates/touring-hooks/src/lib.rs";
     let mut outputs = Vec::with_capacity(2);
     for _ in 0..2 {
-        let out = Command::new(touring_bin()).envs(private_daemon_env())
+        let out = Command::new(touring_bin())
+            .envs(private_daemon_env())
             .args(["ast", "blast", path, "-j"])
             .output()
             .expect("spawn");
@@ -190,7 +196,8 @@ fn axis7_cache_hit_ratio_advances() {
     // process's `global()` is a separate instance. We must query the
     // daemon's counters via CLI (`touring gate-metrics -j`).
     fn read_daemon_hits() -> u64 {
-        let out = Command::new(touring_bin()).envs(private_daemon_env())
+        let out = Command::new(touring_bin())
+            .envs(private_daemon_env())
             .args(["gate-metrics", "-j"])
             .output()
             .expect("spawn gate-metrics");
@@ -200,7 +207,8 @@ fn axis7_cache_hit_ratio_advances() {
 
     let hits_before = read_daemon_hits();
     for _ in 0..3 {
-        let _ = Command::new(touring_bin()).envs(private_daemon_env())
+        let _ = Command::new(touring_bin())
+            .envs(private_daemon_env())
             .args(["index", "find", "GateMetrics"])
             .output();
     }
@@ -220,7 +228,8 @@ fn axis8_gate_metrics_cli_shows_invalidate_counter() {
         eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(touring_bin()).envs(private_daemon_env())
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["gate-metrics", "-j"])
         .output()
         .expect("spawn");

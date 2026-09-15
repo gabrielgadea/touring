@@ -301,7 +301,7 @@ fn test_pre_edit_no_context_for_isolated_file() {
     let ctx = touring_hooks::pre_edit::compose_edit_context(None, &db, "isolated.py");
     assert!(
         ctx.is_none(),
-        "File with no dependents/notes/failures should produce no context"
+        "File with no dependents/notes/failures should produce no context: {ctx:?}"
     );
 }
 

@@ -39,7 +39,9 @@ static EDIT_DEDUP: OnceLock<MetadataDedup> = OnceLock::new();
 /// Flush the post_edit dedup cache at session boundaries.
 ///
 /// Called from `run_session_stop` to drain stale mtime entries so the next
-/// session starts with a clean dedup state (no false-positive skips).
+/// session starts with a clean dedup state (no false-positive skips). Its only
+/// caller lives in `session_hooks`, so it exists under the same feature.
+#[cfg(feature = "session-hooks")]
 pub(crate) fn flush_dedup() {
     if let Some(dedup) = EDIT_DEDUP.get() {
         dedup.clear();
@@ -371,7 +373,10 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
             .learning
             .inject_reward("post_edit", reward_val, "wave5_v6_rust_workflow");
     }
-    crate::shared::query_cache::invalidate_by_path(file_path);
+    // By the RELATIVE path: `ast meta` keys it relative, `ast overview` keys what
+    // the caller sent (often absolute) — the absolute path contains the relative
+    // one, the reverse is false, so only this form reaches both.
+    crate::shared::query_cache::invalidate_by_path(&rel_path);
     if let Some(src) = file_content.as_deref()
         && let Some(delta) = crate::health_delta::compute_signals_delta(file_path, src)
     {
@@ -630,16 +635,20 @@ fn phase1_tracking(
                 let _ = adb.record_edit(&edit).await;
             }));
         }
+        // The file document is stored under the index key — project-relative or
+        // `@companion/<name>/<rel>` — and never for a path the walker refuses: a
+        // raw `make_relative` spelling left absolute-path documents no rebuild
+        // could retire (2026-09-13).
         #[cfg(feature = "tantivy-fts")]
-        {
+        if let Ok(key) = crate::shared::reindex::admission_refusal(runtime, rel_path) {
             let doc = crate::tantivy_index::SymbolDoc {
-                symbol_name: rel_path.to_string(),
-                file_path: rel_path.to_string(),
+                symbol_name: key.clone(),
+                file_path: key.clone(),
                 symbol_kind: "file".to_string(),
                 module_path: None,
                 docstring: None,
                 line_number: 0,
-                language: crate::tantivy_index::extension_to_language(rel_path),
+                language: crate::tantivy_index::extension_to_language(&key),
                 visibility: None,
                 crate_name: None,
                 blake3_hash: None,
@@ -659,7 +668,7 @@ fn phase1_tracking(
                 crate::tantivy_index::tantivy_for(Some(&runtime.project_root))
                 && let Err(e) = tantivy_idx.upsert_symbol(&doc)
             {
-                tracing::debug!("tantivy upsert failed for {rel_path}: {e}");
+                tracing::debug!("tantivy upsert failed for {key}: {e}");
             }
         }
     }

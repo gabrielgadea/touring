@@ -48,7 +48,12 @@ pub fn changed_callees(old: &str, new: &str) -> Vec<String> {
 /// `lookup` receives one callee name and returns the `(file, line)` of every
 /// CALL SITE the index knows for it; sites inside `rel_path` itself are
 /// discarded (the edit is happening there). Never called when no call changed.
-pub fn cross_caller_signals<F>(rel_path: &str, old: &str, new: &str, mut lookup: F) -> Vec<(f32, String)>
+pub fn cross_caller_signals<F>(
+    rel_path: &str,
+    old: &str,
+    new: &str,
+    mut lookup: F,
+) -> Vec<(f32, String)>
 where
     F: FnMut(&str) -> Vec<(String, usize)>,
 {
@@ -104,15 +109,25 @@ fn plural(n: usize) -> &'static str {
 
 /// Words that precede `(` without being a call.
 const NOT_A_CALLEE: &[&str] = &[
-    "if", "while", "for", "match", "return", "loop", "switch", "catch", "elif", "else", "in",
-    "as", "use", "let", "mut", "await", "yield", "typeof", "not", "and", "or", "assert",
-    "raise", "except", "with", "unsafe", "where", "impl", "pub", "const", "static",
+    "if", "while", "for", "match", "return", "loop", "switch", "catch", "elif", "else", "in", "as",
+    "use", "let", "mut", "await", "yield", "typeof", "not", "and", "or", "assert", "raise",
+    "except", "with", "unsafe", "where", "impl", "pub", "const", "static",
 ];
 
 /// Keywords whose FOLLOWING identifier is a declaration, not a call.
 const DECLARING: &[&str] = &[
-    "fn", "def", "function", "class", "struct", "impl", "trait", "enum", "interface", "type",
-    "macro_rules", "mod",
+    "fn",
+    "def",
+    "function",
+    "class",
+    "struct",
+    "impl",
+    "trait",
+    "enum",
+    "interface",
+    "type",
+    "macro_rules",
+    "mod",
 ];
 
 /// `callee → { call expressions }` for `text`, whitespace removed inside each
@@ -139,7 +154,10 @@ fn call_expressions(text: &str) -> BTreeMap<String, BTreeSet<String>> {
             && !NOT_A_CALLEE.contains(&word)
             && !prev_word.is_some_and(|p| DECLARING.contains(&p));
         if is_call && let Some(end) = matching_paren(bytes, i) {
-            let expr: String = text[start..=end].chars().filter(|c| !c.is_whitespace()).collect();
+            let expr: String = text[start..=end]
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect();
             out.entry(word.to_string()).or_default().insert(expr);
         }
         prev_word = Some(word);
@@ -235,27 +253,50 @@ mod tests {
         assert!((*score - CROSS_CALLER_SCORE).abs() < f32::EPSILON);
         assert!(text.starts_with("[C08] `total`"), "{text}");
         assert!(text.contains("3 other call sites in 2 files"), "{text}");
-        assert!(text.contains("crates/a/src/report.rs:12") && text.contains("crates/b/src/summary.rs:7"), "{text}");
+        assert!(
+            text.contains("crates/a/src/report.rs:12")
+                && text.contains("crates/b/src/summary.rs:7"),
+            "{text}"
+        );
     }
 
     #[test]
     fn silent_for_unchanged_calls_and_for_sites_only_in_the_edited_file() {
-        let never = |name: &str| -> Vec<(String, usize)> { panic!("no call changed, got lookup for {name}") };
+        let never = |name: &str| -> Vec<(String, usize)> {
+            panic!("no call changed, got lookup for {name}")
+        };
         assert!(cross_caller_signals("src/x.rs", "total(a, b)", "total(a, b)", never).is_empty());
-        assert!(cross_caller_signals("src/x.rs", "fn total(a: u8) {}", "fn total(a: u8, b: u8) {}", never).is_empty());
+        assert!(
+            cross_caller_signals(
+                "src/x.rs",
+                "fn total(a: u8) {}",
+                "fn total(a: u8, b: u8) {}",
+                never
+            )
+            .is_empty()
+        );
 
         let seen: RefCell<Vec<String>> = RefCell::new(Vec::new());
-        let signals = cross_caller_signals("crates/a/src/report.rs", "total(a)", "total(a, b)", |name| {
-            seen.borrow_mut().push(name.to_string());
-            vec![("crates/a/src/report.rs".to_string(), 30)]
-        });
-        assert!(signals.is_empty(), "sites in the edited file are the edit itself: {signals:?}");
+        let signals = cross_caller_signals(
+            "crates/a/src/report.rs",
+            "total(a)",
+            "total(a, b)",
+            |name| {
+                seen.borrow_mut().push(name.to_string());
+                vec![("crates/a/src/report.rs".to_string(), 30)]
+            },
+        );
+        assert!(
+            signals.is_empty(),
+            "sites in the edited file are the edit itself: {signals:?}"
+        );
         assert_eq!(*seen.borrow(), vec!["total".to_string()]);
     }
 
     #[test]
     fn layer_emits_only_for_a_proposed_edit() {
-        let layer = CrossCallerLayer::for_edit("src/x.rs", "total(a)", "total(a, b)", sites_of_total);
+        let layer =
+            CrossCallerLayer::for_edit("src/x.rs", "total(a)", "total(a, b)", sites_of_total);
         assert!(!layer.is_empty());
         assert_eq!(layer.name(), "cross_caller");
         let edit_ctx = SignalContext::new("src/x.rs", "")
@@ -269,7 +310,9 @@ mod tests {
         let write_ctx = SignalContext::new("src/x.rs", "")
             .with_hook("pre_write")
             .with_tool_name("Write")
-            .with_proposed(ProposedChange::Write { content: "total(a, b)" });
+            .with_proposed(ProposedChange::Write {
+                content: "total(a, b)",
+            });
         assert!(layer.enrich(&write_ctx).is_empty());
     }
 }

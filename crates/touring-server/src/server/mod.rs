@@ -112,7 +112,11 @@ fn is_curated(name: &str) -> bool {
 /// memory. Every other registered tool stays invocable by NAME via
 /// `tools/call`; only the handshake advertisement shrinks (progressive
 /// disclosure at its floor — 3 tools ≈ the −99.9% shape of the pattern).
-const CODE_MODE_TOOLS: &[&str] = &["touring_search", "touring_ctx_execute", "touring_memory_recall"];
+const CODE_MODE_TOOLS: &[&str] = &[
+    "touring_search",
+    "touring_ctx_execute",
+    "touring_memory_recall",
+];
 
 /// Whether the code-first façade applies, given the scope's declaration.
 ///
@@ -360,6 +364,13 @@ fn init_memory_store(
     Some(Arc::new(Mutex::new(store)))
 }
 
+/// The database of the persisted learning state (Wilson, drift, QTable, LinUCB)
+/// and of the hook events it learns from: the project's consolidated graph.db.
+/// One path for the loader and the learning loop.
+fn learning_db_path(project_root: &std::path::Path) -> std::path::PathBuf {
+    TouringConfig::graph_db_canonical(project_root)
+}
+
 /// Load persisted learning state (WilsonRanker, DriftDetector, QTable).
 fn init_learning_state(
     db_path: &std::path::Path,
@@ -587,7 +598,7 @@ impl TouringServer {
         let session_manager = Arc::new(Mutex::new(SessionManager::new()));
 
         // Phase 6: Persisted learning state (consolidated graph.db)
-        let graph_db = TouringConfig::graph_db_canonical(&config.project_root);
+        let graph_db = learning_db_path(&config.project_root);
         let (ranker_inner, drift_inner) = init_learning_state(&graph_db, &mut qtable_inner);
         let qtable = Arc::new(Mutex::new(qtable_inner));
         let ranker = Arc::new(Mutex::new(ranker_inner));
@@ -1145,6 +1156,13 @@ impl TouringServer {
             let online_rl_bg = Arc::clone(&self.online_rl);
             let interval_s = self.config.evolution_interval_s;
             let db_path = self.config.rlm_db_path.clone();
+            // Learning state and the hook events it learns from live in graph.db,
+            // where `init_learning_state` created and loaded them. This loop used
+            // the RLM memory path for them: the events query found no table and
+            // returned nothing, and every tick failed to save the QTable ("no such
+            // table: learning_qtable") — auto_learn never learned (cross-audit
+            // 14/09/2026, R2-10).
+            let learning_db = learning_db_path(&self.config.project_root);
 
             tokio::spawn(async move {
                 let mut ticker = tokio::time::interval(std::time::Duration::from_secs(interval_s));
@@ -1168,7 +1186,7 @@ impl TouringServer {
                     let mut ranker_tick = WilsonRanker::new();
                     let mut drift_tick = DriftDetector::new();
                     {
-                        let p = LearningPersistence::new(&db_path);
+                        let p = LearningPersistence::new(&learning_db);
                         let _ = p.load_wilson(&mut ranker_tick);
                         let _ = p.load_drift(&mut drift_tick);
                     }
@@ -1197,7 +1215,7 @@ impl TouringServer {
                     }
 
                     // Auto-learn: feed recent hook events into QTable (Bellman updates)
-                    let persistence = LearningPersistence::new(&db_path);
+                    let persistence = LearningPersistence::new(&learning_db);
                     // P0-1: Use tracked last_processed_id instead of 0
                     let events = persistence.load_hook_events_since(last_processed_id, 200);
                     if !events.is_empty() {
@@ -1714,3 +1732,29 @@ mod risk_scoring_rl_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod learning_db_tests {
+    /// Cross-audit 14/09/2026 (R2-10): the learning loop wrote the QTable to the
+    /// RLM memory database while the loader created and read it in graph.db, so
+    /// every save failed and no event was ever learned from. The loop and the
+    /// loader name the same path.
+    #[test]
+    fn the_learning_loop_persists_where_the_loader_reads() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let db = super::learning_db_path(tmp.path());
+        std::fs::create_dir_all(db.parent().expect("parent")).expect("mkdir");
+        let mut qtable = super::QTable::new();
+        let _ = super::init_learning_state(&db, &mut qtable);
+        super::LearningPersistence::new(&db)
+            .save_qtable(&qtable)
+            .expect("the loop saves into the database the loader prepared");
+
+        let source = include_str!("mod.rs");
+        assert!(
+            !source.contains(concat!("LearningPersistence::new(", "&db_path)")),
+            "learning state never goes through the RLM memory path"
+        );
+    }
+}
+

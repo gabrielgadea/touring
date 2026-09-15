@@ -12,9 +12,11 @@
 //!   (uses `notify-debouncer-mini` for coalescing rapid save events).
 
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant, SystemTime};
 
-use ignore::gitignore::GitignoreBuilder;
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -126,6 +128,61 @@ impl FileEvent {
     }
 }
 
+/// Whether `path` falls under an ignored path, the path itself or any directory
+/// above it, relative to `root`.
+///
+/// `Gitignore::matched` looks at the path alone, so the directory rule
+/// `target/` never matched `target/debug/deps/x.o`. Every file a build wrote
+/// reached the channel, the consumer fell behind, and each dropped event was
+/// logged: 25 GB in `/tmp` in one day (cross-audit 14/09/2026, R2-1). A path
+/// outside `root` cannot be matched against it (`matched_path_or_any_parents`
+/// panics there), so it is never reported ignored.
+fn is_ignored(gitignore: &Gitignore, root: &Path, path: &Path, is_dir: bool) -> bool {
+    match path.strip_prefix(root) {
+        Ok(rel) => gitignore
+            .matched_path_or_any_parents(rel, is_dir)
+            .is_ignore(),
+        Err(_) => false,
+    }
+}
+
+/// Counts the events a full channel drops and reports them in one line per
+/// interval, never one line per event.
+#[derive(Debug)]
+struct DropReporter {
+    interval: Duration,
+    dropped: AtomicU64,
+    last_report: Mutex<Instant>,
+}
+
+impl DropReporter {
+    /// How often a burst of drops is reported.
+    const INTERVAL: Duration = Duration::from_secs(30);
+
+    fn new(interval: Duration, now: Instant) -> Self {
+        Self {
+            interval,
+            dropped: AtomicU64::new(0),
+            last_report: Mutex::new(now),
+        }
+    }
+
+    /// Records one drop. Returns the drops accumulated since the last report
+    /// when the interval has elapsed, and starts a new interval.
+    fn record(&self, now: Instant) -> Option<u64> {
+        self.dropped.fetch_add(1, Ordering::Relaxed);
+        let mut last = self
+            .last_report
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if now.duration_since(*last) < self.interval {
+            return None;
+        }
+        *last = now;
+        Some(self.dropped.swap(0, Ordering::Relaxed))
+    }
+}
+
 /// File watcher with debouncing and gitignore support
 #[derive(Debug)]
 pub struct FileWatcher {
@@ -214,6 +271,7 @@ impl FileWatcher {
         let root_path = self.root_path.clone();
         let _debounce_ms = self.debounce_ms;
         let gitignore = self.gitignore.clone();
+        let drops = DropReporter::new(DropReporter::INTERVAL, Instant::now());
 
         // Create the watcher
         let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
@@ -225,24 +283,22 @@ impl FileWatcher {
                     let events = Self::convert_event(event);
 
                     for file_event in events {
-                        // Apply gitignore filtering
-                        if let Some(ref gi) = gitignore {
-                            // Get path relative to root for gitignore matching
-                            let rel_path = file_event
-                                .path
-                                .strip_prefix(&root_path)
-                                .unwrap_or(&file_event.path);
-                            let is_dir = file_event.path.is_dir();
-                            if gi.matched(rel_path, is_dir).is_ignore() {
-                                debug!("Ignoring path: {:?}", file_event.path);
-                                continue;
-                            }
+                        if let Some(ref gi) = gitignore
+                            && is_ignored(gi, &root_path, &file_event.path, file_event.path.is_dir())
+                        {
+                            debug!("Ignoring path: {:?}", file_event.path);
+                            continue;
                         }
 
-                        // Apply debouncing (bounded channel - use try_send for backpressure)
-                        if let Err(e) = event_sender.try_send(file_event) {
-                            // Channel full - log and drop (bounded provides backpressure signal)
-                            error!("File event channel full, dropping event: {}", e);
+                        // Bounded channel: a full one drops the event. The drops
+                        // are counted and reported once per interval.
+                        if event_sender.try_send(file_event).is_err()
+                            && let Some(dropped) = drops.record(Instant::now())
+                        {
+                            warn!(
+                                "file event channel full: dropped {dropped} events in the last {}s",
+                                DropReporter::INTERVAL.as_secs()
+                            );
                         }
                     }
                 }
@@ -814,5 +870,48 @@ mod tests {
             event.timestamp >= before && event.timestamp <= after,
             "FileEvent timestamp should be approximately now"
         );
+    }
+
+    /// Cross-audit 14/09/2026 (R2-1): the default `target/` rule matched the
+    /// directory itself and nothing a build wrote inside it.
+    #[test]
+    fn a_directory_rule_ignores_every_file_below_it() {
+        let temp_dir = TempDir::new().unwrap();
+        let watcher = FileWatcherBuilder::new(&temp_dir).unwrap().build().unwrap();
+        let gi = watcher.gitignore.as_ref().expect("default rules are built");
+        let root = watcher.root_path();
+
+        let deep_build_file = root.join("target/debug/deps/libfoo-1a2b.rlib");
+        assert!(is_ignored(gi, root, &deep_build_file, false));
+        assert!(is_ignored(gi, root, &root.join("node_modules/pkg/index.js"), false));
+        assert!(!is_ignored(gi, root, &root.join("src/target_utils.rs"), false));
+        assert!(
+            !is_ignored(gi, root, Path::new("/elsewhere/target/x.o"), false),
+            "a path outside the root is never matched against it"
+        );
+    }
+
+    #[test]
+    fn a_project_rule_without_a_glob_covers_nested_files() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join(".gitignore"), "site/\n").unwrap();
+        let watcher = FileWatcherBuilder::new(&temp_dir).unwrap().build().unwrap();
+        let gi = watcher.gitignore.as_ref().expect("project rules are built");
+        let root = watcher.root_path();
+
+        assert!(is_ignored(gi, root, &root.join("site/docs/agentic-bench/run_bench.py"), false));
+        assert!(!is_ignored(gi, root, &root.join("docs/agentic-bench/run_bench.py"), false));
+    }
+
+    #[test]
+    fn drops_are_reported_once_per_interval_with_their_count() {
+        let t0 = Instant::now();
+        let reporter = DropReporter::new(Duration::from_secs(10), t0);
+
+        assert_eq!(reporter.record(t0), None);
+        assert_eq!(reporter.record(t0 + Duration::from_secs(1)), None);
+        assert_eq!(reporter.record(t0 + Duration::from_secs(10)), Some(3));
+        assert_eq!(reporter.record(t0 + Duration::from_secs(11)), None);
+        assert_eq!(reporter.record(t0 + Duration::from_secs(20)), Some(2));
     }
 }

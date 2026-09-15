@@ -91,9 +91,9 @@ pub fn cli_gotcha_resolve(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
                 .to_string();
             }
             let like = format!("%{pattern}%");
-            let ids: Vec<i64> = match conn
-                .prepare("SELECT id FROM gotchas WHERE pattern LIKE ?1 OR gotcha LIKE ?1 ORDER BY id")
-            {
+            let ids: Vec<i64> = match conn.prepare(
+                "SELECT id FROM gotchas WHERE pattern LIKE ?1 OR gotcha LIKE ?1 ORDER BY id",
+            ) {
                 Ok(mut stmt) => stmt
                     .query_map(params![like], |r| r.get(0))
                     .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -155,12 +155,13 @@ pub fn cli_gotcha_resolve(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         .unwrap_or(0);
     if updated == 0 {
         let exists = conn
-            .query_row("SELECT 1 FROM gotchas WHERE id = ?1", params![id], |_r| Ok(true))
+            .query_row("SELECT 1 FROM gotchas WHERE id = ?1", params![id], |_r| {
+                Ok(true)
+            })
             .unwrap_or(false);
         return if exists {
             // Idempotente e declarado: re-resolver não é erro nem re-conta.
-            serde_json::json!({ "id": id, "resolved": true, "already_resolved": true })
-                .to_string()
+            serde_json::json!({ "id": id, "resolved": true, "already_resolved": true }).to_string()
         } else {
             serde_json::json!({
                 "error": format!("gotcha id {id} not found"),

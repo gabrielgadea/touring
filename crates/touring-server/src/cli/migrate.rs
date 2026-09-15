@@ -152,8 +152,11 @@ fn cmd_status(args: &[String]) -> anyhow::Result<()> {
 
 fn cmd_plan(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
-    let root =
-        find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
+    let root = find_project_root().ok_or_else(|| {
+        anyhow::anyhow!(
+            "cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"
+        )
+    })?;
 
     let plan = [
         (
@@ -208,8 +211,11 @@ fn cmd_plan(args: &[String]) -> anyhow::Result<()> {
 
 fn cmd_validate(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
-    let root =
-        find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
+    let root = find_project_root().ok_or_else(|| {
+        anyhow::anyhow!(
+            "cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"
+        )
+    })?;
 
     let report = ConsolidationMigration::new(&root).validate()?;
 
@@ -240,14 +246,58 @@ fn cmd_validate(args: &[String]) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Quanto a migração ESPERA por um lock antes de desistir.
+///
+/// O rusqlite já traz 5s por padrão — este valor não cria a espera, ele a
+/// **declara e amplia**. A distinção importa e quase me escapou: `grep
+/// busy_timeout` devolvia 0 neste arquivo, e eu li isso como "não há timeout".
+/// Ausência de DECLARAÇÃO não é ausência de COMPORTAMENTO. A sonda decidiu:
+/// zerar a constante reproduz o erro de produção (`database is locked`,
+/// erro 5); removê-la deixa o teste verde, porque o default assume.
+const MIGRATION_BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Abre um banco de destino da migração declarando quanto ele espera por um lock.
+///
+/// **Por que existe** (cross-audit 04/09/2026): a suíte completa reprovou com
+/// `cmd_run must not crash on wrong source schema: database is locked` — erro 5
+/// do SQLite. Isolado, o mesmo teste passa 6 de 6; só falha sob a carga do
+/// workspace inteiro (49 crates compilando e testando). A origem é aberta em
+/// WAL, onde um checkpoint segura o lock; com a máquina saturada de I/O, essa
+/// pausa passou dos 5s que o rusqlite concede por padrão.
+///
+/// Subir o teto do TESTE seria remédio de sintoma. O ponto é outro: uma
+/// migração é operação idempotente, sem pressa, que o usuário roda uma vez —
+/// não há razão para ela desistir em 5s. 30s declarados aqui custam zero no
+/// caso normal (o lock some em milissegundos) e removem uma classe inteira de
+/// falha sob carga. Esperar é o comportamento correto, não concessão ao
+/// ambiente.
+///
+/// **O que isto NÃO garante**: se algo segurar o lock por mais de 30s, a
+/// migração falha — e deve mesmo falhar, com a mensagem que aponta o `doctor`.
+/// O teto declarado é uma escolha visível, que é o oposto de um default que
+/// ninguém sabia que existia.
+fn open_migration_db(path: &std::path::Path, label: &str) -> anyhow::Result<rusqlite::Connection> {
+    let conn = rusqlite::Connection::open(path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot open {label} — run `touring doctor -j` to check database health: {e}"
+        )
+    })?;
+    conn.busy_timeout(MIGRATION_BUSY_TIMEOUT)
+        .map_err(|e| anyhow::anyhow!("cannot set busy_timeout on {label}: {e}"))?;
+    Ok(conn)
+}
+
 fn cmd_run(args: &[String]) -> anyhow::Result<()> {
     use touring_foundation::schema::{
         graph::GRAPH_SCHEMA_V8, knowledge::KNOWLEDGE_SCHEMA_V8, memory::MEMORY_SCHEMA_V8,
     };
 
     let (flags, _) = parse_global_flags(args);
-    let root = find_project_root()
-        .ok_or_else(|| anyhow::anyhow!("project root not found; set TOURING_PROJECT_ROOT to a valid project directory"))?;
+    let root = find_project_root().ok_or_else(|| {
+        anyhow::anyhow!(
+            "project root not found; set TOURING_PROJECT_ROOT to a valid project directory"
+        )
+    })?;
     let touring = root.join(".claude").join("touring");
     let data = root.join(".claude").join("data");
     std::fs::create_dir_all(&touring)?;
@@ -264,16 +314,13 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
 
     // Open / create the 3 target domain DBs.  Schemas are idempotent via
     // CREATE TABLE IF NOT EXISTS, so repeated runs are safe.
-    let k = rusqlite::Connection::open(touring.join("knowledge.db"))
-        .map_err(|e| anyhow::anyhow!("cannot open knowledge.db — run `touring doctor -j` to check database health: {e}"))?;
+    let k = open_migration_db(&touring.join("knowledge.db"), "knowledge.db")?;
     k.execute_batch(KNOWLEDGE_SCHEMA_V8)?;
 
-    let m = rusqlite::Connection::open(touring.join("memory.db"))
-        .map_err(|e| anyhow::anyhow!("cannot open memory.db — run `touring doctor -j` to check database health: {e}"))?;
+    let m = open_migration_db(&touring.join("memory.db"), "memory.db")?;
     m.execute_batch(MEMORY_SCHEMA_V8)?;
 
-    let g = rusqlite::Connection::open(touring.join("graph.db"))
-        .map_err(|e| anyhow::anyhow!("cannot open graph.db — run `touring doctor -j` to check database health: {e}"))?;
+    let g = open_migration_db(&touring.join("graph.db"), "graph.db")?;
     // Pre-migrate legacy columns before CREATE TABLE IF NOT EXISTS becomes a no-op.
     // Sprint 4.8 schema drift fix — adds touring_hook_events.hook_name/file_path/etc.
     for col_decl in &[
@@ -288,7 +335,9 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
         if let Err(e) = g.execute(&sql, []) {
             let msg = e.to_string();
             if !msg.contains("duplicate column name") && !msg.contains("no such table") {
-                return Err(anyhow::anyhow!("cannot add column to touring_hook_events — run `touring doctor -j` to check schema version: {e}"));
+                return Err(anyhow::anyhow!(
+                    "cannot add column to touring_hook_events — run `touring doctor -j` to check schema version: {e}"
+                ));
             }
         }
     }
@@ -621,7 +670,11 @@ fn cmd_run(args: &[String]) -> anyhow::Result<()> {
 /// Safe to re-run (already-archived DBs are skipped).
 fn cmd_cleanup(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
-    let root = find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
+    let root = find_project_root().ok_or_else(|| {
+        anyhow::anyhow!(
+            "cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"
+        )
+    })?;
 
     // First verify migration was completed successfully.
     let report = ConsolidationMigration::new(&root).validate()?;
@@ -658,7 +711,11 @@ fn cmd_cleanup(args: &[String]) -> anyhow::Result<()> {
             skipped += 1;
             continue;
         }
-        std::fs::rename(src, &dst).map_err(|e| anyhow::anyhow!("cannot archive {name} — run `ls -la` on that path to check permissions: {e}"))?;
+        std::fs::rename(src, &dst).map_err(|e| {
+            anyhow::anyhow!(
+                "cannot archive {name} — run `ls -la` on that path to check permissions: {e}"
+            )
+        })?;
         archived += 1;
         if flags.json {
             println!(
@@ -688,7 +745,11 @@ fn cmd_cleanup(args: &[String]) -> anyhow::Result<()> {
 
 fn cmd_rollback(args: &[String]) -> anyhow::Result<()> {
     let (flags, _) = parse_global_flags(args);
-    let root = find_project_root().ok_or_else(|| anyhow::anyhow!("cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"))?;
+    let root = find_project_root().ok_or_else(|| {
+        anyhow::anyhow!(
+            "cannot find project root; run from a Touring project or set TOURING_PROJECT_ROOT"
+        )
+    })?;
     let touring = root.join(".claude").join("touring");
 
     let mut renamed = 0u32;
@@ -1098,6 +1159,59 @@ mod tests {
 
     /// Proves that if rlm_memory.db has the wrong table name (not "memory_entries"),
     /// migration skips it gracefully with 0 rows — no crash, no data loss.
+    #[test]
+    fn migracao_espera_o_lock_em_vez_de_desistir() {
+        // O flake que a cross-audit de 04/09/2026 pegou, tornado DETERMINÍSTICO.
+        //
+        // Sob a suíte completa (49 crates, máquina saturada) a migração morria
+        // com `database is locked`; isolada, passava 6 de 6. Este teste não
+        // espera pela sorte: uma segunda conexão SEGURA o banco de destino por
+        // 300 ms enquanto a migração roda.
+        //
+        // O que ele prova, EXATAMENTE (medido por mutação, 04/09/2026): com
+        // `MIGRATION_BUSY_TIMEOUT` zerado a asserção fica vermelha com a
+        // mensagem de produção — `database is locked, Error code 5`. Com o
+        // default do rusqlite (5s) ela fica verde, porque 300 ms cabem em 5s.
+        // Ou seja: este teste prova o MECANISMO, não o valor da constante. O
+        // valor é uma escolha declarada para carga extrema, e o teste que a
+        // defenderia teria de segurar o lock por mais de 5s — um teste de 5
+        // segundos numa suíte de 2 segundos, o que seria pior remédio que o mal.
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempdir().expect("tempdir");
+        let data = dir.path().join(".claude").join("data");
+        let touring = dir.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&data).expect("data dir");
+        std::fs::create_dir_all(&touring).expect("touring dir");
+
+        // O banco de destino já existe e está sob transação de escrita.
+        let mem_path = touring.join("memory.db");
+        let holder = make_sqlite(&mem_path);
+        holder
+            .execute_batch("CREATE TABLE IF NOT EXISTS squatter (x INTEGER);")
+            .expect("prepara o banco segurado");
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let held = std::thread::spawn(move || {
+            holder
+                .execute_batch("BEGIN IMMEDIATE; INSERT INTO squatter VALUES (1);")
+                .expect("segura o lock de escrita");
+            tx.send(()).expect("avisa que o lock esta seguro");
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            holder.execute_batch("COMMIT;").expect("solta o lock");
+        });
+        rx.recv()
+            .expect("o lock precisa estar seguro antes de migrar");
+
+        let mut result = Ok(());
+        with_project_root(dir.path(), || {
+            result = cmd_run(&["touring".into(), "migrate".into(), "run".into()]);
+        });
+        held.join().expect("thread que segura o lock");
+
+        result.expect("a migracao deve ESPERAR o lock, nao desistir na 1a tentativa");
+    }
+
     #[test]
     fn rlm_memory_skipped_gracefully_when_source_table_absent() {
         let _env = crate::cli::ENV_LOCK

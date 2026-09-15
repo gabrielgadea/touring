@@ -68,7 +68,14 @@ pub(crate) fn handle_file_changed(rt: &mut HookRuntime, input: &Value) -> String
     let _ = rt.ctx.knowledge.maybe_auto_resolve_gotchas(file_path);
 
     let rel_path = crate::runtime::make_relative(file_path, &rt.project_root);
-    crate::wiring::update_wiring_after_edit(&rt.ctx.knowledge, &rel_path);
+    // The whole wiring of the changed file, inferred edges included — this path
+    // used to clear every consumer row and re-record only `use` imports
+    // (cross-audit 14/09/2026, B2).
+    let _ = crate::wiring::refresh_file_wiring_from_disk(
+        &rt.ctx.knowledge,
+        &rt.project_root,
+        &rel_path,
+    );
     // R22-S2: Upsert file change event to Tantivy for BM25 audit trail.
     super::upsert_file_changed_to_tantivy(&rt.project_root, &rel_path);
     // R129: Persist file change event to knowledge graph — enables `touring memory recall "file_changed:<path>"`.

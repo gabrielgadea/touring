@@ -129,7 +129,8 @@ mod tests {
     #[test]
     fn flags_a_known_pub_type_used_without_import_in_a_proposed_new_rs_file() {
         let content = "pub fn build() -> TfIdfVectorizer {\n    TfIdfVectorizer::default()\n}\n";
-        let signals = missing_import_signals("crates/touring-cli/src/main.rs", content, known_tfidf);
+        let signals =
+            missing_import_signals("crates/touring-cli/src/main.rs", content, known_tfidf);
         assert_eq!(signals.len(), 1, "{signals:?}");
         let (score, text) = &signals[0];
         assert!((*score - MISSING_IMPORT_SCORE).abs() < f32::EPSILON);
@@ -168,7 +169,10 @@ mod tests {
             seen.borrow_mut().extend(names.iter().cloned());
             Vec::new()
         });
-        assert!(signals.is_empty(), "a name the map does not know is not a suggestion");
+        assert!(
+            signals.is_empty(),
+            "a name the map does not know is not a suggestion"
+        );
         assert_eq!(*seen.borrow(), vec!["Foo".to_string()], "Bar is imported");
     }
 

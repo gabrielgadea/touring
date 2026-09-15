@@ -145,11 +145,19 @@ def main():
         }
         let info = enrich_with_callgraph(&source, "python", Some("helper")).expect("some");
         assert_eq!(info.callers, vec!["main".to_string()], "{:?}", info.callers);
-        assert!(!info.is_hotspot, "6 call sites from 1 caller is not a hotspot");
+        assert!(
+            !info.is_hotspot,
+            "6 call sites from 1 caller is not a hotspot"
+        );
         assert_eq!(info.transitive_impact, 1);
 
         let info = enrich_with_callgraph(&source, "python", Some("main")).expect("some");
-        assert_eq!(info.callees, vec!["helper".to_string()], "{:?}", info.callees);
+        assert_eq!(
+            info.callees,
+            vec!["helper".to_string()],
+            "{:?}",
+            info.callees
+        );
         assert_eq!(format_callgraph_context(&info, "main"), "calls: [helper]");
     }
 

@@ -37,7 +37,9 @@ pub fn sandbox_runtimes(args: &[String]) -> anyhow::Result<()> {
     match rest.first() {
         None | Some(&"status") => status(json),
         Some(&"setup-venv") => setup_venv(),
-        Some(other) => bail!("sandbox-runtimes: subcomando desconhecido '{other}' (status|setup-venv)"),
+        Some(other) => {
+            bail!("sandbox-runtimes: subcomando desconhecido '{other}' (status|setup-venv)")
+        }
     }
 }
 
@@ -71,16 +73,23 @@ fn status(json: bool) -> anyhow::Result<()> {
     }
     let venv = venv_dir().map(|d| d.join("lib"));
     let venv_ok = venv.as_ref().is_some_and(|lib| {
-        std::fs::read_dir(lib)
-            .is_ok_and(|mut rd| rd.any(|e| e.is_ok_and(|e| e.path().join("site-packages").is_dir())))
+        std::fs::read_dir(lib).is_ok_and(|mut rd| {
+            rd.any(|e| e.is_ok_and(|e| e.path().join("site-packages").is_dir()))
+        })
     });
     println!();
     if venv_ok {
-        println!("  venv     OK       {}", venv_dir().unwrap_or_default().display());
+        println!(
+            "  venv     OK       {}",
+            venv_dir().unwrap_or_default().display()
+        );
     } else {
         println!("  venv     AUSENTE  (rode: touring sandbox-runtimes setup-venv)");
     }
-    println!("\n{presentes}/{} linguagens com runtime resolvido", rows.len());
+    println!(
+        "\n{presentes}/{} linguagens com runtime resolvido",
+        rows.len()
+    );
     Ok(())
 }
 

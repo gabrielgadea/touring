@@ -12,6 +12,9 @@ license.workspace = true
 # at the workspace root when profiling with dhat-heap.
 mimalloc = { workspace = true, features = ["default"] }
 thiserror = { workspace = true }
+# Git's ignore rules for every walker that must agree with `git ls-files`
+# (`gitignore` module, cross-audit 14/09/2026, R2-2).
+ignore = { workspace = true }
 arc-swap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

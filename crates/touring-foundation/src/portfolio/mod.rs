@@ -17,7 +17,7 @@
 //! # The anti-anchor contract
 //!
 //! A bare ranked list makes the agent reuse whatever ranked first. Every answer
-//! therefore carries three sections ([`PortfolioAnswer`]):
+//! therefore carries three sections (`PortfolioAnswer`):
 //!
 //! | section | role |
 //! |---|---|
@@ -25,7 +25,7 @@
 //! | `gaps` | what the prior art does **not** cover for this intent |
 //! | `external` | the external lens to consult (Context7 library + the question) |
 //!
-//! and it demands a [`Verdict`]: reuse, extend, supersede, or create-new. Naming
+//! and it demands a `Verdict`: reuse, extend, supersede, or create-new. Naming
 //! the gap is what invites superseding; without it the injection is an anchor.
 //! An empty `prior_art` is a valid, honest answer — the portfolio never pads.
 //!

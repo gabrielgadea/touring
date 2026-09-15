@@ -22,12 +22,12 @@
 //! - WasmSandboxAdapter (feature `wasm-sandbox`)
 //! - Concurrent pipeline (5 parallel plan executions)
 
-use touring_foundation::truncate_str;
 use std::collections::HashMap;
 use std::sync::{
     Arc,
     atomic::{AtomicU32, Ordering},
 };
+use touring_foundation::truncate_str;
 
 use touring_generator::core::capacity::PlanPriority;
 use touring_generator::executor::replan::{RejectedPlan, ReplanRequest};

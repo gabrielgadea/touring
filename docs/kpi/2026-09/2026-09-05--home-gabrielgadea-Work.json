@@ -1,0 +1,613 @@
+{
+  "ab": {
+    "arm": "treatment",
+    "attributable": true,
+    "control_composite": 0.8763,
+    "delta": 0.1237,
+    "epsilon": 0.01,
+    "schema": "coupling-ab-v1",
+    "treatment_composite": 1.0,
+    "verdict": "coupling_helps"
+  },
+  "checks": [
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.wiring.orphans",
+      "name": "Wiring orphan symbols",
+      "rationale": "More than 100 orphans indicates significant wiring debt. ADVISORY (investigation 2026-07-01): the meter is not yet trustworthy — the count is cwd-sensitive (rust=5016 vs home=27088) and a Chain-7 spot-check found 3/4 sampled orphans have real consumers via grep (incomplete consumer population in wiring_map). Re-arm as blocking only after the wiring_map is repopulated and the FP rate is measured low.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 100.0
+    },
+    {
+      "actual": 0.3236771342780904,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.rl.ema_reward",
+      "name": "RL EMA reward (OnlineRL engine)",
+      "rationale": "EMA reward < 0.2 means the RL loop hasn't converged yet. HISTÓRICO (2026-07-01): o valor vivia só em memória e zerava a cada restart (0.179606 sintético observado byte-idêntico por dias) — por isso virou advisory. ATUALIZADO 29/08/2026 (P1 retenção, wave onlinerl-sinal-em-volume): update_count/EMA agora persistem em .claude/data/online_rl_state.json com restore monotônico no boot — medido 0.84 pós-restart, não mais o warmup sintético. Segue advisory por prudência; candidato a re-armar como blocking após dias de série durável.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.2
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.cache.hit_ratio",
+      "name": "Query cache hit ratio (W17/W18)",
+      "rationale": "Hit ratio >= 0.5 confirms cache is paying for itself. ADVISORY (2026-07-01): same structural pattern as ema_reward — the moka cache is in-memory and resets to 0.0 on every daemon restart (measured 0.0 → 0.71 post-warm, telemetry §1.4), so a non-advisory gate fails transiently after each restart without signalling anything. Re-arm if the ratio gains uptime-aware gating or persistence.",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.0,
+      "advisory": false,
+      "direction": "eq",
+      "id": "touring.p99.blast_timeout",
+      "name": "Blast radius P99 timeout (D5)",
+      "rationale": "Any blast timeout indicates predictive layer regression.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "advisory": false,
+      "direction": "eq",
+      "id": "touring.p99.mcts_deadlock",
+      "name": "MCTS shadow deadlock detection (D5)",
+      "rationale": "Deadlock detection guards async actor invariants.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.gotcha.resolution",
+      "name": "Gotcha resolution count",
+      "rationale": "Gotchas should be progressively resolved over time.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 15786.0,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.test.count",
+      "name": "Total nextest count",
+      "rationale": "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786.",
+      "source_kind": "external",
+      "status": "PASS",
+      "threshold": 5100.0
+    },
+    {
+      "actual": 0.7528,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.coverage.line",
+      "name": "Line coverage (cargo llvm-cov)",
+      "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528.",
+      "source_kind": "external",
+      "status": "PASS",
+      "threshold": 0.75
+    },
+    {
+      "actual": null,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.mutation.kill_rate",
+      "name": "Mutation test kill_rate (touring-identity)",
+      "rationale": "Mutation testing measures how many fault injections the test suite catches. Week 1-2 baseline is 50%; ramps to 80% by month 3. See docs/mutation-testing.md.",
+      "source_kind": "daemon",
+      "status": "STUB",
+      "threshold": 50.0
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.str_bytes_per_emit",
+      "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
+      "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 800.0
+    },
+    {
+      "actual": 4183.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.hook_latency_p50_us",
+      "name": "Coupling hook dispatch latency p50 (D5, leading)",
+      "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
+      "source_kind": "daemon",
+      "status": "ADVISORY",
+      "threshold": 1000.0
+    },
+    {
+      "actual": 4183.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.hook_latency_p99_us",
+      "name": "Coupling hook dispatch latency p99 (D5, leading)",
+      "rationale": "Tail-latency guard (cold-start/cargo). Calibrated to 50ms — not 1ms — to watch the real tail without false alarms (telemetry §1.4).",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 50000.0
+    },
+    {
+      "actual": 285.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.coupling.actor_queue_wait_p99_us",
+      "name": "Coupling actor queue-wait p99 — serialized-actor backpressure (D5, leading, F8)",
+      "rationale": "Time a RunHook waited in the per-project actor's serial mpsc before dequeue (F8, 2026-07-01). hook_dispatch_latency starts at dequeue, so this wait was invisible — it is the cross-session contention signal (one session's heavy hook stalling another's in the same project). >1s p99 = contention; advisory until a 2-week baseline exists.",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 1000000.0
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.health_delta_net",
+      "name": "Coupling health-delta net — improvements minus regressions (D4, lagging)",
+      "rationale": "Net effectiveness: coupling-guided edits should improve more paths than they regress. Derived from gate-metrics health_delta_{improvement,regression}_count.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 0.0
+    },
+    {
+      "actual": 1.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.world_model_success",
+      "name": "Coupling world-model success rate — P(success|action) (D6, lagging)",
+      "rationale": "Mean P(success) across the durable action_world_model.json (21k+ examples). The cross-session learning signal; gte 0.70 indicates the harness is converging.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 0.7
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.suggestion_uptake",
+      "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
+      "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.4
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.adoption_ratio",
+      "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
+      "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.code_mode.adoption_ratio",
+      "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
+      "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.1
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.code_mode.economy_ratio",
+      "name": "Economia do code mode — programas que FUNDIRAM / programas rodados (P5b)",
+      "rationale": "A metade que faltava à `adoption_ratio` (achado de Gabriel, 26/08/2026). Adoção mede o CANAL — e sobe igual quando o modelo funde dez inspeções numa chamada e quando embrulha dez leituras triviais, porque `scan_class_of` não reconhece `touring run` e nenhum gate vê a rota sancionada. Este mede a ECONOMIA: `economical/followed`, onde `economical` é o programa que tocou ≥2 alvos ou executou ≥2 operações. Fala da APRESENTAÇÃO, não da disciplina do modelo: sob `code` a atômica é negada, então a casca sobre um alvo é obrigatória — economia baixa com adoção alta é o retrato de um braço obedecido e caro. STUB abaixo de ARM_MIN_SAMPLE tomadas.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.code_mode.arm_native",
+      "name": "Braço code-mode `native` — rota tomada / rota oferecida (sem colapso — inspeção atômica passa)",
+      "rationale": "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.code_mode.arm_both",
+      "name": "Braço code-mode `both` — rota tomada / rota oferecida (advisory — a rota é sugerida, não imposta)",
+      "rationale": "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.code_mode.arm_code",
+      "name": "Braço code-mode `code` — rota tomada / rota oferecida (colapso — a inspeção é negada com a rota escrita)",
+      "rationale": "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.code_mode.inspect_burst_share",
+      "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
+      "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.75
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.coupling.pillar_induction_ratio",
+      "name": "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)",
+      "rationale": "Task #6 compounding structure (the active hook layer): after the armed pillar-induction layer nudges a differential the upstream classifiers miss (master-cli or learning-memory), did the LLM's next same-session action take it (a master/recall command)? followed/emitted over the daemon lifetime, precise predicate. gte 0.50 = the master commands are reached for once nudged. DEFAULT-OFF (TOURING_PILLAR_INDUCTION_ARMED) — STUB until armed; if it stays low while armed, that is the affordance-over-persuasion evidence (telemetry thesis ①) pushing toward productization.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.adw.explore_rounds_to_dry",
+      "name": "Explore rounds until CCE convergence (mean)",
+      "rationale": "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 8.0
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.adw.plan_refine_iters",
+      "name": "Plan refinement iterations (max)",
+      "rationale": "A plan that never survived >= 2 refine iterations was accepted on first draft — the 19/07 failure mode. STUB until any .refine.json exists.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 2.0
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.adw.runs",
+      "name": "ADW runs recorded in this project",
+      "rationale": "Adoption meter for the durable runner (adw_runs >= 1 means the factory is actually used here, not just installed).",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 1.0
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.adw.router_accuracy",
+      "name": "Factory router accuracy (completed / routed outcomes)",
+      "rationale": "Proxy: fraction of routed runs that completed. Below 0.7 the router is sending tickets to workflows that do not finish — retrain rules or arm the LLM fallback.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.7
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.adw.zte_bypass_rate",
+      "name": "ZTE bypass rate (bypasses per finished run)",
+      "rationale": "The conformal bypass must remain the audited exception. Above 0.5 the human gate is being skipped more often than exercised — tighten zte_warmup or review the confidence model.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": 11.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.code_mode.parallel_runs",
+      "name": "Sandbox runs that used touring.parallel (distinct)",
+      "rationale": "Adoption meter for in-sandbox fan-out: distinct runs whose sub-calls carry the ':par' origin stamp in run_subcalls.jsonl. STUB until the first parallel sub-call — zero adoption must be visible, never inferred.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 1.0
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.adw.tiered_agent_share",
+      "name": "ADW agent starts with a declared tier (executed share)",
+      "rationale": "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.5,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.flow.compliance_ratio",
+      "name": "Gated-flow OUTER compliance (artifact manifests complete at Stop)",
+      "rationale": "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here.",
+      "source_kind": "derived",
+      "status": "ADVISORY",
+      "threshold": 0.9
+    },
+    {
+      "actual": 1.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.learning.policy_discrimination",
+      "name": "Política discrimina — estados multi-ação com dispersão de Q > 0.01",
+      "rationale": "P2 elos-exponenciais (29/08/2026): a QTable era um órgão quase write-only — treinada pelo trickle, pelo replay e pelo auto_learn (seco), consultada por ~nenhum decisor de produção (a doc do trait prometia 'using QTable' e a impl delega ao LinUCB). O consumidor já observado devolveu 0.990 constante para qualquer entrada (uma-execucao-nao-distingue-constante). Instrumentar ANTES de ligar a política a decisões (estratégia M0): fração dos estados multi-ação cuja dispersão max−min de Q supera 0.01, lida da learning_qtable do graph.db — a MESMA tabela que o replay treina (127 pares pós-backfill; eram 71). None/STUB sem estados multi-ação. Limiar 0.3 provisório: o veredito pede dias de sinal, não mais uma medição hoje.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 0.3
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.learning.replay_share",
+      "name": "Corpus de outcomes recompensados já consumido pelo OnlineRL (replay offline)",
+      "rationale": "P2 replay (29/08/2026, pendência 'motor girando a seco'): o corpus de outcomes com reward (820 na estreia) nunca alcançava o OnlineRLEngine — o trickle online funciona (+1/tool call, provado 7→19→20), mas o acumulado ficava no memory.db sem consumidor e o estado do engine zerava a cada restart (13→7 medido). Numerador: replayed_total do cursor durável `learning_replay_cursor.json`; denominador: numerador + pendentes contados AGORA no memory.db (mesma fonte que `touring learning replay` lê). None/STUB enquanto nada foi replayado e o corpus está invisível — ausência é desconhecido, nunca zero. Abaixo de 0.9: rode `touring learning replay`.",
+      "source_kind": "derived",
+      "status": "STUB",
+      "threshold": 0.9
+    },
+    {
+      "actual": 0.004874651810584958,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.memory.corpus_coverage",
+      "name": "Memory entries reachable by ANN recall (indexed / stored)",
+      "rationale": "Entries absent from the ANN corpus are 4.3x more likely to never be recalled (measured 2026-08-02: 50.9% never-read outside the corpus vs 11.8% inside). This drifted to 0.797 for weeks with a one-command remedy — `touring memory reindex` — and nothing measured it, so nobody could see it. Below 0.95: run the reindex.",
+      "source_kind": "derived",
+      "status": "ADVISORY",
+      "threshold": 0.95
+    },
+    {
+      "actual": 0.02373887240356083,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.memory.curated_recall_share",
+      "name": "Recall share landing on curated lessons, not auto-recorded outcomes",
+      "rationale": "Before the 2026-08-02 filter the eight most-recalled entries in the whole store were all `outcome:*:failure`, and automatic entries were retrieved 2.4x more often than curated lessons — the ACO pheromone diluted by its own exhaust. This is the anti-regression meter for that fix; a fall back below 0.5 means noise is crowding the channel again.",
+      "source_kind": "derived",
+      "status": "ADVISORY",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "lte",
+      "id": "touring.memory.never_recalled_ratio",
+      "name": "Stored entries no recall has ever returned",
+      "rationale": "Dead weight in the store: written once, never read. 0.200 at 2026-08-02. Rising means either the corpus is drifting again (see corpus_coverage) or entries are being written in a shape recall cannot match.",
+      "source_kind": "derived",
+      "status": "PASS",
+      "threshold": 0.25
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.memory.graph_contract_share",
+      "name": "Curated nodes honouring the minimum graph contract (key shape + typed edge)",
+      "rationale": "P3 of the memory-graph contract (2026-08-30, Gabriel's directive via analise-e0): share of new semantic lesson/decision/diagnostico nodes (14-day window) with a deterministic <tipo>:<slug>:<date> key AND at least one typed memory_links edge. Measured reference corpus: 27/31 writers were islands. Advisory by the enforcement ladder — instrument before blocking; the store response's contract:{} advisory and the P2 structural rank make linking pay, this meter tells whether behaviour actually moved. STUB (null) when the window has no curated nodes.",
+      "source_kind": "derived",
+      "status": "ADVISORY",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.0,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.memory.edge_density",
+      "name": "Typed edges created per new memory entry (14-day window)",
+      "rationale": "P5 of the memory-graph contract (2026-08-30): the ruler that decides whether `memory suggest-links` derived suggestions may ever graduate to automatic — only measured behaviour promotes an affordance up the ladder. Edges counted from memory_links, entries from memory_entries, both in the same 14-day window. STUB (null) when no entries were created in the window.",
+      "source_kind": "derived",
+      "status": "ADVISORY",
+      "threshold": 0.05
+    },
+    {
+      "actual": 1.0,
+      "advisory": false,
+      "direction": "gte",
+      "id": "touring.memory.tag_coverage",
+      "name": "Memory entries carrying faceted hashtags (hashtag library)",
+      "rationale": "The hashtag library only compounds when entries are faceted — an untagged entry is invisible to `#facet:value` filters and MOC communities. Backfilled to 1.0 on 2026-08-12 (7.393/7.393); every store path auto-tags since F1, so a fall below 0.9 means a write path is bypassing derivation (or the codetag sync silently broke).",
+      "source_kind": "daemon",
+      "status": "PASS",
+      "threshold": 0.9
+    },
+    {
+      "actual": null,
+      "advisory": true,
+      "direction": "gte",
+      "id": "touring.medicao.adherence",
+      "name": "Measurement adherence (metamorphic relations verified)",
+      "rationale": "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado.",
+      "source_kind": "external",
+      "status": "STUB",
+      "stub_reason": "declared unmeasured by the producer — STUB — amostra de 6 abaixo do mínimo 20. Rode mais medições pela biblioteca; ausência de dado não é zero.",
+      "threshold": 0.8
+    }
+  ],
+  "code_mode_adherence": {
+    "available": true,
+    "by_failure_kind": {
+      "exception": 553,
+      "output-limit": 3,
+      "proc-exit": 3,
+      "timeout": 117
+    },
+    "by_language": {
+      "?": 1,
+      "bash": 4306,
+      "go": 1,
+      "js": 48,
+      "perl": 4,
+      "php": 1,
+      "python": 4569,
+      "ruby": 4,
+      "rust": 4,
+      "shell": 56,
+      "ts": 7
+    },
+    "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
+    "runs_ok": 8324,
+    "runs_total": 9001,
+    "source": "run_journal.jsonl",
+    "success_rate": 0.9247861348739029,
+    "wasted_attempts_retry_pairs": 424
+  },
+  "code_mode_reuse": {
+    "available": true,
+    "brief_runs": 66,
+    "file_runs": 630,
+    "floor": 0.2,
+    "harvested_runs": 0,
+    "inline_runs": 1665,
+    "orchestrate_runs": 18,
+    "persistent_file_runs": 131,
+    "reuse_ratio": 0.057,
+    "scratch_file_runs": 499,
+    "status": "FAIL",
+    "total_tmp_bytes": 2725463,
+    "v1_runs": 6705,
+    "v2_runs": 2295
+  },
+  "code_mode_signal_use": {
+    "available": true,
+    "duration_ms_p50": 0,
+    "duration_ms_p99": 1241,
+    "non_canonical_calls": 21,
+    "ratio": 0.75,
+    "total": 8,
+    "total_calls": 229,
+    "used": 6
+  },
+  "context_budget": {
+    "available": true,
+    "by_family": {
+      "code-mode-deny": {
+        "blocks": 3,
+        "bytes": 11757,
+        "duplicate_bytes": 7838,
+        "duplicate_ratio": 0.667,
+        "mean_bytes": 3919,
+        "propositions": 0,
+        "propositions_per_kb": 0.0,
+        "zero_proposition_blocks": 3
+      },
+      "other": {
+        "blocks": 12,
+        "bytes": 6701,
+        "duplicate_bytes": 3925,
+        "duplicate_ratio": 0.586,
+        "mean_bytes": 558,
+        "propositions": 0,
+        "propositions_per_kb": 0.0,
+        "zero_proposition_blocks": 12
+      },
+      "session-start": {
+        "blocks": 9,
+        "bytes": 5723,
+        "duplicate_bytes": 2238,
+        "duplicate_ratio": 0.391,
+        "mean_bytes": 635,
+        "propositions": 0,
+        "propositions_per_kb": 0.0,
+        "zero_proposition_blocks": 9
+      }
+    },
+    "bytes_scanned": 204438,
+    "capped": false,
+    "duplicate_blocks": 12,
+    "duplicate_injection_ratio": 0.579,
+    "duplicate_injection_ratio_ceil": 0.05,
+    "failing": [
+      "injected_bytes_per_turn",
+      "duplicate_injection_ratio"
+    ],
+    "injected_bytes_per_turn": 12090.5,
+    "injected_bytes_per_turn_ceil": 3000.0,
+    "injection_follow_ratio": null,
+    "injection_follow_ratio_floor": 0.6,
+    "must_emitted": 0,
+    "must_followed": 0,
+    "reason": null,
+    "status": "FAIL",
+    "tool_calls": 0,
+    "tpcd_proxy_bytes_per_tool_call": null,
+    "transcripts_scanned": 3,
+    "user_turns": 2,
+    "window_bytes": {
+      "assistant": 132,
+      "injection": 24181,
+      "injection_share": 0.987,
+      "tool_result_share": 0.0,
+      "tool_results": 0,
+      "user": 184
+    }
+  },
+  "hooks_complement": {
+    "available": true,
+    "dispatched": {
+      "cli-kpi": 1,
+      "session-stop": 1
+    },
+    "mirror_deliveries_by_origin": {
+      "post_bash": 0,
+      "sdk": 0,
+      "unknown": 0
+    },
+    "mirror_deliveries_since": 0,
+    "mirror_non_canonical_since": 0,
+    "post_bash_delivery_ratio": null,
+    "post_bash_dispatched": 0,
+    "post_bash_origin_deliveries_since": 0,
+    "since_epoch": 1788606013
+  },
+  "project_root": "/home/gabrielgadea/Work",
+  "schema": "kpi-commitments-v1",
+  "snapshot_date": "2026-09-05",
+  "summary": {
+    "advisory": 7,
+    "failed": 0,
+    "passed": 16,
+    "regressions": 0,
+    "stub": 18,
+    "total": 41
+  }
+}

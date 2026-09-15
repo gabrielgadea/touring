@@ -212,6 +212,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-index-files",
         "cli-index-rebuild",
         "cli-index-ingest",
+        "cli-index-why",
     ]);
     // CLI ast handlers
     names.extend_from_slice(&[
@@ -546,6 +547,7 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-index-files",
     "cli-index-rebuild",
     "cli-index-ingest",
+    "cli-index-why",
     // CLI ast handlers
     "cli-ast-find",
     "cli-ast-overview",
@@ -1768,6 +1770,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-index-files", |rt, v| {
         crate::cli_handlers_index::cli_index_files(rt, v)
+    });
+    m.insert("cli-index-why", |rt, v| {
+        crate::cli_handlers_index::cli_index_why(rt, v)
     });
     m.insert("cli-index-rebuild", |rt, v| {
         crate::cli_handlers_index::cli_index_rebuild(rt, v)

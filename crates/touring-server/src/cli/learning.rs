@@ -123,7 +123,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             println!("{output}");
         }
         LearningCmd::Experiment(ExperimentCmd::List { limit }) => {
-            let output = daemon_query("cli-experiment-list", serde_json::json!({ "limit": limit }))?;
+            let output =
+                daemon_query("cli-experiment-list", serde_json::json!({ "limit": limit }))?;
             println!("{output}");
         }
         LearningCmd::Replay { limit, dry_run } => {

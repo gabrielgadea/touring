@@ -909,7 +909,10 @@ mod tests {
         let (trunc, was_trunc) = truncate_head_tail(&long, 50);
         assert!(was_trunc);
         assert!(trunc.contains("bytes elided"), "elision is explicit");
-        assert!(trunc.starts_with('x') && trunc.ends_with('x'), "head and tail kept");
+        assert!(
+            trunc.starts_with('x') && trunc.ends_with('x'),
+            "head and tail kept"
+        );
         let short = "hello";
         let (trunc, was_trunc) = truncate_head_tail(short, 50);
         assert!(!was_trunc);
@@ -989,7 +992,11 @@ mod tests {
         .await
         .expect("run");
         assert_eq!(out.exit_code, 0);
-        assert!(out.stdout.contains("TMPDIR=/tmp"), "TMPDIR: {:?}", out.stdout);
+        assert!(
+            out.stdout.contains("TMPDIR=/tmp"),
+            "TMPDIR: {:?}",
+            out.stdout
+        );
         assert!(out.stdout.contains("MKTEMP_OK"), "mktemp: {:?}", out.stdout);
     }
 

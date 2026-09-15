@@ -1,0 +1,514 @@
+[
+ {
+  "name": "code-train",
+  "filter": [
+   "crates/touring-ceg/",
+   "crates/touring-quality/",
+   "crates/touring-ast/"
+  ],
+  "questions": [
+   {
+    "q": "run the gateway pipeline for a tool call",
+    "truth": [
+     "crates/touring-ceg/src/gateway/pre_exec.rs"
+    ]
+   },
+   {
+    "q": "landlock sandbox executor spawn with capability profile",
+    "truth": [
+     "crates/touring-ceg/src/gateway/sandbox_executor.rs"
+    ]
+   },
+   {
+    "q": "classify a command into risk classes",
+    "truth": [
+     "crates/touring-ceg/src/gateway/classify.rs",
+     "crates/touring-ceg/src/gateway/staging_classify.rs"
+    ],
+    "note": "no file in touring-ceg classifies into risk classes; classify.rs extracts surface/language/source (X1), staging_classify.rs::classify_command classifies write/run/neither — both answer 'classify a command'"
+   },
+   {
+    "q": "dry run cache lookup and insert",
+    "truth": [
+     "crates/touring-ceg/src/gateway/dry_run_cache.rs"
+    ]
+   },
+   {
+    "q": "capability profile builtins trusted sandboxed read only",
+    "truth": [
+     "crates/touring-ceg/src/capability/builtins.rs"
+    ]
+   },
+   {
+    "q": "secrets detection dimension score",
+    "truth": [
+     "crates/touring-quality/src/verifications/f2_4_secrets.rs"
+    ]
+   },
+   {
+    "q": "compute composite score from gates with weights",
+    "truth": [
+     "crates/touring-quality/src/composite.rs"
+    ]
+   },
+   {
+    "q": "tier from composite gold diamond platinum",
+    "truth": [
+     "crates/touring-quality/src/tier.rs"
+    ]
+   },
+   {
+    "q": "owasp cwe vulnerability patterns security analyzer",
+    "truth": [
+     "crates/touring-quality/src/verifications/f2_1_owasp.rs"
+    ]
+   },
+   {
+    "q": "quality history append entry",
+    "truth": [
+     "crates/touring-quality/src/history.rs"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "content-train",
+  "filter": null,
+  "questions": [
+   {
+    "q": "git ativo v2 block git guard",
+    "truth": [
+     "@companion/memory/MEMORY.md"
+    ]
+   },
+   {
+    "q": "feature gpu compute default em todo",
+    "truth": [
+     "@companion/memory/aceleracao-nao-medida-era-pessimizacao.md"
+    ]
+   },
+   {
+    "q": "26 08 2026 depois de gabriel",
+    "truth": [
+     "@companion/memory/adocao-mede-canal-nao-economia.md"
+    ]
+   },
+   {
+    "q": "18 08 2026 verificado por leitura",
+    "truth": [
+     "@companion/memory/adw-lint-cycles-return-prematuro.md"
+    ]
+   },
+   {
+    "q": "o achado original era real um",
+    "truth": [
+     "@companion/memory/adw-retry-sem-feedback-do-gate.md"
+    ]
+   },
+   {
+    "q": "linha memória detalhe nos project md",
+    "truth": [
+     "@companion/memory-home/MEMORY.md"
+    ]
+   },
+   {
+    "q": "insights 3 crates 31 dias de",
+    "truth": [
+     "@companion/memory-home/aco-implementation-plan.md"
+    ]
+   },
+   {
+    "q": "03 2026 baseline 2 079 testes",
+    "truth": [
+     "@companion/memory-home/aco-plan-summary.md"
+    ]
+   },
+   {
+    "q": "constitutional version v2 0 date 2026",
+    "truth": [
+     "@companion/rules/git-safety-protocol.md",
+     "client/rules/git-safety-protocol.md"
+    ]
+   },
+   {
+    "q": "skill for creating high quality academic",
+    "truth": [
+     "@companion/skills/academic-research-writer/README.md",
+     "client/skills/academic-research-writer/README.md"
+    ]
+   },
+   {
+    "q": "enables creation of high quality academic",
+    "truth": [
+     "@companion/skills/academic-research-writer/SKILL.md",
+     "client/skills/academic-research-writer/SKILL.md"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "code-heldout",
+  "filter": null,
+  "questions": [
+   {
+    "q": "companion roots of a project read from the touring toml",
+    "truth": [
+     "crates/touring-foundation/src/config/paths.rs"
+    ]
+   },
+   {
+    "q": "admission verdict for an index candidate path",
+    "truth": [
+     "crates/touring-hooks-shared/src/index_policy.rs"
+    ]
+   },
+   {
+    "q": "seal the index generation building complete or aborted",
+    "truth": [
+     "crates/touring-storage/src/knowledge_index_generation.rs"
+    ]
+   },
+   {
+    "q": "resolve consumer kinds from the producer table in one pass",
+    "truth": [
+     "crates/touring-storage/src/knowledge_wiring.rs"
+    ]
+   },
+   {
+    "q": "stream actor that batches tantivy upserts and commits on a timer",
+    "truth": [
+     "crates/touring-hook-runtime/src/shared/tantivy_stream.rs"
+    ]
+   },
+   {
+    "q": "reciprocal rank fusion of the search backends",
+    "truth": [
+     "crates/touring-server/src/cli/search_unified.rs"
+    ]
+   },
+   {
+    "q": "reindex a file after an edit through the incremental pipeline",
+    "truth": [
+     "crates/touring-hook-runtime/src/shared/reindex.rs"
+    ]
+   },
+   {
+    "q": "classify characters of source into code string and comment",
+    "truth": [
+     "crates/touring-foundation/src/char_classes/mod.rs"
+    ]
+   },
+   {
+    "q": "incremental parse pipeline with cached syntax trees",
+    "truth": [
+     "crates/touring-code/src/ast/incremental_pipeline.rs"
+    ]
+   },
+   {
+    "q": "registry of rpc hook handler names dispatched by the daemon",
+    "truth": [
+     "crates/touring-dispatch/src/hook_registry.rs"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "content-heldout",
+  "filter": null,
+  "questions": [
+   {
+    "q": "o sweep do safe clean apagou o binário do daemon",
+    "truth": [
+     "@companion/memory/sweep-apaga-o-binario-do-daemon.md"
+    ]
+   },
+   {
+    "q": "grep num binário não encontra literal curto",
+    "truth": [
+     "@companion/memory/binario-nao-contem-string-curta.md"
+    ]
+   },
+   {
+    "q": "dois locks para o mesmo recurso não dobram a proteção",
+    "truth": [
+     "@companion/memory/dois-locks-para-um-recurso.md"
+    ]
+   },
+   {
+    "q": "teste flaky que muda de vítima acusa estado global",
+    "truth": [
+     "@companion/memory/flaky-que-troca-de-vitima.md"
+    ]
+   },
+   {
+    "q": "a suíte do projeto analise precisa do interpretador do venv",
+    "truth": [
+     "@companion/memory/analise-exige-venv.md"
+    ]
+   },
+   {
+    "q": "sqlite aberto só para leitura deve usar modo read only",
+    "truth": [
+     "@companion/memory/sqlite-so-leitura-abre-readonly.md"
+    ]
+   },
+   {
+    "q": "o campo if de um hook aceita uma regra só e falha aberto",
+    "truth": [
+     "@companion/memory/hook-if-regra-unica-fail-open.md"
+    ]
+   },
+   {
+    "q": "mnemonicPrefix do git quebra parsers de diff",
+    "truth": [
+     "@companion/memory/git-mnemonicprefix-quebra-parsers-de-diff.md"
+    ]
+   },
+   {
+    "q": "claude code instalado de forma nativa fora do mise",
+    "truth": [
+     "@companion/memory/claude-code-instalacao-nativa.md"
+    ]
+   },
+   {
+    "q": "exit code engolido quando o comando passa por tail",
+    "truth": [
+     "@companion/memory/exit-code-engolido-pelo-pipe.md"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "ident-heldout",
+  "filter": null,
+  "questions": [
+   {
+    "q": "HookRuntime",
+    "truth": [
+     "crates/touring-hook-runtime/src/hook_runtime.rs",
+     "crates/touring-hook-runtime/src/hook_runtime_ext.rs",
+     "crates/touring-hook-runtime/src/runtime/impls_aco.rs",
+     "crates/touring-hook-runtime/src/runtime/impls_cognitive.rs",
+     "crates/touring-hook-runtime/src/runtime/impls_context.rs",
+     "crates/touring-hook-runtime/src/runtime/impls_hook.rs",
+     "crates/touring-hook-runtime/src/runtime/impls_knowledge.rs",
+     "crates/touring-hook-runtime/src/runtime/impls_rl.rs",
+     "crates/touring-hook-runtime/src/runtime/impls_symbols.rs"
+    ]
+   },
+   {
+    "q": "IndexPolicy",
+    "truth": [
+     "crates/touring-hooks-shared/src/index_policy.rs"
+    ]
+   },
+   {
+    "q": "cli_index_why",
+    "truth": [
+     "crates/touring-cli/src/cli/handlers/index.rs"
+    ]
+   },
+   {
+    "q": "TantivyIndex",
+    "truth": [
+     "crates/touring-hooks-core/src/tantivy_index.rs"
+    ]
+   },
+   {
+    "q": "resolve_consumer_kinds_from_producers",
+    "truth": [
+     "crates/touring-storage/src/knowledge_wiring.rs"
+    ]
+   },
+   {
+    "q": "SymbolDoc",
+    "truth": [
+     "crates/touring-hooks-core/src/tantivy_index.rs"
+    ]
+   },
+   {
+    "q": "flag_partial_index",
+    "truth": [
+     "crates/touring-cli/src/cli/handlers/index.rs"
+    ]
+   },
+   {
+    "q": "CompanionRoot",
+    "truth": [
+     "crates/touring-foundation/src/config.rs"
+    ]
+   },
+   {
+    "q": "docs_for_file",
+    "truth": [
+     "crates/touring-hook-runtime/src/shared/tantivy_docs.rs"
+    ]
+   },
+   {
+    "q": "IncrementalPipeline",
+    "truth": [
+     "crates/touring-code/src/ast/incremental_pipeline.rs"
+    ]
+   },
+   {
+    "q": "extension_to_language",
+    "truth": [
+     "crates/touring-hooks-core/src/tantivy_index.rs"
+    ]
+   },
+   {
+    "q": "SearchHit",
+    "truth": [
+     "crates/touring-bindings/src/wasm/simd_embedding.rs",
+     "crates/touring-hooks-core/src/tantivy_index.rs",
+     "crates/touring-storage/src/vec/mod.rs",
+     "site/CHANGELOG/index.html"
+    ]
+   },
+   {
+    "q": "admission_refusal",
+    "truth": [
+     "crates/touring-hook-runtime/src/shared/reindex.rs"
+    ]
+   },
+   {
+    "q": "DocsMode",
+    "truth": [
+     "crates/touring-cli/src/cli/search.rs"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "bag-heldout",
+  "filter": null,
+  "questions": [
+   {
+    "q": "definia grafias deixadas buscável apareça",
+    "truth": [
+     "@companion/memory/analise-trailhq-graft-2026-09-12.md"
+    ]
+   },
+   {
+    "q": "mandar comete derivava chamaria viajava",
+    "truth": [
+     "@companion/memory/persona-viajava-oficio-nao.md"
+    ]
+   },
+   {
+    "q": "confunde cujas estiverem acredita disputa",
+    "truth": [
+     "@companion/memory/triggers-inertes-no-frontmatter.md"
+    ]
+   },
+   {
+    "q": "anota aplicá acknowledging anticipate classificada",
+    "truth": [
+     "@companion/memory/skill-structured-reasoning-2026-09-01.md"
+    ]
+   },
+   {
+    "q": "carona decididos comparando calar waivable",
+    "truth": [
+     "@companion/memory/ceg-waiver-cego-furo-de-rede.md"
+    ]
+   },
+   {
+    "q": "editei nascer gêmea escolhia definer",
+    "truth": [
+     "@companion/memory/comentario-afirma-simetria-inexistente.md"
+    ]
+   },
+   {
+    "q": "special aggregated proceeding reflex elitescore",
+    "truth": [
+     "@companion/rules/touring-elite.md"
+    ]
+   },
+   {
+    "q": "institucionalizado afetadas interrompido visualizar atividades",
+    "truth": [
+     "@companion/rules/touring-cli-index.md"
+    ]
+   },
+   {
+    "q": "desativa limpezas motivos causador ofensores",
+    "truth": [
+     "@companion/rules/disk-hygiene.md"
+    ]
+   },
+   {
+    "q": "persuasion conceptually baterias distinguem desarmar",
+    "truth": [
+     "@companion/rules/touring-4-pillars.md"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "bag-heldout-2",
+  "filter": null,
+  "questions": [
+   {
+    "q": "calma fóssil procure intermitente buscável",
+    "truth": [
+     "@companion/memory/lifecycle-trava-sob-concorrencia.md"
+    ]
+   },
+   {
+    "q": "complementando tuplas haviam aparência subiram",
+    "truth": [
+     "@companion/memory/verificador-usa-menos-que-o-extrator.md"
+    ]
+   },
+   {
+    "q": "hypado reabrir bridgemodule rearmar temido",
+    "truth": [
+     "@companion/memory/retomar-touring-proxima-geracao.md"
+    ]
+   },
+   {
+    "q": "engolia revelaria bastaria casavam booleano",
+    "truth": [
+     "@companion/memory/numero-plausivel-sobrevive-a-observacao.md"
+    ]
+   },
+   {
+    "q": "sloppify varrem colisões perceber competiam",
+    "truth": [
+     "@companion/memory/skills-globais-sao-symlinks.md"
+    ]
+   },
+   {
+    "q": "submitted nexits operands formulas halsteadmetrics",
+    "truth": [
+     "@companion/memory-home/project_wave_a1_halstead_2026_04_20.md"
+    ]
+   },
+   {
+    "q": "separe brilha serviu reusáveis achava",
+    "truth": [
+     "@companion/memory-home/project_sccache_daemon_status_fixes_2026_06_26.md"
+    ]
+   },
+   {
+    "q": "créditos reagiu violados cobrada consentimento",
+    "truth": [
+     "@companion/memory-home/feedback_code_analyses_llm_synthesises.md"
+    ]
+   },
+   {
+    "q": "reliably revealed quarterly webpki destructor",
+    "truth": [
+     "@companion/memory-home/project_supply_chain_observability_2026_04_14.md"
+    ]
+   },
+   {
+    "q": "decomposeparams converting unfiltered resort fileknowledgeenriched",
+    "truth": [
+     "@companion/memory-home/project_wave2_4_implementation.md"
+    ]
+   }
+  ]
+ }
+]

@@ -24,31 +24,78 @@ use std::process::{Command, Stdio};
 /// Devolve `None` quando não foi compilado — os testes tratam isso como SKIP,
 /// não como falha (o harness E2E roda em debug invocando o binário de release).
 ///
-/// A busca cobre três raízes porque `cargo llvm-cov` redireciona o build para
-/// `target/llvm-cov-target/`: um binário de um `cargo build` comum fica
-/// invisível dentro de uma execução de cobertura — exatamente como o job de
-/// cobertura falhou em 02/08/2026. Um `CARGO_TARGET_DIR` explícito vence pelo
-/// mesmo motivo.
+/// Fonte única dos testes que spawnam `touring`/`touring-daemon`/`touring-hook`
+/// (as cópias de `e2e_diagnostic_rfc100` e `wave24_hook_integration_e2e`
+/// delegam aqui). A ordem das raízes está em [`target_roots`].
 #[must_use]
 pub fn locate_binary(name: &str) -> Option<std::path::PathBuf> {
     let workspace_target = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(|p| p.parent())
         .map(|p| p.join("target"))?;
-    let roots = [
+    let roots = target_roots(
         std::env::var_os("CARGO_TARGET_DIR").map(std::path::PathBuf::from),
+        std::env::current_exe().ok().as_deref(),
+        &workspace_target,
+    );
+    pick_binary(name, &roots, std::path::Path::exists)
+}
+
+/// Raízes de `target/` em ordem de preferência:
+///
+/// 1. `CARGO_TARGET_DIR` explícito;
+/// 2. a raiz que compilou ESTE binário de teste (`<raiz>/<perfil>/deps/<teste>`);
+/// 3. `target/` do workspace;
+/// 4. `target/llvm-cov-target/`.
+///
+/// A raiz do próprio teste vem antes das fixas porque é a única que pertence
+/// ao build em curso. `cargo llvm-cov` redireciona o build para
+/// `target/llvm-cov-target/` (o job de cobertura falhou por não achar o
+/// binário em 02/08/2026), e numa rodada de cobertura o teste já mora lá. Numa
+/// rodada comum, a mesma pasta guarda a sobra de uma cobertura antiga: com ela
+/// em segundo lugar, o E2E do juiz de 14/09/2026 subiu um daemon instrumentado
+/// de 13:53, nove horas mais velho que as correções que certificava, e cada
+/// daemon desses deixou um `default_*.profraw` na raiz do workspace.
+#[must_use]
+pub fn target_roots(
+    cargo_target_dir: Option<std::path::PathBuf>,
+    test_exe: Option<&std::path::Path>,
+    workspace_target: &std::path::Path,
+) -> Vec<std::path::PathBuf> {
+    let own_build = test_exe
+        .and_then(std::path::Path::parent)
+        .filter(|deps| deps.file_name().is_some_and(|n| n == "deps"))
+        .and_then(std::path::Path::parent)
+        .and_then(std::path::Path::parent)
+        .map(std::path::Path::to_path_buf);
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    for root in [
+        cargo_target_dir,
+        own_build,
+        Some(workspace_target.to_path_buf()),
         Some(workspace_target.join("llvm-cov-target")),
-        Some(workspace_target),
-    ];
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !roots.contains(&root) {
+            roots.push(root);
+        }
+    }
     roots
-        .into_iter()
-        .flatten()
-        .flat_map(|root| {
-            ["release", "debug"]
-                .map(|profile| root.join(profile).join(name))
-                .into_iter()
-        })
-        .find(|candidate| candidate.exists())
+}
+
+/// Primeiro `<raiz>/{release,debug}/<name>` que existe, na ordem das raízes.
+#[must_use]
+pub fn pick_binary(
+    name: &str,
+    roots: &[std::path::PathBuf],
+    exists: impl Fn(&std::path::Path) -> bool,
+) -> Option<std::path::PathBuf> {
+    roots
+        .iter()
+        .flat_map(|root| ["release", "debug"].map(|profile| root.join(profile).join(name)))
+        .find(|candidate| exists(candidate))
 }
 
 /// Daemon `touring` próprio deste processo de teste, num socket exclusivo.
@@ -148,6 +195,42 @@ impl Drop for PrivateDaemon {
 /// Lê o veredito de `touring doctor -j`: só `daemon_health.status == "ok"` conta.
 /// Qualquer outra coisa — erro de conexão, JSON inválido, binário ausente — é
 /// "ainda não pronto", que é o que o chamador precisa saber.
+/// Paga a montagem do índice ANTES de qualquer teste, fora do orçamento dele.
+///
+/// Prontidão tem CLASSE DE PESO, e o probe precisa exercitar a mesma que
+/// certifica. Em 07/08/2026 a espera saiu de `Path::exists` para `doctor -j`, o
+/// que matou a corrida do bind — mas `doctor` é consulta barata, e o que os
+/// testes de fato pedem (`pre-task-scout`: blast preditivo sobre o workspace
+/// real) é de outra ordem. O daemon respondia `daemon_health == ok` com o índice
+/// ainda por montar, e o primeiro teste pesado pagava a montagem DENTRO do seu
+/// próprio orçamento de cliente.
+///
+/// Efeito medido: `b310_path_wired_when_predictive_blast_injects_symbols` verde
+/// isolado (14,6s) e vermelho na suíte completa de 04/09/2026, com a máquina
+/// saturada por 49 crates — o MESMO teste que motivou a correção de 07/08.
+/// O `--timeout` do b310 já subiu 15 → 60 por esta mesma causa, e a falha
+/// reincidiu em 60: o histórico do próprio teste mede que ajustar o número não
+/// remove o mecanismo.
+///
+/// A ordem dos testes tampouco serve de garantia — o comentário do b310 conta
+/// com "o daemon já foi aquecido pelos outros testes deste binário", mas os
+/// cinco começam em paralelo e nada os ordena. Aquecer aqui, uma vez, dentro do
+/// `OnceLock`, torna estrutural o que era incidental.
+///
+/// Best-effort por construção: o valor está no EFEITO COLATERAL (índice
+/// montado), nunca na resposta. Falhar aqui não é veredito sobre coisa alguma —
+/// seria o falso negativo que o próprio b310 já documenta.
+fn warm_heavy_path(socket: &str) {
+    const PROBE: &str =
+        r#"{"tool_name":"TaskCreate","tool_input":{"subject":"warmup","description":"warmup"}}"#;
+    let _ = run_with_stdin(
+        "touring",
+        &["--timeout", "120", "pre-task-scout"],
+        PROBE,
+        Some(socket),
+    );
+}
+
 fn daemon_answers(socket: &str) -> bool {
     let Some((stdout, _stderr, code)) =
         run_with_stdin("touring", &["doctor", "-j"], "", Some(socket))
@@ -204,7 +287,6 @@ pub fn run_with_stdin(
     ))
 }
 
-
 // ── Daemon compartilhado por PROCESSO de teste (21/08/2026) ──────────────────
 //
 // Os testes e2e que spawnam `touring <cmd>` herdavam `TOURING_DAEMON_SOCKET` da
@@ -236,6 +318,34 @@ pub fn shared() -> Option<&'static PrivateDaemon> {
             PrivateDaemon::start_in(env!("CARGO_CRATE_NAME"), Some(&workspace_root()), Some(90))
         })
         .as_ref()
+}
+
+/// O daemon privado, JÁ AQUECIDO para uma consulta PESADA.
+///
+/// Existe separado de [`shared`] por uma regressão medida em 04/09/2026, e a
+/// separação é o remédio, não um detalhe: o aquecimento estava dentro de
+/// `shared()`, que é inicialização preguiçosa e portanto roda no PRIMEIRO
+/// chamador, qualquer que ele seja. `predictive_wave_p99_guards` chama
+/// `private_daemon_env()` — um getter de aparência barata — DENTRO do laço que
+/// cronometra, e a primeira iteração passou a pagar os ~11s do aquecimento:
+/// `D2 pre-tool-use CLI P99 = 10952ms, expected < 2_000ms`, determinístico e
+/// reproduzível isolado.
+///
+/// A lição é geral: **custo escondido atrás de acessor preguiçoso é cobrado de
+/// quem chegar primeiro** — e quem chega primeiro pode ser justamente um
+/// caminho medido. O custo agora é declarado no sítio que precisa dele; quem só
+/// quer o socket segue pagando nada.
+#[must_use]
+pub fn shared_warm() -> Option<&'static PrivateDaemon> {
+    // `Once` e não `OnceLock`: o aquecimento não produz valor, só efeito — e
+    // precisa acontecer uma vez mesmo que `shared()` já tenha sido inicializado
+    // por outro teste do mesmo binário. Declarado ANTES do primeiro statement
+    // (clippy::items_after_statements): este arquivo é incluído por caminho em
+    // mais de um crate de teste, então o lint dispara em cada um deles.
+    static WARMED: std::sync::Once = std::sync::Once::new();
+    let daemon = shared()?;
+    WARMED.call_once(|| warm_heavy_path(daemon.socket()));
+    Some(daemon)
 }
 
 /// Variáveis de ambiente que apontam um `touring` spawnado para o daemon

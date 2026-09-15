@@ -340,7 +340,10 @@ if (n := len(data)) > 10:
         assert_eq!(signals.len(), 1, "{signals:?}");
         let (score, text) = &signals[0];
         assert!(*score >= 0.9, "syntax error is a top-tier signal: {score}");
-        assert!(text.contains("[py-syntax]") && text.contains("scripts/new_tool.py"), "{text}");
+        assert!(
+            text.contains("[py-syntax]") && text.contains("scripts/new_tool.py"),
+            "{text}"
+        );
     }
 
     #[test]
@@ -357,7 +360,10 @@ if (n := len(data)) > 10:
             .with_proposed(ProposedChange::Write {
                 content: "def foo(:\n",
             });
-        assert!(layer.enrich(&rs).is_empty(), "not Python — never parsed as Python");
+        assert!(
+            layer.enrich(&rs).is_empty(),
+            "not Python — never parsed as Python"
+        );
     }
 
     #[test]
@@ -373,6 +379,9 @@ if (n := len(data)) > 10:
             });
         assert!(layer.enrich(&edit).is_empty());
         let none = SignalContext::new("scripts/tool.py", "def foo(:\n").with_hook("pre_read");
-        assert!(layer.enrich(&none).is_empty(), "no proposal ⇒ nothing to gate");
+        assert!(
+            layer.enrich(&none).is_empty(),
+            "no proposal ⇒ nothing to gate"
+        );
     }
 }

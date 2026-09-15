@@ -1244,8 +1244,15 @@ mod tests {
             update_count: 10,
             ema_reward: 0.1,
         });
-        assert_eq!(reborn.update_count(), 42, "snapshot atrasado nunca rebobina");
-        assert!((reborn.ema_reward() - 0.7).abs() < 1e-9, "EMA fica com o mais novo");
+        assert_eq!(
+            reborn.update_count(),
+            42,
+            "snapshot atrasado nunca rebobina"
+        );
+        assert!(
+            (reborn.ema_reward() - 0.7).abs() < 1e-9,
+            "EMA fica com o mais novo"
+        );
     }
 
     #[test]

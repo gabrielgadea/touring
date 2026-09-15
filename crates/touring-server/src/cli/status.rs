@@ -271,8 +271,10 @@ fn code_mode_snapshot(gate_metrics: Option<&serde_json::Value>) -> serde_json::V
         return serde_json::json!({ "error": "gate_metrics unavailable" });
     };
     let (Some(runs), Some(bash_calls)) = (
-        gm.get("code_mode_runs_count").and_then(serde_json::Value::as_u64),
-        gm.get("bash_calls_total_count").and_then(serde_json::Value::as_u64),
+        gm.get("code_mode_runs_count")
+            .and_then(serde_json::Value::as_u64),
+        gm.get("bash_calls_total_count")
+            .and_then(serde_json::Value::as_u64),
     ) else {
         return serde_json::json!({ "error": "gate_metrics unavailable" });
     };
@@ -442,7 +444,10 @@ mod tests {
             "gate_events": {}
         });
         let block = code_mode_snapshot(Some(&gm));
-        assert!(block["adoption_ratio"].is_null(), "bash_calls=0 → ratio null, nunca 0.0");
+        assert!(
+            block["adoption_ratio"].is_null(),
+            "bash_calls=0 → ratio null, nunca 0.0"
+        );
     }
 
     #[test]

@@ -45,10 +45,7 @@ const CLAUDE_MD_STRUCTURAL_CEILING: usize = CLAUDE_MD_HARD_LIMIT * 2;
 ///
 /// Entries are filenames, never prose — `every_critical_rule_is_a_filename`
 /// enforces it, because the space is what made the slip invisible.
-const CRITICAL_RULES: &[&str] = &[
-    "touring-process-hygiene.md",
-    "code-execution-gateway.md",
-];
+const CRITICAL_RULES: &[&str] = &["touring-process-hygiene.md", "code-execution-gateway.md"];
 
 /// REGRA markers whose presence in `CLAUDE.md` is structurally required — the
 /// constitutional safety invariants: git-prohibition (#11), process-hygiene

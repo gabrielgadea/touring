@@ -624,8 +624,12 @@ fn run_verify(symbol: &str, is_json: bool) -> anyhow::Result<()> {
 
 /// Read a plan file and deserialize it as `GeneratorPlan`.
 fn read_plan_file(path: &str) -> anyhow::Result<(touring_generator::GeneratorPlan, String)> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| anyhow::anyhow!("cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions", path))?;
+    let content = std::fs::read_to_string(path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions",
+            path
+        )
+    })?;
     let plan: touring_generator::GeneratorPlan = serde_json::from_str(&content)
         .map_err(|e| anyhow::anyhow!("invalid plan JSON in '{}': {e}", path))?;
     Ok((plan, content))
@@ -847,10 +851,18 @@ fn toml_from_plan(plan: &touring_generator::GeneratorPlan) -> String {
 
 /// `touring generate plan-diff --plan-file <path> --other <path> [--json]`
 fn run_plan_diff(path_a: &str, path_b: &str, is_json: bool) -> anyhow::Result<()> {
-    let content_a = std::fs::read_to_string(path_a)
-        .map_err(|e| anyhow::anyhow!("cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions", path_a))?;
-    let content_b = std::fs::read_to_string(path_b)
-        .map_err(|e| anyhow::anyhow!("cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions", path_b))?;
+    let content_a = std::fs::read_to_string(path_a).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions",
+            path_a
+        )
+    })?;
+    let content_b = std::fs::read_to_string(path_b).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions",
+            path_b
+        )
+    })?;
     let result = crate::tools::generator_tools_introspect::diff_plans(&content_a, &content_b);
     print_result(&result, is_json, || {
         if result
@@ -1406,11 +1418,16 @@ fn parse_vars(vars_json: Option<&str>) -> anyhow::Result<HashMap<String, serde_j
     match vars_json {
         None => Ok(HashMap::new()),
         Some(raw) => {
-            let v: serde_json::Value = serde_json::from_str(raw)
-                .map_err(|e| anyhow::anyhow!("--vars is not valid JSON: {e} — run `touring generate --help` for flag usage"))?;
+            let v: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+                anyhow::anyhow!(
+                    "--vars is not valid JSON: {e} — run `touring generate --help` for flag usage"
+                )
+            })?;
             match v {
                 serde_json::Value::Object(map) => Ok(map.into_iter().collect()),
-                _ => anyhow::bail!("--vars must be a JSON object (e.g., --vars '{{\"key\": \"value\"}}')"),
+                _ => anyhow::bail!(
+                    "--vars must be a JSON object (e.g., --vars '{{\"key\": \"value\"}}')"
+                ),
             }
         }
     }

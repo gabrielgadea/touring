@@ -146,7 +146,10 @@ fn classifier_bash_sed_inplace_is_denied_by_g9() {
         .expect("o deny carrega a razão");
     assert!(razao.contains("G9"), "o deny se identifica: {razao}");
     // e a rota alternativa vem escrita — um deny sem saída é só um obstáculo
-    assert!(razao.contains("Edit tool"), "a rota canônica viaja no deny: {razao}");
+    assert!(
+        razao.contains("Edit tool"),
+        "a rota canônica viaja no deny: {razao}"
+    );
 }
 
 /// REGRA #11 v2: git de leitura é PERMITIDO, nada é exigido, e o hook cala.
@@ -475,4 +478,3 @@ fn classifier_ttl_cache_suppresses_duplicate_input_in_same_process() {
     );
     assert_ne!(different, "{}", "different input must NOT hit the cache");
 }
-

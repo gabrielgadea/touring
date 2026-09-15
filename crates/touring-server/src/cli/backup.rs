@@ -110,11 +110,18 @@ fn backup_one(src: &Path, dst: &Path, json: bool) -> anyhow::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
-    let conn = rusqlite::Connection::open(src)
-        .map_err(|e| anyhow::anyhow!("cannot open {}: {e} — run `file {}` to verify database type", src.display(), src.display()))?;
+    let conn = rusqlite::Connection::open(src).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot open {}: {e} — run `file {}` to verify database type",
+            src.display(),
+            src.display()
+        )
+    })?;
     let escaped = sqlite_escape_path(dst);
     conn.execute_batch(&format!("VACUUM INTO '{escaped}'"))
-        .map_err(|e| anyhow::anyhow!("backup failed: {e} — run `df -h` to check disk space and permissions"))?;
+        .map_err(|e| {
+            anyhow::anyhow!("backup failed: {e} — run `df -h` to check disk space and permissions")
+        })?;
 
     let size = dst.metadata().map(|m| m.len()).unwrap_or(0);
     if json {
@@ -142,7 +149,10 @@ fn backup_one(src: &Path, dst: &Path, json: bool) -> anyhow::Result<()> {
 /// Validates the source is a valid SQLite database before overwriting.
 fn restore_one(src: &Path, dst: &Path, domain: &str, json: bool) -> anyhow::Result<()> {
     if !src.exists() {
-        anyhow::bail!("restore source {} not found — verify path and run `touring backup --list`", src.display());
+        anyhow::bail!(
+            "restore source {} not found — verify path and run `touring backup --list`",
+            src.display()
+        );
     }
     if !is_valid_sqlite(src) {
         anyhow::bail!(
@@ -160,7 +170,11 @@ fn restore_one(src: &Path, dst: &Path, domain: &str, json: bool) -> anyhow::Resu
         eprintln!("warning: overwriting live database {}", dst.display());
     }
 
-    let bytes = std::fs::copy(src, dst).map_err(|e| anyhow::anyhow!("restore copy failed: {e} — run `df -h` and check parent directory permissions"))?;
+    let bytes = std::fs::copy(src, dst).map_err(|e| {
+        anyhow::anyhow!(
+            "restore copy failed: {e} — run `df -h` and check parent directory permissions"
+        )
+    })?;
 
     if json {
         println!(
@@ -245,7 +259,7 @@ fn cmd_restore(args: &[String]) -> anyhow::Result<()> {
     let domain = args.get(2).map(|s| s.as_str()).unwrap_or("");
 
     if !DOMAINS.contains(&domain) {
-//         anyhow::bail!("unknown domain '{domain}' — must be one of: knowledge|memory|graph; run `touring help backup` for details");
+        //         anyhow::bail!("unknown domain '{domain}' — must be one of: knowledge|memory|graph; run `touring help backup` for details");
     }
 
     let input_str = flag_value(&args, "--input")
@@ -307,8 +321,13 @@ impl DbSpace {
 }
 
 fn read_db_space(path: &Path) -> anyhow::Result<DbSpace> {
-    let conn = rusqlite::Connection::open(path)
-        .map_err(|e| anyhow::anyhow!("cannot access {}: {e} — run `ls -l {}` to check permissions", path.display(), path.display()))?;
+    let conn = rusqlite::Connection::open(path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot access {}: {e} — run `ls -l {}` to check permissions",
+            path.display(),
+            path.display()
+        )
+    })?;
     let pragma = |name: &str| -> anyhow::Result<u64> {
         conn.query_row(&format!("PRAGMA {name}"), [], |r| r.get::<_, i64>(0))
             .map(|v| u64::try_from(v).unwrap_or(0))
@@ -345,7 +364,9 @@ fn cmd_compact(args: &[String]) -> anyhow::Result<()> {
     } else if DOMAINS.contains(&target) {
         vec![target]
     } else {
-        anyhow::bail!("unknown domain '{target}'; run `touring backup list` or use one of: knowledge, memory, graph, all");
+        anyhow::bail!(
+            "unknown domain '{target}'; run `touring backup list` or use one of: knowledge, memory, graph, all"
+        );
     };
 
     let mut results = Vec::with_capacity(domains.len());
@@ -381,10 +402,17 @@ fn cmd_compact(args: &[String]) -> anyhow::Result<()> {
             }));
             continue;
         }
-        let conn = rusqlite::Connection::open(&path)
-            .map_err(|e| anyhow::anyhow!("cannot access {}: {e} — run `ls -l {}` or `chmod u+w {}`", path.display(), path.display(), path.display()))?;
-        conn.execute_batch("VACUUM")
-            .map_err(|e| anyhow::anyhow!("cleanup failed: {e} — run `df -h` to check disk space or retry"))?;
+        let conn = rusqlite::Connection::open(&path).map_err(|e| {
+            anyhow::anyhow!(
+                "cannot access {}: {e} — run `ls -l {}` or `chmod u+w {}`",
+                path.display(),
+                path.display(),
+                path.display()
+            )
+        })?;
+        conn.execute_batch("VACUUM").map_err(|e| {
+            anyhow::anyhow!("cleanup failed: {e} — run `df -h` to check disk space or retry")
+        })?;
         drop(conn);
         let after = path.metadata().map(|m| m.len()).unwrap_or(before);
         results.push(serde_json::json!({
@@ -529,8 +557,6 @@ mod tests {
         let p = Path::new("/tmp/touring/knowledge.db");
         assert_eq!(sqlite_escape_path(p), "/tmp/touring/knowledge.db");
     }
-
-    
 
     #[test]
     fn restore_one_succeeds_for_valid_db() {

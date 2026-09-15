@@ -74,8 +74,16 @@ mod tests {
         assert_eq!(signals.len(), 1, "{signals:?}");
         let (score, text) = &signals[0];
         assert!((*score - 1.0).abs() < f32::EPSILON);
-        assert!(text.contains("[secret] P0 F2.4") && text.contains("src/config.rs") && text.contains("(L2)"), "{text}");
-        assert!(!text.contains("P4ssw0rd"), "the value must never be echoed: {text}");
+        assert!(
+            text.contains("[secret] P0 F2.4")
+                && text.contains("src/config.rs")
+                && text.contains("(L2)"),
+            "{text}"
+        );
+        assert!(
+            !text.contains("P4ssw0rd"),
+            "the value must never be echoed: {text}"
+        );
     }
 
     #[test]
@@ -93,17 +101,22 @@ mod tests {
 
     #[test]
     fn silent_for_clean_code_for_the_pragma_and_without_a_proposal() {
-        let clean = SignalContext::new("src/lib.rs", "")
-            .with_proposed(ProposedChange::Write {
-                content: "pub fn add(a: i32, b: i32) -> i32 { a + b }\n",
-            });
+        let clean = SignalContext::new("src/lib.rs", "").with_proposed(ProposedChange::Write {
+            content: "pub fn add(a: i32, b: i32) -> i32 { a + b }\n",
+        });
         assert!(SecretsSignalLayer.enrich(&clean).is_empty());
-        let fixture = format!("// touring-quality:allow-secrets\nlet u = \"{}\";\n", conn_string());
+        let fixture = format!(
+            "// touring-quality:allow-secrets\nlet u = \"{}\";\n",
+            conn_string()
+        );
         let allow = SignalContext::new("tests/fixtures/sample.rs", "")
             .with_proposed(ProposedChange::Write { content: &fixture });
         assert!(SecretsSignalLayer.enrich(&allow).is_empty());
         let on_disk_only = format!("let u = \"{}\";\n", conn_string());
         let read = SignalContext::new("src/x.rs", &on_disk_only).with_hook("pre_read");
-        assert!(SecretsSignalLayer.enrich(&read).is_empty(), "no proposal ⇒ not this layer's job");
+        assert!(
+            SecretsSignalLayer.enrich(&read).is_empty(),
+            "no proposal ⇒ not this layer's job"
+        );
     }
 }

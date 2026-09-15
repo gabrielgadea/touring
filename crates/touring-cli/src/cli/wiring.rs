@@ -258,7 +258,8 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
 /// Invariant C-2: integration_score = wired_count/total_pub (1.0 when total_pub=0).
 /// Orphan symbol names are fetched only for modules with wired_count < total_pub.
 pub fn cli_wiring_modules(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
-    let cache_key = crate::shared::query_cache::make_key("cli_wiring_modules", "v1");
+    let cache_key =
+        crate::shared::query_cache::make_key(&rt.project_root, "cli_wiring_modules", "v1");
     if let Some(cached) = crate::shared::query_cache::get(&cache_key) {
         return cached;
     }

@@ -1,8 +1,9 @@
 //! FastEmbed provider implementation.
 //!
 //! Uses the `fastembed` crate for ONNX-based embedding inference.
-//! FastEmbed provides efficient on-device (CPU) embedding generation without a
-//! GPU and without a remote service.
+//! FastEmbed provides on-device embedding generation without a remote service:
+//! on an NVIDIA GPU through the ONNX CUDA execution provider when one loads and
+//! runs, on the CPU otherwise (see [`EmbedDevicePolicy`]).
 //!
 //! # Features
 //! - `fastembed` feature must be enabled (default-on in `touring-storage`)
@@ -22,6 +23,8 @@ use std::marker;
 use std::path::PathBuf;
 #[cfg(feature = "fastembed")]
 use std::sync::{Arc, Mutex};
+#[cfg(feature = "fastembed")]
+use std::time::Instant;
 
 use async_trait::async_trait;
 
@@ -99,11 +102,203 @@ pub fn fastembed_cache_dir() -> PathBuf {
         .join("fastembed")
 }
 
+/// Hardware an embedding runtime actually executes on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmbedDevice {
+    /// ONNX Runtime CPU execution provider.
+    Cpu,
+    /// ONNX Runtime CUDA execution provider (NVIDIA GPU).
+    Cuda,
+}
+
+impl EmbedDevice {
+    /// Stable lowercase label, the value `touring gate-metrics` reports.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EmbedDevice::Cpu => "cpu",
+            EmbedDevice::Cuda => "cuda",
+        }
+    }
+}
+
+/// Environment variable selecting the embedding device: `auto` | `cuda` | `cpu`.
+pub const EMBED_DEVICE_ENV: &str = "TOURING_EMBED_DEVICE";
+
+/// Environment variable capping the CUDA memory arena of one provider, in MiB.
+#[cfg(feature = "storage-emb-cuda")]
+const EMBED_CUDA_MEM_MB_ENV: &str = "TOURING_EMBED_CUDA_MEM_MB";
+
+/// Default CUDA arena cap. Every daemon (global and per project) loads its own
+/// runtime on the same 8 GiB card, so one runtime must not take the arena
+/// ONNX Runtime would otherwise grow without bound.
+#[cfg(feature = "storage-emb-cuda")]
+const DEFAULT_CUDA_ARENA_MB: usize = 2048;
+
+/// Texts per ONNX run on CUDA. fastembed's default batch of 256 sizes the
+/// attention activations for 256 sequences of up to 512 tokens at once, which
+/// does not fit the capped arena; on CPU the default stays.
+#[cfg(feature = "fastembed")]
+const CUDA_BATCH_SIZE: usize = 32;
+
+/// Which device a provider may load on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EmbedDevicePolicy {
+    /// CUDA when it loads and runs, CPU otherwise. The default.
+    #[default]
+    Auto,
+    /// CUDA or an error: proves the GPU path, never silently CPU.
+    Cuda,
+    /// CPU only.
+    Cpu,
+}
+
+impl EmbedDevicePolicy {
+    /// Parses a `TOURING_EMBED_DEVICE` value; `None` for an unrecognised one.
+    pub fn parse(raw: Option<&str>) -> Option<Self> {
+        match raw.map(|v| v.trim().to_ascii_lowercase()).as_deref() {
+            None | Some("") | Some("auto") => Some(Self::Auto),
+            Some("cuda") | Some("gpu") => Some(Self::Cuda),
+            Some("cpu") => Some(Self::Cpu),
+            Some(_) => None,
+        }
+    }
+
+    /// Reads `TOURING_EMBED_DEVICE`. An unrecognised value is logged and read
+    /// as `auto`, the one policy that never loses the semantic embedder.
+    pub fn from_env() -> Self {
+        let raw = std::env::var(EMBED_DEVICE_ENV).ok();
+        Self::parse(raw.as_deref()).unwrap_or_else(|| {
+            tracing::warn!(
+                "{EMBED_DEVICE_ENV}={:?} is not one of auto|cuda|cpu; using auto",
+                raw.unwrap_or_default()
+            );
+            Self::Auto
+        })
+    }
+}
+
+/// CUDA arena cap in bytes from a `TOURING_EMBED_CUDA_MEM_MB` value; a missing,
+/// zero or unparsable value yields the default.
+#[cfg(feature = "storage-emb-cuda")]
+fn cuda_arena_bytes(raw_mb: Option<&str>) -> usize {
+    raw_mb
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|mb| *mb > 0)
+        .unwrap_or(DEFAULT_CUDA_ARENA_MB)
+        .saturating_mul(1024 * 1024)
+}
+
+/// A loaded ONNX session and the device it runs on.
+#[cfg(feature = "fastembed")]
+struct Runtime {
+    embedding: fastembed::TextEmbedding,
+    device: EmbedDevice,
+}
+
+#[cfg(feature = "fastembed")]
+impl Runtime {
+    /// One ONNX run, timed and counted per device in `touring gate-metrics`.
+    fn run(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+        let batch_size = match self.device {
+            EmbedDevice::Cuda => Some(CUDA_BATCH_SIZE),
+            EmbedDevice::Cpu => None,
+        };
+        let started = Instant::now();
+        let out = self
+            .embedding
+            .embed(texts, batch_size)
+            .map_err(|e| EmbeddingError::InferenceFailed(e.to_string()))?;
+        let micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+        match self.device {
+            EmbedDevice::Cuda => {
+                touring_foundation::gate_metrics::record_embedding_run_cuda(texts.len(), micros)
+            }
+            EmbedDevice::Cpu => {
+                touring_foundation::gate_metrics::record_embedding_run_cpu(texts.len(), micros)
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// The CUDA execution provider as the embedder registers it.
+#[cfg(feature = "storage-emb-cuda")]
+fn cuda_execution_provider() -> ort::ep::ExecutionProviderDispatch {
+    use ort::ep::{ArenaExtendStrategy, CUDA};
+    let arena = cuda_arena_bytes(std::env::var(EMBED_CUDA_MEM_MB_ENV).ok().as_deref());
+    CUDA::default()
+        .with_device_id(0)
+        .with_memory_limit(arena)
+        // Grow by what a run asks for, not to the next power of two: the arena
+        // cap is shared headroom, not a target.
+        .with_arena_extend_strategy(ArenaExtendStrategy::SameAsRequested)
+        .build()
+        // ONNX Runtime falls back to CPU in silence when a provider fails to
+        // register; this turns that into an error the policy decides on.
+        .error_on_failure()
+}
+
+/// Loads `model` on exactly `device`, or fails.
+#[cfg(feature = "fastembed")]
+fn load_runtime(model: FastEmbedModel, device: EmbedDevice) -> Result<Runtime, EmbeddingError> {
+    let opts = fastembed::TextInitOptions::new(model.fastembed_model())
+        .with_cache_dir(fastembed_cache_dir())
+        .with_show_download_progress(false);
+    let opts = match device {
+        EmbedDevice::Cpu => opts,
+        #[cfg(feature = "storage-emb-cuda")]
+        EmbedDevice::Cuda => opts.with_execution_providers(vec![cuda_execution_provider()]),
+        #[cfg(not(feature = "storage-emb-cuda"))]
+        EmbedDevice::Cuda => {
+            return Err(EmbeddingError::ModelLoadFailed(
+                "cuda: touring-storage was built without the storage-emb-cuda feature".into(),
+            ));
+        }
+    };
+    let mut embedding = fastembed::TextEmbedding::try_new(opts)
+        .map_err(|e| EmbeddingError::ModelLoadFailed(format!("{}: {e}", device.as_str())))?;
+    if device == EmbedDevice::Cuda {
+        // cuBLAS/cuDNN are opened on the first run, not when the provider
+        // registers, so a session can register CUDA and still fail its first
+        // inference. One run here proves the device before any caller relies on
+        // it, and pays the kernel selection once instead of on a user's recall.
+        embedding
+            .embed(["touring embedder warm-up"], None)
+            .map_err(|e| EmbeddingError::ModelLoadFailed(format!("cuda warm-up: {e}")))?;
+    }
+    Ok(Runtime { embedding, device })
+}
+
+/// Loads `model` under `policy`. When `auto` has to leave CUDA, the reason is
+/// logged and recorded in `touring gate-metrics` — the one place it lives.
+#[cfg(feature = "fastembed")]
+fn load_for_policy(
+    model: FastEmbedModel,
+    policy: EmbedDevicePolicy,
+) -> Result<Runtime, EmbeddingError> {
+    match policy {
+        EmbedDevicePolicy::Cpu => load_runtime(model, EmbedDevice::Cpu),
+        EmbedDevicePolicy::Cuda => load_runtime(model, EmbedDevice::Cuda),
+        EmbedDevicePolicy::Auto if !cfg!(feature = "storage-emb-cuda") => {
+            load_runtime(model, EmbedDevice::Cpu)
+        }
+        EmbedDevicePolicy::Auto => load_runtime(model, EmbedDevice::Cuda).or_else(|e| {
+            let reason = e.to_string();
+            tracing::warn!(
+                model = model.model_id(),
+                "CUDA embedding runtime unavailable, loading on CPU: {reason}"
+            );
+            touring_foundation::gate_metrics::record_embedding_cuda_fallback(&reason);
+            load_runtime(model, EmbedDevice::Cpu)
+        }),
+    }
+}
+
 /// FastEmbed embedding provider.
 ///
 /// Wraps the `fastembed` crate for efficient on-device embedding generation.
 /// The model is loaded once and held for the provider's lifetime; inference is
-/// synchronous CPU work (the `async` trait methods are thin wrappers so the
+/// synchronous CUDA or CPU work (the `async` trait methods are thin wrappers so the
 /// daemon hot path can call [`FastEmbedProvider::embed_one_sync`] directly).
 ///
 /// When the `fastembed` feature is disabled — or when constructed via
@@ -113,7 +308,11 @@ pub struct FastEmbedProvider {
     model: FastEmbedModel,
     /// `Some` = a real ONNX runtime is loaded; `None` = deterministic stub.
     #[cfg(feature = "fastembed")]
-    runtime: Arc<Mutex<Option<fastembed::TextEmbedding>>>,
+    runtime: Arc<Mutex<Option<Runtime>>>,
+    /// Policy the runtime was loaded under; `auto` also governs the CUDA→CPU
+    /// reload after an inference failure.
+    #[cfg(feature = "fastembed")]
+    policy: EmbedDevicePolicy,
     #[cfg(not(feature = "fastembed"))]
     _marker: marker::PhantomData<()>,
 }
@@ -148,21 +347,38 @@ impl FastEmbedProvider {
     /// Loads the real ONNX model for `model`, returning an error on failure.
     ///
     /// The model is downloaded into the `fastembed_cache_dir` on first use and
-    /// read from that cache thereafter (offline).
+    /// read from that cache thereafter (offline). The device follows
+    /// `TOURING_EMBED_DEVICE` (default `auto`: CUDA when it loads and runs).
     ///
     /// # Errors
     /// Returns [`EmbeddingError::ModelLoadFailed`] if the runtime cannot be
     /// initialised (e.g. weights missing and no network on first download).
     #[cfg(feature = "fastembed")]
     pub fn try_with_model(model: FastEmbedModel) -> Result<Self, EmbeddingError> {
-        let opts = fastembed::TextInitOptions::new(model.fastembed_model())
-            .with_cache_dir(fastembed_cache_dir())
-            .with_show_download_progress(false);
-        let runtime = fastembed::TextEmbedding::try_new(opts)
-            .map_err(|e| EmbeddingError::ModelLoadFailed(e.to_string()))?;
+        Self::try_with_model_on(model, EmbedDevicePolicy::from_env())
+    }
+
+    /// Loads the real ONNX model for `model` under an explicit device policy.
+    ///
+    /// # Errors
+    /// Returns [`EmbeddingError::ModelLoadFailed`] when the model cannot load on
+    /// any device the policy allows (`cuda` never falls back to CPU).
+    #[cfg(feature = "fastembed")]
+    pub(crate) fn try_with_model_on(
+        model: FastEmbedModel,
+        policy: EmbedDevicePolicy,
+    ) -> Result<Self, EmbeddingError> {
+        let runtime = load_for_policy(model, policy)?;
+        tracing::info!(
+            model = model.model_id(),
+            device = runtime.device.as_str(),
+            ?policy,
+            "fastembed runtime loaded"
+        );
         Ok(Self {
             model,
             runtime: Arc::new(Mutex::new(Some(runtime))),
+            policy,
         })
     }
 
@@ -181,6 +397,21 @@ impl FastEmbedProvider {
         self.model
     }
 
+    /// Device the loaded runtime executes on; `None` for a stub provider.
+    #[cfg(feature = "fastembed")]
+    pub fn device(&self) -> Option<EmbedDevice> {
+        self.runtime
+            .lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().map(|rt| rt.device))
+    }
+
+    /// Device the loaded runtime executes on; `None` for a stub provider.
+    #[cfg(not(feature = "fastembed"))]
+    pub fn device(&self) -> Option<EmbedDevice> {
+        None
+    }
+
     /// Non-loading constructor for tests/development.
     ///
     /// Produces deterministic hash vectors at the model's declared width — no
@@ -190,6 +421,8 @@ impl FastEmbedProvider {
             model,
             #[cfg(feature = "fastembed")]
             runtime: Arc::new(Mutex::new(None)),
+            #[cfg(feature = "fastembed")]
+            policy: EmbedDevicePolicy::Cpu,
             #[cfg(not(feature = "fastembed"))]
             _marker: marker::PhantomData,
         }
@@ -210,6 +443,37 @@ impl FastEmbedProvider {
         vec
     }
 
+    /// Runs one inference on the loaded runtime; `Ok(None)` for a stub.
+    ///
+    /// Under [`EmbedDevicePolicy::Auto`] a CUDA failure at inference time (an
+    /// exhausted arena while several daemons share the card, a driver reset)
+    /// reloads the model on CPU once and repeats the same texts there, so the
+    /// caller still gets the semantic vector instead of the hash fallback.
+    #[cfg(feature = "fastembed")]
+    fn infer(&self, texts: &[&str]) -> Result<Option<Vec<Vec<f32>>>, EmbeddingError> {
+        let mut guard = self
+            .runtime
+            .lock()
+            .map_err(|e| EmbeddingError::InferenceFailed(e.to_string()))?;
+        let Some(rt) = guard.as_mut() else {
+            return Ok(None);
+        };
+        match rt.run(texts) {
+            Ok(out) => Ok(Some(out)),
+            Err(e) if rt.device == EmbedDevice::Cuda && self.policy == EmbedDevicePolicy::Auto => {
+                let reason = format!("cuda inference: {e}");
+                tracing::warn!(
+                    model = self.model.model_id(),
+                    "{reason}; reloading the embedder on CPU"
+                );
+                *rt = load_runtime(self.model, EmbedDevice::Cpu)?;
+                touring_foundation::gate_metrics::record_embedding_cuda_fallback(&reason);
+                rt.run(texts).map(Some)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     /// Embeds a single text synchronously into one vector.
     ///
     /// This is the hot-path entry point: it does not touch the async runtime,
@@ -221,14 +485,7 @@ impl FastEmbedProvider {
     pub fn embed_one_sync(&self, text: &str) -> Result<Vec<f32>, EmbeddingError> {
         #[cfg(feature = "fastembed")]
         {
-            let mut guard = self
-                .runtime
-                .lock()
-                .map_err(|e| EmbeddingError::InferenceFailed(e.to_string()))?;
-            if let Some(rt) = guard.as_mut() {
-                let out = rt
-                    .embed([text], None)
-                    .map_err(|e| EmbeddingError::InferenceFailed(e.to_string()))?;
+            if let Some(out) = self.infer(&[text])? {
                 return out.into_iter().next().ok_or_else(|| {
                     EmbeddingError::InferenceFailed("empty embedding output".into())
                 });
@@ -247,15 +504,8 @@ impl FastEmbedProvider {
         }
         #[cfg(feature = "fastembed")]
         {
-            let mut guard = self
-                .runtime
-                .lock()
-                .map_err(|e| EmbeddingError::InferenceFailed(e.to_string()))?;
-            if let Some(rt) = guard.as_mut() {
-                let docs: Vec<&str> = texts.iter().map(String::as_str).collect();
-                let out = rt
-                    .embed(docs, None)
-                    .map_err(|e| EmbeddingError::InferenceFailed(e.to_string()))?;
+            let docs: Vec<&str> = texts.iter().map(String::as_str).collect();
+            if let Some(out) = self.infer(&docs)? {
                 return Ok(out);
             }
         }
@@ -310,6 +560,83 @@ impl EmbeddingProvider for FastEmbedProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embed_device_policy_parses_documented_values() {
+        assert_eq!(EmbedDevicePolicy::parse(None), Some(EmbedDevicePolicy::Auto));
+        assert_eq!(EmbedDevicePolicy::parse(Some("")), Some(EmbedDevicePolicy::Auto));
+        assert_eq!(EmbedDevicePolicy::parse(Some(" Auto ")), Some(EmbedDevicePolicy::Auto));
+        assert_eq!(EmbedDevicePolicy::parse(Some("CUDA")), Some(EmbedDevicePolicy::Cuda));
+        assert_eq!(EmbedDevicePolicy::parse(Some("gpu")), Some(EmbedDevicePolicy::Cuda));
+        assert_eq!(EmbedDevicePolicy::parse(Some("cpu")), Some(EmbedDevicePolicy::Cpu));
+    }
+
+    #[test]
+    fn embed_device_policy_rejects_unknown_value() {
+        assert_eq!(EmbedDevicePolicy::parse(Some("rocm")), None);
+        assert_eq!(EmbedDevicePolicy::parse(Some("cuda0")), None);
+    }
+
+    #[test]
+    fn embed_device_labels_are_the_gate_metrics_values() {
+        assert_eq!(EmbedDevice::Cpu.as_str(), "cpu");
+        assert_eq!(EmbedDevice::Cuda.as_str(), "cuda");
+    }
+
+    #[cfg(feature = "storage-emb-cuda")]
+    #[test]
+    fn cuda_arena_bytes_defaults_and_honours_override() {
+        let default = DEFAULT_CUDA_ARENA_MB * 1024 * 1024;
+        assert_eq!(cuda_arena_bytes(None), default);
+        assert_eq!(cuda_arena_bytes(Some("0")), default, "zero is not a cap");
+        assert_eq!(cuda_arena_bytes(Some("lots")), default);
+        assert_eq!(cuda_arena_bytes(Some(" 512 ")), 512 * 1024 * 1024);
+    }
+
+    #[test]
+    fn stub_provider_reports_no_device() {
+        let provider = FastEmbedProvider::new_stub(FastEmbedModel::ArcticEmbedM);
+        assert_eq!(provider.device(), None);
+    }
+
+    /// Live proof of the GPU path, run by hand on a machine with an NVIDIA GPU,
+    /// CUDA 13 + cuDNN 9 and the arctic-embed-m weights cached:
+    /// `cargo test -p touring-storage --release cuda_runtime -- --ignored`.
+    /// Asserts the session really runs on CUDA (policy `cuda` never falls back)
+    /// and that its vectors agree with the CPU ones, so a mixed CPU/GPU corpus
+    /// stays cosine-comparable without a reindex.
+    #[cfg(feature = "storage-emb-cuda")]
+    #[test]
+    #[ignore = "needs an NVIDIA GPU, CUDA 13, cuDNN 9 and cached weights"]
+    fn cuda_runtime_matches_cpu_vectors() {
+        let texts: Vec<String> = [
+            "rust error handling with the question mark operator",
+            "the daemon is spawned in its own systemd scope",
+        ]
+        .iter()
+        .map(|t| t.to_string())
+        .collect();
+        let cuda = FastEmbedProvider::try_with_model_on(
+            FastEmbedModel::ArcticEmbedM,
+            EmbedDevicePolicy::Cuda,
+        )
+        .expect("CUDA runtime must load under policy cuda");
+        assert_eq!(cuda.device(), Some(EmbedDevice::Cuda));
+        let cpu = FastEmbedProvider::try_with_model_on(
+            FastEmbedModel::ArcticEmbedM,
+            EmbedDevicePolicy::Cpu,
+        )
+        .expect("CPU runtime must load");
+        assert_eq!(cpu.device(), Some(EmbedDevice::Cpu));
+        let on_gpu = cuda.embed_batch_sync(&texts).expect("cuda embed");
+        let on_cpu = cpu.embed_batch_sync(&texts).expect("cpu embed");
+        for (g, c) in on_gpu.iter().zip(&on_cpu) {
+            let dot: f32 = g.iter().zip(c).map(|(a, b)| a * b).sum();
+            let norm = |v: &[f32]| v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let cosine = dot / (norm(g) * norm(c));
+            assert!(cosine > 0.9999, "CPU and CUDA vectors diverge: cosine {cosine}");
+        }
+    }
 
     #[test]
     fn test_fastembed_model_dimensions() {

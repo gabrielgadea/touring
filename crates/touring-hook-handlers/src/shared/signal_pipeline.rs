@@ -577,7 +577,11 @@ impl SignalLayer for HnswSignalLayer {
 // proposal reads `ctx.proposed` / `ctx.analysable_text()`.
 
 /// Context for `pre_write`: the whole proposed file content travels with it.
-pub fn context_for_write<'a>(rel_path: &'a str, content: &'a str, cila: usize) -> SignalContext<'a> {
+pub fn context_for_write<'a>(
+    rel_path: &'a str,
+    content: &'a str,
+    cila: usize,
+) -> SignalContext<'a> {
     SignalContext::new(rel_path, "")
         .with_cila(cila)
         .with_hook("pre_write")
@@ -655,7 +659,11 @@ mod tests {
         assert_eq!(ctx.hook_name, "pre_read");
         assert_eq!(ctx.tool_name, "Read");
         assert!(ctx.proposed.is_none());
-        assert_eq!(ctx.analysable_text(), "", "nothing proposed, nothing on hand");
+        assert_eq!(
+            ctx.analysable_text(),
+            "",
+            "nothing proposed, nothing on hand"
+        );
     }
 
     #[test]
@@ -702,10 +710,10 @@ mod tests {
     /// chamador de fachada para as duas orfas.
     #[test]
     fn qualquer_camada_e_medivel_pelo_default_do_trait() {
-        let camada = StaticSignalLayer::new("sem_metrica_propria", vec![
-            (0.7, "um".to_string()),
-            (0.3, "dois".to_string()),
-        ]);
+        let camada = StaticSignalLayer::new(
+            "sem_metrica_propria",
+            vec![(0.7, "um".to_string()), (0.3, "dois".to_string())],
+        );
         let ctx = SignalContext::new("test.rs", "");
         let m = camada.metrics(&ctx);
         assert_eq!(m.name, "sem_metrica_propria");

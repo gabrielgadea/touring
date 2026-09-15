@@ -75,6 +75,17 @@ rustflags = [
 rustflags = [
     "--cfg", "tokio_unstable",
 ]
+[env]
+# GPU embeddings (15/09/2026): `ort-sys` downloads a prebuilt ONNX Runtime whose
+# CUDA provider links against ONE CUDA major. Without this pin
+# `ort-sys-2.0.0-rc.12/build/download/resolve.rs` guesses: cu13 only when
+# CUDA_HOME contains "v13."/"-13." or `nvcc --version` says cuda_13, otherwise
+# cu12 — the choice would depend on the environment of whoever runs cargo.
+# The machine runs Arch `cuda` 13.x + `cudnn` 9.x, where a cu12 provider cannot
+# load its libraries and the embedder falls back to CPU.
+# Bumping CUDA to a new major means changing this value AND rebuilding.
+ORT_CUDA_VERSION = "13"
+
 [alias]
 # Run all tests via nextest using the CI profile.
 test-ci = "nextest run --profile ci --workspace"

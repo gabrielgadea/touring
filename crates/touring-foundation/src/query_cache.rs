@@ -12,7 +12,7 @@
 //! # Architecture
 //!
 //! Single process-wide [`moka::sync::Cache`] keyed by a stable string
-//! `query_kind::canonical_payload`. TinyLFU admission policy + 60s TTL
+//! `query_kind::scope::canonical_payload`. TinyLFU admission policy + 60s TTL
 //! gives strong hit ratios for hot symbols without serving stale data
 //! across long sessions.
 //!
@@ -33,6 +33,11 @@
 //! 4. Cache MUST NOT be used for queries that depend on mutable runtime
 //!    state (e.g. learning EMA, gotcha lists). Only safe for index/AST
 //!    reads which are stable within a session.
+//! 5. Every key names its SCOPE — the root of the store the query read. One
+//!    daemon serves several projects from this one cache; until 13/09/2026 the
+//!    keys carried no scope, and `index status`, `index find`, `tantivy search`
+//!    and `ast meta` answered one project with another's cached result for up
+//!    to the TTL. [`make_key`](crate::query_cache::make_key) takes the scope, so no call site can forget it.
 
 use moka::sync::Cache;
 use std::sync::OnceLock;
@@ -52,12 +57,13 @@ fn cache() -> &'static Cache<String, String> {
     })
 }
 
-/// Construct a canonical cache key from the query kind and a payload
-/// fragment. Callers should pre-normalize the payload (lowercase /
+/// Construct a canonical cache key from the `scope` (the root of the store the
+/// query reads — the project root, for a daemon handler), the query kind and a
+/// payload fragment. Callers should pre-normalize the payload (lowercase /
 /// trim) when query semantics ignore those dimensions.
 #[must_use]
-pub fn make_key(query_kind: &str, payload: &str) -> String {
-    format!("{query_kind}::{payload}")
+pub fn make_key(scope: &std::path::Path, query_kind: &str, payload: &str) -> String {
+    format!("{query_kind}::{}::{payload}", scope.display())
 }
 
 /// Look up a cached query result by key. Returns `Some(json)` on hit
@@ -120,138 +126,29 @@ pub fn invalidate(key: &str) {
     cache().invalidate(key);
 }
 
+/// Invalidate every entry of `query_kind`, in every scope. For a mutation that
+/// cannot name its scope (a storage layer that does not know its project root):
+/// dropping the other projects' entries too costs misses, never wrong answers.
+/// Returns the number of entries invalidated.
+pub fn invalidate_kind(query_kind: &str) -> u64 {
+    let c = cache();
+    let prefix = format!("{query_kind}::");
+    let to_remove: Vec<String> = c
+        .iter()
+        .filter(|(k, _)| k.starts_with(&prefix))
+        .map(|(k, _)| (*k).clone())
+        .collect();
+    for k in &to_remove {
+        c.invalidate(k);
+    }
+    to_remove.len() as u64
+}
+
 /// Clear the entire query cache. Reserved for tests and explicit
 /// reset operations (e.g. CLI `touring health-delta reset` may want
 /// to flush related queries).
 pub fn clear_all() {
     cache().invalidate_all();
-}
-
-// ── Cache Warming Strategy (Wave 26 — 2026-04-21) ──────────────────────
-
-use tokio::runtime::Handle;
-
-/// Warm the query cache at daemon startup by pre-loading the top-N most
-/// recently accessed symbols from the memory store. This eliminates cold-start
-/// cache misses on hot paths during the first few minutes after daemon start.
-///
-/// The warming is non-blocking (spawns on blocking thread pool) and best-effort:
-/// failures are logged but never propagate — cache warming is advisory.
-pub fn warm_cache_async() {
-    // Probe for a Tokio runtime handle; skip warming if we're outside a
-    // runtime context (e.g. unit tests, sync-only binaries).
-    let Ok(handle) = Handle::try_current() else {
-        tracing::debug!("warm_cache: no Tokio runtime handle, skipping");
-        return;
-    };
-
-    // Spawn blocking I/O on the dedicated blocking thread pool to avoid
-    // stealing workers from the work-stealing scheduler.
-    handle.spawn_blocking(|| {
-        do_warm_cache();
-    });
-}
-
-fn do_warm_cache() {
-    // Pre-warm the query cache with the top-20 most-accessed symbols from
-    // the touring index. This eliminates cold-start misses for hot paths.
-    //
-    // We use the tokio runtime's blocking thread pool for the file I/O.
-    use tokio::runtime::Handle;
-
-    // Read the top-accessed symbols from the touring index (JSON output).
-    // The touring CLI lives at a known location relative to the daemon.
-    let warmup_entries: Vec<SymbolEntry> = match Handle::try_current() {
-        Ok(handle) => {
-            let entries = handle.block_on(async { fetch_top_symbols_via_daemon().await });
-            entries.unwrap_or_default()
-        }
-        _ => {
-            // Fallback for non-Tokio context: run sync (will fail gracefully)
-            Vec::new()
-        }
-    };
-
-    let warmed = pre_warm_entries(warmup_entries);
-    tracing::info!("warm_cache: pre-loaded {} entries", warmed);
-}
-
-async fn fetch_top_symbols_via_daemon()
--> Result<Vec<SymbolEntry>, Box<dyn std::error::Error + Send + Sync>> {
-    use tokio::process::Command;
-
-    // Query the daemon directly for top accessed symbols via the CLI.
-    // We use `touring index status` to get index health, and for the
-    // top symbols we rely on the index files being pre-computed.
-    //
-    // This is best-effort: if the daemon is slow to respond we skip rather
-    // than block startup.
-    let output = Command::new("touring")
-        .args(["index", "files", "--top", "20"])
-        .output()
-        .await;
-
-    let stdout = match output {
-        Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
-        Err(_) => String::new(),
-    };
-
-    // Parse the output to extract file paths (key = file path, content = stub).
-    // If parsing fails, return empty Vec — warming is advisory.
-    let entries: Vec<SymbolEntry> = stdout
-        .lines()
-        .filter(|line| !line.is_empty())
-        .map(|line| SymbolEntry {
-            key: line.trim().to_string(),
-            content: format!(r#"{{"file":"{}","stub":true}}"#, line.trim()),
-        })
-        .collect();
-
-    Ok(entries)
-}
-
-fn pre_warm_entries(entries: Vec<SymbolEntry>) -> usize {
-    // For each symbol entry, extract the file path and symbol name, then
-    // pre-compute and cache the AST metadata lookup. This exercises the
-    // hot path (cli_ast_meta, cli_index_find) so subsequent requests hit cache.
-    use crate::gate_metrics;
-
-    let mut warmed = 0;
-    for entry in entries {
-        // Parse the symbol entry: format is "file_path::symbol_name"
-        let parts: Vec<&str> = entry.key.split("::").collect();
-        if parts.len() != 2 {
-            continue;
-        }
-        let file_path = parts[0];
-        let symbol_name = parts[1];
-
-        // Build the canonical cache keys used by cli_ast_meta and cli_index_find
-        let meta_key = make_key("cli_ast_meta", file_path);
-        let index_key = make_key("cli_index_find", symbol_name);
-
-        // We pre-warm by inserting a placeholder. The real value will be
-        // computed on first demand and replace this. This is acceptable
-        // because the cache TTL (60s) ensures stale entries expire quickly.
-        //
-        // Alternative: do the full compute here but that risks blocking
-        // startup for large workspaces. Best-effort pre-warming is the
-        // right tradeoff.
-        cache().insert(meta_key, entry.content.clone());
-        cache().insert(index_key, entry.content);
-
-        // Record pre-warm in metrics (approximated as hits for simplicity)
-        gate_metrics::record_query_cache_hit();
-        warmed += 1;
-    }
-    warmed
-}
-
-/// Lightweight symbol entry from the memory store.
-#[derive(Debug)]
-struct SymbolEntry {
-    key: String,
-    content: String,
 }
 
 /// Wave 18 — Invalidate every cache entry whose key contains
@@ -316,9 +213,35 @@ mod tests {
     }
 
     #[test]
-    fn make_key_concatenates_kind_and_payload() {
-        assert_eq!(make_key("index_find", "Foo"), "index_find::Foo");
-        assert_eq!(make_key("tantivy_search", ""), "tantivy_search::");
+    fn make_key_concatenates_kind_scope_and_payload() {
+        let scope = std::path::Path::new("/proj/a");
+        assert_eq!(
+            make_key(scope, "index_find", "Foo"),
+            "index_find::/proj/a::Foo"
+        );
+        assert_eq!(
+            make_key(scope, "tantivy_search", ""),
+            "tantivy_search::/proj/a::"
+        );
+        assert_ne!(
+            make_key(scope, "index_find", "Foo"),
+            make_key(std::path::Path::new("/proj/b"), "index_find", "Foo"),
+            "the same query in two projects is two entries"
+        );
+    }
+
+    #[test]
+    fn invalidate_kind_drops_that_kind_in_every_scope_only() {
+        let _guard = global_cache_guard();
+        let a = make_key(std::path::Path::new("/kind/a"), "kind_probe_9d", "v1");
+        let b = make_key(std::path::Path::new("/kind/b"), "kind_probe_9d", "v1");
+        let other = make_key(std::path::Path::new("/kind/a"), "kind_probe_9e", "v1");
+        for k in [&a, &b, &other] {
+            put(k.clone(), "x".to_string());
+        }
+        assert!(invalidate_kind("kind_probe_9d") >= 2);
+        assert!(get(&a).is_none() && get(&b).is_none());
+        assert!(get(&other).is_some(), "another kind stays");
     }
 
     #[test]
@@ -431,9 +354,10 @@ mod tests {
         // Prime cache with 3 entries: 2 contain `/wave18/target.rs`, 1 doesn't.
         let target = "/wave18/target.rs";
         let other = "/wave18/other.rs";
-        let key_a = make_key("cli_ast_meta", &format!("{target}|skeleton"));
-        let key_b = make_key("cli_ast_blast", target);
-        let key_c = make_key("cli_ast_meta", &format!("{other}|skeleton"));
+        let scope = std::path::Path::new("/wave18");
+        let key_a = make_key(scope, "cli_ast_meta", &format!("{target}|skeleton"));
+        let key_b = make_key(scope, "cli_ast_blast", target);
+        let key_c = make_key(scope, "cli_ast_meta", &format!("{other}|skeleton"));
         put(key_a.clone(), "a".to_string());
         put(key_b.clone(), "b".to_string());
         put(key_c.clone(), "c".to_string());
@@ -452,6 +376,22 @@ mod tests {
         assert!(get(&key_c).is_some(), "key_c (other path) must remain");
     }
 
+    /// `post_edit` invalidates by the RELATIVE path: it must reach a key built
+    /// from the relative path (`ast meta`) and one built from the absolute path
+    /// (`ast overview` keys whatever the caller sent).
+    #[test]
+    fn invalidate_by_relative_path_reaches_relative_and_absolute_keys() {
+        let _guard = global_cache_guard();
+        let scope = std::path::Path::new("/proj/rel9f");
+        let relative = make_key(scope, "cli_ast_meta", "src/rel9f.rs|summary");
+        let absolute = make_key(scope, "cli_ast_overview", "/proj/rel9f/src/rel9f.rs");
+        put(relative.clone(), "r".to_string());
+        put(absolute.clone(), "a".to_string());
+        assert!(invalidate_by_path("src/rel9f.rs") >= 2);
+        assert!(get(&relative).is_none(), "relative key must go");
+        assert!(get(&absolute).is_none(), "absolute key must go");
+    }
+
     #[test]
     fn invalidate_by_path_returns_zero_when_no_match() {
         let _guard = global_cache_guard();
@@ -464,7 +404,11 @@ mod tests {
         let _guard = global_cache_guard();
         use std::sync::atomic::Ordering;
         let path = "/wave18/counter_test.rs";
-        let key = make_key("cli_ast_meta", &format!("{path}|skeleton"));
+        let key = make_key(
+            std::path::Path::new("/wave18"),
+            "cli_ast_meta",
+            &format!("{path}|skeleton"),
+        );
 
         let before = crate::gate_metrics::global()
             .query_cache_invalidate_count

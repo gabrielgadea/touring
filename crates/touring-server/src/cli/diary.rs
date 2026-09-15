@@ -388,7 +388,9 @@ fn fetch_entries(
 /// órfãs, e é o que faria este conserto recriá-las.
 fn diary_project_root() -> anyhow::Result<std::path::PathBuf> {
     let cwd = std::env::current_dir()?;
-    Ok(touring_foundation::TouringConfig::normalize_project_root(&cwd))
+    Ok(touring_foundation::TouringConfig::normalize_project_root(
+        &cwd,
+    ))
 }
 
 fn init_memory_store(project_root: &Path) -> anyhow::Result<MemoryStore> {
@@ -643,7 +645,6 @@ mod tests {
         assert_eq!(extract_flag(&args, "--topic"), None);
     }
 }
-
 
 #[cfg(test)]
 mod diary_root_tests {

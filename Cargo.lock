@@ -371,7 +371,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
  "x11rb",
 ]
 
@@ -2829,12 +2829,11 @@ dependencies = [
 
 [[package]]
 name = "deadpool"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "883466cb8db62725aee5f4a6011e8a5d42912b42632df32aad57fc91127c6e04"
+checksum = "3e98a7e119cd347f4201e1159b19831029e203e2d8b790547708e8157b4acf1e"
 dependencies = [
  "deadpool-runtime 0.3.1",
- "num_cpus",
  "tokio",
 ]
 
@@ -2872,11 +2871,11 @@ dependencies = [
 
 [[package]]
 name = "deadpool-sqlite"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cea80311362fbc476e1f9568f50d5ec576a8bbb9375b7cdc1856e3216870440"
+checksum = "008b02743f8fad68dc9bb2851c0a4a1d63190d8e3885c5dea20f8a0a2a6bff9a"
 dependencies = [
- "deadpool 0.13.0",
+ "deadpool 0.13.1",
  "deadpool-sync",
  "rusqlite",
 ]
@@ -3587,7 +3586,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4326,7 +4325,7 @@ dependencies = [
  "libc",
  "log",
  "rustversion",
- "windows-link 0.1.3",
+ "windows-link 0.2.1",
  "windows-result 0.4.1",
 ]
 
@@ -4870,7 +4869,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b305d85504de270ad3525d726a6b69cc59ee7b2269b014387651107ab9f0755b"
 dependencies = [
  "bstr",
- "hashbrown 0.15.5",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -5726,11 +5725,11 @@ dependencies = [
 
 [[package]]
 name = "hashlink"
-version = "0.11.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824e001ac4f3012dd16a264bec811403a67ca9deb6c102fc5049b32c4574b35f"
+checksum = "a596f1b20ed2cc5ecac41a164aaebc7258057060f06c0cf7a2ba3991ee7990fb"
 dependencies = [
- "hashbrown 0.16.1",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -6040,7 +6039,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "tokio",
  "tower-service",
  "tracing",
@@ -6547,7 +6546,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7177,9 +7176,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.36.0"
+version = "0.38.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95b4103cffefa72eb8428cb6b47d6627161e51c2739fc5e3b734584157bc642a"
+checksum = "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8"
 dependencies = [
  "cc",
  "pkg-config",
@@ -9744,7 +9743,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.118",
@@ -9757,7 +9756,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.118",
@@ -10049,7 +10048,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.2",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -10086,9 +10085,9 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -10855,14 +10854,14 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.38.0"
+version = "0.40.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1c93dd1c9683b438c392c492109cb702b8090b2bfc8fed6f6e4eb4523f17af3"
+checksum = "23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3"
 dependencies = [
  "bitflags 2.13.0",
  "fallible-iterator 0.3.0",
  "fallible-streaming-iterator",
- "hashlink 0.11.1",
+ "hashlink 0.12.2",
  "libsqlite3-sys",
  "smallvec",
  "sqlite-wasm-rs",
@@ -10937,7 +10936,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -12599,7 +12598,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -13298,7 +13297,7 @@ dependencies = [
 
 [[package]]
 name = "touring-bindings"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13384,7 +13383,7 @@ dependencies = [
 
 [[package]]
 name = "touring-ceg"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "blake3",
  "landlock",
@@ -13411,7 +13410,7 @@ dependencies = [
 
 [[package]]
 name = "touring-cli"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "aho-corasick",
  "base64 0.22.1",
@@ -13445,7 +13444,7 @@ dependencies = [
 
 [[package]]
 name = "touring-code"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -13515,7 +13514,7 @@ dependencies = [
 
 [[package]]
 name = "touring-contracts"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "serde_json",
 ]
@@ -13645,6 +13644,7 @@ dependencies = [
  "hdrhistogram",
  "hex",
  "home",
+ "ignore",
  "libc",
  "memory-stats",
  "miette",
@@ -13724,7 +13724,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hook-handlers"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "blake3",
  "chrono",
@@ -13763,7 +13763,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hook-runtime"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "blake3",
  "chrono",
@@ -13840,7 +13840,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hooks-core"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "blake3",
  "chrono",
@@ -13905,7 +13905,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hooks-rl"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "serde",
  "tokio",
@@ -13915,7 +13915,7 @@ dependencies = [
 
 [[package]]
 name = "touring-hooks-saga"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
@@ -13961,7 +13961,7 @@ dependencies = [
 
 [[package]]
 name = "touring-identity"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "pretty_assertions",
  "rusqlite",
@@ -13993,7 +13993,7 @@ dependencies = [
 
 [[package]]
 name = "touring-intelligence"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -14057,7 +14057,7 @@ dependencies = [
 
 [[package]]
 name = "touring-license"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "anyhow",
  "pretty_assertions",
@@ -14074,7 +14074,7 @@ dependencies = [
 
 [[package]]
 name = "touring-lsp"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "async-trait",
  "pretty_assertions",
@@ -14107,7 +14107,7 @@ dependencies = [
 
 [[package]]
 name = "touring-orchestration"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "anyhow",
  "chrono",
@@ -14132,7 +14132,7 @@ dependencies = [
 
 [[package]]
 name = "touring-quality"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "anyhow",
  "chrono",
@@ -14144,13 +14144,14 @@ dependencies = [
  "tera",
  "tokio",
  "touring-analysis",
+ "touring-foundation",
  "tracing",
  "tracing-subscriber",
 ]
 
 [[package]]
 name = "touring-resilience"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "async-trait",
  "libc",
@@ -14189,7 +14190,7 @@ dependencies = [
 
 [[package]]
 name = "touring-server"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -14330,7 +14331,7 @@ dependencies = [
 
 [[package]]
 name = "touring-storage"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -14348,6 +14349,7 @@ dependencies = [
  "moka",
  "notify",
  "notify-debouncer-mini",
+ "ort",
  "parking_lot",
  "pretty_assertions",
  "qdrant-client",
@@ -14374,7 +14376,7 @@ dependencies = [
 
 [[package]]
 name = "touring-web"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "getrandom 0.2.17",
  "getrandom 0.3.4",
@@ -14384,7 +14386,7 @@ dependencies = [
 
 [[package]]
 name = "touring-web-server"
-version = "30.4.39"
+version = "30.4.51"
 dependencies = [
  "tokio",
  "touring-bindings",
@@ -14675,8 +14677,6 @@ dependencies = [
 [[package]]
 name = "tree-sitter-bash"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e5ec769279cc91b561d3df0d8a5deb26b0ad40d183127f409494d6d8fc53062"
 dependencies = [
  "cc",
  "tree-sitter-language",
@@ -14851,8 +14851,6 @@ dependencies = [
 [[package]]
 name = "tree-sitter-md"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2efd398be546456c814598ee56c0f51769a77241511b4a58077815d120afa882"
 dependencies = [
  "cc",
  "tree-sitter",
@@ -16704,7 +16702,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -407,7 +407,7 @@ pub struct MinedSymbol {
 
 /// Extract documented top-level `def`/`class` declarations from Python source.
 ///
-/// Only declarations whose docstring clears [`MIN_PURPOSE_LEN`] are kept: an
+/// Only declarations whose docstring clears `MIN_PURPOSE_LEN` are kept: an
 /// undocumented or one-word-documented function has no purpose to index.
 #[must_use]
 pub fn python_symbols(src: &str) -> Vec<MinedSymbol> {

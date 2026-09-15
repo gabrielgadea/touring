@@ -397,21 +397,38 @@ mod tests {
     /// inverted reading also satisfied it (analise-c1, 03/09/2026).
     #[test]
     fn quality_direction_is_the_producers_low_is_hairy_high_is_clean() {
-        let hairy = ContextQualifier::from_enrichment_with_cognitive(
-            Some(0), Some(0.05), 0, None, None);
-        assert_eq!(hairy, ContextQualifier::HiComplexity, "low quality must flag");
+        let hairy =
+            ContextQualifier::from_enrichment_with_cognitive(Some(0), Some(0.05), 0, None, None);
+        assert_eq!(
+            hairy,
+            ContextQualifier::HiComplexity,
+            "low quality must flag"
+        );
 
-        let clean = ContextQualifier::from_enrichment_with_cognitive(
-            Some(0), Some(1.0), 0, None, None);
-        assert_eq!(clean, ContextQualifier::Plain,
-                   "a pristine file must NOT be flagged — this is the bug that shipped");
+        let clean =
+            ContextQualifier::from_enrichment_with_cognitive(Some(0), Some(1.0), 0, None, None);
+        assert_eq!(
+            clean,
+            ContextQualifier::Plain,
+            "a pristine file must NOT be flagged — this is the bug that shipped"
+        );
 
         // The boundary reads from the same constant the doc names: declaration and
         // executor cannot drift (D8).
         let just_below = ContextQualifier::from_enrichment_with_cognitive(
-            Some(0), Some(QUALITY_LOW_THRESHOLD - 0.01), 0, None, None);
+            Some(0),
+            Some(QUALITY_LOW_THRESHOLD - 0.01),
+            0,
+            None,
+            None,
+        );
         let exactly_at = ContextQualifier::from_enrichment_with_cognitive(
-            Some(0), Some(QUALITY_LOW_THRESHOLD), 0, None, None);
+            Some(0),
+            Some(QUALITY_LOW_THRESHOLD),
+            0,
+            None,
+            None,
+        );
         assert_eq!(just_below, ContextQualifier::HiComplexity);
         assert_eq!(exactly_at, ContextQualifier::Plain, "strictly below");
     }
@@ -424,10 +441,13 @@ mod tests {
     /// them the hairiest. Both are absence being read as a measurement.
     #[test]
     fn absent_quality_is_never_read_as_a_measurement() {
-        let unmeasured = ContextQualifier::from_enrichment_with_cognitive(
-            Some(0), None, 0, None, None);
-        assert_eq!(unmeasured, ContextQualifier::Plain,
-                   "no enrichment row means nothing to flag, not maximum risk");
+        let unmeasured =
+            ContextQualifier::from_enrichment_with_cognitive(Some(0), None, 0, None, None);
+        assert_eq!(
+            unmeasured,
+            ContextQualifier::Plain,
+            "no enrichment row means nothing to flag, not maximum risk"
+        );
     }
     use super::*;
     use serde_json::json;
@@ -746,7 +766,12 @@ mod tests {
         // after the threshold moved (0.7 → 0.30) while no longer touching the
         // boundary at all — green for the wrong reason.
         let q = ContextQualifier::from_enrichment_with_cognitive(
-            None, Some(QUALITY_LOW_THRESHOLD), 0, None, None);
+            None,
+            Some(QUALITY_LOW_THRESHOLD),
+            0,
+            None,
+            None,
+        );
         assert_eq!(q, ContextQualifier::Plain);
     }
 
@@ -756,7 +781,7 @@ mod tests {
         // fire) → HiBlast wins. The old literal 0.9 is clean under the corrected
         // predicate, so this test would have passed with nothing to outrank.
         let q = ContextQualifier::from_enrichment_with_cognitive(
-            Some(11),  // blast — should win
+            Some(11),   // blast — should win
             Some(0.05), // also hi-complexity, but lower priority
             0,
             None,

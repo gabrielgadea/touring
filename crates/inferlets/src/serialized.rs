@@ -172,7 +172,16 @@ mod tests {
     #[test]
     fn test_file_save_load() {
         let inferlet = SerializedInferlet::new("pattern", vec![0x00, 0x61, 0x73, 0x6d, 0x01]);
-        let path = std::env::temp_dir().join("test_inferlet_cache.inf1");
+        // A path of its own per run: the fixed `test_inferlet_cache.inf1` collided
+        // between concurrent runs, and a write that failed on a full /tmp left
+        // a zero-byte file behind (cross-audit 14/09/2026, R2-8).
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        let path = std::env::temp_dir().join(format!(
+            "test_inferlet_cache-{}-{nanos}.inf1",
+            std::process::id()
+        ));
 
         inferlet
             .save_to_file(&path)

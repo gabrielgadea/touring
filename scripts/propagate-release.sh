@@ -135,6 +135,7 @@ else
         echo "  ${YELLOW}[dry-run]${RESET} cargo check --workspace && cargo clippy --workspace -- -D warnings"
         echo "  ${YELLOW}[dry-run]${RESET} python3 scripts/sync-client-skills.py --check"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_update_touring.py -q"
+        echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_touring_quality_score.py -q"
     else
         ( cd "$WORKSPACE" && cargo check --workspace ) \
             || die "cargo check falhou — não se propaga build quebrada"
@@ -158,6 +159,11 @@ else
         # existe, o passo 2/6 executaria pelo PATH uma cópia não revisada.
         ( cd "$WORKSPACE" && UPDATE_TOURING_REQUIRE_SYMLINK=1 python3 -m pytest scripts/test_update_touring.py -q ) \
             || die "update-touring divergiu do repo — rode: ln -sfn $WORKSPACE/scripts/update-touring ~/.local/bin/update-touring"
+        # O mesmo vale para o wrapper de qualidade que o juiz de convergência
+        # chama pelo PATH (versionado em 14/09/2026, depois de um `flock -n`
+        # mudo fazer o juiz ler "qualidade não medida").
+        ( cd "$WORKSPACE" && TOURING_QUALITY_SCORE_REQUIRE_SYMLINK=1 python3 -m pytest scripts/test_touring_quality_score.py -q ) \
+            || die "touring-quality-score divergiu do repo — rode: ln -sfn $WORKSPACE/scripts/touring-quality-score ~/.local/bin/touring-quality-score"
         log "${GREEN}gates OK${RESET}"
     fi
 fi

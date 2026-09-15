@@ -965,6 +965,15 @@ fn build_parallel_signal_pipeline(
         ),
     );
 
+    // S2 (2026-09-05, plano substrato-de-artefato do `analise`): símbolos documentais
+    // (leis, acórdãos, resoluções, SEI) com relevância por nó — só para `.md` sob
+    // `relatoria/` e só em projetos com a ponte U10a; gate próprio em CILA >= 2.
+    pipeline = pipeline.add_layer(
+        crate::shared::doc_symbol_signal::DocSymbolSignalLayer::with_root(
+            runtime.project_root.clone(),
+        ),
+    );
+
     // S0 v2: tool identity travels with the context (no mutation on a read).
     pipeline.execute(&context_for_read(rel_path, cila_level))
 }

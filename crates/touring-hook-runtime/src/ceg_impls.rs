@@ -119,7 +119,9 @@ struct MemoryStorePayload<'a> {
 }
 
 /// Parses and validates the store payload. `Err` is the user-facing message.
-fn parse_memory_store_payload(payload: &serde_json::Value) -> Result<MemoryStorePayload<'_>, String> {
+fn parse_memory_store_payload(
+    payload: &serde_json::Value,
+) -> Result<MemoryStorePayload<'_>, String> {
     let key = payload.get("key").and_then(|v| v.as_str()).unwrap_or("");
     let value = payload.get("value").and_then(|v| v.as_str()).unwrap_or("");
     if key.is_empty() || value.is_empty() {
@@ -162,7 +164,10 @@ fn parse_memory_store_payload(payload: &serde_json::Value) -> Result<MemoryStore
     Ok(MemoryStorePayload {
         key,
         value,
-        tier: payload.get("tier").and_then(|v| v.as_str()).unwrap_or("local"),
+        tier: payload
+            .get("tier")
+            .and_then(|v| v.as_str())
+            .unwrap_or("local"),
         entry_type,
         file_path: payload.get("file_path").and_then(|v| v.as_str()),
         outcome_reward,
@@ -311,7 +316,6 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
 // path and this CLI path can never drift into divergent tag semantics.
 // =============================================================================
 
-
 /// Opens the canonical memory.db and guarantees the tag schema exists.
 fn open_tagged_memory_db(rt: &HookRuntime) -> rusqlite::Result<rusqlite::Connection> {
     let path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
@@ -339,7 +343,9 @@ pub fn cli_memory_tag_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
                 .to_string();
         }
     };
-    match open_tagged_memory_db(rt).map(|conn| tags::upsert_tag(&conn, key, &tag, tags::TagSource::Explicit)) {
+    match open_tagged_memory_db(rt)
+        .map(|conn| tags::upsert_tag(&conn, key, &tag, tags::TagSource::Explicit))
+    {
         Ok(Ok(())) => serde_json::json!({
             "status": "tagged",
             "key": key,
@@ -398,8 +404,7 @@ pub fn cli_memory_query(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
             None
         } else {
             Some(tags::entry_keys_with_all_tags(
-                &conn,
-                &required,
+                &conn, &required,
                 // The allowed corpus must be (near-)complete: capping it at the
                 // OUTPUT limit truncated the filter to the first N keys and the
                 // later FTS intersection came out empty for anything older
@@ -535,8 +540,7 @@ pub fn cli_memory_link(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         return serde_json::json!({ "error": format!("unknown rel {rel_raw}; valid: {valid}") })
             .to_string();
     };
-    let result = open_tagged_memory_db(rt)
-        .and_then(|conn| tags::upsert_link(&conn, src, rel, dst));
+    let result = open_tagged_memory_db(rt).and_then(|conn| tags::upsert_link(&conn, src, rel, dst));
     match result {
         Ok(edge) => serde_json::json!({
             "status": "linked", "id": edge.id, "src": edge.src, "dst": edge.dst,
@@ -631,8 +635,7 @@ pub fn cli_memory_links(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
 pub fn cli_memory_communities(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     use touring_intelligence::rl::memory::moc;
     let domain = payload.get("domain").and_then(|v| v.as_str());
-    let result =
-        open_tagged_memory_db(rt).and_then(|conn| moc::detect_communities(&conn, domain));
+    let result = open_tagged_memory_db(rt).and_then(|conn| moc::detect_communities(&conn, domain));
     match result {
         Ok(communities) => serde_json::json!({
             "domain": domain,
@@ -672,8 +675,7 @@ pub fn cli_memory_moc(rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
         return serde_json::json!({ "error": "topic is required" }).to_string();
     }
     let out_path = payload.get("out").and_then(|v| v.as_str());
-    let result = open_tagged_memory_db(rt)
-        .and_then(|conn| moc::render_moc(&conn, topic));
+    let result = open_tagged_memory_db(rt).and_then(|conn| moc::render_moc(&conn, topic));
     match result {
         Ok(markdown) => {
             if let Some(path) = out_path {
@@ -685,8 +687,9 @@ pub fn cli_memory_moc(rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
                         "status": "written", "path": path, "bytes": markdown.len(),
                     })
                     .to_string(),
-                    Err(e) => serde_json::json!({ "error": format!("write {path}: {e}") })
-                        .to_string(),
+                    Err(e) => {
+                        serde_json::json!({ "error": format!("write {path}: {e}") }).to_string()
+                    }
                 }
             } else {
                 serde_json::json!({
@@ -737,8 +740,7 @@ pub fn cli_memory_backfill_tags(rt: &mut HookRuntime, payload: &serde_json::Valu
         let mut tags_written = 0usize;
         if !dry_run {
             for (key, entry_type, file_path) in &rows {
-                let derived =
-                    tags::derive_tags(key, entry_type, file_path.as_deref());
+                let derived = tags::derive_tags(key, entry_type, file_path.as_deref());
                 for tag in &derived {
                     tags::upsert_tag(&conn, key, tag, tags::TagSource::Backfill)?;
                 }

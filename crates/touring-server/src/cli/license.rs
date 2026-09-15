@@ -39,7 +39,10 @@ pub fn run(args: &[String]) -> Result<()> {
         }
         _ => {
             println!("{USAGE}");
-            Err(anyhow!("unknown subcommand '{}' — use `touring license status` or run with --help", sub))
+            Err(anyhow!(
+                "unknown subcommand '{}' — use `touring license status` or run with --help",
+                sub
+            ))
         }
     }
 }

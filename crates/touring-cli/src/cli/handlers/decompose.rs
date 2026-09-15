@@ -237,17 +237,6 @@ impl DeadlineBehavior {
     }
 }
 
-/// SubtaskDeadlineBreach describes a single subtask that has breached its deadline.
-#[derive(Debug)]
-pub struct SubtaskDeadlineBreach {
-    /// Identifier of the subtask that breached its deadline.
-    pub subtask_id: String,
-    /// Behavior applied in response to the breach.
-    pub behavior: DeadlineBehavior,
-    /// Timestamp at which the breach was detected.
-    pub now: chrono::DateTime<chrono::Utc>,
-}
-
 /// Check all subtasks for a given task and apply deadline behaviors.
 ///
 /// For each subtask where `deadline < now()` AND `status != completed`:
@@ -1644,12 +1633,7 @@ pub fn cli_decompose_release(rt: &mut HookRuntime, payload: &serde_json::Value) 
           WHERE task_id = ?2 \
             AND (subtask_id = ?3 OR subtask_id = ?2 || '::' || ?3) \
             AND claimed_by = ?4",
-        params![
-            chrono::Utc::now().to_rfc3339(),
-            task_id,
-            subtask_id,
-            owner
-        ],
+        params![chrono::Utc::now().to_rfc3339(), task_id, subtask_id, owner],
     );
     match changed {
         Ok(1) => serde_json::json!({
@@ -1681,7 +1665,8 @@ const AUTONOMY_MODES: &[&str] = &["hitl", "afk"];
 const FOG_LEVELS: &[&str] = &["clear", "hazy", "unknown"];
 
 fn validate_enum(field: &str, value: &str, allowed: &[&str]) -> Option<String> {
-    (!allowed.contains(&value)).then(|| format!("{field} must be one of {allowed:?}, got `{value}`"))
+    (!allowed.contains(&value))
+        .then(|| format!("{field} must be one of {allowed:?}, got `{value}`"))
 }
 
 /// Annotate a subtask with its Wayfinder metadata.
@@ -1701,7 +1686,12 @@ pub fn cli_decompose_ticket(rt: &mut HookRuntime, payload: &serde_json::Value) -
         return serde_json::json!({"updated": false, "error": "task_id and subtask_id are required"})
             .to_string();
     }
-    let field = |name: &str| payload.get(name).and_then(|v| v.as_str()).map(str::to_string);
+    let field = |name: &str| {
+        payload
+            .get(name)
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+    };
     let (kind, subtype, autonomy, fog, origin) = (
         field("kind"),
         field("subtype"),
@@ -1865,12 +1855,7 @@ pub fn cli_decompose_frontier(rt: &mut HookRuntime, payload: &serde_json::Value)
         .unwrap_or_default()
     };
 
-    let is_done = |s: &str| {
-        matches!(
-            s,
-            "completed" | "done" | "complete" | "failed" | "skipped"
-        )
-    };
+    let is_done = |s: &str| matches!(s, "completed" | "done" | "complete" | "failed" | "skipped");
     let completed: std::collections::HashSet<String> = rows
         .iter()
         .filter(|t| is_done(&t.status))

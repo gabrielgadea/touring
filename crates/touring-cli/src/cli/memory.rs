@@ -7,7 +7,7 @@
 
 use crate::cli_handlers::{
     ARCTIC_QUERY_PREFIX, GotchaStats, KnowledgeStats, discover_canonical_dbs,
-    memory_recall_sql_federated, semantic_or_hash_embedding, semantic_text_embedding,
+    memory_recall_sql_federated, semantic_or_hash_embeddings, semantic_text_embedding,
     touring_claude_dir,
 };
 use crate::runtime::HookRuntime;
@@ -224,9 +224,19 @@ fn rerank_by_case_value(mut entries: Vec<serde_json::Value>) -> Vec<serde_json::
         let has_provenance = links
             .iter()
             .any(|l| l.get("rel").and_then(serde_json::Value::as_str) == Some("generated-by"));
-        if has_provenance && links.len() >= 2 { 0 } else { 1 }
+        if has_provenance && links.len() >= 2 {
+            0
+        } else {
+            1
+        }
     }
-    entries.sort_by_key(|e| (class_of(e), u8::from(is_process_trace(e)), structure_bucket(e)));
+    entries.sort_by_key(|e| {
+        (
+            class_of(e),
+            u8::from(is_process_trace(e)),
+            structure_bucket(e),
+        )
+    });
     entries
 }
 
@@ -578,7 +588,7 @@ fn compute_tag_filter(
     let mut keys: Vec<String> = Vec::new();
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     for db in memory_dbs {
-        let Ok(conn) = rusqlite::Connection::open(db) else {
+        let Ok(conn) = crate::cli::shared::open_db_readonly(db) else {
             continue;
         };
         let has_tags: bool = conn
@@ -622,7 +632,9 @@ fn apply_tag_filter(
     filter: &Option<TagFilter>,
 ) -> Vec<serde_json::Value> {
     let Some(f) = filter else { return entries };
-    let Some(allowed) = &f.allowed else { return entries };
+    let Some(allowed) = &f.allowed else {
+        return entries;
+    };
     entries
         .into_iter()
         .filter(|e| {
@@ -642,10 +654,12 @@ fn fetch_tagged_entries(
     filter: &Option<TagFilter>,
 ) -> Vec<serde_json::Value> {
     let Some(f) = filter else { return vec![] };
-    let Some(allowed) = &f.allowed else { return vec![] };
+    let Some(allowed) = &f.allowed else {
+        return vec![];
+    };
     let conns: Vec<rusqlite::Connection> = memory_dbs
         .iter()
-        .filter_map(|db| rusqlite::Connection::open(db).ok())
+        .filter_map(|db| crate::cli::shared::open_db_readonly(db).ok())
         .collect();
     let mut out = Vec::new();
     for key in allowed {
@@ -691,15 +705,17 @@ fn attach_one_hop_links(rt: &HookRuntime, entries: &mut [serde_json::Value]) {
         if links.is_empty() {
             continue;
         }
-        entry["links"] = serde_json::json!(links
-            .iter()
-            .map(|l| serde_json::json!({
-                "rel": l.rel.as_str(),
-                "src": l.src,
-                "dst": l.dst,
-                "direction": if l.src == key { "out" } else { "in" },
-            }))
-            .collect::<Vec<_>>());
+        entry["links"] = serde_json::json!(
+            links
+                .iter()
+                .map(|l| serde_json::json!({
+                    "rel": l.rel.as_str(),
+                    "src": l.src,
+                    "dst": l.dst,
+                    "direction": if l.src == key { "out" } else { "in" },
+                }))
+                .collect::<Vec<_>>()
+        );
     }
 }
 
@@ -709,7 +725,7 @@ fn attach_one_hop_links(rt: &HookRuntime, entries: &mut [serde_json::Value]) {
 /// absent (a fresh project has no memory.db yet).
 fn memory_metrics(rt: &HookRuntime) -> (usize, usize, f64) {
     let path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
-    let Ok(conn) = rusqlite::Connection::open(&path) else {
+    let Ok(conn) = crate::cli::shared::open_db_readonly(&path) else {
         return (0, 0, 0.0);
     };
     let entries: i64 = conn
@@ -1103,14 +1119,14 @@ pub use touring_hook_runtime::ceg_impls::cli_memory_store;
 // F1 (hashtag library, 2026-08-11): faceted tagging handlers, same carve.
 pub use touring_hook_runtime::ceg_impls::cli_memory_backfill_tags;
 pub use touring_hook_runtime::ceg_impls::cli_memory_communities;
-pub use touring_hook_runtime::ceg_impls::cli_memory_moc;
-pub use touring_hook_runtime::ceg_impls::cli_memory_unlink;
 pub use touring_hook_runtime::ceg_impls::cli_memory_link;
 pub use touring_hook_runtime::ceg_impls::cli_memory_links;
+pub use touring_hook_runtime::ceg_impls::cli_memory_moc;
 pub use touring_hook_runtime::ceg_impls::cli_memory_query;
 pub use touring_hook_runtime::ceg_impls::cli_memory_sync_tags;
 pub use touring_hook_runtime::ceg_impls::cli_memory_tag_add;
 pub use touring_hook_runtime::ceg_impls::cli_memory_tags;
+pub use touring_hook_runtime::ceg_impls::cli_memory_unlink;
 /// Backfill the ANN corpus from all existing `memory_entries` rows. S-04 (2026-05-29).
 ///
 /// Walks every row in `memory_entries`, generates a 64-dim hash embedding for
@@ -1161,10 +1177,13 @@ pub fn cli_memory_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
     let mut indexed = 0usize;
     let mut failed = 0usize;
     for chunk in candidates[..budgeted].chunks(batch_size) {
+        // One model run per chunk: the GPU embeds a batch ~11x faster than the
+        // CPU, but only when it receives the batch (15/09/2026).
+        let values: Vec<String> = chunk.iter().map(|(_, value)| value.clone()).collect();
         let entries: Vec<crate::ann_memory::MemoryEntry> = chunk
             .iter()
-            .map(|(key, value)| {
-                let emb = semantic_or_hash_embedding(value);
+            .zip(semantic_or_hash_embeddings(&values))
+            .map(|((key, value), emb)| {
                 crate::ann_memory::MemoryEntry::new(key.as_str(), value.as_str(), emb)
             })
             .collect();
@@ -1327,8 +1346,7 @@ fn memory_list_order_clause(sort_field: &str) -> &'static str {
 #[cfg(test)]
 mod memory_surface_tests {
     use super::{
-        filter_outcomes, memory_list_order_clause, memory_recall_rrf_merge_n,
-        rerank_by_case_value,
+        filter_outcomes, memory_list_order_clause, memory_recall_rrf_merge_n, rerank_by_case_value,
     };
 
     fn entry(key: &str) -> serde_json::Value {
@@ -1355,10 +1373,10 @@ mod memory_surface_tests {
         assert_eq!(
             keys,
             vec![
-                "outcome:bash:x:success",     // proven good vence a classe
+                "outcome:bash:x:success",          // proven good vence a classe
                 "gotcha:algum-defeito:2026-08-29", // curadas antes dos traços…
                 "lesson:algo-aprendido",
-                "loop:task_1:P2:done",        // …e os traços preservam a ordem RRF
+                "loop:task_1:P2:done", // …e os traços preservam a ordem RRF
                 "decomp:task_2",
             ],
             "valor > procedência > similaridade, nesta ordem"
@@ -1370,8 +1388,7 @@ mod memory_surface_tests {
         // W0 S-0.3 — corpus of 23 distinct candidates, limit 10: the merge
         // must deliver 10 AND name the 23 (the 2026-08-24 retraction was
         // reading a default limit of 10 as "only 10 exist").
-        let corpus: Vec<serde_json::Value> =
-            (0..23).map(|i| entry(&format!("k{i}"))).collect();
+        let corpus: Vec<serde_json::Value> = (0..23).map(|i| entry(&format!("k{i}"))).collect();
         let (delivered, total) = memory_recall_rrf_merge_n(&[&corpus[..]], 10);
         assert_eq!(delivered.len(), 10);
         assert_eq!(total, 23);
@@ -1567,10 +1584,8 @@ mod case_value_tests {
             {"rel": "generated-by", "src": "lesson:connected", "dst": "loop:t", "direction": "out"},
             {"rel": "relates-to", "src": "lesson:connected", "dst": "y", "direction": "out"},
         ]);
-        let ranked = rerank_by_case_value(vec![
-            connected_unobserved,
-            keyed("outcome:bash:b:success"),
-        ]);
+        let ranked =
+            rerank_by_case_value(vec![connected_unobserved, keyed("outcome:bash:b:success")]);
         assert_eq!(
             ranked[0]["key"].as_str(),
             Some("outcome:bash:b:success"),

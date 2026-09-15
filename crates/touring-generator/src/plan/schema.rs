@@ -72,7 +72,11 @@ impl GeneratorPlan {
     /// instead of going through here reintroduce the 2026-08-25 drift
     /// (`plan-suggest` emitted four field vocabularies that never existed).
     #[must_use]
-    pub fn skeleton(intent: impl Into<String>, kind: GeneratorKind, file_path: impl Into<String>) -> Self {
+    pub fn skeleton(
+        intent: impl Into<String>,
+        kind: GeneratorKind,
+        file_path: impl Into<String>,
+    ) -> Self {
         Self {
             version: "2.0".to_owned(),
             plan_id: Uuid::nil(),
@@ -464,7 +468,10 @@ mod tests {
             "kind": "Test",
         });
         let plan: GeneratorPlan = serde_json::from_value(v).expect("minimal plan parses");
-        assert!(plan.validation.run_speculate, "directives fall back to defaults");
+        assert!(
+            plan.validation.run_speculate,
+            "directives fall back to defaults"
+        );
         assert!(plan.commit_policy.atomic_write);
         assert_eq!(plan.assembly.encoding, "utf-8");
     }

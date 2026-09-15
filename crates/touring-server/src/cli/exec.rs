@@ -117,7 +117,11 @@ fn parse_exec_args(rest: &[String]) -> anyhow::Result<ExecArgs> {
             "--intent" => {
                 intent = Some(
                     iter.next()
-                        .ok_or_else(|| anyhow!("--intent requires a value — use `touring exec --help` for examples"))?
+                        .ok_or_else(|| {
+                            anyhow!(
+                                "--intent requires a value — use `touring exec --help` for examples"
+                            )
+                        })?
                         .clone(),
                 );
             }
@@ -154,7 +158,9 @@ fn resolve_profile(name: &str) -> anyhow::Result<CapabilityProfile> {
         "sandboxed" => Ok(builtins::sandboxed(&cwd)),
         "readonly" => Ok(builtins::read_only(&cwd)),
         "trusted" => Ok(builtins::trusted()),
-        other => Err(anyhow!("unknown profile '{other}' — run `touring exec --profile sandboxed|readonly|trusted <cmd>`")),
+        other => Err(anyhow!(
+            "unknown profile '{other}' — run `touring exec --profile sandboxed|readonly|trusted <cmd>`"
+        )),
     }
 }
 
@@ -231,7 +237,9 @@ fn real_exec_with_locks(command: &str, _parsed: &ExecArgs) -> anyhow::Result<i32
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
-        .map_err(|e| anyhow!("tokio runtime build failed: {e} — run `free -m` to check available memory"))?;
+        .map_err(|e| {
+            anyhow!("tokio runtime build failed: {e} — run `free -m` to check available memory")
+        })?;
     let outcome = rt
         .block_on(run_supervised_with_locks(
             command,
@@ -392,7 +400,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             }
             Ok(())
         }
-        Verdict::Deny => Err(anyhow!("gateway verdict: Deny — check `touring status -j` for access policy")),
+        Verdict::Deny => Err(anyhow!(
+            "gateway verdict: Deny — check `touring status -j` for access policy"
+        )),
     }
 }
 
@@ -428,9 +438,9 @@ fn parse_speculative_args(rest: &[String]) -> anyhow::Result<SpeculativeArgs> {
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "--profile" => {
-                let name = it
-                    .next()
-                    .ok_or_else(|| anyhow!("--profile needs a value — run `touring exec --help` for usage"))?;
+                let name = it.next().ok_or_else(|| {
+                    anyhow!("--profile needs a value — run `touring exec --help` for usage")
+                })?;
                 if !KNOWN_PROFILES.contains(&name.as_str()) {
                     return Err(anyhow!(
                         "unknown profile '{name}' — use: {}",
@@ -974,7 +984,9 @@ fn parse_conflict_args(rest: &[String]) -> anyhow::Result<Vec<(String, AccessDec
             None => (entry.clone(), String::new()),
         };
         if path.is_empty() {
-            return Err(anyhow!("empty write-path in entry '{entry}' — use format 'path:label', e.g. touring exec conflict-check 'src/a.rs:fix-a'"));
+            return Err(anyhow!(
+                "empty write-path in entry '{entry}' — use format 'path:label', e.g. touring exec conflict-check 'src/a.rs:fix-a'"
+            ));
         }
         let decl = AccessDeclaration::new().writing(AccessPath::Path(path.clone()));
         let display = if label.is_empty() {
@@ -1081,7 +1093,9 @@ fn parse_txn_args(rest: &[String]) -> anyhow::Result<Vec<(String, AccessDeclarat
             },
         };
         if path.is_empty() {
-            return Err(anyhow!("empty path in entry '{entry}' — use format 'r|w:path[:label]', e.g. touring exec txn-acquire w:src/a.rs:fix"));
+            return Err(anyhow!(
+                "empty path in entry '{entry}' — use format 'r|w:path[:label]', e.g. touring exec txn-acquire w:src/a.rs:fix"
+            ));
         }
         let ap = AccessPath::Path(path.clone());
         let decl = if mode == "r" {
@@ -1278,8 +1292,8 @@ pub fn run_evidence(args: &[String]) -> anyhow::Result<()> {
         solver_backend: touring_hooks::offensive_integration::SolverBackendKind::Stub,
     };
 
-    let outcome =
-        run_gateway("Bash", &command, None, &deps).map_err(|e| anyhow!("gateway error: {e} — check `touring doctor` and retry"))?;
+    let outcome = run_gateway("Bash", &command, None, &deps)
+        .map_err(|e| anyhow!("gateway error: {e} — check `touring doctor` and retry"))?;
     let d = &outcome.decision;
     let ev = &d.evidence;
 
@@ -1357,7 +1371,9 @@ pub fn run_predict_action(args: &[String]) -> anyhow::Result<()> {
             _ => i += 1,
         }
     }
-    let command = command.ok_or_else(|| anyhow!("predict-action needs --command '<cmd>' — run `touring exec --help` for details"))?;
+    let command = command.ok_or_else(|| {
+        anyhow!("predict-action needs --command '<cmd>' — run `touring exec --help` for details")
+    })?;
 
     let mut payload = serde_json::json!({ "command": command });
     if let Some(l) = limit {

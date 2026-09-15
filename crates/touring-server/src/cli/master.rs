@@ -70,7 +70,10 @@ fn resolve_dir(override_env: Option<&str>, home: Option<&str>) -> Result<PathBuf
         if p.is_dir() {
             return Ok(p);
         }
-        bail!("$TOURING_SKILL_SCRIPTS={} is not a directory; set it to ~/.claude/skills/Touring/scripts or run `update-touring`", dir);
+        bail!(
+            "$TOURING_SKILL_SCRIPTS={} is not a directory; set it to ~/.claude/skills/Touring/scripts or run `update-touring`",
+            dir
+        );
     }
     let home = home.context("$HOME is not set; cannot locate the touring skill scripts")?;
     let p = Path::new(home).join(DEFAULT_SCRIPTS_REL);
@@ -96,7 +99,10 @@ fn skill_scripts_dir() -> Result<PathBuf> {
 fn resolve_script(file_name: &str) -> Result<PathBuf> {
     let p = skill_scripts_dir()?.join(file_name);
     if !p.is_file() {
-        bail!("script {} not found; run `update-touring` or set $TOURING_SKILL_SCRIPTS to ~/.claude/skills/Touring/scripts", p.display());
+        bail!(
+            "script {} not found; run `update-touring` or set $TOURING_SKILL_SCRIPTS to ~/.claude/skills/Touring/scripts",
+            p.display()
+        );
     }
     Ok(p)
 }
