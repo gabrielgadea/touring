@@ -283,8 +283,9 @@ timestamp: 2026-08-20T11:15:00-03:00
 
 22. **B6 e a captura de crash (16/09/2026)**. (a) `python_qualified_uses` lê `import_statement`
     **e** `import_from_statement`, e a chave do mapa nome→módulo é **`asname or name`**: dois
-    terços da família chegam SEM alias (medido: um braço só-alias fecharia 40 de 53 órfãos no
-    escopo do juiz e perderia 13). Com as duas formas convivendo, duas ligações podem competir
+    parte da família chega SEM alias, e o UNIVERSO da medida importa tanto quanto o número: no
+    repositório em disco, que é o que o indexador varre, um braço só-alias perderia 43 de 126
+    símbolos (34,1%) no projeto e 8 de 53 (15,1%) no escopo do juiz. Com as duas formas convivendo, duas ligações podem competir
     pelo mesmo nome local — o walk é uma pilha, não ordem de fonte, então cada ligação carrega o
     byte de origem e a última textual vence, como no Python. `import a.b` e `from . import x`
     seguem de fora: o caminho seria palpite. O extrator e o resolvedor só se encontram no
