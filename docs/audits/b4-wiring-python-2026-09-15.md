@@ -84,9 +84,19 @@ real, e ela não era a que a amostra sugeria:
 
 | Família | Quantos | Causa |
 |---|---|---|
-| from-import **relativo** (`from .modulo import Nome`) | **136** | a consulta capturava só o `dotted_name`; os pontos vivem no `import_prefix`, então o módulo era procurado a partir da raiz de fontes, e `from . import X` não casava padrão nenhum |
-| uso **qualificado** (`import x as gm` + `gm.Nome`) | ~90 | `import x` não carrega símbolo, então a passada de imports não escrevia consumidor algum |
+| from-import **relativo** (`from .modulo import Nome`) | **61** | a consulta capturava só o `dotted_name`; os pontos vivem no `import_prefix`, então o módulo era procurado a partir da raiz de fontes, e `from . import X` não casava padrão nenhum |
+| uso **qualificado** (`import x as gm` + `gm.Nome`) | 70 | `import x` não carrega símbolo, então a passada de imports não escrevia consumidor algum |
 | **dunder** (`__init__`, …) | 7 | invocado pelo runtime, nunca pelo nome — a mesma razão pela qual `fmt`/`hash`/`drop` já eram excluídos no Rust |
+
+As outras três famílias dos 231, fora do escopo aprovado para o B5: `mencionado_sem_import_visivel`
+(77), `so_em_teste` (10) e `so_no_proprio_arquivo` (6).
+
+> **Correção de número (16/09, depois do deploy).** Esta tabela dizia **136** em vez de 61 para o
+> from-import relativo. O 136 veio do primeiro recado da analise-08 e eu o propaguei para cá, para a
+> pendência 2 da cross-audit e para a mensagem do commit `5b47b359` sem conferir contra o artefato.
+> O valor medido, no `familias-dos-orfaos-2026-09-16.json` dela, é **61**, e as seis famílias somam
+> exatamente 231 — a soma é o teste que eu não fiz na hora. O dimensionamento do B5 não muda (as
+> famílias corrigidas são as mesmas), só o tamanho anunciado de uma delas.
 
 Entregue, decisão de Gabriel (16/09):
 
@@ -111,6 +121,47 @@ sonda de pacote já respondia `<dir>/__init__.py`. O ramo saiu; a asserção par
 agora exercitando o caminho geral. É a terceira remoção de código inalcançável desta sequência
 (as outras: N/A por crate no D3.0 e o ramo de exit code que virou teste no D3.4) — todas encontradas
 por escrever o mutante, nenhuma pela leitura.
+
+## Medição viva depois da 30.4.53 (analise-08, geração 11 do índice)
+
+Mesmo instrumento nas duas pontas (`classificar_orfaos_do_juiz.py` e `familias_dos_orfaos.py`,
+escopo `scripts/eleitoral`), commit `e322b832eb` do projeto analise:
+
+| Família | gen 9/10 (30.4.52) | gen 11 (30.4.53) | |
+|---|---|---|---|
+| from_import | 61 | **0** | alvo do B5_REL — fechado |
+| dunder | 7 | **0** | alvo do B5_DUNDER — fechado |
+| qualificado | 70 | **53** | alvo do B5_QUAL — **fechou pouco, ver abaixo** |
+| mencionado_sem_import_visivel | 77 | 22 | efeito colateral favorável |
+| so_em_teste | 10 | 10 | intocado |
+| so_no_proprio_arquivo | 6 | 6 | intocado |
+| **total no escopo** | **231** | **91** | `novos_orfaos` = 0 |
+
+O desaparecimento é conserto e não cegueira, e isso foi medido: o corpus encolheu (12.269 → 10.438
+registros), então "sumiu da lista" tinha duas explicações opostas. Amostra de 12 dos 140
+desaparecidos: 12/12 seguem no disco **e** no índice; controle com 4 que permaneceram órfãos também
+são achados pelo `index find`.
+
+### A lacuna que a medição revelou: `from pacote import modulo as alias`
+
+O B5_QUAL derrubou só 17 dos 70. Classifiquei os 53 sobreviventes pela forma REAL do import no
+arquivo que os usa (`target/audit-2026-09-14/r2/canvas-d/qual_forma.py`): **71 ocorrências são
+`from pacote import modulo [as alias]`**, com uso `alias.Nome`. Exemplo medido:
+
+```python
+# scripts/eleitoral/gerar_visualizador/montagem.py:16
+from scripts.eleitoral import controle_camadas as cc
+...  cc.REGRA_DA_ZONA        # controle_camadas.REGRA_DA_ZONA lê como órfão
+```
+
+`python_qualified_uses` varre apenas nós `import_statement` — `from X import Y as Z` é
+`import_from_statement` e nunca é visto. E a passada de imports que lê `from x import y` trata `y`
+como SÍMBOLO, quando aqui `y` é um MÓDULO: a aresta não tem para onde ir.
+
+**Isto não é a exclusão deliberada documentada abaixo** (`import a.b` sem alias, cujo caminho de
+módulo seria palpite): é lacuna de cobertura da implementação, e o caso é resolúvel sem adivinhar —
+`from X import Y` importa um módulo exatamente quando `X/Y.py` ou `X/Y/__init__.py` existe, que é uma
+pergunta ao disco, não um chute. Fica como candidato a B6, aguardando decisão de Gabriel.
 
 ## O que este trabalho NÃO resolveu
 
