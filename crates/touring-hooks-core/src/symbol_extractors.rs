@@ -727,6 +727,9 @@ fn python_source_roots(source_file: Option<&str>) -> Vec<std::path::PathBuf> {
 /// then `blast_radius.rs` vs `blast_radius/mod.rs`) and the TS/JS arm was born
 /// with; the Python and Java arms never received it.
 fn resolve_python_import(import: &str, source_file: Option<&str>) -> Option<String> {
+    if import.starts_with('.') {
+        return resolve_relative_python_import(import, source_file);
+    }
     let rel = import.replace('.', "/");
     for root in python_source_roots(source_file) {
         let module = root.join(format!("{rel}.py"));
@@ -739,6 +742,39 @@ fn resolve_python_import(import: &str, source_file: Option<&str>) -> Option<Stri
         }
     }
     None
+}
+
+/// Resolve `from .modulo import X`, `from ..pkg.modulo import X` and
+/// `from . import X` against the importing file's PACKAGE.
+///
+/// The dots are the anchor: one dot is the importing file's own directory, each
+/// extra dot climbs one package — never the source root, which is what an
+/// absolute import uses. Until 16/09/2026 the query dropped the dots and this
+/// function probed the root, so a relative import resolved to nothing and its
+/// producer stayed an orphan: 136 of the 231 residual false orphans measured in
+/// the analise (`from .c11_c12 import c11_reconciliacao_das_camadas`).
+///
+/// `from . import X` names the package itself, and the package probe below
+/// answers it without a special case: with an empty tail, `dir.join("")` is
+/// `dir`, so the probe is `<dir>/__init__.py`. The explicit branch that used to
+/// sit here was dead code — mutation testing found it by surviving.
+fn resolve_relative_python_import(import: &str, source_file: Option<&str>) -> Option<String> {
+    let rest = import.trim_start_matches('.');
+    let dots = import.len() - rest.len();
+    let mut dir = std::path::Path::new(source_file?).parent()?.to_path_buf();
+    // One dot is "here"; every extra dot is one package up.
+    for _ in 1..dots {
+        dir = dir.parent()?.to_path_buf();
+    }
+    let rel = rest.replace('.', "/");
+    let module = dir.join(format!("{rel}.py"));
+    if module.is_file() {
+        return Some(module.to_string_lossy().into_owned());
+    }
+    let package = dir.join(&rel).join("__init__.py");
+    package
+        .is_file()
+        .then(|| package.to_string_lossy().into_owned())
 }
 
 /// Resolve a Java FQN to a file that EXISTS, or `None`.
@@ -1600,6 +1636,48 @@ mod python_java_resolver_tests {
                 "`{module}` has no file in the project tree — it must not become a producer row"
             );
         }
+    }
+
+    /// B5 (16/09/2026): a relative import is anchored at the importing file's
+    /// PACKAGE, never at the source root. Resolving it from the root is how 136
+    /// of the 231 residual false orphans in the analise were produced
+    /// (`from .c11_c12 import c11_reconciliacao_das_camadas`).
+    #[test]
+    fn a_relative_python_import_resolves_against_its_own_package() {
+        let tmp = TempDir::new().expect("tempdir");
+        let pkg = tmp.path().join("pacote");
+        let sub = pkg.join("sub");
+        fs::create_dir_all(&sub).expect("mkdir sub");
+        fs::write(pkg.join("__init__.py"), "").expect("pkg init");
+        fs::write(sub.join("__init__.py"), "").expect("sub init");
+        fs::write(pkg.join("formato.py"), "PUB = 1\n").expect("formato.py");
+        fs::write(sub.join("svg.py"), "from ..formato import PUB\n").expect("svg.py");
+        // A same-name module at the ROOT: resolving from the root would find this
+        // one, so the test tells the two apart instead of just asserting "some file".
+        fs::write(tmp.path().join("formato.py"), "ERRADO = 1\n").expect("root formato.py");
+        let svg = sub.join("svg.py");
+        let svg = svg.to_str().expect("utf8");
+
+        assert_eq!(
+            resolve_import_path_with_source("..formato", "python", Some(svg)),
+            Some(pkg.join("formato.py").to_string_lossy().into_owned()),
+            "two dots climb to the package, not to the source root"
+        );
+        assert_eq!(
+            resolve_import_path_with_source(".", "python", Some(svg)),
+            Some(sub.join("__init__.py").to_string_lossy().into_owned()),
+            "`from . import X` names the package itself"
+        );
+        assert_eq!(
+            resolve_import_path_with_source(".svg", "python", Some(svg)),
+            Some(svg.to_string()),
+            "one dot is the importing file's own directory"
+        );
+        assert_eq!(
+            resolve_import_path_with_source("...nada", "python", Some(svg)),
+            None,
+            "a climb past the tree resolves to nothing, never to a guess"
+        );
     }
 
     #[test]

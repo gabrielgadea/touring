@@ -470,8 +470,31 @@ impl Symbol {
         }
     }
 
-    /// Detect visibility from syntax
-    fn detect_visibility(source: &str, node: Node, lang: Lang) -> (bool, Option<Visibility>) {
+    /// Python visibility, which lives in the name: `_x` is private, `__x` (not
+    /// dunder) is name-mangled, everything else is public.
+    ///
+    /// B4 (15/09/2026): this used to look for `def `/`class ` in the node text,
+    /// so a module-level binding — which has neither — fell through to "public
+    /// with no visibility", and `_FORMAS = {...}` was registered as a public
+    /// symbol of the wiring graph, eligible to be reported as an orphan.
+    fn python_visibility(name: &str) -> (bool, Option<Visibility>) {
+        if name.starts_with("__") && !name.ends_with("__") {
+            (false, Some(Visibility::Protected))
+        } else if name.starts_with('_') && !name.ends_with("__") {
+            (false, Some(Visibility::Private))
+        } else {
+            (true, Some(Visibility::Public))
+        }
+    }
+
+    /// Detect visibility from syntax. `name` is the symbol's own name, which is
+    /// what Python's convention is written in.
+    fn detect_visibility(
+        source: &str,
+        node: Node,
+        lang: Lang,
+        name: &str,
+    ) -> (bool, Option<Visibility>) {
         let node_text = &source[node.start_byte()..node.end_byte()];
 
         match lang {
@@ -489,23 +512,7 @@ impl Symbol {
                     (false, Some(Visibility::Private))
                 }
             }
-            Lang::Python => {
-                // Python: _prefix = private, __prefix = name-mangled/protected
-                let name_start = node_text.find("def ").or_else(|| node_text.find("class "));
-                if let Some(pos) = name_start {
-                    let after = &node_text[pos..];
-                    let name = after.split_whitespace().nth(1).unwrap_or("");
-                    if name.starts_with("__") && !name.ends_with("__") {
-                        (false, Some(Visibility::Protected))
-                    } else if name.starts_with('_') {
-                        (false, Some(Visibility::Private))
-                    } else {
-                        (true, Some(Visibility::Public))
-                    }
-                } else {
-                    (true, None)
-                }
-            }
+            Lang::Python => Self::python_visibility(name),
             Lang::TypeScript | Lang::JavaScript => {
                 // S9 (2026-09-02): `export` lives on the wrapping
                 // `export_statement` node (one level further up for
@@ -1153,7 +1160,8 @@ fn extract_symbols_from_tree(
                     let start_byte = parent.start_byte();
                     let end_byte = parent.end_byte();
                     let signature = Symbol::extract_signature(source, parent);
-                    let (is_public, visibility) = Symbol::detect_visibility(source, parent, lang);
+                    let (is_public, visibility) =
+                        Symbol::detect_visibility(source, parent, lang, &name);
                     let is_async = Symbol::detect_async(source, parent, lang);
                     let parent_name = Symbol::find_parent_name(source, parent, lang);
                     let decorators = Symbol::extract_decorators(source, parent, lang);

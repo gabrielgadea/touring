@@ -160,6 +160,24 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         .unwrap_or_default();
     let symbol_names: Vec<String> = orphans.iter().map(|o| o.symbol_name.clone()).collect();
     let dead_patterns = touring_analysis::scan_dead_patterns(&symbol_names);
+    // B4 (15/09/2026): a symbol consumed ONLY by its own file is not an orphan —
+    // something uses it — and is not wired to the project either. It stays out of
+    // `orphans` (the judge's baseline does not move) and is reported here, because
+    // the remedy is different: make it private, or give it its first consumer.
+    let internal_only: Vec<WiringOrphan> = db
+        .internal_only_symbols()
+        .map(|entries| {
+            entries
+                .into_iter()
+                .map(|e| WiringOrphan {
+                    module_file: e.module_file,
+                    symbol_name: e.symbol_name,
+                    symbol_kind: e.symbol_kind,
+                    visibility: e.visibility,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     // S1 (2026-08-07): the orphan count alone cannot say whether a symbol is
     // dead or merely invisible to the resolver. `resolution` reports the other
     // half — call sites that resolved to nothing (`name_only_candidates`) and
@@ -238,13 +256,15 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         }
         return serde_json::json!(
             { "orphans" : orphans, "dead_patterns" : dead_patterns, "orphan_count" :
-            orphans.len(), "diagnostics" : diagnostics, "diagnostic_count" : diagnostics
-            .len(), "resolution" : resolution, }
+            orphans.len(), "internal_only" : internal_only, "internal_only_count" :
+            internal_only.len(), "diagnostics" : diagnostics, "diagnostic_count" :
+            diagnostics.len(), "resolution" : resolution, }
         )
         .to_string();
     }
     serde_json::json!(
         { "orphans" : orphans, "dead_patterns" : dead_patterns, "orphan_count" : orphans
+        .len(), "internal_only" : internal_only, "internal_only_count" : internal_only
         .len(), "resolution" : resolution, }
     )
     .to_string()

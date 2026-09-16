@@ -578,6 +578,27 @@ import type { User } from './types';
         );
     }
 
+    /// B5 (16/09/2026): the query captured only the `dotted_name`, so the leading
+    /// dots — which live in `import_prefix` — were dropped and `from .formato
+    /// import X` was resolved from the source root. 136 of the 231 residual false
+    /// orphans measured in the analise were exactly this.
+    #[test]
+    fn a_relative_python_import_keeps_its_dots() {
+        let source = "from .formato import PUB\nfrom ..pacote.mod import OUTRO\nfrom . import IRMAO\nfrom absoluto.mod import LONGE\n";
+        let imports = extract_imports(source, Lang::Python);
+        let module_of = |symbol: &str| {
+            imports
+                .iter()
+                .find(|i| i.symbols.iter().any(|s| s == symbol))
+                .map(|i| i.module_path.clone())
+                .unwrap_or_else(|| format!("{symbol} not extracted: {imports:?}"))
+        };
+        assert_eq!(module_of("PUB"), ".formato");
+        assert_eq!(module_of("OUTRO"), "..pacote.mod");
+        assert_eq!(module_of("IRMAO"), ".");
+        assert_eq!(module_of("LONGE"), "absoluto.mod", "an absolute import is unchanged");
+    }
+
     #[test]
     fn test_extract_imports_treesitter_rust() {
         let source = "use std::collections::HashMap;\nuse serde::Deserialize;\n";

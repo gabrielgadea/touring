@@ -32,6 +32,11 @@ use touring_code::ast::{
 /// nomeá-la é mais barato que quatro vetores paralelos.
 type PendingConsumer = (String, Vec<String>, Vec<String>, Vec<(String, String)>);
 
+/// Um uso qualificado pendente do B5 (16/09/2026): arquivo consumidor, seu
+/// caminho absoluto (o resolvedor de import precisa dele) e os pares
+/// `(módulo, símbolo)` de cada `alias.Nome`.
+type PendingQualifiedUse = (String, String, Vec<(String, String)>);
+
 /// `cli-index-status` — returns symbol store health and statistics.
 ///
 /// Wave 22 (S-Q4a): wrapped in `query_cache` with a global key — the
@@ -710,6 +715,14 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // G3: pending (consumer_file, method-call names, type/const-ref names)
     // resolved against the COMPLETE wiring_map after the walk.
     let mut pending_consumers: Vec<PendingConsumer> = Vec::new();
+    // B4 (15/09/2026): per Python file, the public symbols the file itself uses.
+    // Written with the inferred edges after the walk, because the clear there
+    // would wipe anything the walk had already recorded.
+    let mut pending_python_self: Vec<(String, std::collections::BTreeSet<String>)> = Vec::new();
+    // B5 (16/09/2026): per Python file, `(abs path, [(module path, symbol)])` for
+    // every `alias.Nome` whose alias came from an `import`. Resolved after the
+    // walk, for the same reason the inferred edges are.
+    let mut pending_python_qualified: Vec<PendingQualifiedUse> = Vec::new();
     let mut errors: u32 = 0;
     // Wave 2026-05-14 — root-cause fix for the "rebuild is additive only"
     // gotcha that forced manual SQL purges after every `rm -rf crates/X`.
@@ -1096,6 +1109,33 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                             &symbols,
                         );
 
+                        // B4 (15/09/2026): Python has no inferred consumer pass —
+                        // the three extractors below are Rust-only — so a constant
+                        // read by its own module and a constant nobody reads were
+                        // the same row: an orphan. Collected here, written with the
+                        // other inferred edges after the walk.
+                        if language == "python" && rt.ctx.knowledge.polyglot() {
+                            let names = touring_code::ast::graph::python_self_referenced_names(
+                                &content, &symbols,
+                            );
+                            if !names.is_empty() {
+                                pending_python_self.push((rel_path.clone(), names));
+                            }
+                            // B5 (16/09/2026): `import modulo as gm` + `gm.Nome`.
+                            // A bare `import` carries no symbol, so the import pass
+                            // below wrote nothing and every symbol reached through
+                            // the module object read as an orphan.
+                            let qualified =
+                                touring_code::ast::graph::python_qualified_uses(&content);
+                            if !qualified.is_empty() {
+                                pending_python_qualified.push((
+                                    rel_path.clone(),
+                                    abs_path_str.to_string(),
+                                    qualified,
+                                ));
+                            }
+                        }
+
                         let imports =
                             crate::ast_bridge::extract_file_imports(&content, abs_path_str);
                         for (module_path, imported_symbols) in &imports {
@@ -1268,6 +1308,43 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 // nu enfrenta 130 homônimos.
                 qualified_calls,
             );
+        }
+        // B4: a Python file's use of its own public symbols. The edge is
+        // `(file, symbol) -> file` and its tier is the same as any bare-name
+        // match: it never means the project uses the symbol — that is what
+        // `internal_only_symbols` reports — only that the file does.
+        for (consumer_file, names) in &pending_python_self {
+            for name in names {
+                let _ = rt.ctx.knowledge.record_consumer_with_origin(
+                    consumer_file,
+                    name,
+                    consumer_file,
+                    None,
+                    touring_hook_runtime::knowledge_wiring::WiringOrigin::AstInferred,
+                );
+            }
+        }
+        // B5: qualified Python use. The module path resolves exactly like an
+        // import's does; the symbol is the attribute name, so the edge is a guess
+        // by name and carries the same `ast_inferred` tier as the others here.
+        for (consumer_file, abs_path, uses) in &pending_python_qualified {
+            for (module_path, symbol) in uses {
+                if let Some(module_file) =
+                    touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
+                        module_path,
+                        "python",
+                        Some(abs_path),
+                    )
+                {
+                    let _ = rt.ctx.knowledge.record_consumer_with_origin(
+                        &module_file,
+                        symbol,
+                        consumer_file,
+                        None,
+                        touring_hook_runtime::knowledge_wiring::WiringOrigin::AstInferred,
+                    );
+                }
+            }
         }
         if let Some(tx) = inferred_tx
             && let Err(e) = tx.commit()
@@ -2953,6 +3030,126 @@ mod index_why {
         );
         let other = found(&mut rt_empty);
         assert_eq!(other["count"], 0, "find leaked across projects: {other}");
+    }
+
+    /// B4 (15/09/2026): Python had no consumer edge for a use inside the
+    /// declaring file, so a constant its own module reads and a constant nobody
+    /// reads were the same row — an orphan. Over the REAL rebuild: imported,
+    /// internal-only, dead and private each land where they belong.
+    #[test]
+    fn python_wiring_tells_imported_internal_and_dead_symbols_apart() {
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let root = proj.path();
+        std::fs::create_dir_all(root.join(".touring")).expect(".touring");
+        // Top-level key, before any section: the per-project opt-in.
+        std::fs::write(root.join(".touring/touring.toml"), "polyglot_wiring = true\n")
+            .expect("touring.toml");
+        // The four classes, plus the two real shapes the analise asked about:
+        // `_FORMAS` (private, read by its own module) and `_NUMERAL_ARABICO`
+        // (private, imported by a sibling of the same package).
+        std::fs::write(
+            root.join("lib.py"),
+            "_PRIV = 1\nPUB = 2\nPUB2 = 3\nMORTO = 4\n_SHARED = 5\nPUB_QUAL = 6\n\n\nclass Caixa:\n    def __init__(self, valor):\n        self.valor = valor\n\n\ndef helper():\n    return PUB + _PRIV\n",
+        )
+        .expect("lib.py");
+        std::fs::write(
+            root.join("app.py"),
+            "from lib import PUB2, _SHARED\nimport lib as gm\n\n\ndef main():\n    return PUB2 + _SHARED + gm.PUB_QUAL\n",
+        )
+        .expect("app.py");
+        // B5 (16/09/2026): the three families the analise measured on the live
+        // repository — relative from-import (136 of 231), qualified `alias.Nome`
+        // (~90) and dunder (7).
+        std::fs::create_dir_all(root.join("pacote")).expect("pacote");
+        std::fs::write(root.join("pacote/__init__.py"), "").expect("pacote init");
+        std::fs::write(root.join("pacote/formato.py"), "PUB_REL = 1\nMORTO_REL = 2\n")
+            .expect("formato.py");
+        std::fs::write(
+            root.join("pacote/svg.py"),
+            "from .formato import PUB_REL\n\n\ndef render():\n    return PUB_REL\n",
+        )
+        .expect("svg.py");
+
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        cli_index_rebuild(&mut rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        let raw = crate::cli::wiring::cli_wiring_orphans(&mut rt, &serde_json::json!({}));
+        let report: serde_json::Value = serde_json::from_str(&raw).expect("orphans json");
+        let names = |field: &str| -> Vec<String> {
+            report[field]
+                .as_array()
+                .map(|rows| {
+                    rows.iter()
+                        .filter(|row| row["module_file"] == "lib.py")
+                        .filter_map(|row| row["symbol_name"].as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let orphans = names("orphans");
+        let internal = names("internal_only");
+        assert!(
+            orphans.contains(&"MORTO".to_string()),
+            "nothing reads MORTO: {report}"
+        );
+        assert!(
+            !orphans.contains(&"PUB".to_string()),
+            "its own module reads PUB: {report}"
+        );
+        assert!(
+            internal.contains(&"PUB".to_string()),
+            "PUB is used only inside lib.py: {report}"
+        );
+        assert!(
+            !internal.contains(&"MORTO".to_string()),
+            "internal-only means consumed by its own file, not unconsumed: {report}"
+        );
+        assert!(
+            !orphans.contains(&"PUB2".to_string()) && !internal.contains(&"PUB2".to_string()),
+            "app.py imports PUB2: {report}"
+        );
+        assert!(
+            !orphans.contains(&"_PRIV".to_string()) && !internal.contains(&"_PRIV".to_string()),
+            "a private binding is not a producer row: {report}"
+        );
+        assert!(
+            !orphans.contains(&"_SHARED".to_string()) && !internal.contains(&"_SHARED".to_string()),
+            "a private binding imported by a sibling is still not public API: {report}"
+        );
+        // B5: qualified use through the module object.
+        assert!(
+            !orphans.contains(&"PUB_QUAL".to_string())
+                && !internal.contains(&"PUB_QUAL".to_string()),
+            "`gm.PUB_QUAL` in app.py is a consumer: {report}"
+        );
+        // B5: a dunder is called by the runtime, never by name.
+        assert!(
+            !orphans.contains(&"__init__".to_string())
+                && !internal.contains(&"__init__".to_string()),
+            "a dunder is never reported as an orphan: {report}"
+        );
+        // B5: relative from-import, in its own package.
+        let formato = |field: &str| -> Vec<String> {
+            report[field]
+                .as_array()
+                .map(|rows| {
+                    rows.iter()
+                        .filter(|row| row["module_file"] == "pacote/formato.py")
+                        .filter_map(|row| row["symbol_name"].as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        assert!(
+            !formato("orphans").contains(&"PUB_REL".to_string()),
+            "`from .formato import PUB_REL` in pacote/svg.py is a consumer: {report}"
+        );
+        assert!(
+            formato("orphans").contains(&"MORTO_REL".to_string()),
+            "the symbol of the same file that nobody imports is still an orphan: {report}"
+        );
     }
 
     /// Cross-audit 14/09/2026 (R2-6): an edge whose consumer file is gone and
