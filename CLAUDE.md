@@ -281,6 +281,28 @@ timestamp: 2026-08-20T11:15:00-03:00
     `internal_only_count`). Os dois filtros de linha de produtor têm fonte única
     (`public_producer_rows_sql`).
 
+22. **B6 e a captura de crash (16/09/2026)**. (a) `python_qualified_uses` lê `import_statement`
+    **e** `import_from_statement`, e a chave do mapa nome→módulo é **`asname or name`**: dois
+    terços da família chegam SEM alias (medido: um braço só-alias fecharia 40 de 53 órfãos no
+    escopo do juiz e perderia 13). Com as duas formas convivendo, duas ligações podem competir
+    pelo mesmo nome local — o walk é uma pilha, não ordem de fonte, então cada ligação carrega o
+    byte de origem e a última textual vence, como no Python. `import a.b` e `from . import x`
+    seguem de fora: o caminho seria palpite. O extrator e o resolvedor só se encontram no
+    rebuild, e a junção tem teste próprio (`touring-cli/tests/b6_python_qualified_path.rs`) —
+    teste de componente verde não prova o caminho. (b) O perfil release **não pode ter
+    `strip = true`**: era ele que fazia o core do motor trazer um frame. Hoje leva
+    `debug = "line-tables-only"` + `split-debuginfo = "unpacked"`, guardado por
+    `test_touring_quality_score.py`. (c) `scripts/touring-quality-score` grava um journal por
+    execução em `~/.claude/touring/logs` e, com exit ≥ 128, um artefato com stderr, sinal e
+    backtrace; `crash_capture_accept.sh` prova isso contra o motor real e `crash_matrix.sh`
+    mede TAXA por célula de ambiente, nunca um caso isolado. (d) **`kill -SEGV` não mata um
+    processo Rust**: o runtime captura 11 e 7 (guard page de stack overflow) e engole o sinal
+    entregue por `kill(2)` — medido, o motor terminou o score e saiu 0. Para exercitar coletor
+    de crash use **SIGABRT**; e note que `panic = "abort"` emite `ud2` → **SIGILL**. (e) Detecção
+    de processo em script é por **nome do executável** (`pgrep -x`), nunca por linha de comando:
+    o `pgrep -f` do `safe-clean.sh` acusava o próprio shell que o invocava e perdia os `rustc`
+    reais. Narrativa e números: `docs/audits/b6-e-captura-de-crash-2026-09-16.md`.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`
