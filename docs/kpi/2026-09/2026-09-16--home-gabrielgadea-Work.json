@@ -11,18 +11,18 @@
   },
   "checks": [
     {
-      "actual": 1519.0,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
       "name": "Wiring orphan symbols",
       "rationale": "More than 100 orphans indicates significant wiring debt. ADVISORY (investigation 2026-07-01): the meter is not yet trustworthy — the count is cwd-sensitive (rust=5016 vs home=27088) and a Chain-7 spot-check found 3/4 sampled orphans have real consumers via grep (incomplete consumer population in wiring_map). Re-arm as blocking only after the wiring_map is repopulated and the FP rate is measured low.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 100.0
     },
     {
-      "actual": 0.6134396088102988,
+      "actual": 0.5735869285835093,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -66,7 +66,7 @@
       "threshold": 0.0
     },
     {
-      "actual": 1.0,
+      "actual": 0.0,
       "advisory": false,
       "direction": "gte",
       "id": "touring.gotcha.resolution",
@@ -112,40 +112,40 @@
       "threshold": 50.0
     },
     {
-      "actual": 0.0,
+      "actual": 1688.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 800.0
     },
     {
-      "actual": 4827.0,
+      "actual": 604.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
       "name": "Coupling hook dispatch latency p50 (D5, leading)",
       "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 1000.0
     },
     {
-      "actual": 14111.0,
+      "actual": 194303.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
       "name": "Coupling hook dispatch latency p99 (D5, leading)",
       "rationale": "Tail-latency guard (cold-start/cargo). Calibrated to 50ms — not 1ms — to watch the real tail without false alarms (telemetry §1.4).",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 50000.0
     },
     {
-      "actual": 463.0,
+      "actual": 81663.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,47 +178,47 @@
       "threshold": 0.7
     },
     {
-      "actual": null,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.4
     },
     {
-      "actual": null,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.1
     },
     {
-      "actual": 0.8666666666666667,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
       "name": "Economia do code mode — programas que FUNDIRAM / programas rodados (P5b)",
       "rationale": "A metade que faltava à `adoption_ratio` (achado de Gabriel, 26/08/2026). Adoção mede o CANAL — e sobe igual quando o modelo funde dez inspeções numa chamada e quando embrulha dez leituras triviais, porque `scan_class_of` não reconhece `touring run` e nenhum gate vê a rota sancionada. Este mede a ECONOMIA: `economical/followed`, onde `economical` é o programa que tocou ≥2 alvos ou executou ≥2 operações. Fala da APRESENTAÇÃO, não da disciplina do modelo: sob `code` a atômica é negada, então a casca sobre um alvo é obrigatória — economia baixa com adoção alta é o retrato de um braço obedecido e caro. STUB abaixo de ARM_MIN_SAMPLE tomadas.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
@@ -244,91 +244,91 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.38338658146964855,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
       "name": "Braço code-mode `code` — rota tomada / rota oferecida (colapso — a inspeção é negada com a rota escrita)",
       "rationale": "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.1942675159235669,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
       "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
       "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.75
     },
     {
-      "actual": 0.034482758620689655,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.pillar_induction_ratio",
       "name": "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)",
       "rationale": "Task #6 compounding structure (the active hook layer): after the armed pillar-induction layer nudges a differential the upstream classifiers miss (master-cli or learning-memory), did the LLM's next same-session action take it (a master/recall command)? followed/emitted over the daemon lifetime, precise predicate. gte 0.50 = the master commands are reached for once nudged. DEFAULT-OFF (TOURING_PILLAR_INDUCTION_ARMED) — STUB until armed; if it stays low while armed, that is the affordance-over-persuasion evidence (telemetry thesis ①) pushing toward productization.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 8.133333333333333,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
       "name": "Explore rounds until CCE convergence (mean)",
       "rationale": "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 8.0
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.plan_refine_iters",
       "name": "Plan refinement iterations (max)",
       "rationale": "A plan that never survived >= 2 refine iterations was accepted on first draft — the 19/07 failure mode. STUB until any .refine.json exists.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 2.0
     },
     {
-      "actual": 111.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
       "name": "ADW runs recorded in this project",
       "rationale": "Adoption meter for the durable runner (adw_runs >= 1 means the factory is actually used here, not just installed).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 1.0
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.router_accuracy",
       "name": "Factory router accuracy (completed / routed outcomes)",
       "rationale": "Proxy: fraction of routed runs that completed. Below 0.7 the router is sending tickets to workflows that do not finish — retrain rules or arm the LLM fallback.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.7
     },
     {
-      "actual": 0.009259259259259259,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.zte_bypass_rate",
       "name": "ZTE bypass rate (bypasses per finished run)",
       "rationale": "The conformal bypass must remain the audited exception. Above 0.5 the human gate is being skipped more often than exercised — tighten zte_warmup or review the confidence model.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
@@ -343,18 +343,18 @@
       "threshold": 1.0
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.tiered_agent_share",
       "name": "ADW agent starts with a declared tier (executed share)",
       "rationale": "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.505175983436853,
+      "actual": 0.5,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -376,18 +376,18 @@
       "threshold": 0.3
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.learning.replay_share",
       "name": "Corpus de outcomes recompensados já consumido pelo OnlineRL (replay offline)",
       "rationale": "P2 replay (29/08/2026, pendência 'motor girando a seco'): o corpus de outcomes com reward (820 na estreia) nunca alcançava o OnlineRLEngine — o trickle online funciona (+1/tool call, provado 7→19→20), mas o acumulado ficava no memory.db sem consumidor e o estado do engine zerava a cada restart (13→7 medido). Numerador: replayed_total do cursor durável `learning_replay_cursor.json`; denominador: numerador + pendentes contados AGORA no memory.db (mesma fonte que `touring learning replay` lê). None/STUB enquanto nada foi replayado e o corpus está invisível — ausência é desconhecido, nunca zero. Abaixo de 0.9: rode `touring learning replay`.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.9
     },
     {
-      "actual": 0.7074769545920109,
+      "actual": 0.003421309872922776,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.4486528162130161,
+      "actual": 0.016355737285969844,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -409,7 +409,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.11683168316831684,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -420,25 +420,25 @@
       "threshold": 0.25
     },
     {
-      "actual": 0.034482758620689655,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.graph_contract_share",
       "name": "Curated nodes honouring the minimum graph contract (key shape + typed edge)",
       "rationale": "P3 of the memory-graph contract (2026-08-30, Gabriel's directive via analise-e0): share of new semantic lesson/decision/diagnostico nodes (14-day window) with a deterministic <tipo>:<slug>:<date> key AND at least one typed memory_links edge. Measured reference corpus: 27/31 writers were islands. Advisory by the enforcement ladder — instrument before blocking; the store response's contract:{} advisory and the P2 structural rank make linking pay, this meter tells whether behaviour actually moved. STUB (null) when the window has no curated nodes.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.058154645873944116,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
       "name": "Typed edges created per new memory entry (14-day window)",
       "rationale": "P5 of the memory-graph contract (2026-08-30): the ruler that decides whether `memory suggest-links` derived suggestions may ever graduate to automatic — only measured behaviour promotes an affordance up the ladder. Edges counted from memory_links, entries from memory_entries, both in the same 14-day window. STUB (null) when no entries were created in the window.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.05
     },
     {
@@ -461,361 +461,166 @@
       "rationale": "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 15d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
+      "stub_reason": "stale — measured 16d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
       "threshold": 0.8
     }
   ],
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 856,
+      "exception": 877,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 196
+      "timeout": 208
     },
     "by_language": {
       "?": 1,
-      "bash": 6833,
+      "bash": 6912,
       "go": 1,
-      "js": 79,
+      "js": 87,
       "perl": 4,
       "php": 1,
-      "python": 7107,
+      "python": 7184,
       "ruby": 4,
       "rust": 4,
-      "shell": 101,
+      "shell": 110,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 13082,
-    "runs_total": 14142,
+    "runs_ok": 13222,
+    "runs_total": 14315,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9250459623815585,
-    "wasted_attempts_retry_pairs": 647
+    "success_rate": 0.9236465246245197,
+    "wasted_attempts_retry_pairs": 662
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 113,
-    "file_runs": 1805,
+    "brief_runs": 115,
+    "file_runs": 1833,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 5260,
-    "orchestrate_runs": 99,
-    "persistent_file_runs": 717,
-    "reuse_ratio": 0.101,
+    "inline_runs": 5331,
+    "orchestrate_runs": 103,
+    "persistent_file_runs": 745,
+    "reuse_ratio": 0.104,
     "scratch_file_runs": 1088,
     "status": "FAIL",
     "total_tmp_bytes": 208782775,
-    "v1_runs": 7076,
-    "v2_runs": 7065
+    "v1_runs": 7150,
+    "v2_runs": 7164
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
     "duration_ms_p99": 1049,
-    "non_canonical_calls": 92,
+    "non_canonical_calls": 95,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 455,
+    "total_calls": 465,
     "used": 7
   },
   "context_budget": {
     "available": true,
     "by_family": {
       "code-mode-deny": {
-        "blocks": 64,
-        "bytes": 97294,
-        "duplicate_bytes": 34878,
-        "duplicate_ratio": 0.358,
-        "mean_bytes": 1520,
+        "blocks": 3,
+        "bytes": 11757,
+        "duplicate_bytes": 7838,
+        "duplicate_ratio": 0.667,
+        "mean_bytes": 3919,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 64
-      },
-      "loop-outer": {
-        "blocks": 1,
-        "bytes": 315,
-        "duplicate_bytes": 0,
-        "duplicate_ratio": 0.0,
-        "mean_bytes": 315,
-        "propositions": 1,
-        "propositions_per_kb": 3.251,
-        "zero_proposition_blocks": 0
+        "zero_proposition_blocks": 3
       },
       "other": {
-        "blocks": 1819,
-        "bytes": 338873,
-        "duplicate_bytes": 86198,
-        "duplicate_ratio": 0.254,
-        "mean_bytes": 186,
-        "propositions": 1564,
-        "propositions_per_kb": 4.726,
-        "zero_proposition_blocks": 1329
-      },
-      "past-lessons": {
-        "blocks": 1294,
-        "bytes": 146114,
-        "duplicate_bytes": 73489,
-        "duplicate_ratio": 0.503,
-        "mean_bytes": 112,
+        "blocks": 13,
+        "bytes": 6024,
+        "duplicate_bytes": 4010,
+        "duplicate_ratio": 0.666,
+        "mean_bytes": 463,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 1294
-      },
-      "post-tool-echo": {
-        "blocks": 423,
-        "bytes": 151601,
-        "duplicate_bytes": 20558,
-        "duplicate_ratio": 0.136,
-        "mean_bytes": 358,
-        "propositions": 149,
-        "propositions_per_kb": 1.006,
-        "zero_proposition_blocks": 274
+        "zero_proposition_blocks": 13
       },
       "session-start": {
-        "blocks": 35,
-        "bytes": 35750,
-        "duplicate_bytes": 4654,
-        "duplicate_ratio": 0.13,
-        "mean_bytes": 1021,
-        "propositions": 9,
-        "propositions_per_kb": 0.258,
-        "zero_proposition_blocks": 26
-      },
-      "touring-suggest": {
-        "blocks": 134,
-        "bytes": 196543,
-        "duplicate_bytes": 5592,
-        "duplicate_ratio": 0.028,
-        "mean_bytes": 1466,
-        "propositions": 523,
-        "propositions_per_kb": 2.725,
-        "zero_proposition_blocks": 0
+        "blocks": 12,
+        "bytes": 6954,
+        "duplicate_bytes": 2238,
+        "duplicate_ratio": 0.322,
+        "mean_bytes": 579,
+        "propositions": 0,
+        "propositions_per_kb": 0.0,
+        "zero_proposition_blocks": 12
       }
     },
-    "bytes_scanned": 52576392,
-    "capped": true,
-    "duplicate_blocks": 2315,
-    "duplicate_injection_ratio": 0.233,
+    "bytes_scanned": 1297101,
+    "capped": false,
+    "duplicate_blocks": 14,
+    "duplicate_injection_ratio": 0.569,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
       "injected_bytes_per_turn",
       "duplicate_injection_ratio"
     ],
-    "injected_bytes_per_turn": 8260.598,
+    "injected_bytes_per_turn": 8245.0,
     "injected_bytes_per_turn_ceil": 3000.0,
-    "injection_follow_ratio": 0.637,
+    "injection_follow_ratio": null,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 783,
-    "must_followed": 499,
+    "must_emitted": 0,
+    "must_followed": 0,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 2222,
+    "tool_calls": 3,
     "tool_output": {
       "by_tool": [
         {
-          "bytes": 2800020,
-          "mean_bytes": 1745,
-          "results": 1604,
-          "reused_bytes": 143244,
-          "reused_line_ratio": 0.081,
-          "share": 0.785,
+          "bytes": 16942,
+          "mean_bytes": 5647,
+          "results": 3,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 1.0,
           "tool": "Bash",
-          "zero_reuse_results": 258
-        },
-        {
-          "bytes": 560539,
-          "mean_bytes": 3376,
-          "results": 166,
-          "reused_bytes": 57998,
-          "reused_line_ratio": 0.131,
-          "share": 0.157,
-          "tool": "Read",
-          "zero_reuse_results": 3
-        },
-        {
-          "bytes": 71503,
-          "mean_bytes": 2860,
-          "results": 25,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.02,
-          "tool": "mcp__touring__touring_ctx_execute",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 48146,
-          "mean_bytes": 221,
-          "results": 217,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.014,
-          "tool": "Edit",
-          "zero_reuse_results": 60
-        },
-        {
-          "bytes": 16513,
-          "mean_bytes": 305,
-          "results": 54,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.005,
-          "tool": "SendMessage",
-          "zero_reuse_results": 11
-        },
-        {
-          "bytes": 16417,
-          "mean_bytes": 2345,
-          "results": 7,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.005,
-          "tool": "ListAgents",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 13716,
-          "mean_bytes": 195,
-          "results": 70,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.004,
-          "tool": "Write",
-          "zero_reuse_results": 26
-        },
-        {
-          "bytes": 10333,
-          "mean_bytes": 3444,
-          "results": 3,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.003,
-          "tool": "mcp__plugin_context7_context7__query-docs",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 9909,
-          "mean_bytes": 1101,
-          "results": 9,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.003,
-          "tool": "Agent",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 4404,
-          "mean_bytes": 244,
-          "results": 18,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "Monitor",
-          "zero_reuse_results": 10
-        },
-        {
-          "bytes": 3404,
-          "mean_bytes": 425,
-          "results": 8,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "AskUserQuestion",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 3032,
-          "mean_bytes": 1010,
-          "results": 3,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "WebFetch",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 2622,
-          "mean_bytes": 2622,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "WebSearch",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 1663,
-          "mean_bytes": 831,
-          "results": 2,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "mcp__plugin_context7_context7__resolve-library-id",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 1495,
-          "mean_bytes": 373,
-          "results": 4,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "TaskStop",
-          "zero_reuse_results": 1
-        },
-        {
-          "bytes": 1444,
-          "mean_bytes": 62,
-          "results": 23,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "ToolSearch",
-          "zero_reuse_results": 22
-        },
-        {
-          "bytes": 708,
-          "mean_bytes": 101,
-          "results": 7,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "mcp__sequential-thinking__sequentialthinking",
-          "zero_reuse_results": 4
-        },
-        {
-          "bytes": 127,
-          "mean_bytes": 127,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "PushNotification",
           "zero_reuse_results": 1
         }
       ],
-      "bytes": 3565995,
-      "reuse_ratio": 0.056,
-      "reused_bytes": 201242
+      "bytes": 16942,
+      "reuse_ratio": 0.0,
+      "reused_bytes": 0
     },
-    "tpcd_proxy_bytes_per_tool_call": 2259.638,
-    "transcripts_scanned": 2,
-    "user_turns": 117,
+    "tpcd_proxy_bytes_per_tool_call": 14044.0,
+    "transcripts_scanned": 3,
+    "user_turns": 3,
     "window_bytes": {
-      "assistant": 128421,
-      "injection": 966490,
-      "injection_share": 0.192,
-      "tool_result_share": 0.71,
-      "tool_results": 3565995,
-      "user": 360010
+      "assistant": 152,
+      "injection": 24735,
+      "injection_share": 0.587,
+      "tool_result_share": 0.402,
+      "tool_results": 16942,
+      "user": 303
     }
   },
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "cli-gate-metrics": 1,
-      "cli-index-status": 1,
-      "cli-kpi": 1
+      "ceg-observe": 7,
+      "cli-flywheel-status": 9,
+      "cli-gate-metrics": 9,
+      "cli-health-delta-status": 9,
+      "cli-incremental-status": 9,
+      "cli-index-status": 9,
+      "cli-kpi": 183,
+      "cli-learning-status": 548,
+      "cli-memory-recall": 1,
+      "cli-resource-monitor-status": 9,
+      "cli-session-list": 9,
+      "cli-suggest": 7,
+      "cli-wiring-status": 9,
+      "post-bash": 7,
+      "post-tool-batch": 7,
+      "post-tool-rl": 8,
+      "pre-bash": 7,
+      "session-stop": 1
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -824,20 +629,20 @@
     },
     "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": null,
-    "post_bash_dispatched": 0,
+    "post_bash_delivery_ratio": 0.0,
+    "post_bash_dispatched": 7,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789513514
+    "since_epoch": 1789552883
   },
-  "project_root": "/home/gabrielgadea/projects/touring",
+  "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
-  "snapshot_date": "2026-09-15",
+  "snapshot_date": "2026-09-16",
   "summary": {
-    "advisory": 11,
+    "advisory": 8,
     "failed": 0,
-    "passed": 21,
+    "passed": 15,
     "regressions": 0,
-    "stub": 9,
+    "stub": 18,
     "total": 41
   }
 }

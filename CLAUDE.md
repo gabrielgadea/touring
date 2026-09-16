@@ -258,6 +258,29 @@ timestamp: 2026-08-20T11:15:00-03:00
     fora do default — é top-k por par, e o ANN SIMD leva ~6 ms —; agora escolhe o adapter
     discreto (`adapter_preference`), pois o Vulkan lista a Intel integrada primeiro.
 
+20. **Shell no touring-quality (Canvas D, 15/09/2026, `docs/audits/canvas-d-shell-2026-09-15.md`)**.
+    (a) A linguagem de um arquivo é `verifications::lang_of` (extensão, depois shebang); script shell
+    numa dimensão fora de `SHELL_DIMS` responde N/A no despacho (`not_applicable_to_shell`), nunca
+    regra de Rust nem leitura como README/CI. (b) `sh`/`bash`/`zsh` e shebang de shell entram no corpus
+    de diretório, e só arquivo regular entra: symlink rastreado com alvo apagado dava 0,0 fail-closed.
+    Antes disso os gates P0 do juiz nunca tinham lido um script. (c) Nada medido não é aprovação: lista
+    vazia e roll-up sem arquivo aplicável são N/A, e N/A de arquivo sai da média. (d) F4.1 de shell vem
+    do ShellCheck; ausente ou com exit fora de 0/1 é UNVERIFIED 0,5. (e) Medir motor alterado com
+    `TOURING_QUALITY_BIN` num `CARGO_TARGET_DIR` separado: `target/release/touring-quality` serve todas
+    as sessões e o juiz.
+
+21. **Wiring Python e a classe interno-only (B4, 15/09/2026)**. (a) A visibilidade de um símbolo
+    Python vem do NOME (`Symbol::python_visibility`), não do texto do nó: sem `def`/`class`, todo
+    binding de módulo caía em "público", e `_FORMAS = {...}` entrava no grafo como API pública. (b) Um
+    arquivo Python passa a registrar o uso dos próprios símbolos públicos
+    (`graph::python_self_referenced_names`, aresta `(arquivo, símbolo) → arquivo`, tier `ast_inferred`).
+    Isso é gravado na transação PÓS-WALK, junto das demais arestas inferidas: o rebuild limpa as
+    inferidas depois do walk, e o que for escrito antes some. (c) `internal_only_symbols` é a classe
+    nova — público, consumido, mas só pelo próprio arquivo. Fica FORA da lista de órfãos (a baseline do
+    juiz não se move) e sai à parte em `touring wiring orphans -j` (`internal_only`,
+    `internal_only_count`). Os dois filtros de linha de produtor têm fonte única
+    (`public_producer_rows_sql`).
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`
