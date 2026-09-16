@@ -610,8 +610,20 @@ debug = true
 lto = "fat"         # full LTO — better dead code elimination (was "thin")
 opt-level = "s"     # optimize for size instead of speed (was 3)
 codegen-units = 1   # single codegen unit for best optimization
-strip = true        # strip debug symbols
 panic = "abort"     # no unwind tables — smaller binary (tests use dev profile)
+# Crash capture, camada 1 (16/09/2026). `strip = true` was why the two
+# touring-quality SIGSEGVs produced a core with ONE frame: the symbols the
+# debugger needs were removed at link time, so the crash that killed the quality
+# engine — a P0 with no proven cause — left nothing to read. `line-tables-only`
+# is the smallest debug info that yields a NAMED stack with file and line, costs
+# nothing at runtime (it is not code, and does not change codegen), and
+# `unpacked` keeps it in .dwo files beside the objects instead of inflating the
+# binary. `packed` (what the strategy doc suggested) is not the proven shape on
+# this toolchain; `unpacked` is the one [profile.dev] already runs here.
+# Accept criterion lives in scripts/test_touring_quality_score.py.
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+strip = "none"
 
 # ── Bench profile ─────────────────────────────────────────────────────
 [profile.bench]

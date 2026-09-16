@@ -32,9 +32,20 @@ registrar() { echo "[$(date -Is)] $*" | tee -a "$LOG"; }
 # apaga nada — abortar uma MEDIÇÃO durante um build negava a leitura exatamente
 # quando ela é mais útil (querer saber o tamanho do target enquanto ele cresce).
 # O gate existe contra remoção concorrente, não contra observar.
+#
+# O predicado casa o NOME DO EXECUTÁVEL (`pgrep -x`, que compara `comm`), nunca a
+# linha de comando. `pgrep -f "cargo (build|…)"` casava qualquer processo cuja
+# LINHA contivesse o texto — inclusive o shell que invoca esta limpeza, se ele
+# tiver `cargo build` escrito nele. Medido em 16/09/2026: três tentativas seguidas
+# abortaram com "cargo/rustc ativo" sem nenhum build existir; os dois PIDs
+# acusados tinham `comm=bash`, e um era um laço de espera que continha a string e
+# casava consigo mesmo. Um gate que se autobloqueia é pior que um gate ausente,
+# porque a mensagem culpa o sistema e o operador acredita nela. Mesma família de
+# "Cargo" casar com a busca por "rg".
 if [ "$MODE" != "stats" ] &&
-   { pgrep -x rustc >/dev/null 2>&1 || pgrep -f "cargo (build|test|check|clippy)" >/dev/null 2>&1; }; then
+   { pgrep -x rustc >/dev/null 2>&1 || pgrep -x cargo >/dev/null 2>&1; }; then
   registrar "ABORT: cargo/rustc ativo — limpeza durante build vivo é o principal causador de erros"
+  registrar "       pids: $(pgrep -x rustc 2>/dev/null | tr '\n' ' ')$(pgrep -x cargo 2>/dev/null | tr '\n' ' ')"
   exit 2
 fi
 # Gate daemon. A mensagem antiga era impressa AQUI, antes do `case`, e prometia
