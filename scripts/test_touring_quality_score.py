@@ -12,6 +12,7 @@ without the operator's machine; only the symlink checks need the live side.
 from __future__ import annotations
 
 import fcntl
+import json
 import os
 import shutil
 import stat
@@ -42,6 +43,14 @@ for a in "$@"; do
   prev="$a"
 done
 if [[ "${FAKE_EMPTY:-0}" == "1" ]]; then exit "${FAKE_RC:-0}"; fi
+# Die by a signal, the way the real engine did twice. `ulimit -c 0` first: the
+# test must exercise the collector without filling the machine's coredump store.
+if [[ -n "${FAKE_KILL:-}" ]]; then
+  echo "engine says something before dying" >&2
+  ulimit -c 0
+  kill -s "$FAKE_KILL" $$
+  sleep 5
+fi
 echo "touring 30.4.46"
 echo ""
 echo '{"tier": "Gold", "composite": 0.9}'
@@ -337,3 +346,104 @@ def test_the_installed_tool_is_a_symlink_to_this_file():
         f"Restore with: ln -sfn {SCRIPT} {INSTALLED}"
     )
     assert INSTALLED.resolve() == SCRIPT.resolve(), f"{INSTALLED} points at {INSTALLED.resolve()}"
+
+
+# ── crash capture, camada 1 (16/09/2026) ────────────────────────────────────
+# The engine died twice with SIGSEGV/SIGILL and left nothing: the wrapper
+# forwarded stderr and kept none of it, so the judge read a dead engine exactly
+# as it reads a low score. These guard the capture, and the last one guards the
+# build setting without which a core carries a single frame.
+
+def journal_lines(env: dict) -> list[dict]:
+    path = env["tmp"] / ".claude" / "touring" / "logs" / "quality-runs.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def crash_dirs(env: dict) -> list[Path]:
+    root = env["tmp"] / ".claude" / "touring" / "logs" / "quality-crashes"
+    return sorted(p for p in root.iterdir()) if root.exists() else []
+
+
+def test_every_run_leaves_a_line_in_the_journal(env):
+    proc = run(env, "score", str(env["target"]))
+    assert proc.returncode == 0, proc.stderr
+    lines = journal_lines(env)
+    assert len(lines) == 1, lines
+    entry = lines[0]
+    assert entry["exit"] == 0
+    assert entry["target"] == str(env["target"].resolve())
+    assert entry["crash_artifact"] == ""
+    assert float(entry["secs"]) >= 0.0
+
+
+def test_a_cache_hit_writes_no_journal_line_because_nothing_ran(env):
+    """NEGATIVE CONTROL for the journal: it must record MEASUREMENTS, not calls.
+    A line per cache hit would make a quiet week look like a busy one, and the
+    duration column — the whole point — would be full of zeros."""
+    run(env, "score", str(env["target"]))
+    run(env, "score", str(env["target"]))
+    assert engine_calls(env) == 1
+    assert len(journal_lines(env)) == 1
+
+
+def test_a_target_carrying_a_quote_still_produces_parseable_json(env):
+    """The escape is not decoration: the path and the engine's stderr both reach
+    the journal, and a broken line would arrive exactly when something went
+    wrong — the moment the log has to be readable."""
+    weird = env["tmp"] / 'alvo "com" aspas'
+    weird.mkdir()
+    (weird / "lib.rs").write_text("pub fn p() {}\n", encoding="utf-8")
+    run(env, "score", str(weird))
+    lines = journal_lines(env)  # json.loads would raise on a malformed line
+    assert len(lines) == 1 and '"com"' in lines[0]["target"]
+
+
+def test_a_run_killed_by_a_signal_leaves_an_artifact_with_its_stderr(env):
+    proc = run(env, "score", str(env["target"]), extra={"FAKE_KILL": "SEGV"})
+    assert proc.returncode == 139, (proc.returncode, proc.stderr)
+    dirs = crash_dirs(env)
+    assert len(dirs) == 1, dirs
+    artifact = dirs[0]
+    assert "engine says something before dying" in (artifact / "stderr.txt").read_text()
+    run_txt = (artifact / "run.txt").read_text()
+    assert "signal: 11" in run_txt
+    assert str(env["target"].resolve()) in run_txt
+    entry = journal_lines(env)[0]
+    assert entry["exit"] == 139
+    assert entry["crash_artifact"] == str(artifact)
+    assert "engine says something before dying" in entry["stderr_tail"]
+
+
+def test_a_crash_is_never_cached(env):
+    """A cached crash would answer the next score in 0s with an empty report —
+    the shape that let a SIGSEGV hide behind a green run for a whole round."""
+    run(env, "score", str(env["target"]), extra={"FAKE_KILL": "SEGV"})
+    assert cached_entries(env) == []
+
+
+def test_the_engine_stderr_still_reaches_the_caller(env):
+    """NEGATIVE CONTROL for the capture: stderr is now routed through a file, so
+    the test has to prove it still comes out the other end."""
+    proc = run(env, "score", str(env["target"]), extra={"FAKE_KILL": "TERM"})
+    assert "engine says something before dying" in proc.stderr
+
+
+def test_the_release_profile_keeps_the_symbols_a_backtrace_needs():
+    """`strip = true` is why the two real cores carried ONE frame. The collector
+    above is worth nothing without this, so the two are guarded together."""
+    # The block ends at the next SECTION HEADER, not at the next mention of one:
+    # splitting on the literal "[profile." cut this block at a comment that names
+    # [profile.dev], and the guard failed on a file that was already correct.
+    lines = (REPO / "Cargo.toml").read_text(encoding="utf-8").splitlines()
+    start = next(i for i, l in enumerate(lines) if l.strip() == "[profile.release]")
+    block = []
+    for line in lines[start + 1:]:
+        if line.startswith("["):
+            break
+        block.append(line)
+    code = "\n".join(l for l in block if not l.strip().startswith("#"))
+    assert code.strip(), "the [profile.release] block reads as empty — the parse is wrong, not the file"
+    assert "strip = true" not in code, "release strips symbols again — a core will carry one frame"
+    assert 'debug = "line-tables-only"' in code, "release carries no line tables — no named stack"

@@ -82,12 +82,110 @@ take_lock() {
   fi
 }
 
+# --- crash capture, camada 1 (16/09/2026) -----------------------------------
+# The engine died twice with SIGSEGV/SIGILL and left nothing behind: this wrapper
+# forwarded stderr and kept none of it, so a crash under CI or under the judge was
+# indistinguishable from a low score (the judge reads `tier=None` either way, the
+# lesson of `verde-de-cache-nao-prova-medicao`). Every run now leaves a line; a
+# run killed by a signal leaves a directory.
+LOG_DIR="${TOURING_QUALITY_LOG_DIR:-$HOME/.claude/touring/logs}"
+RUN_LOG="$LOG_DIR/quality-runs.jsonl"
+CRASH_DIR="$LOG_DIR/quality-crashes"
+
+# JSON string escaping in pure bash: the target path and the engine's stderr both
+# reach this file, and either can carry a quote, a backslash or a newline. A
+# hand-rolled `printf '"%s"'` would emit a broken line exactly when something went
+# wrong — the worst moment for the log to become unparseable.
+json_str() {
+  local s=${1//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//$'\n'/\\n}
+  s=${s//$'\r'/\\r}
+  s=${s//$'\t'/\\t}
+  printf '"%s"' "$s"
+}
+
+# A run killed by a signal becomes an artifact: stderr, the command line, and a
+# NAMED backtrace from the core systemd already collected. `strip = true` in
+# [profile.release] was why the last core carried one frame; with
+# `debug = "line-tables-only"` gdb resolves the stack.
+collect_crash() {
+  local rc="$1" err_file="$2" secs="$3"
+  shift 3   # what remains in "$@" is the engine's OWN arguments, nothing else
+  local stamp dir exe
+  stamp="$(date +%Y%m%dT%H%M%S)"
+  dir="$CRASH_DIR/$stamp-rc$rc-$$"
+  exe="$(basename "$BIN")"
+  mkdir -p "$dir" 2>/dev/null || return 0
+  {
+    printf 'engine: %s\ntarget: %s\nargs: %s\nexit: %s\nseconds: %s\nsignal: %s\n' \
+      "$BIN" "$TARGET_REAL" "$*" "$rc" "$secs" "$((rc - 128))"
+  } >"$dir/run.txt" 2>/dev/null || true
+  cp -f "$err_file" "$dir/stderr.txt" 2>/dev/null || true
+  # Best-effort and never fatal: the collector must not turn a crash into a
+  # second failure. Each step logs its own outcome instead of aborting.
+  {
+    coredumpctl info "$exe" 2>&1 | tail -80
+  } >"$dir/coredump-info.txt" 2>&1 || true
+  if coredumpctl dump "$exe" --output="$dir/core" >/dev/null 2>"$dir/collector.log"; then
+    if command -v gdb >/dev/null 2>&1; then
+      gdb -batch -ex 'thread apply all bt' "$BIN" "$dir/core" \
+        >"$dir/backtrace.txt" 2>&1 || true
+    elif command -v eu-stack >/dev/null 2>&1; then
+      eu-stack --core="$dir/core" -e "$BIN" >"$dir/backtrace.txt" 2>&1 || true
+    fi
+  fi
+  printf '%s' "$dir"
+}
+
 # Run the engine WITHOUT the lock fd (`9>&-`): the wrapper holds the lock until
 # the engine exits, and a descendant the engine leaves behind (a build server, a
 # daemon) must never inherit the lock and turn every later score into exit 75.
 # nice -n 19: never competes with foreground work. timeout 600: no permanent hang.
+#
+# stderr is captured to a file and replayed, rather than streamed: the score is a
+# batch measurement, and a `tee` in a process substitution would race the exit
+# code we need to classify the run.
 run_engine() {
-  nice -n 19 timeout 600 env TOURING_QUALITY_CACHE_DISABLE=1 "$BIN" score "$TARGET_REAL" "$@" 9>&-
+  local err start end secs rc=0 artifact=""
+  err="$(mktemp "${TMPDIR:-/tmp}/touring-quality-stderr.XXXXXX")" || err=""
+  start="$(date +%s.%N)"
+  if [[ -n "$err" ]]; then
+    nice -n 19 timeout 600 env TOURING_QUALITY_CACHE_DISABLE=1 \
+      "$BIN" score "$TARGET_REAL" "$@" 9>&- 2>"$err" || rc=$?
+    cat "$err" >&2
+  else
+    nice -n 19 timeout 600 env TOURING_QUALITY_CACHE_DISABLE=1 \
+      "$BIN" score "$TARGET_REAL" "$@" 9>&- || rc=$?
+  fi
+  end="$(date +%s.%N)"
+  secs="$(awk -v a="$start" -v b="$end" 'BEGIN{printf "%.3f", b-a}')"
+
+  # 128+N means a signal killed it — the case this capture exists for. 124 is
+  # `timeout`, which is a hang, not a crash, and is recorded without a core.
+  if [[ -n "$err" ]] && (( rc >= 128 )); then
+    artifact="$(collect_crash "$rc" "$err" "$secs" "$@")"
+  fi
+  mkdir -p "$LOG_DIR" 2>/dev/null || true
+  local tail_err=""
+  if [[ -n "$err" ]]; then
+    tail_err="$(tail -c 600 "$err" 2>/dev/null || true)"
+  fi
+  {
+    printf '{"ts":%s,"target":%s,"args":%s,"secs":%s,"exit":%d,"engine":%s,"stderr_tail":%s,"crash_artifact":%s}\n' \
+      "$(json_str "$(date -Iseconds)")" "$(json_str "$TARGET_REAL")" "$(json_str "$*")" \
+      "$secs" "$rc" "$(json_str "$BIN")" "$(json_str "$tail_err")" "$(json_str "$artifact")"
+  } >>"$RUN_LOG" 2>/dev/null || true
+  # The index watcher once wrote 25,5 GB of log into a tmpfs and filled /tmp for
+  # every process on the machine (R2-1). A journal nobody bounds is a disk
+  # incident waiting for a busy week: keep the last 4000 lines, checked cheaply.
+  if [[ -f "$RUN_LOG" ]] && (( $(stat -c %s "$RUN_LOG" 2>/dev/null || echo 0) > 4000000 )); then
+    tail -n 4000 "$RUN_LOG" >"$RUN_LOG.trim" 2>/dev/null && mv -f "$RUN_LOG.trim" "$RUN_LOG" || true
+  fi
+  if [[ -n "$err" ]]; then
+    rm -f "$err"
+  fi
+  return "$rc"
 }
 
 # --- a report written to a file is never cached -----------------------------
