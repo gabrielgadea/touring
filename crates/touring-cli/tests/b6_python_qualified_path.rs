@@ -101,7 +101,7 @@ fn the_old_extractor_shape_would_have_found_nothing_here() {
     // `import_statement`, so this file produced zero pairs. If some other change
     // ever makes the positive tests above pass for a different reason, this one
     // still says what B6 was for — the `from` form carries the whole family
-    // (measured 16/09/2026: 53 of 53 symbols in the judge's scope).
+    // (measured 16/09/2026: 53 of 53 symbols in the judge's scope, 126 project-wide).
     let (root, consumer) = fixture(
         "shape",
         "from pacote import modulo\n\n\ndef usa():\n    return modulo.PROCESSADO\n",

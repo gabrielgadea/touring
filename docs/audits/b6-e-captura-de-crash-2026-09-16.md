@@ -35,13 +35,24 @@ resolução módulo→arquivo" morreu por medição, não por argumento.
 
 A chave do mapa `nome_local → módulo` é **`asname or name`**, não só o alias:
 
-| | só alias | ambos | **só sem alias (o que um braço só-alias perde)** |
+| universo | só alias | ambos | **só sem alias (o que um braço só-alias perde)** |
 |---|---|---|---|
-| escopo do juiz (53) | 33 | 7 | **13 — 24,5%** |
-| projeto inteiro (126) | 59 | 24 | **43 — 34,1%** |
+| escopo do juiz, **no disco** (53) | — | — | **8 — 15,1%** |
+| projeto inteiro, **no disco** (126) | 59 | 24 | **43 — 34,1%** |
+| *(censo da analise-08, universo = lista de consumidores pré-computada)* | *33* | *7* | *13 — 24,5%* |
 
-Um braço que lesse apenas `as <alias>` fecharia 40 dos 53 e pareceria um conserto,
-entregando três quartos de um.
+Um braço que lesse apenas `as <alias>` pareceria um conserto e entregaria uma fração dele.
+
+**A terceira linha é a lição, não um erro de cálculo.** O 13 estava certo para a pergunta
+que o censo respondia e errado para esta: o universo dele era o campo `onde` — os
+consumidores que já haviam justificado a classificação de família —, não o disco. O
+indexador varre o disco, então cinco daqueles símbolos têm consumidor com alias em algum
+lugar do repositório e seriam fechados pelo ramo de alias. Os 8 que sobram são exatamente
+os 8 que o cruzamento nominal confirmou dos dois lados: `baixar`, `caminho_de`,
+`divergencias_de_zonal`, `montar_zonas_rmpa`, `produzir`, `reduzir_ate`, `registrar`,
+`vincular`. Quatro correções do mesmo número em um dia — denominador, unidade, dupla
+contagem e universo herdado —, todas com a mesma forma: **o número estava certo para a
+pergunta efetivamente respondida e errado para a pergunta anunciada.**
 
 ### Um defeito que só existe porque as duas formas passaram a conviver
 

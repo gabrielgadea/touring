@@ -10,8 +10,9 @@
 //! import modulo [as alias]`. Measured on the analise with two independent
 //! instruments — an AST sweep here and a per-occurrence census by the session
 //! working in that repo — the from-import form accounts for the WHOLE remaining
-//! blind spot: 77 of 77 occurrences over 53 of 53 symbols inside the judge's
-//! scope, and 126 symbols across the project. `import a.b` accounts for zero.
+//! blind spot: 53 of 53 symbols inside the judge's scope (77 of 77 occurrences
+//! in that census) and 126 symbols across the project on disk. `import a.b`
+//! accounts for zero in both.
 //!
 //! What this returns is `(module_path, symbol)` pairs — the caller resolves the
 //! module to a file and decides what to record.
@@ -121,11 +122,15 @@ fn collect_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut Bindings
 /// `m`, `from p import m as a` → `a`, both pointing at `p.m`.
 ///
 /// The bound name is the alias when there is one and the imported name when
-/// there is not, and that `or` is the whole point. Two thirds of this family
-/// arrive with NO alias — measured 16/09/2026 on the analise: of the 53 orphans
-/// the judge's scope reports, a branch reading only `as <alias>` would close 40
-/// and miss 13; across the project it would miss 43 of 126. Binding only the
-/// alias would have looked like a fix and delivered three quarters of one.
+/// there is not, and that `or` is the whole point. A large part of this family
+/// arrives with NO alias, and the UNIVERSE of the measurement matters as much as
+/// the number: over the repository ON DISK, which is what the indexer walks, a
+/// branch reading only `as <alias>` would miss 43 of 126 symbols (34.1%)
+/// project-wide and 8 of 53 (15.1%) inside the judge's scope (16/09/2026). An
+/// earlier figure of 13 (24.5%) was measured against a census whose universe was
+/// a pre-computed consumer list, not the disk — true for the question it
+/// answered, wrong for this one. Binding only the alias would have looked like a
+/// fix and delivered a fraction of one.
 ///
 /// Two shapes are refused, both because the module path would be a guess and a
 /// wrong producer key is worse than a missing edge: a relative import (`from .
