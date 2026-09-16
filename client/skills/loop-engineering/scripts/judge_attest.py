@@ -252,9 +252,10 @@ def require_human_hand() -> bool:
         "  Attesting declares that a HUMAN inspected the graders and accepts them as the\n"
         "  judge of record; it is the only defence against the judge being rewritten by\n"
         "  what it judges. There is deliberately no flag to bypass this.\n"
-        "  Run it yourself in a terminal:\n"
-        "      python3 ~/.claude/skills/loop-engineering/scripts/judge_attest.py --attest --why '<reason>'\n"
-        "  In Claude Code, prefixing the line with '!' runs it in your own shell.",
+        "  Run it in a REAL terminal window (not through an agent, and not through\n"
+        "  Claude Code's '!' prefix — that runs in the session's shell, which has no\n"
+        "  TTY either, as measured on 16/09/2026):\n"
+        "      python3 ~/.claude/skills/loop-engineering/scripts/judge_attest.py --attest --why '<reason>'",
         file=sys.stderr,
     )
     return False

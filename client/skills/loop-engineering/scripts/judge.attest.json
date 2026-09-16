@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "attested_at": "2026-09-16T07:45:37-03:00",
+  "attested_at": "2026-09-16T18:37:28-03:00",
   "attested_by": "gabrielgadea",
-  "why": "Reatesta\u00e7\u00e3o por ORDEM EXPRESSA de Gabriel (16/09/2026), dada no turno imediatamente seguinte ao diagn\u00f3stico completo (docs/audits/atestacao-do-juiz-por-sessao-2026-09-16.md) e EXECUTADA PELA SESS\u00c3O touring-18 a pedido dele \u2014 a decis\u00e3o e a ordem s\u00e3o humanas, a m\u00e3o \u00e9 da sess\u00e3o, e isto fica dito para que este registro n\u00e3o se confunda com o de 16/09 00:10, feito por uma sess\u00e3o sem ordem contempor\u00e2nea e desde ent\u00e3o restaurado. Atesta loop_converged.py 92d173eb, que difere do registro de 14/09 01:35 (c7baa0c2) em DUAS mudan\u00e7as, identificadas por diff reconstru\u00eddo e conferidas por hash (o reverso do diff sobre o arquivo vivo reproduz c7baa0c2): (A) AFROUXAMENTO DECLARADO \u2014 _baseline_names_the_scope: linha de base que n\u00e3o nomeia NADA do escopo \u00e9 regravada e a cl\u00e1usula orphans_base retorna PASS. O motivo \u00e9 real (base cega lia todo \u00f3rf\u00e3o do escopo como novo: 1.329 falsos NEW em analise/scripts/eleitoral), mas PASS \u00e9 a sa\u00edda mais permissiva das tr\u00eas poss\u00edveis. O ramo J\u00c1 DISPAROU uma vez: 14/09 16:34:38, rodada de zonas eleitorais do projeto analise, rastro na baseline f237e7c42423 (1.336 entradas, todas scripts/eleitoral), declarado no log daquela rodada. Nenhum veredito do workspace touring passou por ele \u2014 R2, D3, B4 e B5 sa\u00edram pelo ramo estrito de compara\u00e7\u00e3o. A contagem de UM disparo \u00e9 piso, n\u00e3o teto: s\u00f3 4 artefatos em todos os bundles guardam a sa\u00edda crua do juiz. (B) _stop_private_daemon: para o daemon privado que o juiz sobe, ao fim da cl\u00e1usula cargo (cross-audit 14/09 C9); higiene de processo, sem efeito sobre veredito. Autoria de (A) e (B): sess\u00e3o analise/0909c80d, 14/09 16:21. As 8 cl\u00e1usulas seguem as mesmas.",
+  "why": "advisory passa a bloquear; orphans_base devolve N/A; attest exige TTY",
   "files": {
-    "loop_converged.py": "92d173eb360a0628b2dc5763c03465a6e818d9ce4c1d40a30511daf505854412",
+    "loop_converged.py": "1b38c759de5481da252b9c792410caebbca25ea9da2b9560041dfa3565fe03ec",
     "hooks/loop_outer_gate.py": "25670d570e001735b60e888d3ae593f7cf64f63805216993f9dd6b3c1e4f0534",
     "hooks/flow_manifests.json": "541e2e879098b22f5cfb9263dd3ee29ba131b441b5392637f4ce006b89442675"
   },
