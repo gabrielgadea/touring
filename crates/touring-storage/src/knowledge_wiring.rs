@@ -185,6 +185,32 @@ fn non_source_sql(col: &str, source_packages: &[String]) -> String {
         .join("\n               ")
 }
 
+/// The producer rows both orphan-shaped queries start from: a public symbol's
+/// placeholder row, with every path and name filter already applied.
+///
+/// One source for [`KnowledgeGraph::orphan_symbols_with_trust`] and
+/// [`KnowledgeGraph::internal_only_symbols`]: the two differ only in what they
+/// say about the symbol's consumers, and a filter added to one of them by hand
+/// would silently not apply to the other (B4, 15/09/2026).
+#[must_use]
+fn public_producer_rows_sql(ext_pred: &str, non_source: &str) -> String {
+    format!(
+        "SELECT w.module_file, w.symbol_name, w.symbol_kind, w.visibility,
+                    w.consumer_file, w.import_line, w.contract_source
+             FROM wiring_map w
+             WHERE w.consumer_file IS NULL AND w.visibility = 'public'
+               AND {ext_pred}
+               AND w.module_file NOT LIKE 'benches/%'
+               AND w.module_file NOT LIKE 'tests/%'
+               {non_source}
+               AND w.module_file NOT LIKE '%/benches/%'
+               AND w.module_file NOT LIKE '%/tests/%'
+               AND w.symbol_kind != 'module'
+               AND w.symbol_name NOT IN ('fmt','hash','eq','partial_cmp','cmp','drop','clone','default')
+               AND w.symbol_name NOT LIKE '\\_\\_%\\_\\_' ESCAPE '\\'"
+    )
+}
+
 /// Third-party or machine-generated trees — never first-party source, in ANY
 /// language.
 ///
@@ -1884,6 +1910,48 @@ impl FileKnowledgeDB {
         self.orphan_symbols_with_trust(false)
     }
 
+    /// Public symbols whose only consumers live in the file that declares them.
+    ///
+    /// B4 (15/09/2026): a `X -> X` row satisfies the `NOT EXISTS` of
+    /// [`Self::orphan_symbols_with_trust`], so "used only by its own file" and
+    /// "used across the project" read identically — 6.191 such rows are live in
+    /// this workspace. This class stays **out** of the orphan list (the symbol is
+    /// consumed, and the judge's baseline does not move) and is reported beside
+    /// it: a public symbol nothing outside its file uses is either internal —
+    /// make it private — or public API waiting for its first consumer.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    pub fn internal_only_symbols(&self) -> Result<Vec<WiringEntry>, rusqlite::Error> {
+        let ext_pred = wireable_ext_sql("w.module_file", self.polyglot());
+        let non_source = non_source_sql("w.module_file", self.source_packages());
+        let producer_rows = public_producer_rows_sql(&ext_pred, &non_source);
+        let sql = format!(
+            "{producer_rows}
+               AND EXISTS (
+                   SELECT 1 FROM wiring_map w2
+                   WHERE w2.module_file = w.module_file
+                     AND w2.symbol_name = w.symbol_name
+                     AND w2.consumer_file IS NOT NULL
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM wiring_map w3
+                   WHERE w3.module_file = w.module_file
+                     AND w3.symbol_name = w.symbol_name
+                     AND w3.consumer_file IS NOT NULL
+                     AND w3.consumer_file != w.module_file
+               )
+             ORDER BY w.module_file, w.symbol_name"
+        );
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let entries = stmt
+            .query_map([], row_to_wiring_entry)?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(entries)
+    }
+
     /// Orphan symbols with an optional trust filter (H2, 2026-08-12).
     ///
     /// `trusted = true` counts a symbol as consumed only by a NON-heuristic
@@ -1901,19 +1969,9 @@ impl FileKnowledgeDB {
         } else {
             ""
         };
+        let producer_rows = public_producer_rows_sql(&ext_pred, &non_source);
         let sql = format!(
-            "SELECT w.module_file, w.symbol_name, w.symbol_kind, w.visibility,
-                    w.consumer_file, w.import_line, w.contract_source
-             FROM wiring_map w
-             WHERE w.consumer_file IS NULL AND w.visibility = 'public'
-               AND {ext_pred}
-               AND w.module_file NOT LIKE 'benches/%'
-               AND w.module_file NOT LIKE 'tests/%'
-               {non_source}
-               AND w.module_file NOT LIKE '%/benches/%'
-               AND w.module_file NOT LIKE '%/tests/%'
-               AND w.symbol_kind != 'module'
-               AND w.symbol_name NOT IN ('fmt','hash','eq','partial_cmp','cmp','drop','clone','default')
+            "{producer_rows}
                AND NOT EXISTS (
                    SELECT 1 FROM wiring_map w2
                    WHERE w2.module_file = w.module_file

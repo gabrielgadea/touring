@@ -786,3 +786,26 @@ export const scale = (x: number) => x * 2;\n";
         .expect("hidden extracted");
     assert!(!hidden.is_public);
 }
+
+/// B4 (15/09/2026): visibility read `def `/`class ` out of the node text, so a
+/// module-level binding had neither and fell through to public — `_FORMAS = {…}`
+/// entered the wiring graph as a public symbol, eligible to be an orphan.
+#[test]
+fn a_python_module_binding_takes_the_visibility_of_its_name() {
+    let py = "_FORMAS = {1: 'um'}\nNUMERAL = 2\n__MANGLED = 3\n__version__ = '1.0'\n\n\ndef _helper():\n    return _FORMAS\n\n\ndef helper():\n    return NUMERAL\n";
+    let syms = extract_symbols(py, Lang::Python).expect("python symbols");
+    let by = |name: &str| {
+        syms.iter()
+            .find(|s| s.name == name)
+            .unwrap_or_else(|| panic!("{name} extracted: {syms:?}"))
+    };
+    assert!(!by("_FORMAS").is_public, "{:?}", by("_FORMAS"));
+    assert_eq!(by("_FORMAS").visibility, Some(Visibility::Private));
+    assert!(!by("__MANGLED").is_public);
+    assert_eq!(by("__MANGLED").visibility, Some(Visibility::Protected));
+    // The public ones are untouched: a constant, a dunder and a function.
+    assert!(by("NUMERAL").is_public);
+    assert!(by("__version__").is_public, "a dunder is not private");
+    assert!(by("helper").is_public);
+    assert!(!by("_helper").is_public);
+}

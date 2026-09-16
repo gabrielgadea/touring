@@ -8,12 +8,16 @@ pub mod enriched;
 pub mod imports;
 pub mod method_calls;
 pub mod pheromone;
+pub mod python_uses;
+pub mod self_refs;
 
 pub use blast_radius::*;
 pub use enriched::*;
 pub use imports::*;
 pub use method_calls::*;
 pub use pheromone::*;
+pub use python_uses::*;
+pub use self_refs::*;
 // cycles: methods on SymbolIndex, re-exported implicitly via the struct itself.
 
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
