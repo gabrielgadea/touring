@@ -128,9 +128,15 @@ const SHELL: LangSyntax = LangSyntax {
     comment_at_word_start: true,
 };
 
+/// Whether `lang` names a POSIX-shell dialect — the one list the quality
+/// engines share (lexer, security scan, complexity).
+pub(crate) fn is_shell_language(lang: &str) -> bool {
+    matches!(lang, "shell" | "bash" | "sh" | "zsh")
+}
+
 fn syntax_for(lang: &str) -> &'static LangSyntax {
     match lang {
-        "shell" | "bash" | "sh" | "zsh" => &SHELL,
+        l if is_shell_language(l) => &SHELL,
         "rust" => &RUST,
         "python" => &PYTHON,
         "javascript" | "typescript" => &JS_TS,

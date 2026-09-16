@@ -84,7 +84,7 @@ fn analyze_tech_debt_dim(target: &Path) -> Result<(f32, String)> {
     use touring_analysis::quality::analyze_tech_debt;
 
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_tech_debt(&raw, lang);
 
     let untracked = r.comment_markers.saturating_sub(r.tracked_markers);

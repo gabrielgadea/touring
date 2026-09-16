@@ -192,6 +192,16 @@ const _: () = assert!(AGG_TABLE.len() == 50);
 /// One file's contribution to a dimension: (path, score value 0..1, LOC weight).
 pub type FileScore<'a> = (&'a Path, f32, usize);
 
+/// Evidence of a dimension rolled up over no file at all.
+///
+/// Canvas D (15/09/2026): an empty list used to be `Pass 1.0` "vacuously
+/// satisfied". A directory holding only files the collector skips — shell
+/// scripts — scored Platinum, and `check --gate F2.1` exited 0 Diamond having
+/// read nothing. Nothing measured is not applicable: excluded from the
+/// composite, never an approval.
+pub(crate) const EMPTY_SCOPE_EVIDENCE: &str =
+    "[N/A] 0 files in scope — nothing measured (excluded from composite)";
+
 /// Aggregate per-file scores for ONE dimension into a scope-level [`DimScore`].
 ///
 /// `ScopeNative` e `PerCrateNative` *não* são agregados aqui — o chamador os
@@ -200,7 +210,7 @@ pub type FileScore<'a> = (&'a Path, f32, usize);
 /// mantendo a função total.
 pub fn aggregate(kind: AggKind, per_file: &[FileScore<'_>]) -> DimScore {
     if per_file.is_empty() {
-        return DimScore::from_value(1.0, "0 files in scope (vacuously satisfied)");
+        return DimScore::not_applicable(EMPTY_SCOPE_EVIDENCE);
     }
     match kind {
         AggKind::WorstOf | AggKind::ScopeNative | AggKind::PerCrateNative => agg_worst_of(per_file),
@@ -481,9 +491,18 @@ mod tests {
     }
 
     #[test]
-    fn empty_scope_is_vacuously_perfect() {
-        let s = aggregate(AggKind::WeightedLoc, &[]);
-        assert_eq!(s.value, 1.0);
+    fn an_empty_scope_measured_nothing_and_is_not_applicable() {
+        for kind in [
+            AggKind::WorstOf,
+            AggKind::WeightedLoc,
+            AggKind::CoverageRatio,
+            AggKind::Mean,
+            AggKind::FailClosedLoc,
+        ] {
+            let s = aggregate(kind, &[]);
+            assert_eq!(s.status, crate::DimStatus::NotApplicable, "{kind:?}: {}", s.evidence);
+            assert!(s.evidence.starts_with("[N/A]"), "{kind:?}: {}", s.evidence);
+        }
     }
 
     #[test]

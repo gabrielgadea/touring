@@ -45,7 +45,7 @@ fn analyze_maintainability_dim(target: &Path) -> Result<(f32, String)> {
     use touring_analysis::quality::{RustQualitySignals, estimate_complexity};
 
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let m = estimate_complexity(&raw, lang);
 
     // Degenerate input (no logical lines → MI is 0.0 by construction): a file

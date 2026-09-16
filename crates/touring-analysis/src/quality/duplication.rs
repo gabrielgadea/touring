@@ -992,7 +992,7 @@ mod tests {
     ///
     /// Este é o teste mínimo que reproduziu o defeito em 03/09/2026 (sessão
     /// analise-c1, repositório `analise`): medindo o corpus inteiro com um único
-    /// `lang = "rust"` — o default de `lang_from_ext` para um diretório, que não
+    /// `lang = "rust"` — o default de `lang_of` para um diretório, que não
     /// tem extensão — o `/*` abre um comentário de bloco Rust (`PYTHON` tem
     /// `block: None`, `RUST` tem `/* */`) que só fecha no próximo `*/`, e o
     /// arquivo seguinte inteiro desaparece do denominador.

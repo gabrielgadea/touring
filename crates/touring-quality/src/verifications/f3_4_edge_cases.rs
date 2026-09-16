@@ -61,7 +61,7 @@ fn analyze_edge_cases_dim(target: &Path) -> Result<(f32, String)> {
         ));
     }
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let path_str = target.to_string_lossy().to_string();
     let r = analyze_edge_cases(&raw, lang, &path_str);
     let value = score_edge_cases(&r);

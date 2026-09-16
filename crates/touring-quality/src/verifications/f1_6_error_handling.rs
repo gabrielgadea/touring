@@ -52,7 +52,7 @@ fn analyze_error_handling_dim(target: &Path) -> Result<(f32, String)> {
     use touring_analysis::quality::error_coverage::analyze_error_coverage;
 
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
 
     let hazards = count_prod_hazards(&raw, lang);
     let cov = analyze_error_coverage(&raw, lang);

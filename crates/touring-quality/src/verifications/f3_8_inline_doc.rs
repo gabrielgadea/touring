@@ -54,7 +54,7 @@ fn analyze_inline_doc_dim(target: &Path) -> Result<(f32, String)> {
         ));
     }
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_inline_doc(&raw, lang);
     let value = score_inline_doc(&r);
     let top = crate::verifications::top_finding(&r.findings);

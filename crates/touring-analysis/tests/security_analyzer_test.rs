@@ -310,3 +310,35 @@ fn python_docstrings_do_not_reach_a_sink_but_triple_quoted_arguments_do() {
     let report = SecurityAnalyzer::new().analyze(arg, "python");
     assert!(report.vuln_matches.iter().any(|m| m.pattern_name == "SQLi"));
 }
+
+fn traversal(source: &str, lang: &str) -> bool {
+    SecurityAnalyzer::new()
+        .analyze(source, lang)
+        .vuln_matches
+        .iter()
+        .any(|m| m.pattern_name == "PathTraversal")
+}
+
+/// Canvas D (15/09/2026): five analise validators failed F2.1 on the idiom that
+/// finds a repository root from the script's own directory.
+#[test]
+fn a_climb_from_the_scripts_own_directory_is_not_traversal_but_one_from_input_is() {
+    for anchored in [
+        "#!/bin/bash\ncd \"$(dirname \"$0\")/../../../..\" || exit 2\n",
+        "#!/bin/bash\nRAIZ=\"$(cd \"$(dirname \"$0\")/../../../..\" && pwd)\"\n",
+        "#!/bin/bash\nSCRIPT_DIR=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\nPROJECT_ROOT=\"$(cd \"$SCRIPT_DIR/../../..\" && pwd)\"\n",
+        "#!/bin/sh\nreadonly HERE=$(dirname \"$0\")\n. \"${HERE}/../../lib.sh\"\n",
+    ] {
+        assert!(!traversal(anchored, "shell"), "{anchored}");
+    }
+    for from_input in [
+        "#!/bin/bash\ncat \"$1/../../etc/passwd\"\n",
+        "#!/bin/bash\ncd \"$(dirname \"$INPUT\")/../../..\"\n",
+        "#!/bin/bash\ncd \"$TARGET_DIR/../../..\"\n",
+        "#!/bin/bash\nSCRIPT_DIR=\"$1\"\ncd \"$SCRIPT_DIR/../../..\"\n",
+    ] {
+        assert!(traversal(from_input, "shell"), "{from_input}");
+    }
+    // The exemption is shell syntax: the same text in Python still counts.
+    assert!(traversal("path = f\"$(dirname \\\"$0\\\")/../../..\"\n", "python"));
+}
