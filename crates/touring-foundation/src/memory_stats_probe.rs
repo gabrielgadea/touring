@@ -109,6 +109,48 @@ pub fn snapshot() -> MemorySnapshot {
 mod tests {
     use super::*;
 
+    /// What `/proc` says about this process right now, for a failure message.
+    ///
+    /// This test failed exactly once, under the full workspace run (16/09/2026),
+    /// and then passed 5/5 in isolation and in every later run. The verdict kept
+    /// only the test's NAME, so the panic said `got 0` with nothing to explain
+    /// whether `memory_stats()` returned `None` (probe unsupported/denied) or
+    /// returned a zeroed reading. The next occurrence should not cost another
+    /// investigation: whoever reads it gets the raw kernel numbers beside ours.
+    fn proc_evidence() -> String {
+        let statm = std::fs::read_to_string("/proc/self/statm").unwrap_or_else(|e| format!("<{e}>"));
+        let status = std::fs::read_to_string("/proc/self/status")
+            .map(|s| {
+                s.lines()
+                    .filter(|l| l.starts_with("VmRSS:") || l.starts_with("VmSize:") || l.starts_with("RssAnon:"))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            })
+            .unwrap_or_else(|e| format!("<{e}>"));
+        let direct = memory_stats().map_or_else(
+            || "memory_stats() -> None".to_string(),
+            |m| format!("memory_stats() -> physical={} virtual={}", m.physical_mem, m.virtual_mem),
+        );
+        format!("statm=[{}] status=[{status}] {direct}", statm.trim())
+    }
+
+    #[test]
+    fn the_failure_message_carries_the_kernel_numbers_beside_ours() {
+        // The diagnosis is only prepared if the evidence is actually produced —
+        // an instrumentation nobody exercises is a promise, not a capability.
+        // Assert the three parts a reader needs to tell "probe returned None"
+        // from "probe returned zeros" from "the kernel itself says zero".
+        let evidence = proc_evidence();
+        assert!(evidence.contains("statm=["), "sem statm: {evidence}");
+        assert!(evidence.contains("VmRSS:"), "sem VmRSS do /proc/self/status: {evidence}");
+        assert!(
+            evidence.contains("memory_stats() ->"),
+            "sem a leitura direta da crate: {evidence}"
+        );
+        // And the numbers must be real on this host, not an error placeholder.
+        assert!(!evidence.contains("statm=[<"), "statm ilegível: {evidence}");
+    }
+
     #[test]
     fn snapshot_returns_nonzero_in_test_process() {
         // The cargo-test runner is a real process — memory-stats MUST report
@@ -118,14 +160,16 @@ mod tests {
         let s = snapshot();
         assert!(
             s.physical_mb > 0.0,
-            "physical_mb should be > 0 in test process, got {}",
-            s.physical_mb
+            "physical_mb should be > 0 in test process, got {} — {}",
+            s.physical_mb,
+            proc_evidence()
         );
         assert!(
             s.virtual_mb >= s.physical_mb,
-            "virtual ({}) >= physical ({})",
+            "virtual ({}) >= physical ({}) — {}",
             s.virtual_mb,
-            s.physical_mb
+            s.physical_mb,
+            proc_evidence()
         );
     }
 

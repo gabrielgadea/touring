@@ -86,17 +86,22 @@ class OrphanScopeTest(unittest.TestCase):
         self.assertTrue(ok)
         self.assertIn("scoped orphans=0", detail)
 
-    def test_baseline_without_any_key_in_scope_is_rerecorded_not_compared(self):
+    def test_baseline_without_any_key_in_scope_is_rerecorded_and_reported_unmeasured(self):
         # kills: comparing against a baseline recorded while the corpus (or the old filter) never reached the scope.
         # Measured 2026-09-14 on analise/scripts/eleitoral: baseline 24860 names, none under the scope, so all 1329
         # in-scope orphans read NEW — 1200 of them older than the session. A baseline that names nothing in the scope
         # is not a baseline for it.
+        #
+        # And the verdict is N/A, never PASS (Gabriel, 16/09/2026). Both answers let the run through —
+        # the runner does not block on N/A — so the difference is entirely in what the ledger says
+        # afterwards: PASS claims the orphan gate approved the round, when nothing was compared.
         base = self.bundle / ".baseline"
         base.mkdir()
         (base / "orphans-scoped.txt").write_text(".claude/config/checkpoint_config.py::CHECKPOINT_DIR\n")
         ok, detail = self._run_clause(_orphans_json(("scripts/eleitoral/a.py", "A")))
-        self.assertTrue(ok)
-        self.assertIn("re-recorded", detail)
+        self.assertIsNone(ok, f"a blind baseline must read N/A, not {ok!r}: {detail}")
+        self.assertTrue(detail.startswith("unmeasured:"), detail)
+        self.assertNotIn("scoped orphans=1 baseline", detail)  # never phrased as a comparison
         self.assertEqual(self._baseline(), {"scripts/eleitoral/a.py::A"})
 
     def test_baseline_with_a_key_in_scope_still_catches_the_new_orphan(self):

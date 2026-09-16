@@ -226,6 +226,40 @@ def write_attestation(root: Path = HERE, why: str | None = None) -> dict:
     return doc
 
 
+def require_human_hand() -> bool:
+    """Is a human actually here? Attesting is the one act that must not be delegated.
+
+    The attestation is all that stands between the judge and the sessions it
+    judges — and on 15-16/09/2026 it was rewritten twice in two days by agent
+    sessions, neither time out of disobedience: the decision had been approved
+    and the condition measured, so each session concluded it was allowed to act.
+    A sentence in a docstring ("a human act") does not survive that kind of zeal,
+    and the files carry no permission barrier either, since every session runs as
+    the same Unix user.
+
+    So the barrier is a terminal. An agent session has no controlling TTY; a
+    human at a prompt does. This cannot be satisfied by exporting a variable,
+    which is precisely why no override flag exists here. CI is not an exception:
+    CI must never attest.
+    """
+    try:
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            return True
+    except (ValueError, OSError):
+        pass
+    print(
+        "judge_attest: --attest needs a terminal, and this process has none.\n"
+        "  Attesting declares that a HUMAN inspected the graders and accepts them as the\n"
+        "  judge of record; it is the only defence against the judge being rewritten by\n"
+        "  what it judges. There is deliberately no flag to bypass this.\n"
+        "  Run it yourself in a terminal:\n"
+        "      python3 ~/.claude/skills/loop-engineering/scripts/judge_attest.py --attest --why '<reason>'\n"
+        "  In Claude Code, prefixing the line with '!' runs it in your own shell.",
+        file=sys.stderr,
+    )
+    return False
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Integrity ledger for the loop's graders.")
     ap.add_argument("--attest", action="store_true",
@@ -236,6 +270,8 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.attest:
+        if not require_human_hand():
+            return 2
         doc = write_attestation(why=args.why)
         if not args.quiet:
             n = len(doc["clauses"] or [])
