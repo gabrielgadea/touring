@@ -57,7 +57,7 @@ fn analyze_f4_7_cicd_dim(target: &Path) -> Result<(f32, String)> {
             crate::verifications::ArtifactClass::CiWorkflow,
         ));
     }
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_cicd(&raw, lang);
     let value = score_cicd(&r);
     let top = crate::verifications::top_finding(&r.findings);

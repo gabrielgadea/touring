@@ -69,7 +69,7 @@ fn analyze_arch_doc_dim(target: &Path) -> Result<(f32, String)> {
             crate::verifications::ArtifactClass::ArchDoc,
         ));
     }
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_arch_doc(&raw, lang);
     let value = score_arch_doc(&r);
     let top = crate::verifications::top_finding(&r.findings);

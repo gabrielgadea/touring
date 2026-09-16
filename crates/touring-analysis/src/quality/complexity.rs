@@ -20,7 +20,27 @@ use memchr::memmem;
 use stringzilla::stringzilla::RangeUtf8NewlineSplits;
 use touring_code::ast::{Lang, compute_complexity_for_source};
 
+use super::code_regions::is_shell_language;
 use super::{ComplexityMetrics, HalsteadMetrics};
+
+/// Shell function definitions, one per line that opens one: `name() {`,
+/// `name()` with the brace below, or `function name`.
+///
+/// A keyword count would count `function name() {` twice, and the keyword
+/// fallback (`fn `/`function `) saw none of the `name() {` style, so a script
+/// of functions reported `fns=0` (Canvas D, 15/09/2026).
+fn count_shell_functions(source: &str) -> usize {
+    source
+        .lines()
+        .map(str::trim_start)
+        .filter(|line| !line.starts_with('#'))
+        .filter(|line| {
+            line.starts_with("function ")
+                || line.contains("() {")
+                || line.trim_end().ends_with("()")
+        })
+        .count()
+}
 
 /// Estimate complexity metrics from source code.
 ///
@@ -42,6 +62,9 @@ pub fn estimate_complexity(source: &str, language: &str) -> ComplexityMetrics {
         "java" => vec![
             b"if ", b"else ", b"for ", b"while ", b"switch ", b"case ", b"catch ",
         ],
+        l if is_shell_language(l) => vec![
+            b"if ", b"elif ", b"for ", b"while ", b"until ", b"case ",
+        ],
         _ => vec![b"if ", b"else ", b"for ", b"while "],
     };
 
@@ -57,10 +80,14 @@ pub fn estimate_complexity(source: &str, language: &str) -> ComplexityMetrics {
     };
 
     // Count functions
-    let function_count: usize = fn_keywords
-        .iter()
-        .map(|kw| memmem::find_iter(bytes, kw).count())
-        .sum();
+    let function_count: usize = if is_shell_language(language) {
+        count_shell_functions(source)
+    } else {
+        fn_keywords
+            .iter()
+            .map(|kw| memmem::find_iter(bytes, kw).count())
+            .sum()
+    };
 
     // Count branch points as complexity proxy
     let total_branches: usize = branch_keywords
@@ -203,7 +230,8 @@ fn real_cc_or_fallback(
 /// to `str::lines()` for ASCII/UTF-8 source files; the iterator strips the
 /// newline bytes and yields the bare line content as `&[u8]`.
 fn count_lines(source: &str, language: &str) -> (usize, usize, usize) {
-    let python_family = matches!(language, "python" | "py" | "bash" | "sh" | "ruby");
+    let python_family =
+        matches!(language, "python" | "py" | "ruby") || is_shell_language(language);
     let mut sloc = 0usize;
     let mut cloc = 0usize;
     let mut blank = 0usize;
@@ -1134,5 +1162,22 @@ public class Bar {
         assert!(m.cloc >= 1, "cloc populated");
         assert!(m.nexits == 1, "nexits populated");
         assert!(m.cognitive_complexity >= 1, "cognitive still works");
+    }
+
+    /// Canvas D (15/09/2026): a shell script scored as Rust reported `fns=0`
+    /// and no comment line, whatever it held.
+    #[test]
+    fn a_shell_script_counts_its_functions_and_hash_comments() {
+        let src = "#!/bin/bash\n# install\nfunction a() {\n  if [ -n \"$1\" ]; then :; elif true; then :; fi\n}\nb() {\n  case \"$1\" in x) ;; esac\n}\nc()\n{\n  until false; do :; done\n}\nfunction d {\n  :\n}\n";
+        for dialect in ["shell", "bash", "sh", "zsh"] {
+            let m = estimate_complexity(src, dialect);
+            assert_eq!(m.function_count, 4, "{dialect}: `function a() {{` counts once");
+            assert_eq!(m.cloc, 2, "{dialect}: shebang and `# install`");
+        }
+        let as_rust = estimate_complexity(src, "rust");
+        assert_eq!(as_rust.function_count, 0);
+        assert_eq!(as_rust.cloc, 0);
+        // A `#` comment that mentions a definition is not one.
+        assert_eq!(estimate_complexity("# setup() {\n", "shell").function_count, 0);
     }
 }

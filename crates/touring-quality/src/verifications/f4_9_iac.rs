@@ -57,7 +57,7 @@ fn analyze_f4_9_iac_dim(target: &Path) -> Result<(f32, String)> {
             crate::verifications::ArtifactClass::Iac,
         ));
     }
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_iac(&raw, lang);
     let value = score_iac(&r);
     let top = crate::verifications::top_finding(&r.findings);

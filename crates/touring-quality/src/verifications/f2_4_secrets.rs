@@ -151,6 +151,7 @@ fn has_non_secret_markers(v: &str) -> bool {
         // file extension (with optional `#anchor`) is a resource location, not an
         // opaque token — same rationale as the absolute-path prefixes above.
         || is_relative_file_path(v)
+        || is_relative_dir_path(v)
         || v.bytes()
             .any(|b| matches!(b, b'<' | b'>' | b'{' | b'}' | b'\\'))
         || is_predictable_sequence(v)
@@ -421,6 +422,48 @@ fn is_readable_placeholder(v: &str) -> bool {
     // Otherwise fall back to length: short prose-like text is a stand-in; a
     // 16+ character passphrase of words is a real secret and still blocks.
     v.len() < 16
+}
+
+/// True when a quoted secret-named RHS is a shell expansion read at run time —
+/// `TOKEN="$(cat "${TOKEN_FILE}")"`, `KEY="${API_KEY}"`, `` T="`pass show x`" ``.
+///
+/// The unquoted branch already rejects `$…`; the quoted one split the line at
+/// every `"` and read `$(cat ` as a non-empty literal, so a hook reading its token
+/// from `~/.config` failed F2.4 in the public touring repository (Canvas D,
+/// 15/09/2026). A literal before the expansion (`"ghp_…$X"`) is not exempt, and
+/// neither is a credential hash that merely starts with `$` (`"$2b$12$…"`,
+/// `"$argon2id$…"`): only `$(`, `${`, a backtick or a whole `$UPPER_NAME` count.
+fn is_shell_expansion(rhs: &str) -> bool {
+    let value = rhs.trim().trim_end_matches([';', ',']);
+    let value = value.strip_prefix('"').unwrap_or(value);
+    let value = value.strip_suffix('"').unwrap_or(value);
+    if value.starts_with("$(") || value.starts_with("${") || value.starts_with('`') {
+        return true;
+    }
+    value.strip_prefix('$').is_some_and(|name| {
+        name.bytes().next().is_some_and(|b| b.is_ascii_uppercase() || b == b'_')
+            && name.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+    })
+}
+
+/// A relative directory path: 2+ `/` separators, lowercase path words, at least
+/// one hyphenated segment — `docs/plans/2026-08-11-memory-hashtag-library/tmp`.
+///
+/// [`is_relative_file_path`] needs a file extension, so a directory scored as a
+/// high-entropy literal (length 52, entropy 4.56; Canvas D, 15/09/2026). An
+/// opaque token is not made of lowercase hyphenated words: base64 carries upper
+/// case, and a hex or base36 run has no hyphenated segment.
+fn is_relative_dir_path(v: &str) -> bool {
+    let segments: Vec<&str> = v.trim_end_matches('/').split('/').collect();
+    segments.len() >= 3
+        && segments.iter().all(|s| {
+            !s.is_empty()
+                && s.bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'-' | b'_' | b'.'))
+        })
+        && segments
+            .iter()
+            .any(|s| s.trim_matches('-').contains('-'))
 }
 
 /// Double-quoted string literals on a line (odd-indexed `"`-split segments).
@@ -822,9 +865,10 @@ fn line_has_strong_secret(line: &str, code: &str) -> bool {
         && names_secret(lhs)
     {
         let strong = if rhs.trim_start().starts_with('"') {
-            extract_quoted(rhs)
-                .iter()
-                .any(|l| !l.is_empty() && !is_readable_placeholder(l))
+            !is_shell_expansion(rhs)
+                && extract_quoted(rhs)
+                    .iter()
+                    .any(|l| !l.is_empty() && !is_readable_placeholder(l))
         } else {
             looks_like_secret_value_named(rhs)
         };
@@ -1912,5 +1956,39 @@ mod tests {
             .measure(&dir.path().join("fixture.rs"))
             .expect("measure fixture");
         assert_eq!(fixture_value, 1.0, "the fixture itself stays allowlisted");
+    }
+
+    /// Canvas D (15/09/2026): two shell scripts in the public touring repository
+    /// failed F2.4 with no secret in them. Each exemption sits beside the
+    /// credential it must keep catching.
+    #[test]
+    fn a_shell_expansion_and_a_directory_path_are_not_secrets_but_literals_still_are() {
+        for runtime in [
+            "TOKEN=\"$(cat \"${TOKEN_FILE}\")\"\n",
+            "API_KEY=\"${DEPLOY_API_KEY}\"\n",
+            "SECRET=\"$VAULT_SECRET\"\n",
+            "TOKEN=\"`pass show ci/token`\"\n",
+        ] {
+            assert!(!scan_text(runtime).strong, "{runtime}");
+        }
+        for literal in [
+            "TOKEN=\"ghp_aBcDeF0123456789aBcDeF0123456789aBcD\"\n",
+            "PASSWORD=\"$2b$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW\"\n",
+            "SECRET=\"$vault1\"\n",
+            "SECRET=\"Tr0ub4dor&3xK9\"\n",
+        ] {
+            assert!(scan_text(literal).strong, "{literal}");
+        }
+        // The real value from `validate_f2_e2e.sh`: past the entropy floor, so the
+        // directory-path exemption is what keeps it out.
+        let dir = "docs/plans/2026-08-11-memory-hashtag-library/fixture";
+        assert!(shannon_entropy(dir) >= 4.5);
+        assert!(!scan_text(&format!("D=\"{dir}\"\n")).strong);
+        let token = "BLOB=\"aB3xYz9QwErT5uIoP2aSdF6gHjK8lZ/xC4vBn7mQrT1/eW9sZ2kL\"\n";
+        assert!(scan_text(token).strong, "base64 with slashes is still a token");
+        // Lowercase and slashed, but no hyphenated word: an opaque token.
+        let base36 = "k3j9x2m8q7w1z5v6/b4n0p3r8t2y7u1i9/o4e6a8s0d2f4g6h8";
+        assert!(shannon_entropy(base36) >= 4.5);
+        assert!(scan_text(&format!("BLOB=\"{base36}\"\n")).strong);
     }
 }

@@ -53,7 +53,10 @@ fn analyze_idioms_dim(target: &Path) -> Result<(f32, String)> {
     }
 
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
+    if lang == "shell" {
+        return Ok(shellcheck_idioms(SHELLCHECK, target, &raw));
+    }
     let r = analyze_idioms(&raw, lang);
 
     let value = score_idioms(&r);
@@ -64,6 +67,80 @@ fn analyze_idioms_dim(target: &Path) -> Result<(f32, String)> {
         r.violations, r.total_lines
     );
     Ok((value, evidence))
+}
+
+/// The shell lint oracle, looked up on `PATH`.
+#[cfg(feature = "workspace-integration")]
+const SHELLCHECK: &str = "shellcheck";
+
+/// Shell idioms, from ShellCheck — the lint oracle for shell, as clippy is for
+/// Rust.
+///
+/// Canvas D (15/09/2026): a shell script had no idiom reading at all; with Rust
+/// rules it passed vacuously. Findings are weighed by level (error 1.0, warning
+/// 0.5, info 0.1, style 0.05) on the same density curve as the other languages.
+/// `--norc` keeps a user's `~/.shellcheckrc` out of the score.
+///
+/// ShellCheck absent or failing is UNVERIFIED (0.5, Warn), never a pass: no
+/// idiom was checked.
+#[cfg(feature = "workspace-integration")]
+fn shellcheck_idioms(bin: &str, target: &Path, raw: &str) -> (f32, String) {
+    use touring_analysis::quality::density_score;
+
+    let unverified = |why: String| {
+        (
+            0.5,
+            format!(
+                "F4.1: UNVERIFIED — {why}; the shell idioms of this script were not checked \
+                 (install shellcheck) — score=0.500"
+            ),
+        )
+    };
+    let output = match std::process::Command::new(bin)
+        .args(["--format=json1", "--norc", "--"])
+        .arg(target)
+        .output()
+    {
+        Ok(output) => output,
+        Err(e) => return unverified(format!("shellcheck could not run ({e})")),
+    };
+    // Exit 0 = clean, 1 = findings; anything else is ShellCheck failing.
+    if !matches!(output.status.code(), Some(0 | 1)) {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return unverified(format!("shellcheck exited {:?}: {}", output.status.code(), stderr.trim()));
+    }
+    let Ok(report) = serde_json::from_slice::<serde_json::Value>(&output.stdout) else {
+        return unverified("shellcheck printed no JSON".to_string());
+    };
+    let comments = report["comments"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let mut levels = [0usize; 4];
+    let mut codes: std::collections::BTreeMap<u64, usize> = std::collections::BTreeMap::new();
+    for comment in comments {
+        let slot = match comment["level"].as_str() {
+            Some("error") => 0,
+            Some("warning") => 1,
+            Some("info") => 2,
+            _ => 3,
+        };
+        levels[slot] += 1;
+        *codes.entry(comment["code"].as_u64().unwrap_or(0)).or_default() += 1;
+    }
+    let weighted = levels[0] as f32 + 0.5 * levels[1] as f32 + 0.1 * levels[2] as f32 + 0.05 * levels[3] as f32;
+    let total_lines = raw.lines().count();
+    let value = density_score(weighted, total_lines, 8.0);
+    let top = codes
+        .iter()
+        .max_by_key(|(code, count)| (**count, std::cmp::Reverse(**code)))
+        .map(|(code, count)| format!("; top: SC{code} ({count}x)"))
+        .unwrap_or_default();
+    (
+        value,
+        format!(
+            "F4.1: shellcheck {} error(s), {} warning(s), {} info, {} style over {total_lines} lines \
+             (shell) — score={value:.3}{top}",
+            levels[0], levels[1], levels[2], levels[3]
+        ),
+    )
 }
 
 /// The idiom engine and this verifier embed the needle vocabulary
@@ -115,6 +192,47 @@ mod tests {
         let f = write_temp_ext("fn f(v: &[u32]) -> bool { v.is_empty() }\n", ".rs");
         let s = F4_1_Idioms.check(f.path()).expect("check");
         assert!((0.0..=1.0).contains(&s.value), "out of range: {}", s.value);
+    }
+
+    /// Canvas D (15/09/2026): shell idioms come from ShellCheck; without it the
+    /// dimension is UNVERIFIED, never a pass.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn shell_idioms_come_from_shellcheck_and_its_absence_is_unverified() {
+        let clean = write_temp_ext(
+            "#!/bin/bash\nset -eu\nname=\"$1\"\nprintf '%s\\n' \"$name\"\n",
+            ".sh",
+        );
+        let sloppy = write_temp_ext(
+            "#!/bin/bash\nfor f in $(ls *.txt); do\n  rm $f\ndone\ncd $1\n",
+            ".sh",
+        );
+        let (value, evidence) = shellcheck_idioms("/nonexistent/shellcheck", sloppy.path(), "x\n");
+        assert_eq!(value, 0.5, "{evidence}");
+        assert!(evidence.contains("UNVERIFIED"), "{evidence}");
+
+        let installed = std::process::Command::new(SHELLCHECK)
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success());
+        if !installed {
+            // An image without ShellCheck: the production path says so too.
+            let s = F4_1_Idioms.check(sloppy.path()).expect("check");
+            assert!(s.evidence.contains("UNVERIFIED"), "{}", s.evidence);
+            return;
+        }
+        // An unreadable script: ShellCheck prints `{"comments":[]}` and exits 2,
+        // which read as JSON alone would be a clean pass.
+        let (value, evidence) =
+            shellcheck_idioms(SHELLCHECK, Path::new("/nonexistent/canvas-d.sh"), "x\n");
+        assert_eq!(value, 0.5, "{evidence}");
+        assert!(evidence.contains("exited Some(2)"), "{evidence}");
+        let good = F4_1_Idioms.check(clean.path()).expect("check");
+        let bad = F4_1_Idioms.check(sloppy.path()).expect("check");
+        assert_eq!(good.value, 1.0, "{}", good.evidence);
+        assert!(bad.value < good.value, "{} vs {}", bad.evidence, good.evidence);
+        assert!(bad.evidence.contains("(shell)"), "{}", bad.evidence);
+        assert!(bad.evidence.contains("; top: SC"), "{}", bad.evidence);
     }
 
     #[test]

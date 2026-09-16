@@ -10,7 +10,7 @@
 /// diferindo apenas no nome. Além da duplicação Type-1 que a dimensão F1.3 mede,
 /// isso era um risco de manutenção concreto: acrescentar um campo custava 35
 /// edições. É o mesmo motivo que levou `touring-quality` a consolidar as 42
-/// cópias de `lang_from_ext` em 02/07/2026.
+/// cópias de `lang_from_ext` (hoje `lang_of`) em 02/07/2026.
 ///
 /// Os nomes históricos (`IoReport`, `CachingReport`, …) seguem existindo como
 /// **aliases**, então nenhum chamador muda e a sintaxe de literal de struct

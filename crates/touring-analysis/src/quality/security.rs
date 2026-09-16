@@ -105,8 +105,8 @@ impl SecurityAnalyzer {
                     .retain(|v| !super::code_regions::offset_suppressed(v.span.0, &regions));
             }
         }
-        if is_shell(lang) {
-            vuln_matches.retain(|v| !is_shell_syntax_payload(source, v));
+        if super::code_regions::is_shell_language(lang) {
+            vuln_matches.retain(|v| !is_shell_idiom(source, v));
         }
         // One finding per pattern, the first that survived: the score keeps the
         // meaning it had when each pattern reported a single match.
@@ -142,11 +142,6 @@ impl SecurityAnalyzer {
     }
 }
 
-/// Whether `lang` names a POSIX-shell dialect.
-fn is_shell(lang: &str) -> bool {
-    matches!(lang, "shell" | "bash" | "sh" | "zsh")
-}
-
 /// A CMDi match that is ordinary shell syntax in a shell script.
 ///
 /// The metacharacter arms of the CWE-78 pattern (`; rm`, `| ncat`, `&& curl`)
@@ -160,6 +155,86 @@ fn is_shell_syntax_payload(source: &str, m: &VulnMatch) -> bool {
         && source
             .get(m.span.0..m.span.1)
             .is_some_and(|text| text.starts_with([';', '|', '&']))
+}
+
+/// A match in a shell script that is how shell scripts are written, not an attack.
+fn is_shell_idiom(source: &str, m: &VulnMatch) -> bool {
+    is_shell_syntax_payload(source, m) || is_script_relative_climb(source, m)
+}
+
+/// A `../` climb anchored at the script's own directory.
+///
+/// `cd "$(dirname "$0")/../../.."` and `cd "$SCRIPT_DIR/../.."`, with
+/// `SCRIPT_DIR` assigned from `dirname "$0"` or `BASH_SOURCE` in the same
+/// script, reach a directory fixed by where the script lives — no input decides
+/// it. Five validators in the analise repository failed F2.1 on this idiom
+/// (Canvas D, 15/09/2026). A climb from anything else — `$1`, `dirname
+/// "$INPUT"`, a variable of unknown origin — still counts.
+fn is_script_relative_climb(source: &str, m: &VulnMatch) -> bool {
+    if m.pattern_name != "PathTraversal" {
+        return false;
+    }
+    let line_start = source[..m.span.0].rfind('\n').map_or(0, |p| p + 1);
+    let Some(anchor) = source[line_start..m.span.0].strip_suffix('/') else {
+        return false;
+    };
+    let anchor = anchor.trim_end_matches('"');
+    if anchor.ends_with(')') {
+        return command_substitution_ending(anchor).is_some_and(names_script_location);
+    }
+    let var = trailing_variable(anchor);
+    !var.is_empty() && script_location_variables(source).any(|name| name == var)
+}
+
+/// The `$( … )` that closes `text`, matched by parenthesis depth.
+fn command_substitution_ending(text: &str) -> Option<&str> {
+    let bytes = text.as_bytes();
+    let mut depth = 0usize;
+    for i in (0..bytes.len()).rev() {
+        match bytes[i] {
+            b')' => depth += 1,
+            b'(' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return (i > 0 && bytes[i - 1] == b'$').then(|| &text[i - 1..]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Whether `text` computes the script's own directory.
+fn names_script_location(text: &str) -> bool {
+    text.contains("dirname") && (text.contains("$0") || text.contains("${0}") || text.contains("BASH_SOURCE"))
+}
+
+/// The variable a path starts from: `$SCRIPT_DIR` or `${SCRIPT_DIR}` → `SCRIPT_DIR`.
+fn trailing_variable(anchor: &str) -> &str {
+    let name = anchor.strip_suffix('}').unwrap_or(anchor);
+    let start = name
+        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .map_or(0, |p| p + 1);
+    let prefix = &name[..start];
+    if prefix.ends_with('$') || prefix.ends_with("${") {
+        &name[start..]
+    } else {
+        ""
+    }
+}
+
+/// Variables assigned from the script's own location: `SCRIPT_DIR="$(cd
+/// "$(dirname "${BASH_SOURCE[0]}")" && pwd)"`, `HERE=$(dirname "$0")`.
+fn script_location_variables(source: &str) -> impl Iterator<Item = &str> {
+    source.lines().filter(|line| names_script_location(line)).filter_map(|line| {
+        let assignment = ["export ", "readonly ", "local ", "declare "]
+            .iter()
+            .fold(line.trim_start(), |l, keyword| l.strip_prefix(keyword).unwrap_or(l));
+        let (name, _) = assignment.split_once('=')?;
+        (!name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
+            .then_some(name)
+    })
 }
 
 impl Default for SecurityAnalyzer {

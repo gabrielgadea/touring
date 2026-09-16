@@ -133,7 +133,7 @@ fn read_production_config_surface(target: &Path) -> Result<String> {
 #[cfg(feature = "workspace-integration")]
 fn analyze_config(raw: &str, target: &Path) -> (f32, String) {
     use touring_analysis::quality::ConfigSecurityAnalyzer;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let report = ConfigSecurityAnalyzer::new().analyze(raw, lang);
     let evidence = if report.misconfigs.is_empty() {
         "Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000"
