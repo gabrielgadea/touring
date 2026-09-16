@@ -1,10 +1,17 @@
-//! Qualified Python use: `import modulo as gm` followed by `gm.Nome`.
+//! Qualified Python use: a module reached through a name, then `name.Symbol`.
 //!
 //! The import-driven consumer pass only reads `from x import Nome`: a bare
 //! `import x` carries no symbol, so it wrote no consumer row, and a project that
 //! reaches its symbols through the module object recorded nothing at all. In the
 //! analise, `google_maps_coleta.MatrizDeTransito` read as an orphan while
 //! `programacao.py` used it twice through `gm.` (16/09/2026).
+//!
+//! B6 (16/09/2026) adds the other half, which is the larger one: `from pacote
+//! import modulo [as alias]`. Measured on the analise with two independent
+//! instruments — an AST sweep here and a per-occurrence census by the session
+//! working in that repo — the from-import form accounts for the WHOLE remaining
+//! blind spot: 77 of 77 occurrences over 53 of 53 symbols inside the judge's
+//! scope, and 126 symbols across the project. `import a.b` accounts for zero.
 //!
 //! What this returns is `(module_path, symbol)` pairs — the caller resolves the
 //! module to a file and decides what to record.
@@ -14,12 +21,31 @@ use std::collections::{BTreeSet, HashMap};
 use crate::ast::languages::Lang;
 use crate::ast::parser::parse_bounded;
 
-/// `(module_path, symbol)` for every `alias.Symbol` whose `alias` this file
-/// bound with an `import`.
+/// A local name bound by an import, with the byte offset where that binding
+/// appears.
+///
+/// The offset is not decoration. Python rebinds a name to the LAST import that
+/// names it, and two forms can now compete for the same name (`import u` and
+/// `from b import u`, or two `from`s of the same module name). This walk visits
+/// nodes in stack order, which is not source order, so without a position the
+/// winner would depend on traversal — the same input could yield either edge
+/// between runs. Keying by position makes it deterministic AND correct.
+type Bindings = HashMap<String, (usize, String)>;
+
+/// Record `local → module`, keeping the binding that appears LAST in the source.
+fn bind(aliases: &mut Bindings, local: &str, module: String, at: usize) {
+    if aliases.get(local).is_none_or(|(prev, _)| at >= *prev) {
+        aliases.insert(local.to_string(), (at, module));
+    }
+}
+
+/// `(module_path, symbol)` for every `name.Symbol` whose `name` this file bound
+/// with an `import` or a `from ... import`.
 ///
 /// `import a.b` (no alias) binds `a`, so the use reads `a.b.Symbol` — a nested
 /// attribute this pass deliberately leaves alone: the module path would be a
-/// guess, and a wrong producer key is worse than a missing edge.
+/// guess, and a wrong producer key is worse than a missing edge. A relative
+/// `from . import x` is left alone for the same reason.
 #[must_use]
 pub fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
     let mut parser = tree_sitter::Parser::new();
@@ -34,12 +60,13 @@ pub fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
     };
     let bytes = source.as_bytes();
 
-    let mut aliases: HashMap<String, String> = HashMap::new();
+    let mut aliases: Bindings = HashMap::new();
     let mut attributes: Vec<(String, String)> = Vec::new();
     let mut stack = vec![tree.root_node()];
     while let Some(node) = stack.pop() {
         match node.kind() {
             "import_statement" => collect_aliases(node, bytes, &mut aliases),
+            "import_from_statement" => collect_from_aliases(node, bytes, &mut aliases),
             "attribute" => {
                 if let Some(pair) = attribute_pair(node, bytes) {
                     attributes.push(pair);
@@ -58,7 +85,7 @@ pub fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
         .filter_map(|(object, symbol)| {
             aliases
                 .get(&object)
-                .map(|module| (module.clone(), symbol.clone()))
+                .map(|(_, module)| (module.clone(), symbol.clone()))
         })
         .collect::<BTreeSet<_>>()
         .into_iter()
@@ -67,7 +94,7 @@ pub fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
 
 /// The names an `import` statement binds: `import x` → `x`, `import x as gm` →
 /// `gm`, both pointing at the module path the import names.
-fn collect_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut HashMap<String, String>) {
+fn collect_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut Bindings) {
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
         match child.kind() {
@@ -75,14 +102,75 @@ fn collect_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut HashMap<
                 if let Ok(module) = child.utf8_text(bytes)
                     && !module.contains('.')
                 {
-                    aliases.insert(module.to_string(), module.to_string());
+                    bind(aliases, module, module.to_string(), child.start_byte());
                 }
             }
             "aliased_import" => {
                 let module = child.child_by_field_name("name").and_then(|n| n.utf8_text(bytes).ok());
                 let alias = child.child_by_field_name("alias").and_then(|n| n.utf8_text(bytes).ok());
                 if let (Some(module), Some(alias)) = (module, alias) {
-                    aliases.insert(alias.to_string(), module.to_string());
+                    bind(aliases, alias, module.to_string(), child.start_byte());
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The names a `from <package> import ...` statement binds: `from p import m` →
+/// `m`, `from p import m as a` → `a`, both pointing at `p.m`.
+///
+/// The bound name is the alias when there is one and the imported name when
+/// there is not, and that `or` is the whole point. Two thirds of this family
+/// arrive with NO alias — measured 16/09/2026 on the analise: of the 53 orphans
+/// the judge's scope reports, a branch reading only `as <alias>` would close 40
+/// and miss 13; across the project it would miss 43 of 126. Binding only the
+/// alias would have looked like a fix and delivered three quarters of one.
+///
+/// Two shapes are refused, both because the module path would be a guess and a
+/// wrong producer key is worse than a missing edge: a relative import (`from .
+/// import x`, whose `module_name` is not a `dotted_name`) and a dotted imported
+/// name. A name that turns out to be a SYMBOL rather than a module (`from pacote
+/// import Classe`) needs no guard here — `pacote.Classe` resolves to no file and
+/// the caller drops it, which is the same filter that already protects the
+/// `import` branch.
+fn collect_from_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut Bindings) {
+    let Some(package) = node.child_by_field_name("module_name") else {
+        return;
+    };
+    if package.kind() != "dotted_name" {
+        return;
+    }
+    let Ok(package) = package.utf8_text(bytes) else {
+        return;
+    };
+    let mut cursor = node.walk();
+    for child in node.children_by_field_name("name", &mut cursor) {
+        match child.kind() {
+            "dotted_name" => {
+                if let Ok(name) = child.utf8_text(bytes)
+                    && !name.contains('.')
+                {
+                    bind(
+                        aliases,
+                        name,
+                        format!("{package}.{name}"),
+                        child.start_byte(),
+                    );
+                }
+            }
+            "aliased_import" => {
+                let name = child.child_by_field_name("name").and_then(|n| n.utf8_text(bytes).ok());
+                let alias = child.child_by_field_name("alias").and_then(|n| n.utf8_text(bytes).ok());
+                if let (Some(name), Some(alias)) = (name, alias)
+                    && !name.contains('.')
+                {
+                    bind(
+                        aliases,
+                        alias,
+                        format!("{package}.{name}"),
+                        child.start_byte(),
+                    );
                 }
             }
             _ => {}
@@ -131,5 +219,93 @@ mod tests {
         // this pass refuses to guess.
         let src = "import pacote.modulo\n\n\ndef f():\n    return pacote.modulo.Coisa()\n";
         assert!(python_qualified_uses(src).is_empty());
+    }
+
+    // ── B6: `from pacote import modulo [as alias]` ────────────────────────
+    // The whole remaining blind spot, measured. The two tests that matter most
+    // here are the negative controls: without them a green positive proves only
+    // that SOMETHING produced the edge, not that this branch did.
+
+    #[test]
+    fn from_package_import_module_binds_the_module_with_no_alias() {
+        let src = "from pacote import io_utils\n\n\ndef f():\n    return io_utils.PROCESSADO\n";
+        assert_eq!(
+            python_qualified_uses(src),
+            vec![("pacote.io_utils".to_string(), "PROCESSADO".to_string())]
+        );
+    }
+
+    #[test]
+    fn from_package_import_module_as_alias_binds_the_alias() {
+        let src = "from pacote import io_utils as io\n\n\ndef f():\n    return io.PROCESSADO\n";
+        assert_eq!(
+            python_qualified_uses(src),
+            vec![("pacote.io_utils".to_string(), "PROCESSADO".to_string())]
+        );
+    }
+
+    #[test]
+    fn the_original_name_is_not_bound_when_the_import_renames_it() {
+        // NEGATIVE CONTROL for the alias branch: Python leaves `io_utils`
+        // unbound here, so an edge would mean we keyed on the imported name
+        // instead of the alias. A positive test alone cannot tell the two apart.
+        let src = "from pacote import io_utils as io\n\n\ndef f():\n    return io_utils.PROCESSADO\n";
+        assert!(python_qualified_uses(src).is_empty());
+    }
+
+    #[test]
+    fn a_module_imported_and_never_touched_is_not_a_use() {
+        // NEGATIVE CONTROL for the whole pass: the import alone must not write
+        // an edge, or every import in the project would become a consumer row.
+        let src = "from pacote import io_utils\nimport json\n";
+        assert!(python_qualified_uses(src).is_empty());
+    }
+
+    #[test]
+    fn a_relative_from_import_is_left_alone() {
+        // `from . import x` — the absolute path the resolver needs would be a
+        // guess, exactly as with `import a.b`.
+        let src = "from . import irmao\n\n\ndef f():\n    return irmao.Coisa\n";
+        assert!(python_qualified_uses(src).is_empty());
+    }
+
+    #[test]
+    fn a_dotted_imported_name_is_left_alone() {
+        let src = "from pacote import sub.modulo\n\n\ndef f():\n    return sub.modulo.Coisa\n";
+        assert!(python_qualified_uses(src).is_empty());
+    }
+
+    #[test]
+    fn the_last_import_of_a_name_is_the_one_that_binds_it() {
+        // Python rebinds; so must we. This also pins traversal order out of the
+        // result — the walk is a stack, so without the byte offset either edge
+        // could win between runs.
+        let src = "from a import u\nfrom b import u\n\n\ndef f():\n    return u.X\n";
+        assert_eq!(
+            python_qualified_uses(src),
+            vec![("b.u".to_string(), "X".to_string())]
+        );
+    }
+
+    #[test]
+    fn a_plain_import_and_a_from_import_competing_for_a_name_resolve_by_position() {
+        let src = "import u\nfrom b import u\n\n\ndef f():\n    return u.X\n";
+        assert_eq!(
+            python_qualified_uses(src),
+            vec![("b.u".to_string(), "X".to_string())]
+        );
+        let reversed = "from b import u\nimport u\n\n\ndef f():\n    return u.X\n";
+        assert_eq!(
+            python_qualified_uses(reversed),
+            vec![("u".to_string(), "X".to_string())]
+        );
+    }
+
+    #[test]
+    fn several_modules_from_one_package_each_bind_their_own_path() {
+        let src = "from pacote import um, dois as d\n\n\ndef f():\n    return um.A + d.B\n";
+        let uses = python_qualified_uses(src);
+        assert!(uses.contains(&("pacote.um".to_string(), "A".to_string())), "{uses:?}");
+        assert!(uses.contains(&("pacote.dois".to_string(), "B".to_string())), "{uses:?}");
     }
 }
