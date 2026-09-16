@@ -4,6 +4,38 @@
 
 use memchr::memmem;
 
+/// The `print(` offsets that are debug residue, not the program speaking.
+///
+/// In a command-line script every `print` is the output of the program, and a
+/// `print(…, file=sys.stderr)` anywhere is a diagnostic channel. `cidata_gen.py`,
+/// `cidata_iso.py` and `hooks_runnable.py` print their JSON result and their
+/// `FAIL …` message, and were the entire antipattern count of the touring
+/// workspace (Canvas E, 15/09/2026).
+fn debug_prints(source: &str, offsets: Vec<usize>) -> Vec<usize> {
+    if has_main_guard(source) {
+        return Vec::new();
+    }
+    offsets
+        .into_iter()
+        .filter(|off| !prints_to_stderr(source, *off))
+        .collect()
+}
+
+/// Whether the module is a command-line entry point (`if __name__ == "__main__"`).
+fn has_main_guard(source: &str) -> bool {
+    source.contains("if __name__ ==")
+}
+
+/// Whether the `print(` at `offset` writes to stderr — a diagnostic channel, not
+/// a debug leftover.
+fn prints_to_stderr(source: &str, offset: usize) -> bool {
+    let line_start = source[..offset].rfind('\n').map_or(0, |p| p + 1);
+    let line_end = source[offset..]
+        .find('\n')
+        .map_or(source.len(), |p| offset + p);
+    source[line_start..line_end].contains("file=sys.stderr")
+}
+
 /// Detect antipatterns in source code for the given language.
 ///
 /// Returns a deduplicated list of `(warning_message, first_line_number)` tuples.
@@ -150,7 +182,10 @@ pub fn detect_antipatterns(source: &str, lang: &str) -> Vec<(String, usize)> {
     let mut warnings: Vec<(String, usize)> = Vec::new();
 
     for (pattern, message) in &patterns {
-        let all_offsets: Vec<usize> = memmem::find_iter(bytes, *pattern).collect();
+        let mut all_offsets: Vec<usize> = memmem::find_iter(bytes, *pattern).collect();
+        if lang == "python" && *pattern == b"print(" {
+            all_offsets = debug_prints(source, all_offsets);
+        }
         if all_offsets.is_empty() {
             continue;
         }
@@ -201,6 +236,38 @@ mod tests {
         let source = "fn main() -> Result<(), Error> { let x = foo()?; Ok(()) }";
         let w = detect_antipatterns(source, "rust");
         assert!(w.is_empty());
+    }
+
+    /// Canvas E (15/09/2026): the three antipatterns of the whole touring workspace
+    /// were the `print` calls of three CLI scripts printing their own output.
+    #[test]
+    fn print_is_output_in_a_cli_script_and_debug_residue_in_a_library() {
+        let cli = "import json, sys\n\n\ndef main():\n    print(json.dumps({\"ok\": True}))\n    print(\"FAIL missing tool\", file=sys.stderr)\n    try:\n        pass\n    except:\n        pass\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n";
+        let w = detect_antipatterns(cli, "python");
+        assert!(!w.iter().any(|(m, _)| m.contains("print()")), "{w:?}");
+        assert!(
+            w.iter().any(|(m, _)| m.contains("except:")),
+            "the bare except of the same script is still reported: {w:?}"
+        );
+
+        let library = "import sys\n\n\ndef helper(x):\n    print(x)\n    return x\n";
+        let w = detect_antipatterns(library, "python");
+        assert!(w.iter().any(|(m, _)| m.contains("print()")), "{w:?}");
+
+        let diagnostics = "import sys\n\n\ndef helper(x):\n    print(\"warn\", file=sys.stderr)\n    return x\n";
+        assert!(
+            !detect_antipatterns(diagnostics, "python")
+                .iter()
+                .any(|(m, _)| m.contains("print()")),
+            "stderr is a diagnostic channel"
+        );
+        let mixed = "import sys\n\n\ndef helper(x):\n    print(\"warn\", file=sys.stderr)\n    print(x)\n    return x\n";
+        assert!(
+            detect_antipatterns(mixed, "python")
+                .iter()
+                .any(|(m, _)| m.contains("print()")),
+            "the plain print beside it is still reported"
+        );
     }
 
     #[test]
