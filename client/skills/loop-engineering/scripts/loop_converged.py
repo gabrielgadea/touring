@@ -309,11 +309,19 @@ def clause_orphans(scope, bundle: Path):
         # by a corpus that never reached it or by the old filter — and comparing against it reads every in-scope
         # orphan as NEW (analise/scripts/eleitoral: 24860 names, none in scope; 1329 "NEW", 1200 pre-existing).
         # It is not a baseline for this scope: re-record it, declared, exactly like the first run.
+        #
+        # 2026-09-16, by Gabriel's order ("quero honestidade do registro"): this returns N/A, not PASS.
+        # It used to answer True, and True says "the orphan gate approved this round" when the truth is
+        # that there was nothing to compare against. Neither verdict blocks — N/A and PASS are the same
+        # to the runner — so the whole difference is what the record says afterwards, and the record is
+        # what someone reads six months from now. Measured: the branch fired once, 14/09 16:34, on the
+        # analise round, and that round's ledger says PASS on a clause that measured nothing.
         if in_scope and not _baseline_names_the_scope(baseline, scope, index_root):
             base_file.write_text("\n".join(in_scope))
-            return True, (
-                f"scoped orphans={len(in_scope)} (previous baseline had {len(baseline)} names, none in scope — "
-                "re-recorded; wire new public symbols by your own consumer sweep this round)"
+            return None, (
+                f"unmeasured: {len(in_scope)} scoped orphans, and the previous baseline named "
+                f"{len(baseline)} symbols with none of them in scope — it was recorded blind, so there "
+                "was nothing to compare against. Re-recorded now; the NEXT run measures against it."
             )
         new = [s for s in in_scope if s not in baseline]
         ok = not new
@@ -608,8 +616,22 @@ def clause_judge_intact():
         return None, "no judge of record yet — run judge_attest.py --attest", None
     advisory = sorted({d["kind"] for d in rep["drift"] if not d["blocking"]})
     n = len(rep["clauses_enforced"] or [])
-    note = f" (advisory: {', '.join(advisory)})" if advisory else ""
-    return True, f"judge of record intact, {n} clauses{note}", None
+    if advisory:
+        # 2026-09-16, by Gabriel's order. This used to pass with the drift noted
+        # in parentheses — and that is exactly how it went unseen: four verdicts
+        # (cross-audit R2, D3, B4) carried `(advisory: file_changed)` inside a
+        # green line, and nobody acted, the author of this note included, having
+        # read two of those logs. An advisory tucked into a PASS is read as a
+        # PASS. A grader that changed since it was attested cannot certify that
+        # anything converged: the clause fails until a human attests the change.
+        return (
+            False,
+            f"grader changed since it was attested ({', '.join(advisory)}) — "
+            f"{n} clauses, but this verdict is not the verdict of record",
+            "inspect the diff, then attest it BY HAND in a terminal: "
+            "judge_attest.py --attest --why '<reason>' (needs a TTY on purpose)",
+        )
+    return True, f"judge of record intact, {n} clauses", None
 
 
 def _gather_clauses(task, scope: Path, bundle: Path, rust_full, rust):

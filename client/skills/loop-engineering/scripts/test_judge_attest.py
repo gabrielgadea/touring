@@ -168,5 +168,41 @@ def test_the_verdict_carries_the_identity_of_the_judge_that_issued_it():
     assert report["clauses"]["judge_intact"]["result"] in {"PASS", "FAIL", "N/A"}
 
 
+def test_attesting_without_a_terminal_is_refused_and_writes_nothing():
+    """The barrier that a docstring could not be (16/09/2026).
+
+    Twice in two days an agent session rewrote the attestation — not by
+    disobedience, but because the decision had been approved and the condition
+    measured. `--attest` now demands a controlling TTY: a human at a prompt has
+    one, a session does not, and no environment variable can fake it.
+
+    The assertion that matters is the negative one: the ledger on disk is
+    untouched. A refusal that still wrote would be worse than no barrier.
+    """
+    before = ja.ATTEST_PATH.read_bytes() if ja.ATTEST_PATH.exists() else None
+    proc = subprocess.run(
+        [sys.executable, str(HERE / "judge_attest.py"), "--attest", "--why", "test: must be refused"],
+        capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL,
+    )
+    assert proc.returncode == 2, f"expected refusal (2), got {proc.returncode}: {proc.stderr}"
+    assert "needs a terminal" in proc.stderr, proc.stderr
+    after = ja.ATTEST_PATH.read_bytes() if ja.ATTEST_PATH.exists() else None
+    assert after == before, "a refused attestation must not touch the ledger"
+
+
+def test_no_flag_or_variable_can_bypass_the_terminal_requirement():
+    """Structural: the refusal must not be negotiable from the outside.
+
+    An override would be found and used by the next zealous session — that is the
+    whole lesson. So no CLI flag and no environment variable may reach this
+    decision: `require_human_hand` consults nothing but the TTY.
+    """
+    source = (HERE / "judge_attest.py").read_text()
+    body = source.split("def require_human_hand")[1].split("\ndef ")[0]
+    for escape in ("os.environ", "getenv", "FORCE", "--force", "--no-tty", "argv"):
+        assert escape not in body, f"require_human_hand must not consult {escape!r}"
+    assert "isatty" in body, "the check must be the TTY itself"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v", "--tb=short", "-p", "no:cacheprovider"]))
