@@ -31,7 +31,7 @@ use super::sandbox_stage::SandboxOutcome;
 use super::static_stage::{StaticReport, StaticSeverity};
 use super::typestate::{Decided, Evidence, Execution, Gated};
 use super::vgp_stage::VgpReport;
-use crate::capability::Decision;
+use crate::capability::{Capability, Decision};
 use serde::{Deserialize, Serialize};
 
 // ── Composite score ───────────────────────────────────────────────────────────
@@ -308,10 +308,21 @@ fn gate_reasons(report: Option<&GateReport>) -> Vec<String> {
     };
     r.denied()
         .map(|denied| {
+            // Name the TARGET when it is not the unrestricted one. A denial
+            // reading "the network capability 'curl'" leaves the reader to guess
+            // what to grant; "(api.example.com:443)" is the grant itself. The
+            // lexical detector still requests `*:any` for most shapes, and for
+            // those this stays silent rather than printing a useless `*:any` —
+            // the house rule that a gate's reason teaches the correction.
+            let target = match &denied.capability {
+                Capability::Net(scope) if !scope.is_any() => format!(" ({scope})"),
+                _ => String::new(),
+            };
             format!(
-                "X6 denied the {} capability '{}' under profile '{}'",
+                "X6 denied the {} capability '{}'{} under profile '{}'",
                 capability_class(&denied.capability),
                 denied.operation,
+                target,
                 r.profile_name
             )
         })

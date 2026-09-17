@@ -14,10 +14,6 @@ use crate::web::services::fetch_status;
 use leptos::prelude::*;
 use leptos_router::hooks::use_location;
 
-/// Context wrapper for the global ⌘K palette open state.
-#[derive(Clone, Copy)]
-pub struct PaletteCtx(pub RwSignal<bool>);
-
 /// Resolve the breadcrumb (section, page) labels for a pathname.
 /// Exact matches come from [`NavItem`]; unknown routes echo the path.
 pub fn breadcrumb_for(pathname: &str) -> (&'static str, String) {
@@ -48,8 +44,13 @@ pub fn breadcrumb_for(pathname: &str) -> (&'static str, String) {
 /// Global Elite shell — instantiated once in `App`.
 #[component]
 pub fn EliteShell(children: Children) -> impl IntoView {
+    // The palette's open state travels as an explicit prop to `CommandPalette`
+    // and is driven by the titlebar button and the ⌘K listener below — all three
+    // in this component. A `provide_context(PaletteCtx(..))` also lived here and
+    // no `use_context` ever read it: a second, implicit channel for state the
+    // prop already carries. Removed 16/09/2026 rather than kept "in case", since
+    // an unread context is indistinguishable from a broken one.
     let palette_open = RwSignal::new(false);
-    provide_context(PaletteCtx(palette_open));
 
     let workspace = use_workspace();
     let bus = use_refresh_bus();

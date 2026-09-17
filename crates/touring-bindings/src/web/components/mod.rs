@@ -11,7 +11,7 @@ pub use page_chrome::{KpiCell, KpiStrip, PageHero, Panel};
 
 // Elite W1 (SPEC 2026-06-12) — global shell, palette, icons, primitives.
 pub mod elite_shell;
-pub use elite_shell::{EliteShell, PaletteCtx, breadcrumb_for};
+pub use elite_shell::{EliteShell, breadcrumb_for};
 pub mod command_palette;
 pub use command_palette::{CommandPalette, filter_nav};
 pub mod icons;

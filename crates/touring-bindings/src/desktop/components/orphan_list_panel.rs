@@ -43,7 +43,9 @@ impl OrphanListPanel {
             .enable_all()
             .build()
             .expect("tokio runtime for orphan list panel")
-            .block_on(spawn_touring_command(&["wiring", "orphans", "-j"]));
+            // `--full`: without it the brief default elides the array and the parse
+            // below fails with `[parse error]` instead of listing orphans.
+            .block_on(spawn_touring_command(&["wiring", "orphans", "--full", "-j"]));
         let orphans_output = match output {
             Ok(raw) => match serde_json::from_str::<WiringOrphansOutput>(&raw) {
                 Ok(o) => o,

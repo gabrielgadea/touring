@@ -194,7 +194,9 @@ pub(crate) fn evaluate_raw(input: &str) -> i32 {
 
     // Run touring wiring audit
     let output = std::process::Command::new("touring")
-        .args(["wiring", "audit", "-j"])
+        // `--full`: the brief default elides `wired_pairs` to a count, so
+        // `as_array()` returned None and every run reported 0 pairs checked.
+        .args(["wiring", "audit", "--full", "-j"])
         .output();
 
     let (wiring_json, pairs_checked) = match output {

@@ -40,20 +40,12 @@ impl std::fmt::Display for WiringViewerError {
     }
 }
 
-/// Module-level wiring entry (one entry per source file).
-#[derive(Debug, Deserialize)]
-struct WiringModule {
-    #[serde(rename = "file_path")]
-    file_path: String,
-    #[serde(rename = "integration_score")]
-    integration_score: f64,
-    #[serde(rename = "orphan_count")]
-    orphan_count: usize,
-}
-
-/// Wrapper for the `touring wiring modules -j` top-level object.
-#[derive(Debug, Deserialize)]
-struct WiringModulesOutput(Vec<WiringModule>);
+// The module shape comes from `web::models::wiring`, not from a private copy.
+// Both surfaces parse the same command, and the two definitions had already
+// drifted: the shared model declared an object wrapper the command never emits,
+// while this file's copy had the right shape and no `total_pub_symbols`. One
+// model, measured against the real payload, with the tests living beside it.
+use crate::web::models::wiring::{WiringModule, WiringModulesReport};
 
 // Health colour constants per theme.
 //
@@ -288,7 +280,9 @@ impl WiringGraphViewer {
             .enable_all()
             .build()
             .expect("tokio runtime for wiring viewer")
-            .block_on(spawn_touring_command(&["wiring", "modules", "-j"]))
+            // `--full`: the brief default elides the module array, and the parse
+            // below then fails — the graph viewer showed `[parse error]`, not a graph.
+            .block_on(spawn_touring_command(&["wiring", "modules", "--full", "-j"]))
         {
             Ok(s) => s,
             Err(e) => {
@@ -297,8 +291,8 @@ impl WiringGraphViewer {
             }
         };
 
-        let modules: Vec<WiringModule> = match serde_json::from_str::<WiringModulesOutput>(&raw) {
-            Ok(WiringModulesOutput(mods)) => mods,
+        let modules: Vec<WiringModule> = match WiringModulesReport::parse(&raw) {
+            Ok(report) => report.modules,
             Err(e) => {
                 ui.label(format!("[parse error] {}", e));
                 return;
@@ -374,11 +368,13 @@ mod tests {
                 file_path: "crates/touring-ast/src/lib.rs".into(),
                 integration_score: 1.0,
                 orphan_count: 0,
+                ..Default::default()
             },
             WiringModule {
                 file_path: "crates/touring-hooks/src/runtime.rs".into(),
                 integration_score: 0.5,
                 orphan_count: 3,
+                ..Default::default()
             },
         ];
         let dot = build_dot_from_modules(&mods);
