@@ -2117,6 +2117,12 @@ pub(crate) struct QualitySignalDiffParams {
     /// Trend epsilon on the 0..=10000 Sentrux scale (default 50).
     #[serde(default)]
     pub trend_epsilon: Option<i32>,
+    /// Optional `MetricRuleSet` TOML path. When given, the rules are evaluated
+    /// against BOTH snapshots and the response carries `violations_diff`: which
+    /// rules were resolved, which were introduced, which persist. The signal
+    /// delta says the workspace got better or worse; this says WHICH rule moved.
+    #[serde(default)]
+    pub rules_path: Option<String>,
     /// Output verbosity: minimal, standard (default), full.
     #[serde(default)]
     pub detail_level: Option<DetailLevel>,

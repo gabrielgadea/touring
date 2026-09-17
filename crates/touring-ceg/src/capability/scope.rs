@@ -89,6 +89,29 @@ impl HostScope {
         let port_ok = self.port.is_none() || self.port == requested.port;
         host_ok && port_ok
     }
+
+    /// `true` when this scope restricts nothing (`*`, any port).
+    ///
+    /// A gate message naming `*:any` tells the reader nothing, while one naming
+    /// `api.example.com:443` tells them exactly what to grant. Callers use this
+    /// to stay silent in the first case and speak in the second.
+    #[must_use]
+    pub fn is_any(&self) -> bool {
+        self.host == "*" && self.port.is_none()
+    }
+}
+
+/// `host:port`, with `*` for any host and `any` for any port — the form a human
+/// reads in a denial. Built from [`HostScope::host`] and [`HostScope::port`],
+/// which is what makes those accessors the scope's public reading surface
+/// instead of dead weight beside `matches`.
+impl std::fmt::Display for HostScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.port() {
+            Some(port) => write!(f, "{}:{port}", self.host()),
+            None => write!(f, "{}:any", self.host()),
+        }
+    }
 }
 
 /// A subprocess command-name scope.

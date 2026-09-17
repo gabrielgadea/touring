@@ -55,6 +55,7 @@ mod tests {
                 file_path: "crates/touring-hooks/src/lib.rs".to_string(),
                 integration_score: 1.0,
                 orphan_count: 0,
+                ..Default::default()
             },
             consumers: vec![WiringConsumer {
                 symbol: "touring_bindings::web::app::App".to_string(),

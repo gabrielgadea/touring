@@ -21,7 +21,7 @@ use touring_analysis::quality::signal::{
     DEFAULT_TREND_EPSILON, build_workspace_from_path, compute_quality_signal,
     diff_signals_with_epsilon,
 };
-use touring_analysis::rules::{count_by_severity, evaluate, parse_path, parse_str};
+use touring_analysis::rules::{count_by_severity, diff_violations, evaluate, parse_path, parse_str};
 use touring_hooks::shared::federation::{FederationEntry, aggregate};
 
 use super::TouringServer;
@@ -199,18 +199,23 @@ impl TouringServer {
             .resolve_ctx(Some(&curr_root.display().to_string()))
             .await;
 
-        let prev_signal = match build_workspace_from_path(&prev_root) {
-            Ok(ws) => compute_quality_signal(&ws),
+        // Both workspaces are kept, not just their signals: evaluating a rule set
+        // needs the workspace beside the signal, and the optional rule diff below
+        // is the only caller that ever asked for the pair.
+        let prev_ws = match build_workspace_from_path(&prev_root) {
+            Ok(ws) => ws,
             Err(err) => {
                 return make_diff_error(&prev_root, &curr_root, "previous_root", &err.to_string());
             }
         };
-        let curr_signal = match build_workspace_from_path(&curr_root) {
-            Ok(ws) => compute_quality_signal(&ws),
+        let curr_ws = match build_workspace_from_path(&curr_root) {
+            Ok(ws) => ws,
             Err(err) => {
                 return make_diff_error(&prev_root, &curr_root, "current_root", &err.to_string());
             }
         };
+        let prev_signal = compute_quality_signal(&prev_ws);
+        let curr_signal = compute_quality_signal(&curr_ws);
         let diff = diff_signals_with_epsilon(&prev_signal, &curr_signal, epsilon);
 
         let mut output = serde_json::json!({
@@ -218,6 +223,42 @@ impl TouringServer {
             "current_root": curr_root.display().to_string(),
             "diff": diff,
         });
+
+        // The signal delta says the workspace got better or worse; a rule diff
+        // says WHICH rule moved. `rules::diff` (Wave 2 P4) shipped in May and
+        // had no caller outside its own tests — this is the pair of snapshots it
+        // was written for, and the tool already builds both.
+        if let Some(rules_path) = p.rules_path.as_deref() {
+            output["violations_diff"] = match parse_path(std::path::Path::new(rules_path)) {
+                Ok(ruleset) => {
+                    match (
+                        evaluate(&ruleset, &prev_ws, &prev_signal),
+                        evaluate(&ruleset, &curr_ws, &curr_signal),
+                    ) {
+                        (Ok(prev_violations), Ok(curr_violations)) => {
+                            let vdiff = diff_violations(&prev_violations, &curr_violations);
+                            let (resolved, introduced, persisting) = vdiff.counts();
+                            serde_json::json!({
+                                "rules_path": rules_path,
+                                "resolved": resolved,
+                                "introduced": introduced,
+                                "persisting": persisting,
+                                "total": vdiff.total(),
+                                "detail": vdiff,
+                            })
+                        }
+                        (Err(e), _) | (_, Err(e)) => serde_json::json!({
+                            "rules_path": rules_path,
+                            "error": format!("rule evaluation failed: {e}"),
+                        }),
+                    }
+                }
+                Err(e) => serde_json::json!({
+                    "rules_path": rules_path,
+                    "error": format!("could not read the rule set: {e}"),
+                }),
+            };
+        }
 
         self.graph_svc.inject(&mut output, &gctx);
         params::apply_detail_level(&mut output, dl);

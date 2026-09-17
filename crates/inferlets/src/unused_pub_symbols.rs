@@ -92,7 +92,9 @@ fn parse_input(input: &str) -> (f32, Option<Vec<String>>) {
 /// Run `touring wiring orphans -j` and parse the output.
 fn get_wiring_orphans() -> Result<serde_json::Value, String> {
     let output = std::process::Command::new("touring")
-        .args(["wiring", "orphans", "-j"])
+        // `--full`: the brief default elides the orphan array to a count, and this
+        // consumer iterates it — measured 16/09/2026, it was reading zero orphans.
+        .args(["wiring", "orphans", "--full", "-j"])
         .output()
         .map_err(|e| format!("failed to spawn touring: {}", e))?;
 
