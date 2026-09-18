@@ -68,25 +68,27 @@ pub(crate) struct Output {
 }
 
 /// Parse the JSON input and extract threshold + module_filter.
-fn parse_input(input: &str) -> (f32, Option<Vec<String>>) {
+///
+/// Input that is not JSON at all is an error, never the defaults: defaulting ran the
+/// query against the live project and reported its real orphans for garbage input.
+/// Valid JSON whose fields have the wrong shape still falls back per field.
+fn parse_input(input: &str) -> Result<(f32, Option<Vec<String>>), String> {
     let input = input.trim();
-    let threshold = if let Ok(inp) = serde_json::from_str::<Input>(input) {
-        inp.threshold.unwrap_or(0.0)
-    } else if let Ok(raw) = serde_json::from_str::<serde_json::Value>(input) {
-        // Try to extract threshold from raw JSON
-        raw.get("threshold")
+    let raw = serde_json::from_str::<serde_json::Value>(input)
+        .map_err(|e| format!("invalid JSON input: {e}"))?;
+    let typed = serde_json::from_value::<Input>(raw.clone()).ok();
+
+    let threshold = match &typed {
+        Some(inp) => inp.threshold.unwrap_or(0.0),
+        None => raw
+            .get("threshold")
             .and_then(|v| v.as_f64())
             .map(|v| v as f32)
-            .unwrap_or(0.0)
-    } else {
-        0.0
+            .unwrap_or(0.0),
     };
+    let module_filter = typed.and_then(|i| i.module_filter);
 
-    let module_filter = (serde_json::from_str::<Input>(input))
-        .ok()
-        .and_then(|i| i.module_filter);
-
-    (threshold, module_filter)
+    Ok((threshold, module_filter))
 }
 
 /// Run `touring wiring orphans -j` and parse the output.
@@ -150,7 +152,13 @@ fn filter_orphans(
 
 /// Raw evaluate — returns 1 if any orphan symbols match the criteria, 0 otherwise.
 pub(crate) fn evaluate_raw(input: &str) -> i32 {
-    let (threshold, module_filter) = parse_input(input);
+    let (threshold, module_filter) = match parse_input(input) {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            LAST_ERROR.with(|cell| *cell.borrow_mut() = Some(e));
+            return 0;
+        }
+    };
 
     let wiring_result = match get_wiring_orphans() {
         Ok(v) => v,
@@ -192,7 +200,7 @@ mod tests {
     #[test]
     fn test_parse_input_default_threshold() {
         let input = r#"{}"#;
-        let (threshold, module_filter) = parse_input(input);
+        let (threshold, module_filter) = parse_input(input).unwrap();
         assert_eq!(threshold, 0.0);
         assert!(module_filter.is_none());
     }
@@ -200,15 +208,30 @@ mod tests {
     #[test]
     fn test_parse_input_with_threshold() {
         let input = r#"{"threshold": 2.0}"#;
-        let (threshold, module_filter) = parse_input(input);
+        let (threshold, module_filter) = parse_input(input).unwrap();
         assert_eq!(threshold, 2.0);
+        assert!(module_filter.is_none());
+    }
+
+    #[test]
+    fn test_parse_input_rejects_malformed_json() {
+        let err = parse_input("{").unwrap_err();
+        assert!(err.starts_with("invalid JSON input"), "{err}");
+    }
+
+    #[test]
+    fn test_parse_input_wrong_field_type_falls_back_per_field() {
+        // `module_filter` of the wrong type fails the typed parse; `threshold` survives.
+        let input = r#"{"threshold": 3.0, "module_filter": "touring-hooks"}"#;
+        let (threshold, module_filter) = parse_input(input).unwrap();
+        assert_eq!(threshold, 3.0);
         assert!(module_filter.is_none());
     }
 
     #[test]
     fn test_parse_input_with_module_filter() {
         let input = r#"{"module_filter": ["touring-hooks", "touring-ast"]}"#;
-        let (threshold, module_filter) = parse_input(input);
+        let (threshold, module_filter) = parse_input(input).unwrap();
         assert_eq!(threshold, 0.0);
         assert!(module_filter.is_some());
         let filters = module_filter.unwrap();
@@ -245,9 +268,12 @@ mod tests {
     }
 
     #[test]
-    fn test_evaluate_raw_empty_input_returns_zero() {
-        // Malformed JSON should not crash — returns 0
+    fn test_evaluate_raw_malformed_input_returns_zero() {
+        // Malformed JSON is rejected before `touring` is spawned: the error buffer holds
+        // the parse error, not the orphan list a live query would have written there.
         let result = evaluate_raw("{");
         assert_eq!(result, 0);
+        let err = LAST_ERROR.with(|cell| cell.borrow().clone()).unwrap();
+        assert!(err.starts_with("invalid JSON input"), "{err}");
     }
 }
