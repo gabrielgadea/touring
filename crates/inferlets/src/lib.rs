@@ -37,6 +37,7 @@ pub mod count_files_via_cli_wrapper;
 pub mod dependency_diff;
 pub mod find_circular_imports;
 pub mod flaky_test_pattern_detector;
+mod fs_walk;
 pub mod manifest;
 pub mod memory;
 pub mod pattern;
