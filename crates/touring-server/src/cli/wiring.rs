@@ -301,9 +301,25 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "offset": offset,
                 "purge_cross_language": purge_cross_language,
             });
-            query_and_print("cli-repair-wiring", payload)
+            println!(
+                "{}",
+                bounded_reply(&daemon_query("cli-repair-wiring", payload)?)
+            );
+            Ok(())
         }
     }
+}
+
+/// Pretty-print a reply whose arrays are bounded by construction, never
+/// elided. The repair's `sample` holds at most ten edges and exists to be READ
+/// before anything is written; the `wiring` family's default `--brief` turned
+/// it into `{"_elided_array_len": 10}` on the dry run and the real run alike
+/// (18/09/2026, analise). Invalid JSON passes through verbatim.
+fn bounded_reply(output: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(output)
+        .ok()
+        .and_then(|v| serde_json::to_string_pretty(&v).ok())
+        .unwrap_or_else(|| output.to_string())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -783,6 +799,33 @@ mod tests {
             panic!("expected Repair")
         };
         assert!(dry_run && purge_cross_language);
+    }
+
+    /// The repair's ten-edge sample is over the 512-byte elision threshold, so
+    /// the family's default `--brief` hid it on the dry run it exists for.
+    #[test]
+    fn a_bounded_repair_reply_is_never_elided() {
+        let sample: Vec<serde_json::Value> = (0..10)
+            .map(|i| {
+                serde_json::json!({
+                    "module_file": format!("crates/pkg/src/module_{i}.rs"),
+                    "symbol_name": format!("Symbol{i}"),
+                    "consumer_file": format!("crates/app/src/consumer_{i}.rs"),
+                })
+            })
+            .collect();
+        let reply = serde_json::json!({ "status": "dry_run", "edges": 18035, "sample": sample })
+            .to_string();
+        assert!(
+            super::super::common::maybe_slim_json(&reply, true).contains("_elided_array_len"),
+            "the default brief path elides this reply"
+        );
+
+        let shown: serde_json::Value =
+            serde_json::from_str(&bounded_reply(&reply)).expect("pretty JSON");
+        assert_eq!(shown["sample"].as_array().map(Vec::len), Some(10));
+        assert_eq!(shown["edges"], 18035);
+        assert_eq!(bounded_reply("not json"), "not json");
     }
 
     #[test]

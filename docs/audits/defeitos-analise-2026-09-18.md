@@ -162,3 +162,97 @@ para o stderr e o stdout ficava vazio. Pela CLI também não era possível dar p
 3. O `orphans_base` do juiz de lá vai subir, porque órfãos Python que estavam escondidos
    aparecem. O rebaseline tem que ser declarado com evidência.
 4. Não rodar `index rebuild` com a 30.4.57, porque ele recriaria as arestas da inferência.
+
+**Executado pelo analise, com o aval do Gabriel:** `{"status":"purged","edges":18035,
+"symbols":1488,"orphans_restored":210}`. O banco bateu com a aritmética:
+- total de 157.087 para 139.262 arestas;
+- NULL +210;
+- zero cruzadas;
+- 88.916 da mesma família intactas.
+
+Depois do ingest dos módulos divididos, os órfãos do escopo caíram de 13 para 2.
+
+## 30.4.58 publicada, e o juiz que não chegava ao fim
+
+O juiz `--rust-full` da 30.4.58 levou quatro execuções até o exit 0. Nenhuma das três
+falhas era do código da rodada.
+
+- **r1:** morto pelo systemd-oomd em 4 min. A unit tinha `MemoryHigh=24G`, que não mata:
+  estrangula, e o reclaim empurrou 44,5 GB para o swap. A pressão de memória do cgroup
+  disparou o oomd, com 48 GB livres na máquina. O teto macio fabricou o gatilho da morte.
+- **r2:** o binário de teste do `touring_cli` morreu com SIGILL dentro de
+  `ts_query__analyze_patterns` (C do tree-sitter). No core, o pc aponta para
+  `sub %edx,%eax`, um opcode válido e alvo alinhado de dois saltos, e o mesmo binário passa
+  isolado (579/0). No mesmo dia o kernel registrou 2 machine checks corrigidos (`Bank 0`,
+  status `8000004000040005`, paridade interna) em dois núcleos, e o boot anterior tinha
+  caído às 14:08 sem desligamento limpo. A máquina é um i9-14900HX (CPUID `0xb0671`,
+  microcode `0x137`). Leitura: falha de execução do processador, com confiança 0,75,
+  escalada ao Gabriel.
+- **r3:** travou 25 min. Dois testes do `inferlets` andavam pelo `/tmp` da máquina, e as
+  fixtures mortas no r1 e no r2 (o `Drop` do `TempDir` nunca rodou) tinham deixado ali
+  ciclos de symlink. O walker usava `Path::is_dir`, que segue link, e a recursão ficou
+  exponencial.
+- **r4:** exit 0, com 8 jobs, 8 threads de teste e o walker corrigido. A 30.4.58 foi
+  publicada em `b716be65..bcf76a0a`.
+
+## 30.4.59 — os resíduos do purge
+
+O analise relatou quatro resíduos e um defeito do CEG. Um relato inverteu a leitura, e a
+investigação achou mais três defeitos.
+
+**A linha NULL é a declaração do produtor.** O analise viu `grafo_modelo.py <- NULL` ao lado
+das quatro linhas de consumidor de `No` e leu como resíduo. Não é: essa linha é a declaração,
+uma por símbolo público (`knowledge_wiring.rs`, `producer_rows`), e o `record_consumer` lê dela
+o kind e a visibilidade. Quem violava o contrato era o `wiring repair`, que a apagava depois de
+gravar consumidores. Isso deixava produtores sem declaração e ensinou a expectativa oposta. O
+repair deixou de apagar, e a varredura de órfãos continua `NOT EXISTS` um consumidor.
+
+**Importar não é usar (decisão de Gabriel, 18/09).** `supersede` ficava fora da lista de
+órfãos porque uma fachada o importava só para reexportar em `__all__`.
+- **Ponto único:** `ast_bridge::extract_consumed_imports` decide o que vira consumidor.
+  - Em Rust, subtrai os reexportes (`pub use`, `pub(crate) use`).
+  - Em Python, subtrai os nomes nunca referenciados fora das instruções de import. Isso
+    cobre fachada com `__all__`, `__init__` e import morto. O alias é julgado pelo nome
+    local, e atributo, nome de keyword e string não contam como referência.
+- **Três sítios reexportavam como consumo, todos corrigidos:**
+  - a passada de imports do rebuild;
+  - a varredura de caminhos diretos da edição, que lê linhas `use`;
+  - o FIX-4, que gravava `pub use submod::X` como uso do pai, só na edição.
+- **Um quarto sítio, achado pelo teste de ponta a ponta:** a passada de tipos por nome
+  capturava o `scoped_identifier` de dentro do próprio `pub use`.
+- **Um quinto, achado pelo dry-run com o binário instalado:** o grep do `wiring repair`
+  aceitava `(pub )?use` de propósito. Rodá-lo recriaria os consumidores que a decisão
+  removeu. Agora ele lê só `use` sem visibilidade.
+- **Efeito medido no touring** (rebuild da 30.4.59): órfãos de 735 para 773 (+38, todos
+  Rust), que são os símbolos que só um `pub use` mantinha vivos. O juiz tolera até 2481.
+- **Fonte única do predicado:** `imports::is_reexport_declaration`, usada por
+  `rust_reexports` e pelo filtro da passada de tipos. Um `use` comum segue alimentando a
+  passada de tipos, que serve de rede quando o resolvedor falha.
+
+**Método Python por atributo.** `no.tags_cli()` e `no.todas_as_arestas` eram os únicos usos
+de dois métodos, e o Python não tinha a passada F9. `python_method_calls.scm` captura todo
+atributo, e `find_python_method_producers` só credita produtor de kind `method` em módulo do
+qual o consumidor já importa. Como uma aresta de método só nasce dentro dessa trava, ela nunca
+abre a porta para outro palpite.
+
+De passagem: a passada `alias.Nome` (B5) só existia no rebuild. A edição apagava essas arestas
+com as inferidas e nunca as rederivava. Agora ela é a função única
+`record_python_qualified_uses`, segue o definidor e roda antes da passada de métodos, que a lê
+como trava.
+
+**A amostra que existia para ser lida.** A família `wiring` liga `--brief` por padrão, e a
+amostra de 10 arestas do repair passa dos 512 bytes, então virava `{"_elided_array_len": 10}`
+no dry-run, justamente onde serve. O repair agora imprime por `bounded_reply`, sem elisão.
+
+**CEG.** Morte por sinal virava `-1` anônimo. `SandboxResult.signal` e `describe_signal`
+nomeiam o sinal e o cap (SIGXFSZ para o limite de tamanho de arquivo, SIGXCPU para o de CPU,
+SIGKILL para memória). O caso do analise foi diferente: o sqlite3 morreu no cap, o script seguiu
+com `echo $?` e o envelope reportou o exit 0 do programa, o que é fiel ao shell. O que faltava
+era dizer que um arquivo tinha sido cortado. O `RunTmp` agora lista os arquivos com tamanho
+EXATO do cap, e isso vira `OutputLimit` mesmo com exit 0.
+
+**Defeitos achados no caminho.**
+1. `require('` tem 9 caracteres, e o corte do `find_circular_imports` pulava 8, então todo
+   `require('x')` virava módulo vazio.
+2. A edição perdia as arestas `alias.Nome` (acima).
+3. A passada de tipos contava o caminho de um `pub use` (acima).

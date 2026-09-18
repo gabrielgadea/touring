@@ -93,6 +93,125 @@ pub fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The names a `from x import Nome [as n]` brings in that the module never
+/// references outside its import statements, as the ORIGINAL name (`Nome`),
+/// the one the import extractor reports.
+///
+/// Such a name is a re-export (listed in `__all__`, forwarded by an
+/// `__init__.py` or any façade) or a dead import; neither is a use of `Nome`
+/// (decision of 18/09/2026, Gabriel: importing is not using). The analise
+/// found `supersede` kept off the orphan list by a façade that only forwarded
+/// it. A reference is an identifier in code: an attribute name (`obj.Nome`), a
+/// keyword-argument name (`f(Nome=1)`) and a string (`__all__ = ["Nome"]`) are not.
+#[must_use]
+pub fn python_unreferenced_imports(source: &str) -> BTreeSet<String> {
+    let mut parser = tree_sitter::Parser::new();
+    if parser
+        .set_language(&Lang::Python.tree_sitter_language())
+        .is_err()
+    {
+        return BTreeSet::new();
+    }
+    let Some(tree) = parse_bounded(&mut parser, source, None) else {
+        return BTreeSet::new();
+    };
+    let bytes = source.as_bytes();
+    let mut imported: Vec<(String, String)> = Vec::new();
+    let mut referenced: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut stack = vec![tree.root_node()];
+    while let Some(node) = stack.pop() {
+        match node.kind() {
+            "import_from_statement" => {
+                imported.extend(from_import_bindings(node, bytes));
+                continue;
+            }
+            "import_statement" => continue,
+            "identifier" if !names_a_member(node) => {
+                if let Ok(text) = node.utf8_text(bytes) {
+                    referenced.insert(text);
+                }
+            }
+            _ => {}
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    imported
+        .into_iter()
+        .filter(|(_, local)| !referenced.contains(local.as_str()))
+        .map(|(original, _)| original)
+        .collect()
+}
+
+/// `(original, local)` for each name a `from … import` binds: `a` → `(a, a)`,
+/// `a as b` → `(a, b)`. A dotted name binds nothing usable here.
+fn from_import_bindings(node: tree_sitter::Node, bytes: &[u8]) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut cursor = node.walk();
+    for child in node.children_by_field_name("name", &mut cursor) {
+        let text = |n: Option<tree_sitter::Node>| n.and_then(|n| n.utf8_text(bytes).ok());
+        let (original, local) = match child.kind() {
+            "dotted_name" => (text(Some(child)), text(Some(child))),
+            "aliased_import" => (
+                text(child.child_by_field_name("name")),
+                text(child.child_by_field_name("alias")),
+            ),
+            _ => (None, None),
+        };
+        if let (Some(original), Some(local)) = (original, local)
+            && !original.contains('.')
+        {
+            out.push((original.to_string(), local.to_string()));
+        }
+    }
+    out
+}
+
+/// `true` when an identifier names a member rather than a binding: the
+/// attribute of `obj.Nome` or the name of a keyword argument `f(Nome=…)`.
+fn names_a_member(node: tree_sitter::Node) -> bool {
+    let Some(parent) = node.parent() else {
+        return false;
+    };
+    let field = match parent.kind() {
+        "attribute" => "attribute",
+        "keyword_argument" => "name",
+        _ => return false,
+    };
+    parent
+        .child_by_field_name(field)
+        .is_some_and(|n| n.id() == node.id())
+}
+
+#[cfg(test)]
+mod unreferenced_import_tests {
+    use super::python_unreferenced_imports;
+
+    /// 18/09/2026 (analise): a façade that only forwards `supersede` through
+    /// `__all__` kept it off the orphan list.
+    #[test]
+    fn a_name_only_forwarded_or_never_touched_is_not_referenced() {
+        let src = "from pkg.gravacao import supersede, grava\n\
+                   from pkg.modelo import No as N, Aresta\n\
+                   from pkg.util import d\n\
+                   import json\n\
+                   __all__ = [\"supersede\", \"grava\"]\n\n\
+                   def f(obj):\n    return grava(N(), obj.d, g(d=1), json.dumps(obj.Aresta))\n";
+        let unref: Vec<String> = python_unreferenced_imports(src).into_iter().collect();
+        assert_eq!(
+            unref,
+            ["Aresta", "d", "supersede"],
+            "an alias is judged by its local name; attribute and keyword names are not references"
+        );
+    }
+
+    #[test]
+    fn every_used_import_is_referenced() {
+        let src = "from a import X\n\n\n@X.decorate\ndef f(y: X) -> X:\n    return y\n";
+        assert!(python_unreferenced_imports(src).is_empty());
+    }
+}
+
 /// The names an `import` statement binds: `import x` → `x`, `import x as gm` →
 /// `gm`, both pointing at the module path the import names.
 fn collect_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut Bindings) {

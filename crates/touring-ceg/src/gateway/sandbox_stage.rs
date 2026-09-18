@@ -247,6 +247,8 @@ mod tests {
             stderr: String::new(),
             stderr_truncated: false,
             tmp_bytes: 0,
+            signal: None,
+            capped_files: Vec::new(),
         };
         let o = SandboxOutcome::from_result(&result, "readonly");
         assert_eq!(o.exit_code, 0);

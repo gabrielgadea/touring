@@ -1033,78 +1033,31 @@ fn record_consumer_from_path_resolves_workspace_crate_root() {
     );
 }
 
-// ── FIX-4: re-export consumer detection ───────────────────────────────
+// ── Re-export is not a use (18/09/2026, Gabriel) ───────────────────────
+//
+// FIX-4 (2026-04-13) recorded `pub use <submod>::<symbol>` as the parent's use
+// of the symbol, on the edit path only; the rebuild counted every `pub use` the
+// same way through the import pass. Both are gone: a re-export forwards a name.
 
 #[test]
-fn extract_reexport_pairs_catches_pub_use() {
-    let src = "pub use worktree::handle_worktree_create;";
-    let pairs = extract_reexport_pairs(src);
-    assert_eq!(pairs.len(), 1);
+fn a_pub_use_is_a_forwarded_path_not_a_use() {
+    let src = "pub use crate::a::Foo;\n\
+               pub(crate) use crate::b::{Bar, Baz as Q};\n\
+               pub use sub::Relative;\n\
+               use crate::c::Used;\n";
+    let mut paths: Vec<String> = reexported_paths("src/lib.rs", src).into_iter().collect();
+    paths.sort();
     assert_eq!(
-        pairs[0],
-        ("worktree".to_string(), "handle_worktree_create".to_string())
+        paths,
+        [
+            "crate::a::Foo",
+            "crate::b::Bar",
+            "crate::b::Baz",
+            "sub::Relative"
+        ],
+        "every visible `use` leaf, and only those"
     );
-}
-
-#[test]
-fn extract_reexport_pairs_catches_pub_crate_use() {
-    let src = "    pub(crate) use subagent::handle_subagent_start;";
-    let pairs = extract_reexport_pairs(src);
-    assert_eq!(pairs.len(), 1);
-    assert_eq!(
-        pairs[0],
-        ("subagent".to_string(), "handle_subagent_start".to_string())
-    );
-}
-
-#[test]
-fn extract_reexport_pairs_ignores_crate_absolute_paths() {
-    // Absolute paths (`crate::...`, `super::...`) are handled by
-    // `extract_direct_path_expressions` — `extract_reexport_pairs`
-    // must not double-count them.
-    let src = "pub(crate) use crate::lifecycle::handle_file_changed;";
-    let pairs = extract_reexport_pairs(src);
-    assert!(pairs.is_empty(), "expected empty, got {pairs:?}");
-}
-
-#[test]
-fn extract_reexport_pairs_ignores_external_crates() {
-    let src = "use serde_json::Value;\n\
-                   use std::fs::File;\n\
-                   use tokio::sync::Mutex;";
-    let pairs = extract_reexport_pairs(src);
-    assert!(pairs.is_empty(), "expected empty, got {pairs:?}");
-}
-
-#[test]
-fn record_reexport_consumer_registers_edge_to_colocated_submod() {
-    // When `lifecycle.rs` re-exports `handle_x` from `subagent`, the
-    // consumer edge should resolve to `lifecycle/subagent.rs`.
-    let (_tmp, db) = test_db();
-    // Produtor e consumidor têm de concordar no MESMO crate: a função deriva
-    // `<parent>/<stem>/<submod>.rs` a partir do consumidor. (A migração de
-    // fixtures de 08/08 trocou o consumidor e deixou o produtor no crate
-    // antigo — os dois lados precisam apontar para o mesmo lugar.)
-    db.register_pub_symbol(
-        "crates/touring-dispatch/src/lifecycle/pre_compact.rs",
-        "handle_x",
-        "function",
-        "public",
-    )
-    .unwrap();
-
-    record_reexport_consumer(
-        &db,
-        "crates/touring-dispatch/src/lifecycle.rs",
-        "pre_compact",
-        "handle_x",
-    );
-
-    let orphans = db.orphan_symbols().unwrap();
-    assert!(
-        !orphans.iter().any(|s| s.symbol_name == "handle_x"),
-        "handle_x must not be orphan after re-export edge"
-    );
+    assert!(reexported_paths("pkg/mod.py", src).is_empty(), "Rust only");
 }
 
 #[test]

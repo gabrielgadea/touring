@@ -353,6 +353,27 @@ timestamp: 2026-08-20T11:15:00-03:00
     `<root>//<root>/…`, e o teste só falhava com `TOURING_WORKSPACE_ROOT` exportada.
     Narrativa: `docs/audits/defeitos-analise-2026-09-18.md`.
 
+25. **Resíduos do purge no analise (18/09/2026, 30.4.59)**. (a) **Importar não é usar**
+    (decisão de Gabriel): `ast_bridge::extract_consumed_imports` é o ponto único do que vira
+    consumidor — Rust sem reexporte (`pub use`/`pub(crate) use`, lido por
+    `imports::is_reexport_declaration`, fonte de `rust_reexports` e do filtro da passada de
+    tipos), Python só com nomes referenciados fora dos imports (`python_unreferenced_imports`:
+    fachada `__all__`/`__init__` e import morto não contam; alias julgado pelo nome local). O
+    FIX-4 (`record_reexport_consumer`) saiu, a varredura de caminhos diretos descarta o caminho
+    que o arquivo reexporta, e o grep do `wiring repair` lê só `use` sem visibilidade (o
+    dry-run da 30.4.59 creditaria `pub use` e desfaria a decisão). Quem importa PELA fachada
+    segue creditado ao definidor. (b) **Método
+    Python por atributo**: `python_method_calls.scm` captura `obj.m`/`obj.m()`, e
+    `find_python_method_producers` só credita `method` em módulo do qual o consumidor já importa
+    (uma aresta de método nunca abre a trava para outra). `record_python_qualified_uses` é a
+    passada `alias.Nome` única do rebuild e da edição (a edição a perdia), com definidor, e roda
+    ANTES da passada de métodos, que a lê como trava. (c) **A linha NULL é a declaração do
+    produtor**: `wiring repair` não a apaga mais; a amostra do repair nunca é elidida
+    (`bounded_reply`). (d) **CEG**: `SandboxResult.signal` e `describe_signal` nomeiam o sinal e
+    o cap; arquivo no tmp privado com tamanho EXATO do `RLIMIT_FSIZE` vira `OutputLimit` mesmo com
+    exit 0 (`capped_files`). (e) `inferlets::fs_walk` nunca entra em diretório por symlink.
+    Narrativa: `docs/audits/defeitos-analise-2026-09-18.md` §30.4.59.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

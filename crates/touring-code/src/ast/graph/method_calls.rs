@@ -358,9 +358,18 @@ fn caller(a: &Foo, b: &Foo) {
     }
 
     #[test]
-    fn returns_empty_for_unsupported_language() {
-        let names = extract_method_calls("x = 1", Lang::Python);
-        assert!(names.is_empty());
+    fn returns_empty_without_an_attribute_access() {
+        assert!(extract_method_calls("x = 1", Lang::Python).is_empty());
+    }
+
+    /// 18/09/2026 (analise): `no.tags_cli()` and `no.todas_as_arestas` were the
+    /// only uses of two public methods, and both read as orphans.
+    #[test]
+    fn python_attribute_names_are_captured_called_or_not() {
+        let src = "def gravar(no):\n    tags = no.tags_cli()\n    arestas = no.todas_as_arestas\n    return os.path.join(tags, arestas)\n";
+        let mut names = extract_method_calls(src, Lang::Python);
+        names.sort();
+        assert_eq!(names, ["join", "path", "tags_cli", "todas_as_arestas"]);
     }
 
     #[test]
@@ -646,7 +655,9 @@ pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
         return Vec::new();
     };
     let Some(mut names) = captures_where(&tree, source, lang, TYPE_REF_QUERY, |node| {
-        !is_declared_type_name(node) && !is_std_family_path_segment(node, source)
+        !is_declared_type_name(node)
+            && !is_std_family_path_segment(node, source)
+            && !inside_reexport(node)
     }) else {
         return Vec::new();
     };
@@ -669,6 +680,21 @@ pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
         names.remove(&imported);
     }
     names.into_iter().collect()
+}
+
+/// True when `node` sits in a `use` declaration that carries a visibility
+/// (`pub use crate::a::Foo;`): the path a re-export forwards, which is not a
+/// reference to `Foo` (18/09/2026, Gabriel). A plain `use` stays a reference:
+/// when the resolver cannot place the import, the guess by name is its net.
+fn inside_reexport(node: tree_sitter::Node<'_>) -> bool {
+    let mut current = node.parent();
+    while let Some(ancestor) = current {
+        if ancestor.kind() == "use_declaration" {
+            return super::imports::is_reexport_declaration(ancestor);
+        }
+        current = ancestor.parent();
+    }
+    false
 }
 
 /// Path roots that are never a workspace crate.

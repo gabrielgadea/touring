@@ -464,6 +464,92 @@ mod journal_v2_tests {
     }
 }
 
+/// The one failure a finished sandbox run reports, in the order the model
+/// should correct them: timeout, cut output, a file cut at the file-size cap,
+/// death by a signal, a non-zero exit. `None` for a clean run.
+fn run_failure(
+    r: &touring_hooks::sandbox_executor::SandboxResult,
+    first_stderr_line: String,
+) -> Option<RunFailure> {
+    let (kind, message) = if r.exit_code == -2 {
+        (RunFailureKind::Timeout, first_stderr_line)
+    } else if r.was_truncated || r.stderr_truncated {
+        (
+            RunFailureKind::OutputLimit,
+            format!(
+                "output hit the sandbox byte cap and was cut (stdout_truncated={}, \
+                 stderr_truncated={}); emit less output or read the stored file",
+                r.was_truncated, r.stderr_truncated
+            ),
+        )
+    } else if !r.capped_files.is_empty() {
+        // 18/09/2026 (analise): a child killed by the file-size cap is invisible
+        // when the program carries on and exits 0, and the file is left cut at
+        // exactly the cap. The cap is the sandbox's doing, so the run says so.
+        (
+            RunFailureKind::OutputLimit,
+            touring_hooks::sandbox_executor::describe_capped_files(&r.capped_files),
+        )
+    } else if let Some(signal) = r.signal {
+        (
+            RunFailureKind::Exception,
+            killed_by(signal, &first_stderr_line),
+        )
+    } else if r.exit_code != 0 {
+        (
+            RunFailureKind::Exception,
+            silent_exit(r.exit_code, first_stderr_line),
+        )
+    } else {
+        return None;
+    };
+    Some(RunFailure {
+        kind,
+        phase: RunPhase::Execute,
+        message,
+    })
+}
+
+/// A death by signal, named with the cap behind it (18/09/2026: the number
+/// was dropped and every signal read as "a resource cap likely fired").
+fn killed_by(signal: i32, first_stderr_line: &str) -> String {
+    let cause = touring_hooks::sandbox_executor::describe_signal(signal);
+    if first_stderr_line.is_empty() {
+        format!("process was killed by {cause} — not the program's own exit code")
+    } else {
+        format!("process was killed by {cause}; first stderr line: {first_stderr_line}")
+    }
+}
+
+/// A non-zero exit: the first stderr line, or a message that teaches when
+/// stderr is empty.
+fn silent_exit(exit_code: i32, first_stderr_line: String) -> String {
+    if !first_stderr_line.is_empty() {
+        first_stderr_line
+    } else if exit_code < 0 {
+        // 30/08 (analise-a2): a negative exit is a death by signal with the
+        // number unknown here, not the program's code; SIGKILL leaves no
+        // stderr. This message used to be the "no match" one and the operator
+        // read an rlimit kill as a timeout.
+        format!(
+            "process was killed by a signal (exit {exit_code}) before finishing — a \
+             resource cap likely fired (the CPU rlimit scales with --timeout-ms; memory \
+             is capped at 80% of RAM). Empty stderr is typical of SIGKILL; this is not \
+             the program's own exit code"
+        )
+    } else {
+        // A5: a silent non-zero exit teaches nothing, and 71.6% of real failures
+        // land here (M1 ruler, 2026-08-28). The dominant silent case is
+        // grep/test/diff "no match", which exits 1 by DESIGN: name it so the model
+        // stops retrying the same body and handles the empty result instead.
+        format!(
+            "process exited with code {exit_code} with empty stderr — for grep/test/diff \
+             exit 1 usually means 'no match', a valid result to handle (append `|| true` \
+             if so), not an error to retry"
+        )
+    }
+}
+
 /// W0 d0 + W1 d3/S-1.1 — turn the raw sandbox result into the adapter's view:
 /// `(stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure)`.
 ///
@@ -496,62 +582,7 @@ fn derive_run_outcome(
                 .find(|l| !l.trim().is_empty())
                 .unwrap_or("")
                 .to_string();
-            let failure = if r.exit_code == -2 {
-                Some(RunFailure {
-                    kind: RunFailureKind::Timeout,
-                    phase: RunPhase::Execute,
-                    message: first_stderr_line,
-                })
-            } else if r.was_truncated || r.stderr_truncated {
-                Some(RunFailure {
-                    kind: RunFailureKind::OutputLimit,
-                    phase: RunPhase::Execute,
-                    message: format!(
-                        "output hit the sandbox byte cap and was cut (stdout_truncated={}, \
-                         stderr_truncated={}); emit less output or read the stored file",
-                        r.was_truncated, r.stderr_truncated
-                    ),
-                })
-            } else if r.exit_code != 0 {
-                Some(RunFailure {
-                    kind: RunFailureKind::Exception,
-                    phase: RunPhase::Execute,
-                    message: if first_stderr_line.is_empty() {
-                        if r.exit_code < 0 {
-                            // 30/08 (analise-a2): exit negativo = morto por SINAL,
-                            // não código do programa — o suspeito é um resource
-                            // cap (SIGKILL não deixa stderr). Antes esta mensagem
-                            // era a do "no match" e o operador leu kill de rlimit
-                            // como timeout.
-                            format!(
-                                "process was killed by a signal (exit {}) before \
-                                 finishing — a resource cap likely fired (the CPU \
-                                 rlimit scales with --timeout-ms; memory is capped \
-                                 at 80% of RAM). Empty stderr is typical of SIGKILL; \
-                                 this is not the program's own exit code",
-                                r.exit_code
-                            )
-                        } else {
-                            // A5: a silent non-zero exit teaches nothing — and 71.6%
-                            // of real failures land here (M1 ruler, 2026-08-28). The
-                            // dominant silent case is grep/test/diff "no match", which
-                            // exits 1 by DESIGN: name it so the model stops retrying
-                            // the same body and handles the empty result instead.
-                            format!(
-                                "process exited with code {} with empty stderr — for \
-                                 grep/test/diff exit 1 usually means 'no match', a \
-                                 valid result to handle (append `|| true` if so), not \
-                                 an error to retry",
-                                r.exit_code
-                            )
-                        }
-                    } else {
-                        first_stderr_line
-                    },
-                })
-            } else {
-                None
-            };
+            let failure = run_failure(&r, first_stderr_line);
             let stored = r.stored_path.as_ref().map(|p| p.display().to_string());
             (
                 stdout_str,
@@ -834,6 +865,61 @@ pub fn format_output(
 #[must_use]
 pub(crate) fn program_succeeded(output: &CtxExecuteOutput) -> bool {
     output.exit_code == 0 && output.failure.is_none()
+}
+
+#[cfg(test)]
+mod run_failure_tests {
+    use super::*;
+    use touring_hooks::sandbox_executor::SandboxResult;
+
+    fn finished(exit_code: i32, signal: Option<i32>, capped: &[&str]) -> SandboxResult {
+        SandboxResult {
+            exit_code,
+            output_bytes: 0,
+            was_truncated: false,
+            content_hash: String::new(),
+            stored_path: None,
+            summary: touring_ceg::gateway::OutputSummary::empty(exit_code),
+            stderr: String::new(),
+            stderr_truncated: false,
+            tmp_bytes: 0,
+            signal,
+            capped_files: capped.iter().map(ToString::to_string).collect(),
+        }
+    }
+
+    /// 18/09/2026 (analise): `sqlite3 … .backup` died at the file-size cap, the
+    /// script went on to `echo $?`, and the envelope read success.
+    #[test]
+    fn a_file_cut_at_the_cap_fails_a_run_that_exited_zero() {
+        let f = run_failure(&finished(0, None, &["big.bin"]), String::new())
+            .expect("a truncated file is not green");
+        assert!(matches!(f.kind, RunFailureKind::OutputLimit));
+        for part in ["SIGXFSZ", "256 MiB", "big.bin", "153"] {
+            assert!(f.message.contains(part), "{part}: {}", f.message);
+        }
+    }
+
+    #[test]
+    fn a_death_by_signal_names_the_signal_and_its_cap() {
+        let kill = run_failure(&finished(-1, Some(9), &[]), String::new()).expect("failure");
+        assert!(matches!(kill.kind, RunFailureKind::Exception));
+        assert!(kill.message.contains("SIGKILL") && kill.message.contains("memory cap"));
+
+        let term = run_failure(&finished(-1, Some(15), &[]), "Terminated".into()).expect("failure");
+        assert!(
+            term.message.contains("signal 15") && term.message.contains("Terminated"),
+            "{}",
+            term.message
+        );
+    }
+
+    #[test]
+    fn a_clean_run_has_no_failure_and_a_silent_exit_still_teaches() {
+        assert!(run_failure(&finished(0, None, &[]), String::new()).is_none());
+        let silent = run_failure(&finished(1, None, &[]), String::new()).expect("failure");
+        assert!(silent.message.contains("no match"), "{}", silent.message);
+    }
 }
 
 #[cfg(test)]
