@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "attested_at": "2026-09-16T18:37:28-03:00",
+  "attested_at": "2026-09-18T14:03:19-03:00",
   "attested_by": "gabrielgadea",
-  "why": "advisory passa a bloquear; orphans_base devolve N/A; attest exige TTY",
+  "why": "orphans_base declara NEW: N (showing k) e grava a lista completa",
   "files": {
-    "loop_converged.py": "1b38c759de5481da252b9c792410caebbca25ea9da2b9560041dfa3565fe03ec",
+    "loop_converged.py": "e99ed51bea8533a1aad1ba76185a427a3264364470b03da09d93805ffb682497",
     "hooks/loop_outer_gate.py": "25670d570e001735b60e888d3ae593f7cf64f63805216993f9dd6b3c1e4f0534",
     "hooks/flow_manifests.json": "541e2e879098b22f5cfb9263dd3ee29ba131b441b5392637f4ce006b89442675"
   },
