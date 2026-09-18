@@ -233,10 +233,10 @@ fn grep_rust_consumers<'a>(
             .map(|e| e.symbol_name.as_str())
             .collect::<Vec<_>>()
             .join("|");
-        let pattern = format!(
-            r"^[[:space:]]*(pub[[:space:]]+)?use\b.*\b({})\b",
-            alternation
-        );
+        // A plain `use` only: a `pub use` forwards the name and is not a use
+        // of it (18/09/2026, Gabriel), so the repair must not wire what the
+        // rebuild no longer counts.
+        let pattern = format!(r"^[[:space:]]*use\b.*\b({})\b", alternation);
 
         let output = Command::new("grep")
             .args([
@@ -294,8 +294,15 @@ fn credit_line<'a>(
     }
 }
 
-/// Records one symbol's consumers (or counts them, under dry-run) and deletes
-/// its stale NULL row; the first [`SAMPLE`] edges of the run go to `outcome`.
+/// Records one symbol's consumers (or counts them, under dry-run); the first
+/// [`SAMPLE`] edges of the run go to `outcome`.
+///
+/// The producer row (`consumer_file IS NULL`) stays: it is the symbol's
+/// DECLARATION, one per public symbol, and `record_consumer` reads the kind and
+/// visibility of every edge from it. Up to 30.4.58 the repair deleted it, which
+/// left producers without a declaration and taught the analise to read the
+/// row beside a consumer as residue (18/09/2026). The orphan scan is
+/// `NOT EXISTS` a consumer, so a repaired symbol leaves it all the same.
 fn record_repair(
     db: &FileKnowledgeDB,
     entry: &WiringEntry,
@@ -320,41 +327,25 @@ fn record_repair(
         return;
     }
 
-    {
-        let conn = db.conn_ref();
-        for consumer_file in consumers {
-            // A `use` line naming the symbol is a name match, not a resolved
-            // path: it is recorded as the guess it is.
-            match db.record_consumer_with_origin(
-                &entry.module_file,
-                sym,
-                consumer_file,
-                None,
-                WiringOrigin::AstInferred,
-            ) {
-                Err(e) => {
-                    eprintln!(
-                        "repair: failed to record consumer for {}::{} from {}: {}",
-                        entry.module_file, sym, consumer_file, e
-                    );
-                }
-                _ => {
-                    outcome.repaired += 1;
-                }
+    for consumer_file in consumers {
+        // A `use` line naming the symbol is a name match, not a resolved
+        // path: it is recorded as the guess it is.
+        match db.record_consumer_with_origin(
+            &entry.module_file,
+            sym,
+            consumer_file,
+            None,
+            WiringOrigin::AstInferred,
+        ) {
+            Err(e) => {
+                eprintln!(
+                    "repair: failed to record consumer for {}::{} from {}: {}",
+                    entry.module_file, sym, consumer_file, e
+                );
             }
-        }
-
-        // Delete the NULL row for THIS symbol only (v2 fixed a bug where this
-        // was gated on a run-global counter, erasing untracked orphans).
-        let delete_sql = "DELETE FROM wiring_map
-                          WHERE module_file = ?1
-                            AND symbol_name = ?2
-                            AND consumer_file IS NULL";
-        if let Err(e) = conn.execute(delete_sql, params![entry.module_file, sym]) {
-            eprintln!(
-                "repair: failed to delete orphan entry for {}::{}: {}",
-                entry.module_file, sym, e
-            );
+            _ => {
+                outcome.repaired += 1;
+            }
         }
     }
 }
@@ -679,10 +670,14 @@ mod tests {
     /// lines, and credited `No` for a line that imports `NodeId`.
     #[test]
     fn the_repair_wires_only_rust_producers_by_the_word_they_import() {
-        let (_proj, mut rt) = polyglot_project(&[(
-            "src/main.rs",
-            "use crate::model::{Widget, NodeId};\nuse other::No;\nfn main() {}\n",
-        )]);
+        let (_proj, mut rt) = polyglot_project(&[
+            (
+                "src/main.rs",
+                "use crate::model::{Widget, NodeId};\nuse other::No;\nfn main() {}\n",
+            ),
+            // A re-export is not a use: `Node` stays an orphan.
+            ("src/lib.rs", "pub use crate::model::Node;\n"),
+        ]);
         for symbol in ["Widget", "Node", "NodeId"] {
             producer(&rt, "src/model.rs", symbol);
         }
@@ -707,12 +702,26 @@ mod tests {
         let run = repair_wiring_consumer_tracking(&mut rt, false, 100, 0).expect("repair");
         assert_eq!(run.symbols_with_consumers, 2);
         let widget = rows(&rt, "Widget");
-        assert_eq!(widget.len(), 1, "NULL row replaced by the edge: {widget:?}");
-        assert_eq!(widget[0].1.as_deref(), Some("src/main.rs"));
         assert_eq!(
-            widget[0].2,
-            WiringOrigin::AstInferred.as_str(),
-            "a name match is a guess"
+            widget,
+            [
+                (
+                    "src/model.rs".to_string(),
+                    None,
+                    WiringOrigin::AstDeclared.as_str().to_string()
+                ),
+                (
+                    "src/model.rs".to_string(),
+                    Some("src/main.rs".to_string()),
+                    WiringOrigin::AstInferred.as_str().to_string()
+                ),
+            ],
+            "the declaration stays beside the edge, and a name match is a guess"
+        );
+        let again = repair_wiring_consumer_tracking(&mut rt, true, 100, 0).expect("second pass");
+        assert_eq!(
+            again.symbols_with_consumers, 0,
+            "a wired symbol has left the orphan scan"
         );
         assert_eq!(
             rows(&rt, "Node")[0].1,

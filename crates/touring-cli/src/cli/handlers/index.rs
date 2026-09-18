@@ -1257,6 +1257,17 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         for walked in &walked_rel_paths {
             let _ = rt.ctx.knowledge.clear_inferred_consumer_entries(walked);
         }
+        // B5: qualified Python use (`import modulo as m` + `m.Nome`), the same
+        // pass the hook path runs. It goes before the by-name pass because the
+        // Python method gate reads the modules a file already has edges to.
+        for (consumer_file, abs_path, uses) in &pending_python_qualified {
+            touring_hook_runtime::wiring::record_python_qualified_uses(
+                &rt.ctx.knowledge,
+                consumer_file,
+                abs_path,
+                uses,
+            );
+        }
         for (consumer_file, method_names, type_refs, qualified_calls) in &pending_consumers {
             let _ = rt.ctx.knowledge.record_inferred_consumers(
                 consumer_file,
@@ -1281,28 +1292,6 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                     None,
                     touring_hook_runtime::knowledge_wiring::WiringOrigin::AstInferred,
                 );
-            }
-        }
-        // B5: qualified Python use. The module path resolves exactly like an
-        // import's does; the symbol is the attribute name, so the edge is a guess
-        // by name and carries the same `ast_inferred` tier as the others here.
-        for (consumer_file, abs_path, uses) in &pending_python_qualified {
-            for (module_path, symbol) in uses {
-                if let Some(module_file) =
-                    touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
-                        module_path,
-                        "python",
-                        Some(abs_path),
-                    )
-                {
-                    let _ = rt.ctx.knowledge.record_consumer_with_origin(
-                        &module_file,
-                        symbol,
-                        consumer_file,
-                        None,
-                        touring_hook_runtime::knowledge_wiring::WiringOrigin::AstInferred,
-                    );
-                }
             }
         }
         if let Some(tx) = inferred_tx
@@ -3199,9 +3188,10 @@ mod index_why {
         }
 
         let on_definer = |consumer: &str| ("memoria/modelo.py".to_string(), consumer.to_string());
+        // The façade only forwards `No` through `__all__`: not a use of it
+        // (18/09/2026, Gabriel). Its importers are credited to the definer.
         let expected = [
             on_definer("artefato/uso.py"),
-            on_definer("memoria/grafo.py"),
             on_definer("memoria/gravacao.py"),
         ];
         assert_eq!(
@@ -3224,7 +3214,223 @@ mod index_why {
             .into_iter()
             .flatten()
             .any(|row| row["symbol_name"] == "No");
-        assert!(!orphan_no, "`No` has three consumers: {report}");
+        assert!(!orphan_no, "`No` has two consumers: {report}");
+    }
+
+    /// Consumers of `symbol` as `(module_file, consumer_file)`, the file's own
+    /// uses of its symbols left out.
+    fn consumers(rt: &HookRuntime, symbol: &str) -> Vec<(String, String)> {
+        rt.ctx
+            .knowledge
+            .conn_ref()
+            .prepare(
+                "SELECT module_file, consumer_file FROM wiring_map
+                 WHERE symbol_name = ?1 AND consumer_file IS NOT NULL
+                   AND consumer_file != module_file
+                 ORDER BY module_file, consumer_file",
+            )
+            .expect("prepare")
+            .query_map([symbol], |r| Ok((r.get(0)?, r.get(1)?)))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("rows")
+    }
+
+    /// Writes `files` under a fresh project and returns it with a runtime.
+    fn project_with(files: &[(&str, &str)], toml: &str) -> (tempfile::TempDir, HookRuntime) {
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let root = proj.path();
+        std::fs::create_dir_all(root.join(".touring")).expect(".touring");
+        std::fs::write(root.join(".touring/touring.toml"), toml).expect("touring.toml");
+        for (file, body) in files {
+            let path = root.join(file);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+            std::fs::write(path, body).expect(file);
+        }
+        let rt = HookRuntime::new(root).expect("HookRuntime::new");
+        (proj, rt)
+    }
+
+    /// Rebuild, then ingest every file: the same edges must come out of both.
+    fn rebuild_then_ingest(
+        rt: &mut HookRuntime,
+        root: &std::path::Path,
+        files: &[(&str, &str)],
+        check: impl Fn(&HookRuntime, &str),
+    ) {
+        cli_index_rebuild(rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        check(rt, "rebuild");
+        for (file, _) in files {
+            let out = super::cli_index_ingest(
+                rt,
+                &serde_json::json!({"path": root.join(file).to_string_lossy()}),
+            );
+            assert!(out.contains("\"ok\""), "{file}: {out}");
+        }
+        check(rt, "edit path");
+    }
+
+    /// 18/09/2026 (analise): `supersede` stayed off the orphan list because a
+    /// façade imported it only to forward it through `__all__`. Gabriel: a
+    /// re-export is not a use. A name the façade also CALLS stays a use.
+    #[test]
+    fn a_python_facade_that_only_forwards_a_name_does_not_consume_it() {
+        let files = [
+            (
+                "pkg/gravacao.py",
+                "def supersede():\n    return 1\n\n\ndef grava():\n    return 2\n",
+            ),
+            (
+                "pkg/fachada.py",
+                "from pkg.gravacao import supersede, grava\n\n__all__ = [\"supersede\", \"grava\"]\n\n\ndef usar():\n    return grava()\n",
+            ),
+        ];
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let (proj, mut rt) = project_with(&files, "polyglot_wiring = true\n");
+        rebuild_then_ingest(&mut rt, proj.path(), &files, |rt, path| {
+            assert!(consumers(rt, "supersede").is_empty(), "{path}");
+            assert_eq!(
+                consumers(rt, "grava"),
+                [("pkg/gravacao.py".to_string(), "pkg/fachada.py".to_string())],
+                "{path}"
+            );
+        });
+    }
+
+    /// The Rust side of the same decision: `pub use` forwards, on the rebuild
+    /// (the import pass counted it) and on the edit path (FIX-4 and the
+    /// direct-path scan counted it). A caller through the re-exported path is
+    /// credited to the definer.
+    #[test]
+    fn a_rust_pub_use_does_not_consume_what_it_forwards() {
+        let files = [
+            (
+                "Cargo.toml",
+                "[package]\nname = \"reexp\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+            ),
+            ("src/a.rs", "pub struct Foo;\npub struct Bar;\n"),
+            (
+                "src/lib.rs",
+                "mod a;\nmod user;\npub use crate::a::Foo;\npub use a::Bar;\n",
+            ),
+            (
+                "src/user.rs",
+                "use crate::Foo;\n\npub fn make() -> Foo {\n    Foo\n}\n",
+            ),
+        ];
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let (proj, mut rt) = project_with(&files, "");
+        let rust_files: Vec<(&str, &str)> = files
+            .iter()
+            .copied()
+            .filter(|(f, _)| f.ends_with(".rs"))
+            .collect();
+        rebuild_then_ingest(&mut rt, proj.path(), &rust_files, |rt, path| {
+            assert_eq!(
+                consumers(rt, "Foo"),
+                [("src/a.rs".to_string(), "src/user.rs".to_string())],
+                "{path}: the caller lands on the definer, the re-export is not a caller"
+            );
+            assert!(
+                consumers(rt, "Bar").is_empty(),
+                "{path}: {:?}",
+                consumers(rt, "Bar")
+            );
+        });
+    }
+
+    /// 18/09/2026 (analise, after the purge): two public methods of `No` were
+    /// used only as `no.tags_cli()` / `no.todas_as_arestas` and read as orphans,
+    /// and a `mm.No` use (`from memoria import modelo as mm`) lost its edge on
+    /// every edit. Over the real rebuild and ingest paths: a method use lands on
+    /// the definer only for a file that imports from it, and both paths agree.
+    #[test]
+    fn python_method_and_qualified_uses_agree_between_rebuild_and_edit() {
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let root = proj.path();
+        std::fs::create_dir_all(root.join(".touring")).expect(".touring");
+        std::fs::write(
+            root.join(".touring/touring.toml"),
+            "polyglot_wiring = true\n",
+        )
+        .expect("touring.toml");
+        std::fs::create_dir_all(root.join("memoria")).expect("memoria");
+        std::fs::create_dir_all(root.join("artefato")).expect("artefato");
+        let files = [
+            (
+                "memoria/modelo.py",
+                "class No:\n    def tags_cli(self):\n        return []\n\n    def todas_as_arestas(self):\n        return []\n",
+            ),
+            (
+                "memoria/gravacao.py",
+                "from memoria.modelo import No\n\n\ndef gravar(no: No):\n    return no.tags_cli(), no.todas_as_arestas\n",
+            ),
+            // Same method name, no import from `modelo.py`: not a use of it.
+            (
+                "artefato/solto.py",
+                "def usar(x):\n    return x.tags_cli()\n",
+            ),
+            (
+                "artefato/qualificado.py",
+                "from memoria import modelo as mm\n\n\ndef criar():\n    return mm.No()\n",
+            ),
+        ];
+        for (file, body) in files {
+            std::fs::write(root.join(file), body).expect(file);
+        }
+
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        let edges = |rt: &HookRuntime| -> Vec<(String, String, String)> {
+            rt.ctx
+                .knowledge
+                .conn_ref()
+                .prepare(
+                    "SELECT module_file, symbol_name, consumer_file FROM wiring_map
+                     WHERE consumer_file IS NOT NULL AND consumer_file != module_file
+                     ORDER BY symbol_name, consumer_file",
+                )
+                .expect("prepare")
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .expect("query")
+                .collect::<Result<_, _>>()
+                .expect("rows")
+        };
+        let edge = |symbol: &str, consumer: &str| {
+            (
+                "memoria/modelo.py".to_string(),
+                symbol.to_string(),
+                consumer.to_string(),
+            )
+        };
+        let expected = [
+            edge("No", "artefato/qualificado.py"),
+            edge("No", "memoria/gravacao.py"),
+            edge("tags_cli", "memoria/gravacao.py"),
+            edge("todas_as_arestas", "memoria/gravacao.py"),
+        ];
+
+        cli_index_rebuild(&mut rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        assert_eq!(edges(&rt), expected, "rebuild");
+
+        for (file, _) in files {
+            let out = super::cli_index_ingest(
+                &mut rt,
+                &serde_json::json!({"path": root.join(file).to_string_lossy()}),
+            );
+            assert!(out.contains("\"ok\""), "{file}: {out}");
+        }
+        assert_eq!(
+            edges(&rt),
+            expected,
+            "the edit path re-derives the same edges"
+        );
     }
 
     /// Cross-audit 14/09/2026 (R2-6): an edge whose consumer file is gone and

@@ -210,6 +210,88 @@ fn rust_use_imports(root: tree_sitter::Node, src: &[u8]) -> Vec<ImportInfo> {
     out
 }
 
+/// The imports a Rust file RE-EXPORTS: every leaf of a `use` declaration that
+/// carries a visibility (`pub use`, `pub(crate) use`, …), in the shape
+/// [`extract_imports`] reports.
+///
+/// A re-export forwards a name to other modules; it is not a use of it
+/// (decision of 18/09/2026, Gabriel). The consumer passes subtract these, and a
+/// real consumer that reaches the symbol through the re-exported path is still
+/// credited to the definer, which follows the chain.
+#[must_use]
+pub fn rust_reexports(source: &str) -> Vec<ImportInfo> {
+    let mut parser = tree_sitter::Parser::new();
+    if parser
+        .set_language(&Lang::Rust.tree_sitter_language())
+        .is_err()
+    {
+        return Vec::new();
+    }
+    let Some(tree) = crate::ast::parser::parse_bounded(&mut parser, source, None) else {
+        return Vec::new();
+    };
+    let src = source.as_bytes();
+    let mut out: Vec<ImportInfo> = Vec::new();
+    let mut cursor = tree.root_node().walk();
+    let mut stack = vec![tree.root_node()];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "use_declaration" {
+            if is_reexport_declaration(node)
+                && let Some(argument) = node.child_by_field_name("argument")
+            {
+                collect_rust_use(argument, "", src, &mut out);
+            }
+            continue;
+        }
+        stack.extend(node.named_children(&mut cursor));
+    }
+    out
+}
+
+/// A `use` declaration carrying a visibility (`pub use`, `pub(crate) use`, …):
+/// a re-export. The one reading of it, for [`rust_reexports`] and for the
+/// type-reference pass, so the two never disagree on what forwards a name.
+pub(crate) fn is_reexport_declaration(node: tree_sitter::Node<'_>) -> bool {
+    if node.kind() != "use_declaration" {
+        return false;
+    }
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .any(|c| c.kind() == "visibility_modifier")
+}
+
+#[cfg(test)]
+mod reexport_tests {
+    use super::rust_reexports;
+
+    #[test]
+    fn only_visible_use_declarations_are_reexports() {
+        let src = "use crate::private::Hidden;\n\
+                   pub use crate::a::Foo;\n\
+                   pub(crate) use crate::b::{Bar, Baz as Q};\n\
+                   pub(super) use sub::Up;\n\
+                   fn f() { use crate::inner::Local; }\n";
+        let mut pairs: Vec<(String, String)> = rust_reexports(src)
+            .into_iter()
+            .flat_map(|i| {
+                let m = i.module_path;
+                i.symbols.into_iter().map(move |s| (m.clone(), s))
+            })
+            .collect();
+        pairs.sort();
+        let pair = |m: &str, s: &str| (m.to_string(), s.to_string());
+        assert_eq!(
+            pairs,
+            [
+                pair("crate::a", "Foo"),
+                pair("crate::b", "Bar"),
+                pair("crate::b", "Baz"),
+                pair("sub", "Up"),
+            ]
+        );
+    }
+}
+
 fn collect_rust_use(node: tree_sitter::Node, prefix: &str, src: &[u8], out: &mut Vec<ImportInfo>) {
     match node.kind() {
         "scoped_identifier" => {

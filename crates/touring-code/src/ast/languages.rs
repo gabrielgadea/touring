@@ -150,12 +150,14 @@ impl Lang {
     /// captured by `import_query_file` (Python's `from x import y` covers
     /// both type-level and function-level edges).
     ///
-    /// Only Rust returns a non-empty query today — `.method()` and
-    /// `Type::assoc_fn()` are syntactically invisible to `use`-statement
-    /// scraping and accounted for ~43% of the orphan-count noise pre-F9.
+    /// Rust: `.method()` and `Type::assoc_fn()` are syntactically invisible to
+    /// `use`-statement scraping and accounted for ~43% of the orphan-count noise
+    /// pre-F9. Python (18/09/2026): `obj.metodo()` / `obj.atributo` — a class's
+    /// public methods read as orphans because only imports were tracked.
     pub(crate) fn method_call_query_file(&self) -> &'static str {
         match self {
             Lang::Rust => include_str!("queries/rust_method_calls.scm"),
+            Lang::Python => include_str!("queries/python_method_calls.scm"),
             _ => "",
         }
     }

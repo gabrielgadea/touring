@@ -124,6 +124,59 @@ pub struct SandboxResult {
     /// B1 (2026-09-02): bytes the run left in its PRIVATE temp dir, measured
     /// before the dir is removed. `0` when the run had no private tmp.
     pub tmp_bytes: u64,
+    /// The signal that ended the subprocess, when one did (`exit_code` is then
+    /// `-1`). Before 18/09/2026 the number was dropped, so a run killed by the
+    /// file-size cap read the same as one killed by the memory cap.
+    pub signal: Option<i32>,
+    /// Files in the run's private temp dir whose size is EXACTLY the
+    /// `RLIMIT_FSIZE` cap, relative to that dir: a write was cut there and the
+    /// writer got SIGXFSZ. A child dying that way is invisible to a program
+    /// that carries on (`sqlite3 … .backup` then `echo $?` exits 0), and the
+    /// file is left truncated without a word (analise, 18/09/2026).
+    pub capped_files: Vec<String>,
+}
+
+/// The file-size cap every run of the funnel gets (`RLIMIT_FSIZE`), in bytes.
+fn file_size_cap() -> Option<u64> {
+    ResourceLimits::sandboxed().rlimit.file_size_bytes
+}
+
+/// Name a terminating signal and the sandbox cap behind it, so a failure
+/// message says which limit fired and what to change.
+#[must_use]
+pub fn describe_signal(signal: i32) -> String {
+    let mib = file_size_cap().map_or(0, |b| b / (1024 * 1024));
+    match signal {
+        libc::SIGXFSZ => format!(
+            "SIGXFSZ: a write went past the {mib} MiB file-size cap (RLIMIT_FSIZE) \
+             and the file was cut there; write less, or stream the data to stdout"
+        ),
+        libc::SIGXCPU => "SIGXCPU: the CPU-time rlimit fired (twice the wall budget, 30 s \
+                          minimum); raise --timeout-ms or do less work per run"
+            .to_string(),
+        libc::SIGKILL => "SIGKILL: killed from outside the program, usually the memory cap \
+                          (RLIMIT_AS, 80% of RAM); empty stderr is typical"
+            .to_string(),
+        libc::SIGSEGV => "SIGSEGV: the program touched memory it does not own (a crash in \
+                          it or in a native library)"
+            .to_string(),
+        libc::SIGABRT => {
+            "SIGABRT: the program aborted itself (assertion, abort, panic=abort)".to_string()
+        }
+        other => format!("signal {other}"),
+    }
+}
+
+/// The failure message for files a run left cut at exactly the file-size cap.
+#[must_use]
+pub fn describe_capped_files(files: &[String]) -> String {
+    format!(
+        "{}. Cut at exactly the cap in the run's private tmp: {}. The writer was killed \
+         even if the program went on and exited 0 (bash reports exit 153), so the run is \
+         not green",
+        describe_signal(libc::SIGXFSZ),
+        files.join(", ")
+    )
 }
 
 /// Failure modes of a sandbox subprocess execution.
@@ -580,26 +633,36 @@ impl RunTmp {
 
     /// Measure what the run left behind, then remove the dir — or keep it
     /// under `TOURING_RUN_KEEP_TMP=1` (post-mortem), logging the path.
-    fn finish(self) -> u64 {
+    fn finish(self) -> TmpScan {
         let Some(dir) = self.0 else {
-            return 0;
+            return TmpScan::default();
         };
-        let bytes = dir_bytes(dir.path());
+        let scan = scan_dir(dir.path(), file_size_cap());
         if std::env::var_os("TOURING_RUN_KEEP_TMP").is_some() {
             let kept = dir.keep();
             tracing::info!(
-                "CEG sandbox: tmp do run mantido em {} ({bytes} bytes)",
-                kept.display()
+                "CEG sandbox: tmp do run mantido em {} ({} bytes)",
+                kept.display(),
+                scan.bytes
             );
         }
-        bytes
+        scan
     }
 }
 
-/// Logical bytes under `path` (recursive, symlinks not followed); `0` when it
-/// does not exist or cannot be read.
-fn dir_bytes(path: &std::path::Path) -> u64 {
-    fn walk(p: &std::path::Path, acc: &mut u64) {
+/// What a run left in its private temp dir.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct TmpScan {
+    /// Logical bytes, recursive.
+    bytes: u64,
+    /// Files whose size equals the file-size cap, relative to the dir.
+    capped: Vec<String>,
+}
+
+/// Walk `path` (symlinks not followed): logical bytes, and every file whose
+/// size is exactly `cap`. An unreadable or missing dir scans as empty.
+fn scan_dir(path: &std::path::Path, cap: Option<u64>) -> TmpScan {
+    fn walk(root: &std::path::Path, p: &std::path::Path, cap: Option<u64>, scan: &mut TmpScan) {
         let Ok(rd) = std::fs::read_dir(p) else {
             return;
         };
@@ -608,15 +671,21 @@ fn dir_bytes(path: &std::path::Path) -> u64 {
                 continue;
             };
             if meta.is_dir() {
-                walk(&entry.path(), acc);
-            } else {
-                *acc += meta.len();
+                walk(root, &entry.path(), cap, scan);
+                continue;
+            }
+            scan.bytes += meta.len();
+            if meta.is_file() && cap == Some(meta.len()) {
+                let rel = entry.path();
+                let rel = rel.strip_prefix(root).unwrap_or(&rel);
+                scan.capped.push(rel.to_string_lossy().into_owned());
             }
         }
     }
-    let mut acc = 0;
-    walk(path, &mut acc);
-    acc
+    let mut scan = TmpScan::default();
+    walk(path, path, cap, &mut scan);
+    scan.capped.sort();
+    scan
 }
 
 /// As raízes que o filho pode LER.
@@ -858,9 +927,10 @@ pub(crate) async fn spawn_and_capture(
     // Go, Rust — funnels through here, so one site covers them all.
     let run_tmp = RunTmp::create();
     let mut result = spawn_and_capture_in(cmd, config, run_tmp.path()).await;
-    let tmp_bytes = run_tmp.finish();
+    let scan = run_tmp.finish();
     if let Ok(r) = result.as_mut() {
-        r.tmp_bytes = tmp_bytes;
+        r.tmp_bytes = scan.bytes;
+        r.capped_files = scan.capped;
     }
     result
 }
@@ -1100,6 +1170,7 @@ async fn spawn_and_capture_in(
         }
     };
     let exit_code = exit_status.code().unwrap_or(-1);
+    let signal = std::os::unix::process::ExitStatusExt::signal(&exit_status);
 
     let content_hash = hash_output(&output_bytes);
     let stored_path = store_output(&content_hash, &output_bytes).ok();
@@ -1137,6 +1208,8 @@ async fn spawn_and_capture_in(
         stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
         stderr_truncated,
         tmp_bytes: 0,
+        signal,
+        capped_files: Vec::new(),
     })
 }
 
@@ -1250,6 +1323,8 @@ fn timeout_outcome_with_cause(
             stderr,
             stderr_truncated: false,
             tmp_bytes: 0,
+            signal: None,
+            capped_files: Vec::new(),
         })
     } else {
         Err(SandboxError::Timeout(config.timeout_ms))
@@ -1933,6 +2008,73 @@ mod tests {
     }
 
     // ── P4.3 — the X5 sandbox path is rlimit-capped ───────────────────────
+
+    #[test]
+    fn scan_dir_names_the_files_cut_at_exactly_the_cap() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("sub")).expect("mkdir");
+        std::fs::File::create(dir.path().join("sub/big.bin"))
+            .expect("create")
+            .set_len(4096)
+            .expect("sparse file at the cap");
+        std::fs::write(dir.path().join("small.txt"), b"abc").expect("write");
+
+        let scan = scan_dir(dir.path(), Some(4096));
+        assert_eq!(scan.capped, ["sub/big.bin"]);
+        assert_eq!(scan.bytes, 4096 + 3);
+        assert!(
+            scan_dir(dir.path(), None).capped.is_empty(),
+            "no cap, no cut"
+        );
+    }
+
+    #[test]
+    fn describe_signal_names_the_cap_behind_it() {
+        assert!(describe_signal(libc::SIGXFSZ).contains("256 MiB file-size cap"));
+        assert!(describe_signal(libc::SIGKILL).contains("memory cap"));
+        assert!(describe_signal(libc::SIGXCPU).contains("--timeout-ms"));
+        assert_eq!(
+            describe_signal(libc::SIGTERM),
+            format!("signal {}", libc::SIGTERM)
+        );
+    }
+
+    /// The signal number reached the result as `-1` and was dropped there.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_death_by_signal_keeps_its_number() {
+        let result = execute_in_sandbox_blocking(
+            "Bash",
+            json!({ "command": "kill -TERM $$" }),
+            SandboxConfig::default(),
+        )
+        .expect("bash runs");
+        assert_eq!(result.exit_code, -1);
+        assert_eq!(result.signal, Some(libc::SIGTERM));
+    }
+
+    /// 18/09/2026 (analise): a writer stopped by the file-size cap while the
+    /// program carries on and exits 0. `trap '' XFSZ` makes `dd` get EFBIG
+    /// instead of a core-dumping death; the file ends at exactly the cap either
+    /// way, and that is what the scan reads.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_file_cut_at_the_cap_is_reported_when_the_program_exits_zero() {
+        let cap = file_size_cap().expect("the funnel caps file size");
+        let command = format!(
+            "trap '' XFSZ; dd if=/dev/zero of=\"$TMPDIR/big.bin\" bs=1 count=2 seek={} \
+             2>/dev/null; echo carried-on",
+            cap - 1
+        );
+        let result = execute_in_sandbox_blocking(
+            "Bash",
+            json!({ "command": command }),
+            SandboxConfig::default(),
+        )
+        .expect("bash runs");
+        assert_eq!(result.exit_code, 0, "the program went on");
+        assert_eq!(result.capped_files, ["big.bin"]);
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
@@ -2910,14 +3052,14 @@ mod tests {
         std::fs::write(dir.path().join("a.bin"), vec![7u8; 10_000]).expect("write");
         std::fs::create_dir_all(dir.path().join("sub")).expect("mkdir");
         std::fs::write(dir.path().join("sub/b.bin"), vec![1u8; 5_000]).expect("write");
-        let bytes = super::dir_bytes(dir.path());
+        let bytes = super::scan_dir(dir.path(), None).bytes;
         assert!(
             bytes >= 15_000,
             "expected at least the 15 000 logical bytes, got {bytes}"
         );
         assert_eq!(
-            super::dir_bytes(std::path::Path::new("/nonexistent/touring-run-x")),
-            0
+            super::scan_dir(std::path::Path::new("/nonexistent/touring-run-x"), None),
+            super::TmpScan::default()
         );
     }
 

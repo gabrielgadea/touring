@@ -623,8 +623,10 @@ pub fn record_import_consumers(
 ) -> usize {
     let _ = db.clear_unresolved_for_consumer(rel_path);
     let mut recorded = 0;
+    // Only the imports that USE what they name: a re-export or a dead import
+    // is not a consumer (18/09/2026, Gabriel).
     for (module_path, imported_symbols) in
-        crate::ast_bridge::extract_file_imports(content, abs_path)
+        crate::ast_bridge::extract_consumed_imports(content, abs_path)
     {
         let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
             &module_path,
@@ -663,6 +665,50 @@ pub fn record_import_consumers(
     recorded
 }
 
+/// B5: `import pacote.modulo as m` + `m.Nome`. The module path resolves the way
+/// an import's does, the symbol is credited to the module that DEFINES it (a
+/// façade only forwards), and the edge is an `ast_inferred` guess by name. Each
+/// `(module_path, symbol)` comes from `python_qualified_uses`. Returns the edges
+/// recorded.
+///
+/// One pass for the rebuild and the hook path (C08). Until 18/09/2026 only the
+/// rebuild wrote these edges, and without the definer: the edit path cleared
+/// them with the other inferred rows and never re-derived them, so every edited
+/// Python file lost them until the next rebuild. They also feed the gate of the
+/// Python method pass, so they are written before it.
+pub fn record_python_qualified_uses(
+    db: &FileKnowledgeDB,
+    rel_path: &str,
+    abs_path: &str,
+    uses: &[(String, String)],
+) -> usize {
+    let mut recorded = 0;
+    for (module_path, symbol) in uses {
+        let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
+            module_path,
+            "python",
+            Some(abs_path),
+        ) else {
+            continue;
+        };
+        let definer =
+            crate::symbol_extractors::definer_module(&module_file, symbol, Some(abs_path));
+        if db
+            .record_consumer_with_origin(
+                &definer,
+                symbol,
+                rel_path,
+                None,
+                crate::knowledge_wiring::WiringOrigin::AstInferred,
+            )
+            .is_ok()
+        {
+            recorded += 1;
+        }
+    }
+    recorded
+}
+
 /// Every wiring row `file_path` owns, re-derived from its current `content`: its
 /// producers (real visibility), then its consumer rows — `use` imports, direct
 /// paths, and the INFERRED edges (bare calls, type positions, qualified calls).
@@ -692,6 +738,20 @@ pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str
     // imports; the inferred edges are re-derived below either way, so the stale
     // ones of calls the file no longer makes are dropped first.
     let _ = db.clear_inferred_consumer_entries(file_path);
+    // Before the method pass: its Python gate reads the modules this file has
+    // edges to, and `alias.Nome` is one of the ways a module is reached.
+    if language == "python"
+        && db.polyglot()
+        && let Some(root) = db.workspace_root()
+    {
+        let abs = std::path::Path::new(root).join(file_path);
+        record_python_qualified_uses(
+            db,
+            file_path,
+            &abs.to_string_lossy(),
+            &touring_code::ast::graph::python_qualified_uses(content),
+        );
+    }
     record_direct_path_consumers(db, file_path, content);
     record_self_references(db, file_path, language, content);
 }
@@ -820,8 +880,13 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
 /// `update_wiring_after_edit`, so this just re-populates the consumer edges
 /// with direct-path evidence in addition to `use`-import evidence.
 pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, content: &str) {
+    // The scan reads every `crate::`/`super::` path, `use` lines included, so
+    // the path a `pub use` forwards would read as a use of it (18/09/2026).
+    let forwarded = reexported_paths(consumer_file, content);
     for path in extract_direct_path_expressions(content) {
-        record_consumer_from_path(db, &path, consumer_file);
+        if !forwarded.contains(&path) {
+            record_consumer_from_path(db, &path, consumer_file);
+        }
     }
     // W4 (2026-09-02): the inference step the rebuild runs post-walk, now on
     // the edit path too. `update_wiring_after_edit` cleared this file's
@@ -841,128 +906,27 @@ pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, c
             &qualified_calls,
         );
     }
-    // FIX-4 (2026-04-13): also detect `pub use <submod>::<symbol>` and
-    // `pub(crate) use <submod>::<symbol>` re-exports. When a parent
-    // module (e.g. `lifecycle.rs`) re-exports a symbol from a co-located
-    // submodule (e.g. `lifecycle/subagent.rs`), the parent IS effectively
-    // a consumer of the submodule — the re-export forwards external
-    // callers through. Without this, every submodule extraction causes
-    // its pub symbols to be flagged orphan even though the parent
-    // re-exports them. Idempotent with `extract_direct_path_expressions`:
-    // that scan only catches `crate::` / `super::` absolute paths, while
-    // this scan covers bare `<mod>::<sym>` re-export syntax.
-    for (submod, symbol) in extract_reexport_pairs(content) {
-        record_reexport_consumer(db, consumer_file, &submod, &symbol);
-    }
+    // FIX-4 (2026-04-13) recorded a `pub use <submod>::<symbol>` as the parent's
+    // use of the symbol, on this path only. Removed 18/09/2026: a re-export is
+    // not a use (Gabriel), and a caller reaching the symbol through the parent
+    // is credited to the definer, which follows the chain.
 }
 
-/// Extract `(submodule, symbol)` pairs from re-export statements.
-///
-/// Matches `pub use foo::bar;`, `pub(crate) use foo::bar;`,
-/// `pub(super) use foo::bar;`, etc. Ignores absolute paths (`crate::...`,
-/// `super::...`) — those are handled by `extract_direct_path_expressions`.
-fn extract_reexport_pairs(content: &str) -> Vec<(String, String)> {
-    let mut out: Vec<(String, String)> = Vec::new();
-    for line in content.lines() {
-        let trimmed = line.trim_start();
-        // Strip optional `pub` / `pub(<vis>)` prefix.
-        let after_pub = if let Some(rest) = trimmed.strip_prefix("pub(") {
-            // skip until ')'
-            match rest.find(')') {
-                Some(close) => rest[close + 1..].trim_start(),
-                None => continue,
-            }
-        } else if let Some(rest) = trimmed.strip_prefix("pub ") {
-            rest.trim_start()
-        } else {
-            continue;
-        };
-        let after_use = match after_pub.strip_prefix("use ") {
-            Some(s) => s.trim_start(),
-            None => continue,
-        };
-        // Skip absolute paths (handled elsewhere).
-        if after_use.starts_with("crate::")
-            || after_use.starts_with("super::")
-            || after_use.starts_with("self::")
-            || after_use.starts_with("::")
-        {
-            continue;
-        }
-        // Accept `<ident>::<ident>[::<ident>...];` — minimal relative re-export.
-        let path_end = after_use
-            .find([';', '{', ' ', '\t', ',', '\n'])
-            .unwrap_or(after_use.len());
-        let path = after_use.get(..path_end).unwrap_or("");
-        if !path.contains("::") {
-            continue;
-        }
-        let mut parts: Vec<&str> = path.split("::").collect();
-        let Some(symbol) = parts.pop() else { continue };
-        if symbol.is_empty() || symbol == "*" || symbol == "self" {
-            continue;
-        }
-        if parts.is_empty() {
-            continue;
-        }
-        let submod = parts.first().copied().unwrap_or("").to_string();
-        // Filter out obviously non-local modules (std, tokio, serde, etc.).
-        // Heuristic: a single-segment submodule name without any built-in
-        // prefix is most likely a local submodule.
-        if matches!(
-            submod.as_str(),
-            "std"
-                | "core"
-                | "alloc"
-                | "tokio"
-                | "serde"
-                | "serde_json"
-                | "anyhow"
-                | "thiserror"
-                | "tracing"
-                | "rusqlite"
-                | "regex"
-                | "chrono"
-                | "blake3"
-                | "uuid"
-                | "rand"
-                | "reqwest"
-        ) {
-            continue;
-        }
-        out.push((submod, symbol.to_string()));
+/// Full paths (`crate::a::Foo`) a Rust file re-exports, from the one reading of
+/// re-exports ([`touring_code::ast::graph::rust_reexports`]).
+fn reexported_paths(consumer_file: &str, content: &str) -> HashSet<String> {
+    if !consumer_file.ends_with(".rs") {
+        return HashSet::new();
     }
-    out
-}
-
-/// Record a re-export consumer edge: `consumer_file` re-exports `symbol`
-/// from its own co-located `<submod>.rs` or `<submod>/mod.rs`.
-fn record_reexport_consumer(db: &FileKnowledgeDB, consumer_file: &str, submod: &str, symbol: &str) {
-    if matches!(symbol, "*" | "self" | "Self") {
-        return;
-    }
-    // Consumer is `.../foo.rs` → submodule lives at `.../foo/<submod>.rs`.
-    let parent_dir = std::path::Path::new(consumer_file)
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-    let stem = std::path::Path::new(consumer_file)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
-    // Try `<parent>/<stem>/<submod>.rs` first (Rust 2018+ layout where
-    // lifecycle.rs with `mod subagent;` looks for lifecycle/subagent.rs).
-    let nested = if parent_dir.is_empty() {
-        format!("{stem}/{submod}.rs")
-    } else {
-        format!("{parent_dir}/{stem}/{submod}.rs")
-    };
-    // The nested submodule is the definer by construction *unless* it in turn
-    // re-exports the symbol from deeper — following the chain costs one cached
-    // scan and keeps the attribution on whoever actually defines it.
-    let consumer_abs = absolute_consumer(db, consumer_file);
-    let definer = crate::symbol_extractors::definer_module(&nested, symbol, Some(&consumer_abs));
-    let _ = db.record_consumer(&definer, symbol, consumer_file, None);
+    touring_code::ast::graph::rust_reexports(content)
+        .into_iter()
+        .flat_map(|imp| {
+            let module = imp.module_path;
+            imp.symbols
+                .into_iter()
+                .map(move |symbol| format!("{module}::{symbol}"))
+        })
+        .collect()
 }
 
 /// `consumer_file` as an absolute path under the project this database belongs to.

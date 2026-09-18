@@ -1529,10 +1529,12 @@ impl FileKnowledgeDB {
             if names.is_empty() {
                 continue;
             }
-            let producers = if callable {
-                self.find_producer_modules_for_methods(names, 4, Some(consumer_file))
-            } else {
+            let producers = if !callable {
                 self.find_producer_modules_for_types(names, 4, Some(consumer_file))
+            } else if language_family(consumer_file) == Some("python") {
+                self.find_python_method_producers(names, consumer_file)
+            } else {
+                self.find_producer_modules_for_methods(names, 4, Some(consumer_file))
             };
             let Ok(producers) = producers else {
                 continue;
@@ -1553,6 +1555,49 @@ impl FileKnowledgeDB {
             }
         }
         recorded
+    }
+
+    /// Python methods reached as `obj.metodo()` / `obj.atributo` (18/09/2026,
+    /// analise: `tags_cli` and `todas_as_arestas` read as orphans).
+    ///
+    /// The syntax names the method, never its class, so the guess is held by
+    /// two gates: only `method` producers, and only in a module the consumer
+    /// already has an edge to (an import, an `alias.Nome` use). A method edge
+    /// only ever lands in such a module, so one guess never opens the gate for
+    /// another. The consumer's own module is out: its uses of its own methods
+    /// belong to the self-reference pass.
+    pub fn find_python_method_producers(
+        &self,
+        names: &[String],
+        consumer_file: &str,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders = (0..names.len())
+            .map(|i| format!("?{}", i + 2))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT DISTINCT p.module_file, p.symbol_name FROM wiring_map p
+             WHERE p.consumer_file IS NULL
+               AND p.visibility = 'public'
+               AND p.symbol_kind = 'method'
+               AND p.module_file != ?1
+               AND p.symbol_name IN ({placeholders})
+               AND p.module_file IN (
+                   SELECT i.module_file FROM wiring_map i
+                   WHERE i.consumer_file = ?1 AND i.module_file != ?1)
+             ORDER BY p.module_file, p.symbol_name"
+        );
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(names.len() + 1);
+        params.push(&consumer_file);
+        params.extend(names.iter().map(|s| s as &dyn rusqlite::ToSql));
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let rows = stmt
+            .query_map(params.as_slice(), |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     /// Shared producer lookup: public producer rows whose `symbol_kind` is in
@@ -4398,6 +4443,55 @@ mod cross_language_inference_tests {
         assert_eq!(language_family("touring-daemon://dispatch"), None);
     }
 
+    /// 18/09/2026 (analise): `no.tags_cli()` in a file that imports `No` from
+    /// `modelo.py` is a use of the method. The same name in a module the file
+    /// never imports from is not, and neither is a function of that name.
+    #[test]
+    fn a_python_method_is_credited_only_in_a_module_the_consumer_imports() {
+        let Some((_tmp, db)) = polyglot_project() else {
+            return;
+        };
+        for (module, symbol, kind) in [
+            ("memoria/modelo.py", "No", "class"),
+            ("memoria/modelo.py", "tags_cli", "method"),
+            ("outro/servico.py", "tags_cli", "method"),
+            ("memoria/modelo.py", "todas_as_arestas", "function"),
+        ] {
+            assert!(
+                db.register_pub_symbol_counted(
+                    module,
+                    symbol,
+                    kind,
+                    "public",
+                    WiringOrigin::AstDeclared
+                )
+                .expect("register"),
+                "{module}::{symbol}"
+            );
+        }
+        db.record_consumer("memoria/modelo.py", "No", "memoria/gravacao.py", None)
+            .expect("the import edge");
+        let names = vec!["tags_cli".to_string(), "todas_as_arestas".to_string()];
+
+        assert_eq!(
+            db.find_python_method_producers(&names, "memoria/gravacao.py")
+                .expect("lookup"),
+            [("memoria/modelo.py".to_string(), "tags_cli".to_string())],
+            "only the imported module, only a method"
+        );
+        assert!(
+            db.find_python_method_producers(&names, "artefato/solto.py")
+                .expect("lookup")
+                .is_empty(),
+            "no import, no gate"
+        );
+        assert_eq!(
+            db.record_inferred_consumers("memoria/gravacao.py", &names, &[], &[]),
+            1,
+            "the storage entry both paths call routes a Python consumer through the gate"
+        );
+    }
+
     /// 18/09/2026 (analise): a bare `cosine_similarity(…)` in a `.rs` benchmark
     /// was recorded as a use of the Python function of that name — 15.758 such
     /// edges hid Python orphans. The inference matches only producers of the
@@ -4435,12 +4529,12 @@ mod cross_language_inference_tests {
             .expect("query")
             .collect::<Result<_, _>>()
             .expect("rows");
+        // A Python attribute name reaches only METHODS of modules the file
+        // imports from (`find_python_method_producers`): a bare function of that
+        // name is no use at all, in its own language or the other one.
         assert_eq!(
             edges,
-            [
-                ("pkg/app.py".to_string(), "pkg/sim.py".to_string()),
-                ("src/bench.rs".to_string(), "src/sim.rs".to_string()),
-            ]
+            [("src/bench.rs".to_string(), "src/sim.rs".to_string())]
         );
         let crossing: i64 = db
             .conn_ref()

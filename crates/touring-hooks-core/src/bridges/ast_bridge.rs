@@ -139,6 +139,87 @@ pub fn extract_file_imports(source: &str, file_path: &str) -> Vec<(String, Vec<S
         .collect()
 }
 
+/// The imports that are USES of what they name — the ones a consumer edge is
+/// recorded for. [`extract_file_imports`] minus what the file only forwards or
+/// never touches: Rust re-exports (`pub use`, `pub(crate) use`) and Python
+/// names never referenced outside the import statements (an `__all__` or
+/// `__init__.py` façade, a dead import). Decision of 18/09/2026 (Gabriel):
+/// importing is not using, in both languages. The rebuild and the hook path
+/// both reach this through `record_import_consumers`.
+///
+/// Symbols are removed, never modules: an import left with no symbol records
+/// nothing downstream.
+pub fn extract_consumed_imports(source: &str, file_path: &str) -> Vec<(String, Vec<String>)> {
+    let imports = extract_file_imports(source, file_path);
+    match Lang::from_path(Path::new(file_path)) {
+        Some(Lang::Rust) => {
+            let forwarded: std::collections::HashSet<(String, String)> =
+                touring_code::ast::graph::rust_reexports(source)
+                    .into_iter()
+                    .flat_map(|imp| {
+                        let module = imp.module_path;
+                        imp.symbols.into_iter().map(move |s| (module.clone(), s))
+                    })
+                    .collect();
+            drop_symbols(imports, |module, symbol| {
+                forwarded.contains(&(module.to_string(), symbol.to_string()))
+            })
+        }
+        Some(Lang::Python) => {
+            let unreferenced = touring_code::ast::graph::python_unreferenced_imports(source);
+            drop_symbols(imports, |_, symbol| unreferenced.contains(symbol))
+        }
+        _ => imports,
+    }
+}
+
+#[cfg(test)]
+mod consumed_import_tests {
+    use super::extract_consumed_imports;
+
+    fn symbols_of(imports: &[(String, Vec<String>)], module: &str) -> Vec<String> {
+        imports
+            .iter()
+            .filter(|(m, _)| m == module)
+            .flat_map(|(_, s)| s.clone())
+            .collect()
+    }
+
+    /// The Python extractor reports the ORIGINAL name of `a as b`, and the
+    /// filter judges the local one: `No as N` used as `N()` stays a use.
+    #[test]
+    fn a_python_facade_forwards_and_only_used_names_remain() {
+        let src = "from pkg.gravacao import supersede, grava\n\
+                   from pkg.modelo import No as N\n\
+                   __all__ = [\"supersede\", \"grava\"]\n\n\
+                   def f():\n    return grava(N())\n";
+        let imports = extract_consumed_imports(src, "pkg/fachada.py");
+        assert_eq!(symbols_of(&imports, "pkg.gravacao"), ["grava"]);
+        assert_eq!(symbols_of(&imports, "pkg.modelo"), ["No"]);
+    }
+
+    #[test]
+    fn a_rust_reexport_is_subtracted_and_a_plain_use_kept() {
+        let src = "pub use crate::a::Foo;\nuse crate::a::Bar;\n\nfn f() -> Bar { Bar }\n";
+        let imports = extract_consumed_imports(src, "src/lib.rs");
+        assert_eq!(symbols_of(&imports, "crate::a"), ["Bar"]);
+    }
+}
+
+/// `imports` with every `(module, symbol)` that `drop` accepts removed.
+fn drop_symbols(
+    imports: Vec<(String, Vec<String>)>,
+    drop: impl Fn(&str, &str) -> bool,
+) -> Vec<(String, Vec<String>)> {
+    imports
+        .into_iter()
+        .map(|(module, symbols)| {
+            let kept = symbols.into_iter().filter(|s| !drop(&module, s)).collect();
+            (module, kept)
+        })
+        .collect()
+}
+
 /// Extract method-call / associated-function-call identifiers used in
 /// the file. Captures `.method()` dispatch and `Type::assoc_fn()` syntax
 /// that the import-based extractor misses.
