@@ -8,7 +8,6 @@
 //! is shown instead.
 
 use crate::desktop::{Theme, spawn_touring_command};
-use serde::Deserialize;
 use std::process::Stdio;
 
 /// Error states for the wiring graph viewer.

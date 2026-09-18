@@ -29,7 +29,7 @@ pub use adaptive_alpha::AdaptiveAlpha;
 pub use ast_enriched::AstEnrichedBandit;
 pub use ast_features::{AST_FEATURE_COUNT, FEATURE_DIM_AST, enrich_features, extract_ast_features};
 pub use decision_ledger::{
-    ArmChoice, CaseLedger, DecisionLedger, Ledger, PendingDecision, blend_case_value,
+    ArmChoice, CaseLedger, DecisionLedger, Ledger, blend_case_value,
 };
 pub use granularity::{
     GRANULARITY_FEATURE_DIM, GRANULARITY_NUM_ARMS, GranularityArmState, GranularityBandit,

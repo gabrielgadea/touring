@@ -234,12 +234,10 @@ pub use meta::{
 /// - `LatencyAdaptationPipeline`: main pipeline combining all three mechanisms
 /// - `PipelineContext` / `PipelineContextBuilder`: input context for a hook observation
 /// - `MetacognitiveDecision`: decision output (Stable, IncreaseParallelism, etc.)
-/// - `DecisionMetadata`: metadata about how the decision was reached
-/// - `EvidenceSource`: source of evidence contributing to the decision
 /// - `ExplorationAction`: exploration action suggested by Actor-Critic
 /// - `FalliblePipeline`: error-handling wrapper for production use
 pub use metacognitive_pipeline::{
-    DecisionMetadata, EvidenceSource, ExplorationAction, FalliblePipeline,
+    ExplorationAction, FalliblePipeline,
     LatencyAdaptationPipeline, LatencyConfig, LatencyStats, MetacognitiveDecision, PipelineContext,
     PipelineContextBuilder,
 };

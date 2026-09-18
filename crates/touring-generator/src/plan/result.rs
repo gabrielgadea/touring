@@ -1,42 +1,10 @@
-//! `GenerateResult`, `VgpReport`, `ValidationReport`, `SpeculateReport`, `RenderedFile` and related types.
+//! `VgpReport`, `ValidationReport`, `SpeculateReport`, `RenderedFile`, `CommitReport` and related types.
 
 use crate::core::score::NormalizedScore;
-use crate::generator::kinds::GeneratorKind;
 use crate::plan::contracts::SymbolRef;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-/// Final result returned after a plan completes (successfully or not).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct GenerateResult {
-    /// Unique identifier of the plan this result belongs to.
-    pub plan_id: Uuid,
-    /// Generator kind that produced this result.
-    pub kind: GeneratorKind,
-    /// Final lifecycle status reached by the plan.
-    pub status: ExecutionStatus,
-    /// Files generated and written to disk during execution.
-    pub artifacts: Vec<Artifact>,
-    /// Result of VGP symbol verification.
-    pub vgp_report: VgpReport,
-    /// Result of speculative (shadow) validation.
-    pub speculate_report: SpeculateReport,
-    /// Result of structural and invariant validation.
-    pub validation_report: ValidationReport,
-    /// Whether the changes were committed to disk.
-    pub committed: bool,
-    /// Whether a rollback (backup restore) is still available.
-    pub rollback_available: bool,
-    /// Memory key under which this plan outcome was persisted, if any.
-    pub memory_key: Option<String>,
-    /// Reinforcement-learning reward injected for this outcome, if any.
-    pub rl_reward_injected: Option<NormalizedScore>,
-    /// Total wall-clock time the plan took, in milliseconds.
-    pub elapsed_ms: u64,
-    /// LLM token usage accumulated during execution.
-    pub token_usage: TokenUsage,
-}
 
 /// Current lifecycle status of a plan.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -224,19 +192,6 @@ pub struct LayerResult {
     pub issues: Vec<String>,
     /// Time spent on this layer, in milliseconds.
     pub elapsed_ms: u64,
-}
-
-/// LLM token usage for a plan execution.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
-pub struct TokenUsage {
-    /// Number of input (prompt) tokens consumed by the LLM.
-    pub llm_input_tokens: u32,
-    /// Number of output (completion) tokens produced by the LLM.
-    pub llm_output_tokens: u32,
-    /// Number of tokens served from the prompt cache.
-    pub cached_tokens: u32,
-    /// Name of the LLM provider that produced these tokens.
-    pub provider: String,
 }
 
 /// An audit log entry (human override, security bypass, etc.).

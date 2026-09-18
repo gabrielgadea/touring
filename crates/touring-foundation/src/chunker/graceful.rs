@@ -191,17 +191,6 @@ impl<P: Chunker + 'static, F: Chunker + 'static> Chunker for GracefulChunker<P, 
     }
 }
 
-/// Wrapper that adds metadata on top of the result.
-pub struct ChunkingResult {
-    /// The chunked text segments.
-    pub chunks: Vec<String>,
-    /// Whether the source was detected as binary.
-    pub is_binary: bool,
-    /// Whether the fallback chunker was used in place of the
-    /// primary.
-    pub fallback_used: bool,
-}
-
 impl GracefulChunker<SemanticChunker, DelimiterChunker> {
     /// Convenience constructor with default chunkers.
     pub fn with_defaults() -> Self {
@@ -222,17 +211,22 @@ impl GracefulChunker<SemanticChunker, DelimiterChunker> {
     }
 
     /// Chunk content with result metadata.
+    ///
+    /// The primary chunker runs ONCE: its verdict decides binary, fallback and chunks alike.
+    /// It used to run three times per call (two probes plus `self.chunk`, which calls it again).
     pub fn chunk_with_metadata(&self, content: &str, max_chunks: usize) -> ChunkResult {
-        let is_binary = matches!(
-            self.primary.chunk(content, max_chunks),
-            Err(ChunkError::BinaryFile)
-        );
+        let primary = self.primary.chunk(content, max_chunks);
+        let is_binary = matches!(primary, Err(ChunkError::BinaryFile));
+        let fallback_used = primary.is_err();
 
-        let fallback_used = self.primary.chunk(content, max_chunks).is_err();
-
-        let chunks = match self.chunk(content, max_chunks) {
+        let chunks = match primary {
             Ok(c) => c,
-            Err(_) => vec![content.to_string()],
+            Err(e) => {
+                tracing::warn!(error = ?e, "primary chunker failed, falling back");
+                self.fallback
+                    .chunk(content, max_chunks)
+                    .unwrap_or_else(|_| vec![content.to_string()])
+            }
         };
 
         ChunkResult {

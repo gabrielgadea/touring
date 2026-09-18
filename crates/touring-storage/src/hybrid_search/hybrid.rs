@@ -2,16 +2,16 @@
 //!
 //! D24 delivers the hybrid scoring layer that extends touring-search-fusion.
 //! Architecture:
-//! - `HybridScorer` — coordinates keyword (BM25) + semantic (embedding) search
+//! - `SearchPipeline` — coordinates keyword (BM25) + semantic (embedding) search
 //! - `RrfFusion` — Reciprocal Rank Fusion for combining ranked results
 //! - `Reranker` — cross-encoder style reranking of fused candidates
 //!
 //! # Example
 //!
 //! ```
-//! use touring_storage::hybrid_search::hybrid::{HybridScorer, HybridQuery, pipeline::QueryIntent as HybridIntent};
+//! use touring_storage::hybrid_search::hybrid::{SearchPipeline, HybridQuery, pipeline::QueryIntent as HybridIntent};
 //!
-//! let pipeline = HybridScorer::new();
+//! let pipeline = SearchPipeline::new();
 //! let query = HybridQuery {
 //!     query: "async fn trait".to_string(),
 //!     intent: HybridIntent::Understand,
@@ -28,7 +28,7 @@ pub mod pipeline;
 pub mod reranker;
 
 pub use fusion::RrfFusion;
-pub use pipeline::{HybridQuery, HybridScorer, SearchPipeline, SearchResult};
+pub use pipeline::{HybridQuery, SearchPipeline, SearchResult};
 pub use reranker::Reranker;
 
 /// Configuration for hybrid search fusion.

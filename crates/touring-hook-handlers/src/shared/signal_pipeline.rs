@@ -30,7 +30,7 @@ use super::signals::{normalize_scores, score_cmp};
 use std::sync::Arc;
 use touring_analysis::{AnalysisConfig, BlastRadiusEngine, BlastRadiusStrategy, HnswStrategy};
 use touring_code::ast::graph::pheromone::PheromoneGraph;
-use touring_code::ast::{SymbolIndex, compute_enriched_blast_radius};
+use touring_code::ast::{ImpactCategory, SymbolIndex, compute_enriched_blast_radius};
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -373,7 +373,8 @@ impl SignalLayer for BlastRadiusSignalLayer {
 ///
 /// Uses [`compute_enriched_blast_radius`] for semantic categorisation of impact.
 /// Severity score (0–1) is propagated from the enriched result and discounted by
-/// dependency kind: direct=100%, transitive=50%, co-edited=30%.
+/// dependency kind ([`ImpactCategory::signal_discount`]: direct=100%, transitive=50%,
+/// co-edited=30%).
 ///
 /// Only runs at CILA level ≥ 3.
 pub struct EnrichedBlastRadiusSignalLayer {
@@ -401,14 +402,11 @@ impl SignalLayer for EnrichedBlastRadiusSignalLayer {
         let enriched = compute_enriched_blast_radius(&self.index, ctx.file_path, &co_edit);
         let severity = enriched.severity as f32;
         let mut signals = Vec::new();
-        for dep in &enriched.direct_dependents {
-            signals.push((severity, format!("direct:{dep}")));
-        }
-        for dep in &enriched.transitive_dependents {
-            signals.push((severity * 0.5, format!("transitive:{dep}")));
-        }
-        for co in &enriched.co_edited_files {
-            signals.push((severity * 0.3, format!("co_edit:{co}")));
+        for category in ImpactCategory::ALL {
+            let weight = severity * category.signal_discount();
+            for dep in enriched.files(category) {
+                signals.push((weight, format!("{}:{dep}", category.signal_prefix())));
+            }
         }
         signals
     }

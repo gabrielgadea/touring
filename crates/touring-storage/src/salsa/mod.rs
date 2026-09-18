@@ -16,7 +16,7 @@ pub use queries::{BlastRadiusResult, ChainTree, ExtendedKnowledge, FileKey};
 // Re-export the real tracked queries + the salsa-input edge model so downstream
 // crates (touring-server actors) can drive the incremental engine directly.
 pub use bench::{BenchResult, run_benchmark};
-pub use db::{EventCounter, FileMeta, FileText, ModuleDecl, SymbolDef, SymbolKind, SymbolUse};
+pub use db::{EventCounter, FileText, ModuleDecl, SymbolDef, SymbolKind, SymbolUse};
 pub use queries::blast::{DefIndex, UseGraph, blast_radius_for_file, direct_consumers};
 
 // Production input-population seam: lets a real data source (the AST SymbolIndex /

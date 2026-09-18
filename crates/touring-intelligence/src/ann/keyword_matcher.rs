@@ -415,10 +415,6 @@ impl KeywordMatcher {
         self.patterns.len()
     }
 
-    /// Get the patterns.
-    pub fn patterns(&self) -> &[String] {
-        &self.patterns
-    }
 }
 
 // ============================================================================

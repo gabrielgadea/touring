@@ -67,9 +67,6 @@ impl<P> Pending<P> {
     }
 }
 
-/// A bandit selection awaiting its reward.
-pub type PendingDecision = Pending<ArmChoice>;
-
 /// Bounded map of choices that have been made but not yet credited.
 #[derive(Debug)]
 pub struct Ledger<P> {
