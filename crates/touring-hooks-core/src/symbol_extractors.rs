@@ -40,8 +40,9 @@ static REEXPORT_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?m)^\s*pub\s+use\s+([A-Za-z_][A-Za-z0-9_]*)::([^;]+);").expect("static regex")
 });
 
-/// Mapping from touring crate names (underscored, as written in a `use`) to
-/// their source directory paths, used for cross-crate import resolution.
+/// A Cargo workspace as the resolver sees it: its root and the crate map derived
+/// from `<root>/crates/*/Cargo.toml` — crate names (underscored, as written in a
+/// `use`) to their source directories, relative to `root`.
 ///
 /// **Derived from the workspace, never hand-maintained.** It used to be a
 /// literal list, and it rotted exactly the way a hand-maintained mirror of the
@@ -55,11 +56,107 @@ static REEXPORT_RE: Lazy<Regex> = Lazy::new(|| {
 /// producers (42%), and 301 of 1711 distinct `module_file` values pointing at
 /// files absent from disk.
 ///
-/// Deriving the map makes that drift class unrepresentable: a renamed crate is
-/// picked up on the next process start, and a deleted one disappears.
+/// **One per workspace, never one per process (18/09/2026).** The map was a
+/// process-wide `Lazy` built around the process's CURRENT DIRECTORY. The global
+/// daemon is spawned by whichever session needs it first; that morning it was a
+/// session in `~/Work`, the walk-up found no workspace, and the map stayed empty
+/// for the daemon's whole life: an `index rebuild` of this repository filed 3.166
+/// `use touring_…` imports in 615 files as `external`, zero as resolver debt, and
+/// eleven symbols with live consumers read as NEW orphans in the judge. Cargo finds
+/// the workspace of a FILE by walking up from it (The Cargo Book, "Workspaces");
+/// [`workspace_for`] does the same.
 ///
 /// [`record_consumer`]: https://docs.rs/touring-storage — `KnowledgeStore::record_consumer`
-static TOURING_CRATE_MAP: Lazy<Vec<(String, String)>> = Lazy::new(build_crate_map);
+struct Workspace {
+    /// Absolute path of the directory holding the `[workspace]` manifest.
+    root: String,
+    /// `(crate name, "crates/<dir>/src")`, longest name first.
+    crates: Vec<(String, String)>,
+    /// The entries of `crates` that are short aliases (`analysis` for
+    /// `touring_analysis`), not package names: a local module may share one.
+    aliases: std::collections::HashSet<String>,
+}
+
+impl Workspace {
+    /// The source root of the crate a `use <name>::…` names, if it is one here.
+    fn crate_src(&self, name: &str) -> Option<&str> {
+        self.crates
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, src)| src.as_str())
+    }
+
+    /// Whether `name` is a real package name here — never a short alias.
+    fn is_package(&self, name: &str) -> bool {
+        !self.aliases.contains(name) && self.crates.iter().any(|(n, _)| n == name)
+    }
+}
+
+/// Workspaces this process has resolved in, by root. The crate map costs a
+/// `read_dir` plus one manifest read per crate, so it is built once per root.
+static WORKSPACES: Lazy<
+    std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<Workspace>>>,
+> = Lazy::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+/// The workspace rooted at `root`, built on first use.
+///
+/// An empty crate map is said out loud, once per root: with it every import into
+/// the workspace would read as a third-party crate, and the unresolved-import
+/// report would call that "no resolver debt" (the 18/09/2026 failure).
+fn workspace_at(root: &std::path::Path) -> std::sync::Arc<Workspace> {
+    let key = root.to_string_lossy().into_owned();
+    if let Ok(cache) = WORKSPACES.lock()
+        && let Some(ws) = cache.get(&key)
+    {
+        return std::sync::Arc::clone(ws);
+    }
+    let (crates, aliases) = build_crate_map(root);
+    if crates.is_empty() {
+        tracing::warn!(
+            root = %key,
+            "Cargo workspace with no crates/<name>/src members: its Rust imports cannot be \
+             resolved and are classified `unmeasured`"
+        );
+    }
+    let ws = std::sync::Arc::new(Workspace {
+        root: key.clone(),
+        crates,
+        aliases,
+    });
+    if let Ok(mut cache) = WORKSPACES.lock() {
+        cache.insert(key, std::sync::Arc::clone(&ws));
+    }
+    ws
+}
+
+/// The workspace a resolution runs in.
+///
+/// 1. An ABSOLUTE `source_file` → the workspace that contains it, and nothing
+///    else: a file outside every workspace has none, and borrowing the process's
+///    would wire a foreign file into this repository's crates.
+/// 2. Otherwise `source_file` is relative to the process's project:
+///    `TOURING_PROJECT_ROOT` (pinned at spawn for every daemon), then the walk-up
+///    from the current directory (tests, ad-hoc CLI runs).
+fn workspace_for(source_file: Option<&str>) -> Option<std::sync::Arc<Workspace>> {
+    let root = match source_file.map(std::path::Path::new) {
+        Some(path) if path.is_absolute() => workspace_root_of(path)?,
+        _ => process_workspace_root()?,
+    };
+    Some(workspace_at(&root))
+}
+
+/// The root [`workspace_for`] falls back to when it has no absolute path.
+fn process_workspace_root() -> Option<std::path::PathBuf> {
+    std::env::var_os("TOURING_PROJECT_ROOT")
+        .map(std::path::PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .and_then(|p| workspace_root_of(&p))
+        .or_else(|| {
+            std::env::current_dir()
+                .ok()
+                .and_then(|d| workspace_root_of(&d))
+        })
+}
 
 /// Names that must never become a bare alias: they are real crates in the
 /// language or the build graph, so aliasing them would resolve `use core::mem`
@@ -73,13 +170,13 @@ const ALIAS_DENY: &[&str] = &["core", "std", "alloc", "test", "proc_macro", "mac
 /// [`ALIAS_DENY`], which drops `core`: the old map aliased it to
 /// `crates/touring-core/src`, so a plain `use core::…` was one existing file
 /// away from being wired into an unrelated crate.
-fn build_crate_map() -> Vec<(String, String)> {
-    let Some(root) = find_workspace_root() else {
-        return Vec::new();
+fn build_crate_map(
+    root: &std::path::Path,
+) -> (Vec<(String, String)>, std::collections::HashSet<String>) {
+    let Ok(entries) = std::fs::read_dir(root.join("crates")) else {
+        return (Vec::new(), std::collections::HashSet::new());
     };
-    let Ok(entries) = std::fs::read_dir(std::path::Path::new(&root).join("crates")) else {
-        return Vec::new();
-    };
+    let mut aliases = std::collections::HashSet::new();
     let mut map: Vec<(String, String)> = entries
         .flatten()
         .filter(|e| e.path().join("src").is_dir())
@@ -94,6 +191,9 @@ fn build_crate_map() -> Vec<(String, String)> {
                 .strip_prefix("touring_")
                 .filter(|a| !ALIAS_DENY.contains(a))
                 .map(|a| (a.to_string(), src.clone()));
+            if let Some((a, _)) = &alias {
+                aliases.insert(a.clone());
+            }
             std::iter::once((name, src)).chain(alias)
         })
         .collect();
@@ -101,7 +201,7 @@ fn build_crate_map() -> Vec<(String, String)> {
     // `touring_hooks` entry. The `::` in the prefix test already prevents that;
     // the ordering makes the invariant hold independently of that detail.
     map.sort_by(|a, b| b.0.len().cmp(&a.0.len()).then_with(|| a.0.cmp(&b.0)));
-    map
+    (map, aliases)
 }
 
 /// The `name` field of a manifest's `[package]` table.
@@ -128,33 +228,54 @@ fn package_name(manifest: &str) -> Option<String> {
     None
 }
 
-/// The workspace root — the nearest ancestor whose `Cargo.toml` declares
-/// `[workspace]`.
+/// The Cargo workspace `path` belongs to: the nearest ancestor (`path` itself
+/// when it is a directory) whose `Cargo.toml` declares a `[workspace]` table.
+/// Cargo's own rule — "inferred as the first Cargo.toml with `[workspace]`
+/// upwards in the filesystem" (The Cargo Book, the `workspace` field).
 ///
-/// Cached: the root cannot change while the process lives, and this is called
-/// once per module resolution — i.e. several times per import, for every file of
-/// a rebuild. Uncached it re-ran `current_dir()` plus a walk-up that reads every
-/// `Cargo.toml` on the way, which is pure syscall churn on a 3117-file index.
-fn find_workspace_root() -> Option<String> {
-    static ROOT: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-    ROOT.get_or_init(|| {
-        // Walk up from current directory looking for a Cargo.toml with [workspace]
-        let mut dir = std::env::current_dir().ok()?;
-        loop {
-            let toml_path = dir.join("Cargo.toml");
-            if toml_path.is_file()
-                && let Ok(content) = std::fs::read_to_string(&toml_path)
-                && content.contains("[workspace]")
-            {
-                return Some(dir.display().to_string());
-            }
-            if !dir.pop() {
-                break;
-            }
+/// Cached per starting directory: a rebuild asks once per file, and the walk-up
+/// reads one manifest per level. Bounded by [`WORKSPACE_ROOTS_CAP`].
+#[must_use]
+fn workspace_root_of(path: &std::path::Path) -> Option<std::path::PathBuf> {
+    type Roots = std::collections::HashMap<std::path::PathBuf, Option<std::path::PathBuf>>;
+    static ROOTS: Lazy<std::sync::Mutex<Roots>> =
+        Lazy::new(|| std::sync::Mutex::new(Roots::new()));
+    let start = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()?.to_path_buf()
+    };
+    if let Ok(cache) = ROOTS.lock()
+        && let Some(hit) = cache.get(&start)
+    {
+        return hit.clone();
+    }
+    let found = start
+        .ancestors()
+        .find(|dir| {
+            std::fs::read_to_string(dir.join("Cargo.toml"))
+                .is_ok_and(|manifest| declares_workspace(&manifest))
+        })
+        .map(std::path::Path::to_path_buf);
+    if let Ok(mut cache) = ROOTS.lock() {
+        if cache.len() >= WORKSPACE_ROOTS_CAP {
+            cache.clear();
         }
-        None
+        cache.insert(start, found.clone());
+    }
+    found
+}
+
+/// Directories [`workspace_root_of`] remembers before starting over.
+const WORKSPACE_ROOTS_CAP: usize = 4096;
+
+/// Whether a manifest declares a `[workspace]` table (or a `[workspace.*]` one,
+/// which only a workspace root may carry). A table header, not a substring: the
+/// old `contains("[workspace]")` also matched a comment that mentioned it.
+fn declares_workspace(manifest: &str) -> bool {
+    manifest.lines().map(str::trim).any(|line| {
+        line == "[workspace]" || (line.starts_with("[workspace.") && line.ends_with(']'))
     })
-    .clone()
 }
 
 /// Resolve `<dir>/<rel_path>` against both physical layouts Rust allows for a
@@ -165,9 +286,8 @@ fn find_workspace_root() -> Option<String> {
 /// into `OUT_DIR` (e.g. `holon_core_capnp.rs` from a `.capnp` schema) have no
 /// file under `src/`. Probing the filesystem instead of assuming file-style is
 /// what keeps ~200 phantom paths out of the graph.
-fn resolve_module_layout(dir: &str, rel_path: &str) -> Option<String> {
-    // Resolve dir relative to workspace root, not cwd
-    let ws_root = find_workspace_root().unwrap_or_default();
+fn resolve_module_layout(ws_root: &str, dir: &str, rel_path: &str) -> Option<String> {
+    // A relative `dir` is relative to the WORKSPACE root, never to the cwd.
     let abs_dir = if std::path::Path::new(dir).is_absolute() {
         dir.to_string()
     } else if !ws_root.is_empty() {
@@ -201,14 +321,14 @@ fn resolve_module_layout(dir: &str, rel_path: &str) -> Option<String> {
 ///
 /// The resolved target is still filesystem-probed by [`resolve_module_layout`],
 /// so a mis-read `pub use` yields `None` rather than a phantom path.
-fn resolve_reexport(facade_src_root: &str, rel: &str, depth: u8) -> Option<String> {
+fn resolve_reexport(ws: &Workspace, facade_src_root: &str, rel: &str, depth: u8) -> Option<String> {
     // Facade chains are shallow (crate → core). The cap makes a `pub use` cycle
     // between two crates terminate instead of recursing until the stack dies.
     const MAX_DEPTH: u8 = 4;
     if depth >= MAX_DEPTH {
         return None;
     }
-    let ws_root = find_workspace_root().unwrap_or_default();
+    let ws_root = ws.root.as_str();
     let abs = |p: &str| {
         if ws_root.is_empty() {
             p.to_string()
@@ -236,7 +356,7 @@ fn resolve_reexport(facade_src_root: &str, rel: &str, depth: u8) -> Option<Strin
         let holder = if prefix.is_empty() {
             format!("{facade_src_root}/lib.rs")
         } else {
-            match resolve_module_layout(facade_src_root, &prefix.join("/")) {
+            match resolve_module_layout(ws_root, facade_src_root, &prefix.join("/")) {
                 Some(f) => f,
                 None => continue,
             }
@@ -248,12 +368,11 @@ fn resolve_reexport(facade_src_root: &str, rel: &str, depth: u8) -> Option<Strin
         // segment plus everything after it.
         let remaining = parts.get(split..).map(|t| t.join("/")).unwrap_or_default();
         for origin in reexport_origins(&content, next) {
-            let Some((_, target_root)) = TOURING_CRATE_MAP.iter().find(|(n, _)| *n == origin)
-            else {
+            let Some(target_root) = ws.crate_src(&origin) else {
                 continue;
             };
-            if let Some(hit) = resolve_module_layout(target_root, &remaining)
-                .or_else(|| resolve_reexport(target_root, &remaining, depth + 1))
+            if let Some(hit) = resolve_module_layout(ws_root, target_root, &remaining)
+                .or_else(|| resolve_reexport(ws, target_root, &remaining, depth + 1))
             {
                 return Some(hit);
             }
@@ -418,12 +537,16 @@ fn reexport_path_from(facts: &ModuleFacts, symbol: &str) -> Option<String> {
 /// Private on purpose: [`definer_module`] is the only way in, so no call site
 /// can bypass the single entry point the guard test enforces.
 #[must_use]
-fn follow_intra_crate_reexport(module_file: &str, symbol: &str, depth: u8) -> Option<String> {
+fn follow_intra_crate_reexport(
+    ws_root: &str,
+    module_file: &str,
+    symbol: &str,
+    depth: u8,
+) -> Option<String> {
     const MAX_DEPTH: u8 = 3;
     if depth >= MAX_DEPTH || symbol.is_empty() {
         return None;
     }
-    let ws_root = find_workspace_root().unwrap_or_default();
     let abs = |p: &str| {
         if ws_root.is_empty() || std::path::Path::new(p).is_absolute() {
             p.to_string()
@@ -441,11 +564,11 @@ fn follow_intra_crate_reexport(module_file: &str, symbol: &str, depth: u8) -> Op
         .parent()?
         .to_str()?
         .to_string();
-    let target = resolve_module_layout(&dir, &rel)?;
+    let target = resolve_module_layout(ws_root, &dir, &rel)?;
     if module_facts(&abs(&target)).is_some_and(|t| t.defined.contains(symbol)) {
         return Some(target);
     }
-    follow_intra_crate_reexport(&target, symbol, depth + 1)
+    follow_intra_crate_reexport(ws_root, &target, symbol, depth + 1)
 }
 
 /// The module that DEFINES `symbol`, given the module an import resolved to.
@@ -461,9 +584,15 @@ fn follow_intra_crate_reexport(module_file: &str, symbol: &str, depth: u8) -> Op
 ///
 /// Falls back to `module_file` unchanged whenever no chain reaches a definition,
 /// so this can only improve attribution, never lose it.
+///
+/// `consumer` is the file whose import resolved to `module_file`: an absolute
+/// path pins the workspace (see [`workspace_for`]), so the chain is followed in
+/// the repository the consumer lives in, not in the one around the process.
 #[must_use]
-pub fn definer_module(module_file: &str, symbol: &str) -> String {
-    follow_intra_crate_reexport(module_file, symbol, 0).unwrap_or_else(|| module_file.to_string())
+pub fn definer_module(module_file: &str, symbol: &str, consumer: Option<&str>) -> String {
+    let ws_root = workspace_for(consumer).map_or_else(String::new, |ws| ws.root.clone());
+    follow_intra_crate_reexport(&ws_root, module_file, symbol, 0)
+        .unwrap_or_else(|| module_file.to_string())
 }
 
 /// Why an import failed to resolve — S1 classification (2026-08-07).
@@ -499,6 +628,12 @@ pub enum UnresolvedClass {
     /// external would hide a genuine miss. Neither claim is supported, so it
     /// gets its own bucket instead of a guess.
     AmbiguousAlias,
+    /// No crate map to judge against: the file is outside every Cargo workspace,
+    /// or its workspace has no `crates/<name>/src` member. Not debt, and not
+    /// "external" either — calling it external is how 3.166 imports into this
+    /// very workspace read as third-party on 18/09/2026, and the debt count read
+    /// zero while the resolver was blind.
+    Unmeasured,
 }
 
 impl UnresolvedClass {
@@ -510,6 +645,7 @@ impl UnresolvedClass {
             Self::External => "external",
             Self::WorkspaceUnresolved => "workspace_unresolved",
             Self::AmbiguousAlias => "ambiguous_alias",
+            Self::Unmeasured => "unmeasured",
         }
     }
 
@@ -520,27 +656,23 @@ impl UnresolvedClass {
     }
 }
 
-/// Classify an unresolved Rust import path.
-///
-/// Uses the same `TOURING_CRATE_MAP` the resolver itself uses, so the verdict
-/// cannot drift from the resolution attempt that produced it.
+/// Classify an unresolved Rust import path, judged in the workspace of
+/// `source_file` — the same one [`resolve_import_path_with_source`] tried, so the
+/// verdict cannot drift from the attempt that produced it.
 #[must_use]
-pub fn classify_unresolved(module_path: &str) -> UnresolvedClass {
+pub fn classify_unresolved(module_path: &str, source_file: Option<&str>) -> UnresolvedClass {
     let head = module_path.split("::").next().unwrap_or(module_path).trim();
     if matches!(head, "super" | "self" | "Self" | "crate" | "") {
         return UnresolvedClass::ScopeKeyword;
     }
-    // The map is keyed by the crate's snake_case name; `use touring_foo::…`
-    // (unambiguous) and `use foo::…` (the short alias) both appear in real
-    // code — but only the first PROVES the import targets this workspace.
-    let prefixed = TOURING_CRATE_MAP
-        .iter()
-        .any(|(name, _)| format!("touring_{name}") == head);
-    if prefixed {
-        return UnresolvedClass::WorkspaceUnresolved;
-    }
-    let short_alias = TOURING_CRATE_MAP.iter().any(|(name, _)| name == head);
-    if short_alias {
+    let Some(ws) = workspace_for(source_file).filter(|ws| !ws.crates.is_empty()) else {
+        return UnresolvedClass::Unmeasured;
+    };
+    // A package name PROVES the import targets this workspace; a short alias
+    // (`use storage::…` for `touring_storage`) only suggests it.
+    if ws.is_package(head) {
+        UnresolvedClass::WorkspaceUnresolved
+    } else if ws.crate_src(head).is_some() {
         UnresolvedClass::AmbiguousAlias
     } else {
         UnresolvedClass::External
@@ -620,7 +752,7 @@ fn detect_crate_src_root(source_file: &str) -> Option<String> {
 /// [`resolve_module_layout`] — so a guess never becomes a phantom path. A bare
 /// `super`/`self` names the module itself: `<dir>.rs` or `<dir>/mod.rs`, or
 /// `lib.rs`/`main.rs` once the climb reached the crate root.
-fn resolve_scope_relative(import: &str, source_file: &str) -> Option<String> {
+fn resolve_scope_relative(ws_root: &str, import: &str, source_file: &str) -> Option<String> {
     let path = std::path::Path::new(source_file);
     let dir = path.parent()?;
     let stem = path.file_stem()?.to_str()?;
@@ -646,12 +778,13 @@ fn resolve_scope_relative(import: &str, source_file: &str) -> Option<String> {
     if rest.is_empty() {
         let name = module_dir.file_name()?.to_str()?;
         let parent = module_dir.parent()?.to_str()?;
-        return resolve_module_layout(parent, name).or_else(|| {
+        return resolve_module_layout(ws_root, parent, name).or_else(|| {
             let root = module_dir.to_str()?;
-            resolve_module_layout(root, "lib").or_else(|| resolve_module_layout(root, "main"))
+            resolve_module_layout(ws_root, root, "lib")
+                .or_else(|| resolve_module_layout(ws_root, root, "main"))
         });
     }
-    resolve_module_layout(module_dir.to_str()?, &rest.join("/"))
+    resolve_module_layout(ws_root, module_dir.to_str()?, &rest.join("/"))
 }
 
 /// Lexically normalize a path — collapse `.` components and resolve `..`
@@ -817,6 +950,9 @@ pub fn resolve_import_path_with_source(
     match language {
         "python" => resolve_python_import(import, source_file),
         "rust" => {
+            // The workspace of the importing file (Cargo's rule), never the cwd's.
+            let ws = workspace_for(source_file);
+            let ws_root = ws.as_deref().map_or("", |ws| ws.root.as_str());
             // ─── Rust scope-keyword guard (regression: phantom super.rs) ───
             // `use super::*`, `use self::Foo`, etc. resolve relative to the
             // module hierarchy, not to literal files. Without proper hierarchy
@@ -843,7 +979,7 @@ pub fn resolve_import_path_with_source(
                     || import == "self"
                     || import.starts_with("super::")
                     || import.starts_with("self::"))
-                && let Some(candidate) = resolve_scope_relative(import, src)
+                && let Some(candidate) = resolve_scope_relative(ws_root, import, src)
             {
                 if is_keyword_filename(&candidate) {
                     return None;
@@ -882,16 +1018,15 @@ pub fn resolve_import_path_with_source(
             // schema) — those modules have no physical file in `src/`, so they
             // legitimately have no resolvable target in the project tree.
             //
-            // When called with a relative `dir` (cross-crate workspace map,
-            // e.g. "crates/touring-analysis/src"), existence is checked
-            // relative to the current working directory, which equals the
-            // workspace root in production daemon runs.
-            // (`find_workspace_root` / `resolve_module_layout` live at module
-            // scope — see below — so the derived crate map and the re-export
-            // follower can share them.)
+            // A relative `dir` (cross-crate workspace map, e.g.
+            // "crates/touring-analysis/src") is probed under the WORKSPACE root of
+            // the importing file. It used to be "relative to the current working
+            // directory, which equals the workspace root in production daemon
+            // runs" — true until a daemon was spawned from `~/Work` (18/09/2026).
 
             // First, check for cross-crate imports (e.g., touring_analysis::pipeline::Builder)
-            for (crate_name, crate_path) in TOURING_CRATE_MAP.iter() {
+            let crates = ws.as_deref().map_or(&[][..], |ws| ws.crates.as_slice());
+            for (crate_name, crate_path) in crates {
                 // `use touring_foo::{A, B}` reaches here as the module path
                 // `touring_foo` alone: the symbols live at the crate root, defined
                 // in `lib.rs` or re-exported there. Only `{crate}::…` was matched,
@@ -900,8 +1035,8 @@ pub fn resolve_import_path_with_source(
                 // orphans once the name-inference pass stopped covering imported
                 // types (cross-audit R2-5). The full `touring_` name only: a bare
                 // short alias (`storage`) can be a local module.
-                if import == crate_name.as_str() && crate_name.starts_with("touring_") {
-                    return resolve_module_layout(crate_path, "lib");
+                if import == crate_name.as_str() && ws.as_deref().is_some_and(|ws| ws.is_package(crate_name)) {
+                    return resolve_module_layout(ws_root, crate_path, "lib");
                 }
                 if let Some(rest) = import.strip_prefix(&format!("{}::", crate_name)) {
                     // `rest` is a MODULE path: `extract_file_imports` returns
@@ -919,13 +1054,20 @@ pub fn resolve_import_path_with_source(
                     // resolves. Both candidates are filesystem-probed, so a
                     // wrong guess yields `None` rather than a phantom path.
                     let rel = rest.replace("::", "/");
-                    return resolve_module_layout(crate_path, &rel)
+                    return resolve_module_layout(ws_root, crate_path, &rel)
                         .or_else(|| {
                             rest.rsplit_once("::").and_then(|(module_path, _symbol)| {
-                                resolve_module_layout(crate_path, &module_path.replace("::", "/"))
+                                resolve_module_layout(
+                                    ws_root,
+                                    crate_path,
+                                    &module_path.replace("::", "/"),
+                                )
                             })
                         })
-                        .or_else(|| resolve_reexport(crate_path, &rel, 0));
+                        .or_else(|| {
+                            ws.as_deref()
+                                .and_then(|ws| resolve_reexport(ws, crate_path, &rel, 0))
+                        });
                 }
             }
             // Resolve crate-relative imports using the source file's crate root.
@@ -961,8 +1103,10 @@ pub fn resolve_import_path_with_source(
                 // Either None (neither layout exists nor any re-export, e.g. an
                 // OUT_DIR-generated module) or the filename keyword sentinel
                 // rejects the candidate.
-                let candidate = resolve_module_layout(&crate_src_root, &rel)
-                    .or_else(|| resolve_reexport(&crate_src_root, &rel, 0))?;
+                let candidate = resolve_module_layout(ws_root, &crate_src_root, &rel).or_else(|| {
+                    ws.as_deref()
+                        .and_then(|ws| resolve_reexport(ws, &crate_src_root, &rel, 0))
+                })?;
                 if is_keyword_filename(&candidate) {
                     return None;
                 }
@@ -1045,10 +1189,31 @@ pub fn resolve_import_path_with_source(
 #[cfg(test)]
 mod crate_map_and_reexport_tests {
     use super::{
-        ALIAS_DENY, TOURING_CRATE_MAP, defines_symbol, find_workspace_root,
-        follow_intra_crate_reexport, intra_crate_reexport_path, package_name, reexport_origins,
+        ALIAS_DENY, defines_symbol, intra_crate_reexport_path, package_name, reexport_origins,
         resolve_import_path_with_source,
     };
+
+    /// The crate map of the workspace these tests run in (no absolute source, so
+    /// the process fallback — the crate's own directory under `cargo test`).
+    fn crate_map() -> Vec<(String, String)> {
+        super::workspace_for(None)
+            .expect("tests run inside the workspace")
+            .crates
+            .clone()
+    }
+
+    fn find_workspace_root() -> Option<String> {
+        super::process_workspace_root().map(|p| p.to_string_lossy().into_owned())
+    }
+
+    fn follow_intra_crate_reexport(module_file: &str, symbol: &str, depth: u8) -> Option<String> {
+        super::follow_intra_crate_reexport(
+            &find_workspace_root().unwrap_or_default(),
+            module_file,
+            symbol,
+            depth,
+        )
+    }
 
     /// Cross-audit 14/09/2026 (R2-5): `use touring_assists::{ALL_HANDLERS, …}`
     /// hands the resolver the bare crate name. It resolves to the crate root, and
@@ -1059,7 +1224,7 @@ mod crate_map_and_reexport_tests {
         let root = resolve_import_path_with_source("touring_assists", "rust", consumer);
         assert_eq!(root.as_deref(), Some("crates/touring-assists/src/lib.rs"));
         assert_eq!(
-            super::definer_module("crates/touring-assists/src/lib.rs", "ALL_HANDLERS"),
+            super::definer_module("crates/touring-assists/src/lib.rs", "ALL_HANDLERS", None),
             "crates/touring-assists/src/handlers/mod.rs"
         );
         assert_eq!(
@@ -1084,7 +1249,7 @@ mod crate_map_and_reexport_tests {
             "touring_foundation",
         ] {
             assert!(
-                TOURING_CRATE_MAP.iter().any(|(n, _)| n == name),
+                crate_map().iter().any(|(n, _)| n == name),
                 "{name} is a live workspace crate but is absent from the derived map"
             );
         }
@@ -1096,7 +1261,7 @@ mod crate_map_and_reexport_tests {
     #[test]
     fn every_mapped_source_root_exists_on_disk() {
         let root = find_workspace_root().expect("tests run inside the workspace");
-        for (name, src) in TOURING_CRATE_MAP.iter() {
+        for (name, src) in &crate_map() {
             assert!(
                 std::path::Path::new(&root).join(src).is_dir(),
                 "{name} maps to {src}, which does not exist"
@@ -1108,7 +1273,8 @@ mod crate_map_and_reexport_tests {
     /// not the pre-rename directory the literal map froze.
     #[test]
     fn renamed_crate_maps_to_its_current_directory() {
-        let src = TOURING_CRATE_MAP
+        let map = crate_map();
+        let src = map
             .iter()
             .find(|(n, _)| n == "touring_foundation")
             .map(|(_, s)| s.as_str());
@@ -1121,11 +1287,12 @@ mod crate_map_and_reexport_tests {
     /// would have been wired into an unrelated crate.
     #[test]
     fn bare_aliases_cover_every_crate_except_the_shadowing_ones() {
-        assert!(TOURING_CRATE_MAP.iter().any(|(n, _)| n == "analysis"));
-        assert!(TOURING_CRATE_MAP.iter().any(|(n, _)| n == "storage"));
+        let map = crate_map();
+        assert!(map.iter().any(|(n, _)| n == "analysis"));
+        assert!(map.iter().any(|(n, _)| n == "storage"));
         for denied in ALIAS_DENY {
             assert!(
-                !TOURING_CRATE_MAP.iter().any(|(n, _)| n == denied),
+                !map.iter().any(|(n, _)| n == denied),
                 "{denied} shadows a real crate and must never be aliased"
             );
         }
@@ -1329,6 +1496,11 @@ mod crate_map_and_reexport_tests {
             (
                 "&entry.module_file",
                 "wiring repair: comes from an orphan PRODUCER row, a definer by construction",
+            ),
+            (
+                "declaring_file",
+                "self-reference (D9): the symbols are the file's own declarations, \
+                 so the file is their definer by construction",
             ),
         ];
         let Some(root) = find_workspace_root() else {
@@ -1945,7 +2117,7 @@ mod unresolved_class_tests {
             "super::foo::Bar",
             "crate::x",
         ] {
-            let c = classify_unresolved(kw);
+            let c = classify_unresolved(kw, None);
             assert_eq!(c, UnresolvedClass::ScopeKeyword, "{kw}");
             assert!(!c.is_debt(), "{kw} must not read as debt");
         }
@@ -1962,7 +2134,7 @@ mod unresolved_class_tests {
             "clap::Parser",
             "tokio::sync::Mutex",
         ] {
-            let c = classify_unresolved(ext);
+            let c = classify_unresolved(ext, None);
             assert_eq!(c, UnresolvedClass::External, "{ext}");
             assert!(!c.is_debt(), "{ext} has no producer row to find");
         }
@@ -1973,7 +2145,7 @@ mod unresolved_class_tests {
         // Uses the live crate map, so this asserts against the same source the
         // resolver consults. Any workspace crate name works; pick one that must
         // exist for the workspace to build at all.
-        let c = classify_unresolved("touring_storage::no_such_module::Thing");
+        let c = classify_unresolved("touring_storage::no_such_module::Thing", None);
         assert_eq!(c, UnresolvedClass::WorkspaceUnresolved);
         assert!(
             c.is_debt(),
@@ -1983,7 +2155,7 @@ mod unresolved_class_tests {
         // `touring-rkyv` / `rkyv` collision is real, so it gets its own bucket
         // rather than being asserted into either side.
         assert_eq!(
-            classify_unresolved("storage::no_such_module"),
+            classify_unresolved("storage::no_such_module", None),
             UnresolvedClass::AmbiguousAlias
         );
         assert!(
@@ -2006,7 +2178,143 @@ mod unresolved_class_tests {
     #[test]
     fn an_empty_path_degrades_to_keyword_never_to_debt() {
         // Defensive: a malformed import must not inflate the defect count.
-        assert_eq!(classify_unresolved(""), UnresolvedClass::ScopeKeyword);
-        assert_eq!(classify_unresolved("   "), UnresolvedClass::ScopeKeyword);
+        assert_eq!(classify_unresolved("", None), UnresolvedClass::ScopeKeyword);
+        assert_eq!(classify_unresolved("   ", None), UnresolvedClass::ScopeKeyword);
+    }
+}
+
+/// 18/09/2026 — the workspace of a resolution is the workspace of the FILE
+/// (Cargo's rule), never the process's current directory. `cargo test` runs in
+/// this repository; every fixture below is ANOTHER workspace, so a resolver that
+/// still read the process's directory would not know the fixture's crates.
+#[cfg(test)]
+mod workspace_scope_tests {
+    use super::{
+        UnresolvedClass, classify_unresolved, declares_workspace, definer_module,
+        resolve_import_path_with_source, workspace_root_of,
+    };
+    use std::path::{Path, PathBuf};
+
+    /// A throwaway tree under the temp dir, removed on drop.
+    struct Tree(PathBuf);
+
+    impl Tree {
+        fn new(tag: &str, files: &[(&str, &str)]) -> Self {
+            let root = std::env::temp_dir().join(format!("touring-ws-{tag}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            for (rel, body) in files {
+                let path = root.join(rel);
+                std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+                std::fs::write(path, body).expect("write");
+            }
+            Self(root)
+        }
+
+        fn file(&self, rel: &str) -> String {
+            self.0.join(rel).to_string_lossy().into_owned()
+        }
+    }
+
+    impl Drop for Tree {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// `touring-alpha` defines `widgets::Gadget` and re-exports it from its root;
+    /// `touring-beta` imports it both ways.
+    fn two_crate_workspace(tag: &str) -> Tree {
+        Tree::new(
+            tag,
+            &[
+                (
+                    "Cargo.toml",
+                    "# a comment that names [workspace] is not the table\n[workspace]\nmembers = [\"crates/*\"]\n",
+                ),
+                ("crates/alpha/Cargo.toml", "[package]\nname = \"touring-alpha\"\n"),
+                ("crates/alpha/src/lib.rs", "pub mod widgets;\npub use widgets::*;\n"),
+                ("crates/alpha/src/widgets.rs", "pub struct Gadget;\n"),
+                ("crates/beta/Cargo.toml", "[package]\nname = \"touring-beta\"\n"),
+                (
+                    "crates/beta/src/lib.rs",
+                    "use touring_alpha::widgets::Gadget;\nuse touring_alpha::Gadget as G;\n",
+                ),
+            ],
+        )
+    }
+
+    #[test]
+    fn a_file_resolves_in_its_own_workspace_whatever_the_process_directory_is() {
+        let ws = two_crate_workspace("resolve");
+        let consumer = ws.file("crates/beta/src/lib.rs");
+        assert_eq!(
+            workspace_root_of(Path::new(&consumer)).as_deref(),
+            Some(ws.0.as_path())
+        );
+        assert_eq!(
+            resolve_import_path_with_source("touring_alpha::widgets", "rust", Some(&consumer))
+                .as_deref(),
+            Some("crates/alpha/src/widgets.rs")
+        );
+        // The crate-root form lands on `lib.rs`, and the definer hop follows the
+        // root's `pub use widgets::*` to the file that defines the symbol.
+        assert_eq!(
+            resolve_import_path_with_source("touring_alpha", "rust", Some(&consumer)).as_deref(),
+            Some("crates/alpha/src/lib.rs")
+        );
+        assert_eq!(
+            definer_module("crates/alpha/src/lib.rs", "Gadget", Some(&consumer)),
+            "crates/alpha/src/widgets.rs"
+        );
+    }
+
+    #[test]
+    fn unresolved_imports_are_judged_by_the_consumers_workspace() {
+        let ws = two_crate_workspace("classify");
+        let consumer = ws.file("crates/beta/src/lib.rs");
+        let class = |path: &str| classify_unresolved(path, Some(&consumer));
+        assert_eq!(class("touring_alpha::no_such"), UnresolvedClass::WorkspaceUnresolved);
+        assert_eq!(class("alpha::no_such"), UnresolvedClass::AmbiguousAlias);
+        assert_eq!(class("serde::de"), UnresolvedClass::External);
+        // This repository's crates are third-party from inside the fixture.
+        assert_eq!(class("touring_storage::knowledge"), UnresolvedClass::External);
+    }
+
+    #[test]
+    fn a_file_outside_every_workspace_is_unmeasured_and_borrows_nothing() {
+        let tree = Tree::new("none", &[("lonely.rs", "use touring_storage::knowledge;\n")]);
+        let file = tree.file("lonely.rs");
+        assert_eq!(workspace_root_of(Path::new(&file)), None);
+        assert_eq!(
+            classify_unresolved("touring_storage::knowledge", Some(&file)),
+            UnresolvedClass::Unmeasured,
+            "no crate map is 'not measured', never 'external' — the 18/09 blind spot"
+        );
+        assert!(!UnresolvedClass::Unmeasured.is_debt());
+        assert_eq!(
+            resolve_import_path_with_source("touring_storage::knowledge", "rust", Some(&file)),
+            None,
+            "an absolute path outside every workspace never borrows the process's crates"
+        );
+    }
+
+    #[test]
+    fn a_workspace_without_crate_members_is_unmeasured() {
+        let tree = Tree::new(
+            "empty",
+            &[("Cargo.toml", "[workspace]\nmembers = []\n"), ("src/main.rs", "fn main() {}\n")],
+        );
+        assert_eq!(
+            classify_unresolved("touring_x::y", Some(&tree.file("src/main.rs"))),
+            UnresolvedClass::Unmeasured
+        );
+    }
+
+    #[test]
+    fn a_workspace_is_a_table_header_never_a_substring() {
+        assert!(declares_workspace("[workspace]\nmembers = []\n"));
+        assert!(declares_workspace("  [workspace.lints.rust]\n"));
+        assert!(!declares_workspace("# see [workspace] in the root\n[package]\nname = \"x\"\n"));
+        assert!(!declares_workspace("[package]\nedition.workspace = true\n"));
     }
 }

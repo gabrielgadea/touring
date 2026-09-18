@@ -766,3 +766,46 @@ mod todo_marker_tests {
         );
     }
 }
+
+/// D9 (18/09/2026): the edit path re-derives a file's use of its own public
+/// symbols, as the rebuild does. Only the rebuild wrote those edges, so every
+/// edit demoted the file's internal symbols to orphans until the next rebuild.
+#[cfg(test)]
+mod self_reference_tests {
+    fn internal(rt: &crate::HookRuntime, file: &str) -> Vec<String> {
+        rt.ctx
+            .knowledge
+            .internal_only_symbols()
+            .expect("internal_only")
+            .into_iter()
+            .filter(|e| e.module_file == file)
+            .map(|e| e.symbol_name)
+            .collect()
+    }
+
+    #[test]
+    fn a_symbol_used_only_by_its_own_file_stays_internal_across_edits() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        let file = root.join("src/limits.rs");
+        let body = "pub const LIMIT: usize = 3;\npub fn unused() {}\n\npub fn check(n: usize) -> bool {\n    n < LIMIT\n}\n";
+        std::fs::write(&file, body).expect("write");
+        let rt = crate::HookRuntime::new(root).expect("runtime");
+        let path = file.to_string_lossy().to_string();
+
+        super::reindex_file_with_old(&rt, &path, "src/limits.rs", None).expect("reindex");
+        assert_eq!(internal(&rt, "src/limits.rs"), ["LIMIT"]);
+
+        // An edit that keeps the use keeps the classification…
+        let edited = format!("{body}\npub fn also(n: usize) -> bool {{\n    n > LIMIT\n}}\n");
+        std::fs::write(&file, &edited).expect("edit");
+        super::reindex_file_with_old(&rt, &path, "src/limits.rs", Some(body)).expect("reindex after edit");
+        assert_eq!(internal(&rt, "src/limits.rs"), ["LIMIT"]);
+
+        // …and one that drops it drops the edge with it.
+        std::fs::write(&file, "pub const LIMIT: usize = 3;\n").expect("edit");
+        super::reindex_file_with_old(&rt, &path, "src/limits.rs", Some(&edited)).expect("reindex");
+        assert!(internal(&rt, "src/limits.rs").is_empty());
+    }
+}

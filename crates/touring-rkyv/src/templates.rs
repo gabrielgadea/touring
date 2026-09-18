@@ -13,26 +13,9 @@ use rkyv::{Archive, Deserialize, Serialize};
 
 // ── Hook Event Templates ────────────────────────────────────────────────────
 
-/// Hook event record for zero-copy IPC between Touring processes.
-///
-/// Used by: touring-learning ESAA event sourcing.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(compare(PartialEq))]
-#[rkyv(derive(Debug))]
-pub struct ArchivedHookEvent {
-    /// Name of the hook that fired.
-    pub hook_name: String,
-    /// Monotonic timestamp in milliseconds.
-    pub timestamp_ms: u64,
-    /// Arbitrary payload as raw bytes.
-    pub payload: Vec<u8>,
-    /// CILA complexity level at time of hook.
-    pub cila_level: u8,
-}
-
 /// Event record for RL learning — tool outcome tracking.
 ///
-/// Used by: touring-learning ESAA event sourcing.
+/// Used by: `touring-intelligence::rl::aco::esaa`.
 #[derive(Archive, Serialize, Deserialize, Debug)]
 #[rkyv(compare(PartialEq))]
 #[rkyv(derive(Debug))]
@@ -53,24 +36,9 @@ pub struct ArchivedEventRecord {
 
 // ── Symbol & Index Templates ─────────────────────────────────────────────────
 
-/// Symbol descriptor for zero-copy symbol index snapshots.
-///
-/// Used by: touring-index symbol store snapshots.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(compare(PartialEq))]
-#[rkyv(derive(Debug))]
-pub struct ArchivedSymbol {
-    /// Symbol name (e.g., function name, struct name).
-    pub name: String,
-    /// Fully qualified module path.
-    pub module_path: String,
-    /// Source line number.
-    pub line: u32,
-}
-
 /// Index snapshot of dependency edges.
 ///
-/// Used by: touring-hooks dependency cache.
+/// Used by: `touring-hooks-core::dependency_cache`.
 #[derive(Archive, Serialize, Deserialize, Debug)]
 #[rkyv(derive(Debug))]
 pub struct ArchivedIndexSnapshot {
@@ -82,83 +50,11 @@ pub struct ArchivedIndexSnapshot {
     pub schema_version: u32,
 }
 
-// ── RL Learning Templates ────────────────────────────────────────────────────
-
-/// Snapshot of QTable learning parameters.
-///
-/// Used by: touring-learning RL Q-table persistence.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(derive(Debug))]
-pub struct ArchivedLearningParamsSnapshot {
-    /// Learning rate applied to each Q-value update.
-    pub alpha: f64,
-    /// Discount factor weighting future rewards.
-    pub gamma: f64,
-    /// Eligibility-trace decay factor for TD(λ).
-    pub lambda: f64,
-    /// Default Q-value assigned to unseen state-action pairs.
-    pub initial_q: f64,
-    /// Current exploration probability for ε-greedy action selection.
-    pub epsilon: f64,
-    /// Multiplicative decay applied to `epsilon` after each step.
-    pub epsilon_decay: f64,
-    /// Floor below which `epsilon` is never decayed.
-    pub epsilon_min: f64,
-}
-
-/// Snapshot of QTable state for zero-copy persistence.
-///
-/// Used by: touring-learning RL Q-table persistence.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(derive(Debug))]
-pub struct ArchivedQTableSnapshot {
-    /// Q-values as `(state, action, value)` triples.
-    pub q_values: Vec<(u64, u64, f64)>,
-    /// Learning parameters.
-    pub params: ArchivedLearningParamsSnapshot,
-    /// Monotonic revision counter.
-    pub revision: u64,
-    /// Granular reward update count.
-    pub granular_update_count: u64,
-    /// Running sums per sub-reward dimension.
-    pub reward_sums: [f64; 5],
-}
-
-/// Snapshot of a single LinUCB arm.
-///
-/// Used by: touring-learning LinUCB bandit persistence.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(derive(Debug))]
-pub struct ArchivedLinUCBArmSnapshot {
-    /// Flattened A_inv matrix (row-major, d*d elements).
-    pub a_inv_flat: Vec<f64>,
-    /// Reward-weighted feature vector (d elements).
-    pub b: Vec<f64>,
-    /// Number of pulls for this arm.
-    pub pulls: u64,
-    /// Cumulative reward for this arm.
-    pub cumulative_reward: f64,
-}
-
-/// Snapshot of LinUCB bandit state.
-///
-/// Used by: touring-learning LinUCB bandit persistence.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(derive(Debug))]
-pub struct ArchivedLinUCBSnapshot {
-    /// Per-arm snapshots.
-    pub arms: Vec<ArchivedLinUCBArmSnapshot>,
-    /// Exploration parameter.
-    pub alpha: f64,
-    /// Feature dimensionality.
-    pub d: usize,
-}
-
 // ── CRDT Graph Templates ────────────────────────────────────────────────────
 
 /// CRDT edge for zero-copy graph snapshots.
 ///
-/// Used by: touring-learning CRDT semantic graph.
+/// Used by: `touring-intelligence::rl::memory::crdt_graph`.
 #[derive(Archive, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rkyv(derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash))]
 pub struct ArchivedCrdtEdge {
@@ -172,7 +68,7 @@ pub struct ArchivedCrdtEdge {
 
 /// Node weight entry for CRDT graph.
 ///
-/// Used by: touring-learning CRDT semantic graph.
+/// Used by: `touring-intelligence::rl::memory::crdt_graph`.
 #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
 #[rkyv(derive(Debug, PartialEq))]
 pub struct ArchivedNodeWeight {
@@ -186,7 +82,7 @@ pub struct ArchivedNodeWeight {
 
 /// Snapshot of the full CRDT graph state.
 ///
-/// Used by: touring-learning CRDT semantic graph persistence.
+/// Used by: `touring-intelligence::rl::memory::crdt_graph`.
 #[derive(Archive, Serialize, Deserialize, Debug)]
 #[rkyv(derive(Debug))]
 pub struct ArchivedGraphSnapshot {
@@ -198,36 +94,3 @@ pub struct ArchivedGraphSnapshot {
     pub weights: Vec<(u64, ArchivedNodeWeight)>,
 }
 
-// ── Cognitive / GoT Templates ───────────────────────────────────────────────
-
-/// Serializable snapshot of a single GoT node.
-///
-/// Used by: touring-cognitive GoT session snapshots.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(derive(Debug))]
-pub struct ArchivedGotNodeSnapshot {
-    /// Unique id of the GoT node.
-    pub id: u64,
-    /// Human-readable label of the thought node.
-    pub label: String,
-    /// Scalar weight ranking the node within the graph.
-    pub weight: f64,
-    /// Ids of this node's children in the thought graph.
-    pub child_ids: Vec<u64>,
-}
-
-/// Zero-copy serializable snapshot of a complete GoT session.
-///
-/// Used by: touring-cognitive GoT session snapshots.
-#[derive(Archive, Serialize, Deserialize, Debug)]
-#[rkyv(derive(Debug))]
-pub struct ArchivedGoTSnapshot {
-    /// All thought nodes in the session graph.
-    pub nodes: Vec<ArchivedGotNodeSnapshot>,
-    /// Directed `(from, to)` edges connecting the nodes.
-    pub edges: Vec<(u64, u64)>,
-    /// Identifier of the session this snapshot belongs to.
-    pub session_id: String,
-    /// Schema version for forward compatibility.
-    pub schema_version: u32,
-}

@@ -706,10 +706,7 @@ impl TouringServer {
                 // W2 (task_1780763041476850005) — gated behind mcp-curated.
                 // Each W2 tool has its own #[tool_router] macro (one per
                 // impl block): router_tdg, router_hook_metrics,
-                // router_cortex_classify. W1.2 FamilyRouter is a skeleton
-                // only (StatusFamily enum + StatusInput struct); no
-                // #[tool_router] needed until W2.5 adds the actual
-                // touring_status tool.
+                // router_cortex_classify.
                 #[cfg(feature = "mcp-curated")]
                 {
                     tr.merge(Self::router_tdg());
@@ -746,14 +743,11 @@ mod tools_tantivy;
 // call across several detection engines. `touring_audit` = offensive CWE/OWASP
 // engine + 6 P0 BLOCK quality dims → one ranked failure/gap report.
 pub(crate) mod tools_workflow; // R3 — run_audit engine reused by the `touring audit` CLI adapter
-// W1.2 (task_1780763041476850005) — FamilyRouter consolidating 9 *_status
-// tools into 1 touring_status MCP tool with enum family. Opt-in via
-// --features mcp-curated during the 30-day migration window.
-// `pub` so the documented curated `touring_status` contract (StatusFamily +
-// StatusInput) is reachable public API until the W2.5 `#[tool]` router
-// consumes it internally — keeps the tested skeleton wired, not dead.
-#[cfg(feature = "mcp-curated")]
-pub mod tools_status;
+// W1.2 planned a `touring_status` FamilyRouter (StatusFamily + StatusInput) to
+// absorb 9 `*_status` tools; W2.5, the `#[tool]` that would consume it, never
+// landed, while `mcp-curated` became the default and W4 removed `mcp-legacy`.
+// The skeleton was removed on 18/09/2026 (orphans audit): a public contract no
+// router reads is a promise the MCP surface does not keep.
 // W2 (task_1780763041476850005) — 3 new MCP tools (tdg, hook_metrics,
 // cortex_classify) that fill gaps identified in FASE 1 SCOUT. Opt-in
 // via --features mcp-curated. Includes 5 unit tests.

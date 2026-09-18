@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 1518.0,
+      "actual": 3952.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,18 +22,18 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.7846078402782359,
+      "actual": 0.179606,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
       "name": "RL EMA reward (OnlineRL engine)",
       "rationale": "EMA reward < 0.2 means the RL loop hasn't converged yet. HISTÓRICO (2026-07-01): o valor vivia só em memória e zerava a cada restart (0.179606 sintético observado byte-idêntico por dias) — por isso virou advisory. ATUALIZADO 29/08/2026 (P1 retenção, wave onlinerl-sinal-em-volume): update_count/EMA agora persistem em .claude/data/online_rl_state.json com restore monotônico no boot — medido 0.84 pós-restart, não mais o warmup sintético. Segue advisory por prudência; candidato a re-armar como blocking após dias de série durável.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.2
     },
     {
-      "actual": 0.08333333333333333,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -66,7 +66,7 @@
       "threshold": 0.0
     },
     {
-      "actual": 1.0,
+      "actual": 0.0,
       "advisory": false,
       "direction": "gte",
       "id": "touring.gotcha.resolution",
@@ -112,7 +112,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 580.375,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -123,18 +123,18 @@
       "threshold": 800.0
     },
     {
-      "actual": 709.0,
+      "actual": 154367.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
       "name": "Coupling hook dispatch latency p50 (D5, leading)",
       "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 1000.0
     },
     {
-      "actual": 559103.0,
+      "actual": 825855.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 399359.0,
+      "actual": 672.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,47 +178,47 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.4
     },
     {
-      "actual": 0.25,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.06666666666666667,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.1
     },
     {
-      "actual": 0.872,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
       "name": "Economia do code mode — programas que FUNDIRAM / programas rodados (P5b)",
       "rationale": "A metade que faltava à `adoption_ratio` (achado de Gabriel, 26/08/2026). Adoção mede o CANAL — e sobe igual quando o modelo funde dez inspeções numa chamada e quando embrulha dez leituras triviais, porque `scan_class_of` não reconhece `touring run` e nenhum gate vê a rota sancionada. Este mede a ECONOMIA: `economical/followed`, onde `economical` é o programa que tocou ≥2 alvos ou executou ≥2 operações. Fala da APRESENTAÇÃO, não da disciplina do modelo: sob `code` a atômica é negada, então a casca sobre um alvo é obrigatória — economia baixa com adoção alta é o retrato de um braço obedecido e caro. STUB abaixo de ARM_MIN_SAMPLE tomadas.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
@@ -244,62 +244,62 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.38461538461538464,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
       "name": "Braço code-mode `code` — rota tomada / rota oferecida (colapso — a inspeção é negada com a rota escrita)",
       "rationale": "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.19617706237424548,
+      "actual": null,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
       "name": "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)",
       "rationale": "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.75
     },
     {
-      "actual": 0.03225806451612903,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.pillar_induction_ratio",
       "name": "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)",
       "rationale": "Task #6 compounding structure (the active hook layer): after the armed pillar-induction layer nudges a differential the upstream classifiers miss (master-cli or learning-memory), did the LLM's next same-session action take it (a master/recall command)? followed/emitted over the daemon lifetime, precise predicate. gte 0.50 = the master commands are reached for once nudged. DEFAULT-OFF (TOURING_PILLAR_INDUCTION_ARMED) — STUB until armed; if it stays low while armed, that is the affordance-over-persuasion evidence (telemetry thesis ①) pushing toward productization.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 8.133333333333333,
+      "actual": 4.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.explore_rounds_to_dry",
       "name": "Explore rounds until CCE convergence (mean)",
       "rationale": "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 8.0
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.plan_refine_iters",
       "name": "Plan refinement iterations (max)",
       "rationale": "A plan that never survived >= 2 refine iterations was accepted on first draft — the 19/07 failure mode. STUB until any .refine.json exists.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 2.0
     },
     {
-      "actual": 111.0,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.runs",
@@ -310,18 +310,18 @@
       "threshold": 1.0
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.router_accuracy",
       "name": "Factory router accuracy (completed / routed outcomes)",
       "rationale": "Proxy: fraction of routed runs that completed. Below 0.7 the router is sending tickets to workflows that do not finish — retrain rules or arm the LLM fallback.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.7
     },
     {
-      "actual": 0.009259259259259259,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.adw.zte_bypass_rate",
@@ -343,25 +343,25 @@
       "threshold": 1.0
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.adw.tiered_agent_share",
       "name": "ADW agent starts with a declared tier (executed share)",
       "rationale": "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.5507518796992481,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
       "name": "Gated-flow OUTER compliance (artifact manifests complete at Stop)",
       "rationale": "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.9
     },
     {
@@ -376,18 +376,18 @@
       "threshold": 0.3
     },
     {
-      "actual": 1.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.learning.replay_share",
       "name": "Corpus de outcomes recompensados já consumido pelo OnlineRL (replay offline)",
       "rationale": "P2 replay (29/08/2026, pendência 'motor girando a seco'): o corpus de outcomes com reward (820 na estreia) nunca alcançava o OnlineRLEngine — o trickle online funciona (+1/tool call, provado 7→19→20), mas o acumulado ficava no memory.db sem consumidor e o estado do engine zerava a cada restart (13→7 medido). Numerador: replayed_total do cursor durável `learning_replay_cursor.json`; denominador: numerador + pendentes contados AGORA no memory.db (mesma fonte que `touring learning replay` lê). None/STUB enquanto nada foi replayado e o corpus está invisível — ausência é desconhecido, nunca zero. Abaixo de 0.9: rode `touring learning replay`.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.9
     },
     {
-      "actual": 0.68076443160176,
+      "actual": 0.12995555555555555,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.45354174752084364,
+      "actual": 0.12209324598705129,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -409,36 +409,36 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.11236619163328299,
+      "actual": 0.7272888888888889,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
       "name": "Stored entries no recall has ever returned",
       "rationale": "Dead weight in the store: written once, never read. 0.200 at 2026-08-02. Rising means either the corpus is drifting again (see corpus_coverage) or entries are being written in a shape recall cannot match.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.25
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.graph_contract_share",
       "name": "Curated nodes honouring the minimum graph contract (key shape + typed edge)",
       "rationale": "P3 of the memory-graph contract (2026-08-30, Gabriel's directive via analise-e0): share of new semantic lesson/decision/diagnostico nodes (14-day window) with a deterministic <tipo>:<slug>:<date> key AND at least one typed memory_links edge. Measured reference corpus: 27/31 writers were islands. Advisory by the enforcement ladder — instrument before blocking; the store response's contract:{} advisory and the P2 structural rank make linking pay, this meter tells whether behaviour actually moved. STUB (null) when the window has no curated nodes.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.03167115902964959,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
       "name": "Typed edges created per new memory entry (14-day window)",
       "rationale": "P5 of the memory-graph contract (2026-08-30): the ruler that decides whether `memory suggest-links` derived suggestions may ever graduate to automatic — only measured behaviour promotes an affordance up the ladder. Edges counted from memory_links, entries from memory_entries, both in the same 14-day window. STUB (null) when no entries were created in the window.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.05
     },
     {
@@ -461,53 +461,53 @@
       "rationale": "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 16d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
+      "stub_reason": "stale — measured 17d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
       "threshold": 0.8
     }
   ],
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 881,
+      "exception": 884,
       "output-limit": 4,
       "proc-exit": 3,
       "timeout": 209
     },
     "by_language": {
       "?": 1,
-      "bash": 6959,
+      "bash": 7015,
       "go": 1,
       "js": 87,
       "perl": 4,
       "php": 1,
-      "python": 7225,
+      "python": 7229,
       "ruby": 4,
       "rust": 4,
       "shell": 110,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 13305,
-    "runs_total": 14403,
+    "runs_ok": 13362,
+    "runs_total": 14463,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9237658821078942,
-    "wasted_attempts_retry_pairs": 665
+    "success_rate": 0.9238747147894628,
+    "wasted_attempts_retry_pairs": 668
   },
   "code_mode_reuse": {
     "available": true,
     "brief_runs": 117,
-    "file_runs": 1862,
+    "file_runs": 1865,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 5390,
-    "orchestrate_runs": 109,
+    "inline_runs": 5447,
+    "orchestrate_runs": 111,
     "persistent_file_runs": 773,
-    "reuse_ratio": 0.107,
-    "scratch_file_runs": 1089,
+    "reuse_ratio": 0.106,
+    "scratch_file_runs": 1092,
     "status": "FAIL",
     "total_tmp_bytes": 208782775,
     "v1_runs": 7150,
-    "v2_runs": 7252
+    "v2_runs": 7312
   },
   "code_mode_signal_use": {
     "available": true,
@@ -516,361 +516,74 @@
     "non_canonical_calls": 98,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 477,
+    "total_calls": 479,
     "used": 7
   },
   "context_budget": {
-    "available": true,
-    "by_family": {
-      "code-mode-deny": {
-        "blocks": 78,
-        "bytes": 89975,
-        "duplicate_bytes": 41393,
-        "duplicate_ratio": 0.46,
-        "mean_bytes": 1153,
-        "propositions": 0,
-        "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 78
-      },
-      "loop-outer": {
-        "blocks": 1,
-        "bytes": 315,
-        "duplicate_bytes": 0,
-        "duplicate_ratio": 0.0,
-        "mean_bytes": 315,
-        "propositions": 1,
-        "propositions_per_kb": 3.251,
-        "zero_proposition_blocks": 0
-      },
-      "other": {
-        "blocks": 2159,
-        "bytes": 427787,
-        "duplicate_bytes": 116988,
-        "duplicate_ratio": 0.273,
-        "mean_bytes": 198,
-        "propositions": 1811,
-        "propositions_per_kb": 4.335,
-        "zero_proposition_blocks": 1616
-      },
-      "past-lessons": {
-        "blocks": 1404,
-        "bytes": 151834,
-        "duplicate_bytes": 77457,
-        "duplicate_ratio": 0.51,
-        "mean_bytes": 108,
-        "propositions": 0,
-        "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 1404
-      },
-      "post-tool-echo": {
-        "blocks": 495,
-        "bytes": 177474,
-        "duplicate_bytes": 29958,
-        "duplicate_ratio": 0.169,
-        "mean_bytes": 358,
-        "propositions": 216,
-        "propositions_per_kb": 1.246,
-        "zero_proposition_blocks": 279
-      },
-      "session-start": {
-        "blocks": 39,
-        "bytes": 39400,
-        "duplicate_bytes": 5896,
-        "duplicate_ratio": 0.15,
-        "mean_bytes": 1010,
-        "propositions": 10,
-        "propositions_per_kb": 0.26,
-        "zero_proposition_blocks": 29
-      },
-      "touring-suggest": {
-        "blocks": 182,
-        "bytes": 256879,
-        "duplicate_bytes": 9106,
-        "duplicate_ratio": 0.035,
-        "mean_bytes": 1411,
-        "propositions": 750,
-        "propositions_per_kb": 2.99,
-        "zero_proposition_blocks": 0
-      }
-    },
-    "bytes_scanned": 59203188,
-    "capped": true,
-    "duplicate_blocks": 2682,
-    "duplicate_injection_ratio": 0.246,
+    "available": false,
+    "by_family": {},
+    "bytes_scanned": 0,
+    "capped": false,
+    "duplicate_blocks": 0,
+    "duplicate_injection_ratio": 0.0,
     "duplicate_injection_ratio_ceil": 0.05,
-    "failing": [
-      "injected_bytes_per_turn",
-      "duplicate_injection_ratio",
-      "injection_follow_ratio"
-    ],
-    "injected_bytes_per_turn": 6889.542,
+    "failing": [],
+    "injected_bytes_per_turn": 0.0,
     "injected_bytes_per_turn_ceil": 3000.0,
-    "injection_follow_ratio": 0.574,
+    "injection_follow_ratio": null,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 952,
-    "must_followed": 546,
-    "reason": null,
-    "status": "FAIL",
-    "tool_calls": 2522,
+    "must_emitted": 0,
+    "must_followed": 0,
+    "reason": "no transcript with user turns and hook injection yet",
+    "status": "STUB",
+    "tool_calls": 0,
     "tool_output": {
-      "by_tool": [
-        {
-          "bytes": 2901501,
-          "mean_bytes": 1676,
-          "results": 1731,
-          "reused_bytes": 145004,
-          "reused_line_ratio": 0.081,
-          "share": 0.791,
-          "tool": "Bash",
-          "zero_reuse_results": 288
-        },
-        {
-          "bytes": 524587,
-          "mean_bytes": 2835,
-          "results": 185,
-          "reused_bytes": 60695,
-          "reused_line_ratio": 0.141,
-          "share": 0.143,
-          "tool": "Read",
-          "zero_reuse_results": 3
-        },
-        {
-          "bytes": 71503,
-          "mean_bytes": 2860,
-          "results": 25,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.019,
-          "tool": "mcp__touring__touring_ctx_execute",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 63258,
-          "mean_bytes": 208,
-          "results": 304,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.017,
-          "tool": "Edit",
-          "zero_reuse_results": 98
-        },
-        {
-          "bytes": 22649,
-          "mean_bytes": 323,
-          "results": 70,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.006,
-          "tool": "SendMessage",
-          "zero_reuse_results": 7
-        },
-        {
-          "bytes": 21278,
-          "mean_bytes": 2364,
-          "results": 9,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.006,
-          "tool": "ListAgents",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 17050,
-          "mean_bytes": 187,
-          "results": 91,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.005,
-          "tool": "Write",
-          "zero_reuse_results": 36
-        },
-        {
-          "bytes": 12104,
-          "mean_bytes": 281,
-          "results": 43,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.003,
-          "tool": "Monitor",
-          "zero_reuse_results": 32
-        },
-        {
-          "bytes": 11327,
-          "mean_bytes": 1029,
-          "results": 11,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.003,
-          "tool": "Agent",
-          "zero_reuse_results": 1
-        },
-        {
-          "bytes": 9105,
-          "mean_bytes": 4552,
-          "results": 2,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.002,
-          "tool": "mcp__plugin_context7_context7__query-docs",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 4775,
-          "mean_bytes": 434,
-          "results": 11,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "AskUserQuestion",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 3032,
-          "mean_bytes": 1010,
-          "results": 3,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "WebFetch",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 2622,
-          "mean_bytes": 2622,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "WebSearch",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 1814,
-          "mean_bytes": 1814,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "mcp__plugin_context7_context7__resolve-library-id",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 1545,
-          "mean_bytes": 64,
-          "results": 24,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "ToolSearch",
-          "zero_reuse_results": 22
-        },
-        {
-          "bytes": 1086,
-          "mean_bytes": 543,
-          "results": 2,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "TaskStop",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 708,
-          "mean_bytes": 101,
-          "results": 7,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "mcp__sequential-thinking__sequentialthinking",
-          "zero_reuse_results": 4
-        },
-        {
-          "bytes": 132,
-          "mean_bytes": 132,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "unattributed",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 127,
-          "mean_bytes": 127,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "PushNotification",
-          "zero_reuse_results": 1
-        }
-      ],
-      "bytes": 3670203,
-      "reuse_ratio": 0.056,
-      "reused_bytes": 205699
+      "by_tool": [],
+      "bytes": 0,
+      "reuse_ratio": null,
+      "reused_bytes": 0
     },
-    "tpcd_proxy_bytes_per_tool_call": 2176.693,
-    "transcripts_scanned": 1,
-    "user_turns": 166,
+    "tpcd_proxy_bytes_per_tool_call": null,
+    "transcripts_scanned": 0,
+    "user_turns": 0,
     "window_bytes": {
-      "assistant": 210588,
-      "injection": 1143664,
-      "injection_share": 0.208,
-      "tool_result_share": 0.669,
-      "tool_results": 3670203,
-      "user": 465164
+      "assistant": 0,
+      "injection": 0,
+      "injection_share": 0.0,
+      "tool_result_share": 0.0,
+      "tool_results": 0,
+      "user": 0
     }
   },
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 15,
-      "cli-ast-blast": 5,
-      "cli-ast-meta": 5,
-      "cli-code-mode-run": 1,
-      "cli-flywheel-status": 2,
       "cli-gate-metrics": 2,
-      "cli-health-delta-status": 2,
-      "cli-incremental-status": 2,
-      "cli-index-status": 2,
-      "cli-kpi": 32,
-      "cli-learning-status": 94,
-      "cli-resource-monitor-status": 2,
-      "cli-session-list": 2,
-      "cli-suggest": 21,
-      "cli-wiring-status": 2,
-      "cwd-changed": 1,
-      "post-bash": 14,
-      "post-edit": 1,
-      "post-read": 1,
-      "post-tool-batch": 24,
-      "post-tool-failure": 1,
-      "post-tool-rl": 22,
-      "post-write": 3,
-      "pre-bash": 15,
-      "task-sync-stop": 1
+      "cli-index-status": 1,
+      "cli-kpi": 3,
+      "cli-memory-recall": 1
     },
     "mirror_deliveries_by_origin": {
-      "post_bash": 0,
-      "sdk": 0,
+      "post_bash": 3,
+      "sdk": 3,
       "unknown": 0
     },
-    "mirror_deliveries_since": 0,
+    "mirror_deliveries_since": 6,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": 0.0,
-    "post_bash_dispatched": 14,
-    "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789598313
+    "post_bash_delivery_ratio": null,
+    "post_bash_dispatched": 0,
+    "post_bash_origin_deliveries_since": 3,
+    "since_epoch": 1789556070
   },
-  "project_root": "/home/gabrielgadea/projects/touring",
+  "project_root": "/home/gabrielgadea/projects/konverter",
   "schema": "kpi-commitments-v1",
-  "snapshot_date": "2026-09-16",
+  "snapshot_date": "2026-09-17",
   "summary": {
-    "advisory": 15,
+    "advisory": 8,
     "failed": 0,
-    "passed": 20,
+    "passed": 13,
     "regressions": 0,
-    "stub": 6,
+    "stub": 20,
     "total": 41
   }
 }

@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 3959.0,
+      "actual": 3952.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -85,7 +85,7 @@
       "rationale": "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 18d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
+      "stub_reason": "stale — measured 19d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
       "threshold": 5100.0
     },
     {
@@ -97,7 +97,7 @@
       "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 18d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
+      "stub_reason": "stale — measured 19d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
       "threshold": 0.75
     },
     {
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 311807.0,
+      "actual": 154367.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 816639.0,
+      "actual": 825855.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 723.0,
+      "actual": 672.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.1220110361741263,
+      "actual": 0.12209324598705129,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -409,7 +409,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.7274666666666667,
+      "actual": 0.7272888888888889,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -468,55 +468,55 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 877,
+      "exception": 881,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 208
+      "timeout": 209
     },
     "by_language": {
       "?": 1,
-      "bash": 6912,
+      "bash": 6961,
       "go": 1,
       "js": 87,
       "perl": 4,
       "php": 1,
-      "python": 7184,
+      "python": 7225,
       "ruby": 4,
       "rust": 4,
       "shell": 110,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 13222,
-    "runs_total": 14315,
+    "runs_ok": 13307,
+    "runs_total": 14405,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9236465246245197,
-    "wasted_attempts_retry_pairs": 662
+    "success_rate": 0.9237764665046859,
+    "wasted_attempts_retry_pairs": 665
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 115,
-    "file_runs": 1833,
+    "brief_runs": 117,
+    "file_runs": 1862,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 5331,
-    "orchestrate_runs": 103,
-    "persistent_file_runs": 745,
-    "reuse_ratio": 0.104,
-    "scratch_file_runs": 1088,
+    "inline_runs": 5392,
+    "orchestrate_runs": 109,
+    "persistent_file_runs": 773,
+    "reuse_ratio": 0.107,
+    "scratch_file_runs": 1089,
     "status": "FAIL",
     "total_tmp_bytes": 208782775,
     "v1_runs": 7150,
-    "v2_runs": 7164
+    "v2_runs": 7254
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
     "duration_ms_p99": 1049,
-    "non_canonical_calls": 95,
+    "non_canonical_calls": 98,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 465,
+    "total_calls": 478,
     "used": 7
   },
   "context_budget": {
@@ -564,16 +564,16 @@
       "cli-memory-recall": 1
     },
     "mirror_deliveries_by_origin": {
-      "post_bash": 1,
-      "sdk": 0,
+      "post_bash": 3,
+      "sdk": 2,
       "unknown": 0
     },
-    "mirror_deliveries_since": 1,
+    "mirror_deliveries_since": 5,
     "mirror_non_canonical_since": 0,
     "post_bash_delivery_ratio": null,
     "post_bash_dispatched": 0,
-    "post_bash_origin_deliveries_since": 1,
-    "since_epoch": 1789526235
+    "post_bash_origin_deliveries_since": 3,
+    "since_epoch": 1789556070
   },
   "project_root": "/home/gabrielgadea/projects/konverter",
   "schema": "kpi-commitments-v1",

@@ -60,21 +60,37 @@ fn extract_method_calls_inner(
     lang: Lang,
     query_src: &str,
 ) -> Option<HashSet<String>> {
-    extract_captures_where(source, lang, query_src, |_| true)
+    let tree = parse(source, lang)?;
+    let mut names = captures_where(&tree, source, lang, query_src, |_| true)?;
+    if lang == Lang::Rust {
+        // A call inside a macro's arguments has the same three shapes as the
+        // query's — method, path, free — only spelled as tokens.
+        names.extend(
+            macro_tokens(&tree, source)
+                .into_iter()
+                .filter(|(_, token)| token.called)
+                .map(|(name, _)| name.to_string()),
+        );
+    }
+    Some(names)
 }
 
-/// Runs `query_src` and keeps the text of every capture `keep` accepts.
-fn extract_captures_where(
+/// `source` parsed under the bounded parse budget.
+fn parse(source: &str, lang: Lang) -> Option<tree_sitter::Tree> {
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&lang.tree_sitter_language()).ok()?;
+    crate::ast::parser::parse_bounded(&mut parser, source, None)
+}
+
+/// Runs `query_src` over `tree` and keeps the text of every capture `keep` accepts.
+fn captures_where(
+    tree: &tree_sitter::Tree,
     source: &str,
     lang: Lang,
     query_src: &str,
     keep: impl Fn(tree_sitter::Node<'_>) -> bool,
 ) -> Option<HashSet<String>> {
-    use tree_sitter::{Parser, Query, QueryCursor};
-
-    let mut parser = Parser::new();
-    parser.set_language(&lang.tree_sitter_language()).ok()?;
-    let tree = crate::ast::parser::parse_bounded(&mut parser, source, None)?;
+    use tree_sitter::{Query, QueryCursor};
 
     let ts_lang = lang.tree_sitter_language();
     let query = Query::new(&ts_lang, query_src).ok()?;
@@ -96,6 +112,113 @@ fn extract_captures_where(
         }
     }
     Some(names)
+}
+
+/// How an identifier inside a macro's arguments is reached, read from the tokens
+/// before it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MacroVia<'a> {
+    /// `receiver.name` — `on_self` when the receiver token is `self`.
+    Dot { on_self: bool },
+    /// `a::b::name` — `qualifier` is the segment right before `::` (`b`), `root`
+    /// the first one (`a`).
+    Path { qualifier: &'a str, root: &'a str },
+    /// On its own.
+    Alone,
+}
+
+/// One identifier among a macro's argument tokens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MacroToken<'a> {
+    pub(crate) via: MacroVia<'a>,
+    /// A `(…)` group follows it: a call.
+    pub(crate) called: bool,
+}
+
+/// Reads `node` as one of a macro's argument tokens — `None` unless it is an
+/// `identifier` right inside a `token_tree`.
+///
+/// 18/09/2026: the grammar keeps a macro's arguments as raw tokens, so every pass
+/// that asks the tree for a `call_expression`, a `field_expression` or a
+/// `scoped_identifier` was blind inside `format!`/`assert!`/`vec!`. Measured:
+/// `format!("{}:{dep}", category.signal_prefix())` wired nothing while
+/// `category.signal_discount()`, two lines above and outside the macro, did. The
+/// shape is read from the neighbouring tokens instead. Not read: a turbofish call
+/// (`x.f::<T>()`), whose name is followed by `::`, not by the argument group.
+pub(crate) fn macro_token<'a>(node: tree_sitter::Node<'_>, source: &'a [u8]) -> Option<MacroToken<'a>> {
+    if node.kind() != "identifier" || node.parent()?.kind() != "token_tree" {
+        return None;
+    }
+    let called = node.next_sibling().is_some_and(|next| {
+        next.kind() == "token_tree" && next.child(0).is_some_and(|open| open.kind() == "(")
+    });
+    let before = node.prev_sibling();
+    let via = match before.map(|b| b.kind()) {
+        Some(".") => MacroVia::Dot {
+            on_self: before
+                .and_then(|dot| dot.prev_sibling())
+                .is_some_and(|receiver| receiver.kind() == "self"),
+        },
+        Some("::") => path_via(before, source),
+        _ => MacroVia::Alone,
+    };
+    Some(MacroToken { via, called })
+}
+
+/// The path that ends at the `::` token `sep`: its last segment and its first.
+fn path_via<'a>(sep: Option<tree_sitter::Node<'_>>, source: &'a [u8]) -> MacroVia<'a> {
+    let qualifier = path_segment(sep.and_then(|s| s.prev_sibling()));
+    let mut root = qualifier;
+    while let Some(up_sep) = root.and_then(|r| r.prev_sibling()).filter(|s| s.kind() == "::")
+        && let Some(up) = path_segment(up_sep.prev_sibling())
+    {
+        root = Some(up);
+    }
+    let text = |n: Option<tree_sitter::Node<'_>>| n.and_then(|n| n.utf8_text(source).ok()).unwrap_or("");
+    MacroVia::Path {
+        qualifier: text(qualifier),
+        root: text(root),
+    }
+}
+
+/// A token that can be a path segment (`a`, `self`, `super`, `crate`, and a
+/// primitive such as the `usize` of `std::usize::MAX`, which the grammar tokenizes
+/// as `primitive_type`, not `identifier`).
+fn path_segment(node: Option<tree_sitter::Node<'_>>) -> Option<tree_sitter::Node<'_>> {
+    node.filter(|n| matches!(n.kind(), "identifier" | "primitive_type" | "self" | "super" | "crate"))
+}
+
+/// Every identifier among the arguments of `tree`'s macro invocations, nested
+/// groups included, with how it is reached. Attribute arguments
+/// (`#[cfg(any(test))]`) are token trees too, but not a macro's: not read.
+fn macro_tokens<'s>(tree: &tree_sitter::Tree, source: &'s str) -> Vec<(&'s str, MacroToken<'s>)> {
+    use tree_sitter::{Query, QueryCursor};
+
+    let Ok(query) = Query::new(&Lang::Rust.tree_sitter_language(), MACRO_TOKEN_TREE_QUERY) else {
+        return Vec::new();
+    };
+    let bytes = source.as_bytes();
+    let mut out = Vec::new();
+    let mut cursor = QueryCursor::new();
+    let mut matches = cursor.matches(&query, tree.root_node(), bytes);
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            let mut groups = vec![capture.node];
+            while let Some(group) = groups.pop() {
+                let mut walk = group.walk();
+                for child in group.children(&mut walk) {
+                    if child.kind() == "token_tree" {
+                        groups.push(child);
+                    } else if let Some(token) = macro_token(child, bytes)
+                        && let Ok(name) = child.utf8_text(bytes)
+                    {
+                        out.push((name, token));
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 /// True when `node` is the name a type declaration introduces
@@ -246,6 +369,37 @@ fn caller<T>(v: &Vec<T>) {
         let names = extract_method_calls(src, Lang::Rust);
         assert!(names.contains(&"iter".to_string()));
         assert!(names.contains(&"collect".to_string()));
+    }
+
+    /// The case that exposed the blind spot (18/09/2026): the same receiver, two
+    /// lines apart, one call inside `format!` and one outside.
+    #[test]
+    fn a_call_inside_a_macro_is_a_call() {
+        let src = "fn f(category: Cat, dep: &str) {\n    let w = category.signal_discount();\n    let s = format!(\"{}:{dep}\", category.signal_prefix());\n    assert_eq!(Registry::build(1), helper(w));\n    let v = vec![a.b().nested_call(), 2];\n}\n";
+        let names = extract_method_calls(src, Lang::Rust);
+        for called in ["signal_discount", "signal_prefix", "build", "helper", "b", "nested_call"] {
+            assert!(names.contains(&called.to_string()), "{called}: {names:?}");
+        }
+    }
+
+    #[test]
+    fn inside_a_macro_a_field_a_string_and_a_macro_name_are_not_calls() {
+        let src = "#[cfg(any(test, feature = \"x\"))]\nfn f(c: Cat) {\n    println!(\"{} x.fake_call()\", c.name);\n    let v = vec![format!(\"a\")];\n}\n";
+        let names = extract_method_calls(src, Lang::Rust);
+        assert!(!names.contains(&"name".to_string()), "a field read: {names:?}");
+        assert!(!names.contains(&"fake_call".to_string()), "text in a string: {names:?}");
+        assert!(!names.contains(&"format".to_string()), "a nested macro's name: {names:?}");
+        assert!(!names.contains(&"any".to_string()), "an attribute is not a macro call: {names:?}");
+    }
+
+    #[test]
+    fn a_path_reference_inside_a_macro_is_a_type_or_const_ref() {
+        let src = "fn f(n: usize) {\n    assert_eq!(n, tags::LIMIT);\n    assert!(matches!(k, Kind::Ready));\n    assert_eq!(n, std::usize::MAX);\n    let _ = format!(\"{}\", Registry::build(1));\n}\n";
+        let refs = extract_type_and_const_refs(src, Lang::Rust);
+        assert!(refs.contains(&"LIMIT".to_string()), "{refs:?}");
+        assert!(refs.contains(&"Ready".to_string()), "{refs:?}");
+        assert!(!refs.contains(&"MAX".to_string()), "a std path: {refs:?}");
+        assert!(!refs.contains(&"build".to_string()), "a call is the call pass's: {refs:?}");
     }
 }
 
@@ -455,11 +609,25 @@ pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
     if lang != Lang::Rust {
         return Vec::new();
     }
-    let Some(mut names) = extract_captures_where(source, lang, TYPE_REF_QUERY, |node| {
+    let Some(tree) = parse(source, lang) else {
+        return Vec::new();
+    };
+    let Some(mut names) = captures_where(&tree, source, lang, TYPE_REF_QUERY, |node| {
         !is_declared_type_name(node) && !is_std_family_path_segment(node, source)
     }) else {
         return Vec::new();
     };
+    // The same path references inside a macro's arguments (`assert_eq!(n,
+    // tags::LIMIT)`), where there is no `scoped_identifier` to capture. A called
+    // one is the call pass's.
+    names.extend(macro_tokens(&tree, source).into_iter().filter_map(|(name, token)| {
+        match token.via {
+            MacroVia::Path { root, .. } if !token.called && !STD_FAMILY_ROOTS.contains(&root) => {
+                Some(name.to_string())
+            }
+            _ => None,
+        }
+    }));
     // A name the file imports from another crate is decided by that import: the
     // resolver wires it when the crate is in the workspace, and a guess by name
     // can only land on a homonym (`criterion::Criterion` on a workspace

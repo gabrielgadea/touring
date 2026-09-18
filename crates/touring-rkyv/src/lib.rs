@@ -14,21 +14,18 @@
 //! Consumer crates should add `touring-rkyv` as a dependency and use:
 //! ```ignore
 //! use touring_rkyv::{Archive, Serialize, Deserialize};
-//! use touring_rkyv::templates::{ArchivedHookEvent, ArchivedSymbol};
+//! use touring_rkyv::templates::{ArchivedEventRecord, ArchivedIndexSnapshot};
 //! ```
 //!
 //! # Crates Using These Templates
 //!
-//! - `touring-index` — symbol index snapshots
-//! - `touring-hooks` — dependency graph snapshots (ArchivedIndexSnapshot)
-//! - `touring-learning` — RL state snapshots (QTable, LinUCB, ESAA event records, CRDT graphs)
+//! - `touring-hooks-core` — dependency graph snapshots (`ArchivedIndexSnapshot`)
+//! - `touring-intelligence` — ESAA event records (`ArchivedEventRecord`) and the
+//!   CRDT semantic graph (`ArchivedGraphSnapshot`, `ArchivedCrdtEdge`, `ArchivedNodeWeight`)
 //!
-//! # Note on touring-cognitive
-//!
-//! touring-cognitive defines its own local GoTSnapshot/GotNodeSnapshot types
-//! in `snapshot.rs` because they capture engine-specific state (max_depth,
-//! beam_width, pheromone_trails) semantically different from the IPC templates.
-//! See `touring-cognitive/src/snapshot.rs` for details.
+//! A template with no consumer is removed, not kept "for later": on 18/09/2026 eight
+//! of them (hook events, symbols, Q-table, LinUCB, GoT) had only this crate's own
+//! round-trip test, and their docs named crates that no longer exist.
 
 #![deny(missing_docs)]
 // RBP-01 elite-lint ratchet (2026-06-16): prod-unwrap-free leaf — lock against

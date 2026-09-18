@@ -64,7 +64,7 @@ pub use plan::result::{
     Artifact, CommitReport, ExecutionStatus, FileAction, RenderedFile,
     SpeculateReport, ValidationReport, VgpReport,
 };
-pub use plan::schema::GeneratorPlan;
+pub use plan::schema::{GeneratorPlan, PLAN_SCHEMA_VERSION};
 pub use registry::plan_registry::{PlanExecutorHandle, PlanRegistry, SharedPlanRegistry};
 pub use shape::RenderShape;
 

@@ -780,8 +780,15 @@ pub fn format_output(
 ) -> serde_json::Value {
     match result {
         Ok(output) => {
+            // 18/09/2026 — `success` was `true` whenever the executor RETURNED, so a
+            // program that exited 1, or was killed by its wall-clock budget, read as a
+            // success. MCP puts a tool-execution failure INSIDE the result with the
+            // error flag set (spec 2025-11-25, "Error Handling"); the envelope now
+            // carries the two facts apart: `executed` (the executor produced a result)
+            // and `success` (the PROGRAM succeeded — see [`program_succeeded`]).
             let mut v = serde_json::json!({
-                "success": true,
+                "success": program_succeeded(output),
+                "executed": true,
                 "stdout": output.stdout,
                 "stderr": output.stderr,
                 "exit_code": output.exit_code,
@@ -815,9 +822,18 @@ pub fn format_output(
         }
         Err(e) => serde_json::json!({
             "success": false,
+            "executed": false,
             "error": e.to_string(),
         }),
     }
+}
+
+/// Whether the PROGRAM succeeded: it exited 0 and the run carries no failure
+/// (timeout, abort, output cut by the byte cap, …). The one predicate behind the
+/// envelope's `success` and the MCP result's `isError`, so they cannot disagree.
+#[must_use]
+pub(crate) fn program_succeeded(output: &CtxExecuteOutput) -> bool {
+    output.exit_code == 0 && output.failure.is_none()
 }
 
 #[cfg(test)]
@@ -851,6 +867,7 @@ mod tests {
         let v = format_output(Ok(&out));
         for campo in [
             "success",
+            "executed",
             "stdout",
             "stderr",
             "exit_code",
@@ -869,6 +886,48 @@ mod tests {
         }
         assert_eq!(v["run_id"], "run-1-2");
         assert_eq!(v["tmp_bytes"], 4096);
+    }
+
+    /// 18/09/2026 — `success` e' o veredito do PROGRAMA, `executed` o do executor.
+    /// Antes, `success: true` saia junto de `exit_code: 1` e de `failure.kind: timeout`.
+    #[test]
+    fn success_is_the_programs_verdict_and_executed_the_executors() {
+        let verdict = |out: &CtxExecuteOutput| {
+            let v = format_output(Ok(out));
+            (v["success"].as_bool(), v["executed"].as_bool())
+        };
+        let clean = CtxExecuteOutput::default();
+        assert_eq!(verdict(&clean), (Some(true), Some(true)));
+        let exited = CtxExecuteOutput {
+            exit_code: 1,
+            ..Default::default()
+        };
+        assert_eq!(verdict(&exited), (Some(false), Some(true)));
+        let timed_out = CtxExecuteOutput {
+            exit_code: -2,
+            failure: Some(RunFailure {
+                kind: RunFailureKind::Timeout,
+                phase: RunPhase::Execute,
+                message: "budget".into(),
+            }),
+            ..Default::default()
+        };
+        assert_eq!(verdict(&timed_out), (Some(false), Some(true)));
+        // Exit 0 with the output cut by the byte cap: data was lost, not a success.
+        let cut = CtxExecuteOutput {
+            failure: Some(RunFailure {
+                kind: RunFailureKind::OutputLimit,
+                phase: RunPhase::Execute,
+                message: "cap".into(),
+            }),
+            ..Default::default()
+        };
+        assert_eq!(verdict(&cut), (Some(false), Some(true)));
+        let refused = format_output(Err(&CtxExecuteError::InvalidLanguage("cobol".into())));
+        assert_eq!(
+            (refused["success"].as_bool(), refused["executed"].as_bool()),
+            (Some(false), Some(false))
+        );
     }
 
     /// `tmp_bytes` e' elidido quando zero — o comum e' o run nao deixar nada, e um

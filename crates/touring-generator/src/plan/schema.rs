@@ -1,11 +1,20 @@
 //! `GeneratorPlan` v2.0 — versioned, migration-safe, cross-platform schema.
 
 use crate::core::capacity::PlanPriority;
+use crate::error::GenerateError;
 use crate::generator::kinds::GeneratorKind;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;
+
+/// The plan schema this engine speaks.
+///
+/// A plan is accepted when its declared version shares the MAJOR component
+/// (`2`, `2.0`, `2.1.3`, `v2`): minor revisions only add `#[serde(default)]`
+/// fields, while a major one may change what an existing field means — and a
+/// plan read under the wrong meaning passes every later check.
+pub const PLAN_SCHEMA_VERSION: &str = "2.0";
 
 /// Top-level plan submitted to the generator pipeline.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -66,6 +75,35 @@ impl GeneratorPlan {
         &self.version
     }
 
+    /// Whether this plan was written for the schema the engine speaks
+    /// ([`PLAN_SCHEMA_VERSION`], compared by MAJOR component).
+    ///
+    /// The schema was declared "versioned, migration-safe" and nothing checked it
+    /// until 18/09/2026: [`GenerateError::SchemaVersionMismatch`] and its
+    /// `FailureReason` twin existed and were never built, and the e2e fixture
+    /// carried `version: "8"` through the whole pipeline.
+    ///
+    /// # Errors
+    /// [`GenerateError::SchemaVersionMismatch`] when the major component differs
+    /// or is not a number.
+    pub fn check_schema_version(&self) -> Result<(), GenerateError> {
+        let major = |v: &str| -> Option<u32> {
+            v.trim()
+                .trim_start_matches(['v', 'V'])
+                .split('.')
+                .next()?
+                .parse()
+                .ok()
+        };
+        match (major(self.version()), major(PLAN_SCHEMA_VERSION)) {
+            (Some(plan), Some(engine)) if plan == engine => Ok(()),
+            _ => Err(GenerateError::SchemaVersionMismatch {
+                plan_version: self.version().to_owned(),
+                engine_version: PLAN_SCHEMA_VERSION.to_owned(),
+            }),
+        }
+    }
+
     /// The single source of truth for plan skeletons: every directive comes
     /// from the sub-structs' `Default` impls, so a skeleton can never drift
     /// from what `Deserialize` accepts. Callers that hand-build plan JSON
@@ -78,7 +116,7 @@ impl GeneratorPlan {
         file_path: impl Into<String>,
     ) -> Self {
         Self {
-            version: "2.0".to_owned(),
+            version: PLAN_SCHEMA_VERSION.to_owned(),
             plan_id: Uuid::nil(),
             intent: intent.into(),
             cila_level: CilaLevel::L2,
@@ -444,6 +482,37 @@ pub enum InvariantEnforcement {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn plan_of_version(version: &str) -> GeneratorPlan {
+        let mut plan = GeneratorPlan::skeleton("probe", GeneratorKind::RustModule, "src/x.rs");
+        plan.version = version.to_owned();
+        plan
+    }
+
+    #[test]
+    fn a_plan_of_the_engines_major_version_is_accepted() {
+        for v in ["2", "2.0", "2.1.3", "v2.0", " 2.0 "] {
+            assert!(plan_of_version(v).check_schema_version().is_ok(), "{v:?}");
+        }
+        // The skeleton is born on the engine's version — by construction.
+        let skeleton = GeneratorPlan::skeleton("probe", GeneratorKind::RustModule, "src/x.rs");
+        assert!(skeleton.check_schema_version().is_ok());
+    }
+
+    #[test]
+    fn a_plan_of_another_major_or_no_version_is_rejected_naming_both() {
+        for v in ["8", "1.0", "3.0", "", "two", "2x"] {
+            let verdict = plan_of_version(v).check_schema_version();
+            assert!(
+                matches!(
+                    &verdict,
+                    Err(GenerateError::SchemaVersionMismatch { plan_version, engine_version })
+                        if plan_version == v && engine_version == PLAN_SCHEMA_VERSION
+                ),
+                "{v:?} must be rejected naming both versions, got {verdict:?}"
+            );
+        }
+    }
 
     #[test]
     fn skeleton_roundtrips_through_serde() {

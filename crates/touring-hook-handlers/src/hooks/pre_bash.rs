@@ -87,18 +87,14 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
 
     // SECURITY: PreToolValidator gate — block dangerous commands before execution.
     // Validate the tool invocation against known dangerous patterns (rm -rf, git reset --hard, etc.).
-    let tool_name = extract_command_short(command);
-    let params = command
-        .strip_prefix(&format!("{} ", tool_name))
-        .unwrap_or("")
-        .trim();
-
-    let validation = runtime.ctx.pre_tool_validator.validate(&tool_name, params);
+    // Every simple command of the line, each by its own words (18/09/2026): the
+    // old split validated ONE tool with the text after it at the start of the
+    // line — empty for `cd x && git push -f`, raw text for everything else.
+    let validation = runtime.ctx.pre_tool_validator.validate_command(command);
     if validation.is_blocked() {
         tracing::warn!(
-            "PreToolValidator blocked: tool={} params={} reason={}",
-            tool_name,
-            params,
+            "PreToolValidator blocked: command={} reason={}",
+            command,
             validation.reason.as_deref().unwrap_or("unknown")
         );
         return HookResponse::Deny {
