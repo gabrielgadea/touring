@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.7162591950375831,
+      "actual": 0.6510844243853611,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 93503.0,
+      "actual": 12751.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 150655.0,
+      "actual": 567807.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 94527.0,
+      "actual": 534527.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -255,7 +255,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.19649446494464945,
+      "actual": 0.19631336405529953,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -387,7 +387,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.6541566797022833,
+      "actual": 0.6540547357800479,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.455656456425156,
+      "actual": 0.4563674647118459,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -409,7 +409,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.107796139775451,
+      "actual": 0.10776894942615714,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -431,7 +431,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.03067484662576687,
+      "actual": 0.03063308373042886,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
@@ -468,46 +468,46 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 951,
+      "exception": 956,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 214
+      "timeout": 217
     },
     "by_language": {
       "?": 1,
-      "bash": 7291,
+      "bash": 7297,
       "go": 1,
-      "js": 89,
+      "js": 91,
       "perl": 4,
       "php": 1,
-      "python": 7612,
+      "python": 7628,
       "ruby": 4,
       "rust": 4,
-      "shell": 112,
+      "shell": 115,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 13953,
-    "runs_total": 15126,
+    "runs_ok": 13972,
+    "runs_total": 15153,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9224514081713606,
-    "wasted_attempts_retry_pairs": 712
+    "success_rate": 0.9220616379594799,
+    "wasted_attempts_retry_pairs": 717
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 126,
+    "brief_runs": 127,
     "file_runs": 2074,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 5884,
+    "inline_runs": 5892,
     "orchestrate_runs": 130,
     "persistent_file_runs": 906,
     "reuse_ratio": 0.114,
     "scratch_file_runs": 1168,
     "status": "FAIL",
     "total_tmp_bytes": 251119125,
-    "v1_runs": 7167,
-    "v2_runs": 7958
+    "v1_runs": 7186,
+    "v2_runs": 7966
   },
   "code_mode_signal_use": {
     "available": true,
@@ -516,7 +516,7 @@
     "non_canonical_calls": 118,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 536,
+    "total_calls": 538,
     "used": 7
   },
   "context_budget": {
@@ -543,34 +543,34 @@
         "zero_proposition_blocks": 0
       },
       "other": {
-        "blocks": 2664,
-        "bytes": 545950,
-        "duplicate_bytes": 153070,
-        "duplicate_ratio": 0.28,
+        "blocks": 2674,
+        "bytes": 547689,
+        "duplicate_bytes": 154687,
+        "duplicate_ratio": 0.282,
         "mean_bytes": 204,
-        "propositions": 2450,
-        "propositions_per_kb": 4.595,
-        "zero_proposition_blocks": 1950
+        "propositions": 2464,
+        "propositions_per_kb": 4.607,
+        "zero_proposition_blocks": 1957
       },
       "past-lessons": {
-        "blocks": 1705,
-        "bytes": 186240,
-        "duplicate_bytes": 91352,
-        "duplicate_ratio": 0.491,
+        "blocks": 1716,
+        "bytes": 187767,
+        "duplicate_bytes": 91448,
+        "duplicate_ratio": 0.487,
         "mean_bytes": 109,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 1705
+        "zero_proposition_blocks": 1716
       },
       "post-tool-echo": {
-        "blocks": 720,
-        "bytes": 256004,
-        "duplicate_bytes": 41000,
-        "duplicate_ratio": 0.16,
-        "mean_bytes": 355,
-        "propositions": 318,
-        "propositions_per_kb": 1.272,
-        "zero_proposition_blocks": 402
+        "blocks": 729,
+        "bytes": 259778,
+        "duplicate_bytes": 41320,
+        "duplicate_ratio": 0.159,
+        "mean_bytes": 356,
+        "propositions": 321,
+        "propositions_per_kb": 1.265,
+        "zero_proposition_blocks": 408
       },
       "session-start": {
         "blocks": 51,
@@ -583,19 +583,19 @@
         "zero_proposition_blocks": 38
       },
       "touring-suggest": {
-        "blocks": 229,
-        "bytes": 316182,
+        "blocks": 231,
+        "bytes": 317932,
         "duplicate_bytes": 11711,
         "duplicate_ratio": 0.037,
-        "mean_bytes": 1380,
-        "propositions": 942,
-        "propositions_per_kb": 3.051,
+        "mean_bytes": 1376,
+        "propositions": 951,
+        "propositions_per_kb": 3.063,
         "zero_proposition_blocks": 0
       }
     },
-    "bytes_scanned": 75894313,
-    "capped": true,
-    "duplicate_blocks": 3285,
+    "bytes_scanned": 76799847,
+    "capped": false,
+    "duplicate_blocks": 3296,
     "duplicate_injection_ratio": 0.243,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
@@ -603,46 +603,46 @@
       "duplicate_injection_ratio",
       "injection_follow_ratio"
     ],
-    "injected_bytes_per_turn": 7546.589,
+    "injected_bytes_per_turn": 7552.869,
     "injected_bytes_per_turn_ceil": 3000.0,
-    "injection_follow_ratio": 0.532,
+    "injection_follow_ratio": 0.531,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 1276,
-    "must_followed": 679,
+    "must_emitted": 1284,
+    "must_followed": 682,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 3224,
+    "tool_calls": 3251,
     "tool_output": {
       "by_tool": [
         {
-          "bytes": 3443684,
-          "mean_bytes": 1586,
-          "results": 2171,
-          "reused_bytes": 174006,
+          "bytes": 3454131,
+          "mean_bytes": 1583,
+          "results": 2182,
+          "reused_bytes": 174151,
           "reused_line_ratio": 0.079,
-          "share": 0.737,
+          "share": 0.732,
           "tool": "Bash",
-          "zero_reuse_results": 346
+          "zero_reuse_results": 348
         },
         {
-          "bytes": 933774,
-          "mean_bytes": 3471,
-          "results": 269,
-          "reused_bytes": 112096,
-          "reused_line_ratio": 0.148,
-          "share": 0.2,
+          "bytes": 963290,
+          "mean_bytes": 3502,
+          "results": 275,
+          "reused_bytes": 113698,
+          "reused_line_ratio": 0.145,
+          "share": 0.204,
           "tool": "Read",
           "zero_reuse_results": 5
         },
         {
-          "bytes": 87609,
+          "bytes": 88663,
           "mean_bytes": 215,
-          "results": 406,
+          "results": 412,
           "reused_bytes": 357,
           "reused_line_ratio": 0.011,
           "share": 0.019,
           "tool": "Edit",
-          "zero_reuse_results": 115
+          "zero_reuse_results": 116
         },
         {
           "bytes": 71503,
@@ -725,6 +725,16 @@
           "zero_reuse_results": 0
         },
         {
+          "bytes": 4954,
+          "mean_bytes": 1651,
+          "results": 3,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "Grep",
+          "zero_reuse_results": 1
+        },
+        {
           "bytes": 4775,
           "mean_bytes": 434,
           "results": 11,
@@ -803,31 +813,41 @@
           "share": 0.0,
           "tool": "PushNotification",
           "zero_reuse_results": 1
+        },
+        {
+          "bytes": 39,
+          "mean_bytes": 39,
+          "results": 1,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.0,
+          "tool": "StructuredOutput",
+          "zero_reuse_results": 1
         }
       ],
-      "bytes": 4671416,
+      "bytes": 4717426,
       "reuse_ratio": 0.061,
-      "reused_bytes": 286459
+      "reused_bytes": 288206
     },
-    "tpcd_proxy_bytes_per_tool_call": 2169.528,
-    "transcripts_scanned": 2,
-    "user_turns": 197,
+    "tpcd_proxy_bytes_per_tool_call": 2199.588,
+    "transcripts_scanned": 3,
+    "user_turns": 198,
     "window_bytes": {
-      "assistant": 270834,
-      "injection": 1486678,
-      "injection_share": 0.213,
-      "tool_result_share": 0.668,
-      "tool_results": 4671416,
-      "user": 565630
+      "assistant": 273545,
+      "injection": 1495468,
+      "injection_share": 0.209,
+      "tool_result_share": 0.66,
+      "tool_results": 4717426,
+      "user": 664423
     }
   },
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "cli-kpi": 1,
-      "cli-wiring-cycles": 1,
-      "cli-wiring-modules": 1,
-      "cli-wiring-orphans": 2
+      "cli-gate-metrics": 1,
+      "cli-index-status": 1,
+      "cli-kpi": 2,
+      "cli-wiring-orphans": 1
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -839,7 +859,7 @@
     "post_bash_delivery_ratio": null,
     "post_bash_dispatched": 0,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789752381
+    "since_epoch": 1789753080
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",

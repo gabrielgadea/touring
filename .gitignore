@@ -101,3 +101,8 @@ eval/autoresearch/corpus.json
 # Estado de runtime da ferramenta Graft (análise trailhq/Graft, 12/09/2026):
 # `graft/.cache/telemetry-repo-id.json` identifica esta máquina para a telemetria dela.
 /graft/
+
+# Índice SCIP gerado por `rust-analyzer scip .` (via `touring wiring scip-ingest`): 105 MB,
+# acima do limite de 100 MB do GitHub, e regenerável. Retirado do histórico não publicado
+# em 18/09/2026; o teste que o lê (`scip_ingest.rs`, #[ignore]) lê do disco.
+/index.scip
