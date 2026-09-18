@@ -59,6 +59,37 @@ impl FileKnowledgeDB {
             .execute(&sql, params![file_path, line_num, kind, content])?;
         Ok(self.conn.last_insert_rowid())
     }
+    /// Replace every TODO row of `file_path` with `todos` (`(line_num, kind, content)`), atomically.
+    ///
+    /// The rows are derived from the file's current content, so a reindex must REPLACE them:
+    /// appending with [`Self::insert_todo`] duplicated every marker on each edit and kept markers
+    /// the code had already dropped as "unresolved" forever.
+    pub fn replace_todos(
+        &self,
+        file_path: &str,
+        todos: &[(i64, &str, &str)],
+    ) -> crate::errors::Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            &format!(
+                "DELETE FROM {} WHERE file_path = ?1",
+                schema_guard::TABLE_FILE_TODOS
+            ),
+            params![file_path],
+        )?;
+        {
+            let mut stmt = tx.prepare(&format!(
+                "INSERT INTO {} (file_path, line_num, kind, content, resolved, created_at)
+                 VALUES (?1, ?2, ?3, ?4, 0, datetime('now'))",
+                schema_guard::TABLE_FILE_TODOS
+            ))?;
+            for (line_num, kind, content) in todos {
+                stmt.execute(params![file_path, line_num, kind, content])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
     /// Mark a TODO as resolved.
     pub fn resolve_todo(&self, id: i64) -> crate::errors::Result<()> {
         let sql = format!(

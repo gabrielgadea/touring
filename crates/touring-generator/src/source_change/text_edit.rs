@@ -123,7 +123,7 @@ impl TextEdit {
     /// Panics if an indel range exceeds the source text length.
     #[must_use]
     pub fn apply_all(&self, source: &str) -> String {
-        if self.indels.is_empty() {
+        if self.is_empty() {
             return source.to_string();
         }
 

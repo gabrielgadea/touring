@@ -304,6 +304,18 @@ timestamp: 2026-08-20T11:15:00-03:00
     o `pgrep -f` do `safe-clean.sh` acusava o próprio shell que o invocava e perdia os `rustc`
     reais. Narrativa e números: `docs/audits/b6-e-captura-de-crash-2026-09-16.md`.
 
+23. **Órfãos do juiz e o cwd do daemon (18/09/2026)**. (a) `file_todos` é estado DERIVADO do
+    conteúdo: o reindex lê marcadores com `TodoKind::from_comment_line` (atrás de qualquer líder de
+    comentário, palavra-chave em maiúsculas, `NOTE` fora) e grava com `replace_todos`, que troca o
+    conjunto do arquivo; `insert_todo` acumulava. (b) **O resolvedor de imports Rust monta o mapa de
+    crates a partir do `cwd` do daemon** (`symbol_extractors::find_workspace_root`, cacheado pela vida
+    do processo): daemon nascido fora do workspace resolve zero `use touring_x::…` e os grava como
+    `external` — órfãos falsos no juiz e dívida do resolvedor lida como zero. Antes de confiar numa
+    lista de órfãos, `readlink /proc/<pid do daemon>/cwd`. Correção proposta, não aplicada. (c) Remoção
+    de símbolo: o oráculo final é o `cargo check` — grep perde import agrupado, e `#[deprecated]` não
+    acende no uso de um alias do item. `--all-features` no workspace falha por desenho no binário
+    `touring` (alocadores exclusivos). Narrativa: `docs/audits/orfaos-24-2026-09-18.md`.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

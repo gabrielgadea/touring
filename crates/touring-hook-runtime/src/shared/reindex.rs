@@ -4,6 +4,8 @@
 
 use std::path::Path;
 
+use touring_foundation::types::TodoKind;
+
 use crate::runtime::HookRuntime;
 
 use super::feature_flags::extract_features_auto;
@@ -559,33 +561,34 @@ pub fn reindex_file_with_old(
     }
 
     // ── Pln2: Wire TODOs/FIXMEs into file_todos table ────────────────────
-    for (line_idx, line) in content.lines().enumerate() {
-        let trimmed = line.trim();
-        let kind = if trimmed.starts_with("TODO") {
-            "TODO"
-        } else if trimmed.starts_with("FIXME") {
-            "FIXME"
-        } else if trimmed.starts_with("XXX") {
-            "XXX"
-        } else {
-            continue;
-        };
-        // Extract the actual content after the tag
-        let content_part = trimmed
-            .find(':')
-            .map(|p| trimmed[p + 1..].trim())
-            .unwrap_or("");
-        if !content_part.is_empty() {
-            let _ = runtime.ctx.knowledge.insert_todo(
-                rel_path,
-                (line_idx + 1) as i64,
-                kind,
-                content_part,
-            );
-        }
-    }
+    // The rows are derived from this content, so they REPLACE the file's previous set.
+    let markers = todo_markers(&content);
+    let labels: Vec<String> = markers.iter().map(|(_, kind, _)| kind.to_string()).collect();
+    let rows: Vec<(i64, &str, &str)> = markers
+        .iter()
+        .zip(&labels)
+        .map(|((line, _, text), label)| (*line, label.as_str(), *text))
+        .collect();
+    let _ = runtime.ctx.knowledge.replace_todos(rel_path, &rows);
 
     Ok(())
+}
+
+/// The actionable debt markers of a file: `(1-based line, kind, text)`.
+///
+/// Markers are read behind any comment leader ([`TodoKind::from_comment_line`]); `NOTE` is left
+/// out because it is informational, not debt. Until 18/09/2026 this loop required the line to
+/// START with the keyword, so `// TODO:` comments never reached `file_todos` — the table held 6
+/// rows for a repository with 78 comment TODOs.
+pub fn todo_markers(content: &str) -> Vec<(i64, TodoKind, &str)> {
+    content
+        .lines()
+        .enumerate()
+        .filter_map(|(idx, line)| {
+            let (kind, text) = TodoKind::from_comment_line(line)?;
+            (kind != TodoKind::Note).then_some(((idx + 1) as i64, kind, text))
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -706,6 +709,60 @@ mod edit_producer_tests {
             producers(&rt, "src/flags.rs"),
             ["first"],
             "the removed pub fn is gone"
+        );
+    }
+}
+
+/// The TODO path end to end (18/09/2026): the reindex reads markers behind comment leaders
+/// and REPLACES the file's rows. Before, it read only lines starting with the keyword (6 rows
+/// for 78 comment TODOs in this repository) and appended on every reindex.
+#[cfg(test)]
+mod todo_marker_tests {
+    fn todos(rt: &crate::HookRuntime, file: &str) -> Vec<(i64, String, String)> {
+        rt.ctx
+            .knowledge
+            .get_unresolved_todos(file)
+            .expect("todos")
+            .into_iter()
+            .map(|(_, line, kind, text)| (line, kind, text))
+            .collect()
+    }
+
+    #[test]
+    fn a_reindex_records_comment_markers_and_replaces_them_on_the_next() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        let file = root.join("src/debt.rs");
+        std::fs::write(
+            &file,
+            "// TODO: wire the cache\nfn f() {}\n    /// FIXME(gabriel): off by one\n\
+             // NOTE: informational, not debt\n// Note: prose\n",
+        )
+        .expect("write");
+        let rt = crate::HookRuntime::new(root).expect("runtime");
+        let path = file.to_string_lossy().to_string();
+
+        super::reindex_file_with_old(&rt, &path, "src/debt.rs", None).expect("reindex");
+        let first = todos(&rt, "src/debt.rs");
+        assert_eq!(
+            first,
+            [
+                (1, "TODO".to_string(), "wire the cache".to_string()),
+                (3, "FIXME".to_string(), "off by one".to_string()),
+            ]
+        );
+
+        // The same content again: the same rows, not twice as many.
+        super::reindex_file_with_old(&rt, &path, "src/debt.rs", None).expect("reindex again");
+        assert_eq!(todos(&rt, "src/debt.rs"), first);
+
+        // The marker leaves the code, the row leaves the table.
+        std::fs::write(&file, "fn f() {}\n// XXX: fragile\n").expect("edit");
+        super::reindex_file_with_old(&rt, &path, "src/debt.rs", None).expect("reindex after edit");
+        assert_eq!(
+            todos(&rt, "src/debt.rs"),
+            [(2, "XXX".to_string(), "fragile".to_string())]
         );
     }
 }

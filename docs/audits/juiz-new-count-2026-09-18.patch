@@ -1,0 +1,94 @@
+--- a/scripts/loop_converged.py
++++ b/scripts/loop_converged.py
+@@ -234,6 +234,30 @@
+     )
+ 
+ 
++NEW_ORPHANS_FILE = "orphans-new-last-run.txt"
++NEW_ORPHANS_SHOWN = 5
++
++
++def _report_new_orphans(new, list_file: Path) -> str:
++    """The NEW part of the orphan verdict: the COUNT, a sample that says it is one, and the full list on disk.
++
++    2026-09-18: the line printed ``new[:5]`` with nothing marking it as a sample. The five names were
++    fixed, the next run printed five others, and the full comparison — reproduced outside the judge —
++    held 24. The basenames in the line (``mod.rs::is_empty``) locate nothing either, so the whole list
++    goes to ``list_file``, rewritten every run and removed when nothing is new (a stale list would name
++    orphans that are gone).
++    """
++    if not new:
++        list_file.unlink(missing_ok=True)
++        return ""
++    list_file.write_text("\n".join(new) + "\n")
++    shown = new[:NEW_ORPHANS_SHOWN]
++    head = f"; NEW: {len(new)}"
++    if len(new) > len(shown):
++        head += f" (showing {len(shown)}; full list: {list_file})"
++    return head + ": " + ", ".join(n.rsplit("/", 1)[-1] for n in shown)
++
++
+ def clause_orphans(scope, bundle: Path):
+     """SCOPED, NAMED orphan gate (2026-08-02 rewrite).
+ 
+@@ -324,11 +348,8 @@
+                 "was nothing to compare against. Re-recorded now; the NEXT run measures against it."
+             )
+         new = [s for s in in_scope if s not in baseline]
+-        ok = not new
+         detail = f"scoped orphans={len(in_scope)} baseline={len(baseline)}"
+-        if new:
+-            detail += f"; NEW: {', '.join(n.rsplit('/', 1)[-1] for n in new[:5])}"
+-        return ok, detail
++        return not new, detail + _report_new_orphans(new, base_file.parent / NEW_ORPHANS_FILE)
+     base_file.parent.mkdir(parents=True, exist_ok=True)
+     base_file.write_text("\n".join(in_scope))
+     return True, f"scoped orphans={len(in_scope)} (named baseline recorded, first run)"
+--- a/scripts/test_orphans_scope.py
++++ b/scripts/test_orphans_scope.py
+@@ -113,6 +113,45 @@
+         self.assertFalse(ok)
+         self.assertIn("a.py::NOVO", detail)
+ 
++    def _with_baseline_a(self):
++        base = self.bundle / ".baseline"
++        base.mkdir()
++        (base / "orphans-scoped.txt").write_text("scripts/eleitoral/a.py::A\n")
++        return base / lc.NEW_ORPHANS_FILE
++
++    def test_a_sample_of_the_new_orphans_says_it_is_one(self):
++        # kills: printing `new[:5]` with no count (2026-09-18: 24 NEW read as the 5 the line showed)
++        lista = self._with_baseline_a()
++        novos = [("scripts/eleitoral/a.py", f"N{i}") for i in range(7)]
++        ok, detail = self._run_clause(_orphans_json(("scripts/eleitoral/a.py", "A"), *novos))
++        self.assertFalse(ok)
++        self.assertIn("NEW: 7 (showing 5; full list: ", detail)
++        self.assertIn(str(lista), detail)
++        self.assertNotIn("a.py::N6", detail, "only the sample travels in the line")
++        self.assertEqual(
++            lista.read_text().splitlines(), [f"scripts/eleitoral/a.py::N{i}" for i in range(7)],
++            "the list on disk names every new orphan, with its path",
++        )
++
++    def test_a_short_new_list_is_not_called_a_sample(self):
++        # kills: announcing "showing" when nothing was cut
++        self._with_baseline_a()
++        ok, detail = self._run_clause(
++            _orphans_json(("scripts/eleitoral/a.py", "A"), ("scripts/eleitoral/a.py", "N0"), ("scripts/eleitoral/a.py", "N1"))
++        )
++        self.assertFalse(ok)
++        self.assertIn("NEW: 2: a.py::N0, a.py::N1", detail)
++        self.assertNotIn("showing", detail)
++
++    def test_the_new_list_goes_away_when_nothing_is_new(self):
++        # kills: a stale list naming orphans that are gone
++        lista = self._with_baseline_a()
++        self._run_clause(_orphans_json(("scripts/eleitoral/a.py", "A"), ("scripts/eleitoral/a.py", "N0")))
++        self.assertTrue(lista.exists())
++        ok, detail = self._run_clause(_orphans_json(("scripts/eleitoral/a.py", "A")))
++        self.assertTrue(ok, detail)
++        self.assertFalse(lista.exists(), "no NEW, no list")
++
+     def test_deleted_file_resolves_against_the_index_root(self):
+         # a file gone from disk cannot be located by existence; the .touring root decides
+         ok, _ = self._run_clause(_orphans_json((".claude/hooks/apagado.py", "Y"), ("scripts/eleitoral/apagado.py", "Z")))

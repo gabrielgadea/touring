@@ -94,16 +94,6 @@ pub struct SymbolUse {
     pub line: u32,
 }
 
-/// File-level metadata snapshot for knowledge queries.
-#[salsa::input]
-pub struct FileMeta {
-    pub file: FileText,
-    pub complexity_score: f64,
-    pub quality_score: f64,
-    pub fan_out: u32,
-    pub fan_in: u32,
-}
-
 /// Counts salsa execution events, partitioned by recompute vs cache-hit.
 ///
 /// Cloned handles share the same atomics (so the database `Clone` keeps a single

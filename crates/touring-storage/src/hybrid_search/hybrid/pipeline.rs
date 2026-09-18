@@ -616,9 +616,6 @@ impl Default for SearchPipeline {
     }
 }
 
-/// Alias for convenience.
-pub type HybridScorer = SearchPipeline;
-
 #[cfg(test)]
 mod tests {
     use super::*;

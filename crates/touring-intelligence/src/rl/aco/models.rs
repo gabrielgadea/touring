@@ -10,30 +10,6 @@ use std::fmt;
 
 // --- Enums ---
 
-/// Operation mode determines orchestration depth.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum OperationMode {
-    /// Resolve the task directly with no subagent orchestration.
-    Direct,
-    /// Lightweight orchestration with minimal phases.
-    Light,
-    /// Full multi-phase orchestration pipeline.
-    Complete,
-    /// Deepest orchestration with all phases and audits.
-    Deep,
-}
-
-impl fmt::Display for OperationMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Direct => write!(f, "Direct"),
-            Self::Light => write!(f, "Light"),
-            Self::Complete => write!(f, "Complete"),
-            Self::Deep => write!(f, "Deep"),
-        }
-    }
-}
-
 /// Task complexity classification.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Complexity {
@@ -153,25 +129,6 @@ impl fmt::Display for ExecutionStatus {
 }
 
 // --- N2: Intent & Objective Structs ---
-
-/// Parsed user intent with gap analysis and risk assessment.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntentSpec {
-    /// Original prompt text as supplied by the user.
-    pub raw_prompt: String,
-    /// Inferred underlying need behind the prompt.
-    pub real_need: String,
-    /// Analysis of gaps between stated and real need.
-    pub gap_analysis: String,
-    /// Selected orchestration depth for this intent.
-    pub operation_mode: OperationMode,
-    /// Risks identified up front.
-    pub preliminary_risks: Vec<String>,
-    /// Anti-patterns to guard against during execution.
-    pub anti_patterns_to_watch: Vec<String>,
-    /// Stable hash identifying the objective.
-    pub objective_hash: String,
-}
 
 /// Single measurable success criterion with threshold.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -367,14 +324,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_operation_mode_serialization() {
-        let mode = OperationMode::Complete;
-        let json = serde_json::to_string(&mode).unwrap();
-        let back: OperationMode = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, mode);
-    }
-
-    #[test]
     fn test_all_enums_roundtrip() {
         for status in [
             ValidationStatus::Pass,
@@ -421,14 +370,6 @@ mod tests {
             current_value: 0.5,
         };
         assert!(!not_met.is_met());
-    }
-
-    #[test]
-    fn test_operation_mode_display() {
-        assert_eq!(OperationMode::Direct.to_string(), "Direct");
-        assert_eq!(OperationMode::Light.to_string(), "Light");
-        assert_eq!(OperationMode::Complete.to_string(), "Complete");
-        assert_eq!(OperationMode::Deep.to_string(), "Deep");
     }
 
     #[test]
@@ -483,10 +424,10 @@ mod tests {
     fn test_display_in_format_string() {
         // Verify Display works in format! macros (the primary use case)
         let msg = format!(
-            "Mode: {}, Status: {}",
-            OperationMode::Deep,
+            "Complexity: {}, Status: {}",
+            Complexity::Trivial,
             ValidationStatus::Pass
         );
-        assert_eq!(msg, "Mode: Deep, Status: PASS");
+        assert_eq!(msg, format!("Complexity: {}, Status: PASS", Complexity::Trivial));
     }
 }

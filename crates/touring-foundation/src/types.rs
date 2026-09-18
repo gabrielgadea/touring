@@ -415,8 +415,7 @@ impl fmt::Display for TodoKind {
 }
 
 impl TodoKind {
-    /// All variants in declared order. Used by
-    /// `touring ast scan-debt` to walk every marker type in one pass.
+    /// All variants in declared order.
     pub const ALL: [TodoKind; 6] = [
         Self::Todo,
         Self::Fixme,
@@ -430,7 +429,7 @@ impl TodoKind {
     /// Returns `None` if the string does not match any known keyword.
     /// (Named `parse` rather than `from_str` to avoid confusion with
     /// `std::str::FromStr`, which requires a `Result` return type.)
-    pub fn parse(s: &str) -> Option<Self> {
+    fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "todo" => Some(Self::Todo),
             "fixme" => Some(Self::Fixme),
@@ -440,6 +439,35 @@ impl TodoKind {
             "deprecated" => Some(Self::Deprecated),
             _ => None,
         }
+    }
+
+    /// Reads a marker comment line: `// TODO: text`, `# FIXME(owner): text`, `* XXX: text`.
+    ///
+    /// Returns the kind and the trimmed text after the colon. The keyword must be written in
+    /// capitals — the marker convention — so prose such as `// Note: …` is not a marker; the
+    /// text must be non-empty. A plain line (`TODO: text`, as in Markdown) is read too.
+    /// Only line-leading comments count: a trailing `x = 1  # TODO: …` is not read.
+    #[must_use]
+    pub fn from_comment_line(line: &str) -> Option<(Self, &str)> {
+        let body = line.trim_start();
+        let body = ["///", "//!", "//", "/*", "#", "*", "--"]
+            .iter()
+            .find_map(|leader| body.strip_prefix(leader))
+            .unwrap_or(body)
+            .trim_start_matches(['*', '!', '/'])
+            .trim_start();
+        let keyword_len = body
+            .find(|c: char| !c.is_ascii_uppercase())
+            .unwrap_or(body.len());
+        let (keyword, rest) = body.split_at(keyword_len);
+        let kind = Self::parse(keyword)?;
+        let rest = match rest.strip_prefix('(') {
+            Some(owned) => &owned[owned.find(')')? + 1..],
+            None => rest,
+        };
+        let text = rest.strip_prefix(':')?.trim();
+        let text = text.strip_suffix("*/").map_or(text, str::trim_end);
+        (!text.is_empty()).then_some((kind, text))
     }
 }
 
@@ -680,6 +708,46 @@ mod tests_more {
         assert_eq!(json, "\"fixme\"");
         let back: TodoKind = serde_json::from_str("\"hack\"").unwrap();
         assert_eq!(back, TodoKind::Hack);
+    }
+
+    #[test]
+    fn todo_marker_is_read_behind_every_comment_leader() {
+        // The reindex extractor used to require the line to START with the keyword, so a
+        // `// TODO:` comment never reached file_todos: measured 18/09/2026, the table held 6 rows
+        // for a repository with 78 TODOs in comment lines.
+        let cases = [
+            ("    // TODO: wire the cache", TodoKind::Todo, "wire the cache"),
+            ("/// FIXME(gabriel): off by one", TodoKind::Fixme, "off by one"),
+            ("//! XXX: fragile", TodoKind::Xxx, "fragile"),
+            ("# HACK: pin the version", TodoKind::Hack, "pin the version"),
+            ("   * DEPRECATED: use v2", TodoKind::Deprecated, "use v2"),
+            ("/* TODO: close the block */", TodoKind::Todo, "close the block"),
+            ("-- TODO: index the column", TodoKind::Todo, "index the column"),
+            ("//TODO:no space", TodoKind::Todo, "no space"),
+            ("TODO: plain markdown line", TodoKind::Todo, "plain markdown line"),
+            ("# NOTE: informational", TodoKind::Note, "informational"),
+        ];
+        for (line, kind, text) in cases {
+            assert_eq!(TodoKind::from_comment_line(line), Some((kind, text)), "{line:?}");
+        }
+    }
+
+    #[test]
+    fn todo_marker_rejects_prose_and_code() {
+        for line in [
+            "// Note: prose, not a marker",
+            "// TODOS: plural is another word",
+            "// TODO without a colon",
+            "// TODO:   ",
+            "// TODO(unclosed: x",
+            "let s = \"TODO: inside a string\";",
+            "x = 1  # TODO: trailing comment",
+            "#[deprecated(note = \"x\")]",
+            "fn todo() {}",
+            "",
+        ] {
+            assert_eq!(TodoKind::from_comment_line(line), None, "{line:?}");
+        }
     }
 
     // ── EdgeConfidence tests (W5 wave 2026-06-04) ─────────────────────────

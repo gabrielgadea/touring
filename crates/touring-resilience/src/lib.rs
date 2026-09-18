@@ -8,7 +8,6 @@
 //!   - [`sentinel`]: PSI memory-pressure guard + CPU P/E core scheduler (+ the
 //!     `touring-resource-monitor` binary under the `resource-monitor-bin` feature).
 //!     Uses `unsafe` for libc CPU-affinity syscalls (SAFETY-commented at each site).
-//!   - [`error`]: typed errors via `thiserror`.
 //!   - [`types`]: public data types.
 //!
 //! All three subsystems were relocated verbatim from `touring-foundation`.
@@ -19,12 +18,10 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
 pub mod conflict;
-pub mod error;
 pub mod failover;
 pub mod sentinel;
 pub mod types;
 
-pub use error::{Error, Result};
 pub use failover::{
     Failover, FailoverCoordinator, FailoverError, FailoverMetrics, FailoverState, Health,
 };
@@ -35,6 +32,6 @@ mod tests {
     use super::*;
     #[test]
     fn smoke_re_exports_compile() {
-        let _err: Result<()> = Ok(());
+        let _: FailoverState = FailoverState::default();
     }
 }

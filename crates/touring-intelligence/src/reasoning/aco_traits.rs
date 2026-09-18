@@ -14,9 +14,6 @@
 //! This trait is provided so both can be accessed through a common interface
 //! where appropriate, without forcing them to share the same key space.
 
-use std::sync::Arc;
-use std::sync::Mutex;
-
 /// ACO pheromone layer — deposit, query, and evaporate pheromone trails.
 ///
 /// Implementors store pheromone as `Arc<Mutex<>>` so the layer can be shared
@@ -61,6 +58,3 @@ pub trait PheromoneLayer: Send + Sync {
         base_ucb + alpha * self.strength(state, action)
     }
 }
-
-/// Smart pointer alias for a shared, synchronizable pheromone layer.
-pub type SharedPheromoneLayer = Arc<Mutex<dyn PheromoneLayer>>;

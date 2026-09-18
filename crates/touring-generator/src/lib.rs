@@ -61,7 +61,7 @@ pub use generator::kinds::GeneratorKind;
 pub use plan::contracts::{Contracts, SymbolRef};
 pub use plan::failure::FailureReport;
 pub use plan::result::{
-    Artifact, CommitReport, ExecutionStatus, FileAction, GenerateResult, RenderedFile,
+    Artifact, CommitReport, ExecutionStatus, FileAction, RenderedFile,
     SpeculateReport, ValidationReport, VgpReport,
 };
 pub use plan::schema::GeneratorPlan;

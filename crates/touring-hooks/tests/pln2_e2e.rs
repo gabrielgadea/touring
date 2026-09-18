@@ -138,39 +138,27 @@ fn pln2_todos_kinds_classification() {
 fn pln2_todos_extraction_from_content() {
     let (_tmp, kb) = temp_knowledge_db();
 
-    // Lines must start with TODO/FIXME/XXX directly (no // prefix) to match extraction logic
-    let content = r#"
-TODO: implement feature X
-FIXME: refactor this function
-XXX: remove deprecated code
-TODO: add integration tests
-    "#;
-
-    for (line_idx, line) in content.lines().enumerate() {
-        let trimmed = line.trim();
-        let kind = if trimmed.starts_with("TODO") {
-            "TODO"
-        } else if trimmed.starts_with("FIXME") {
-            "FIXME"
-        } else if trimmed.starts_with("XXX") {
-            "XXX"
-        } else {
-            continue;
-        };
-        let content_part = trimmed
-            .find(':')
-            .map(|p| trimmed[p + 1..].trim())
-            .unwrap_or("");
-        if !content_part.is_empty() {
-            let _ = kb.insert_todo("src/test.rs", (line_idx + 1) as i64, kind, content_part);
-        }
-    }
+    // This test used to carry its own copy of the extraction loop, and the copy stated the
+    // defect as a rule: "lines must start with TODO/FIXME/XXX directly (no // prefix)". It now
+    // calls the extractor the reindex uses, over plain lines AND comment lines.
+    let content = "TODO: implement feature X\n\
+                   // FIXME: refactor this function\n\
+                   # XXX: remove deprecated code\n\
+                   /// HACK(ci): pin the toolchain\n\
+                   // NOTE: informational, not debt\n";
+    let markers = touring_hooks::shared::reindex::todo_markers(content);
+    let labels: Vec<String> = markers.iter().map(|(_, k, _)| k.to_string()).collect();
+    let rows: Vec<(i64, &str, &str)> = markers
+        .iter()
+        .zip(&labels)
+        .map(|((line, _, text), label)| (*line, label.as_str(), *text))
+        .collect();
+    kb.replace_todos("src/test.rs", &rows).unwrap();
+    kb.replace_todos("src/test.rs", &rows).unwrap();
 
     let todos = kb.get_unresolved_todos("src/test.rs").unwrap();
     let kinds: Vec<&str> = todos.iter().map(|t| t.2.as_str()).collect();
-    assert!(kinds.contains(&"TODO"));
-    assert!(kinds.contains(&"FIXME"));
-    assert!(kinds.contains(&"XXX"));
+    assert_eq!(kinds, ["TODO", "FIXME", "XXX", "HACK"], "twice replaced, once stored");
 }
 
 // ── edge_confidence ───────────────────────────────────────────────────────────

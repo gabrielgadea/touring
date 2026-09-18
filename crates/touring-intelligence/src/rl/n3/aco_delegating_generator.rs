@@ -172,15 +172,6 @@ impl std::fmt::Display for AcoDelegationError {
 
 impl std::error::Error for AcoDelegationError {}
 
-/// Result of attempting ACO delegation.
-#[derive(Debug)]
-pub enum DelegationResult {
-    /// Successfully delegated to ACO Python.
-    Aco(GeneratorSpec),
-    /// Fell back to Rust implementation.
-    Rust(GeneratorSpec),
-}
-
 impl MetaGenerator for AcoDelegatingGenerator {
     fn generate_spec(&self, domain: &DomainSpec) -> LearningResult<GeneratorSpec> {
         // Try ACO first if domain is supported

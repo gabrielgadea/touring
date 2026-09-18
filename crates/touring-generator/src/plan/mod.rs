@@ -11,8 +11,8 @@ pub use failure::{
     NextAction, SuggestionSource,
 };
 pub use result::{
-    Artifact, AuditEntry, CheckResult, CommitReport, ExecutionStatus, FileAction, GenerateResult,
-    InvariantCheckResult, LayerResult, RenderedFile, SpeculateReport, TemplateError, TokenUsage,
+    Artifact, AuditEntry, CheckResult, CommitReport, ExecutionStatus, FileAction,
+    InvariantCheckResult, LayerResult, RenderedFile, SpeculateReport, TemplateError,
     ValidationReport, VgpReport,
 };
 pub use schema::{

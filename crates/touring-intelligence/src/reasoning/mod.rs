@@ -140,7 +140,7 @@ pub use tool_planning::{ToolGraph, ToolPlan, plan_tool_chain};
 /// ACO pheromone layer trait — formalizes the interface for pheromone-based ACO layers.
 /// Allows any implementation (MctsPheromonoLayer, UnifiedPheromoneBus) to be accessed
 /// through a common interface. See `aco_traits` for details.
-pub use aco_traits::{PheromoneLayer, SharedPheromoneLayer};
+pub use aco_traits::PheromoneLayer;
 
 /// Streaming MCTS — processes thought sequences as a stream.
 pub use mcts_streaming::StreamingMCTS;

@@ -164,10 +164,10 @@ async fn fetch_url(
     let mut request = client.get(url);
 
     // Add basic auth if .netrc credentials are provided
-    if let Some(auth_info) = auth {
-        if let (Some(u), Some(p)) = (&auth_info.username, &auth_info.password) {
-            request = request.basic_auth(u, Some(p));
-        }
+    if let Some(auth_info) = auth
+        && let (Some(u), Some(p)) = (&auth_info.username, &auth_info.password)
+    {
+        request = request.basic_auth(u, Some(p));
     }
 
     let response = request
@@ -210,57 +210,74 @@ fn content_id(content: &str) -> String {
 
 /// Parse `.netrc` file for machine authentication.
 ///
-/// Returns a map of machine → (login, password).
+/// Returns a map of machine → (login, password); an entry without a password is not stored.
+///
+/// `.netrc` is a stream of tokens, not of lines: `machine h login u password p` on ONE line is
+/// the common form. This parser used to read one keyword per line, so that form yielded
+/// nothing, and a following `machine` stored its own name as the previous entry's password.
+/// `default` closes the current entry and is not stored; `macdef` bodies (to the next blank
+/// line) and `account` values are skipped.
 #[cfg(feature = "http-client")]
 pub fn parse_netrc(netrc_path: &Path) -> std::collections::HashMap<String, (String, String)> {
     let mut machines = std::collections::HashMap::new();
-    let mut current_machine: Option<String> = None;
-    let mut login: Option<String> = None;
-
-    let content = match fs::read_to_string(netrc_path) {
-        Ok(c) => c,
-        Err(_) => return machines,
+    let Ok(content) = fs::read_to_string(netrc_path) else {
+        return machines;
     };
 
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
+    let store = |out: &mut std::collections::HashMap<String, (String, String)>,
+                 machine: Option<String>,
+                 login: Option<String>,
+                 password: Option<String>| {
+        if let (Some(m), Some(l), Some(p)) = (machine, login, password) {
+            out.insert(m, (l, p));
         }
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.is_empty() {
-            continue;
-        }
-        match parts[0] {
-            "machine" if parts.len() >= 2 => {
-                // Save previous machine
-                if let (Some(m), Some(l), Some(_p)) = (&current_machine, &login, &parts.get(1)) {
-                    machines.insert(m.clone(), (l.clone(), (*parts[1]).to_string()));
-                }
-                current_machine = Some(parts[1].to_string());
-                login = None;
+    };
+    let (mut machine, mut login, mut password) = (None, None, None);
+    let mut tokens = netrc_tokens(&content).into_iter();
+    while let Some(token) = tokens.next() {
+        match token {
+            "machine" | "default" => {
+                store(&mut machines, machine.take(), login.take(), password.take());
+                machine = (token == "machine")
+                    .then(|| tokens.next().map(str::to_string))
+                    .flatten();
             }
-            "login" if parts.len() >= 2 => {
-                login = Some(parts[1].to_string());
-            }
-            "password" if parts.len() >= 2 => {
-                if let (Some(m), Some(l)) = (&current_machine, &login) {
-                    machines.insert(m.clone(), (l.clone(), parts[1].to_string()));
-                }
-                login = None;
-                current_machine = None;
+            "login" => login = tokens.next().map(str::to_string),
+            "password" => password = tokens.next().map(str::to_string),
+            "account" => {
+                tokens.next();
             }
             _ => {}
         }
     }
-
-    // Save last machine
-    if let (Some(m), Some(l), Some(p)) = (current_machine, login, None::<&str>) {
-        // No password for last machine — skip
-        let _ = (m, l, p);
-    }
-
+    store(&mut machines, machine, login, password);
     machines
+}
+
+/// The `.netrc` tokens across lines, without `#` comment lines and `macdef` bodies
+/// (a macro body runs to the next blank line).
+#[cfg(feature = "http-client")]
+fn netrc_tokens(content: &str) -> Vec<&str> {
+    let mut tokens = Vec::new();
+    let mut in_macro = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if in_macro {
+            in_macro = !trimmed.is_empty();
+            continue;
+        }
+        if trimmed.starts_with('#') {
+            continue;
+        }
+        for word in trimmed.split_whitespace() {
+            if word == "macdef" {
+                in_macro = true;
+                break;
+            }
+            tokens.push(word);
+        }
+    }
+    tokens
 }
 
 #[cfg(test)]
@@ -334,5 +351,33 @@ mod tests {
         );
         // other.net has no password — not stored
         assert!(!machines.contains_key("other.net"));
+    }
+
+    #[cfg(feature = "http-client")]
+    #[test]
+    fn test_netrc_tokens_span_lines_and_skip_default_and_macros() {
+        let dir = make_temp_dir();
+        let netrc_path = dir.path().join(".netrc");
+        fs::write(
+            &netrc_path,
+            "# comment\nmachine a.com\n  login ua\n  password pa\n\
+             machine b.com login ub\nmacdef init\ncd /tmp\nput x\n\n\
+             default login anon password guest\n\
+             machine c.com login uc account acct password pc\n",
+        )
+        .unwrap();
+
+        let machines = parse_netrc(&netrc_path);
+        assert_eq!(
+            machines.get("a.com"),
+            Some(&("ua".to_string(), "pa".to_string()))
+        );
+        // b.com has no password: not stored, and the next `machine` name is never its password
+        assert!(!machines.contains_key("b.com"), "{machines:?}");
+        assert_eq!(
+            machines.get("c.com"),
+            Some(&("uc".to_string(), "pc".to_string()))
+        );
+        assert_eq!(machines.len(), 2, "default is not a machine: {machines:?}");
     }
 }
