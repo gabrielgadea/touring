@@ -146,3 +146,77 @@ verdict
   converged                False
   statement                exploration incomplete
   ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.782,
+    "symbols": 312263,
+    "orphans": 735
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.9383672,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F4_5"
+    ],
+    "file_count": 2463
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 735
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "loop-state:task_1782996878252842489"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1780\n  LOC                      728145\n  pub_symbols (est.)       11815\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         93302  205    894    \n  touring-intelligence   82296  193    2116   \n  touring-cli            46182  71     416    \n  touring-analysis       42644  112    601    \n  touring-code           41333  106    711    \n  touring-dispatch       38738  34     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-18-work-outer/diagnostics/touring-20260918T175453.md"
+}
+NEW_FINDINGS=39
+
+===========================================
+explore --until-dry — bash_ast_validator.rs
+===========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 39
+  rounds                   12
+  new-per-round            25 → 13 → 1 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     144     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)

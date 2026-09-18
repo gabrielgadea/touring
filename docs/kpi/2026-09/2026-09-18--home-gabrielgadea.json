@@ -85,7 +85,7 @@
       "rationale": "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 20d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
+      "stub_reason": "stale — measured 21d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
       "threshold": 5100.0
     },
     {
@@ -97,7 +97,7 @@
       "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 20d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
+      "stub_reason": "stale — measured 21d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
       "threshold": 0.75
     },
     {
@@ -112,7 +112,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 0.0,
+      "actual": 397.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 643.0,
+      "actual": 658.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 161279.0,
+      "actual": 471295.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 154623.0,
+      "actual": 369151.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,36 +178,36 @@
       "threshold": 0.7
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.4
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.1
     },
     {
@@ -332,7 +332,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 15.0,
+      "actual": 17.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.parallel_runs",
@@ -468,55 +468,55 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 948,
+      "exception": 972,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 214
+      "timeout": 223
     },
     "by_language": {
       "?": 1,
-      "bash": 7257,
+      "bash": 7365,
       "go": 1,
-      "js": 89,
+      "js": 95,
       "perl": 4,
       "php": 1,
-      "python": 7603,
+      "python": 7663,
       "ruby": 4,
       "rust": 4,
-      "shell": 112,
+      "shell": 119,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 13913,
-    "runs_total": 15083,
+    "runs_ok": 14061,
+    "runs_total": 15264,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9224292249552476,
-    "wasted_attempts_retry_pairs": 711
+    "success_rate": 0.921187106918239,
+    "wasted_attempts_retry_pairs": 730
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 123,
-    "file_runs": 2046,
+    "brief_runs": 127,
+    "file_runs": 2074,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 5869,
-    "orchestrate_runs": 126,
-    "persistent_file_runs": 878,
-    "reuse_ratio": 0.111,
+    "inline_runs": 5966,
+    "orchestrate_runs": 133,
+    "persistent_file_runs": 906,
+    "reuse_ratio": 0.113,
     "scratch_file_runs": 1168,
     "status": "FAIL",
     "total_tmp_bytes": 251119125,
-    "v1_runs": 7167,
-    "v2_runs": 7915
+    "v1_runs": 7223,
+    "v2_runs": 8040
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
-    "duration_ms_p99": 1049,
-    "non_canonical_calls": 115,
+    "duration_ms_p99": 1199,
+    "non_canonical_calls": 118,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 527,
+    "total_calls": 550,
     "used": 7
   },
   "context_budget": {
@@ -794,17 +794,23 @@
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "cli-flywheel-status": 1,
-      "cli-gate-metrics": 1,
-      "cli-health-delta-status": 1,
-      "cli-incremental-status": 1,
-      "cli-index-status": 1,
-      "cli-kpi": 27,
-      "cli-learning-status": 68,
-      "cli-resource-monitor-status": 1,
-      "cli-session-list": 1,
-      "cli-wiring-status": 1,
-      "subagent-stop": 1
+      "ceg-observe": 4,
+      "cli-flywheel-status": 6,
+      "cli-gate-metrics": 6,
+      "cli-health-delta-status": 6,
+      "cli-incremental-status": 6,
+      "cli-index-status": 6,
+      "cli-kpi": 35,
+      "cli-learning-status": 102,
+      "cli-resource-monitor-status": 6,
+      "cli-session-list": 6,
+      "cli-suggest": 5,
+      "cli-wiring-status": 6,
+      "post-bash": 3,
+      "post-edit": 1,
+      "post-tool-batch": 7,
+      "post-tool-rl": 7,
+      "pre-bash": 4
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -813,20 +819,20 @@
     },
     "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": null,
-    "post_bash_dispatched": 0,
+    "post_bash_delivery_ratio": 0.0,
+    "post_bash_dispatched": 3,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789745798
+    "since_epoch": 1789768166
   },
   "project_root": "/home/gabrielgadea",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-18",
   "summary": {
-    "advisory": 5,
+    "advisory": 8,
     "failed": 0,
     "passed": 20,
     "regressions": 0,
-    "stub": 16,
+    "stub": 13,
     "total": 41
   }
 }
