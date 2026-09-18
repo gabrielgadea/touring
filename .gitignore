@@ -97,3 +97,7 @@ eval/autoresearch/corpus.json
 
 # artefatos de cobertura (cross-audit 03/09/2026)
 *.profraw
+
+# Estado de runtime da ferramenta Graft (análise trailhq/Graft, 12/09/2026):
+# `graft/.cache/telemetry-repo-id.json` identifica esta máquina para a telemetria dela.
+/graft/

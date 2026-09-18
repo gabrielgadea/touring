@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 1083.0,
+      "actual": 735.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.7122034410640176,
+      "actual": 0.7162591950375831,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -123,18 +123,18 @@
       "threshold": 800.0
     },
     {
-      "actual": 643.0,
+      "actual": 93503.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
       "name": "Coupling hook dispatch latency p50 (D5, leading)",
       "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 1000.0
     },
     {
-      "actual": 161279.0,
+      "actual": 150655.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 154623.0,
+      "actual": 94527.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -244,7 +244,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.3905325443786982,
+      "actual": 0.3848396501457726,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -255,7 +255,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.1949390815370197,
+      "actual": 0.19649446494464945,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -354,7 +354,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.5630712979890311,
+      "actual": 0.5662431941923775,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -387,7 +387,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.6553750868988182,
+      "actual": 0.6541566797022833,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.45597693501885117,
+      "actual": 0.455656456425156,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -409,7 +409,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.10800733110029703,
+      "actual": 0.107796139775451,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -431,7 +431,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.030853616729516628,
+      "actual": 0.03067484662576687,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
@@ -468,181 +468,181 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 948,
+      "exception": 951,
       "output-limit": 4,
       "proc-exit": 3,
       "timeout": 214
     },
     "by_language": {
       "?": 1,
-      "bash": 7257,
+      "bash": 7291,
       "go": 1,
       "js": 89,
       "perl": 4,
       "php": 1,
-      "python": 7603,
+      "python": 7612,
       "ruby": 4,
       "rust": 4,
       "shell": 112,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 13913,
-    "runs_total": 15083,
+    "runs_ok": 13953,
+    "runs_total": 15126,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9224292249552476,
-    "wasted_attempts_retry_pairs": 711
+    "success_rate": 0.9224514081713606,
+    "wasted_attempts_retry_pairs": 712
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 123,
-    "file_runs": 2046,
+    "brief_runs": 126,
+    "file_runs": 2074,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 5869,
-    "orchestrate_runs": 126,
-    "persistent_file_runs": 878,
-    "reuse_ratio": 0.111,
+    "inline_runs": 5884,
+    "orchestrate_runs": 130,
+    "persistent_file_runs": 906,
+    "reuse_ratio": 0.114,
     "scratch_file_runs": 1168,
     "status": "FAIL",
     "total_tmp_bytes": 251119125,
     "v1_runs": 7167,
-    "v2_runs": 7915
+    "v2_runs": 7958
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
     "duration_ms_p99": 1049,
-    "non_canonical_calls": 115,
+    "non_canonical_calls": 118,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 527,
+    "total_calls": 536,
     "used": 7
   },
   "context_budget": {
     "available": true,
     "by_family": {
       "code-mode-deny": {
-        "blocks": 108,
-        "bytes": 106761,
-        "duplicate_bytes": 52769,
-        "duplicate_ratio": 0.494,
-        "mean_bytes": 988,
+        "blocks": 112,
+        "bytes": 130565,
+        "duplicate_bytes": 57147,
+        "duplicate_ratio": 0.438,
+        "mean_bytes": 1165,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 108
+        "zero_proposition_blocks": 112
       },
       "loop-outer": {
-        "blocks": 1,
-        "bytes": 315,
+        "blocks": 2,
+        "bytes": 520,
         "duplicate_bytes": 0,
         "duplicate_ratio": 0.0,
-        "mean_bytes": 315,
-        "propositions": 1,
-        "propositions_per_kb": 3.251,
+        "mean_bytes": 260,
+        "propositions": 2,
+        "propositions_per_kb": 3.938,
         "zero_proposition_blocks": 0
       },
       "other": {
-        "blocks": 2629,
-        "bytes": 541157,
-        "duplicate_bytes": 151380,
+        "blocks": 2664,
+        "bytes": 545950,
+        "duplicate_bytes": 153070,
         "duplicate_ratio": 0.28,
-        "mean_bytes": 205,
-        "propositions": 2444,
-        "propositions_per_kb": 4.625,
-        "zero_proposition_blocks": 1917
+        "mean_bytes": 204,
+        "propositions": 2450,
+        "propositions_per_kb": 4.595,
+        "zero_proposition_blocks": 1950
       },
       "past-lessons": {
-        "blocks": 1695,
-        "bytes": 184264,
-        "duplicate_bytes": 90996,
-        "duplicate_ratio": 0.494,
-        "mean_bytes": 108,
+        "blocks": 1705,
+        "bytes": 186240,
+        "duplicate_bytes": 91352,
+        "duplicate_ratio": 0.491,
+        "mean_bytes": 109,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 1695
+        "zero_proposition_blocks": 1705
       },
       "post-tool-echo": {
-        "blocks": 710,
-        "bytes": 253782,
-        "duplicate_bytes": 40422,
-        "duplicate_ratio": 0.159,
-        "mean_bytes": 357,
-        "propositions": 316,
-        "propositions_per_kb": 1.275,
-        "zero_proposition_blocks": 394
+        "blocks": 720,
+        "bytes": 256004,
+        "duplicate_bytes": 41000,
+        "duplicate_ratio": 0.16,
+        "mean_bytes": 355,
+        "propositions": 318,
+        "propositions_per_kb": 1.272,
+        "zero_proposition_blocks": 402
       },
       "session-start": {
-        "blocks": 47,
-        "bytes": 47278,
+        "blocks": 51,
+        "bytes": 51217,
         "duplicate_bytes": 7138,
-        "duplicate_ratio": 0.151,
-        "mean_bytes": 1005,
-        "propositions": 12,
+        "duplicate_ratio": 0.139,
+        "mean_bytes": 1004,
+        "propositions": 13,
         "propositions_per_kb": 0.26,
-        "zero_proposition_blocks": 35
+        "zero_proposition_blocks": 38
       },
       "touring-suggest": {
-        "blocks": 223,
-        "bytes": 309280,
-        "duplicate_bytes": 11267,
-        "duplicate_ratio": 0.036,
-        "mean_bytes": 1386,
-        "propositions": 924,
-        "propositions_per_kb": 3.059,
+        "blocks": 229,
+        "bytes": 316182,
+        "duplicate_bytes": 11711,
+        "duplicate_ratio": 0.037,
+        "mean_bytes": 1380,
+        "propositions": 942,
+        "propositions_per_kb": 3.051,
         "zero_proposition_blocks": 0
       }
     },
-    "bytes_scanned": 73823249,
+    "bytes_scanned": 75894313,
     "capped": true,
-    "duplicate_blocks": 3246,
-    "duplicate_injection_ratio": 0.245,
+    "duplicate_blocks": 3285,
+    "duplicate_injection_ratio": 0.243,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
       "injected_bytes_per_turn",
       "duplicate_injection_ratio",
       "injection_follow_ratio"
     ],
-    "injected_bytes_per_turn": 7674.665,
+    "injected_bytes_per_turn": 7546.589,
     "injected_bytes_per_turn_ceil": 3000.0,
     "injection_follow_ratio": 0.532,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 1264,
-    "must_followed": 673,
+    "must_emitted": 1276,
+    "must_followed": 679,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 3158,
+    "tool_calls": 3224,
     "tool_output": {
       "by_tool": [
         {
-          "bytes": 3376691,
-          "mean_bytes": 1592,
-          "results": 2121,
-          "reused_bytes": 172871,
-          "reused_line_ratio": 0.08,
-          "share": 0.738,
+          "bytes": 3443684,
+          "mean_bytes": 1586,
+          "results": 2171,
+          "reused_bytes": 174006,
+          "reused_line_ratio": 0.079,
+          "share": 0.737,
           "tool": "Bash",
-          "zero_reuse_results": 335
+          "zero_reuse_results": 346
         },
         {
-          "bytes": 908382,
-          "mean_bytes": 3427,
-          "results": 265,
-          "reused_bytes": 107392,
-          "reused_line_ratio": 0.147,
-          "share": 0.198,
+          "bytes": 933774,
+          "mean_bytes": 3471,
+          "results": 269,
+          "reused_bytes": 112096,
+          "reused_line_ratio": 0.148,
+          "share": 0.2,
           "tool": "Read",
           "zero_reuse_results": 5
         },
         {
-          "bytes": 86520,
-          "mean_bytes": 216,
-          "results": 400,
+          "bytes": 87609,
+          "mean_bytes": 215,
+          "results": 406,
           "reused_bytes": 357,
           "reused_line_ratio": 0.011,
           "share": 0.019,
           "tool": "Edit",
-          "zero_reuse_results": 114
+          "zero_reuse_results": 115
         },
         {
           "bytes": 71503,
@@ -650,19 +650,19 @@
           "results": 25,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
-          "share": 0.016,
+          "share": 0.015,
           "tool": "mcp__touring__touring_ctx_execute",
           "zero_reuse_results": 0
         },
         {
-          "bytes": 28273,
+          "bytes": 29262,
           "mean_bytes": 193,
-          "results": 146,
+          "results": 151,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.006,
           "tool": "Write",
-          "zero_reuse_results": 44
+          "zero_reuse_results": 46
         },
         {
           "bytes": 24653,
@@ -695,14 +695,14 @@
           "zero_reuse_results": 0
         },
         {
-          "bytes": 13644,
+          "bytes": 13952,
           "mean_bytes": 284,
-          "results": 48,
+          "results": 49,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.003,
           "tool": "Monitor",
-          "zero_reuse_results": 37
+          "zero_reuse_results": 38
         },
         {
           "bytes": 11327,
@@ -805,36 +805,29 @@
           "zero_reuse_results": 1
         }
       ],
-      "bytes": 4576645,
+      "bytes": 4671416,
       "reuse_ratio": 0.061,
-      "reused_bytes": 280620
+      "reused_bytes": 286459
     },
-    "tpcd_proxy_bytes_per_tool_call": 2153.592,
-    "transcripts_scanned": 1,
-    "user_turns": 188,
+    "tpcd_proxy_bytes_per_tool_call": 2169.528,
+    "transcripts_scanned": 2,
+    "user_turns": 197,
     "window_bytes": {
-      "assistant": 259820,
-      "injection": 1442837,
-      "injection_share": 0.212,
-      "tool_result_share": 0.673,
-      "tool_results": 4576645,
-      "user": 521742
+      "assistant": 270834,
+      "injection": 1486678,
+      "injection_share": 0.213,
+      "tool_result_share": 0.668,
+      "tool_results": 4671416,
+      "user": 565630
     }
   },
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "cli-flywheel-status": 1,
-      "cli-gate-metrics": 1,
-      "cli-health-delta-status": 1,
-      "cli-incremental-status": 1,
-      "cli-index-status": 1,
-      "cli-kpi": 25,
-      "cli-learning-status": 68,
-      "cli-resource-monitor-status": 1,
-      "cli-session-list": 1,
-      "cli-wiring-status": 1,
-      "subagent-stop": 1
+      "cli-kpi": 1,
+      "cli-wiring-cycles": 1,
+      "cli-wiring-modules": 1,
+      "cli-wiring-orphans": 2
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -846,15 +839,15 @@
     "post_bash_delivery_ratio": null,
     "post_bash_dispatched": 0,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789745798
+    "since_epoch": 1789752381
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-18",
   "summary": {
-    "advisory": 12,
+    "advisory": 13,
     "failed": 0,
-    "passed": 20,
+    "passed": 19,
     "regressions": 0,
     "stub": 9,
     "total": 41
