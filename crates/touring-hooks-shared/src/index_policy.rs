@@ -517,7 +517,9 @@ impl IndexPolicy {
                 let rel = rel.to_string_lossy();
                 return self
                     .excluded_reason(&rel)
-                    .or_else(|| classify_index_candidate(&rel, facts_from_metadata(&self.root, &abs)))
+                    .or_else(|| {
+                        classify_index_candidate(&rel, facts_from_metadata(&self.root, &abs))
+                    })
                     .or_else(|| self.gitignored(&abs, abs.is_dir()));
             }
             if let Some(c) = self.companions.iter().find(|c| abs.starts_with(&c.path)) {
@@ -881,7 +883,9 @@ mod tests {
         assert_eq!(policy.verdict_for_key("docs/run.py"), None);
         let abs = root.join("site/docs/run.py");
         assert_eq!(
-            policy.verdict_for_key(&abs.to_string_lossy()).map(|(v, _)| v),
+            policy
+                .verdict_for_key(&abs.to_string_lossy())
+                .map(|(v, _)| v),
             Some(IndexVerdict::Gitignored),
             "an absolute key under the root gets the same verdict"
         );

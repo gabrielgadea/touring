@@ -1824,11 +1824,19 @@ mod tests {
             std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
             std::fs::write(path, body).expect("write");
         }
-        let under_site = |files: &[PathBuf]| files.iter().filter(|f| f.starts_with(root.join("site"))).count();
+        let under_site = |files: &[PathBuf]| {
+            files
+                .iter()
+                .filter(|f| f.starts_with(root.join("site")))
+                .count()
+        };
 
         let source = enumerate_source_files(root);
         assert_eq!(under_site(&source), 0, "{source:?}");
-        assert!(source.iter().any(|f| f.ends_with("src/app.py")), "{source:?}");
+        assert!(
+            source.iter().any(|f| f.ends_with("src/app.py")),
+            "{source:?}"
+        );
         assert!(
             !source.iter().any(|f| f.ends_with("src/table.gen.py")),
             "a file rule refuses a file inside a walked directory: {source:?}"
@@ -1859,11 +1867,21 @@ mod tests {
         assert_eq!(lang_of(&write("install.sh", "echo\n")), "shell");
         assert_eq!(lang_of(&write("run.bash", "echo\n")), "shell");
         assert_eq!(lang_of(&write("prompt.zsh", "echo\n")), "shell");
-        assert_eq!(lang_of(&write("deploy", "#!/usr/bin/env bash\necho\n")), "shell");
+        assert_eq!(
+            lang_of(&write("deploy", "#!/usr/bin/env bash\necho\n")),
+            "shell"
+        );
         assert_eq!(lang_of(&write("hook", "#!/bin/sh -e\necho\n")), "shell");
-        assert_eq!(lang_of(&write("tool", "#!/usr/bin/env -S python3 -u\nprint()\n")), "python");
+        assert_eq!(
+            lang_of(&write("tool", "#!/usr/bin/env -S python3 -u\nprint()\n")),
+            "python"
+        );
         assert_eq!(lang_of(&write("notes", "plain text\n")), "rust");
-        assert_eq!(lang_of(&write("a.py", "#!/bin/bash\n")), "python", "the extension wins");
+        assert_eq!(
+            lang_of(&write("a.py", "#!/bin/bash\n")),
+            "python",
+            "the extension wins"
+        );
         assert_eq!(lang_of(dir.path()), "rust", "a directory keeps the default");
         assert_eq!(lang_of(&dir.path().join("missing")), "rust");
     }
@@ -1875,8 +1893,11 @@ mod tests {
     fn a_shell_script_is_not_applicable_exactly_where_no_dimension_reads_shell() {
         let dir = tempfile::tempdir().expect("tempdir");
         let script = dir.path().join("deploy");
-        std::fs::write(&script, "#!/bin/bash\nset -e\nif [ -n \"$1\" ]; then echo \"$1\"; fi\n")
-            .expect("write");
+        std::fs::write(
+            &script,
+            "#!/bin/bash\nset -e\nif [ -n \"$1\" ]; then echo \"$1\"; fi\n",
+        )
+        .expect("write");
         let rust = dir.path().join("lib.rs");
         std::fs::write(&rust, "pub fn a() -> i32 { 1 }\n").expect("write");
         for dim in DimId::ALL.iter().copied() {
@@ -1894,7 +1915,12 @@ mod tests {
         assert_ne!(f11.status, DimStatus::NotApplicable, "{}", f11.evidence);
         assert!(f11.evidence.contains("(shell)"), "{}", f11.evidence);
         let readme = run_verification(DimId::F3_11, &script).expect("F3.11");
-        assert_eq!(readme.status, DimStatus::NotApplicable, "{}", readme.evidence);
+        assert_eq!(
+            readme.status,
+            DimStatus::NotApplicable,
+            "{}",
+            readme.evidence
+        );
     }
 
     /// Canvas D (15/09/2026): `SOURCE_EXTS` had no shell, so no directory score
@@ -1916,9 +1942,18 @@ mod tests {
         }
         let names: Vec<String> = enumerate_source_files(root)
             .iter()
-            .map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned())
+            .map(|p| {
+                p.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .collect();
-        assert_eq!(names, ["install.sh", "lib.rs", "pre-commit", "update-touring"], "{names:?}");
+        assert_eq!(
+            names,
+            ["install.sh", "lib.rs", "pre-commit", "update-touring"],
+            "{names:?}"
+        );
         // A script is source, so an explicit `.sh` target is never read as a
         // repository artifact.
         assert!(is_source_file(&root.join("install.sh")));
@@ -1934,11 +1969,17 @@ mod tests {
         let root = dir.path();
         std::fs::write(root.join("real.sh"), "echo real\n").expect("write");
         std::os::unix::fs::symlink("real.sh", root.join("live.sh")).expect("live link");
-        std::os::unix::fs::symlink("gone/start.sh", root.join("dangling.sh")).expect("dangling link");
+        std::os::unix::fs::symlink("gone/start.sh", root.join("dangling.sh"))
+            .expect("dangling link");
         std::os::unix::fs::symlink("gone/lib.rs", root.join("dangling.rs")).expect("dangling link");
         let names: Vec<String> = enumerate_security_files(root)
             .iter()
-            .map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned())
+            .map(|p| {
+                p.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .collect();
         assert_eq!(names, ["live.sh", "real.sh"], "{names:?}");
     }

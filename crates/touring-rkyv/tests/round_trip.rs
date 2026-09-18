@@ -168,4 +168,3 @@ round_trip_test!(
 );
 
 // ── Cognitive / GoT Templates ───────────────────────────────────────────────
-

@@ -2798,7 +2798,11 @@ mod tests {
         for sub in [".config/mise", ".local/state/mise"] {
             let p = home.join(sub);
             if p.exists() {
-                assert!(raizes.contains(&p), "`{}` fora das raízes: {raizes:?}", p.display());
+                assert!(
+                    raizes.contains(&p),
+                    "`{}` fora das raízes: {raizes:?}",
+                    p.display()
+                );
             }
         }
         assert!(

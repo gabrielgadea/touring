@@ -716,19 +716,43 @@ mod tests_more {
         // `// TODO:` comment never reached file_todos: measured 18/09/2026, the table held 6 rows
         // for a repository with 78 TODOs in comment lines.
         let cases = [
-            ("    // TODO: wire the cache", TodoKind::Todo, "wire the cache"),
-            ("/// FIXME(gabriel): off by one", TodoKind::Fixme, "off by one"),
+            (
+                "    // TODO: wire the cache",
+                TodoKind::Todo,
+                "wire the cache",
+            ),
+            (
+                "/// FIXME(gabriel): off by one",
+                TodoKind::Fixme,
+                "off by one",
+            ),
             ("//! XXX: fragile", TodoKind::Xxx, "fragile"),
             ("# HACK: pin the version", TodoKind::Hack, "pin the version"),
             ("   * DEPRECATED: use v2", TodoKind::Deprecated, "use v2"),
-            ("/* TODO: close the block */", TodoKind::Todo, "close the block"),
-            ("-- TODO: index the column", TodoKind::Todo, "index the column"),
+            (
+                "/* TODO: close the block */",
+                TodoKind::Todo,
+                "close the block",
+            ),
+            (
+                "-- TODO: index the column",
+                TodoKind::Todo,
+                "index the column",
+            ),
             ("//TODO:no space", TodoKind::Todo, "no space"),
-            ("TODO: plain markdown line", TodoKind::Todo, "plain markdown line"),
+            (
+                "TODO: plain markdown line",
+                TodoKind::Todo,
+                "plain markdown line",
+            ),
             ("# NOTE: informational", TodoKind::Note, "informational"),
         ];
         for (line, kind, text) in cases {
-            assert_eq!(TodoKind::from_comment_line(line), Some((kind, text)), "{line:?}");
+            assert_eq!(
+                TodoKind::from_comment_line(line),
+                Some((kind, text)),
+                "{line:?}"
+            );
         }
     }
 

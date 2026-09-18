@@ -24,9 +24,7 @@ pub mod rust_meta_generator;
 pub mod wiring_config_gen;
 
 // Re-exports
-pub use aco_delegating_generator::{
-    AcoDelegatingGenerator, is_aco_available, test_delegation,
-};
+pub use aco_delegating_generator::{AcoDelegatingGenerator, is_aco_available, test_delegation};
 pub use cortex_handler_gen::{
     GeneratedHandler, HandlerGenConfig, generate_handler, generate_handlers,
 };

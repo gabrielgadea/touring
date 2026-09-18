@@ -746,14 +746,23 @@ fn snapshot_missing_memory_fields_deserializes_with_defaults() {
 fn test_embedding_runs_are_counted_per_device_and_labelled() {
     let cuda_before = global().embedding_texts_cuda_count.load(Ordering::Relaxed);
     let cpu_before = global().embedding_texts_cpu_count.load(Ordering::Relaxed);
-    let fallback_before = global().embedding_cuda_fallback_count.load(Ordering::Relaxed);
+    let fallback_before = global()
+        .embedding_cuda_fallback_count
+        .load(Ordering::Relaxed);
 
     record_embedding_run_cuda(32, 28_000);
     assert!(global().embedding_texts_cuda_count.load(Ordering::Relaxed) >= cuda_before + 32);
     record_embedding_run_cpu(1, 8_000);
     assert!(global().embedding_texts_cpu_count.load(Ordering::Relaxed) >= cpu_before + 1);
-    record_embedding_cuda_fallback("cuda: Failed to load library /x/libonnxruntime_providers_shared.so");
-    assert!(global().embedding_cuda_fallback_count.load(Ordering::Relaxed) >= fallback_before + 1);
+    record_embedding_cuda_fallback(
+        "cuda: Failed to load library /x/libonnxruntime_providers_shared.so",
+    );
+    assert!(
+        global()
+            .embedding_cuda_fallback_count
+            .load(Ordering::Relaxed)
+            >= fallback_before + 1
+    );
     assert!(
         GateMetricsSnapshot::capture()
             .embedding_cuda_fallback_reason

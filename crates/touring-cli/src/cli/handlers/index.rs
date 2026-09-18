@@ -3050,8 +3050,11 @@ mod index_why {
         let root = proj.path();
         std::fs::create_dir_all(root.join(".touring")).expect(".touring");
         // Top-level key, before any section: the per-project opt-in.
-        std::fs::write(root.join(".touring/touring.toml"), "polyglot_wiring = true\n")
-            .expect("touring.toml");
+        std::fs::write(
+            root.join(".touring/touring.toml"),
+            "polyglot_wiring = true\n",
+        )
+        .expect("touring.toml");
         // The four classes, plus the two real shapes the analise asked about:
         // `_FORMAS` (private, read by its own module) and `_NUMERAL_ARABICO`
         // (private, imported by a sibling of the same package).
@@ -3070,8 +3073,11 @@ mod index_why {
         // (~90) and dunder (7).
         std::fs::create_dir_all(root.join("pacote")).expect("pacote");
         std::fs::write(root.join("pacote/__init__.py"), "").expect("pacote init");
-        std::fs::write(root.join("pacote/formato.py"), "PUB_REL = 1\nMORTO_REL = 2\n")
-            .expect("formato.py");
+        std::fs::write(
+            root.join("pacote/formato.py"),
+            "PUB_REL = 1\nMORTO_REL = 2\n",
+        )
+        .expect("formato.py");
         std::fs::write(
             root.join("pacote/svg.py"),
             "from .formato import PUB_REL\n\n\ndef render():\n    return PUB_REL\n",
@@ -3186,7 +3192,12 @@ mod index_why {
         assert_eq!(first["generation"]["state"], "complete", "{first}");
         rt.ctx
             .knowledge
-            .record_consumer("src/lib.rs", "vanished_probe_9d4a", "crates/gone/src/ghost.rs", None)
+            .record_consumer(
+                "src/lib.rs",
+                "vanished_probe_9d4a",
+                "crates/gone/src/ghost.rs",
+                None,
+            )
             .expect("seed the legacy edge");
         let rows = |rt: &HookRuntime| -> i64 {
             rt.ctx
@@ -3202,10 +3213,20 @@ mod index_why {
         assert_eq!(rows(&rt), 1, "the seeded edge exists before the rebuild");
 
         let second = rebuild(&mut rt);
-        assert_eq!(rows(&rt), 0, "the edge of a vanished consumer is gone: {second}");
-        assert!(second["consumers_purged"].as_u64().unwrap_or(0) >= 1, "{second}");
+        assert_eq!(
+            rows(&rt),
+            0,
+            "the edge of a vanished consumer is gone: {second}"
+        );
         assert!(
-            second["policy_purged_by_reason"]["missing"].as_u64().unwrap_or(0) >= 1,
+            second["consumers_purged"].as_u64().unwrap_or(0) >= 1,
+            "{second}"
+        );
+        assert!(
+            second["policy_purged_by_reason"]["missing"]
+                .as_u64()
+                .unwrap_or(0)
+                >= 1,
             "the reason is named: {second}"
         );
     }
@@ -3220,10 +3241,16 @@ mod index_why {
         let root = proj.path();
         std::fs::create_dir_all(root.join("src")).expect("src");
         std::fs::create_dir_all(root.join("site/docs")).expect("site");
-        std::fs::write(root.join("src/lib.rs"), "pub fn gitignore_probe_live_7c1e() {}")
-            .expect("lib.rs");
-        std::fs::write(root.join("src/table.gen.rs"), "pub fn gitignore_probe_gen_7c1e() {}")
-            .expect("table.gen.rs");
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn gitignore_probe_live_7c1e() {}",
+        )
+        .expect("lib.rs");
+        std::fs::write(
+            root.join("src/table.gen.rs"),
+            "pub fn gitignore_probe_gen_7c1e() {}",
+        )
+        .expect("table.gen.rs");
         std::fs::write(
             root.join("site/docs/copy.rs"),
             "pub fn gitignore_probe_site_7c1e() {}",
@@ -3264,14 +3291,21 @@ mod index_why {
             0,
             "the ignored copy is gone from the store: {second}"
         );
-        assert_eq!(found(&rt, "gitignore_probe_live_7c1e"), 1, "the source stays");
+        assert_eq!(
+            found(&rt, "gitignore_probe_live_7c1e"),
+            1,
+            "the source stays"
+        );
         assert_eq!(
             found(&rt, "gitignore_probe_gen_7c1e"),
             0,
             "a file rule refuses a file inside a walked directory: {second}"
         );
         assert!(
-            second["policy_purged_by_reason"]["gitignored"].as_u64().unwrap_or(0) >= 1,
+            second["policy_purged_by_reason"]["gitignored"]
+                .as_u64()
+                .unwrap_or(0)
+                >= 1,
             "the sweep names the reason: {second}"
         );
 
@@ -3279,7 +3313,10 @@ mod index_why {
         let why: serde_json::Value = serde_json::from_str(&why).expect("why json");
         assert_eq!(why["status"], "gitignored", "{why}");
         let detail = why["detail"].as_str().unwrap_or_default();
-        assert!(detail.contains("/site/") && detail.contains(".gitignore"), "{why}");
+        assert!(
+            detail.contains("/site/") && detail.contains(".gitignore"),
+            "{why}"
+        );
     }
 
     /// Companion roots end to end over the REAL rebuild: a directory OUTSIDE

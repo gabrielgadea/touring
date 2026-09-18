@@ -21,7 +21,9 @@ use touring_analysis::quality::signal::{
     DEFAULT_TREND_EPSILON, build_workspace_from_path, compute_quality_signal,
     diff_signals_with_epsilon,
 };
-use touring_analysis::rules::{count_by_severity, diff_violations, evaluate, parse_path, parse_str};
+use touring_analysis::rules::{
+    count_by_severity, diff_violations, evaluate, parse_path, parse_str,
+};
 use touring_hooks::shared::federation::{FederationEntry, aggregate};
 
 use super::TouringServer;

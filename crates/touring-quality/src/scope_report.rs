@@ -523,7 +523,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    fn verdicts(rows: Vec<(&str, Result<DimScore>, usize)>) -> Vec<(PathBuf, Result<DimScore>, usize)> {
+    fn verdicts(
+        rows: Vec<(&str, Result<DimScore>, usize)>,
+    ) -> Vec<(PathBuf, Result<DimScore>, usize)> {
         rows.into_iter()
             .map(|(p, r, loc)| (PathBuf::from(p), r, loc))
             .collect()
@@ -534,17 +536,37 @@ mod tests {
     #[test]
     fn an_inapplicable_file_is_left_out_of_the_roll_up_not_counted_as_a_pass() {
         let scored = verdicts(vec![
-            ("src/a.rs", Ok(DimScore::from_value(0.4, "real finding")), 10),
-            ("scripts/big.sh", Ok(DimScore::not_applicable("[N/A] shell")), 1000),
+            (
+                "src/a.rs",
+                Ok(DimScore::from_value(0.4, "real finding")),
+                10,
+            ),
+            (
+                "scripts/big.sh",
+                Ok(DimScore::not_applicable("[N/A] shell")),
+                1000,
+            ),
         ]);
         let s = roll_up(AggKind::WeightedLoc, &scored);
         assert!((s.value - 0.4).abs() < 1e-6, "{}", s.evidence);
         assert_eq!(s.status, DimStatus::Fail, "{}", s.evidence);
-        assert!(s.evidence.contains("1 inapplicable file(s) left out"), "{}", s.evidence);
+        assert!(
+            s.evidence.contains("1 inapplicable file(s) left out"),
+            "{}",
+            s.evidence
+        );
         // The same file applicable and clean is weighed as before.
         let applicable = verdicts(vec![
-            ("src/a.rs", Ok(DimScore::from_value(0.4, "real finding")), 10),
-            ("scripts/big.sh", Ok(DimScore::from_value(1.0, "clean")), 1000),
+            (
+                "src/a.rs",
+                Ok(DimScore::from_value(0.4, "real finding")),
+                10,
+            ),
+            (
+                "scripts/big.sh",
+                Ok(DimScore::from_value(1.0, "clean")),
+                1000,
+            ),
         ]);
         assert!(roll_up(AggKind::WeightedLoc, &applicable).value > 0.99);
     }
@@ -557,7 +579,11 @@ mod tests {
         ]);
         let s = roll_up(AggKind::FailClosedLoc, &scored);
         assert_eq!(s.status, DimStatus::NotApplicable, "{}", s.evidence);
-        assert!(s.evidence.starts_with("[N/A] none of the 2 file(s)"), "{}", s.evidence);
+        assert!(
+            s.evidence.starts_with("[N/A] none of the 2 file(s)"),
+            "{}",
+            s.evidence
+        );
     }
 
     #[test]
@@ -582,7 +608,12 @@ mod tests {
         let report = score_scope(&scope, &[DimId::F1_1, DimId::F2_1, DimId::F2_4]).unwrap();
         for dim in [DimId::F1_1, DimId::F2_1, DimId::F2_4] {
             let s = &report.dimensions[&dim];
-            assert_eq!(s.status, DimStatus::NotApplicable, "{dim:?}: {}", s.evidence);
+            assert_eq!(
+                s.status,
+                DimStatus::NotApplicable,
+                "{dim:?}: {}",
+                s.evidence
+            );
             assert_eq!(s.evidence, crate::aggregate::EMPTY_SCOPE_EVIDENCE);
         }
         assert!(report.blockers.is_empty(), "{:?}", report.blockers);
@@ -611,7 +642,11 @@ mod tests {
         assert!(f24.evidence.contains("deploy.sh"), "{}", f24.evidence);
         let f19 = &report.dimensions[&DimId::F1_9];
         assert_ne!(f19.status, DimStatus::NotApplicable, "{}", f19.evidence);
-        assert!(f19.evidence.contains("1 inapplicable file(s) left out"), "{}", f19.evidence);
+        assert!(
+            f19.evidence.contains("1 inapplicable file(s) left out"),
+            "{}",
+            f19.evidence
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

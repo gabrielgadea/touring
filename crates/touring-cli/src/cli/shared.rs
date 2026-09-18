@@ -236,7 +236,9 @@ pub(crate) fn memory_recall_row_to_json(
 /// 2. **Silent creation of another project's database**: `Connection::open`
 ///    carries `SQLITE_OPEN_CREATE`, so probing a federated path that does not
 ///    exist made an empty database there.
-pub(crate) fn open_db_readonly(db: &std::path::Path) -> Result<rusqlite::Connection, rusqlite::Error> {
+pub(crate) fn open_db_readonly(
+    db: &std::path::Path,
+) -> Result<rusqlite::Connection, rusqlite::Error> {
     rusqlite::Connection::open_with_flags(
         db,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY

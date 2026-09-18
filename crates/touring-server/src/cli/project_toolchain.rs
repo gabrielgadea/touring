@@ -200,7 +200,10 @@ pub(crate) fn relink_bins_inner(
         // A link left by the previous channel would load its provider into the
         // new daemon.
         let _ = std::fs::remove_file(&link);
-        let Some(target) = daemon_dir.as_ref().map(|d| d.join(name)).filter(|p| p.exists())
+        let Some(target) = daemon_dir
+            .as_ref()
+            .map(|d| d.join(name))
+            .filter(|p| p.exists())
         else {
             continue;
         };
@@ -296,8 +299,11 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tmpdir");
         let dot = tmp.path().join("proj/.touring");
         std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
-        std::fs::write(dot.join("touring.toml"), "[toolchain]\nchannel = \"9.9.9\"\n")
-            .expect("write");
+        std::fs::write(
+            dot.join("touring.toml"),
+            "[toolchain]\nchannel = \"9.9.9\"\n",
+        )
+        .expect("write");
         let th = tmp.path().join("touring-home");
         let tc_bin = th.join("toolchains/9.9.9/bin");
         let dev = tmp.path().join("dev-bin");
@@ -323,8 +329,11 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tmpdir");
         let dot = tmp.path().join("proj/.touring");
         std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
-        std::fs::write(dot.join("touring.toml"), "[toolchain]\nchannel = \"9.9.9\"\n")
-            .expect("write");
+        std::fs::write(
+            dot.join("touring.toml"),
+            "[toolchain]\nchannel = \"9.9.9\"\n",
+        )
+        .expect("write");
         let th = tmp.path().join("touring-home");
         let tc_bin = th.join("toolchains/9.9.9/bin");
         let dev = tmp.path().join("dev-bin");
@@ -345,7 +354,11 @@ mod tests {
                 "bin/{lib} must not point at another build's provider"
             );
         }
-        assert_eq!(notes.len(), 3, "absent optional libs add no note: {notes:?}");
+        assert_eq!(
+            notes.len(),
+            3,
+            "absent optional libs add no note: {notes:?}"
+        );
     }
 
     #[test]

@@ -284,7 +284,12 @@ impl FileWatcher {
 
                     for file_event in events {
                         if let Some(ref gi) = gitignore
-                            && is_ignored(gi, &root_path, &file_event.path, file_event.path.is_dir())
+                            && is_ignored(
+                                gi,
+                                &root_path,
+                                &file_event.path,
+                                file_event.path.is_dir(),
+                            )
                         {
                             debug!("Ignoring path: {:?}", file_event.path);
                             continue;
@@ -883,8 +888,18 @@ mod tests {
 
         let deep_build_file = root.join("target/debug/deps/libfoo-1a2b.rlib");
         assert!(is_ignored(gi, root, &deep_build_file, false));
-        assert!(is_ignored(gi, root, &root.join("node_modules/pkg/index.js"), false));
-        assert!(!is_ignored(gi, root, &root.join("src/target_utils.rs"), false));
+        assert!(is_ignored(
+            gi,
+            root,
+            &root.join("node_modules/pkg/index.js"),
+            false
+        ));
+        assert!(!is_ignored(
+            gi,
+            root,
+            &root.join("src/target_utils.rs"),
+            false
+        ));
         assert!(
             !is_ignored(gi, root, Path::new("/elsewhere/target/x.o"), false),
             "a path outside the root is never matched against it"
@@ -899,8 +914,18 @@ mod tests {
         let gi = watcher.gitignore.as_ref().expect("project rules are built");
         let root = watcher.root_path();
 
-        assert!(is_ignored(gi, root, &root.join("site/docs/agentic-bench/run_bench.py"), false));
-        assert!(!is_ignored(gi, root, &root.join("docs/agentic-bench/run_bench.py"), false));
+        assert!(is_ignored(
+            gi,
+            root,
+            &root.join("site/docs/agentic-bench/run_bench.py"),
+            false
+        ));
+        assert!(!is_ignored(
+            gi,
+            root,
+            &root.join("docs/agentic-bench/run_bench.py"),
+            false
+        ));
     }
 
     #[test]

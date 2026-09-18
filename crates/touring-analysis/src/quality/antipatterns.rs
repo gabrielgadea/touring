@@ -254,7 +254,8 @@ mod tests {
         let w = detect_antipatterns(library, "python");
         assert!(w.iter().any(|(m, _)| m.contains("print()")), "{w:?}");
 
-        let diagnostics = "import sys\n\n\ndef helper(x):\n    print(\"warn\", file=sys.stderr)\n    return x\n";
+        let diagnostics =
+            "import sys\n\n\ndef helper(x):\n    print(\"warn\", file=sys.stderr)\n    return x\n";
         assert!(
             !detect_antipatterns(diagnostics, "python")
                 .iter()

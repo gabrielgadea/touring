@@ -414,7 +414,6 @@ impl KeywordMatcher {
     pub fn pattern_count(&self) -> usize {
         self.patterns.len()
     }
-
 }
 
 // ============================================================================

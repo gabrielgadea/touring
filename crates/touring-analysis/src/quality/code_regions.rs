@@ -243,17 +243,25 @@ pub fn python_docstring_regions(src: &str) -> Vec<(usize, usize)> {
 }
 
 fn only_comment_follows(b: &[u8], from: usize) -> bool {
-    let end = b[from..].iter().position(|&c| c == b'\n').map_or(b.len(), |p| from + p);
-    let rest = std::str::from_utf8(&b[from..end]).unwrap_or("").trim_start();
+    let end = b[from..]
+        .iter()
+        .position(|&c| c == b'\n')
+        .map_or(b.len(), |p| from + p);
+    let rest = std::str::from_utf8(&b[from..end])
+        .unwrap_or("")
+        .trim_start();
     rest.is_empty() || rest.starts_with('#')
 }
 
 fn opens_python_docstring(b: &[u8], i: usize) -> bool {
     const BLOCK_KEYWORDS: &[&str] = &[
-        "def", "class", "async", "if", "elif", "else", "for", "while", "try", "except",
-        "finally", "with", "match", "case",
+        "def", "class", "async", "if", "elif", "else", "for", "while", "try", "except", "finally",
+        "with", "match", "case",
     ];
-    let line_start = b[..i].iter().rposition(|&c| c == b'\n').map_or(0, |p| p + 1);
+    let line_start = b[..i]
+        .iter()
+        .rposition(|&c| c == b'\n')
+        .map_or(0, |p| p + 1);
     let mut lead = &b[line_start..i];
     if let Some((&last, rest)) = lead.split_last()
         && matches!(last, b'r' | b'R' | b'u' | b'U')
@@ -266,7 +274,10 @@ fn opens_python_docstring(b: &[u8], i: usize) -> bool {
     let mut end = line_start;
     while end > 0 {
         let newline = end - 1;
-        let start = b[..newline].iter().rposition(|&c| c == b'\n').map_or(0, |p| p + 1);
+        let start = b[..newline]
+            .iter()
+            .rposition(|&c| c == b'\n')
+            .map_or(0, |p| p + 1);
         let line = std::str::from_utf8(&b[start..newline]).unwrap_or("").trim();
         if line.is_empty() || line.starts_with('#') {
             end = start;
@@ -345,7 +356,10 @@ fn scan(src: &str, syn: &LangSyntax) -> Scan {
             if starts_with(b, i, lc)
                 && (!syn.comment_at_word_start
                     || i == 0
-                    || matches!(b[i - 1], b' ' | b'\t' | b'\n' | b';' | b'&' | b'|' | b'(' | b')'))
+                    || matches!(
+                        b[i - 1],
+                        b' ' | b'\t' | b'\n' | b';' | b'&' | b'|' | b'(' | b')'
+                    ))
             {
                 let start = i;
                 while i < n && b[i] != b'\n' {
@@ -758,10 +772,19 @@ mod tests {
         assert!(covered(src, &r, "Module doc"));
         assert!(covered(src, &r, "Doc of f"));
         assert!(covered(src, &r, "Doc of C"));
-        assert!(!covered(src, &r, "ARG UNION"), "an argument on its own line is code");
+        assert!(
+            !covered(src, &r, "ARG UNION"),
+            "an argument on its own line is code"
+        );
         assert!(!covered(src, &r, "ASSIGNED"));
-        assert!(!covered(src, &r, "OPERAND"), "something follows the closing quotes");
-        assert!(!covered(src, &r, "DICT VALUE"), "a dict key is not a block header");
+        assert!(
+            !covered(src, &r, "OPERAND"),
+            "something follows the closing quotes"
+        );
+        assert!(
+            !covered(src, &r, "DICT VALUE"),
+            "a dict key is not a block header"
+        );
         assert!(python_docstring_regions("x = 1\n").is_empty());
     }
 }

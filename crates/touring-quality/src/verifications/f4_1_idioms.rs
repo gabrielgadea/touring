@@ -107,12 +107,19 @@ fn shellcheck_idioms(bin: &str, target: &Path, raw: &str) -> (f32, String) {
     // Exit 0 = clean, 1 = findings; anything else is ShellCheck failing.
     if !matches!(output.status.code(), Some(0 | 1)) {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return unverified(format!("shellcheck exited {:?}: {}", output.status.code(), stderr.trim()));
+        return unverified(format!(
+            "shellcheck exited {:?}: {}",
+            output.status.code(),
+            stderr.trim()
+        ));
     }
     let Ok(report) = serde_json::from_slice::<serde_json::Value>(&output.stdout) else {
         return unverified("shellcheck printed no JSON".to_string());
     };
-    let comments = report["comments"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let comments = report["comments"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
     let mut levels = [0usize; 4];
     let mut codes: std::collections::BTreeMap<u64, usize> = std::collections::BTreeMap::new();
     for comment in comments {
@@ -123,9 +130,14 @@ fn shellcheck_idioms(bin: &str, target: &Path, raw: &str) -> (f32, String) {
             _ => 3,
         };
         levels[slot] += 1;
-        *codes.entry(comment["code"].as_u64().unwrap_or(0)).or_default() += 1;
+        *codes
+            .entry(comment["code"].as_u64().unwrap_or(0))
+            .or_default() += 1;
     }
-    let weighted = levels[0] as f32 + 0.5 * levels[1] as f32 + 0.1 * levels[2] as f32 + 0.05 * levels[3] as f32;
+    let weighted = levels[0] as f32
+        + 0.5 * levels[1] as f32
+        + 0.1 * levels[2] as f32
+        + 0.05 * levels[3] as f32;
     let total_lines = raw.lines().count();
     let value = density_score(weighted, total_lines, 8.0);
     let top = codes
@@ -230,7 +242,12 @@ mod tests {
         let good = F4_1_Idioms.check(clean.path()).expect("check");
         let bad = F4_1_Idioms.check(sloppy.path()).expect("check");
         assert_eq!(good.value, 1.0, "{}", good.evidence);
-        assert!(bad.value < good.value, "{} vs {}", bad.evidence, good.evidence);
+        assert!(
+            bad.value < good.value,
+            "{} vs {}",
+            bad.evidence,
+            good.evidence
+        );
         assert!(bad.evidence.contains("(shell)"), "{}", bad.evidence);
         assert!(bad.evidence.contains("; top: SC"), "{}", bad.evidence);
     }

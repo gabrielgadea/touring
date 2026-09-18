@@ -384,7 +384,9 @@ fn daemon_failure_message(output: &str) -> String {
 
 #[cfg(test)]
 mod read_failure_tests {
-    use super::{DEFAULT_DAEMON_READ_TIMEOUT_SECS, WaitPlan, connect_failure, read_failure, wait_plan};
+    use super::{
+        DEFAULT_DAEMON_READ_TIMEOUT_SECS, WaitPlan, connect_failure, read_failure, wait_plan,
+    };
     use touring_foundation::HEAVY_OP_CLIENT_FLOOR_SECS;
 
     /// A missing or dead socket names the socket and the exact command that starts
@@ -504,7 +506,8 @@ mod read_failure_tests {
             45
         );
         assert_eq!(
-            wait_plan("cli-index-rebuild", DEFAULT_DAEMON_READ_TIMEOUT_SECS, true).read_timeout_secs,
+            wait_plan("cli-index-rebuild", DEFAULT_DAEMON_READ_TIMEOUT_SECS, true)
+                .read_timeout_secs,
             DEFAULT_DAEMON_READ_TIMEOUT_SECS,
             "--timeout 120 is the operator's choice, not the untouched default"
         );

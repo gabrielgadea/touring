@@ -563,7 +563,10 @@ pub fn reindex_file_with_old(
     // ── Pln2: Wire TODOs/FIXMEs into file_todos table ────────────────────
     // The rows are derived from this content, so they REPLACE the file's previous set.
     let markers = todo_markers(&content);
-    let labels: Vec<String> = markers.iter().map(|(_, kind, _)| kind.to_string()).collect();
+    let labels: Vec<String> = markers
+        .iter()
+        .map(|(_, kind, _)| kind.to_string())
+        .collect();
     let rows: Vec<(i64, &str, &str)> = markers
         .iter()
         .zip(&labels)
@@ -800,7 +803,8 @@ mod self_reference_tests {
         // An edit that keeps the use keeps the classification…
         let edited = format!("{body}\npub fn also(n: usize) -> bool {{\n    n > LIMIT\n}}\n");
         std::fs::write(&file, &edited).expect("edit");
-        super::reindex_file_with_old(&rt, &path, "src/limits.rs", Some(body)).expect("reindex after edit");
+        super::reindex_file_with_old(&rt, &path, "src/limits.rs", Some(body))
+            .expect("reindex after edit");
         assert_eq!(internal(&rt, "src/limits.rs"), ["LIMIT"]);
 
         // …and one that drops it drops the edge with it.

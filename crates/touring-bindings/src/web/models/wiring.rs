@@ -120,6 +120,9 @@ mod tests {
     fn an_elided_payload_is_reported_as_the_missing_full_flag() {
         let elided = r#"{"_elided_array_len": 1437}"#;
         let err = WiringModulesReport::parse(elided).expect_err("elided input must fail");
-        assert!(err.contains("--full"), "the error must teach the fix: {err}");
+        assert!(
+            err.contains("--full"),
+            "the error must teach the fix: {err}"
+        );
     }
 }

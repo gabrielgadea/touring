@@ -428,6 +428,9 @@ mod tests {
             Complexity::Trivial,
             ValidationStatus::Pass
         );
-        assert_eq!(msg, format!("Complexity: {}, Status: PASS", Complexity::Trivial));
+        assert_eq!(
+            msg,
+            format!("Complexity: {}, Status: PASS", Complexity::Trivial)
+        );
     }
 }
