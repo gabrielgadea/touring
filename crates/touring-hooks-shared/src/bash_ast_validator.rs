@@ -99,13 +99,42 @@ struct ValidationRule {
     tail_token: Option<&'static str>,
     /// Verdict severity.
     severity: Severity,
-    /// Human-readable reason injected into the verdict.
+    /// What is wrong with the command.
     reason: &'static str,
-    /// Whitelist substrings — if ANY appears in the raw command, the rule
-    /// does NOT fire. Used for intent-disclosure flags (`--dry-run`,
-    /// `--force-with-lease`).
-    bypass_substrings: &'static [&'static str],
+    /// What to do instead. The verdict carries `reason; route` verbatim, and
+    /// the route may only name commands the validators let through.
+    route: &'static str,
+    /// Commands that follow `route`. Tests run each one through this module
+    /// and through `PreToolValidator` (touring-hooks-core) and demand both
+    /// let it pass, so a refusal can never point at a road that is closed.
+    route_examples: &'static [&'static str],
+    /// Intent-disclosure words (`--dry-run`, `--force-with-lease`): if ANY is
+    /// a WORD of the command, the rule does NOT fire. A word, never text
+    /// anywhere in the line: matched as a substring, `rm -rf / # --dry-run`
+    /// was allowed by its own comment. `--x` also matches `--x=value`.
+    bypass_words: &'static [&'static str],
 }
+
+impl ValidationRule {
+    /// The text a verdict carries: what is wrong, then what to do instead.
+    fn message(&self) -> String {
+        format!("{}; {}", self.reason, self.route)
+    }
+}
+
+/// The deletions an agent can still run, stated once.
+///
+/// Every refusal of a delete carries this text: the rules below and
+/// `PreToolValidator` (touring-hooks-core), which refuses `rm -r`, `rm -f` and
+/// `rmdir -p` on its own. It names only what BOTH let through (tests run each
+/// of [`DELETE_ROUTE_EXAMPLES`] through both) and says plainly that a
+/// recursive delete belongs to the user: no flag unlocks one. `rm` has no
+/// `--dry-run`, so passing it only makes `rm` exit with an error.
+pub const DELETE_ROUTE: &str = "remove named files with `rm <file>` or empty directories with \
+     `rmdir <dir>`; a recursive or forced delete is the user's to run (`! rm -r <path>`)";
+
+/// Commands that follow [`DELETE_ROUTE`], proven open by tests in both validators.
+pub const DELETE_ROUTE_EXAMPLES: &[&str] = &["rm notes.txt", "rm a.log b.log", "rmdir build"];
 
 /// Hard budget for the validator (kept far below pre-bash's <10 ms target).
 const VALIDATE_BUDGET: Duration = Duration::from_millis(5);
@@ -115,47 +144,64 @@ const VALIDATE_BUDGET: Duration = Duration::from_millis(5);
 /// matches `rm -rf foo` but NOT `rm foo -rf bar` (which is uncommon and
 /// best handled by the existing `PreToolValidator` regex layer).
 const RULES: &[ValidationRule] = &[
+    // 18/09/2026 — the rm rules once told the agent to "pass --dry-run or scope
+    // an explicit path you have verified": `rm` has no `--dry-run`, and no
+    // predicate here (nor in `PreToolValidator`) ever looked at a path. Three
+    // sessions spent retries on that road in one day before a human ran the
+    // delete. The route now names only what the validators let through.
     ValidationRule {
         tokens: &["rm", "-rf"],
         tail_token: None,
         severity: Severity::Block,
-        reason: "rm -rf — destructive recursive delete; pass --dry-run or scope an explicit path you have verified",
-        bypass_substrings: &["--dry-run", "--help"],
+        reason: "rm -rf — destructive recursive delete",
+        route: DELETE_ROUTE,
+        route_examples: DELETE_ROUTE_EXAMPLES,
+        bypass_words: &["--dry-run", "--help"],
     },
     ValidationRule {
         tokens: &["rm", "-fr"],
         tail_token: None,
         severity: Severity::Block,
         reason: "rm -fr — destructive recursive delete (alias of -rf)",
-        bypass_substrings: &["--dry-run", "--help"],
+        route: DELETE_ROUTE,
+        route_examples: DELETE_ROUTE_EXAMPLES,
+        bypass_words: &["--dry-run", "--help"],
     },
     ValidationRule {
         tokens: &["find"],
         tail_token: Some("-delete"),
         severity: Severity::Block,
-        reason: "find -delete — destructive bulk delete; preview with -print first",
-        bypass_substrings: &["--help"],
+        reason: "find -delete — destructive bulk delete; list the matches with `find <path> -print` first",
+        route: DELETE_ROUTE,
+        route_examples: &["find build -name stale.log -print"],
+        bypass_words: &["--help"],
     },
     ValidationRule {
         tokens: &["chmod", "-R", "777"],
         tail_token: None,
         severity: Severity::Warn,
-        reason: "chmod -R 777 — world-writable recursive grant; verify intent",
-        bypass_substrings: &[],
+        reason: "chmod -R 777 — world-writable recursive grant",
+        route: "grant the narrowest mode that works, e.g. `chmod -R u+rwX,go-w <dir>`",
+        route_examples: &["chmod -R u+rwX,go-w build"],
+        bypass_words: &[],
     },
     ValidationRule {
         tokens: &["git", "push", "--force"],
         tail_token: None,
         severity: Severity::Warn,
-        reason: "git push --force — overwrites remote history; prefer --force-with-lease",
-        bypass_substrings: &["--force-with-lease", "--help"],
+        reason: "git push --force — overwrites remote history",
+        route: "use `git push --force-with-lease`, which refuses when the remote moved",
+        route_examples: &["git push --force-with-lease origin main"],
+        bypass_words: &["--force-with-lease", "--help"],
     },
     ValidationRule {
         tokens: &["git", "reset", "--hard"],
         tail_token: None,
         severity: Severity::Warn,
-        reason: "git reset --hard — discards uncommitted changes; verify the working tree is clean",
-        bypass_substrings: &["--help"],
+        reason: "git reset --hard — discards uncommitted changes",
+        route: "run `git status` first and commit what must survive",
+        route_examples: &["git status"],
+        bypass_words: &["--help"],
     },
 ];
 
@@ -177,10 +223,8 @@ pub fn validate_command(command: &str) -> Verdict {
     if cleaned.trim().is_empty() {
         return Verdict::Allow;
     }
+    // Non-empty after the trim above, so there is at least one token.
     let tokens: Vec<&str> = cleaned.split_whitespace().collect();
-    if tokens.is_empty() {
-        return Verdict::Allow;
-    }
 
     let started = std::time::Instant::now();
     let mut warn: Option<&'static ValidationRule> = None;
@@ -189,7 +233,7 @@ pub fn validate_command(command: &str) -> Verdict {
         if started.elapsed() >= VALIDATE_BUDGET {
             break;
         }
-        if rule.bypass_substrings.iter().any(|s| trimmed.contains(s)) {
+        if discloses_intent(&tokens, rule.bypass_words) {
             continue;
         }
         if !contains_subsequence(&tokens, rule.tokens) {
@@ -205,7 +249,7 @@ pub fn validate_command(command: &str) -> Verdict {
         match rule.severity {
             Severity::Block => {
                 return Verdict::Block {
-                    reason: rule.reason.to_string(),
+                    reason: rule.message(),
                 };
             }
             Severity::Warn => {
@@ -216,10 +260,33 @@ pub fn validate_command(command: &str) -> Verdict {
 
     match warn {
         Some(rule) => Verdict::Warn {
-            reason: rule.reason.to_string(),
+            reason: rule.message(),
         },
         None => Verdict::Allow,
     }
+}
+
+/// Every command a rule's route names. The guard in touring-hooks-core runs
+/// each through `PreToolValidator`, the other layer that refuses: a route is
+/// only a route when both let it through.
+pub fn route_examples() -> impl Iterator<Item = &'static str> {
+    RULES
+        .iter()
+        .flat_map(|rule| rule.route_examples.iter().copied())
+}
+
+/// `true` when one of `words` is a word of the cleaned command, so quoted
+/// text and `#` comments never count: `--dry-run` inside `# --dry-run` is
+/// not a flag the command passes. `--x` also matches `--x=value`.
+fn discloses_intent(tokens: &[&str], words: &[&str]) -> bool {
+    tokens.iter().any(|token| {
+        words.iter().any(|word| {
+            *token == *word
+                || token
+                    .strip_prefix(word)
+                    .is_some_and(|rest| rest.starts_with('='))
+        })
+    })
 }
 
 /// Replace single- and double-quoted string contents with spaces, and drop
@@ -440,6 +507,66 @@ mod tests {
     fn validate_allows_dry_run_bypass() {
         let verdict = validate_command("rm -rf /tmp --dry-run");
         assert_eq!(verdict, Verdict::Allow, "got {verdict:?}");
+    }
+
+    // ─── the route a refusal names is a road that is open ─────────────────
+
+    /// 18/09/2026: the refusal said "pass --dry-run or scope an explicit path
+    /// you have verified". `rm` has no `--dry-run` and nothing checks a path;
+    /// three sessions retried on that road. The refusal names the real one.
+    #[test]
+    fn an_rm_refusal_names_the_delete_route_and_nothing_else() {
+        for cmd in ["rm -rf /tmp/work", "rm -fr build", "find . -name x -delete"] {
+            let verdict = validate_command(cmd);
+            let reason = verdict.reason().unwrap_or_default();
+            assert!(verdict.is_block(), "{cmd}: {verdict:?}");
+            assert!(reason.contains(DELETE_ROUTE), "{cmd}: {reason}");
+            assert!(!reason.contains("--dry-run"), "{cmd}: {reason}");
+            assert!(!reason.contains("verified"), "{cmd}: {reason}");
+        }
+    }
+
+    /// Every rule's route examples pass this validator. The same examples go
+    /// through `PreToolValidator` in touring-hooks-core, which refuses
+    /// `rm -r`/`rm -f` on its own (`every_delete_refusal_names_an_open_route`).
+    #[test]
+    fn every_route_example_passes_this_validator() {
+        for rule in RULES {
+            assert!(!rule.route.is_empty(), "{}: no route", rule.reason);
+            assert!(
+                !rule.route_examples.is_empty(),
+                "{}: no example",
+                rule.reason
+            );
+        }
+        let examples: Vec<&str> = route_examples().collect();
+        assert!(examples.len() >= RULES.len(), "{examples:?}");
+        for example in examples {
+            assert_eq!(
+                validate_command(example),
+                Verdict::Allow,
+                "route example `{example}` is refused"
+            );
+        }
+    }
+
+    /// A bypass is a WORD the command passes. In a comment or a quoted string
+    /// it is not a flag, and the rule still fires.
+    #[test]
+    fn a_bypass_word_in_a_comment_or_string_does_not_bypass() {
+        assert!(validate_command("rm -rf / # --dry-run").is_block());
+        assert!(validate_command("rm -rf / \"--dry-run\"").is_block());
+        assert!(matches!(
+            validate_command("git push --force origin main # --force-with-lease"),
+            Verdict::Warn { .. }
+        ));
+        // Part of another word is not the word.
+        assert!(validate_command("rm -rf ./--dry-run-output").is_block());
+        // `--x=value` is still the word `--x`.
+        assert_eq!(
+            validate_command("git push --force --force-with-lease=main origin main"),
+            Verdict::Allow
+        );
     }
 
     // ─── validate_command — Warn tier ─────────────────────────────────────

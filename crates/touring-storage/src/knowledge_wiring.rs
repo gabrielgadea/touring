@@ -140,6 +140,75 @@ fn wireable_ext_sql(col: &str, polyglot: bool) -> String {
     }
 }
 
+/// Language families whose files can wire to each other. An import or a call
+/// in one never names an item of another, so the by-name inference must never
+/// join across them.
+const LANGUAGE_FAMILIES: &[(&str, &[&str])] = &[
+    ("rust", &[".rs"]),
+    ("python", &[".py", ".pyi"]),
+    (
+        "js",
+        &[".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
+    ),
+    ("java", &[".java"]),
+    ("go", &[".go"]),
+];
+
+/// The language family of a wiring path (a file, or a `go:<import-path>`
+/// package key); `None` outside every family (docs, configs, dispatch rows).
+#[must_use]
+pub fn language_family(path: &str) -> Option<&'static str> {
+    if path.starts_with("go:") {
+        return Some("go");
+    }
+    LANGUAGE_FAMILIES
+        .iter()
+        .find(|(_, exts)| exts.iter().any(|ext| path.ends_with(ext)))
+        .map(|(family, _)| *family)
+}
+
+/// SQL expression: the language family of `col`, NULL outside every family —
+/// the same table as [`language_family`]. The extensions are compile-time
+/// constants, so the interpolation carries no injection surface.
+#[must_use]
+pub fn language_family_sql(col: &str) -> String {
+    let arms: String = LANGUAGE_FAMILIES
+        .iter()
+        .map(|(family, exts)| {
+            let test = exts
+                .iter()
+                .map(|ext| format!("{col} LIKE '%{ext}'"))
+                .collect::<Vec<_>>()
+                .join(" OR ");
+            format!(" WHEN {test} THEN '{family}'")
+        })
+        .collect();
+    format!("(CASE WHEN {col} LIKE 'go:%' THEN 'go'{arms} END)")
+}
+
+/// SQL predicate over `wiring_map`: consumer and producer are both in a
+/// language family, and not the same one — an edge no import or call makes.
+///
+/// 18/09/2026 (analise): 18.035 such rows, `.rs` consumers of Python and
+/// TypeScript producers. 15.758 came from the by-name inference below (a bare
+/// `cosine_similarity(…)` in a `.rs` file matched the Python function), the
+/// rest from `touring wiring repair`; together they hid ~1.488 orphans.
+#[must_use]
+pub fn cross_language_edge_sql() -> String {
+    let consumer = language_family_sql("consumer_file");
+    let module = language_family_sql("module_file");
+    format!("({consumer} IS NOT NULL AND {module} IS NOT NULL AND {consumer} != {module})")
+}
+
+/// ` AND <family of module_file> = '<family of the consumer>'`, or nothing
+/// when the consumer is outside every family.
+fn same_family_sql(consumer_hint: Option<&str>) -> String {
+    consumer_hint
+        .and_then(language_family)
+        .map(|family| format!(" AND {} = '{family}'", language_family_sql("module_file")))
+        .unwrap_or_default()
+}
+
 /// Non-wireable polyglot paths — the per-language analogue of the benches/tests
 /// exclusion. Blocks the exact trees that produced the 258 historical
 /// false-positive orphans (`docs/*.py`, `scripts/*.py`) plus vendored/generated
@@ -1338,6 +1407,7 @@ impl FileKnowledgeDB {
             .collect::<Vec<_>>()
             .join(",");
         let ext_pred = wireable_ext_sql("module_file", self.polyglot());
+        let family_pred = same_family_sql(consumer_hint);
         let crate_prefix = consumer_hint
             .and_then(|f| {
                 let mut it = f.split('/');
@@ -1352,7 +1422,7 @@ impl FileKnowledgeDB {
              WHERE consumer_file IS NULL
                AND visibility = 'public'
                AND symbol_kind IN ({kind_list})
-               AND {ext_pred}
+               AND {ext_pred}{family_pred}
                AND symbol_name = ?1
                AND (module_file LIKE '%/' || ?2 || '.rs'
                  OR module_file LIKE '%/' || ?2 || '/mod.rs'
@@ -1516,6 +1586,10 @@ impl FileKnowledgeDB {
             .collect::<Vec<_>>()
             .join(",");
         let ext_pred = wireable_ext_sql("module_file", self.polyglot());
+        // A bare name is a guess, and a guess never crosses languages: a `.rs`
+        // call to `cosine_similarity` is not a use of the Python function of
+        // that name (18/09/2026, analise: 15.758 such edges).
+        let family_pred = same_family_sql(consumer_hint);
         // Same-crate producers sort first: `crates/touring-x/…` prefix match.
         let crate_prefix = consumer_hint
             .and_then(|f| {
@@ -1531,7 +1605,7 @@ impl FileKnowledgeDB {
              WHERE consumer_file IS NULL
                AND visibility = 'public'
                AND symbol_kind IN ({kind_list})
-               AND {ext_pred}
+               AND {ext_pred}{family_pred}
                AND symbol_name IN ({placeholders})
              ORDER BY (CASE WHEN '{crate_prefix}' != '' AND module_file LIKE '{crate_prefix}'
                             THEN 0 ELSE 1 END),
@@ -4280,5 +4354,105 @@ mod key_count_provenance_tests {
         assert_eq!(source(&db), "ast_resolved", "stronger evidence upgrades");
         record(WiringOrigin::AstInferred);
         assert_eq!(source(&db), "ast_resolved", "a guess does not demote it");
+    }
+}
+
+#[cfg(test)]
+mod cross_language_inference_tests {
+    use super::{WiringOrigin, cross_language_edge_sql, language_family};
+    use crate::knowledge::FileKnowledgeDB;
+
+    /// A polyglot project at the canonical layout. `None` when the env forces
+    /// polyglot wiring off: it outranks the project layer, and with it off
+    /// there is no Python wiring to test.
+    fn polyglot_project() -> Option<(tempfile::TempDir, FileKnowledgeDB)> {
+        if std::env::var("TOURING_POLYGLOT_WIRING")
+            .is_ok_and(|v| v == "0" || v.eq_ignore_ascii_case("false"))
+        {
+            return None;
+        }
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(tmp.path().join(".touring")).expect("mkdir .touring");
+        std::fs::write(
+            tmp.path().join(".touring/touring.toml"),
+            "polyglot_wiring = true\n",
+        )
+        .expect("write toml");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("mkdir .claude/touring");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        Some((tmp, db))
+    }
+
+    #[test]
+    fn families_follow_the_wireable_extensions() {
+        assert_eq!(language_family("benches/gpu_benchmark.rs"), Some("rust"));
+        assert_eq!(
+            language_family("scripts/memoria/grafo_modelo.py"),
+            Some("python")
+        );
+        assert_eq!(language_family("web/app.tsx"), Some("js"));
+        assert_eq!(language_family("web/lib.mjs"), Some("js"));
+        assert_eq!(language_family("go:example.com/pkg"), Some("go"));
+        assert_eq!(language_family("docs/README.md"), None);
+        assert_eq!(language_family("touring-daemon://dispatch"), None);
+    }
+
+    /// 18/09/2026 (analise): a bare `cosine_similarity(…)` in a `.rs` benchmark
+    /// was recorded as a use of the Python function of that name — 15.758 such
+    /// edges hid Python orphans. The inference matches only producers of the
+    /// consumer's own language family, in both directions.
+    #[test]
+    fn the_by_name_inference_never_crosses_languages() {
+        let Some((_tmp, db)) = polyglot_project() else {
+            return;
+        };
+        for module in ["src/sim.rs", "pkg/sim.py"] {
+            assert!(
+                db.register_pub_symbol_counted(
+                    module,
+                    "cosine_similarity",
+                    "function",
+                    "public",
+                    WiringOrigin::AstDeclared,
+                )
+                .expect("register"),
+                "{module} refused by the write gate"
+            );
+        }
+        let names = vec!["cosine_similarity".to_string()];
+        db.record_inferred_consumers("src/bench.rs", &names, &[], &[]);
+        db.record_inferred_consumers("pkg/app.py", &names, &[], &[]);
+
+        let edges: Vec<(String, String)> = db
+            .conn_ref()
+            .prepare(
+                "SELECT consumer_file, module_file FROM wiring_map
+                 WHERE consumer_file IS NOT NULL ORDER BY consumer_file",
+            )
+            .expect("prepare")
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("rows");
+        assert_eq!(
+            edges,
+            [
+                ("pkg/app.py".to_string(), "pkg/sim.py".to_string()),
+                ("src/bench.rs".to_string(), "src/sim.rs".to_string()),
+            ]
+        );
+        let crossing: i64 = db
+            .conn_ref()
+            .query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM wiring_map WHERE {}",
+                    cross_language_edge_sql()
+                ),
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(crossing, 0);
     }
 }

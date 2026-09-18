@@ -509,7 +509,158 @@ pub fn refresh_file_producers(
     }
     let symbols = crate::ast_bridge::extract_enriched_symbols(content, file_path)?;
     let _ = db.clear_wiring(file_path);
-    Some(register_public_symbols(db, file_path, &symbols))
+    let registered = register_public_symbols(db, file_path, &symbols);
+    if language == "python" {
+        retarget_vanished_consumers(db, file_path, content, &symbols);
+    }
+    Some(registered)
+}
+
+/// Consumer rows other files hold on the Python module `file_path` for a symbol
+/// it no longer defines.
+///
+/// A module split moves `No` to a sibling, and the edges written while the old
+/// module defined it keep pointing there — where `impact` finds them by name and
+/// `orphans` never looks (18/09/2026, analise: `grafo_memoria.py::No` kept the
+/// consumer it had on 16/09 after the split). The consumers did not change, so
+/// nothing re-reads them; their edges are settled here instead. A symbol the file
+/// still imports is forwarded: its edges move to the module that defines it, or
+/// stay when the chain cannot be followed (no proof either way). A symbol the file
+/// neither defines nor imports is gone, and so are its edges.
+fn retarget_vanished_consumers(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    content: &str,
+    symbols: &[touring_code::ast::symbols::Symbol],
+) {
+    let Some(root) = db.workspace_root() else {
+        return;
+    };
+    let stale = consumers_of_undefined_symbols(db, file_path, symbols);
+    if stale.is_empty() {
+        return;
+    }
+    let abs_module = std::path::Path::new(root).join(file_path);
+    let abs_module = abs_module.to_string_lossy();
+    let imported: HashSet<String> = crate::ast_bridge::extract_file_imports(content, &abs_module)
+        .into_iter()
+        .flat_map(|(_, names)| names)
+        .map(|name| {
+            name.split(" as ")
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_string()
+        })
+        .collect();
+    for (symbol, consumer, line, source) in stale {
+        if imported.contains(&symbol) {
+            let definer = crate::symbol_extractors::definer_module(&abs_module, &symbol, None);
+            if definer == abs_module {
+                continue;
+            }
+            let _ = db.record_consumer_with_origin(
+                &definer,
+                &symbol,
+                &consumer,
+                line,
+                crate::knowledge_wiring::WiringOrigin::from_contract_source(&source),
+            );
+        }
+        let _ = db.conn_ref().execute(
+            "DELETE FROM wiring_map WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file = ?3",
+            params![file_path, symbol, consumer],
+        );
+    }
+    FileKnowledgeDB::invalidate_wiring_modules_cache();
+}
+
+/// Other files' consumer rows on `file_path` whose symbol it does not define:
+/// `(symbol, consumer, import_line, contract_source)`.
+fn consumers_of_undefined_symbols(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    symbols: &[touring_code::ast::symbols::Symbol],
+) -> Vec<(String, String, Option<i64>, String)> {
+    let defined: HashSet<&str> = symbols.iter().map(|s| s.name.as_str()).collect();
+    let rows: Vec<(String, String, Option<i64>, String)> = db
+        .conn_ref()
+        .prepare(
+            "SELECT symbol_name, consumer_file, import_line, contract_source FROM wiring_map
+             WHERE module_file = ?1 AND consumer_file IS NOT NULL AND consumer_file != module_file
+               AND symbol_name != '*'",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map(params![file_path], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            })?
+            .collect()
+        })
+        .unwrap_or_default();
+    rows.into_iter()
+        .filter(|(symbol, ..)| !defined.contains(symbol.as_str()))
+        .collect()
+}
+
+/// The consumer rows a file's imports make, resolved exactly as the rebuild
+/// resolves them. Each `(module, symbols)` the file's language extractor yields
+/// goes through `resolve_import_path_with_source`; the edge is credited to the
+/// module that DEFINES the symbol (`definer_module`, re-exports followed); an
+/// import that resolves nowhere is recorded unresolved, with its class. Returns
+/// the edges recorded.
+///
+/// One pass for the rebuild and the hook path (C08). Until 18/09/2026 the hook
+/// path read `imports_json` through a `::` splitter — Rust syntax — so a Python
+/// or TypeScript file edited or ingested lost every import edge until the next
+/// rebuild: the analise split `grafo_memoria.py`, ingested the five files, and 12
+/// of 13 symbols its siblings import from `grafo_modelo.py` read as orphans.
+pub fn record_import_consumers(
+    db: &FileKnowledgeDB,
+    rel_path: &str,
+    abs_path: &str,
+    language: &str,
+    content: &str,
+) -> usize {
+    let _ = db.clear_unresolved_for_consumer(rel_path);
+    let mut recorded = 0;
+    for (module_path, imported_symbols) in
+        crate::ast_bridge::extract_file_imports(content, abs_path)
+    {
+        let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
+            &module_path,
+            language,
+            Some(abs_path),
+        ) else {
+            // Classified in the workspace of the same file the attempt used, so
+            // the verdict never drifts from the attempt.
+            let class = crate::symbol_extractors::classify_unresolved(&module_path, Some(abs_path));
+            for symbol_name in &imported_symbols {
+                let _ = db.record_unresolved_import_classified(
+                    &module_path,
+                    symbol_name,
+                    rel_path,
+                    None,
+                    language,
+                    class.as_str(),
+                );
+            }
+            continue;
+        };
+        for symbol_name in &imported_symbols {
+            // The import resolved to a MODULE; the producer row lives wherever
+            // the symbol is DEFINED, so a façade is never credited with a
+            // consumer it only forwards.
+            let definer =
+                crate::symbol_extractors::definer_module(&module_file, symbol_name, Some(abs_path));
+            if db
+                .record_consumer(&definer, symbol_name, rel_path, None)
+                .is_ok()
+            {
+                recorded += 1;
+            }
+        }
+    }
+    recorded
 }
 
 /// Every wiring row `file_path` owns, re-derived from its current `content`: its
@@ -527,6 +678,16 @@ pub fn refresh_file_producers(
 pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str, content: &str) {
     let _ = refresh_file_producers(db, file_path, language, content);
     update_wiring_after_edit(db, file_path);
+    // Rust imports went through `update_wiring_after_edit`; every other
+    // language's resolve only in the pass the rebuild uses.
+    if language != "rust"
+        && !touring_foundation::config::is_companion_key(file_path)
+        && let Some(root) = db.workspace_root()
+    {
+        let abs = std::path::Path::new(root).join(file_path);
+        let _ = db.clear_declared_consumer_entries(file_path);
+        record_import_consumers(db, file_path, &abs.to_string_lossy(), language, content);
+    }
     // `update_wiring_after_edit` clears consumer rows only for a file with stored
     // imports; the inferred edges are re-derived below either way, so the stale
     // ones of calls the file no longer makes are dropped first.

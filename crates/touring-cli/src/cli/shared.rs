@@ -154,13 +154,38 @@ pub(crate) fn optional_column_select(
 /// S4 (2026-08-07): a pheromone that never evaporates inverts its own mechanism
 /// — a corrected lesson keeps guiding with the same weight as the correction.
 /// Superseded rows stay in the table for audit and simply stop surfacing, which
-/// is retirement, not deletion.
+/// is retirement, not deletion. The predicate itself has one home,
+/// `touring_intelligence::rl::memory::retirement`, shared with the reads that
+/// live outside this crate (`memory query`, the TF-IDF corpus, the MOC).
 pub(crate) fn superseded_filter(conn: &rusqlite::Connection, alias: &str) -> String {
-    if memory_column_present(conn, "superseded_by") {
-        format!(" AND {alias}superseded_by IS NULL")
-    } else {
-        String::new()
+    touring_intelligence::rl::memory::retirement::live_predicate(conn, alias)
+}
+
+/// Keys among `keys` that are retired, in the federation's own precedence:
+/// the first database that holds a key speaks for it, as in
+/// [`memory_recall_sql_federated`] (a key retired in another project but live
+/// here is live). Reads that merge channels drop these keys before ranking.
+pub(crate) fn retired_in_federation(
+    dbs: &[std::path::PathBuf],
+    keys: &[&str],
+) -> std::collections::HashSet<String> {
+    use touring_intelligence::rl::memory::retirement::retirement_of;
+    let mut undecided: Vec<&str> = keys.to_vec();
+    undecided.sort_unstable();
+    undecided.dedup();
+    let mut retired = std::collections::HashSet::new();
+    for db in dbs {
+        if undecided.is_empty() {
+            break;
+        }
+        let Ok(conn) = open_db_readonly(db) else {
+            continue;
+        };
+        let (held, retired_here) = retirement_of(&conn, &undecided);
+        retired.extend(retired_here);
+        undecided.retain(|key| !held.contains(*key));
     }
+    retired
 }
 
 /// Maps a recall result row (`key, value, tier, entry_type, outcome_reward`) to JSON.

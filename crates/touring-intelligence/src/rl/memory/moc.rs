@@ -328,6 +328,10 @@ fn topic_corpus(conn: &rusqlite::Connection, topic: &str) -> rusqlite::Result<BT
             }
         }
     }
+    // A retired entry is not mapped: a MOC guides, and retirement exists so
+    // the corrected lesson guides instead (see `retirement`).
+    let retired = super::retirement::retired_keys(conn);
+    keys.retain(|key| !retired.contains(key));
     Ok(keys)
 }
 

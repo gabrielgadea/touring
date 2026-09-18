@@ -2123,11 +2123,14 @@ fn collect_memory_lessons_one_db(
     // Match keys like `outcome:<tool_class>:<intent_class>:failure` OR
     // `outcome:<tool_class>:*:failure` (broader class match).
     let key_prefix = format!("outcome:{}:%:failure", sig.tool_class);
-    let mut stmt =
-        match conn.prepare("SELECT key, value FROM memory_entries WHERE key LIKE ?1 LIMIT 15") {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
+    // A retired lesson (`--supersedes`) is not injected as a lesson.
+    let live = touring_intelligence::rl::memory::retirement::live_predicate(&conn, "");
+    let mut stmt = match conn.prepare(&format!(
+        "SELECT key, value FROM memory_entries WHERE key LIKE ?1{live} LIMIT 15"
+    )) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
     stmt.query_map(rusqlite::params![key_prefix], |row| {
         let key: String = row.get(0)?;
         let value: String = row.get(1)?;
