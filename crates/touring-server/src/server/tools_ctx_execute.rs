@@ -56,6 +56,17 @@ impl TouringServer {
         crate::tools::suggestions::append_to_response(&mut output, "touring_ctx_execute", 2);
         let text = serde_json::to_string_pretty(&output)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        Ok(CallToolResult::success(vec![Content::text(text)]))
+        // MCP: the program's failure is a TOOL-EXECUTION error, reported inside the
+        // result with `isError` so the model can read it and correct the program; a
+        // tool that cannot run at all stays a protocol error (`McpError` above).
+        // This returned `success` for every run until 18/09/2026.
+        let content = vec![Content::text(text)];
+        Ok(
+            if crate::tools::ctx_execute_tools::program_succeeded(&out) {
+                CallToolResult::success(content)
+            } else {
+                CallToolResult::error(content)
+            },
+        )
     }
 }

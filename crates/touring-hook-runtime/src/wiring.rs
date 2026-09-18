@@ -532,6 +532,33 @@ pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str
     // ones of calls the file no longer makes are dropped first.
     let _ = db.clear_inferred_consumer_entries(file_path);
     record_direct_path_consumers(db, file_path, content);
+    record_self_references(db, file_path, language, content);
+}
+
+/// The file's use of its own public symbols (`internal_only`), re-derived like
+/// every other consumer row it owns, through the rebuild's own rule
+/// ([`touring_code::ast::graph::self_referenced_names`]). Until 18/09/2026 only
+/// the rebuild wrote these edges, so an edit cleared them with the other inferred
+/// rows and the file's internal symbols read as orphans until the next rebuild.
+fn record_self_references(db: &FileKnowledgeDB, file_path: &str, language: &str, content: &str) {
+    if !(language == "rust" || (language == "python" && db.polyglot())) {
+        return;
+    }
+    let Some(symbols) = crate::ast_bridge::extract_enriched_symbols(content, file_path) else {
+        return;
+    };
+    // The producer is the file itself: `self_referenced_names` only returns
+    // symbols this file declares, so it is the definer by construction.
+    let declaring_file = file_path;
+    for name in touring_code::ast::graph::self_referenced_names(content, &symbols, language) {
+        let _ = db.record_consumer_with_origin(
+            declaring_file,
+            &name,
+            file_path,
+            None,
+            crate::knowledge_wiring::WiringOrigin::AstInferred,
+        );
+    }
 }
 
 /// [`refresh_file_wiring`] for a caller that holds only the path (relative to
@@ -772,8 +799,27 @@ fn record_reexport_consumer(db: &FileKnowledgeDB, consumer_file: &str, submod: &
     // The nested submodule is the definer by construction *unless* it in turn
     // re-exports the symbol from deeper — following the chain costs one cached
     // scan and keeps the attribution on whoever actually defines it.
-    let definer = crate::symbol_extractors::definer_module(&nested, symbol);
+    let consumer_abs = absolute_consumer(db, consumer_file);
+    let definer = crate::symbol_extractors::definer_module(&nested, symbol, Some(&consumer_abs));
     let _ = db.record_consumer(&definer, symbol, consumer_file, None);
+}
+
+/// `consumer_file` as an absolute path under the project this database belongs to.
+///
+/// The resolver finds a file's Cargo workspace by walking up from the file (Cargo's
+/// rule). The edit path hands it project-relative paths, and a relative path can only
+/// be read against the PROCESS — whose current directory is wherever the daemon
+/// happened to be spawned (18/09/2026: `~/Work`, and every `use touring_…` read as
+/// external). The database knows its own project root; anchoring here removes the
+/// process from the question.
+fn absolute_consumer(db: &FileKnowledgeDB, consumer_file: &str) -> String {
+    let path = std::path::Path::new(consumer_file);
+    match db.workspace_root() {
+        Some(root) if !path.is_absolute() => {
+            std::path::Path::new(root).join(path).to_string_lossy().into_owned()
+        }
+        _ => consumer_file.to_string(),
+    }
 }
 
 /// Resolve a path like `crate::module::symbol` or `super::submod::Type` into
@@ -819,10 +865,11 @@ fn record_consumer_from_path(db: &FileKnowledgeDB, import_path: &str, consumer_f
     // "new orphans" for symbols with obvious live callers, and a rebuild
     // "fixed" them until the next edit. Sharing one resolver is what stops the
     // two paths from disagreeing again (decision matrix C08).
+    let consumer_abs = absolute_consumer(db, consumer_file);
     let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
         module_hint,
         "rust",
-        Some(consumer_file),
+        Some(&consumer_abs),
     ) else {
         return;
     };
@@ -831,7 +878,8 @@ fn record_consumer_from_path(db: &FileKnowledgeDB, import_path: &str, consumer_f
     // `hybrid_search/mod.rs`, which only carries a `pub use`; with no definition
     // there the kind extractor produced `symbol_kind='unknown'` — the single
     // such row in a 76.942-row map, and enough to degrade `touring doctor`.
-    let module_file = crate::symbol_extractors::definer_module(&module_file, symbol_name);
+    let module_file =
+        crate::symbol_extractors::definer_module(&module_file, symbol_name, Some(&consumer_abs));
     let _ = db.record_consumer(&module_file, symbol_name, consumer_file, None);
 }
 

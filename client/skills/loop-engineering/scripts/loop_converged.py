@@ -234,6 +234,30 @@ def _baseline_names_the_scope(baseline, scope: Path, index_root: Path) -> bool:
     )
 
 
+NEW_ORPHANS_FILE = "orphans-new-last-run.txt"
+NEW_ORPHANS_SHOWN = 5
+
+
+def _report_new_orphans(new, list_file: Path) -> str:
+    """The NEW part of the orphan verdict: the COUNT, a sample that says it is one, and the full list on disk.
+
+    2026-09-18: the line printed ``new[:5]`` with nothing marking it as a sample. The five names were
+    fixed, the next run printed five others, and the full comparison — reproduced outside the judge —
+    held 24. The basenames in the line (``mod.rs::is_empty``) locate nothing either, so the whole list
+    goes to ``list_file``, rewritten every run and removed when nothing is new (a stale list would name
+    orphans that are gone).
+    """
+    if not new:
+        list_file.unlink(missing_ok=True)
+        return ""
+    list_file.write_text("\n".join(new) + "\n")
+    shown = new[:NEW_ORPHANS_SHOWN]
+    head = f"; NEW: {len(new)}"
+    if len(new) > len(shown):
+        head += f" (showing {len(shown)}; full list: {list_file})"
+    return head + ": " + ", ".join(n.rsplit("/", 1)[-1] for n in shown)
+
+
 def clause_orphans(scope, bundle: Path):
     """SCOPED, NAMED orphan gate (2026-08-02 rewrite).
 
@@ -324,11 +348,8 @@ def clause_orphans(scope, bundle: Path):
                 "was nothing to compare against. Re-recorded now; the NEXT run measures against it."
             )
         new = [s for s in in_scope if s not in baseline]
-        ok = not new
         detail = f"scoped orphans={len(in_scope)} baseline={len(baseline)}"
-        if new:
-            detail += f"; NEW: {', '.join(n.rsplit('/', 1)[-1] for n in new[:5])}"
-        return ok, detail
+        return not new, detail + _report_new_orphans(new, base_file.parent / NEW_ORPHANS_FILE)
     base_file.parent.mkdir(parents=True, exist_ok=True)
     base_file.write_text("\n".join(in_scope))
     return True, f"scoped orphans={len(in_scope)} (named baseline recorded, first run)"

@@ -307,14 +307,30 @@ timestamp: 2026-08-20T11:15:00-03:00
 23. **Órfãos do juiz e o cwd do daemon (18/09/2026)**. (a) `file_todos` é estado DERIVADO do
     conteúdo: o reindex lê marcadores com `TodoKind::from_comment_line` (atrás de qualquer líder de
     comentário, palavra-chave em maiúsculas, `NOTE` fora) e grava com `replace_todos`, que troca o
-    conjunto do arquivo; `insert_todo` acumulava. (b) **O resolvedor de imports Rust monta o mapa de
-    crates a partir do `cwd` do daemon** (`symbol_extractors::find_workspace_root`, cacheado pela vida
-    do processo): daemon nascido fora do workspace resolve zero `use touring_x::…` e os grava como
-    `external` — órfãos falsos no juiz e dívida do resolvedor lida como zero. Antes de confiar numa
-    lista de órfãos, `readlink /proc/<pid do daemon>/cwd`. Correção proposta, não aplicada. (c) Remoção
-    de símbolo: o oráculo final é o `cargo check` — grep perde import agrupado, e `#[deprecated]` não
-    acende no uso de um alias do item. `--all-features` no workspace falha por desenho no binário
-    `touring` (alocadores exclusivos). Narrativa: `docs/audits/orfaos-24-2026-09-18.md`.
+    conjunto do arquivo; `insert_todo` acumulava. (b) **O workspace de uma resolução Rust é o do
+    ARQUIVO** (regra do Cargo: primeiro `Cargo.toml` com `[workspace]` acima dele),
+    `symbol_extractors::workspace_for`; só um caminho relativo cai no processo
+    (`TOURING_PROJECT_ROOT`, depois o cwd). O mapa de crates era um `Lazy` do cwd do daemon: nascido em
+    `~/Work`, gravou 3.166 imports `touring_*` como `external`. Mapa vazio é `unmeasured`, nunca
+    `external`; `classify_unresolved` e `definer_module` recebem o arquivo de origem, e o caminho de
+    edição ancora o relativo na raiz do banco (`absolute_consumer`). (c) Remoção de símbolo: o oráculo
+    final é o `cargo check` — grep perde import agrupado, e `#[deprecated]` não acende no uso de um
+    alias do item. `--all-features` no workspace falha por desenho no binário `touring` (alocadores
+    exclusivos). (d) **Auto-referência Rust** (`self_refs::self_referenced_names`, fonte única do
+    rebuild E da edição): método conta só por CHAMADA `self.m()` (o campo `self.m` não)/`Self::m`/`Dono::m`,
+    o resto por identificador solto fora de cabeçalho `impl`; item `#[test]`/`#[cfg(test)]` não conta
+    (30.4.56) — `internal_only`, nunca órfão; a edição apagava essas arestas até o
+    rebuild. Dentro de macro (`format!`, `assert!`) não há árvore, só `token_tree`: a forma vem dos
+    tokens vizinhos (`method_calls::macro_token`, 30.4.57), fonte única do despacho F9, das refs de
+    tipo/const e da auto-referência; `format!("{}", c.signal_prefix())` não ligava nada. (e) `PreToolValidator::validate_command` lê a linha como shell (aspas, `#`, pipelines e
+    listas): flag é PALAVRA (`-f`, `-rf`), nunca substring (`touring-foundation` negava `git add`),
+    o desvio `--dry-run` é palavra do comando (um comentário o ativava) e padrão que atravessa `|` lê a
+    pipeline. Todas as camadas: o prefixo `rm ` nega recursivo+forçado por palavra, uma flag só cai no
+    schema (a razão a nomeia), o NOME do comando é dobrado e a flag não (`git -F` ≠ `-f`), e opção de
+    wrapper que consome valor é pulada (`sudo -u root git push -f`). (f) Envelope do `touring run`: `success` = programa limpo, `executed` = executor rodou;
+    o MCP devolve `isError` na falha. (g) `GeneratorPlan::check_schema_version` barra plano de outra
+    versão MAJOR no `Draft → Verified`. Narrativa: `docs/audits/orfaos-24-2026-09-18.md` e
+    `docs/audits/decisoes-orfaos-2026-09-18.md`.
 
 ## Referências
 

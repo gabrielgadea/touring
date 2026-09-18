@@ -113,6 +113,45 @@ class OrphanScopeTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("a.py::NOVO", detail)
 
+    def _with_baseline_a(self):
+        base = self.bundle / ".baseline"
+        base.mkdir()
+        (base / "orphans-scoped.txt").write_text("scripts/eleitoral/a.py::A\n")
+        return base / lc.NEW_ORPHANS_FILE
+
+    def test_a_sample_of_the_new_orphans_says_it_is_one(self):
+        # kills: printing `new[:5]` with no count (2026-09-18: 24 NEW read as the 5 the line showed)
+        lista = self._with_baseline_a()
+        novos = [("scripts/eleitoral/a.py", f"N{i}") for i in range(7)]
+        ok, detail = self._run_clause(_orphans_json(("scripts/eleitoral/a.py", "A"), *novos))
+        self.assertFalse(ok)
+        self.assertIn("NEW: 7 (showing 5; full list: ", detail)
+        self.assertIn(str(lista), detail)
+        self.assertNotIn("a.py::N6", detail, "only the sample travels in the line")
+        self.assertEqual(
+            lista.read_text().splitlines(), [f"scripts/eleitoral/a.py::N{i}" for i in range(7)],
+            "the list on disk names every new orphan, with its path",
+        )
+
+    def test_a_short_new_list_is_not_called_a_sample(self):
+        # kills: announcing "showing" when nothing was cut
+        self._with_baseline_a()
+        ok, detail = self._run_clause(
+            _orphans_json(("scripts/eleitoral/a.py", "A"), ("scripts/eleitoral/a.py", "N0"), ("scripts/eleitoral/a.py", "N1"))
+        )
+        self.assertFalse(ok)
+        self.assertIn("NEW: 2: a.py::N0, a.py::N1", detail)
+        self.assertNotIn("showing", detail)
+
+    def test_the_new_list_goes_away_when_nothing_is_new(self):
+        # kills: a stale list naming orphans that are gone
+        lista = self._with_baseline_a()
+        self._run_clause(_orphans_json(("scripts/eleitoral/a.py", "A"), ("scripts/eleitoral/a.py", "N0")))
+        self.assertTrue(lista.exists())
+        ok, detail = self._run_clause(_orphans_json(("scripts/eleitoral/a.py", "A")))
+        self.assertTrue(ok, detail)
+        self.assertFalse(lista.exists(), "no NEW, no list")
+
     def test_deleted_file_resolves_against_the_index_root(self):
         # a file gone from disk cannot be located by existence; the .touring root decides
         ok, _ = self._run_clause(_orphans_json((".claude/hooks/apagado.py", "Y"), ("scripts/eleitoral/apagado.py", "Z")))

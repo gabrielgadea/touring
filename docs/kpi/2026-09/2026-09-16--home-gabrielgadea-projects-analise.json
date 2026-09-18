@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 12269.0,
+      "actual": 10441.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.6531931131448678,
+      "actual": 0.8352332332165022,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -112,29 +112,29 @@
       "threshold": 50.0
     },
     {
-      "actual": 789.7333333333333,
+      "actual": 815.0322580645161,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 800.0
     },
     {
-      "actual": 1770.0,
+      "actual": 573.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
       "name": "Coupling hook dispatch latency p50 (D5, leading)",
       "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 1000.0
     },
     {
-      "actual": 1627135.0,
+      "actual": 565247.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 713215.0,
+      "actual": 562687.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,7 +178,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.0,
+      "actual": 0.12903225806451613,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
@@ -189,7 +189,7 @@
       "threshold": 0.4
     },
     {
-      "actual": 1.0,
+      "actual": 0.9523809523809523,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
@@ -211,7 +211,7 @@
       "threshold": 0.1
     },
     {
-      "actual": 0.7723342939481268,
+      "actual": 0.7701149425287356,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
@@ -244,7 +244,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.48735955056179775,
+      "actual": 0.48807854137447404,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -255,7 +255,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.22311631309436722,
+      "actual": 0.22315558802045288,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.21382980321090125,
+      "actual": 0.21373648638507986,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -409,7 +409,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.7372723894463025,
+      "actual": 0.7372193024366938,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -420,7 +420,7 @@
       "threshold": 0.25
     },
     {
-      "actual": 0.7285223367697594,
+      "actual": 0.7289048473967684,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.graph_contract_share",
@@ -431,7 +431,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 1.7437673130193905,
+      "actual": 1.7478260869565216,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
@@ -468,340 +468,310 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 877,
+      "exception": 881,
       "output-limit": 4,
       "proc-exit": 3,
       "timeout": 208
     },
     "by_language": {
       "?": 1,
-      "bash": 6912,
+      "bash": 6936,
       "go": 1,
       "js": 87,
       "perl": 4,
       "php": 1,
-      "python": 7184,
+      "python": 7209,
       "ruby": 4,
       "rust": 4,
       "shell": 110,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 13222,
-    "runs_total": 14315,
+    "runs_ok": 13267,
+    "runs_total": 14364,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9236465246245197,
-    "wasted_attempts_retry_pairs": 662
+    "success_rate": 0.9236285157337789,
+    "wasted_attempts_retry_pairs": 665
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 115,
-    "file_runs": 1833,
+    "brief_runs": 117,
+    "file_runs": 1861,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 5331,
-    "orchestrate_runs": 103,
-    "persistent_file_runs": 745,
-    "reuse_ratio": 0.104,
+    "inline_runs": 5352,
+    "orchestrate_runs": 107,
+    "persistent_file_runs": 773,
+    "reuse_ratio": 0.107,
     "scratch_file_runs": 1088,
     "status": "FAIL",
     "total_tmp_bytes": 208782775,
     "v1_runs": 7150,
-    "v2_runs": 7164
+    "v2_runs": 7213
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
     "duration_ms_p99": 1049,
-    "non_canonical_calls": 95,
+    "non_canonical_calls": 98,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 465,
+    "total_calls": 473,
     "used": 7
   },
   "context_budget": {
     "available": true,
     "by_family": {
       "code-mode-deny": {
-        "blocks": 85,
-        "bytes": 50231,
-        "duplicate_bytes": 25793,
-        "duplicate_ratio": 0.513,
-        "mean_bytes": 590,
+        "blocks": 13,
+        "bytes": 11783,
+        "duplicate_bytes": 4378,
+        "duplicate_ratio": 0.372,
+        "mean_bytes": 906,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 85
-      },
-      "loop-outer": {
-        "blocks": 1,
-        "bytes": 25268,
-        "duplicate_bytes": 0,
-        "duplicate_ratio": 0.0,
-        "mean_bytes": 25268,
-        "propositions": 0,
-        "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 1
+        "zero_proposition_blocks": 13
       },
       "other": {
-        "blocks": 1783,
-        "bytes": 629724,
-        "duplicate_bytes": 179262,
-        "duplicate_ratio": 0.285,
-        "mean_bytes": 353,
-        "propositions": 1965,
-        "propositions_per_kb": 3.195,
-        "zero_proposition_blocks": 1180
+        "blocks": 313,
+        "bytes": 132179,
+        "duplicate_bytes": 18340,
+        "duplicate_ratio": 0.139,
+        "mean_bytes": 422,
+        "propositions": 204,
+        "propositions_per_kb": 1.58,
+        "zero_proposition_blocks": 226
       },
       "past-lessons": {
-        "blocks": 686,
-        "bytes": 72447,
-        "duplicate_bytes": 37803,
-        "duplicate_ratio": 0.522,
-        "mean_bytes": 105,
+        "blocks": 146,
+        "bytes": 16803,
+        "duplicate_bytes": 4275,
+        "duplicate_ratio": 0.254,
+        "mean_bytes": 115,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 686
+        "zero_proposition_blocks": 146
       },
       "post-tool-echo": {
-        "blocks": 631,
-        "bytes": 266039,
-        "duplicate_bytes": 48495,
-        "duplicate_ratio": 0.182,
-        "mean_bytes": 421,
-        "propositions": 308,
-        "propositions_per_kb": 1.186,
-        "zero_proposition_blocks": 323
+        "blocks": 112,
+        "bytes": 39374,
+        "duplicate_bytes": 7318,
+        "duplicate_ratio": 0.186,
+        "mean_bytes": 351,
+        "propositions": 45,
+        "propositions_per_kb": 1.17,
+        "zero_proposition_blocks": 67
       },
       "session-start": {
-        "blocks": 28,
-        "bytes": 14513,
-        "duplicate_bytes": 6741,
-        "duplicate_ratio": 0.464,
-        "mean_bytes": 518,
+        "blocks": 8,
+        "bytes": 4767,
+        "duplicate_bytes": 1131,
+        "duplicate_ratio": 0.237,
+        "mean_bytes": 595,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 28
+        "zero_proposition_blocks": 8
       },
       "touring-suggest": {
-        "blocks": 107,
-        "bytes": 151563,
+        "blocks": 42,
+        "bytes": 56669,
         "duplicate_bytes": 0,
         "duplicate_ratio": 0.0,
-        "mean_bytes": 1416,
-        "propositions": 421,
-        "propositions_per_kb": 2.844,
+        "mean_bytes": 1349,
+        "propositions": 156,
+        "propositions_per_kb": 2.819,
         "zero_proposition_blocks": 0
       }
     },
-    "bytes_scanned": 58560622,
-    "capped": true,
-    "duplicate_blocks": 1481,
-    "duplicate_injection_ratio": 0.246,
+    "bytes_scanned": 12766202,
+    "capped": false,
+    "duplicate_blocks": 273,
+    "duplicate_injection_ratio": 0.135,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
       "injected_bytes_per_turn",
       "duplicate_injection_ratio",
       "injection_follow_ratio"
     ],
-    "injected_bytes_per_turn": 15918.224,
+    "injected_bytes_per_turn": 7069.595,
     "injected_bytes_per_turn_ceil": 3000.0,
-    "injection_follow_ratio": 0.128,
+    "injection_follow_ratio": 0.167,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 1018,
-    "must_followed": 130,
+    "must_emitted": 174,
+    "must_followed": 29,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 1893,
+    "tool_calls": 391,
     "tool_output": {
       "by_tool": [
         {
-          "bytes": 8224102,
-          "mean_bytes": 30347,
-          "results": 271,
-          "reused_bytes": 93359,
-          "reused_line_ratio": 0.16,
-          "share": 0.84,
+          "bytes": 1172799,
+          "mean_bytes": 32577,
+          "results": 36,
+          "reused_bytes": 2429,
+          "reused_line_ratio": 0.049,
+          "share": 0.765,
           "tool": "Read",
-          "zero_reuse_results": 26
+          "zero_reuse_results": 6
         },
         {
-          "bytes": 1405418,
-          "mean_bytes": 1529,
-          "results": 919,
-          "reused_bytes": 96140,
-          "reused_line_ratio": 0.094,
-          "share": 0.144,
+          "bytes": 328348,
+          "mean_bytes": 1373,
+          "results": 239,
+          "reused_bytes": 11616,
+          "reused_line_ratio": 0.057,
+          "share": 0.214,
           "tool": "Bash",
-          "zero_reuse_results": 104
+          "zero_reuse_results": 27
         },
         {
-          "bytes": 98305,
-          "mean_bytes": 203,
-          "results": 483,
-          "reused_bytes": 438,
-          "reused_line_ratio": 0.008,
-          "share": 0.01,
+          "bytes": 9318,
+          "mean_bytes": 211,
+          "results": 44,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.006,
+          "tool": "Write",
+          "zero_reuse_results": 18
+        },
+        {
+          "bytes": 8864,
+          "mean_bytes": 206,
+          "results": 43,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.006,
           "tool": "Edit",
-          "zero_reuse_results": 86
+          "zero_reuse_results": 19
         },
         {
-          "bytes": 32897,
-          "mean_bytes": 209,
-          "results": 157,
+          "bytes": 4937,
+          "mean_bytes": 987,
+          "results": 5,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.003,
-          "tool": "Write",
-          "zero_reuse_results": 39
-        },
-        {
-          "bytes": 7043,
-          "mean_bytes": 260,
-          "results": 27,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "SendMessage",
-          "zero_reuse_results": 5
-        },
-        {
-          "bytes": 6606,
-          "mean_bytes": 1101,
-          "results": 6,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "Agent",
-          "zero_reuse_results": 3
-        },
-        {
-          "bytes": 4915,
-          "mean_bytes": 1638,
-          "results": 3,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.001,
-          "tool": "ListAgents",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 4748,
-          "mean_bytes": 593,
-          "results": 8,
-          "reused_bytes": 265,
-          "reused_line_ratio": 0.24,
-          "share": 0.0,
-          "tool": "AskUserQuestion",
-          "zero_reuse_results": 0
-        },
-        {
-          "bytes": 4049,
-          "mean_bytes": 1012,
-          "results": 4,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
           "tool": "WebFetch",
           "zero_reuse_results": 0
         },
         {
-          "bytes": 844,
-          "mean_bytes": 281,
+          "bytes": 3706,
+          "mean_bytes": 411,
+          "results": 9,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.002,
+          "tool": "SendMessage",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 2663,
+          "mean_bytes": 1331,
+          "results": 2,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.002,
+          "tool": "ListAgents",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 1101,
+          "mean_bytes": 1101,
+          "results": 1,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "Agent",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 1024,
+          "mean_bytes": 512,
+          "results": 2,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "AskUserQuestion",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 924,
+          "mean_bytes": 308,
           "results": 3,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "SendUserFile",
+          "share": 0.001,
+          "tool": "Monitor",
           "zero_reuse_results": 3
         },
         {
-          "bytes": 418,
-          "mean_bytes": 52,
-          "results": 8,
+          "bytes": 306,
+          "mean_bytes": 61,
+          "results": 5,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.0,
           "tool": "ToolSearch",
-          "zero_reuse_results": 8
+          "zero_reuse_results": 5
         },
         {
-          "bytes": 320,
-          "mean_bytes": 160,
+          "bytes": 78,
+          "mean_bytes": 39,
           "results": 2,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.0,
-          "tool": "ScheduleWakeup",
+          "tool": "StructuredOutput",
           "zero_reuse_results": 2
-        },
-        {
-          "bytes": 308,
-          "mean_bytes": 308,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "Monitor",
-          "zero_reuse_results": 1
-        },
-        {
-          "bytes": 29,
-          "mean_bytes": 29,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "Skill",
-          "zero_reuse_results": 1
         }
       ],
-      "bytes": 9790002,
-      "reuse_ratio": 0.019,
-      "reused_bytes": 190202
+      "bytes": 1534068,
+      "reuse_ratio": 0.009,
+      "reused_bytes": 14045
     },
-    "tpcd_proxy_bytes_per_tool_call": 6073.167,
-    "transcripts_scanned": 2,
-    "user_turns": 76,
+    "tpcd_proxy_bytes_per_tool_call": 5211.512,
+    "transcripts_scanned": 3,
+    "user_turns": 37,
     "window_bytes": {
-      "assistant": 156338,
-      "injection": 1209785,
-      "injection_share": 0.105,
-      "tool_result_share": 0.852,
-      "tool_results": 9790002,
-      "user": 340380
+      "assistant": 121209,
+      "injection": 261575,
+      "injection_share": 0.128,
+      "tool_result_share": 0.753,
+      "tool_results": 1534068,
+      "user": 120849
     }
   },
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 23,
-      "cli-ast-blast": 3,
-      "cli-ast-meta": 3,
-      "cli-gate-metrics": 2,
-      "cli-index-status": 1,
-      "cli-kpi": 2,
-      "cli-memory-recall": 1,
-      "cli-memory-store": 1,
-      "cli-suggest": 27,
-      "post-bash": 23,
-      "post-edit": 2,
-      "post-read": 1,
-      "post-tool-batch": 30,
-      "post-tool-rl": 33,
-      "post-write": 1,
-      "pre-bash": 23
+      "ceg-observe": 91,
+      "cli-ast-blast": 22,
+      "cli-ast-meta": 22,
+      "cli-kpi": 1,
+      "cli-suggest": 124,
+      "cwd-changed": 4,
+      "instructions-loaded": 25,
+      "post-bash": 86,
+      "post-compact": 1,
+      "post-edit": 6,
+      "post-read": 7,
+      "post-tool-batch": 130,
+      "post-tool-failure": 5,
+      "post-tool-rl": 116,
+      "post-write": 16,
+      "pre-bash": 91
     },
     "mirror_deliveries_by_origin": {
-      "post_bash": 1,
+      "post_bash": 0,
       "sdk": 0,
       "unknown": 0
     },
-    "mirror_deliveries_since": 1,
+    "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": 0.043478260869565216,
-    "post_bash_dispatched": 23,
-    "post_bash_origin_deliveries_since": 1,
-    "since_epoch": 1789526223
+    "post_bash_delivery_ratio": 0.0,
+    "post_bash_dispatched": 86,
+    "post_bash_origin_deliveries_since": 0,
+    "since_epoch": 1789557681
   },
   "project_root": "/home/gabrielgadea/projects/analise",
   "schema": "kpi-commitments-v1",

@@ -42,7 +42,7 @@ fn noop_metrics() -> Arc<NoopTelemetry> {
 
 fn make_plan(kind: GeneratorKind) -> GeneratorPlan {
     GeneratorPlan {
-        version: "8".into(),
+        version: touring_generator::PLAN_SCHEMA_VERSION.into(),
         plan_id: Uuid::new_v4(),
         intent: "e2e test plan".into(),
         cila_level: CilaLevel::L1,
@@ -770,7 +770,7 @@ fn generator_plan_serde_round_trip() {
     assert_eq!(decoded.plan_id, plan.plan_id);
     assert_eq!(decoded.intent, plan.intent);
     assert!(matches!(decoded.kind, GeneratorKind::McpTool));
-    assert_eq!(decoded.version, "8");
+    assert_eq!(decoded.version, touring_generator::PLAN_SCHEMA_VERSION);
 }
 
 // ── ErasedGenerator blanket impl ─────────────────────────────────────────────
@@ -832,6 +832,44 @@ async fn pipeline_draft_to_verified_with_empty_contracts() {
         result.is_ok(),
         "Draft→Verified with empty contracts must succeed"
     );
+}
+
+/// 18/09/2026 — the schema version was declared and never checked; this very
+/// fixture carried `version: "8"` through every pipeline test. A plan of another
+/// MAJOR version now stops at Draft→Verified, before VGP, naming both versions.
+#[tokio::test]
+async fn pipeline_rejects_a_plan_of_another_major_schema_version() {
+    use touring_generator::plan::failure::FailureReason;
+    use touring_generator::{Draft, PlanExecutor};
+
+    let ctx = GeneratorContext::for_testing();
+    let mut plan = make_plan(GeneratorKind::RustModule);
+    plan.version = "8".into();
+    let executor: PlanExecutor<Draft> = PlanExecutor::first(plan, Arc::clone(&ctx));
+    let Err(replan) = executor.verify(&ctx.vgp_engine).await else {
+        panic!("a v8 plan must not reach Verified");
+    };
+    match replan.reason() {
+        FailureReason::SchemaVersionMismatch {
+            plan_version,
+            engine_version,
+        } => {
+            assert_eq!(plan_version, "8");
+            assert_eq!(engine_version, touring_generator::PLAN_SCHEMA_VERSION);
+        }
+        other => panic!("expected SchemaVersionMismatch, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn pipeline_accepts_a_minor_revision_of_the_schema() {
+    use touring_generator::{Draft, PlanExecutor};
+
+    let ctx = GeneratorContext::for_testing();
+    let mut plan = make_plan(GeneratorKind::RustModule);
+    plan.version = "2.1.3".into();
+    let executor: PlanExecutor<Draft> = PlanExecutor::first(plan, Arc::clone(&ctx));
+    assert!(executor.verify(&ctx.vgp_engine).await.is_ok());
 }
 
 #[tokio::test]

@@ -718,7 +718,7 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // B4 (15/09/2026): per Python file, the public symbols the file itself uses.
     // Written with the inferred edges after the walk, because the clear there
     // would wipe anything the walk had already recorded.
-    let mut pending_python_self: Vec<(String, std::collections::BTreeSet<String>)> = Vec::new();
+    let mut pending_self_refs: Vec<(String, std::collections::BTreeSet<String>)> = Vec::new();
     // B5 (16/09/2026): per Python file, `(abs path, [(module path, symbol)])` for
     // every `alias.Nome` whose alias came from an `import`. Resolved after the
     // walk, for the same reason the inferred edges are.
@@ -1114,13 +1114,19 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                         // read by its own module and a constant nobody reads were
                         // the same row: an orphan. Collected here, written with the
                         // other inferred edges after the walk.
-                        if language == "python" && rt.ctx.knowledge.polyglot() {
-                            let names = touring_code::ast::graph::python_self_referenced_names(
-                                &content, &symbols,
+                        // B4 (Python, 15/09) and D9 (Rust, 18/09): the file's use of
+                        // its own public symbols — `internal_only`, never an orphan.
+                        if language == "rust"
+                            || (language == "python" && rt.ctx.knowledge.polyglot())
+                        {
+                            let names = touring_code::ast::graph::self_referenced_names(
+                                &content, &symbols, language,
                             );
                             if !names.is_empty() {
-                                pending_python_self.push((rel_path.clone(), names));
+                                pending_self_refs.push((rel_path.clone(), names));
                             }
+                        }
+                        if language == "python" && rt.ctx.knowledge.polyglot() {
                             // B5 (16/09/2026): `import modulo as gm` + `gm.Nome`.
                             // A bare `import` carries no symbol, so the import pass
                             // below wrote nothing and every symbol reached through
@@ -1158,6 +1164,7 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                                             touring_hooks_core::symbol_extractors::definer_module(
                                                 &module_file,
                                                 symbol_name,
+                                                Some(abs_path_str),
                                             );
                                         let _ = rt.ctx.knowledge.record_consumer(
                                             &definer,
@@ -1174,12 +1181,13 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                                 // dead code. Recording the failure is what splits
                                 // the orphan count into code debt vs resolver debt.
                                 None => {
-                                    // Classified at the call site, using the same
-                                    // crate map the resolution attempt used — so
-                                    // the verdict can never drift from the attempt.
+                                    // Classified at the call site, in the workspace
+                                    // of the same file the resolution attempt used —
+                                    // so the verdict can never drift from the attempt.
                                     let class =
                                         touring_hooks_core::symbol_extractors::classify_unresolved(
                                             module_path,
+                                            Some(abs_path_str),
                                         );
                                     for symbol_name in imported_symbols {
                                         let _ = rt
@@ -1309,11 +1317,11 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 qualified_calls,
             );
         }
-        // B4: a Python file's use of its own public symbols. The edge is
+        // B4/D9: a file's use of its own public symbols. The edge is
         // `(file, symbol) -> file` and its tier is the same as any bare-name
         // match: it never means the project uses the symbol — that is what
         // `internal_only_symbols` reports — only that the file does.
-        for (consumer_file, names) in &pending_python_self {
+        for (consumer_file, names) in &pending_self_refs {
             for name in names {
                 let _ = rt.ctx.knowledge.record_consumer_with_origin(
                     consumer_file,
