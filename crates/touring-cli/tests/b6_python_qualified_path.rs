@@ -111,6 +111,9 @@ fn the_old_extractor_shape_would_have_found_nothing_here() {
         !src.lines().any(|l| l.starts_with("import ")),
         "the fixture must contain NO plain `import` — otherwise the edge could come from the old branch"
     );
-    assert_eq!(touring_code::ast::graph::python_qualified_uses(&src).len(), 1);
+    assert_eq!(
+        touring_code::ast::graph::python_qualified_uses(&src).len(),
+        1
+    );
     let _ = fs::remove_dir_all(&root);
 }

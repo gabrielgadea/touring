@@ -237,9 +237,8 @@ pub use meta::{
 /// - `ExplorationAction`: exploration action suggested by Actor-Critic
 /// - `FalliblePipeline`: error-handling wrapper for production use
 pub use metacognitive_pipeline::{
-    ExplorationAction, FalliblePipeline,
-    LatencyAdaptationPipeline, LatencyConfig, LatencyStats, MetacognitiveDecision, PipelineContext,
-    PipelineContextBuilder,
+    ExplorationAction, FalliblePipeline, LatencyAdaptationPipeline, LatencyConfig, LatencyStats,
+    MetacognitiveDecision, PipelineContext, PipelineContextBuilder,
 };
 // EvidenceSubscriber requires async-memory (tokio); SyncEvidenceProcessor is always available
 #[cfg(not(feature = "async-memory"))]

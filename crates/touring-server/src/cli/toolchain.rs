@@ -1194,8 +1194,14 @@ mod tests {
         let bin = home.join("toolchains/vgpu/bin");
         for lib in super::super::project_toolchain::PROJECT_RUNTIME_LIBS {
             let installed = bin.join(lib);
-            assert!(!installed.is_symlink(), "{lib} must be a copy, not a link into the cache");
-            assert_eq!(std::fs::read_to_string(&installed).unwrap(), format!("elf-{lib}"));
+            assert!(
+                !installed.is_symlink(),
+                "{lib} must be a copy, not a link into the cache"
+            );
+            assert_eq!(
+                std::fs::read_to_string(&installed).unwrap(),
+                format!("elf-{lib}")
+            );
         }
     }
 
@@ -1214,8 +1220,14 @@ mod tests {
 
         let err = install_toolchain_from_source(&home, "vgpu", src.path(), false)
             .expect_err("a toolchain that can never reach the GPU must be refused");
-        assert!(format!("{err}").contains(lib), "must name the dangling lib: {err}");
-        assert!(!home.join("toolchains/vgpu/bin/touring").exists(), "nothing installed");
+        assert!(
+            format!("{err}").contains(lib),
+            "must name the dangling lib: {err}"
+        );
+        assert!(
+            !home.join("toolchains/vgpu/bin/touring").exists(),
+            "nothing installed"
+        );
     }
 
     #[test]

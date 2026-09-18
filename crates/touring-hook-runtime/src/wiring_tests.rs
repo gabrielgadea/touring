@@ -30,8 +30,12 @@ fn test_register_pub_symbol() {
 #[test]
 fn a_cycle_written_through_the_production_writers_is_found() {
     let (_tmp, db) = test_db();
-    for (module, symbol) in [("crates/a/src/one.rs", "One"), ("crates/a/src/two.rs", "Two")] {
-        db.register_pub_symbol(module, symbol, "struct", "public").unwrap();
+    for (module, symbol) in [
+        ("crates/a/src/one.rs", "One"),
+        ("crates/a/src/two.rs", "Two"),
+    ] {
+        db.register_pub_symbol(module, symbol, "struct", "public")
+            .unwrap();
     }
     db.record_consumer("crates/a/src/one.rs", "One", "crates/a/src/two.rs", None)
         .unwrap();

@@ -815,9 +815,10 @@ fn record_reexport_consumer(db: &FileKnowledgeDB, consumer_file: &str, submod: &
 fn absolute_consumer(db: &FileKnowledgeDB, consumer_file: &str) -> String {
     let path = std::path::Path::new(consumer_file);
     match db.workspace_root() {
-        Some(root) if !path.is_absolute() => {
-            std::path::Path::new(root).join(path).to_string_lossy().into_owned()
-        }
+        Some(root) if !path.is_absolute() => std::path::Path::new(root)
+            .join(path)
+            .to_string_lossy()
+            .into_owned(),
         _ => consumer_file.to_string(),
     }
 }

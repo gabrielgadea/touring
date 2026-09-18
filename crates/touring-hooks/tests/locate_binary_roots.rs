@@ -28,7 +28,11 @@ fn a_plain_run_never_picks_a_stale_coverage_binary() {
         "/ws/target/llvm-cov-target/debug/touring-daemon",
         "/ws/target/release/touring-daemon",
     ]);
-    let roots = target_roots(None, Some(Path::new("/ws/target/debug/deps/binary_e2e-1a2b")), Path::new(WS));
+    let roots = target_roots(
+        None,
+        Some(Path::new("/ws/target/debug/deps/binary_e2e-1a2b")),
+        Path::new(WS),
+    );
     assert_eq!(
         pick_binary("touring-daemon", &roots, exists),
         Some(PathBuf::from("/ws/target/release/touring-daemon"))
@@ -43,12 +47,16 @@ fn a_coverage_run_uses_the_coverage_build() {
     ]);
     let roots = target_roots(
         None,
-        Some(Path::new("/ws/target/llvm-cov-target/debug/deps/binary_e2e-1a2b")),
+        Some(Path::new(
+            "/ws/target/llvm-cov-target/debug/deps/binary_e2e-1a2b",
+        )),
         Path::new(WS),
     );
     assert_eq!(
         pick_binary("touring-daemon", &roots, exists),
-        Some(PathBuf::from("/ws/target/llvm-cov-target/debug/touring-daemon"))
+        Some(PathBuf::from(
+            "/ws/target/llvm-cov-target/debug/touring-daemon"
+        ))
     );
 }
 
@@ -60,7 +68,10 @@ fn an_explicit_cargo_target_dir_wins() {
         Some(Path::new("/ws/target/debug/deps/t-1")),
         Path::new(WS),
     );
-    assert_eq!(pick_binary("touring", &roots, exists), Some(PathBuf::from("/elsewhere/debug/touring")));
+    assert_eq!(
+        pick_binary("touring", &roots, exists),
+        Some(PathBuf::from("/elsewhere/debug/touring"))
+    );
 }
 
 #[test]
@@ -70,16 +81,38 @@ fn coverage_is_still_found_when_it_is_the_only_build() {
     let roots = target_roots(None, Some(Path::new("/opt/runner/test-bin")), Path::new(WS));
     assert_eq!(
         pick_binary("touring-hook", &roots, exists),
-        Some(PathBuf::from("/ws/target/llvm-cov-target/release/touring-hook"))
+        Some(PathBuf::from(
+            "/ws/target/llvm-cov-target/release/touring-hook"
+        ))
     );
 }
 
 #[test]
 fn an_executable_outside_a_deps_dir_adds_no_root_and_roots_do_not_repeat() {
-    let roots = target_roots(None, Some(Path::new("/usr/bin/cargo-nextest")), Path::new(WS));
-    assert_eq!(roots, vec![PathBuf::from(WS), PathBuf::from("/ws/target/llvm-cov-target")]);
-    let own = target_roots(Some(PathBuf::from(WS)), Some(Path::new("/ws/target/debug/deps/t-1")), Path::new(WS));
-    assert_eq!(own, vec![PathBuf::from(WS), PathBuf::from("/ws/target/llvm-cov-target")]);
+    let roots = target_roots(
+        None,
+        Some(Path::new("/usr/bin/cargo-nextest")),
+        Path::new(WS),
+    );
+    assert_eq!(
+        roots,
+        vec![
+            PathBuf::from(WS),
+            PathBuf::from("/ws/target/llvm-cov-target")
+        ]
+    );
+    let own = target_roots(
+        Some(PathBuf::from(WS)),
+        Some(Path::new("/ws/target/debug/deps/t-1")),
+        Path::new(WS),
+    );
+    assert_eq!(
+        own,
+        vec![
+            PathBuf::from(WS),
+            PathBuf::from("/ws/target/llvm-cov-target")
+        ]
+    );
 }
 
 #[test]

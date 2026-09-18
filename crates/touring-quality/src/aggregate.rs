@@ -334,15 +334,22 @@ mod tests {
         let pf: Vec<FileScore<'_>> = vec![(fixed.as_path(), 1.0, 10), (stale.as_path(), 0.0, 10)];
         let s = aggregate(AggKind::FailClosedLoc, &pf);
         assert!(
-            s.evidence.contains("site/docs/agentic-bench/run_bench.py = 0.000"),
+            s.evidence
+                .contains("site/docs/agentic-bench/run_bench.py = 0.000"),
             "{}",
             s.evidence
         );
         let w = aggregate(AggKind::WorstOf, &pf);
-        assert!(w.evidence.contains("site/docs/agentic-bench/run_bench.py"), "{}", w.evidence);
+        assert!(
+            w.evidence.contains("site/docs/agentic-bench/run_bench.py"),
+            "{}",
+            w.evidence
+        );
         let single = [(fixed.as_path(), 0.5, 1)];
         assert!(
-            aggregate(AggKind::WorstOf, &single).evidence.contains("run_bench.py"),
+            aggregate(AggKind::WorstOf, &single)
+                .evidence
+                .contains("run_bench.py"),
             "one file is named relative to its own directory"
         );
     }
@@ -500,7 +507,12 @@ mod tests {
             AggKind::FailClosedLoc,
         ] {
             let s = aggregate(kind, &[]);
-            assert_eq!(s.status, crate::DimStatus::NotApplicable, "{kind:?}: {}", s.evidence);
+            assert_eq!(
+                s.status,
+                crate::DimStatus::NotApplicable,
+                "{kind:?}: {}",
+                s.evidence
+            );
             assert!(s.evidence.starts_with("[N/A]"), "{kind:?}: {}", s.evidence);
         }
     }

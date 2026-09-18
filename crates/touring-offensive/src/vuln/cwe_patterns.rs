@@ -1054,11 +1054,17 @@ mod tests {
     fn r2_context_false_positives_and_their_true_positives() {
         let xss = XssPattern;
         // `cli_suggester.rs`: a flag placeholder in usage text.
-        assert!(xss.detect("varredura única: `touring run --lang bash --file <script>` e").is_none());
+        assert!(
+            xss.detect("varredura única: `touring run --lang bash --file <script>` e")
+                .is_none()
+        );
         assert!(xss.detect("usage: tool -s <script> [args]").is_none());
         assert!(xss.detect("tool --file=<script>").is_none());
         assert!(xss.detect("--file <script>alert(1)</script>").is_some());
-        assert!(xss.detect("html = '<p>' + name + '<script>steal()</script>'").is_some());
+        assert!(
+            xss.detect("html = '<p>' + name + '<script>steal()</script>'")
+                .is_some()
+        );
         assert!(xss.detect("<script src=x>").is_some());
         assert!(xss.detect("x <script>").is_some(), "no flag before it");
         // `cc_build.py`: the page's own script inside the document it generates.
@@ -1066,9 +1072,13 @@ mod tests {
             xss.detect("body = f\"\"\"<!DOCTYPE html>\n<html><body>{grid}\n<script>\n{_JS}\n</script>\n</body></html>\"\"\"")
                 .is_none()
         );
-        assert!(xss.detect("page = \"<HTML lang=en><script src=app.js></script>\"").is_none());
         assert!(
-            xss.detect("doc = \"<html></html>\"; tail = \"<script>steal()</script>\"").is_some(),
+            xss.detect("page = \"<HTML lang=en><script src=app.js></script>\"")
+                .is_none()
+        );
+        assert!(
+            xss.detect("doc = \"<html></html>\"; tail = \"<script>steal()</script>\"")
+                .is_some(),
             "a script after the document closed is not the document's"
         );
 
@@ -1078,26 +1088,45 @@ mod tests {
             path.detect("wit_bindgen::generate!({\n    path: \"../../crates/touring-wasm/wit/holon-core.wit\",\n    world: \"x\",\n});")
                 .is_none()
         );
-        assert!(path.detect("let f = File::open(\"../../etc/passwd\");").is_some());
+        assert!(
+            path.detect("let f = File::open(\"../../etc/passwd\");")
+                .is_some()
+        );
         assert!(
             path.detect("gen!({ path: \"a\" });\nlet cfg = Config { path: \"../../etc/passwd\" };")
                 .is_some(),
             "a closed macro body does not shield a struct literal after it"
         );
         assert!(
-            path.detect("generate!({\n    mypath: \"../../etc/passwd\",\n});").is_some(),
+            path.detect("generate!({\n    mypath: \"../../etc/passwd\",\n});")
+                .is_some(),
             "only the `path` key"
         );
         // `generate_w0_premium_artifacts.py`: a symlink target in a tree listing.
-        assert!(path.detect("│   ├── touring -> ../../../~/.touring/toolchains/1.0.0/bin/touring").is_none());
-        assert!(path.detect("lrwxrwxrwx 1 u u 40 x touring -> ../../bin/touring").is_none());
-        assert!(path.detect("fn f() -> String { \"../../etc/passwd\".into() }").is_some());
-        assert!(path.detect("x -> ../../etc/passwd").is_some(), "an arrow alone is not a listing");
+        assert!(
+            path.detect("│   ├── touring -> ../../../~/.touring/toolchains/1.0.0/bin/touring")
+                .is_none()
+        );
+        assert!(
+            path.detect("lrwxrwxrwx 1 u u 40 x touring -> ../../bin/touring")
+                .is_none()
+        );
+        assert!(
+            path.detect("fn f() -> String { \"../../etc/passwd\".into() }")
+                .is_some()
+        );
+        assert!(
+            path.detect("x -> ../../etc/passwd").is_some(),
+            "an arrow alone is not a listing"
+        );
 
         let ldap = LdapInjectionPattern;
         // `touring-quality-score`: a shell `case` glob; `w12_migration_tool.py`: prose.
         assert!(ldap.detect("    -o|--output|--output=*)").is_none());
-        assert!(ldap.detect("- `~/.claude/memory/` (memory tier=*)").is_none());
+        assert!(
+            ldap.detect("- `~/.claude/memory/` (memory tier=*)")
+                .is_none()
+        );
         assert!(ldap.detect("(name=*)").is_some());
         assert!(ldap.detect("(&(objectClass=*)(uid=admin))").is_some());
         assert!(ldap.detect("filter = \"(mail=*)\"").is_some());
@@ -1112,7 +1141,10 @@ mod tests {
         assert_eq!(all.len(), 2);
         assert!(all[0].span.0 < all[1].span.0);
         assert_eq!(XssPattern.detect(input).map(|m| m.span), Some(all[0].span));
-        assert_eq!(PathTraversalPattern.detect_every("../../a ../../b").len(), 2);
+        assert_eq!(
+            PathTraversalPattern.detect_every("../../a ../../b").len(),
+            2
+        );
         assert!(SqlInjectionPattern.detect_every("nothing here").is_empty());
 
         let mut reg = PatternRegistry::new();

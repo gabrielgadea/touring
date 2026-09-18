@@ -260,15 +260,29 @@ mod http_impl {
 
         #[test]
         fn discrete_gpu_is_chosen_over_integrated_and_software() {
-            let listed = [DeviceType::IntegratedGpu, DeviceType::Cpu, DeviceType::DiscreteGpu];
-            let chosen = listed.iter().copied().min_by_key(|t| adapter_preference(*t));
+            let listed = [
+                DeviceType::IntegratedGpu,
+                DeviceType::Cpu,
+                DeviceType::DiscreteGpu,
+            ];
+            let chosen = listed
+                .iter()
+                .copied()
+                .min_by_key(|t| adapter_preference(*t));
             assert_eq!(chosen, Some(DeviceType::DiscreteGpu));
         }
 
         #[test]
         fn integrated_gpu_is_chosen_over_software_when_alone() {
-            let listed = [DeviceType::Cpu, DeviceType::Other, DeviceType::IntegratedGpu];
-            let chosen = listed.iter().copied().min_by_key(|t| adapter_preference(*t));
+            let listed = [
+                DeviceType::Cpu,
+                DeviceType::Other,
+                DeviceType::IntegratedGpu,
+            ];
+            let chosen = listed
+                .iter()
+                .copied()
+                .min_by_key(|t| adapter_preference(*t));
             assert_eq!(chosen, Some(DeviceType::IntegratedGpu));
         }
     }

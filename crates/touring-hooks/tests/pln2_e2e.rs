@@ -158,7 +158,11 @@ fn pln2_todos_extraction_from_content() {
 
     let todos = kb.get_unresolved_todos("src/test.rs").unwrap();
     let kinds: Vec<&str> = todos.iter().map(|t| t.2.as_str()).collect();
-    assert_eq!(kinds, ["TODO", "FIXME", "XXX", "HACK"], "twice replaced, once stored");
+    assert_eq!(
+        kinds,
+        ["TODO", "FIXME", "XXX", "HACK"],
+        "twice replaced, once stored"
+    );
 }
 
 // ── edge_confidence ───────────────────────────────────────────────────────────

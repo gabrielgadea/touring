@@ -532,7 +532,10 @@ fn gpu_embeddings_verdict(facts: &GpuEmbeddingsFacts) -> Check {
         Some(_) => {}
     }
     if !facts.nvidia_present {
-        return check("ok", "no NVIDIA GPU (/dev/nvidiactl absent) — embeddings run on CPU".into());
+        return check(
+            "ok",
+            "no NVIDIA GPU (/dev/nvidiactl absent) — embeddings run on CPU".into(),
+        );
     }
     if let Some(missing) = facts.missing_cuda_libs.as_ref().filter(|m| !m.is_empty()) {
         return check(
@@ -688,14 +691,21 @@ mod tests {
         let cache = "2 libs found in cache `/etc/ld.so.cache'\n\
                      \tlibcudart.so.13 (libc6,x86-64) => /opt/cuda/lib64/libcudart.so.13\n\
                      \tlibcudnn.so.9 (libc6,x86-64) => /usr/lib/libcudnn.so.9\n";
-        let missing = missing_sonames(cache, &[], &["libcudart.so.13", "libcudnn.so.9", "libcublas.so.13"]);
+        let missing = missing_sonames(
+            cache,
+            &[],
+            &["libcudart.so.13", "libcudnn.so.9", "libcublas.so.13"],
+        );
         assert_eq!(missing, vec!["libcublas.so.13"]);
     }
 
     #[test]
     fn missing_sonames_does_not_take_a_longer_soname_for_a_shorter_one() {
         let cache = "\tlibcublasLt.so.13 (libc6,x86-64) => /opt/cuda/lib64/libcublasLt.so.13\n";
-        assert_eq!(missing_sonames(cache, &[], &["libcublas.so.13"]), vec!["libcublas.so.13"]);
+        assert_eq!(
+            missing_sonames(cache, &[], &["libcublas.so.13"]),
+            vec!["libcublas.so.13"]
+        );
     }
 
     #[test]
@@ -730,7 +740,11 @@ mod tests {
         f.policy_raw = Some("rocm".into());
         let c = gpu_embeddings_verdict(&f);
         assert_eq!(c.status, "degraded");
-        assert!(c.detail.contains("rocm") && c.detail.contains("auto"), "{}", c.detail);
+        assert!(
+            c.detail.contains("rocm") && c.detail.contains("auto"),
+            "{}",
+            c.detail
+        );
     }
 
     #[test]
@@ -739,7 +753,11 @@ mod tests {
         f.missing_cuda_libs = Some(vec!["libcudnn.so.9"]);
         let c = gpu_embeddings_verdict(&f);
         assert_eq!(c.status, "degraded");
-        assert!(c.detail.contains("libcudnn.so.9") && c.detail.contains("omarchy pkg add cuda cudnn"), "{}", c.detail);
+        assert!(
+            c.detail.contains("libcudnn.so.9") && c.detail.contains("omarchy pkg add cuda cudnn"),
+            "{}",
+            c.detail
+        );
     }
 
     #[test]
@@ -751,21 +769,32 @@ mod tests {
 
     #[test]
     fn gpu_verdict_turns_a_provider_lib_fallback_into_the_relink_remedy() {
-        let reason = "cuda: Failed to load library /p/.touring/bin/libonnxruntime_providers_shared.so";
+        let reason =
+            "cuda: Failed to load library /p/.touring/bin/libonnxruntime_providers_shared.so";
         let c = gpu_embeddings_verdict(&facts(daemon("cpu", 1, reason)));
         assert_eq!(c.status, "degraded");
-        assert!(c.detail.contains(reason), "the reason travels verbatim: {}", c.detail);
+        assert!(
+            c.detail.contains(reason),
+            "the reason travels verbatim: {}",
+            c.detail
+        );
         assert!(c.detail.contains("touring update"), "{}", c.detail);
     }
 
     #[test]
     fn gpu_verdict_flags_cpu_without_any_cuda_failure() {
-        assert_eq!(gpu_embeddings_verdict(&facts(daemon("cpu", 0, ""))).status, "degraded");
+        assert_eq!(
+            gpu_embeddings_verdict(&facts(daemon("cpu", 0, ""))).status,
+            "degraded"
+        );
     }
 
     #[test]
     fn gpu_verdict_is_ok_before_the_first_embedding() {
-        assert_eq!(gpu_embeddings_verdict(&facts(daemon("none", 0, ""))).status, "ok");
+        assert_eq!(
+            gpu_embeddings_verdict(&facts(daemon("none", 0, ""))).status,
+            "ok"
+        );
         assert_eq!(gpu_embeddings_verdict(&facts(None)).status, "ok");
     }
 

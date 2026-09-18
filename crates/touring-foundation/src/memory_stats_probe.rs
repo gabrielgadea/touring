@@ -118,18 +118,28 @@ mod tests {
     /// returned a zeroed reading. The next occurrence should not cost another
     /// investigation: whoever reads it gets the raw kernel numbers beside ours.
     fn proc_evidence() -> String {
-        let statm = std::fs::read_to_string("/proc/self/statm").unwrap_or_else(|e| format!("<{e}>"));
+        let statm =
+            std::fs::read_to_string("/proc/self/statm").unwrap_or_else(|e| format!("<{e}>"));
         let status = std::fs::read_to_string("/proc/self/status")
             .map(|s| {
                 s.lines()
-                    .filter(|l| l.starts_with("VmRSS:") || l.starts_with("VmSize:") || l.starts_with("RssAnon:"))
+                    .filter(|l| {
+                        l.starts_with("VmRSS:")
+                            || l.starts_with("VmSize:")
+                            || l.starts_with("RssAnon:")
+                    })
                     .collect::<Vec<_>>()
                     .join(" | ")
             })
             .unwrap_or_else(|e| format!("<{e}>"));
         let direct = memory_stats().map_or_else(
             || "memory_stats() -> None".to_string(),
-            |m| format!("memory_stats() -> physical={} virtual={}", m.physical_mem, m.virtual_mem),
+            |m| {
+                format!(
+                    "memory_stats() -> physical={} virtual={}",
+                    m.physical_mem, m.virtual_mem
+                )
+            },
         );
         format!("statm=[{}] status=[{status}] {direct}", statm.trim())
     }
@@ -142,7 +152,10 @@ mod tests {
         // from "probe returned zeros" from "the kernel itself says zero".
         let evidence = proc_evidence();
         assert!(evidence.contains("statm=["), "sem statm: {evidence}");
-        assert!(evidence.contains("VmRSS:"), "sem VmRSS do /proc/self/status: {evidence}");
+        assert!(
+            evidence.contains("VmRSS:"),
+            "sem VmRSS do /proc/self/status: {evidence}"
+        );
         assert!(
             evidence.contains("memory_stats() ->"),
             "sem a leitura direta da crate: {evidence}"

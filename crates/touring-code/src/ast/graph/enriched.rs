@@ -224,13 +224,20 @@ mod tests {
         );
         let expected = (0.5 * 1.0 + 0.3 * result.transitive_dependents.len() as f64)
             / (1.0 + result.transitive_dependents.len() as f64);
-        assert!((result.severity - expected).abs() < 1e-12, "{}", result.severity);
+        assert!(
+            (result.severity - expected).abs() < 1e-12,
+            "{}",
+            result.severity
+        );
     }
 
     #[test]
     fn test_signal_prefixes_keep_their_wire_names() {
         // Signal consumers match on these prefixes; renaming one silently orphans them.
-        let labels: Vec<&str> = ImpactCategory::ALL.into_iter().map(ImpactCategory::signal_prefix).collect();
+        let labels: Vec<&str> = ImpactCategory::ALL
+            .into_iter()
+            .map(ImpactCategory::signal_prefix)
+            .collect();
         assert_eq!(labels, ["direct", "transitive", "co_edit"]);
     }
 }

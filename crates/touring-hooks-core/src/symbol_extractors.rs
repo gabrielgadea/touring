@@ -238,8 +238,7 @@ fn package_name(manifest: &str) -> Option<String> {
 #[must_use]
 fn workspace_root_of(path: &std::path::Path) -> Option<std::path::PathBuf> {
     type Roots = std::collections::HashMap<std::path::PathBuf, Option<std::path::PathBuf>>;
-    static ROOTS: Lazy<std::sync::Mutex<Roots>> =
-        Lazy::new(|| std::sync::Mutex::new(Roots::new()));
+    static ROOTS: Lazy<std::sync::Mutex<Roots>> = Lazy::new(|| std::sync::Mutex::new(Roots::new()));
     let start = if path.is_dir() {
         path.to_path_buf()
     } else {
@@ -1035,7 +1034,9 @@ pub fn resolve_import_path_with_source(
                 // orphans once the name-inference pass stopped covering imported
                 // types (cross-audit R2-5). The full `touring_` name only: a bare
                 // short alias (`storage`) can be a local module.
-                if import == crate_name.as_str() && ws.as_deref().is_some_and(|ws| ws.is_package(crate_name)) {
+                if import == crate_name.as_str()
+                    && ws.as_deref().is_some_and(|ws| ws.is_package(crate_name))
+                {
                     return resolve_module_layout(ws_root, crate_path, "lib");
                 }
                 if let Some(rest) = import.strip_prefix(&format!("{}::", crate_name)) {
@@ -1103,10 +1104,11 @@ pub fn resolve_import_path_with_source(
                 // Either None (neither layout exists nor any re-export, e.g. an
                 // OUT_DIR-generated module) or the filename keyword sentinel
                 // rejects the candidate.
-                let candidate = resolve_module_layout(ws_root, &crate_src_root, &rel).or_else(|| {
-                    ws.as_deref()
-                        .and_then(|ws| resolve_reexport(ws, &crate_src_root, &rel, 0))
-                })?;
+                let candidate =
+                    resolve_module_layout(ws_root, &crate_src_root, &rel).or_else(|| {
+                        ws.as_deref()
+                            .and_then(|ws| resolve_reexport(ws, &crate_src_root, &rel, 0))
+                    })?;
                 if is_keyword_filename(&candidate) {
                     return None;
                 }
@@ -2179,7 +2181,10 @@ mod unresolved_class_tests {
     fn an_empty_path_degrades_to_keyword_never_to_debt() {
         // Defensive: a malformed import must not inflate the defect count.
         assert_eq!(classify_unresolved("", None), UnresolvedClass::ScopeKeyword);
-        assert_eq!(classify_unresolved("   ", None), UnresolvedClass::ScopeKeyword);
+        assert_eq!(
+            classify_unresolved("   ", None),
+            UnresolvedClass::ScopeKeyword
+        );
     }
 }
 
@@ -2200,7 +2205,8 @@ mod workspace_scope_tests {
 
     impl Tree {
         fn new(tag: &str, files: &[(&str, &str)]) -> Self {
-            let root = std::env::temp_dir().join(format!("touring-ws-{tag}-{}", std::process::id()));
+            let root =
+                std::env::temp_dir().join(format!("touring-ws-{tag}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&root);
             for (rel, body) in files {
                 let path = root.join(rel);
@@ -2231,10 +2237,19 @@ mod workspace_scope_tests {
                     "Cargo.toml",
                     "# a comment that names [workspace] is not the table\n[workspace]\nmembers = [\"crates/*\"]\n",
                 ),
-                ("crates/alpha/Cargo.toml", "[package]\nname = \"touring-alpha\"\n"),
-                ("crates/alpha/src/lib.rs", "pub mod widgets;\npub use widgets::*;\n"),
+                (
+                    "crates/alpha/Cargo.toml",
+                    "[package]\nname = \"touring-alpha\"\n",
+                ),
+                (
+                    "crates/alpha/src/lib.rs",
+                    "pub mod widgets;\npub use widgets::*;\n",
+                ),
                 ("crates/alpha/src/widgets.rs", "pub struct Gadget;\n"),
-                ("crates/beta/Cargo.toml", "[package]\nname = \"touring-beta\"\n"),
+                (
+                    "crates/beta/Cargo.toml",
+                    "[package]\nname = \"touring-beta\"\n",
+                ),
                 (
                     "crates/beta/src/lib.rs",
                     "use touring_alpha::widgets::Gadget;\nuse touring_alpha::Gadget as G;\n",
@@ -2273,16 +2288,25 @@ mod workspace_scope_tests {
         let ws = two_crate_workspace("classify");
         let consumer = ws.file("crates/beta/src/lib.rs");
         let class = |path: &str| classify_unresolved(path, Some(&consumer));
-        assert_eq!(class("touring_alpha::no_such"), UnresolvedClass::WorkspaceUnresolved);
+        assert_eq!(
+            class("touring_alpha::no_such"),
+            UnresolvedClass::WorkspaceUnresolved
+        );
         assert_eq!(class("alpha::no_such"), UnresolvedClass::AmbiguousAlias);
         assert_eq!(class("serde::de"), UnresolvedClass::External);
         // This repository's crates are third-party from inside the fixture.
-        assert_eq!(class("touring_storage::knowledge"), UnresolvedClass::External);
+        assert_eq!(
+            class("touring_storage::knowledge"),
+            UnresolvedClass::External
+        );
     }
 
     #[test]
     fn a_file_outside_every_workspace_is_unmeasured_and_borrows_nothing() {
-        let tree = Tree::new("none", &[("lonely.rs", "use touring_storage::knowledge;\n")]);
+        let tree = Tree::new(
+            "none",
+            &[("lonely.rs", "use touring_storage::knowledge;\n")],
+        );
         let file = tree.file("lonely.rs");
         assert_eq!(workspace_root_of(Path::new(&file)), None);
         assert_eq!(
@@ -2302,7 +2326,10 @@ mod workspace_scope_tests {
     fn a_workspace_without_crate_members_is_unmeasured() {
         let tree = Tree::new(
             "empty",
-            &[("Cargo.toml", "[workspace]\nmembers = []\n"), ("src/main.rs", "fn main() {}\n")],
+            &[
+                ("Cargo.toml", "[workspace]\nmembers = []\n"),
+                ("src/main.rs", "fn main() {}\n"),
+            ],
         );
         assert_eq!(
             classify_unresolved("touring_x::y", Some(&tree.file("src/main.rs"))),
@@ -2314,7 +2341,9 @@ mod workspace_scope_tests {
     fn a_workspace_is_a_table_header_never_a_substring() {
         assert!(declares_workspace("[workspace]\nmembers = []\n"));
         assert!(declares_workspace("  [workspace.lints.rust]\n"));
-        assert!(!declares_workspace("# see [workspace] in the root\n[package]\nname = \"x\"\n"));
+        assert!(!declares_workspace(
+            "# see [workspace] in the root\n[package]\nname = \"x\"\n"
+        ));
         assert!(!declares_workspace("[package]\nedition.workspace = true\n"));
     }
 }

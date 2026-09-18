@@ -281,8 +281,9 @@ impl WiringGraphViewer {
             .expect("tokio runtime for wiring viewer")
             // `--full`: the brief default elides the module array, and the parse
             // below then fails — the graph viewer showed `[parse error]`, not a graph.
-            .block_on(spawn_touring_command(&["wiring", "modules", "--full", "-j"]))
-        {
+            .block_on(spawn_touring_command(&[
+                "wiring", "modules", "--full", "-j",
+            ])) {
             Ok(s) => s,
             Err(e) => {
                 ui.label(format!("[touring error] {}", e));

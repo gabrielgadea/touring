@@ -16,7 +16,7 @@
 //! `gate_metrics` key.
 
 use hdrhistogram::Histogram;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 /// Latency histogram wrapped in a `Mutex` for cross-thread recording.

@@ -145,7 +145,10 @@ pub(crate) struct MacroToken<'a> {
 /// `category.signal_discount()`, two lines above and outside the macro, did. The
 /// shape is read from the neighbouring tokens instead. Not read: a turbofish call
 /// (`x.f::<T>()`), whose name is followed by `::`, not by the argument group.
-pub(crate) fn macro_token<'a>(node: tree_sitter::Node<'_>, source: &'a [u8]) -> Option<MacroToken<'a>> {
+pub(crate) fn macro_token<'a>(
+    node: tree_sitter::Node<'_>,
+    source: &'a [u8],
+) -> Option<MacroToken<'a>> {
     if node.kind() != "identifier" || node.parent()?.kind() != "token_tree" {
         return None;
     }
@@ -169,12 +172,15 @@ pub(crate) fn macro_token<'a>(node: tree_sitter::Node<'_>, source: &'a [u8]) -> 
 fn path_via<'a>(sep: Option<tree_sitter::Node<'_>>, source: &'a [u8]) -> MacroVia<'a> {
     let qualifier = path_segment(sep.and_then(|s| s.prev_sibling()));
     let mut root = qualifier;
-    while let Some(up_sep) = root.and_then(|r| r.prev_sibling()).filter(|s| s.kind() == "::")
+    while let Some(up_sep) = root
+        .and_then(|r| r.prev_sibling())
+        .filter(|s| s.kind() == "::")
         && let Some(up) = path_segment(up_sep.prev_sibling())
     {
         root = Some(up);
     }
-    let text = |n: Option<tree_sitter::Node<'_>>| n.and_then(|n| n.utf8_text(source).ok()).unwrap_or("");
+    let text =
+        |n: Option<tree_sitter::Node<'_>>| n.and_then(|n| n.utf8_text(source).ok()).unwrap_or("");
     MacroVia::Path {
         qualifier: text(qualifier),
         root: text(root),
@@ -185,7 +191,12 @@ fn path_via<'a>(sep: Option<tree_sitter::Node<'_>>, source: &'a [u8]) -> MacroVi
 /// primitive such as the `usize` of `std::usize::MAX`, which the grammar tokenizes
 /// as `primitive_type`, not `identifier`).
 fn path_segment(node: Option<tree_sitter::Node<'_>>) -> Option<tree_sitter::Node<'_>> {
-    node.filter(|n| matches!(n.kind(), "identifier" | "primitive_type" | "self" | "super" | "crate"))
+    node.filter(|n| {
+        matches!(
+            n.kind(),
+            "identifier" | "primitive_type" | "self" | "super" | "crate"
+        )
+    })
 }
 
 /// Every identifier among the arguments of `tree`'s macro invocations, nested
@@ -377,7 +388,14 @@ fn caller<T>(v: &Vec<T>) {
     fn a_call_inside_a_macro_is_a_call() {
         let src = "fn f(category: Cat, dep: &str) {\n    let w = category.signal_discount();\n    let s = format!(\"{}:{dep}\", category.signal_prefix());\n    assert_eq!(Registry::build(1), helper(w));\n    let v = vec![a.b().nested_call(), 2];\n}\n";
         let names = extract_method_calls(src, Lang::Rust);
-        for called in ["signal_discount", "signal_prefix", "build", "helper", "b", "nested_call"] {
+        for called in [
+            "signal_discount",
+            "signal_prefix",
+            "build",
+            "helper",
+            "b",
+            "nested_call",
+        ] {
             assert!(names.contains(&called.to_string()), "{called}: {names:?}");
         }
     }
@@ -386,10 +404,22 @@ fn caller<T>(v: &Vec<T>) {
     fn inside_a_macro_a_field_a_string_and_a_macro_name_are_not_calls() {
         let src = "#[cfg(any(test, feature = \"x\"))]\nfn f(c: Cat) {\n    println!(\"{} x.fake_call()\", c.name);\n    let v = vec![format!(\"a\")];\n}\n";
         let names = extract_method_calls(src, Lang::Rust);
-        assert!(!names.contains(&"name".to_string()), "a field read: {names:?}");
-        assert!(!names.contains(&"fake_call".to_string()), "text in a string: {names:?}");
-        assert!(!names.contains(&"format".to_string()), "a nested macro's name: {names:?}");
-        assert!(!names.contains(&"any".to_string()), "an attribute is not a macro call: {names:?}");
+        assert!(
+            !names.contains(&"name".to_string()),
+            "a field read: {names:?}"
+        );
+        assert!(
+            !names.contains(&"fake_call".to_string()),
+            "text in a string: {names:?}"
+        );
+        assert!(
+            !names.contains(&"format".to_string()),
+            "a nested macro's name: {names:?}"
+        );
+        assert!(
+            !names.contains(&"any".to_string()),
+            "an attribute is not a macro call: {names:?}"
+        );
     }
 
     #[test]
@@ -399,7 +429,10 @@ fn caller<T>(v: &Vec<T>) {
         assert!(refs.contains(&"LIMIT".to_string()), "{refs:?}");
         assert!(refs.contains(&"Ready".to_string()), "{refs:?}");
         assert!(!refs.contains(&"MAX".to_string()), "a std path: {refs:?}");
-        assert!(!refs.contains(&"build".to_string()), "a call is the call pass's: {refs:?}");
+        assert!(
+            !refs.contains(&"build".to_string()),
+            "a call is the call pass's: {refs:?}"
+        );
     }
 }
 
@@ -620,14 +653,14 @@ pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
     // The same path references inside a macro's arguments (`assert_eq!(n,
     // tags::LIMIT)`), where there is no `scoped_identifier` to capture. A called
     // one is the call pass's.
-    names.extend(macro_tokens(&tree, source).into_iter().filter_map(|(name, token)| {
-        match token.via {
+    names.extend(macro_tokens(&tree, source).into_iter().filter_map(
+        |(name, token)| match token.via {
             MacroVia::Path { root, .. } if !token.called && !STD_FAMILY_ROOTS.contains(&root) => {
                 Some(name.to_string())
             }
             _ => None,
-        }
-    }));
+        },
+    ));
     // A name the file imports from another crate is decided by that import: the
     // resolver wires it when the crate is in the workspace, and a guess by name
     // can only land on a homonym (`criterion::Criterion` on a workspace

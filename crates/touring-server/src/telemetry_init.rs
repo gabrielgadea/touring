@@ -211,7 +211,10 @@ where
         std::env::var_os("HOME").map(std::path::PathBuf::from),
     );
     if let Err(e) = std::fs::create_dir_all(&dir) {
-        eprintln!("[telemetry] file logs disabled: cannot create {}: {e}", dir.display());
+        eprintln!(
+            "[telemetry] file logs disabled: cannot create {}: {e}",
+            dir.display()
+        );
         return None;
     }
     let appender = match RollingFileAppender::builder()

@@ -6,9 +6,7 @@ pub mod intent;
 pub use hybrid::pipeline::{
     BackendStatus, ConfidenceTier, KeywordSearch, QueryIntent as HybridQueryIntent, SearchStats,
 };
-pub use hybrid::{
-    HybridConfig, HybridQuery, RrfFusion, SearchPipeline, SearchResult,
-};
+pub use hybrid::{HybridConfig, HybridQuery, RrfFusion, SearchPipeline, SearchResult};
 pub use intent::QueryIntent; // Re-export intent QueryIntent
 pub use intent::{
     IntentResult, QueryIntent as IntentQueryIntent, apply_semantic_weighting, detect_intent,

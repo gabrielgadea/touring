@@ -596,7 +596,11 @@ import type { User } from './types';
         assert_eq!(module_of("PUB"), ".formato");
         assert_eq!(module_of("OUTRO"), "..pacote.mod");
         assert_eq!(module_of("IRMAO"), ".");
-        assert_eq!(module_of("LONGE"), "absoluto.mod", "an absolute import is unchanged");
+        assert_eq!(
+            module_of("LONGE"),
+            "absoluto.mod",
+            "an absolute import is unchanged"
+        );
     }
 
     #[test]
@@ -812,7 +816,8 @@ import type { User } from './types';
 
     #[test]
     fn the_rust_query_sees_uses_behind_a_visibility_modifier() {
-        let src = "use a::b::C;\npub(crate) use touring_x::policy::MAX;\npub use crate::m::{D, e};\n";
+        let src =
+            "use a::b::C;\npub(crate) use touring_x::policy::MAX;\npub use crate::m::{D, e};\n";
         let imports =
             extract_imports_treesitter(src, Lang::Rust).expect("the Rust import query compiles");
         let has = |m: &str, s: &str| {
@@ -851,13 +856,30 @@ import type { User } from './types';
                 .unwrap_or_else(|| panic!("no import of {m}: {imports:?}"))
         };
         assert_eq!(symbols("touring_foundation::config"), ["TouringConfig"]);
-        assert_eq!(symbols("touring_foundation::gitignore"), ["GitIgnoreRules", "IgnoredBy"]);
-        assert!(symbols("touring_foundation").is_empty(), "`self` names the module");
-        assert_eq!(symbols("touring_hooks_shared::index_policy"), ["MAX_INDEXABLE_FILE_BYTES"]);
+        assert_eq!(
+            symbols("touring_foundation::gitignore"),
+            ["GitIgnoreRules", "IgnoredBy"]
+        );
+        assert!(
+            symbols("touring_foundation").is_empty(),
+            "`self` names the module"
+        );
+        assert_eq!(
+            symbols("touring_hooks_shared::index_policy"),
+            ["MAX_INDEXABLE_FILE_BYTES"]
+        );
         assert_eq!(symbols("super"), ["MAX", "exceeds_index_size_ceiling"]);
-        assert_eq!(symbols("crate::shared"), ["Runtime"], "the origin name, not the alias");
+        assert_eq!(
+            symbols("crate::shared"),
+            ["Runtime"],
+            "the origin name, not the alias"
+        );
         assert!(symbols("std::io").is_empty(), "a glob names no symbol");
         assert!(symbols("serde").is_empty());
-        assert_eq!(symbols("super::helpers"), ["Tool"], "a `use` nested in a module");
+        assert_eq!(
+            symbols("super::helpers"),
+            ["Tool"],
+            "a `use` nested in a module"
+        );
     }
 }

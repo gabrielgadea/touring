@@ -207,7 +207,8 @@ fn command_substitution_ending(text: &str) -> Option<&str> {
 
 /// Whether `text` computes the script's own directory.
 fn names_script_location(text: &str) -> bool {
-    text.contains("dirname") && (text.contains("$0") || text.contains("${0}") || text.contains("BASH_SOURCE"))
+    text.contains("dirname")
+        && (text.contains("$0") || text.contains("${0}") || text.contains("BASH_SOURCE"))
 }
 
 /// The variable a path starts from: `$SCRIPT_DIR` or `${SCRIPT_DIR}` → `SCRIPT_DIR`.
@@ -227,14 +228,19 @@ fn trailing_variable(anchor: &str) -> &str {
 /// Variables assigned from the script's own location: `SCRIPT_DIR="$(cd
 /// "$(dirname "${BASH_SOURCE[0]}")" && pwd)"`, `HERE=$(dirname "$0")`.
 fn script_location_variables(source: &str) -> impl Iterator<Item = &str> {
-    source.lines().filter(|line| names_script_location(line)).filter_map(|line| {
-        let assignment = ["export ", "readonly ", "local ", "declare "]
-            .iter()
-            .fold(line.trim_start(), |l, keyword| l.strip_prefix(keyword).unwrap_or(l));
-        let (name, _) = assignment.split_once('=')?;
-        (!name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
-            .then_some(name)
-    })
+    source
+        .lines()
+        .filter(|line| names_script_location(line))
+        .filter_map(|line| {
+            let assignment = ["export ", "readonly ", "local ", "declare "]
+                .iter()
+                .fold(line.trim_start(), |l, keyword| {
+                    l.strip_prefix(keyword).unwrap_or(l)
+                });
+            let (name, _) = assignment.split_once('=')?;
+            (!name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
+                .then_some(name)
+        })
 }
 
 impl Default for SecurityAnalyzer {

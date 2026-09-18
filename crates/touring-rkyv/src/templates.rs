@@ -93,4 +93,3 @@ pub struct ArchivedGraphSnapshot {
     /// Per-node weight entries keyed by node id.
     pub weights: Vec<(u64, ArchivedNodeWeight)>,
 }
-

@@ -2024,8 +2024,20 @@ fn no_lessons_db_is_opened_for_writing() {
     // o mesmo abridor.
     let memory = include_str!("cli/memory.rs");
     for (arquivo, fonte, funcoes) in [
-        ("cli/shared.rs", shared, &["fn memory_recall_sql(", "fn memory_backfill_stored_at("][..]),
-        ("cli/memory.rs", memory, &["fn compute_tag_filter(", "fn fetch_tagged_entries(", "fn memory_metrics("][..]),
+        (
+            "cli/shared.rs",
+            shared,
+            &["fn memory_recall_sql(", "fn memory_backfill_stored_at("][..],
+        ),
+        (
+            "cli/memory.rs",
+            memory,
+            &[
+                "fn compute_tag_filter(",
+                "fn fetch_tagged_entries(",
+                "fn memory_metrics(",
+            ][..],
+        ),
     ] {
         for funcao in funcoes {
             let inicio = fonte

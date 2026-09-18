@@ -265,15 +265,26 @@ mod tests {
     #[test]
     fn only_a_header_comment_declares_an_attack_fixture() {
         let pragma = ALLOW_ATTACK_FIXTURE_PRAGMA;
-        assert!(carries_attack_fixture_pragma(&format!("#!/usr/bin/env python3\n# {pragma}\nx = 1\n")));
-        assert!(carries_attack_fixture_pragma(&format!("// {pragma} — benchmark payloads\n")));
-        assert!(carries_attack_fixture_pragma(&format!("<!-- {pragma} -->\n")));
+        assert!(carries_attack_fixture_pragma(&format!(
+            "#!/usr/bin/env python3\n# {pragma}\nx = 1\n"
+        )));
+        assert!(carries_attack_fixture_pragma(&format!(
+            "// {pragma} — benchmark payloads\n"
+        )));
+        assert!(carries_attack_fixture_pragma(&format!(
+            "<!-- {pragma} -->\n"
+        )));
         assert!(
-            !carries_attack_fixture_pragma(&format!("SKIP = \"{pragma}\"\nq = f\"SELECT {{x}}\"\n")),
+            !carries_attack_fixture_pragma(&format!(
+                "SKIP = \"{pragma}\"\nq = f\"SELECT {{x}}\"\n"
+            )),
             "a string literal is not a declaration"
         );
         assert!(
-            !carries_attack_fixture_pragma(&format!("{}# {pragma}\n", "x = 1\n".repeat(PRAGMA_HEADER_LINES))),
+            !carries_attack_fixture_pragma(&format!(
+                "{}# {pragma}\n",
+                "x = 1\n".repeat(PRAGMA_HEADER_LINES)
+            )),
             "a comment below the header is not a declaration"
         );
     }
@@ -292,27 +303,57 @@ mod tests {
         };
         let clean = [
             // scripts/touring-quality-score: extensionless bash, `case` glob.
-            ("touring-quality-score", "#!/usr/bin/env bash\nfor arg in \"$@\"; do\n  case \"$arg\" in\n    -o|--output|--output=*)\n      take_lock ;;\n  esac\ndone\n"),
+            (
+                "touring-quality-score",
+                "#!/usr/bin/env bash\nfor arg in \"$@\"; do\n  case \"$arg\" in\n    -o|--output|--output=*)\n      take_lock ;;\n  esac\ndone\n",
+            ),
             // scripts/install.sh: `&& curl` is the script, not a payload.
-            ("install.sh", "if curl -fSL -o \"${tmp}/a.sig\" \"${url}.sig\" \\\n   && curl -fSL -o \"${tmp}/a.pem\" \"${url}.pem\"; then\n  log ok\nfi\n"),
+            (
+                "install.sh",
+                "if curl -fSL -o \"${tmp}/a.sig\" \"${url}.sig\" \\\n   && curl -fSL -o \"${tmp}/a.pem\" \"${url}.pem\"; then\n  log ok\nfi\n",
+            ),
             // client/omarchy/bin/cc_build.py: module docstring.
-            ("cc_build.py", "#!/usr/bin/env python3\n\"\"\"Builder.\n\nNo external requests: only 127.0.0.1 URLs and inline <script> (test-enforced).\n\"\"\"\nimport html as _html\n_JS = \"document.body.dataset.ready = 1;\"\n\ndef page(name):\n    return f\"\"\"<!DOCTYPE html>\n<html><body><h1>{_html.escape(name)}</h1>\n<script>\n{_JS}\n</script>\n</body></html>\"\"\"\n"),
+            (
+                "cc_build.py",
+                "#!/usr/bin/env python3\n\"\"\"Builder.\n\nNo external requests: only 127.0.0.1 URLs and inline <script> (test-enforced).\n\"\"\"\nimport html as _html\n_JS = \"document.body.dataset.ready = 1;\"\n\ndef page(name):\n    return f\"\"\"<!DOCTYPE html>\n<html><body><h1>{_html.escape(name)}</h1>\n<script>\n{_JS}\n</script>\n</body></html>\"\"\"\n",
+            ),
             // holon-wasm-components/*/src/lib.rs: the WIT path a macro reads at build time.
-            ("lib.rs", "wit_bindgen::generate!({\n    path: \"../../crates/touring-wasm/wit/holon-core.wit\",\n    world: \"holon-component\",\n});\n"),
+            (
+                "lib.rs",
+                "wit_bindgen::generate!({\n    path: \"../../crates/touring-wasm/wit/holon-core.wit\",\n    world: \"holon-component\",\n});\n",
+            ),
             // crates/touring-cli/src/cli_suggester.rs: a flag placeholder in usage text.
-            ("suggest.rs", "const HINT: &str = \"rode `touring run --lang bash --file <script>` de uma vez\";\n"),
+            (
+                "suggest.rs",
+                "const HINT: &str = \"rode `touring run --lang bash --file <script>` de uma vez\";\n",
+            ),
             // scripts/_archive/generate_w0_premium_artifacts.py: a symlink in a tree listing.
-            ("layout.py", "LAYOUT = \"\"\"\n├── bin/\n│   ├── touring -> ../../../~/.touring/toolchains/1.0.0/bin/touring\n\"\"\"\n"),
+            (
+                "layout.py",
+                "LAYOUT = \"\"\"\n├── bin/\n│   ├── touring -> ../../../~/.touring/toolchains/1.0.0/bin/touring\n\"\"\"\n",
+            ),
         ];
         for (name, body) in clean {
             let (value, evidence) = score(name, body);
             assert_eq!(value, 1.0, "{name}: {evidence}");
         }
         let sinks = [
-            ("deploy", "#!/bin/sh\nsh -c \"$1\"\npython3 -c 'import os; os.system(f\"ping {h}\")'\n"),
-            ("handler.py", "\"\"\"Doc.\"\"\"\ncur.execute(\n    \"\"\"SELECT a FROM t UNION SELECT password FROM users\"\"\"\n)\n"),
-            ("page.rs", "// the template used to say <script>\nfn page() -> String { format!(\"<script>{}</script>\", user_input()) }\n"),
-            ("read.rs", "fn read(p: &str) -> String { std::fs::read_to_string(format!(\"../../{p}\")).unwrap_or_default() }\n"),
+            (
+                "deploy",
+                "#!/bin/sh\nsh -c \"$1\"\npython3 -c 'import os; os.system(f\"ping {h}\")'\n",
+            ),
+            (
+                "handler.py",
+                "\"\"\"Doc.\"\"\"\ncur.execute(\n    \"\"\"SELECT a FROM t UNION SELECT password FROM users\"\"\"\n)\n",
+            ),
+            (
+                "page.rs",
+                "// the template used to say <script>\nfn page() -> String { format!(\"<script>{}</script>\", user_input()) }\n",
+            ),
+            (
+                "read.rs",
+                "fn read(p: &str) -> String { std::fs::read_to_string(format!(\"../../{p}\")).unwrap_or_default() }\n",
+            ),
         ];
         for (name, body) in sinks {
             let (value, evidence) = score(name, body);
@@ -327,11 +368,27 @@ mod tests {
         use std::path::Path;
         assert_eq!(lang_for_source(Path::new("install.sh"), ""), "shell");
         assert_eq!(lang_for_source(Path::new("run.bash"), ""), "shell");
-        assert_eq!(lang_for_source(Path::new("tool"), "#!/usr/bin/env bash\n"), "shell");
-        assert_eq!(lang_for_source(Path::new("tool"), "#!/bin/sh -e\n"), "shell");
-        assert_eq!(lang_for_source(Path::new("tool"), "#!/usr/bin/env -S python3 -u\n"), "python");
-        assert_eq!(lang_for_source(Path::new("tool"), "#!/usr/bin/node\n"), "javascript");
+        assert_eq!(
+            lang_for_source(Path::new("tool"), "#!/usr/bin/env bash\n"),
+            "shell"
+        );
+        assert_eq!(
+            lang_for_source(Path::new("tool"), "#!/bin/sh -e\n"),
+            "shell"
+        );
+        assert_eq!(
+            lang_for_source(Path::new("tool"), "#!/usr/bin/env -S python3 -u\n"),
+            "python"
+        );
+        assert_eq!(
+            lang_for_source(Path::new("tool"), "#!/usr/bin/node\n"),
+            "javascript"
+        );
         assert_eq!(lang_for_source(Path::new("tool"), "no shebang\n"), "rust");
-        assert_eq!(lang_for_source(Path::new("a.py"), "#!/bin/bash\n"), "python", "the extension wins");
+        assert_eq!(
+            lang_for_source(Path::new("a.py"), "#!/bin/bash\n"),
+            "python",
+            "the extension wins"
+        );
     }
 }

@@ -107,8 +107,12 @@ fn collect_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut Bindings
                 }
             }
             "aliased_import" => {
-                let module = child.child_by_field_name("name").and_then(|n| n.utf8_text(bytes).ok());
-                let alias = child.child_by_field_name("alias").and_then(|n| n.utf8_text(bytes).ok());
+                let module = child
+                    .child_by_field_name("name")
+                    .and_then(|n| n.utf8_text(bytes).ok());
+                let alias = child
+                    .child_by_field_name("alias")
+                    .and_then(|n| n.utf8_text(bytes).ok());
                 if let (Some(module), Some(alias)) = (module, alias) {
                     bind(aliases, alias, module.to_string(), child.start_byte());
                 }
@@ -165,8 +169,12 @@ fn collect_from_aliases(node: tree_sitter::Node, bytes: &[u8], aliases: &mut Bin
                 }
             }
             "aliased_import" => {
-                let name = child.child_by_field_name("name").and_then(|n| n.utf8_text(bytes).ok());
-                let alias = child.child_by_field_name("alias").and_then(|n| n.utf8_text(bytes).ok());
+                let name = child
+                    .child_by_field_name("name")
+                    .and_then(|n| n.utf8_text(bytes).ok());
+                let alias = child
+                    .child_by_field_name("alias")
+                    .and_then(|n| n.utf8_text(bytes).ok());
                 if let (Some(name), Some(alias)) = (name, alias)
                     && !name.contains('.')
                 {
@@ -205,17 +213,37 @@ mod tests {
     fn an_aliased_module_attribute_is_a_qualified_use() {
         let src = "import google_maps_coleta as gm\nimport json\n\n\ndef ler():\n    matriz = gm.MatrizDeTransito.ler()\n    return json.dumps(gm.lugares_validos())\n";
         let uses = python_qualified_uses(src);
-        assert!(uses.contains(&("google_maps_coleta".to_string(), "MatrizDeTransito".to_string())), "{uses:?}");
-        assert!(uses.contains(&("google_maps_coleta".to_string(), "lugares_validos".to_string())), "{uses:?}");
+        assert!(
+            uses.contains(&(
+                "google_maps_coleta".to_string(),
+                "MatrizDeTransito".to_string()
+            )),
+            "{uses:?}"
+        );
+        assert!(
+            uses.contains(&(
+                "google_maps_coleta".to_string(),
+                "lugares_validos".to_string()
+            )),
+            "{uses:?}"
+        );
         // A module imported without an alias binds its own name.
-        assert!(uses.contains(&("json".to_string(), "dumps".to_string())), "{uses:?}");
+        assert!(
+            uses.contains(&("json".to_string(), "dumps".to_string())),
+            "{uses:?}"
+        );
     }
 
     #[test]
     fn an_attribute_of_something_that_was_never_imported_is_not_a_use() {
-        let src = "import gm_like as gm\n\n\ndef f(obj):\n    return obj.MatrizDeTransito + gm.Real\n";
+        let src =
+            "import gm_like as gm\n\n\ndef f(obj):\n    return obj.MatrizDeTransito + gm.Real\n";
         let uses = python_qualified_uses(src);
-        assert_eq!(uses, vec![("gm_like".to_string(), "Real".to_string())], "{uses:?}");
+        assert_eq!(
+            uses,
+            vec![("gm_like".to_string(), "Real".to_string())],
+            "{uses:?}"
+        );
     }
 
     #[test]
@@ -254,7 +282,8 @@ mod tests {
         // NEGATIVE CONTROL for the alias branch: Python leaves `io_utils`
         // unbound here, so an edge would mean we keyed on the imported name
         // instead of the alias. A positive test alone cannot tell the two apart.
-        let src = "from pacote import io_utils as io\n\n\ndef f():\n    return io_utils.PROCESSADO\n";
+        let src =
+            "from pacote import io_utils as io\n\n\ndef f():\n    return io_utils.PROCESSADO\n";
         assert!(python_qualified_uses(src).is_empty());
     }
 
@@ -310,7 +339,13 @@ mod tests {
     fn several_modules_from_one_package_each_bind_their_own_path() {
         let src = "from pacote import um, dois as d\n\n\ndef f():\n    return um.A + d.B\n";
         let uses = python_qualified_uses(src);
-        assert!(uses.contains(&("pacote.um".to_string(), "A".to_string())), "{uses:?}");
-        assert!(uses.contains(&("pacote.dois".to_string(), "B".to_string())), "{uses:?}");
+        assert!(
+            uses.contains(&("pacote.um".to_string(), "A".to_string())),
+            "{uses:?}"
+        );
+        assert!(
+            uses.contains(&("pacote.dois".to_string(), "B".to_string())),
+            "{uses:?}"
+        );
     }
 }

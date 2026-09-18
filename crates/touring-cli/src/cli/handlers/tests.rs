@@ -21,7 +21,10 @@ fn federated_memory_reads_never_create_the_database_they_probe() {
     let mut entries = vec![serde_json::json!({"key": "k"})];
     crate::cli::shared::memory_backfill_stored_at(std::slice::from_ref(&ghost), &mut entries);
     assert!(memory_recall_sql_federated(std::slice::from_ref(&ghost), "any lesson").is_empty());
-    assert!(!ghost.exists(), "a read must never create the database it probes");
+    assert!(
+        !ghost.exists(),
+        "a read must never create the database it probes"
+    );
 }
 
 #[test]

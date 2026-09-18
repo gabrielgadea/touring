@@ -106,7 +106,10 @@ enum RustUse<'a> {
 ///   header implements (declaring `impl Foo` is not a use of `Foo`).
 fn rust_self_referenced_names(source: &str, symbols: &[Symbol]) -> BTreeSet<String> {
     let mut parser = tree_sitter::Parser::new();
-    if parser.set_language(&Lang::Rust.tree_sitter_language()).is_err() {
+    if parser
+        .set_language(&Lang::Rust.tree_sitter_language())
+        .is_err()
+    {
         return BTreeSet::new();
     }
     let Some(tree) = parse_bounded(&mut parser, source, None) else {
@@ -135,7 +138,10 @@ fn rust_self_referenced_names(source: &str, symbols: &[Symbol]) -> BTreeSet<Stri
 }
 
 /// The use of a name that `node` is, if any: where it sits, the name, and how.
-fn rust_use<'a>(node: tree_sitter::Node<'_>, bytes: &'a [u8]) -> Option<(usize, &'a str, RustUse<'a>)> {
+fn rust_use<'a>(
+    node: tree_sitter::Node<'_>,
+    bytes: &'a [u8],
+) -> Option<(usize, &'a str, RustUse<'a>)> {
     let text = |n: tree_sitter::Node<'_>| n.utf8_text(bytes).unwrap_or("");
     match node.kind() {
         "field_expression" => {
@@ -145,7 +151,11 @@ fn rust_use<'a>(node: tree_sitter::Node<'_>, bytes: &'a [u8]) -> Option<(usize, 
         "scoped_identifier" | "scoped_type_identifier" => {
             let path = node.child_by_field_name("path")?;
             let name = node.child_by_field_name("name")?;
-            Some((name.start_byte(), text(name), RustUse::Scoped(base_type_name(text(path)))))
+            Some((
+                name.start_byte(),
+                text(name),
+                RustUse::Scoped(base_type_name(text(path))),
+            ))
         }
         // A macro's arguments are raw tokens: the shape comes from the
         // neighbouring tokens (`self.m(…)`, `Self::m`, alone), never from a
@@ -169,7 +179,8 @@ fn is_self_call(field_expression: tree_sitter::Node<'_>) -> bool {
         .child_by_field_name("value")
         .is_some_and(|value| value.kind() == "self")
         && field_expression.parent().is_some_and(|p| {
-            p.kind() == "call_expression" && p.child_by_field_name("function") == Some(field_expression)
+            p.kind() == "call_expression"
+                && p.child_by_field_name("function") == Some(field_expression)
         })
 }
 
@@ -242,7 +253,10 @@ fn stands_alone(node: tree_sitter::Node) -> bool {
     let Some(parent) = node.parent() else {
         return true;
     };
-    if matches!(parent.kind(), "scoped_identifier" | "scoped_type_identifier") {
+    if matches!(
+        parent.kind(),
+        "scoped_identifier" | "scoped_type_identifier"
+    ) {
         return parent.child_by_field_name("name") != Some(node);
     }
     let mut current = node;
@@ -278,8 +292,14 @@ mod tests {
         let names = rust_self_referenced_names(src, &rust_symbols(src));
         assert!(names.contains("is_empty"), "self.is_empty(): {names:?}");
         assert!(names.contains("parse"), "Self::parse: {names:?}");
-        assert!(names.contains("from_text"), "TextEdit::from_text: {names:?}");
-        assert!(!names.contains("len"), "self.indels.len() is Vec::len: {names:?}");
+        assert!(
+            names.contains("from_text"),
+            "TextEdit::from_text: {names:?}"
+        );
+        assert!(
+            !names.contains("len"),
+            "self.indels.len() is Vec::len: {names:?}"
+        );
         assert!(!names.contains("apply"), "nobody calls apply: {names:?}");
         // The path `TextEdit::from_text` NAMES the type — a use, as in Python; only
         // the `impl TextEdit` header is not (pinned by the next test).
@@ -292,8 +312,14 @@ mod tests {
         let names = rust_self_referenced_names(src, &rust_symbols(src));
         assert!(names.contains("Used"), "{names:?}");
         assert!(names.contains("LIMIT"), "{names:?}");
-        assert!(!names.contains("OnlyImplemented"), "an impl header is not a use: {names:?}");
-        assert!(!names.contains("UNREAD"), "`other::UNREAD` is another module's item: {names:?}");
+        assert!(
+            !names.contains("OnlyImplemented"),
+            "an impl header is not a use: {names:?}"
+        );
+        assert!(
+            !names.contains("UNREAD"),
+            "`other::UNREAD` is another module's item: {names:?}"
+        );
         assert!(!names.contains("build"), "{names:?}");
     }
 
@@ -301,7 +327,10 @@ mod tests {
     fn a_field_named_like_a_method_is_not_a_call_of_it() {
         let src = "pub struct Timer { start: u64 }\n\nimpl Timer {\n    pub fn start(&self) -> u64 {\n        self.start\n    }\n    pub fn elapsed(&self) -> u64 {\n        self.start + 1\n    }\n}\n";
         let names = rust_self_referenced_names(src, &rust_symbols(src));
-        assert!(!names.contains("start"), "`self.start` is the field: {names:?}");
+        assert!(
+            !names.contains("start"),
+            "`self.start` is the field: {names:?}"
+        );
     }
 
     /// A macro's arguments are tokens, not expressions: the same rules, read from
@@ -310,17 +339,29 @@ mod tests {
     fn inside_a_macro_the_same_rules_hold() {
         let src = "pub const LIMIT: u8 = 3;\npub struct Report { total: u8 }\n\nimpl Report {\n    pub fn total(&self) -> u8 { 1 }\n    pub fn label(&self) -> String { String::new() }\n    pub fn build() -> u8 { 2 }\n    pub fn show(&self) -> String {\n        format!(\"{} {} {} {}\", self.label(), Self::build(), self.total, LIMIT)\n    }\n}\n";
         let names = rust_self_referenced_names(src, &rust_symbols(src));
-        assert!(names.contains("label"), "self.label() in format!: {names:?}");
-        assert!(names.contains("build"), "Self::build() in format!: {names:?}");
+        assert!(
+            names.contains("label"),
+            "self.label() in format!: {names:?}"
+        );
+        assert!(
+            names.contains("build"),
+            "Self::build() in format!: {names:?}"
+        );
         assert!(names.contains("LIMIT"), "a const in format!: {names:?}");
-        assert!(!names.contains("total"), "`self.total` is the field: {names:?}");
+        assert!(
+            !names.contains("total"),
+            "`self.total` is the field: {names:?}"
+        );
     }
 
     #[test]
     fn a_use_inside_a_test_item_is_not_the_files_use() {
         let src = "pub const LIMIT: u8 = 1;\npub fn helper() -> u8 { 2 }\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn t() {\n        assert_eq!(LIMIT + helper(), 3);\n    }\n}\n";
         let names = rust_self_referenced_names(src, &rust_symbols(src));
-        assert!(names.is_empty(), "only a test reads them — orphans, not internal: {names:?}");
+        assert!(
+            names.is_empty(),
+            "only a test reads them — orphans, not internal: {names:?}"
+        );
     }
 
     #[test]

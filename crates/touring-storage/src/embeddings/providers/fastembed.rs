@@ -563,12 +563,30 @@ mod tests {
 
     #[test]
     fn embed_device_policy_parses_documented_values() {
-        assert_eq!(EmbedDevicePolicy::parse(None), Some(EmbedDevicePolicy::Auto));
-        assert_eq!(EmbedDevicePolicy::parse(Some("")), Some(EmbedDevicePolicy::Auto));
-        assert_eq!(EmbedDevicePolicy::parse(Some(" Auto ")), Some(EmbedDevicePolicy::Auto));
-        assert_eq!(EmbedDevicePolicy::parse(Some("CUDA")), Some(EmbedDevicePolicy::Cuda));
-        assert_eq!(EmbedDevicePolicy::parse(Some("gpu")), Some(EmbedDevicePolicy::Cuda));
-        assert_eq!(EmbedDevicePolicy::parse(Some("cpu")), Some(EmbedDevicePolicy::Cpu));
+        assert_eq!(
+            EmbedDevicePolicy::parse(None),
+            Some(EmbedDevicePolicy::Auto)
+        );
+        assert_eq!(
+            EmbedDevicePolicy::parse(Some("")),
+            Some(EmbedDevicePolicy::Auto)
+        );
+        assert_eq!(
+            EmbedDevicePolicy::parse(Some(" Auto ")),
+            Some(EmbedDevicePolicy::Auto)
+        );
+        assert_eq!(
+            EmbedDevicePolicy::parse(Some("CUDA")),
+            Some(EmbedDevicePolicy::Cuda)
+        );
+        assert_eq!(
+            EmbedDevicePolicy::parse(Some("gpu")),
+            Some(EmbedDevicePolicy::Cuda)
+        );
+        assert_eq!(
+            EmbedDevicePolicy::parse(Some("cpu")),
+            Some(EmbedDevicePolicy::Cpu)
+        );
     }
 
     #[test]
@@ -634,7 +652,10 @@ mod tests {
             let dot: f32 = g.iter().zip(c).map(|(a, b)| a * b).sum();
             let norm = |v: &[f32]| v.iter().map(|x| x * x).sum::<f32>().sqrt();
             let cosine = dot / (norm(g) * norm(c));
-            assert!(cosine > 0.9999, "CPU and CUDA vectors diverge: cosine {cosine}");
+            assert!(
+                cosine > 0.9999,
+                "CPU and CUDA vectors diverge: cosine {cosine}"
+            );
         }
     }
 

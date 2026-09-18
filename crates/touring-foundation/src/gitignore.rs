@@ -122,7 +122,12 @@ impl GitIgnoreRules {
 
     /// The verdict on one path given the files that apply to it: `exclude`,
     /// then the `.gitignore` of the root and of every directory in `parents`.
-    fn decide(&self, prefix: &Path, parents: &[&std::ffi::OsStr], is_dir: bool) -> Option<IgnoredBy> {
+    fn decide(
+        &self,
+        prefix: &Path,
+        parents: &[&std::ffi::OsStr],
+        is_dir: bool,
+    ) -> Option<IgnoredBy> {
         let mut verdict: Option<IgnoredBy> = None;
         let mut apply = |matcher: &Gitignore, base: &Path| {
             let Ok(local) = prefix.strip_prefix(base) else {
@@ -220,8 +225,14 @@ mod tests {
         assert_eq!(hit.matched, "site");
         assert_eq!(hit.source, ".gitignore");
         assert_eq!(hit.rule, "/site/");
-        assert!(ignored(&rules, "docs/site/page.md").is_none(), "anchored to the root");
-        assert!(ignored(&rules, "crates/x/target/debug/y.rs").is_some(), "unanchored at any depth");
+        assert!(
+            ignored(&rules, "docs/site/page.md").is_none(),
+            "anchored to the root"
+        );
+        assert!(
+            ignored(&rules, "crates/x/target/debug/y.rs").is_some(),
+            "unanchored at any depth"
+        );
         assert!(ignored(&rules, "src/target_utils.rs").is_none());
     }
 
@@ -239,13 +250,22 @@ mod tests {
             ignored(&rules, "docs/draft.md").map(|h| h.source),
             Some("docs/.gitignore".to_string())
         );
-        assert!(ignored(&rules, "draft.md").is_none(), "a nested rule stays in its directory");
-        assert!(ignored(&rules, "docs/late.log").is_none(), "the deeper file wins");
+        assert!(
+            ignored(&rules, "draft.md").is_none(),
+            "a nested rule stays in its directory"
+        );
+        assert!(
+            ignored(&rules, "docs/late.log").is_none(),
+            "the deeper file wins"
+        );
     }
 
     #[test]
     fn nothing_under_an_ignored_directory_comes_back() {
-        let dir = tree(&[(".gitignore", "/site/\n"), ("site/.gitignore", "!page.md\n")]);
+        let dir = tree(&[
+            (".gitignore", "/site/\n"),
+            ("site/.gitignore", "!page.md\n"),
+        ]);
         let rules = GitIgnoreRules::for_root(dir.path());
         assert!(ignored(&rules, "site/page.md").is_some());
     }
@@ -261,7 +281,10 @@ mod tests {
             ignored(&rules, "local/notes.md").map(|h| h.source),
             Some(".git/info/exclude".to_string())
         );
-        assert!(ignored(&rules, "shared.txt").is_none(), "the .gitignore overrides exclude");
+        assert!(
+            ignored(&rules, "shared.txt").is_none(),
+            "the .gitignore overrides exclude"
+        );
     }
 
     #[test]
@@ -269,15 +292,26 @@ mod tests {
         let dir = tree(&[("src/lib.rs", "")]);
         let rules = GitIgnoreRules::for_root(dir.path());
         assert!(ignored(&rules, "src/lib.rs").is_none());
-        assert!(rules.ignored_abs(Path::new("/etc/hostname"), false).is_none());
+        assert!(
+            rules
+                .ignored_abs(Path::new("/etc/hostname"), false)
+                .is_none()
+        );
     }
 
     #[test]
     fn the_rules_of_a_subdirectory_come_from_its_working_tree() {
-        let dir = tree(&[(".git/HEAD", "ref: refs/heads/main\n"), (".gitignore", "/site/\n")]);
+        let dir = tree(&[
+            (".git/HEAD", "ref: refs/heads/main\n"),
+            (".gitignore", "/site/\n"),
+        ]);
         fs::create_dir_all(dir.path().join("crates/x")).expect("mkdir");
         let rules = GitIgnoreRules::for_path(&dir.path().join("crates/x"));
         assert_eq!(rules.root(), dir.path());
-        assert!(rules.ignored_abs(&dir.path().join("site/a.py"), false).is_some());
+        assert!(
+            rules
+                .ignored_abs(&dir.path().join("site/a.py"), false)
+                .is_some()
+        );
     }
 }
