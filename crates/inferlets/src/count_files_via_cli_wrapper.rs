@@ -57,37 +57,20 @@ fn count_extensions(workspace: &str, extensions: &[String]) -> HashMap<String, u
     let mut counts: HashMap<String, usize> = HashMap::new();
     let workspace_path = Path::new(workspace);
 
-    if !workspace_path.is_dir() {
+    if extensions.is_empty() || !workspace_path.is_dir() {
         return counts;
     }
 
-    fn walk_dir(dir: &Path, extensions: &[String], counts: &mut HashMap<String, usize>) {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.filter_map(|e| e.ok()) {
-                let path = entry.path();
-                if path.is_dir() {
-                    // Skip target and .git directories
-                    if path
-                        .file_name()
-                        .is_some_and(|n| n == "target" || n == ".git")
-                    {
-                        continue;
-                    }
-                    walk_dir(&path, extensions, counts);
-                } else if path.is_file()
-                    && let Some(name) = path.file_name().and_then(|n| n.to_str())
-                {
-                    for ext in extensions {
-                        if name.ends_with(ext) {
-                            *counts.entry(ext.clone()).or_insert(0) += 1;
-                        }
-                    }
-                }
+    crate::fs_walk::for_each_file(workspace_path, &mut |path| {
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            return;
+        };
+        for ext in extensions {
+            if name.ends_with(ext.as_str()) {
+                *counts.entry(ext.clone()).or_insert(0) += 1;
             }
         }
-    }
-
-    walk_dir(workspace_path, extensions, &mut counts);
+    });
     counts
 }
 
@@ -131,10 +114,31 @@ mod tests {
         assert!(counts.is_empty());
     }
 
+    /// No extension asked means nothing to count. It used to walk the whole
+    /// `/tmp` of the machine to find that out.
     #[test]
-    fn test_count_extensions_empty_workspace() {
-        let counts = count_extensions("/tmp", &[]);
+    fn test_count_extensions_empty_extension_list() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("a.rs"), "").expect("write");
+        let counts = count_extensions(&dir.path().to_string_lossy(), &[]);
         assert!(counts.is_empty());
+    }
+
+    #[test]
+    fn test_count_extensions_counts_each_asked_extension_outside_target() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).expect("mkdir");
+        std::fs::create_dir_all(root.join("target")).expect("mkdir");
+        for f in ["src/a.rs", "src/b.rs", "src/c.py", "target/gen.rs"] {
+            std::fs::write(root.join(f), "").expect("write");
+        }
+        let counts = count_extensions(
+            &root.to_string_lossy(),
+            &[".rs".to_string(), ".py".to_string()],
+        );
+        assert_eq!(counts.get(".rs"), Some(&2));
+        assert_eq!(counts.get(".py"), Some(&1));
     }
 
     #[test]

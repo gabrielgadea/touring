@@ -69,79 +69,54 @@ fn build_import_graph(workspace: &str, extensions: &[String]) -> HashMap<String,
         return graph;
     }
 
-    fn walk_files(dir: &Path, extensions: &[String], graph: &mut HashMap<String, HashSet<String>>) {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.filter_map(|e| e.ok()) {
-                let path = entry.path();
-                if path.is_dir() {
-                    if path
-                        .file_name()
-                        .is_some_and(|n| n == "target" || n == ".git")
-                    {
-                        continue;
-                    }
-                    walk_files(&path, extensions, graph);
-                } else if path.is_file()
-                    && let Some(name) = path.file_name().and_then(|n| n.to_str())
-                {
-                    let ext_match = extensions.iter().any(|e| name.ends_with(e));
-                    if ext_match && let Ok(content) = std::fs::read_to_string(&path) {
-                        let mut imports: HashSet<String> = HashSet::new();
+    crate::fs_walk::for_each_file(workspace_path, &mut |path| {
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            return;
+        };
+        if !extensions.iter().any(|e| name.ends_with(e.as_str())) {
+            return;
+        }
+        let Ok(content) = std::fs::read_to_string(path) else {
+            return;
+        };
+        let imports = file_imports(name, &content);
+        if !imports.is_empty() {
+            graph.insert(path.to_string_lossy().into_owned(), imports);
+        }
+    });
+    graph
+}
 
-                        for line in content.lines() {
-                            let line = line.trim();
-
-                            // Python: import foo, from foo import bar
-                            if name.ends_with(".py") {
-                                if let Some(rest) = line.strip_prefix("import ") {
-                                    if let Some(mod_name) = rest.split_whitespace().next() {
-                                        let mod_name =
-                                            mod_name.split('.').next().unwrap_or(mod_name);
-                                        imports.insert(mod_name.to_string());
-                                    }
-                                } else if let Some(rest) = line.strip_prefix("from ")
-                                    && let Some(mod_name) = rest.split_whitespace().next()
-                                {
-                                    let mod_name = mod_name.split('.').next().unwrap_or(mod_name);
-                                    imports.insert(mod_name.to_string());
-                                }
-                            }
-
-                            // JavaScript/TypeScript: import foo from 'bar', require('bar')
-                            if name.ends_with(".js")
-                                || name.ends_with(".ts")
-                                || name.ends_with(".tsx")
-                            {
-                                if line.contains("import ") && line.contains("from '") {
-                                    if let Some(start) = line.find("from '") {
-                                        let rest = &line[start + 6..];
-                                        if let Some(end) = rest.find('\'') {
-                                            imports.insert(rest[..end].to_string());
-                                        }
-                                    }
-                                } else if line.contains("require('")
-                                    && let Some(start) = line.find("require('")
-                                {
-                                    let rest = &line[start + 8..];
-                                    if let Some(end) = rest.find('\'') {
-                                        imports.insert(rest[..end].to_string());
-                                    }
-                                }
-                            }
-                        }
-
-                        if !imports.is_empty() {
-                            let key = path.to_string_lossy().into_owned();
-                            graph.insert(key, imports);
-                        }
-                    }
-                }
+/// Modules a file imports, read line by line: Python `import`/`from`, and
+/// JavaScript/TypeScript `from '…'`/`require('…')`.
+fn file_imports(name: &str, content: &str) -> HashSet<String> {
+    let python = name.ends_with(".py");
+    let script = name.ends_with(".js") || name.ends_with(".ts") || name.ends_with(".tsx");
+    let mut imports = HashSet::new();
+    for line in content.lines().map(str::trim) {
+        if python {
+            let rest = line
+                .strip_prefix("import ")
+                .or_else(|| line.strip_prefix("from "));
+            if let Some(mod_name) = rest.and_then(|r| r.split_whitespace().next()) {
+                let top = mod_name.split('.').next().unwrap_or(mod_name);
+                imports.insert(top.to_string());
+            }
+        }
+        if script {
+            let quoted = if line.contains("import ") && line.contains("from '") {
+                line.find("from '").map(|s| &line[s + 6..])
+            } else {
+                line.find("require('").map(|s| &line[s + 9..])
+            };
+            if let Some(rest) = quoted
+                && let Some(end) = rest.find('\'')
+            {
+                imports.insert(rest[..end].to_string());
             }
         }
     }
-
-    walk_files(workspace_path, extensions, &mut graph);
-    graph
+    imports
 }
 
 /// Detect cycles using DFS with path tracking.
@@ -264,12 +239,35 @@ mod tests {
         assert_eq!(result, 0);
     }
 
+    /// It walked the machine's `/tmp` and asserted it held no importing file —
+    /// true until something put one there. The tree is now the test's own.
     #[test]
     fn test_build_import_graph_skips_target_dirs() {
-        // Should not include target/ in walk
-        let graph = build_import_graph("/tmp", &[".rs".to_string()]);
-        // Empty since /tmp doesn't have Rust files typically
-        assert_eq!(graph.len(), 0);
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("target")).expect("mkdir");
+        std::fs::create_dir_all(root.join("pkg")).expect("mkdir");
+        std::fs::write(root.join("target/gen.py"), "import os\n").expect("write");
+        std::fs::write(root.join("pkg/mod.py"), "from os import path\n").expect("write");
+
+        let graph = build_import_graph(&root.to_string_lossy(), &[".py".to_string()]);
+
+        let keys: Vec<&String> = graph.keys().collect();
+        assert_eq!(keys.len(), 1, "{keys:?}");
+        assert!(keys[0].ends_with("pkg/mod.py"), "{keys:?}");
+    }
+
+    /// `require('` is nine characters; the slice skipped eight and every
+    /// `require('x')` was recorded as the empty module name.
+    #[test]
+    fn file_imports_reads_python_and_script_forms() {
+        let py = file_imports("a.py", "import os.path\nfrom json import loads\n");
+        assert_eq!(py, HashSet::from(["os".to_string(), "json".to_string()]));
+        let js = file_imports(
+            "a.js",
+            "import x from 'lodash';\nconst fs = require('fs');\n",
+        );
+        assert_eq!(js, HashSet::from(["lodash".to_string(), "fs".to_string()]));
     }
 
     #[test]
