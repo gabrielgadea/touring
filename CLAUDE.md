@@ -332,6 +332,27 @@ timestamp: 2026-08-20T11:15:00-03:00
     versão MAJOR no `Draft → Verified`. Narrativa: `docs/audits/orfaos-24-2026-09-18.md` e
     `docs/audits/decisoes-orfaos-2026-09-18.md`.
 
+24. **Defeitos relatados pelo analise (18/09/2026, 30.4.58)**. (a) **Aresta nunca cruza
+    linguagem**: `touring_storage::knowledge_wiring::language_family` (rust/python/js/java/go)
+    é a fonte única; a inferência por nome só casa produtor da família do consumidor, e
+    `touring wiring repair --purge-cross-language [--dry-run]` remove as arestas cruzadas
+    já gravadas, restaurando a linha NULL de quem ficou sem nenhuma. O `repair` trata só
+    produtor Rust, casa por palavra e grava `ast_inferred`. (b) **Import Python pelo caminho
+    dos hooks**: `touring_hook_runtime::wiring::record_import_consumers` é o laço único do
+    rebuild e da edição; `definer_module` segue `from x import S` em `.py`; a raiz Python
+    vem do ARQUIVO (`.touring`/`.git`/`pyproject.toml`/`setup.*`, mais `src/`), nunca do cwd;
+    linha de consumidor presa a símbolo que o módulo Python não define mais é reatribuída ao
+    definidor ou removida. (c) **Memória aposentada** (`superseded_by`) nunca volta por busca:
+    `touring_intelligence::rl::memory::retirement` (`live_predicate`/`retired_keys`/
+    `retirement_of`) em todo leitor; o recall filtra TODOS os canais antes da RRF (ANN com
+    over-fetch 40→20); leitura exata por chave continua vendo. (d) **Recusa de apagamento
+    nomeia a rota aberta**: `bash_ast_validator::DELETE_ROUTE` nas duas camadas, bypass por
+    PALAVRA (`discloses_intent`), guarda D8 cruzada `every_delete_refusal_names_an_open_route`.
+    (e) `learning` aceita `-j` (stdout JSON até na falha) e reward negativo. (f) Caminho
+    absoluto de consumidor Rust: `under_workspace` — `resolve_reexport` montava
+    `<root>//<root>/…`, e o teste só falhava com `TOURING_WORKSPACE_ROOT` exportada.
+    Narrativa: `docs/audits/defeitos-analise-2026-09-18.md`.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

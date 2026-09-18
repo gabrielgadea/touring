@@ -26,6 +26,22 @@
 
 use regex::Regex;
 use std::collections::HashMap;
+use touring_hooks_shared::bash_ast_validator::DELETE_ROUTE;
+
+/// The route a refusal of this tool names: every refusal of `rm`/`rmdir` is a
+/// refusal of a delete, and names the one delete route still open.
+fn delete_route(tool: &str) -> Option<&'static str> {
+    matches!(tool.to_ascii_lowercase().as_str(), "rm" | "rmdir").then_some(DELETE_ROUTE)
+}
+
+/// A refusal reason followed by what to do instead, when there is a route.
+fn with_route(reason: impl Into<String>, route: Option<&str>) -> String {
+    let reason = reason.into();
+    match route {
+        Some(route) => format!("{reason}; {route}"),
+        None => reason,
+    }
+}
 
 /// Validation result for tool pre-execution check.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -458,6 +474,7 @@ impl PreToolValidator {
                     ParamRule::flag("-r", "Recursive deletion"),
                     ParamRule::flag("-f", "Force without confirmation"),
                 ],
+                route: Some(DELETE_ROUTE),
             },
         );
 
@@ -470,6 +487,7 @@ impl PreToolValidator {
                     ParamRule::flag("--force", "Override safety checks"),
                     ParamRule::flag("-f", "Force operation"),
                 ],
+                route: None,
             },
         );
 
@@ -484,6 +502,8 @@ impl PreToolValidator {
                         .expect("bash dangerous pattern must compile"),
                     "Recursive delete in bash",
                 )],
+                // Its one rule is a delete, so its one route is the delete route.
+                route: Some(DELETE_ROUTE),
             },
         );
 
@@ -592,16 +612,21 @@ impl PreToolValidator {
             return ValidationResult::allow();
         }
 
+        // A refusal names what to do instead. 18/09/2026: `rm -r build/` was
+        // refused with "Recursive deletion" and nothing else, and the structural
+        // layer's route ("pass --dry-run") did not exist; agents retried blind.
+        let route = delete_route(tool_name);
+
         // Fast path: O(m) starts_with for fixed-prefix patterns.
         for sp in &self.static_prefixes {
             if full_lower.starts_with(sp.prefix) && sp.param.holds(args) {
-                return ValidationResult::deny(sp.reason);
+                return ValidationResult::deny(with_route(sp.reason, route));
             }
         }
 
         // Slow path: regex patterns for complex conditions.
         if let Some(reason) = self.dangerous_match(&full_command, params) {
-            return ValidationResult::deny(reason);
+            return ValidationResult::deny(with_route(reason, route));
         }
 
         // Check tool-specific schema validation. The command NAME is matched
@@ -619,8 +644,12 @@ impl PreToolValidator {
             );
             for rule in &schema.param_rules {
                 if let Some(violation) = rule.check_violation(args, params) {
-                    // The reason names what matched, so the retry can fix it.
-                    return ValidationResult::deny(format!("{violation} — in `{full_command}`"));
+                    // The reason names what matched, so the retry can fix it,
+                    // and the route says what to run instead.
+                    return ValidationResult::deny(with_route(
+                        format!("{violation} — in `{full_command}`"),
+                        schema.route,
+                    ));
                 }
             }
         }
@@ -644,7 +673,10 @@ impl PreToolValidator {
                 // Fast path: static prefix check.
                 for sp in &self.static_prefixes {
                     if full_cmd_lower.starts_with(sp.prefix) {
-                        return ValidationResult::deny(sp.reason);
+                        return ValidationResult::deny(with_route(
+                            sp.reason,
+                            delete_route(tool_name),
+                        ));
                     }
                 }
 
@@ -718,6 +750,9 @@ struct ToolSchema {
     description: &'static str,
     /// Parameter rules.
     param_rules: Vec<ParamRule>,
+    /// What to do instead, appended to every refusal of this schema. Only a
+    /// road the validators leave open (see [`DELETE_ROUTE`]).
+    route: Option<&'static str>,
 }
 
 impl ToolSchema {
@@ -1002,6 +1037,44 @@ mod tests {
         assert!(v.validate_command("git clean -fd").is_blocked());
         assert!(v.validate_command("rm -f important.txt").is_blocked());
         assert!(v.validate_command("git push --force=true").is_blocked());
+    }
+
+    /// The D8 guard across the two layers that refuse deletes. Every refusal
+    /// of a delete names `DELETE_ROUTE`, and every command a route of the
+    /// structural layer names passes BOTH validators, so a refusal never
+    /// points at a closed road. 18/09/2026: "pass --dry-run or scope an
+    /// explicit path you have verified" named two roads that did not exist.
+    #[test]
+    fn every_delete_refusal_names_an_open_route() {
+        use touring_hooks_shared::bash_ast_validator::{
+            DELETE_ROUTE_EXAMPLES, Verdict, route_examples, validate_command as structural,
+        };
+        let v = validator();
+        for cmd in [
+            "rm -rf x",
+            "rm -r build/",
+            "rm -f stale.done",
+            "rmdir -p a/b",
+            "bash -c \"rm -rf x\"",
+        ] {
+            let reason = v.validate_command(cmd).reason.unwrap_or_default();
+            assert!(reason.contains(DELETE_ROUTE), "{cmd}: {reason}");
+        }
+        for example in DELETE_ROUTE_EXAMPLES
+            .iter()
+            .copied()
+            .chain(route_examples())
+        {
+            let verdict = v.validate_command(example);
+            assert!(verdict.is_allowed(), "{example}: {:?}", verdict.reason);
+            assert_eq!(structural(example), Verdict::Allow, "{example}");
+        }
+        // A refusal that is not a delete does not carry the delete route.
+        let push = v
+            .validate_command("git push --force origin main")
+            .reason
+            .unwrap_or_default();
+        assert!(!push.is_empty() && !push.contains(DELETE_ROUTE), "{push}");
     }
 
     #[test]

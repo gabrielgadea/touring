@@ -1142,69 +1142,20 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                             }
                         }
 
-                        let imports =
-                            crate::ast_bridge::extract_file_imports(&content, abs_path_str);
-                        for (module_path, imported_symbols) in &imports {
-                            match touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
-                                module_path,
-                                language,
-                                Some(abs_path_str),
-                            ) {
-                                Some(module_file) => {
-                                    for symbol_name in imported_symbols {
-                                        // The import resolved to a MODULE; the
-                                        // producer row lives wherever the symbol
-                                        // is DEFINED. Following the intra-crate
-                                        // `pub use` here is what keeps a facade
-                                        // from being credited with a consumer it
-                                        // only forwards (08/08/2026: 960 consumer
-                                        // rows pointed at a module with no
-                                        // producer for the symbol).
-                                        let definer =
-                                            touring_hooks_core::symbol_extractors::definer_module(
-                                                &module_file,
-                                                symbol_name,
-                                                Some(abs_path_str),
-                                            );
-                                        let _ = rt.ctx.knowledge.record_consumer(
-                                            &definer,
-                                            symbol_name,
-                                            &rel_path,
-                                            None,
-                                        );
-                                    }
-                                }
-                                // S1: the branch that used to be silent. When the
-                                // resolver cannot map the module path, the call
-                                // site simply disappeared — and the producer it
-                                // would have wired became indistinguishable from
-                                // dead code. Recording the failure is what splits
-                                // the orphan count into code debt vs resolver debt.
-                                None => {
-                                    // Classified at the call site, in the workspace
-                                    // of the same file the resolution attempt used —
-                                    // so the verdict can never drift from the attempt.
-                                    let class =
-                                        touring_hooks_core::symbol_extractors::classify_unresolved(
-                                            module_path,
-                                            Some(abs_path_str),
-                                        );
-                                    for symbol_name in imported_symbols {
-                                        let _ = rt
-                                            .ctx
-                                            .knowledge
-                                            .record_unresolved_import_classified(
-                                                module_path,
-                                                symbol_name,
-                                                &rel_path,
-                                                None,
-                                                language,
-                                                class.as_str(),
-                                            );
-                                    }
-                                }
-                            }
-                        }
+                        // The import edges of this file: resolved, credited to the
+                        // module that DEFINES each symbol (a façade is never
+                        // credited with a consumer it only forwards — 08/08/2026,
+                        // 960 rows), and every failure recorded with its class.
+                        // ONE pass with the hook path (C08, 18/09/2026): the edit
+                        // and ingest paths call the same function, so a Python or
+                        // TypeScript file no longer loses its edges when edited.
+                        touring_hook_runtime::wiring::record_import_consumers(
+                            &rt.ctx.knowledge,
+                            &rel_path,
+                            abs_path_str,
+                            language,
+                            &content,
+                        );
 
                         // G3 (2026-08-12, cross-audit): dispatch references are
                         // COLLECTED here and RESOLVED after the walk. The old F9
@@ -3164,6 +3115,116 @@ mod index_why {
             formato("orphans").contains(&"MORTO_REL".to_string()),
             "the symbol of the same file that nobody imports is still an orphan: {report}"
         );
+    }
+
+    /// 18/09/2026 (analise): `grafo_memoria.py` was split into siblings behind a
+    /// façade and the files ingested. `orphans` then reported the symbols the
+    /// siblings import (the hook path never resolved a Python import), `impact`
+    /// still counted the façade's edge from before the split (nothing re-reads
+    /// that consumer), and a consumer importing through a façade was credited to
+    /// it. Over the REAL rebuild and ingest paths, every consumer of `No` lands
+    /// on the module that defines it.
+    #[test]
+    fn a_python_module_split_keeps_every_consumer_on_the_definer() {
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let root = proj.path();
+        std::fs::create_dir_all(root.join(".touring")).expect(".touring");
+        std::fs::write(
+            root.join(".touring/touring.toml"),
+            "polyglot_wiring = true\n",
+        )
+        .expect("touring.toml");
+        std::fs::create_dir_all(root.join("memoria")).expect("memoria");
+        std::fs::create_dir_all(root.join("artefato")).expect("artefato");
+        // Before the split: one module defines `No`, a consumer imports it.
+        std::fs::write(root.join("memoria/grafo.py"), "class No:\n    pass\n").expect("grafo.py");
+        std::fs::write(
+            root.join("artefato/uso.py"),
+            "from memoria.grafo import No\n\n\ndef usar():\n    return No()\n",
+        )
+        .expect("uso.py");
+
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        cli_index_rebuild(&mut rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        let consumers_of_no = |rt: &HookRuntime| -> Vec<(String, String)> {
+            rt.ctx
+                .knowledge
+                .conn_ref()
+                .prepare(
+                    "SELECT module_file, consumer_file FROM wiring_map
+                     WHERE symbol_name = 'No' AND consumer_file IS NOT NULL
+                     ORDER BY module_file, consumer_file",
+                )
+                .expect("prepare")
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .expect("query")
+                .collect::<Result<_, _>>()
+                .expect("rows")
+        };
+        assert_eq!(
+            consumers_of_no(&rt),
+            [(
+                "memoria/grafo.py".to_string(),
+                "artefato/uso.py".to_string()
+            )],
+            "the import resolves from the project root, whatever the process cwd"
+        );
+
+        // The split: `No` moves to a sibling, the old module becomes a façade,
+        // and a second sibling imports `No` from its new home.
+        std::fs::write(root.join("memoria/modelo.py"), "class No:\n    pass\n").expect("modelo.py");
+        std::fs::write(
+            root.join("memoria/grafo.py"),
+            "from memoria.modelo import No\n\n__all__ = [\"No\"]\n",
+        )
+        .expect("façade");
+        std::fs::write(
+            root.join("memoria/gravacao.py"),
+            "from memoria.modelo import No\n\n\ndef gravar():\n    return No()\n",
+        )
+        .expect("gravacao.py");
+        for file in [
+            "memoria/modelo.py",
+            "memoria/grafo.py",
+            "memoria/gravacao.py",
+        ] {
+            let out = super::cli_index_ingest(
+                &mut rt,
+                &serde_json::json!({"path": root.join(file).to_string_lossy()}),
+            );
+            assert!(out.contains("\"ok\""), "{file}: {out}");
+        }
+
+        let on_definer = |consumer: &str| ("memoria/modelo.py".to_string(), consumer.to_string());
+        let expected = [
+            on_definer("artefato/uso.py"),
+            on_definer("memoria/grafo.py"),
+            on_definer("memoria/gravacao.py"),
+        ];
+        assert_eq!(
+            consumers_of_no(&rt),
+            expected,
+            "the pre-split edge moved to the definer, and the siblings' imports resolve"
+        );
+        // The rebuild reaches the same edges: `uso.py` still imports through the
+        // façade, and the Python re-export is followed there too (C08).
+        cli_index_rebuild(&mut rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        assert_eq!(
+            consumers_of_no(&rt),
+            expected,
+            "rebuild and hook path agree"
+        );
+        let raw = crate::cli::wiring::cli_wiring_orphans(&mut rt, &serde_json::json!({}));
+        let report: serde_json::Value = serde_json::from_str(&raw).expect("orphans json");
+        let orphan_no = report["orphans"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|row| row["symbol_name"] == "No");
+        assert!(!orphan_no, "`No` has three consumers: {report}");
     }
 
     /// Cross-audit 14/09/2026 (R2-6): an edge whose consumer file is gone and

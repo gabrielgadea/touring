@@ -18,6 +18,7 @@ pub mod palace;
 pub mod pattern_cluster;
 pub mod recall;
 pub mod recall_cache;
+pub mod retirement;
 pub mod rlm;
 pub mod snippet_bindings;
 pub mod snippet_stats;

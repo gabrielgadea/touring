@@ -355,9 +355,11 @@ fn collect_memory(memory_db: &Path, out: &mut Vec<RawDoc>) {
             return;
         }
     };
-    let mut stmt = match conn
-        .prepare("SELECT key, value FROM memory_entries WHERE value IS NOT NULL AND value != ''")
-    {
+    // A retired entry (`--supersedes`) is not part of the corpus a recall ranks.
+    let live = touring_intelligence::rl::memory::retirement::live_predicate(&conn, "");
+    let mut stmt = match conn.prepare(&format!(
+        "SELECT key, value FROM memory_entries WHERE value IS NOT NULL AND value != ''{live}"
+    )) {
         Ok(s) => s,
         Err(e) => {
             tracing::debug!(target: "touring::tfidf", "memory_entries prepare failed: {e}");
@@ -668,6 +670,32 @@ mod tests {
         assert!(!hits.is_empty());
         assert_eq!(hits[0].key, "memory:lesson:tfidf");
         assert_eq!(hits[0].source, "memory");
+    }
+
+    /// A retired entry (`--supersedes`) is not in the corpus a recall ranks:
+    /// the TF-IDF arm served one in the analise project (18/09/2026).
+    #[test]
+    fn a_retired_entry_is_not_in_the_corpus() {
+        let dir = TempDir::new().unwrap();
+        let mem = dir.path().join("memory.db");
+        {
+            let conn = Connection::open(&mem).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE memory_entries (
+                    key TEXT PRIMARY KEY, value TEXT NOT NULL, superseded_by TEXT);
+                 INSERT INTO memory_entries VALUES ('lesson:old', 'retired retrieval advice', 'lesson:new');
+                 INSERT INTO memory_entries VALUES ('lesson:new', 'current retrieval advice', NULL);",
+            )
+            .unwrap();
+        }
+        let idx = TfidfIndex::build_from_db(&mem, &dir.path().join("knowledge.db")).unwrap();
+        assert_eq!(idx.docs.len(), 1);
+        let keys: Vec<String> = idx
+            .query("retrieval advice", 5)
+            .into_iter()
+            .map(|hit| hit.key)
+            .collect();
+        assert_eq!(keys, ["memory:lesson:new"]);
     }
 
     #[test]

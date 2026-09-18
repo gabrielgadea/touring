@@ -1245,6 +1245,30 @@ fn a_reexported_path_wires_the_real_producer_not_a_phantom() {
         "crate::shared::feature_flags::compression_profiles_enabled",
         "crates/touring-hooks-core/src/compression_profiles.rs",
     );
+    // Production resolves with an ABSOLUTE consumer (the edit path anchors it at
+    // the database root); this test's database has a root only when the
+    // environment sets `TOURING_WORKSPACE_ROOT`, so it passed or failed by who
+    // ran it (18/09/2026). Both forms are asserted directly.
+    let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let consumer = "crates/touring-hooks-core/src/compression_profiles.rs";
+    for source in [
+        consumer.to_string(),
+        workspace.join(consumer).to_string_lossy().into_owned(),
+    ] {
+        assert_eq!(
+            crate::symbol_extractors::resolve_import_path_with_source(
+                "crate::shared::feature_flags",
+                "rust",
+                Some(&source),
+            )
+            .as_deref(),
+            Some(producer),
+            "consumer given as {source}"
+        );
+    }
 
     assert!(
         db.orphan_symbols().unwrap().is_empty(),

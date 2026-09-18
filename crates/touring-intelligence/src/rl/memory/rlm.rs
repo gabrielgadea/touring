@@ -814,13 +814,14 @@ impl RlmMemory {
             format!("{}.", palace_prefix)
         };
 
-        let mut stmt = self.conn.prepare(
+        let live = super::retirement::live_predicate(&self.conn, "");
+        let mut stmt = self.conn.prepare(&format!(
             "SELECT key, value, palace_path
              FROM memory_entries
-             WHERE palace_path IS NOT NULL AND palace_path LIKE ?1 || '%'
+             WHERE palace_path IS NOT NULL AND palace_path LIKE ?1 || '%'{live}
              ORDER BY accessed_at DESC
-             LIMIT ?2",
-        )?;
+             LIMIT ?2"
+        ))?;
 
         let rows = stmt
             .query_map(params![prefix, top_k as i64], |row| {
@@ -909,11 +910,14 @@ impl RlmMemory {
         limit: usize,
     ) -> Result<Vec<MemoryMatch>> {
         let keys = tags::entry_keys_with_all_tags(&self.conn, required, limit)?;
+        let live = super::retirement::live_predicate(&self.conn, "");
         let mut out = Vec::with_capacity(keys.len());
         for key in keys {
             let row = self.conn.query_row(
-                "SELECT tier, value, entry_type, access_count, created_at, accessed_at
-                 FROM memory_entries WHERE key = ?1",
+                &format!(
+                    "SELECT tier, value, entry_type, access_count, created_at, accessed_at
+                 FROM memory_entries WHERE key = ?1{live}"
+                ),
                 params![key],
                 |row| {
                     Ok(MemoryMatch {
@@ -972,18 +976,22 @@ impl RlmMemory {
         // FTS5 MATCH with optional tier filter. JOIN to memory_entries for scoring and
         // full row data; FTS5 provides the rowid for the join key.
         // FTS5 MATCH requires the real table name (not an alias) in the WHERE clause.
-        let sql = "SELECT m.key, m.tier, m.value, m.entry_type,
+        // A retired entry (`--supersedes`) never ranks (see `retirement`).
+        let live = super::retirement::live_predicate(&self.conn, "m.");
+        let sql = format!(
+            "SELECT m.key, m.tier, m.value, m.entry_type,
                           m.created_at, m.accessed_at, m.access_count,
                           (m.access_count + 1) * (1.0 / (1.0 + (?1 - m.accessed_at) / 86400.0)) AS score
                    FROM memories_fts
                    JOIN memory_entries m ON memories_fts.rowid = m.rowid
-                   WHERE memories_fts MATCH ?2 AND (?3 IS NULL OR m.tier = ?3)
+                   WHERE memories_fts MATCH ?2 AND (?3 IS NULL OR m.tier = ?3){live}
                    ORDER BY score DESC
-                   LIMIT ?4";
+                   LIMIT ?4"
+        );
 
         let tier_str: Option<&str> = tier_filter.as_ref().map(|t| t.as_str());
 
-        let mut stmt = self.conn.prepare(sql)?;
+        let mut stmt = self.conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params![now, fts_q, tier_str, top_k as i64], |row| {
                 Ok(MemoryMatch {
@@ -1059,14 +1067,17 @@ impl RlmMemory {
         limit: usize,
     ) -> Result<Vec<MemoryMatch>> {
         let tier_str: Option<&str> = tier_filter.as_ref().map(|t| t.as_str());
-        let sql = "SELECT key, tier, value, entry_type, \
+        let live = super::retirement::live_predicate(&self.conn, "");
+        let sql = format!(
+            "SELECT key, tier, value, entry_type, \
                    created_at, accessed_at, access_count, 1.0 AS score
                    FROM memory_entries
-                   WHERE key LIKE ?1 AND (?2 IS NULL OR tier = ?2)
+                   WHERE key LIKE ?1 AND (?2 IS NULL OR tier = ?2){live}
                    ORDER BY key ASC
-                   LIMIT ?3";
+                   LIMIT ?3"
+        );
         let like_pattern = format!("{}%", prefix);
-        let mut stmt = self.conn.prepare(sql)?;
+        let mut stmt = self.conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params![like_pattern, tier_str, limit as i64], |row| {
                 Ok(MemoryMatch {
@@ -1400,6 +1411,51 @@ mod tests {
             "old entry retired, not deleted"
         );
         assert!(snapshot(&mem.conn, "new").superseded_by.is_none());
+    }
+
+    /// 18/09/2026 (analise): a superseded entry came back 6th in a recall.
+    /// Every read that serves an agent drops it; the exact read by key keeps
+    /// it, because retirement is not deletion.
+    #[test]
+    fn a_retired_entry_never_surfaces_but_stays_readable_by_key() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("m.db")).unwrap();
+        let (lesson, _) = tags::split_query_tags("#kind:lesson");
+        let mut old = RichMemoryEntry::new("probe:old", "reference", "shared stale guidance");
+        old.palace_path = Some("wing.room");
+        mem.store_rich(&old).unwrap();
+        let mut new = RichMemoryEntry::new("probe:new", "reference", "shared corrected guidance");
+        new.palace_path = Some("wing.room");
+        new.supersedes = Some("probe:old");
+        mem.store_rich(&new).unwrap();
+        for key in ["probe:old", "probe:new"] {
+            mem.tag_entry(key, &lesson[0], tags::TagSource::Explicit)
+                .unwrap();
+        }
+
+        let keys = |matches: Vec<MemoryMatch>| -> Vec<String> {
+            matches.into_iter().map(|m| m.key).collect()
+        };
+        assert_eq!(keys(mem.search("shared", None, 10).unwrap()), ["probe:new"]);
+        assert_eq!(
+            keys(mem.scan_prefix("probe:", None, 10).unwrap()),
+            ["probe:new"]
+        );
+        assert_eq!(keys(mem.query_tags(&lesson, 10).unwrap()), ["probe:new"]);
+        let palace: Vec<String> = mem
+            .query_by_palace("wing", 10)
+            .unwrap()
+            .into_iter()
+            .map(|(key, _, _)| key)
+            .collect();
+        assert_eq!(palace, ["probe:new"]);
+        assert_eq!(
+            mem.get("probe:old", MemoryTier::Reference)
+                .unwrap()
+                .as_deref(),
+            Some("shared stale guidance"),
+            "retired, not deleted"
+        );
     }
 
     #[test]

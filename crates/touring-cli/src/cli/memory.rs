@@ -478,15 +478,20 @@ fn reindex_candidates(
     conn: &rusqlite::Connection,
     all: bool,
 ) -> Result<Vec<(String, String)>, String> {
+    // A retired entry never re-enters the ANN corpus it was retired from.
     let select = if all {
-        "SELECT key, value FROM memory_entries ORDER BY rowid"
+        let live = crate::cli::shared::superseded_filter(conn, "");
+        format!("SELECT key, value FROM memory_entries WHERE 1 = 1{live} ORDER BY rowid")
     } else {
-        "SELECT me.key, me.value FROM memory_entries me
+        let live = crate::cli::shared::superseded_filter(conn, "me.");
+        format!(
+            "SELECT me.key, me.value FROM memory_entries me
          LEFT JOIN embeddings em ON em.id = me.key
-         WHERE em.id IS NULL ORDER BY me.rowid"
+         WHERE em.id IS NULL{live} ORDER BY me.rowid"
+        )
     };
     let mut stmt = conn
-        .prepare(select)
+        .prepare(&select)
         .map_err(|e| format!("failed to prepare SELECT: {e}"))?;
     let rows = stmt
         .query_map([], |row| {
@@ -794,7 +799,9 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         } else if let Some(recall) = borrow.as_ref() {
             let embedding = memory_recall_query_embedding(search_text);
             let start = std::time::Instant::now();
-            let neighbors = recall.search(&embedding, 20);
+            // Over-fetch: retired entries leave below, and the channel must
+            // still hand the merge its 20 live neighbours.
+            let neighbors = recall.search(&embedding, ANN_FETCH);
             let elapsed_us = start.elapsed().as_micros() as u64;
             crate::shared::gate_metrics::record_ann_search_latency_us(elapsed_us);
             neighbors
@@ -815,6 +822,15 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     } else {
         memory_recall_tfidf(rt, search_text, 20)
     };
+    // Retired entries (`memory store --supersedes`) leave EVERY channel here,
+    // before the cases and before the RRF cut. The SQL arm already hid them;
+    // the ANN and TF-IDF arms read other stores and served them (18/09/2026,
+    // analise: a superseded probe 6th in a recall). Dropping them before the
+    // cut keeps the slots for live entries — the reason a vector database
+    // applies its payload filter inside the search, not to the top-k after it.
+    let (entries, mut ann_results, tfidf_results) =
+        drop_retired(&memory_dbs, entries, ann_results, tfidf_results);
+    ann_results.truncate(20);
     // The labelled-case view is built from the UNFILTERED candidates, before
     // the prefix filter below removes the auto-recorded outcomes.
     //
@@ -1012,6 +1028,45 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     )
     .to_string()
 }
+/// Neighbours asked of the ANN channel: twice the 20 it hands the merge, so
+/// the retired entries [`drop_retired`] removes do not shrink the channel.
+const ANN_FETCH: usize = 40;
+
+/// Drops retired entries from the three recall channels, deciding each key
+/// in the federation's own precedence (`retired_in_federation`). A row with
+/// no key is left alone: the merge skips it anyway.
+fn drop_retired(
+    dbs: &[std::path::PathBuf],
+    entries: Vec<serde_json::Value>,
+    ann: Vec<serde_json::Value>,
+    tfidf: Vec<serde_json::Value>,
+) -> (
+    Vec<serde_json::Value>,
+    Vec<serde_json::Value>,
+    Vec<serde_json::Value>,
+) {
+    // A fn, not a closure: its signature ties the key's lifetime to the row's.
+    fn key_of(entry: &serde_json::Value) -> Option<&str> {
+        entry.get("key").and_then(serde_json::Value::as_str)
+    }
+    let keys: Vec<&str> = entries
+        .iter()
+        .chain(&ann)
+        .chain(&tfidf)
+        .filter_map(key_of)
+        .collect();
+    let retired = crate::cli::shared::retired_in_federation(dbs, &keys);
+    if retired.is_empty() {
+        return (entries, ann, tfidf);
+    }
+    let live = |list: Vec<serde_json::Value>| -> Vec<serde_json::Value> {
+        list.into_iter()
+            .filter(|entry| key_of(entry).is_none_or(|key| !retired.contains(key)))
+            .collect()
+    };
+    (live(entries), live(ann), live(tfidf))
+}
+
 /// Query embedding for the ANN recall path. Semantic (with the arctic query
 /// prefix) when available, else the raw-query 64-dim hash. The prefix is applied
 /// only here, never to stored documents — that asymmetry is what makes
@@ -2043,6 +2098,69 @@ mod real_shape_regression_tests {
 mod pheromone_decay_tests {
     use super::memory_list_order_clause;
     use crate::cli::shared::{memory_column_present, optional_column_select, superseded_filter};
+
+    /// 18/09/2026 (analise): a superseded probe came back 6th in a recall,
+    /// through the ANN arm. A key is retired or live where it is FIRST held in
+    /// the federation (the SQL arm's precedence), and a retired key leaves
+    /// every channel before the merge.
+    #[test]
+    fn a_retired_key_leaves_every_recall_channel_in_federation_precedence() {
+        use std::collections::HashSet;
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let here = dir.path().join("here.db");
+        let there = dir.path().join("there.db");
+        let rows: [(&std::path::Path, &[(&str, Option<&str>)]); 2] = [
+            (
+                &here,
+                &[("old", Some("new")), ("new", None), ("shared", None)],
+            ),
+            (
+                &there,
+                &[("shared", Some("elsewhere")), ("only-there", Some("x"))],
+            ),
+        ];
+        for (path, entries) in rows {
+            let conn = rusqlite::Connection::open(path).expect("open");
+            conn.execute_batch(
+                "CREATE TABLE memory_entries (key TEXT, value TEXT, tier TEXT, superseded_by TEXT);",
+            )
+            .expect("schema");
+            for (key, successor) in entries {
+                conn.execute(
+                    "INSERT INTO memory_entries VALUES (?1, 'v', 'semantic', ?2)",
+                    rusqlite::params![key, successor],
+                )
+                .expect("insert");
+            }
+        }
+        let dbs = [here, there];
+        let retired = crate::cli::shared::retired_in_federation(
+            &dbs,
+            &["old", "new", "shared", "only-there", "absent"],
+        );
+        // `shared` is live where it is first held; `only-there` is retired
+        // where it is held; `absent` is held nowhere.
+        assert_eq!(
+            retired,
+            HashSet::from(["old".to_string(), "only-there".to_string()])
+        );
+
+        let row = |key: &str| serde_json::json!({ "key": key });
+        let (entries, ann, tfidf) = super::drop_retired(
+            &dbs,
+            vec![row("new"), row("old")],
+            vec![row("old"), row("shared")],
+            vec![row("only-there"), serde_json::json!({ "value": "keyless" })],
+        );
+        let keys = |list: &[serde_json::Value]| -> Vec<String> {
+            list.iter()
+                .map(|e| e["key"].as_str().unwrap_or("-").to_string())
+                .collect()
+        };
+        assert_eq!(keys(&entries), ["new"]);
+        assert_eq!(keys(&ann), ["shared"]);
+        assert_eq!(keys(&tfidf), ["-"], "a keyless row is left to the merge");
+    }
 
     /// A memory DB carrying the S4 columns, built the way the store builds it.
     fn db_with_s4_columns() -> rusqlite::Connection {

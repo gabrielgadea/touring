@@ -119,9 +119,11 @@ enum WiringCmd {
         #[arg(long)]
         trusted: bool,
     },
-    /// Repair wiring consumer tracking (backfill missing entries).
+    /// Repair Rust consumer tracking from `use` lines (backfill missing
+    /// entries). Rust producers only: other languages are wired by
+    /// `touring index rebuild`. `--dry-run` shows a sample of the edges.
     Repair {
-        /// Preview only — do not write changes.
+        /// Preview only — do not write changes (the reply carries a sample).
         #[arg(long)]
         dry_run: bool,
         /// Maximum repairs per run.
@@ -131,6 +133,11 @@ enum WiringCmd {
         /// to page past genuine orphans, whose NULL rows remain by design).
         #[arg(long)]
         offset: Option<u64>,
+        /// Remove the `.rs` → non-Rust edges earlier repairs wrote (false by
+        /// construction: a Rust `use` names Rust items) and restore the
+        /// orphan rows they replaced. Combine with `--dry-run` to preview.
+        #[arg(long)]
+        purge_cross_language: bool,
     },
 }
 
@@ -286,11 +293,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             dry_run,
             limit,
             offset,
+            purge_cross_language,
         } => {
             let payload = serde_json::json!({
                 "dry_run": dry_run,
                 "limit": limit,
                 "offset": offset,
+                "purge_cross_language": purge_cross_language,
             });
             query_and_print("cli-repair-wiring", payload)
         }
@@ -749,6 +758,7 @@ mod tests {
             dry_run,
             limit,
             offset,
+            purge_cross_language,
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")
@@ -756,6 +766,23 @@ mod tests {
         assert!(dry_run);
         assert!(limit.is_none());
         assert!(offset.is_none());
+        assert!(!purge_cross_language);
+    }
+
+    #[test]
+    fn parses_repair_purge_cross_language() {
+        let cli =
+            WiringCli::try_parse_from(["wiring", "repair", "--purge-cross-language", "--dry-run"])
+                .unwrap();
+        let WiringCmd::Repair {
+            dry_run,
+            purge_cross_language,
+            ..
+        } = cli.cmd.unwrap()
+        else {
+            panic!("expected Repair")
+        };
+        assert!(dry_run && purge_cross_language);
     }
 
     #[test]
@@ -765,6 +792,7 @@ mod tests {
             dry_run,
             limit,
             offset,
+            ..
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")
@@ -783,6 +811,7 @@ mod tests {
             dry_run,
             limit,
             offset,
+            ..
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")

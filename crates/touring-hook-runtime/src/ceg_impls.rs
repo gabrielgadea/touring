@@ -412,6 +412,15 @@ pub fn cli_memory_query(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
                 100_000,
             )?)
         };
+        // A retired entry (`--supersedes`) leaves the tag universe too, so
+        // `total` counts only what this query can deliver (18/09/2026: the
+        // analise saw a superseded probe served by `memory query`).
+        let retired = touring_intelligence::rl::memory::retirement::retired_keys(&conn);
+        let tag_keys = tag_keys.map(|keys| {
+            keys.into_iter()
+                .filter(|key| !retired.contains(key))
+                .collect::<Vec<_>>()
+        });
         if text.is_empty() {
             fetch_entries_by_keys(&conn, tag_keys.as_deref().unwrap_or(&[]), limit)
         } else {
@@ -456,12 +465,13 @@ fn fts_search_entries(
         .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
         .collect::<Vec<_>>()
         .join(" ");
-    let mut stmt = conn.prepare(
+    let live = touring_intelligence::rl::memory::retirement::live_predicate(conn, "e.");
+    let mut stmt = conn.prepare(&format!(
         "SELECT e.key, e.value, e.entry_type, e.tier
          FROM memories_fts f
          JOIN memory_entries e ON e.key = f.key
-         WHERE memories_fts MATCH ?1",
-    )?;
+         WHERE memories_fts MATCH ?1{live}"
+    ))?;
     let rows = stmt.query_map(rusqlite::params![fts_query], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -961,5 +971,39 @@ mod memory_store_migration_tests {
             .map(|c| c > 0)
             .unwrap();
         assert!(has_col, "additive migration added the column");
+    }
+
+    /// 18/09/2026 (analise): `memory query` served a superseded probe. Through
+    /// the real store and query path, a retired entry leaves both halves — the
+    /// text search and the tag universe — and `total` stops counting it.
+    #[test]
+    fn memory_query_never_serves_a_retired_entry() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut rt = crate::hook_runtime::HookRuntime::new(tmp.path()).unwrap();
+        for payload in [
+            serde_json::json!({"key": "probe:old", "value": "shared stale guidance",
+                               "entry_type": "lesson", "tags": ["#domain:wiring"]}),
+            serde_json::json!({"key": "probe:new", "value": "shared corrected guidance",
+                               "entry_type": "lesson", "tags": ["#domain:wiring"],
+                               "supersedes": "probe:old"}),
+        ] {
+            let out = super::cli_memory_store(&mut rt, &payload);
+            assert!(out.contains("stored"), "{out}");
+        }
+        for query in ["shared guidance", "#domain:wiring"] {
+            let out: serde_json::Value = serde_json::from_str(&super::cli_memory_query(
+                &mut rt,
+                &serde_json::json!({ "query": query }),
+            ))
+            .unwrap();
+            let keys: Vec<&str> = out["results"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|r| r["key"].as_str())
+                .collect();
+            assert_eq!(keys, ["probe:new"], "{query}: {out}");
+            assert_eq!(out["total"], 1, "{query}: {out}");
+        }
     }
 }

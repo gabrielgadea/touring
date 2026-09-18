@@ -285,6 +285,19 @@ fn declares_workspace(manifest: &str) -> bool {
 /// into `OUT_DIR` (e.g. `holon_core_capnp.rs` from a `.capnp` schema) have no
 /// file under `src/`. Probing the filesystem instead of assuming file-style is
 /// what keeps ~200 phantom paths out of the graph.
+/// `p` on disk: joined under the workspace root when relative, taken as is when
+/// absolute. The edit path anchors the importing file at the database root, so
+/// paths derived from it arrive absolute; joining those under the root read
+/// `<root>//<root>/…` and `resolve_reexport` followed no re-export on edit — one
+/// of its two copies of this rule lacked the absolute case (18/09/2026).
+fn under_workspace(ws_root: &str, p: &str) -> String {
+    if ws_root.is_empty() || std::path::Path::new(p).is_absolute() {
+        p.to_string()
+    } else {
+        format!("{ws_root}/{p}")
+    }
+}
+
 fn resolve_module_layout(ws_root: &str, dir: &str, rel_path: &str) -> Option<String> {
     // A relative `dir` is relative to the WORKSPACE root, never to the cwd.
     let abs_dir = if std::path::Path::new(dir).is_absolute() {
@@ -328,13 +341,7 @@ fn resolve_reexport(ws: &Workspace, facade_src_root: &str, rel: &str, depth: u8)
         return None;
     }
     let ws_root = ws.root.as_str();
-    let abs = |p: &str| {
-        if ws_root.is_empty() {
-            p.to_string()
-        } else {
-            format!("{ws_root}/{p}")
-        }
-    };
+    let abs = |p: &str| under_workspace(ws_root, p);
 
     // Walk the path progressively, longest real prefix first.
     //
@@ -417,10 +424,18 @@ static ITEM_DEF_RE: Lazy<Regex> = Lazy::new(|| {
 struct ModuleFacts {
     defined: std::collections::HashSet<Box<str>>,
     reexports: Vec<(Box<str>, Box<str>)>,
+    /// Python only: each `from <module> import <names>` of the file, the
+    /// shape a façade forwards a symbol through (`from .modelo import No`).
+    python_imports: Vec<(Box<str>, Vec<Box<str>>)>,
 }
 
 impl ModuleFacts {
-    fn parse(content: &str) -> Self {
+    /// Facts of `content`, read as the language of `path` (Python by `.py`,
+    /// Rust otherwise — the two languages whose re-exports are followed).
+    fn parse(content: &str, path: &str) -> Self {
+        if path.ends_with(".py") {
+            return Self::parse_python(content, path);
+        }
         Self {
             defined: ITEM_DEF_RE
                 .captures_iter(content)
@@ -430,6 +445,29 @@ impl ModuleFacts {
                 .captures_iter(content)
                 .filter_map(|c| {
                     Some((Box::from(c.get(1)?.as_str()), Box::from(c.get(2)?.as_str())))
+                })
+                .collect(),
+            python_imports: Vec::new(),
+        }
+    }
+
+    /// A Python module's definitions (the tree-sitter extractor the index
+    /// uses) and its `from … import …` statements.
+    fn parse_python(content: &str, path: &str) -> Self {
+        Self {
+            defined: crate::ast_bridge::extract_enriched_symbols(content, path)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|symbol| Box::from(symbol.name.as_str()))
+                .collect(),
+            reexports: Vec::new(),
+            python_imports: crate::ast_bridge::extract_file_imports(content, path)
+                .into_iter()
+                .map(|(module, names)| {
+                    (
+                        Box::from(module.as_str()),
+                        names.iter().map(|name| Box::from(name.as_str())).collect(),
+                    )
                 })
                 .collect(),
         }
@@ -460,7 +498,10 @@ fn module_facts(abs_path: &str) -> Option<std::sync::Arc<ModuleFacts>> {
     {
         return Some(std::sync::Arc::clone(facts));
     }
-    let facts = std::sync::Arc::new(ModuleFacts::parse(&std::fs::read_to_string(abs_path).ok()?));
+    let facts = std::sync::Arc::new(ModuleFacts::parse(
+        &std::fs::read_to_string(abs_path).ok()?,
+        abs_path,
+    ));
     if let Ok(mut cache) = MODULE_FACTS.lock() {
         if cache.len() >= FACTS_CACHE_CAP {
             cache.clear();
@@ -481,7 +522,9 @@ fn module_facts(abs_path: &str) -> Option<std::sync::Arc<ModuleFacts>> {
 /// delegation, so the two can never drift apart.
 #[cfg(test)]
 fn defines_symbol(content: &str, symbol: &str) -> bool {
-    ModuleFacts::parse(content).defined.contains(symbol)
+    ModuleFacts::parse(content, "mod.rs")
+        .defined
+        .contains(symbol)
 }
 
 /// Module path of the intra-crate `pub use` that re-exports `symbol`, if any.
@@ -492,7 +535,7 @@ fn defines_symbol(content: &str, symbol: &str) -> bool {
 /// Pure delegation to [`reexport_path_from`] — see [`defines_symbol`].
 #[cfg(test)]
 fn intra_crate_reexport_path(content: &str, symbol: &str) -> Option<String> {
-    reexport_path_from(&ModuleFacts::parse(content), symbol)
+    reexport_path_from(&ModuleFacts::parse(content, "mod.rs"), symbol)
 }
 
 /// The module tail of one `pub use` clause, if it carries `symbol`.
@@ -546,13 +589,7 @@ fn follow_intra_crate_reexport(
     if depth >= MAX_DEPTH || symbol.is_empty() {
         return None;
     }
-    let abs = |p: &str| {
-        if ws_root.is_empty() || std::path::Path::new(p).is_absolute() {
-            p.to_string()
-        } else {
-            format!("{ws_root}/{p}")
-        }
-    };
+    let abs = |p: &str| under_workspace(ws_root, p);
     let facts = module_facts(&abs(module_file))?;
     if facts.defined.contains(symbol) {
         return None;
@@ -589,9 +626,46 @@ fn follow_intra_crate_reexport(
 /// the repository the consumer lives in, not in the one around the process.
 #[must_use]
 pub fn definer_module(module_file: &str, symbol: &str, consumer: Option<&str>) -> String {
+    if module_file.ends_with(".py") {
+        return follow_python_reexport(module_file, symbol, 0)
+            .unwrap_or_else(|| module_file.to_string());
+    }
     let ws_root = workspace_for(consumer).map_or_else(String::new, |ws| ws.root.clone());
     follow_intra_crate_reexport(&ws_root, module_file, symbol, 0)
         .unwrap_or_else(|| module_file.to_string())
+}
+
+/// The Python module that DEFINES `symbol`, from the module an import named.
+///
+/// A façade that imports the symbol (`from .modelo import No`, usually with the
+/// name in `__all__`) forwards it; the chain is followed through the SAME
+/// resolver an import uses. 18/09/2026 (analise): after `grafo_memoria.py` was
+/// split into four siblings behind a façade, every consumer importing `No` from
+/// the façade was credited to it, `impact No` counted those edges by name and
+/// `orphans` found `grafo_modelo.py::No` with none — the two disagreed. Only a
+/// name forwarded unchanged is followed (an alias renames the symbol, and the
+/// edge is keyed by name). `module_file` is absolute, as the Python resolver
+/// returns it; `None` when no hop reaches a definition.
+fn follow_python_reexport(module_file: &str, symbol: &str, depth: u8) -> Option<String> {
+    // The same bound as the Rust chain: façades nest one or two levels deep.
+    const MAX_DEPTH: u8 = 3;
+    if depth >= MAX_DEPTH || symbol.is_empty() {
+        return None;
+    }
+    let facts = module_facts(module_file)?;
+    if facts.defined.contains(symbol) {
+        return Some(module_file.to_string());
+    }
+    let (module, _) = facts.python_imports.iter().find(|(_, names)| {
+        names.iter().any(|name| {
+            let (original, alias) = name
+                .split_once(" as ")
+                .map_or((&**name, None), |(o, a)| (o, Some(a)));
+            original.trim() == symbol && alias.is_none_or(|a| a.trim() == symbol)
+        })
+    })?;
+    let target = resolve_python_import(module, Some(module_file))?;
+    follow_python_reexport(&target, symbol, depth + 1)
 }
 
 /// Why an import failed to resolve — S1 classification (2026-08-07).
@@ -821,13 +895,27 @@ const MAX_SOURCE_ROOT_WALK: usize = 8;
 /// first one without it is the source root. The working directory is appended
 /// last because in a production daemon run it is the project root, the same
 /// contract the Rust arm's relative `resolve_module_layout` probes rely on.
+///
+/// 18/09/2026: after the package root, the PROJECT root is tried — the first
+/// ancestor of the importing file holding a project marker — then its `src/`,
+/// then the file's ancestors inside the project, the order Pyright documents
+/// for absolute imports (workspace root, local `src`, parents of the importing
+/// file). Until then the only other root was the process cwd, the Rust arm's
+/// 30.4.55 defect in its Python form: `from memoria.grafo import No` in
+/// `artefato/uso.py` resolved only in a daemon born at the project root.
 fn python_source_roots(source_file: Option<&str>) -> Vec<std::path::PathBuf> {
-    let mut roots = Vec::new();
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    let mut push = |dir: std::path::PathBuf| {
+        if !roots.contains(&dir) {
+            roots.push(dir);
+        }
+    };
     if let Some(src) = source_file
-        && let Some(mut dir) = std::path::Path::new(src)
+        && let Some(file_dir) = std::path::Path::new(src)
             .parent()
             .map(std::path::Path::to_path_buf)
     {
+        let mut dir = file_dir.clone();
         for _ in 0..MAX_SOURCE_ROOT_WALK {
             if !dir.join("__init__.py").is_file() {
                 break;
@@ -837,10 +925,37 @@ fn python_source_roots(source_file: Option<&str>) -> Vec<std::path::PathBuf> {
                 None => break,
             }
         }
-        roots.push(dir);
+        push(dir);
+        if let Some(project) = python_project_root(&file_dir) {
+            push(project.clone());
+            push(project.join("src"));
+            for ancestor in file_dir.ancestors() {
+                if !ancestor.starts_with(&project) || ancestor == project {
+                    break;
+                }
+                push(ancestor.to_path_buf());
+            }
+        }
     }
-    roots.push(std::path::PathBuf::from("."));
+    push(std::path::PathBuf::from("."));
     roots
+}
+
+/// The project a Python file belongs to: its nearest ancestor holding a
+/// project marker. Bounded like every other upward walk here.
+fn python_project_root(start: &std::path::Path) -> Option<std::path::PathBuf> {
+    const MARKERS: [&str; 5] = [
+        ".touring",
+        ".git",
+        "pyproject.toml",
+        "setup.py",
+        "setup.cfg",
+    ];
+    start
+        .ancestors()
+        .take(4 * MAX_SOURCE_ROOT_WALK)
+        .find(|dir| MARKERS.iter().any(|marker| dir.join(marker).exists()))
+        .map(std::path::Path::to_path_buf)
 }
 
 /// Resolve a dotted Python module to a file that EXISTS, or `None`.
