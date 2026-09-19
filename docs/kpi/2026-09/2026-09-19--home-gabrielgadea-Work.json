@@ -112,18 +112,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 570.0,
+      "actual": 1480.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 800.0
     },
     {
-      "actual": 727.0,
+      "actual": 713.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 662015.0,
+      "actual": 960511.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 661503.0,
+      "actual": 502271.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -189,18 +189,18 @@
       "threshold": 0.4
     },
     {
-      "actual": 0.8,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 0.25,
+      "actual": 0.3333333333333333,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -468,55 +468,55 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1011,
+      "exception": 1026,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 242
+      "timeout": 248
     },
     "by_language": {
       "?": 1,
-      "bash": 7557,
+      "bash": 7608,
       "go": 1,
-      "js": 105,
+      "js": 109,
       "perl": 4,
       "php": 1,
-      "python": 7858,
+      "python": 7935,
       "ruby": 4,
       "rust": 4,
-      "shell": 137,
+      "shell": 143,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 14418,
-    "runs_total": 15679,
+    "runs_ok": 14535,
+    "runs_total": 15817,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9195739524204349,
-    "wasted_attempts_retry_pairs": 759
+    "success_rate": 0.918947967376873,
+    "wasted_attempts_retry_pairs": 769
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 141,
-    "file_runs": 2284,
+    "brief_runs": 143,
+    "file_runs": 2323,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 6062,
-    "orchestrate_runs": 161,
-    "persistent_file_runs": 1102,
-    "reuse_ratio": 0.132,
-    "scratch_file_runs": 1182,
+    "inline_runs": 6119,
+    "orchestrate_runs": 165,
+    "persistent_file_runs": 1130,
+    "reuse_ratio": 0.134,
+    "scratch_file_runs": 1193,
     "status": "FAIL",
     "total_tmp_bytes": 251119125,
-    "v1_runs": 7332,
-    "v2_runs": 8346
+    "v1_runs": 7374,
+    "v2_runs": 8442
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
     "duration_ms_p99": 1164,
-    "non_canonical_calls": 139,
+    "non_canonical_calls": 142,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 608,
+    "total_calls": 616,
     "used": 7
   },
   "context_budget": {
@@ -603,34 +603,23 @@
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 12,
-      "cli-code-mode-run": 3,
-      "cli-decompose-get": 4,
-      "cli-decompose-update": 2,
-      "cli-flywheel-status": 5,
-      "cli-gate-metrics": 5,
-      "cli-health-delta-status": 5,
-      "cli-incremental-status": 5,
-      "cli-index-status": 5,
-      "cli-kpi": 21,
-      "cli-learning-reward": 2,
-      "cli-learning-status": 69,
-      "cli-memory-credit": 2,
-      "cli-memory-link": 6,
-      "cli-memory-store": 4,
-      "cli-resource-monitor-status": 5,
-      "cli-session-list": 5,
-      "cli-suggest": 18,
-      "cli-wiring-orphans": 2,
-      "cli-wiring-status": 5,
-      "cwd-changed": 1,
-      "post-bash": 12,
-      "post-edit": 4,
-      "post-read": 2,
-      "post-tool-batch": 18,
-      "post-tool-rl": 18,
-      "pre-bash": 12,
-      "subagent-stop": 1
+      "ceg-observe": 3,
+      "cli-code-mode-run": 1,
+      "cli-flywheel-status": 3,
+      "cli-gate-metrics": 3,
+      "cli-health-delta-status": 3,
+      "cli-incremental-status": 3,
+      "cli-index-status": 3,
+      "cli-kpi": 17,
+      "cli-learning-status": 47,
+      "cli-resource-monitor-status": 3,
+      "cli-session-list": 3,
+      "cli-suggest": 6,
+      "cli-wiring-status": 3,
+      "post-bash": 3,
+      "post-tool-batch": 8,
+      "post-tool-rl": 8,
+      "pre-bash": 3
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -640,19 +629,19 @@
     "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
     "post_bash_delivery_ratio": 0.0,
-    "post_bash_dispatched": 12,
+    "post_bash_dispatched": 3,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789846486
+    "since_epoch": 1789852714
   },
   "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-09-19",
   "summary": {
-    "advisory": 7,
+    "advisory": 8,
     "failed": 0,
-    "passed": 16,
+    "passed": 14,
     "regressions": 0,
-    "stub": 18,
+    "stub": 19,
     "total": 41
   }
 }
