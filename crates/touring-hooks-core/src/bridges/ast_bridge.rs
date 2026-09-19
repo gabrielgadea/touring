@@ -153,6 +153,9 @@ pub fn extract_consumed_imports(source: &str, file_path: &str) -> Vec<(String, V
     let imports = extract_file_imports(source, file_path);
     match Lang::from_path(Path::new(file_path)) {
         Some(Lang::Rust) => {
+            // A re-export the file ALSO names in its own code is a use of it
+            // (`pub use a::X;` then `[X, …]` in a table).
+            let used = touring_code::ast::graph::rust_names_used_outside_use(source);
             let forwarded: std::collections::HashSet<(String, String)> =
                 touring_code::ast::graph::rust_reexports(source)
                     .into_iter()
@@ -160,6 +163,7 @@ pub fn extract_consumed_imports(source: &str, file_path: &str) -> Vec<(String, V
                         let module = imp.module_path;
                         imp.symbols.into_iter().map(move |s| (module.clone(), s))
                     })
+                    .filter(|(_, symbol)| !used.contains(symbol))
                     .collect();
             drop_symbols(imports, |module, symbol| {
                 forwarded.contains(&(module.to_string(), symbol.to_string()))
@@ -203,6 +207,20 @@ mod consumed_import_tests {
         let src = "pub use crate::a::Foo;\nuse crate::a::Bar;\n\nfn f() -> Bar { Bar }\n";
         let imports = extract_consumed_imports(src, "src/lib.rs");
         assert_eq!(symbols_of(&imports, "crate::a"), ["Bar"]);
+    }
+
+    /// `handlers/mod.rs` re-exports each assist and lists it in its own table:
+    /// eleven handlers read as orphans until the table counted (18/09/2026).
+    #[test]
+    fn a_rust_reexport_the_file_also_uses_is_a_use() {
+        let src = "pub use auto_import::AUTO_IMPORT;\npub use auto_wire::AUTO_WIRE;\n\n\
+                   pub const ALL: &[(&str, Handler)] = &[(\"auto_import\", AUTO_IMPORT)];\n";
+        let imports = extract_consumed_imports(src, "src/handlers/mod.rs");
+        assert_eq!(symbols_of(&imports, "auto_import"), ["AUTO_IMPORT"]);
+        assert!(
+            symbols_of(&imports, "auto_wire").is_empty(),
+            "only forwarded"
+        );
     }
 }
 

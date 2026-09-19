@@ -768,43 +768,61 @@ const x = require('lodash');"#;
         assert!(names.contains(&"compute_scores"));
     }
 
+    /// The read path wires a Rust file's imports from its CONTENT, through the
+    /// pass the rebuild runs. Until 18/09/2026 it read the stored `imports_json`,
+    /// a line regex that never saw a `use a::{B}` list — the stale `[]` below —
+    /// nor a re-export the file also uses.
     #[test]
     fn test_populate_wiring_map_records_consumers() {
         use super::super::knowledge::FileKnowledgeDB;
         use tempfile::TempDir;
 
         let tmp = TempDir::new().unwrap();
-        let db_path = tmp.path().join("test.db");
-        let db = FileKnowledgeDB::new(&db_path).unwrap();
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"probe\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/tfidf.rs"), "pub struct TfIdfVectorizer;\n").unwrap();
+        let content = "use crate::tfidf::{TfIdfVectorizer};\n\npub fn make() -> TfIdfVectorizer {\n    TfIdfVectorizer\n}\n";
+        std::fs::write(root.join("src/nexus.rs"), content).unwrap();
+        let db_dir = root.join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).unwrap();
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).unwrap();
 
-        // First, register a pub symbol in the target module
         db.register_pub_symbol("src/tfidf.rs", "TfIdfVectorizer", "struct", "public")
             .unwrap();
-
-        // Then process a consumer file that imports it
         let knowledge = FileKnowledge {
             file_path: "src/nexus.rs".into(),
             language: Some("rust".into()),
-            line_count: 50,
+            line_count: 5,
             symbol_count: 1,
             read_count: 1,
             last_read_at: None,
-            imports_json: Some(r#"["crate::tfidf::TfIdfVectorizer"]"#.into()),
+            imports_json: Some("[]".into()),
             symbols_json: Some("[]".into()),
             content_hash: None,
             notes: None,
         };
-
-        // Production upserts the knowledge before refreshing the wiring (`run`);
-        // the refresh reads the stored imports, as the edit path does.
+        // Production upserts the knowledge before refreshing the wiring (`run`).
         db.upsert(&knowledge).unwrap();
-        populate_wiring_map(&db, "src/nexus.rs", &knowledge, "");
+        populate_wiring_map(&db, "src/nexus.rs", &knowledge, content);
 
-        // The TfIdfVectorizer should now have a consumer entry
-        let score = db.integration_score("src/tfidf.rs").unwrap();
-        assert!(
-            score > 0.0,
-            "Integration score should be > 0 after recording consumer"
+        let resolved: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map
+                 WHERE module_file = 'src/tfidf.rs' AND symbol_name = 'TfIdfVectorizer'
+                   AND consumer_file = 'src/nexus.rs' AND contract_source = 'ast_resolved'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            resolved, 1,
+            "the brace-list import resolves from the content, not the stale imports_json"
         );
     }
 
