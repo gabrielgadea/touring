@@ -378,6 +378,41 @@ timestamp: 2026-08-20T11:15:00-03:00
     exit 0 (`capped_files`). (e) `inferlets::fs_walk` nunca entra em diretório por symlink.
     Narrativa: `docs/audits/defeitos-analise-2026-09-18.md` §30.4.59.
 
+26. **A travessia credita o módulo (opção B, decisão de Gabriel 19/09/2026, 30.4.60)**. Só a
+    FOLHA de um caminho era creditada (`Z` em `use crate::a::b::Z`), então todo módulo que serve
+    de namespace era órfão por construção: 643 aqui, 392 deles com travessia real a uma linha
+    (medição da sessão analise). Agora `graph::module_paths::rust_module_paths` devolve cada
+    caminho que NOMEIA módulo — dos `use` (grupos, `super`/`self`) e dos caminhos inline no
+    código (160 de 561 tinham o inline como 1ª evidência) — e
+    `wiring::record_module_path_consumers` credita o ARQUIVO que declara cada módulo
+    (`symbol_extractors::declaring_file_for_module`: `src/a/b.rs` é declarado em `src/a.rs` ou
+    `src/a/mod.rs`; sob `src/`, na raiz do crate). Quatro contratos: (a) ler pela ÁRVORE deixa
+    comentário e string de fora por construção (a 1ª régua do analise, em regex, contou um
+    `///` que dizia "long-orphaned"); (b) a regra do reexporte é a mesma da 30.4.59 — caminho que
+    só um `pub use` nomeia não credita, e o que o arquivo também usa credita; (c) o pai que usa o
+    próprio filho (`mod x;` + `x::f()`) gera aresta do arquivo consigo mesmo, a classe
+    `internal_only`; (d) o crédito é estrutural, então é a única isenção nova do guard
+    `record_consumer_sites_resolve_the_definer` — uma declaração `pub mod` É a definição do
+    módulo, e nenhuma cadeia de `pub use` a renomeia. Uma passada só para o rebuild e a edição.
+
+27. **As três formas que a árvore e o layout não alcançam (30.4.61, 19/09/2026)**. A primeira
+    passada da opção B levou os órfãos de módulo de 643 a 239, mas 65 seguiam com a travessia a
+    uma linha. Medidos um a um, eram três formas, não um erro geral. (a) **Dentro da macro não há
+    árvore** — a lição da 30.4.57, agora para caminhos: `handler: |args| super::activity::run(args)`
+    mora num `vec![…]`, e um `token_tree` não tem `scoped_identifier` (47 dos 65, todos na tabela
+    de comandos do touring-server). `method_calls::macro_paths` remonta o caminho da sequência de
+    tokens — a mesma leitura que `macro_token` faz de uma chamada, um segmento mais larga. (b)
+    **`#[path = "…"]` e `mod x { … }` não têm arquivo que o layout do Cargo nomeie**, e
+    `declaring_file_for_module` lê o layout de trás para frente: `symbol_extractors::
+    declarer_of_crate_path` caminha para FRENTE da raiz do crate, achando cada segmento como um
+    `mod` do arquivo alcançado — o declarante sai por construção, e segmento não declarado devolve
+    `None` em vez de palpite (15 casos, 12 deles os `cli_handlers_*` do touring-cli). (c) **`use
+    crate::x;` importa o MÓDULO**: o extrator via só o caminho `crate`, então `import_paths` anexa
+    também cada símbolo minúsculo ao caminho — o que não for módulo não resolve para arquivo
+    nenhum, e o disco decide. Nota de método: o instrumento do analise (regex) classificou 72
+    módulos como "só reexporte" que a regra da 30.4.59 conta como uso (o arquivo TAMBÉM nomeia o
+    símbolo) e não vê crédito cross-crate por reexporte — divergência do instrumento, não do índice.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

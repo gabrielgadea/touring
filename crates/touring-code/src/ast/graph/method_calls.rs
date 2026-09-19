@@ -199,19 +199,82 @@ fn path_segment(node: Option<tree_sitter::Node<'_>>) -> Option<tree_sitter::Node
     })
 }
 
-/// Every identifier among the arguments of `tree`'s macro invocations, nested
-/// groups included, with how it is reached. Attribute arguments
-/// (`#[cfg(any(test))]`) are token trees too, but not a macro's: not read.
-fn macro_tokens<'s>(tree: &tree_sitter::Tree, source: &'s str) -> Vec<(&'s str, MacroToken<'s>)> {
-    use tree_sitter::{Query, QueryCursor};
+/// Every `a::b::c` path among the arguments of `tree`'s macro invocations,
+/// nested groups included.
+///
+/// [`macro_token`] reads ONE token and its immediate neighbours, which answers
+/// "is this a call, and on what". A module traversal needs the whole chain, so
+/// the path is rebuilt from the token sequence — the same reading, one segment
+/// wider. Measured 19/09/2026: `touring-server`'s command table names 47 modules
+/// as `super::<name>::run(args)` inside a `vec![…]`, and the grammar keeps all of
+/// it as raw tokens, so the tree walk that looks for `scoped_identifier` credited
+/// none of them.
+pub(crate) fn macro_paths(tree: &tree_sitter::Tree, source: &str) -> Vec<String> {
+    use tree_sitter::QueryCursor;
 
-    let Ok(query) = Query::new(&Lang::Rust.tree_sitter_language(), MACRO_TOKEN_TREE_QUERY) else {
+    let Some(query) = rust_macro_token_query() else {
         return Vec::new();
     };
     let bytes = source.as_bytes();
     let mut out = Vec::new();
     let mut cursor = QueryCursor::new();
-    let mut matches = cursor.matches(&query, tree.root_node(), bytes);
+    let mut matches = cursor.matches(query, tree.root_node(), bytes);
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            let mut groups = vec![capture.node];
+            while let Some(group) = groups.pop() {
+                let mut segments: Vec<&str> = Vec::new();
+                // A segment only continues the chain when a `::` preceded it.
+                let mut after_separator = false;
+                let mut walk = group.walk();
+                for child in group.children(&mut walk) {
+                    if child.kind() == "token_tree" {
+                        groups.push(child);
+                        flush_path(&mut segments, &mut out);
+                    } else if child.kind() == "::" {
+                        after_separator = !segments.is_empty();
+                        continue;
+                    } else if let Some(text) =
+                        path_segment(Some(child)).and_then(|n| n.utf8_text(bytes).ok())
+                    {
+                        if !after_separator {
+                            flush_path(&mut segments, &mut out);
+                        }
+                        segments.push(text);
+                    } else {
+                        flush_path(&mut segments, &mut out);
+                    }
+                    after_separator = false;
+                }
+                flush_path(&mut segments, &mut out);
+            }
+        }
+    }
+    out
+}
+
+/// Closes the path being read: two segments or more name something, anything
+/// shorter is a bare identifier. `segments` is emptied either way.
+fn flush_path(segments: &mut Vec<&str>, out: &mut Vec<String>) {
+    if segments.len() >= 2 {
+        out.push(segments.join("::"));
+    }
+    segments.clear();
+}
+
+/// Every identifier among the arguments of `tree`'s macro invocations, nested
+/// groups included, with how it is reached. Attribute arguments
+/// (`#[cfg(any(test))]`) are token trees too, but not a macro's: not read.
+fn macro_tokens<'s>(tree: &tree_sitter::Tree, source: &'s str) -> Vec<(&'s str, MacroToken<'s>)> {
+    use tree_sitter::QueryCursor;
+
+    let Some(query) = rust_macro_token_query() else {
+        return Vec::new();
+    };
+    let bytes = source.as_bytes();
+    let mut out = Vec::new();
+    let mut cursor = QueryCursor::new();
+    let mut matches = cursor.matches(query, tree.root_node(), bytes);
     while let Some(m) = matches.next() {
         for capture in m.captures {
             let mut groups = vec![capture.node];
@@ -483,6 +546,23 @@ pub fn extract_qualified_calls(source: &str, lang: Lang) -> Vec<(String, String)
 
 /// Captura o corpo de cada invocação de macro, onde a árvore não entra.
 const MACRO_TOKEN_TREE_QUERY: &str = r"(macro_invocation (token_tree) @tt)";
+
+/// The macro-token query for Rust, compiled ONCE for the process.
+///
+/// `Query::new` runs `ts_query__analyze_patterns`, the expensive half of
+/// compiling a query, and this one is a constant: two passes named it for EVERY
+/// file of a rebuild, and the module-path pass of 19/09/2026 would have made it
+/// three. `Query` is `Send + Sync` (tree-sitter 0.26.9), so one compiled query
+/// serves every caller and every thread. `None` only if the query itself stops
+/// compiling, which `every_import_query_compiles` is the guard for.
+fn rust_macro_token_query() -> Option<&'static tree_sitter::Query> {
+    static QUERY: std::sync::OnceLock<Option<tree_sitter::Query>> = std::sync::OnceLock::new();
+    QUERY
+        .get_or_init(|| {
+            tree_sitter::Query::new(&Lang::Rust.tree_sitter_language(), MACRO_TOKEN_TREE_QUERY).ok()
+        })
+        .as_ref()
+}
 
 /// Pares `(qualificador, nome)` colhidos textualmente dentro dos `token_tree`.
 ///

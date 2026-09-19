@@ -272,3 +272,175 @@ EXATO do cap, e isso vira `OutputLimit` mesmo com exit 0.
    `require('x')` virava módulo vazio.
 2. A edição perdia as arestas `alias.Nome` (acima).
 3. A passada de tipos contava o caminho de um `pub use` (acima).
+
+## 30.4.60 — a travessia credita o módulo (opção B)
+
+A sessão analise mediu a decisão aberta do `pub mod` a pedido de Gabriel, e ele decidiu pela
+opção B em 19/09/2026. Eu confirmei com ele antes de mexer: mensagem de sessão irmã não é
+aprovação do usuário.
+
+**O defeito.** Só a FOLHA de um caminho era creditada. `use crate::a::b::Z` creditava `Z` e mais
+nada, então `a` e `b` — módulos que servem de namespace — eram órfãos por construção. Medido no
+índice do touring: 643 módulos órfãos, a maior classe; 392 (61%) com travessia real em outro
+arquivo, 159 atravessados só por reexporte, 71 sem ninguém que os nomeie.
+
+**A correção.** `graph::module_paths::rust_module_paths` devolve cada caminho que nomeia módulo,
+dos `use` (grupos, `super`/`self`) e dos caminhos inline no código — o inline era a primeira
+evidência de 160 dos 561 módulos atravessados. `wiring::record_module_path_consumers` credita o
+ARQUIVO que declara cada módulo, derivado do layout do Cargo
+(`declaring_file_for_module`). Uma passada só para o rebuild e a edição.
+
+Quatro contratos:
+- ler pela ÁRVORE mantém comentário e string fora por construção. A primeira régua do analise,
+  em regex, contou como uso um `///` que dizia "long-orphaned";
+- a regra do reexporte é a mesma da 30.4.59: caminho que só um `pub use` nomeia não credita;
+- o pai que usa o próprio filho vira aresta do arquivo consigo mesmo, a classe `internal_only`
+  (decisão de Gabriel);
+- o crédito é estrutural, e por isso é a única isenção nova do guard
+  `record_consumer_sites_resolve_the_definer`: uma declaração `pub mod` É a definição do
+  módulo, e nenhuma cadeia de `pub use` a renomeia.
+
+**Furo achado pelo teste de ponta a ponta.** O caminho de um só segmento (`use a::Z;` ou
+`x::f()` num arquivo que declara `mod a;`/`mod x;`) caía num guard de tamanho mínimo antes de
+checar a declaração. O caso pai→filho e o `pub use a::Baz` da raiz do crate passavam batido.
+
+**Controle negativo:** um módulo declarado que ninguém atravessa (`pub mod zz_unused;`) segue
+órfão, afirmado no teste de ponta a ponta pelo rebuild E pelo ingest.
+
+---
+
+## 30.4.61 — as três formas que a árvore e o layout não alcançam (19/09/2026)
+
+**A medição depois da 30.4.60.** Ciclo completo verde (fmt, clippy, build, `cargo test
+--workspace`, propagação a analise e konverter com 40/40 asserções da prova comportamental,
+rebuild do índice). Os órfãos de módulo caíram de **643 para 239**, e o instrumento do analise
+(`pub_mod_tipos.py`) repartiu os que restaram:
+
+| classe | antes | depois | critério de aceite |
+|---|---|---|---|
+| 1 · uso real fora de teste | 392 | **65** | tinha de ir a ~0 ❌ |
+| 2 · só o pai usa o filho | — | 4 | ~0 |
+| 4 · só reexporte atravessa | 159 | 89 | segue órfão por decisão |
+| 5 · ninguém o nomeia | 71 | **70** | ~71 ✅ |
+
+O controle positivo não foi atingido. Os 65 foram medidos **um a um**, e não eram um erro geral:
+eram três formas.
+
+**(a) Dentro da macro não há árvore — 47 dos 65 (72%).** É a lição da 30.4.57, agora para
+caminhos em vez de chamadas. A tabela de comandos do touring-server declara 47 handlers dentro de
+um `vec![…]`:
+
+```rust
+handler: |args| super::activity::run(args),
+```
+
+A gramática guarda os argumentos de uma macro como tokens crus, então o `scoped_identifier` que a
+varredura procura simplesmente não existe ali. `method_calls::macro_paths` remonta o caminho da
+sequência de tokens — a mesma leitura que `macro_token` faz de uma chamada, um segmento mais
+larga. Um caminho de tipo (`ErrorPolicy::ExitOnError`) continua nomeando módulo nenhum: a parada
+no primeiro segmento maiúsculo é a mesma de sempre.
+
+**(b) `#[path = "…"]` e `mod x { … }` não têm arquivo que o layout nomeie — 15 (23%).**
+`declaring_file_for_module` lê o layout do Cargo de trás para frente, então precisa do arquivo do
+módulo. Duas formas não têm nenhum que o layout nomeie:
+
+```rust
+#[path = "cli/handlers/dispatch.rs"]
+pub mod cli_handlers;        // src/cli_handlers.rs não existe
+pub mod shared { … }          // arquivo nenhum
+```
+
+`symbol_extractors::declarer_of_crate_path` caminha para **frente** a partir da raiz do crate:
+cada segmento é procurado como um `mod` do arquivo alcançado até ali, de modo que o declarante sai
+por construção, sem sondar o disco por adivinhação. Segmento que ninguém declara, e descida para
+dentro de um corpo inline, devolvem `None` — palpite nunca vira aresta. Doze dos 15 são os
+`cli_handlers_*` do touring-cli.
+
+**(c) `use crate::x;` importa o MÓDULO — parte dos 6 restantes.** O extrator devolve `("crate",
+["x"])`, e só o caminho `crate` era lido: um segmento, nada creditado. `import_paths` anexa
+também cada símbolo minúsculo ao caminho. O que não for módulo não resolve para arquivo nenhum, e
+quem decide é o disco, não uma heurística de nome. A subtração dos reexportes usa a mesma função,
+pelo mesmo motivo da 30.4.59.
+
+Resta **um** caso: um módulo de touring-foundation alcançado por `use crate::portfolio::{…}` de
+dentro do touring-server, isto é, por reexporte cross-crate. Fica registrado, não consertado.
+
+**Nota de método — o instrumento diverge do índice.** A classe 4 caiu de 159 para 89, o que
+pareceria contrariar a decisão "reexporte não conta". Não contraria: dos 1.149 módulos creditados,
+72 são classificados pelo regex do analise como "só reexporte" porque ele não aplica a regra da
+30.4.59 — um reexporte que o arquivo TAMBÉM nomeia no próprio código é uso. O caso conferido à mão
+(`touring-offensive/src/vuln/mod.rs`) reexporta `VulnMatch` e o usa em `VulnMatch::new(…)` no
+mesmo arquivo. O instrumento também não enxerga crédito cross-crate por reexporte
+(`crate::cli_e2e::cli_e2e(…)` em touring-dispatch resolve para touring-cli) nem uso em
+`examples/`. Divergência do instrumento, não do índice — confiança 0,85.
+
+**Provas.** 11 testes em `module_paths.rs` (macro, macro que para no tipo, import de módulo nu,
+forma da declaração), 1 em `symbol_extractors.rs` (a caminhada com `#[path]`, inline, descida um
+nível e três controles negativos) e o e2e `a_rust_pub_use_does_not_consume_what_it_forwards`
+estendido com as três formas, afirmado **pelo rebuild E pelo ingest** — teste de componente verde
+não prova o caminho. O controle negativo (`pub mod zz_unused;`, declarado e nunca atravessado)
+segue órfão nos dois.
+
+### A medição da 30.4.61
+
+Ciclo verde de ponta a ponta (fmt, clippy, `cargo test --workspace`, propagação a analise e
+konverter, rebuild). Os módulos órfãos caíram de **239 para 177**, e a classe 1 — o controle
+positivo que Gabriel pediu — de **65 para 4**:
+
+| classe | 30.4.59 | 30.4.60 | 30.4.61 | critério |
+|---|---|---|---|---|
+| 1 · uso real fora de teste | 392 | 65 | **4** | ~0 ✅ |
+| 2 · só o pai usa o filho | — | 4 | 4 | `internal_only` |
+| 4 · só reexporte | 159 | 89 | 88 | segue órfão, por decisão |
+| 5 · ninguém o nomeia | 71 | 70 | **70** | ~71 ✅ |
+
+A baseline do juiz não se moveu (762 órfãos em três medições seguidas), que é o contrato da
+decisão: creditar módulo não pode afrouxar o número que o juiz vigia. O rebuild ficou mais
+RÁPIDO — 306 s contra 322 s da 30.4.60 — apesar da caminhada nova, porque a investigação do
+crash revelou que `Query::new` recompilava uma query CONSTANTE a cada arquivo, em dois passos,
+e o passo de módulos teria sido o terceiro. Agora há uma fonte única compilada uma vez
+(`rust_macro_token_query`, `OnceLock`; `Query` é `Send + Sync` no tree-sitter 0.26.9).
+
+**Os 8 residuais, medidos e não consertados.** Todos são módulo INLINE (`pub mod x { … }`),
+em duas formas:
+
+- **classe 2 (4)** — inline usado pelo PRÓPRIO arquivo (`pub mod compute { … }` +
+  `compute::f()` em `simd_embedding.rs`). `prefixes` só aceita o primeiro segmento de um
+  caminho quando o arquivo o declara, e a fonte desse conjunto é
+  `rust_declared_child_modules`, que exclui inline por construção (o conjunto existe para
+  achar o arquivo do filho, e um inline não tem arquivo). O conserto é trocar essa fonte por
+  `rust_module_declarations`, que já conhece as três formas — uma linha, e a decisão de
+  Gabriel já cobre o resultado (`internal_only`).
+- **classe 1 (4)** — inline que é FACHADA de reexporte:
+  `pub mod shared { pub use touring_hook_runtime::shared::{quality, reindex, signals}; }` em
+  touring-cli e touring-hook-handlers. Um `crate::shared::…` de outro arquivo resolve pelo
+  reexporte até o módulo de ORIGEM, e a aresta é creditada lá, não à fachada local. Isso é
+  coerente com a regra do reexporte e não foi tratado como defeito.
+
+Não foram consertados nesta rodada por uma razão explícita: o critério de aceite já estava
+atingido (392 → 4, 99%) e cada ciclo extra custa ~35 min sob um host com três falhas de
+execução do processador em dois dias.
+
+### O crash que não era do código
+
+O rebuild da terceira tentativa caiu porque o daemon morreu com SIGILL em
+`ts_query__analyze_patterns` — a mesma função do SIGILL de 18/09 —, e antes dele o binário de
+teste do touring-cli morrera com SIGSEGV em `ts_query_cursor__advance`. A mesma função duas
+vezes, num caminho que esta rodada passou a exercitar mais, é exatamente a coincidência que
+merece desconfiança. O desassembly a desfez:
+
+```
+…390  cmp  -0x130(%rbp),%r10     (7 bytes)
+…397  jae  …4b3                  (6 bytes, ocupa 397–39c)
+…39d  cmpl $0x0,-0x1a0(%rbp)
+RIP do core = …399               ← 2 bytes DENTRO do jae
+```
+
+No SIGSEGV, o mesmo: pc em `…44d`, dentro do `xor %ebp,%ebp` de 2 bytes que ocupa `…44c`, com
+`rbp = 0` provando que o `xor` executou. Um pc fora de um limite de instrução, num prólogo e
+num salto que o fluxo alcança linearmente, não tem caminho de código que o produza. O kernel
+registrou um machine check novo às 16:22 (`Bank 0: 8000004000040005`, status idêntico aos de
+18/09), o microcode é `0x137` — posterior ao `0x12B` com que a Intel mitigou a instabilidade
+do Raptor Lake, e mitigação previne degradação futura, não reverte a ocorrida. Três rodadas de
+`cargo test -p touring-cli --lib` com a mesma concorrência deram 571/571. Hardware, confiança
+0,9; escalado a Gabriel, a quem cabem BIOS, estresse e RMA.
