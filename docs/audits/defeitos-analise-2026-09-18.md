@@ -231,7 +231,12 @@ repair deixou de apagar, e a varredura de órfãos continua `NOT EXISTS` um cons
   tabela `("add_missing_match_arms", ADD_MISSING_MATCH_ARMS)`. Nenhuma passada por nome vê
   identificador solto em expressão, e antes o `pub use` cobria esse uso por acaso. Agora
   `rust_names_used_outside_use` mantém como consumo o reexporte que o arquivo também nomeia
-  fora dos `use`.
+  fora dos `use`. A regra vale nos DOIS sítios que liam o reexporte. Na passada de imports
+  ela não bastou, porque o caminho `add_missing_match_arms::X` é relativo ao módulo filho e o
+  resolvedor não o localiza a partir de um `mod.rs`: a aresta só existe pela passada de tipos
+  por nome. Por isso a passada de tipos descarta a captura de dentro de um reexporte apenas
+  quando o nome não é usado no resto do arquivo. O segundo ciclo mediu, e os 11 continuavam
+  órfãos até essa segunda parte.
 - **A edição Rust usa a passada de imports do rebuild.** Ela lia o `imports_json`, uma regex
   (`^use\s+([\w:]+)`) que nunca viu `use a::{B, C}` nem esse caso. Isso era uma assimetria C08
   anterior a esta rodada. Um teste que afirmava o contrato antigo, com conteúdo vazio e

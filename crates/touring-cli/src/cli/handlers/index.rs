@@ -3317,11 +3317,18 @@ mod index_why {
             // `Baz` is re-exported AND used here: a use, like the assist table.
             (
                 "src/lib.rs",
-                "mod a;\nmod user;\npub use crate::a::Foo;\npub use a::Bar;\npub use a::Baz;\n\npub const ALL: [Baz; 1] = [Baz];\n",
+                "mod a;\nmod handlers;\nmod user;\npub use crate::a::Foo;\npub use a::Bar;\npub use a::Baz;\n\npub const ALL: [Baz; 1] = [Baz];\n",
             ),
             (
                 "src/user.rs",
                 "use crate::Foo;\n\npub fn make() -> Foo {\n    Foo\n}\n",
+            ),
+            // The assist table: a child-relative re-export the resolver cannot
+            // place, used by bare name in the same file.
+            ("src/handlers/h.rs", "pub const HANDLER: u8 = 1;\n"),
+            (
+                "src/handlers/mod.rs",
+                "mod h;\npub use h::HANDLER;\n\npub const ALL: &[u8] = &[HANDLER];\n",
             ),
         ];
         let _serial = super::REBUILD_TEST_LOCK
@@ -3343,6 +3350,14 @@ mod index_why {
                 consumers(rt, "Bar").is_empty(),
                 "{path}: {:?}",
                 consumers(rt, "Bar")
+            );
+            assert_eq!(
+                consumers(rt, "HANDLER"),
+                [(
+                    "src/handlers/h.rs".to_string(),
+                    "src/handlers/mod.rs".to_string()
+                )],
+                "{path}: the table uses the handler it re-exports"
             );
             assert_eq!(
                 consumers(rt, "Baz"),

@@ -654,10 +654,18 @@ pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
     let Some(tree) = parse(source, lang) else {
         return Vec::new();
     };
+    // A re-export's path is not a reference, unless the file also names the
+    // symbol in its own code: `handlers/mod.rs` re-exports each assist by a
+    // child-relative path the import resolver cannot place, and uses it in a
+    // table — this capture is the only edge that use gets (18/09/2026).
+    let used = super::imports::rust_names_used_outside_use(source);
     let Some(mut names) = captures_where(&tree, source, lang, TYPE_REF_QUERY, |node| {
         !is_declared_type_name(node)
             && !is_std_family_path_segment(node, source)
-            && !inside_reexport(node)
+            && (!inside_reexport(node)
+                || node
+                    .utf8_text(source.as_bytes())
+                    .is_ok_and(|name| used.contains(name)))
     }) else {
         return Vec::new();
     };
@@ -886,6 +894,19 @@ mod type_ref_tests {
     #[test]
     fn non_rust_yields_empty() {
         assert!(extract_type_and_const_refs("x = 1", Lang::Python).is_empty());
+    }
+
+    /// 18/09/2026: `handlers/mod.rs` re-exports each assist by a child-relative
+    /// path and lists it in a table. The path of a re-export the file also uses
+    /// stays a reference; one it only forwards does not.
+    #[test]
+    fn a_reexport_path_counts_only_when_the_file_uses_the_name() {
+        // `mod h;` as in the real `handlers/mod.rs`: without it `h::` reads as
+        // another crate, whose names the resolver owns.
+        let src = "mod h;\npub use h::HANDLER;\npub use h::FORWARDED;\n\npub const ALL: &[u8] = &[HANDLER];\n";
+        let refs = extract_type_and_const_refs(src, Lang::Rust);
+        assert!(refs.iter().any(|r| r == "HANDLER"), "{refs:?}");
+        assert!(!refs.iter().any(|r| r == "FORWARDED"), "{refs:?}");
     }
 
     /// D2 (2026-09-02) — the qualifier is what makes the name decidable.
