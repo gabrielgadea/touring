@@ -413,6 +413,26 @@ timestamp: 2026-08-20T11:15:00-03:00
     módulos como "só reexporte" que a regra da 30.4.59 conta como uso (o arquivo TAMBÉM nomeia o
     símbolo) e não vê crédito cross-crate por reexporte — divergência do instrumento, não do índice.
 
+28. **A declaração vence a inferência (30.4.62, 19/09/2026)**. Os 8 módulos que sobraram da
+    30.4.61 eram todos INLINE, por dois defeitos distintos. (a) **O conjunto errado respondia
+    "este primeiro segmento é meu filho"**: `rust_declared_child_modules` existe para achar o
+    ARQUIVO do filho, e por isso deixa inline de fora; mas `prefixes` o usava para saber se um
+    nome é NOMEÁVEL — e `pub mod compute { … }` + `compute::f()` é tão nomeável quanto os
+    outros. `rust_declared_module_names` é o conjunto das três formas, e o pai que usa o
+    próprio filho inline vira `internal_only`. (b) **A ordem em `record_module_path_consumers`
+    estava invertida**: o resolvedor de layout, que sonda o disco e segue reexportes (duas
+    inferências), vinha antes da caminhada de declarações, que é o FATO. touring-cli declara
+    `pub mod shared { … }` inline E reexporta nomes de `touring_hook_runtime::shared`; como
+    `reexport_origins` casa qualquer segmento do caminho, o resolvedor creditava o módulo do
+    OUTRO crate com a declaração local a uma linha. A caminhada vem primeiro — e, porque passou
+    a rodar para todo caminho `crate::` em vez de só no fallback, `module_declarations_of`
+    memoriza por (caminho, mtime): o mtime está na chave porque o daemon vive dias, e um
+    arquivo editado entre rebuilds não pode responder com o mapa velho. Provado por MUTAÇÃO —
+    com a ordem antiga o e2e credita `crates/origem/src/lib.rs`. Nota de método: o fixture do
+    e2e vivia em `src/` na raiz e `detect_crate_src_root` só reconhece `crates/<nome>/src`, de
+    modo que a caminhada nunca rodava ali e quem fazia o teste passar era uma aresta de
+    inferência por nome; o fixture agora tem a forma do workspace real, com dois crates.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`
