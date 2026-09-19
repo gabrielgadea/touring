@@ -225,6 +225,17 @@ repair deixou de apagar, e a varredura de órfãos continua `NOT EXISTS` um cons
   removeu. Agora ele lê só `use` sem visibilidade.
 - **Efeito medido no touring** (rebuild da 30.4.59): órfãos de 735 para 773 (+38, todos
   Rust), que são os símbolos que só um `pub use` mantinha vivos. O juiz tolera até 2481.
+- **Reexporte usado no próprio arquivo é uso.** O primeiro juiz da 30.4.59 reprovou com
+  11 órfãos novos: os handlers do `touring-assists`. O `handlers/mod.rs` faz
+  `pub use add_missing_match_arms::ADD_MISSING_MATCH_ARMS;` e lista a constante na própria
+  tabela `("add_missing_match_arms", ADD_MISSING_MATCH_ARMS)`. Nenhuma passada por nome vê
+  identificador solto em expressão, e antes o `pub use` cobria esse uso por acaso. Agora
+  `rust_names_used_outside_use` mantém como consumo o reexporte que o arquivo também nomeia
+  fora dos `use`.
+- **A edição Rust usa a passada de imports do rebuild.** Ela lia o `imports_json`, uma regex
+  (`^use\s+([\w:]+)`) que nunca viu `use a::{B, C}` nem esse caso. Isso era uma assimetria C08
+  anterior a esta rodada. Um teste que afirmava o contrato antigo, com conteúdo vazio e
+  `imports_json` sintético, foi reescrito com arquivos reais e uma lista entre chaves.
 - **Fonte única do predicado:** `imports::is_reexport_declaration`, usada por
   `rust_reexports` e pelo filtro da passada de tipos. Um `use` comum segue alimentando a
   passada de tipos, que serve de rede quando o resolvedor falha.

@@ -3310,10 +3310,14 @@ mod index_why {
                 "Cargo.toml",
                 "[package]\nname = \"reexp\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
             ),
-            ("src/a.rs", "pub struct Foo;\npub struct Bar;\n"),
+            (
+                "src/a.rs",
+                "pub struct Foo;\npub struct Bar;\npub struct Baz;\n",
+            ),
+            // `Baz` is re-exported AND used here: a use, like the assist table.
             (
                 "src/lib.rs",
-                "mod a;\nmod user;\npub use crate::a::Foo;\npub use a::Bar;\n",
+                "mod a;\nmod user;\npub use crate::a::Foo;\npub use a::Bar;\npub use a::Baz;\n\npub const ALL: [Baz; 1] = [Baz];\n",
             ),
             (
                 "src/user.rs",
@@ -3339,6 +3343,11 @@ mod index_why {
                 consumers(rt, "Bar").is_empty(),
                 "{path}: {:?}",
                 consumers(rt, "Bar")
+            );
+            assert_eq!(
+                consumers(rt, "Baz"),
+                [("src/a.rs".to_string(), "src/lib.rs".to_string())],
+                "{path}: a re-export the file also uses is a use"
             );
         });
     }

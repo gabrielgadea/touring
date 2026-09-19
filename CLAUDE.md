@@ -362,7 +362,11 @@ timestamp: 2026-08-20T11:15:00-03:00
     FIX-4 (`record_reexport_consumer`) saiu, a varredura de caminhos diretos descarta o caminho
     que o arquivo reexporta, e o grep do `wiring repair` lê só `use` sem visibilidade (o
     dry-run da 30.4.59 creditaria `pub use` e desfaria a decisão). Quem importa PELA fachada
-    segue creditado ao definidor. (b) **Método
+    segue creditado ao definidor, e um reexporte que o arquivo TAMBÉM nomeia no próprio código
+    é uso (`rust_names_used_outside_use`: a tabela do `touring-assists/handlers/mod.rs` deixou
+    11 handlers órfãos no primeiro juiz). A edição Rust passou a usar o mesmo
+    `record_import_consumers` do rebuild: o `imports_json` é regex de linha e nunca via
+    `use a::{B, C}`. (b) **Método
     Python por atributo**: `python_method_calls.scm` captura `obj.m`/`obj.m()`, e
     `find_python_method_producers` só credita `method` em módulo do qual o consumidor já importa
     (uma aresta de método nunca abre a trava para outra). `record_python_qualified_uses` é a

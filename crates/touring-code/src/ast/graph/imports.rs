@@ -248,6 +248,43 @@ pub fn rust_reexports(source: &str) -> Vec<ImportInfo> {
     out
 }
 
+/// Identifiers a Rust file names OUTSIDE its `use` declarations (plain and type
+/// identifiers, macro arguments included).
+///
+/// It tells a pure re-export from one the file also uses: `handlers/mod.rs`
+/// re-exports `ADD_MISSING_MATCH_ARMS` and lists it in its own table —
+/// `("add_missing_match_arms", ADD_MISSING_MATCH_ARMS)` — which is a use. Eleven
+/// such assist handlers read as orphans the day re-exports stopped counting
+/// (18/09/2026), because no by-name pass sees a bare identifier in an expression.
+#[must_use]
+pub fn rust_names_used_outside_use(source: &str) -> std::collections::HashSet<String> {
+    let mut used = std::collections::HashSet::new();
+    let mut parser = tree_sitter::Parser::new();
+    if parser
+        .set_language(&Lang::Rust.tree_sitter_language())
+        .is_err()
+    {
+        return used;
+    }
+    let Some(tree) = crate::ast::parser::parse_bounded(&mut parser, source, None) else {
+        return used;
+    };
+    let src = source.as_bytes();
+    let mut stack = vec![tree.root_node()];
+    while let Some(node) = stack.pop() {
+        match node.kind() {
+            "use_declaration" => continue,
+            "identifier" | "type_identifier" => {
+                used.insert(node_text(node, src));
+            }
+            _ => {}
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    used
+}
+
 /// A `use` declaration carrying a visibility (`pub use`, `pub(crate) use`, …):
 /// a re-export. The one reading of it, for [`rust_reexports`] and for the
 /// type-reference pass, so the two never disagree on what forwards a name.

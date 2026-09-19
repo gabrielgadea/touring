@@ -724,10 +724,11 @@ pub fn record_python_qualified_uses(
 pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str, content: &str) {
     let _ = refresh_file_producers(db, file_path, language, content);
     update_wiring_after_edit(db, file_path);
-    // Rust imports went through `update_wiring_after_edit`; every other
-    // language's resolve only in the pass the rebuild uses.
-    if language != "rust"
-        && !touring_foundation::config::is_companion_key(file_path)
+    // Every language's imports resolve in the pass the rebuild uses (C08). Rust
+    // used to keep only `update_wiring_after_edit`, whose `imports_json` is a
+    // line regex: it never saw a `use a::{B, C}` list, and a re-export the file
+    // also uses in its body (18/09/2026) read one way here, another there.
+    if !touring_foundation::config::is_companion_key(file_path)
         && let Some(root) = db.workspace_root()
     {
         let abs = std::path::Path::new(root).join(file_path);
