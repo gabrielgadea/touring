@@ -665,6 +665,62 @@ pub fn record_import_consumers(
     recorded
 }
 
+/// Option B (19/09/2026, Gabriel): every segment of a Rust path that names a
+/// module credits the file that DECLARES it (`pub mod b;`). Returns the edges
+/// recorded.
+///
+/// Only the LEAF of a path was credited, so a module that serves as a namespace
+/// was an orphan by construction: 643 of them here, 392 with a traversal one line
+/// away (measured by the analise session). A path only a re-export names credits
+/// nothing — the rule of 18/09 — and a child module this file declares and uses
+/// itself lands on `(file, module) → file`, the `internal_only` class.
+///
+/// One pass for the rebuild and the hook path (C08).
+pub fn record_module_path_consumers(
+    db: &FileKnowledgeDB,
+    rel_path: &str,
+    abs_path: &str,
+    content: &str,
+) -> usize {
+    let Some(root) = db.workspace_root() else {
+        return 0;
+    };
+    let root = std::path::Path::new(root);
+    let declared = touring_code::ast::graph::rust_declared_child_modules(content);
+    let mut recorded = 0;
+    for path in touring_code::ast::graph::rust_module_paths(content) {
+        let Some(module) = path.rsplit("::").next() else {
+            continue;
+        };
+        let declarer = crate::symbol_extractors::resolve_import_path_with_source(
+            &path,
+            "rust",
+            Some(abs_path),
+        )
+        .and_then(|module_file| {
+            crate::symbol_extractors::declaring_file_for_module(&module_file, root)
+        })
+        // `#[path = "…"]` and an inline `mod x { … }` have no file Cargo's
+        // layout names, so reading it backwards finds nothing: walk forward
+        // from the crate root, where each `mod` item names its own declarer.
+        .or_else(|| {
+            crate::symbol_extractors::declarer_of_crate_path(&path, abs_path, root)
+                .map(|(declarer, _)| declarer)
+        })
+        // A bare child module of THIS file: the file declares it, so the file
+        // is its declarer, and the edge reads `internal_only`.
+        .or_else(|| declared.contains(module).then(|| rel_path.to_string()));
+        if let Some(declarer) = declarer
+            && db
+                .record_consumer(&declarer, module, rel_path, None)
+                .is_ok()
+        {
+            recorded += 1;
+        }
+    }
+    recorded
+}
+
 /// B5: `import pacote.modulo as m` + `m.Nome`. The module path resolves the way
 /// an import's does, the symbol is credited to the module that DEFINES it (a
 /// façade only forwards), and the edge is an `ast_inferred` guess by name. Each
@@ -734,6 +790,9 @@ pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str
         let abs = std::path::Path::new(root).join(file_path);
         let _ = db.clear_declared_consumer_entries(file_path);
         record_import_consumers(db, file_path, &abs.to_string_lossy(), language, content);
+        if language == "rust" {
+            record_module_path_consumers(db, file_path, &abs.to_string_lossy(), content);
+        }
     }
     // `update_wiring_after_edit` clears consumer rows only for a file with stored
     // imports; the inferred edges are re-derived below either way, so the stale

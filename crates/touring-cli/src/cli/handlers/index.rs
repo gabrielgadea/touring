@@ -1156,6 +1156,16 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                             language,
                             &content,
                         );
+                        // Option B (19/09/2026): the traversal credits every
+                        // module a path names, not only the leaf.
+                        if language == "rust" {
+                            touring_hook_runtime::wiring::record_module_path_consumers(
+                                &rt.ctx.knowledge,
+                                &rel_path,
+                                abs_path_str,
+                                &content,
+                            );
+                        }
 
                         // G3 (2026-08-12, cross-audit): dispatch references are
                         // COLLECTED here and RESOLVED after the walk. The old F9
@@ -3317,12 +3327,24 @@ mod index_why {
             // `Baz` is re-exported AND used here: a use, like the assist table.
             (
                 "src/lib.rs",
-                "mod a;\nmod handlers;\nmod user;\npub use crate::a::Foo;\npub use a::Bar;\npub use a::Baz;\n\npub const ALL: [Baz; 1] = [Baz];\n",
+                "mod a;\nmod bare;\nmod deep;\nmod handlers;\nmod user;\nmod zz_unused;\n#[path = \"alias_dir/real.rs\"]\npub mod aliased;\npub mod inline_mod {\n    pub const K: u8 = 2;\n}\npub use crate::a::Foo;\npub use a::Bar;\npub use a::Baz;\n\npub const ALL: [Baz; 1] = [Baz];\n",
             ),
+            // The three shapes of 19/09/2026: a path only a macro holds, a
+            // `#[path]` module, an inline one, and a module imported bare.
             (
                 "src/user.rs",
-                "use crate::Foo;\n\npub fn make() -> Foo {\n    Foo\n}\n",
+                "use crate::Foo;\nuse crate::bare;\nuse crate::deep::leaf::Leaf;\n\npub fn make() -> Foo {\n    Foo\n}\n\npub fn leaf() -> Leaf {\n    Leaf\n}\n\npub fn table() -> Vec<u8> {\n    vec![\n        crate::aliased::run_code(),\n        crate::inline_mod::K,\n        bare::get(),\n    ]\n}\n",
             ),
+            (
+                "src/alias_dir/real.rs",
+                "pub fn run_code() -> u8 {\n    1\n}\n",
+            ),
+            ("src/bare.rs", "pub fn get() -> u8 {\n    3\n}\n"),
+            // The traversal: `crate::deep::leaf::Leaf` names two modules.
+            ("src/deep/mod.rs", "pub mod leaf;\n"),
+            ("src/deep/leaf.rs", "pub struct Leaf;\n"),
+            // Control: declared, never crossed — stays an orphan.
+            ("src/zz_unused.rs", "pub struct Unused;\n"),
             // The assist table: a child-relative re-export the resolver cannot
             // place, used by bare name in the same file.
             ("src/handlers/h.rs", "pub const HANDLER: u8 = 1;\n"),
@@ -3359,10 +3381,43 @@ mod index_why {
                 )],
                 "{path}: the table uses the handler it re-exports"
             );
+            // Option B (19/09/2026): `crate::deep::leaf::Leaf` names two modules,
+            // each credited to the file that declares it.
+            assert_eq!(
+                consumers(rt, "deep"),
+                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                "{path}: the crossed module is used by whoever crosses it"
+            );
+            assert_eq!(
+                consumers(rt, "leaf"),
+                [("src/deep/mod.rs".to_string(), "src/user.rs".to_string())],
+                "{path}: the inner segment lands on its own declarer"
+            );
+            assert!(
+                consumers(rt, "zz_unused").is_empty(),
+                "{path}: a module nobody crosses stays an orphan"
+            );
             assert_eq!(
                 consumers(rt, "Baz"),
                 [("src/a.rs".to_string(), "src/lib.rs".to_string())],
                 "{path}: a re-export the file also uses is a use"
+            );
+            // 19/09/2026: the three shapes the first pass missed — 65 modules
+            // stayed orphans with a traversal one line away.
+            assert_eq!(
+                consumers(rt, "aliased"),
+                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                "{path}: named only inside a macro, and `#[path]` names the file"
+            );
+            assert_eq!(
+                consumers(rt, "inline_mod"),
+                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                "{path}: an inline `mod` is declared where its body is"
+            );
+            assert_eq!(
+                consumers(rt, "bare"),
+                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                "{path}: `use crate::bare;` — the module IS the imported symbol"
             );
         });
     }

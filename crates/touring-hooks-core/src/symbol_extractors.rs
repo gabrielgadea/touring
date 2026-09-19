@@ -1054,6 +1054,111 @@ fn resolve_java_import(import: &str, source_file: Option<&str>) -> Option<String
         .map(|candidate| candidate.to_string_lossy().into_owned())
 }
 
+/// The file that DECLARES a Rust module, given the module's own file.
+///
+/// Cargo's layout, read backwards: `src/a/b.rs` and `src/a/b/mod.rs` are both
+/// declared by `src/a.rs` or `src/a/mod.rs`; a module directly under `src/` is
+/// declared by the crate root (`lib.rs`, else `main.rs`). Option B of 19/09/2026
+/// credits that file, because the producer row of `pub mod b;` lives there.
+///
+/// `root` anchors the probe; the answer keeps the shape of `module_file`
+/// (relative when it is relative). `None` when no candidate exists on disk.
+#[must_use]
+pub fn declaring_file_for_module(module_file: &str, root: &std::path::Path) -> Option<String> {
+    let path = std::path::Path::new(module_file);
+    let dir = if path.file_name().is_some_and(|n| n == "mod.rs") {
+        path.parent()?.parent()?
+    } else {
+        path.parent()?
+    };
+    let exists = |candidate: &std::path::Path| {
+        let absolute = if candidate.is_absolute() {
+            candidate.to_path_buf()
+        } else {
+            root.join(candidate)
+        };
+        absolute.is_file()
+    };
+    let candidates = if dir.file_name().is_some_and(|n| n == "src") {
+        vec![dir.join("lib.rs"), dir.join("main.rs")]
+    } else {
+        let mut with_rs = dir.to_path_buf();
+        with_rs.set_extension("rs");
+        vec![with_rs, dir.join("mod.rs")]
+    };
+    candidates
+        .into_iter()
+        .find(|candidate| exists(candidate))
+        .map(|candidate| candidate.to_string_lossy().into_owned())
+}
+
+/// The file that declares the module a `crate::…` path names, walked FORWARD
+/// from the crate root, plus that module's name.
+///
+/// [`declaring_file_for_module`] reads Cargo's layout backwards, so it needs the
+/// module's own file — and two shapes have none the layout names:
+/// `#[path = "cli/handlers/dispatch.rs"] pub mod cli_handlers;` (12 modules of
+/// this workspace, all of touring-cli's `cli_handlers_*`) and an inline
+/// `mod shared { … }` (3 more). Both stayed orphans with a `crate::…::` call one
+/// line away, measured 19/09/2026. Walking forward, each segment is looked up as
+/// a `mod` item of the file reached so far, so the declarer is known by
+/// construction and no filesystem guess is involved.
+///
+/// `None` when a segment is not declared where the walk stands, or when the walk
+/// would have to descend into an inline body — a guess never becomes an edge.
+#[must_use]
+pub fn declarer_of_crate_path(
+    path: &str,
+    source_file: &str,
+    root: &std::path::Path,
+) -> Option<(String, String)> {
+    use touring_code::ast::graph::ModuleDeclaration;
+
+    let rest = path.strip_prefix("crate::")?;
+    // `join` keeps an absolute crate root as it is, and anchors a relative one.
+    let src = root.join(detect_crate_src_root(source_file)?);
+    let mut current = ["lib.rs", "main.rs"]
+        .into_iter()
+        .map(|name| src.join(name))
+        .find(|candidate| candidate.is_file())?;
+    let mut segments = rest.split("::").peekable();
+    while let Some(segment) = segments.next() {
+        let source = std::fs::read_to_string(&current).ok()?;
+        let declaration =
+            touring_code::ast::graph::rust_module_declarations(&source).remove(segment)?;
+        if segments.peek().is_none() {
+            let relative = current.strip_prefix(root).unwrap_or(&current);
+            return Some((relative.to_string_lossy().into_owned(), segment.to_string()));
+        }
+        let directory = child_module_dir(&current);
+        current = match declaration {
+            // The items live in this very file; the walk has no file to open.
+            ModuleDeclaration::Inline => return None,
+            ModuleDeclaration::AtPath(attribute) => directory.join(attribute),
+            ModuleDeclaration::Elsewhere => [
+                directory.join(format!("{segment}.rs")),
+                directory.join(segment).join("mod.rs"),
+            ]
+            .into_iter()
+            .find(|candidate| candidate.is_file())?,
+        };
+    }
+    None
+}
+
+/// The directory a file's child modules live in: its own when the file IS a
+/// module root (`lib.rs`, `main.rs`, `mod.rs`), else the directory named after
+/// it. This is also what a `#[path = "…"]` on one of those children is relative
+/// to.
+fn child_module_dir(file: &std::path::Path) -> std::path::PathBuf {
+    let directory = file.parent().unwrap_or_else(|| std::path::Path::new(""));
+    match file.file_stem().and_then(|stem| stem.to_str()) {
+        Some("lib" | "main" | "mod") => directory.to_path_buf(),
+        Some(stem) => directory.join(stem),
+        None => directory.to_path_buf(),
+    }
+}
+
 /// Resolve an import string, optionally using the source file path to resolve
 /// `crate::` imports relative to the correct workspace crate.
 pub fn resolve_import_path_with_source(
@@ -1619,6 +1724,13 @@ mod crate_map_and_reexport_tests {
                 "self-reference (D9): the symbols are the file's own declarations, \
                  so the file is their definer by construction",
             ),
+            (
+                "&declarer",
+                "module traversal (option B, 19/09/2026): `declaring_file_for_module` \
+                 derives the file holding `pub mod <name>;` from Cargo's layout, and \
+                 that declaration IS the definition of a module — no `pub use` chain \
+                 renames it",
+            ),
         ];
         let Some(root) = find_workspace_root() else {
             return;
@@ -1893,6 +2005,65 @@ mod crate_map_and_reexport_tests {
                 Some("crates/touring-hooks-core/src/lib.rs"),
             ),
             None
+        );
+    }
+}
+
+#[cfg(test)]
+mod crate_path_walk_tests {
+    use super::declarer_of_crate_path;
+    use std::fs;
+    use tempfile::TempDir;
+
+    /// Walking forward reaches the two shapes Cargo's layout cannot name.
+    /// `#[path]`: all 12 of them in this workspace are touring-cli's
+    /// `cli_handlers_*`, each with a `crate::cli_handlers_*::` call one line away
+    /// and each an orphan until 19/09/2026.
+    #[test]
+    fn the_walk_finds_the_declarer_of_every_module_shape() {
+        let tmp = TempDir::new().expect("tempdir");
+        let src = tmp.path().join("crates/demo/src");
+        fs::create_dir_all(src.join("cli/handlers")).expect("mkdir handlers");
+        fs::create_dir_all(src.join("plain")).expect("mkdir plain");
+        fs::write(
+            src.join("lib.rs"),
+            "#[path = \"cli/handlers/dispatch.rs\"]\npub mod cli_handlers;\npub mod plain;\npub mod inline_mod { pub fn f() {} }\n",
+        )
+        .expect("lib.rs");
+        fs::write(src.join("cli/handlers/dispatch.rs"), "pub fn run() {}\n").expect("dispatch.rs");
+        fs::write(src.join("plain.rs"), "pub mod deep;\n").expect("plain.rs");
+        fs::write(src.join("plain/deep.rs"), "pub fn f() {}\n").expect("deep.rs");
+        let consumer = src.join("cli_e2e.rs");
+        fs::write(&consumer, "fn f() { crate::cli_handlers::run(); }\n").expect("consumer");
+        let consumer = consumer.to_str().expect("utf8");
+        let walk = |path: &str| declarer_of_crate_path(path, consumer, tmp.path());
+
+        assert_eq!(
+            walk("crate::cli_handlers"),
+            Some(("crates/demo/src/lib.rs".into(), "cli_handlers".into())),
+            "`#[path]` names the file, and the crate root still declares the module"
+        );
+        assert_eq!(
+            walk("crate::plain::deep"),
+            Some(("crates/demo/src/plain.rs".into(), "deep".into())),
+            "the walk descends one level and credits the file that declares the leaf"
+        );
+        assert_eq!(
+            walk("crate::inline_mod"),
+            Some(("crates/demo/src/lib.rs".into(), "inline_mod".into())),
+            "an inline `mod x {{ … }}` is declared by the file holding its body"
+        );
+        // Negative controls: a guess never becomes an edge.
+        assert_eq!(walk("crate::zz_inexistente"), None);
+        assert_eq!(
+            walk("crate::inline_mod::deeper"),
+            None,
+            "the walk has no file to open inside an inline body"
+        );
+        assert_eq!(
+            walk("touring_demo::cli_handlers"),
+            None,
+            "not a `crate::` path"
         );
     }
 }
