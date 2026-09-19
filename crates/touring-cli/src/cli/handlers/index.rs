@@ -3246,6 +3246,25 @@ mod index_why {
             .expect("rows")
     }
 
+    /// The edges [`consumers`] excludes by construction: a file consuming its own
+    /// public symbol — the `internal_only` class (B4, 15/09/2026).
+    fn internal_only_edges(rt: &HookRuntime, symbol: &str) -> Vec<String> {
+        rt.ctx
+            .knowledge
+            .conn_ref()
+            .prepare(
+                "SELECT module_file FROM wiring_map
+                 WHERE symbol_name = ?1 AND consumer_file IS NOT NULL
+                   AND consumer_file = module_file
+                 ORDER BY module_file",
+            )
+            .expect("prepare")
+            .query_map([symbol], |r| r.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("rows")
+    }
+
     /// Writes `files` under a fresh project and returns it with a runtime.
     fn project_with(files: &[(&str, &str)], toml: &str) -> (tempfile::TempDir, HookRuntime) {
         let proj = tempfile::tempdir().expect("project tmpdir");
@@ -3315,41 +3334,68 @@ mod index_why {
     /// credited to the definer.
     #[test]
     fn a_rust_pub_use_does_not_consume_what_it_forwards() {
+        // The layout is `crates/<name>/src/…` on purpose: `detect_crate_src_root`
+        // recognises no other, so a fixture rooted at bare `src/` never exercises
+        // the forward walk — the earlier version of this test asserted the
+        // `#[path]` module was credited while a name-inference edge was quietly
+        // doing the work.
         let files = [
             (
                 "Cargo.toml",
-                "[package]\nname = \"reexp\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+                "[workspace]\nmembers = [\"crates/reexp\", \"crates/origem\"]\nresolver = \"2\"\n",
             ),
             (
-                "src/a.rs",
-                "pub struct Foo;\npub struct Bar;\npub struct Baz;\n",
+                "crates/origem/Cargo.toml",
+                "[package]\nname = \"origem\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+            ),
+            ("crates/origem/src/lib.rs", "pub mod shared;\n"),
+            (
+                "crates/origem/src/shared.rs",
+                "pub fn helper() -> u8 {\n    9\n}\n",
+            ),
+            (
+                "crates/reexp/Cargo.toml",
+                "[package]\nname = \"reexp\"\nversion = \"0.0.0\"\nedition = \"2021\"\n\n[dependencies]\norigem = { path = \"../origem\" }\n",
+            ),
+            // `helpers` is an inline module this very file uses: `internal_only`.
+            (
+                "crates/reexp/src/a.rs",
+                "pub struct Foo;\npub struct Bar;\npub struct Baz;\n\npub mod helpers {\n    pub fn h() -> u8 {\n        1\n    }\n}\n\npub fn use_helper() -> u8 {\n    helpers::h()\n}\n",
             ),
             // `Baz` is re-exported AND used here: a use, like the assist table.
+            // `shared` is an inline façade that ALSO re-exports from `origem`:
+            // the declaration must win over the re-export inference.
             (
-                "src/lib.rs",
-                "mod a;\nmod bare;\nmod deep;\nmod handlers;\nmod user;\nmod zz_unused;\n#[path = \"alias_dir/real.rs\"]\npub mod aliased;\npub mod inline_mod {\n    pub const K: u8 = 2;\n}\npub use crate::a::Foo;\npub use a::Bar;\npub use a::Baz;\n\npub const ALL: [Baz; 1] = [Baz];\n",
+                "crates/reexp/src/lib.rs",
+                "mod a;\nmod bare;\nmod deep;\nmod handlers;\nmod user;\nmod zz_unused;\n#[path = \"alias_dir/real.rs\"]\npub mod aliased;\npub mod inline_mod {\n    pub const K: u8 = 2;\n}\npub mod shared {\n    pub use origem::shared::helper;\n}\npub use crate::a::Foo;\npub use a::Bar;\npub use a::Baz;\n\npub const ALL: [Baz; 1] = [Baz];\n",
             ),
-            // The three shapes of 19/09/2026: a path only a macro holds, a
-            // `#[path]` module, an inline one, and a module imported bare.
+            // The shapes of 19/09/2026: a path only a macro holds, a `#[path]`
+            // module, an inline one, a module imported bare, and the façade.
             (
-                "src/user.rs",
-                "use crate::Foo;\nuse crate::bare;\nuse crate::deep::leaf::Leaf;\n\npub fn make() -> Foo {\n    Foo\n}\n\npub fn leaf() -> Leaf {\n    Leaf\n}\n\npub fn table() -> Vec<u8> {\n    vec![\n        crate::aliased::run_code(),\n        crate::inline_mod::K,\n        bare::get(),\n    ]\n}\n",
+                "crates/reexp/src/user.rs",
+                "use crate::Foo;\nuse crate::bare;\nuse crate::deep::leaf::Leaf;\n\npub fn make() -> Foo {\n    Foo\n}\n\npub fn leaf() -> Leaf {\n    Leaf\n}\n\npub fn table() -> Vec<u8> {\n    vec![\n        crate::aliased::run_code(),\n        crate::inline_mod::K,\n        crate::shared::helper(),\n        bare::get(),\n    ]\n}\n",
             ),
             (
-                "src/alias_dir/real.rs",
+                "crates/reexp/src/alias_dir/real.rs",
                 "pub fn run_code() -> u8 {\n    1\n}\n",
             ),
-            ("src/bare.rs", "pub fn get() -> u8 {\n    3\n}\n"),
+            (
+                "crates/reexp/src/bare.rs",
+                "pub fn get() -> u8 {\n    3\n}\n",
+            ),
             // The traversal: `crate::deep::leaf::Leaf` names two modules.
-            ("src/deep/mod.rs", "pub mod leaf;\n"),
-            ("src/deep/leaf.rs", "pub struct Leaf;\n"),
+            ("crates/reexp/src/deep/mod.rs", "pub mod leaf;\n"),
+            ("crates/reexp/src/deep/leaf.rs", "pub struct Leaf;\n"),
             // Control: declared, never crossed — stays an orphan.
-            ("src/zz_unused.rs", "pub struct Unused;\n"),
+            ("crates/reexp/src/zz_unused.rs", "pub struct Unused;\n"),
             // The assist table: a child-relative re-export the resolver cannot
             // place, used by bare name in the same file.
-            ("src/handlers/h.rs", "pub const HANDLER: u8 = 1;\n"),
             (
-                "src/handlers/mod.rs",
+                "crates/reexp/src/handlers/h.rs",
+                "pub const HANDLER: u8 = 1;\n",
+            ),
+            (
+                "crates/reexp/src/handlers/mod.rs",
                 "mod h;\npub use h::HANDLER;\n\npub const ALL: &[u8] = &[HANDLER];\n",
             ),
         ];
@@ -3363,9 +3409,10 @@ mod index_why {
             .filter(|(f, _)| f.ends_with(".rs"))
             .collect();
         rebuild_then_ingest(&mut rt, proj.path(), &rust_files, |rt, path| {
+            let reexp = |file: &str| format!("crates/reexp/src/{file}");
             assert_eq!(
                 consumers(rt, "Foo"),
-                [("src/a.rs".to_string(), "src/user.rs".to_string())],
+                [(reexp("a.rs"), reexp("user.rs"))],
                 "{path}: the caller lands on the definer, the re-export is not a caller"
             );
             assert!(
@@ -3375,22 +3422,19 @@ mod index_why {
             );
             assert_eq!(
                 consumers(rt, "HANDLER"),
-                [(
-                    "src/handlers/h.rs".to_string(),
-                    "src/handlers/mod.rs".to_string()
-                )],
+                [(reexp("handlers/h.rs"), reexp("handlers/mod.rs"))],
                 "{path}: the table uses the handler it re-exports"
             );
             // Option B (19/09/2026): `crate::deep::leaf::Leaf` names two modules,
             // each credited to the file that declares it.
             assert_eq!(
                 consumers(rt, "deep"),
-                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                [(reexp("lib.rs"), reexp("user.rs"))],
                 "{path}: the crossed module is used by whoever crosses it"
             );
             assert_eq!(
                 consumers(rt, "leaf"),
-                [("src/deep/mod.rs".to_string(), "src/user.rs".to_string())],
+                [(reexp("deep/mod.rs"), reexp("user.rs"))],
                 "{path}: the inner segment lands on its own declarer"
             );
             assert!(
@@ -3399,25 +3443,37 @@ mod index_why {
             );
             assert_eq!(
                 consumers(rt, "Baz"),
-                [("src/a.rs".to_string(), "src/lib.rs".to_string())],
+                [(reexp("a.rs"), reexp("lib.rs"))],
                 "{path}: a re-export the file also uses is a use"
             );
             // 19/09/2026: the three shapes the first pass missed — 65 modules
             // stayed orphans with a traversal one line away.
             assert_eq!(
                 consumers(rt, "aliased"),
-                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                [(reexp("lib.rs"), reexp("user.rs"))],
                 "{path}: named only inside a macro, and `#[path]` names the file"
             );
             assert_eq!(
                 consumers(rt, "inline_mod"),
-                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                [(reexp("lib.rs"), reexp("user.rs"))],
                 "{path}: an inline `mod` is declared where its body is"
             );
             assert_eq!(
                 consumers(rt, "bare"),
-                [("src/lib.rs".to_string(), "src/user.rs".to_string())],
+                [(reexp("lib.rs"), reexp("user.rs"))],
                 "{path}: `use crate::bare;` — the module IS the imported symbol"
+            );
+            // The two residuals of the first option-B round, both inline.
+            assert_eq!(
+                internal_only_edges(rt, "helpers"),
+                [reexp("a.rs")],
+                "{path}: the file using its own inline child is `internal_only`"
+            );
+            assert_eq!(
+                consumers(rt, "shared"),
+                [(reexp("lib.rs"), reexp("user.rs"))],
+                "{path}: the local DECLARATION wins the re-export inference — \
+                 `origem/src/lib.rs` here would mean the resolver got there first"
             );
         });
     }

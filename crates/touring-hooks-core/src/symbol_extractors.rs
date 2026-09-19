@@ -1123,9 +1123,7 @@ pub fn declarer_of_crate_path(
         .find(|candidate| candidate.is_file())?;
     let mut segments = rest.split("::").peekable();
     while let Some(segment) = segments.next() {
-        let source = std::fs::read_to_string(&current).ok()?;
-        let declaration =
-            touring_code::ast::graph::rust_module_declarations(&source).remove(segment)?;
+        let declaration = module_declarations_of(&current)?.get(segment)?.clone();
         if segments.peek().is_none() {
             let relative = current.strip_prefix(root).unwrap_or(&current);
             return Some((relative.to_string_lossy().into_owned(), segment.to_string()));
@@ -1144,6 +1142,47 @@ pub fn declarer_of_crate_path(
         };
     }
     None
+}
+
+/// A file's module declarations, memoised by path and modification time.
+///
+/// The forward walk reads the crate root for EVERY `crate::…` path of every file
+/// — tens of thousands of reads and parses of a handful of `lib.rs` files in one
+/// rebuild, which is why the walk could only afford to be a fallback. The mtime
+/// is part of the key because the daemon lives for days: a file edited between
+/// two rebuilds must be re-read, or the map credits a module it no longer
+/// declares. A file that cannot be read or stat'd is simply not cached.
+fn module_declarations_of(
+    file: &std::path::Path,
+) -> Option<
+    std::sync::Arc<std::collections::BTreeMap<String, touring_code::ast::graph::ModuleDeclaration>>,
+> {
+    use std::collections::{BTreeMap, HashMap};
+    use std::sync::{Arc, Mutex, OnceLock};
+
+    type Cache = HashMap<
+        std::path::PathBuf,
+        (
+            std::time::SystemTime,
+            Arc<BTreeMap<String, touring_code::ast::graph::ModuleDeclaration>>,
+        ),
+    >;
+    static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
+
+    let modified = std::fs::metadata(file).ok()?.modified().ok()?;
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(map) = cache.lock()
+        && let Some((cached_at, declarations)) = map.get(file)
+        && *cached_at == modified
+    {
+        return Some(Arc::clone(declarations));
+    }
+    let source = std::fs::read_to_string(file).ok()?;
+    let declarations = Arc::new(touring_code::ast::graph::rust_module_declarations(&source));
+    if let Ok(mut map) = cache.lock() {
+        map.insert(file.to_path_buf(), (modified, Arc::clone(&declarations)));
+    }
+    Some(declarations)
 }
 
 /// The directory a file's child modules live in: its own when the file IS a

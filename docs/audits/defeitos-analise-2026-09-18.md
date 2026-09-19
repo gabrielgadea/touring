@@ -444,3 +444,69 @@ registrou um machine check novo às 16:22 (`Bank 0: 8000004000040005`, status id
 do Raptor Lake, e mitigação previne degradação futura, não reverte a ocorrida. Três rodadas de
 `cargo test -p touring-cli --lib` com a mesma concorrência deram 571/571. Hardware, confiança
 0,9; escalado a Gabriel, a quem cabem BIOS, estresse e RMA.
+
+---
+
+## 30.4.62 — a declaração vence a inferência (19/09/2026)
+
+Os 8 residuais da 30.4.61 eram todos módulo INLINE, mas por **dois** defeitos distintos, não um.
+
+**(a) O conjunto errado respondia a "este primeiro segmento é meu filho".**
+`rust_declared_child_modules` existe para achar o ARQUIVO de um filho, e por isso deixa
+`mod x { … }` de fora — um inline não tem arquivo. Só que `prefixes` o usava para decidir se um
+nome é NOMEÁVEL, que é outra pergunta: `pub mod compute { … }` ao lado de `compute::f()` nomeia
+um módulo tanto quanto qualquer outro. `rust_declared_module_names` é o conjunto das três
+formas; a função antiga continua respondendo à pergunta estreita, com um teste que fixa a
+diferença.
+
+**(b) A ordem em `record_module_path_consumers` estava invertida.**
+O resolvedor de layout sonda o disco e segue reexportes — duas inferências — e vinha ANTES da
+caminhada de declarações, que é o fato. touring-cli declara `pub mod shared { … }` inline e
+TAMBÉM reexporta nomes de `touring_hook_runtime::shared`; como `reexport_origins` casa qualquer
+segmento do caminho (permissividade intencional, para achar fachadas), o resolvedor creditava o
+módulo do OUTRO crate enquanto a declaração local estava uma linha acima. A caminhada agora vem
+primeiro. Como passou a rodar para todo caminho `crate::` em vez de só no fallback,
+`module_declarations_of` memoriza por (caminho, mtime) — o mtime está na chave porque o daemon
+vive dias, e um arquivo editado entre dois rebuilds não pode responder com o mapa velho.
+
+**A medição.** Ciclo verde de ponta a ponta; módulos órfãos 177 → **171**:
+
+| classe | 30.4.60 | 30.4.61 | 30.4.62 |
+|---|---|---|---|
+| 1 · uso real fora de teste | 65 | 4 | **1** |
+| 2 · só o pai usa o filho | 4 | 4 | **1** |
+| 4 · só reexporte | 89 | 88 | 88 |
+| 5 · ninguém o nomeia | 70 | 70 | 70 |
+
+Baseline do juiz inalterada (762, quarta medição seguida); `internal_only` 2537 → 2538.
+
+**Os 2 que restam não são defeito de crédito.** `touring-server/src/lib.rs :: system_info` é
+inline e a única "evidência" que o instrumento acha é
+`json!({"source": "system_info::snapshot"})` — uma STRING. O regex do analise remove comentários
+mas não strings; o extrator lê pela árvore e por construção não a conta, então o índice está
+certo (o módulo é órfão) e a classificação do instrumento é que erra. O outro,
+`touring-foundation/src/portfolio/mod.rs :: feedback`, é o caso cross-crate por reexporte já
+registrado na 30.4.61.
+
+**Duas notas de método, ambas custaram tempo.**
+
+1. *O fixture não tinha a forma do caso real.* O e2e vivia em `src/` na raiz, e
+   `detect_crate_src_root` só reconhece `crates/<nome>/src` — a caminhada **nunca rodava** ali. O
+   teste que eu havia escrito para provar o `#[path]` passava por uma aresta de inferência por
+   nome. O fixture agora é um workspace com dois crates, que é o que o resolvedor espera.
+2. *Um teste que não distingue não é prova.* O conserto (b) foi validado por MUTAÇÃO: com a ordem
+   antiga, o e2e credita `crates/origem/src/lib.rs` em vez do declarante local. Sem essa inversão
+   deliberada, a asserção passaria por qualquer razão.
+
+E um lembrete do helper: `consumers()` filtra `consumer_file != module_file` por construção, de
+modo que nenhuma aresta `internal_only` aparece nela — a primeira versão da asserção (a)
+"falhou" por isso, e o certo foi `internal_only_edges`, que consulta a classe pelo que ela é.
+
+## O ciclo que caiu sem ser hardware nem código
+
+A primeira tentativa da 30.4.62 falhou no link com `No space left on device`: o disco estava a
+**100%** (948G de 952G), com `target/` em 745G — 665G só em `debug/`, de seis ciclos completos no
+mesmo dia. `safe-clean.sh incremental` liberou 121 GB preservando `target/release` e o binário do
+daemon, e o cache de compilação sobreviveu (clippy 1 s, build 2 s na retomada). A lição é de
+leitura, não de código: a primeira linha do erro dizia o que era, e a investigação começou pela
+hipótese da véspera.

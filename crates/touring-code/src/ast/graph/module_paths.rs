@@ -31,8 +31,9 @@ pub fn rust_module_paths(source: &str) -> Vec<String> {
     };
     let used = super::imports::rust_names_used_outside_use(source);
     // A module this file declares is named by its BARE name (`mod x;` then
-    // `x::f()`), where every other path starts at a crate or a keyword.
-    let declared = rust_declared_child_modules(source);
+    // `x::f()`), where every other path starts at a crate or a keyword. An
+    // inline `mod x { … }` is named the same way, so all three shapes count.
+    let declared = rust_declared_module_names(source);
     let mut paths: BTreeSet<String> = BTreeSet::new();
 
     // `use` declarations: the extractor already composes the full module path of
@@ -213,6 +214,20 @@ fn path_attribute(node: tree_sitter::Node<'_>, bytes: &[u8]) -> Option<String> {
             let (key, value) = inner.split_once('=')?;
             (key.trim() == "path").then(|| value.trim().trim_matches('"').to_string())
         })
+}
+
+/// Every child module a Rust file declares, in ALL three shapes — the set that
+/// answers "is this first segment a module of THIS file".
+///
+/// [`rust_declared_child_modules`] answers a narrower question (which children
+/// live in another file) and leaves an inline `mod x { … }` out on purpose, since
+/// an inline module has no file to find. For NAMING, though, it is as nameable as
+/// any other: `pub mod compute { … }` beside `compute::f()` is the parent using
+/// its own child — the `internal_only` class of 19/09/2026 — and four modules
+/// stayed orphans because the narrower set was the one asked.
+#[must_use]
+pub fn rust_declared_module_names(source: &str) -> BTreeSet<String> {
+    rust_module_declarations(source).into_keys().collect()
 }
 
 /// The child modules a Rust file declares (`mod x;`, `pub mod x;`), with no
@@ -403,6 +418,42 @@ mod tests {
             declarations.get("plain"),
             Some(&ModuleDeclaration::Elsewhere),
             "the module after the run carries no attribute of its own"
+        );
+    }
+
+    /// The parent using its own INLINE child (`pub mod compute { … }` +
+    /// `compute::f()`): 4 modules stayed orphans because the narrower
+    /// declared-children set, which leaves inline out by design, was the one
+    /// asked. Gabriel, 19/09/2026: this edge is `internal_only`.
+    #[test]
+    fn an_inline_child_this_file_declares_is_named_by_its_bare_name() {
+        assert_eq!(
+            rust_module_paths(
+                "pub mod compute {\n    pub fn f() {}\n}\n\nfn g() {\n    compute::f();\n}\n"
+            ),
+            ["compute"]
+        );
+        // The declaration is what makes it nameable — without it the first
+        // segment is a crate, exactly as before.
+        assert!(rust_module_paths("fn g() { compute::f(); }\n").is_empty());
+    }
+
+    #[test]
+    fn declared_module_names_cover_the_three_shapes() {
+        let source =
+            "#[path = \"a/b.rs\"]\nmod at_path;\nmod elsewhere;\nmod inline { pub fn f() {} }\n";
+        assert_eq!(
+            rust_declared_module_names(source)
+                .into_iter()
+                .collect::<Vec<_>>(),
+            ["at_path", "elsewhere", "inline"]
+        );
+        assert_eq!(
+            rust_declared_child_modules(source)
+                .into_iter()
+                .collect::<Vec<_>>(),
+            ["at_path", "elsewhere"],
+            "the narrower set still answers only 'which child lives in another file'"
         );
     }
 
