@@ -185,6 +185,64 @@ fn cache_write(dir: &Path, key: &str, raw: &str) {
     }
 }
 
+/// `ETXTBSY`: o executável está aberto para escrita por alguém. Linux, `errno.h`.
+const ETXTBSY: i32 = 26;
+
+/// Quantas vezes insistir, e o passo do backoff. O pior caso soma 12 ms — ordens
+/// de grandeza abaixo do orçamento de parede do provedor (400 ms em produção).
+const TENTATIVAS_ETXTBSY: u32 = 3;
+const PASSO_ETXTBSY: Duration = Duration::from_millis(2);
+
+/// O `spawn`, insistindo enquanto o executável estiver ocupado para escrita.
+///
+/// `ETXTBSY` é transitório por definição: o kernel o devolve enquanto QUALQUER
+/// processo mantém o arquivo aberto para escrita, e isso dura o tempo de fechar.
+/// Acontece em produção quando um `pip install` reescreve o `.venv/bin/python3`,
+/// e na suíte quando outra thread forka na janela entre o `fs::write` de um
+/// fixture e o seu `exec` — o filho herda o fd por instantes.
+///
+/// Sem esta insistência o hook devolve vazio, que é indistinguível de "nada a
+/// dizer": medido em 20/09/2026, **7 falhas em 300 execuções** do binário de
+/// teste, atingindo três testes DIFERENTES do módulo — a assinatura de um
+/// defeito de estado global, não de um teste. Um diagnóstico anterior leu o
+/// sintoma como orçamento apertado e subiu o budget de 400 ms para 10 s
+/// (13/09/2026); o tempo nunca esteve em jogo, e a suíte falhava em 0,13 s.
+fn spawn_com_retry_etxtbsy(
+    python: &Path,
+    provider: &Path,
+    root: &Path,
+    rel: &str,
+    no: &str,
+) -> Result<Child, ProviderOutcome> {
+    let mut tentativa = 0;
+    loop {
+        let resultado = Command::new(python)
+            .arg(provider)
+            .args(["--arquivo", rel, "--no", no, "--stdin", "--brief"])
+            .current_dir(root)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn();
+        match resultado {
+            Ok(child) => return Ok(child),
+            Err(e) if e.raw_os_error() == Some(ETXTBSY) && tentativa < TENTATIVAS_ETXTBSY => {
+                tentativa += 1;
+                std::thread::sleep(PASSO_ETXTBSY * tentativa);
+            }
+            // Esgotadas as tentativas, o erro viaja COM a contagem: "ainda ocupado
+            // depois de 3 tentativas" é um diagnóstico, "Text file busy" sozinho
+            // manda o leitor reproduzir às cegas.
+            Err(e) if e.raw_os_error() == Some(ETXTBSY) => {
+                return Err(ProviderOutcome::Failed(format!(
+                    "spawn: {e} — ainda ocupado após {TENTATIVAS_ETXTBSY} tentativas"
+                )));
+            }
+            Err(e) => return Err(ProviderOutcome::Failed(format!("spawn: {e}"))),
+        }
+    }
+}
+
 /// Lança o provedor e entrega o texto por stdin; o filho lê tudo antes de responder.
 fn lancar_provedor(
     root: &Path,
@@ -197,15 +255,7 @@ fn lancar_provedor(
     if !python.is_file() || !provider.is_file() {
         return Err(ProviderOutcome::Unavailable);
     }
-    let mut child = Command::new(&python)
-        .arg(&provider)
-        .args(["--arquivo", rel, "--no", no, "--stdin", "--brief"])
-        .current_dir(root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| ProviderOutcome::Failed(format!("spawn: {e}")))?;
+    let mut child = spawn_com_retry_etxtbsy(&python, &provider, root, rel, no)?;
     if let Some(mut stdin) = child.stdin.take() {
         // um erro de escrita só significa que o filho já morreu — `esperar` reporta
         let _ = stdin.write_all(texto.as_bytes());
@@ -410,10 +460,43 @@ mod tests {
     fn raiz_temp(nome: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("touring_doc_symbol_{nome}_{}", std::process::id()));
+        // A limpeza é só de ENTRADA, então cada execução da suíte deixa a sua raiz
+        // para trás: 176 delas foram medidas em /tmp em 20/09/2026. Varrer as
+        // sobras de execuções JÁ MORTAS aqui é o único ponto que roda sempre — um
+        // Drop não cobre o teste que entra em pânico. Uma raiz só some se o dono
+        // não existe mais: `remove_dir_all` numa raiz viva sabotaria outro
+        // processo de teste rodando em paralelo.
+        varrer_raizes_orfas();
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("analise/relatoria/50500.000000-2026-00/analysis"))
             .expect("mkdir");
         dir
+    }
+
+    /// Apaga as raízes `touring_doc_symbol_*_<pid>` cujo PID não existe mais.
+    ///
+    /// O dono vivo é preservado: duas suítes podem rodar em paralelo (o juiz roda
+    /// `cargo test --workspace` enquanto alguém testa o crate), e apagar a raiz de
+    /// um processo vivo trocaria um vazamento por um flaky. `/proc/<pid>` é a
+    /// prova de vida; sem ele o dono morreu e a raiz é lixo.
+    fn varrer_raizes_orfas() {
+        let Ok(entradas) = fs::read_dir(std::env::temp_dir()) else {
+            return; // sem /tmp legível não há o que varrer — nunca falha o teste
+        };
+        for entrada in entradas.flatten() {
+            let nome = entrada.file_name();
+            let Some(nome) = nome.to_str() else { continue };
+            let Some(pid) = nome.strip_prefix("touring_doc_symbol_") else {
+                continue;
+            };
+            // `<nome>_<pid>`: o PID é o que vem depois do ÚLTIMO '_'.
+            let Some((_, pid)) = pid.rsplit_once('_') else {
+                continue;
+            };
+            if pid.parse::<u32>().is_ok() && !Path::new(&format!("/proc/{pid}")).exists() {
+                let _ = fs::remove_dir_all(entrada.path());
+            }
+        }
     }
 
     /// Um provedor de mentira: um shell script no lugar do `.venv/bin/python3`.
@@ -542,9 +625,28 @@ mod tests {
         // A generous budget: these tests prove WHAT the layer returns, not how fast.
         // The production budget (400 ms) failed them under a parallel workspace
         // build (measured 13/09/2026); the timeout path has its own 60 ms test.
-        let layer = DocSymbolSignalLayer::with_root(raiz).with_budget(Duration::from_secs(10));
+        let layer =
+            DocSymbolSignalLayer::with_root(raiz.clone()).with_budget(Duration::from_secs(10));
         let ctx = SignalContext::new(rel, "Lei nº 8.987/1995 proposta").with_cila(3);
-        assert_eq!(layer.enrich(&ctx).len(), 2);
+        // `enrich` devolve vazio para TODA falha do provedor — a causa existe em
+        // `ProviderOutcome` e morria aqui. Um `0 != 2` mandou duas sessões (13/09 e
+        // 20/09) reproduzir às cegas, e o remédio de 13/09 (orçamento 400 ms → 10 s)
+        // tratou tempo num defeito que não era de tempo. A mensagem só é construída
+        // no caminho de falha, e uma 2ª tentativa que passa já diz "transitório".
+        let sinais = layer.enrich(&ctx);
+        assert_eq!(
+            sinais.len(),
+            2,
+            "o layer devolveu vazio; 2ª chamada ao provedor: {:?}",
+            run_provider(
+                &raiz,
+                rel,
+                "VOTO",
+                "Lei nº 8.987/1995 proposta",
+                Duration::from_secs(10),
+            )
+            .err()
+        );
         assert!(!layer.should_run(1));
         assert!(layer.should_run(2));
     }

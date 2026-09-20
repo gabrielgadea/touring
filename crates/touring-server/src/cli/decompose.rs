@@ -111,6 +111,17 @@ enum DecomposeCmd {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Close scaffold stages whose every sibling already finished.
+    ///
+    /// The closer only runs on a task-completion event, so stages under tasks
+    /// that never emitted one stay open forever. A stage with NO open sibling
+    /// is closed by deduction from the DAG's edges; one with an open sibling is
+    /// real pending work and is left alone.
+    ReconcileStages {
+        /// Report how many WOULD be closed, writing nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// List subtasks ready to execute (all deps satisfied).
     Ready {
         /// Optional task id filter.
@@ -340,6 +351,11 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "quality_threshold": quality_threshold,
             });
             let output = daemon_query("cli-decompose-finalize", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::ReconcileStages { dry_run } => {
+            let payload = serde_json::json!({ "dry_run": dry_run });
+            let output = daemon_query("cli-decompose-reconcile-stages", payload)?;
             println!("{output}");
         }
         DecomposeCmd::Archive {

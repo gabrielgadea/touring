@@ -309,6 +309,18 @@ fn only_hooks_that_leave_the_indexes_alone_run_during_a_heavy_hook() {
         "post_edit",
         "cli-wiring-orphans",
         "cli-index-find",
+        // The decompose family is deliberately OUT, and this is the record of
+        // why (measured 20/09/2026, after `decompose update` answered 75 during
+        // a rebuild and the question "can it yield too?" came up): the rebuild
+        // holds long transactions on the SAME knowledge.db these tables live in
+        // (`unchecked_transaction`, `clear_wiring`, `begin_index_generation`).
+        // Letting them through would trade a clean, retryable 75 for SQLITE_BUSY
+        // contention against a walk mid-flight. Exit 75 with `retryable: true`
+        // is the correct answer here, not a wart to remove.
+        "cli-decompose-update",
+        "cli-decompose-ready",
+        "cli-decompose-archive",
+        "cli-decompose-reconcile-stages",
     ] {
         assert!(!may_run_during_heavy(hook), "{hook}");
     }

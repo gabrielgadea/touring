@@ -11,7 +11,7 @@
   },
   "checks": [
     {
-      "actual": 762.0,
+      "actual": 761.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.wiring.orphans",
@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.8894798688969678,
+      "actual": 0.849108988843343,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -85,7 +85,7 @@
       "rationale": "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 22d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
+      "stub_reason": "stale — measured 23d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
       "threshold": 5100.0
     },
     {
@@ -97,7 +97,7 @@
       "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 22d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
+      "stub_reason": "stale — measured 23d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
       "threshold": 0.75
     },
     {
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 8823.0,
+      "actual": 8919.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 524031.0,
+      "actual": 553471.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 1244159.0,
+      "actual": 1331199.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -211,7 +211,7 @@
       "threshold": 0.1
     },
     {
-      "actual": 0.8671328671328671,
+      "actual": 0.863013698630137,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
@@ -244,7 +244,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.3875338753387534,
+      "actual": 0.3924731182795699,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -255,7 +255,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.19526143790849673,
+      "actual": 0.19579288025889968,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -266,7 +266,7 @@
       "threshold": 0.75
     },
     {
-      "actual": 0.029411764705882353,
+      "actual": 0.02857142857142857,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.pillar_induction_ratio",
@@ -354,7 +354,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.5792163543441227,
+      "actual": 0.5582922824302134,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -387,7 +387,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.6302898023523705,
+      "actual": 0.6241070892610601,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.47713405568704875,
+      "actual": 0.4792658215918194,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -409,7 +409,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.10318903843821996,
+      "actual": 0.10216699681853653,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -431,7 +431,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.02520302436292355,
+      "actual": 0.024089935760171308,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
@@ -468,48 +468,48 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1062,
+      "exception": 1084,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 261
+      "timeout": 267
     },
     "by_language": {
       "?": 3,
-      "bash": 7805,
+      "bash": 7924,
       "go": 1,
-      "js": 117,
+      "js": 121,
       "perl": 4,
       "php": 1,
-      "python": 8066,
+      "python": 8228,
       "ruby": 4,
       "rust": 4,
-      "shell": 154,
+      "shell": 159,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 14833,
-    "runs_total": 16166,
+    "runs_ok": 15095,
+    "runs_total": 16456,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9175429914635655,
-    "wasted_attempts_retry_pairs": 793
+    "success_rate": 0.91729460379193,
+    "wasted_attempts_retry_pairs": 809
   },
   "code_mode_reuse": {
     "available": true,
     "brief_runs": 145,
-    "file_runs": 2356,
+    "file_runs": 2453,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 6357,
-    "ladder_enrolled": 371,
+    "inline_runs": 6519,
+    "ladder_enrolled": 374,
     "ladder_reused": 9,
     "orchestrate_runs": 169,
     "persistent_file_runs": 1158,
-    "reuse_ratio": 0.134,
-    "scratch_file_runs": 1198,
+    "reuse_ratio": 0.13,
+    "scratch_file_runs": 1295,
     "status": "FAIL",
-    "total_tmp_bytes": 251211156,
-    "v1_runs": 7450,
-    "v2_runs": 8713
+    "total_tmp_bytes": 255866313,
+    "v1_runs": 7481,
+    "v2_runs": 8972
   },
   "code_mode_signal_use": {
     "available": true,
@@ -518,143 +518,133 @@
     "non_canonical_calls": 145,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 628,
+    "total_calls": 630,
     "used": 7
   },
   "context_budget": {
     "available": true,
     "by_family": {
       "code-mode-deny": {
-        "blocks": 68,
-        "bytes": 54149,
-        "duplicate_bytes": 16456,
-        "duplicate_ratio": 0.304,
-        "mean_bytes": 796,
+        "blocks": 76,
+        "bytes": 60355,
+        "duplicate_bytes": 21416,
+        "duplicate_ratio": 0.355,
+        "mean_bytes": 794,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 68
+        "zero_proposition_blocks": 76
       },
       "loop-outer": {
-        "blocks": 3,
-        "bytes": 2819,
+        "blocks": 4,
+        "bytes": 3807,
         "duplicate_bytes": 0,
         "duplicate_ratio": 0.0,
-        "mean_bytes": 939,
-        "propositions": 3,
-        "propositions_per_kb": 1.09,
+        "mean_bytes": 951,
+        "propositions": 6,
+        "propositions_per_kb": 1.614,
         "zero_proposition_blocks": 0
       },
       "other": {
-        "blocks": 1165,
-        "bytes": 357561,
-        "duplicate_bytes": 106378,
-        "duplicate_ratio": 0.298,
-        "mean_bytes": 306,
-        "propositions": 1480,
-        "propositions_per_kb": 4.238,
-        "zero_proposition_blocks": 830
+        "blocks": 1317,
+        "bytes": 394452,
+        "duplicate_bytes": 118415,
+        "duplicate_ratio": 0.3,
+        "mean_bytes": 299,
+        "propositions": 1631,
+        "propositions_per_kb": 4.234,
+        "zero_proposition_blocks": 945
       },
       "past-lessons": {
-        "blocks": 475,
-        "bytes": 64032,
-        "duplicate_bytes": 21187,
-        "duplicate_ratio": 0.331,
-        "mean_bytes": 134,
+        "blocks": 542,
+        "bytes": 69441,
+        "duplicate_bytes": 24047,
+        "duplicate_ratio": 0.346,
+        "mean_bytes": 128,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 475
+        "zero_proposition_blocks": 542
       },
       "post-tool-echo": {
-        "blocks": 444,
-        "bytes": 179080,
-        "duplicate_bytes": 46892,
-        "duplicate_ratio": 0.262,
-        "mean_bytes": 403,
-        "propositions": 242,
-        "propositions_per_kb": 1.384,
-        "zero_proposition_blocks": 202
+        "blocks": 482,
+        "bytes": 189776,
+        "duplicate_bytes": 51959,
+        "duplicate_ratio": 0.274,
+        "mean_bytes": 393,
+        "propositions": 271,
+        "propositions_per_kb": 1.462,
+        "zero_proposition_blocks": 211
       },
       "session-start": {
-        "blocks": 16,
-        "bytes": 15866,
+        "blocks": 20,
+        "bytes": 19915,
         "duplicate_bytes": 621,
-        "duplicate_ratio": 0.039,
-        "mean_bytes": 991,
-        "propositions": 4,
-        "propositions_per_kb": 0.258,
-        "zero_proposition_blocks": 12
+        "duplicate_ratio": 0.031,
+        "mean_bytes": 995,
+        "propositions": 5,
+        "propositions_per_kb": 0.257,
+        "zero_proposition_blocks": 15
       },
       "touring-suggest": {
-        "blocks": 82,
-        "bytes": 105569,
-        "duplicate_bytes": 1319,
-        "duplicate_ratio": 0.012,
-        "mean_bytes": 1287,
-        "propositions": 333,
-        "propositions_per_kb": 3.23,
+        "blocks": 101,
+        "bytes": 129839,
+        "duplicate_bytes": 2649,
+        "duplicate_ratio": 0.02,
+        "mean_bytes": 1285,
+        "propositions": 404,
+        "propositions_per_kb": 3.186,
         "zero_proposition_blocks": 0
       }
     },
-    "bytes_scanned": 31435954,
+    "bytes_scanned": 35631668,
     "capped": false,
-    "duplicate_blocks": 1061,
-    "duplicate_injection_ratio": 0.248,
+    "duplicate_blocks": 1236,
+    "duplicate_injection_ratio": 0.253,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
       "injected_bytes_per_turn",
       "duplicate_injection_ratio",
       "injection_follow_ratio"
     ],
-    "injected_bytes_per_turn": 13204.678,
+    "injected_bytes_per_turn": 10328.393,
     "injected_bytes_per_turn_ceil": 3000.0,
     "injection_follow_ratio": 0.398,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 666,
-    "must_followed": 265,
+    "must_emitted": 753,
+    "must_followed": 300,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 1392,
+    "tool_calls": 1547,
     "tool_output": {
       "by_tool": [
         {
-          "bytes": 1016947,
-          "mean_bytes": 1354,
-          "results": 751,
-          "reused_bytes": 44256,
-          "reused_line_ratio": 0.073,
-          "share": 0.543,
+          "bytes": 1128474,
+          "mean_bytes": 1335,
+          "results": 845,
+          "reused_bytes": 45163,
+          "reused_line_ratio": 0.069,
+          "share": 0.553,
           "tool": "Bash",
-          "zero_reuse_results": 133
+          "zero_reuse_results": 162
         },
         {
-          "bytes": 665983,
-          "mean_bytes": 3964,
-          "results": 168,
-          "reused_bytes": 63742,
-          "reused_line_ratio": 0.179,
-          "share": 0.356,
+          "bytes": 741383,
+          "mean_bytes": 3841,
+          "results": 193,
+          "reused_bytes": 66129,
+          "reused_line_ratio": 0.157,
+          "share": 0.363,
           "tool": "Read",
           "zero_reuse_results": 3
         },
         {
-          "bytes": 75527,
-          "mean_bytes": 220,
-          "results": 343,
+          "bytes": 80860,
+          "mean_bytes": 218,
+          "results": 370,
           "reused_bytes": 95,
           "reused_line_ratio": 0.002,
           "share": 0.04,
           "tool": "Edit",
-          "zero_reuse_results": 63
-        },
-        {
-          "bytes": 25548,
-          "mean_bytes": 8516,
-          "results": 3,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.014,
-          "tool": "Grep",
-          "zero_reuse_results": 3
+          "zero_reuse_results": 75
         },
         {
           "bytes": 24474,
@@ -662,7 +652,7 @@
           "results": 4,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
-          "share": 0.013,
+          "share": 0.012,
           "tool": "mcp__plugin_context7_context7__query-docs",
           "zero_reuse_results": 0
         },
@@ -677,14 +667,14 @@
           "zero_reuse_results": 0
         },
         {
-          "bytes": 11681,
-          "mean_bytes": 216,
-          "results": 54,
+          "bytes": 13044,
+          "mean_bytes": 210,
+          "results": 62,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.006,
           "tool": "Write",
-          "zero_reuse_results": 18
+          "zero_reuse_results": 22
         },
         {
           "bytes": 7756,
@@ -707,6 +697,16 @@
           "zero_reuse_results": 0
         },
         {
+          "bytes": 4620,
+          "mean_bytes": 308,
+          "results": 15,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.002,
+          "tool": "Monitor",
+          "zero_reuse_results": 14
+        },
+        {
           "bytes": 4556,
           "mean_bytes": 379,
           "results": 12,
@@ -715,16 +715,6 @@
           "share": 0.002,
           "tool": "SendMessage",
           "zero_reuse_results": 1
-        },
-        {
-          "bytes": 4004,
-          "mean_bytes": 308,
-          "results": 13,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.002,
-          "tool": "Monitor",
-          "zero_reuse_results": 12
         },
         {
           "bytes": 2242,
@@ -762,19 +752,19 @@
           "results": 10,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
-          "share": 0.001,
+          "share": 0.0,
           "tool": "mcp__sequential-thinking__sequentialthinking",
           "zero_reuse_results": 2
         },
         {
-          "bytes": 922,
-          "mean_bytes": 115,
-          "results": 8,
+          "bytes": 971,
+          "mean_bytes": 107,
+          "results": 9,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.0,
           "tool": "ToolSearch",
-          "zero_reuse_results": 6
+          "zero_reuse_results": 7
         },
         {
           "bytes": 457,
@@ -797,6 +787,16 @@
           "zero_reuse_results": 0
         },
         {
+          "bytes": 78,
+          "mean_bytes": 39,
+          "results": 2,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.0,
+          "tool": "StructuredOutput",
+          "zero_reuse_results": 2
+        },
+        {
           "bytes": 48,
           "mean_bytes": 24,
           "results": 2,
@@ -805,16 +805,6 @@
           "share": 0.0,
           "tool": "ReadNotifications",
           "zero_reuse_results": 2
-        },
-        {
-          "bytes": 39,
-          "mean_bytes": 39,
-          "results": 1,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 0.0,
-          "tool": "StructuredOutput",
-          "zero_reuse_results": 1
         },
         {
           "bytes": 32,
@@ -827,20 +817,20 @@
           "zero_reuse_results": 1
         }
       ],
-      "bytes": 1871617,
-      "reuse_ratio": 0.058,
-      "reused_bytes": 108118
+      "bytes": 2040396,
+      "reuse_ratio": 0.055,
+      "reused_bytes": 111412
     },
-    "tpcd_proxy_bytes_per_tool_call": 2244.652,
+    "tpcd_proxy_bytes_per_tool_call": 2314.225,
     "transcripts_scanned": 3,
-    "user_turns": 59,
+    "user_turns": 84,
     "window_bytes": {
-      "assistant": 148791,
-      "injection": 779076,
-      "injection_share": 0.249,
-      "tool_result_share": 0.599,
-      "tool_results": 1871617,
-      "user": 325071
+      "assistant": 198288,
+      "injection": 867585,
+      "injection_share": 0.242,
+      "tool_result_share": 0.57,
+      "tool_results": 2040396,
+      "user": 473837
     }
   },
   "hooks_complement": {
@@ -886,7 +876,7 @@
     "post_bash_delivery_ratio": null,
     "post_bash_dispatched": 0,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789904258
+    "since_epoch": 1789945344
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
