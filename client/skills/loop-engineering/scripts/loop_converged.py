@@ -352,6 +352,9 @@ def clause_orphans(scope, bundle: Path):
         return not new, detail + _report_new_orphans(new, base_file.parent / NEW_ORPHANS_FILE)
     base_file.parent.mkdir(parents=True, exist_ok=True)
     base_file.write_text("\n".join(in_scope))
+    # The first run RECORDS and answers True: three tests in test_orphans_scope.py enshrine that contract
+    # (a covered tree with a named baseline is a real zero). The hole that made it dangerous — a fresh
+    # SPELLING of the scope opening a fresh, empty baseline — is closed upstream, in `_global_baseline_dir`.
     return True, f"scoped orphans={len(in_scope)} (named baseline recorded, first run)"
 
 
@@ -714,6 +717,26 @@ def evaluate(task, scope: Path, bundle: Path, rust_full) -> dict[str, Any]:
     }
 
 
+def _global_baseline_dir(scope: Path) -> Path:
+    """Bundle-less runs keep their orphan baseline under ~/.claude, keyed by the RESOLVED scope.
+
+    Until 19/09/2026 the key was ``sha1(str(scope))`` — the string as typed — so ``scripts/x``,
+    ``scripts/x/`` and the absolute path each got their own directory, and the first run under a
+    fresh spelling recorded a baseline out of the current orphans and PASSED against itself
+    (found by analise-4c: 230 stale lines from 16/09 under one key, an empty dir under another).
+    """
+    import hashlib
+
+    leaf = hashlib.sha1(str(scope.resolve()).encode()).hexdigest()[:12]
+    return Path.home() / ".claude" / "loop-engineering" / "baselines" / leaf
+
+
+def _mtime_iso(path: Path) -> str:
+    from datetime import datetime
+
+    return datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="minutes")
+
+
 def _label(ok):
     return "N/A" if ok is None else ("PASS" if ok else "FAIL")
 
@@ -737,11 +760,16 @@ def main(argv=None):
     if args.bundle:
         bundle = Path(args.bundle)
     else:
-        import hashlib
-        leaf = hashlib.sha1(str(scope).encode()).hexdigest()[:12]
-        bundle = Path.home() / ".claude" / "loop-engineering" / "baselines" / leaf
+        bundle = _global_baseline_dir(scope)
         bundle.mkdir(parents=True, exist_ok=True)
     report = evaluate(args.task, scope, bundle, args.rust_full)
+    if not args.bundle:
+        # The reader must SEE that this verdict was measured against a global, dated baseline —
+        # not the bundle's. Measured 19/09/2026 (analise-4c): the global file for scripts/eleitoral
+        # was 230 lines from 16/09 and read two symbols that the bundle's baseline already held as NEW.
+        base = bundle / ".baseline" / "orphans-scoped.txt"
+        report["baseline"] = {"dir": str(bundle), "global": True,
+                              "mtime": _mtime_iso(base) if base.exists() else None}
 
     if args.json:
         print(json.dumps(report, indent=2))

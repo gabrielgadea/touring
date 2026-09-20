@@ -18,11 +18,17 @@ def root(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def write_ledger(root: Path, topic: str, n_findings: int, questions=None) -> None:
+def write_ledger(root: Path, topic: str, n_findings: int, questions=None,
+                 tail_keys=None) -> None:
     path = sp.ledger_path(root, topic)
     path.parent.mkdir(parents=True, exist_ok=True)
     findings = {f"f_{i}": {"id": f"f_{i}", "key": f"k{i}", "round": 1}
                 for i in range(n_findings)}
+    if tail_keys:
+        # Name the keys of the LAST findings — those are the ones a cycle reads
+        # as new, so this is how a self-referential finding is staged.
+        for nome, chave in zip(list(findings)[-len(tail_keys):], tail_keys):
+            findings[nome]["key"] = chave
     path.write_text(json.dumps({
         "version": 1, "topic": topic, "findings": findings,
         "questions": questions or [], "rounds": [],
@@ -40,7 +46,8 @@ def fake_explore(monkeypatch):
         plan["calls"] += 1
         grow = plan["growth"][idx] if idx < len(plan["growth"]) else 0
         count, _, _ = sp.ledger_snapshot(root, topic)
-        write_ledger(root, topic, count + grow)
+        write_ledger(root, topic, count + grow, tail_keys=plan.get("next_keys"))
+        plan["next_keys"] = None  # one cycle only, so the next call is clean
         return 0
 
     monkeypatch.setattr(sp, "run_explore", fake)
@@ -165,6 +172,47 @@ def test_factory_failure_never_blocks_scout_cycle(root, fake_explore, fake_ticke
     result = json.loads(capsys.readouterr().out.splitlines()[0])
     assert result["ticket"] == "task_fake_1" and result["routed_adw"] is None
     assert sp.load_state(root, "t")["history"][-1]["adw"] is None
+
+
+def test_a_finding_pointing_at_our_own_ticket_is_not_yield(root, fake_explore,
+                                                           fake_ticket, capsys):
+    """The loop measured on 19/09/2026: the scout retrieving its own ticket.
+
+    Ticket `task_1788296582280254749` carried `decomp:task_1787922622533751850`
+    — the ticket filed by the cycle before it — as its sample. A cycle whose
+    only 'discovery' is its own handwriting must read as DRY.
+    """
+    # Cycle 1 yields for real and files a ticket; cycle 2 grows by one too.
+    fake_explore["growth"] = [1, 1]
+    sp.cmd_cycle(root, "t")
+    capsys.readouterr()
+    filed = sp.load_state(root, "t")["history"][-1]["ticket"]
+    assert filed, "the fixture must file a ticket for this test to mean anything"
+
+    # Cycle 2 finds exactly one 'new' finding: a pointer to that ticket.
+    fake_explore["next_keys"] = [f"decomp:{filed}"]
+    sp.cmd_cycle(root, "t")
+    result = json.loads(capsys.readouterr().out.splitlines()[0])
+
+    assert result["yield"] == 0, f"an echo is not a finding: {result}"
+    assert result["raw_yield"] == 1, "the raw count stays visible, never hidden"
+    assert result["own_echoes"] == 1
+    assert result["ticket"] is None, "a dry cycle files no ticket"
+
+
+def test_a_real_finding_still_counts_alongside_an_echo(root, fake_explore,
+                                                       fake_ticket, capsys):
+    fake_explore["growth"] = [1, 2]
+    sp.cmd_cycle(root, "t")
+    capsys.readouterr()
+    filed = sp.load_state(root, "t")["history"][-1]["ticket"]
+
+    fake_explore["next_keys"] = [f"decomp:{filed}", "memory:a-real-lesson"]
+    sp.cmd_cycle(root, "t")
+    result = json.loads(capsys.readouterr().out.splitlines()[0])
+
+    assert result["yield"] == 1, f"the genuine finding survives the filter: {result}"
+    assert result["own_echoes"] == 1
 
 
 def test_slug_matches_explore_convention():

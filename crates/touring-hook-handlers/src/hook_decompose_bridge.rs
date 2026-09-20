@@ -23,6 +23,7 @@ use crate::cli_handlers::{cli_decompose_create, cli_decompose_update};
 use crate::runtime::HookRuntime;
 use rusqlite::params;
 use serde_json::json;
+use touring_foundation::task_lifecycle::{MIRROR_SCAFFOLD_STAGES, scaffold_subtask_id};
 
 /// Typed error returned by decompose-bridge functions that query SQLite directly.
 ///
@@ -149,46 +150,73 @@ pub fn bridge_task_created(
     // scaffold lived only in the PostToolUse handler, so mirrors minted by the
     // event path had no subtasks. Reached only on first creation (the dedup
     // early-return above skips repeats), so the scaffold is naturally idempotent.
-    let scaffold = [
-        (
-            "scout",
-            "scout: research context, blast radius, and wiring before changes",
-            None,
-        ),
-        (
-            "implement",
-            "implement: apply changes with VGP verification and speculative validation",
-            Some("scout"),
-        ),
-        (
-            "validate",
-            "validate: cargo test + wiring orphans + memory store lesson",
-            Some("implement"),
-        ),
-    ];
-    for (stage, description, dep) in scaffold {
-        let deps: Vec<String> = dep
+    // The stage list is NOT written here: it lives in
+    // `touring_foundation::task_lifecycle::MIRROR_SCAFFOLD_STAGES`, the single
+    // list `close_scaffold_stages` also reads. When the two were separate lists,
+    // the closer knew `implement` and `validate` and never `scout` — and 74 of
+    // the 78 open subtasks under mirrored tasks were that one orphaned slot
+    // (census of the live DAG, 19/09/2026).
+    for stage in MIRROR_SCAFFOLD_STAGES {
+        let deps: Vec<String> = stage
+            .depends_on
             .map(|d| vec![format!("{mirror_id}::{d}")])
             .unwrap_or_default();
         let add_result = crate::cli_handlers::cli_decompose_add(
             runtime,
             &json!({
                 "task_id": mirror_id,
-                "subtask_id": format!("{mirror_id}::{stage}"),
-                "description": description,
+                "subtask_id": scaffold_subtask_id(&mirror_id, &stage),
+                "description": stage.description,
                 "depends_on": deps,
             }),
         );
         if add_result.contains("\"error\"") {
             tracing::warn!(
                 task_id = %mirror_id,
-                stage = stage,
+                stage = stage.name,
                 result = %add_result,
                 "bridge_task_created: scaffold subtask add failed"
             );
         }
     }
     Ok(result)
+}
+
+/// Mark every scaffold stage of `task_id` terminal, mirroring the task outcome.
+///
+/// Called when a mirrored task completes. It iterates
+/// [`MIRROR_SCAFFOLD_STAGES`] — the same list [`bridge_task_created`] scaffolds
+/// from — so a stage can never be created by one side and forgotten by the
+/// other. That asymmetry is exactly what happened: the closer named
+/// `::validate` and `::implement` as literals and left `::scout` open on every
+/// mirrored task ever completed (74 rows, measured 19/09/2026).
+///
+/// Returns how many stages were written, so a caller can report the archive it
+/// actually performed instead of assuming one.
+pub fn close_scaffold_stages(runtime: &mut HookRuntime, task_id: &str, success: bool) -> usize {
+    let terminal_status = if success { "completed" } else { "failed" };
+    let mut closed = 0_usize;
+    for stage in MIRROR_SCAFFOLD_STAGES {
+        let subtask_id = scaffold_subtask_id(task_id, &stage);
+        let result = cli_decompose_update(
+            runtime,
+            &json!({
+                "task_id": task_id,
+                "subtask_id": subtask_id,
+                "status": terminal_status,
+            }),
+        );
+        if result.contains("\"error\"") {
+            tracing::debug!(
+                task_id = %task_id,
+                stage = stage.name,
+                "close_scaffold_stages: stage not updated"
+            );
+        } else {
+            closed += 1;
+        }
+    }
+    closed
 }
 
 /// Bridge: `post_tool_rl` success path → mark decompose subtask complete.

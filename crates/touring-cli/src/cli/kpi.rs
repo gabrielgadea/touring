@@ -209,7 +209,7 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // C4 (2026-09-02) — a régua do REUSO: do journal v2 (B2), quantos runs
     // vieram de um script persistente ou foram colhidos, sobre os runs que
     // declaram origem. Piso 0.20 (falsificador do canvas §9c). Ausência exibida.
-    out["code_mode_reuse"] = code_mode_reuse();
+    out["code_mode_reuse"] = code_mode_reuse(&rt.project_root);
     // F9 (2026-09-01) — régua do complemento de hooks: despachos por hook no
     // daemon (F0.3d) × entregas ao mirror na mesma janela. Nasce da sonda
     // F0.3 (post-bash vivo 5/47 atendido, 0/47 no mirror) — ausência exibida.
@@ -492,29 +492,69 @@ fn code_mode_adherence() -> Value {
 /// (busca por intenção), não de persistência (canvas 02/09, §9c).
 const CODE_MODE_REUSE_FLOOR: f64 = 0.20;
 
-/// C4 (2026-09-02) — reuse ruler over the durable journal (B2 fields).
-fn code_mode_reuse() -> Value {
+/// C4 (2026-09-02) — reuse ruler over the durable journal (B2 fields), read
+/// together with the trust ladder.
+///
+/// The journal alone cannot answer the question: its `harvest` field is set
+/// only by an EXPLICIT `--harvest <slug>`, which happened 0 times in 16.205
+/// lines, while the executor had silently enrolled 369 bodies in the ladder
+/// (measured 19/09/2026). A ruler blind to the rail it is measuring reports a
+/// zero that is not there.
+fn code_mode_reuse(project_root: &Path) -> Value {
     let Some(home) = std::env::var_os("HOME") else {
         return json!({"available": false, "reason": "HOME unset"});
     };
     let path = touring_code::journal::default_journal_path(&PathBuf::from(home));
+    let ladder = ladder_totals_of(project_root);
     match touring_code::journal::read_journal(&path) {
-        Ok(agg) => reuse_from_aggregate(&agg),
+        Ok(agg) => reuse_from_aggregate(&agg, ladder),
         Err(_) => json!({"available": false, "reason": "no journal yet"}),
     }
+}
+
+/// The ladder's three numbers, or zeros when it cannot be read.
+///
+/// Fail-soft on purpose: a missing memory db means "nothing reused yet", never
+/// a KPI that refuses to report.
+fn ladder_totals_of(
+    project_root: &Path,
+) -> touring_intelligence::rl::memory::snippet_stats::LadderTotals {
+    use touring_intelligence::rl::memory::snippet_stats;
+    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
+    if !db.exists() {
+        return snippet_stats::LadderTotals::default();
+    }
+    rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()
+    .and_then(|conn| snippet_stats::ladder_totals(&conn).ok())
+    .unwrap_or_default()
 }
 
 /// C4 — the pure aggregation behind [`code_mode_reuse`], testable without FS.
 ///
 /// `v2_runs` = runs that declared an origin (`file` | `inline`); v1 lines are
 /// counted nowhere (E4: shown as `v1_runs`, never folded into the ratio).
+///
 /// `reused` = runs from a PERSISTENT script (a file outside the harness
-/// scratchpad) + harvested runs. A scratchpad script is one-off by
-/// construction — it lives in a per-session tmpfs — so it never counts.
-pub(crate) fn reuse_from_aggregate(agg: &touring_code::journal::JournalAggregate) -> Value {
+/// scratchpad) + runs that RE-RAN a body already on the trust ladder. A
+/// scratchpad script is one-off by construction — per-session tmpfs — so it
+/// never counts, and neither does ENROLLING a body: the first run of something
+/// is not a reuse of it. That distinction is the correction of 19/09/2026;
+/// before it the numerator added `harvested_runs`, which counts explicit
+/// `--harvest` slugs (0 of 16.205 lines) and would have counted a first-time
+/// persist as reuse had anyone ever typed it. `ladder_enrolled` stays visible
+/// so the gap between "the library fills" and "the library is read" is legible
+/// instead of hidden (E4).
+pub(crate) fn reuse_from_aggregate(
+    agg: &touring_code::journal::JournalAggregate,
+    ladder: touring_intelligence::rl::memory::snippet_stats::LadderTotals,
+) -> Value {
     let v2_runs = agg.file_runs + agg.inline_runs;
     let persistent_file_runs = agg.file_runs.saturating_sub(agg.scratch_file_runs);
-    let reused = persistent_file_runs + agg.harvested_runs;
+    let reused = persistent_file_runs + ladder.reused;
     let ratio = if v2_runs == 0 {
         0.0
     } else {
@@ -529,6 +569,13 @@ pub(crate) fn reuse_from_aggregate(agg: &touring_code::journal::JournalAggregate
         "persistent_file_runs": persistent_file_runs,
         "inline_runs": agg.inline_runs,
         "harvested_runs": agg.harvested_runs,
+        // The ladder, reported apart from the ratio: how many distinct bodies
+        // the executor kept, and how many runs actually re-ran one. A large
+        // `ladder_enrolled` beside a near-zero `ladder_reused` is the shape of
+        // a library that fills and is never read — which is DISCOVERY, not
+        // persistence, and is what the floor is really failing for.
+        "ladder_enrolled": ladder.entries,
+        "ladder_reused": ladder.reused,
         "orchestrate_runs": agg.orchestrate_runs,
         "brief_runs": agg.brief_runs,
         "total_tmp_bytes": agg.total_tmp_bytes,
@@ -543,39 +590,76 @@ mod reuse_tests {
     use super::*;
     use touring_code::journal::JournalAggregate;
 
-    /// C4: two persistent-file runs + one harvested inline over 10 v2 runs =
-    /// 0.3 (PASS); 5 scratch-file runs count as one-offs; v1 lines are shown
-    /// apart and never enter the ratio.
+    use touring_intelligence::rl::memory::snippet_stats::LadderTotals;
+
+    /// C4: two persistent-file runs + one ladder RE-run over 10 v2 runs = 0.3
+    /// (PASS); 5 scratch-file runs count as one-offs; v1 lines are shown apart
+    /// and never enter the ratio.
     #[test]
-    fn reuse_ratio_counts_persistent_scripts_and_harvests_only() {
+    fn reuse_ratio_counts_persistent_scripts_and_ladder_rereuns() {
         let agg = JournalAggregate {
             total_entries: 14,
             file_runs: 7,
             scratch_file_runs: 5,
             inline_runs: 3,
-            harvested_runs: 1,
             ..Default::default()
         };
-        let v = reuse_from_aggregate(&agg);
+        let ladder = LadderTotals {
+            entries: 4,
+            executions: 5,
+            reused: 1,
+        };
+        let v = reuse_from_aggregate(&agg, ladder);
         assert_eq!(v["v2_runs"], 10);
         assert_eq!(v["v1_runs"], 4);
         assert_eq!(v["persistent_file_runs"], 2);
+        assert_eq!(v["ladder_reused"], 1);
         assert_eq!(v["reuse_ratio"], 0.3);
         assert_eq!(v["status"], "PASS");
         assert_eq!(v["available"], true);
     }
 
+    /// Enrolling is not reusing. A ladder full of bodies that each ran ONCE
+    /// adds nothing to the numerator — the shape measured on 19/09/2026 (369
+    /// enrolled, 364 of them run once) must read as FAIL, not as success.
+    #[test]
+    fn enrolling_a_body_is_not_reusing_it() {
+        let agg = JournalAggregate {
+            total_entries: 100,
+            file_runs: 10,
+            scratch_file_runs: 10,
+            inline_runs: 90,
+            ..Default::default()
+        };
+        let so_far_unread = LadderTotals {
+            entries: 369,
+            executions: 369,
+            reused: 0,
+        };
+        let v = reuse_from_aggregate(&agg, so_far_unread);
+        assert_eq!(v["ladder_enrolled"], 369, "the enrolment stays visible");
+        assert_eq!(v["ladder_reused"], 0);
+        assert_eq!(v["reuse_ratio"], 0.0);
+        assert_eq!(
+            v["status"], "FAIL",
+            "a library that fills and is never read must not report PASS"
+        );
+    }
+
     #[test]
     fn reuse_ratio_is_a_stub_without_v2_runs_and_fails_below_the_floor() {
-        let empty = reuse_from_aggregate(&JournalAggregate::default());
+        let empty = reuse_from_aggregate(&JournalAggregate::default(), LadderTotals::default());
         assert_eq!(empty["status"], "STUB");
         assert_eq!(empty["available"], false);
-        let low = reuse_from_aggregate(&JournalAggregate {
-            total_entries: 20,
-            file_runs: 20,
-            scratch_file_runs: 19,
-            ..Default::default()
-        });
+        let low = reuse_from_aggregate(
+            &JournalAggregate {
+                total_entries: 20,
+                file_runs: 20,
+                scratch_file_runs: 19,
+                ..Default::default()
+            },
+            LadderTotals::default(),
+        );
         assert_eq!(low["reuse_ratio"], 0.05);
         assert_eq!(low["status"], "FAIL");
     }

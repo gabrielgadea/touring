@@ -96,6 +96,21 @@ enum DecomposeCmd {
         /// Optional minimum quality threshold.
         quality_threshold: Option<f64>,
     },
+    /// Stamp `archived_at` on terminal tasks that never got one.
+    ///
+    /// `finalize` archives the task it finalizes, but tasks that reached a
+    /// terminal status by other routes — and every task finalized before
+    /// 19/09/2026 — carry a NULL `archived_at`, so any query filtering on the
+    /// archive reads the whole history as live. This is the retention pass:
+    /// the logic existed and had no caller.
+    Archive {
+        /// Only archive tasks untouched for at least this long (0 = all).
+        #[arg(long, default_value_t = 0u64)]
+        older_than_secs: u64,
+        /// Report how many WOULD be archived, writing nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// List subtasks ready to execute (all deps satisfied).
     Ready {
         /// Optional task id filter.
@@ -325,6 +340,17 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "quality_threshold": quality_threshold,
             });
             let output = daemon_query("cli-decompose-finalize", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Archive {
+            older_than_secs,
+            dry_run,
+        } => {
+            let payload = serde_json::json!({
+                "older_than_secs": older_than_secs,
+                "dry_run": dry_run,
+            });
+            let output = daemon_query("cli-decompose-archive", payload)?;
             println!("{output}");
         }
         DecomposeCmd::Ready {

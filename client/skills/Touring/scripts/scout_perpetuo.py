@@ -136,17 +136,48 @@ def new_finding_keys(root: Path, topic: str, before_count: int) -> list[str]:
     return [str(f.get("key", f.get("id", "?"))) for f in items[before_count:]]
 
 
+def own_tickets(state: dict) -> set[str]:
+    """Every ticket id this scout has filed for this topic."""
+    return {h["ticket"] for h in state.get("history", []) if h.get("ticket")}
+
+
+def is_own_echo(key: str, tickets: set[str]) -> bool:
+    """True when a 'finding' merely points back at a ticket this scout filed.
+
+    The scout files its tickets as decompose containers, and the retrospective
+    corpus indexes decompose descriptions — so a cycle could retrieve the
+    ticket the previous cycle wrote and score it as discovery. That happened:
+    on 19/09/2026 ticket `task_1788296582280254749` carried
+    `decomp:task_1787922622533751850` — the ticket before it — as its sample,
+    and the panel promoted both as demand for the factory.
+
+    The corpus no longer indexes these (`touring_foundation::task_lifecycle::
+    is_scout_ticket`). This is the second line: even if one reaches the ledger,
+    it is not counted as yield, so a cycle that found only its own handwriting
+    is DRY and the interval backs off instead of halving.
+    """
+    return any(ticket and ticket in key for ticket in tickets)
+
+
 def cmd_cycle(root: Path, topic: str) -> int:
     state = load_state(root, topic)
     before, _, _ = ledger_snapshot(root, topic)
     explore_exit = run_explore(topic, root)
     after, open_qs, _ = ledger_snapshot(root, topic)
-    yield_n = max(0, after - before)
+
+    # Findings that only point back at this scout's own tickets are echoes, not
+    # yield. Subtracting them keeps a self-feeding cycle from halving the
+    # interval and filing yet another ticket. The count is reported, never
+    # hidden: a silent filter is indistinguishable from a broken scout.
+    raw_yield = max(0, after - before)
+    keys = new_finding_keys(root, topic, before)
+    echoes = [k for k in keys if is_own_echo(k, own_tickets(state))]
+    keys = [k for k in keys if k not in echoes]
+    yield_n = max(0, raw_yield - len(echoes))
 
     ticket = ""
     route: dict = {}
     if yield_n > 0:
-        keys = new_finding_keys(root, topic, before)
         ticket = file_ticket(topic, yield_n, keys)
         route = route_ticket_through_factory(root, ticket_desc(topic, yield_n, keys))
         state["interval_hours"] = max(MIN_INTERVAL_H, state["interval_hours"] / 2)
@@ -155,6 +186,7 @@ def cmd_cycle(root: Path, topic: str) -> int:
 
     state["last_cycle_ts"] = time.time()
     state["history"].append({"ts": state["last_cycle_ts"], "yield": yield_n,
+                             "raw_yield": raw_yield, "own_echoes": len(echoes),
                              "findings_total": after, "ticket": ticket,
                              "adw": route.get("adw"),
                              "start_hint": route.get("start_hint"),
@@ -163,6 +195,7 @@ def cmd_cycle(root: Path, topic: str) -> int:
 
     print(json.dumps({
         "cycle": len(state["history"]), "yield": yield_n, "findings_total": after,
+        "raw_yield": raw_yield, "own_echoes": len(echoes),
         "ticket": ticket or None, "routed_adw": route.get("adw"),
         "open_questions": len(open_qs),
         "next_interval_hours": state["interval_hours"], "explore_exit": explore_exit,
