@@ -143,10 +143,14 @@ fn registry_has_expected_count() {
     //   mas a resposta era transiente; `touring index why <path>` aplica as regras
     //   do próprio walker a um arquivo, sob demanda, e nomeia a exclusão
     //   (skipped_dir / unsupported_extension / oversized / …): 243->244 / 245->246.
+    // 2026-09-19: +1 cli-decompose-archive — `archive_completed_tasks` existia,
+    //   estava testada e tinha ZERO chamadores de produção, então nenhuma task
+    //   terminal jamais recebia `archived_at` (NULL em 381 de 381, medido).
+    //   O handler é a rota que faltava (REGRA #0): 244->245 / 246->247.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 246;
+    const EXPECTED_NAMES: usize = 247;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 244;
+    const EXPECTED_NAMES: usize = 245;
     assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205

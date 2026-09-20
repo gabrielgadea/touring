@@ -433,6 +433,35 @@ timestamp: 2026-08-20T11:15:00-03:00
     modo que a caminhada nunca rodava ali e quem fazia o teste passar era uma aresta de
     inferência por nome; o fixture agora tem a forma do workspace real, com dois crates.
 
+29. **O DAG mentia sobre si (30.4.63, 19/09/2026)**. Um censo do DAG vivo mostrou 554
+    subtasks "abertos" em 148 tasks, e quase nada era trabalho. Quatro defeitos, todos de
+    PONTA QUE NÃO SE ENCONTRA. (a) **`finalize` não arquivava**: gravava
+    `status = 'finalized'` e nunca `archived_at`, enquanto `archive_completed_tasks`
+    procurava `status = 'completed'` — valor que o finalize nunca produz; e o chamador em
+    `hook_registry` testava `contains("archived":true)` num payload que jamais teve o
+    campo. Resultado: `archived_at` NULL nas 381 tasks e todo filtro por arquivo lendo o
+    histórico inteiro como vivo. Hoje o finalize carimba e DECLARA (`archived`), e os
+    estados terminais vêm de `touring_foundation::task_lifecycle::TERMINAL_TASK_STATUSES`
+    /`terminal_status_sql_list()`, fonte única das três rotas. (b) **A rotina de retenção
+    não tinha chamador nenhum** — só os próprios testes — então nem com o predicado certo
+    rodaria: agora há `touring decompose archive [--older-than-secs N] [--dry-run]`
+    (`cli-decompose-archive`). (c) **O fechador conhecia 2 dos 3 estágios do espelho**:
+    `task-completed` nomeava `::validate` e `::implement` como literais e ignorava
+    `::scout` — 74 dos 78 subtasks abertos sob mirrors eram esse slot. `MIRROR_SCAFFOLD_STAGES`
+    é a lista única do scaffolder (`bridge_task_created`) e do fechador novo
+    (`close_scaffold_stages`). (d) **O scout perpétuo se alimentava do próprio rastro**: o
+    corpus TF-IDF indexa descrições de decompose, e os tickets que o scout cria entravam
+    nele — o ticket `task_1788296582280254749` trazia como amostra `decomp:<o ticket
+    anterior>`. `is_scout_ticket` tira o ticket do corpus e o contador do `scout_perpetuo`
+    desconta o eco (`own_echoes` reportado, nunca silencioso). Mais duas correções:
+    `touring index rebuild --wait` (poll de `index status` até a geração selar; o default
+    segue síncrono, e o `--wait` existe para o exit 79 de rebuild passado do orçamento), e
+    a régua `code_mode_reuse`, que contava só `--harvest` explícito (0 de 16.205 linhas)
+    enquanto a escada de trust tinha 369 corpos: hoje lê `snippet_stats::ladder_totals` e
+    separa `ladder_enrolled` de `ladder_reused` — **enrolar não é reusar**, e o piso segue
+    FAIL por comportamento (9 re-execuções em 8.572 runs), que é o diagnóstico honesto.
+    Narrativa: `docs/audits/dag-mentia-sobre-si-2026-09-19.md`.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

@@ -285,6 +285,45 @@ pub fn by_sig(conn: &Connection, sig_hash: &str) -> Result<Option<String>> {
     .optional()
 }
 
+/// What the trust ladder holds, in three numbers.
+///
+/// The reuse ruler needs to tell PERSISTING a block from REUSING one, and the
+/// ladder is the only place that knows: a body is enrolled the first time it
+/// runs and its `executions` grows on every later run of the SAME body.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LadderTotals {
+    /// Distinct bodies enrolled in the ladder.
+    pub entries: u64,
+    /// Executions summed over every enrolled body.
+    pub executions: u64,
+    /// Executions that RE-ran a body already enrolled (`executions - 1` each).
+    ///
+    /// This, not the enrolment count, is reuse: enrolling is the first time,
+    /// which is by definition not a reuse of anything.
+    pub reused: u64,
+}
+
+/// Aggregate the whole ladder in one pass.
+///
+/// Measured on 19/09/2026: 369 bodies enrolled, 364 of them run exactly once —
+/// 9 re-executions in total. The library fills up and is never read back, which
+/// is why `code_mode_reuse` reports FAIL for a behaviour, not for a bug.
+pub fn ladder_totals(conn: &Connection) -> Result<LadderTotals> {
+    ensure_schema(conn)?;
+    conn.query_row(
+        "SELECT COUNT(*), COALESCE(SUM(MAX(executions, 0)), 0), \
+         COALESCE(SUM(MAX(executions - 1, 0)), 0) FROM snippet_stats",
+        [],
+        |r| {
+            Ok(LadderTotals {
+                entries: r.get::<_, i64>(0)?.max(0) as u64,
+                executions: r.get::<_, i64>(1)?.max(0) as u64,
+                reused: r.get::<_, i64>(2)?.max(0) as u64,
+            })
+        },
+    )
+}
+
 /// Read a snippet's measured state; `None` when never recorded.
 pub fn trust_of(conn: &Connection, entry_key: &str) -> Result<Option<SnippetStats>> {
     ensure_schema(conn)?;

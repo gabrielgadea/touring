@@ -190,6 +190,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-decompose-status",
         "cli-decompose-event",
         "cli-decompose-finalize",
+        "cli-decompose-archive",
         "cli-decompose-ready",
         "cli-decompose-claim",
         "cli-decompose-release",
@@ -872,18 +873,12 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         let success = v.get("success").and_then(|b| b.as_bool()).unwrap_or(true);
         let (reward_val, outcome_label) = if success { (1.0_f64, "success") } else { (-0.5_f64, "failed") };
 
-        // R32-S3: Ensure ::validate and ::implement are terminal before finalize.
-        // Fixes archive failure when TaskCompleted fires while subtasks are still pending.
-        // Uses success/failure status to mirror the task outcome into the DAG.
-        let terminal_status = if success { "completed" } else { "failed" };
-        let _ = crate::cli_handlers::cli_decompose_update(rt, &serde_json::json!({
-            "task_id": format!("{task_id}::validate"),
-            "status": terminal_status,
-        }));
-        let _ = crate::cli_handlers::cli_decompose_update(rt, &serde_json::json!({
-            "task_id": format!("{task_id}::implement"),
-            "status": terminal_status,
-        }));
+        // R32-S3: every scaffold stage must be terminal before finalize, or the
+        // archive leaves work open behind it. The stage list is NOT spelled here
+        // — `close_scaffold_stages` walks the same `MIRROR_SCAFFOLD_STAGES` the
+        // scaffolder writes from. Spelling two of the three by hand is what left
+        // 74 `::scout` rows open across every mirrored task (census 19/09/2026).
+        let _closed = crate::hook_decompose_bridge::close_scaffold_stages(rt, task_id, success);
 
         // 1. Auto-finalize: archive DAG, inject RL 1.0 internally if all subtasks terminal.
         let finalize_payload = serde_json::json!({"task_id": task_id});
@@ -1692,6 +1687,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-decompose-finalize", |rt, v| {
         crate::cli_handlers::cli_decompose_finalize(rt, v)
+    });
+    m.insert("cli-decompose-archive", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_archive(rt, v)
     });
     m.insert("cli-decompose-ready", |rt, v| {
         crate::cli_handlers::cli_decompose_ready(rt, v)

@@ -96,6 +96,9 @@ pub mod schema;
 pub mod schema_guard;
 pub mod security;
 pub mod shared;
+/// The lifecycle vocabulary of a DAG task — the scaffold stages a mirrored
+/// task is born with, and the statuses that mean it is over.
+pub mod task_lifecycle;
 /// Core domain types — [`crate::CILALevel`], [`crate::MemoryTier`],
 /// `crate::TodoKind`, `crate::EdgeConfidence`, and the
 /// `truncate_str` UTF-8 safe string helper.

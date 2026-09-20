@@ -559,10 +559,22 @@ impl CheckpointManager {
             .conn
             .lock()
             .map_err(|e| CheckpointError::Lock(e.to_string()))?;
-        let count = conn.execute(
-            "UPDATE task_decompositions SET archived_at = datetime('now') WHERE status = 'completed' AND updated_at < ?1",
-            params![cutoff_str]
-        ).map_err(|source| CheckpointError::Sqlite { context: "Archive failed", source })?;
+        // Every terminal status, from ONE list. This asked for `completed`
+        // alone, which `cli_decompose_finalize` never writes — it writes
+        // `finalized` — so the routine matched nothing and `archived_at` stayed
+        // NULL on all 381 tasks, 18 of them finalized (measured 19/09/2026).
+        // A row already archived keeps its original stamp.
+        let sql = format!(
+            "UPDATE task_decompositions SET archived_at = datetime('now') \
+             WHERE status IN ({}) AND archived_at IS NULL AND updated_at < ?1",
+            touring_foundation::task_lifecycle::terminal_status_sql_list()
+        );
+        let count = conn
+            .execute(&sql, params![cutoff_str])
+            .map_err(|source| CheckpointError::Sqlite {
+                context: "Archive failed",
+                source,
+            })?;
 
         Ok(count)
     }

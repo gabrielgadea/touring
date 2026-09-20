@@ -1287,12 +1287,19 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
     // S1.6: Take checkpoint snapshot before archiving
     take_snapshot(db, task_id, &metrics);
 
-    db.conn_ref()
+    // Finalizing IS archiving: the same write stamps both, because the two were
+    // split before and never met — `finalize` wrote `status = 'finalized'` while
+    // the retention routine looked for `status = 'completed'`, so `archived_at`
+    // stayed NULL on every one of the 381 tasks (measured 19/09/2026) and every
+    // query that filters on the archive read the whole history as live.
+    let archived = db
+        .conn_ref()
         .execute(
-            "UPDATE task_decompositions SET status = 'finalized', metrics = ?1, updated_at = ?2 WHERE task_id = ?3",
+            "UPDATE task_decompositions SET status = 'finalized', metrics = ?1, updated_at = ?2, \
+             archived_at = COALESCE(archived_at, ?2) WHERE task_id = ?3",
             params![serde_json::to_string(&metrics).unwrap_or_default(), now, task_id],
         )
-        .ok();
+        .is_ok_and(|rows| rows > 0);
 
     // S1.4: Wire event audit trail for task finalization
     log_event(db, task_id, None, "task_finalized", &metrics);
@@ -1300,8 +1307,98 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
     serde_json::json!({
         "task_id": task_id,
         "status": "finalized",
+        // The `task-completed` hook gates a log line on `archived:true`. The field
+        // was never emitted, so that branch reported "not archived" forever — a
+        // consumer waiting on a field the producer never wrote.
+        "archived": archived,
+        "archived_at": if archived { Some(now.clone()) } else { None },
         "metrics": metrics,
         "breached_deadlines": breached
+    })
+    .to_string()
+}
+
+/// Stamp `archived_at` on terminal tasks that never got one — the retention
+/// pass, finally reachable.
+///
+/// `CheckpointStore::archive_completed_tasks` has done this since forever and
+/// had **zero production callers**: only its own tests ever ran it (verified
+/// 19/09/2026). So even after its predicate was corrected, nothing would have
+/// invoked it, and the 110 terminal tasks carrying a NULL `archived_at` would
+/// have stayed that way. This is the route (REGRA #0: an existing capability
+/// with no caller gets wired, not deleted).
+///
+/// Payload: `{older_than_secs?: u64, dry_run?: bool}`. `older_than_secs`
+/// defaults to 0, meaning every terminal task regardless of age; `dry_run`
+/// reports the count without writing.
+pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let older_than_secs = payload
+        .get("older_than_secs")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let dry_run = payload
+        .get("dry_run")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+
+    let db = &rt.ctx.knowledge;
+    ensure_decompose_tables(db);
+
+    let cutoff = chrono::Utc::now() - chrono::Duration::seconds(older_than_secs as i64);
+    let cutoff_str = cutoff.to_rfc3339();
+    // The SAME terminal-status list `finalize` and the retention routine use.
+    let terminal = touring_foundation::task_lifecycle::terminal_status_sql_list();
+
+    let where_clause = format!(
+        "status IN ({terminal}) AND archived_at IS NULL AND updated_at < ?1"
+    );
+    let candidates: i64 = db
+        .conn_ref()
+        .query_row(
+            &format!("SELECT COUNT(*) FROM task_decompositions WHERE {where_clause}"),
+            params![cutoff_str],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+
+    if dry_run {
+        return serde_json::json!({
+            "archived": 0,
+            "candidates": candidates,
+            "dry_run": true,
+            "older_than_secs": older_than_secs,
+        })
+        .to_string();
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    // `?1` is the cutoff (it appears inside `where_clause`); the stamp is `?2`.
+    // Reusing `?1` for both bound the wrong value AND passed an extra
+    // parameter, which rusqlite rejects — and an `unwrap_or(0)` then reported
+    // "archived 0" instead of the error. The count and the write must agree.
+    let outcome = db.conn_ref().execute(
+        &format!("UPDATE task_decompositions SET archived_at = ?2 WHERE {where_clause}"),
+        params![cutoff_str, now],
+    );
+    let archived = match outcome {
+        Ok(rows) => rows,
+        Err(e) => {
+            // Never answer "0 archived" for a write that did not run: that
+            // reads as "nothing to do" and hides a broken retention pass.
+            return serde_json::json!({
+                "error": format!("archive failed: {e}"),
+                "candidates": candidates,
+                "archived": 0,
+            })
+            .to_string();
+        }
+    };
+
+    serde_json::json!({
+        "archived": archived,
+        "candidates": candidates,
+        "dry_run": false,
+        "older_than_secs": older_than_secs,
     })
     .to_string()
 }
