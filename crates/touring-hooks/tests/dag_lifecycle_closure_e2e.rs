@@ -15,8 +15,12 @@
 
 use serde_json::json;
 use tempfile::TempDir;
-use touring_hooks::cli_handlers::{cli_decompose_add, cli_decompose_create, cli_decompose_finalize};
-use touring_hooks::cli_handlers_decompose::cli_decompose_archive;
+use touring_hooks::cli_handlers::{
+    cli_decompose_add, cli_decompose_create, cli_decompose_finalize, cli_decompose_update,
+};
+use touring_hooks::cli_handlers_decompose::{
+    cli_decompose_archive, cli_decompose_reconcile_stages,
+};
 use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages};
 use touring_hooks::runtime::HookRuntime;
 
@@ -131,19 +135,9 @@ fn a_refused_finalize_archives_nothing() {
             "task_id": task_id,
             "subtask_id": format!("{task_id}::gated"),
             "description": "awaits review",
+            "review_required": true,
         }),
     );
-    // `cli_decompose_add` writes `review_required` as a literal 0 — the flag has
-    // no payload route today (only the tasksfile importer sets it), so the
-    // condition is armed directly in the fixture.
-    rt.ctx
-        .knowledge
-        .conn_ref()
-        .execute(
-            "UPDATE decomposition_subtasks SET review_required = 1 WHERE task_id = ?1",
-            [&task_id],
-        )
-        .expect("arm the review gate");
 
     let refused = parse_json(&cli_decompose_finalize(&mut rt, &json!({"task_id": task_id})));
 
@@ -155,6 +149,80 @@ fn a_refused_finalize_archives_nothing() {
         archived_at_of(&rt, &task_id).is_none(),
         "a refused finalize must leave the task open"
     );
+}
+
+/// `review_required` is the gate `finalize` enforces — and the only way to set
+/// it was the tasksfile importer. A flag no payload can reach is a gate nobody
+/// can arm: `finalize` refuses what nothing could mark.
+#[test]
+fn add_accepts_the_review_flag_the_finalize_gate_reads() {
+    let (_tmp, mut rt) = setup_runtime();
+    let created = parse_json(&cli_decompose_create(
+        &mut rt,
+        &json!({"task_type": "plan", "description": "needs a reviewer", "origin": "touring-cli"}),
+    ));
+    let task_id = created["task_id"].as_str().expect("task_id").to_string();
+
+    cli_decompose_add(
+        &mut rt,
+        &json!({
+            "task_id": task_id,
+            "subtask_id": format!("{task_id}::gated"),
+            "description": "awaits review",
+            "review_required": true,
+        }),
+    );
+
+    let flag: i64 = rt
+        .ctx
+        .knowledge
+        .conn_ref()
+        .query_row(
+            "SELECT review_required FROM decomposition_subtasks WHERE task_id = ?1",
+            [&task_id],
+            |row| row.get(0),
+        )
+        .expect("subtask must exist");
+    assert_eq!(flag, 1, "the payload's review_required must reach the row");
+
+    // And the gate it feeds must now actually fire.
+    let refused = parse_json(&cli_decompose_finalize(&mut rt, &json!({"task_id": task_id})));
+    assert!(
+        refused.get("error").is_some(),
+        "a subtask marked for review must block finalize: {refused}"
+    );
+}
+
+/// Omitting the flag keeps the historical default — no surprise gates.
+#[test]
+fn add_defaults_review_required_to_off() {
+    let (_tmp, mut rt) = setup_runtime();
+    let created = parse_json(&cli_decompose_create(
+        &mut rt,
+        &json!({"task_type": "plan", "description": "ordinary", "origin": "touring-cli"}),
+    ));
+    let task_id = created["task_id"].as_str().expect("task_id").to_string();
+
+    cli_decompose_add(
+        &mut rt,
+        &json!({
+            "task_id": task_id,
+            "subtask_id": format!("{task_id}::plain"),
+            "description": "no review",
+        }),
+    );
+
+    let flag: i64 = rt
+        .ctx
+        .knowledge
+        .conn_ref()
+        .query_row(
+            "SELECT review_required FROM decomposition_subtasks WHERE task_id = ?1",
+            [&task_id],
+            |row| row.get(0),
+        )
+        .expect("subtask must exist");
+    assert_eq!(flag, 0);
 }
 
 /// The retention pass, which had no caller at all until 19/09/2026.
@@ -220,6 +288,77 @@ fn archive_leaves_unfinished_work_alone() {
 
     assert_eq!(done["archived"], 0, "a `created` task is not terminal");
     assert!(archived_at_of(&rt, &task_id).is_none());
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// F3 — reconciling the stages the old closer left behind
+// ───────────────────────────────────────────────────────────────────────
+
+/// A stage whose every SIBLING is terminal can be closed by deduction.
+///
+/// 74 `::scout` rows sat open under mirrors the fixed closer will never be
+/// called for: their task never emitted a completion event. 72 of them have
+/// all other stages terminal — and `scout` is the stage the others DEPEND on,
+/// so if `implement` and `validate` finished, the scouting happened. That is
+/// deduction from the DAG's own edges, not invention.
+#[test]
+fn reconcile_closes_a_stage_whose_siblings_all_finished() {
+    let (_tmp, mut rt) = setup_runtime();
+    bridge_task_created(&mut rt, "90", "a mirror the closer never saw", "sess", None, None)
+        .expect("mirror");
+    let mirror = "cc_task_90";
+    // The historical shape: implement + validate closed, scout left open.
+    for stage in ["implement", "validate"] {
+        cli_decompose_update(
+            &mut rt,
+            &json!({
+                "task_id": mirror,
+                "subtask_id": format!("{mirror}::{stage}"),
+                "status": "completed",
+            }),
+        );
+    }
+    assert_eq!(status_of(&rt, &format!("{mirror}::scout")), "pending");
+
+    let preview = parse_json(&cli_decompose_reconcile_stages(
+        &mut rt,
+        &json!({"dry_run": true}),
+    ));
+    assert_eq!(preview["candidates"], 1, "the dry run must see the row");
+    assert_eq!(preview["closed"], 0);
+    assert_eq!(status_of(&rt, &format!("{mirror}::scout")), "pending");
+
+    let done = parse_json(&cli_decompose_reconcile_stages(&mut rt, &json!({})));
+    assert_eq!(done["closed"], 1);
+    assert_eq!(
+        status_of(&rt, &format!("{mirror}::scout")),
+        "completed",
+        "a stage every sibling outlived is closed by deduction"
+    );
+}
+
+/// A stage with an OPEN sibling is real pending work and must be left alone.
+#[test]
+fn reconcile_refuses_to_guess_while_a_sibling_is_still_open() {
+    let (_tmp, mut rt) = setup_runtime();
+    bridge_task_created(&mut rt, "91", "a mirror still in flight", "sess", None, None)
+        .expect("mirror");
+    let mirror = "cc_task_91";
+    // Only `implement` closed: `validate` is still open, so nothing is decidable.
+    cli_decompose_update(
+        &mut rt,
+        &json!({
+            "task_id": mirror,
+            "subtask_id": format!("{mirror}::implement"),
+            "status": "completed",
+        }),
+    );
+
+    let done = parse_json(&cli_decompose_reconcile_stages(&mut rt, &json!({})));
+
+    assert_eq!(done["closed"], 0, "an open sibling means undecidable");
+    assert_eq!(status_of(&rt, &format!("{mirror}::scout")), "pending");
+    assert_eq!(status_of(&rt, &format!("{mirror}::validate")), "pending");
 }
 
 // ───────────────────────────────────────────────────────────────────────

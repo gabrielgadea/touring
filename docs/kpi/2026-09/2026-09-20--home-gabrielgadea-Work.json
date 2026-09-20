@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.546934918778669,
+      "actual": 0.39385191151816634,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.007380073800738007,
+      "actual": 0.021621621621621623,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -112,7 +112,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 913.1538461538462,
+      "actual": 1173.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 708.0,
+      "actual": 731.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 422911.0,
+      "actual": 315647.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 1673.0,
+      "actual": 171.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,7 +178,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.23076923076923078,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
@@ -200,7 +200,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.9047619047619048,
+      "actual": 20.22222222222222,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -387,7 +387,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.003133393017009848,
+      "actual": 0.0030224525043177895,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.015037593984962405,
+      "actual": 0.014652014652014652,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -468,48 +468,48 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1049,
+      "exception": 1066,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 255
+      "timeout": 261
     },
     "by_language": {
-      "?": 1,
-      "bash": 7789,
+      "?": 3,
+      "bash": 7868,
       "go": 1,
-      "js": 113,
+      "js": 117,
       "perl": 4,
       "php": 1,
-      "python": 8005,
+      "python": 8164,
       "ruby": 4,
       "rust": 4,
-      "shell": 149,
+      "shell": 154,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 14766,
-    "runs_total": 16078,
+    "runs_ok": 14990,
+    "runs_total": 16327,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9183978106729693,
-    "wasted_attempts_retry_pairs": 783
+    "success_rate": 0.9181111043057512,
+    "wasted_attempts_retry_pairs": 797
   },
   "code_mode_reuse": {
     "available": true,
     "brief_runs": 145,
-    "file_runs": 2355,
+    "file_runs": 2439,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 6306,
+    "inline_runs": 6435,
     "ladder_enrolled": 0,
     "ladder_reused": 0,
     "orchestrate_runs": 169,
     "persistent_file_runs": 1158,
-    "reuse_ratio": 0.134,
-    "scratch_file_runs": 1197,
+    "reuse_ratio": 0.13,
+    "scratch_file_runs": 1281,
     "status": "FAIL",
-    "total_tmp_bytes": 251211156,
-    "v1_runs": 7416,
-    "v2_runs": 8661
+    "total_tmp_bytes": 251240374,
+    "v1_runs": 7450,
+    "v2_runs": 8874
   },
   "code_mode_signal_use": {
     "available": true,
@@ -544,106 +544,156 @@
         "propositions_per_kb": 0.0,
         "zero_proposition_blocks": 12
       },
+      "past-lessons": {
+        "blocks": 1,
+        "bytes": 82,
+        "duplicate_bytes": 0,
+        "duplicate_ratio": 0.0,
+        "mean_bytes": 82,
+        "propositions": 0,
+        "propositions_per_kb": 0.0,
+        "zero_proposition_blocks": 1
+      },
+      "post-tool-echo": {
+        "blocks": 1,
+        "bytes": 246,
+        "duplicate_bytes": 0,
+        "duplicate_ratio": 0.0,
+        "mean_bytes": 246,
+        "propositions": 0,
+        "propositions_per_kb": 0.0,
+        "zero_proposition_blocks": 1
+      },
       "session-start": {
         "blocks": 12,
-        "bytes": 6861,
+        "bytes": 7047,
         "duplicate_bytes": 2238,
-        "duplicate_ratio": 0.326,
-        "mean_bytes": 571,
+        "duplicate_ratio": 0.318,
+        "mean_bytes": 587,
         "propositions": 0,
         "propositions_per_kb": 0.0,
         "zero_proposition_blocks": 12
+      },
+      "touring-suggest": {
+        "blocks": 1,
+        "bytes": 747,
+        "duplicate_bytes": 0,
+        "duplicate_ratio": 0.0,
+        "mean_bytes": 747,
+        "propositions": 5,
+        "propositions_per_kb": 6.854,
+        "zero_proposition_blocks": 0
       }
     },
-    "bytes_scanned": 1338437,
+    "bytes_scanned": 1345390,
     "capped": false,
     "duplicate_blocks": 14,
-    "duplicate_injection_ratio": 0.577,
+    "duplicate_injection_ratio": 0.551,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
       "injected_bytes_per_turn",
-      "duplicate_injection_ratio"
+      "duplicate_injection_ratio",
+      "injection_follow_ratio"
     ],
-    "injected_bytes_per_turn": 8703.0,
+    "injected_bytes_per_turn": 9123.333,
     "injected_bytes_per_turn_ceil": 3000.0,
-    "injection_follow_ratio": null,
+    "injection_follow_ratio": 0.0,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 0,
+    "must_emitted": 1,
     "must_followed": 0,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 5,
+    "tool_calls": 3,
     "tool_output": {
       "by_tool": [
         {
-          "bytes": 1250,
-          "mean_bytes": 250,
-          "results": 5,
-          "reused_bytes": 141,
-          "reused_line_ratio": 0.077,
+          "bytes": 4481,
+          "mean_bytes": 1493,
+          "results": 3,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
           "share": 1.0,
           "tool": "Bash",
-          "zero_reuse_results": 3
+          "zero_reuse_results": 1
         }
       ],
-      "bytes": 1250,
-      "reuse_ratio": 0.113,
-      "reused_bytes": 141
+      "bytes": 4481,
+      "reuse_ratio": 0.0,
+      "reused_bytes": 0
     },
-    "tpcd_proxy_bytes_per_tool_call": 5801.2,
+    "tpcd_proxy_bytes_per_tool_call": 11070.333,
     "transcripts_scanned": 3,
     "user_turns": 3,
     "window_bytes": {
-      "assistant": 1450,
-      "injection": 26109,
-      "injection_share": 0.9,
-      "tool_result_share": 0.043,
-      "tool_results": 1250,
+      "assistant": 1163,
+      "injection": 27370,
+      "injection_share": 0.824,
+      "tool_result_share": 0.135,
+      "tool_results": 4481,
       "user": 197
     }
   },
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 21,
-      "cli-code-mode-run": 19,
-      "cli-decompose-archive": 5,
-      "cli-decompose-get": 5,
-      "cli-decompose-ready": 2,
-      "cli-decompose-update": 3,
-      "cli-flywheel-status": 252,
-      "cli-gate-metrics": 253,
+      "ceg-observe": 9,
+      "cli-ast-blast-cross-feature": 1,
+      "cli-ast-overview": 100,
+      "cli-ast-quality": 2,
+      "cli-code-mode-run": 182,
+      "cli-decompose-get": 7,
+      "cli-decompose-update": 2,
+      "cli-flywheel-status": 253,
+      "cli-gate-event": 5,
+      "cli-gate-metrics": 259,
+      "cli-granularity-hint": 7,
       "cli-health-delta-status": 252,
       "cli-incremental-status": 252,
-      "cli-index-rebuild": 3,
-      "cli-index-status": 271,
-      "cli-kpi": 1441,
-      "cli-learning-reward": 36,
-      "cli-learning-status": 4572,
+      "cli-index-files": 1,
+      "cli-index-find": 5,
+      "cli-index-search": 6,
+      "cli-index-status": 258,
+      "cli-kpi": 1444,
+      "cli-learning-reward": 17,
+      "cli-learning-status": 4573,
+      "cli-memory-credit": 2,
+      "cli-memory-link": 27,
+      "cli-memory-query": 9,
+      "cli-memory-recall": 1,
+      "cli-memory-store": 17,
+      "cli-mutation-test": 2,
+      "cli-profile-status": 3,
+      "cli-repo-health": 1,
+      "cli-repo-score": 1,
       "cli-resource-monitor-status": 252,
-      "cli-session-list": 252,
-      "cli-suggest": 29,
-      "cli-wiring-orphans": 7,
-      "cli-wiring-status": 252,
-      "post-bash": 22,
-      "post-edit": 4,
-      "post-read": 4,
-      "post-tool-batch": 28,
-      "post-tool-rl": 30,
-      "pre-bash": 21,
-      "subagent-stop": 5
+      "cli-session-list": 253,
+      "cli-suggest": 9,
+      "cli-tantivy-fuzzy": 1,
+      "cli-tantivy-search": 1,
+      "cli-tantivy-stats": 1,
+      "cli-wiring-cycles": 1,
+      "cli-wiring-modules": 2,
+      "cli-wiring-orphans": 10,
+      "cli-wiring-status": 254,
+      "instructions-loaded": 17,
+      "post-bash": 9,
+      "post-tool-batch": 9,
+      "post-tool-failure": 1,
+      "post-tool-rl": 8,
+      "pre-bash": 9,
+      "session-stop": 1
     },
     "mirror_deliveries_by_origin": {
-      "post_bash": 3,
+      "post_bash": 0,
       "sdk": 0,
       "unknown": 0
     },
-    "mirror_deliveries_since": 3,
+    "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": 0.13636363636363635,
-    "post_bash_dispatched": 22,
-    "post_bash_origin_deliveries_since": 3,
-    "since_epoch": 1789867112
+    "post_bash_delivery_ratio": 0.0,
+    "post_bash_dispatched": 9,
+    "post_bash_origin_deliveries_since": 0,
+    "since_epoch": 1789902025
   },
   "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",

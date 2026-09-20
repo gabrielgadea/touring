@@ -1846,19 +1846,35 @@ fn portfolio_cache_reloads_when_the_index_file_changes() {
     // Audit finding F4: a plain OnceLock never saw `touring portfolio refresh`,
     // so an in-daemon hook asserted stale prior art indefinitely. The cache key
     // is the file's mtime, so this asserts the invalidation path is reached.
+    //
+    // The index is a REAL file any live daemon hook may rewrite at any moment
+    // (`portfolio refresh`), so the premise — "unchanged file" — has to be
+    // MEASURED, not assumed. Asserting agreement without checking the mtime
+    // made this test fail whenever a hook refreshed the index between the two
+    // reads (observed 20/09/2026 under the full suite, green in isolation):
+    // it reported a defect where the cache had done exactly its job.
+    let mtime_before = portfolio_mtime();
     let first = portfolio_index();
     let second = portfolio_index();
+    let mtime_after = portfolio_mtime();
+
+    if mtime_before != mtime_after {
+        // The file changed under us: divergence here is the invalidation
+        // working, not a bug. Nothing to assert about equality.
+        return;
+    }
+
     match (first, second) {
         (Some(a), Some(b)) => assert_eq!(
             a.entries.len(),
             b.entries.len(),
-            "two reads with an unchanged file must agree"
+            "two reads of an index whose mtime did not move must agree"
         ),
         (None, None) => {}
-        _ => panic!("cache returned inconsistently across identical reads"),
+        _ => panic!(
+            "cache returned inconsistently while the index mtime stayed at {mtime_before:?}"
+        ),
     }
-    // And the mtime probe must never panic when the index is absent.
-    let _ = portfolio_mtime();
 }
 
 /// The hook that fires on every session must feed its own counters.

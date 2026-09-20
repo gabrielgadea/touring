@@ -261,13 +261,24 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         .and_then(|v| v.as_str())
         .unwrap_or("Fail");
     let parallel_group = payload.get("parallel_group").and_then(|v| v.as_str());
+    // `review_required` is the flag `cli_decompose_finalize` gates on. It was
+    // written as a literal 0 here, so the ONLY way to arm the gate was the
+    // tasksfile importer — a subtask created through the ordinary route could
+    // never require review, and the gate guarded nothing anybody could reach.
+    // Absent means 0, exactly as before.
+    let review_required = i32::from(
+        payload
+            .get("review_required")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+    );
     let result = db
         .conn_ref()
         .execute(
-            "INSERT OR REPLACE INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, 0, NULL, NULL, 0, NULL, ?9, ?10)",
+            "INSERT OR REPLACE INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?11, NULL, NULL, 0, NULL, ?9, ?10)",
             params![
                 scoped_id, task_id, description, deps_json, priority_int, deadline,
-                deadline_behavior, parallel_group, now, now
+                deadline_behavior, parallel_group, now, now, review_required
             ],
         );
     if let Err(e) = &result {

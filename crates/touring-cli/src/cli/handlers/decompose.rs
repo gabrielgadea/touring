@@ -634,103 +634,15 @@ pub(crate) fn import_tasksfile_subtasks(
     added
 }
 
-/// Adds a subtask to an existing task's DAG, recording its dependencies on other subtasks.
-pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    ensure_decompose_tables(&rt.ctx.knowledge);
-    let task_id = payload
-        .get("task_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let subtask_id = payload
-        .get("subtask_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let description = payload
-        .get("description")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let depends_on: Vec<String> = payload
-        .get("depends_on")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|s| s.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-    // Wave P1: parse priority token (default "normal" → 128).
-    let priority_token = payload
-        .get("priority")
-        .and_then(|v| v.as_str())
-        .unwrap_or("normal");
-    let priority_int = parse_priority_token(priority_token);
-
-    // S1.1: parse deadline and deadline_behavior from payload
-    let deadline = payload.get("deadline").and_then(|v| v.as_str());
-    let deadline_behavior = payload
-        .get("deadline_behavior")
-        .and_then(|v| v.as_str())
-        .unwrap_or("Fail");
-
-    // S1.8: parse parallel_group from payload
-    let parallel_group = payload.get("parallel_group").and_then(|v| v.as_str());
-
-    let now = chrono::Utc::now().to_rfc3339();
-
-    let db = &rt.ctx.knowledge;
-    let deps_json = serde_json::to_string(&depends_on).unwrap_or_else(|_| "[]".to_string());
-    let scoped_id = if subtask_id.contains("::") {
-        subtask_id.to_string()
-    } else {
-        format!("{}::{}", task_id, subtask_id)
-    };
-    let result = db.conn_ref().execute(
-        "INSERT OR REPLACE INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, 0, NULL, NULL, 0, NULL, ?9, ?10)",
-        params![scoped_id, task_id, description, deps_json, priority_int, deadline, deadline_behavior, parallel_group, now, now],
-    );
-    if let Err(e) = &result {
-        tracing::debug!("decompose add INSERT failed: {}", e);
-    }
-
-    // S1.4: Wire event audit trail for subtask creation
-    log_event(
-        db,
-        task_id,
-        Some(&scoped_id),
-        "subtask_added",
-        &serde_json::json!({
-            "description": description,
-            "depends_on": depends_on,
-            "priority_int": priority_int,
-            "deadline": deadline,
-            "deadline_behavior": deadline_behavior,
-            "parallel_group": parallel_group
-        }),
-    );
-
-    // FA-2: Signal active plan hint to SessionBus for pre_edit context injection.
-    rt.ctx
-        .session_bus
-        .borrow_mut()
-        .signal_plan_active(description.to_string());
-
-    serde_json::json!({
-        "task_id": task_id,
-        "subtask_id": subtask_id,
-        "scoped_id": scoped_id,
-        "description": description,
-        "depends_on": depends_on,
-        "status": "pending",
-        "priority": priority_label(priority_int),
-        "priority_int": priority_int,
-        "deadline": deadline,
-        "deadline_behavior": deadline_behavior,
-        "parallel_group": parallel_group,
-        "created_at": now,
-        "persisted": result.is_ok()
-    })
-    .to_string()
-}
+/// Adds a subtask to an existing task's DAG.
+///
+/// The implementation lives in [`crate::cli::decompose::cli_decompose_add`],
+/// which is what the registry dispatches to. This module carried a SECOND,
+/// nearly identical body that no caller reached (proven 20/09/2026 with a
+/// `#[deprecated]` probe: zero warnings across `--all-targets`). Two copies
+/// of one INSERT is how the `review_required` column stayed unreachable in
+/// both — a re-export keeps the name and leaves ONE body to fix.
+pub use crate::cli::decompose::cli_decompose_add;
 
 /// Retrieves a task and its full subtask DAG as JSON.
 pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
@@ -1402,6 +1314,109 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
     })
     .to_string()
 }
+
+/// Close scaffold stages whose every sibling already finished.
+///
+/// The fixed closer ([`crate::hook_decompose_bridge::close_scaffold_stages`])
+/// only runs when a task emits a completion event. 74 `::scout` rows predate it
+/// and sit under mirrors that never emitted one, so nothing will ever call the
+/// closer for them.
+///
+/// The deduction is the DAG's own edge: `implement` depends on `scout`, and
+/// `validate` on `implement`. A stage with NO open sibling is therefore a stage
+/// whose work the others already outlived, and is closed. A stage WITH an open
+/// sibling is genuine pending work and is left untouched — this reconciles, it
+/// does not guess.
+///
+/// Payload: `{dry_run?: bool}`.
+pub fn cli_decompose_reconcile_stages(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let dry_run = payload
+        .get("dry_run")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+
+    let db = &rt.ctx.knowledge;
+    ensure_decompose_tables(db);
+    let terminal = terminal_subtask_status_sql_list();
+
+    // "Open" is the complement of terminal, so the predicate is written
+    // negatively against the enumerable side.
+    let select = format!(
+        "SELECT s.subtask_id FROM decomposition_subtasks s \
+         WHERE s.status NOT IN ({terminal}) AND NOT EXISTS ( \
+           SELECT 1 FROM decomposition_subtasks o \
+           WHERE o.task_id = s.task_id AND o.subtask_id != s.subtask_id \
+             AND o.status NOT IN ({terminal}) )"
+    );
+    let candidates: Vec<String> = {
+        let mut stmt = match db.conn_ref().prepare(&select) {
+            Ok(s) => s,
+            Err(e) => return serde_json::json!({"error": format!("db error: {e}")}).to_string(),
+        };
+        stmt.query_map([], |r| r.get::<_, String>(0))
+            .map(|rows| rows.filter_map(Result::ok).collect())
+            .unwrap_or_default()
+    };
+    let sample: Vec<&String> = candidates.iter().take(5).collect();
+
+    if dry_run {
+        return serde_json::json!({
+            "closed": 0,
+            "candidates": candidates.len(),
+            "dry_run": true,
+            "sample": sample,
+        })
+        .to_string();
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut closed = 0_usize;
+    for subtask_id in &candidates {
+        match db.conn_ref().execute(
+            "UPDATE decomposition_subtasks SET status = 'completed', updated_at = ?1 \
+             WHERE subtask_id = ?2",
+            params![now, subtask_id],
+        ) {
+            Ok(rows) => closed += rows,
+            // Never answer "closed 0" for a write that failed — that reads as
+            // "nothing to do" (the `unwrap_or(0)` lesson of 19/09/2026).
+            Err(e) => {
+                return serde_json::json!({
+                    "error": format!("reconcile failed at {subtask_id}: {e}"),
+                    "closed": closed,
+                    "candidates": candidates.len(),
+                })
+                .to_string();
+            }
+        }
+    }
+
+    serde_json::json!({
+        "closed": closed,
+        "candidates": candidates.len(),
+        "dry_run": false,
+        "sample": sample,
+    })
+    .to_string()
+}
+
+/// The statuses that mean a SUBTASK is over, as a SQL `IN (...)` list.
+///
+/// Deliberately NOT `task_lifecycle::terminal_status_sql_list`: subtasks carry
+/// their own vocabulary — `failed`, `skipped` and `cancelled` exist here and
+/// not on task containers. Values are compile-time constants, so the
+/// interpolation carries nothing a caller controls.
+pub(crate) fn terminal_subtask_status_sql_list() -> String {
+    TERMINAL_SUBTASK_STATUSES
+        .iter()
+        .map(|s| format!("'{s}'"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Every status a subtask can end in.
+pub(crate) const TERMINAL_SUBTASK_STATUSES: [&str; 5] =
+    ["completed", "done", "failed", "skipped", "cancelled"];
 
 /// Validates a task's DAG for structural integrity, detecting dependency cycles and dangling references.
 pub fn cli_decompose_validate(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {

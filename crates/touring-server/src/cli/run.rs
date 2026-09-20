@@ -895,7 +895,11 @@ pub fn run(args: &[String]) -> Result<()> {
     );
 
     // W3 d2/S-3.3 — offer harvest on the USER's code (never the injected SDK).
-    let harvest = harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some());
+    // Discovery comes FIRST: when the library already holds this work, saying so
+    // matters more than offering to store yet another copy of it.
+    let harvest = similar_blocks_hint(&user_code, &cli.lang, out.exit_code).or_else(|| {
+        harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some())
+    });
     // W3b — the executor settles the ladder itself: harvesting when asked, and
     // otherwise recognising a re-run of an already-harvested body. Both operate
     // on the USER's code, never the injected SDK (same rule as the hint).
@@ -1420,6 +1424,62 @@ pub(crate) fn should_auto_persist(executions: u64) -> bool {
 /// applies (successful, ≥5 lines, parametrized, no ephemeral identifiers).
 pub(crate) fn auto_harvest_candidate(code: &str, lang: &str, exit_code: i32) -> bool {
     harvest_hint(code, lang, exit_code, false).is_some()
+}
+
+/// Tell the author which blocks the library already holds for this work.
+///
+/// The other half of the trust ladder. Persisting worked (371 bodies enrolled
+/// by 19/09/2026) and reuse did not (364 of them ran exactly once, 9
+/// re-executions in 8.572 runs) — because nothing ever said "you have written
+/// this before". `code_mode_reuse` reports that as FAIL and its own docstring
+/// names the cause: DISCOVERY, not persistence.
+///
+/// Offered only for a body the ladder does NOT already know (a known body is a
+/// re-run, which `settle_snippet_ladder` handles) and only when the program is
+/// substantial enough to be worth matching. Fail-open throughout: a lookup
+/// failure must never change the outcome of the program the user ran.
+fn similar_blocks_hint(user_code: &str, lang: &str, exit_code: i32) -> Option<String> {
+    use touring_intelligence::rl::memory::snippet_stats;
+
+    // Only for programs the harvest predicate would consider a block at all —
+    // a two-line probe has no business dragging the library into the answer.
+    if !auto_harvest_candidate(user_code, lang, exit_code) {
+        return None;
+    }
+    let root = std::env::current_dir().ok()?;
+    let db_path = touring_foundation::TouringConfig::memory_db_canonical(&root);
+    if !db_path.exists() {
+        return None;
+    }
+    let conn = rusqlite::Connection::open_with_flags(
+        &db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    let achados = snippet_stats::similar_snippets(&conn, user_code, 3).ok()?;
+    if achados.is_empty() {
+        return None;
+    }
+    let lista = achados
+        .iter()
+        .map(|m| {
+            format!(
+                "{} ({:.0}% overlap, {} run{}, {})",
+                m.entry_key,
+                m.similarity * 100.0,
+                m.executions,
+                if m.executions == 1 { "" } else { "s" },
+                m.trust.badge()
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+    Some(format!(
+        "the library already holds work like this: {lista} — fetch one with \
+         `touring memory recall '<key>'` and run it with --file instead of \
+         retyping the block (this is the reuse `touring kpi -j` measures as \
+         code_mode_reuse)"
+    ))
 }
 
 /// C2 (2026-09-02) — a scratchpad script that ran clean and looks reusable is

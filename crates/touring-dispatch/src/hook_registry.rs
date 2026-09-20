@@ -191,6 +191,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-decompose-event",
         "cli-decompose-finalize",
         "cli-decompose-archive",
+        "cli-decompose-reconcile-stages",
         "cli-decompose-ready",
         "cli-decompose-claim",
         "cli-decompose-release",
@@ -1690,6 +1691,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-decompose-archive", |rt, v| {
         crate::cli_handlers_decompose::cli_decompose_archive(rt, v)
+    });
+    m.insert("cli-decompose-reconcile-stages", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_reconcile_stages(rt, v)
     });
     m.insert("cli-decompose-ready", |rt, v| {
         crate::cli_handlers::cli_decompose_ready(rt, v)

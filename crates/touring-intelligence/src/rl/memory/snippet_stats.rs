@@ -324,6 +324,109 @@ pub fn ladder_totals(conn: &Connection) -> Result<LadderTotals> {
     )
 }
 
+/// One enrolled body that resembles the code about to run.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SnippetMatch {
+    /// The ladder key — what `touring memory recall <key>` fetches.
+    pub entry_key: String,
+    /// Jaccard overlap of identifier tokens, in `[0.0, 1.0]`.
+    pub similarity: f64,
+    /// The block's measured standing.
+    pub trust: TrustLevel,
+    /// How many times it has run.
+    pub executions: u64,
+}
+
+/// Identifier-ish tokens of a program, lowercased, short ones dropped.
+///
+/// Deliberately crude: the question is "have I written this before?", which
+/// shared identifiers answer well and an embedding would answer at 100× the
+/// cost on a path that runs on every execution.
+fn tokens(code: &str) -> std::collections::BTreeSet<String> {
+    code.split(|c: char| !c.is_alphanumeric() && c != '_')
+        .filter(|t| t.len() >= 3)
+        .map(str::to_ascii_lowercase)
+        .collect()
+}
+
+/// Jaccard similarity of two token sets; 0.0 when either is empty.
+fn jaccard(
+    a: &std::collections::BTreeSet<String>,
+    b: &std::collections::BTreeSet<String>,
+) -> f64 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let inter = a.intersection(b).count() as f64;
+    let union = a.union(b).count() as f64;
+    if union == 0.0 { 0.0 } else { inter / union }
+}
+
+/// Below this overlap two programs are simply different work.
+///
+/// Calibrated against the live library on 20/09/2026: the corpus is 371 bodies
+/// and a threshold under ~0.3 starts matching any two scripts that both import
+/// `json` and open a database.
+pub const SIMILARITY_FLOOR: f64 = 0.35;
+
+/// Blocks already in the library that resemble `code`, best first.
+///
+/// This is the missing half of the trust ladder. Persisting worked — 371 bodies
+/// enrolled — but 364 of them ran exactly once (measured 19/09/2026), because
+/// nothing ever told the author "you already wrote this". `code_mode_reuse`
+/// reports that gap as a FAIL and its own docstring names the cause: the
+/// problem is DISCOVERY, not persistence.
+///
+/// Bodies live in `memory_entries`; the ladder holds their standing. A body
+/// identical to `code` is excluded — that is a re-run, which `by_sig` already
+/// recognises, not a discovery.
+pub fn similar_snippets(conn: &Connection, code: &str, limit: usize) -> Result<Vec<SnippetMatch>> {
+    ensure_schema(conn)?;
+    let mine = tokens(code);
+    if mine.is_empty() || limit == 0 {
+        return Ok(Vec::new());
+    }
+    let own_sig = code_sig(code);
+
+    let mut stmt = conn.prepare(
+        "SELECT s.entry_key, s.executions, s.trust_level, s.sig_hash, m.value \
+         FROM snippet_stats s JOIN memory_entries m ON m.key = s.entry_key \
+         WHERE m.value IS NOT NULL AND m.value != ''",
+    )?;
+    let mut achados: Vec<SnippetMatch> = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?.max(0) as u64,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+            ))
+        })?
+        .filter_map(std::result::Result::ok)
+        .filter(|(_, _, _, sig, _)| sig != &own_sig)
+        .filter_map(|(entry_key, executions, trust, _sig, body)| {
+            let similarity = jaccard(&mine, &tokens(&body));
+            (similarity >= SIMILARITY_FLOOR).then(|| SnippetMatch {
+                entry_key,
+                similarity: (similarity * 1000.0).round() / 1000.0,
+                trust: TrustLevel::from_str_ci(&trust),
+                executions,
+            })
+        })
+        .collect();
+
+    // Best overlap first; ties go to the block with the longer record.
+    achados.sort_by(|a, b| {
+        b.similarity
+            .partial_cmp(&a.similarity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(b.executions.cmp(&a.executions))
+    });
+    achados.truncate(limit);
+    Ok(achados)
+}
+
 /// Read a snippet's measured state; `None` when never recorded.
 pub fn trust_of(conn: &Connection, entry_key: &str) -> Result<Option<SnippetStats>> {
     ensure_schema(conn)?;
@@ -456,6 +559,104 @@ mod tests {
         let once = harvest_key("scan-crates");
         assert_eq!(once, "snippet:scan-crates");
         assert_eq!(harvest_key(&once), once);
+    }
+
+    /// Seed a body into BOTH the library and the ladder, as a harvest does.
+    fn enrol(conn: &Connection, key: &str, body: &str, runs: u32) {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS memory_entries (key TEXT PRIMARY KEY, value TEXT);",
+        )
+        .expect("memory table");
+        conn.execute(
+            "INSERT OR REPLACE INTO memory_entries (key, value) VALUES (?1, ?2)",
+            params![key, body],
+        )
+        .expect("insert body");
+        let sig = code_sig(body);
+        for _ in 0..runs {
+            record_execution(conn, key, true, &sig).expect("record");
+        }
+    }
+
+    #[test]
+    fn similar_snippets_finds_the_block_already_written() {
+        let conn = mem();
+        enrol(
+            &conn,
+            "snippet:censo-do-dag",
+            "import sqlite3\ndef censo(caminho):\n    conn = sqlite3.connect(caminho)\n    \
+             linhas = conn.execute('SELECT status FROM decomposition_subtasks')\n    \
+             return list(linhas)\n",
+            3,
+        );
+        enrol(
+            &conn,
+            "snippet:desenha-grafico",
+            "import matplotlib\ndef plota(series):\n    fig = matplotlib.figure()\n    \
+             fig.plot(series)\n    return fig\n",
+            1,
+        );
+
+        // A new program that does the same DAG census with different names.
+        let novo = "import sqlite3\ndef contar(caminho):\n    conn = sqlite3.connect(caminho)\n    \
+                    linhas = conn.execute('SELECT status FROM decomposition_subtasks')\n    \
+                    return len(list(linhas))\n";
+        let achados = similar_snippets(&conn, novo, 5).expect("search");
+
+        assert!(!achados.is_empty(), "the library holds this work already");
+        assert_eq!(
+            achados[0].entry_key, "snippet:censo-do-dag",
+            "the census block must rank first, not the plotting one: {achados:?}"
+        );
+        assert!(achados[0].similarity >= SIMILARITY_FLOOR);
+        assert_eq!(achados[0].executions, 3);
+    }
+
+    #[test]
+    fn unrelated_work_matches_nothing() {
+        let conn = mem();
+        enrol(
+            &conn,
+            "snippet:desenha-grafico",
+            "import matplotlib\ndef plota(series):\n    return matplotlib.figure().plot(series)\n",
+            1,
+        );
+
+        let nada_a_ver = "fn main() { println!(\"hello\"); }\n";
+        assert!(
+            similar_snippets(&conn, nada_a_ver, 5)
+                .expect("search")
+                .is_empty(),
+            "a floor that matches anything is worse than no search at all"
+        );
+    }
+
+    /// An identical body is a RE-RUN (`by_sig` handles it), never a discovery —
+    /// offering it back would tell the author to reuse what they just typed.
+    #[test]
+    fn an_identical_body_is_not_offered_as_a_discovery() {
+        let conn = mem();
+        let corpo = "import sqlite3\ndef censo(caminho):\n    return sqlite3.connect(caminho)\n";
+        enrol(&conn, "snippet:censo", corpo, 2);
+
+        assert!(
+            similar_snippets(&conn, corpo, 5).expect("search").is_empty(),
+            "the exact same body is a re-run, not something to discover"
+        );
+    }
+
+    #[test]
+    fn an_empty_library_or_an_empty_program_finds_nothing() {
+        let conn = mem();
+        assert!(similar_snippets(&conn, "x = 1", 5).expect("search").is_empty());
+        enrol(&conn, "snippet:a", "def f():\n    return 1\n", 1);
+        assert!(similar_snippets(&conn, "", 5).expect("search").is_empty());
+        assert!(
+            similar_snippets(&conn, "def f():\n    return 1\n", 0)
+                .expect("search")
+                .is_empty(),
+            "limit 0 asks for nothing"
+        );
     }
 
     #[test]
