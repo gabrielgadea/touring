@@ -462,6 +462,30 @@ timestamp: 2026-08-20T11:15:00-03:00
     FAIL por comportamento (9 re-execuções em 8.572 runs), que é o diagnóstico honesto.
     Narrativa: `docs/audits/dag-mentia-sobre-si-2026-09-19.md`.
 
+30. **Um payload de máquina não tem intent, e uma relaxação por-comando não é chave de
+    máquina (30.4.64 → 30.4.65, 22/09/2026)**. (a) O `prompt_enhance` classificava
+    notificações de agente, feedback do Stop hook e saída de `!` como se fossem pedidos do
+    humano — visto ao vivo injetando TEST, CODE e DEBUG em turnos automáticos.
+    `AUTOMATED_PAYLOAD_PREFIXES` + `is_automated_payload` (consultados por `compose_json`
+    **e** `run_user_prompt_submit`, com guard cruzado) devolvem `{skipped:
+    "automated_payload", suppressOutput}` e nenhum intent nem CILA. A lista é **medida**:
+    os 8 primeiros prefixos deixavam passar 160 de 800 prompts reais (20%), 134 deles
+    mensagens de outra sessão Claude; hoje são 14, com um teste por prefixo. Comandos de
+    barra ficam de fora de propósito — `<command-args>` carrega as palavras do humano.
+    (b) `TOURING_CODE_MODE=native <cmd>` relaxa UM comando, e a apresentação é resolvida na
+    env de quem decide: o daemon. Um daemon que herda a var desliga os gates de code mode
+    de TODAS as sessões, com `doctor` verde e a prova comportamental reprovando 2/40 sem
+    nomear a causa — foi o que aconteceu ao reiniciar o daemon de um shell que a carregava.
+    Os **dois** launchers agora limpam a var (`daemon_spawn::PER_COMMAND_RELAXATIONS` no
+    Rust e o `env -u` de `launch_daemon_and_wait` no `update-touring`, listas cruzadas por
+    `test_update_touring.py`); a intenção deliberada tem porta própria,
+    `TOURING_DAEMON_CODE_MODE=<modo>`. Diagnóstico em 1 comando:
+    `tr '\0' '\n' < /proc/<pid do daemon>/environ | grep TOURING_CODE_MODE`.
+    (c) **`update-touring` não alcança sessão nenhuma** quando existe toolchain default: o
+    shim serve `~/.touring/toolchains/<default>/bin`, um snapshot imutável. Código novo
+    testado e instalado fica inerte até `scripts/propagate-release.sh <versão>`;
+    `TOURING_HOOK_SHIM_TRACE=1` imprime o binário que responde.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`

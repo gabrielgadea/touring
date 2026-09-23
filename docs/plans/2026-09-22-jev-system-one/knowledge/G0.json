@@ -1,0 +1,45 @@
+{
+  "phase": "G0",
+  "entities": [
+    {
+      "entity_id": "phase:G0",
+      "type": "phase",
+      "description": "G0 entregue e vivo: filtro determin\u00edstico de payload autom\u00e1tico no prompt-enhance (14 prefixos medidos no corpus do G1, 6 testes novos incluindo guard D8 cruzado, prova por muta\u00e7\u00e3o com 3 testes mortos, su\u00edte do crate 434 verde, clippy limpo), propagado como 30.4.64 para a toolchain default e os 3 projetos, verificado ao vivo (payload de m\u00e1quina -> skipped sem intent; prompt humano -> DEBUG com contexto). Aberto e registrado: a prova comportamental do code mode falha 2/40 no gate de rajada, pr\u00e9-existente (reproduz com 30.4.62)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790097198101133178:G0:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790097198101133178",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790097198101133178",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:G0|produces|memory:loop:task_1790097198101133178:G0:done",
+      "source": "phase:G0",
+      "type": "produces",
+      "target": "memory:loop:task_1790097198101133178:G0:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790097198101133178:G0:done|generated-by|loop:loop:task_1790097198101133178",
+      "source": "memory:loop:task_1790097198101133178:G0:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790097198101133178"
+    },
+    {
+      "relation_id": "memory:loop:task_1790097198101133178:G0:done|generated-by|dag:decomp:task_1790097198101133178",
+      "source": "memory:loop:task_1790097198101133178:G0:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790097198101133178"
+    }
+  ]
+}

@@ -280,17 +280,34 @@ def main() -> int:
     if marker is None:
         return 0
     _, armed = active_marker(cwd, session_id)
-    bundle = (armed or {}).get("bundle") or "<plan bundle dir>"
+    bundle = (armed or {}).get("bundle")
     # The EXECUTOR pays for the artifact, starting now, detached. Nothing is owed by
     # the model and nothing is waited on — by the time the turn ends the diagnostic
     # and the CCE ledger are simply on disk.
-    if bundle and bundle != "<plan bundle dir>":
+    #
+    # Sem bundle não há executor: um flow explícito (`strategy-outer`) arma o marcador
+    # ANTES de existir bundle, e o spawn é corretamente pulado. A mensagem tem de dizer
+    # isso. Até 22/09/2026 ela afirmava o disparo de qualquer jeito, com o literal
+    # "<plan bundle dir>" no lugar do caminho — texto e executor divergindo (D8), que é
+    # como um artefato deixa de ser produzido sem ninguém notar.
+    if bundle:
         spawn_outer_artifacts(cwd, bundle, topic)
+        estado = (
+            f"O diagnóstico determinístico e o ledger CCE já foram DISPARADOS em "
+            f"background pelo executor (bundle: {bundle}; log: "
+            f"{bundle}/outer-executor.log) e estarão em disco sem custo de contexto."
+        )
+    else:
+        estado = (
+            "Este flow ainda NÃO tem bundle, então nada foi disparado em background. "
+            "Quando for trabalhar o tema, o OUTER determinístico é um comando: "
+            "`touring adw run strategy-loop --var topic=\"<tema>\" --var scope=\"$PWD\" "
+            "--var bundle=\"<dir do bundle>\"` (recall + loop_diagnose + explore "
+            "até secar)."
+        )
     context = (
         f"[OUTER · flow '{flow}' armado] Opção C (Gabriel, 03/09/2026): este flow NÃO "
-        f"cobra documento nenhum de você. O diagnóstico determinístico e o ledger CCE "
-        f"já foram DISPARADOS em background pelo executor (bundle: {bundle}; log: "
-        f"{bundle}/outer-executor.log) e estarão em disco sem custo de contexto. "
+        f"cobra documento nenhum de você. {estado} "
         f"O Stop hook não bloqueia mais o OUTER — ele apenas registra a avaliação em "
         f"compliance.jsonl, como régua de KPI. "
         f"O que resta é o EFEITO: na PRIMEIRA edição de código deste turno "

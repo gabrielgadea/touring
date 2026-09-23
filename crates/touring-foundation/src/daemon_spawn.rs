@@ -54,6 +54,45 @@ pub struct SpawnedDaemon {
 /// The environment switch that forces [`SpawnRoute::Direct`].
 const SCOPE_OPT_OUT_ENV: &str = "TOURING_DAEMON_SCOPE";
 
+/// Variables that relax a gate for ONE command and must never outlive it.
+///
+/// `TOURING_CODE_MODE=native <cmd>` is the documented way to relax the code-mode
+/// gates for a single call, and the presentation is resolved from the environment
+/// of whichever process decides — which is the daemon. So a daemon that inherits
+/// the variable turns a per-command relaxation into a machine-wide kill switch:
+/// measured on 2026-09-22, a restart from a shell carrying it left every
+/// code-mode gate off, with `doctor` green and the behavioural proof failing 2 of
+/// 40 assertions without naming a cause.
+///
+/// Deliberate intent has its own door: [`DAEMON_CODE_MODE_ENV`].
+const PER_COMMAND_RELAXATIONS: &[&str] = &["TOURING_CODE_MODE", "TOURING_CODE_ONLY"];
+
+/// Ask for a daemon that runs in a specific code-mode presentation on purpose.
+///
+/// The spawn translates it into `TOURING_CODE_MODE` for the child, after the
+/// scrub — so the only way to set the daemon's presentation is to say so.
+pub const DAEMON_CODE_MODE_ENV: &str = "TOURING_DAEMON_CODE_MODE";
+
+/// Remove the per-command relaxations from a daemon command, honouring a
+/// deliberate request (the caller reads it from [`DAEMON_CODE_MODE_ENV`]).
+///
+/// Called on every spawn route, after `configure`, so no spawn site can forget
+/// it. The request arrives as an argument — like `scope_launcher`'s opt-out — so
+/// the decision is pure and provable without mutating the process environment.
+fn scrub_per_command_relaxations(cmd: &mut Command, deliberate: Option<&str>) {
+    for var in PER_COMMAND_RELAXATIONS {
+        cmd.env_remove(var);
+    }
+    if let Some(mode) = deliberate.map(str::trim).filter(|m| !m.is_empty()) {
+        cmd.env("TOURING_CODE_MODE", mode);
+    }
+}
+
+/// The deliberate daemon presentation asked for in this process's environment.
+fn deliberate_daemon_mode() -> Option<String> {
+    std::env::var(DAEMON_CODE_MODE_ENV).ok()
+}
+
 /// How long a scope launch may take to reach `exec` before it is taken as
 /// launched. `systemd-run` answers in tens of milliseconds; a manager that
 /// takes longer is still left to finish rather than raced by a second daemon.
@@ -154,6 +193,7 @@ fn spawn_with_launcher(
         let mut cmd = Command::new(launcher);
         cmd.args(scope_args(daemon_bin, description));
         configure(&mut cmd);
+        scrub_per_command_relaxations(&mut cmd, deliberate_daemon_mode().as_deref());
         detach_session(&mut cmd);
         if let Ok(child) = cmd.spawn()
             && let Some(child) = await_exec(child, launcher, exec_wait)
@@ -166,6 +206,7 @@ fn spawn_with_launcher(
     }
     let mut cmd = Command::new(daemon_bin);
     configure(&mut cmd);
+    scrub_per_command_relaxations(&mut cmd, deliberate_daemon_mode().as_deref());
     detach_session(&mut cmd);
     Ok(SpawnedDaemon {
         route: SpawnRoute::Direct,

@@ -471,10 +471,26 @@ launch_daemon_and_wait() {
     # RUST_BACKTRACE=full: full panic backtrace (Rust profile keeps line-tables-only,
     #   which is sufficient for file:line — full traces still resolve to readable text).
     # RUST_LOG: per-call override via TOURING_DAEMON_LOG; default = info + daemon=debug.
+    # -u TOURING_CODE_MODE / -u TOURING_CODE_ONLY: uma relaxação POR-COMANDO nunca
+    #   vira chave de máquina. `TOURING_CODE_MODE=native <cmd>` relaxa um comando;
+    #   o daemon que a herda resolve a apresentação por ela e desliga os gates de
+    #   code mode para TODAS as sessões (medido 22/09/2026: uma propagação disparada
+    #   de um shell com a var deixou a máquina em `native`, doctor verde, e a prova
+    #   comportamental reprovando 2/40 sem nomear a causa). A lista espelha
+    #   PER_COMMAND_RELAXATIONS em crates/touring-foundation/src/daemon_spawn.rs, e
+    #   test_update_touring.py cruza as duas. Intenção deliberada tem porta própria:
+    #   TOURING_DAEMON_CODE_MODE=<modo>.
+    local deliberate=()
+    if [[ -n "${TOURING_DAEMON_CODE_MODE:-}" ]]; then
+        deliberate=(TOURING_CODE_MODE="${TOURING_DAEMON_CODE_MODE}")
+    fi
     setsid "$@" env \
+        -u TOURING_CODE_MODE \
+        -u TOURING_CODE_ONLY \
         RUST_BACKTRACE=full \
         RUST_LOG="${TOURING_DAEMON_LOG:-info,touring_hooks::daemon=debug}" \
         TOURING_CRASH_LOG_PATH="${DAEMON_CRASH_LOG}" \
+        ${deliberate[@]+"${deliberate[@]}"} \
         nohup "${launcher}" \
         </dev/null \
         >>"${LOG_FILE}" \

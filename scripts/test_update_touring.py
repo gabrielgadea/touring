@@ -119,6 +119,41 @@ def test_runtime_libs_are_the_ones_touring_update_links():
     assert bash.group(1).split() == rust_names
 
 
+def test_a_per_command_relaxation_never_reaches_the_launched_daemon():
+    """`TOURING_CODE_MODE=native <cmd>` relaxa UM comando. O daemon que a herda
+    desliga os gates de code mode para TODAS as sessões, porque a apresentação é
+    resolvida na env de quem decide — e quem decide é o daemon.
+
+    Medido em 22/09/2026: uma propagação disparada de um shell que carregava a var
+    deixou a máquina inteira em `native`, com `doctor` verde e a prova
+    comportamental reprovando 2 de 40 asserções sem nomear a causa. Este launcher
+    é um dos dois sítios que sobem o daemon (o outro é o Rust); a lista tem de ser
+    a MESMA nos dois, ou o defeito volta pelo lado que ninguém olhou."""
+    body = SCRIPT.read_text(encoding="utf-8")
+    launcher = re.search(r"launch_daemon_and_wait\(\) \{(.*?)\n\}", body, re.S)
+    assert launcher, "launch_daemon_and_wait not found in update-touring"
+    rust_src = (REPO / "crates/touring-foundation/src/daemon_spawn.rs").read_text(
+        encoding="utf-8"
+    )
+    rust = re.search(r"PER_COMMAND_RELAXATIONS: &\[&str\] = &\[(.*?)\];", rust_src, re.S)
+    assert rust, "PER_COMMAND_RELAXATIONS not found in daemon_spawn.rs"
+    scrubbed = re.findall(r'"([^"]+)"', rust.group(1))
+    assert scrubbed, "PER_COMMAND_RELAXATIONS is empty"
+    for var in scrubbed:
+        assert f"-u {var}" in launcher.group(1), (
+            f"{var} must be unset when update-touring launches the daemon "
+            "(the Rust spawn already scrubs it)"
+        )
+
+    deliberate = re.search(
+        r'DAEMON_CODE_MODE_ENV: &str = "([^"]+)"', rust_src
+    )
+    assert deliberate, "DAEMON_CODE_MODE_ENV not found in daemon_spawn.rs"
+    assert deliberate.group(1) in launcher.group(1), (
+        "a intenção deliberada precisa da MESMA porta nos dois launchers"
+    )
+
+
 def test_no_uid_is_hardcoded_in_runtime_paths():
     """`/tmp/touring-daemon-1000.sock` only resolves on uid 1000 — on any other
     machine `global_daemon_pid` finds nothing and every dependent path (kill,

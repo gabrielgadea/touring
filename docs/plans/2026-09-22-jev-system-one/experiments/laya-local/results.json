@@ -1,0 +1,340 @@
+{
+ "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+ "torch": "2.14.0+cu130",
+ "laya": "0.3.5",
+ "datasets": {
+  "memory_kind/english": {
+   "n": 150,
+   "accuracy": 0.453,
+   "per_class": {
+    "audit": 0.333,
+    "gotcha": 0.4,
+    "lesson": 0.1,
+    "snippet": 0.733,
+    "strategy": 0.7
+   },
+   "calibration": {
+    "<0.5": {
+     "n": 120,
+     "acc": 0.4
+    },
+    "0.5-0.8": {
+     "n": 22,
+     "acc": 0.727
+    },
+    ">=0.8": {
+     "n": 8,
+     "acc": 0.5
+    }
+   },
+   "mean_conf": 0.279,
+   "p50_ms": 24.2,
+   "routes": {
+    "null": 150
+   }
+  },
+  "routing/english": {
+   "n": 118,
+   "accuracy": 0.373,
+   "per_class": {
+    "audit": 0.786,
+    "bugfix": 0.5,
+    "explore-plan": 0.191,
+    "feature": 0.559
+   },
+   "calibration": {
+    "<0.5": {
+     "n": 67,
+     "acc": 0.358
+    },
+    "0.5-0.8": {
+     "n": 29,
+     "acc": 0.31
+    },
+    ">=0.8": {
+     "n": 22,
+     "acc": 0.5
+    }
+   },
+   "mean_conf": 0.509,
+   "p50_ms": 19.2,
+   "routes": {
+    "null": 118
+   }
+  },
+  "memory_kind/multilingual": {
+   "n": 150,
+   "accuracy": 0.453,
+   "per_class": {
+    "audit": 0.333,
+    "gotcha": 0.867,
+    "lesson": 0.0,
+    "snippet": 0.6,
+    "strategy": 0.467
+   },
+   "calibration": {
+    "<0.5": {
+     "n": 66,
+     "acc": 0.379
+    },
+    "0.5-0.8": {
+     "n": 25,
+     "acc": 0.32
+    },
+    ">=0.8": {
+     "n": 59,
+     "acc": 0.593
+    }
+   },
+   "mean_conf": 0.588,
+   "p50_ms": 10.1,
+   "routes": {
+    "null": 150
+   }
+  },
+  "routing/multilingual": {
+   "n": 118,
+   "accuracy": 0.356,
+   "per_class": {
+    "audit": 0.786,
+    "bugfix": 0.5,
+    "explore-plan": 0.338,
+    "feature": 0.206
+   },
+   "calibration": {
+    "<0.5": {
+     "n": 42,
+     "acc": 0.119
+    },
+    "0.5-0.8": {
+     "n": 37,
+     "acc": 0.297
+    },
+    ">=0.8": {
+     "n": 39,
+     "acc": 0.667
+    }
+   },
+   "mean_conf": 0.631,
+   "p50_ms": 8.8,
+   "routes": {
+    "null": 118
+   }
+  },
+  "memory_kind/router": {
+   "n": 150,
+   "accuracy": 0.5,
+   "per_class": {
+    "audit": 0.333,
+    "gotcha": 0.833,
+    "lesson": 0.033,
+    "snippet": 0.8,
+    "strategy": 0.5
+   },
+   "calibration": {
+    "<0.5": {
+     "n": 89,
+     "acc": 0.371
+    },
+    "0.5-0.8": {
+     "n": 20,
+     "acc": 0.55
+    },
+    ">=0.8": {
+     "n": 41,
+     "acc": 0.756
+    }
+   },
+   "mean_conf": 0.481,
+   "p50_ms": 18.8,
+   "routes": {
+    "english": 82,
+    "multilingual": 68
+   }
+  },
+  "routing/router": {
+   "n": 118,
+   "accuracy": 0.356,
+   "per_class": {
+    "audit": 0.786,
+    "bugfix": 0.5,
+    "explore-plan": 0.279,
+    "feature": 0.324
+   },
+   "calibration": {
+    "<0.5": {
+     "n": 52,
+     "acc": 0.231
+    },
+    "0.5-0.8": {
+     "n": 38,
+     "acc": 0.368
+    },
+    ">=0.8": {
+     "n": 28,
+     "acc": 0.571
+    }
+   },
+   "mean_conf": 0.568,
+   "p50_ms": 17.1,
+   "routes": {
+    "english": 66,
+    "multilingual": 52
+   }
+  },
+  "relevance/router": {
+   "topic": "Jev System One (TypeSafe AI): uso no Touring — roteamento, rerank, tags, dedupe",
+   "ranking": [
+    {
+     "key": "lesson:2026-05-03:taco-task-markdown-libs-analysis",
+     "gold": 0,
+     "p": 0.9515,
+     "route": "multilingual"
+    },
+    {
+     "key": "f1_3-workspace-scope-truncado-16mib",
+     "gold": 0,
+     "p": 0.9257,
+     "route": "multilingual"
+    },
+    {
+     "key": "harness-reform:W4.1-teeth-extended:2026-07-04",
+     "gold": 0,
+     "p": 0.9201,
+     "route": "multilingual"
+    },
+    {
+     "key": "research:jev-system-one:2026-09-22",
+     "gold": 1,
+     "p": 0.884,
+     "route": "multilingual"
+    },
+    {
+     "key": "verification-trait-metodo-default-2026-08-07",
+     "gold": 0,
+     "p": 0.7485,
+     "route": "multilingual"
+    },
+    {
+     "key": "loop:task_1787743226070943011:F2:done",
+     "gold": 0,
+     "p": 0.6349,
+     "route": "multilingual"
+    },
+    {
+     "key": "loop:task_1789298251281030189:Z0:done",
+     "gold": 0,
+     "p": 0.3577,
+     "route": "multilingual"
+    },
+    {
+     "key": "loop:task_1790076481161575147:R4:done",
+     "gold": 1,
+     "p": 0.1681,
+     "route": "multilingual"
+    },
+    {
+     "key": "lesson:graft-rodada3-projecao-e-canais:2026-09-12",
+     "gold": 0,
+     "p": 0.141,
+     "route": "multilingual"
+    },
+    {
+     "key": "lesson:wave_2026_05_03:W1_thiserror_consolidation",
+     "gold": 0,
+     "p": 0.138,
+     "route": "english"
+    },
+    {
+     "key": "gotcha:taco-forge-prettyplease-corruption-update",
+     "gold": 0,
+     "p": 0.0798,
+     "route": "multilingual"
+    },
+    {
+     "key": "infra:cycle_improvement_2026_05_14:warning_cleanup_27",
+     "gold": 0,
+     "p": 0.0189,
+     "route": "multilingual"
+    }
+   ],
+   "relevant_in_top_k": 0,
+   "n_relevant": 2
+  }
+ },
+ "baselines": {
+  "memory_kind_derived_tag_acc": 0.067,
+  "routing_regex_coverage": 0.364,
+  "routing_regex_acc_all": 0.102,
+  "routing_regex_acc_when_matched": 0.279,
+  "routing_gold_dist": {
+   "audit": 14,
+   "bugfix": 2,
+   "explore-plan": 68,
+   "feature": 34
+  }
+ },
+ "load_seconds": {
+  "english": 29.5,
+  "multilingual": 24.0
+ },
+ "raw_example": {
+  "model": "laya-rl-agent",
+  "answers": {
+   "dept": {
+    "type": "choice",
+    "choice": "billing",
+    "probabilities": {
+     "billing": 0.9718,
+     "technical": 0.0282
+    },
+    "confidence": 0.8149,
+    "action": {
+     "act_probability": 1.0
+    }
+   }
+  },
+  "usage": {
+   "input_tokens": 37,
+   "output_tokens": 0
+  }
+ },
+ "latency": {
+  "english": {
+   "1q": {
+    "p50_ms": 14.4,
+    "p95_ms": 14.7,
+    "per_q_ms": 14.36
+   },
+   "10q": {
+    "p50_ms": 34.6,
+    "p95_ms": 34.7,
+    "per_q_ms": 3.46
+   },
+   "50q": {
+    "p50_ms": 128.7,
+    "p95_ms": 128.8,
+    "per_q_ms": 2.57
+   },
+   "peak_vram_mib": 3643.1
+  },
+  "multilingual": {
+   "1q": {
+    "p50_ms": 6.4,
+    "p95_ms": 6.9,
+    "per_q_ms": 6.43
+   },
+   "10q": {
+    "p50_ms": 15.3,
+    "p95_ms": 15.7,
+    "per_q_ms": 1.53
+   },
+   "50q": {
+    "p50_ms": 56.7,
+    "p95_ms": 59.7,
+    "per_q_ms": 1.13
+   },
+   "peak_vram_mib": 3176.3
+  }
+ }
+}
