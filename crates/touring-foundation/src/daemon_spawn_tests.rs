@@ -9,6 +9,92 @@ fn sleep_bin() -> PathBuf {
     find_on_path("sleep").expect("`sleep` on PATH")
 }
 
+/// Uma relaxação POR-COMANDO não pode virar chave de máquina.
+///
+/// Medido em 22/09/2026: o daemon foi reiniciado de um shell que carregava
+/// `TOURING_CODE_MODE=native` (o relaxamento documentado para UM comando). O
+/// daemon herdou a var, e como a resolução da apresentação lê a env do processo
+/// que decide, TODO gate de code mode ficou desligado na máquina — em silêncio,
+/// com `doctor` verde e a prova comportamental reprovando 2 de 40 asserções sem
+/// dizer por quê. O spawn é o único lugar onde isso se corta para todos os
+/// sítios; a intenção deliberada tem porta própria.
+#[test]
+fn a_per_command_relaxation_never_reaches_the_daemon() {
+    let mut cmd = Command::new(sleep_bin());
+    cmd.env("TOURING_CODE_MODE", "native");
+    cmd.env("TOURING_CODE_ONLY", "1");
+    cmd.env("TOURING_DAEMON_SOCKET", "/tmp/x.sock");
+    scrub_per_command_relaxations(&mut cmd, None);
+
+    let envs: Vec<_> = cmd.get_envs().collect();
+    for var in PER_COMMAND_RELAXATIONS {
+        assert!(
+            envs.iter()
+                .any(|(k, v)| *k == std::ffi::OsStr::new(var) && v.is_none()),
+            "{var} devia ser REMOVIDA do ambiente do daemon, e não apenas ignorada"
+        );
+    }
+    assert!(
+        envs.iter().any(|(k, v)| *k == std::ffi::OsStr::new("TOURING_DAEMON_SOCKET")
+            && *v == Some(std::ffi::OsStr::new("/tmp/x.sock"))),
+        "o resto do ambiente segue intacto"
+    );
+}
+
+/// A porta da intenção deliberada: quem QUER um daemon em outro modo o diz por
+/// uma var própria, que o spawn traduz. Sem ela não há como pedir, e alguém
+/// voltaria a exportar a var por-comando — o defeito de novo.
+#[test]
+fn the_deliberate_daemon_mode_survives_the_scrub() {
+    let mut cmd = Command::new(sleep_bin());
+    cmd.env("TOURING_CODE_MODE", "native");
+    scrub_per_command_relaxations(&mut cmd, Some(" both "));
+
+    let envs: Vec<_> = cmd.get_envs().collect();
+    assert!(
+        envs.iter().any(|(k, v)| *k == std::ffi::OsStr::new("TOURING_CODE_MODE")
+            && *v == Some(std::ffi::OsStr::new("both"))),
+        "o pedido deliberado chega ao daemon como a própria var de apresentação, sem espaços"
+    );
+
+    // Um pedido vazio não é pedido: continua removida, nunca `TOURING_CODE_MODE=`.
+    let mut vazio = Command::new(sleep_bin());
+    vazio.env("TOURING_CODE_MODE", "native");
+    scrub_per_command_relaxations(&mut vazio, Some("   "));
+    assert!(
+        vazio
+            .get_envs()
+            .any(|(k, v)| k == std::ffi::OsStr::new("TOURING_CODE_MODE") && v.is_none()),
+        "pedido em branco deixa a var removida"
+    );
+}
+
+/// Guard cruzado: as DUAS rotas de spawn chamam a limpeza. Um predicado
+/// implementado e não ligado numa das rotas é invisível — a rota esquecida é
+/// justamente a que roda quando o systemd não responde.
+#[test]
+fn both_spawn_routes_scrub_before_spawning() {
+    let src = include_str!("daemon_spawn.rs");
+    let body = src
+        .split_once("fn spawn_with_launcher")
+        .expect("spawn_with_launcher exists")
+        .1;
+    assert_eq!(
+        body.matches("scrub_per_command_relaxations(&mut cmd").count(),
+        2,
+        "a rota do scope e a direta precisam AMBAS limpar o ambiente"
+    );
+    // A limpeza vem depois de `configure`: quem configura não pode reintroduzir a var.
+    for route in body.split("detach_session(&mut cmd)").take(2) {
+        let configure = route.rfind("configure(&mut cmd)");
+        let scrub = route.rfind("scrub_per_command_relaxations(&mut cmd");
+        assert!(
+            matches!((configure, scrub), (Some(c), Some(s)) if s > c),
+            "a limpeza precisa rodar DEPOIS de configure em cada rota"
+        );
+    }
+}
+
 #[test]
 fn the_scope_route_needs_the_manager_the_launcher_and_no_opt_out() {
     let run = Some(PathBuf::from("/usr/bin/systemd-run"));
