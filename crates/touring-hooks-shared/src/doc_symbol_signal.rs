@@ -216,14 +216,22 @@ fn spawn_com_retry_etxtbsy(
 ) -> Result<Child, ProviderOutcome> {
     let mut tentativa = 0;
     loop {
-        let resultado = Command::new(python)
-            .arg(provider)
+        let mut cmd = Command::new(python);
+        cmd.arg(provider)
             .args(["--arquivo", rel, "--no", no, "--stdin", "--brief"])
             .current_dir(root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn();
+            .stderr(Stdio::null());
+        // Grupo próprio: sem isto, `kill` no timeout alcança só o filho direto,
+        // e um neto herda o pipe de stdout — o vazamento de thread e processo
+        // que o cross-audit de 20/09/2026 mediu dentro do daemon.
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            cmd.process_group(0);
+        }
+        let resultado = cmd.spawn();
         match resultado {
             Ok(child) => return Ok(child),
             Err(e) if e.raw_os_error() == Some(ETXTBSY) && tentativa < TENTATIVAS_ETXTBSY => {
@@ -302,8 +310,15 @@ pub fn run_provider(
     let Some(status) = esperar(&mut child, budget)? else {
         // Morto pelo orçamento. Um neto do provedor (um `sleep`, um worker) pode segurar o
         // pipe de stdout aberto: esperar o leitor aqui bloquearia até ELE morrer — o teste
-        // de timeout mediu 5 s onde o orçamento era 60 ms. A thread leitora fica órfã e
-        // termina quando o pipe fechar; o hook não a espera.
+        // de timeout mediu 5 s onde o orçamento era 60 ms.
+        //
+        // Cross-audit 20/09/2026: `drop` de um `JoinHandle` DESANEXA, não cancela. Com
+        // o neto vivo, a thread seguia bloqueada em `read_to_string` e o processo ficava
+        // reparentado ao init — dentro de um daemon que vive DIAS, um por timeout, sem
+        // teto, sem contador, sem log. O filho agora nasce em process group próprio
+        // (`lancar_provedor`), então matar o GRUPO leva o neto junto e o pipe fecha
+        // sozinho: a thread termina em vez de vazar.
+        matar_grupo(&child);
         drop(leitor);
         return Err(ProviderOutcome::Timeout {
             budget_ms: budget.as_millis() as u64,
@@ -311,6 +326,31 @@ pub fn run_provider(
     };
     let raw = leitor.join().unwrap_or_default();
     interpretar(status, raw)
+}
+
+/// Mata o process group do provedor — o filho E seus netos.
+///
+/// `child.kill()` envia o sinal só ao filho direto. Como `lancar_provedor` o põe
+/// em grupo próprio (`process_group(0)`), o PID do filho É o PGID, e `killpg`
+/// alcança a árvore inteira. Sem isso o neto sobrevive segurando o pipe, a
+/// thread leitora nunca retorna e o processo é reparentado ao init.
+///
+/// Fail-open: um grupo que já morreu devolve ESRCH e não há o que fazer a
+/// respeito — o caminho de timeout não pode falhar por causa da limpeza.
+fn matar_grupo(child: &Child) {
+    #[cfg(unix)]
+    {
+        let pid = child.id();
+        if let Ok(pid) = i32::try_from(pid) {
+            // SAFETY: `killpg` sobre um PGID que este processo criou; o pior
+            // caso é ESRCH (grupo já terminou), que é ignorado de propósito.
+            unsafe {
+                libc::killpg(pid, libc::SIGKILL);
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = child;
 }
 
 /// O veredito do filho que terminou: exit ≠ 0, JSON inesperado, ou os sinais.
@@ -470,33 +510,210 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("analise/relatoria/50500.000000-2026-00/analysis"))
             .expect("mkdir");
+        // A credencial que a varredura exige. Escrita DEPOIS do mkdir e antes
+        // de qualquer uso: uma raiz sem ela nunca é apagada por ninguém, o que
+        // significa que este arquivo é a única coisa que autoriza a remoção.
+        // A credencial: `boot_id|pid|starttime`, não um texto fixo. Sem ela a
+        // raiz nunca é apagada por ninguém — este arquivo é a ÚNICA coisa que
+        // autoriza a remoção, e o que ele contém é o que prova de quem é.
+        let identidade = identidade_do_processo(std::process::id())
+            .unwrap_or_else(|| "sem-identidade".to_string());
+        fs::write(dir.join(MARCADOR_AUTORIA), format!("{identidade}\n"))
+            .expect("marcador de autoria");
         dir
     }
 
-    /// Apaga as raízes `touring_doc_symbol_*_<pid>` cujo PID não existe mais.
+    /// O arquivo que PROVA que a raiz é nossa. Sem ele, nada é apagado.
+    const MARCADOR_AUTORIA: &str = ".touring-doc-symbol-fixture";
+
+    /// `boot_id|pid|starttime` — a identidade que distingue um processo de
+    /// outro que reciclou o mesmo PID.
     ///
-    /// O dono vivo é preservado: duas suítes podem rodar em paralelo (o juiz roda
-    /// `cargo test --workspace` enquanto alguém testa o crate), e apagar a raiz de
-    /// um processo vivo trocaria um vazamento por um flaky. `/proc/<pid>` é a
-    /// prova de vida; sem ele o dono morreu e a raiz é lixo.
+    /// PID sozinho é reciclável: o kernel reusa números, e uma raiz cujo dono
+    /// morreu pode ter o PID de um processo VIVO e alheio — ou o contrário.
+    /// `(pid, starttime)` identifica unicamente um processo dentro de um boot,
+    /// e o `boot_id` fecha o caso entre boots (ele também resolve o PID
+    /// namespace: um marcador escrito com o boot_id do host não casa por
+    /// acidente lá dentro).
+    fn identidade_do_processo(pid: u32) -> Option<String> {
+        let boot = fs::read_to_string("/proc/sys/kernel/random/boot_id").ok()?;
+        Some(format!("{}|{pid}|{}", boot.trim(), starttime_de(pid)?))
+    }
+
+    /// Campo 22 de `/proc/<pid>/stat`.
+    ///
+    /// Lido a partir do ÚLTIMO `)`: o campo 2 é o nome do executável entre
+    /// parênteses e pode conter espaços e parênteses, então dividir a linha
+    /// por espaços desde o início erra em qualquer processo com nome exótico.
+    fn starttime_de(pid: u32) -> Option<String> {
+        let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        // Depois do `)` o primeiro campo é o 3 (state), logo o 22 é o índice 19.
+        stat.rsplit_once(')')?
+            .1
+            .split_whitespace()
+            .nth(19)
+            .map(str::to_string)
+    }
+
+    /// Apaga as raízes desta suíte cujo dono morreu — e só essas.
+    ///
+    /// Cross-audit 20/09/2026: a primeira versão usava o NOME como única
+    /// credencial (`touring_doc_symbol_*_<dígitos>`), e um crítico provou em
+    /// laboratório que ela apagava `touring_doc_symbol_export_2026` — cujo
+    /// sufixo é uma DATA, não um PID — e um diretório de terceiro com sufixo
+    /// numérico. Qualquer nome terminado em dígitos por coincidência (data,
+    /// versão, contador, shard) era lido como PID.
+    ///
+    /// Duas defesas, e a segunda importa mais que a primeira:
+    ///
+    /// 1. **Marcador de autoria dentro do diretório.** Um nome é uma
+    ///    coincidência possível; um arquivo que só esta suíte escreve não é.
+    /// 2. **Não-saber nunca autoriza apagar.** `/proc` ausente ou ilegível
+    ///    (container distroless, chroot, PID namespace distinto com `/tmp`
+    ///    compartilhado) fazia TODA raiz parecer órfã — inclusive as de suítes
+    ///    VIVAS, que é exatamente o flaky que o comentário anterior dizia
+    ///    evitar. O desenho tratava "não consigo provar vida" como "está
+    ///    morto", falhando na direção destrutiva. Agora, sem `/proc` legível,
+    ///    a varredura não apaga nada e o vazamento fica — um diretório a mais
+    ///    é barato; o diretório errado, não.
+    ///
+    /// Nota medida: `remove_dir_all` NÃO segue symlink (verificado no mesmo
+    /// laboratório: o link morreu, o alvo sobreviveu), então não há cascata
+    /// para fora da árvore. A varredura honra `TMPDIR`, como `raiz_temp`.
     fn varrer_raizes_orfas() {
+        // Sem /proc não há prova de vida possível — e sem prova de vida não se
+        // apaga. Esta é a guarda que inverte o sentido da falha.
+        if !Path::new("/proc/self").exists() {
+            return;
+        }
         let Ok(entradas) = fs::read_dir(std::env::temp_dir()) else {
-            return; // sem /tmp legível não há o que varrer — nunca falha o teste
+            return; // sem tmp legível não há o que varrer — nunca falha o teste
         };
         for entrada in entradas.flatten() {
+            // `file_type()` do DirEntry NÃO segue symlink (`metadata()` seguiria):
+            // um link apontando para fora nunca chega ao `remove_dir_all`, e um
+            // arquivo regular não entra só para falhar com ENOTDIR engolido.
+            if !entrada.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
             let nome = entrada.file_name();
             let Some(nome) = nome.to_str() else { continue };
-            let Some(pid) = nome.strip_prefix("touring_doc_symbol_") else {
+            if !nome.starts_with("touring_doc_symbol_") {
+                continue;
+            }
+            let caminho = entrada.path();
+            let marcador = caminho.join(MARCADOR_AUTORIA);
+            // `symlink_metadata` NÃO segue o link: o marcador tem de ser um
+            // arquivo regular de verdade. `is_file()` seguiria, e como estas
+            // raízes vivem num diretório world-writable, um link plantado ali
+            // bastaria para forjar a credencial — o vetor que a leitura do
+            // marcador reintroduziria se fosse ingênua.
+            let regular = fs::symlink_metadata(&marcador)
+                .map(|m| m.file_type().is_file())
+                .unwrap_or(false);
+            if !regular {
+                continue;
+            }
+            let Ok(conteudo) = fs::read_to_string(&marcador) else {
                 continue;
             };
-            // `<nome>_<pid>`: o PID é o que vem depois do ÚLTIMO '_'.
-            let Some((_, pid)) = pid.rsplit_once('_') else {
+            let Some(identidade) = conteudo.lines().next().map(str::trim) else {
                 continue;
             };
-            if pid.parse::<u32>().is_ok() && !Path::new(&format!("/proc/{pid}")).exists() {
-                let _ = fs::remove_dir_all(entrada.path());
+            if processo_ainda_vivo(identidade) {
+                continue; // dono vivo: apagar trocaria o vazamento por um flaky
+            }
+            // Falha de remoção não é silêncio: uma varredura que apaga pela
+            // metade tem de ser distinguível de uma que não rodou.
+            if let Err(e) = fs::remove_dir_all(&caminho)
+                && e.kind() != std::io::ErrorKind::NotFound
+            {
+                eprintln!(
+                    "varrer_raizes_orfas: {} não removida: {e}",
+                    caminho.display()
+                );
             }
         }
+    }
+
+    /// `true` quando NÃO se pode provar que o dono morreu.
+    ///
+    /// Toda dúvida responde "vivo", porque a dúvida não pode autorizar um
+    /// apagamento: marcador ilegível, formato inesperado, `/proc` que não
+    /// responde — tudo preserva. Só duas provas matam: outro boot (e aí um
+    /// /tmp em tmpfs já não existiria), ou mesmo boot com o par
+    /// `(pid, starttime)` que não está mais lá.
+    fn processo_ainda_vivo(identidade: &str) -> bool {
+        let mut partes = identidade.split('|');
+        let (Some(boot_marcado), Some(pid_txt), Some(start_marcado)) =
+            (partes.next(), partes.next(), partes.next())
+        else {
+            return true; // formato que não entendo nunca autoriza apagar
+        };
+        let Ok(boot_atual) = fs::read_to_string("/proc/sys/kernel/random/boot_id") else {
+            return true;
+        };
+        if boot_atual.trim() != boot_marcado {
+            return false; // outro boot: o dono não existe mais, com certeza
+        }
+        let Ok(pid) = pid_txt.parse::<u32>() else {
+            return true;
+        };
+        match starttime_de(pid) {
+            // Mesmo PID, mas nasceu em outro instante: é outro processo, e o
+            // dono original morreu. Sem isto, um PID reciclado preservaria
+            // lixo para sempre — ou pior, um PID reciclado por um processo
+            // vivo e alheio seria lido como "o meu dono".
+            Some(atual) => atual == start_marcado,
+            None => false, // não há processo com esse pid: morreu
+        }
+    }
+
+    #[test]
+    fn a_varredura_so_apaga_o_que_prova_ser_dela() {
+        // Fixture de TERCEIRO, montado à mão — não pela função que cria a raiz
+        // de produção. Um teste que usasse `raiz_temp` aqui traria o marcador
+        // de brinde e passaria sem exercitar a credencial.
+        let base = std::env::temp_dir();
+        let alheio = base.join("touring_doc_symbol_export_2026");
+        let _ = fs::remove_dir_all(&alheio);
+        fs::create_dir_all(&alheio).expect("fixture alheio");
+        fs::write(alheio.join("nao_e_meu.txt"), "conteudo de terceiro").expect("conteudo");
+
+        // O sufixo `2026` parseia como PID e nenhum processo o tem: sob o
+        // predicado antigo — só o nome — este diretório era APAGADO, provado
+        // em laboratório no cross-audit de 20/09/2026.
+        varrer_raizes_orfas();
+        assert!(
+            alheio.join("nao_e_meu.txt").exists(),
+            "diretório de terceiro com sufixo numérico foi apagado: o nome não é credencial"
+        );
+
+        // E uma raiz NOSSA, cujo dono está vivo (este processo), sobrevive.
+        let minha = raiz_temp("varredura_dono_vivo");
+        varrer_raizes_orfas();
+        assert!(
+            minha.join(MARCADOR_AUTORIA).exists(),
+            "a raiz do processo VIVO não pode ser varrida"
+        );
+
+        // Já uma raiz nossa cujo dono morreu (identidade de outro boot) sai.
+        let morta = base.join("touring_doc_symbol_dono_morto_424242");
+        let _ = fs::remove_dir_all(&morta);
+        fs::create_dir_all(&morta).expect("raiz morta");
+        fs::write(
+            morta.join(MARCADOR_AUTORIA),
+            "00000000-0000-0000-0000-000000000000|424242|1\n",
+        )
+        .expect("marcador de boot antigo");
+        varrer_raizes_orfas();
+        assert!(
+            !morta.exists(),
+            "raiz com marcador de OUTRO boot é lixo provado e deve sair"
+        );
+
+        let _ = fs::remove_dir_all(&alheio);
+        let _ = fs::remove_dir_all(&minha);
     }
 
     /// Um provedor de mentira: um shell script no lugar do `.venv/bin/python3`.

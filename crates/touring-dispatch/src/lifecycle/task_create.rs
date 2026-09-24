@@ -87,9 +87,12 @@ pub(crate) fn handle_task_sync_post_create(rt: &mut HookRuntime, input: &Value) 
     // Subtask IDs used downstream by persist_task_creation regardless of path —
     // in adoption path they reference existing Touring subtasks, in standard path
     // they're created immediately below.
-    let s1 = format!("{mirror_id}::scout");
-    let s2 = format!("{mirror_id}::implement");
-    let s3 = format!("{mirror_id}::validate");
+    // Derivados da MESMA lista que o scaffolder escreve: soletrar os três aqui
+    // fazia a constante não alcançar este sítio, e um estágio novo apareceria
+    // no DAG sem aparecer no contrato que `persist_task_creation` consome
+    // (cross-audit 20/09/2026 — eram 4 os sítios com a lista, não 1).
+    let [s1, s2, s3] = touring_foundation::task_lifecycle::MIRROR_SCAFFOLD_STAGES
+        .map(|stage| touring_foundation::task_lifecycle::scaffold_subtask_id(&mirror_id, &stage));
 
     if let Some(ext_id) = external_ref {
         let mark_result = crate::cli_handlers::cli_decompose_mark_mirrored(

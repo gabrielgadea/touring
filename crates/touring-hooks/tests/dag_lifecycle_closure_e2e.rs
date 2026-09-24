@@ -378,7 +378,19 @@ fn completing_a_mirrored_task_closes_every_scaffold_stage() {
         "the fixture must actually scaffold stages, or this test proves nothing"
     );
 
-    let closed = close_scaffold_stages(&mut rt, mirror, true);
+    // O id CRU, como o hook `task-completed` o entrega — NÃO `mirror`.
+    // Até 20/09/2026 esta linha passava "cc_task_42", normalizando à mão o que
+    // a produção não normalizava: o teste corrigia a entrada em vez de exercitar
+    // o caminho, e por isso ficou verde sobre um fechador que, vivo, procurava
+    // `42::scout` onde havia `cc_task_42::scout`. Teste de componente não é
+    // teste do caminho.
+    let closed = close_scaffold_stages(&mut rt, "42", true);
+    assert_eq!(
+        i64::try_from(closed).expect("contagem cabe em i64"),
+        scaffolded,
+        "o retorno deve contar as linhas REALMENTE escritas ({scaffolded} \
+         estágios existiam); contar a ausência de `error` devolvia 3 sobre zero"
+    );
 
     // The load-bearing assertion, asked of the STORE: not one row the
     // scaffolder wrote may stay open. Counting against
@@ -398,19 +410,59 @@ fn completing_a_mirrored_task_closes_every_scaffold_stage() {
 }
 
 #[test]
+fn fechar_uma_task_sem_scaffold_nao_conta_estagio_nenhum() {
+    let (_tmp, mut rt) = setup_runtime();
+
+    // Nenhum scaffold: a maioria das tasks do banco vivo é assim (criadas por
+    // `decompose create`, sem os três estágios do espelho).
+    let closed = close_scaffold_stages(&mut rt, "task_que_nunca_existiu", true);
+
+    // O handler NÃO devolve `error` para um subtask inexistente — devolve
+    // `"subtask_updated": false`. Contar a ausência de `error` como escrita
+    // fazia esta chamada responder 3 tendo escrito 0, e o doc-comment vende o
+    // retorno como "how many stages were written". O campo `subtask_missing`
+    // foi criado em 25/08/2026 exatamente depois de um fechamento de fase
+    // declarar sucesso sobre um subtask que não existia; o fechador repetia o
+    // erro que aquele campo existe para impedir.
+    assert_eq!(
+        closed, 0,
+        "nenhuma linha existe para fechar — o contador não pode inventar escrita"
+    );
+}
+
+#[test]
 fn a_failed_task_marks_every_stage_failed() {
     let (_tmp, mut rt) = setup_runtime();
     bridge_task_created(&mut rt, "43", "a CC task that failed", "sess", None, None)
         .expect("mirror must be created");
     let mirror = "cc_task_43";
 
-    close_scaffold_stages(&mut rt, mirror, false);
+    // Id CRU, como o hook entrega — este é o único teste do caminho `success=false`.
+    close_scaffold_stages(&mut rt, "43", false);
 
-    for stage in touring_foundation::task_lifecycle::MIRROR_SCAFFOLD_STAGES {
+    // Os três nomes vêm LITERAIS de propósito. Percorrer
+    // `MIRROR_SCAFFOLD_STAGES` aqui era uma tautologia: o teste iterava a mesma
+    // lista que `close_scaffold_stages` itera, então apagar um estágio da
+    // constante deixava o teste VERDE (provado por mutação no cross-audit de
+    // 20/09/2026 — os outros testes da família só caíram porque carregam
+    // `::scout` escrito à mão). Um teste que percorre a própria constante do
+    // código não distingue "fechou todos" de "a lista encolheu".
+    for stage in ["scout", "implement", "validate"] {
         assert_eq!(
-            status_of(&rt, &format!("{mirror}::{}", stage.name)),
+            status_of(&rt, &format!("{mirror}::{stage}")),
             "failed",
             "a failed task mirrors its outcome onto every stage"
         );
     }
+
+    // E a lista do código não pode encolher sem que alguém decida isso: se um
+    // estágio sair da constante, é AQUI que se descobre, não num relatório de
+    // DAG meses depois.
+    assert_eq!(
+        touring_foundation::task_lifecycle::MIRROR_SCAFFOLD_STAGES
+            .map(|s| s.name)
+            .as_slice(),
+        ["scout", "implement", "validate"].as_slice(),
+        "o espelho tem três estágios; mudá-los é uma decisão, não um efeito colateral"
+    );
 }

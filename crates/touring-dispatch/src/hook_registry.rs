@@ -1039,24 +1039,29 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         // TaskCreated event → cli_decompose_add ×3 → scout/implement/validate DAG wired immediately.
         let task_id = v.get("task_id").and_then(|s| s.as_str()).unwrap_or("unknown");
         let subject = v.get("task_subject").and_then(|s| s.as_str()).unwrap_or("");
-        let s1 = format!("{task_id}::scout");
-        let s2 = format!("{task_id}::implement");
-        let s3 = format!("{task_id}::validate");
-        let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
-            "task_id": task_id, "subtask_id": &s1,
-            "description": "scout: research context, blast radius, and wiring before changes",
-            "depends_on": [],
-        }));
-        let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
-            "task_id": task_id, "subtask_id": &s2,
-            "description": "implement: apply changes with VGP verification and speculative validation",
-            "depends_on": [&s1],
-        }));
-        let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
-            "task_id": task_id, "subtask_id": &s3,
-            "description": "validate: cargo test + wiring orphans + memory store lesson",
-            "depends_on": [&s2],
-        }));
+        // Cross-audit 20/09/2026: este scaffolder soletrava os três estágios com
+        // as descrições duplicadas verbatim e montava o id CRU, enquanto o
+        // scaffolder do bridge grava sob `cc_mirror_task_id`. Duas grafias para
+        // o mesmo espelho é o que fazia um fechador nunca encontrar o que o
+        // outro escreveu. Agora ambos derivam de `MIRROR_SCAFFOLD_STAGES` e do
+        // mesmo id normalizado — as descrições da constante são, byte a byte,
+        // as que estavam aqui.
+        let mirror_id = crate::hook_decompose_bridge::cc_mirror_task_id(task_id);
+        for stage in touring_foundation::task_lifecycle::MIRROR_SCAFFOLD_STAGES {
+            let subtask_id =
+                touring_foundation::task_lifecycle::scaffold_subtask_id(&mirror_id, &stage);
+            let depends_on: Vec<String> = stage
+                .depends_on
+                .map(|dep| {
+                    vec![format!("{mirror_id}::{dep}")]
+                })
+                .unwrap_or_default();
+            let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
+                "task_id": mirror_id, "subtask_id": subtask_id,
+                "description": stage.description,
+                "depends_on": depends_on,
+            }));
+        }
         // R36-S1: Auto-start Touring session for each CC task — every task gets its own session.
         // TaskCreated event → cli_session_start → SQLite session row + cognitive init.
         // Session ID = task_id so later checkpoint/assess calls link back automatically.
