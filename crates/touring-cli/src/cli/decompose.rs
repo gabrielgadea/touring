@@ -101,11 +101,28 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
         .and_then(|v| v.as_i64())
         .unwrap_or(3)
         .clamp(0, 6);
-    let priority_token = payload
-        .get("priority")
-        .and_then(|v| v.as_str())
-        .unwrap_or("normal")
-        .to_string();
+    // The SAME ONE parser as add/update (24/09/2026, touring-36): the create
+    // used to ECHO the token unvalidated — the response asserted a priority
+    // nobody had checked. Garbage is now a loud refusal naming the accepted
+    // forms; buckets echo back unchanged (backward compat), numbers echo the
+    // parsed form (label + int, like `add`).
+    let (priority_token, priority_int) = match payload.get("priority") {
+        None => ("normal".to_string(), 128),
+        Some(v) => match crate::cli_handlers_decompose::parse_priority(v) {
+            Ok(p) => (
+                crate::cli_handlers_decompose::priority_label(p).to_string(),
+                p,
+            ),
+            Err(msg) => {
+                return serde_json::json!({
+                    "status": "refused",
+                    "persisted": false,
+                    "error": msg,
+                })
+                .to_string();
+            }
+        },
+    };
     // F0-pre (2026-07-20): honor an explicit `task_id` from the payload. Always
     // generating a fresh nanos id here was the double-create engine: the two
     // task-sync callers (PostToolUse + TaskCreated event) each minted their own
@@ -174,7 +191,7 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
         { "task_id" : task_id, "task_type" : task_type, "description" : description,
         "status" : "created", "created_at" : now, "origin" : origin, "mirrored_to_cc" :
         mirrored_to_cc == 1, "cila_level" : cila_level, "priority" : priority_token,
-        "persisted" : result.is_ok(), "bandit_split_factor" : bandit_split_factor,
+        "priority_int" : priority_int, "persisted" : result.is_ok(), "bandit_split_factor" : bandit_split_factor,
         "bandit_subtasks" : bandit_subtasks,
         "tasksfile_subtasks_added" : tasksfile_subtasks_added, }
     )

@@ -36,7 +36,7 @@ enum DecomposeCmd {
         /// claude-code surface in the digest for CC to adopt).
         #[arg(long, default_value = "touring-cli")]
         origin: String,
-        /// Priority bucket (high|normal|low).
+        /// Priority: bucket (high|normal|low) or an integer (e.g. 100).
         #[arg(long, default_value = "normal")]
         priority: String,
         /// CILA complexity level 0-4. When omitted the daemon defaults to 3

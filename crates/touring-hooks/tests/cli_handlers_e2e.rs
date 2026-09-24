@@ -2956,6 +2956,50 @@ fn priority_accepts_number_and_bucket_and_refuses_garbage_loudly() {
     );
 }
 
+/// The create side of the ONE parser (touring-36, 2026-09-24): `create` used
+/// to ECHO the priority token UNVALIDATED — the response asserted a priority
+/// nobody had checked. Same parser, same loud refusal as `add`; buckets keep
+/// their old surface, numbers echo the parsed form.
+#[test]
+fn create_validates_priority_with_the_same_parser() {
+    let (_tmp, mut rt) = setup_runtime();
+
+    // A number parses and echoes as label + int.
+    let n = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "com numero",
+                            "priority": "100"}),
+    ));
+    assert_eq!(n["persisted"], serde_json::json!(true), "{n}");
+    assert_eq!(n["priority_int"], serde_json::json!(100), "{n}");
+    assert_eq!(n["priority"], serde_json::json!("high"), "{n}");
+
+    // A bucket keeps the old surface (backward compat).
+    let b = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "com bucket",
+                            "priority": "low"}),
+    ));
+    assert_eq!(b["priority"], serde_json::json!("low"), "{b}");
+    assert_eq!(b["priority_int"], serde_json::json!(200), "{b}");
+
+    // Garbage is a loud refusal — and creates nothing.
+    let bad = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "lixo",
+                            "priority": "xyz"}),
+    ));
+    assert_eq!(bad["persisted"], serde_json::json!(false), "{bad}");
+    assert!(
+        bad["error"].as_str().unwrap_or("").contains("bucket"),
+        "create's refusal names the accepted forms: {bad}"
+    );
+    assert!(
+        bad.get("task_id").is_none() || bad["task_id"].is_null(),
+        "nothing created for garbage: {bad}"
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════
