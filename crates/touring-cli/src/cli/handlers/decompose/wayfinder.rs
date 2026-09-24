@@ -494,6 +494,19 @@ pub fn cli_decompose_renew(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         _ => {}
     }
 
+    // TOCTOU test seam (e2e only, 24/09/2026): the read above and the
+    // conditional write below are TWO steps, and between them another session
+    // can take the subtask — in that race the UPDATE's WHERE is the ONLY
+    // defense. This field swaps the claim between the steps so the race is
+    // exercised. Inert in production: only a test sends it.
+    if let Some(thief) = payload.get("_test_swap_claimed_by").and_then(|v| v.as_str()) {
+        let _ = db.conn_ref().execute(
+            "UPDATE decomposition_subtasks SET claimed_by = ?1 \
+             WHERE task_id = ?2 AND (subtask_id = ?3 OR subtask_id = ?2 || '::' || ?3)",
+            params![thief, task_id, subtask_id],
+        );
+    }
+
     let changed = db.conn_ref().execute(
         "UPDATE decomposition_subtasks \
             SET claim_expires_at = ?1, updated_at = ?2 \

@@ -2814,6 +2814,42 @@ fn renew_names_terminal_status_and_unknown_ids() {
     );
 }
 
+/// TOCTOU (touring-36, 24/09/2026): the pre-read and the conditional UPDATE
+/// are TWO steps — between them another session can take the subtask, and in
+/// that race the UPDATE's WHERE is the ONLY defense. The seam swaps the
+/// claim between the steps: the UPDATE must change 0 rows, the renew must
+/// refuse NAMING the race, and the thief's claim stays untouched.
+#[test]
+fn renew_race_between_check_and_write_refuses_naming_the_race() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 3600}),
+    );
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "lease_secs": 7200,
+                            "_test_swap_claimed_by": "ladrao"}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"]
+            .as_str()
+            .unwrap_or("")
+            .contains("between the check and the write"),
+        "the refusal names the race: {r}"
+    );
+    // The WHERE did its job — the claim that beat us is NOT touched.
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub = &got["subtasks"].as_array().expect("array")[0];
+    assert_eq!(sub["claimed_by"], serde_json::json!("ladrao"), "{sub}");
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════
