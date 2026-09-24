@@ -2346,6 +2346,138 @@ fn ready_excludes_live_claims_and_get_names_the_owner() {
     assert_eq!(sub2["claim_live"].as_bool(), Some(false), "{sub2}");
 }
 
+/// analise-d4 → touring-36 (2026-09-24): wanting a SPECIFIC subtask (A1, held
+/// by a dead session's still-live lease), it ran plain `claim` twice and was
+/// handed A5 and A6 with no explanation. `claim --subtask <id>` names the
+/// work — and every refusal names its reason.
+#[test]
+fn claim_subtask_takes_the_named_one_not_the_next() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    // S-00 sorts first in the pool; naming S-01 must claim S-01.
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-01"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    assert!(
+        c["subtask_id"].as_str().unwrap_or("").ends_with("S-01"),
+        "the NAMED subtask, not the pool's first: {c}"
+    );
+}
+
+#[test]
+fn claim_subtask_refuses_a_live_lease_naming_the_owner() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    let first = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "sessao-morta", "lease_secs": 3600}),
+    ));
+    assert_eq!(first["claimed"], serde_json::json!(true), "{first}");
+    let held = first["subtask_id"].as_str().unwrap().to_string();
+    let held_short = held.rsplit("::").next().unwrap_or(&held).to_string();
+
+    let refused = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": held_short}),
+    ));
+    assert_eq!(refused["claimed"], serde_json::json!(false), "{refused}");
+    let reason = refused["reason"].as_str().unwrap_or("");
+    assert!(
+        reason.contains("sessao-morta"),
+        "the refusal names the live owner: {refused}"
+    );
+    assert!(reason.contains("lease"), "and the lease: {refused}");
+
+    // The free sibling is still claimable by name.
+    let other = if held_short == "S-00" { "S-01" } else { "S-00" };
+    let ok = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": other}),
+    ));
+    assert_eq!(ok["claimed"], serde_json::json!(true), "{ok}");
+}
+
+#[test]
+fn claim_subtask_with_an_expired_lease_succeeds() {
+    // The analise-d4 case once the dead session's lease lapses.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let first = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "sessao-morta", "lease_secs": 60}),
+    ));
+    assert_eq!(first["claimed"], serde_json::json!(true), "{first}");
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![chrono::Utc::now().timestamp() - 1, task_id],
+        )
+        .expect("expire the lease");
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-00"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    assert_eq!(c["owner"], serde_json::json!("eu"), "{c}");
+}
+
+#[test]
+fn claim_subtask_names_terminal_status_and_unknown_ids() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+    let done = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-00"}),
+    ));
+    assert_eq!(done["claimed"], serde_json::json!(false), "{done}");
+    assert!(
+        done["reason"].as_str().unwrap_or("").contains("completed"),
+        "the refusal names the terminal status: {done}"
+    );
+
+    let missing = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-99"}),
+    ));
+    assert_eq!(missing["claimed"], serde_json::json!(false), "{missing}");
+    assert!(
+        missing["reason"].as_str().unwrap_or("").contains("not found"),
+        "an unknown id says so: {missing}"
+    );
+}
+
+#[test]
+fn claim_subtask_blocked_names_the_pending_deps() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id,
+            "subtask_id": "S-01",
+            "description": "blocked",
+            "depends_on": ["S-00"]
+        }),
+    );
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-01"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(false), "{c}");
+    assert!(
+        c["reason"].as_str().unwrap_or("").contains("S-00"),
+        "the refusal names the pending dep: {c}"
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════

@@ -41,7 +41,10 @@ fn ready_eligible(
 /// planning and convergence checks. Claiming answers a different question —
 /// "give me work, exclusively" — so every existing caller keeps its meaning.
 ///
-/// Payload: `{task_id, owner, lease_secs?}` → `{claimed: bool, subtask_id?, ...}`.
+/// Payload: `{task_id, owner, lease_secs?, subtask_id?}` → `{claimed: bool, subtask_id?, ...}`.
+/// With `subtask_id` the claim names ONE subtask instead of taking the next
+/// ready one — and every refusal names its reason (24/09/2026, analise-d4:
+/// wanting A1, it ran plain claim twice and got A5/A6 with no explanation).
 pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let task_id = payload
         .get("task_id")
@@ -65,18 +68,7 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     let db = &rt.ctx.knowledge;
     ensure_decompose_tables(db);
 
-    /// One row of the claim scan. A named struct rather than a 6-tuple: the sort
-    /// below reads `priority` instead of `.3`.
-    struct Candidate {
-        id: String,
-        status: String,
-        deps: Vec<String>,
-        priority: i32,
-        claim_expires_at: Option<i64>,
-        claimed_by: Option<String>,
-    }
-
-    let rows: Vec<Candidate> = {
+    let rows: Vec<ClaimCandidate> = {
         let Ok(mut stmt) = db.conn_ref().prepare(
             "SELECT subtask_id, status, depends_on, priority, claim_expires_at, claimed_by \
              FROM decomposition_subtasks WHERE task_id = ?1",
@@ -85,7 +77,7 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         };
         stmt.query_map(params![task_id], |r| {
             let deps_str = r.get::<_, String>(2)?;
-            Ok(Candidate {
+            Ok(ClaimCandidate {
                 id: r.get::<_, String>(0)?,
                 status: r.get::<_, String>(1)?,
                 deps: serde_json::from_str(&deps_str).unwrap_or_else(|_| {
@@ -117,28 +109,8 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
 
     let now = chrono::Utc::now();
     let now_epoch = now.timestamp();
-
-    // A candidate is unblocked AND unowned: either never started, or held by a
-    // lease that has run out (the session that took it died without releasing).
-    // A subtask moved to in_progress by hand carries no claim and is left alone —
-    // a human said someone is on it, and no lease of ours expires that.
-    let mut candidates: Vec<&Candidate> = rows
-        .iter()
-        .filter(|c| {
-            let unblocked = c
-                .deps
-                .iter()
-                .all(|d| completed.contains(&short_subtask_id(d)));
-            if !unblocked || completed.contains(&short_subtask_id(&c.id)) {
-                return false;
-            }
-            ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch)
-        })
-        .collect();
-    candidates.sort_by(|a, b| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
-
-    for Candidate { id: subtask_id, .. } in &candidates {
-        let changed = db.conn_ref().execute(
+    let try_claim = |subtask_id: &str| {
+        db.conn_ref().execute(
             "UPDATE decomposition_subtasks \
                 SET status = 'in_progress', claimed_by = ?1, claim_expires_at = ?2, \
                     updated_at = ?3 \
@@ -154,18 +126,61 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 task_id,
                 now_epoch
             ],
+        )
+    };
+    let claimed_ok = |subtask_id: &str| {
+        serde_json::json!({
+            "claimed": true,
+            "task_id": task_id,
+            "subtask_id": subtask_id,
+            "owner": owner,
+            "lease_secs": lease_secs,
+            "claim_expires_at": now_epoch + lease_secs,
+        })
+        .to_string()
+    };
+
+    // `--subtask <id>`: claim ONE named subtask instead of the next ready one.
+    if let Some(want) = payload
+        .get("subtask_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        return claim_named_subtask(
+            want,
+            task_id,
+            owner,
+            &rows,
+            &completed,
+            now_epoch,
+            &try_claim,
+            &claimed_ok,
         );
+    }
+
+    // A candidate is unblocked AND unowned: either never started, or held by a
+    // lease that has run out (the session that took it died without releasing).
+    // A subtask moved to in_progress by hand carries no claim and is left alone —
+    // a human said someone is on it, and no lease of ours expires that.
+    let mut candidates: Vec<&ClaimCandidate> = rows
+        .iter()
+        .filter(|c| {
+            let unblocked = c
+                .deps
+                .iter()
+                .all(|d| completed.contains(&short_subtask_id(d)));
+            if !unblocked || completed.contains(&short_subtask_id(&c.id)) {
+                return false;
+            }
+            ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch)
+        })
+        .collect();
+    candidates.sort_by(|a, b| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
+
+    for ClaimCandidate { id: subtask_id, .. } in &candidates {
         // Exactly one racer sees 1 here; the others see 0 and try the next candidate.
-        if matches!(changed, Ok(1)) {
-            return serde_json::json!({
-                "claimed": true,
-                "task_id": task_id,
-                "subtask_id": subtask_id,
-                "owner": owner,
-                "lease_secs": lease_secs,
-                "claim_expires_at": now_epoch + lease_secs,
-            })
-            .to_string();
+        if matches!(try_claim(subtask_id), Ok(1)) {
+            return claimed_ok(subtask_id);
         }
     }
 
@@ -180,6 +195,100 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         },
     })
     .to_string()
+}
+
+/// One row of the claim scan. A named struct rather than a 6-tuple: the sort
+/// reads `priority` instead of `.3`. Module-level since 24/09/2026, when the
+/// named-subtask path needed the same shape.
+struct ClaimCandidate {
+    id: String,
+    status: String,
+    deps: Vec<String>,
+    priority: i32,
+    claim_expires_at: Option<i64>,
+    claimed_by: Option<String>,
+}
+
+/// The `--subtask <id>` path: claim ONE named subtask, and let every refusal
+/// name its reason — the owner and lease when the lease is live, the pending
+/// deps when blocked, the status when terminal. An unnamed refusal is what
+/// sent analise-d4 home with A5/A6 when it wanted A1 (24/09/2026).
+/// The write is the same conditional UPDATE as the pool path, so exactly one
+/// racer wins even here.
+#[allow(clippy::too_many_arguments)]
+fn claim_named_subtask(
+    want: &str,
+    task_id: &str,
+    owner: &str,
+    rows: &[ClaimCandidate],
+    completed: &std::collections::HashSet<String>,
+    now_epoch: i64,
+    try_claim: &dyn Fn(&str) -> rusqlite::Result<usize>,
+    claimed_ok: &dyn Fn(&str) -> String,
+) -> String {
+    let refuse = |reason: String| {
+        serde_json::json!({
+            "claimed": false,
+            "task_id": task_id,
+            "owner": owner,
+            "reason": reason,
+        })
+        .to_string()
+    };
+    let Some(c) = rows
+        .iter()
+        .find(|c| c.id == want || short_subtask_id(&c.id) == want)
+    else {
+        return refuse(format!(
+            "subtask '{want}' not found in task '{task_id}' — \
+             `touring decompose get {task_id}` lists the ids"
+        ));
+    };
+    if completed.contains(&short_subtask_id(&c.id)) {
+        return refuse(format!(
+            "subtask '{}' is already '{}' — nothing to claim",
+            c.id, c.status
+        ));
+    }
+    let pending_deps: Vec<String> = c
+        .deps
+        .iter()
+        .map(|d| short_subtask_id(d))
+        .filter(|d| !completed.contains(d))
+        .collect();
+    if !pending_deps.is_empty() {
+        return refuse(format!(
+            "subtask '{}' is blocked by unfinished deps: {}",
+            c.id,
+            pending_deps.join(", ")
+        ));
+    }
+    if !ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch) {
+        let reason = match (c.status.as_str(), c.claimed_by.as_deref(), c.claim_expires_at) {
+            ("in_progress", Some(by), Some(exp)) if exp >= now_epoch => {
+                let when = chrono::DateTime::from_timestamp(exp, 0)
+                    .map(|t| t.format("%Y-%m-%d %H:%M UTC").to_string())
+                    .unwrap_or_else(|| exp.to_string());
+                format!(
+                    "subtask '{}' is claimed by '{by}' — live lease until {when}; \
+                     `touring decompose release {task_id} {} --owner {by}` or wait it out",
+                    c.id, c.id
+                )
+            }
+            ("in_progress", _, _) => format!(
+                "subtask '{}' is in_progress with NO claim — moved by hand, \
+                 and no lease of ours expires that",
+                c.id
+            ),
+            (s, _, _) => format!("subtask '{}' has status '{s}'", c.id),
+        };
+        return refuse(reason);
+    }
+    if matches!(try_claim(&c.id), Ok(1)) {
+        claimed_ok(&c.id)
+    } else {
+        refuse("another owner claimed it between the check and the write".to_string())
+    }
 }
 
 /// Release a claim back to the pool — only its own owner may.

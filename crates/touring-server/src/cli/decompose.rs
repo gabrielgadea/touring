@@ -133,7 +133,9 @@ enum DecomposeCmd {
     /// Atomically take the next ready subtask for one owner. Unlike `ready`,
     /// which only reads (so two sessions polling it receive the SAME subtask),
     /// this claims exclusively via a conditional write, with an expiring lease
-    /// so a session that dies mid-work frees its subtask.
+    /// so a session that dies mid-work frees its subtask. `--subtask` names ONE
+    /// subtask instead of the next ready one; every refusal names its reason
+    /// (the owner and lease when live, the pending deps when blocked).
     Claim {
         task_id: String,
         /// Who is taking the work — required, so a claim can be released or expired.
@@ -142,6 +144,10 @@ enum DecomposeCmd {
         /// Lease length in seconds (default 3600).
         #[arg(long)]
         lease_secs: Option<i64>,
+        /// Claim THIS subtask rather than the next ready one (24/09/2026,
+        /// analise-d4: wanting A1, plain claim handed out A5/A6 silently).
+        #[arg(long)]
+        subtask: Option<String>,
     },
     /// Hand a claimed subtask back to the pool. Only its own owner may.
     Release {
@@ -384,10 +390,14 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             task_id,
             owner,
             lease_secs,
+            subtask,
         } => {
             let mut payload = serde_json::json!({ "task_id": task_id, "owner": owner });
             if let Some(secs) = lease_secs {
                 payload["lease_secs"] = serde_json::json!(secs);
+            }
+            if let Some(want) = subtask {
+                payload["subtask_id"] = serde_json::json!(want);
             }
             let output = daemon_query("cli-decompose-claim", payload)?;
             println!("{output}");
