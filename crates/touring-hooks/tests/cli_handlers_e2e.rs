@@ -2638,6 +2638,49 @@ fn ready_first_excluding_hitl_is_what_claim_delivers() {
     );
 }
 
+/// 30.4.67 (touring-36, REGRA #21): `--by-priority` was accepted and re-sorted
+/// by priority ONLY over the delegate's insertion order — two order sources
+/// diverging on ties (all at 128: A6 listed before A3a). The delegate now
+/// emits `queue_order(priority, id)` — the claim's exact order — so the flag
+/// is true by construction and the wrapper only RECORDS it. Flagged ≡ plain,
+/// pinned here with tied priorities and out-of-order ids; the markers also
+/// prove this test exercises the flag-reading wrapper, never the bare delegate.
+#[test]
+fn ready_by_priority_flag_matches_the_default_order() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+    for id in ["S-06", "S-03", "S-09"] {
+        cli_decompose_add(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "subtask_id": id,
+                                "description": id, "depends_on": []}),
+        );
+    }
+    let order = |r: &serde_json::Value| {
+        r["ready_subtasks"]
+            .as_array()
+            .expect("array")
+            .iter()
+            .map(|s| s["subtask_id"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>()
+    };
+    let plain = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let flagged = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "by_priority": true}),
+    ));
+    assert_eq!(
+        order(&plain),
+        order(&flagged),
+        "the flag changes nothing — flagged ≡ plain: {plain} vs {flagged}"
+    );
+    assert_eq!(flagged["sorted_by_priority"], serde_json::json!(true), "{flagged}");
+    assert_eq!(plain["sorted_by_priority"], serde_json::json!(false), "{plain}");
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════

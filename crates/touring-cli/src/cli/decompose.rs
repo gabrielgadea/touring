@@ -760,38 +760,18 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         { "task_id" : task_id, "only_ready" : only_ready }
     );
     let result = crate::cli_handlers_decompose::cli_decompose_ready(rt, &delegate_payload);
-    if by_priority && let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&result) {
-        if let Some(arr) = val.get_mut("ready_subtasks").and_then(|v| v.as_array_mut()) {
-            arr.sort_by(|a, b| {
-                let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                pa.cmp(&pb)
-            });
-        }
-        if let Some(arr) = val
-            .get_mut("parallel_groups")
-            .and_then(|v| v.as_array_mut())
-        {
-            for group in arr {
-                if let Some(members) = group.get_mut("members").and_then(|v| v.as_array_mut()) {
-                    members.sort_by(|a, b| {
-                        let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                        let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                        pa.cmp(&pb)
-                    });
-                }
-            }
-        }
-        val.as_object_mut()
-            .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(true)));
-        return val.to_string();
-    }
+    // `--by-priority` é VERDADEIRA POR CONSTRUÇÃO desde a 30.4.67: o delegate
+    // (wayfinder) já devolve `queue_order(priority, id)` — a ordem exata que o
+    // claim entregaria. Antes a flag reordenava só por prioridade sobre a ordem
+    // de INSERTION do delegate: duas fontes de ordem, divergentes nos empates
+    // (tudo a 128: A6 antes de A3a). Resta o marcador — que registra a FLAG,
+    // não a ordem (a ordem é sempre a da fila agora).
     let mut val = match serde_json::from_str::<serde_json::Value>(&result) {
         Ok(v) => v,
         Err(_) => return result,
     };
     val.as_object_mut()
-        .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(false)));
+        .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(by_priority)));
     val.to_string()
 }
 /// Handle decompose-event subcommand from touring-hook binary.

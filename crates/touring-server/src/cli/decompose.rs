@@ -122,11 +122,15 @@ enum DecomposeCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// List subtasks ready to execute (all deps satisfied).
+    /// List subtasks ready to execute (all deps satisfied), in the claim's own
+    /// queue order — priority, then id (one source for both since 30.4.67).
     Ready {
         /// Optional task id filter.
         task_id: Option<String>,
-        /// Sort output by priority (high → low).
+        /// Kept for compatibility: since 30.4.67 the DEFAULT order already is
+        /// (priority, id) — the flag changes nothing and stays accepted so old
+        /// callers keep working. `sorted_by_priority` in the output records
+        /// the flag, not the order.
         #[arg(long)]
         by_priority: bool,
     },
