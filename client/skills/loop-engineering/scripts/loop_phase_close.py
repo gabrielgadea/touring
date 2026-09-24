@@ -461,18 +461,42 @@ def merge_extra(*extras):
 def validate_facts(raw):
     """Parse --facts, recusando a forma errada com a forma CERTA na mensagem.
 
-    O contrato é uma LISTA de objetos `{chave, valor, run_id}`. Passar um dict
-    (o erro natural — "fatos" soa como mapa) fazia o relatório estourar com
-    `AttributeError: 'str' object has no attribute 'get'` lá dentro de
-    `write_phase_report`, DEPOIS de a memória e o reward já terem sido gravados
-    — um fechamento meio feito, com o erro apontando para a linha errada.
-    Falhar cedo e dizer o formato custa uma linha; adivinhar custou um turno
-    (25/08/2026).
+    O contrato é uma LISTA de objetos `{chave, valor, run_id}` — inline ou
+    caminho de arquivo JSON (a mesma forma de --gates/--abstract; quem viu
+    aqueles passa um caminho aqui, o erro natural da analise-d4, 24/09/2026).
+    Duas lições pagas: (1) passar um dict ("fatos" soa como mapa) fazia o
+    relatório estourar com `AttributeError` lá dentro de `write_phase_report`,
+    DEPOIS de memória e reward gravados (25/08/2026); (2) um JSON inválido
+    morria no `json.loads` cru DEPOIS do `update_dag` — DAG `done` sem
+    memória, reward, relatório nem log, e um JSONDecodeError sem o formato
+    que este docstring prometia (24/09/2026). Por isso a chamada mora ANTES
+    de qualquer efeito no main: falhar cedo e dizer o formato custa uma
+    linha; adivinhar custou um turno, duas vezes.
     """
+    exemplo = '[{"chave":"testes","valor":"546 pass","run_id":"run-123"}]'
     if not raw:
         return None
-    dados = json.loads(raw)
-    exemplo = '[{"chave":"testes","valor":"546 pass","run_id":"run-123"}]'
+    texto = raw.strip()
+    if not texto.startswith(("[", "{")):
+        # Não é JSON inline: só resta o caminho de um arquivo (forma --gates).
+        p = Path(texto)
+        if not p.is_file():
+            raise SystemExit(
+                f"--facts recebeu {raw[:80]!r}, que não é JSON nem um arquivo "
+                f"existente.\nFormato inline: {exemplo}\n"
+                f"Ou passe o caminho de um arquivo JSON com essa lista."
+            )
+        try:
+            texto = p.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise SystemExit(f"--facts: não consegui ler {p}: {exc}")
+    try:
+        dados = json.loads(texto)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"--facts não é JSON válido ({exc.msg}, linha {exc.lineno}).\n"
+            f"Formato: {exemplo}"
+        )
     if not isinstance(dados, list):
         raise SystemExit(
             f"--facts precisa ser uma LISTA de objetos, recebi {type(dados).__name__}.\n"
@@ -613,8 +637,10 @@ def main(argv=None):
                          "phase verdict (repeatable). Closes the recall->outcome loop.")
     ap.add_argument("--facts", default=None,
                     help="W5 S-5.5 claim-ledger: JSON list de fatos endereçados "
-                         '[{"chave","valor","run_id"},…] — entram no relatório OKF; '
-                         "sem --facts o relatório ganha a seção 'Afirmações sem endereço'")
+                         '[{"chave","valor","run_id"},…] — inline ou caminho de um '
+                         "arquivo JSON (forma do --gates/--abstract); validado ANTES "
+                         "de qualquer efeito (24/09/2026); sem --facts o relatório "
+                         "ganha a seção 'Afirmações sem endereço'")
     ap.add_argument("--gates", default=None, help="JSON file: loop_converged report to embed")
     ap.add_argument("--abstract", default=None, help="JSON file: {entities:[],relations:[]} to enrich")
     ap.add_argument("--extractor", default=None,
@@ -634,6 +660,12 @@ def main(argv=None):
                          "#process:<mundo> na lição + transição no journal cognitivo")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
+
+    # Fail-CLOSED antes de qualquer efeito (analise-d4, 24/09/2026): um
+    # --facts inválido morria DEPOIS do update_dag — DAG `done` sem memória,
+    # reward, relatório nem log: efeito parcial calado. Validar primeiro é o
+    # que torna o fechamento atômico-do-jeito-certo: ou tudo, ou nada.
+    facts = validate_facts(args.facts)
 
     tags = list(args.tag or [])
     if args.mundo:
@@ -670,7 +702,6 @@ def main(argv=None):
                             run_extractor(args.extractor, args.summary))
         abstract = build_abstract(args.phase, args.summary, extra,
                                   task=args.task, status=args.status)
-        facts = validate_facts(args.facts)
         result["phase_report"] = write_phase_report(bundle, plan_id, args.phase, args.status,
                                                     args.summary, gates, ts, facts=facts)
         # O ARTEFATO entra no grafo, não só o resumo: ponteiro facetado
