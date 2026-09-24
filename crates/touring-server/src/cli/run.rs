@@ -1319,7 +1319,7 @@ fn settle_snippet_ladder(
     use touring_intelligence::rl::memory::snippet_stats;
 
     let sig = snippet_stats::code_sig(user_code);
-    let root = std::env::current_dir().ok()?;
+    let root = raiz_do_acervo()?;
     let db_path = touring_foundation::TouringConfig::memory_db_canonical(&root);
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -1412,9 +1412,24 @@ fn is_auto_harvest_key(key: &str) -> bool {
     key.starts_with("snippet:auto:")
 }
 
-/// C1 — the memory is persisted on exactly the 2nd counted execution: one run
-/// is a one-off, two is a pattern; later runs only move the ladder.
-pub(crate) const AUTO_HARVEST_PERSIST_AT: u64 = 2;
+/// O corpo é persistido na PRIMEIRA execução contada.
+///
+/// Era 2 — "uma execução é um acaso, duas são um padrão" —, e a regra fazia
+/// sentido enquanto o corpo servia só à escada de trust. Com `similar_blocks_hint`
+/// ela virou um círculo fechado: o corpo só ia para `memory_entries` na segunda
+/// execução, `similar_snippets` faz `JOIN memory_entries`, e portanto o único
+/// mecanismo cuja função é PROVOCAR a segunda execução não enxergava nada que
+/// tivesse rodado uma vez só. Medido no cross-audit de 20/09/2026: **363 dos 382
+/// corpos da escada (95%) sem corpo persistido**, e o vão crescendo durante a
+/// própria auditoria (361 → 363 em sete minutos).
+///
+/// Guardar o corpo e PROMOVER na escada são coisas diferentes, e só a segunda
+/// precisa de prova de repetição: `trust_level` continua exigindo as execuções
+/// que sempre exigiu (provisional ≥10, trusted ≥100). O que muda é que a
+/// descoberta passa a ter o que descobrir. O custo é uma linha de texto por
+/// bloco candidato — o predicado `auto_harvest_candidate` já recusa sondas de
+/// duas linhas.
+pub(crate) const AUTO_HARVEST_PERSIST_AT: u64 = 1;
 
 pub(crate) fn should_auto_persist(executions: u64) -> bool {
     executions == AUTO_HARVEST_PERSIST_AT
@@ -1438,6 +1453,28 @@ pub(crate) fn auto_harvest_candidate(code: &str, lang: &str, exit_code: i32) -> 
 /// re-run, which `settle_snippet_ladder` handles) and only when the program is
 /// substantial enough to be worth matching. Fail-open throughout: a lookup
 /// failure must never change the outcome of the program the user ran.
+/// A raiz do projeto cujo acervo de snippets responde por este `touring run`.
+///
+/// Cross-audit 20/09/2026: quatro sítios alimentavam `memory_db_canonical` com
+/// o `current_dir()` CRU, sem subir até um marcador de projeto. Um `touring run`
+/// disparado de dentro de `crates/` não lia o acervo — e, pior,
+/// `settle_snippet_ladder` faz `create_dir_all` + `Connection::open`, de modo
+/// que a ESCRITA criava um banco novo ali. Medido durante a auditoria:
+/// `crates/.claude/touring/memory.db` com 5 entradas existia ao lado do real
+/// com 16.700, sem um aviso sequer — acervo fragmentado por diretório de
+/// invocação.
+///
+/// `normalize_project_root` é o resolvedor que JÁ EXISTIA para isto: sobe até
+/// `.touring/`, `.git/` ou um `Cargo.toml` de workspace, nunca cruza `$HOME` e
+/// nunca elege `~/.claude`. O defeito não era falta de resolvedor — era não
+/// perguntar a ele, a mesma forma de `daemon-cwd-cega-o-resolvedor`.
+fn raiz_do_acervo() -> Option<std::path::PathBuf> {
+    let cwd = std::env::current_dir().ok()?;
+    Some(touring_foundation::TouringConfig::normalize_project_root(
+        &cwd,
+    ))
+}
+
 fn similar_blocks_hint(user_code: &str, lang: &str, exit_code: i32) -> Option<String> {
     use touring_intelligence::rl::memory::snippet_stats;
 
@@ -1446,7 +1483,7 @@ fn similar_blocks_hint(user_code: &str, lang: &str, exit_code: i32) -> Option<St
     if !auto_harvest_candidate(user_code, lang, exit_code) {
         return None;
     }
-    let root = std::env::current_dir().ok()?;
+    let root = raiz_do_acervo()?;
     let db_path = touring_foundation::TouringConfig::memory_db_canonical(&root);
     if !db_path.exists() {
         return None;
@@ -1501,7 +1538,7 @@ fn persist_scratch_block(
     if !auto_harvest_candidate(user_code, lang, exit_code) {
         return None;
     }
-    let root = std::env::current_dir().ok()?;
+    let root = raiz_do_acervo()?;
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -1602,10 +1639,29 @@ mod auto_harvest_tests {
         assert!(!is_auto_harvest_key("snippet:my-slug"));
     }
 
+    /// O corpo é persistido na PRIMEIRA execução, e só nela.
+    ///
+    /// Este teste afirmava a política anterior (`2`), e foi ele que apontou a
+    /// mudança — como devia. A política velha fazia sentido enquanto o corpo
+    /// servia só à escada; com `similar_blocks_hint` ela fechava um círculo:
+    /// o corpo só era gravado na 2ª execução, e o mecanismo encarregado de
+    /// PROVOCAR essa 2ª execução lê `memory_entries` — 363 de 382 corpos (95%)
+    /// invisíveis, medido no cross-audit de 20/09/2026.
+    ///
+    /// Guardar o corpo e PROMOVER na escada seguem separados: a promoção
+    /// continua exigindo as execuções que sempre exigiu, e é o teste do
+    /// agregado (`o_agregado_conta_reexecucao_e_nao_enrolamento`) que guarda
+    /// essa outra ponta.
     #[test]
-    fn memory_persists_on_the_second_execution_only() {
-        assert!(!should_auto_persist(1));
-        assert!(should_auto_persist(2));
+    fn memory_persists_on_the_first_execution_only() {
+        assert!(
+            should_auto_persist(1),
+            "sem o corpo da 1ª execução, a descoberta não tem o que descobrir"
+        );
+        assert!(
+            !should_auto_persist(2),
+            "a 2ª execução só move a escada — o corpo já está gravado"
+        );
         assert!(!should_auto_persist(3));
     }
 
@@ -1733,7 +1789,7 @@ fn snippet_preamble(orchestrate: bool, lang: &str) -> (String, serde_json::Value
     if !orchestrate || (canon != "python" && canon != "py") {
         return (String::new(), serde_json::Value::Null);
     }
-    let Ok(root) = std::env::current_dir() else {
+    let Some(root) = raiz_do_acervo() else {
         return (String::new(), serde_json::Value::Null);
     };
     let db_path = touring_foundation::TouringConfig::memory_db_canonical(&root);

@@ -201,21 +201,38 @@ fn rebuild_still_running(err: &anyhow::Error) -> bool {
         .is_some_and(|busy| !busy.retryable)
 }
 
-/// Does this `index status` payload say a rebuild is still walking?
+/// O que o payload de `index status` diz sobre a geração.
 ///
-/// Pure so the decision is testable without a daemon: an unreadable payload or
-/// a missing field reads as NOT building, because the alternative is a client
-/// that waits forever on a status it cannot parse.
-fn generation_is_building(status_json: &str) -> bool {
-    serde_json::from_str::<serde_json::Value>(status_json)
-        .ok()
-        .and_then(|v| {
-            v.get("index_generation")
-                .and_then(|g| g.get("state"))
-                .and_then(|s| s.as_str())
-                .map(|s| s == "building")
-        })
-        .unwrap_or(false)
+/// Três estados, não dois. Cross-audit 20/09/2026: o predicado booleano lia
+/// payload ilegível e campo ausente como "não está construindo", e `--wait`
+/// então retornava **exit 0 imediatamente, sem ter esperado nada** — "selou" e
+/// "não sei" ficavam indistinguíveis na saída E no código de saída. Um comando
+/// cujo nome é `--wait` não pode responder sucesso por não ter entendido a
+/// resposta.
+#[derive(Debug, PartialEq, Eq)]
+enum EstadoGeracao {
+    /// O walk ainda está em curso.
+    Construindo,
+    /// A geração foi selada (`complete`, `aborted`, `partial`, `scoped`…).
+    Selada(String),
+    /// Payload ilegível, sem `index_generation.state`, ou projeto sem banco.
+    Desconhecida,
+}
+
+/// Pura, para ser testável sem daemon.
+fn generation_state(status_json: &str) -> EstadoGeracao {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(status_json) else {
+        return EstadoGeracao::Desconhecida;
+    };
+    match v
+        .get("index_generation")
+        .and_then(|g| g.get("state"))
+        .and_then(|s| s.as_str())
+    {
+        Some("building") => EstadoGeracao::Construindo,
+        Some(outro) => EstadoGeracao::Selada(outro.to_string()),
+        None => EstadoGeracao::Desconhecida,
+    }
 }
 
 /// Poll `index status` until the rebuild's generation stops being `building`.
@@ -231,8 +248,16 @@ fn wait_for_generation_seal(poll_secs: u64, timeout_secs: u64) -> anyhow::Result
     let interval = std::time::Duration::from_secs(poll_secs.max(1));
     loop {
         let status = daemon_query("cli-index-status", serde_json::json!({}))?;
-        if !generation_is_building(&status) {
-            return Ok(status);
+        match generation_state(&status) {
+            EstadoGeracao::Selada(_) => return Ok(status),
+            // Nunca devolver sucesso sobre uma resposta que não se entendeu: o
+            // chamador pediu para ESPERAR o selo, e "não sei" não é o selo.
+            EstadoGeracao::Desconhecida => anyhow::bail!(
+                "index status não trouxe `index_generation.state` — não dá para afirmar \
+                 que a geração selou. Payload: {}",
+                status.chars().take(400).collect::<String>()
+            ),
+            EstadoGeracao::Construindo => {}
         }
         if timeout_secs > 0 && started.elapsed().as_secs() >= timeout_secs {
             anyhow::bail!(
@@ -240,7 +265,16 @@ fn wait_for_generation_seal(poll_secs: u64, timeout_secs: u64) -> anyhow::Result
                  raise --wait-timeout-secs (0 waits indefinitely) or poll `touring index status`"
             );
         }
-        std::thread::sleep(interval);
+        // Dormir o MENOR entre o intervalo e o que resta do orçamento. Antes o
+        // relógio só era consultado DEPOIS do sleep, então `--poll-secs 600
+        // --wait-timeout-secs 60` esperava 600 s: a flag mentia sobre o próprio
+        // contrato (erro na direção segura, mas ainda uma mentira).
+        let mut espera = interval;
+        if timeout_secs > 0 {
+            let restante = timeout_secs.saturating_sub(started.elapsed().as_secs());
+            espera = espera.min(std::time::Duration::from_secs(restante.max(1)));
+        }
+        std::thread::sleep(espera);
     }
 }
 
@@ -409,26 +443,40 @@ mod tests {
 
     #[test]
     fn a_building_generation_is_what_keeps_the_wait_going() {
-        assert!(generation_is_building(
-            r#"{"initialized":true,"index_generation":{"state":"building"}}"#
-        ));
+        assert_eq!(
+            generation_state(r#"{"initialized":true,"index_generation":{"state":"building"}}"#),
+            EstadoGeracao::Construindo
+        );
         for sealed in ["complete", "aborted", "partial", "scoped", "none"] {
-            assert!(
-                !generation_is_building(&format!(
-                    r#"{{"index_generation":{{"state":"{sealed}"}}}}"#
-                )),
+            assert_eq!(
+                generation_state(&format!(r#"{{"index_generation":{{"state":"{sealed}"}}}}"#)),
+                EstadoGeracao::Selada(sealed.to_string()),
                 "`{sealed}` is not a rebuild in flight"
             );
         }
     }
 
-    /// A payload we cannot read must not trap the client in an endless poll.
+    /// Um payload que não se entende NÃO é um selo.
+    ///
+    /// Este teste afirmava o contrário — que status ilegível "encerra a espera" —
+    /// e com isso defendia o defeito: `--wait` saía 0 imediatamente, sem ter
+    /// esperado, e "selou" ficava indistinguível de "não sei" no exit code.
+    /// Quem pediu para esperar o selo precisa ouvir que o selo não foi visto.
     #[test]
-    fn an_unreadable_status_ends_the_wait_instead_of_looping_forever() {
-        assert!(!generation_is_building("not json at all"));
-        assert!(!generation_is_building("{}"));
-        assert!(!generation_is_building(r#"{"index_generation":{}}"#));
-        assert!(!generation_is_building(""));
+    fn um_status_ilegivel_e_desconhecido_nunca_um_selo() {
+        for opaco in [
+            "not json at all",
+            "{}",
+            r#"{"index_generation":{}}"#,
+            "",
+            r#"{"error":"no such project"}"#,
+        ] {
+            assert_eq!(
+                generation_state(opaco),
+                EstadoGeracao::Desconhecida,
+                "{opaco:?} não diz nada sobre a geração — não pode passar por selo"
+            );
+        }
     }
 
     #[test]

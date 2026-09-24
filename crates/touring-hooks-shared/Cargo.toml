@@ -33,6 +33,9 @@ regex = { workspace = true }
 touring-code = { path = "../touring-code" }
 serde_yaml = { workspace = true }
 toml = { workspace = true }
+# Matar o GRUPO do provedor no timeout: `kill(2)` no filho direto deixa o neto
+# segurando o pipe, e a thread leitora vaza dentro do daemon (cross-audit 20/09/2026).
+libc = { workspace = true }
 # mpatch: libmpatch fuzzy diff engine backing `preview_patch` — opt-in via the
 # `mpatch-fuzzy` feature (the real impl; otherwise `preview_patch` is a stub).
 mpatch = { workspace = true, optional = true }

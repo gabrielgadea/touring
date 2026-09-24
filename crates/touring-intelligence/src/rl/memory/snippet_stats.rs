@@ -369,6 +369,15 @@ fn jaccard(
 /// `json` and open a database.
 pub const SIMILARITY_FLOOR: f64 = 0.35;
 
+/// Quantos candidatos o SQL traz por vaga pedida, e o teto absoluto.
+///
+/// O Jaccard roda em Rust sobre o que o SQL entregou, então o corte do SQL
+/// precisa de folga: cortar em `limit` esconderia o bloco parecido atrás dos
+/// mais executados. O teto existe porque este caminho roda a cada `touring
+/// run` e o acervo cresce sem limite superior.
+const CANDIDATOS_POR_VAGA: usize = 40;
+const CANDIDATOS_MAX: usize = 400;
+
 /// Blocks already in the library that resemble `code`, best first.
 ///
 /// This is the missing half of the trust ladder. Persisting worked — 371 bodies
@@ -388,13 +397,26 @@ pub fn similar_snippets(conn: &Connection, code: &str, limit: usize) -> Result<V
     }
     let own_sig = code_sig(code);
 
+    // Teto no SQL, não só no Rust. Enquanto o corpo só era persistido na 2ª
+    // execução, este JOIN via 19 linhas e o custo era irrelevante — PORQUE a
+    // feature estava quebrada. Aberto o acervo (persistência na 1ª execução),
+    // o conjunto salta para a escada inteira e cresce sem teto, num caminho
+    // que roda a CADA `touring run`. Os mais executados primeiro: são os que
+    // têm mais chance de valer uma sugestão, e o corte vira decisão explícita
+    // em vez de "trouxe tudo para a RAM e truncou depois".
     let mut stmt = conn.prepare(
         "SELECT s.entry_key, s.executions, s.trust_level, s.sig_hash, m.value \
          FROM snippet_stats s JOIN memory_entries m ON m.key = s.entry_key \
-         WHERE m.value IS NOT NULL AND m.value != ''",
+         WHERE m.value IS NOT NULL AND m.value != '' \
+         ORDER BY s.executions DESC \
+         LIMIT ?1",
     )?;
+    // O teto do SQL é generoso frente ao `limit` do chamador: o Jaccard é que
+    // decide quais sobrevivem, então cortar cedo demais esconderia um bloco
+    // parecido atrás de dezenas de muito executados e irrelevantes.
+    let teto = (limit * CANDIDATOS_POR_VAGA).min(CANDIDATOS_MAX) as i64;
     let mut achados: Vec<SnippetMatch> = stmt
-        .query_map([], |r| {
+        .query_map([teto], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 r.get::<_, i64>(1)?.max(0) as u64,
@@ -562,6 +584,39 @@ mod tests {
     }
 
     /// Seed a body into BOTH the library and the ladder, as a harvest does.
+    /// `reused` conta RE-execuções, e a prova pergunta ao BANCO.
+    ///
+    /// Cross-audit 20/09/2026: `ladder_totals` não tinha teste nenhum, e o
+    /// `- 1` desta query é o ÚNICO lugar onde "enrolar não é reusar" existe
+    /// como código. Trocar `SUM(MAX(executions - 1, 0))` por
+    /// `SUM(MAX(executions, 0))` — um caractere — passava com 1911 testes
+    /// verdes e o script de auditoria respondendo `ok`. No banco vivo o
+    /// numerador de `code_mode_reuse` saltaria de 10 para 390 e cruzaria o
+    /// piso 0,20 sem um reuso a mais: exatamente o cenário que o commit
+    /// 07cc5278 diz ter evitado.
+    ///
+    /// O teste que existia construía `LadderTotals` À MÃO e nunca consultava
+    /// a query — provava a aritmética do consumidor, não a do produtor.
+    #[test]
+    fn o_agregado_conta_reexecucao_e_nao_enrolamento() {
+        let conn = Connection::open_in_memory().expect("memória");
+        ensure_schema(&conn).expect("schema");
+
+        // Um corpo que rodou UMA vez: enrolado, nunca reusado.
+        enrol(&conn, "snippet:um", "print('um')\nprint('dois')\n", 1);
+        // Um que rodou TRÊS: duas delas são re-execuções.
+        enrol(&conn, "snippet:tres", "print('a')\nprint('b')\nprint('c')\n", 3);
+
+        let t = ladder_totals(&conn).expect("agregado");
+        assert_eq!(t.entries, 2, "dois corpos na escada");
+        assert_eq!(t.executions, 4, "1 + 3 execuções");
+        assert_eq!(
+            t.reused, 2,
+            "só as RE-execuções contam: (1-1) + (3-1) = 2. Se isto virar 4, \
+             enrolar voltou a contar como reusar e o piso passa sem um reuso a mais"
+        );
+    }
+
     fn enrol(conn: &Connection, key: &str, body: &str, runs: u32) {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS memory_entries (key TEXT PRIMARY KEY, value TEXT);",

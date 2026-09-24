@@ -193,30 +193,68 @@ pub fn bridge_task_created(
 ///
 /// Returns how many stages were written, so a caller can report the archive it
 /// actually performed instead of assuming one.
+///
+/// O id é normalizado AQUI, não no chamador: o scaffolder grava sob
+/// `cc_mirror_task_id`, e um fechador que recebesse o id cru procuraria
+/// `42::scout` onde existe `cc_task_42::scout` — silenciosamente, porque
+/// nenhuma linha casada não é erro. Normalizar dentro torna todo chamador
+/// correto por construção, que é o que "fonte única" tem de significar
+/// (`cc_mirror_task_id` é idempotente: `task_…` e `cc_task_…` passam intactos).
 pub fn close_scaffold_stages(runtime: &mut HookRuntime, task_id: &str, success: bool) -> usize {
     let terminal_status = if success { "completed" } else { "failed" };
+    close_scaffold_stages_as(runtime, task_id, terminal_status)
+}
+
+/// O fechador, com o estado terminal explícito.
+///
+/// Existe porque o cancelamento fecha os mesmos três estágios num estado que
+/// não é sucesso nem falha (`cancelled`), e escrevia a própria lista literal
+/// com o id cru — dois defeitos que esta função remove de uma vez. Todo
+/// fechador do espelho passa por aqui; a lista mora em um lugar só.
+pub fn close_scaffold_stages_as(
+    runtime: &mut HookRuntime,
+    task_id: &str,
+    terminal_status: &str,
+) -> usize {
+    let mirror_id = cc_mirror_task_id(task_id);
     let mut closed = 0_usize;
     for stage in MIRROR_SCAFFOLD_STAGES {
-        let subtask_id = scaffold_subtask_id(task_id, &stage);
+        let subtask_id = scaffold_subtask_id(&mirror_id, &stage);
         let result = cli_decompose_update(
             runtime,
             &json!({
-                "task_id": task_id,
+                "task_id": mirror_id,
                 "subtask_id": subtask_id,
                 "status": terminal_status,
             }),
         );
-        if result.contains("\"error\"") {
+        // O handler NÃO emite `error` para um subtask que não existe — emite
+        // `"subtask_updated": false`. Contar a ausência de `error` como escrita
+        // devolvia 3 sobre zero linhas, e o campo certo existe desde 25/08/2026,
+        // criado após um fechamento de fase declarar sucesso sobre um subtask
+        // inexistente. Ler a afirmação POSITIVA é o que fecha essa classe.
+        if stage_was_written(&result) {
+            closed += 1;
+        } else {
             tracing::debug!(
-                task_id = %task_id,
+                task_id = %mirror_id,
                 stage = stage.name,
                 "close_scaffold_stages: stage not updated"
             );
-        } else {
-            closed += 1;
         }
     }
     closed
+}
+
+/// `true` só quando o handler AFIRMA ter escrito a linha (`subtask_updated`).
+///
+/// Uma resposta não parseável conta como não escrita: silêncio nunca vira
+/// sucesso num contador que o chamador publica.
+fn stage_was_written(result: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(result)
+        .ok()
+        .and_then(|v| v.get("subtask_updated").and_then(serde_json::Value::as_bool))
+        .unwrap_or(false)
 }
 
 /// Bridge: `post_tool_rl` success path → mark decompose subtask complete.

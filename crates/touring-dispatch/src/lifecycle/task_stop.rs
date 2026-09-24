@@ -49,23 +49,16 @@ pub(crate) fn handle_task_sync_post_stop(rt: &mut HookRuntime, input: &Value) ->
     // for cli_decompose_finalize to archive the DAG and clear the backlog.
     // Without R159: subtasks remain pending/in_progress after cancellation — DAG stays open,
     // RL 1.0 never fires, and the backlog accumulates stale entries that block future finalize calls.
-    // Uses priority=5 (same as R156/R158) to trigger the subtask update path in cli_decompose_update.
-    {
-        let scout_id = format!("{task_id}::scout");
-        let impl_id = format!("{task_id}::implement");
-        let validate_id = format!("{task_id}::validate");
-        for subtask_id in [scout_id, impl_id, validate_id] {
-            let _ = crate::cli_handlers::cli_decompose_update(
-                rt,
-                &serde_json::json!({
-                    "task_id": task_id,
-                    "subtask_id": subtask_id,
-                    "status": "cancelled",
-                    "priority": 5,
-                }),
-            );
-        }
-    }
+    // Cross-audit 20/09/2026: este bloco soletrava os três estágios e montava o
+    // subtask com o id CRU, enquanto o scaffolder grava sob `cc_mirror_task_id`
+    // — nenhuma linha casava, e nenhuma linha casada não é erro. Agora é o mesmo
+    // fechador do caminho de conclusão, que normaliza o id e conta pelo campo
+    // que o handler afirma (`subtask_updated`). O `priority: 5` saiu: o caminho
+    // de subtask é `has_subtask_id || priority.is_some() || …`, um OU — o
+    // subtask_id sozinho sempre bastou, e o comentário que exigia priority
+    // descrevia uma condição que o código não tem.
+    let _cancelled =
+        crate::hook_decompose_bridge::close_scaffold_stages_as(rt, task_id, "cancelled");
 
     let merged = serde_json::json!({
         "task_id": task_id,
