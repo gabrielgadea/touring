@@ -1676,6 +1676,15 @@ mod tests {
         )
         .expect_err("an ephemeral root must be refused");
         assert!(err.to_string().contains("ephemeral project root"), "{err}");
+        // The CC-session scratchpad is the same class (5 already-committed
+        // strays in docs/kpi history): /tmp/claude-1000/<slug>/scratchpad.
+        let err2 = persist_snapshot(
+            &serde_json::json!({}),
+            "2026-09-23",
+            &std::env::temp_dir().join("claude-1000/sess-x/scratchpad/proj"),
+        )
+        .expect_err("the CC scratchpad is ephemeral too");
+        assert!(err2.to_string().contains("ephemeral project root"), "{err2}");
         // A real root resolves the canonical tree (no env mutation in the test).
         let dir = snapshot_dir(Some(std::path::Path::new("/home/x")), "2026-09");
         assert_eq!(
