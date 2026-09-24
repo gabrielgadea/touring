@@ -1506,3 +1506,159 @@ fn a_refresh_rederives_inferred_edges_instead_of_dropping_them() {
         "the edges of calls the file no longer makes are dropped"
     );
 }
+
+// ─── 24/09/2026 (touring-36, doctor wiring_diagnostic kind_unknown=8) ────────
+// The three predicates that close the phantom-edge class:
+//   1. a fallback is not a resolution — a definer that no chain reaches and no
+//      producer row backs goes to wiring_unresolved with a class, never to
+//      wiring_map as `ast_resolved` (a phantom no repair can clear);
+//   2. a scope keyword (`super`/`self`/`crate`/`Self`) is never a symbol;
+//   3. a definer that is the consumer file itself is self-reference — this
+//      pass records nothing (self_refs owns that class: pub → internal_only,
+//      private → nothing).
+// Plus the cross-guard: no `ast_resolved` consumer row without its producer.
+
+fn phantom_ws(tmp: &TempDir) -> std::path::PathBuf {
+    let root = tmp.path().to_path_buf();
+    std::fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n")
+        .expect("workspace manifest");
+    root
+}
+
+fn write_file(root: &std::path::Path, rel: &str, content: &str) -> String {
+    let abs = root.join(rel);
+    std::fs::create_dir_all(abs.parent().expect("parent dir")).expect("mkdir");
+    std::fs::write(&abs, content).expect("write fixture");
+    abs.to_string_lossy().into_owned()
+}
+
+fn consumer_rows(db: &FileKnowledgeDB, symbol: &str) -> Vec<(String, String)> {
+    db.conn_ref()
+        .prepare(
+            "SELECT module_file, consumer_file FROM wiring_map \
+             WHERE symbol_name = ?1 AND consumer_file IS NOT NULL",
+        )
+        .expect("prepare")
+        .query_map(rusqlite::params![symbol], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect()
+}
+
+fn unresolved_class_of(db: &FileKnowledgeDB, symbol: &str, consumer: &str) -> Option<String> {
+    db.conn_ref()
+        .query_row(
+            "SELECT class FROM wiring_unresolved \
+             WHERE symbol_name = ?1 AND consumer_file = ?2",
+            rusqlite::params![symbol, consumer],
+            |r| r.get::<_, String>(0),
+        )
+        .ok()
+}
+
+#[test]
+fn a_scope_keyword_is_never_recorded_as_a_symbol() {
+    let (_tmp, db) = test_db();
+    let root = phantom_ws(&_tmp);
+    let consumer = write_file(
+        &root,
+        "src/cli/kpi.rs",
+        "use super::*;\nuse super::context_budget;\nfn drive() { run(); }\n",
+    );
+    record_import_consumers(&db, "src/cli/kpi.rs", &consumer, "rust",
+                            "use super::*;\nuse super::context_budget;\nfn drive() { run(); }\n");
+    assert!(
+        consumer_rows(&db, "super").is_empty(),
+        "a scope keyword must never become a consumer-edge symbol: {:?}",
+        consumer_rows(&db, "super")
+    );
+}
+
+#[test]
+fn a_fallback_without_chain_or_producer_is_unresolved_never_an_edge() {
+    let (_tmp, db) = test_db();
+    let root = phantom_ws(&_tmp);
+    write_file(&root, "src/helpers.rs", "pub fn real_fn() {}\n");
+    let consumer = write_file(
+        &root,
+        "src/consumer.rs",
+        "use crate::helpers::nonexistent_fn;\nfn drive() { nonexistent_fn(); }\n",
+    );
+    record_import_consumers(
+        &db, "src/consumer.rs", &consumer, "rust",
+        "use crate::helpers::nonexistent_fn;\nfn drive() { nonexistent_fn(); }\n",
+    );
+    assert!(
+        consumer_rows(&db, "nonexistent_fn").is_empty(),
+        "a name with no definition anywhere must NOT become an ast_resolved \
+         phantom edge: {:?}",
+        consumer_rows(&db, "nonexistent_fn")
+    );
+    assert_eq!(
+        unresolved_class_of(&db, "nonexistent_fn", "src/consumer.rs").as_deref(),
+        Some("workspace_unresolved"),
+        "the miss is recorded as an unresolved import with a class, not as an edge"
+    );
+}
+
+#[test]
+fn an_import_that_resolves_to_the_consumer_file_itself_records_nothing() {
+    let (_tmp, db) = test_db();
+    let root = phantom_ws(&_tmp);
+    let content = "pub fn pub_fn() {}\nfn private_fn() {}\n\
+                   use crate::mymod::{pub_fn, private_fn};\n\
+                   pub fn drive() { pub_fn(); private_fn(); }\n";
+    let consumer = write_file(&root, "src/mymod.rs", content);
+    let recorded =
+        record_import_consumers(&db, "src/mymod.rs", &consumer, "rust", content);
+    assert_eq!(recorded, 0, "self-reference is not this pass's class");
+    assert!(
+        consumer_rows(&db, "pub_fn").is_empty() && consumer_rows(&db, "private_fn").is_empty(),
+        "a definer that is the consumer file itself records no edge: \
+         pub={:?} private={:?}",
+        consumer_rows(&db, "pub_fn"),
+        consumer_rows(&db, "private_fn")
+    );
+}
+
+#[test]
+fn no_ast_resolved_consumer_lacks_its_producer() {
+    // The cross-guard: after the fixtures above, every `ast_resolved` consumer
+    // row has a matching producer row. This invariant is what the production
+    // db violates TODAY with its 8 phantom rows.
+    let (_tmp, db) = test_db();
+    let root = phantom_ws(&_tmp);
+    write_file(&root, "src/helpers.rs", "pub fn real_fn() {}\n");
+    // The producer row, as a full reindex would write it — without it the
+    // guard flags the legitimate edge trivially.
+    db.register_pub_symbol("src/helpers.rs", "real_fn", "function", "public")
+        .expect("register producer");
+    let consumer = write_file(
+        &root,
+        "src/consumer.rs",
+        "use crate::helpers::{real_fn, nonexistent_fn};\n\
+         fn drive() { real_fn(); nonexistent_fn(); }\n",
+    );
+    record_import_consumers(
+        &db, "src/consumer.rs", &consumer, "rust",
+        "use crate::helpers::{real_fn, nonexistent_fn};\n\
+         fn drive() { real_fn(); nonexistent_fn(); }\n",
+    );
+    let violations: Vec<(String, String)> = db.conn_ref()
+        .prepare(
+            "SELECT module_file, symbol_name FROM wiring_map \
+             WHERE consumer_file IS NOT NULL AND contract_source = 'ast_resolved' \
+               AND NOT EXISTS (SELECT 1 FROM wiring_map p \
+                               WHERE p.consumer_file IS NULL \
+                                 AND p.module_file = wiring_map.module_file \
+                                 AND p.symbol_name = wiring_map.symbol_name)",
+        )
+        .expect("prepare")
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect();
+    assert!(violations.is_empty(), "ast_resolved consumers without a producer: {violations:?}");
+}
