@@ -84,7 +84,7 @@ def _fake_tree(declared: str) -> Path:
 
 def _stub_bin(tmp: Path) -> Path:
     stub = tmp / "stubbin"
-    stub.mkdir()
+    stub.mkdir(exist_ok=True)
     (stub / "update-touring").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     (stub / "touring").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     for f in stub.iterdir():
@@ -124,6 +124,30 @@ def test_the_right_label_passes_the_guard():
         out = r.stdout + r.stderr
         assert "rótulo divergente" not in out, f"the guard must pass: {out[-400:]}"
         assert "rótulo OK" in out
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash needed")
+def test_a_stale_cargo_lock_also_dies():
+    """The lock is the same lie one directory down (the 4 previous bumps
+    carried it): a workspace member off-label must refuse the install."""
+    tmp = _fake_tree("30.4.66")
+    try:
+        (tmp / "Cargo.lock").write_text(
+            '[[package]]\nname = "touring-cli"\nversion = "30.4.65"\n\n'
+            '[[package]]\nname = "touring-server"\nversion = "30.4.65"\n',
+            encoding="utf-8")
+        r = _run(tmp, "30.4.66")
+        out = r.stdout + r.stderr
+        assert r.returncode == 1, f"a stale lock must die, got rc={r.returncode}: {out[-400:]}"
+        assert "Cargo.lock fora do rótulo" in out
+        # and the fix is carried: a lock at the target version passes
+        (tmp / "Cargo.lock").write_text(
+            '[[package]]\nname = "touring-cli"\nversion = "30.4.66"\n',
+            encoding="utf-8")
+        r2 = _run(tmp, "30.4.66")
+        assert "Cargo.lock fora do rótulo" not in (r2.stdout + r2.stderr)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

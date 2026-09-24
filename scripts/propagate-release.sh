@@ -191,6 +191,13 @@ if [ "$SKIP_BUILD" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
         die "rótulo divergente: o binário construído declara '$BUILT_VERSION', alvo '$VERSION' — faça o bump no Cargo.toml do workspace (version = \"$VERSION\") antes de propagar"
     fi
     log "rótulo OK: o binário declara $VERSION"
+    # O lock também é rótulo (os 4 bumps anteriores o levaram junto): um membro
+    # do workspace fora da versão alvo é a mesma mentira um diretório abaixo —
+    # o CI não usa --locked, mas o próximo build deixaria diff solto no tree.
+    LOCK_OLD="$(awk '/^name = "touring/ {getline; if ($0 ~ /version = "/ && $0 !~ "\"'"$VERSION"'\"") {print $0; exit}}' "$WORKSPACE/Cargo.lock" 2>/dev/null || true)"
+    if [ -n "$LOCK_OLD" ]; then
+        die "Cargo.lock fora do rótulo: $(echo "$LOCK_OLD" | head -1) ≠ $VERSION — o build do passo 2 regrava o lock; commite-o com caminho explícito"
+    fi
 elif [ "$DRY_RUN" -eq 1 ]; then
     warn "dry-run: a checagem de rótulo não roda (build simulado)"
 fi
