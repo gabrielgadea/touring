@@ -185,7 +185,10 @@ fi
 # feito), e o diagnóstico de amanhã concluiria que a release não chegou.
 # `--version` escreve em STDERR (gotcha já pago): um `2>/dev/null` apagaria a
 # string e a guarda passaria sem checar nada.
-if [ "$SKIP_BUILD" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
+if [ "$DRY_RUN" -eq 0 ]; then
+    # A guarda cobre TODO caminho real, com ou sem build (D8 em miniatura:
+    # `--skip-build` instala o binário de target/release SEM construir de novo
+    # — se a guarda dependesse do build, a flag viraria o bypass do rótulo).
     # `--version` é MULTI-LINHA (versão + sha + data + features): ler tudo e
     # cortar a 1ª linha em bash puro — um `| head -1` fecha o pipe cedo e o
     # binário morre de EPIPE/SIGABRT (a classe já documentada no passo 6), e um
