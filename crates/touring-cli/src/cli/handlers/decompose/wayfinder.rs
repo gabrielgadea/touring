@@ -387,6 +387,149 @@ pub fn cli_decompose_release(rt: &mut HookRuntime, payload: &serde_json::Value) 
     }
 }
 
+/// Renew a live lease — only its own holder may, and only while it is LIVE.
+///
+/// The lease exists so a session that DIES mid-work frees its subtask; but
+/// with no renewal verb it also fires against a LIVE, slow session: the claim
+/// lapses mid-flight and another session can take the in-progress subtask
+/// (analise-d4, 24/09/2026 — the L11 claim expiring ~18:50 UTC with the work
+/// still running, and `claim` only able to take the NEXT ready; naming the
+/// same subtask with `--subtask` REFUSES even for the holder, it does not
+/// renew). `renew` is the heartbeat the claim lifecycle was missing:
+/// acquire → hold → release.
+///
+/// The write is conditional in the same way claim's is — exactly one writer,
+/// and the condition carries the whole contract: `in_progress`, held by THIS
+/// owner, lease still LIVE. A renew never resurrects an expired lease: the
+/// expiry already freed the subtask to the pool, and resurrecting would be
+/// stealing it back.
+pub fn cli_decompose_renew(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let task_id = payload
+        .get("task_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let subtask_id = payload
+        .get("subtask_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let owner = payload.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+    if task_id.is_empty() || subtask_id.is_empty() || owner.is_empty() {
+        return serde_json::json!({
+            "renewed": false,
+            "error": "task_id, subtask_id and owner are all required"
+        })
+        .to_string();
+    }
+    let lease_secs = payload
+        .get("lease_secs")
+        .and_then(serde_json::Value::as_i64)
+        .filter(|v| *v > 0)
+        .unwrap_or(DEFAULT_CLAIM_LEASE_SECS);
+
+    let db = &rt.ctx.knowledge;
+    ensure_decompose_tables(db);
+    let now = chrono::Utc::now();
+    let now_epoch = now.timestamp();
+    let refuse = |reason: String| {
+        serde_json::json!({
+            "renewed": false,
+            "task_id": task_id,
+            "subtask_id": subtask_id,
+            "owner": owner,
+            "reason": reason,
+        })
+        .to_string()
+    };
+
+    // Read the row first: a bare "0 rows changed" teaches nothing — every
+    // refusal below names its reason.
+    let row: Option<(String, Option<String>, Option<i64>)> = db
+        .conn_ref()
+        .query_row(
+            "SELECT status, claimed_by, claim_expires_at FROM decomposition_subtasks \
+             WHERE task_id = ?1 AND (subtask_id = ?2 OR subtask_id = ?1 || '::' || ?2)",
+            params![task_id, subtask_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+    let Some((status, claimed_by, claim_expires_at)) = row else {
+        return refuse(format!(
+            "subtask '{subtask_id}' not found in task '{task_id}' — \
+             `touring decompose get {task_id}` lists the ids"
+        ));
+    };
+    match (status.as_str(), claimed_by.as_deref(), claim_expires_at) {
+        ("completed" | "done" | "complete" | "failed" | "skipped", _, _) => {
+            return refuse(format!(
+                "subtask '{subtask_id}' is already '{status}' — nothing to renew"
+            ));
+        }
+        ("pending", _, _) => {
+            return refuse(format!(
+                "subtask '{subtask_id}' is 'pending' — nothing to renew; \
+                 `touring decompose claim {task_id} --owner <you> --subtask {subtask_id}` first"
+            ));
+        }
+        ("in_progress", None, _) => {
+            return refuse(format!(
+                "subtask '{subtask_id}' is in_progress with NO claim — moved by hand, \
+                 and there is no lease to renew"
+            ));
+        }
+        ("in_progress", Some(by), _) if by != owner => {
+            return refuse(format!(
+                "subtask '{subtask_id}' is held by '{by}' — only the holder renews a lease"
+            ));
+        }
+        ("in_progress", Some(_), Some(exp)) if exp <= now_epoch => {
+            let when = chrono::DateTime::from_timestamp(exp, 0)
+                .map(|t| t.format("%Y-%m-%d %H:%M UTC").to_string())
+                .unwrap_or_else(|| exp.to_string());
+            return refuse(format!(
+                "the lease on '{subtask_id}' EXPIRED at {when} — the subtask already \
+                 returned to the pool; `touring decompose claim {task_id} --owner <you> \
+                 --subtask {subtask_id}` again if it is still free"
+            ));
+        }
+        _ => {}
+    }
+
+    let changed = db.conn_ref().execute(
+        "UPDATE decomposition_subtasks \
+            SET claim_expires_at = ?1, updated_at = ?2 \
+          WHERE task_id = ?3 \
+            AND (subtask_id = ?4 OR subtask_id = ?3 || '::' || ?4) \
+            AND status = 'in_progress' \
+            AND claimed_by = ?5 \
+            AND claim_expires_at IS NOT NULL AND claim_expires_at > ?6",
+        params![
+            now_epoch + lease_secs,
+            now.to_rfc3339(),
+            task_id,
+            subtask_id,
+            owner,
+            now_epoch
+        ],
+    );
+    match changed {
+        Ok(1) => serde_json::json!({
+            "renewed": true,
+            "task_id": task_id,
+            "subtask_id": subtask_id,
+            "owner": owner,
+            "lease_secs": lease_secs,
+            "claim_expires_at": now_epoch + lease_secs,
+        })
+        .to_string(),
+        Ok(_) => refuse(
+            "the lease expired or changed hands between the check and the write — \
+             claim again if the subtask is still free"
+                .to_string(),
+        ),
+        Err(e) => serde_json::json!({"renewed": false, "error": e.to_string()}).to_string(),
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // C3: Wayfinder — decision tickets, fog, and a frontier
 // ─────────────────────────────────────────────────────────────────────────────

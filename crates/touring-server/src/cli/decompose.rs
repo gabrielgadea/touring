@@ -160,6 +160,20 @@ enum DecomposeCmd {
         #[arg(long)]
         owner: String,
     },
+    /// Extend the lease on a subtask YOU hold, while it is still live —
+    /// the heartbeat of long work (24/09/2026, analise-d4: the L11 claim
+    /// lapsed mid-flight and `claim` could only take the NEXT ready). The
+    /// write is conditional: `in_progress`, this owner, lease not yet
+    /// expired — every refusal names its reason.
+    Renew {
+        task_id: String,
+        subtask_id: String,
+        #[arg(long)]
+        owner: String,
+        /// New lease length in seconds, from now (default 3600).
+        #[arg(long)]
+        lease_secs: Option<i64>,
+    },
     /// Annotate a subtask as a Wayfinder ticket: is it here to DECIDE something
     /// or to BUILD it, how much fog surrounds it, and whether a human must be
     /// present. Every field is optional so a ticket is refined as fog lifts.
@@ -415,6 +429,21 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "task_id": task_id, "subtask_id": subtask_id, "owner": owner,
             });
             let output = daemon_query("cli-decompose-release", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Renew {
+            task_id,
+            subtask_id,
+            owner,
+            lease_secs,
+        } => {
+            let mut payload = serde_json::json!({
+                "task_id": task_id, "subtask_id": subtask_id, "owner": owner,
+            });
+            if let Some(secs) = lease_secs {
+                payload["lease_secs"] = serde_json::json!(secs);
+            }
+            let output = daemon_query("cli-decompose-renew", payload)?;
             println!("{output}");
         }
         DecomposeCmd::Ticket {

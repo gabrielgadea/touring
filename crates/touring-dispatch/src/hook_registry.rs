@@ -195,6 +195,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-decompose-ready",
         "cli-decompose-claim",
         "cli-decompose-release",
+        "cli-decompose-renew",
         "cli-decompose-ticket",
         "cli-decompose-frontier",
     ]);
@@ -536,6 +537,7 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-decompose-ready",
     "cli-decompose-claim",
     "cli-decompose-release",
+    "cli-decompose-renew",
     "cli-decompose-ticket",
     "cli-decompose-frontier",
     // CLI mcts handlers
@@ -1708,6 +1710,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-decompose-release", |rt, v| {
         crate::cli_handlers_decompose::cli_decompose_release(rt, v)
+    });
+    m.insert("cli-decompose-renew", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_renew(rt, v)
     });
     m.insert("cli-decompose-ticket", |rt, v| {
         crate::cli_handlers_decompose::cli_decompose_ticket(rt, v)
