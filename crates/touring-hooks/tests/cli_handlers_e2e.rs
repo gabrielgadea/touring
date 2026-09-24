@@ -2881,6 +2881,81 @@ fn renew_race_seam_is_gated_and_the_where_defends_the_race() {
     disable_test_seams();
 }
 
+/// analise-d4 → touring-36 (2026-09-24): `add --priority 100` ACCEPTED
+/// the number and silently stored "normal"/128 — `add` was bucket-or-silent,
+/// `update` numeric-only: two parsers for one field, and the old unit tests
+/// even PINNED the silent discard ("xyz" → 128). `parse_priority` is the ONE
+/// parser now: bucket, integer, or a loud refusal naming the accepted forms.
+#[test]
+fn priority_accepts_number_and_bucket_and_refuses_garbage_loudly() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+
+    // A number — the analise-d4 case — stores the number.
+    let n = parse_json(&cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01",
+                            "description": "numeric", "depends_on": [], "priority": "100"}),
+    ));
+    assert_eq!(n["priority_int"], serde_json::json!(100), "{n}");
+
+    // A bucket stores the bucket's integer.
+    let b = parse_json(&cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-02",
+                            "description": "bucket", "depends_on": [], "priority": "high"}),
+    ));
+    assert_eq!(b["priority_int"], serde_json::json!(50), "{b}");
+
+    // Garbage is a LOUD refusal naming the accepted forms — and stores nothing.
+    let bad = parse_json(&cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-03",
+                            "description": "garbage", "depends_on": [], "priority": "xyz"}),
+    ));
+    assert_eq!(bad["persisted"], serde_json::json!(false), "{bad}");
+    let err = bad["error"].as_str().unwrap_or("");
+    assert!(err.contains("high") && err.contains("low"), "{bad}");
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        got["subtasks"].as_array().expect("array").len(),
+        2,
+        "nothing may be stored for garbage: {got}"
+    );
+
+    // `update` speaks the SAME two forms through the SAME parser.
+    let u = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01", "priority": "low"}),
+    ));
+    assert_eq!(u["subtask_updated"], serde_json::json!(true), "{u}");
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let s1 = ready["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-01"))
+        .expect("S-01 ready");
+    assert_eq!(s1["priority"], serde_json::json!(200), "{s1}");
+
+    // And update refuses garbage by name too.
+    let ub = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01", "priority": "urgent"}),
+    ));
+    assert_eq!(ub["updated"], serde_json::json!(false), "{ub}");
+    assert!(
+        ub["error"].as_str().unwrap_or("").contains("bucket"),
+        "update's refusal names the accepted forms: {ub}"
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════

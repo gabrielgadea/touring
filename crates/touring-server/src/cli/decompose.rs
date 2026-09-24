@@ -51,7 +51,7 @@ enum DecomposeCmd {
         subtask_id: String,
         /// Subtask description (remaining positional args, joined).
         description: Vec<String>,
-        /// Priority bucket.
+        /// Priority: bucket (high|normal|low) or an integer (e.g. 100).
         #[arg(long, default_value = "normal")]
         priority: String,
         /// Optional deadline (ISO date).
@@ -79,9 +79,10 @@ enum DecomposeCmd {
         /// Comma-separated dependency list.
         #[arg(long, value_delimiter = ',')]
         depends_on: Option<Vec<String>>,
-        /// Numeric priority.
+        /// Priority: bucket (high|normal|low) or an integer (e.g. 100) —
+        /// same ONE parser as `add` since 30.4.67; anything else is refused.
         #[arg(long)]
-        priority: Option<i64>,
+        priority: Option<String>,
         /// Quality score 0.0-1.0.
         #[arg(long)]
         quality_score: Option<f64>,

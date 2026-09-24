@@ -23,17 +23,34 @@ use touring_orchestration::tasks::{TasksfileCompiler, parse_yaml};
 
 // ─── Wave P1: priority string ↔ integer mapping ────────────────────────────
 
-/// Parse a priority token (`"high"`, `"normal"`, `"low"`) to its INTEGER value.
-///
-/// Returns `128` (normal) for unknown / missing tokens.
+/// The ONE priority parser, shared by `add` and `update` (24/09/2026,
+/// analise-d4): a bucket name (high|h|hi → 50, normal → 128, low|l|lo → 200)
+/// or a plain integer (number or numeric string — `"100"` → 100). Anything
+/// else is a LOUD refusal naming the accepted forms. The field had two
+/// parsers — `add` bucket-or-silent-128 (a `--priority 100` silently stored
+/// "normal"), `update` numeric-only. One field, one parser, no silence.
 /// Lower integer = higher logical priority (so `ORDER BY priority ASC` puts
 /// high-priority subtasks first).
-#[must_use]
-pub fn parse_priority_token(token: &str) -> i64 {
-    match &*token.trim().to_ascii_lowercase() {
-        "high" | "h" | "hi" => 50,
-        "low" | "l" | "lo" => 200,
-        _ => 128, // "normal", empty, or unknown
+pub fn parse_priority(value: &serde_json::Value) -> Result<i64, String> {
+    const ACCEPTED: &str = "high, normal, low, or an integer (e.g. 100)";
+    match value {
+        serde_json::Value::Number(n) => n
+            .as_i64()
+            .ok_or_else(|| format!("priority {n} is not an accepted integer — accepted: {ACCEPTED}")),
+        serde_json::Value::String(s) => {
+            let t = s.trim().to_ascii_lowercase();
+            match t.as_str() {
+                "high" | "h" | "hi" => Ok(50),
+                "normal" => Ok(128),
+                "low" | "l" | "lo" => Ok(200),
+                _ => t.parse::<i64>().map_err(|_| {
+                    format!("priority '{s}' is neither a bucket nor a number — accepted: {ACCEPTED}")
+                }),
+            }
+        }
+        other => Err(format!(
+            "priority {other} is neither a bucket nor a number — accepted: {ACCEPTED}"
+        )),
     }
 }
 
@@ -1058,50 +1075,49 @@ pub use wayfinder::*;
 mod tests_p1_priority {
     use super::*;
 
-    // ── parse_priority_token ────────────────────────────────────────────
+    // ── parse_priority (the ONE parser, 24/09/2026) ──────────────────────
 
     #[test]
-    fn parse_high_returns_50() {
-        assert_eq!(parse_priority_token("high"), 50);
+    fn buckets_parse_to_their_integers() {
+        assert_eq!(parse_priority(&serde_json::json!("high")), Ok(50));
+        assert_eq!(parse_priority(&serde_json::json!("normal")), Ok(128));
+        assert_eq!(parse_priority(&serde_json::json!("low")), Ok(200));
     }
 
     #[test]
-    fn parse_normal_returns_128() {
-        assert_eq!(parse_priority_token("normal"), 128);
+    fn numbers_parse_as_themselves_in_either_form() {
+        // The analise-d4 case: `--priority 100` must store 100, not "normal".
+        assert_eq!(parse_priority(&serde_json::json!("100")), Ok(100));
+        assert_eq!(parse_priority(&serde_json::json!(100)), Ok(100));
+        assert_eq!(parse_priority(&serde_json::json!(250)), Ok(250));
     }
 
     #[test]
-    fn parse_low_returns_200() {
-        assert_eq!(parse_priority_token("low"), 200);
+    fn garbage_is_a_loud_refusal_never_a_silent_normal() {
+        // The defect this module used to PIN: unknown tokens became 128.
+        assert!(parse_priority(&serde_json::json!("xyz")).is_err());
+        assert!(parse_priority(&serde_json::json!("urgent")).is_err());
+        assert!(parse_priority(&serde_json::json!("normal100")).is_err());
+        assert!(parse_priority(&serde_json::json!("")).is_err());
+        let err = parse_priority(&serde_json::json!("xyz")).unwrap_err();
+        assert!(err.contains("high") && err.contains("low"), "{err}");
     }
 
     #[test]
-    fn parse_unknown_token_defaults_to_normal() {
-        assert_eq!(parse_priority_token("urgent"), 128);
-        assert_eq!(parse_priority_token(""), 128);
-        assert_eq!(parse_priority_token("xyz"), 128);
-    }
-
-    #[test]
-    fn parse_token_is_case_insensitive() {
-        assert_eq!(parse_priority_token("HIGH"), 50);
-        assert_eq!(parse_priority_token("Normal"), 128);
-        assert_eq!(parse_priority_token("LOW"), 200);
-    }
-
-    #[test]
-    fn parse_token_strips_whitespace() {
-        assert_eq!(parse_priority_token("  high  "), 50);
-        assert_eq!(parse_priority_token("\thigh\n"), 50);
+    fn parsing_is_case_insensitive_and_strips_whitespace() {
+        assert_eq!(parse_priority(&serde_json::json!("HIGH")), Ok(50));
+        assert_eq!(parse_priority(&serde_json::json!("Normal")), Ok(128));
+        assert_eq!(parse_priority(&serde_json::json!("  high  ")), Ok(50));
+        assert_eq!(parse_priority(&serde_json::json!("\thigh\n")), Ok(50));
     }
 
     #[test]
     fn parse_short_aliases_work() {
         // Short forms accepted for ergonomics.
-        assert_eq!(parse_priority_token("h"), 50);
-        assert_eq!(parse_priority_token("hi"), 50);
-        assert_eq!(parse_priority_token("l"), 200);
-        assert_eq!(parse_priority_token("lo"), 200);
+        assert_eq!(parse_priority(&serde_json::json!("h")), Ok(50));
+        assert_eq!(parse_priority(&serde_json::json!("hi")), Ok(50));
+        assert_eq!(parse_priority(&serde_json::json!("l")), Ok(200));
+        assert_eq!(parse_priority(&serde_json::json!("lo")), Ok(200));
     }
 
     // ── priority_label (inverse mapping) ────────────────────────────────
@@ -1132,9 +1148,9 @@ mod tests_p1_priority {
     #[test]
     fn round_trip_canonical_values() {
         // The exact integer is preserved when the canonical token is used.
-        assert_eq!(parse_priority_token(priority_label(50)), 50);
-        assert_eq!(parse_priority_token(priority_label(128)), 128);
-        assert_eq!(parse_priority_token(priority_label(200)), 200);
+        assert_eq!(parse_priority(&serde_json::json!(priority_label(50))), Ok(50));
+        assert_eq!(parse_priority(&serde_json::json!(priority_label(128))), Ok(128));
+        assert_eq!(parse_priority(&serde_json::json!(priority_label(200))), Ok(200));
     }
 
     #[test]

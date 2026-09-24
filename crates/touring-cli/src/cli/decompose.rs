@@ -229,11 +229,23 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 .collect()
         })
         .unwrap_or_default();
-    let priority_token = payload
-        .get("priority")
-        .and_then(|v| v.as_str())
-        .unwrap_or("normal");
-    let priority_int = crate::cli_handlers_decompose::parse_priority_token(priority_token);
+    // The ONE priority parser (24/09/2026, analise-d4): bucket OR integer,
+    // anything else a loud refusal — `--priority 100` used to be silently
+    // stored as "normal"/128 by the bucket-only parse.
+    let priority_int = match payload.get("priority") {
+        None => 128,
+        Some(v) => match crate::cli_handlers_decompose::parse_priority(v) {
+            Ok(p) => p,
+            Err(msg) => {
+                return serde_json::json!({
+                    "task_id": task_id,
+                    "persisted": false,
+                    "error": msg,
+                })
+                .to_string();
+            }
+        },
+    };
     let now = chrono::Utc::now().to_rfc3339();
     let local = &rt.ctx.knowledge;
     // F1-ROUTING: subtasks attach to the task's home store; a task in NO
@@ -407,10 +419,24 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let status = payload.get("status").and_then(|v| v.as_str()).unwrap_or("");
-    let priority = payload
-        .get("priority")
-        .and_then(|v| v.as_i64())
-        .map(|p| p as i32);
+    // The SAME ONE parser as `add` (24/09/2026): update used to read the
+    // payload as i64 only — a bucket string was silently ignored. Now both
+    // speak bucket and integer, and garbage is a named refusal.
+    let priority = match payload.get("priority") {
+        None => None,
+        Some(v) => match crate::cli_handlers_decompose::parse_priority(v) {
+            Ok(p) => Some(p as i32),
+            Err(msg) => {
+                return serde_json::json!({
+                    "task_id": task_id,
+                    "updated": false,
+                    "subtask_updated": false,
+                    "error": msg,
+                })
+                .to_string();
+            }
+        },
+    };
     let quality_score = payload.get("quality_score").and_then(|v| v.as_f64());
     let depends_on: Option<Vec<String>> = payload.get("depends_on").and_then(|v| {
         v.as_array().map(|arr| {
