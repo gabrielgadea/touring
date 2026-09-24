@@ -97,6 +97,27 @@ python3 docs/plans/2026-09-22-jev-system-one/experiments/g1-corpus/g1_review_she
 Essa revisão é do Gabriel: um segundo modelo concordando com o primeiro não é evidência
 independente.
 
+## Revisão do gate (24/09/2026)
+
+Revisão executada por um segundo modelo (Claude, sessão TACO, processo e contexto
+distintos do professor sonnet headless) sobre os 158 itens da folha — **evidência
+modelo × modelo**, não o carimbo humano que o gate pede. Agregados (folha e
+`review_score.json` ficam fora do repo, com o corpus):
+
+| Tarefa | n | Concordância | baixa / média / alta |
+|---|---|---|---|
+| prompt_intent | 80 | 0,963 | 0,925 / 1,0 / 1,0 |
+| memory_kind | 48 | 1,000 | 1,0 / 1,0 / 1,0 |
+| recall_relevance | 30 | 0,900 | 0,769 / 1,0 / 1,0 |
+
+`passes_gate: true` (as três ≥ 0,85). Divergências (6): prompt_intent — 2× debug→general
+(ordem operacional sem bug) e 1× general→analysis (verificar NF + pesquisar garantias +
+redigir email é pesquisa); recall_relevance — 3× yes→no (duas consultas "Retrato" de
+analise-4c × strategies de code-mode, e exclusão de candidatas do plano de skills ×
+fechamento Briah→Yetzirah: pares de domínios distintos). O padrão confirma o item 5:
+o rótulo fraco é o prefixo da chave, não o professor. Falta para o gate como desenhado:
+spot-check humano (Gabriel) das 6 divergências ou de uma amostra.
+
 ## Limites do método
 
 - O professor é um LLM: seus rótulos são alvo suave, não verdade. A revisão humana é o
