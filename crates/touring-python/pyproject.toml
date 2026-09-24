@@ -1,0 +1,41 @@
+# Recipe for the `claude_learning_kernel` Python module (maturin).
+#
+# Why this file exists (24/09/2026): the `.so` was being produced by a bare
+# `cargo build` and moved by hand — with no versioned recipe, nobody could
+# tell WHICH crate should hold the `#[pymodule]`, and the shim shipped zero
+# PyInit symbols. The recipe makes the build reproducible:
+#
+#   # maturin vive no PRÓPRIO venv (o python do sistema é PEP 668 — pip
+#   # --user é recusado; o venv de destino/build é o lugar certo):
+#   python3 -m venv /tmp/clk-build && /tmp/clk-build/bin/pip install maturin
+#
+#   # wheel para o Python do venv corrente (descartável, para prova):
+#   /tmp/clk-build/bin/maturin build --release -m crates/touring-python/Cargo.toml
+#   # artefato: target/wheels/claude_learning_kernel-4.0.0-*.whl
+#
+#   # para o Python 3.12 do analise (a d4 instala depois):
+#   /tmp/clk-build/bin/maturin build --release -m crates/touring-python/Cargo.toml \
+#     -i /home/gabrielgadea/projects/analise/.venv/bin/python3
+#
+#   # prova de fumaça sem instalar: descompacte a wheel e
+#   nm -D claude_learning_kernel/*.so | grep PyInit_claude_learning_kernel
+
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "claude-learning-kernel"
+version = "4.0.0"
+description = "High-performance Rust acceleration for the Learning System (Touring workspace)"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+]
+
+[tool.maturin]
+# The importable module name — the same the cdylib's [lib] name and the
+# `#[pymodule]` fn declare, so `import claude_learning_kernel` finds
+# `PyInit_claude_learning_kernel`.
+module-name = "claude_learning_kernel"
