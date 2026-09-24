@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 360**
+**Count: 377**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -13,6 +13,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `inferlets::dependency_diff`
 - `inferlets::find_circular_imports`
 - `inferlets::flaky_test_pattern_detector`
+- `inferlets::fs_walk`
 - `inferlets::manifest`
 - `inferlets::memory`
 - `inferlets::pattern`
@@ -58,9 +59,13 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-cli::hook_rewrite`
 - `touring-cli::workflow`
 - `touring-code::ast`
+- `touring-code::cwe_scan`
 - `touring-code::error`
+- `touring-code::journal`
 - `touring-code::languages`
 - `touring-code::polyglot`
+- `touring-code::sdk`
+- `touring-code::sdk_signal_mirror`
 - `touring-code::semantics`
 - `touring-code::types`
 - `touring-cortex::cache_strategy`
@@ -84,6 +89,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-cortex::types`
 - `touring-dispatch::daemon`
 - `touring-dispatch::daemon_tests`
+- `touring-dispatch::daemon_yield_tests`
 - `touring-dispatch::hook_registry`
 - `touring-dispatch::hook_registry_tests`
 - `touring-dispatch::integration_tests`
@@ -95,9 +101,12 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::char_classes`
 - `touring-foundation::checkpoint`
 - `touring-foundation::chunker`
+- `touring-foundation::cila`
 - `touring-foundation::code_mode`
 - `touring-foundation::config`
 - `touring-foundation::conflict`
+- `touring-foundation::daemon_spawn`
+- `touring-foundation::daemon_spawn_tests`
 - `touring-foundation::diagnostic`
 - `touring-foundation::drift`
 - `touring-foundation::error`
@@ -106,6 +115,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::gate_metrics`
 - `touring-foundation::gate_metrics_snapshot`
 - `touring-foundation::gate_metrics_tests`
+- `touring-foundation::gitignore`
 - `touring-foundation::governor`
 - `touring-foundation::hash`
 - `touring-foundation::health`
@@ -129,6 +139,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::sentinel`
 - `touring-foundation::shared`
 - `touring-foundation::shutdown`
+- `touring-foundation::task_lifecycle`
 - `touring-foundation::telemetry`
 - `touring-foundation::text_rank`
 - `touring-foundation::types`
@@ -147,6 +158,8 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-generator::vgp`
 - `touring-hook-handlers::hook_decompose_bridge`
 - `touring-hook-handlers::mcts_materializer`
+- `touring-hook-runtime::actor_yield`
+- `touring-hook-runtime::actor_yield_tests`
 - `touring-hook-runtime::auto_save_hook`
 - `touring-hook-runtime::bidirectional`
 - `touring-hook-runtime::ceg_adapter`
@@ -158,6 +171,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hook-runtime::hook_runtime`
 - `touring-hook-runtime::hook_runtime_ext`
 - `touring-hook-runtime::hook_runtime_tests`
+- `touring-hook-runtime::hook_trace`
 - `touring-hook-runtime::inferlets`
 - `touring-hook-runtime::inferlets_assets`
 - `touring-hook-runtime::prompt_enhance`
@@ -234,6 +248,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hooks-shared::command_hash`
 - `touring-hooks-shared::cursor_pool`
 - `touring-hooks-shared::detect_language`
+- `touring-hooks-shared::doc_symbol_signal`
 - `touring-hooks-shared::errors`
 - `touring-hooks-shared::feature_flags`
 - `touring-hooks-shared::file_prefetch`
@@ -242,6 +257,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hooks-shared::hook_events`
 - `touring-hooks-shared::hooks_complement_journal`
 - `touring-hooks-shared::idempotency`
+- `touring-hooks-shared::index_policy`
 - `touring-hooks-shared::isolation_mode`
 - `touring-hooks-shared::job_registry`
 - `touring-hooks-shared::latency_marker`
@@ -274,6 +290,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hooks-shared::terminal_job_cache`
 - `touring-hooks-shared::thread_pool`
 - `touring-hooks-shared::touring_error`
+- `touring-hooks-shared::turn_budget`
 - `touring-hooks-shared::user_filters`
 - `touring-hooks-shared::workflow`
 - `touring-identity::error`
@@ -313,7 +330,6 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-quality::tier`
 - `touring-quality::verifications`
 - `touring-resilience::conflict`
-- `touring-resilience::error`
 - `touring-resilience::failover`
 - `touring-resilience::sentinel`
 - `touring-resilience::types`
@@ -362,6 +378,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-storage::functional_wiring`
 - `touring-storage::hybrid_search`
 - `touring-storage::knowledge`
+- `touring-storage::knowledge_index_generation`
 - `touring-storage::knowledge_wiring`
 - `touring-storage::salsa`
 - `touring-storage::vec`

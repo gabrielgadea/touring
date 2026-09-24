@@ -4,7 +4,7 @@
 
 Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 
-**Count: 239**
+**Count: 241**
 
 - `ceg-observe`
 - `cli-ast-blast`
@@ -46,6 +46,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-decompose-get`
 - `cli-decompose-ready`
 - `cli-decompose-release`
+- `cli-decompose-renew`
 - `cli-decompose-status`
 - `cli-decompose-ticket`
 - `cli-decompose-update`
@@ -97,6 +98,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-index-rebuild`
 - `cli-index-search`
 - `cli-index-status`
+- `cli-index-why`
 - `cli-inferlets-list`
 - `cli-inferlets-run`
 - `cli-jobs-drop`
