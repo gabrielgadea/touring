@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.0,
+      "actual": 0.00392156862745098,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -112,7 +112,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 163.0,
+      "actual": 555.0131578947369,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 886.0,
+      "actual": 739.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 467199.0,
+      "actual": 458495.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 267519.0,
+      "actual": 24239.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,7 +178,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.0,
+      "actual": 0.15789473684210525,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
@@ -189,18 +189,18 @@
       "threshold": 0.4
     },
     {
-      "actual": 0.0,
+      "actual": 0.828125,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": 2.8,
+      "actual": 0.81875,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -468,48 +468,48 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1085,
+      "exception": 1091,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 267
+      "timeout": 269
     },
     "by_language": {
       "?": 3,
-      "bash": 7933,
+      "bash": 8027,
       "go": 1,
       "js": 121,
       "perl": 4,
       "php": 1,
-      "python": 8236,
+      "python": 8273,
       "ruby": 4,
       "rust": 4,
       "shell": 159,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 15111,
-    "runs_total": 16473,
+    "runs_ok": 15234,
+    "runs_total": 16604,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9173192496812966,
-    "wasted_attempts_retry_pairs": 810
+    "success_rate": 0.9174897615032522,
+    "wasted_attempts_retry_pairs": 816
   },
   "code_mode_reuse": {
     "available": true,
     "brief_runs": 145,
-    "file_runs": 2453,
+    "file_runs": 2471,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 6536,
+    "inline_runs": 6649,
     "ladder_enrolled": 0,
     "ladder_reused": 0,
     "orchestrate_runs": 169,
     "persistent_file_runs": 1158,
-    "reuse_ratio": 0.129,
-    "scratch_file_runs": 1295,
+    "reuse_ratio": 0.127,
+    "scratch_file_runs": 1313,
     "status": "FAIL",
-    "total_tmp_bytes": 255866313,
+    "total_tmp_bytes": 255868789,
     "v1_runs": 7481,
-    "v2_runs": 8989
+    "v2_runs": 9120
   },
   "code_mode_signal_use": {
     "available": true,
@@ -636,26 +636,49 @@
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 5,
-      "cli-code-mode-run": 14,
-      "cli-flywheel-status": 5,
-      "cli-gate-metrics": 5,
-      "cli-health-delta-status": 5,
-      "cli-incremental-status": 5,
-      "cli-index-status": 5,
-      "cli-kpi": 37,
-      "cli-learning-status": 111,
-      "cli-resource-monitor-status": 5,
-      "cli-session-list": 5,
-      "cli-suggest": 6,
-      "cli-wiring-status": 5,
-      "cwd-changed": 1,
-      "post-bash": 5,
-      "post-tool-batch": 7,
-      "post-tool-rl": 6,
-      "post-write": 1,
-      "pre-bash": 5,
-      "subagent-stop": 1
+      "ceg-observe": 160,
+      "cli-ast-blast-cross-feature": 1,
+      "cli-ast-quality": 2,
+      "cli-code-mode-run": 131,
+      "cli-decompose-add": 3,
+      "cli-decompose-archive": 2,
+      "cli-decompose-create": 1,
+      "cli-decompose-get": 1,
+      "cli-decompose-reconcile-stages": 3,
+      "cli-decompose-update": 3,
+      "cli-e2e": 1,
+      "cli-flywheel-status": 252,
+      "cli-gate-metrics": 255,
+      "cli-gotcha-match": 1,
+      "cli-health-delta-status": 252,
+      "cli-incremental-status": 252,
+      "cli-index-status": 255,
+      "cli-kpi": 1444,
+      "cli-learning-reward": 17,
+      "cli-learning-status": 4573,
+      "cli-memory-link": 168,
+      "cli-memory-links": 19,
+      "cli-memory-query": 49,
+      "cli-memory-recall": 20,
+      "cli-memory-store": 52,
+      "cli-resource-monitor-status": 252,
+      "cli-session-list": 252,
+      "cli-suggest": 223,
+      "cli-wiring-cycles": 2,
+      "cli-wiring-orphans": 2,
+      "cli-wiring-status": 252,
+      "instructions-loaded": 4,
+      "post-bash": 153,
+      "post-edit": 24,
+      "post-read": 16,
+      "post-tool-batch": 215,
+      "post-tool-failure": 11,
+      "post-tool-rl": 209,
+      "post-write": 16,
+      "pre-bash": 160,
+      "subagent-start": 6,
+      "subagent-stop": 6,
+      "teammate-idle": 6
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -665,17 +688,17 @@
     "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
     "post_bash_delivery_ratio": 0.0,
-    "post_bash_dispatched": 5,
+    "post_bash_dispatched": 153,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789946426
+    "since_epoch": 1789946959
   },
   "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
-  "snapshot_date": "2026-09-20",
+  "snapshot_date": "2026-09-21",
   "summary": {
-    "advisory": 8,
+    "advisory": 7,
     "failed": 0,
-    "passed": 15,
+    "passed": 16,
     "regressions": 0,
     "stub": 18,
     "total": 41

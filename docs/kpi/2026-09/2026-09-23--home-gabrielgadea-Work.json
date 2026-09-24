@@ -22,7 +22,7 @@
       "threshold": 100.0
     },
     {
-      "actual": 0.4709300026120798,
+      "actual": 0.30227064731393904,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
@@ -85,7 +85,7 @@
       "rationale": "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 23d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
+      "stub_reason": "stale — measured 25d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
       "threshold": 5100.0
     },
     {
@@ -97,7 +97,7 @@
       "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 23d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
+      "stub_reason": "stale — measured 25d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
       "threshold": 0.75
     },
     {
@@ -112,7 +112,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 163.0,
+      "actual": 0.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 886.0,
+      "actual": 703.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 467199.0,
+      "actual": 228735.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 267519.0,
+      "actual": 146.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,36 +178,36 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.4
     },
     {
-      "actual": 0.0,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "ADVISORY",
+      "status": "STUB",
       "threshold": 0.5
     },
     {
-      "actual": 2.8,
+      "actual": null,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "STUB",
       "threshold": 0.1
     },
     {
@@ -332,7 +332,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 17.0,
+      "actual": 23.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.parallel_runs",
@@ -387,7 +387,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.0030224525043177895,
+      "actual": 0.0028513238289205704,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -398,7 +398,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.014652014652014652,
+      "actual": 0.013946393549792983,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -461,64 +461,64 @@
       "rationale": "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 21d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
+      "stub_reason": "stale — measured 23d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
       "threshold": 0.8
     }
   ],
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1085,
+      "exception": 1129,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 267
+      "timeout": 279
     },
     "by_language": {
       "?": 3,
-      "bash": 7933,
+      "bash": 8327,
       "go": 1,
-      "js": 121,
+      "js": 123,
       "perl": 4,
       "php": 1,
-      "python": 8236,
+      "python": 8558,
       "ruby": 4,
       "rust": 4,
-      "shell": 159,
+      "shell": 161,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 15111,
-    "runs_total": 16473,
+    "runs_ok": 15775,
+    "runs_total": 17193,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9173192496812966,
-    "wasted_attempts_retry_pairs": 810
+    "success_rate": 0.9175245739545164,
+    "wasted_attempts_retry_pairs": 838
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 145,
-    "file_runs": 2453,
+    "brief_runs": 162,
+    "file_runs": 2770,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 6536,
+    "inline_runs": 6915,
     "ladder_enrolled": 0,
     "ladder_reused": 0,
-    "orchestrate_runs": 169,
-    "persistent_file_runs": 1158,
-    "reuse_ratio": 0.129,
-    "scratch_file_runs": 1295,
+    "orchestrate_runs": 212,
+    "persistent_file_runs": 1401,
+    "reuse_ratio": 0.145,
+    "scratch_file_runs": 1369,
     "status": "FAIL",
-    "total_tmp_bytes": 255866313,
-    "v1_runs": 7481,
-    "v2_runs": 8989
+    "total_tmp_bytes": 260367732,
+    "v1_runs": 7505,
+    "v2_runs": 9685
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
-    "duration_ms_p99": 1164,
-    "non_canonical_calls": 145,
+    "duration_ms_p99": 1074,
+    "non_canonical_calls": 171,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 630,
+    "total_calls": 756,
     "used": 7
   },
   "context_budget": {
@@ -536,126 +536,88 @@
       },
       "other": {
         "blocks": 12,
-        "bytes": 7491,
-        "duplicate_bytes": 4994,
+        "bytes": 7635,
+        "duplicate_bytes": 5090,
         "duplicate_ratio": 0.667,
-        "mean_bytes": 624,
+        "mean_bytes": 636,
         "propositions": 0,
         "propositions_per_kb": 0.0,
         "zero_proposition_blocks": 12
-      },
-      "past-lessons": {
-        "blocks": 1,
-        "bytes": 82,
-        "duplicate_bytes": 0,
-        "duplicate_ratio": 0.0,
-        "mean_bytes": 82,
-        "propositions": 0,
-        "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 1
-      },
-      "post-tool-echo": {
-        "blocks": 1,
-        "bytes": 246,
-        "duplicate_bytes": 0,
-        "duplicate_ratio": 0.0,
-        "mean_bytes": 246,
-        "propositions": 0,
-        "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 1
       },
       "session-start": {
         "blocks": 12,
-        "bytes": 7047,
+        "bytes": 7083,
         "duplicate_bytes": 2238,
-        "duplicate_ratio": 0.318,
-        "mean_bytes": 587,
+        "duplicate_ratio": 0.316,
+        "mean_bytes": 590,
         "propositions": 0,
         "propositions_per_kb": 0.0,
         "zero_proposition_blocks": 12
-      },
-      "touring-suggest": {
-        "blocks": 1,
-        "bytes": 747,
-        "duplicate_bytes": 0,
-        "duplicate_ratio": 0.0,
-        "mean_bytes": 747,
-        "propositions": 5,
-        "propositions_per_kb": 6.854,
-        "zero_proposition_blocks": 0
       }
     },
-    "bytes_scanned": 1345390,
+    "bytes_scanned": 1138504,
     "capped": false,
     "duplicate_blocks": 14,
-    "duplicate_injection_ratio": 0.551,
+    "duplicate_injection_ratio": 0.573,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
       "injected_bytes_per_turn",
-      "duplicate_injection_ratio",
-      "injection_follow_ratio"
+      "duplicate_injection_ratio"
     ],
-    "injected_bytes_per_turn": 9123.333,
+    "injected_bytes_per_turn": 8825.0,
     "injected_bytes_per_turn_ceil": 3000.0,
-    "injection_follow_ratio": 0.0,
+    "injection_follow_ratio": null,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 1,
+    "must_emitted": 0,
     "must_followed": 0,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 3,
+    "tool_calls": 0,
     "tool_output": {
-      "by_tool": [
-        {
-          "bytes": 4481,
-          "mean_bytes": 1493,
-          "results": 3,
-          "reused_bytes": 0,
-          "reused_line_ratio": 0.0,
-          "share": 1.0,
-          "tool": "Bash",
-          "zero_reuse_results": 1
-        }
-      ],
-      "bytes": 4481,
-      "reuse_ratio": 0.0,
+      "by_tool": [],
+      "bytes": 0,
+      "reuse_ratio": null,
       "reused_bytes": 0
     },
-    "tpcd_proxy_bytes_per_tool_call": 11070.333,
+    "tpcd_proxy_bytes_per_tool_call": null,
     "transcripts_scanned": 3,
     "user_turns": 3,
     "window_bytes": {
-      "assistant": 1163,
-      "injection": 27370,
-      "injection_share": 0.824,
-      "tool_result_share": 0.135,
-      "tool_results": 4481,
+      "assistant": 240,
+      "injection": 26475,
+      "injection_share": 0.984,
+      "tool_result_share": 0.0,
+      "tool_results": 0,
       "user": 197
     }
   },
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 5,
-      "cli-code-mode-run": 14,
-      "cli-flywheel-status": 5,
-      "cli-gate-metrics": 5,
-      "cli-health-delta-status": 5,
-      "cli-incremental-status": 5,
-      "cli-index-status": 5,
-      "cli-kpi": 37,
-      "cli-learning-status": 111,
-      "cli-resource-monitor-status": 5,
-      "cli-session-list": 5,
-      "cli-suggest": 6,
-      "cli-wiring-status": 5,
-      "cwd-changed": 1,
-      "post-bash": 5,
-      "post-tool-batch": 7,
-      "post-tool-rl": 6,
-      "post-write": 1,
-      "pre-bash": 5,
-      "subagent-stop": 1
+      "cli-code-mode-run": 57,
+      "cli-decompose-add": 9,
+      "cli-decompose-create": 1,
+      "cli-decompose-get": 2,
+      "cli-decompose-update": 10,
+      "cli-flywheel-status": 252,
+      "cli-gate-metrics": 252,
+      "cli-health-delta-status": 252,
+      "cli-incremental-status": 252,
+      "cli-index-find": 1,
+      "cli-index-status": 252,
+      "cli-kpi": 1443,
+      "cli-learning-reward": 1,
+      "cli-learning-status": 4572,
+      "cli-memory-link": 10,
+      "cli-memory-query": 4,
+      "cli-memory-recall": 1,
+      "cli-memory-store": 10,
+      "cli-resource-monitor-status": 252,
+      "cli-session-list": 252,
+      "cli-wiring-orphans": 1,
+      "cli-wiring-status": 252,
+      "instructions-loaded": 19,
+      "session-stop": 1
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -664,20 +626,20 @@
     },
     "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": 0.0,
-    "post_bash_dispatched": 5,
+    "post_bash_delivery_ratio": null,
+    "post_bash_dispatched": 0,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789946426
+    "since_epoch": 1790161244
   },
   "project_root": "/home/gabrielgadea/Work",
   "schema": "kpi-commitments-v1",
-  "snapshot_date": "2026-09-20",
+  "snapshot_date": "2026-09-23",
   "summary": {
-    "advisory": 8,
+    "advisory": 6,
     "failed": 0,
-    "passed": 15,
+    "passed": 14,
     "regressions": 0,
-    "stub": 18,
+    "stub": 21,
     "total": 41
   }
 }
