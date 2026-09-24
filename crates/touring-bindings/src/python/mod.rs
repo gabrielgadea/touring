@@ -32,12 +32,17 @@ mod rl_bindings;
 mod rust_semantic_bindings;
 mod simd_bindings;
 
-/// Python module: claude_learning_kernel
+/// The FULL registration of `claude_learning_kernel`, called by the
+/// `#[pymodule]` invocation in `touring-python` — the cdylib crate where the
+/// macro must live to emit `PyInit_claude_learning_kernel` into the dynamic
+/// table (24/09/2026: the invocation lived HERE, in this rlib, and the shim
+/// referenced nothing, so the linker dropped the whole rlib and the .so
+/// shipped with ZERO PyInit symbols — every import died with "dynamic module
+/// does not define module export function").
 ///
 /// High-performance Rust acceleration for the Learning System.
 /// Preserves full backward compatibility with rust_bridge.py.
-#[pymodule]
-fn claude_learning_kernel(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_all(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", "4.0.0")?;
 
     // ACO bindings — backward-compatible symbols + ESAA QueryCache/EventBuffer

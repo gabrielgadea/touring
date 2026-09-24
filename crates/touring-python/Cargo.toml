@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 touring-bindings = { path = "../touring-bindings", features = ["bind-python"] }
+pyo3 = { workspace = true }
 
 [features]
 default = []

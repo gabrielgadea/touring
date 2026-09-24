@@ -1,30 +1,35 @@
 # touring-python — Architecture
 
-> **Version**: v0.1.0 | **Updated**: 2026-05-11 | **LOC**: 3456 | **Constraints**: `#![forbid(unsafe_code)]`
+> **Version**: v0.2.0 | **Updated**: 2026-09-24 | **Constraints**: `#![forbid(unsafe_code)]`
 
 ## Overview
 
-Python bindings for Touring subsystems — PyO3-based Python bindings exposing ACO, NLP, SIMD, AST, RL, cognitive, and financial subsystems to Python environment. Enables Python-first tooling to consume Touring internals.
+O cdylib `claude_learning_kernel`: PyO3-based Python bindings exposing ACO,
+NLP, SIMD, AST, RL, cognitive, and financial subsystems to Python. **Two
+crates, one contract each (24/09/2026)**: the `#[pymodule]` invocation lives
+in THIS crate (`src/lib.rs`) — a cdylib only exports symbols of its own
+crate — and the full implementation + the registration body live in
+`touring-bindings` (`src/python/`, feature `bind-python`), which exposes
+`pub fn register_all`. Before this split was made explicit, the invocation
+lived in the rlib and the shim referenced nothing, so the linker dropped the
+rlib and the `.so` shipped ZERO `PyInit` symbols — every import died with a
+green build (the analise without Wilson/drift/`py_parse_monetary` since
+23/08). The versioned build recipe (maturin) is `pyproject.toml`; the
+export-table regression guard is `tests/pymodule_export.rs`.
 
-## Key Types
+## Key Types (registered via `register_all`)
 
-`PyMonetaryValue` | `PyKeywordMatcher` | `PySemanticChunk` | `PyAcoGraph` | `TrackerStatus`
+`PyMonetaryValue` | `PyKeywordMatcher` | `PySemanticChunk` | `PyAcoGraph` | `TrackerStatus` — importable as `claude_learning_kernel.X` or, in the rust_bridge.py form, `claude_learning_kernel.claude_learning_kernel.X`.
 
 ## Module Map
 
-| File | LOC | Responsibility |
-|------|-----|----------------|
-| `src/lib.rs` | 94 | PyO3 module entry, Python bindings init |
-| `src/aco_bindings.rs` | 1028 | — |
-| `src/nlp_bindings.rs` | 664 | — |
-| `src/simd_bindings.rs` | 468 | — |
-| `src/ast_bindings.rs` | 404 | — |
-| `src/rl_bindings.rs` | 240 | — |
-| `src/rust_semantic_bindings.rs` | 196 | — |
-| `src/ast_rl_bridge.rs` | 144 | — |
-| `src/financial_bindings.rs` | 99 | — |
-| `src/cognitive_bindings.rs` | 76 | — |
-| `src/exceptions.rs` | 43 | — |
+| Crate / file | Responsibility |
+|------|-----|
+| `src/lib.rs` (este crate) | the `#[pymodule]` invocation + delegation to `register_all` |
+| `pyproject.toml` | the versioned maturin recipe (wheel / `.so` for a target interpreter) |
+| `touring-bindings/src/python/mod.rs` | `register_all` — the full registration body + exceptions |
+| `touring-bindings/src/python/{aco,ast,ast_rl_bridge,cognitive,exceptions,financial,nlp,rl,rust_semantic,simd}_bindings.rs` | the per-subsystem registrations (called by `register_all`) |
+| `tests/pymodule_export.rs` | regression guard: content invariant + `nm -D` proof that `PyInit_claude_learning_kernel` is exported |
 
 ## Key Features
 
