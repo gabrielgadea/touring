@@ -249,6 +249,21 @@ def write_marker(task, scope, bundle=None, cwd=None, status="active",
     p = marker_path(resolved, session)
     now = time.time()
     prev = _read(p) or {}
+    # PROMOTE-ONLY (24/09/2026, touring-36 / REGRA #21): a refresh may promote
+    # the OUTER placeholder to a real registered task, but NEVER demote a real
+    # registration back to the placeholder. The armer's refresh rebuilt `data`
+    # from scratch and silently dropped a real task registered at step 11 —
+    # the Stop guard then accused "INNER never registered" minutes after it
+    # had been (measured live: the [OUTER · efeito] executor rewrote the
+    # marker ~190 s after the registration). When the marker already names a
+    # real task, the armer keeps it — and its topic and status with it;
+    # everything else (scope, bundle, timestamps, flow bookkeeping) refreshes.
+    prev_task = str(prev.get("task") or "").strip()
+    if task == "OUTER" and prev_task and prev_task != "OUTER":
+        task = prev_task
+        status = prev.get("status", status)
+        if prev.get("topic"):
+            extra["topic"] = prev["topic"]
     data = {
         "task": task,
         "scope": scope,
