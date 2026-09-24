@@ -25,6 +25,21 @@ fn ready_eligible(
     }
 }
 
+/// The ONE queue order, shared by `claim` (what it would hand out next) and
+/// `ready` (what it lists first): priority ASC, then id ASC. Written twice it
+/// diverged — `claim` sorted by (priority, id) while `ready` listed INSERTION
+/// order, and a guard trusting `ready[0]` mispredicted the claim (analise-d4,
+/// 24/09/2026: all at priority 128, ready showed A6 first, claim delivered
+/// A3a because '3' < '6'). One function, one truth about "what comes first".
+fn queue_order(
+    a_priority: i32,
+    a_id: &str,
+    b_priority: i32,
+    b_id: &str,
+) -> std::cmp::Ordering {
+    a_priority.cmp(&b_priority).then_with(|| a_id.cmp(b_id))
+}
+
 /// Atomically claim the next ready subtask for one owner.
 ///
 /// `ready` only READS. Two sessions polling it concurrently were handed the same
@@ -70,7 +85,7 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
 
     let rows: Vec<ClaimCandidate> = {
         let Ok(mut stmt) = db.conn_ref().prepare(
-            "SELECT subtask_id, status, depends_on, priority, claim_expires_at, claimed_by \
+            "SELECT subtask_id, status, depends_on, priority, claim_expires_at, claimed_by, autonomy \
              FROM decomposition_subtasks WHERE task_id = ?1",
         ) else {
             return serde_json::json!({"claimed": false, "error": "db error"}).to_string();
@@ -90,6 +105,7 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 priority: r.get::<_, i32>(3)?,
                 claim_expires_at: r.get::<_, Option<i64>>(4)?,
                 claimed_by: r.get::<_, Option<String>>(5)?,
+                autonomy: r.get::<_, Option<String>>(6)?,
             })
         })
         .map(|it| it.filter_map(Result::ok).collect())
@@ -162,6 +178,13 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // lease that has run out (the session that took it died without releasing).
     // A subtask moved to in_progress by hand carries no claim and is left alone —
     // a human said someone is on it, and no lease of ours expires that.
+    //
+    // And a HITL ticket is the HUMAN's work (analise-d4, 24/09/2026): the ticket
+    // declares `autonomy = 'hitl'` ("human present") and a pool claim must never
+    // hand it to an agent by accident — declaration and executor now read the
+    // same field. The NAMED path (--subtask) stays open: it is the directed
+    // way in, for the human's own session.
+    let mut hitl_skipped = 0usize;
     let mut candidates: Vec<&ClaimCandidate> = rows
         .iter()
         .filter(|c| {
@@ -172,10 +195,17 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
             if !unblocked || completed.contains(&short_subtask_id(&c.id)) {
                 return false;
             }
-            ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch)
+            if !ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch) {
+                return false;
+            }
+            if c.autonomy.as_deref() == Some("hitl") {
+                hitl_skipped += 1;
+                return false;
+            }
+            true
         })
         .collect();
-    candidates.sort_by(|a, b| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
+    candidates.sort_by(|a, b| queue_order(a.priority, &a.id, b.priority, &b.id));
 
     for ClaimCandidate { id: subtask_id, .. } in &candidates {
         // Exactly one racer sees 1 here; the others see 0 and try the next candidate.
@@ -184,15 +214,23 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         }
     }
 
+    let reason = if !candidates.is_empty() {
+        "every candidate was claimed by another owner first".to_string()
+    } else if hitl_skipped > 0 {
+        format!(
+            "the {hitl_skipped} unblocked subtask(s) left are HITL — the human's own \
+             work, which a pool claim never takes; if you ARE that human, the directed \
+             path is `touring decompose claim {task_id} --owner <you> --subtask <id>`"
+        )
+    } else {
+        "no unblocked, unclaimed subtask is available".to_string()
+    };
     serde_json::json!({
         "claimed": false,
         "task_id": task_id,
         "owner": owner,
-        "reason": if candidates.is_empty() {
-            "no unblocked, unclaimed subtask is available"
-        } else {
-            "every candidate was claimed by another owner first"
-        },
+        "reason": reason,
+        "hitl_skipped": hitl_skipped,
     })
     .to_string()
 }
@@ -207,6 +245,8 @@ struct ClaimCandidate {
     priority: i32,
     claim_expires_at: Option<i64>,
     claimed_by: Option<String>,
+    /// The ticket's `autonomy` (hitl|afk), when the subtask carries a ticket.
+    autonomy: Option<String>,
 }
 
 /// The `--subtask <id>` path: claim ONE named subtask, and let every refusal
@@ -699,6 +739,10 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         claim_expires_at: Option<i64>,
         /// Lease live RIGHT NOW (claimed_by set and unexpired at read time).
         claim_live: bool,
+        /// The ticket declares `autonomy = 'hitl'` — the HUMAN's work. `ready`
+        /// keeps listing it (it is unblocked work), but marked, so a display
+        /// caller can tell "a session may take this" from "Gabriel's decision".
+        hitl: bool,
     }
 
     let now_epoch = chrono::Utc::now().timestamp();
@@ -706,7 +750,7 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // Load all subtasks for this task
     let subtasks: Vec<SubtaskInfo> = {
         let mut stmt = match db.conn_ref().prepare(
-            "SELECT subtask_id, status, depends_on, parallel_group, priority, claimed_by, claim_expires_at FROM decomposition_subtasks WHERE task_id = ?1",
+            "SELECT subtask_id, status, depends_on, parallel_group, priority, claimed_by, claim_expires_at, autonomy FROM decomposition_subtasks WHERE task_id = ?1",
         ) {
             Ok(s) => s,
             Err(_) => return serde_json::json!({"error": "db error"}).to_string(),
@@ -722,6 +766,7 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
             });
             let claimed_by: Option<String> = r.get::<_, Option<String>>(5)?;
             let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(6)?;
+            let autonomy: Option<String> = r.get::<_, Option<String>>(7)?;
             Ok(SubtaskInfo {
                 subtask_id: r.get::<_, String>(0)?,
                 status: r.get::<_, String>(1)?,
@@ -732,6 +777,7 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                     && claim_expires_at.is_some_and(|e| e > now_epoch),
                 claimed_by,
                 claim_expires_at,
+                hitl: autonomy.as_deref() == Some("hitl"),
             })
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -764,7 +810,7 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // Partition into ready (owned) and blocked (owned) — the SAME predicate the
     // claim uses: pending, or in_progress only under an EXPIRED lease. A live
     // claim never lists as ready again (coordenação 2026-09-23).
-    let (ready, blocked): (Vec<SubtaskInfo>, Vec<SubtaskInfo>) =
+    let (mut ready, blocked): (Vec<SubtaskInfo>, Vec<SubtaskInfo>) =
         subtasks.into_iter().partition(|s| {
             is_ready(&s.depends_on)
                 && ready_eligible(
@@ -775,6 +821,11 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 )
         });
 
+    // The SAME queue order the claim hands out (24/09/2026, analise-d4 via
+    // touring-36): ready listed INSERTION order while claim sorted by
+    // (priority, id), and `ready[0]` predicted the wrong subtask. One source.
+    ready.sort_by(|a, b| queue_order(a.priority, &a.subtask_id, b.priority, &b.subtask_id));
+
     // Group ready subtasks by parallel_group
     let mut groups_map: std::collections::HashMap<Option<String>, Vec<serde_json::Value>> =
         std::collections::HashMap::new();
@@ -784,7 +835,8 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         entry.push(serde_json::json!({
             "subtask_id": s.subtask_id,
             "priority": s.priority,
-            "status": s.status
+            "status": s.status,
+            "hitl": s.hitl
         }));
     }
 

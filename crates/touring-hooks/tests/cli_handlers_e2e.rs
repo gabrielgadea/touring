@@ -2478,6 +2478,166 @@ fn claim_subtask_blocked_names_the_pending_deps() {
     );
 }
 
+/// analise-d4 → touring-36 (2026-09-24): a subtask ticketed
+/// `kind=decision, autonomy=hitl` — Gabriel's own decision — entered the
+/// `ready` pool and plain `claim` could take it: the ticket DECLARES "human
+/// present" and the claim never read the field. The pool path now skips
+/// `hitl`; the NAMED path (`--subtask`) stays open as the directed way in;
+/// `ready` keeps listing the work but marks it.
+#[test]
+fn pool_claim_skips_hitl_and_takes_the_next_claimable() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    // S-00 sorts first and would be claimed first — make it the human's.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    assert!(
+        c["subtask_id"].as_str().unwrap_or("").ends_with("S-01"),
+        "the pool claim skips the human's decision: {c}"
+    );
+}
+
+#[test]
+fn pool_claim_with_only_hitl_left_names_the_reason() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(false), "{c}");
+    assert_eq!(c["hitl_skipped"], serde_json::json!(1), "{c}");
+    let reason = c["reason"].as_str().unwrap_or("");
+    assert!(reason.contains("HITL"), "the refusal names the class: {c}");
+    assert!(
+        reason.contains("--subtask"),
+        "and names the directed path: {c}"
+    );
+}
+
+#[test]
+fn named_claim_can_take_hitl_and_ready_marks_it() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    // ready: the hitl work stays LISTED (it is unblocked), but marked.
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let item = ready["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-00"))
+        .expect("hitl stays listed");
+    assert_eq!(item["hitl"].as_bool(), Some(true), "{item}");
+    // the directed path — the human's own session — can still take it.
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "gabriel", "subtask_id": "S-00"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+}
+
+/// touring-36 (2026-09-24): `claim` ordered by (priority, id) while `ready`
+/// listed INSERTION order — with everything at priority 128, `ready` showed
+/// A6 first and `claim` delivered A3a ('3' < '6'), so a guard trusting
+/// `ready[0]` mispredicted the claim. The queue order has ONE source now:
+/// `queue_order`, shared by both — ready's first (excluding hitl) IS the
+/// subtask a pool claim delivers.
+#[test]
+fn ready_lists_in_the_exact_order_claim_would_deliver() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+    // Same priority, ids OUT of insertion order: S-06 added before S-03.
+    for id in ["S-06", "S-03"] {
+        cli_decompose_add(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "subtask_id": id,
+                                "description": id, "depends_on": []}),
+        );
+    }
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let first = ready["ready_subtasks"][0]["subtask_id"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    assert!(first.ends_with("S-03"), "ready's first is the queue's first: {ready}");
+
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert!(
+        c["subtask_id"].as_str().unwrap_or("").ends_with("S-03"),
+        "claim delivers what ready listed first: {c}"
+    );
+}
+
+#[test]
+fn ready_first_excluding_hitl_is_what_claim_delivers() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+    for id in ["S-06", "S-03"] {
+        cli_decompose_add(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "subtask_id": id,
+                                "description": id, "depends_on": []}),
+        );
+    }
+    // The queue's first is the human's decision.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-03",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    // ready still lists S-03 first — marked.
+    let items = ready["ready_subtasks"].as_array().expect("array");
+    assert!(items[0]["subtask_id"].as_str().unwrap_or("").ends_with("S-03"), "{ready}");
+    assert_eq!(items[0]["hitl"].as_bool(), Some(true), "{ready}");
+    // The first EXCLUDING hitl predicts the pool claim.
+    let first_free = items
+        .iter()
+        .find(|s| s["hitl"].as_bool() != Some(true))
+        .and_then(|s| s["subtask_id"].as_str())
+        .unwrap_or("")
+        .to_string();
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert_eq!(
+        c["subtask_id"].as_str().unwrap_or(""),
+        first_free.as_str(),
+        "ready (excluding hitl) predicts the claim: ready={first_free} claim={c}"
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════
