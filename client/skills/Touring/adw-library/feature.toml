@@ -23,6 +23,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: kit base parametrizado.
 curation = "generic"
 intent = "Build a new capability end to end: prior art, SOTA scout, plan, conflict check, then a verified implementation"
+class = "create"
 when_to_use = [
   "a capability that does not exist yet and spans more than one file",
   "other sessions may be writing nearby and the write-set must be checked",

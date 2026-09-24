@@ -12,6 +12,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: kit base parametrizado.
 curation = "generic"
 intent = "Levar um artefato que já existe a uma barra NOMEADA, por um crítico cego que nunca viu como ele foi feito"
+class = "fix"
 when_to_use = ["há um artefato pronto e uma barra externa a perseguir (exemplar, referência, peça paradigma)", "a qualidade ainda não é a desejada e o que falta é polimento, não direção"]
 when_not_to_use = ["criar do zero — sem briefing o par otimiza forte na direção que ninguém escolheu", "a barra não tem procedência: sem exemplar o crítico INVENTA o padrão e o loop fica caro e infinito"]
 produces = ["o artefato levado à barra, e o veredito do crítico que o aprovou"]

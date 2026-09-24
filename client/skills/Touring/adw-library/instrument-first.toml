@@ -23,6 +23,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 3 runs, parametrizado (verificador/good/bad).
 curation = "generic"
 intent = "garantir que o verificador sabe reprovar antes de qualquer medição ou veredito"
+class = "fix"
 when_to_use = "antes de usar um verificador/gate novo ou recém-alterado; antes de medições que decidirão algo"
 when_not_to_use = "verificador já calibrado nesta sessão; julgamento humano de texto livre (control sintético não se aplica)"
 

@@ -23,6 +23,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 2 runs, fixpoint generico (var medida).
 curation = "generic"
 intent = "provar frescor de um artefato por medida repetida (fixpoint), nunca por rótulo/versão declarada"
+class = "review"
 when_to_use = "suspeita de artefato stale: binário antigo, cache, índice defasado, espelho divergente"
 when_not_to_use = "estado que muda legitimamente entre leituras (logs vivos, contadores) — o fixpoint jamais estabiliza"
 

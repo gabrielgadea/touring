@@ -3,10 +3,13 @@
 //! Task/subtask CRUD + DAG validation (cycle detection) + status/finalize/ready
 //! over the decompose tables. `cli_decompose_finalize`/`cli_decompose_ready`
 //! are thin wrappers delegating to `crate::cli_handlers_decompose::*` (fully
-//! qualified). The shared `ensure_decompose_tables` helper stays in
-//! cli_handlers.rs.
+//! qualified). The schema helper is the COMPLETE one from
+//! `cli_handlers_decompose` (base tables + `migrate_decompose_columns`) —
+//! the `cli::shared` twin stops at the base schema, so a fresh db without a
+//! claim path never gained `claimed_by`/`claim_expires_at` and any SELECT
+//! naming them failed closed (12 get-only e2e tests, 2026-09-23).
 
-use crate::cli_handlers::ensure_decompose_tables;
+use crate::cli_handlers_decompose::ensure_decompose_tables;
 use crate::runtime::HookRuntime;
 use crate::schemas::validate_payload;
 use rusqlite::params;
@@ -335,11 +338,12 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             },
         )
         .ok();
+    let now_epoch = chrono::Utc::now().timestamp();
     let subtasks: Vec<serde_json::Value> = {
         let mut stmt = match db
             .conn_ref()
             .prepare(
-                "SELECT subtask_id, description, depends_on, status, priority FROM decomposition_subtasks WHERE task_id = ?1",
+                "SELECT subtask_id, description, depends_on, status, priority, claimed_by, claim_expires_at FROM decomposition_subtasks WHERE task_id = ?1",
             )
         {
             Ok(s) => s,
@@ -358,11 +362,20 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                     .map(String::from)
                     .collect()
             });
+            let claimed_by: Option<String> = r.get::<_, Option<String>>(5)?;
+            let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(6)?;
             Ok(serde_json::json!(
                 { "subtask_id" : r.get::< _, String > (0) ?, "description" :
                 r.get::< _, String > (1) ?, "depends_on" : depends_on,
                 "status" : r.get::< _, String > (3) ?, "priority" : r.get::<
-                _, i32 > (4) ? }
+                _, i32 > (4) ?,
+                // Coordenação 2026-09-23: the views name the owner, the lease
+                // and its liveness — "claimed by a live session" vs "abandoned
+                // work" must be distinguishable without the claim journal.
+                "claimed_by" : claimed_by,
+                "claim_expires_at" : claim_expires_at,
+                "claim_live" : claimed_by.is_some()
+                    && claim_expires_at.is_some_and(|e| e > now_epoch) }
             ))
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())

@@ -156,6 +156,14 @@ fn migrate_decompose_columns(db: &FileKnowledgeDB) {
         // that a conditional UPDATE can arbitrate.
         "ALTER TABLE decomposition_subtasks ADD COLUMN claimed_by TEXT",
         "ALTER TABLE decomposition_subtasks ADD COLUMN claim_expires_at INTEGER",
+        // Coordenação (2026-09-23): the monolith's INSERT writes these two, but
+        // they only ever migrated in `cli::shared::ensure_decompose_tables` —
+        // the OTHER live schema owner. A fresh db ensured ONLY by this complete
+        // path rejected the monolith's INSERT with persisted:false (47 e2e
+        // tests). One schema, one truth: they migrate here too, exactly as
+        // `resolutions` already does in both owners (shared.rs T3.1 comment).
+        "ALTER TABLE task_decompositions ADD COLUMN origin TEXT NOT NULL DEFAULT 'claude-code'",
+        "ALTER TABLE task_decompositions ADD COLUMN mirrored_to_cc INTEGER NOT NULL DEFAULT 1",
         // C3 (2026-08-18): Wayfinder. A DAG of uniform "tasks" cannot express that
         // some entries exist to DECIDE something and others to BUILD it, nor how
         // much fog surrounds each. These five columns carry that.
@@ -671,9 +679,10 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         )
         .ok();
 
+    let now_epoch = chrono::Utc::now().timestamp();
     let subtasks: Vec<serde_json::Value> = {
         let mut stmt = match db.conn_ref().prepare(
-            "SELECT subtask_id, description, depends_on, status, priority, deadline, deadline_behavior, parallel_group FROM decomposition_subtasks WHERE task_id = ?1",
+            "SELECT subtask_id, description, depends_on, status, priority, deadline, deadline_behavior, parallel_group, claimed_by, claim_expires_at FROM decomposition_subtasks WHERE task_id = ?1",
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -690,6 +699,8 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                     .map(String::from)
                     .collect()
             });
+            let claimed_by: Option<String> = r.get::<_, Option<String>>(8)?;
+            let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(9)?;
             Ok(serde_json::json!({
                 "subtask_id": r.get::<_, String>(0)?,
                 "description": r.get::<_, String>(1)?,
@@ -698,7 +709,14 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 "priority": r.get::<_, i32>(4)?,
                 "deadline": r.get::<_, Option<String>>(5)?,
                 "deadline_behavior": r.get::<_, Option<String>>(6)?,
-                "parallel_group": r.get::<_, Option<String>>(7)?
+                "parallel_group": r.get::<_, Option<String>>(7)?,
+                // Coordenação 2026-09-23: the views name the owner, the lease and
+                // its liveness — "claimed by a live session" vs "abandoned work"
+                // must be distinguishable without querying the claim journal.
+                "claimed_by": claimed_by,
+                "claim_expires_at": claim_expires_at,
+                "claim_live": claimed_by.is_some()
+                    && claim_expires_at.is_some_and(|e| e > now_epoch),
             }))
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())

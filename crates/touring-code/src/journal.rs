@@ -96,6 +96,16 @@ impl FailureKind {
     }
 }
 
+/// N6 (2026-09-23): the ladder's top similar block for the run's program,
+/// journaled at execution time (was display-only and never measured).
+#[derive(Debug, Clone, Deserialize)]
+pub struct JournalHint {
+    /// The ladder key of the top similar snippet.
+    pub key: String,
+    /// Jaccard similarity of the match, in `[0.0, 1.0]`.
+    pub sim: f64,
+}
+
 /// One journal entry. Field order matches the on-disk JSON.
 #[derive(Debug, Clone, Deserialize)]
 pub struct JournalEntry {
@@ -136,6 +146,9 @@ pub struct JournalEntry {
     /// removal.
     #[serde(default)]
     pub tmp_bytes: u64,
+    /// N6: the ladder's top similar block at run time, when one existed.
+    #[serde(default)]
+    pub hint: Option<JournalHint>,
 }
 
 /// Prefix of the Claude Code per-session scratchpad — a script that lives
@@ -174,6 +187,9 @@ pub struct JournalAggregate {
     pub orchestrate_runs: u64,
     /// B2: bytes left in private run temp dirs, summed (B1 `tmp_bytes`).
     pub total_tmp_bytes: u64,
+    /// N6: runs whose program had a similar block on the ladder at run time
+    /// (the library OFFERED something — the coverage measure discovery needs).
+    pub hinted_runs: u64,
 }
 
 /// Per-language breakdown of journal runs. Cheap to compute (one pass).
@@ -278,6 +294,7 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
     let (mut file_runs, mut inline_runs, mut scratch_file_runs) = (0u64, 0u64, 0u64);
     let (mut harvested_runs, mut brief_runs, mut orchestrate_runs) = (0u64, 0u64, 0u64);
     let mut total_tmp_bytes: u64 = 0;
+    let mut hinted_runs: u64 = 0;
 
     for entry in entries {
         by_lang
@@ -309,6 +326,7 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
         brief_runs += u64::from(entry.brief);
         orchestrate_runs += u64::from(entry.orchestrate);
         total_tmp_bytes += entry.tmp_bytes;
+        hinted_runs += u64::from(entry.hint.is_some());
     }
 
     let (p50_all, p99_all) = percentiles(&mut durations_all);
@@ -347,6 +365,7 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
         brief_runs,
         orchestrate_runs,
         total_tmp_bytes,
+        hinted_runs,
     }
 }
 

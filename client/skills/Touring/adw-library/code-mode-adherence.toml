@@ -16,6 +16,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: depende de touring kpi + run_journal.jsonl.
 curation = "local"
 intent = "Transformar a régua M1 em decisão: onde a aderência sangra (failure kind dominante, retries desperdiçados) e qual calibração E/A/M responde"
+class = "review"
 when_to_use = [
   "success_rate < 0.8 no touring kpi, ou wasted_attempts_retry_pairs crescendo",
   "após mudar gates/SDK/apresentação — medir se a aderência respondeu",

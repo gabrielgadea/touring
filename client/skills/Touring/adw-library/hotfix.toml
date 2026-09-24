@@ -15,6 +15,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: kit base parametrizado.
 curation = "generic"
 intent = "Stop the bleeding during an incident: a workhorse agent straight in, the smallest gate that proves it, and a report"
+class = "fix"
 when_to_use = [
   "production is broken and speed dominates every other consideration",
 ]

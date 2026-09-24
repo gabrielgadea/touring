@@ -237,12 +237,12 @@ commitments:
   # investigation). File-derived per project; STUB where no artifacts exist.
 
   - id: touring.adw.explore_rounds_to_dry
-    name: "Explore rounds until CCE convergence (mean)"
-    threshold: 8
+    name: "Explore rounds per convergence episode (mean, last episode)"
+    threshold: 6
     direction: lte
     advisory: true
     source: "derived:adw_explore_rounds_to_dry"
-    rationale: "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded."
+    rationale: "N2 (2026-09-23, recalibrado): mede o EPISÓDIO de convergência (cauda de rodadas após o último par seco), não a vida inteira do ledger — ledgers persistem entre sessões e cada re-exploração apensa rodadas, então rounds.len() cobrava re-visita como convergência lenta (mean 8.09 lifetime vs 2.33 por episódio, medido em 174 ledgers; p90 episódico 6 → limiar 6). A hipótese de cortar lente seca morreu na mesma data: economizaria 1 rodada em 174 ledgers; open_qs>0 em 0/63 ledgers longos. Acima de 6 por dias = lentes rendendo devagar de verdade ou alvo aberto."
 
   - id: touring.adw.plan_refine_iters
     name: "Plan refinement iterations (max)"
@@ -297,12 +297,44 @@ commitments:
     rationale: "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist."
 
   - id: touring.flow.compliance_ratio
-    name: "Gated-flow OUTER compliance (artifact manifests complete at Stop)"
+    name: "Gated-flow OUTER compliance (complete among flows that STARTED, 14d)"
     threshold: 0.9
     direction: gte
     advisory: true
     source: "derived:flow_compliance"
-    rationale: "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here."
+    rationale: "N1 (2026-09-23, recalibrado): compliance CONDICIONAL ao início — complete/started numa janela de 14d, onde started = complete OR present_ids não-vazio (58% da história não tem a chave; complete a implica). Antes media TODAS as avaliações armadas: 0.499, com strategy-outer 74% nunca-iniciado — pós-Opção-C (03/09) o Stop não bloqueia mais, então armar-e-abandonar é estado permitido pela política, não violação, e o abandono migrou para touring.flow.arm_yield. O anti-regressão do protocol-adherence-diagnosis:2026-07-23 segue: quem TRABALHOU o flow deve fechar o manifesto. STUB enquanto nada iniciar na janela."
+
+  - id: touring.flow.compliance_work_outer
+    name: "OUTER compliance do flow work-outer (14d, started-conditional)"
+    threshold: 0.9
+    direction: gte
+    advisory: true
+    source: "derived:flow_compliance_work_outer"
+    rationale: "N1 (2026-09-23): o flow default (2 artefatos: diagnostic + ledger) é o mais saudável — 14d em 23/09: 202/202 = 100%. Abaixo de 0.9 a esteira padrão está largando artefato. STUB sem flow iniciado na janela."
+
+  - id: touring.flow.compliance_strategy_outer
+    name: "OUTER compliance do flow strategy-outer (14d, started-conditional)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:flow_compliance_strategy_outer"
+    rationale: "N1 (2026-09-23): o flow explícito (3 artefatos, incl. strategy doc consolidada) é o devedor — 14d em 23/09: 228 armados → 77 iniciados → 3 completos = 3.9%. Limiar 0.5 provisório como meta de melhoria honesta; o veredito sobre ele pede dias de sinal, não uma medição. STUB sem flow iniciado na janela."
+
+  - id: touring.flow.compliance_cross_audit
+    name: "OUTER compliance do flow cross-audit (14d, started-conditional)"
+    threshold: 0.9
+    direction: gte
+    advisory: true
+    source: "derived:flow_compliance_cross_audit"
+    rationale: "N1 (2026-09-23): 1 artefato (audit-report) — 14d em 23/09: 14/14 = 100%. Abaixo de 0.9 a auditoria está terminando sem relatório. STUB sem flow iniciado na janela."
+
+  - id: touring.flow.arm_yield
+    name: "Arm yield — flows iniciados / armados (14d)"
+    threshold: 0.3
+    direction: gte
+    advisory: true
+    source: "derived:flow_arm_yield"
+    rationale: "N1 (2026-09-23): o complemento que a compliance started-conditional exclui por desenho, mantido visível em vez de escondido — que fração dos armamentos vira trabalho de fato. 14d em 23/09: 293/461 = 63.6%. Caindo, a heurística de armamento (loop_outer_arm) está disparando em turnos conversacionais demais. STUB sem flow armado na janela."
 
   - id: touring.learning.policy_discrimination
     name: "Política discrimina — estados multi-ação com dispersão de Q > 0.01"

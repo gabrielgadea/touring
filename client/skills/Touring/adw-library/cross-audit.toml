@@ -20,6 +20,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global TACO-cross-audit.
 curation = "generic"
 intent = "Auditar uma árvore contra o propósito documentado com evidência determinística (wiring/debt/testes) e entregar o report datado em docs/audits/"
+class = "review"
 when_to_use = [
   "após uma entrega/wave — o cross-audit é o gate VERIFY do INNER (loop-engineering passo 13)",
   "quando 'auditar', 'verificar fidelidade de propósito' ou 'cross-audit' de um diretório for pedido",

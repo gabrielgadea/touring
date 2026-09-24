@@ -327,5 +327,23 @@ def test_dry_signal_absent_when_no_round_ran(scope, capsys):
     assert "NEW_FINDINGS" not in capsys.readouterr().err
 
 
+def test_payload_carries_lens_yield(scope, capsys):
+    """N2 (2026-09-23): per-lens yield must travel with every payload — the
+    dry-lens-cut hypothesis died on data nobody could see (174 real ledgers),
+    so the yield stops being private to the ledger file."""
+    run = make_runner(base_responses())
+    ledger_file = scope / "yield.json"
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--rounds", "1", "--json"], run=run)
+    out = capsys.readouterr()
+    payload = json.loads(out.out)
+    assert "lens_yield" in payload, "payload carries per-lens yield"
+    ly = payload["lens_yield"]
+    assert sum(ly["findings"].values()) == payload["findings"], \
+        "per-lens findings add up to the payload's own total"
+    assert sum(ly["new_this_run"].values()) == payload["rounds"][-1]["new_findings"], \
+        "per-lens new adds up to the fresh round's own count"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

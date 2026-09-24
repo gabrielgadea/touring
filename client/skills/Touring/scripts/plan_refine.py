@@ -199,8 +199,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("plan", help="Path to the plan .md under refinement")
-    p.add_argument("--ledger", required=True,
-                   help="Exploration ledger JSON (explore_until_dry.py)")
+    p.add_argument("--ledger", default=None,
+                   help="Exploration ledger JSON (explore_until_dry.py). "
+                        "Optional with --topic: derived through the SAME "
+                        "explore_until_dry.ledger_path_for, never a reimplemented slug")
+    p.add_argument("--topic", default=None,
+                   help="Exploration topic — derives the ledger with --scope "
+                        "(N3, 2026-09-23: the explore-plan node passed --topic for "
+                        "months and died on argparse; the only wired producer never produced)")
+    p.add_argument("--scope", default=None,
+                   help="Exploration scope for --topic derivation (default: cwd)")
     p.add_argument("--refine-ledger", default=None,
                    help="Iteration ledger path (default: <plan>.refine.json)")
     p.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
@@ -236,7 +244,18 @@ def measure(plan_path: Path, ledger: dict[str, Any],
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     plan_path = Path(args.plan).expanduser().resolve()
-    ledger_path = Path(args.ledger).expanduser().resolve()
+    if args.ledger:
+        ledger_path = Path(args.ledger).expanduser().resolve()
+    elif args.topic:
+        # Derive through the explorer's own path function — the ledger slug
+        # lives in explore_until_dry, and a second implementation here would
+        # drift (predicado escrito duas vezes nunca se encontra).
+        from explore_until_dry import ledger_path_for
+        scope = Path(args.scope).expanduser().resolve() if args.scope else Path.cwd()
+        ledger_path = ledger_path_for(args.topic, scope, None)
+    else:
+        emit_error("either --ledger or --topic is required")
+        return 2
     if not plan_path.is_file():
         emit_error(f"plan not found: {plan_path}")
         return 2

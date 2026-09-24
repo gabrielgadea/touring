@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -248,6 +249,126 @@ def link_provenance(task, phase, status):
         if rc == 0:
             linked += 1
     return linked
+
+
+def previous_phase_key(task, phase, status, bundle):
+    """The memory key of the most recent EARLIER phase lesson of this task
+    (from the bundle's own phase reports), or None when there is none."""
+    if not bundle:
+        return None
+    try:
+        reports = [
+            p for p in Path(bundle, "phases").glob("*.md") if p.stem != phase
+        ]
+    except Exception:  # noqa: BLE001
+        return None
+    if not reports:
+        return None
+    prev = max(reports, key=lambda p: p.stat().st_mtime).stem
+    return f"loop:{task}:{prev}:done"
+
+
+def _memory_db_for(root):
+    """The project's memory.db — the project ROOT's, never a nearer stray.
+
+    Two-pass walk-up (the daemon's own rule, because answering [] from a
+    nested cwd is the `count is cwd-sensitive` defect — cross-audit finding,
+    2026-09-23): a level that is a PROJECT ROOT (`.touring/touring.toml` pin
+    or `.git`) names the db under IT; only when no level is a root does the
+    nearest `.claude/touring/memory.db` answer. The E2E proof caught the
+    naive walk-up resolving `crates/.claude/touring/memory.db` — a lost,
+    0-entry db — and shadowing the real 407-entry ladder one level up.
+    """
+    here = Path(root).resolve()
+    levels = [here, *here.parents][:7]
+    for cand in levels:
+        if (cand / ".touring" / "touring.toml").is_file() or (cand / ".git").exists():
+            db = cand / ".claude" / "touring" / "memory.db"
+            if db.is_file():
+                return db
+    for cand in levels:
+        db = cand / ".claude" / "touring" / "memory.db"
+        if db.is_file():
+            return db
+    return None
+
+
+def harvest_candidates(root=None, limit=3):
+    """Ladder bodies CLIMBING but not yet trusted, with the exact next command.
+
+    N6 (2026-09-23): `--harvest` has 0 uses in the journal's life and the
+    ladder's own numbers show why that matters — bodies climb to provisional
+    and stall there because nobody is told they exist. A phase close is the
+    natural moment to surface them: the phase just proved what work is hot.
+    Read-only, best-effort (`[]` on any error); candidates are provisional
+    bodies at ≥3 executions with a ≥90% success rate, most-run first.
+    """
+    import sqlite3
+
+    db = _memory_db_for(root or os.getcwd())
+    if db is None:
+        return []
+    try:
+        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        rows = conn.execute(
+            "SELECT entry_key, executions, successes, trust_level FROM snippet_stats "
+            "WHERE trust_level != 'trusted' AND executions >= 3 "
+            "ORDER BY executions DESC LIMIT ?",
+            (max(1, limit * 4),),
+        ).fetchall()
+        conn.close()
+    except Exception:  # noqa: BLE001
+        return []
+    out = []
+    for key, executions, successes, trust in rows:
+        rate = (successes / executions) if executions else 0.0
+        if rate < 0.9:
+            continue
+        out.append({
+            "key": key, "executions": executions,
+            "success_rate": round(rate, 3), "trust": trust,
+            "cmd": f'touring memory recall "{key}"   # revive → run → `touring run --harvest <slug>`',
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+def apply_derived_links(task, phase, status, bundle=None, limit=3):
+    """Give `memory suggest-links` the caller it never had, plus a chain edge.
+
+    M2 (2026-09-23): `edge_density` 0.023 and `graph_contract_share` 0.0 — the
+    suggestion engine shipped fully built with ZERO callers (same class as
+    `credit_recalls`' zero-caller bug). Two edge kinds, both best-effort and
+    never a gate:
+
+    1. the engine's own suggestions (bounded) — pairs recall keeps co-serving,
+       built from the STRUCTURED fields (a/b/rel), never by executing the
+       `apply` shell string (the template-injection lesson);
+    2. a deterministic chain edge: this phase's lesson `extends` the previous
+       phase's lesson of the same task — a brand-new key has no co-service
+       yet, so the engine alone could never connect it.
+    """
+    applied = []
+    rc, out, _ = run(["touring", "memory", "suggest-links", "--limit", "20", "-j"])
+    try:
+        suggestions = (json.loads(out) or {}).get("suggestions") or []
+    except Exception:  # noqa: BLE001
+        suggestions = []
+    for row in suggestions[: max(0, limit)]:
+        a, b, rel = row.get("a"), row.get("b"), row.get("rel") or "relates-to"
+        if not a or not b:
+            continue
+        rc2, out2, _ = run(["touring", "memory", "link", str(a), str(b), "--rel", str(rel)])
+        if rc2 == 0 or '"linked"' in (out2 or ""):
+            applied.append(f"{a}|{rel}|{b}")
+    prev = previous_phase_key(task, phase, status, bundle)
+    if prev:
+        new_key = f"loop:{task}:{phase}:{status}"
+        rc3, out3, _ = run(["touring", "memory", "link", new_key, prev, "--rel", "extends"])
+        if rc3 == 0 or '"linked"' in (out3 or ""):
+            applied.append(f"{new_key}|extends|{prev}")
+    return applied
 
 
 # ── Hyper-Extract typed abstract ─────────────────────────────────────────────
@@ -526,6 +647,14 @@ def main(argv=None):
         # P4: provenance is created BY the executor at close time — clause 5
         # of the graph contract stops being a convention nobody follows.
         "provenance_links": link_provenance(args.task, args.phase, args.status),
+        # N4 (2026-09-23): `memory suggest-links` gains its first caller here,
+        # plus the same-task chain edge the engine alone could never create.
+        "derived_links": apply_derived_links(args.task, args.phase, args.status,
+                                             bundle=args.bundle),
+        # N6: the ladder bodies climbing toward trusted, surfaced with the
+        # exact next command — `--harvest` has 0 journal uses because nobody
+        # is ever told the candidates exist.
+        "harvest_candidates": harvest_candidates(),
         "rewarded": reward(args.phase, args.reward),
         "recalls_credited": credit_recalls(
             args.task, args.phase, args.status, args.credit_query
@@ -580,6 +709,28 @@ def main(argv=None):
             )
         except Exception as exc:  # noqa: BLE001 — fail-open, like every hook here
             result["variant_error"] = f"{exc.__class__.__name__}: {exc}"
+
+    # N4 (2026-09-23): the resume-uptake ruler — a phase close is the loop's
+    # own action, so it lands beside the resume injections (resume.jsonl) and
+    # `loop_resume.py --uptake` can finally answer "did the injection work?"
+    # with data instead of faith. Telemetry: never gates the phase.
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "hooks"))
+        import resume_ledger
+        import loop_marker
+
+        resume_ledger.append_record({
+            "kind": "loop-action", "action": "phase-close",
+            "task": args.task, "phase": args.phase, "status": args.status,
+            # The SAME session resolution the hooks use (env alone misses the
+            # Bash-tool path and made every action an orphan nobody follows).
+            "session_id": loop_marker.resolve_session(
+                os.environ.get("CLAUDE_CODE_SESSION_ID")
+                or os.environ.get("TOURING_SESSION_ID")),
+            "cwd": os.getcwd(),
+        })
+    except Exception:  # noqa: BLE001
+        pass
 
     # O exit code sempre foi honesto; o CABEÇALHO não era. Ele anunciava
     # "→ done" mesmo com `dag=False`, e um leitor que não conferisse os flags
