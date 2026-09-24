@@ -186,7 +186,12 @@ fi
 # `--version` escreve em STDERR (gotcha já pago): um `2>/dev/null` apagaria a
 # string e a guarda passaria sem checar nada.
 if [ "$SKIP_BUILD" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
-    BUILT_VERSION="$("$WORKSPACE/target/release/touring" --version 2>&1 | awk '{print $NF}')"
+    # `--version` é MULTI-LINHA (versão + sha + data + features): ler tudo e
+    # cortar a 1ª linha em bash puro — um `| head -1` fecha o pipe cedo e o
+    # binário morre de EPIPE/SIGABRT (a classe já documentada no passo 6), e um
+    # `awk '{print $NF}'` na saída inteira lê o último campo das FEATURES.
+    ver="$("$WORKSPACE/target/release/touring" --version 2>&1)"
+    BUILT_VERSION="$(awk '{print $NF}' <<< "${ver%%$'\n'*}")"
     if [ "$BUILT_VERSION" != "$VERSION" ]; then
         die "rótulo divergente: o binário construído declara '$BUILT_VERSION', alvo '$VERSION' — faça o bump no Cargo.toml do workspace (version = \"$VERSION\") antes de propagar"
     fi

@@ -77,7 +77,17 @@ def _fake_tree(declared: str) -> Path:
     bin_dir = tmp / "target" / "release"
     bin_dir.mkdir(parents=True)
     fake = bin_dir / "touring"
-    fake.write_text(f'#!/bin/sh\necho "touring {declared}" >&2\n', encoding="utf-8")
+    # The REAL `--version` is MULTI-LINE (version + sha + date + features) —
+    # a one-line fixture let an awk-$NF parse read the features list as the
+    # version and kill a correct build (the production condition the audit
+    # doctrine demands the fixture carry).
+    fake.write_text(
+        '#!/bin/sh\n'
+        f'printf "touring {declared}\\n'
+        'b8e2e7e68faf69285011c1ffd5a17579630d9f4f\\n'
+        '2026-08-18\\n2026-09-24T04:12:23Z\\n'
+        'analysis-gate,async-memory,console,default,otlp,tantivy-fts\\n" >&2\n',
+        encoding="utf-8")
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     return tmp
 
