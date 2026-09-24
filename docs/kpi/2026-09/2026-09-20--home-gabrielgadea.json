@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.021621621621621623,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -85,7 +85,7 @@
       "rationale": "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 22d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
+      "stub_reason": "stale — measured 23d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
       "threshold": 5100.0
     },
     {
@@ -97,7 +97,7 @@
       "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 22d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
+      "stub_reason": "stale — measured 23d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
       "threshold": 0.75
     },
     {
@@ -112,18 +112,18 @@
       "threshold": 50.0
     },
     {
-      "actual": 1173.0,
+      "actual": 163.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
       "name": "Coupling STR — enrichment bytes per emit (D2, leading)",
       "rationale": "Signal-to-token: bytes injected per enrichment emit. Measured baseline 1029; target lte 800 forces tighter context without losing the actionable signal.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 800.0
     },
     {
-      "actual": 731.0,
+      "actual": 915.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 315647.0,
+      "actual": 571903.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 171.0,
+      "actual": 267519.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -189,18 +189,18 @@
       "threshold": 0.4
     },
     {
-      "actual": 1.0,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "PASS",
+      "status": "ADVISORY",
       "threshold": 0.5
     },
     {
-      "actual": 20.22222222222222,
+      "actual": 2.8,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -461,55 +461,55 @@
       "rationale": "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 20d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
+      "stub_reason": "stale — measured 21d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.medicao.adherence.json",
       "threshold": 0.8
     }
   ],
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1066,
+      "exception": 1085,
       "output-limit": 4,
       "proc-exit": 3,
-      "timeout": 261
+      "timeout": 267
     },
     "by_language": {
       "?": 3,
-      "bash": 7868,
+      "bash": 7933,
       "go": 1,
-      "js": 117,
+      "js": 121,
       "perl": 4,
       "php": 1,
-      "python": 8164,
+      "python": 8236,
       "ruby": 4,
       "rust": 4,
-      "shell": 154,
+      "shell": 159,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 14990,
-    "runs_total": 16327,
+    "runs_ok": 15111,
+    "runs_total": 16473,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9181111043057512,
-    "wasted_attempts_retry_pairs": 797
+    "success_rate": 0.9173192496812966,
+    "wasted_attempts_retry_pairs": 810
   },
   "code_mode_reuse": {
     "available": true,
     "brief_runs": 145,
-    "file_runs": 2439,
+    "file_runs": 2453,
     "floor": 0.2,
     "harvested_runs": 0,
-    "inline_runs": 6435,
+    "inline_runs": 6536,
     "ladder_enrolled": 1,
     "ladder_reused": 0,
     "orchestrate_runs": 169,
     "persistent_file_runs": 1158,
-    "reuse_ratio": 0.13,
-    "scratch_file_runs": 1281,
+    "reuse_ratio": 0.129,
+    "scratch_file_runs": 1295,
     "status": "FAIL",
-    "total_tmp_bytes": 251240374,
-    "v1_runs": 7450,
-    "v2_runs": 8874
+    "total_tmp_bytes": 255866313,
+    "v1_runs": 7481,
+    "v2_runs": 8989
   },
   "code_mode_signal_use": {
     "available": true,
@@ -518,7 +518,7 @@
     "non_canonical_calls": 145,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 628,
+    "total_calls": 630,
     "used": 7
   },
   "context_budget": {
@@ -796,52 +796,26 @@
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 9,
-      "cli-ast-blast-cross-feature": 1,
-      "cli-ast-overview": 100,
-      "cli-ast-quality": 2,
-      "cli-code-mode-run": 182,
-      "cli-decompose-get": 7,
-      "cli-decompose-update": 2,
-      "cli-flywheel-status": 253,
-      "cli-gate-event": 5,
-      "cli-gate-metrics": 259,
-      "cli-granularity-hint": 7,
-      "cli-health-delta-status": 252,
-      "cli-incremental-status": 252,
-      "cli-index-files": 1,
-      "cli-index-find": 5,
-      "cli-index-search": 6,
-      "cli-index-status": 258,
-      "cli-kpi": 1443,
-      "cli-learning-reward": 17,
-      "cli-learning-status": 4573,
-      "cli-memory-credit": 2,
-      "cli-memory-link": 27,
-      "cli-memory-query": 9,
-      "cli-memory-recall": 1,
-      "cli-memory-store": 17,
-      "cli-mutation-test": 2,
-      "cli-profile-status": 3,
-      "cli-repo-health": 1,
-      "cli-repo-score": 1,
-      "cli-resource-monitor-status": 252,
-      "cli-session-list": 253,
-      "cli-suggest": 9,
-      "cli-tantivy-fuzzy": 1,
-      "cli-tantivy-search": 1,
-      "cli-tantivy-stats": 1,
-      "cli-wiring-cycles": 1,
-      "cli-wiring-modules": 2,
-      "cli-wiring-orphans": 10,
-      "cli-wiring-status": 254,
-      "instructions-loaded": 17,
-      "post-bash": 9,
-      "post-tool-batch": 9,
-      "post-tool-failure": 1,
-      "post-tool-rl": 8,
-      "pre-bash": 9,
-      "session-stop": 1
+      "ceg-observe": 5,
+      "cli-code-mode-run": 14,
+      "cli-flywheel-status": 5,
+      "cli-gate-metrics": 5,
+      "cli-health-delta-status": 5,
+      "cli-incremental-status": 5,
+      "cli-index-status": 5,
+      "cli-kpi": 40,
+      "cli-learning-status": 111,
+      "cli-resource-monitor-status": 5,
+      "cli-session-list": 5,
+      "cli-suggest": 6,
+      "cli-wiring-status": 5,
+      "cwd-changed": 1,
+      "post-bash": 5,
+      "post-tool-batch": 7,
+      "post-tool-rl": 6,
+      "post-write": 1,
+      "pre-bash": 5,
+      "subagent-stop": 1
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -851,9 +825,9 @@
     "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
     "post_bash_delivery_ratio": 0.0,
-    "post_bash_dispatched": 9,
+    "post_bash_dispatched": 5,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1789902025
+    "since_epoch": 1789946426
   },
   "project_root": "/home/gabrielgadea",
   "schema": "kpi-commitments-v1",
