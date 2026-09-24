@@ -93,6 +93,7 @@ for arg in "$@"; do
         --skip-freeze) SKIP_FREEZE=1 ;;
         --no-default) NO_DEFAULT=1 ;;
         --allow-no-projects) ALLOW_NO_PROJECTS=1 ;;
+        --check-label-only) CHECK_LABEL_ONLY=1 ;;
         --rollback)   ROLLBACK=1 ;;
         -h|--help)    usage ;;
         -*)           die "flag desconhecida: $arg" ;;
@@ -199,12 +200,52 @@ if [ "$DRY_RUN" -eq 0 ]; then
         die "rótulo divergente: o binário construído declara '$BUILT_VERSION', alvo '$VERSION' — faça o bump no Cargo.toml do workspace (version = \"$VERSION\") antes de propagar"
     fi
     log "rótulo OK: o binário declara $VERSION"
-    # O lock também é rótulo (os 4 bumps anteriores o levaram junto): um membro
-    # do workspace fora da versão alvo é a mesma mentira um diretório abaixo —
-    # o CI não usa --locked, mas o próximo build deixaria diff solto no tree.
-    LOCK_OLD="$(awk '/^name = "touring/ {getline; if ($0 ~ /version = "/ && $0 !~ "\"'"$VERSION"'\"") {print $0; exit}}' "$WORKSPACE/Cargo.lock" 2>/dev/null || true)"
+    # O lock também é rótulo — mas só dos membros que HERDAM a versão do
+    # workspace (`version.workspace = true` no manifest). Crates independentes
+    # (touring-analysis 0.3.3, hooks 0.1.0, cortex 1.0.0, deps como `color`)
+    # não carregam a série 30.4.x por desenho, e um check por prefixo de nome
+    # matava o pipeline com falso positivo (3ª parada, 2026-09-24).
+    LOCK_OLD=""
+    if ! LOCK_OLD="$(python3 - "$WORKSPACE" "$VERSION" <<-'PY'
+	import re, sys, pathlib
+	ws, target = sys.argv[1], sys.argv[2]
+	members = set()
+	for m in pathlib.Path(ws).glob("crates/*/Cargo.toml"):
+	    src = m.read_text(encoding="utf-8", errors="ignore")
+	    # Anchored at line start: `rust-version.workspace = true` (inferlets) also
+	    # contains the substring and made an independent crate look like an heir.
+	    if re.search(r"(?m)^version\.workspace = true", src):
+	        n = re.search(r'^name = "([^"]+)"', src, re.M)
+	        if n:
+	            members.add(n.group(1))
+	bad = []
+	pkg = None
+	try:
+	    lines = pathlib.Path(ws, "Cargo.lock").read_text(encoding="utf-8", errors="ignore").splitlines()
+	except Exception:
+	    lines = []
+	for line in lines:
+	    if line.startswith("name = "):
+	        pkg = line.split('"')[1] if '"' in line else None
+	    elif line.startswith("version = ") and pkg in members:
+	        ver = line.split('"')[1]
+	        if ver != target:
+	            bad.append(f"{pkg} {ver}")
+	            break
+	print(bad[0] if bad else "")
+	PY
+	)"; then
+        # Fail-CLOSED: um heredoc com indentação matava o python de
+        # IndentationError e a checagem "passava" com stdout vazio — sonda que
+        # não roda reporta zero, e uma guarda morta é pior que nenhuma guarda.
+        die "a verificação do Cargo.lock FALHOU em si (python errou) — a sonda que não roda não é sonda verde"
+    fi
     if [ -n "$LOCK_OLD" ]; then
-        die "Cargo.lock fora do rótulo: $(echo "$LOCK_OLD" | head -1) ≠ $VERSION — o build do passo 2 regrava o lock; commite-o com caminho explícito"
+        die "Cargo.lock fora do rótulo: $LOCK_OLD ≠ $VERSION — o build do passo 2 regrava o lock; commite-o com caminho explícito"
+    fi
+    if [ "${CHECK_LABEL_ONLY:-0}" -eq 1 ]; then
+        log "rótulo verificado (--check-label-only): binário e Cargo.lock declaram $VERSION"
+        exit 0
     fi
 elif [ "$DRY_RUN" -eq 1 ]; then
     warn "dry-run: a checagem de rótulo não roda (build simulado)"
