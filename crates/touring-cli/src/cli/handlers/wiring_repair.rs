@@ -553,6 +553,13 @@ pub fn cli_repair_wiring(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     {
         return purge_reply(&rt.ctx.knowledge, dry_run);
     }
+    if payload
+        .get("purge_phantom")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
+        return phantom_purge_reply(&rt.ctx.knowledge, dry_run);
+    }
     let limit = payload
         .get("limit")
         .and_then(|v| v.as_i64())
@@ -608,6 +615,98 @@ fn purge_reply(db: &FileKnowledgeDB, dry_run: bool) -> String {
         })
         .to_string(),
         Err(e) => serde_json::json!({ "status": "error", "message": e }).to_string(),
+    }
+}
+
+/// Outcome of [`purge_phantom_edges`].
+pub(crate) struct PhantomPurgeOutcome {
+    /// Phantom edges removed (or that would be removed).
+    pub edges: usize,
+    /// Whether this was a preview-only run.
+    pub dry_run: bool,
+    /// Up to [`SAMPLE`] of the edges removed (or that would be removed).
+    pub sample: Vec<SampleEdge>,
+}
+
+/// The phantom predicate (24/09/2026, touring-36): a consumer row whose kind
+/// is `unknown` and whose producer exists NOWHERE — no row of its own and no
+/// definition to resolve the kind from, so NO repair can ever clear it. The
+/// doctor's `wiring_diagnostic` measured 8 of them, permanent by construction
+/// (the `definer_module` fallback recorded them as `ast_resolved` to a
+/// producer that never existed). No orphan row is restored: these producers
+/// never had a row to begin with.
+fn phantom_predicate() -> &'static str {
+    "symbol_kind = 'unknown' AND consumer_file IS NOT NULL \
+     AND NOT EXISTS (SELECT 1 FROM wiring_map p \
+                     WHERE p.consumer_file IS NULL \
+                       AND p.module_file = wiring_map.module_file \
+                       AND p.symbol_name = wiring_map.symbol_name)"
+}
+
+fn count_where(conn: &rusqlite::Connection, predicate: &str) -> Result<usize, String> {
+    conn.query_row(
+        &format!("SELECT COUNT(*) FROM wiring_map WHERE {predicate}"),
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count as usize)
+    .map_err(|e| purge_error("count", e))
+}
+
+fn sample_where(conn: &rusqlite::Connection, predicate: &str) -> Result<Vec<SampleEdge>, String> {
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT module_file, symbol_name, consumer_file FROM wiring_map
+             WHERE {predicate}
+             ORDER BY module_file, symbol_name, consumer_file LIMIT {SAMPLE}"
+        ))
+        .map_err(|e| purge_error("sample", e))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(SampleEdge {
+                module_file: row.get(0)?,
+                symbol_name: row.get(1)?,
+                consumer_file: row.get(2)?,
+            })
+        })
+        .map_err(|e| purge_error("sample", e))?;
+    rows.collect::<Result<_, _>>()
+        .map_err(|e| purge_error("sample", e))
+}
+
+/// Remove every consumer edge that is phantom by [`phantom_predicate`].
+pub(crate) fn purge_phantom_edges(
+    db: &FileKnowledgeDB,
+    dry_run: bool,
+) -> Result<PhantomPurgeOutcome, String> {
+    let conn = db.conn_ref();
+    let outcome = PhantomPurgeOutcome {
+        edges: count_where(conn, phantom_predicate())?,
+        dry_run,
+        sample: sample_where(conn, phantom_predicate())?,
+    };
+    if outcome.edges > 0 && !dry_run {
+        conn.execute(
+            &format!("DELETE FROM wiring_map WHERE {}", phantom_predicate()),
+            [],
+        )
+        .map_err(|e| purge_error("delete", e))?;
+    }
+    Ok(outcome)
+}
+
+/// The reply of `touring wiring repair --purge-phantom [--dry-run]`.
+fn phantom_purge_reply(db: &FileKnowledgeDB, dry_run: bool) -> String {
+    match purge_phantom_edges(db, dry_run) {
+        Ok(outcome) => serde_json::json!({
+            "status": if outcome.dry_run { "dry_run" } else { "purged" },
+            "mode": "purge_phantom",
+            "dry_run": outcome.dry_run,
+            "edges": outcome.edges,
+            "sample": outcome.sample.iter().map(SampleEdge::to_json).collect::<Vec<_>>(),
+        })
+        .to_string(),
+        Err(message) => serde_json::json!({ "status": "error", "message": message }).to_string(),
     }
 }
 
@@ -786,5 +885,67 @@ mod tests {
             0,
             "idempotent"
         );
+    }
+
+    /// 24/09/2026 (touring-36): the phantom purge removes only consumer rows
+    /// whose kind is `unknown` AND whose producer exists nowhere — an
+    /// unknown-kind consumer WITH a producer is resolvable later and must
+    /// survive; a healthy edge is untouched; a second run is a no-op.
+    #[test]
+    fn phantom_purge_deletes_only_producerless_unknowns_and_is_idempotent() {
+        let (proj, rt) = polyglot_project(&[("src/consumer.rs", "fn main() {}\n")]);
+        let db = &rt.ctx.knowledge;
+        producer(&rt, "src/helpers.rs", "real_fn");
+        db.record_consumer("src/helpers.rs", "real_fn", "src/consumer.rs", None)
+            .expect("healthy edge");
+        // The phantom: unknown kind, no producer anywhere.
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map
+                 (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES ('src/lib.rs', 'ghost_fn', 'unknown', 'public', 'src/consumer.rs', 'ast_resolved')",
+                [],
+            )
+            .expect("seed phantom");
+        // An unknown-kind consumer WITH a producer — resolvable later, NOT phantom.
+        producer(&rt, "src/later.rs", "late_fn");
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map
+                 (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES ('src/later.rs', 'late_fn', 'unknown', 'public', 'src/consumer.rs', 'ast_resolved')",
+                [],
+            )
+            .expect("seed resolvable-later");
+
+        let count = |symbol: &str| -> i64 {
+            db.conn_ref()
+                .query_row(
+                    "SELECT COUNT(*) FROM wiring_map WHERE symbol_name = ?1 AND consumer_file IS NOT NULL",
+                    rusqlite::params![symbol],
+                    |r| r.get(0),
+                )
+                .expect("count")
+        };
+        let preview = purge_phantom_edges(db, true).expect("dry-run");
+        assert_eq!(preview.edges, 1, "only the producerless unknown is phantom");
+        assert_eq!(count("ghost_fn"), 1, "a dry run writes nothing");
+
+        let applied = purge_phantom_edges(db, false).expect("apply");
+        assert_eq!(applied.edges, 1);
+        assert_eq!(count("ghost_fn"), 0, "the phantom is gone");
+        assert_eq!(count("real_fn"), 1, "the healthy edge survives");
+        assert_eq!(
+            count("late_fn"),
+            1,
+            "unknown kind WITH a producer is resolvable later, never phantom"
+        );
+        assert_eq!(
+            purge_phantom_edges(db, false).expect("again").edges,
+            0,
+            "idempotent"
+        );
+        drop(rt);
+        drop(proj);
     }
 }
