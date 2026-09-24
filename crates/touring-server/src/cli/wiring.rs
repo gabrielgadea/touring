@@ -138,6 +138,13 @@ enum WiringCmd {
         /// orphan rows they replaced. Combine with `--dry-run` to preview.
         #[arg(long)]
         purge_cross_language: bool,
+        /// Remove PHANTOM consumer edges: rows whose kind is `unknown` and
+        /// whose producer exists nowhere — never resolvable by any repair, so
+        /// they only pollute the doctor's wiring_diagnostic (24/09/2026,
+        /// touring-36: 8 of them, permanent by construction). Combine with
+        /// `--dry-run` to preview.
+        #[arg(long)]
+        purge_phantom: bool,
     },
 }
 
@@ -294,12 +301,14 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             limit,
             offset,
             purge_cross_language,
+            purge_phantom,
         } => {
             let payload = serde_json::json!({
                 "dry_run": dry_run,
                 "limit": limit,
                 "offset": offset,
                 "purge_cross_language": purge_cross_language,
+                "purge_phantom": purge_phantom,
             });
             println!(
                 "{}",
@@ -775,6 +784,7 @@ mod tests {
             limit,
             offset,
             purge_cross_language,
+            purge_phantom,
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")
@@ -783,6 +793,7 @@ mod tests {
         assert!(limit.is_none());
         assert!(offset.is_none());
         assert!(!purge_cross_language);
+        assert!(!purge_phantom);
     }
 
     #[test]
@@ -799,6 +810,22 @@ mod tests {
             panic!("expected Repair")
         };
         assert!(dry_run && purge_cross_language);
+    }
+
+    #[test]
+    fn parses_repair_purge_phantom() {
+        let cli =
+            WiringCli::try_parse_from(["wiring", "repair", "--purge-phantom", "--dry-run"])
+                .unwrap();
+        let WiringCmd::Repair {
+            dry_run,
+            purge_phantom,
+            ..
+        } = cli.cmd.unwrap()
+        else {
+            panic!("expected Repair")
+        };
+        assert!(dry_run && purge_phantom);
     }
 
     /// The repair's ten-edge sample is over the 512-byte elision threshold, so
