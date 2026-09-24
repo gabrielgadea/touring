@@ -178,6 +178,23 @@ else
     run update-touring
 fi
 
+# ─── 2.5 LABEL GUARD — a toolchain nunca declara outra versão (2026-09-24) ────
+# Família propagacao-rotulo-nao-prova-build / bump-de-versao-antes-do-build:
+# `.touring/bin/touring --version` É a verdade local de um projeto — a
+# toolchain 30.4.66 instalada hoje se declarava 30.4.65 (o bump nunca foi
+# feito), e o diagnóstico de amanhã concluiria que a release não chegou.
+# `--version` escreve em STDERR (gotcha já pago): um `2>/dev/null` apagaria a
+# string e a guarda passaria sem checar nada.
+if [ "$SKIP_BUILD" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
+    BUILT_VERSION="$("$WORKSPACE/target/release/touring" --version 2>&1 | awk '{print $NF}')"
+    if [ "$BUILT_VERSION" != "$VERSION" ]; then
+        die "rótulo divergente: o binário construído declara '$BUILT_VERSION', alvo '$VERSION' — faça o bump no Cargo.toml do workspace (version = \"$VERSION\") antes de propagar"
+    fi
+    log "rótulo OK: o binário declara $VERSION"
+elif [ "$DRY_RUN" -eq 1 ]; then
+    warn "dry-run: a checagem de rótulo não roda (build simulado)"
+fi
+
 # ─── 3. FREEZE toolchain imutável (L2) ───────────────────────────────────────
 if [ "$SKIP_FREEZE" -eq 1 ]; then
     warn "freeze pulado (--skip-freeze) — toolchain $VERSION deve já existir em ~/.touring/toolchains/"
