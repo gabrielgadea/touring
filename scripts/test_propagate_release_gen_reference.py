@@ -68,6 +68,10 @@ def _fake_tree() -> Path:
     (tmp / "scripts").mkdir(parents=True)
     shutil.copy(SCRIPT, tmp / "scripts" / "propagate-release.sh")
     os.chmod(tmp / "scripts" / "propagate-release.sh", 0o755)
+    # The rite's glob (2026-09-24) fails the gate on an EMPTY match — a fake
+    # tree without a rite test dies blind before gen_reference even runs.
+    (tmp / "scripts" / "test_propagate_release_dummy.py").write_text(
+        "def test_dummy():\n    assert True\n", encoding="utf-8")
     (tmp / "Cargo.toml").write_text(
         '[workspace.package]\nversion = "0.0.0"\n[workspace]\nmembers = []\n',
         encoding="utf-8")
