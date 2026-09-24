@@ -139,6 +139,28 @@ def test_the_right_label_passes_the_guard():
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash needed")
+def test_skip_build_does_not_bypass_the_label_guard():
+    """D8 in miniature (coordinator, 2026-09-24): --skip-build installs the
+    target/release binary WITHOUT rebuilding — if the guard depended on the
+    build, the flag would be the label's bypass. It must die on a wrong label
+    there too. Mutation: with the guard gated on SKIP_BUILD=0, this run
+    installs the wrong-labeled binary without a word (rc≠1, no refusal)."""
+    tmp = _fake_tree("30.4.65")
+    try:
+        env = dict(os.environ)
+        env["PATH"] = f"{_stub_bin(tmp)}:{os.environ['PATH']}"
+        r = subprocess.run(
+            ["bash", str(tmp / "scripts" / "propagate-release.sh"), "30.4.66",
+             "--skip-gates", "--skip-build", "--skip-freeze", "--no-default"],
+            capture_output=True, text=True, timeout=60, env=env)
+        out = r.stdout + r.stderr
+        assert r.returncode == 1, f"--skip-build must NOT bypass the guard: rc={r.returncode}: {out[-300:]}"
+        assert "rótulo divergente" in out
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash needed")
 def test_a_stale_cargo_lock_also_dies():
     """The lock is the same lie one directory down (the 4 previous bumps
     carried it): a workspace member off-label must refuse the install."""
