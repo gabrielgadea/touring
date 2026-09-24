@@ -649,16 +649,62 @@ pub fn record_import_consumers(
             continue;
         };
         for symbol_name in &imported_symbols {
+            // 24/09/2026 (touring-36; doctor wiring_diagnostic kind_unknown=8):
+            // (2) a scope keyword is never a symbol — it is born ScopeKeyword.
+            if matches!(symbol_name.as_str(), "super" | "self" | "crate" | "Self") {
+                let _ = db.record_unresolved_import_classified(
+                    &module_path,
+                    symbol_name,
+                    rel_path,
+                    None,
+                    language,
+                    crate::symbol_extractors::UnresolvedClass::ScopeKeyword.as_str(),
+                );
+                continue;
+            }
             // The import resolved to a MODULE; the producer row lives wherever
             // the symbol is DEFINED, so a façade is never credited with a
             // consumer it only forwards.
             let definer =
                 crate::symbol_extractors::definer_module(&module_file, symbol_name, Some(abs_path));
-            if db
-                .record_consumer(&definer, symbol_name, rel_path, None)
-                .is_ok()
+            // (3) a definer that is the consumer file itself is self-reference —
+            // the self_refs pass owns that class (pub → internal_only, private
+            // → nothing); this pass records no edge for it.
+            if definer == rel_path {
+                continue;
+            }
+            // (1) a fallback is not a resolution: only a GENUINE definer — a
+            // producer row, or a definition the chain/on-disk facts reach —
+            // earns an edge. Everything else is an unresolved import with a
+            // class, never an `ast_resolved` row without a producer: the
+            // phantom no repair can ever clear.
+            let genuine = crate::symbol_extractors::definer_module_opt(
+                &module_file,
+                symbol_name,
+                Some(abs_path),
+            )
+            .is_some()
+                || db.find_producer_modules_for_qualified(
+                    &[(definer.clone(), symbol_name.clone())],
+                    None,
+                )
+                .map(|found| !found.is_empty())
+                .unwrap_or(true);
+            if genuine
+                && db
+                    .record_consumer(&definer, symbol_name, rel_path, None)
+                    .is_ok()
             {
                 recorded += 1;
+            } else if !genuine {
+                let _ = db.record_unresolved_import_classified(
+                    &module_path,
+                    symbol_name,
+                    rel_path,
+                    None,
+                    language,
+                    crate::symbol_extractors::UnresolvedClass::WorkspaceUnresolved.as_str(),
+                );
             }
         }
     }

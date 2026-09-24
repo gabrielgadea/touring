@@ -635,6 +635,29 @@ pub fn definer_module(module_file: &str, symbol: &str, consumer: Option<&str>) -
         .unwrap_or_else(|| module_file.to_string())
 }
 
+/// The resolution-aware sibling of [`definer_module`]: `Some(file)` ONLY when
+/// the symbol is genuinely defined at `module_file` or a re-export chain
+/// reaches a definition; `None` when the only answer would be the fallback —
+/// which is a guess, never a resolution. 24/09/2026 (touring-36): the fallback
+/// was being recorded as an `ast_resolved` consumer edge to a phantom producer
+/// no repair could ever clear — the doctor's `wiring_diagnostic` measured
+/// `kind_unknown=8` of them, permanent by construction.
+pub fn definer_module_opt(
+    module_file: &str,
+    symbol: &str,
+    consumer: Option<&str>,
+) -> Option<String> {
+    if module_file.ends_with(".py") {
+        return follow_python_reexport(module_file, symbol, 0);
+    }
+    let ws_root = workspace_for(consumer).map_or_else(String::new, |ws| ws.root.clone());
+    let facts = module_facts(&under_workspace(&ws_root, module_file))?;
+    if facts.defined.contains(symbol) {
+        return Some(module_file.to_string());
+    }
+    follow_intra_crate_reexport(&ws_root, module_file, symbol, 0)
+}
+
 /// The Python module that DEFINES `symbol`, from the module an import named.
 ///
 /// A façade that imports the symbol (`from .modelo import No`, usually with the
