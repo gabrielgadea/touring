@@ -200,12 +200,23 @@ def test_a_stale_cargo_lock_also_dies():
 
 # ── real repo (coordinator's step 4, 2026-09-24) ─────────────────────────────
 
+def _workspace_version() -> str:
+    """The CURRENT label, derived from the single source of truth — never
+    hardcoded. The 30.4.67 propagation bumped the workspace and two tests here
+    died still expecting 30.4.66 (2026-09-24, REGRA #21): a version literal in
+    a test goes stale the day the release it guards actually ships."""
+    text = (REPO / "Cargo.toml").read_text(encoding="utf-8")
+    m = re.search(r'\[workspace\.package\][^\[]*?version = "([^"]+)"', text, re.S)
+    assert m, "the workspace version must be derivable from Cargo.toml"
+    return m.group(1)
+
+
 def _guard_alone() -> subprocess.CompletedProcess:
     # --skip-gates é obrigatório: o passo de gates roda cargo, que REGRAVA o
     # Cargo.lock — e apagaria a mutação sob teste antes da guarda ler (a
     # mutação morria na sala de espera, não na guarda).
     return subprocess.run(
-        ["bash", str(SCRIPT), "30.4.66",
+        ["bash", str(SCRIPT), _workspace_version(),
          "--skip-gates", "--skip-build", "--check-label-only"],
         capture_output=True, text=True, timeout=120, cwd=REPO)
 
@@ -214,8 +225,8 @@ def _guard_alone() -> subprocess.CompletedProcess:
     not (REPO / "Cargo.lock").is_file() or not (REPO / "target" / "release" / "touring").is_file(),
     reason="needs the real workspace + a built binary")
 def test_the_guard_passes_against_the_real_repo():
-    """The guard alone against the real workspace — the state the Cargo.lock
-    commit (6258aa9) left on disk: binary and inheriting members on 30.4.66."""
+    """The guard alone against the real workspace, at the CURRENT label —
+    whatever version the last propagation left built and locked."""
     r = _guard_alone()
     out = r.stdout + r.stderr
     assert r.returncode == 0, f"the real repo must pass: {out[-400:]}"
@@ -232,7 +243,7 @@ def test_a_mutated_inheriting_lock_entry_dies():
     original = lock.read_text(encoding="utf-8")
     try:
         mutated = re.sub(
-            r'(name = "touring-cli"\nversion = ")30\.4\.66(")',
+            r'(name = "touring-cli"\nversion = ")' + re.escape(_workspace_version()) + '(")',
             r"\g<1>30.4.65\g<2>", original, count=1)
         assert mutated != original, "the mutation must hit the inheriting member"
         lock.write_text(mutated, encoding="utf-8")
