@@ -135,6 +135,7 @@ else
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "  ${YELLOW}[dry-run]${RESET} cargo check --workspace && cargo clippy --workspace -- -D warnings"
         echo "  ${YELLOW}[dry-run]${RESET} python3 scripts/sync-client-skills.py --check"
+        echo "  ${YELLOW}[dry-run]${RESET} python3 docs/gen_reference.py --validate"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_update_touring.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_touring_quality_score.py -q"
     else
@@ -150,6 +151,13 @@ else
         # que publica um espelho velho publica código que ninguém está rodando.
         ( cd "$WORKSPACE" && python3 scripts/sync-client-skills.py --check ) \
             || die "espelho client/ fora de sincronia — rode: python3 scripts/sync-client-skills.py --apply"
+        # A referência gerada (docs/reference) é estado gerado como o espelho:
+        # o elite 06_documentation reprovou por drift (hooks 239→241, módulos
+        # 360→377) e nenhum gate aqui olhava — só o `elite_aggregate --check`
+        # à mão pegou (24/09/2026, touring-36). Um release que publica a
+        # referência velha documenta comandos que já mudaram de forma.
+        ( cd "$WORKSPACE" && python3 docs/gen_reference.py --validate ) \
+            || die "referência docs/ fora de sincronia (drift hooks/módulos) — rode: python3 docs/gen_reference.py"
         # A ferramenta de deploy também é código. Ela viveu até 18/08/2026 apenas
         # em ~/.local/bin/, e o passo 2/6 abaixo a invoca pelo PATH: se lá houver
         # uma cópia solta em vez do symlink para scripts/update-touring, este
