@@ -131,13 +131,14 @@ log "versão    : $VERSION"
 if [ "$SKIP_GATES" -eq 1 ]; then
     warn "gates pulados (--skip-gates)"
 else
-    step "1/6 GATES — cargo check + clippy + espelho client/ + update-touring"
+    step "1/6 GATES — cargo check + clippy + espelho client/ + referência + rito"
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "  ${YELLOW}[dry-run]${RESET} cargo check --workspace && cargo clippy --workspace -- -D warnings"
         echo "  ${YELLOW}[dry-run]${RESET} python3 scripts/sync-client-skills.py --check"
         echo "  ${YELLOW}[dry-run]${RESET} python3 docs/gen_reference.py --validate"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_update_touring.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_touring_quality_score.py -q"
+        echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_propagate_release*.py -q (glob — vazio reprova)"
     else
         ( cd "$WORKSPACE" && cargo check --workspace ) \
             || die "cargo check falhou — não se propaga build quebrada"
@@ -173,6 +174,20 @@ else
         # mudo fazer o juiz ler "qualidade não medida").
         ( cd "$WORKSPACE" && TOURING_QUALITY_SCORE_REQUIRE_SYMLINK=1 python3 -m pytest scripts/test_touring_quality_score.py -q ) \
             || die "touring-quality-score divergiu do repo — rode: ln -sfn $WORKSPACE/scripts/touring-quality-score ~/.local/bin/touring-quality-score"
+        # O rito cresce por GLOB, não por lista (24/09/2026, touring-36): o bump
+        # 30.4.67 quebrou o test_propagate_release_label (literal velho) e o
+        # gate não viu, porque só rodava dois arquivos nomeados. Um teste novo
+        # do rito entra no gate sem ninguém lembrar — e glob VAZIO reprova:
+        # um gate que procura e não acha não está verde, está cego.
+        shopt -s nullglob
+        rite_tests=( "$WORKSPACE"/scripts/test_propagate_release*.py )
+        shopt -u nullglob
+        [ "${#rite_tests[@]}" -gt 0 ] \
+            || die "nenhum scripts/test_propagate_release*.py encontrado — o gate dos testes do rito está cego"
+        for rite_test in "${rite_tests[@]}"; do
+            ( cd "$WORKSPACE" && python3 -m pytest "$rite_test" -q ) \
+                || die "teste do rito falhou: ${rite_test##*/} — corrija antes de propagar"
+        done
         log "${GREEN}gates OK${RESET}"
     fi
 fi
