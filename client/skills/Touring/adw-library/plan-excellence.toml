@@ -19,6 +19,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global taco-planning.
 curation = "generic"
 intent = "Produzir um plano Pln2 com ground truth verificado, zero gaps P0 e estrutura validada por exit code — nunca um plano de plausibilidade"
+class = "create"
 when_to_use = [
   "tarefa L3+ que exige plano antes de codar (loop-engineering passo 10)",
   "quando 'planejar', 'plano Pln2' ou 'taco-planning' for pedido para um intento",

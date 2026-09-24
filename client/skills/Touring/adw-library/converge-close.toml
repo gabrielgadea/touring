@@ -19,6 +19,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global loop-engineering.
 curation = "generic"
 intent = "Encerrar um loop apenas quando os três juízes dizem sim por exit code: juiz de record intacto, cláusulas de convergência atendidas, bundle documentado sem links quebrados"
+class = "review"
 when_to_use = [
   "no fechamento de qualquer loop/wave com DAG + bundle OKF (loop-engineering passos 15-17)",
   "antes de declarar 'pronto' — o veredito é o exit code deste flow, nunca autoavaliação (REGRA #21/Lei L3)",

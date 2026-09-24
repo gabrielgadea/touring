@@ -1,0 +1,201 @@
+{
+ "version": 1,
+ "iterations": [
+  {
+   "coverage": 0.4615,
+   "gap_count": 10,
+   "top_gaps": [
+    {
+     "key": "design:loop-engineering-touring:decisions:2026-07-02",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "gotcha:pin-desatualizado-regride-projetos:2026-08-18",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "virada-nova-frente-complementacao-hooks-2026-08-31",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "lesson:graft-rodada3-projecao-e-canais:2026-09-12",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/audits/cross-audit-2026-09-01.md:37",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-01-skill-aprimoramento/explanation.md:333",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-01-skill-aprimoramento/explanation.md:334",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-01-skill-aprimoramento/explanation.md:564",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    }
+   ],
+   "open_questions": 0,
+   "open_question_items": [],
+   "unverified_claims": 35,
+   "unverified_items": [
+    "TYPESAFE_API_KEY",
+    "additionalContext",
+    "adw.explore_rounds_to_dry",
+    "adw.plan_refine_iters",
+    "cli_suggester",
+    "code_mode_reuse",
+    "compliance.jsonl",
+    "corpus_coverage"
+   ],
+   "plan_delta": {
+    "headings_added": 16,
+    "headings_removed": 0,
+    "effort_reclassified": 0,
+    "is_zero": false,
+    "first": true
+   },
+   "signature": {
+    "headings": [
+     "Otimização Jev × Touring — loops, ADW, contexto, memória, snippets",
+     "1. Veredito em uma tela",
+     "2. O que as 7 fontes de vídeo adicionam à pesquisa",
+     "2.1 Confirmações da v2 (sem mudança de rota)",
+     "2.2 Material novo (não estava na v2)",
+     "2.3 O que os vídeos NÃO cobrem (e o Touring já tem)",
+     "3. Análise por subsistema — estado medido × padrão Jev → otimização",
+     "3.1 Loops (loop-engineering)",
+     "3.2 Fluxos ADW",
+     "3.3 Recuperação de contexto",
+     "3.4 Memória",
+     "3.5 Snippets (escada de trust + colheita)",
+     "4. Plano recomendado — em cima do G0–G5, não ao lado",
+     "5. Onde NÃO aplicar (reforço dos vídeos à v2 §6.3)",
+     "6. Cadeia causal",
+     "7. Cross-references"
+    ],
+    "efforts": {},
+    "hash": "74b1b0fcaed0"
+   },
+   "at": "2026-09-23T20:22:01-0300",
+   "iter": 1
+  },
+  {
+   "coverage": 0.4615,
+   "gap_count": 10,
+   "top_gaps": [
+    {
+     "key": "design:loop-engineering-touring:decisions:2026-07-02",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "gotcha:pin-desatualizado-regride-projetos:2026-08-18",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "virada-nova-frente-complementacao-hooks-2026-08-31",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "lesson:graft-rodada3-projecao-e-canais:2026-09-12",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/audits/cross-audit-2026-09-01.md:37",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-01-skill-aprimoramento/explanation.md:333",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-01-skill-aprimoramento/explanation.md:334",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    },
+    {
+     "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-01-skill-aprimoramento/explanation.md:564",
+     "lens": "antistaleness",
+     "depth": "D0",
+     "weight": 1.0
+    }
+   ],
+   "open_questions": 0,
+   "open_question_items": [],
+   "unverified_claims": 35,
+   "unverified_items": [
+    "TYPESAFE_API_KEY",
+    "additionalContext",
+    "adw.explore_rounds_to_dry",
+    "adw.plan_refine_iters",
+    "cli_suggester",
+    "code_mode_reuse",
+    "compliance.jsonl",
+    "corpus_coverage"
+   ],
+   "plan_delta": {
+    "headings_added": 0,
+    "headings_removed": 0,
+    "effort_reclassified": 0,
+    "is_zero": true,
+    "first": false
+   },
+   "signature": {
+    "headings": [
+     "Otimização Jev × Touring — loops, ADW, contexto, memória, snippets",
+     "1. Veredito em uma tela",
+     "2. O que as 7 fontes de vídeo adicionam à pesquisa",
+     "2.1 Confirmações da v2 (sem mudança de rota)",
+     "2.2 Material novo (não estava na v2)",
+     "2.3 O que os vídeos NÃO cobrem (e o Touring já tem)",
+     "3. Análise por subsistema — estado medido × padrão Jev → otimização",
+     "3.1 Loops (loop-engineering)",
+     "3.2 Fluxos ADW",
+     "3.3 Recuperação de contexto",
+     "3.4 Memória",
+     "3.5 Snippets (escada de trust + colheita)",
+     "4. Plano recomendado — em cima do G0–G5, não ao lado",
+     "5. Onde NÃO aplicar (reforço dos vídeos à v2 §6.3)",
+     "6. Cadeia causal",
+     "7. Cross-references"
+    ],
+    "efforts": {},
+    "hash": "74b1b0fcaed0"
+   },
+   "at": "2026-09-23T20:23:19-0300",
+   "iter": 2
+  }
+ ]
+}

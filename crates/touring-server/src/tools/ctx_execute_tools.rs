@@ -322,6 +322,11 @@ pub struct JournalMeta {
     pub orchestrate: bool,
     /// B1 `tmp_bytes` measured before the run's private tmp was removed.
     pub tmp_bytes: u64,
+    /// N6 (2026-09-23): the ladder's top similar block for this program as
+    /// `(entry_key, similarity)` when one exists — the discovery hint that
+    /// was display-only and therefore never measured (`ladder_enrolled` 390
+    /// beside `ladder_reused` 10: the gap is discovery, and it was invisible).
+    pub hint: Option<(String, f64)>,
 }
 
 /// P1.3: Hybrid forbidden-call scanner.
@@ -374,8 +379,39 @@ fn journal_record(
         "harvest": meta.harvest,
         "brief": meta.brief,
         "orchestrate": meta.orchestrate,
+        "hint": meta.hint.as_ref().map(|(key, sim)| serde_json::json!({
+            "key": key,
+            "sim": sim,
+        })),
         "tmp_bytes": meta.tmp_bytes,
     })
+}
+
+/// N6 (2026-09-23) — the ladder's top similar block for this program as
+/// `(entry_key, similarity)`. The discovery hint existed at display time and
+/// was never journaled, so "did the library offer something?" had no answer
+/// (`ladder_enrolled` 390 × `ladder_reused` 10 — the gap is discovery, and it
+/// was invisible). Journaling it here — the one funnel every run path crosses
+/// (CLI + MCP) — makes coverage measurable. Fail-open everywhere: a hint is
+/// observability, never something a run may fail for.
+fn snippet_hint_for(code: &str, cwd: Option<&str>) -> Option<(String, f64)> {
+    let root = cwd
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())?;
+    let db = touring_foundation::TouringConfig::memory_db_canonical(&root);
+    if !db.exists() {
+        return None;
+    }
+    let conn = rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    let m = touring_intelligence::rl::memory::snippet_stats::similar_snippets(&conn, code, 1)
+        .ok()?
+        .into_iter()
+        .next()?;
+    Some((m.entry_key, m.similarity))
 }
 
 /// W4 d4/S-4.1 — append one JSONL record per execution to the run journal
@@ -439,6 +475,7 @@ mod journal_v2_tests {
             brief: true,
             orchestrate: false,
             tmp_bytes: 4096,
+            hint: Some(("snippet:varre-wiring:2026-09-01".to_string(), 0.87)),
         };
         let rec = journal_record("run-1", "python", "out", 0, 12, None, 3, &meta);
         assert_eq!(rec["run_id"], "run-1");
@@ -447,6 +484,12 @@ mod journal_v2_tests {
         assert_eq!(rec["harvest"], "probe-tmp");
         assert_eq!(rec["brief"], true);
         assert_eq!(rec["orchestrate"], false);
+        // N6: the discovery hint travels in the record (was display-only).
+        assert_eq!(rec["hint"]["key"], "snippet:varre-wiring:2026-09-01");
+        assert_eq!(rec["hint"]["sim"], 0.87);
+        let meta_sem = JournalMeta::default();
+        let rec_sem = journal_record("run-2", "bash", "out", 0, 5, None, 0, &meta_sem);
+        assert!(rec_sem["hint"].is_null(), "no match → null, never a fabricated hint");
         assert_eq!(rec["tmp_bytes"], 4096);
         assert_eq!(rec["bytes_elided"], 3);
     }
@@ -647,6 +690,11 @@ pub async fn ctx_execute_impl(
         return Err(CtxExecuteError::ForbiddenCalls(forbidden));
     }
 
+    // N6 — computed on the USER's code (never the args-injected form, the same
+    // rule the display hint follows) and read BEFORE `code` moves into
+    // `final_code` below; one sub-ms read on the ladder, journaled either way.
+    let snippet_hint = snippet_hint_for(&code, _cwd.as_deref());
+
     let final_code = if let Some(ref a) = args {
         inject_args(&code, a, lang)
     } else {
@@ -761,6 +809,7 @@ pub async fn ctx_execute_impl(
         brief: tunables.as_ref().is_some_and(|t| t.brief),
         orchestrate: tunables.as_ref().is_some_and(|t| t.orchestrate),
         tmp_bytes,
+        hint: snippet_hint,
     };
     journal_run(
         &run_id,

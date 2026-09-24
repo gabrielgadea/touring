@@ -32,7 +32,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from loop_marker import active_marker, pending_subtask_ids, state_key  # noqa: E402
+from loop_marker import active_marker, pending_subtask_ids, resolve_session, state_key  # noqa: E402
+from resume_ledger import append_record, uptake as resume_uptake  # noqa: E402
 
 OUTER_GATE = Path(__file__).resolve().parent / "loop_outer_gate.py"
 
@@ -87,7 +88,13 @@ def outer_state(marker: dict, marker_path=None):
 
 
 def dag_state(task: str):
-    """Pending subtasks straight from the DAG — the authoritative progress."""
+    """Pending subtasks straight from the DAG — the authoritative progress.
+
+    Also names subtasks under a LIVE claim (coordenação, 2026-09-23): without
+    the owner, a session opening a project cannot tell "someone alive holds
+    this" from "abandoned work" — the exact collision the claim-owner fix
+    exposed. `decompose get` now carries `claim_live`/`claimed_by`.
+    """
     out = _run(["touring", "decompose", "get", task], timeout=45)
     if not (out or "").strip().startswith("{"):
         return None
@@ -98,7 +105,12 @@ def dag_state(task: str):
     if data.get("error") or not data.get("task"):
         return None
     subs = data.get("subtasks") or []
-    return {"pending": pending_subtask_ids(subs), "total": len(subs)}
+    live = {
+        str(s.get("subtask_id")).rsplit("::", 1)[-1]: str(s.get("claimed_by"))
+        for s in subs
+        if s.get("claim_live") and s.get("claimed_by")
+    }
+    return {"pending": pending_subtask_ids(subs), "total": len(subs), "live_owners": live}
 
 
 def snapshot_note(marker: dict):
@@ -149,6 +161,13 @@ def build_context(marker: dict, marker_path=None) -> str | None:
             f"[LOOP RESUME] loop '{task}' is active with "
             f"{len(st['pending'])}/{st['total']} subtasks pending: {shown}."
         )
+        live = st.get("live_owners") or {}
+        if live:
+            held = ", ".join(f"{k}←{v[:12]}" for k, v in list(live.items())[:4])
+            lines.append(
+                f"NOTE → DAG com dono(s) vivo(s) (lease ativo — trabalho deles, "
+                f"não órfão nem seu): {held}."
+            )
         lines.append(f"MUST → touring decompose ready {task}   # next topological subtask")
         lines.append(
             f"MUST → convergence is measured, not asserted: python3 "
@@ -162,10 +181,33 @@ def build_context(marker: dict, marker_path=None) -> str | None:
     return "\n".join(lines)
 
 
+def _record_injection(payload: dict, marker: dict, event: str) -> None:
+    """The injection lands in the resume ledger so `--uptake` can answer "did
+    the resume change anything?" with data instead of faith. Best-effort —
+    telemetry never gates a session start.
+
+    The session id goes through the SAME `resolve_session` the marker and the
+    action side use (payload → env → fallbacks): the raw payload field is
+    absent at SessionStart/PreCompact/Notification, and the 10 None-sessions
+    it produced kept `followed` structurally at 0 (cross-audit, 2026-09-23).
+    """
+    append_record({
+        "kind": "injection", "event": event,
+        "session_id": resolve_session(payload.get("session_id")),
+        "cwd": payload.get("cwd"),
+        "task": marker.get("task"), "status": marker.get("status"),
+    })
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Loop SessionStart/PostCompact hook: re-inject loop state.")
     ap.add_argument("--marker", default=None, help="explicit marker path (test override)")
+    ap.add_argument("--uptake", action="store_true",
+                    help="report resume-injection uptake (the N4 ruler) and exit")
     args, _ = ap.parse_known_args(argv)
+    if args.uptake:
+        print(json.dumps(resume_uptake(), ensure_ascii=False))
+        return 0
 
     payload = {}
     try:
@@ -189,6 +231,7 @@ def main(argv=None) -> int:
     if not context:
         return 0
     event = str(payload.get("hook_event_name") or "SessionStart")
+    _record_injection(payload, marker, event)
     if event in CONTEXT_EVENTS:
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": event, "additionalContext": context}}))

@@ -1542,13 +1542,22 @@ def _lint_gate_feedback(spec: Spec, warnings: list[str]) -> None:
         )
 
 
-def _lint_purpose(spec: Spec, warnings: list[str]) -> None:
+#: N5 (2026-09-23): the flow KINDS the lint accepts in `[purpose] class`. The
+#: class is what lets System-1 screening enter by flow kind — the measured Jev
+#: evidence is per-class (helps fix/review diffs, HURTS create: +61% input
+#: tokens, 83% slower on Opus 5 feature work), so routing needs the field.
+VALID_PURPOSE_CLASSES = ("fix", "create", "review")
+
+
+def _lint_purpose(spec: Spec, errors: list[str], warnings: list[str]) -> None:
     """A flow nobody can find by intent is a flow nobody reuses.
 
     Warning, not error: a private one-off flow may legitimately not care. But
     `when_not_to_use` is called out separately because it is the field that keeps
     a purpose block from becoming advertising — without it the portfolio can only
-    pitch the closest candidate, never show that the gap is real.
+    pitch the closest candidate, never show that the gap is real. `class` follows
+    the same posture: missing warns (an unclassed flow just cannot be routed);
+    an INVALID value errors, because it routes to the WRONG screening policy.
     """
     purpose = spec.purpose
     if not purpose:
@@ -1564,6 +1573,16 @@ def _lint_purpose(spec: Spec, warnings: list[str]) -> None:
         warnings.append(
             "[purpose]: no `when_not_to_use` — without a stated boundary the portfolio "
             "can only recommend this flow, never rule it out")
+    cls = purpose.get("class")
+    if cls is None:
+        warnings.append(
+            "[purpose]: no `class` — the flow kind (fix|create|review) is what lets "
+            "System-1 screening enter by class: the measured evidence helps "
+            "fix/review and HURTS create, so an unclassed flow cannot be routed (N5)")
+    elif cls not in VALID_PURPOSE_CLASSES:
+        errors.append(
+            f"[purpose]: `class = \"{cls}\"` is not one of fix|create|review — a "
+            "typo'd class routes the flow to the wrong screening policy")
 
 
 def _lint_budget(spec: Spec, errors: list[str]) -> None:
@@ -1804,7 +1823,7 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     _lint_reachability(spec, warnings)
     _lint_cycles(spec, errors)
     _lint_gate_feedback(spec, warnings)
-    _lint_purpose(spec, warnings)
+    _lint_purpose(spec, errors, warnings)
     _lint_budget(spec, errors)
     _lint_fake_waiting(spec, warnings)
     _lint_dead_node(spec, warnings)
@@ -3784,6 +3803,7 @@ def _new_flow_source(name: str, args: argparse.Namespace, root: Path) -> str:
         "intent": args.intent,
         "when_to_use": args.when_to_use or [args.intent],
         "when_not_to_use": args.when_not_to_use,
+        "class": args.purpose_class,
         "produces": args.produces or ["a verified change"],
         "tags": args.tag or [],
         "prior_art_verdict": args.verdict,
@@ -4027,6 +4047,10 @@ def main(argv: list[str] | None = None) -> int:
     p_new.add_argument("--when-not-to-use", action="append", default=[])
     p_new.add_argument("--produces", action="append", default=[])
     p_new.add_argument("--tag", action="append", default=[])
+    p_new.add_argument("--purpose-class", default=None, dest="purpose_class",
+                       choices=VALID_PURPOSE_CLASSES,
+                       help="the flow kind (fix|create|review) — what lets System-1 "
+                            "screening enter by class (N5)")
     p_camp = sub.add_parser("campaign")
     p_camp.add_argument("name")
     p_camp.add_argument("--until", required=True,

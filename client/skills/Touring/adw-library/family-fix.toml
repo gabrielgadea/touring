@@ -22,6 +22,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: zero runs completados; promover com evidencia.
 curation = "hold"
 intent = "tornar o conserto parcial de uma família de sítios estruturalmente impossível"
+class = "fix"
 when_to_use = "defeito com 2+ sítios da mesma família (mesma aresta gravada em N lugares, mesmo padrão copiado)"
 when_not_to_use = "defeito de sítio único (use bugfix); família cujo universo não é enumerável por programa"
 

@@ -18,6 +18,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: zero runs em evidencia.
 curation = "hold"
 intent = "Keep scouting one topic on a yield-adaptive cadence, turning findings into tickets the factory can route"
+class = "create"
 when_to_use = [
   "you want a standing demand generator instead of exploration as a one-off phase",
   "the topic keeps producing findings and nobody is watching it continuously",

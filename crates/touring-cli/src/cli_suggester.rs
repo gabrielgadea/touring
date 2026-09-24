@@ -4932,9 +4932,10 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
              das rajadas ≥{G1_DENY_AT} continuavam iguais (51 disparos/55 sessões)"
         )
     };
+    let hint = snippet_hint_for_program(&programa, project_root);
     Some(deny_response(format!(
         "[G1 rajada-de-inspeção] {motivo}. O acumulado JÁ é o programa; rode-o de uma \
-         vez:\n  {programa}{nota_omissao}\nBypass por-comando: prefixe \
+         vez:\n  {programa}{nota_omissao}{hint}\nBypass por-comando: prefixe \
          {GATE_BYPASS_TOKEN} (reseta a janela e é contado)."
     )))
 }
@@ -4950,6 +4951,44 @@ fn deny_response(reason: String) -> String {
         }
     })
     .to_string()
+}
+
+/// N6 (2026-09-23) — o programa fundido do deny encontra a escada: quando um
+/// bloco parecido JÁ existe, a razão o entrega (afordância por construção, D8),
+/// e a rajada negada vira descoberta em vez de só reescrita. A régua media o
+/// contrário: `ladder_enrolled` 390 × `ladder_reused` 10 — descoberta falha
+/// no momento exato da ação. Read-only; `None` em qualquer erro (testável com
+/// um banco em memória).
+fn snippet_hint_line(conn: &rusqlite::Connection, program: &str) -> Option<String> {
+    let m = touring_intelligence::rl::memory::snippet_stats::similar_snippets(conn, program, 1)
+        .ok()?
+        .into_iter()
+        .next()?;
+    Some(format!(
+        "\nJá há um bloco parecido na escada: `{}` (sim {:.0}%, {} exec, {}) — \
+         `touring memory recall \"{}\"` cobre sem reescrever.",
+        m.entry_key,
+        m.similarity * 100.0,
+        m.executions,
+        m.trust.badge(),
+        m.entry_key,
+    ))
+}
+
+/// O wrapper de I/O: abre o memory.db do projeto somente-leitura e devolve ""
+/// em qualquer falha — um deny jamais falha POR CAUSA da dica.
+fn snippet_hint_for_program(program: &str, root: &Path) -> String {
+    let db = touring_foundation::TouringConfig::memory_db_canonical(root);
+    if !db.exists() {
+        return String::new();
+    }
+    rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()
+    .and_then(|conn| snippet_hint_line(&conn, program))
+    .unwrap_or_default()
 }
 
 /// G8 — o laço de inspeção pura vira UMA varredura no sandbox.
@@ -5417,12 +5456,14 @@ pub(crate) fn code_mode_gates(
             // que já funcionou para este trabalho, o deny entrega os dois
             // (o esqueleto agregado + o prior art instanciado).
             let prior = portfolio_remedy_for_burst(class, &cmds).unwrap_or_default();
+            // N6 — e a escada entrega o bloco parecido, quando existe.
+            let hint = snippet_hint_for_program(&programa, project_root);
             return Some(deny_response(format!(
                 "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
                  na janela de {}s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\n  \
                  {programa}\nOs comandos rodam verbatim, sequenciais e na mesma ordem \
                  (denies subprocess-only são advisory em `--lang bash` — o sandbox contém o \
-                 filesystem); veredito por comando na saída, íntegra no spill.{prior} \
+                 filesystem); veredito por comando na saída, íntegra no spill.{prior}{hint} \
                  Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
                 EXEC_BURST_WINDOW_SECS
             )));
@@ -5526,6 +5567,9 @@ pub(crate) fn code_mode_gates(
             } else {
                 String::new()
             };
+            // N6 — a escada entrega o bloco parecido, quando existe: a rajada
+            // negada vira descoberta, não só reescrita.
+            let hint = snippet_hint_for_program(&programa, project_root);
             return Some(deny_response(format!(
                 "[CODE MODE · rajada] {n}ª inspeção `{class}` em {}s — a 1ª já executou \
                  intacta; esta rajada É o programa, rode-o de uma vez:\n  \
@@ -5537,7 +5581,7 @@ pub(crate) fn code_mode_gates(
                  rajadas ≥2). Um `touring run` zera a janela. Escopo: [code_mode] mode \
                  em <projeto>/.touring/touring.toml. Relaxar POR-COMANDO: prefixar \
                  TOURING_CODE_MODE=native (exportar no shell NÃO chega ao hook — \
-                 processos irmãos). Bypass de todos os gates: {GATE_BYPASS_TOKEN}.",
+                 processos irmãos).{hint} Bypass de todos os gates: {GATE_BYPASS_TOKEN}.",
                 INSPECT_BURST_WINDOW_SECS
             )));
         }
@@ -6312,5 +6356,57 @@ mod g11_bypass_budget_tests {
                 since_route: 1
             }
         );
+    }
+}
+
+#[cfg(test)]
+mod snippet_hint_tests {
+    //! N6 (2026-09-23): the deny delivers a similar ladder block when one
+    //! exists — and stays silent, never fabricated, when none does.
+    use super::{snippet_hint_for_program, snippet_hint_line};
+    use touring_intelligence::rl::memory::snippet_stats::record_execution;
+
+    fn mem_with_body(key: &str, body: &str) -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch("CREATE TABLE memory_entries (key TEXT PRIMARY KEY, value TEXT);")
+            .expect("entries table");
+        conn.execute(
+            "INSERT INTO memory_entries (key, value) VALUES (?1, ?2)",
+            rusqlite::params![key, body],
+        )
+        .expect("insert body");
+        for _ in 0..12 {
+            record_execution(&conn, key, true, "sig-x").expect("record");
+        }
+        conn
+    }
+
+    #[test]
+    fn the_deny_delivers_a_similar_block_when_one_exists() {
+        let conn = mem_with_body(
+            "snippet:varre-pubs",
+            "for f in crates/*/src/lib.rs; do grep -n pub $f; done",
+        );
+        let line = snippet_hint_line(
+            &conn,
+            "for f in crates/*/src/main.rs; do grep -n pub $f; done",
+        )
+        .expect("a similar block exists for this program");
+        assert!(line.contains("snippet:varre-pubs"), "{line}");
+        assert!(line.contains("memory recall"), "{line}");
+    }
+
+    #[test]
+    fn empty_ladder_is_silent_never_fabricated() {
+        let conn = rusqlite::Connection::open_in_memory().expect("mem db");
+        conn.execute_batch("CREATE TABLE memory_entries (key TEXT PRIMARY KEY, value TEXT);")
+            .expect("t");
+        assert!(snippet_hint_line(&conn, "echo hello world").is_none());
+    }
+
+    #[test]
+    fn missing_db_is_empty_never_an_error() {
+        let root = std::path::Path::new("/definitely/not/a/project/root/xyz");
+        assert_eq!(snippet_hint_for_program("anything", root), "");
     }
 }

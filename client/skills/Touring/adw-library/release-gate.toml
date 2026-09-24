@@ -17,6 +17,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: usa docs/elite_aggregate.py deste repo.
 curation = "local"
 intent = "Responder 'posso soltar?' com quatro gates medidos e um veredito agregado, deixando a decisão final com um humano"
+class = "review"
 when_to_use = [
   "antes de update-touring / propagate-release / tag de versão",
   "fim de wave: provar que o tree está release-ready sem depender de leitura otimista",

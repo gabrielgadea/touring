@@ -2825,6 +2825,7 @@ def test_creation_requires_a_destination(root, no_portfolio):
 
 def test_a_created_flow_lints_clean_with_no_warnings(root, no_portfolio):
     code, out = _new(root, "rustfix", *BASE, "--verdict", "create_new",
+                     "--purpose-class", "fix",
                      "--use", "recall-pack:recall", "--job", "fix:agent",
                      "--use", "gate-rust:check")
     assert code == 0 and out["created"] is True, out
@@ -3104,6 +3105,76 @@ on_fail = "__fail__"
 """, encoding="utf-8")
     _, warnings = adw.lint_spec(adw.load_spec(root, "pitch"))
     assert any("when_not_to_use" in w for w in warnings), warnings
+
+
+def test_a_purpose_without_a_class_is_flagged(root):
+    """N5 (2026-09-23): the class is what lets System-1 screening enter by FLOW
+    KIND — the measured Jev evidence is per-class (helps fix/review, HURTS
+    create: +61% input tokens, 83% slower), so a purpose without one is a
+    purpose that cannot be routed. Aimed like the rest of _lint_purpose:
+    warning, never a blocker."""
+    (adw.adw_dir(root) / "classless.toml").write_text("""
+[adw]
+name = "classless"
+entry = "a"
+[purpose]
+intent = "fix things"
+when_to_use = ["a bug is confirmed"]
+when_not_to_use = ["a feature is wanted"]
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+on_pass = "__end__"
+on_fail = "__fail__"
+""", encoding="utf-8")
+    _, warnings = adw.lint_spec(adw.load_spec(root, "classless"))
+    assert any("class" in w for w in warnings), warnings
+
+
+def test_a_purpose_with_an_invalid_class_is_an_error(root):
+    """A typo'd class is worse than none — it routes the flow to the wrong
+    screening policy, so it errors (naming the three valid values)."""
+    (adw.adw_dir(root) / "badclass.toml").write_text("""
+[adw]
+name = "badclass"
+entry = "a"
+[purpose]
+intent = "fix things"
+when_to_use = ["a bug is confirmed"]
+when_not_to_use = ["a feature is wanted"]
+class = "sometimes"
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+on_pass = "__end__"
+on_fail = "__fail__"
+""", encoding="utf-8")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "badclass"))
+    assert any("class" in e for e in errors), errors
+
+
+def test_a_purpose_with_a_valid_class_lints_clean(root):
+    (adw.adw_dir(root) / "goodclass.toml").write_text("""
+[adw]
+name = "goodclass"
+entry = "a"
+[purpose]
+intent = "fix things"
+when_to_use = ["a bug is confirmed"]
+when_not_to_use = ["a feature is wanted"]
+class = "fix"
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+on_pass = "__end__"
+on_fail = "__fail__"
+""", encoding="utf-8")
+    errors, warnings = adw.lint_spec(adw.load_spec(root, "goodclass"))
+    assert not any("class" in e for e in errors), errors
+    assert not any("class" in w for w in warnings), warnings
 
 
 # ── dynamic fan-out: the branch COUNT decided at runtime ─────────────────────
@@ -3724,26 +3795,40 @@ def test_the_shipped_library_is_classified_and_arm_marker_is_the_writer():
     if not lib.exists():
         import pytest
         pytest.skip("biblioteca central ausente nesta máquina")
-    escritores, total = [], 0
+    escritores, opacos, total = [], [], 0
     for f in sorted(lib.glob("*.toml")):
         for name, node in (tomllib.loads(f.read_text()).get("node") or {}).items():
             if node.get("type") not in ("code", "gate"):
                 continue
             total += 1
-            if adw.command_writes(node.get("command")) is True:
+            veredicto = adw.command_writes(node.get("command"))
+            if veredicto is True:
                 escritores.append(f"{f.stem}:{name}")
+            elif veredicto is None:
+                opacos.append(f"{f.stem}:{name}")
     assert total >= 15, f"só {total} nós examinados — a varredura não achou a biblioteca"
     # Escritores DELIBERADOS, cada um o ponto do seu flow (28/08/2026, wave
     # potencialização das skills): o report do cross-audit e os artefatos do
     # pipeline Pln2 são a razão de existir dos nós — a mutação é a entrega.
     # Qualquer nome NOVO nesta lista exige a mesma justificativa no spec.
+    # explore-plan:refine_plan (N3, 2026-09-23): o nó existe para gravar o
+    # ledger `.refine.json` — só passou a aparecer aqui quando a correção do
+    # chamador (`--topic` que o script nunca aceitou) o fez escrever de verdade.
     esperados = [
-        "cross-audit:report",
+        "explore-plan:refine_plan",
         "plan-excellence:ground_truth",
         "plan-excellence:scaffold",
         "strategy-loop:arm_marker",
     ]
     assert sorted(escritores) == esperados, escritores
+    # Escritor OPACO declarado (ficou vermelho em silêncio até 23/09/2026): o
+    # report do cross-audit escreve via `python3 okf_emit.py --out <arquivo>`,
+    # programa opaco para o detector tri-valorado (None = "não dá para provar").
+    # A asserção que importa: NUNCA False — o dia em que o detector puder
+    # jurar que o report é leitura, o report parou de ser entregue.
+    spec = tomllib.loads((lib / "cross-audit.toml").read_text())
+    assert adw.command_writes(spec["node"]["report"]["command"]) is not False, \
+        "o report do cross-audit não pode ser lido-comprovado — ele é a entrega"
 
 
 # ── W4 (plano code-mode-total 2026-08-24): predicados + probe/control ─────────

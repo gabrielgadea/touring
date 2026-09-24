@@ -19,6 +19,8 @@ budget_tokens = 0
 # search show a GAP instead of pitching the closest candidate.
 [purpose]
 intent = "Run the deterministic OUTER prefix of loop-engineering: arm the marker, recall, diagnose, explore until dry, report the evidence"
+class = "create"
+curation = "generic"
 when_to_use = [
   "starting substantive work that owes a diagnostic doc and a CCE ledger on disk",
   "you want the OUTER artifacts produced by code rather than by narration",
@@ -131,6 +133,22 @@ type = "code"
 # strategy-doc is the orchestrator's synthesis deliverable, enforced at Stop.
 command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_outer_gate.py --json --no-emit || true"]
 timeout_ms = 60000
+idempotent = true
+on_pass = "refine_strategy"
+on_fail = "refine_strategy"
+
+# N3 (2026-09-23): o motor de refine existe desde o F2, mas nenhum chamador o
+# alcançava a partir do flow que de fato produz planos — o explore-plan o
+# chamava com um argumento que o script nunca aceitou, e no disco só havia 1
+# ledger com 1 iteração (KPI plan_refine_iters travado em 1.0). Este nó marca
+# UMA iteração medida por re-run/remedy-run, somente quando a strategy doc do
+# orquestrador já existe no bundle; na primeira run o skip é visível, nunca
+# silencioso. plan_refine.py agora deriva o ledger de --topic/--scope pelo
+# mesmo ledger_path_for do explorador.
+[node.refine_strategy]
+type = "code"
+command = ["bash", "-c", "doc=$(ls -t \"$1\"/strategy-*.md 2>/dev/null | head -1); if [ -n \"$doc\" ]; then python3 ~/.claude/skills/Touring/scripts/plan_refine.py \"$doc\" --topic \"$2\" --scope \"$3\" --json 2>&1 | tail -c 1200; else echo \"skip: no strategy doc in $1 yet — the orchestrator synthesis lands after this run; a re-run scores the iteration\"; fi; true", "--", "{{vars.bundle}}", "{{vars.topic}}", "{{vars.scope}}"]
+timeout_ms = 120000
 idempotent = true
 on_pass = "__end__"
 on_fail = "__end__"

@@ -2259,6 +2259,93 @@ fn releasing_unfinished_work_does_return_it_to_the_pool() {
     assert_eq!(retaken["claimed"], serde_json::json!(true), "{retaken}");
 }
 
+/// Coordenação multi-sessão (2026-09-23): `ready` listed a subtask claimed by a
+/// LIVE lease in another session, and `get` exposed no owner at all — a new
+/// session had no way to tell "someone alive holds this" from "abandoned work".
+/// The claim's own predicate is the contract: pending, or in_progress only when
+/// the lease has EXPIRED; everything claimed-live stays OUT of ready, and both
+/// views name the owner, the lease and its liveness.
+#[test]
+fn ready_excludes_live_claims_and_get_names_the_owner() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "sessao-viva", "lease_secs": 3600}),
+    ));
+    assert_eq!(claim["claimed"], serde_json::json!(true), "{claim}");
+    let claimed_id = claim["subtask_id"].as_str().unwrap().to_string();
+
+    // ready: the live-claimed subtask leaves the pool; the free one stays.
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let ready_ids: Vec<&str> = ready["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|s| s["subtask_id"].as_str().unwrap())
+        .collect();
+    assert!(
+        !ready_ids.contains(&claimed_id.as_str()),
+        "a live-claimed subtask is NOT ready: {ready_ids:?}"
+    );
+    assert_eq!(ready_ids.len(), 1, "the free subtask stays ready: {ready_ids:?}");
+
+    // get: every subtask names its owner, lease and liveness.
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub = got["subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str() == Some(claimed_id.as_str()))
+        .expect("the claimed subtask is in get");
+    assert_eq!(sub["claimed_by"].as_str(), Some("sessao-viva"), "{sub}");
+    assert_eq!(sub["claim_live"].as_bool(), Some(true), "{sub}");
+
+    // The claim's own predicate, mirrored: once the lease EXPIRES the subtask
+    // is ready again — abandoned work must not strand the pool.
+    let expired = chrono::Utc::now().timestamp() - 60;
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![expired, task_id],
+        )
+        .expect("expire the lease");
+    let ready2 = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let ready2_ids: Vec<&str> = ready2["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|s| s["subtask_id"].as_str().unwrap())
+        .collect();
+    assert!(
+        ready2_ids.contains(&claimed_id.as_str()),
+        "an EXPIRED claim returns the subtask to ready: {ready2_ids:?}"
+    );
+    let got2 = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub2 = got2["subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str() == Some(claimed_id.as_str()))
+        .expect("subtask present");
+    assert_eq!(sub2["claim_live"].as_bool(), Some(false), "{sub2}");
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
 // ═══════════════════════════════════════════════════════════════════════

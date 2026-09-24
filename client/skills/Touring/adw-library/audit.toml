@@ -15,6 +15,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: masters touring parametrizados, sem arquivo do repo.
 curation = "generic"
 intent = "Audit one file with deterministic evidence — security, blast radius and quality — before anyone edits it"
+class = "review"
 when_to_use = [
   "you are about to touch an unfamiliar file and want its risk surface first",
   "a review needs evidence that came from commands, not from reading",

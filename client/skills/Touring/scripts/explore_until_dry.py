@@ -578,6 +578,24 @@ def human_report(ledger: dict[str, Any], verdict: dict[str, Any]) -> None:
         print(f"  ✗ {u}")
 
 
+def lens_yield_totals(ledger: dict[str, Any], rounds_before: int) -> dict[str, Any]:
+    """Per-lens yield for the payload: lifetime findings + new in the fresh
+    rounds (N2, 2026-09-23). The dry-lens-cut hypothesis died on data nobody
+    could see — 174 ledgers showed cutting a lens with 2 dry rounds saves 1
+    round total — so the yield stops being private to the ledger file and
+    travels with every answer."""
+    findings: dict[str, int] = {}
+    for f in ledger["findings"].values():
+        lens = f.get("lens", "?")
+        findings[lens] = findings.get(lens, 0) + 1
+    new_this_run: dict[str, int] = {}
+    for r in ledger["rounds"][rounds_before:]:
+        for lens, st in (r.get("lens_stats") or {}).items():
+            if isinstance(st, dict):
+                new_this_run[lens] = new_this_run.get(lens, 0) + (st.get("new") or 0)
+    return {"findings": findings, "new_this_run": new_this_run}
+
+
 def emit_dry_signal(ledger: dict[str, Any], rounds_before: int) -> None:
     """Emit the ADW loop-node dryness signal (``adw.py`` Law L2 protocol).
 
@@ -701,6 +719,7 @@ def main(argv: list[str] | None = None, run: Runner = touring_run) -> int:
                    for r in ledger["rounds"]],
         "coverage": ledger["coverage"],
         "open_questions": [q for q in ledger["questions"] if q["status"] == "open"],
+        "lens_yield": lens_yield_totals(ledger, rounds_before),
         "verdict": verdict,
     }, degraded_any, "daemon degraded during ≥1 lens — grep fallback used")
     if not emit_result(payload, args):

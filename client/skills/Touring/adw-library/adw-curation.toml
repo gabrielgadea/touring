@@ -16,6 +16,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: o meta-ADW curador da library.
 curation = "generic"
 intent = "Manter a biblioteca ADW curada por evidência: o que rodou e presta sobe (promote), o que é local/demo é etiquetado, e tudo linta"
+class = "review"
 when_to_use = [
   "specs locais acumulando fora da library (o diff cresceu)",
   "periodicamente, e sempre antes de propagar a library a outro projeto",

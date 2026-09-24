@@ -15,6 +15,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: workflow light generico.
 curation = "generic"
 intent = "Do one small scoped task with a single light agent and exactly one verification gate"
+class = "fix"
 when_to_use = [
   "mechanical low-risk work whose success is a single command",
   "the pipeline of a feature would cost more than the change itself",

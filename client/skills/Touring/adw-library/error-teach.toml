@@ -14,6 +14,7 @@ budget_tokens = 0
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: usa scripts/error_message_audit.py deste repo.
 curation = "local"
 intent = "Rewrite CLI error literals that teach nothing into messages that name the next action, in cheap-tier batches gated by compile + re-measure"
+class = "fix"
 when_to_use = [
   "error_message_audit.py reports a teach-ratio below target",
   "mechanical text-quality campaigns that suit a cheap codegen tier",

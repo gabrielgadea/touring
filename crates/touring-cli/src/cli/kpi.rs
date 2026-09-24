@@ -233,747 +233,14 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 // Loading + path resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// P5b (achado de Gabriel, 2026-08-26) — dos programas que o modelo rodou,
-/// qual fração FUNDIU round-trips.
-///
-/// `adoption_ratio` responde "usou a ferramenta certa?" — o CANAL. Ela sobe
-/// igual quando o modelo funde dez inspeções numa chamada e quando embrulha uma
-/// leitura trivial dez vezes, porque `scan_class_of` não reconhece
-/// `touring run` e nenhum gate vê a rota sancionada. Este KPI é a metade que
-/// faltava: `economicas / tomadas`, a ECONOMIA.
-///
-/// Ele fala da APRESENTAÇÃO, não da disciplina do modelo: sob `code` a chamada
-/// atômica é negada, então a casca sobre um alvo é obrigatória. Uma economia
-/// baixa com adoção alta é o retrato de um braço obedecido e caro.
-fn code_mode_economy_ratio(rt: &HookRuntime) -> Option<f64> {
-    let path = rt.project_root.join(".claude/touring/code_mode_arm.json");
-    let v: Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
-    let (mut tomadas, mut economicas) = (0.0f64, 0.0f64);
-    for arm in ["native", "both", "code"] {
-        if let Some(n) = v.get(arm) {
-            tomadas += n.get("followed").and_then(Value::as_f64).unwrap_or(0.0);
-            economicas += n.get("economical").and_then(Value::as_f64).unwrap_or(0.0);
-        }
-    }
-    if tomadas < crate::cli_suggester::ARM_MIN_SAMPLE as f64 {
-        return None;
-    }
-    Some(economicas / tomadas)
-}
 
-/// P2 (decisão (b), 2026-08-26) — taxa de adesão de um braço da apresentação,
-/// lida da **mesma fonte que a política lê**.
-///
-/// Ler os contadores de `gate-metrics` aqui seria mostrar um número diferente
-/// do que decide: eles são de processo e zeram no restart (medido 26/08:
-/// `t3_turn_first_passed` caiu 2 → 0 em dois minutos), enquanto a política lê
-/// `<projeto>/.claude/touring/code_mode_arm.json`. Promover olhando um medidor
-/// que não é o do juiz é a classe `verificador-usa-menos-que-o-extrator`.
-///
-/// `None` abaixo do piso ⇒ STUB, nunca um 0 falso: amostra insuficiente é
-/// desconhecido, e o KPI reporta ADVISORY em vez de acusar adesão nula.
-fn code_mode_arm_rate(rt: &HookRuntime, arm: &str) -> Option<f64> {
-    let path = rt.project_root.join(".claude/touring/code_mode_arm.json");
-    let v: Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
-    let node = v.get(arm)?;
-    let offered = node.get("offered").and_then(Value::as_f64)?;
-    let followed = node.get("followed").and_then(Value::as_f64)?;
-    if offered < crate::cli_suggester::ARM_MIN_SAMPLE as f64 {
-        return None;
-    }
-    Some(followed / offered)
-}
+mod code_mode;
+mod sources;
 
-/// W0 S-0.1 — pure ratio for `touring.code_mode.adoption_ratio`. `None` when
-/// the denominator has not observed a single Bash action yet (absent signal is
-/// unknown, never zero — Lei L2); `Some(0.0)` only when Bash actions exist and
-/// none was a code-mode run (a measured zero).
-fn code_mode_adoption(runs: f64, bash_calls: f64) -> Option<f64> {
-    if bash_calls <= 0.0 {
-        return None;
-    }
-    Some(runs / bash_calls)
-}
-
-/// S3 — fração da inspeção que a rajada capturou.
-///
-/// `denied / (denied + first_passed)`: das inspeções que o gate VIU sob o modo
-/// `code`, quantas eram rajada. A medição de 27/08/2026 em 115 transcripts
-/// previu ~0,775 com janela de 300s, e é contra esse número que o uso real
-/// julga a calibração:
-///
-/// * muito ABAIXO ⇒ a janela ou o limiar estão apertados demais e o gate quase
-///   não fala — foi o destino do T3-B, que media zero;
-/// * muito ACIMA ⇒ está pegando inspeção que não é rajada, e a fricção voltou
-///   pela porta dos fundos.
-///
-/// `None` enquanto nenhuma inspeção foi observada: ausência de sinal é
-/// desconhecido, nunca zero (Lei L2). `Some(0.0)` só quando houve inspeção e
-/// nenhuma virou rajada — um zero MEDIDO.
-fn inspect_burst_share(denied: f64, first_passed: f64) -> Option<f64> {
-    let total = denied + first_passed;
-    if total <= 0.0 {
-        return None;
-    }
-    Some(denied / total)
-}
-
-/// P2 elos-exponenciais (29/08): a política discrimina ou é constante? A
-/// QTable era um órgão quase write-only — treinada por 3 caminhos, consultada
-/// por ~nenhum decisor — e o consumidor já observado devolvia 0.990 para tudo
-/// (`uma-execucao-nao-distingue-constante`). Antes de LIGAR a política a
-/// decisões de produção, instrumentar: fração dos estados multi-ação cuja
-/// dispersão de Q (max−min) supera 0.01. `None`/STUB sem estados multi-ação —
-/// tabela rasa é desconhecido, nunca "política constante".
-fn policy_discrimination(project_root: &Path) -> Option<f64> {
-    let db = touring_foundation::TouringConfig::graph_db_canonical(project_root);
-    let conn =
-        rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .ok()?;
-    let rows: Vec<(String, f64)> = conn
-        .prepare("SELECT state_action, q_value FROM learning_qtable")
-        .ok()?
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
-        .ok()?
-        .filter_map(std::result::Result::ok)
-        .collect();
-    let mut by_state: std::collections::HashMap<String, (f64, f64, u32)> =
-        std::collections::HashMap::new();
-    for (sa, q) in rows {
-        let state = sa.split(':').next().unwrap_or("").to_string();
-        let e = by_state.entry(state).or_insert((f64::MAX, f64::MIN, 0));
-        e.0 = e.0.min(q);
-        e.1 = e.1.max(q);
-        e.2 += 1;
-    }
-    let multi: Vec<_> = by_state.values().filter(|(_, _, n)| *n >= 2).collect();
-    if multi.is_empty() {
-        return None;
-    }
-    let discriminating = multi.iter().filter(|(lo, hi, _)| hi - lo > 0.01).count();
-    Some(discriminating as f64 / multi.len() as f64)
-}
-
-/// P3 (graph contract, 2026-08-30): share of NEW curated nodes (semantic
-/// lesson/decision/diagnostico, 14-day window) honouring the minimum graph
-/// contract — deterministic key shape AND at least one typed edge. The shape
-/// predicate is `tags::key_shape_ok`, the SAME one the store advisory
-/// declares (D8: declared text and enforced predicate share one source).
-/// `None` = STUB when the window has no curated nodes — unknown, never a
-/// false 1.0.
-fn graph_contract_share(project_root: &Path) -> Option<f64> {
-    use touring_intelligence::rl::memory::tags;
-    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
-    let conn =
-        rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .ok()?;
-    // Cross-audit 2026-08-30 (F-1): the contract governs kinds by FACET
-    // (clause 3), so the filter reads memory_tags — the governed vocabulary —
-    // never entry_type (a legacy field that diverges: ~39 semantic nodes
-    // carried a curated facet with a different entry_type when measured).
-    // auto-derive maps entry_type→kind facet, so this is a strict superset.
-    let keys: Vec<String> = conn
-        .prepare(
-            "SELECT DISTINCT e.key FROM memory_entries e
-             JOIN memory_tags t ON t.entry_key = e.key
-             WHERE e.tier = 'semantic'
-               AND t.full_tag IN ('kind:lesson','kind:decision','kind:diagnostico')
-               AND e.created_at >= datetime('now','-14 days')",
-        )
-        .ok()?
-        .query_map([], |r| r.get(0))
-        .ok()?
-        .filter_map(std::result::Result::ok)
-        .collect();
-    if keys.is_empty() {
-        return None;
-    }
-    let mut ok = 0usize;
-    for key in &keys {
-        if !tags::key_shape_ok(key) {
-            continue;
-        }
-        // A missing memory_links table reads as unlinked, not as an error:
-        // the share then honestly reports how far the corpus is from the
-        // contract instead of hiding behind a STUB.
-        let linked: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM memory_links WHERE src = ?1 OR dst = ?1",
-                rusqlite::params![key],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        if linked > 0 {
-            ok += 1;
-        }
-    }
-    Some(ok as f64 / keys.len() as f64)
-}
-
-/// P5 (graph contract, 2026-08-30): typed edges created per new memory entry
-/// (14-day window) — the ruler that decides when derived suggestions may ever
-/// become automatic. `None` = STUB when the window has no new entries.
-fn memory_edge_density(project_root: &Path) -> Option<f64> {
-    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
-    let conn =
-        rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .ok()?;
-    let entries: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM memory_entries
-             WHERE created_at >= datetime('now','-14 days')",
-            [],
-            |r| r.get(0),
-        )
-        .ok()?;
-    if entries <= 0 {
-        return None;
-    }
-    let edges: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM memory_links
-             WHERE created_at >= datetime('now','-14 days')",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap_or(0);
-    Some(edges as f64 / entries as f64)
-}
-
-fn default_commitments_path() -> PathBuf {
-    // Canonical source tree first: the workspace moved from `~/.claude/rust`
-    // to `~/projects/touring` (F4′, 24/07/2026), so the old preferred path
-    // could never exist and resolution silently depended on the daemon's cwd.
-    if let Ok(home) = std::env::var("HOME") {
-        let p = PathBuf::from(home).join("projects/touring/docs/kpi/commitments.yaml");
-        if p.exists() {
-            return p;
-        }
-    }
-    PathBuf::from("docs/kpi/commitments.yaml")
-}
-
-fn load_commitments(path: &PathBuf) -> std::io::Result<CommitmentsFile> {
-    let raw = std::fs::read_to_string(path)?;
-    serde_yaml::from_str::<CommitmentsFile>(&raw)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
-}
-
-fn today_iso() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    iso_date_from_unix(secs)
-}
-
-/// Convert unix seconds to `YYYY-MM-DD` (UTC, Gregorian, post-1970).
-#[must_use]
-/// MED-1 (28/08) — a régua de aderência do `touring run`, lida do journal
-/// durável (`~/.claude/touring/run_journal.jsonl`): `runs_ok/runs_total` é o
-/// `successfulExecuteCalls/totalExecuteCalls` que o TanStack chama de CME.
-/// O processo CLI morre a cada run; o journal sobrevive. Ausência de journal é
-/// EXIBIDA (`available: false`), nunca some (E4). `wasted_attempts` é um proxy
-/// documentado: uma run da mesma linguagem <120 s após uma falha (o par
-/// falha→retry conta 1).
-fn code_mode_adherence() -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
-        return json!({"available": false, "reason": "HOME unset"});
-    };
-    let path = PathBuf::from(home).join(".claude/touring/run_journal.jsonl");
-    match std::fs::read_to_string(&path) {
-        Ok(content) => adherence_from_lines(content.lines()),
-        Err(_) => json!({"available": false, "reason": "no journal yet"}),
-    }
-}
-
-/// C4 — piso da razão de reuso; abaixo dele o problema é de DESCOBERTA
-/// (busca por intenção), não de persistência (canvas 02/09, §9c).
-const CODE_MODE_REUSE_FLOOR: f64 = 0.20;
-
-/// C4 (2026-09-02) — reuse ruler over the durable journal (B2 fields), read
-/// together with the trust ladder.
-///
-/// The journal alone cannot answer the question: its `harvest` field is set
-/// only by an EXPLICIT `--harvest <slug>`, which happened 0 times in 16.205
-/// lines, while the executor had silently enrolled 369 bodies in the ladder
-/// (measured 19/09/2026). A ruler blind to the rail it is measuring reports a
-/// zero that is not there.
-fn code_mode_reuse(project_root: &Path) -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
-        return json!({"available": false, "reason": "HOME unset"});
-    };
-    let path = touring_code::journal::default_journal_path(&PathBuf::from(home));
-    let ladder = ladder_totals_of(project_root);
-    match touring_code::journal::read_journal(&path) {
-        Ok(agg) => reuse_from_aggregate(&agg, ladder),
-        Err(_) => json!({"available": false, "reason": "no journal yet"}),
-    }
-}
-
-/// The ladder's three numbers, or zeros when it cannot be read.
-///
-/// Fail-soft on purpose: a missing memory db means "nothing reused yet", never
-/// a KPI that refuses to report.
-fn ladder_totals_of(
-    project_root: &Path,
-) -> touring_intelligence::rl::memory::snippet_stats::LadderTotals {
-    use touring_intelligence::rl::memory::snippet_stats;
-    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
-    if !db.exists() {
-        return snippet_stats::LadderTotals::default();
-    }
-    rusqlite::Connection::open_with_flags(
-        &db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .ok()
-    .and_then(|conn| snippet_stats::ladder_totals(&conn).ok())
-    .unwrap_or_default()
-}
-
-/// C4 — the pure aggregation behind [`code_mode_reuse`], testable without FS.
-///
-/// `v2_runs` = runs that declared an origin (`file` | `inline`); v1 lines are
-/// counted nowhere (E4: shown as `v1_runs`, never folded into the ratio).
-///
-/// `reused` = runs from a PERSISTENT script (a file outside the harness
-/// scratchpad) + runs that RE-RAN a body already on the trust ladder. A
-/// scratchpad script is one-off by construction — per-session tmpfs — so it
-/// never counts, and neither does ENROLLING a body: the first run of something
-/// is not a reuse of it. That distinction is the correction of 19/09/2026;
-/// before it the numerator added `harvested_runs`, which counts explicit
-/// `--harvest` slugs (0 of 16.205 lines) and would have counted a first-time
-/// persist as reuse had anyone ever typed it. `ladder_enrolled` stays visible
-/// so the gap between "the library fills" and "the library is read" is legible
-/// instead of hidden (E4).
-pub(crate) fn reuse_from_aggregate(
-    agg: &touring_code::journal::JournalAggregate,
-    ladder: touring_intelligence::rl::memory::snippet_stats::LadderTotals,
-) -> Value {
-    let v2_runs = agg.file_runs + agg.inline_runs;
-    let persistent_file_runs = agg.file_runs.saturating_sub(agg.scratch_file_runs);
-    let reused = persistent_file_runs + ladder.reused;
-    let ratio = if v2_runs == 0 {
-        0.0
-    } else {
-        reused as f64 / v2_runs as f64
-    };
-    json!({
-        "available": v2_runs > 0,
-        "v1_runs": agg.total_entries.saturating_sub(v2_runs),
-        "v2_runs": v2_runs,
-        "file_runs": agg.file_runs,
-        "scratch_file_runs": agg.scratch_file_runs,
-        "persistent_file_runs": persistent_file_runs,
-        "inline_runs": agg.inline_runs,
-        "harvested_runs": agg.harvested_runs,
-        // The ladder, reported apart from the ratio: how many distinct bodies
-        // the executor kept, and how many runs actually re-ran one. A large
-        // `ladder_enrolled` beside a near-zero `ladder_reused` is the shape of
-        // a library that fills and is never read — which is DISCOVERY, not
-        // persistence, and is what the floor is really failing for.
-        "ladder_enrolled": ladder.entries,
-        "ladder_reused": ladder.reused,
-        "orchestrate_runs": agg.orchestrate_runs,
-        "brief_runs": agg.brief_runs,
-        "total_tmp_bytes": agg.total_tmp_bytes,
-        "reuse_ratio": (ratio * 1000.0).round() / 1000.0,
-        "floor": CODE_MODE_REUSE_FLOOR,
-        "status": if v2_runs == 0 { "STUB" } else if ratio >= CODE_MODE_REUSE_FLOOR { "PASS" } else { "FAIL" },
-    })
-}
-
-#[cfg(test)]
-mod reuse_tests {
-    use super::*;
-    use touring_code::journal::JournalAggregate;
-
-    use touring_intelligence::rl::memory::snippet_stats::LadderTotals;
-
-    /// C4: two persistent-file runs + one ladder RE-run over 10 v2 runs = 0.3
-    /// (PASS); 5 scratch-file runs count as one-offs; v1 lines are shown apart
-    /// and never enter the ratio.
-    #[test]
-    fn reuse_ratio_counts_persistent_scripts_and_ladder_rereuns() {
-        let agg = JournalAggregate {
-            total_entries: 14,
-            file_runs: 7,
-            scratch_file_runs: 5,
-            inline_runs: 3,
-            ..Default::default()
-        };
-        let ladder = LadderTotals {
-            entries: 4,
-            executions: 5,
-            reused: 1,
-        };
-        let v = reuse_from_aggregate(&agg, ladder);
-        assert_eq!(v["v2_runs"], 10);
-        assert_eq!(v["v1_runs"], 4);
-        assert_eq!(v["persistent_file_runs"], 2);
-        assert_eq!(v["ladder_reused"], 1);
-        assert_eq!(v["reuse_ratio"], 0.3);
-        assert_eq!(v["status"], "PASS");
-        assert_eq!(v["available"], true);
-    }
-
-    /// Enrolling is not reusing. A ladder full of bodies that each ran ONCE
-    /// adds nothing to the numerator — the shape measured on 19/09/2026 (369
-    /// enrolled, 364 of them run once) must read as FAIL, not as success.
-    #[test]
-    fn enrolling_a_body_is_not_reusing_it() {
-        let agg = JournalAggregate {
-            total_entries: 100,
-            file_runs: 10,
-            scratch_file_runs: 10,
-            inline_runs: 90,
-            ..Default::default()
-        };
-        let so_far_unread = LadderTotals {
-            entries: 369,
-            executions: 369,
-            reused: 0,
-        };
-        let v = reuse_from_aggregate(&agg, so_far_unread);
-        assert_eq!(v["ladder_enrolled"], 369, "the enrolment stays visible");
-        assert_eq!(v["ladder_reused"], 0);
-        assert_eq!(v["reuse_ratio"], 0.0);
-        assert_eq!(
-            v["status"], "FAIL",
-            "a library that fills and is never read must not report PASS"
-        );
-    }
-
-    #[test]
-    fn reuse_ratio_is_a_stub_without_v2_runs_and_fails_below_the_floor() {
-        let empty = reuse_from_aggregate(&JournalAggregate::default(), LadderTotals::default());
-        assert_eq!(empty["status"], "STUB");
-        assert_eq!(empty["available"], false);
-        let low = reuse_from_aggregate(
-            &JournalAggregate {
-                total_entries: 20,
-                file_runs: 20,
-                scratch_file_runs: 19,
-                ..Default::default()
-            },
-            LadderTotals::default(),
-        );
-        assert_eq!(low["reuse_ratio"], 0.05);
-        assert_eq!(low["status"], "FAIL");
-    }
-}
-
-/// F6 — aggregate per-canonical-hook stats from the post-tool-use mirror.
-/// Returns `(used, total)` where `total = 8` mirrors `HookName::ALL.len()`.
-/// Fail-open: missing file → `(0, 8)` (consistent with the gate).
-/// D1 (2026-09-02) — o sinal vivo comparado com um relatório PERSISTIDO.
-///
-/// `code_mode_signal_use` lê o espelho do processo corrente e responde "quantos
-/// hooks estão em uso agora". Um baseline em disco responde a pergunta que só o
-/// tempo faz: a adoção caiu, a latência subiu? É o consumidor que
-/// [`touring_code::sdk::load_signal_report`] documentava e não tinha.
-///
-/// Falha SEMPRE de forma legível: um caminho ausente ou um JSON inválido viram
-/// um campo `error` no payload, nunca um KPI mudo.
-fn signal_baseline(path: &str) -> Value {
-    match touring_code::sdk::load_signal_report(std::path::Path::new(path)) {
-        Ok(report) => {
-            let canonical: std::collections::BTreeSet<&'static str> =
-                touring_code::sdk::HookName::ALL
-                    .iter()
-                    .map(|h| h.as_str())
-                    .collect();
-            let used = report
-                .hooks
-                .keys()
-                .filter(|k| canonical.contains(k.as_str()))
-                .count() as u64;
-            // O pior p99 entre os hooks é a leitura honesta de "quanto custa o
-            // caminho mais lento"; uma média entre hooks de volumes diferentes
-            // esconderia exatamente o que se quer vigiar.
-            let worst_p99 = report
-                .hooks
-                .values()
-                .map(|h| h.duration_ms_p99)
-                .max()
-                .unwrap_or(0);
-            let worst_p50 = report
-                .hooks
-                .values()
-                .map(|h| h.duration_ms_p50)
-                .max()
-                .unwrap_or(0);
-            json!({
-                "source": path,
-                "generated_at_unix": report.generated_at_unix,
-                "total_runs": report.total_runs,
-                "used": used,
-                "total": touring_code::sdk::HookName::ALL.len() as u64,
-                "worst_duration_ms_p50": worst_p50,
-                "worst_duration_ms_p99": worst_p99,
-            })
-        }
-        Err(e) => json!({"source": path, "error": e.to_string()}),
-    }
-}
-
-/// O delta entre o sinal vivo e o baseline, quando ambos são legíveis.
-///
-/// Só campos comparáveis entram: `used` e o pior p99. Um delta negativo em
-/// `used` é regressão de adoção; positivo em `worst_duration_ms_p99` é
-/// regressão de custo.
-fn signal_delta(live: &Value, baseline: &Value) -> Value {
-    let gi = |v: &Value, k: &str| v.get(k).and_then(Value::as_i64);
-    match (gi(live, "used"), gi(baseline, "used")) {
-        (Some(l), Some(b)) => json!({
-            "used": l - b,
-            "worst_duration_ms_p99": gi(live, "duration_ms_p99").unwrap_or(0)
-                - gi(baseline, "worst_duration_ms_p99").unwrap_or(0),
-        }),
-        _ => Value::Null,
-    }
-}
-
-fn code_mode_signal_use() -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
-        return json!({"available": false, "reason": "HOME unset"});
-    };
-    // F4 P4 (2026-09-01) — same source the writers use (`default_mirror_path`),
-    // so reader and sinks cannot drift apart on the path.
-    let path = touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home));
-    match std::fs::read_to_string(&path) {
-        Ok(content) => {
-            let mut out = signal_use_from_lines(content.lines());
-            // REGRA #0 (2026-09-02) — `duration_p50`/`duration_p99` do agregado
-            // do mirror não tinham UM consumidor. O consumidor natural é este
-            // KPI, que já lia o mesmo arquivo e descartava a duração de cada
-            // entrada: um contador diz se os hooks são usados, o percentil diz
-            // se valem o que custam.
-            if let Ok(agg) = touring_code::sdk_signal_mirror::read(&path) {
-                out["duration_ms_p50"] = json!(agg.duration_p50());
-                out["duration_ms_p99"] = json!(agg.duration_p99());
-            }
-            out
-        }
-        Err(_) => json!({"available": false, "reason": "no mirror yet"}),
-    }
-}
-
-/// F0 wave signal-layer-tier-ab (01/09) — a agregação pura por trás de
-/// [`code_mode_signal_use`], testável sem FS. `used` cruza com os 8 canônicos
-/// de `HookName::ALL`; nomes fora do cânone (alias `cli-*` do daemon) contam
-/// em `non_canonical_calls` — visíveis, nunca somados ao ratio (E4: a
-/// ausência/anomalia é exibida, não escondida). Medido 01/09: sem o filtro o
-/// ratio leu 1.0 com só 3 hooks canônicos no mirror.
-fn signal_use_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
-    const TOTAL_HOOKS: u64 = 8;
-    let canonical: std::collections::BTreeSet<&'static str> = touring_code::sdk::HookName::ALL
-        .iter()
-        .map(|h| h.as_str())
-        .collect();
-    let mut seen: std::collections::BTreeSet<String> = Default::default();
-    let mut calls = 0u64;
-    let mut non_canonical = 0u64;
-    for line in lines {
-        let Ok(v) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
-            calls += 1;
-            if canonical.contains(name) {
-                seen.insert(name.to_string());
-            } else {
-                non_canonical += 1;
-            }
-        }
-    }
-    json!({
-        "available": true,
-        "used": seen.len() as u64,
-        "total": TOTAL_HOOKS,
-        "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
-        "total_calls": calls,
-        "non_canonical_calls": non_canonical,
-    })
-}
-
-/// F9 (2026-09-01) — régua do complemento de hooks.
-///
-/// Lado daemon: `hook_dispatch_by_name` (F0.3d) diz quantas vezes cada hook
-/// foi despachado desde `hook_dispatch_since_epoch`. Lado sinal: o mirror
-/// (`sdk_signal_mirror.jsonl`) diz quantas entregas canônicas chegaram no
-/// MESMO intervalo. A razão `post_bash_delivery_ratio` é o número que a sonda
-/// F0.3 não tinha: se post-bash quase não é despachado enquanto o Claude Code
-/// emite PostToolUse, o thin client não chega ao daemon; se é despachado e o
-/// mirror não cresce, o feeder/classificador é o suspeito. `cli_kpi` roda
-/// dentro do daemon, então os contadores lidos são os do processo vivo.
-fn hooks_complement() -> Value {
-    let by_name = touring_foundation::gate_metrics::hook_dispatch_by_name();
-    let since = touring_foundation::gate_metrics::hook_dispatch_since_epoch();
-    let mirror = std::env::var_os("HOME")
-        .map(|home| touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home)))
-        .and_then(|path| std::fs::read_to_string(path).ok())
-        .unwrap_or_default();
-    hooks_complement_from(&by_name, mirror.lines(), since)
-}
-
-/// A agregação pura por trás de [`hooks_complement`] — testável sem FS nem
-/// daemon. Linhas do mirror anteriores a `since_epoch` ficam fora (o mirror é
-/// cumulativo, os contadores do daemon não); nomes fora de `HookName::ALL`
-/// contam à parte (E4: visíveis, nunca somados). Sem despacho ainda, a razão
-/// não existe — e diz isso em vez de dividir por zero.
-fn hooks_complement_from<'a>(
-    by_name: &std::collections::BTreeMap<String, u64>,
-    mirror_lines: impl Iterator<Item = &'a str>,
-    since_epoch: Option<u64>,
-) -> Value {
-    let Some(since) = since_epoch else {
-        return json!({
-            "available": false,
-            "reason": "no hook dispatched yet in this daemon",
-        });
-    };
-    let canonical: std::collections::BTreeSet<&'static str> = touring_code::sdk::HookName::ALL
-        .iter()
-        .map(|h| h.as_str())
-        .collect();
-    let mut deliveries = 0u64;
-    let mut non_canonical = 0u64;
-    // F9-origem (02/09): cada linha canônica é creditada a quem a escreveu
-    // (`origin`: `post_bash` | `sdk`; ausente = `unknown`, linhas legadas).
-    let mut by_origin: std::collections::BTreeMap<&'static str, u64> =
-        [("post_bash", 0u64), ("sdk", 0u64), ("unknown", 0u64)]
-            .into_iter()
-            .collect();
-    for line in mirror_lines {
-        let Ok(v) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        let ts = v.get("ts").and_then(Value::as_u64).unwrap_or(0);
-        if ts < since {
-            continue;
-        }
-        match v.get("hook_name").and_then(Value::as_str) {
-            Some(name) if canonical.contains(name) => {
-                deliveries += 1;
-                let origin = match v.get("origin").and_then(Value::as_str) {
-                    Some("post_bash") => "post_bash",
-                    Some("sdk") => "sdk",
-                    _ => "unknown",
-                };
-                *by_origin.entry(origin).or_insert(0) += 1;
-            }
-            Some(_) => non_canonical += 1,
-            None => {}
-        }
-    }
-    let post_bash = by_name.get("post-bash").copied().unwrap_or(0);
-    let post_bash_deliveries = by_origin.get("post_bash").copied().unwrap_or(0);
-    // A razão só admite entregas ORIGINADAS no post-bash: uma entrega do SDK
-    // in-sandbox não prova que o PostToolUse chegou ao daemon.
-    let ratio = if post_bash > 0 {
-        json!(post_bash_deliveries as f64 / post_bash as f64)
-    } else {
-        Value::Null
-    };
-    json!({
-        "available": true,
-        "since_epoch": since,
-        "dispatched": by_name,
-        "post_bash_dispatched": post_bash,
-        "mirror_deliveries_since": deliveries,
-        "mirror_deliveries_by_origin": by_origin,
-        "post_bash_origin_deliveries_since": post_bash_deliveries,
-        "mirror_non_canonical_since": non_canonical,
-        "post_bash_delivery_ratio": ratio,
-    })
-}
-
-/// A agregação pura por trás de [`code_mode_adherence`] — testável sem FS.
-fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
-    let mut total = 0u64;
-    let mut ok = 0u64;
-    let mut by_kind: std::collections::BTreeMap<String, u64> = Default::default();
-    let mut by_lang: std::collections::BTreeMap<String, u64> = Default::default();
-    let mut wasted = 0u64;
-    let mut prev_fail: Option<(u64, String)> = None;
-    for line in lines {
-        let Ok(v) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        total += 1;
-        let lang = v
-            .get("language")
-            .and_then(Value::as_str)
-            .unwrap_or("?")
-            .to_string();
-        *by_lang.entry(lang.clone()).or_default() += 1;
-        let ts = v.get("ts").and_then(Value::as_u64).unwrap_or(0);
-        let exit = v.get("exit_code").and_then(Value::as_i64).unwrap_or(-1);
-        if exit == 0 {
-            ok += 1;
-        }
-        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
-        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
-        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
-        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
-        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
-        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
-        if let Some(fk) = v
-            .get("failure_kind")
-            .and_then(Value::as_str)
-            .map(|s| touring_code::journal::FailureKind::from_str_opt(Some(s)).as_str())
-        {
-            *by_kind.entry(fk.to_string()).or_default() += 1;
-        }
-        if let Some((pts, plang)) = prev_fail.take()
-            && plang == lang
-            && ts.saturating_sub(pts) < 120
-        {
-            wasted += 1;
-        }
-        prev_fail = (exit != 0).then_some((ts, lang));
-    }
-    json!({
-        "available": true,
-        "runs_total": total,
-        "runs_ok": ok,
-        "success_rate": (total > 0).then(|| ok as f64 / total as f64),
-        "wasted_attempts_retry_pairs": wasted,
-        "by_failure_kind": by_kind,
-        "by_language": by_lang,
-        "source": "run_journal.jsonl",
-        "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    })
-}
-
-/// Convert unix seconds to `YYYY-MM-DD` (UTC, Gregorian, post-1970).
-#[must_use]
-pub fn iso_date_from_unix(secs: u64) -> String {
-    let days = secs / 86_400;
-    let (y, m, d) = days_to_ymd(days as i64);
-    format!("{y:04}-{m:02}-{d:02}")
-}
-
-fn days_to_ymd(mut days: i64) -> (i32, u32, u32) {
-    days += 719_468;
-    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
-    let doe = (days - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y_signed = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    let y = if m <= 2 { y_signed + 1 } else { y_signed };
-    (y as i32, m, d)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Per-commitment checking
-// ─────────────────────────────────────────────────────────────────────────────
+// Re-exportados: o `mod tests` (55 testes) e todo chamador seguem vendo
+// estas funcoes pelo mesmo caminho de antes da divisao.
+pub(crate) use code_mode::*;
+pub(crate) use sources::*;
 
 fn check_one(
     rt: &mut HookRuntime,
@@ -1005,329 +272,23 @@ fn check_one(
     }
 }
 
-fn resolve_source(
-    rt: &mut HookRuntime,
-    source: &str,
-    id: &str,
-    external_dir: &std::path::Path,
-) -> (&'static str, Option<f64>) {
-    if let Some(rest) = source.strip_prefix("daemon:") {
-        let mut parts = rest.splitn(2, ':');
-        let handler = parts.next().unwrap_or("");
-        let pointer = parts.next().unwrap_or("");
-        let value = invoke_handler(rt, handler);
-        let extracted = value
-            .as_ref()
-            .and_then(|v| v.pointer(pointer))
-            .and_then(json_value_as_f64);
-        return ("daemon", extracted);
-    }
-    if let Some(name) = source.strip_prefix("derived:") {
-        return ("derived", resolve_derived(rt, name));
-    }
-    if source.starts_with("external:") {
-        return ("external", resolve_external(external_dir, id));
-    }
-    ("unknown", None)
-}
-
-/// Out-of-band measurements stay valid for a fortnight: `external:` sources
-/// are expensive runs (a full llvm-cov is ~10 min) whose numbers move slowly,
-/// and a months-old figure must not masquerade as current.
-const EXTERNAL_STALE_SECS: u64 = 14 * 24 * 3600;
-
-/// Reads the recorded measurement for an `external:` commitment.
-///
-/// `touring kpi` never runs external commands itself (a dashboard must not
-/// spawn a 10-minute `llvm-cov`) — until 2026-08-28 `external:` sources
-/// resolved to `None` unconditionally, so `test.count`/`coverage.line` stayed
-/// STUB forever even after being measured. The `source` field documents HOW
-/// to measure; whoever runs the measurement drops
-/// `<commitments-dir>/external/<id>.json` with a numeric `value` field (extra
-/// fields like `measured_at`/`command` are for human audit) and this reader
-/// surfaces it while fresh (file mtime within [`EXTERNAL_STALE_SECS`]).
-/// Missing, stale or malformed → `None` (STUB): an unrecorded measurement is
-/// unknown, never zero.
-fn resolve_external(external_dir: &std::path::Path, id: &str) -> Option<f64> {
-    resolve_external_detailed(external_dir, id).ok()
-}
-
-/// Why an `external:` commitment resolved to no value. The three causes have
-/// three different remedies, so the dashboard names which one it is instead
-/// of a bare STUB — otherwise "nobody measured" is indistinguishable from
-/// "measured long ago", the very silence that kept `test.count` /
-/// `coverage.line` STUB until 2026-08-28 (see [`resolve_external`]'s history).
-#[derive(Debug, PartialEq)]
-enum ExternalStub {
-    /// No measurement file on disk — declared in the contract, never fed.
-    Missing,
-    /// A measurement exists but is older than [`EXTERNAL_STALE_SECS`].
-    Stale { days: u64 },
-    /// The producer measured and DECLARED no value yet (`value: null` plus a
-    /// `detalhe`/`note` string) — e.g. "sample n=6 below the minimum 20". An
-    /// honest unknown, not a defect (cross-audit 30/08, achado A3: the first
-    /// real producer did exactly this and `Malformed` would slander it).
-    Declared { detalhe: String },
-    /// The file exists and is fresh but carries no numeric `value` field
-    /// and no producer explanation.
-    Malformed,
-}
-
-impl ExternalStub {
-    /// The message teaches the remedy (A5): each cause names its own fix and
-    /// the exact drop path, so the operator acts without reading this file.
-    fn teach(&self, id: &str) -> String {
-        match self {
-            Self::Missing => format!(
-                "never measured — run the `source` command and drop docs/kpi/external/{id}.json with a numeric `value` field"
-            ),
-            Self::Stale { days } => format!(
-                "stale — measured {days}d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/{id}.json"
-            ),
-            Self::Declared { detalhe } => {
-                format!("declared unmeasured by the producer — {detalhe}")
-            }
-            Self::Malformed => format!(
-                "malformed — docs/kpi/external/{id}.json exists but has no numeric `value` field"
-            ),
-        }
-    }
-}
-
-/// Pure verdict over the gathered facts (file age + raw content) — testable
-/// without a filesystem, the same shape as [`adherence_from_lines`].
-fn external_verdict(age_secs: u64, raw: Option<&str>) -> Result<f64, ExternalStub> {
-    if age_secs > EXTERNAL_STALE_SECS {
-        return Err(ExternalStub::Stale {
-            days: age_secs / 86_400,
-        });
-    }
-    let raw = raw.ok_or(ExternalStub::Missing)?;
-    let parsed = serde_json::from_str::<Value>(raw).ok();
-    if let Some(v) = parsed
-        .as_ref()
-        .and_then(|v| v.pointer("/value"))
-        .and_then(json_value_as_f64)
-    {
-        return Ok(v);
-    }
-    // No numeric value: an explicit `value: null` carrying a producer
-    // explanation is an honest unknown — surface THEIR words, never an
-    // accusation (E4/E5: display the absence with its real cause).
-    if let Some(v) = parsed.as_ref()
-        && v.pointer("/value").is_some_and(Value::is_null)
-        && let Some(detalhe) = ["/detalhe", "/note", "/nota"]
-            .iter()
-            .find_map(|p| v.pointer(p).and_then(Value::as_str))
-            .filter(|s| !s.trim().is_empty())
-    {
-        return Err(ExternalStub::Declared {
-            detalhe: detalhe.chars().take(160).collect(),
-        });
-    }
-    Err(ExternalStub::Malformed)
-}
-
-fn resolve_external_detailed(
-    external_dir: &std::path::Path,
-    id: &str,
-) -> Result<f64, ExternalStub> {
-    let path = external_dir.join(format!("{id}.json"));
-    let Ok(meta) = std::fs::metadata(&path) else {
-        return Err(ExternalStub::Missing);
-    };
-    // An unreadable mtime counts as fresh — staleness only fires when the
-    // clock could actually be read (the pre-refactor behavior).
-    let age_secs = meta
-        .modified()
-        .ok()
-        .and_then(|t| t.elapsed().ok())
-        .map_or(0, |d| d.as_secs());
-    let raw = std::fs::read_to_string(&path).ok();
-    external_verdict(age_secs, raw.as_deref())
-}
-
-/// The `stub_reason` wiring for [`check_one`], kept pure so a test reaches it
-/// without a `HookRuntime`: only an `external:` source that resolved to no
-/// value carries a reason.
-fn external_stub_reason(
-    kind: &str,
-    actual: Option<f64>,
-    external_dir: &std::path::Path,
-    id: &str,
-) -> Option<String> {
-    (kind == "external" && actual.is_none())
-        .then(|| resolve_external_detailed(external_dir, id))
-        .and_then(Result::err)
-        .map(|s| s.teach(id))
-}
-
-/// Resolves a `derived:<name>` KPI — a value computed from already-collected
-/// data with no new instrumentation, for the `touring.coupling.*` family (F1).
-/// Returns `None` (→ `STUB`) when the underlying data is unavailable.
-fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
-    match name {
-        "health_delta_net" => {
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let imp = m
-                .pointer("/health_delta_improvement_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let reg = m
-                .pointer("/health_delta_regression_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            Some(imp - reg)
-        }
-        "suggestion_uptake" => {
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let emitted = m
-                .pointer("/suggestion_uptake_emitted_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            if emitted <= 0.0 {
-                return None;
-            }
-            let followed = m
-                .pointer("/suggestion_uptake_followed_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            Some(followed / emitted)
-        }
-        "adoption_ratio" => {
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let touring = m
-                .pointer("/adoption_touring_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let antipattern = m
-                .pointer("/adoption_antipattern_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let total = touring + antipattern;
-            if total <= 0.0 {
-                return None;
-            }
-            Some(touring / total)
-        }
-        "pillar_induction_ratio" => {
-            // Task #6 — followed / emitted for the armed pillar-induction layer
-            // (master-cli + learning-memory nudges). `None` until the layer emits
-            // (default-OFF), so it reports ADVISORY rather than a false 0.
-            //
-            // R2 (29/08, ordem de Gabriel): a fonte é o arquivo DURÁVEL
-            // (`durable_gate_evidence.json`), não os contadores de processo —
-            // 3 deploys num dia são 3 apagões da amostra, e um medidor que
-            // esquece nunca cruza o piso (a mesma razão que fez o braço da
-            // apresentação ler `code_mode_arm.json`).
-            let v = crate::cli_suggester::read_durable_evidence(&rt.project_root);
-            let emitted = v
-                .pointer("/pillar/emitted")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            if emitted <= 0.0 {
-                return None;
-            }
-            let followed = v
-                .pointer("/pillar/followed")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            Some(followed / emitted)
-        }
-        "code_mode_economy_ratio" => code_mode_economy_ratio(rt),
-        "code_mode_arm_native" => code_mode_arm_rate(rt, "native"),
-        "code_mode_arm_both" => code_mode_arm_rate(rt, "both"),
-        "code_mode_arm_code" => code_mode_arm_rate(rt, "code"),
-        "inspect_burst_share" => {
-            // S3 (2026-08-27) — a leitura da recalibração. O veredito sobre o
-            // limiar precisa de DIAS de uso — e uma série que zera a cada
-            // restart do daemon nunca acumula dias (R2, 29/08: os counters de
-            // processo ficaram para o `gate-metrics` vivo; o KPI lê o arquivo
-            // durável que o gate incrementa ao lado deles).
-            let v = crate::cli_suggester::read_durable_evidence(&rt.project_root);
-            let denied = v
-                .pointer("/s3/denied")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let passed = v
-                .pointer("/s3/first_passed")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            inspect_burst_share(denied, passed)
-        }
-        "code_mode_adoption_ratio" => {
-            // W0 S-0.1 (plano code-mode-total, 2026-08-24) — `touring run`
-            // executions over ALL Bash actions, both daemon-lifetime
-            // accumulators fed by the suggester hook and the run journal relay.
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let bash = m
-                .pointer("/bash_calls_total_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let runs = m
-                .pointer("/code_mode_runs_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            code_mode_adoption(runs, bash)
-        }
-        "world_model_success" => read_world_model_success(),
-        "learning_policy_discrimination" => policy_discrimination(&rt.project_root),
-        "learning_replay_share" => {
-            // P2 replay (29/08) — que fração do corpus de outcomes
-            // recompensados o OnlineRLEngine já consumiu. Numerador do cursor
-            // durável (`learning_replay_cursor.json`), denominador contado no
-            // memory.db AGORA — a mesma fonte que o replay lê. `None` = STUB
-            // enquanto nada foi replayado E o corpus está invisível (db
-            // ilegível): amostra ausente é desconhecido, nunca zero.
-            let (last_rowid, replayed_total, _) =
-                crate::cli::learning::replay_cursor_read(&rt.project_root);
-            let pending = crate::cli::learning::replay_corpus_pending(&rt.project_root, last_rowid);
-            match (replayed_total, pending) {
-                (0, None) => None,
-                (r, p) => {
-                    let total = r as f64 + p.unwrap_or(0).max(0) as f64;
-                    if total <= 0.0 {
-                        None
-                    } else {
-                        Some(r as f64 / total)
-                    }
-                }
-            }
-        }
-        // The `touring.memory.*` family (2026-08-02). Derived by SQL over the
-        // project's memory.db — no new instrumentation, same shape as the ADW
-        // derivations. Retroactive justification for the family: the ANN corpus
-        // had drifted to 79,7 % coverage for weeks with a one-command remedy, and
-        // nothing measured it, so nobody could see it.
-        "memory_corpus_coverage" => memory_corpus_coverage(&rt.project_root),
-        "memory_curated_recall_share" => memory_curated_recall_share(&rt.project_root),
-        "memory_graph_contract_share" => graph_contract_share(&rt.project_root),
-        "memory_edge_density" => memory_edge_density(&rt.project_root),
-        "memory_never_recalled_ratio" => memory_never_recalled_ratio(&rt.project_root),
-        // F6.4 (ADW plan 2026-07-19) — the software-factory KPI family. All are
-        // file-derived from per-project artifacts the ADW stack already writes;
-        // `None` (→ STUB) whenever the project has no such artifacts yet.
-        "adw_explore_rounds_to_dry" => adw_explore_rounds_to_dry(&rt.project_root),
-        "adw_plan_refine_iters" => adw_plan_refine_iters(&rt.project_root),
-        "adw_runs" => adw_runs_count(&rt.project_root),
-        "adw_router_accuracy" => adw_router_accuracy(&rt.project_root),
-        "adw_zte_bypass_rate" => adw_zte_bypass_rate(&rt.project_root),
-        // M0 (estratégia paralelização 29/08/2026) — instrumentar ANTES de
-        // esperar adoção: as duas afordâncias de paralelismo eram invisíveis
-        // ao instrumento (inventário 29/08: journal sem discriminador do
-        // `parallel`; tier só como estimativa estática do explain --cost).
-        "code_mode_parallel_runs" => code_mode_parallel_runs(),
-        "adw_tiered_agent_share" => adw_tiered_agent_share(&rt.project_root),
-        // E3 (flow enforcement 2026-07-23) — gated-flow OUTER compliance for
-        // THIS project, fed by loop_outer_gate.py evaluations at every Stop.
-        "flow_compliance" => flow_compliance_ratio(&rt.project_root),
-        _ => None,
-    }
-}
-
 /// Mean number of exploration rounds until the CCE ledger converged, over every
 /// `.touring-explore/*.ledger.json` in the current project. `None` when no
 /// ledger has converged yet (the KPI only speaks about *finished* explorations).
+/// Length of the LAST convergence episode in a rounds history: the maximal
+/// tail of rounds after the previous dry pair (two consecutive zero-new
+/// rounds). A dry pair with nothing after it is the whole episode by itself —
+/// an exploration that converges on the spot costs 2 rounds, not 0.
+fn last_episode_len(news: &[u64]) -> usize {
+    let mut start = 0usize;
+    for i in 1..news.len() {
+        if news[i - 1] == 0 && news[i] == 0 && i + 1 < news.len() {
+            start = i + 1;
+        }
+    }
+    news.len() - start
+}
+
 fn adw_explore_rounds_to_dry(root: &std::path::Path) -> Option<f64> {
     let dir = root.join(".touring-explore");
     let mut totals: Vec<f64> = Vec::new();
@@ -1351,7 +312,25 @@ fn adw_explore_rounds_to_dry(root: &std::path::Path) -> Option<f64> {
                 .pointer("/rounds")
                 .and_then(serde_json::Value::as_array)
         {
-            totals.push(rounds.len() as f64);
+            // N2 (2026-09-23): price the convergence EPISODE, not the ledger's
+            // lifetime. Ledgers persist across sessions and each revisit
+            // appends rounds, so `rounds.len()` billed re-exploration as slow
+            // convergence — measured on 174 ledgers: lifetime mean 8.09 vs
+            // last-episode mean 2.33 (p90 6). The dry-lens hypothesis the
+            // metric was meant to support died on the same data: cutting
+            // lenses with 2 dry rounds saves 1 round across all 174 ledgers.
+            let news: Vec<u64> = rounds
+                .iter()
+                .filter_map(|r| r.pointer("/new_findings").and_then(serde_json::Value::as_u64))
+                .collect();
+            if news.len() != rounds.len() {
+                // A round whose yield is unreadable cannot prove where the
+                // episode starts — fall back to lifetime for this ledger
+                // (fail-closed: conservative high, never silently elided).
+                totals.push(rounds.len() as f64);
+            } else if !news.is_empty() {
+                totals.push(last_episode_len(&news) as f64);
+            }
         }
     }
     if totals.is_empty() {
@@ -1543,6 +522,23 @@ fn flow_compliance_ratio(root: &std::path::Path) -> Option<f64> {
     flow_compliance_from_log(&log, root)
 }
 
+/// Per-flow variant of [`flow_compliance_ratio`] — the flows are structurally
+/// different (work-outer owes 2 artifacts, strategy-outer 3, cross-audit 1),
+/// so each gets its own check and threshold (N1, 2026-09-23).
+fn flow_compliance_flow(root: &std::path::Path, flow: &str) -> Option<f64> {
+    let home = std::env::var("HOME").ok()?;
+    let log = PathBuf::from(home).join(".claude/loop-engineering/compliance.jsonl");
+    flow_compliance_for_flow(&log, root, flow)
+}
+
+/// Arm-yield wrapper (started / armed) — the abandonment meter the
+/// started-conditional compliance excludes by design.
+fn flow_arm_yield_ratio(root: &std::path::Path) -> Option<f64> {
+    let home = std::env::var("HOME").ok()?;
+    let log = PathBuf::from(home).join(".claude/loop-engineering/compliance.jsonl");
+    flow_arm_yield_from_log(&log, root)
+}
+
 /// Pure core of [`flow_compliance_ratio`], separated so tests can feed a
 /// synthetic log: ratio of `complete: true` records whose `cwd` is `root`.
 /// Open the project's `memory.db` read-only, or `None` when it does not exist.
@@ -1624,10 +620,48 @@ fn memory_never_recalled_ratio(root: &std::path::Path) -> Option<f64> {
     Some(never as f64 / total as f64)
 }
 
-fn flow_compliance_from_log(log: &std::path::Path, root: &std::path::Path) -> Option<f64> {
+/// 14-day window for the flow-compliance KPIs — the same horizon the
+/// memory-graph meters use, so a schema or policy change (Opção C, 03/09)
+/// stops dragging the metric after one window instead of forever.
+const FLOW_COMPLIANCE_WINDOW_SECS: u64 = 14 * 86_400;
+
+/// Per-flow aggregation over the compliance JSONL.
+#[derive(Default, Clone, Copy)]
+struct FlowAgg {
+    armed: u64,
+    started: u64,
+    complete: u64,
+}
+
+/// A record is `started` when at least one manifest artifact was present at
+/// evaluation time (`present_ids` non-empty) OR the manifest was complete.
+/// `complete ⇒ started` by construction, and the OR matters: 58% of the real
+/// history (948/1629 records, 2026-08/09) lacks `present_ids` entirely — the
+/// schema grew the field later — so requiring the key would silently demote
+/// every complete old record to "never started" (measured 2026-09-23, N1).
+fn record_started(rec: &Value) -> bool {
+    rec.pointer("/complete").and_then(Value::as_bool) == Some(true)
+        || rec
+            .pointer("/present_ids")
+            .and_then(Value::as_array)
+            .is_some_and(|a| !a.is_empty())
+}
+
+/// Windowed per-flow breakdown of the compliance log for one project.
+/// Records without a readable `ts` are skipped (fail-closed for the window —
+/// a record whose age is unknown cannot prove it belongs).
+fn flow_compliance_breakdown(
+    log: &std::path::Path,
+    root: &std::path::Path,
+) -> Option<std::collections::BTreeMap<String, FlowAgg>> {
     let text = std::fs::read_to_string(log).ok()?;
     let root_str = root.display().to_string();
-    let (mut total, mut complete) = (0u64, 0u64);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    let cut = now.saturating_sub(FLOW_COMPLIANCE_WINDOW_SECS);
+    let mut map: std::collections::BTreeMap<String, FlowAgg> = std::collections::BTreeMap::new();
     for line in text.lines() {
         let Ok(rec) = serde_json::from_str::<Value>(line) else {
             continue;
@@ -1635,15 +669,77 @@ fn flow_compliance_from_log(log: &std::path::Path, root: &std::path::Path) -> Op
         if rec.pointer("/cwd").and_then(Value::as_str) != Some(root_str.as_str()) {
             continue;
         }
-        total += 1;
+        let Some(ts) = rec.pointer("/ts").and_then(json_value_as_f64) else {
+            continue;
+        };
+        if ts < cut as f64 {
+            continue;
+        }
+        let flow = rec
+            .pointer("/flow")
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string();
+        let agg = map.entry(flow).or_default();
+        agg.armed += 1;
+        if record_started(&rec) {
+            agg.started += 1;
+        }
         if rec.pointer("/complete").and_then(Value::as_bool) == Some(true) {
-            complete += 1;
+            agg.complete += 1;
         }
     }
-    if total == 0 {
-        return None;
+    if map.is_empty() {
+        None
+    } else {
+        Some(map)
     }
-    Some(complete as f64 / total as f64)
+}
+
+fn ratio_opt(num: u64, den: u64) -> Option<f64> {
+    if den == 0 {
+        None
+    } else {
+        Some(num as f64 / den as f64)
+    }
+}
+
+/// Aggregate flow compliance, **started-conditional**: complete manifests over
+/// flows that actually started. Post-Opção-C (03/09) the Stop hook no longer
+/// blocks, so an armed-and-abandoned flow is a policy-allowed state, not a
+/// violation — counting it in the denominator measured obedience to a retired
+/// policy (aggregate 0.499, with strategy-outer at 74% never-started; N1,
+/// 2026-09-23). None when nothing started in the window.
+fn flow_compliance_from_log(log: &std::path::Path, root: &std::path::Path) -> Option<f64> {
+    let map = flow_compliance_breakdown(log, root)?;
+    let (started, complete): (u64, u64) = map
+        .values()
+        .fold((0, 0), |(s, c), a| (s + a.started, c + a.complete));
+    ratio_opt(complete, started)
+}
+
+/// The same started-conditional compliance for one flow (`work-outer`,
+/// `strategy-outer`, `cross-audit`). None when that flow never started in the
+/// window — absent signal is unknown, never zero (Lei L2).
+fn flow_compliance_for_flow(
+    log: &std::path::Path,
+    root: &std::path::Path,
+    flow: &str,
+) -> Option<f64> {
+    let map = flow_compliance_breakdown(log, root)?;
+    let agg = map.get(flow)?;
+    ratio_opt(agg.complete, agg.started)
+}
+
+/// Arm yield: started / armed over the window — how often arming a flow leads
+/// to actual work. The complement of what the started-conditional compliance
+/// deliberately excludes, kept visible instead of hidden.
+fn flow_arm_yield_from_log(log: &std::path::Path, root: &std::path::Path) -> Option<f64> {
+    let map = flow_compliance_breakdown(log, root)?;
+    let (armed, started): (u64, u64) = map
+        .values()
+        .fold((0, 0), |(a, s), g| (a + g.armed, s + g.started));
+    ratio_opt(started, armed)
 }
 
 /// Σsuccesses / (Σsuccesses + Σfailures) over `action_world_model.json`
@@ -1766,22 +862,40 @@ fn build_ab_block(path: &Path) -> Option<Value> {
     serde_json::from_str::<Value>(&raw).ok()
 }
 
+/// B (coordenação, 2026-09-23): an ephemeral root (system temp, a pytest tmp,
+/// the harness scratchpad) never becomes a dated snapshot in the real
+/// `docs/kpi` — 12 `tmp-pytest-*` files landed there because a test's tmp
+/// root passed through this writer with no guard.
+fn is_ephemeral_root(project_root: &std::path::Path) -> bool {
+    project_root.starts_with(std::env::temp_dir())
+}
+
+/// Where the dated series lives for a given HOME (testable without mutating
+/// the process env): canonical source tree (`$HOME/projects/touring/docs/kpi`),
+/// never the frozen `~/.claude/rust` tree (F4′, 24/07/2026).
+fn snapshot_dir(home: Option<&std::path::Path>, month: &str) -> PathBuf {
+    match home {
+        Some(h) => h.join("projects/touring/docs/kpi").join(month),
+        None => PathBuf::from("docs/kpi").join(month),
+    }
+}
+
 fn persist_snapshot(
     payload: &Value,
     date: &str,
     project_root: &std::path::Path,
 ) -> std::io::Result<PathBuf> {
+    if is_ephemeral_root(project_root) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "ephemeral project root — snapshot skipped",
+        ));
+    }
     let month = date.get(0..7).unwrap_or("0000-00");
-    // Canonical source tree (F4′, 24/07/2026): snapshots were still being
-    // written under `~/.claude/rust/docs/kpi` — the FROZEN tree — so the
-    // dated series silently accumulated where no reader looks anymore.
-    let dir = if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home)
-            .join("projects/touring/docs/kpi")
-            .join(month)
-    } else {
-        PathBuf::from("docs/kpi").join(month)
-    };
+    let dir = snapshot_dir(
+        std::env::var("HOME").ok().as_deref().map(std::path::Path::new),
+        month,
+    );
     std::fs::create_dir_all(&dir)?;
     // One file per project per day (investigation 2026-07-01): the daemon's F5
     // flush snapshots EVERY warm project, and per-project sources (orphans,
@@ -2552,25 +1666,129 @@ mod tests {
         assert_eq!(s["passed"], 1);
     }
     #[test]
-    fn flow_compliance_filters_by_project_and_needs_data() {
+    fn ephemeral_roots_never_become_snapshots_and_real_roots_resolve_the_dir() {
+        // B (coordenação, 2026-09-23): 12 `tmp-pytest-*` snapshots landed in the
+        // real docs/kpi because a test's tmp root passed through the writer.
+        let err = persist_snapshot(
+            &serde_json::json!({}),
+            "2026-09-23",
+            &std::env::temp_dir().join("pytest-of-gabrielgadea-x"),
+        )
+        .expect_err("an ephemeral root must be refused");
+        assert!(err.to_string().contains("ephemeral project root"), "{err}");
+        // A real root resolves the canonical tree (no env mutation in the test).
+        let dir = snapshot_dir(Some(std::path::Path::new("/home/x")), "2026-09");
+        assert_eq!(
+            dir,
+            std::path::Path::new("/home/x/projects/touring/docs/kpi/2026-09"),
+            "the canonical dated tree, never the frozen one"
+        );
+        assert_eq!(
+            snapshot_dir(None, "2026-09"),
+            PathBuf::from("docs/kpi/2026-09"),
+            "the HOME-less fallback stays relative"
+        );
+    }
+    #[test]
+    fn explore_rounds_to_dry_measures_the_last_convergence_episode_not_lifetime() {
+        // N2 (2026-09-23): the metric read `rounds.len()` — the ledger's whole
+        // lifetime across every re-exploration. A topic revisited weekly for a
+        // month scored 20+ "rounds to dry" with every visit converging in 1-2
+        // rounds; measured distribution on 174 real ledgers: lifetime mean 8.09
+        // vs last-episode mean 2.33. The metric now prices ONE convergence
+        // episode: the maximal tail of rounds after the previous dry pair.
+        let dir = std::env::temp_dir().join(format!("kpi-expl-{}", std::process::id()));
+        let led = dir.join(".touring-explore");
+        std::fs::create_dir_all(&led).expect("mkdir");
+        assert_eq!(adw_explore_rounds_to_dry(&dir), None, "no ledgers → STUB");
+        let ledger = |name: &str, news: &[u64], converged: bool| {
+            let rounds: String = news
+                .iter()
+                .map(|n| format!("{{\"new_findings\":{n}}}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            std::fs::write(
+                led.join(name),
+                format!("{{\"verdict\":{{\"converged\":{converged}}},\"rounds\":[{rounds}]}}"),
+            )
+            .expect("write ledger");
+        };
+        // 11 lifetime rounds; episodes [3,2,0,0]·[4,1,0,0]·[2,0,0] → last = 3.
+        ledger("a.ledger.json", &[3, 2, 0, 0, 4, 1, 0, 0, 2, 0, 0], true);
+        // converged on the spot: one dry pair IS the episode → 2.
+        ledger("b.ledger.json", &[0, 0], true);
+        // not converged → ignored.
+        ledger("c.ledger.json", &[9, 9, 9], false);
+        let got = adw_explore_rounds_to_dry(&dir).expect("speaks");
+        assert!(
+            (got - 2.5).abs() < 1e-9,
+            "mean of last episodes (3 and 2) → 2.5, not lifetime 11 — got {got}"
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+    #[test]
+    fn flow_compliance_is_started_conditional_windowed_and_per_flow() {
         let dir = std::env::temp_dir().join(format!("kpi-flow-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir");
         let log = dir.join("compliance.jsonl");
         let proj = std::path::Path::new("/proj/a");
         // No log yet → None (STUB, never a fabricated 0.0).
         assert_eq!(flow_compliance_from_log(&log, proj), None);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_secs_f64();
+        let old = now - 30.0 * 86_400.0;
+        let rec = |flow: &str, ts: f64, complete: bool, present: bool, cwd: &str| {
+            let p = if present {
+                ",\"present_ids\":[\"diagnostic-okf\"]"
+            } else {
+                ""
+            };
+            format!(
+                "{{\"cwd\":\"{cwd}\",\"flow\":\"{flow}\",\"ts\":{ts},\"complete\":{complete}{p}}}\n"
+            )
+        };
         std::fs::write(
             &log,
-            concat!(
-                "{\"cwd\":\"/proj/a\",\"flow\":\"strategy-outer\",\"complete\":true}\n",
-                "{\"cwd\":\"/proj/a\",\"flow\":\"strategy-outer\",\"complete\":false}\n",
-                "{\"cwd\":\"/proj/b\",\"flow\":\"cross-audit\",\"complete\":false}\n",
-                "not-json\n",
-            ),
+            [
+                // complete counts as started even without present_ids (58% of the
+                // real history lacks the key — schema grew it later).
+                rec("work-outer", now, true, false, "/proj/a"),
+                // started but not complete (the denominator's honest member).
+                rec("work-outer", now, false, true, "/proj/a"),
+                // armed and abandoned: never started → denominator must NOT see it.
+                rec("work-outer", now, false, false, "/proj/a"),
+                rec("strategy-outer", now, false, true, "/proj/a"),
+                // outside the 14-day window → excluded.
+                rec("cross-audit", old, true, true, "/proj/a"),
+                // another project → ignored.
+                rec("work-outer", now, true, true, "/proj/b"),
+                "not-json\n".to_string(),
+            ]
+            .concat(),
         )
         .expect("write log");
-        // Only /proj/a records count: 1 complete of 2 → 0.5; /proj/b is ignored.
-        assert_eq!(flow_compliance_from_log(&log, proj), Some(0.5));
+        // Aggregate: started = 3, complete = 1 → 1/3 (the abandoned arm is noise).
+        let agg = flow_compliance_from_log(&log, proj).expect("aggregate speaks");
+        assert!((agg - 1.0 / 3.0).abs() < 1e-9, "aggregate started-conditional, got {agg}");
+        assert_eq!(
+            flow_compliance_for_flow(&log, proj, "work-outer"),
+            Some(0.5),
+            "per-flow split"
+        );
+        assert_eq!(
+            flow_compliance_for_flow(&log, proj, "strategy-outer"),
+            Some(0.0),
+            "started-without-completion is an honest 0.0, not STUB"
+        );
+        assert_eq!(
+            flow_compliance_for_flow(&log, proj, "cross-audit"),
+            None,
+            "a flow whose only records are outside the window stays STUB"
+        );
+        // Arm yield: armed = 4 (3 work-outer + 1 strategy-outer), started = 3 → 0.75.
+        assert_eq!(flow_arm_yield_from_log(&log, proj), Some(0.75));
         assert_eq!(
             flow_compliance_from_log(&log, std::path::Path::new("/proj/c")),
             None,
@@ -2727,15 +1945,30 @@ mod tests {
             );
             return;
         };
-        let src = include_str!("kpi.rs");
+        // O módulo virou TRÊS arquivos em 21/09/2026 (kpi.rs tinha 2931 linhas
+        // e reprovava F1.2). Este guard lê a fonte, então precisa dos três: com
+        // só `kpi.rs` ele parou de achar `resolve_derived` e falhou — a divisão
+        // tirou a região do arquivo sem tirá-la do programa. Concatenar mantém
+        // o guard medindo o MÓDULO, que é o que ele sempre quis medir.
+        let src = concat!(
+            include_str!("kpi.rs"),
+            "\n",
+            include_str!("kpi/code_mode.rs"),
+            "\n",
+            include_str!("kpi/sources.rs"),
+        );
         // A region runs from its top-level `fn` line to the next top-level fn.
+        // `pub(crate) fn` conta como topo: a divisão elevou a visibilidade dos
+        // itens que a raiz re-exporta, e um prefixo novo não pode esconder uma
+        // região deste guard.
+        let topo = |line: &str| line.starts_with("fn ") || line.starts_with("pub(crate) fn ");
         let region = |start: &str| -> String {
             let mut out = String::new();
             let mut inside = false;
             for line in src.lines() {
-                if line.starts_with(start) {
+                if line.starts_with(start) || line.starts_with(&format!("pub(crate) {start}")) {
                     inside = true;
-                } else if inside && line.starts_with("fn ") {
+                } else if inside && topo(line) {
                     break;
                 }
                 if inside {

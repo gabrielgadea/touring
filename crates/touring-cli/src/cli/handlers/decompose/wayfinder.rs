@@ -6,6 +6,25 @@
 //! decisao, a fronteira e a fila de prontos.
 
 use super::*;
+/// The ONE readiness predicate, shared by `claim` (who may take it) and `ready`
+/// (what the pool shows): pending, or in_progress only under an EXPIRED lease.
+/// A live claim is someone's work in both views — and an in_progress subtask
+/// started by hand (no claim) is nobody's to claim, exactly as `claim` treats
+/// it. One predicate in one place, because a predicate written twice never
+/// meets itself (coordenação 2026-09-23: ready listed live claims as ready).
+fn ready_eligible(
+    status: &str,
+    claimed_by: Option<&str>,
+    claim_expires_at: Option<i64>,
+    now_epoch: i64,
+) -> bool {
+    match status {
+        "pending" => true,
+        "in_progress" => claimed_by.is_some() && claim_expires_at.is_some_and(|e| e < now_epoch),
+        _ => false,
+    }
+}
+
 /// Atomically claim the next ready subtask for one owner.
 ///
 /// `ready` only READS. Two sessions polling it concurrently were handed the same
@@ -113,13 +132,7 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
             if !unblocked || completed.contains(&short_subtask_id(&c.id)) {
                 return false;
             }
-            match c.status.as_str() {
-                "pending" => true,
-                "in_progress" => {
-                    c.claimed_by.is_some() && c.claim_expires_at.is_some_and(|e| e < now_epoch)
-                }
-                _ => false,
-            }
+            ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch)
         })
         .collect();
     candidates.sort_by(|a, b| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
@@ -570,12 +583,21 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         depends_on: Vec<String>,
         parallel_group: Option<String>,
         priority: i32,
+        /// Who holds the claim, when one exists (coordenação 2026-09-23: the
+        /// views must name the owner, or "claimed by a live session" and
+        /// "abandoned work" are indistinguishable).
+        claimed_by: Option<String>,
+        claim_expires_at: Option<i64>,
+        /// Lease live RIGHT NOW (claimed_by set and unexpired at read time).
+        claim_live: bool,
     }
+
+    let now_epoch = chrono::Utc::now().timestamp();
 
     // Load all subtasks for this task
     let subtasks: Vec<SubtaskInfo> = {
         let mut stmt = match db.conn_ref().prepare(
-            "SELECT subtask_id, status, depends_on, parallel_group, priority FROM decomposition_subtasks WHERE task_id = ?1",
+            "SELECT subtask_id, status, depends_on, parallel_group, priority, claimed_by, claim_expires_at FROM decomposition_subtasks WHERE task_id = ?1",
         ) {
             Ok(s) => s,
             Err(_) => return serde_json::json!({"error": "db error"}).to_string(),
@@ -589,12 +611,18 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                     .map(String::from)
                     .collect()
             });
+            let claimed_by: Option<String> = r.get::<_, Option<String>>(5)?;
+            let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(6)?;
             Ok(SubtaskInfo {
                 subtask_id: r.get::<_, String>(0)?,
                 status: r.get::<_, String>(1)?,
                 depends_on: deps,
                 parallel_group: r.get::<_, Option<String>>(3)?,
                 priority: r.get::<_, i32>(4)?,
+                claim_live: claimed_by.is_some()
+                    && claim_expires_at.is_some_and(|e| e > now_epoch),
+                claimed_by,
+                claim_expires_at,
             })
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -624,10 +652,18 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // A subtask is ready if all its deps (normalized to short ids) are completed.
     let is_ready = |deps: &[String]| deps.iter().all(|d| completed.contains(&short_id(d)));
 
-    // Partition into ready (owned) and blocked (owned)
+    // Partition into ready (owned) and blocked (owned) — the SAME predicate the
+    // claim uses: pending, or in_progress only under an EXPIRED lease. A live
+    // claim never lists as ready again (coordenação 2026-09-23).
     let (ready, blocked): (Vec<SubtaskInfo>, Vec<SubtaskInfo>) =
         subtasks.into_iter().partition(|s| {
-            is_ready(&s.depends_on) && (s.status == "pending" || s.status == "in_progress")
+            is_ready(&s.depends_on)
+                && ready_eligible(
+                    &s.status,
+                    s.claimed_by.as_deref(),
+                    s.claim_expires_at,
+                    now_epoch,
+                )
         });
 
     // Group ready subtasks by parallel_group

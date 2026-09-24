@@ -1,0 +1,45 @@
+{
+  "phase": "N3",
+  "entities": [
+    {
+      "entity_id": "phase:N3",
+      "type": "phase",
+      "description": "N3 entregue \u2014 causa raiz DUPLA: (1) plan_refine.py s\u00f3 era invocado pelo explore-plan, e (2) esse \u00fanico chamador passava --topic, arg que o script nunca aceitou (argparse exit 2 mascarado por || true) \u2192 no disco s\u00f3 1 ledger com 1 itera\u00e7\u00e3o. Fixes: plan_refine.py aceita --topic/--scope derivando o ledger pelo MESMO ledger_path_for do explorador (teste RED\u2192GREEN, 15/15); refine_plan do explore-plan corrigido (positional plan + skip vis\u00edvel + input plan); strategy-loop ganha n\u00f3 refine_strategy (1 itera\u00e7\u00e3o por re-run quando a strategy doc existe) \u2014 prova viva: n\u00f3 executou, ledger criado, itera\u00e7\u00e3o 2 = plat\u00f4. KPI plan_refine_iters 1.0 ADVISORY \u2192 2.0 PASS LIVE. Inst\u00e2ncia .touring/adw sincronizada (from-template n\u00e3o sobrescreve; diff s\u00f3 coment\u00e1rios+n\u00f3 novo)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790203324709596117:N3:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790203324709596117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790203324709596117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:N3|produces|memory:loop:task_1790203324709596117:N3:done",
+      "source": "phase:N3",
+      "type": "produces",
+      "target": "memory:loop:task_1790203324709596117:N3:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790203324709596117:N3:done|generated-by|loop:loop:task_1790203324709596117",
+      "source": "memory:loop:task_1790203324709596117:N3:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790203324709596117"
+    },
+    {
+      "relation_id": "memory:loop:task_1790203324709596117:N3:done|generated-by|dag:decomp:task_1790203324709596117",
+      "source": "memory:loop:task_1790203324709596117:N3:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790203324709596117"
+    }
+  ]
+}
