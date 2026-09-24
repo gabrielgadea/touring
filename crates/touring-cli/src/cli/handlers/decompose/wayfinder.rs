@@ -387,6 +387,29 @@ pub fn cli_decompose_release(rt: &mut HookRuntime, payload: &serde_json::Value) 
     }
 }
 
+/// The seam switch — hard-FALSE in every shipped binary: the daemon links
+/// this crate and never calls `enable_test_seams`, and no RPC payload can
+/// reach a Rust static. In production the seam fields are REFUSED with a
+/// named error — a property of construction, not of "only tests send them"
+/// (touring-36, 24/09/2026 — the convention was a named lease-theft door in
+/// the RPC's public contract).
+static TEST_SEAMS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Arm the test seams for THIS process. Test binaries call it; production has
+/// no path here.
+pub fn enable_test_seams() {
+    TEST_SEAMS.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Back to the shipped state (tests assert both sides, in any order).
+pub fn disable_test_seams() {
+    TEST_SEAMS.store(false, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn test_seams_armed() -> bool {
+    TEST_SEAMS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Renew a live lease — only its own holder may, and only while it is LIVE.
 ///
 /// The lease exists so a session that DIES mid-work frees its subtask; but
@@ -494,12 +517,20 @@ pub fn cli_decompose_renew(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         _ => {}
     }
 
-    // TOCTOU test seam (e2e only, 24/09/2026): the read above and the
-    // conditional write below are TWO steps, and between them another session
-    // can take the subtask — in that race the UPDATE's WHERE is the ONLY
-    // defense. This field swaps the claim between the steps so the race is
-    // exercised. Inert in production: only a test sends it.
     if let Some(thief) = payload.get("_test_swap_claimed_by").and_then(|v| v.as_str()) {
+        // The field only acts when THIS process armed the seams (a Rust static
+        // the daemon never flips and no RPC can reach). Unarmed: refused with a
+        // named error, and the owner never moves.
+        if !test_seams_armed() {
+            return serde_json::json!({
+                "renewed": false,
+                "error": format!(
+                    "seam de teste desativado — `_test_swap_claimed_by` ({thief}) só age em \
+                     binários que chamam `enable_test_seams`; em produção o campo é recusado \
+                     e o dono NÃO muda")
+            })
+            .to_string();
+        }
         let _ = db.conn_ref().execute(
             "UPDATE decomposition_subtasks SET claimed_by = ?1 \
              WHERE task_id = ?2 AND (subtask_id = ?3 OR subtask_id = ?2 || '::' || ?3)",

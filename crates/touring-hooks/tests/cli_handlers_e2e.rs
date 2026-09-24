@@ -29,7 +29,8 @@ use touring_hooks::cli_handlers::*;
 // `cli_tasksfile_*` seguem aqui porque só existem neste módulo.
 use touring_hooks::cli_handlers_decompose::{
     cli_decompose_claim, cli_decompose_frontier, cli_decompose_release, cli_decompose_renew,
-    cli_decompose_ticket, cli_tasksfile_export, cli_tasksfile_validate,
+    cli_decompose_ticket, cli_tasksfile_export, cli_tasksfile_validate, disable_test_seams,
+    enable_test_seams,
 };
 use touring_hooks::cli_handlers_index::{cli_ast_blast, cli_ast_find, cli_ast_overview};
 use touring_hooks::runtime::HookRuntime;
@@ -2817,16 +2818,47 @@ fn renew_names_terminal_status_and_unknown_ids() {
 /// TOCTOU (touring-36, 24/09/2026): the pre-read and the conditional UPDATE
 /// are TWO steps — between them another session can take the subtask, and in
 /// that race the UPDATE's WHERE is the ONLY defense. The seam swaps the
-/// claim between the steps: the UPDATE must change 0 rows, the renew must
-/// refuse NAMING the race, and the thief's claim stays untouched.
+/// claim between the steps — and the seam itself is GATED by construction:
+/// a Rust static the daemon never flips and no RPC payload can reach.
+/// Unarmed (every shipped binary), the field is refused and the owner never
+/// moves; armed (this test binary), the swap happens and the WHERE defends.
 #[test]
-fn renew_race_between_check_and_write_refuses_naming_the_race() {
+fn renew_race_seam_is_gated_and_the_where_defends_the_race() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = seed_ready_task(&mut rt, 1);
     cli_decompose_claim(
         &mut rt,
         &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 3600}),
     );
+    let owner_of = |rt: &mut HookRuntime| {
+        let got = parse_json(&cli_decompose_get(rt, &serde_json::json!({"task_id": task_id})));
+        got["subtasks"].as_array().expect("array")[0]["claimed_by"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+    };
+
+    // UNARMED (the shipped state): the field is refused with a named error,
+    // and the owner does NOT move — the convention is now construction.
+    disable_test_seams();
+    let refused = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "_test_swap_claimed_by": "ladrao"}),
+    ));
+    assert_eq!(refused["renewed"], serde_json::json!(false), "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("seam de teste desativado"),
+        "the field unarmed is refused, named: {refused}"
+    );
+    assert_eq!(owner_of(&mut rt), "eu", "an unarmed seam never moves the owner");
+
+    // ARMED (this test binary): the swap happens BETWEEN the check and the
+    // write — the UPDATE changes 0 rows and the refusal names the race.
+    enable_test_seams();
     let r = parse_json(&cli_decompose_renew(
         &mut rt,
         &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
@@ -2841,13 +2873,12 @@ fn renew_race_between_check_and_write_refuses_naming_the_race() {
             .contains("between the check and the write"),
         "the refusal names the race: {r}"
     );
-    // The WHERE did its job — the claim that beat us is NOT touched.
-    let got = parse_json(&cli_decompose_get(
-        &mut rt,
-        &serde_json::json!({"task_id": task_id}),
-    ));
-    let sub = &got["subtasks"].as_array().expect("array")[0];
-    assert_eq!(sub["claimed_by"], serde_json::json!("ladrao"), "{sub}");
+    assert_eq!(
+        owner_of(&mut rt),
+        "ladrao",
+        "the WHERE changed 0 rows: the claim that beat us is untouched"
+    );
+    disable_test_seams();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
