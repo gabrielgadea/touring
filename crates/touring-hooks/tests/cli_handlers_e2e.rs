@@ -28,8 +28,8 @@ use touring_hooks::cli_handlers::*;
 // todo do glob `cli_handlers::*` = o que o daemon executa de fato.
 // `cli_tasksfile_*` seguem aqui porque só existem neste módulo.
 use touring_hooks::cli_handlers_decompose::{
-    cli_decompose_claim, cli_decompose_frontier, cli_decompose_release, cli_decompose_ticket,
-    cli_tasksfile_export, cli_tasksfile_validate,
+    cli_decompose_claim, cli_decompose_frontier, cli_decompose_release, cli_decompose_renew,
+    cli_decompose_ticket, cli_tasksfile_export, cli_tasksfile_validate,
 };
 use touring_hooks::cli_handlers_index::{cli_ast_blast, cli_ast_find, cli_ast_overview};
 use touring_hooks::runtime::HookRuntime;
@@ -2679,6 +2679,139 @@ fn ready_by_priority_flag_matches_the_default_order() {
     );
     assert_eq!(flagged["sorted_by_priority"], serde_json::json!(true), "{flagged}");
     assert_eq!(plain["sorted_by_priority"], serde_json::json!(false), "{plain}");
+}
+
+/// analise-d4 → touring-36 (2026-09-24): no verb could RENEW a lease — the
+/// L11 claim lapsed mid-work at ~18:50 UTC and `claim` only takes the NEXT
+/// ready (naming the same subtask REFUSES even for the holder). `renew` is
+/// the claim lifecycle's heartbeat: a conditional write that extends only
+/// `in_progress` + this owner + a LIVE lease, and names every refusal.
+#[test]
+fn renew_extends_a_live_lease_for_its_holder() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 60}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    let old_exp = c["claim_expires_at"].as_i64().unwrap();
+
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "lease_secs": 7200}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(true), "{r}");
+    assert!(
+        r["claim_expires_at"].as_i64().unwrap() > old_exp,
+        "the lease moved forward: {r}"
+    );
+
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub = &got["subtasks"].as_array().expect("array")[0];
+    assert_eq!(sub["status"], serde_json::json!("in_progress"), "{sub}");
+    assert_eq!(sub["claimed_by"], serde_json::json!("eu"), "{sub}");
+}
+
+#[test]
+fn renew_refuses_another_owners_lease_and_a_pending_subtask() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "outra-sessao", "lease_secs": 3600}),
+    );
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "eu"}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"].as_str().unwrap_or("").contains("outra-sessao"),
+        "the refusal names the holder: {r}"
+    );
+
+    // The pending sibling was never claimed — there is no lease to renew.
+    let r2 = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01", "owner": "eu"}),
+    ));
+    assert_eq!(r2["renewed"], serde_json::json!(false), "{r2}");
+    assert!(
+        r2["reason"].as_str().unwrap_or("").contains("pending"),
+        "the refusal names the status: {r2}"
+    );
+}
+
+#[test]
+fn renew_never_resurrects_an_expired_lease() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 60}),
+    );
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![chrono::Utc::now().timestamp() - 1, task_id],
+        )
+        .expect("expire the lease");
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "lease_secs": 7200}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"].as_str().unwrap_or("").contains("EXPIRED"),
+        "the refusal names the expiry: {r}"
+    );
+    // The expiry was NOT extended — the subtask returned to the pool.
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub = &got["subtasks"].as_array().expect("array")[0];
+    assert!(
+        sub["claim_expires_at"].as_i64().unwrap() < chrono::Utc::now().timestamp(),
+        "an expired lease never moves forward: {sub}"
+    );
+}
+
+#[test]
+fn renew_names_terminal_status_and_unknown_ids() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "eu"}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"].as_str().unwrap_or("").contains("completed"),
+        "the refusal names the terminal status: {r}"
+    );
+
+    let missing = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-99", "owner": "eu"}),
+    ));
+    assert_eq!(missing["renewed"], serde_json::json!(false), "{missing}");
+    assert!(
+        missing["reason"].as_str().unwrap_or("").contains("not found"),
+        "an unknown id says so: {missing}"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
