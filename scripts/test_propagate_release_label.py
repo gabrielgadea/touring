@@ -160,28 +160,90 @@ def test_skip_build_does_not_bypass_the_label_guard():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _fake_inheriting_crate(tmp: Path, pkg: str = "touring-cli") -> None:
+    """A workspace member that INHERITS the label — the lock guard only judges
+    these (independent crates like touring-analysis 0.3.3 stay out by design)."""
+    d = tmp / "crates" / pkg
+    d.mkdir(parents=True)
+    (d / "Cargo.toml").write_text(
+        f'[package]\nname = "{pkg}"\nversion.workspace = true\n',
+        encoding="utf-8")
+
+
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash needed")
 def test_a_stale_cargo_lock_also_dies():
     """The lock is the same lie one directory down (the 4 previous bumps
-    carried it): a workspace member off-label must refuse the install."""
+    carried it): an INHERITING member off-label must refuse the install."""
     tmp = _fake_tree("30.4.66")
     try:
+        _fake_inheriting_crate(tmp)
         (tmp / "Cargo.lock").write_text(
             '[[package]]\nname = "touring-cli"\nversion = "30.4.65"\n\n'
-            '[[package]]\nname = "touring-server"\nversion = "30.4.65"\n',
+            '[[package]]\nname = "color"\nversion = "0.3.3"\n\n'
+            '[[package]]\nname = "touring-analysis"\nversion = "0.3.3"\n',
             encoding="utf-8")
         r = _run(tmp, "30.4.66")
         out = r.stdout + r.stderr
-        assert r.returncode == 1, f"a stale lock must die, got rc={r.returncode}: {out[-400:]}"
+        assert r.returncode == 1, f"a stale inheriting entry must die, got rc={r.returncode}: {out[-400:]}"
         assert "Cargo.lock fora do rótulo" in out
-        # and the fix is carried: a lock at the target version passes
+        # and the fix is carried: a lock at the target version passes — and an
+        # independent 0.3.3 crate never counts as a lie (3rd stop, 2026-09-24).
         (tmp / "Cargo.lock").write_text(
-            '[[package]]\nname = "touring-cli"\nversion = "30.4.66"\n',
+            '[[package]]\nname = "touring-cli"\nversion = "30.4.66"\n\n'
+            '[[package]]\nname = "touring-analysis"\nversion = "0.3.3"\n',
             encoding="utf-8")
         r2 = _run(tmp, "30.4.66")
         assert "Cargo.lock fora do rótulo" not in (r2.stdout + r2.stderr)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ── real repo (coordinator's step 4, 2026-09-24) ─────────────────────────────
+
+def _guard_alone() -> subprocess.CompletedProcess:
+    # --skip-gates é obrigatório: o passo de gates roda cargo, que REGRAVA o
+    # Cargo.lock — e apagaria a mutação sob teste antes da guarda ler (a
+    # mutação morria na sala de espera, não na guarda).
+    return subprocess.run(
+        ["bash", str(SCRIPT), "30.4.66",
+         "--skip-gates", "--skip-build", "--check-label-only"],
+        capture_output=True, text=True, timeout=120, cwd=REPO)
+
+
+@pytest.mark.skipif(
+    not (REPO / "Cargo.lock").is_file() or not (REPO / "target" / "release" / "touring").is_file(),
+    reason="needs the real workspace + a built binary")
+def test_the_guard_passes_against_the_real_repo():
+    """The guard alone against the real workspace — the state the Cargo.lock
+    commit (6258aa9) left on disk: binary and inheriting members on 30.4.66."""
+    r = _guard_alone()
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, f"the real repo must pass: {out[-400:]}"
+    assert "rótulo verificado" in out
+
+
+@pytest.mark.skipif(
+    not (REPO / "Cargo.lock").is_file() or not (REPO / "target" / "release" / "touring").is_file(),
+    reason="needs the real workspace + a built binary")
+def test_a_mutated_inheriting_lock_entry_dies():
+    """Mutation proof: one inheriting member off-label in the real lock → the
+    guard dies; the file is restored afterwards and passes again."""
+    lock = REPO / "Cargo.lock"
+    original = lock.read_text(encoding="utf-8")
+    try:
+        mutated = re.sub(
+            r'(name = "touring-cli"\nversion = ")30\.4\.66(")',
+            r"\g<1>30.4.65\g<2>", original, count=1)
+        assert mutated != original, "the mutation must hit the inheriting member"
+        lock.write_text(mutated, encoding="utf-8")
+        r = _guard_alone()
+        out = r.stdout + r.stderr
+        assert r.returncode == 1, f"a mutated inheriting entry must die: {out[-300:]}"
+        assert "Cargo.lock fora do rótulo" in out
+    finally:
+        lock.write_text(original, encoding="utf-8")
+    r2 = _guard_alone()
+    assert r2.returncode == 0, "the restored lock passes again"
 
 
 if __name__ == "__main__":
