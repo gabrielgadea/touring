@@ -842,6 +842,14 @@ fn scan(raw: &str) -> (bool, bool) {
     if has_strong_marker(raw) || has_structural_token(raw) {
         return (true, false);
     }
+    // (1c) env-style `NAME=sk-<hex24+>` anywhere in the text — including inside
+    // JSON string literals (e.g. an MCP server `args` value like
+    // `"GEMINI_API_KEY=sk-<48hex> srv"`). The `sk-` + raw-hex body has entropy
+    // ~4.0 bits/char < 4.5 threshold, so the generic high-entropy path misses it;
+    // the assignment detector misses it when the `=` lives inside a quoted string.
+    if has_env_sk_hex_pattern(raw) {
+        return (true, false);
+    }
     // (2) per-line strong signals (connection strings, secret-named assignments,
     // generic high-entropy literals) — these MUST see string *values*, so they
     // read the raw source; only the ASSIGNMENT DELIMITER is resolved on the
@@ -854,6 +862,52 @@ fn scan(raw: &str) -> (bool, bool) {
         return (true, false);
     }
     (false, weak)
+}
+
+/// Detects `UPPERCASE_NAME=sk-<hex24+>` anywhere in `text`, even when the
+/// assignment is embedded inside a JSON string literal (e.g. a CLI arg value
+/// `"GEMINI_API_KEY=sk-a1b2c3d4e5f6… srv"`).
+///
+/// Why a dedicated detector:
+///   • The `sk-` + lowercase-hex body has entropy ~4.0 bits/char < 4.5, so
+///     the generic high-entropy literal path does not fire.
+///   • `split_at_code_delimiter` uses the string-blanked projection to locate
+///     `=`, so an `=` inside a quoted string is invisible to the assignment
+///     detector.
+///   • This scanner operates on the RAW text — no projection — so the pattern
+///     is found regardless of nesting depth.
+///
+/// False-positive guard: requires (a) an UPPERCASE word of ≥ 2 chars before
+/// `=sk-`, (b) ≥ 24 lowercase hex chars immediately after `sk-`, and (c) no
+/// structured `sk-ant-api`/`sk-proj-` prefix (those are caught by
+/// `has_structural_token` / `has_strong_marker` first and return before this
+/// function is reached — the check here is additive, not overlapping).
+fn has_env_sk_hex_pattern(text: &str) -> bool {
+    let b = text.as_bytes();
+    for (at, _) in text.match_indices("=sk-") {
+        // After "=sk-": require ≥ 24 lowercase hex bytes.
+        let hex_len = b[at + 4..]
+            .iter()
+            .take_while(|&&c| matches!(c, b'0'..=b'9' | b'a'..=b'f'))
+            .count();
+        if hex_len < 24 {
+            continue;
+        }
+        // Before "=": require `[A-Z][A-Z0-9_]+` ending right at `at`.
+        let word_len = b[..at]
+            .iter()
+            .rev()
+            .take_while(|&&c| matches!(c, b'A'..=b'Z' | b'0'..=b'9' | b'_'))
+            .count();
+        let starts_upper = at
+            .checked_sub(word_len)
+            .and_then(|s| b.get(s))
+            .is_some_and(|&c| c.is_ascii_uppercase());
+        if word_len >= 2 && starts_upper {
+            return true;
+        }
+    }
+    false
 }
 
 /// File-level opt-out marker for fixtures that embed SAMPLE secrets on purpose
