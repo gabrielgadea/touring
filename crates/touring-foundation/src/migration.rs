@@ -32,7 +32,8 @@ use tracing_attributes::instrument;
 /// their writes fail into `let _ =`, and the counter that reads them reports a
 /// perfectly innocent `0`. Verified live: the first S1 rebuild reported
 /// `name_only_candidates: 0` while `sqlite3` answered `no such table`.
-pub const SCHEMA_VERSION: u32 = 11;
+/// v12 (S22, 25/09/2026): `bash_outcomes.session_id` + `origin_event` (provenance).
+pub const SCHEMA_VERSION: u32 = 12;
 
 /// A single schema migration step.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -305,7 +306,8 @@ mod tests {
     /// never materialises on an existing DB.
     #[test]
     fn test_schema_version_10_is_current() {
-        assert_eq!(SCHEMA_VERSION, 11);
+        // v12 (S22, 25/09/2026): bash_outcomes provenance (session_id + origin_event).
+        assert_eq!(SCHEMA_VERSION, 12);
     }
 
     #[test]

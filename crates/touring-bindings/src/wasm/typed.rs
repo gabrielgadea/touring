@@ -17,9 +17,12 @@ use crate::wasm::runner::{MAX_FUEL, WasmModule};
 /// ```
 /// use touring_bindings::wasm::TypedPluginContext;
 ///
+/// // Build the params with the crate's own `serde_json` (re-exported): the same type
+/// // the library was compiled against, whatever features the workspace unified.
 /// let ctx = TypedPluginContext::new("analyze this")
-///     .with_params(serde_json::json!({"threshold": 0.8}))
+///     .with_params(touring_bindings::serde_json::json!({"threshold": 0.8}))
 ///     .with_max_fuel(5_000_000);
+/// assert_eq!(ctx.params["threshold"], 0.8);
 /// ```
 #[derive(Debug, Clone)]
 pub struct TypedPluginContext {

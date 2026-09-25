@@ -275,13 +275,15 @@ fn writes_via_argument(code: &str) -> bool {
 }
 
 fn bash_writes_a_file(code: &str) -> bool {
-    if code.contains("tee ") || code.contains("| tee") {
+    // S24: scan what the SHELL reads — a `>` inside quotes or a heredoc body is data.
+    let masked = mask_shell_data(code);
+    if masked.contains("tee ") || masked.contains("| tee") {
         return true;
     }
-    if writes_via_argument(code) {
+    if writes_via_argument(&masked) {
         return true;
     }
-    let bytes = code.as_bytes();
+    let bytes = masked.as_bytes();
     for (i, &b) in bytes.iter().enumerate() {
         if b != b'>' {
             continue;
@@ -1637,5 +1639,214 @@ os.system(alguma_variavel)"#;
                 .any(|n| capability_class(&n.capability) == "network"),
             "comentário de shell pediu rede: {needs:?}"
         );
+    }
+}
+
+/// S24 (plan 2026-09-25) — `code` with its shell DATA blanked: the contents of '…' and
+/// "…" strings, heredoc bodies, comments and backslash-escaped characters become spaces.
+/// Byte length, newlines and the quote delimiters themselves are preserved, so an index
+/// into the mask is an index into `code`. `$(…)` and backticks inside "…" are NOT
+/// masked — they execute. Consumers scan the mask for operators (`>`, `tee`, a bypass
+/// token) that only count when the SHELL would read them as such.
+pub fn mask_shell_data(code: &str) -> String {
+    let b = code.as_bytes();
+    let mut out = b.to_vec();
+    let mut i = 0;
+    let mut heredocs: Vec<(String, bool)> = Vec::new();
+    while i < b.len() {
+        match b[i] {
+            b'\\' => {
+                blank(&mut out, i + 1);
+                i += 2;
+            }
+            b'\'' => i = mask_single(b, &mut out, i),
+            b'"' => i = mask_double(b, &mut out, i),
+            b'#' if i == 0 || b[i - 1].is_ascii_whitespace() || b[i - 1] == b';' => {
+                while i < b.len() && b[i] != b'\n' {
+                    blank(&mut out, i);
+                    i += 1;
+                }
+            }
+            b'<' if b.get(i + 1) == Some(&b'<') && b.get(i + 2) != Some(&b'<') => {
+                let (next, delim) = heredoc_operator(b, i + 2);
+                if let Some(d) = delim {
+                    heredocs.push(d);
+                }
+                i = next;
+            }
+            b'\n' if !heredocs.is_empty() => {
+                i = mask_heredoc_bodies(b, &mut out, i + 1, &heredocs);
+                heredocs.clear();
+            }
+            _ => i += 1,
+        }
+    }
+    String::from_utf8(out).unwrap_or_else(|_| code.to_string())
+}
+
+fn blank(out: &mut [u8], i: usize) {
+    if let Some(c) = out.get_mut(i)
+        && *c != b'\n'
+    {
+        *c = b' ';
+    }
+}
+
+/// `'…'`: everything up to the closing quote is data. Returns the index after it.
+fn mask_single(b: &[u8], out: &mut [u8], open: usize) -> usize {
+    let mut i = open + 1;
+    while i < b.len() && b[i] != b'\'' {
+        blank(out, i);
+        i += 1;
+    }
+    i + 1
+}
+
+/// `"…"`: data except `$(…)` / backticks (they execute) and escapes.
+fn mask_double(b: &[u8], out: &mut [u8], open: usize) -> usize {
+    let mut i = open + 1;
+    while i < b.len() && b[i] != b'"' {
+        match b[i] {
+            b'\\' => {
+                blank(out, i);
+                blank(out, i + 1);
+                i += 2;
+            }
+            b'$' if b.get(i + 1) == Some(&b'(') => {
+                let mut depth = 0usize;
+                while i < b.len() {
+                    match b[i] {
+                        b'(' => depth += 1,
+                        b')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                    i += 1;
+                }
+                i += 1;
+            }
+            b'`' => {
+                i += 1;
+                while i < b.len() && b[i] != b'`' {
+                    i += 1;
+                }
+                i += 1;
+            }
+            _ => {
+                blank(out, i);
+                i += 1;
+            }
+        }
+    }
+    i + 1
+}
+
+/// After `<<`: optional `-`, blanks, optional quote/backslash, the WORD. Returns the index
+/// after the operator and `(WORD, strip_tabs)` when a delimiter was read.
+fn heredoc_operator(b: &[u8], mut i: usize) -> (usize, Option<(String, bool)>) {
+    let strip = b.get(i) == Some(&b'-');
+    if strip {
+        i += 1;
+    }
+    while b.get(i).is_some_and(|c| *c == b' ' || *c == b'\t') {
+        i += 1;
+    }
+    if b.get(i).is_some_and(|c| matches!(c, b'\'' | b'"' | b'\\')) {
+        i += 1;
+    }
+    let start = i;
+    while b
+        .get(i)
+        .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-' | b'.'))
+    {
+        i += 1;
+    }
+    let word = String::from_utf8_lossy(&b[start..i]).into_owned();
+    if b.get(i).is_some_and(|c| matches!(c, b'\'' | b'"')) {
+        i += 1;
+    }
+    (i, (!word.is_empty()).then_some((word, strip)))
+}
+
+/// Blank each pending heredoc body (in order) starting at `i`; the terminator line stays.
+fn mask_heredoc_bodies(b: &[u8], out: &mut [u8], mut i: usize, docs: &[(String, bool)]) -> usize {
+    for (word, strip) in docs {
+        while i < b.len() {
+            let end = b[i..]
+                .iter()
+                .position(|c| *c == b'\n')
+                .map_or(b.len(), |p| i + p);
+            let line = String::from_utf8_lossy(&b[i..end]);
+            let line = if *strip {
+                line.trim_start_matches('\t')
+            } else {
+                &line
+            };
+            if line == word.as_str() {
+                i = end + 1;
+                break;
+            }
+            for k in i..end {
+                blank(out, k);
+            }
+            i = end + 1;
+        }
+    }
+    i
+}
+
+/// S24 (plan 2026-09-25) — X6 reads `>` as a redirect only when the SHELL would.
+///
+/// Measured live on 25/09: `echo "$f -> x"` and a `grep -- "-->"` pattern were denied as
+/// "file-write capability 'redirection'", and a heredoc body holding `print(1 > 0)` too.
+/// A `>` inside quotes or inside a heredoc body is data. Controls: a real redirect —
+/// bare, quoted target, or the `cat > f <<EOF` that opens a heredoc — is still a write.
+#[cfg(test)]
+mod s24_shell_data_tests {
+    use super::*;
+
+    fn writes(code: &str) -> bool {
+        bash_capability_needs(code)
+            .iter()
+            .any(|n| n.operation == "redirection")
+    }
+
+    #[test]
+    fn ceg_x6_ignores_redirect_chars_inside_quotes() {
+        assert!(!writes(r#"echo "a -> b" && echo 'x >> y'"#));
+        assert!(!writes(r#"grep -n -- "-->" src/lib.rs"#));
+        assert!(!writes(r#"python3 -c "print(1 > 0)""#));
+    }
+
+    #[test]
+    fn heredoc_body_is_data_not_a_redirect() {
+        assert!(!writes(
+            "python3 - <<'EOF'\nprint(1 > 0)\nx = a >> 2\nEOF\necho done"
+        ));
+        assert!(!writes("python3 - <<EOF\nif a > b: pass\nEOF"));
+    }
+
+    #[test]
+    fn real_redirects_are_still_writes() {
+        assert!(writes("echo x > out.txt"));
+        assert!(writes(r#"echo x > "out file.txt""#));
+        assert!(writes("cat > script.py <<'EOF'\nprint(1)\nEOF"));
+        assert!(writes("echo \"quoted\" >> log.txt"));
+        assert!(!writes("ls 2>/dev/null"));
+        assert!(!writes(r#"ls > "/dev/null""#));
+    }
+
+    #[test]
+    fn mask_shell_data_preserves_length_and_delimiters() {
+        let code = "echo \"a > b\" 'c' <<'EOF'\nbody > x\nEOF\ntail";
+        let masked = mask_shell_data(code);
+        assert_eq!(masked.len(), code.len());
+        assert!(!masked.contains('>'), "{masked:?}");
+        assert!(masked.contains("\"     \""), "{masked:?}");
+        assert!(masked.ends_with("EOF\ntail"), "{masked:?}");
     }
 }

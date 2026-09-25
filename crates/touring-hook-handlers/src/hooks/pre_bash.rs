@@ -219,7 +219,12 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     // "" fires recent_bash_outcomes for bare commands (cargo, pytest, etc.) even without a file target.
     let merged = if let Some(ref cognitive) = runtime.cognitive {
         let path_ref = file_ctx.as_deref().unwrap_or("");
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, path_ref, false);
+        let enriched = crate::shared::signals::enrich_with_cognitive(
+            cognitive,
+            path_ref,
+            false,
+            crate::shared::signals::payload_session(input),
+        );
         if enriched.is_empty() {
             merged
         } else {
@@ -245,27 +250,56 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     }
 }
 
-/// Extract the primary command name (first non-env word).
+/// Extract the primary command name: the last `&&` step, its first `;` segment that runs
+/// something, past env assignments (`FOO=1`) and wrappers (`sudo`, `env -u X`,
+/// `timeout -s KILL 30`, `nice -n 5`, `nohup`, `time`, `command`, `exec`, `stdbuf`).
+///
+/// S21: it returned `TOURING_CODE_MODE=native` and `S=/tmp/…;` as the "command" of real
+/// failures, so the lessons named assignments instead of programs.
 pub fn extract_command_short(command: &str) -> String {
-    let trimmed = command.trim();
-    let effective = trimmed.split("&&").last().unwrap_or(trimmed).trim();
+    let step = command.trim().rsplit("&&").next().unwrap_or("").trim();
+    step.split(';').find_map(first_program).unwrap_or_default()
+}
 
-    let effective = effective
-        .strip_prefix("sudo ")
-        .or_else(|| effective.strip_prefix("timeout "))
-        .map(|s| {
-            s.split_whitespace()
-                .skip_while(|w| w.parse::<f64>().is_ok())
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .unwrap_or_else(|| effective.to_string());
+/// First word of `segment` that is a program, skipping assignments and wrapper prefixes.
+fn first_program(segment: &str) -> Option<String> {
+    let mut words = segment.split_whitespace().peekable();
+    while let Some(w) = words.next() {
+        if is_env_assignment(w) {
+            continue;
+        }
+        let takes_value: &[&str] = match w {
+            "sudo" => &["-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U"],
+            "env" => &["-u", "-C", "-S"],
+            "timeout" => &["-s", "-k", "--signal", "--kill-after"],
+            "nice" => &["-n", "--adjustment"],
+            "stdbuf" => &["-i", "-o", "-e"],
+            "nohup" | "time" | "command" | "exec" => &[],
+            other => return Some(other.to_string()),
+        };
+        while let Some(next) = words.peek().copied() {
+            if takes_value.contains(&next) {
+                words.next();
+                words.next();
+            } else if next.starts_with('-')
+                || is_env_assignment(next)
+                || (w == "timeout" && next.parse::<f64>().is_ok())
+            {
+                words.next();
+            } else {
+                break;
+            }
+        }
+    }
+    None
+}
 
-    effective
-        .split_whitespace()
-        .next()
-        .unwrap_or("")
-        .to_string()
+fn is_env_assignment(word: &str) -> bool {
+    word.split_once('=').is_some_and(|(k, _)| {
+        !k.is_empty()
+            && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && !k.starts_with(|c: char| c.is_ascii_digit())
+    })
 }
 
 /// Extract file paths mentioned in the command.

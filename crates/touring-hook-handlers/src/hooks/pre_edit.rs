@@ -330,7 +330,12 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Replicates post_edit.rs:675 / post_write.rs:210 / pre_write.rs:309 pattern.
     // Always runs regardless of CILA gate — cognitive signals are pre-computed and cheap.
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, file_path, false);
+        let enriched = crate::shared::signals::enrich_with_cognitive(
+            cognitive,
+            file_path,
+            false,
+            crate::shared::signals::payload_session(input),
+        );
         if !enriched.is_empty() {
             if !context.is_empty() {
                 context.push_str(" | ");

@@ -68,7 +68,13 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     tracing::debug!("llm_judge: {}", judge_report.summary());
 
     // ── Record failure in knowledge DB + create gotcha ─────────────────────────
-    record_failure_outcome(runtime, tool_name, error_text, file_path);
+    record_failure_outcome(
+        runtime,
+        tool_name,
+        error_text,
+        file_path,
+        crate::shared::signals::payload_session(input),
+    );
 
     // ── Decompose bridge: track failure pattern, mark subtask failed, trigger MCTS replan ──
     let failure_pattern = format!("{}:{}", tool_name, truncate_str(error_text, 100));
@@ -98,7 +104,12 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     // On failure, surfacing cognitive context (risk score, recent bash failures, gotchas)
     // gives the LLM maximum signal for self-correction. Replicates post_edit.rs:675 pattern.
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, file_path, false);
+        let enriched = crate::shared::signals::enrich_with_cognitive(
+            cognitive,
+            file_path,
+            false,
+            crate::shared::signals::payload_session(input),
+        );
         if !enriched.is_empty() {
             return HookResponse::Context {
                 context: enriched,
@@ -147,6 +158,7 @@ fn record_failure_outcome(
     tool_name: &str,
     error_text: &str,
     file_path: &str,
+    session: Option<&str>,
 ) {
     let command_key = format!("{tool_name}:{file_path}");
     let error_head = truncate_str(error_text, 500);
@@ -166,7 +178,15 @@ fn record_failure_outcome(
         executed_at: chrono::Utc::now().to_rfc3339(),
     };
 
-    if let Err(e) = runtime.ctx.knowledge.record_bash_outcome(&outcome) {
+    // S22: a Bash failure is recorded by post-bash (same PostToolUseFailure event, real
+    // exit code); recording it here too counted every Bash failure twice.
+    if tool_name != "Bash"
+        && let Err(e) = runtime.ctx.knowledge.record_bash_outcome_with_origin(
+            &outcome,
+            session,
+            "PostToolUseFailure",
+        )
+    {
         tracing::debug!("post_tool_failure: failed to record outcome: {e}");
     }
 

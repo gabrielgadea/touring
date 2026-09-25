@@ -10,8 +10,9 @@
 //! 5. Injects the warning via `additionalContext` so Claude sees it BEFORE editing
 //!
 //! Enhancements (E5, E17):
-//! - Deduplicated speculate_v2: result passed through from collect_syntax_issues to Deny gate
-//! - Bayesian Deny gate: uses bayesian_score (not raw composite) for Block decision
+//! - Deny gate by DELTA on the applied file (S210, 25/09/2026): the Edit is replayed on the
+//!   real file and denied only when a file that parsed stops parsing; the `new_string`
+//!   fragment's own syntax signals are advisory and never deny
 //! - Jaccard near-duplicate detection (E17): old_string vs new_string similarity >0.85 warning
 //!
 //! Target latency: <10ms.
@@ -44,10 +45,6 @@ const COMPLEXITY_THRESHOLD: u16 = 10;
 
 /// Maximum number of scope shadow warnings to emit.
 const MAX_SHADOW_WARNINGS: usize = 3;
-
-/// Speculate composite score threshold below which an edit is DENIED.
-/// A score < 0.3 indicates critical syntax/structural breakage.
-const DENY_SCORE_THRESHOLD: f64 = 0.3;
 
 /// Run the pre-edit prevention hook (diverging version — for use by the CLI entry point).
 ///
@@ -135,17 +132,18 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         all_warnings.push(sig);
     }
 
-    // ── DENY gate: critical syntax/structural breakage ──
-    // If the new content has a very low speculate score, DENY the edit.
-    // This prevents introducing broken code that will certainly fail to compile.
-    // Reuses the SpeculateResult from compose_content_warnings when available.
-    if let Some(deny_response) = check_deny_gate(
-        new_string,
-        file_path,
-        &rel_path,
-        &all_warnings,
-        spec_result.as_ref(),
-    ) {
+    // ── DENY gate (S210): the Edit is replayed on the real file and judged by delta ──
+    // A file that parses and would not after the edit is denied; the fragment's own syntax
+    // signals are advisory (dropped when the applied file is known, labelled otherwise).
+    let replace_all = input
+        .pointer("/tool_input/replace_all")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let applied = AppliedEdit::replay(file_path, old_string, new_string, replace_all);
+    relabel_fragment_syntax(&mut all_warnings, spec_result.as_ref(), applied.is_some());
+    if let Some(deny_response) =
+        check_deny_gate(file_path, &rel_path, &all_warnings, applied.as_ref())
+    {
         return deny_response;
     }
 
@@ -406,95 +404,121 @@ pub fn compose_content_warnings(
     (warnings, Some(spec_result))
 }
 
-/// Check whether the edit should be DENIED due to critical syntax/structural breakage.
+/// Deny gate (S210, 25/09/2026): denies only when the edit BREAKS a file that parsed —
+/// tree-sitter error nodes in the applied file that the file did not have before.
 ///
-/// Uses a pre-computed [`SpeculateResult`] when available (from
-/// [`compose_content_warnings`]), falling back to a fresh `speculate_v2` call
-/// only when `cached_spec` is `None`. This avoids a redundant AST parse that
-/// previously doubled the CPU cost of the prevention hook (E5 optimization).
-///
-/// When `bayesian_score` is available (requires `simd-search` feature), it is
-/// preferred over `composite_score` for the deny decision because it provides
-/// confidence-weighted fusion across all validation layers.
-///
-/// Only denies when BOTH conditions are met:
-/// 1. The effective score is below [`DENY_SCORE_THRESHOLD`] (< 0.3)
-/// 2. There are actual syntax-level warnings detected (not just complexity/style)
-///
-/// Returns `Some(HookResponse::Deny { .. })` when the edit should be blocked,
-/// or `None` to let it proceed (possibly with Context warnings).
+/// The old gate speculated on the `new_string` fragment and denied valid edits whose
+/// fragment was unbalanced; a whole-file score threshold would have the opposite defect
+/// (syntax weighs 0.35 of the composite, so a broken file could still clear it). The delta
+/// is exact: a file already broken is never denied (the edit may be the fix), an unknown
+/// parse abstains, and with no applied content (the Edit would fail anyway) the gate abstains.
 fn check_deny_gate(
-    new_string: &str,
     file_path: &str,
     rel_path: &str,
     existing_warnings: &[String],
-    cached_spec: Option<&SpeculateResult>,
+    applied: Option<&AppliedEdit>,
 ) -> Option<HookResponse> {
-    if new_string.is_empty() {
-        return None;
-    }
-
+    let edit = applied?;
     let lang = detect_language(file_path)?.parse::<Lang>().ok()?;
-
-    // Reuse cached result when available; fall back to fresh computation otherwise
-    let owned_result;
-    let spec_result = match cached_spec {
-        Some(cached) => cached,
-        None => {
-            owned_result = speculate_v2(new_string, lang, None, None);
-            &owned_result
-        }
-    };
-
-    // Prefer bayesian_score (confidence-weighted fusion) when available;
-    // fall back to composite_score for non-simd builds.
-    let effective_score = spec_result
-        .bayesian_score
-        .unwrap_or(spec_result.composite_score);
-
-    // Only deny on critical breakage: low score AND syntax failures present
-    if effective_score >= DENY_SCORE_THRESHOLD || spec_result.all_passed {
+    if !matches!(parse_status(&edit.before, lang), Parse::Clean) {
         return None;
     }
-
-    // Require at least one SYNTAX-level warning to confirm this is a real breakage,
-    // not just symbol resolution or import issues which may resolve at build time.
-    let has_syntax_failures = spec_result.layers.iter().any(|layer| {
-        matches!(layer.layer, touring_code::ast::ValidationLayer::Syntax) && !layer.passed
-    });
-
-    if !has_syntax_failures {
+    let Parse::Broken(introduced) = parse_status(&edit.after, lang) else {
         return None;
-    }
-
-    // Collect syntax diagnostics for the denial reason
-    let syntax_diags: Vec<String> = spec_result
-        .layers
-        .iter()
-        .filter(|l| !l.passed)
-        .flat_map(|l| l.diagnostics.iter().take(3).cloned())
-        .collect();
-
-    let reason = format!(
-        "Edit denied: new content for {} has critical syntax errors (score: {:.2}). \
-         Fix the syntax before applying this edit.",
-        rel_path, effective_score,
-    );
-
-    let context = if existing_warnings.is_empty() && syntax_diags.is_empty() {
-        None
-    } else {
-        let mut ctx_parts = Vec::new();
-        ctx_parts.extend(syntax_diags.iter().map(|d| format!("SYNTAX: {d}")));
-        ctx_parts.extend(existing_warnings.iter().cloned());
-        Some(ctx_parts.join("\n"))
     };
-
+    let introduced: String = introduced.chars().take(400).collect();
+    let mut ctx_parts = vec![format!("SYNTAX (applied file): {introduced}")];
+    ctx_parts.extend(existing_warnings.iter().cloned());
     Some(HookResponse::Deny {
-        reason,
-        context,
+        reason: format!(
+            "Edit denied: {rel_path} parses today and would not after this edit. \
+             Fix the syntax of the replacement before applying it."
+        ),
+        context: Some(ctx_parts.join("\n")),
         event_name: Some("PreToolUse".to_string()),
     })
+}
+
+/// S210 — `body` with the Edit applied exactly as Claude Code would: `None` when the Edit
+/// itself would fail (empty or absent `old_string`, or several matches without `replace_all`).
+fn apply_edit(body: &str, old: &str, new: &str, replace_all: bool) -> Option<String> {
+    if old.is_empty() {
+        return None;
+    }
+    match body.matches(old).count() {
+        0 => None,
+        1 => Some(body.replacen(old, new, 1)),
+        _ if replace_all => Some(body.replace(old, new)),
+        _ => None,
+    }
+}
+
+/// S210 — the target file before and after the Edit.
+struct AppliedEdit {
+    before: String,
+    after: String,
+}
+
+impl AppliedEdit {
+    /// Replay the Edit on the real file; `None` when the file is unreadable or the Edit
+    /// itself would fail — then only the `new_string` fragment is known.
+    fn replay(file_path: &str, old: &str, new: &str, replace_all: bool) -> Option<Self> {
+        let before = std::fs::read_to_string(file_path).ok()?;
+        let after = apply_edit(&before, old, new, replace_all)?;
+        Some(Self { before, after })
+    }
+}
+
+/// S210 — parse status of a whole file (tree-sitter only, no other speculate layer).
+enum Parse {
+    /// No error node.
+    Clean,
+    /// Error nodes, with their located description.
+    Broken(String),
+    /// The parser could not run (grammar/ABI, bounded parse): no opinion.
+    Unknown,
+}
+
+fn parse_status(source: &str, lang: Lang) -> Parse {
+    use touring_code::ast::surgery::{SurgeryError, validate_syntax};
+    match validate_syntax(source, lang) {
+        Ok(_) => Parse::Clean,
+        Err(SurgeryError::SyntaxError(msg)) => Parse::Broken(msg),
+        Err(_) => Parse::Unknown,
+    }
+}
+
+/// S210 — the fragment's own syntax diagnostics are advisory: a valid edit's `new_string`
+/// is routinely unbalanced (a lone `}`). With the applied file known they are dropped (the
+/// deny gate judged the real file); without it they stay, labelled for what they are.
+/// Non-syntax layers (structural, complexity) are untouched.
+fn relabel_fragment_syntax(
+    warnings: &mut Vec<String>,
+    fragment: Option<&SpeculateResult>,
+    applied_known: bool,
+) {
+    let Some(spec) = fragment else {
+        return;
+    };
+    let syntax: HashSet<String> = spec
+        .layers
+        .iter()
+        .filter(|l| matches!(l.layer, touring_code::ast::ValidationLayer::Syntax) && !l.passed)
+        .flat_map(|l| l.diagnostics.iter().map(|d| format!("SYNTAX: {d}")))
+        .collect();
+    if applied_known {
+        warnings.retain(|w| !syntax.contains(w));
+        return;
+    }
+    for w in warnings.iter_mut() {
+        if syntax.contains(w.as_str()) {
+            *w = w.replacen(
+                "SYNTAX: ",
+                "SYNTAX (new_string fragment only, advisory): ",
+                1,
+            );
+        }
+    }
 }
 
 /// V1+V2: Syntax validity and cyclomatic complexity checks.
@@ -1474,6 +1498,140 @@ mod tests {
         assert!(
             result.is_none(),
             "Jaccard = 0.85 (at boundary, not above) → no warning"
+        );
+    }
+}
+
+/// S210 (plan 2026-09-25) — the deny is decided on the file WITH the edit applied, by delta
+/// (the edit breaks a file that parsed), never on the `new_string` fragment alone.
+#[cfg(test)]
+mod s210_tests {
+    use super::*;
+
+    const RUST_FILE: &str = "fn a() {\n    if true {\n        x();\n    }\n}\n\nfn x() {}\n";
+
+    fn edit(dir: &tempfile::TempDir, body: &str, old: &str, new: &str) -> HookResponse {
+        let path = dir.path().join("prev.rs");
+        std::fs::write(&path, body).expect("write");
+        let rt = HookRuntime::new(dir.path()).expect("runtime");
+        let input = serde_json::json!({
+            "tool_name": "Edit",
+            "tool_input": {"file_path": path.to_str().expect("utf8"), "old_string": old, "new_string": new}
+        });
+        run_returning(&rt, &input)
+    }
+
+    fn denied(r: &HookResponse) -> bool {
+        matches!(r, HookResponse::Deny { .. })
+    }
+
+    fn context_of(r: &HookResponse) -> String {
+        match r {
+            HookResponse::Context { context, .. } => context.clone(),
+            HookResponse::Deny { context, .. } => context.clone().unwrap_or_default(),
+            _ => String::new(),
+        }
+    }
+
+    #[test]
+    fn lone_closing_brace_fragment_is_not_denied() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let r = edit(
+            &dir,
+            RUST_FILE,
+            "        x();\n    }",
+            "        x();\n        x();\n    }",
+        );
+        assert!(
+            !denied(&r),
+            "a valid edit was denied from its unbalanced fragment: {r:?}"
+        );
+        assert!(
+            !context_of(&r).contains("syntax error(s) detected"),
+            "the applied file parses — the fragment's syntax noise must not reach the model: {r:?}"
+        );
+    }
+
+    #[test]
+    fn syntax_breaking_edit_is_denied() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let r = edit(&dir, RUST_FILE, "        x();\n    }", "        x(;\n    }");
+        assert!(
+            denied(&r),
+            "an edit that breaks a parsing file must be denied: {r:?}"
+        );
+        assert!(
+            context_of(&r).contains("SYNTAX (applied file)"),
+            "the deny names the applied-file error: {r:?}"
+        );
+    }
+
+    #[test]
+    fn edit_to_an_already_broken_file_is_not_denied() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let broken = "fn a() {\n    x(;\n}\n";
+        let r = edit(&dir, broken, "    x(;", "    x(;\n    y(;");
+        assert!(
+            !denied(&r),
+            "the file did not parse before — the edit may be the fix: {r:?}"
+        );
+    }
+
+    #[test]
+    fn fragment_fallback_never_denies() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let r = edit(
+            &dir,
+            RUST_FILE,
+            "this text is not in the file",
+            "fn broken( {",
+        );
+        assert!(
+            !denied(&r),
+            "without the applied file the fragment is advisory only: {r:?}"
+        );
+        assert!(
+            context_of(&r).lines().all(|l| !l.starts_with("SYNTAX: ")),
+            "fragment syntax lines must carry the advisory label: {r:?}"
+        );
+    }
+
+    #[test]
+    fn applied_content_respects_replace_all_and_uniqueness() {
+        let body = "a\nx\nb\nx\n";
+        assert_eq!(
+            apply_edit(body, "x", "y", true).as_deref(),
+            Some("a\ny\nb\ny\n")
+        );
+        assert_eq!(
+            apply_edit(body, "x", "y", false),
+            None,
+            "ambiguous old_string: the Edit itself would fail"
+        );
+        assert_eq!(
+            apply_edit(body, "a\n", "z\n", false).as_deref(),
+            Some("z\nx\nb\nx\n")
+        );
+        assert_eq!(apply_edit(body, "missing", "y", false), None);
+        assert_eq!(
+            apply_edit(body, "", "y", false),
+            None,
+            "empty old_string is not an Edit"
+        );
+    }
+
+    /// Parser control: this very file uses let-chains (`if let … && let …`); if the grammar
+    /// could not parse them, every let-chain edit would read as "breaks a parsing file".
+    #[test]
+    fn let_chains_parse_as_valid_rust() {
+        let own = include_str!("pre_edit_prevention.rs");
+        assert!(
+            own.contains("&& let Some("),
+            "control lost: the file no longer has a let-chain"
+        );
+        assert!(
+            matches!(parse_status(own, Lang::Rust), Parse::Clean),
+            "the grammar rejects let-chains — the delta gate would deny valid edits"
         );
     }
 }

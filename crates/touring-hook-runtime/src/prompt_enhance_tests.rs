@@ -604,8 +604,7 @@ fn test_classify_with_details_creative() {
 
 #[test]
 fn test_compose_json_includes_cila_level() {
-    let json = compose_json("fix the bug");
-    let hso = json.get("hookSpecificOutput").unwrap();
+    let hso = compose_details("fix the bug");
     assert_eq!(hso["cila_level"], 2); // Debug -> L2
     assert_eq!(hso["intent"], "DEBUG");
     assert!(hso["techniques"].as_array().unwrap().len() > 0);
@@ -614,7 +613,7 @@ fn test_compose_json_includes_cila_level() {
 
 #[test]
 fn test_compose_json_backward_compatible() {
-    // Verify the original contract fields are still present
+    // The wire keeps the contract fields; the classification lives in compose_details (S27).
     let json = compose_json("implement a new endpoint");
     let hso = json.get("hookSpecificOutput").unwrap();
     assert_eq!(hso["hookEventName"], "UserPromptSubmit");
@@ -624,15 +623,14 @@ fn test_compose_json_backward_compatible() {
             .unwrap()
             .contains("CODE MODE")
     );
-    // New fields are additive, not replacing
-    assert_eq!(hso["cila_level"], 1); // Code -> L1
-    assert_eq!(hso["intent"], "CODE");
+    let details = compose_details("implement a new endpoint");
+    assert_eq!(details["cila_level"], 1); // Code -> L1
+    assert_eq!(details["intent"], "CODE");
 }
 
 #[test]
 fn test_compose_json_general_cila_zero() {
-    let json = compose_json("hello world");
-    let hso = json.get("hookSpecificOutput").unwrap();
+    let hso = compose_details("hello world");
     assert_eq!(hso["cila_level"], 0);
     assert_eq!(hso["intent"], "GENERAL");
     assert_eq!(hso["confidence"], 0.0);
@@ -640,8 +638,7 @@ fn test_compose_json_general_cila_zero() {
 
 #[test]
 fn test_compose_json_techniques_are_strings() {
-    let json = compose_json("explain how the event loop works");
-    let hso = json.get("hookSpecificOutput").unwrap();
+    let hso = compose_details("explain how the event loop works");
     let techs = hso["techniques"].as_array().unwrap();
     for tech in techs {
         assert!(
@@ -787,7 +784,9 @@ fn test_automated_payload_is_detected_for_every_declared_prefix() {
 
 #[test]
 fn test_automated_payload_tolerates_leading_whitespace() {
-    assert!(is_automated_payload("\n  <task-notification>\nAgent finished"));
+    assert!(is_automated_payload(
+        "\n  <task-notification>\nAgent finished"
+    ));
 }
 
 #[test]
@@ -825,9 +824,9 @@ fn test_compose_json_skips_enhancement_for_automated_payloads() {
             out.get("intent").is_none() && out.get("cila_level").is_none(),
             "{prefix}: no intent and no CILA level for a payload the user never typed"
         );
-        assert_eq!(
-            out["skipped"], "automated_payload",
-            "{prefix}: the response declares why it skipped"
+        assert!(
+            compose_details(sample).is_null(),
+            "{prefix}: nothing was classified (the skip reason goes to the trace, S27)"
         );
         assert_eq!(json["suppressOutput"], true, "{prefix}: nothing to show");
     }
@@ -837,8 +836,9 @@ fn test_compose_json_skips_enhancement_for_automated_payloads() {
 fn test_compose_json_still_enhances_human_prompts() {
     let json = compose_json("fix the KeyError on line 42 of parser.py");
     let out = &json["hookSpecificOutput"];
-    assert_eq!(out["intent"], "DEBUG");
-    assert_eq!(out["cila_level"], 2);
+    let details = compose_details("fix the KeyError on line 42 of parser.py");
+    assert_eq!(details["intent"], "DEBUG");
+    assert_eq!(details["cila_level"], 2);
     assert!(
         out["additionalContext"]
             .as_str()
@@ -855,7 +855,9 @@ fn test_compose_json_still_enhances_human_prompts() {
 fn test_both_entry_points_consult_the_automated_payload_predicate() {
     let src = include_str!("prompt_enhance.rs");
     for entry in ["pub fn compose_json", "pub fn run_user_prompt_submit"] {
-        let body_start = src.find(entry).unwrap_or_else(|| panic!("{entry} not found"));
+        let body_start = src
+            .find(entry)
+            .unwrap_or_else(|| panic!("{entry} not found"));
         let body = &src[body_start..];
         let body_end = body.find("\n}\n").unwrap_or(body.len());
         assert!(
@@ -878,4 +880,93 @@ fn test_both_entry_points_consult_the_automated_payload_predicate() {
             "sample prefix {prefix:?} is not declared in AUTOMATED_PAYLOAD_PREFIXES"
         );
     }
+}
+
+// ── S27 (plan 2026-09-25): the event's contract and the density invariant ──────
+
+const S27_PROMPTS: &[&str] = &[
+    "fix the bug",
+    "implement a REST endpoint",
+    "write tests for the parser module",
+    "plan the migration of the indexer to tantivy",
+    "refactor AuthValidator in src/auth.rs",
+    "explain how the event loop works",
+    "hello world",
+];
+
+/// A `<name>` in a command line is a placeholder unless it is an output-structure tag,
+/// recognised by its closing `</name>` on the same line.
+fn s27_placeholders(ctx: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    for line in ctx
+        .lines()
+        .filter(|l| l.contains("touring ") || l.contains("cargo "))
+    {
+        let mut rest = line;
+        while let Some(i) = rest.find('<') {
+            let tail = &rest[i + 1..];
+            let Some(j) = tail.find('>') else { break };
+            let name = &tail[..j];
+            let is_word =
+                !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c == '_');
+            if is_word && !line.contains(&format!("</{name}>")) {
+                found.push(format!("<{name}> in: {}", line.trim()));
+            }
+            rest = &tail[j + 1..];
+        }
+    }
+    found
+}
+
+#[test]
+fn prompt_enhance_output_matches_userpromptsubmit_schema() {
+    for prompt in S27_PROMPTS {
+        let json = compose_json(prompt);
+        let hso = json["hookSpecificOutput"]
+            .as_object()
+            .expect("hookSpecificOutput");
+        let mut keys: Vec<&str> = hso.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert!(
+            keys == ["additionalContext", "hookEventName"] || keys == ["hookEventName"],
+            "{prompt}: UserPromptSubmit accepts additionalContext/sessionTitle/suppressOriginalPrompt only, got {keys:?}"
+        );
+    }
+    for (_, sample) in AUTOMATED_SAMPLES {
+        let json = compose_json(sample);
+        let hso = json["hookSpecificOutput"]
+            .as_object()
+            .expect("hookSpecificOutput");
+        assert!(
+            hso.keys().all(|k| k == "hookEventName"),
+            "automated payload leaks {hso:?}"
+        );
+    }
+}
+
+#[test]
+fn prompt_enhance_emits_no_placeholder_tokens() {
+    for prompt in S27_PROMPTS {
+        let json = compose_json(prompt);
+        let ctx = json["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap_or("");
+        let found = s27_placeholders(ctx);
+        assert!(
+            found.is_empty(),
+            "{prompt}: placeholders shipped to the model: {found:#?}"
+        );
+    }
+}
+
+#[test]
+fn prompt_enhance_derives_values_from_the_prompt() {
+    let json = compose_json("refactor AuthValidator in src/auth.rs");
+    let ctx = json["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap_or("");
+    assert!(
+        ctx.contains("src/auth.rs") || ctx.contains("AuthValidator"),
+        "the derivable values must travel: {ctx}"
+    );
 }

@@ -593,16 +593,24 @@ fn query_bash_failures_federates_across_dbs() {
             "CREATE TABLE bash_outcomes (
                      command TEXT, command_short TEXT, command_hash TEXT,
                      exit_code INTEGER, success INTEGER, error_pattern TEXT,
-                     file_context TEXT, executed_at TEXT);",
+                     file_context TEXT, executed_at TEXT, origin_event TEXT);",
         )
         .expect("schema");
         conn.execute(
             "INSERT INTO bash_outcomes \
-                 (command_short, success, error_pattern, executed_at) \
-                 VALUES ('cargo', 0, ?1, '2026-05-17 12:00:00')",
+                 (command_short, success, error_pattern, executed_at, origin_event) \
+                 VALUES ('cargo', 0, ?1, '2026-05-17 12:00:00', 'PostToolUseFailure')",
             rusqlite::params![err],
         )
         .expect("insert failure");
+        // A text-inferred legacy "failure" that must NOT be returned (S22).
+        conn.execute(
+            "INSERT INTO bash_outcomes \
+                 (command_short, success, error_pattern, executed_at, origin_event) \
+                 VALUES ('cargo', 0, 'legacy text', '2026-05-17 11:00:00', 'legacy_unverified')",
+            [],
+        )
+        .expect("insert legacy");
         // A successful run that must NOT be returned (success = 1).
         conn.execute(
             "INSERT INTO bash_outcomes \
@@ -619,6 +627,45 @@ fn query_bash_failures_federates_across_dbs() {
         hits.iter().all(|(_, pat, _)| pat != "ok"),
         "success=1 rows are excluded"
     );
+    assert!(
+        hits.iter().all(|(_, pat, _)| pat != "legacy text"),
+        "text-inferred legacy rows never become lessons (S22)"
+    );
+}
+
+/// S22 — lessons come only from VERIFIED failures (a `PostToolUseFailure` event):
+/// a legacy label and a NULL origin are both excluded, and a pre-v12 DB (no
+/// `origin_event` column) contributes nothing instead of erroring the federation.
+#[test]
+fn suspect_outcomes_excluded_from_lessons() {
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let db = dir.path().join("knowledge.db");
+    let legacy = dir.path().join("legacy.db");
+    let conn = rusqlite::Connection::open(&db).expect("open");
+    conn.execute_batch(
+        "CREATE TABLE bash_outcomes (id INTEGER PRIMARY KEY, command_short TEXT,
+             error_pattern TEXT, executed_at TEXT, success INTEGER, origin_event TEXT);
+         INSERT INTO bash_outcomes (command_short, error_pattern, executed_at, success, origin_event) VALUES
+             ('cargo', 'verified boom', '2026-09-25 10:00:00', 0, 'PostToolUseFailure'),
+             ('cargo', 'legacy text', '2026-09-25 09:00:00', 0, 'legacy_unverified'),
+             ('cargo', 'no origin', '2026-09-25 08:00:00', 0, NULL);",
+    )
+    .expect("seed");
+    drop(conn);
+    let old = rusqlite::Connection::open(&legacy).expect("open legacy");
+    old.execute_batch(
+        "CREATE TABLE bash_outcomes (id INTEGER PRIMARY KEY, command_short TEXT,
+             error_pattern TEXT, executed_at TEXT, success INTEGER);
+         INSERT INTO bash_outcomes (command_short, error_pattern, executed_at, success) VALUES
+             ('cargo', 'pre-v12 text', '2026-09-25 11:00:00', 0);",
+    )
+    .expect("seed legacy");
+    drop(old);
+    let got: Vec<String> = query_bash_failures(&[legacy, db], "cargo", 10)
+        .into_iter()
+        .map(|(_, pattern, _)| pattern)
+        .collect();
+    assert_eq!(got, vec!["verified boom".to_string()]);
 }
 
 #[test]
@@ -1871,9 +1918,9 @@ fn portfolio_cache_reloads_when_the_index_file_changes() {
             "two reads of an index whose mtime did not move must agree"
         ),
         (None, None) => {}
-        _ => panic!(
-            "cache returned inconsistently while the index mtime stayed at {mtime_before:?}"
-        ),
+        _ => {
+            panic!("cache returned inconsistently while the index mtime stayed at {mtime_before:?}")
+        }
     }
 }
 
@@ -2454,6 +2501,48 @@ mod code_mode_gates_w1 {
         assert!(python_inline_remedy("python3 -").contains("verbatim"));
     }
 
+    /// S212 (25/09/2026) — o remédio do G10 NUNCA reexecuta o que já rodou. O ledger traz a
+    /// rajada inteira em ordem; só o ÚLTIMO comando foi negado — os anteriores JÁ executaram,
+    /// inclusive escritas (gravar memória, commitar). Reexecutá-los repetia efeitos: observado
+    /// ao vivo, o deny propôs rodar de novo o script que grava lições. Só o negado vira passo;
+    /// os executados viajam como comentário de contexto (a 1ª linha, nunca o corpo).
+    #[test]
+    fn g10_remedy_never_replays_executed_commands() {
+        use super::super::r9_exec_program;
+        let executed = vec![
+            "python3 grava_licoes.py".to_string(),
+            "python3 -c 'import os\nos.remove(\"x\")'".to_string(),
+        ];
+        let pending = "python3 scout.py";
+        let p = r9_exec_program(&executed, pending);
+        let body = p
+            .strip_prefix("touring run --lang bash --timeout-ms 120000 --code '")
+            .and_then(|b| b.strip_suffix('\''))
+            .expect("the program shape")
+            .replace("'\\''", "'");
+        let steps: Vec<&str> = body
+            .lines()
+            .filter(|l| !l.trim_start().starts_with('#'))
+            .collect();
+        let runs = |needle: &str| steps.iter().any(|l| l.contains(needle));
+        assert!(
+            runs("python3 scout.py"),
+            "the denied command is the step: {body}"
+        );
+        assert!(
+            !runs("grava_licoes"),
+            "an executed command must never run again: {body}"
+        );
+        assert!(
+            !runs("os.remove"),
+            "no line of an executed command is a step: {body}"
+        );
+        assert!(
+            body.contains("# já executado"),
+            "the executed ones travel as context: {body}"
+        );
+    }
+
     #[test]
     fn g10_programa_r9_agrega_as_chamadas_reais_em_bash_executavel() {
         use super::super::r9_exec_program;
@@ -2462,7 +2551,8 @@ mod code_mode_gates_w1 {
             "pytest tests/test_b.py -x".to_string(),
             "python3 -c 'aspas-sobrevivem'".to_string(),
         ];
-        let p = r9_exec_program(&cmds);
+        let (pending, executed) = cmds.split_last().expect("non-empty");
+        let p = r9_exec_program(executed, pending);
         // 30/08: o R9 é BASH — o template python com `import subprocess` era
         // exatamente a capability que o X6 nega sob Sandboxed: o deny do G10
         // emitia uma rota que o gate seguinte barrava (medido pela peer

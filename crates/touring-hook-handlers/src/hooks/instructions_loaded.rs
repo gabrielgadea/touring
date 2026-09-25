@@ -189,7 +189,7 @@ fn push_hint_parts(stats: &crate::knowledge::KnowledgeStats, parts: &mut Vec<Str
 /// Push cognitive enrichment signals (bash failures, file risk) and graph health.
 fn push_cognitive_parts(runtime: &HookRuntime, parts: &mut Vec<String>) {
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = enrich_with_cognitive(cognitive, "", false);
+        let enriched = enrich_with_cognitive(cognitive, "", false, None);
         if !enriched.is_empty() {
             parts.push(enriched);
         }

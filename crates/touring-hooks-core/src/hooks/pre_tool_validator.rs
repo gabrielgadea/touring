@@ -285,70 +285,8 @@ impl PreToolValidator {
     /// These are checked after `static_prefix_patterns` to keep the common safe-path fast.
     fn dangerous_patterns() -> Vec<DangerousPattern> {
         vec![
-            // Git destruction (complex multi-word patterns — must remain regex)
-            DangerousPattern {
-                pattern: Regex::new(r"(?i)^git\s+reset\s+")
-                    .expect("git reset pattern must compile"),
-                param_pattern: Some(
-                    Regex::new(r"(?i)--hard|--mixed")
-                        .expect("git reset param pattern must compile"),
-                ),
-                reason: "Git reset discards working tree changes",
-                severity: "critical",
-            },
-            DangerousPattern {
-                pattern: Regex::new(r"(?i)^git\s+rebase\s+")
-                    .expect("git rebase pattern must compile"),
-                param_pattern: Some(
-                    Regex::new(r"(?i)-i|--interactive")
-                        .expect("git rebase param pattern must compile"),
-                ),
-                reason: "Interactive rebase rewrites history",
-                severity: "critical",
-            },
-            DangerousPattern {
-                pattern: Regex::new(r"(?i)^git\s+filter-branch")
-                    .expect("git filter-branch pattern must compile"),
-                param_pattern: None,
-                reason: "Git filter-branch rewrites repository history",
-                severity: "critical",
-            },
-            DangerousPattern {
-                // Match `--force` as a standalone flag (with explicit
-                // boundary) so `--force-with-lease` is NOT caught. The
-                // negative-look-around alternative (`--force(?!-with-lease)`)
-                // is unsupported by Rust regex; instead we anchor on a
-                // word-boundary terminator that excludes `-`.
-                pattern: Regex::new(r"(?i)^git\s+push\s+(?:[^\n]*\s)?--force(?:\s|$)")
-                    .expect("git push force pattern must compile"),
-                param_pattern: None,
-                reason: "Force push overwrites remote history (use --force-with-lease)",
-                severity: "critical",
-            },
-            DangerousPattern {
-                pattern: Regex::new(r"(?i)^git\s+push\s+.*--delete")
-                    .expect("git push delete pattern must compile"),
-                param_pattern: None,
-                reason: "Remote branch deletion",
-                severity: "high",
-            },
-            DangerousPattern {
-                pattern: Regex::new(r"(?i)^git\s+branch\s+-D")
-                    .expect("git branch -D pattern must compile"),
-                param_pattern: None,
-                reason: "Local branch deletion",
-                severity: "medium",
-            },
-            DangerousPattern {
-                pattern: Regex::new(r"(?i)^git\s+reflog\s+")
-                    .expect("git reflog pattern must compile"),
-                param_pattern: Some(
-                    Regex::new(r"(?i)expire|delete")
-                        .expect("git reflog param pattern must compile"),
-                ),
-                reason: "Git reflog manipulation can lose commit history",
-                severity: "high",
-            },
+            // Git: NOT here. block_git.sh is the single owner of git policy (S25, D2-A,
+            // 25/09/2026) — two owners made the REGRA #11 v2 token unreachable.
             // Shell dangerous (complex conditions — must remain regex)
             DangerousPattern {
                 // sudo needs param check against multiple dangerous sub-commands.
@@ -475,19 +413,6 @@ impl PreToolValidator {
                     ParamRule::flag("-f", "Force without confirmation"),
                 ],
                 route: Some(DELETE_ROUTE),
-            },
-        );
-
-        // git tool schema
-        schemas.insert(
-            "git",
-            ToolSchema {
-                description: "Git version control",
-                param_rules: vec![
-                    ParamRule::flag("--force", "Override safety checks"),
-                    ParamRule::flag("-f", "Force operation"),
-                ],
-                route: None,
             },
         );
 
@@ -1033,10 +958,10 @@ mod tests {
                 .is_allowed()
         );
         // …while the flag itself, alone or in a cluster, still is.
-        assert!(v.validate_command("git push -f origin main").is_blocked());
-        assert!(v.validate_command("git clean -fd").is_blocked());
+        assert!(v.validate_command("rm -fr build").is_blocked());
         assert!(v.validate_command("rm -f important.txt").is_blocked());
-        assert!(v.validate_command("git push --force=true").is_blocked());
+        // git's flags are block_git.sh's to judge (S25) — not this validator's.
+        assert!(v.validate_command("git clean -fd").is_allowed());
     }
 
     /// The D8 guard across the two layers that refuse deletes. Every refusal
@@ -1070,11 +995,12 @@ mod tests {
             assert_eq!(structural(example), Verdict::Allow, "{example}");
         }
         // A refusal that is not a delete does not carry the delete route.
-        let push = v
-            .validate_command("git push --force origin main")
+        let mkfs = v
+            .validate_command("mkfs.ext4 /dev/sdb1")
             .reason
             .unwrap_or_default();
-        assert!(!push.is_empty() && !push.contains(DELETE_ROUTE), "{push}");
+        assert!(!mkfs.is_empty(), "control: mkfs is refused");
+        assert!(!mkfs.contains(DELETE_ROUTE), "{mkfs}");
     }
 
     #[test]
@@ -1118,16 +1044,13 @@ mod tests {
     #[test]
     fn every_command_of_the_line_is_judged() {
         let v = validator();
+        assert!(v.validate_command("cd /repo && rm -rf build").is_blocked());
+        assert!(v.validate_command("true; rm -rf build | cat").is_blocked());
         assert!(
-            v.validate_command("cd /repo && git push -f origin main")
+            v.validate_command("FOO=1 sudo -E rm -rf /srv/x")
                 .is_blocked()
         );
-        assert!(
-            v.validate_command("true; git push --force origin main | cat")
-                .is_blocked()
-        );
-        assert!(v.validate_command("FOO=1 sudo -E git push -f").is_blocked());
-        assert!(v.validate_command("timeout 30 git push -f").is_blocked());
+        assert!(v.validate_command("timeout 30 rm -rf build").is_blocked());
         assert!(
             v.validate_command("cd /repo && git status && git log -1")
                 .is_allowed()
@@ -1138,12 +1061,15 @@ mod tests {
     fn a_wrapper_option_value_is_not_the_command() {
         let v = validator();
         // `root`, `KILL` and `HOME` are option values; the command comes after.
-        assert!(v.validate_command("sudo -u root git push -f").is_blocked());
+        assert!(v.validate_command("sudo -u root rm -rf build").is_blocked());
         assert!(
-            v.validate_command("timeout -s KILL 30 git push --force")
+            v.validate_command("timeout -s KILL 30 rm -rf build")
                 .is_blocked()
         );
-        assert!(v.validate_command("env -u HOME git push -f").is_blocked());
+        assert!(
+            v.validate_command("env -u HOME rm -f cache.bin")
+                .is_blocked()
+        );
         assert!(v.validate_command("sudo -u root git status").is_allowed());
         // An option value can also be the last word: nothing is left to judge.
         assert!(v.validate_command("sudo -u").is_allowed());
@@ -1156,29 +1082,19 @@ mod tests {
             v.validate_command("git commit -m \"handle the -f flag\"")
                 .is_allowed()
         );
-        assert!(v.validate_command("echo 'git push -f'").is_allowed());
-        // The bypass no longer rides on a comment.
-        assert!(
-            v.validate_command("git push --force origin main # --dry-run")
-                .is_blocked()
-        );
-        // …but is honoured as a word of the command it belongs to.
-        assert!(
-            v.validate_command("git push --force --dry-run origin main")
-                .is_allowed()
-        );
-        assert!(
-            v.validate_command("git push --force-with-lease=main origin main")
-                .is_allowed()
-        );
+        assert!(v.validate_command("echo 'rm -rf /'").is_allowed());
+        // A comment is not a word of the command: it cannot hide a flag…
+        assert!(v.validate_command("rm -rf build # harmless").is_blocked());
+        // …nor lend one.
+        assert!(v.validate_command("ls build # rm -rf").is_allowed());
     }
 
     #[test]
     fn a_denial_names_the_word_that_matched() {
-        let r = validator().validate_command("cd /repo && git push -f origin main");
+        let r = validator().validate_command("cd /repo && rm -f important.txt");
         let reason = r.reason.unwrap_or_default();
         assert!(reason.contains("`-f`"), "{reason}");
-        assert!(reason.contains("git push -f origin main"), "{reason}");
+        assert!(reason.contains("rm -f important.txt"), "{reason}");
     }
 
     #[test]
@@ -1265,37 +1181,39 @@ mod tests {
         assert!(v.validate("rm", "-f important.txt").is_blocked());
     }
 
-    // ── Block git reset ───────────────────────────────────────────────────
+    // ── Git has ONE owner: block_git.sh (S25, D2-A, 25/09/2026) ─────────────
+    //
+    // Two owners with divergent semantics made the REGRA #11 v2 ritual unreachable:
+    // block_git.sh honours the per-command token GIT_DESTRUCTIVE_OK=1, this validator
+    // (behind `touring-hook pre-bash`) denied the same command regardless. The policy,
+    // the token and its tests live in block_git.sh; the validator keeps rm/dd/mkfs/sudo…
 
     #[test]
-    fn test_block_git_reset_hard() {
+    fn git_patterns_owned_by_block_git_not_validator() {
         let v = validator();
-        assert!(v.validate("git", "reset --hard").is_blocked());
-        assert!(v.validate("git", "reset --hard HEAD~1").is_blocked());
-        assert!(v.validate("git", "reset --mixed").is_blocked());
-    }
-
-    #[test]
-    fn test_block_git_rebase_interactive() {
-        let v = validator();
-        assert!(v.validate("git", "rebase -i HEAD~3").is_blocked());
+        for params in [
+            "reset --hard HEAD",
+            "rebase -i HEAD~3",
+            "filter-branch --env-filter x",
+            "push --force origin main",
+            "push -f",
+            "push origin --delete feature",
+            "branch -D old",
+            "reflog expire --all",
+        ] {
+            assert!(
+                v.validate("git", params).is_allowed(),
+                "validator still owns git: {params}"
+            );
+        }
         assert!(
-            v.validate("git", "rebase --interactive HEAD~5")
-                .is_blocked()
+            v.validate_command("GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD")
+                .is_allowed(),
+            "the ritual token must reach block_git.sh unopposed"
         );
-    }
-
-    #[test]
-    fn test_block_git_filter_branch() {
-        let v = validator();
-        assert!(v.validate("git", "filter-branch --env-filter").is_blocked());
-    }
-
-    #[test]
-    fn test_block_git_force_push() {
-        let v = validator();
-        assert!(v.validate("git", "push --force origin main").is_blocked());
-        assert!(v.validate("git", "push -f").is_blocked());
+        assert!(!v.is_dangerous_tool("git reset --hard"));
+        // Control: the validator still blocks what it owns.
+        assert!(v.validate("rm", "-rf /").is_blocked());
     }
 
     // ── Block dangerous system commands ─────────────────────────────────
@@ -1392,7 +1310,6 @@ mod tests {
     fn test_is_dangerous_tool() {
         let v = validator();
         assert!(v.is_dangerous_tool("rm -rf"));
-        assert!(v.is_dangerous_tool("git reset --hard"));
         assert!(v.is_dangerous_tool("dd"));
         assert!(!v.is_dangerous_tool("ls"));
         assert!(!v.is_dangerous_tool("grep"));
@@ -1404,7 +1321,6 @@ mod tests {
     fn test_severity_critical() {
         let v = validator();
         assert_eq!(v.severity_of("rm", "-rf /"), "critical");
-        assert_eq!(v.severity_of("git", "reset --hard"), "critical");
     }
 
     #[test]
@@ -1448,13 +1364,6 @@ mod tests {
     fn test_unknown_tool_allowed() {
         let v = validator();
         assert!(v.validate("custom_tool", "--dangerous-flag").is_allowed());
-    }
-
-    #[test]
-    fn test_case_insensitive_git() {
-        let v = validator();
-        assert!(v.validate("GIT", "RESET --HARD").is_blocked());
-        assert!(v.validate("Git", "Reset --Mixed").is_blocked());
     }
 
     #[test]

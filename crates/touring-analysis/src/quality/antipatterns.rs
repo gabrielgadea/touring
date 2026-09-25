@@ -3,6 +3,7 @@
 //! Uses `memchr::memmem` for O(n) byte-level scanning.
 
 use memchr::memmem;
+use std::path::Path;
 
 /// The `print(` offsets that are debug residue, not the program speaking.
 ///
@@ -11,8 +12,8 @@ use memchr::memmem;
 /// `cidata_iso.py` and `hooks_runnable.py` print their JSON result and their
 /// `FAIL …` message, and were the entire antipattern count of the touring
 /// workspace (Canvas E, 15/09/2026).
-fn debug_prints(source: &str, offsets: Vec<usize>) -> Vec<usize> {
-    if has_main_guard(source) {
+fn debug_prints(source: &str, offsets: Vec<usize>, cli_script: bool) -> Vec<usize> {
+    if cli_script || is_cli_script_source(source) {
         return Vec::new();
     }
     offsets
@@ -21,9 +22,24 @@ fn debug_prints(source: &str, offsets: Vec<usize>) -> Vec<usize> {
         .collect()
 }
 
+/// Whether the module, read alone, is a command-line program (S28, 25/09/2026): the
+/// `__main__` guard (Canvas E), a shebang, or a module-level `print(` — top-level
+/// statements only run when the file is executed, so their output is the program's.
+fn is_cli_script_source(source: &str) -> bool {
+    has_main_guard(source)
+        || source.starts_with("#!")
+        || source.lines().any(|l| l.starts_with("print("))
+}
+
 /// Whether the module is a command-line entry point (`if __name__ == "__main__"`).
 fn has_main_guard(source: &str) -> bool {
     source.contains("if __name__ ==")
+}
+
+/// Whether `path` lives under a `scripts/` directory — the conventional home of
+/// command-line programs, whose `print` is output (S28).
+pub fn is_script_path(path: &Path) -> bool {
+    path.components().any(|c| c.as_os_str() == "scripts")
 }
 
 /// Whether the `print(` at `offset` writes to stderr — a diagnostic channel, not
@@ -36,12 +52,83 @@ fn prints_to_stderr(source: &str, offset: usize) -> bool {
     source[line_start..line_end].contains("file=sys.stderr")
 }
 
+/// One antipattern rule found in a source (S28): the rule's message (a stable key across
+/// runs), how often it occurs, and the 1-indexed line of its first occurrence.
+///
+/// This is the structured view consumers COMPARE (the post-edit/post-write block gate
+/// diffs before × after); [`detect_antipatterns`] is its formatted view for display.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AntipatternCount {
+    /// The rule's message (stable key).
+    pub message: &'static str,
+    /// Occurrences in the source.
+    pub count: usize,
+    /// 1-indexed line of the first occurrence.
+    pub first_line: usize,
+}
+
+/// Count every antipattern rule of `lang` in `source`, sorted by message. `path`, when
+/// known, lets directory conventions apply (a `scripts/` file is a program).
+pub fn count_antipatterns(source: &str, lang: &str, path: Option<&Path>) -> Vec<AntipatternCount> {
+    let cli_script = path.is_some_and(is_script_path);
+    let bytes = source.as_bytes();
+    let mut counts: Vec<AntipatternCount> = Vec::new();
+    for (pattern, message) in patterns_for(lang) {
+        let mut offsets: Vec<usize> = memmem::find_iter(bytes, pattern).collect();
+        if lang == "python" && pattern == b"print(" {
+            offsets = debug_prints(source, offsets, cli_script);
+        }
+        let Some(&first) = offsets.first() else {
+            continue;
+        };
+        // First occurrence line: count \n bytes before the first offset + 1 (1-indexed)
+        let first_line = bytes
+            .get(..first)
+            .map_or(1, |s| s.iter().filter(|&&b| b == b'\n').count() + 1);
+        counts.push(AntipatternCount {
+            message,
+            count: offsets.len(),
+            first_line,
+        });
+    }
+    counts.sort_by(|a, b| {
+        a.message
+            .cmp(b.message)
+            .then(a.first_line.cmp(&b.first_line))
+    });
+    counts.dedup_by(|a, b| a.message == b.message);
+    counts
+}
+
 /// Detect antipatterns in source code for the given language.
 ///
 /// Returns a deduplicated list of `(warning_message, first_line_number)` tuples.
 /// Line numbers are 1-indexed and indicate the first occurrence of each pattern.
 pub fn detect_antipatterns(source: &str, lang: &str) -> Vec<(String, usize)> {
-    let patterns: Vec<(&[u8], &str)> = match lang {
+    render(lang, count_antipatterns(source, lang, None))
+}
+
+/// [`detect_antipatterns`] for a file at `path`, so directory conventions apply (S28).
+pub fn detect_antipatterns_at(source: &str, lang: &str, path: &Path) -> Vec<(String, usize)> {
+    render(lang, count_antipatterns(source, lang, Some(path)))
+}
+
+/// The formatted view of the counts: `[lang] message (Nx)` with the first line.
+fn render(lang: &str, counts: Vec<AntipatternCount>) -> Vec<(String, usize)> {
+    counts
+        .into_iter()
+        .map(|c| {
+            (
+                format!("[{lang}] {} ({}x)", c.message, c.count),
+                c.first_line,
+            )
+        })
+        .collect()
+}
+
+/// The rule table of `lang`: `(byte pattern, message)`.
+fn patterns_for(lang: &str) -> Vec<(&'static [u8], &'static str)> {
+    match lang {
         "rust" => vec![
             (
                 b".unwrap()",
@@ -176,43 +263,87 @@ pub fn detect_antipatterns(source: &str, lang: &str) -> Vec<(String, usize)> {
             ),
         ],
         _ => vec![],
-    };
-
-    let bytes = source.as_bytes();
-    let mut warnings: Vec<(String, usize)> = Vec::new();
-
-    for (pattern, message) in &patterns {
-        let mut all_offsets: Vec<usize> = memmem::find_iter(bytes, *pattern).collect();
-        if lang == "python" && *pattern == b"print(" {
-            all_offsets = debug_prints(source, all_offsets);
-        }
-        if all_offsets.is_empty() {
-            continue;
-        }
-        let count = all_offsets.len();
-        // First occurrence line: count \n bytes before first offset + 1 (1-indexed)
-        let first_line = all_offsets
-            .first()
-            .copied()
-            .map(|off| {
-                bytes
-                    .get(..off)
-                    .map_or(1, |s| s.iter().filter(|&&b| b == b'\n').count() + 1)
-            })
-            .unwrap_or(1);
-        warnings.push((format!("[{lang}] {message} ({count}x)"), first_line));
     }
-
-    // Sort by (message, line) so dedup keeps the entry with the lowest line number
-    // for each distinct message.
-    warnings.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
-    warnings.dedup_by(|a, b| a.0 == b.0);
-    warnings
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// S28 (plan 2026-09-25): a command-line script's `print` is its output. Four markers,
+    /// each enough alone: the `__main__` guard (Canvas E), a shebang, a module-level
+    /// `print(` (top-level statements only run as a program), a `scripts/` directory.
+    #[test]
+    fn print_in_cli_script_is_not_an_issue() {
+        let flags_print = |w: &[(String, usize)]| w.iter().any(|(m, _)| m.contains("print()"));
+        let shebang = "#!/usr/bin/env python3\nimport sys\n\n\ndef run(x):\n    print(x)\n";
+        assert!(
+            !flags_print(&detect_antipatterns(shebang, "python")),
+            "shebang marks a program"
+        );
+        let flat = "import json\nfor k in (1, 2):\n    print(k)\nprint(json.dumps({}))\n";
+        assert!(
+            !flags_print(&detect_antipatterns(flat, "python")),
+            "module-level print marks a program"
+        );
+        let lib = "import sys\n\n\ndef helper(x):\n    print(x)\n    return x\n";
+        assert!(
+            flags_print(&detect_antipatterns(lib, "python")),
+            "control: a library still reports"
+        );
+        assert!(
+            !flags_print(&detect_antipatterns_at(
+                lib,
+                "python",
+                Path::new("repo/scripts/tool/helper.py")
+            )),
+            "a scripts/ directory marks programs"
+        );
+        assert!(
+            flags_print(&detect_antipatterns_at(
+                lib,
+                "python",
+                Path::new("repo/src/helper.py")
+            )),
+            "control: outside scripts/ the library rule holds"
+        );
+        let bare = "#!/usr/bin/env python3\ntry:\n    pass\nexcept:\n    pass\n";
+        assert!(
+            detect_antipatterns(bare, "python")
+                .iter()
+                .any(|(m, _)| m.contains("except:")),
+            "a script's real antipatterns are still reported"
+        );
+    }
+
+    /// S28: the block gate reads COUNTS, never re-parses the formatted text — the old gate
+    /// parsed `ANTIPATTERN [Nx]: …`, a form no producer emits, and never fired.
+    #[test]
+    fn counts_are_structured_and_match_the_formatted_view() {
+        let src = "fn a() { x.unwrap(); y.unwrap(); todo!(); }";
+        let counts = count_antipatterns(src, "rust", None);
+        let unwraps = counts
+            .iter()
+            .find(|c| c.message.contains(".unwrap()"))
+            .expect("unwrap rule");
+        assert_eq!(unwraps.count, 2);
+        let todos = counts
+            .iter()
+            .find(|c| c.message.contains("todo!()"))
+            .expect("todo rule");
+        assert_eq!(todos.count, 1);
+        let formatted = detect_antipatterns(src, "rust");
+        assert_eq!(
+            formatted.len(),
+            counts.len(),
+            "one formatted line per counted rule"
+        );
+        assert!(
+            formatted
+                .iter()
+                .any(|(m, _)| m.ends_with("(2x)") && m.contains(".unwrap()"))
+        );
+    }
 
     #[test]
     fn test_rust_unwrap_detected() {

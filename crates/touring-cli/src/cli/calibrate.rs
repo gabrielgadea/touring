@@ -42,6 +42,9 @@ pub fn cli_calibrate_confidence(rt: &mut HookRuntime, payload: &serde_json::Valu
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(2000) as usize;
     let command = payload.get("command").and_then(|v| v.as_str());
+    // S26: the human revocation path of a durable denial for `command`'s action class.
+    let revoke = payload.get("revoke").and_then(serde_json::Value::as_bool) == Some(true);
+    let mut revoked = serde_json::Value::Null;
 
     // Distil the persisted experiential substrate into calibration examples.
     let outcomes = rt
@@ -70,6 +73,11 @@ pub fn cli_calibrate_confidence(rt: &mut HookRuntime, payload: &serde_json::Valu
         let sig = ActionSignature::from_pre_tool("Bash", &input, None, 0, None, None);
         let key = sig.to_key();
         action_sig_key = serde_json::Value::String(key.clone());
+        if revoke {
+            let store = ApprovalStore::new(rt.ctx.knowledge.conn_ref());
+            let _ = store.ensure_table();
+            revoked = serde_json::Value::Bool(store.revoke(&key).unwrap_or(false));
+        }
         if decision.defer_hitl {
             let store = ApprovalStore::new(rt.ctx.knowledge.conn_ref());
             let _ = store.ensure_table();
@@ -99,6 +107,7 @@ pub fn cli_calibrate_confidence(rt: &mut HookRuntime, payload: &serde_json::Valu
         "effective_defer": effective_defer,
         "hitl_override": hitl_override,
         "action_sig_key": action_sig_key,
+        "revoked": revoked,
         "n_calibration": decision.n_calibration,
         "calibrated": decision.calibrated,
         "alpha": alpha,

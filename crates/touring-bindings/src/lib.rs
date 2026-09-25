@@ -70,6 +70,15 @@ pub mod python;
 #[cfg(feature = "bind-wasm")]
 pub mod wasm;
 
+/// The `serde_json` this crate is compiled against, re-exported because its `Value`
+/// is public API (`wasm::TypedPluginContext::params`) — Rust API guideline C-REEXPORT.
+///
+/// Callers that build that value through this path (`touring_bindings::serde_json::json!`)
+/// get the SAME crate instance as the library by construction. Under `cargo test
+/// --workspace --doc`, feature unification compiled a second `serde_json` 1.0.150 for the
+/// doctest, and `json!` from it was a different type (E0308, 25/09/2026).
+pub use serde_json;
+
 // Cap'n Proto generated modules must live at crate root so that the
 // capnpc-generated code can reference them as `crate::holon_core_capnp::`.
 /// Cap'n Proto bindings generated from `schemas/holon-core.capnp` by `capnpc`.

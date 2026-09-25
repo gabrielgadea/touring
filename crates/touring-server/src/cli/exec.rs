@@ -1429,7 +1429,8 @@ pub fn run_predict_action(args: &[String]) -> anyhow::Result<()> {
 /// `ApprovalStore`.
 ///
 /// Flags: `--confidence <f64>` (default 0.7) · `--alpha <f64>` (default 0.1) ·
-/// `--command "<cmd>"` (optional) · `--limit <u64>` (default 2000).
+/// `--command "<cmd>"` (optional) · `--limit <u64>` (default 2000) ·
+/// `--revoke` (S26: delete the durable denial of `--command`'s action class).
 ///
 /// # Errors
 ///
@@ -1440,6 +1441,7 @@ pub fn run_calibrate_confidence(args: &[String]) -> anyhow::Result<()> {
     let mut alpha: Option<f64> = None;
     let mut command: Option<String> = None;
     let mut limit: Option<u64> = None;
+    let mut revoke = false;
     let mut i = 0;
     while i < rest.len() {
         match rest[i].as_str() {
@@ -1459,6 +1461,10 @@ pub fn run_calibrate_confidence(args: &[String]) -> anyhow::Result<()> {
                 limit = rest.get(i + 1).and_then(|s| s.parse().ok());
                 i += 2;
             }
+            "--revoke" => {
+                revoke = true;
+                i += 1;
+            }
             other if confidence.is_none() => {
                 confidence = other.parse().ok();
                 i += 1;
@@ -1476,6 +1482,9 @@ pub fn run_calibrate_confidence(args: &[String]) -> anyhow::Result<()> {
     }
     if let Some(l) = limit {
         payload["limit"] = serde_json::json!(l);
+    }
+    if revoke {
+        payload["revoke"] = serde_json::json!(true);
     }
     let output = daemon_query("cli-calibrate-confidence", payload)?;
 

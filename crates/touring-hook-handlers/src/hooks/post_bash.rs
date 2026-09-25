@@ -18,7 +18,7 @@ use super::knowledge::BashOutcome;
 use super::pre_bash::extract_command_short;
 use super::runtime::{HookResponse, HookRuntime};
 use super::shared::patterns::FILE_PATH_RE;
-use crate::schemas::{validate_payload, validation_deny};
+use crate::schemas::validate_payload;
 use crate::shared::hook_helpers;
 use touring_foundation::truncate_str;
 use touring_intelligence::rl::ImmediateReward;
@@ -59,7 +59,11 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     };
     let validated = match validate_payload::<crate::schemas::PostBashPayload>(tool_input) {
         Ok(v) => v,
-        Err(errors) => return validation_deny(&errors, "post_bash"),
+        Err(errors) => {
+            // S21: a Post event cannot deny (the call already ran) — log and allow.
+            tracing::warn!(%errors, "post_bash: malformed tool_input — allowing");
+            return HookResponse::Allow;
+        }
     };
     let command = validated.command.as_str();
     // F10 (2026-09-02): the output lives in `tool_response` (PostToolUse) or
@@ -108,7 +112,19 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         None => return HookResponse::Allow,
     };
 
-    if let Err(e) = runtime.ctx.knowledge.record_bash_outcome(&outcome) {
+    // S22: provenance — which session, and which event (PostToolUse = rc 0 by construction).
+    let origin_event = if payload.failure_event {
+        "PostToolUseFailure"
+    } else if payload.success_event {
+        "PostToolUse"
+    } else {
+        "legacy_payload"
+    };
+    if let Err(e) = runtime.ctx.knowledge.record_bash_outcome_with_origin(
+        &outcome,
+        crate::shared::signals::payload_session(input),
+        origin_event,
+    ) {
         tracing::debug!(
             "record_bash_outcome failed for '{}': {e}",
             outcome.command_short
@@ -239,7 +255,12 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     let cog_enriched: Option<String> = if !outcome.success {
         runtime.cognitive.as_ref().and_then(|cog| {
             let path_ref = outcome.file_context.as_deref().unwrap_or("");
-            let enriched = crate::shared::signals::enrich_with_cognitive(cog, path_ref, false);
+            let enriched = crate::shared::signals::enrich_with_cognitive(
+                cog,
+                path_ref,
+                false,
+                crate::shared::signals::payload_session(input),
+            );
             if enriched.is_empty() {
                 None
             } else {
@@ -311,6 +332,7 @@ fn build_bash_outcome(command: &str, raw_output: &str) -> Option<BashOutcome> {
     let output = BashPayloadOutput {
         raw_output: raw_output.to_string(),
         failure_event: false,
+        success_event: false,
         exit_code_hint: None,
         interrupted: false,
     };
@@ -332,6 +354,10 @@ pub(crate) struct BashPayloadOutput {
     /// `true` when the event is `PostToolUseFailure` (or an `error` field
     /// arrived without a `tool_response`).
     pub failure_event: bool,
+    /// S21: a `PostToolUse` delivery — Claude Code fires it only when the call
+    /// SUCCEEDED (failures go to `PostToolUseFailure`). `false` for legacy payloads
+    /// that name no event and carry no `tool_response` (text inference kept there).
+    pub success_event: bool,
     /// Exit code the payload states explicitly, when it does.
     pub exit_code_hint: Option<i64>,
     /// `true` when the tool run was interrupted by the user.
@@ -387,9 +413,11 @@ pub(crate) fn bash_payload_output(
         legacy_stdout.unwrap_or("").to_string()
     };
 
+    let success_event = !failure_event && (event_name == "PostToolUse" || response.is_some());
     BashPayloadOutput {
         raw_output,
         failure_event,
+        success_event,
         exit_code_hint,
         interrupted,
     }
@@ -406,6 +434,14 @@ fn build_bash_outcome_for_event(command: &str, output: &BashPayloadOutput) -> Op
 
     let raw_output = output.raw_output.as_str();
     let output_head = truncate_str(raw_output, 2000);
+    if output.success_event {
+        return Some(success_event_outcome(
+            command,
+            command_short,
+            output,
+            output_head,
+        ));
+    }
     let mut exit_code = output
         .exit_code_hint
         .unwrap_or_else(|| detect_exit_code(output_head));
@@ -433,6 +469,51 @@ fn build_bash_outcome_for_event(command: &str, output: &BashPayloadOutput) -> Op
         file_context: extract_file_context(command),
         executed_at: String::new(), // DB default
     })
+}
+
+/// Label of an rc-0 outcome whose text looks like a failure after a pipe without
+/// `pipefail` (S21): stored in `error_pattern`, never as `success = false`.
+pub(crate) const MASKED_FAILURE_LABEL: &str = "masked_failure_suspected";
+
+/// The outcome of a SUCCESS event (S21). PostToolUse fires only when the call succeeded,
+/// so the exit code is 0 unless the payload states one; text never flips it. The one
+/// text signal kept is the masking suspicion, labelled, for pipelines without pipefail.
+fn success_event_outcome(
+    command: &str,
+    command_short: String,
+    output: &BashPayloadOutput,
+    output_head: &str,
+) -> BashOutcome {
+    let exit_code = output.exit_code_hint.unwrap_or(0);
+    let success = exit_code == 0;
+    let error_pattern = if !success {
+        extract_error_pattern(output_head)
+    } else if pipe_without_pipefail(command) && check_error_indicators(output_head) != 0 {
+        let what = extract_error_pattern(output_head).unwrap_or_else(|| "error text".to_string());
+        Some(format!("{MASKED_FAILURE_LABEL}: {what}"))
+    } else {
+        None
+    };
+    BashOutcome {
+        command: truncate(command, 500),
+        command_short,
+        command_hash: String::new(),
+        exit_code,
+        success,
+        error_pattern,
+        file_context: extract_file_context(command),
+        executed_at: String::new(),
+    }
+}
+
+/// A `|` the shell reads (not inside quotes/heredocs, not `||`) and no `pipefail`.
+fn pipe_without_pipefail(command: &str) -> bool {
+    let shell = touring_ceg::gateway::gate::mask_shell_data(command);
+    let b = shell.as_bytes();
+    let piped = shell
+        .match_indices('|')
+        .any(|(i, _)| b.get(i + 1) != Some(&b'|') && b.get(i.wrapping_sub(1)) != Some(&b'|'));
+    piped && !command.contains("pipefail")
 }
 
 /// WS4: Capture structured metrics from large output, persist as a note,
@@ -495,6 +576,17 @@ fn build_capture_response(
 ) -> HookResponse {
     let mut parts: Vec<String> = Vec::new();
 
+    // S21: rc 0 with error text after a pipe lacking pipefail — a SUSPICION, never "failed".
+    if outcome.success
+        && let Some(label) = outcome.error_pattern.as_deref()
+        && label.starts_with(MASKED_FAILURE_LABEL)
+    {
+        parts.push(format!(
+            "`{}` exited 0, but its output shows errors after a pipe without `set -o pipefail` \
+             — the real exit code may be masked (suspected; not recorded as a failure).",
+            outcome.command_short
+        ));
+    }
     // Failed command: include error pattern for immediate feedback.
     if !outcome.success {
         let error_desc = outcome.error_pattern.as_deref().unwrap_or("unknown error");
@@ -1159,6 +1251,7 @@ mod tests {
         let output = BashPayloadOutput {
             raw_output: "boom".to_string(),
             failure_event: true,
+            success_event: false,
             exit_code_hint: None,
             interrupted: false,
         };
@@ -1172,6 +1265,7 @@ mod tests {
         let output = BashPayloadOutput {
             raw_output: "Exit code 101\nthread 'main' panicked at src/lib.rs:4".to_string(),
             failure_event: true,
+            success_event: false,
             exit_code_hint: None,
             interrupted: false,
         };
@@ -1180,15 +1274,123 @@ mod tests {
         assert_eq!(outcome.exit_code, 101);
     }
 
+    /// S21 reverses the old F10 assumption: a SUCCESS event (PostToolUse) whose text shows
+    /// errors ran with rc 0 — `cargo check` that failed would have come as PostToolUseFailure.
     #[test]
-    fn f10_success_event_with_error_indicators_is_still_a_failure() {
+    fn f10_success_event_with_error_text_is_success_not_failure() {
         let output = BashPayloadOutput {
             raw_output: "error[E0308]: mismatched types".to_string(),
             failure_event: false,
+            success_event: true,
             exit_code_hint: None,
             interrupted: false,
         };
         let outcome = build_bash_outcome_for_event("cargo check", &output).unwrap();
-        assert!(!outcome.success);
+        assert!(outcome.success);
+        assert!(
+            outcome.error_pattern.is_none(),
+            "no pipe → no masking suspicion"
+        );
+    }
+}
+
+/// S21 (plan 2026-09-25) — PostToolUse fires only when the Bash call SUCCEEDED (Claude Code
+/// routes failures to PostToolUseFailure), so its text never turns it into a failure.
+/// Measured: `printf 'Exit code 3'` (rc 0) was recorded and shown as "failed (exit 3)";
+/// 6 of 7 attributions in one session were false.
+#[cfg(test)]
+mod s21_tests {
+    use super::*;
+
+    fn post(command: &str, stdout: &str) -> serde_json::Value {
+        serde_json::json!({
+            "hook_event_name": "PostToolUse",
+            "tool_input": {"command": command},
+            "tool_response": {"stdout": stdout, "stderr": "", "interrupted": false}
+        })
+    }
+
+    fn outcome_of(input: &serde_json::Value) -> BashOutcome {
+        let cmd = input
+            .pointer("/tool_input/command")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        build_bash_outcome_for_event(cmd, &bash_payload_output(input, None)).expect("outcome")
+    }
+
+    #[test]
+    fn post_tool_use_success_never_inferred_as_failure_from_text() {
+        for text in [
+            "Exit code 3\n",
+            "error: data\n",
+            "Traceback (most recent call last):\nValueError: x\n",
+        ] {
+            let o = outcome_of(&post("printf %s x", text));
+            assert!(
+                o.success,
+                "rc-0 call recorded as failure from text {text:?}"
+            );
+            assert_eq!(o.exit_code, 0);
+        }
+    }
+
+    #[test]
+    fn masked_pipeline_is_labelled_suspect_not_failed() {
+        let o = outcome_of(&post(
+            "cargo check 2>&1 | tail -5",
+            "error[E0308]: mismatched types\n",
+        ));
+        assert!(
+            o.success,
+            "a pipe's rc 0 is what ran — never recorded as a failure"
+        );
+        let label = o.error_pattern.expect("the suspicion is labelled");
+        assert!(label.starts_with("masked_failure_suspected"), "{label}");
+        // With pipefail the rc is honest: no suspicion.
+        let honest = outcome_of(&post(
+            "set -o pipefail; cargo check 2>&1 | tail -5",
+            "error[E0308]: x\n",
+        ));
+        assert!(honest.error_pattern.is_none());
+    }
+
+    #[test]
+    fn failure_event_still_records_exit_code() {
+        let input = serde_json::json!({
+            "hook_event_name": "PostToolUseFailure",
+            "tool_input": {"command": "cargo test"},
+            "error": "Exit code 101\nthread 'main' panicked"
+        });
+        let o = outcome_of(&input);
+        assert!(!o.success);
+        assert_eq!(o.exit_code, 101);
+    }
+
+    #[test]
+    fn explicit_exit_code_hint_still_wins_on_post_event() {
+        let input = serde_json::json!({
+            "hook_event_name": "PostToolUse",
+            "tool_input": {"command": "make"},
+            "tool_response": {"stdout": "", "stderr": "", "exit_code": 2}
+        });
+        let o = outcome_of(&input);
+        assert!(!o.success);
+        assert_eq!(o.exit_code, 2);
+    }
+
+    #[test]
+    fn command_short_skips_env_assignments_and_cd() {
+        use super::super::pre_bash::extract_command_short as short;
+        assert_eq!(short("FOO=1 cargo test"), "cargo");
+        assert_eq!(short("cd /x && TOURING_CODE_MODE=native cat f"), "cat");
+        assert_eq!(short("S=/tmp/a; python3 s.py"), "python3");
+        assert_eq!(
+            short("env -u TOURING_DAEMON_SOCKET touring doctor"),
+            "touring"
+        );
+        assert_eq!(short("timeout -s KILL 30 cargo test"), "cargo");
+        assert_eq!(short("sudo -E apt update"), "apt");
+        assert_eq!(short("for f in *; do grep x $f; done"), "for");
+        assert_eq!(short("cd /repo && git status"), "git");
     }
 }

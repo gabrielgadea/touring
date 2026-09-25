@@ -426,6 +426,7 @@ pub fn enrich_with_cognitive(
     cognitive: &touring_intelligence::reasoning::CognitiveRuntime,
     file_path: &str,
     include_predictions: bool,
+    session: Option<&str>,
 ) -> String {
     let mut signals: Vec<String> = Vec::new();
 
@@ -451,7 +452,11 @@ pub fn enrich_with_cognitive(
 
         // EC22: Recent bash failures — surfaces past command failures as proactive
         // context. Only the ones NOT yet superseded (P2/S-2.2, see below).
-        let recent_failures = unresolved_failures(&knowledge.recent_bash_outcomes(12), 3);
+        // S22: THIS session's verified outcomes only; unknown session → no line (the old
+        // cross-session read showed other sessions' — and text-inferred — failures).
+        let recent_failures = session
+            .map(|s| unresolved_failures(&knowledge.recent_bash_outcomes_for_session(s, 12), 3))
+            .unwrap_or_default();
         if !recent_failures.is_empty() {
             signals.push(format!(
                 "\u{26a1} last fail: {}",
@@ -1620,4 +1625,12 @@ mod unresolved_failure_tests {
         ];
         assert_eq!(unresolved_failures(&outcomes, 2), vec!["a", "b"]);
     }
+}
+
+/// S22 — the session id of a hook payload (`None` when absent or empty).
+pub fn payload_session(input: &serde_json::Value) -> Option<&str> {
+    input
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
 }

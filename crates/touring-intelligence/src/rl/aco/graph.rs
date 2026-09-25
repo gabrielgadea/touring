@@ -884,9 +884,7 @@ impl MutableGeneratorGraph {
         // surface here as «cycle detected», a lie about the graph's shape.
         let unresolved = self.validate_dependencies();
         if !unresolved.is_empty() {
-            return Err(GraphError::UnresolvedDependencies(
-                unresolved.join("; "),
-            ));
+            return Err(GraphError::UnresolvedDependencies(unresolved.join("; ")));
         }
         let critical_path = self.get_critical_path()?;
         let parallelizable = self.detect_parallelizable()?;
@@ -1059,15 +1057,17 @@ mod tests {
     fn diamond() -> MutableGeneratorGraph {
         let mut g = MutableGeneratorGraph::new();
         g.add_node_with_deps("A", "template", None).unwrap();
-        g.add_node_with_deps("B", "template", Some(vec!["A".into()])).unwrap();
-        g.add_node_with_deps("C", "template", Some(vec!["A".into()])).unwrap();
+        g.add_node_with_deps("B", "template", Some(vec!["A".into()]))
+            .unwrap();
+        g.add_node_with_deps("C", "template", Some(vec!["A".into()]))
+            .unwrap();
         g.add_node_with_deps("D", "template", Some(vec!["B".into(), "C".into()]))
             .unwrap();
         g
     }
 
     #[test]
-    fn levels_and_parallelism_work_in_a_graph_WITH_edges() {
+    fn levels_and_parallelism_work_in_a_graph_with_edges() {
         // O Kahn invertido acusava «cycle detected» em QUALQUER grafo com
         // aresta (A→B, diamante, linear de 3) enquanto o topological_sort
         // dizia acíclico.
@@ -1075,14 +1075,20 @@ mod tests {
         let levels = g.get_all_levels().expect("o diamante é acíclico");
         assert_eq!(
             levels,
-            vec![vec!["A".to_string()], vec!["B".to_string(), "C".to_string()], vec!["D".to_string()]]
+            vec![
+                vec!["A".to_string()],
+                vec!["B".to_string(), "C".to_string()],
+                vec!["D".to_string()]
+            ]
         );
         let par = g.detect_parallelizable().expect("sem ciclo");
         assert!(par.iter().any(|level| level.len() == 2));
         let mut g2 = MutableGeneratorGraph::new();
         g2.add_node_with_deps("A", "template", None).unwrap();
-        g2.add_node_with_deps("B", "template", Some(vec!["A".into()])).unwrap();
-        g2.add_node_with_deps("C", "template", Some(vec!["B".into()])).unwrap();
+        g2.add_node_with_deps("B", "template", Some(vec!["A".into()]))
+            .unwrap();
+        g2.add_node_with_deps("C", "template", Some(vec!["B".into()]))
+            .unwrap();
         assert_eq!(g2.get_all_levels().expect("linear").len(), 3);
         assert!(g2.freeze(None).is_ok(), "freeze em grafo com aresta passa");
     }
@@ -1119,7 +1125,10 @@ mod tests {
             "X: missing validation_script (triad mandatory)",
             "X: missing rollback_script (triad mandatory)",
         ] {
-            assert!(v.contains(&expected.to_string()), "faltou «{expected}» em {v:?}");
+            assert!(
+                v.contains(&expected.to_string()),
+                "faltou «{expected}» em {v:?}"
+            );
         }
     }
 }
