@@ -37,6 +37,7 @@ __all__ = [
     "py_supported_languages", "py_validate_syntax", "py_viability_verdict",
     "rust_code_gen_workflow", "rust_format_source", "rust_public_api_surface",
     "rust_semantic_analyze", "rust_workspace_info", "select_arm", "simd",
+    "search_index",
     "update_arm", "verify_chain_parallel", "GeneratorType", "Complexity",
     "DriftLevel", "ValidationStatus", "ExecutionStatus", "GeneratorOutputs",
     "GeneratorContract", "ValidationResult", "RlmMemory",
@@ -331,3 +332,27 @@ class simd:
     def py_irr(*args: Any, **kwargs: Any) -> Any: ...
     @staticmethod
     def py_stress_scenarios(*args: Any, **kwargs: Any) -> Any: ...
+
+# ── The `search_index` submodule ─────────────────────────────────────────────
+
+class search_index:
+    """`claude_learning_kernel.search_index` — the registered submodule."""
+
+    class SearchPreprocessor:
+        def __init__(self) -> None: ...
+        def preprocess(
+            self, path: str, content: str
+        ) -> "search_index.PreprocessedDoc": ...
+        def preprocess_batch(
+            self, docs: list[tuple[str, str]]
+        ) -> list["search_index.PreprocessedDoc"]: ...
+
+    class PreprocessedDoc:
+        path: str
+        name: str
+        doc_type: str
+        content_tokens: list[str]
+        symbols: list[str]
+        triggers: list[str]
+        dependencies: list[str]
+        module: str

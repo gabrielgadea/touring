@@ -411,39 +411,22 @@ impl RlmMemory {
         Self::open_readonly_impl(db_path)
     }
 
-    /// Read a key. Absent → None (never raises). `tier` is optional: given,
-    /// it filters exactly; omitted, the tiers are searched in persistence
-    /// order (core → reference → working → ephemeral) and the first hit wins.
-    /// On a read-only handle this is a pure SELECT (never the access-count
-    /// bump); on a writable handle it keeps the bump semantics of `get`.
+    /// Read a key. Absent → None (never raises). `tier` is an optional RAW
+    /// string filter, exact and unbounded by any enum — a real database holds
+    /// tiers no list names (measured 25/09/2026 on the analise's live db:
+    /// 25.1% of the rows in `semantic`/`local`). Omitted, it filters nothing
+    /// (H1: the PK is key-only, one row per key). An unknown tier is an
+    /// honest None — never a broad-search fallback. On a read-only handle
+    /// this is a pure SELECT (never the access-count bump); on a writable
+    /// handle it keeps the bump semantics.
     #[pyo3(signature = (key, tier = None))]
     fn read(&self, key: &str, tier: Option<String>) -> PyResult<Option<String>> {
-        use touring_intelligence::rl::memory::rlm::MemoryTier;
-        let tiers = [
-            MemoryTier::Core,
-            MemoryTier::Reference,
-            MemoryTier::Working,
-            MemoryTier::Ephemeral,
-        ];
-        let wanted = tier.and_then(|t| tiers.iter().find(|x| x.as_str() == t).copied());
-        let get = |k: &str, t: MemoryTier| {
-            if self.readonly {
-                self.inner.get_readonly(k, t)
-            } else {
-                self.inner.get(k, t)
-            }
+        let result = if self.readonly {
+            self.inner.get_readonly(key, tier.as_deref())
+        } else {
+            self.inner.get_str(key, tier.as_deref())
         };
-        match wanted {
-            Some(t) => get(key, t).map_err(|e| PyValueError::new_err(e.to_string())),
-            None => {
-                for t in tiers {
-                    if let Ok(Some(v)) = get(key, t) {
-                        return Ok(Some(v));
-                    }
-                }
-                Ok(None)
-            }
-        }
+        result.map_err(|e| PyValueError::new_err(e.to_string()))
     }
 }
 

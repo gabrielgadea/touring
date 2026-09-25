@@ -252,6 +252,77 @@ def test_rlm_memory_readonly_reader_beside_a_live_writer(clk, tmp_path):
     del writer  # the reader never blocked on it
 
 
+def test_rlm_read_reaches_every_tier_without_a_list(clk, tmp_path):
+    """25/09/2026 (a d4, no banco vivo do analise): 25,1% das linhas fora dos
+    4 tiers do enum — `semantic` 4.689, `local` 179. A coluna é livre (DDL
+    default 'local'); o read filtra pela string crua ou por nada."""
+    import sqlite3
+
+    db = tmp_path / "memory.db"
+    clk.RlmMemory(str(db), writable=True)
+    raw = sqlite3.connect(str(db))
+    raw.executemany(
+        "INSERT INTO memory_entries (key, tier, value) VALUES (?, ?, ?)",
+        [("lesson", "semantic", "the lesson"),
+         ("scratch", "local", "local note"),
+         ("hot", "ephemeral", "hot note")],
+    )
+    raw.commit()
+    mem = clk.RlmMemory.open_readonly(str(db))
+    # Sem tier: a PK por chave (H1) devolve a única linha — sem lista a percorrer.
+    assert mem.read("lesson") == "the lesson"
+    assert mem.read("scratch") == "local note"
+    assert mem.read("hot") == "hot note"
+    # Tier exato — inclusive os que nenhum enum nomeia.
+    assert mem.read("lesson", "semantic") == "the lesson"
+    assert mem.read("scratch", "local") == "local note"
+    # Tier inexistente → None honesto (o fail-soft de busca ampla morreu: um
+    # tier digitado errado não parece válido).
+    assert mem.read("lesson", "semantc") is None
+    assert mem.read("absent") is None
+    raw.close()
+
+
+# ── search_index (the analise's indexing test contract, T1-T8) ───────────────
+
+
+def test_search_index_submodule_is_registered(clk):
+    pre = clk.search_index.SearchPreprocessor()
+    assert pre is not None
+
+
+def test_search_index_preprocess_contract_and_doc_type_by_path(clk):
+    pre = clk.search_index.SearchPreprocessor()
+    doc = pre.preprocess(".claude/skills/antt-legal/SKILL.md", "# Test\nUse when analyzing documents.")
+    assert doc.path == ".claude/skills/antt-legal/SKILL.md"
+    assert doc.name == "SKILL.md"
+    assert doc.doc_type == "skill"
+    assert isinstance(doc.content_tokens, list)
+    assert isinstance(doc.symbols, list)
+    assert isinstance(doc.triggers, list)
+    assert isinstance(doc.dependencies, list)
+    assert isinstance(doc.module, str)
+    # T3: doc_type by path
+    assert pre.preprocess(".claude/hooks/quality/gate.py", "content").doc_type == "hook"
+    assert pre.preprocess(".claude/rules/00-core.md", "content").doc_type == "rule"
+    assert pre.preprocess(".claude/agents/my-agent.md", "content").doc_type == "agent"
+
+
+def test_search_index_batch_equals_individual(clk):
+    pre = clk.search_index.SearchPreprocessor()
+    docs = [
+        (".claude/skills/skill-a/SKILL.md", "Use when doing task A."),
+        (".claude/hooks/hook-b.py", "def main(): pass"),
+        (".claude/rules/rule-c.md", "# Rule\nPriority: 100"),
+    ]
+    results = pre.preprocess_batch(docs)
+    assert len(results) == 3
+    assert [d.doc_type for d in results] == ["skill", "hook", "rule"]
+    single = pre.preprocess(*docs[0])
+    assert results[0].doc_type == single.doc_type
+    assert results[0].module == single.module
+
+
 # ── JaccardComputer — in the simd submodule, not the package level ───────────
 
 

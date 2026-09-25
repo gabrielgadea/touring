@@ -253,16 +253,56 @@ impl RlmMemory {
 
     /// Reads a key WITHOUT the access-count bump — a pure SELECT, the only
     /// read a read-only connection can perform. Absent key → `Ok(None)`.
-    pub fn get_readonly(&self, key: &str, tier: MemoryTier) -> Result<Option<String>> {
-        let value: Option<String> = self
-            .conn
-            .query_row(
-                "SELECT value FROM memory_entries WHERE key = ?1 AND tier = ?2",
-                params![key, tier.as_str()],
-                |row| row.get(0),
-            )
-            .optional()?;
+    ///
+    /// The tier is a RAW string filter, never a `MemoryTier`: the tier column
+    /// is free-form (the DDL defaults to `'local'`; `touring memory store
+    /// --tier semantic` writes `semantic`), and 25.1% of the live analise db
+    /// (measured 25/09/2026: `semantic` 4.689, `local` 179 of 19.356) sits
+    /// outside the enum. `None` filters nothing — by H1 the PK is key-only, so
+    /// one key is one row and there is no tier list to "walk". An unknown tier
+    /// is an honest `None`, never a broad-search fallback that would make a
+    /// mistyped tier look valid.
+    pub fn get_readonly(&self, key: &str, tier: Option<&str>) -> Result<Option<String>> {
+        let value: Option<String> = match tier {
+            Some(t) => self
+                .conn
+                .query_row(
+                    "SELECT value FROM memory_entries WHERE key = ?1 AND tier = ?2",
+                    params![key, t],
+                    |row| row.get(0),
+                )
+                .optional()?,
+            None => self
+                .conn
+                .query_row(
+                    "SELECT value FROM memory_entries WHERE key = ?1",
+                    params![key],
+                    |row| row.get(0),
+                )
+                .optional()?,
+        };
         Ok(value)
+    }
+
+    /// The writable read: bumps `access_count` (same raw-string tier rule as
+    /// [`RlmMemory::get_readonly`]), then selects.
+    pub fn get_str(&self, key: &str, tier: Option<&str>) -> Result<Option<String>> {
+        let now = Utc::now().timestamp();
+        match tier {
+            Some(t) => {
+                self.conn.execute(
+                    "UPDATE memory_entries SET access_count = access_count + 1, accessed_at = ?1 WHERE key = ?2 AND tier = ?3",
+                    params![now, key, t],
+                )?;
+            }
+            None => {
+                self.conn.execute(
+                    "UPDATE memory_entries SET access_count = access_count + 1, accessed_at = ?1 WHERE key = ?2",
+                    params![now, key],
+                )?;
+            }
+        }
+        self.get_readonly(key, tier)
     }
 
     fn ensure_schema(&self) -> Result<()> {
@@ -2162,12 +2202,13 @@ mod tests {
             let mem = RlmMemory::open_readonly(&path).unwrap();
             // The legacy row is readable through the bump-free path.
             assert_eq!(
-                mem.get_readonly("skill_ranking", MemoryTier::Core)
+                mem.get_readonly("skill_ranking", Some("core"))
                     .unwrap()
                     .as_deref(),
                 Some("{\"a\":1}")
             );
-            assert_eq!(mem.get_readonly("absent", MemoryTier::Core).unwrap(), None);
+            assert_eq!(mem.get_readonly("absent", Some("core")).unwrap(), None);
+            assert_eq!(mem.get_readonly("skill_ranking", None).unwrap().as_deref(), Some("{\"a\":1}"));
         }
         let after = std::fs::read(&path).unwrap();
         assert_eq!(
@@ -2197,8 +2238,9 @@ mod tests {
             .unwrap()
         };
         let reader = RlmMemory::open_readonly(&path).unwrap();
-        reader.get_readonly("k", MemoryTier::Core).unwrap();
-        reader.get_readonly("k", MemoryTier::Core).unwrap();
+        reader.get_readonly("k", Some("core")).unwrap();
+        reader.get_readonly("k", Some("core")).unwrap();
+        reader.get_readonly("k", None).unwrap();
         assert_eq!(access_count(&writer.conn), 0, "get_readonly must not write");
         writer.get("k", MemoryTier::Core).unwrap();
         assert_eq!(access_count(&writer.conn), 1, "get bumps (the control)");
@@ -2223,7 +2265,7 @@ mod tests {
                 RlmMemory::open_readonly(&reader_path).expect("readonly open beside a live writer");
             for _ in 0..50 {
                 if mem
-                    .get_readonly("k", MemoryTier::Core)
+                    .get_readonly("k", Some("core"))
                     .expect("readonly read beside a live writer")
                     .is_none()
                 {
@@ -2243,5 +2285,86 @@ mod tests {
                 .unwrap();
         }
         assert!(reader.join().expect("reader thread panicked"));
+    }
+
+    #[test]
+    fn get_readonly_reads_every_tier_the_database_actually_has() {
+        // Measured on the live analise db (25/09/2026, touring-36): 25.1% of
+        // the rows sit in tiers OUTSIDE `MemoryTier` (`semantic` 4.689,
+        // `local` 179, of 19.356) — the column is free-form (the DDL defaults
+        // to 'local'; `touring memory store --tier semantic` writes
+        // 'semantic'). A reader filters by the RAW STRING, never by a list.
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("mem.db");
+        let writer = RlmMemory::new(&path).unwrap();
+        writer
+            .conn
+            .execute_batch(
+                "INSERT INTO memory_entries (key, tier, value) VALUES
+                 ('lesson', 'semantic', 'the lesson'),
+                 ('scratch', 'local', 'local note'),
+                 ('hot', 'ephemeral', 'hot note');",
+            )
+            .unwrap();
+        let reader = RlmMemory::open_readonly(&path).unwrap();
+        // No tier: H1's key-only PK means one row per key — no list to walk.
+        assert_eq!(
+            reader.get_readonly("lesson", None).unwrap().as_deref(),
+            Some("the lesson")
+        );
+        assert_eq!(
+            reader.get_readonly("scratch", None).unwrap().as_deref(),
+            Some("local note")
+        );
+        assert_eq!(
+            reader.get_readonly("hot", None).unwrap().as_deref(),
+            Some("hot note")
+        );
+        // Exact tier — including the ones the enum never names.
+        assert_eq!(
+            reader.get_readonly("lesson", Some("semantic")).unwrap().as_deref(),
+            Some("the lesson")
+        );
+        assert_eq!(
+            reader.get_readonly("scratch", Some("local")).unwrap().as_deref(),
+            Some("local note")
+        );
+        // An unknown tier is an honest None — never a broad-search fallback
+        // that makes a mistyped tier look valid.
+        assert_eq!(reader.get_readonly("lesson", Some("semantc")).unwrap(), None);
+        assert_eq!(reader.get_readonly("absent", None).unwrap(), None);
+    }
+
+    #[test]
+    fn get_str_bumps_the_exact_tier_row_and_an_absent_tier_bumps_nothing() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("mem.db");
+        let writer = RlmMemory::new(&path).unwrap();
+        writer
+            .conn
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, access_count) VALUES ('k', 'semantic', 'v', 0)",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            writer.get_str("k", Some("semantic")).unwrap().as_deref(),
+            Some("v")
+        );
+        let count = |tier: &str| -> i64 {
+            writer
+                .conn
+                .query_row(
+                    "SELECT access_count FROM memory_entries WHERE key = 'k' AND tier = ?1",
+                    params![tier],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        };
+        assert_eq!(count("semantic"), 1, "the writable read bumps");
+        assert_eq!(writer.get_str("k", Some("local")).unwrap(), None);
+        assert_eq!(count("semantic"), 1, "an absent tier bumps nothing");
+        writer.get_str("k", None).unwrap();
+        assert_eq!(count("semantic"), 2, "the tier-less writable read bumps the row");
     }
 }

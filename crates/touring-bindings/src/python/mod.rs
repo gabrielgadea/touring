@@ -31,6 +31,7 @@ mod financial_bindings;
 mod nlp_bindings;
 mod rl_bindings;
 mod rust_semantic_bindings;
+mod search_index_bindings;
 mod simd_bindings;
 
 /// The FULL registration of `claude_learning_kernel`, called by the
@@ -78,6 +79,10 @@ pub fn register_all(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // 24/09/2026: «exporte todos os tipos CLK») — after `simd_bindings`, whose
     // submodule receives JaccardComputer.
     aco_models_bindings::register(m)?;
+
+    // The `search_index` submodule (SearchPreprocessor — the analise's
+    // indexing test contract, same order).
+    search_index_bindings::register(m)?;
 
     // Custom exceptions
     m.add(
