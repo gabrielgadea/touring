@@ -554,3 +554,76 @@ fn suggestions_have_no_placeholders_on_pass_dims() {
         }
     }
 }
+
+
+// ---------------------------------------------------------------------------
+// S52 - F2.4 blind spot: env-style assignment inside JSON string arg
+// ---------------------------------------------------------------------------
+
+/// Write a temp .json file and return the NamedTempFile guard.
+fn json_file(content: &str) -> tempfile::NamedTempFile {
+    let mut f = tempfile::Builder::new()
+        .suffix(".json")
+        .tempfile()
+        .expect("create temp .json");
+    f.write_all(content.as_bytes()).expect("write .json");
+    f
+}
+
+/// F2.4 - GEMINI_API_KEY=sk-<48hex> inside a JSON string arg must be
+/// detected (blind spot identified by orchestrator probe f24_shapes.py).
+///
+/// The sk- prefix followed by 48 lowercase hex chars (entropy ~4.0 < 4.5
+/// threshold) was not caught by the generic high-entropy literal path, and
+/// the env-style NAME=VALUE scanner only checked unquoted assignments, not
+/// values embedded inside JSON string literals.
+///
+/// Secret values generated at runtime — no literal with the shape of a
+/// credential appears in this source file.
+#[test]
+fn f2_4_env_assignment_in_json_string_is_detected() {
+    // sk- + 48 hex chars: each part alone is not a secret shape
+    let sk_prefix = "sk-";
+    let hex_tail = "a1b2c3d4e5f6".repeat(4); // 48 hex chars, not a secret on its own
+    let key_ctx = "GEMINI_API_KEY";
+    let json_content = format!(
+        "{{\"mcpServers\":{{\"x\":{{\"command\":\"bash\",\"args\":[\"-c\",\"{key_ctx}={sk_prefix}{hex_tail} srv\"]}}}}}}"
+    );
+    let jf = json_file(&json_content);
+    let jjson = score_py(jf.path());
+    let _keep_j = jf;
+    let v_json = dim_value(&jjson, "F2_4");
+    assert!(
+        v_json < 0.5,
+        "F2_4 must detect {key_ctx}=sk-<48hex> inside JSON string arg: value={v_json:.3}"
+    );
+
+    // regression: AIza in JSON arg form (already detected)
+    let aiza = "AIza".to_owned() + &"A".repeat(35);
+    let jf_aiza = json_file(&format!("{{\"args\":[\"-c\",\"GOOGLE_KEY={aiza} srv\"]}}"));
+    let v_aiza = dim_value(&score_py(jf_aiza.path()), "F2_4");
+    let _keep_aiza = jf_aiza;
+    assert!(v_aiza < 0.5, "AIza in JSON must still score <0.5: {v_aiza:.3}");
+
+    // regression: sk-ant-api03 in JSON arg form (already detected)
+    let ant_prefix = "sk-ant-api03-";
+    let ant = ant_prefix.to_owned() + &"B".repeat(40);
+    let jf_ant = json_file(&format!("{{\"args\":[\"-c\",\"ANTHROPIC_KEY={ant}\"]}}"));
+    let v_ant = dim_value(&score_py(jf_ant.path()), "F2_4");
+    let _keep_ant = jf_ant;
+    assert!(v_ant < 0.5, "sk-ant in JSON must still score <0.5: {v_ant:.3}");
+
+    // regression: ghp_ in JSON arg form (already detected)
+    let ghp = "ghp_".to_owned() + &"C".repeat(36);
+    let jf_ghp = json_file(&format!("{{\"args\":[\"-c\",\"TOKEN={ghp}\"]}}"));
+    let v_ghp = dim_value(&score_py(jf_ghp.path()), "F2_4");
+    let _keep_ghp = jf_ghp;
+    assert!(v_ghp < 0.5, "ghp_ in JSON must still score <0.5: {v_ghp:.3}");
+
+    // regression: sk-<48hex> as Python assignment (already detected)
+    let py_content = format!("API_KEY = \"{sk_prefix}{hex_tail}\"\n");
+    let pf = py_file(&py_content);
+    let v_py = dim_value(&score_py(pf.path()), "F2_4");
+    let _keep_p = pf;
+    assert!(v_py < 0.5, "sk-hex48 in Python assignment must still score <0.5: {v_py:.3}");
+}
