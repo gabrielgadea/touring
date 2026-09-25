@@ -33,40 +33,34 @@ impl DriftDetection for DriftDetector {
         let n1 = s1.len() as f64;
         let n2 = s2.len() as f64;
 
-        // Optimized merge-walk: O(n+m) instead of O((n+m)*n) with linear scan
-        // Walk both sorted arrays simultaneously, computing CDF differences
+        // Exact two-sample KS: at each DISTINCT value advance both pointers
+        // through ALL equal values, then compare the right-continuous CDFs.
+        // The previous walk advanced ONE element per step — with different
+        // sample sizes the two CDFs climbed at different RATES through the
+        // same values, and the intermediate differences accumulated phantom
+        // maxima whenever ties were present (measured by the analise against
+        // scipy.stats.ks_2samp, 24/09/2026: `[1.0]*20 × [1.0]*10` returned
+        // 0.5 where the exact answer is 0). With ties consumed in full, this
+        // is the KS definition itself and matches scipy case for case.
         let mut max_diff: f64 = 0.0;
         let mut i = 0usize;
         let mut j = 0usize;
 
-        while i < s1.len() && j < s2.len() {
-            if s1[i] < s2[j] {
-                i += 1;
-            } else if s1[i] > s2[j] {
-                j += 1;
+        while i < s1.len() || j < s2.len() {
+            let v = if j >= s2.len() {
+                s1[i]
+            } else if i >= s1.len() {
+                s2[j]
             } else {
-                // Equal values: advance both
+                s1[i].min(s2[j])
+            };
+            while i < s1.len() && s1[i] == v {
                 i += 1;
+            }
+            while j < s2.len() && s2[j] == v {
                 j += 1;
             }
-
-            let cdf1 = i as f64 / n1;
-            let cdf2 = j as f64 / n2;
-            let diff = (cdf1 - cdf2).abs();
-            max_diff = max_diff.max(diff);
-        }
-
-        // Handle remaining elements in either sample
-        if i < s1.len() {
-            // All remaining s1 values > all s2 values
-            // cdf2 is already 1.0 (j == s2.len())
-            let cdf1_final = s1.len() as f64 / n1; // = 1.0
-            let diff = (cdf1_final - 1.0).abs();
-            max_diff = max_diff.max(diff);
-        }
-        if j < s2.len() {
-            let cdf2_final = s2.len() as f64 / n2;
-            let diff = (1.0 - cdf2_final).abs();
+            let diff = ((i as f64 / n1) - (j as f64 / n2)).abs();
             max_diff = max_diff.max(diff);
         }
 
@@ -236,5 +230,73 @@ mod tests {
         // For n1=n2=100 at alpha=0.05, critical value is approximately 0.192
         assert!(cv > 0.1);
         assert!(cv < 0.3);
+    }
+
+    /// The exact oracle, straight from the definition: for every distinct
+    /// value v, F(v) = #(sample ≤ v)/n — and KS = max |F1 − F2|.
+    fn ks_exact_oracle(s1: &[f64], s2: &[f64]) -> f64 {
+        let count_le = |s: &[f64], v: f64| s.iter().filter(|&&x| x <= v).count() as f64;
+        let (n1, n2) = (s1.len() as f64, s2.len() as f64);
+        s1.iter()
+            .chain(s2.iter())
+            .copied()
+            .fold(0.0_f64, |acc, v| {
+                acc.max((count_le(s1, v) / n1 - count_le(s2, v) / n2).abs())
+            })
+    }
+
+    /// The three minimal cases from the analise's measurement (24/09/2026) —
+    /// each matches scipy.stats.ks_2samp, and each was WRONG before the fix
+    /// (0.5, 0.4 and a phantom maximum instead of 0).
+    #[test]
+    fn ks_with_ties_and_different_sizes_is_exact() {
+        let detector = DriftDetector::new();
+        assert_relative_eq!(
+            detector.ks_statistic(&[1.0; 20], &[1.0; 10]),
+            0.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            detector.ks_statistic(&[1.0; 5], &[1.0; 3]),
+            0.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            detector.ks_statistic(&[0.1; 10], &[0.1; 5]),
+            0.0,
+            epsilon = 1e-12
+        );
+    }
+
+    /// The no-ties control the old code already answered correctly.
+    #[test]
+    fn ks_continuous_control_stays_right() {
+        let detector = DriftDetector::new();
+        let s1 = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let s2 = vec![2.5, 3.5, 4.5];
+        assert_relative_eq!(detector.ks_statistic(&s1, &s2), 0.4, epsilon = 1e-12);
+    }
+
+    /// Seeded property test (seed 20260924, the analise's): values from a
+    /// small alphabet to force ties, sizes 1..=12, against the exact oracle.
+    #[test]
+    fn ks_matches_the_exact_oracle_with_ties_and_unequal_sizes() {
+        let detector = DriftDetector::new();
+        let mut state: u64 = 20260924;
+        let mut next = move || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (state >> 33) as u32
+        };
+        for _case in 0..400 {
+            let n1 = (next() % 12 + 1) as usize;
+            let n2 = (next() % 12 + 1) as usize;
+            let s1: Vec<f64> = (0..n1).map(|_| (next() % 3 + 1) as f64).collect();
+            let s2: Vec<f64> = (0..n2).map(|_| (next() % 3 + 1) as f64).collect();
+            let got = detector.ks_statistic(&s1, &s2);
+            let exact = ks_exact_oracle(&s1, &s2);
+            assert_relative_eq!(got, exact, epsilon = 1e-12);
+        }
     }
 }
