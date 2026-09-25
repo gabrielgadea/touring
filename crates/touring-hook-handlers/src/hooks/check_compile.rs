@@ -175,6 +175,26 @@ pub fn take_pending_verdict(verdict_path: &Path) -> Option<String> {
     Some(summary)
 }
 
+/// The detached shell a check runs as: `cargo check` → verdict file, written
+/// atomically (`.tmp` + `mv`). Line 1 of the verdict is `ok <crate>` or
+/// `fail <crate>`; then the first error line, then the tail of cargo's short output.
+///
+/// S215 (2026-09-25): the verdict is CARGO's exit status. The first version
+/// captured `cargo check … | tail -4` and read `$?` — the TAIL's status, 0 on
+/// every failure — so every check reported OK (observed live:
+/// `check(touring-hook-runtime): OK` over an E0596). The capture now has no
+/// pipe, and the delivered line is the first `error`, never a warning.
+pub fn check_script(krate: &str, verdict: &Path) -> String {
+    format!(
+        "( out=$(cargo check -p {krate} --message-format=short 2>&1); rc=$?; \
+         {{ [ $rc -eq 0 ] && echo 'ok {krate}' || echo 'fail {krate}'; \
+         printf '%s\\n' \"$out\" | grep -m1 -E 'error(\\[|:)'; printf '%s\\n' \"$out\" | tail -4; }} \
+         > {v}.tmp && mv {v}.tmp {v} ) & disown",
+        krate = krate,
+        v = verdict.display(),
+    )
+}
+
 /// Fire-and-forget: resolve the crate, debounce, spawn a detached shell that
 /// runs the check and writes the verdict file. Returns `true` when a check
 /// was actually spawned. Non-`.rs` files and files outside a crate no-op.
@@ -203,13 +223,7 @@ pub fn spawn_check_for(file: &Path, state_dir: &Path, session: &str) -> bool {
     // The subshell reparents to init (`& disown`) and writes atomically via
     // rename; the intermediate bash exits in milliseconds and is reaped by a
     // throwaway thread so the long-running daemon never accumulates zombies.
-    let script = format!(
-        "( out=$(cargo check -p {krate} --message-format=short 2>&1 | tail -4); rc=$?; \
-         {{ [ $rc -eq 0 ] && echo 'ok {krate}' || echo 'fail {krate}'; printf '%s\\n' \"$out\"; }} \
-         > {v}.tmp && mv {v}.tmp {v} ) & disown",
-        krate = krate,
-        v = verdict.display(),
-    );
+    let script = check_script(&krate, &verdict);
     match std::process::Command::new("bash")
         .arg("-c")
         .arg(script)
@@ -591,5 +605,73 @@ mod tests {
             "not installed: never spawn"
         );
         let _ = std::fs::remove_dir_all(&d);
+    }
+}
+
+/// S215 — the REAL check script, run against a fake `cargo` on PATH.
+#[cfg(test)]
+mod s215_tests {
+    use super::{check_script, take_pending_verdict};
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{Duration, Instant};
+
+    /// (verdict file body, delivered one-line summary) for a `cargo` printing
+    /// `lines` and exiting `rc`.
+    fn verdict_for(rc: i32, lines: &[&str]) -> (String, String) {
+        let d = tempfile::tempdir().expect("tempdir");
+        let bin = d.path().join("bin");
+        std::fs::create_dir(&bin).expect("bin dir");
+        let cargo = bin.join("cargo");
+        let echo: String = lines
+            .iter()
+            .map(|l| format!("printf '%s\\n' '{l}'\n"))
+            .collect();
+        std::fs::write(&cargo, format!("#!/bin/sh\n{echo}exit {rc}\n")).expect("fake cargo");
+        std::fs::set_permissions(&cargo, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let verdict = d.path().join("verdict.txt");
+        let path = format!(
+            "{}:{}",
+            bin.display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        let status = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(check_script("k", &verdict))
+            .env("PATH", path)
+            .status()
+            .expect("bash");
+        assert!(status.success(), "the launcher itself failed");
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !verdict.exists() {
+            assert!(Instant::now() < deadline, "no verdict file within 10 s");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let body = std::fs::read_to_string(&verdict).expect("verdict");
+        let delivered = take_pending_verdict(&verdict).expect("a verdict to deliver");
+        (body, delivered)
+    }
+
+    #[test]
+    fn a_failing_check_is_reported_as_fail() {
+        let (body, delivered) = verdict_for(
+            101,
+            &[
+                "src/x.rs:1:1: warning: unused import",
+                "src/x.rs:146:73: error[E0596]: cannot borrow value as mutable",
+                "error: could not compile k due to 1 previous error",
+            ],
+        );
+        assert_eq!(body.lines().next(), Some("fail k"), "verdict body: {body}");
+        assert!(
+            delivered.contains("E0596"),
+            "the delivered line must name the error, not a warning: {delivered}"
+        );
+    }
+
+    #[test]
+    fn a_passing_check_is_reported_as_ok() {
+        let (body, delivered) = verdict_for(0, &["Finished dev profile"]);
+        assert_eq!(body.lines().next(), Some("ok k"), "verdict body: {body}");
+        assert_eq!(delivered, "check(k): OK");
     }
 }
