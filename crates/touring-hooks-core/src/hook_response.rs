@@ -416,8 +416,58 @@ impl HookResponse {
                 })
             }
         };
+        let mut value = value;
+        stamp_invoking_event(&mut value);
         serde_json::to_string(&value).unwrap_or_default()
     }
+}
+
+/// The Claude Code event this PROCESS answers — the input's `hook_event_name`.
+///
+/// S214 (2026-09-25): Claude Code rejects an output whose
+/// `hookSpecificOutput.hookEventName` differs from the invoking event, and the
+/// handlers named their event by hand — a Rust identifier (`pre_bash`) in the
+/// validation deny, a fixed `PostToolUse` answering a `PostToolUseFailure`.
+/// Set ONCE by the `touring-hook` client from its stdin, never by the daemon,
+/// which answers many events: the client stamps the daemon's JSON with
+/// [`stamp_event_name`] instead. Unset ⇒ every serialization is unchanged.
+static INVOKING_EVENT: OnceLock<String> = OnceLock::new();
+
+/// Record the invoking event from a hook input. First call wins; no-op when absent.
+pub fn set_invoking_event(input: &serde_json::Value) {
+    if let Some(name) = input
+        .get("hook_event_name")
+        .and_then(|v| v.as_str())
+        .filter(|n| !n.is_empty())
+    {
+        let _ = INVOKING_EVENT.set(name.to_string());
+    }
+}
+
+/// Answer as `event`: set `hookSpecificOutput.hookEventName` when the output
+/// carries a `hookSpecificOutput` object. Returns whether the output changed.
+pub fn stamp_event_name(output: &mut serde_json::Value, event: &str) -> bool {
+    let Some(hso) = output
+        .get_mut("hookSpecificOutput")
+        .and_then(|h| h.as_object_mut())
+    else {
+        return false;
+    };
+    if hso.get("hookEventName").and_then(|n| n.as_str()) == Some(event) {
+        return false;
+    }
+    hso.insert(
+        "hookEventName".to_string(),
+        serde_json::Value::String(event.to_string()),
+    );
+    true
+}
+
+/// [`stamp_event_name`] with the process's invoking event, if one was recorded.
+pub fn stamp_invoking_event(output: &mut serde_json::Value) -> bool {
+    INVOKING_EVENT
+        .get()
+        .is_some_and(|event| stamp_event_name(output, event))
 }
 
 /// Truncate context to stay under Claude Code's 10K limit (9,500 UTF-8 safe).
@@ -438,6 +488,45 @@ pub fn truncate_context(context: &str) -> String {
         &context[..end],
         context.len()
     )
+}
+
+#[cfg(test)]
+mod s214_tests {
+    use super::stamp_event_name;
+    use serde_json::json;
+
+    #[test]
+    fn stamp_replaces_a_hand_named_event() {
+        let mut out = json!({"hookSpecificOutput": {"hookEventName": "pre_bash", "permissionDecision": "deny"}});
+        assert!(stamp_event_name(&mut out, "PreToolUse"));
+        assert_eq!(out["hookSpecificOutput"]["hookEventName"], "PreToolUse");
+        assert_eq!(out["hookSpecificOutput"]["permissionDecision"], "deny");
+    }
+
+    #[test]
+    fn stamp_inserts_a_missing_event_name() {
+        let mut out = json!({"decision": "block", "reason": "r", "hookSpecificOutput": {}});
+        assert!(stamp_event_name(&mut out, "PostToolUseFailure"));
+        assert_eq!(
+            out["hookSpecificOutput"]["hookEventName"],
+            "PostToolUseFailure"
+        );
+    }
+
+    #[test]
+    fn stamp_leaves_outputs_without_specific_output_alone() {
+        for mut out in [json!({}), json!({"continue": false, "stopReason": "x"})] {
+            let before = out.clone();
+            assert!(!stamp_event_name(&mut out, "PreToolUse"));
+            assert_eq!(out, before);
+        }
+    }
+
+    #[test]
+    fn stamp_reports_no_change_when_the_name_already_matches() {
+        let mut out = json!({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "c"}});
+        assert!(!stamp_event_name(&mut out, "PostToolUse"));
+    }
 }
 
 #[cfg(test)]
