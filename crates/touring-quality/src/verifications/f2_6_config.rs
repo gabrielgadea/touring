@@ -297,7 +297,9 @@ mod tests {
         let segments = read_production_config_segments(dir.path()).expect("segments");
         let total: usize = segments.iter().map(|(_, s)| s.len()).sum();
         assert!(
-            segments.iter().any(|(_, s)| s.contains("tls_verify: false")),
+            segments
+                .iter()
+                .any(|(_, s)| s.contains("tls_verify: false")),
             "config artifact must be present regardless of source-tree size \
              (segments = {} bytes)",
             total
