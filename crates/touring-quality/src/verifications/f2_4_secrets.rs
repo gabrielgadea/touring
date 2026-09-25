@@ -142,20 +142,52 @@ fn has_non_secret_markers(v: &str) -> bool {
         || v.starts_with("mem:")
         || v.starts_with("urn:")
         || v.contains("://")
-        || v.starts_with('/')
-        || v.starts_with("./")
-        || v.starts_with("../")
-        || v.starts_with("~/")
-        // Relative repo paths (`docs/…/15-DIAGNOSTICO-….md#7.2`, second hit
-        // 2026-08-03): a `/`-separated value whose last segment carries a short
-        // file extension (with optional `#anchor`) is a resource location, not an
-        // opaque token — same rationale as the absolute-path prefixes above.
-        || is_relative_file_path(v)
-        || is_relative_dir_path(v)
+        || is_path_shape(v)
         || v.bytes()
             .any(|b| matches!(b, b'<' | b'>' | b'{' | b'}' | b'\\'))
         || is_predictable_sequence(v)
         || is_email_like(v)
+}
+
+/// A filesystem path or a bare filename: a resource location, never an opaque
+/// credential (25/09/2026, touring-36, the analise-50 judge). A `?` in the
+/// value is a QUERY STRING, never a filesystem name (illegal on Windows,
+/// near-never on Linux): `/api?key=<token>` is a credential embedded in a
+/// URL and must NOT be spared — the control that keeps this exclusion
+/// honest.
+fn is_path_shape(v: &str) -> bool {
+    if v.contains('?') {
+        return false;
+    }
+    v.starts_with('/')
+        || v.starts_with("./")
+        || v.starts_with("../")
+        || v.starts_with("~/")
+        || is_relative_file_path(v)
+        || is_relative_dir_path(v)
+        || is_known_filename(v)
+}
+
+/// A bare filename whose last segment carries a KNOWN document/code
+/// extension — `[14]-42780739_Minuta_de_Deliberacao.md` (the analise-50
+/// judge, 25/09/2026): a name with a document extension, no `/` anywhere, is
+/// a file reference, not a token. A real token never ends in `.md`/`.py` —
+/// and if a leak is staged as a filename, the provider-prefix and
+/// secret-named paths still see it.
+fn is_known_filename(v: &str) -> bool {
+    const EXTS: &[&str] = &[
+        "md", "markdown", "txt", "pdf", "doc", "docx", "odt", "rtf", "tex",
+        "py", "rs", "js", "ts", "tsx", "jsx", "go", "java", "c", "h", "cpp", "sh",
+        "json", "yaml", "yml", "toml", "ini", "cfg", "conf", "xml", "csv",
+        "html", "htm", "css", "svg", "png", "jpg", "jpeg", "gif", "webp",
+        "xls", "xlsx", "zip", "gz", "tar", "mp3", "mp4", "wav", "sql", "log",
+    ];
+    let last = v.rsplit('/').next().unwrap_or(v);
+    let last = last.split('#').next().unwrap_or(last);
+    match last.rsplit_once('.') {
+        Some((stem, ext)) => !stem.is_empty() && EXTS.contains(&ext.to_ascii_lowercase().as_str()),
+        None => false,
+    }
 }
 
 /// True when `v` is dominated by consecutive character runs (`abc…`, `012…`).
@@ -459,20 +491,26 @@ fn is_shell_expansion(rhs: &str) -> bool {
     })
 }
 
-/// A relative directory path: 2+ `/` separators, lowercase path words, at least
-/// one hyphenated segment — `docs/plans/2026-08-11-memory-hashtag-library/tmp`.
+/// A relative directory path: 3+ `/`-separated segments, path words, at least
+/// one hyphenated segment — `docs/plans/2026-08-11-memory-hashtag-library/tmp`,
+/// and now with CAPITALS allowed: `data/processed/process_inventory/
+/// malha-paulista-revisao-extraordinaria/converted/SEI_50500.023913_2026_89`
+/// (the analise-50 judge, 25/09/2026 — a data path whose process-number tail
+/// mixes cases and dots).
 ///
 /// [`is_relative_file_path`] needs a file extension, so a directory scored as a
 /// high-entropy literal (length 52, entropy 4.56; Canvas D, 15/09/2026). An
-/// opaque token is not made of lowercase hyphenated words: base64 carries upper
-/// case, and a hex or base36 run has no hyphenated segment.
+/// opaque token is not made of hyphenated words: base64 carries upper case, and
+/// a hex or base36 run has no hyphenated segment — the hyphenated-word
+/// requirement (not the lowercase one) is what keeps base64-with-slashes
+/// blocking, pinned by the existing test.
 fn is_relative_dir_path(v: &str) -> bool {
     let segments: Vec<&str> = v.trim_end_matches('/').split('/').collect();
     segments.len() >= 3
         && segments.iter().all(|s| {
             !s.is_empty()
                 && s.bytes().all(|b| {
-                    b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'-' | b'_' | b'.')
+                    b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.')
                 })
         })
         && segments.iter().any(|s| s.trim_matches('-').contains('-'))
@@ -2081,6 +2119,47 @@ mod tests {
             // code-shaped — and the STRUCTURAL path still catches it, which is
             // exactly why the exclusion opens no hole.
             "TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c",
+        ] {
+            assert!(
+                scan_text(&format!("{positive}\n")).strong,
+                "still a secret: {positive}"
+            );
+        }
+    }
+
+    /// touring-36 (25/09/2026, the analise-50 judge, scripts/lexhub — files of
+    /// 05/09 nobody touched): a literal shaped as a PATH or a FILENAME (a
+    /// path separator and/or a known document/code extension, no known key
+    /// prefix) is a resource location, not a secret. The entropy came from
+    /// the LONG NAME, which is how files are named.
+    #[test]
+    fn paths_and_filenames_are_not_secrets_but_query_tokens_and_keys_still_are() {
+        for negative in [
+            // gold_corpus.py:59 — a long data path inside Path(…); the
+            // process-number tail mixes cases and dots.
+            "MAE_DEFAULT = Path(\n    \"data/processed/process_inventory/malha-paulista-revisao-extraordinaria/converted/SEI_50500.023913_2026_89\"\n)",
+            // test_verificar_pleito_mp.py:117 — a document name, no `/`.
+            r#"assert "[14]-42780739_Minuta_de_Deliberacao.md" in docs_citados"#,
+        ] {
+            assert!(
+                !scan_text(&format!("{negative}\n")).strong,
+                "not a secret: {negative}"
+            );
+        }
+        for positive in [
+            // a JWT…
+            "TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c",
+            // a known-prefix key…
+            r#"let key = "ghp_0123456789abcdef0123456789abcdef0123";"#,
+            r#"k = "sk-ant-api03-aB3xK9mQ7zR2wY5tE8uI1oP4aSdF6gHjK8lZ""#,
+            // a high-entropy literal with NO `/` and NO extension, assigned to
+            // `secret`…
+            r#"secret = "aB3xK9mQ7zR2wY5tE8uI1oP4xC2vB""#,
+            // …and a PATH carrying a token in the query — a credential
+            // embedded in a URL, never a filesystem path (the `?` disqualifies
+            // the path shape; this is the control that keeps the exclusion
+            // honest).
+            r#"url = "/api?key=aB3xK9mQ7zR2wY5tE8uI1oP4xC2vB""#,
         ] {
             assert!(
                 scan_text(&format!("{positive}\n")).strong,
